@@ -638,7 +638,8 @@ const MAX_RETRY_PINNED_SITES = 3
 
 /**
  * Every element the label scan sees that is not a RetryButton, pinned by `Tag "label"`, with a reason.
- * Shrink-only and capped: converting one to RetryButton removes its pin, and a new one fails.
+ * Shrink-only, and its two caps are equalities (lessons/test-allowlist-caps-are-equalities.md): converting
+ * one to RetryButton removes its pin and lowers both caps in the same commit, and a new one fails.
  */
 const ERROR_BOUNDARY_RESET =
   "A React error boundary's reset: it re-renders the crashed subtree, with no query to hold a failure for or to " +
@@ -1242,8 +1243,8 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       Object.values(allow).reduce((sum, { sites }) => sum + sites.length, 0)
     expect(Object.keys(ALLOW_RETRY).length).toBeLessThanOrEqual(MAX_RETRY_ALLOWLIST_SIZE)
     expect(pinned(ALLOW_RETRY)).toBeLessThanOrEqual(MAX_RETRY_PINNED_SITES)
-    expect(Object.keys(ALLOW_RETRY_LABEL).length).toBeLessThanOrEqual(MAX_RETRY_LABEL_ALLOWLIST_SIZE)
-    expect(pinned(ALLOW_RETRY_LABEL)).toBeLessThanOrEqual(MAX_RETRY_LABEL_PINNED_SITES)
+    expect(Object.keys(ALLOW_RETRY_LABEL).length).toBe(MAX_RETRY_LABEL_ALLOWLIST_SIZE)
+    expect(pinned(ALLOW_RETRY_LABEL)).toBe(MAX_RETRY_LABEL_PINNED_SITES)
     expect(Object.keys(ALLOW_HAND_BUILT_FAILURE).length).toBeLessThanOrEqual(MAX_HAND_BUILT_FAILURE_FILES)
     expect(pinned(ALLOW_HAND_BUILT_FAILURE)).toBeLessThanOrEqual(MAX_HAND_BUILT_FAILURE_SITES)
     for (const [file, { reason }] of [

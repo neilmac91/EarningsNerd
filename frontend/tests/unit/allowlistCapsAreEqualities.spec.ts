@@ -29,8 +29,8 @@ const CEILINGS: Record<string, { count: number; why: string }> = {
     why: 'PINNED_LIMITS.files and .sites, STICKY_LIMITS.files and INLINE_FIXED_TOTAL are list caps (E59); PINNED_LIMITS.maxZ and STICKY_LIMITS.maxZ bound a z-index, a value ceiling that keeps its form',
   },
   'tests/unit/busyControlsStayFocusable.spec.ts': {
-    count: 8,
-    why: "the four allowlists' file and site caps (E59); #1301 and #1295 lower the retry-label pair and make them equalities",
+    count: 6,
+    why: 'the file and site caps of ALLOW, ALLOW_RETRY and ALLOW_HAND_BUILT_FAILURE (E59); the ALLOW_RETRY_LABEL pair is an equality, which #1295 and #1301 each lower',
   },
   'tests/unit/dialogAllowlist.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
   'tests/unit/fullPageSpinnerGate.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
@@ -39,7 +39,7 @@ const CEILINGS: Record<string, { count: number; why: string }> = {
   'tests/unit/spinnerGateHoldsFailure.spec.ts': { count: 2, why: 'MAX_ALLOWLIST_SIZE and MAX_PINNED_SITES, list caps (E59)' },
 }
 /** Equal to the list, never above it: lower both with the list in the same commit. */
-const CEILINGS_MAX = { files: 7, sites: 21 }
+const CEILINGS_MAX = { files: 7, sites: 19 }
 
 /** The named constant a cap argument reads, or null when the argument is a literal or an expression. */
 function namedConstant(arg: ts.Expression): string | null {
