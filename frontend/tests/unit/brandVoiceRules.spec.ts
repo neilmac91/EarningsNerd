@@ -39,7 +39,10 @@ import { isIconModule } from './iconModules'
  * strings (imports, class lists, comparisons, identifiers such as hrefs and keys; see isCodeString). An
  * attribute that is not code (CODE_ATTRS) is copy, so a placeholder, an aria-label, an alt or a title is
  * read by the exclamation, emoji and buzzword clauses (and by no-em-dash-copy.spec.ts, which reads every
- * literal). A JSON module the app imports is data this scan does not read, so the copy it holds
+ * literal), whatever its shape, and so is an expression rendered as an element's child; a string with no
+ * context that says copy or code is read as a class list when it is shaped like one (lowercase tokens, one
+ * with a hyphen, a colon or a bracket), so a lowercase phrase held in a variable or an object property of
+ * another name (`const SUBHEAD = 'decision-ready insights'`) is the scan's limit and review-checked. A JSON module the app imports is data this scan does not read, so the copy it holds
  * (features/analysis/demo/demo-analysis.json, the landing's samples) is review-checked
  * (tests/unit/importWalk.ts).
  *
@@ -147,10 +150,13 @@ const looksLikeClasses = (text: string) => {
 const callName = (call: ts.CallExpression) =>
   ts.isIdentifier(call.expression) ? call.expression.text : ts.isPropertyAccessExpression(call.expression) ? call.expression.name.text : ''
 
-/** Whether a string literal is code's own string, not copy: an import, a key, a class list, a comparison, a code attribute or argument. */
+/** Whether a string literal is code's own string, not copy: an import, a key, a comparison, a code attribute or
+    argument, or, with no context that says either, a class list by its shape. Context is read first, so a copy
+    attribute (a title, an aria-label) and an expression rendered as an element's child are copy whatever their
+    shape ("decision-ready insights" reads as a class list by shape alone). */
 function isCodeString(node: ts.Node, text: string): boolean {
   if (ts.isJsxText(node)) return false
-  if (looksLikeClasses(text) || !/\p{L}/u.test(text)) return true
+  if (!/\p{L}/u.test(text)) return true
   // Markup a module builds (an SVG for an export) is code.
   if (/<\/?[a-z][\w-]*[\s>/]/.test(text)) return true
   const parent = node.parent
@@ -163,9 +169,11 @@ function isCodeString(node: ts.Node, text: string): boolean {
     if (ts.isJsxAttribute(n)) return CODE_ATTRS.test(n.name.getText())
     if (ts.isPropertyAssignment(n) && /^(?:className|classNames|href|key|queryKey|id|type|variant)$/.test(n.name.getText())) return true
     if (ts.isCallExpression(n) && CODE_CALLS.has(callName(n))) return true
+    // An expression rendered as an element's child is copy, whatever its shape.
+    if (ts.isJsxExpression(n) && (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))) return false
     if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isBlock(n) || ts.isSourceFile(n)) break
   }
-  return false
+  return looksLikeClasses(text)
 }
 
 /** Capitalised words after a phrase's first word that are not proper nouns. */
@@ -558,6 +566,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <h2><Bell />Price alerts</h2>',
       '      <h2><Ph.Bell />Price alerts</h2>',
       '      <h2><Ring />Doorbells</h2>',
+      '      <Notice title="decision-ready insights" />',
+      "      <p>{'a game-changing view'}</p>",
       '    </div>',
       '  )',
       '}',
@@ -609,6 +619,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       // An icon imported under another name, and one reached through a namespace, inside a heading.
       '38 headingIcon',
       '39 headingIcon',
+      // A buzzword in a copy attribute and in a rendered expression, each shaped like a class list.
+      '41 buzzword',
+      '42 buzzword',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
