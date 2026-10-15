@@ -145,7 +145,7 @@ export default function SettingsPage() {
           {/* Profile — email (read-only) + editable display name */}
           <ProfileForm />
 
-          {/* Billing — plan, usage, trial countdown, renew/cancel, manage portal */}
+          {/* Billing: plan, usage, the trial end date, renewal or access-until date, manage portal */}
           <BillingPanel />
 
           {/* Connected accounts & sessions */}

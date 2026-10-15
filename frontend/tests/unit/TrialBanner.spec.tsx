@@ -21,6 +21,11 @@ vi.mock('next/link', () => ({
  * so every case reads in UTC, pinned with vi.stubEnv, and one case pins a US zone over it: Node re-reads
  * process.env.TZ when it is assigned (as the per-file pin in filing-date-local-day.spec.tsx relies on), and
  * that case's control proves the pin applied.
+ *
+ * The pins hold only in vitest's forks pool, the default this config keeps (vitest.config.mts sets no pool):
+ * a worker thread's process.env is its own copy, so under --pool=threads or vmThreads the zone never moves.
+ * The US-zone controls then fail loudly rather than pass in UTC: here and in BillingPanel.spec.tsx at
+ * `expected +0 to be 240`, in filing-date-local-day.spec.tsx at `expected 5 to be 4`.
  */
 describe('TrialBanner', () => {
   beforeEach(() => {

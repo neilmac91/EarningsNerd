@@ -181,12 +181,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   select no job honoured; real-time alerts read "An email from the hourly filing check, instead of
   the daily digest." and 8-K alerts "Current reports on material events." The Pro list in the
   upgrade dialog is one shared string, and every plan list (the dialog, the /pricing and landing
-  plan cards) names Multi-Period Analysis only through `lib/planLimits.ts`, while that flag ships
-  it. The trial banner and the billing panel state the trial's end date ("Your Pro trial ends Jun
-  25, 2026."), never a countdown, and the banner shows only while the resolved plan is a live Pro
-  trial. Commerce carries the Lightning glyph (the Pro badge, the trial banner), "Analyze trends" a
-  chart glyph, and the sparkle leaves commerce (D-031 records that it has no sanctioned site until an AI-summary
-  chip exists); the dead
+  plan cards, the /pricing Product JSON-LD) names Multi-Period Analysis only through
+  `lib/planLimits.ts`, read through its `shipped()` while that flag ships it (D-040). The trial
+  banner and the billing panel state the trial's end date ("Your Pro trial ends Jun 25, 2026."),
+  never a countdown, and the banner shows only while the resolved plan is a live Pro trial. In
+  settings and the subscription surfaces, commerce carries the Lightning glyph (the Pro badge, the
+  trial banner) and "Analyze trends" a chart glyph; the sparkle leaves commerce there (D-031 records
+  that it has no sanctioned site until an AI-summary chip exists), and #1295 takes it off the
+  Copilot's two upgrade buttons (`CopilotMessage.tsx`, `CopilotTeaser.tsx`). The dead
   SubscriptionGate is gone. The locked overlay reads "Upgrade to Pro". Section headings in settings
   and on the dashboard carry no icon. The dashboard answers a finished checkout ("Pro is active", or
   "Checkout finished" with "Your plan updates in a moment. Reload this page if it still shows Free."
