@@ -111,7 +111,6 @@ const RING_RESIDUE: Record<string, number> = {
   'features/auth/components/OAuthStartControl.tsx': 2, // brand-auth-pages-presentation
   'features/auth/components/RegisterForm.tsx': 5, // brand-auth-pages-presentation
   'features/companies/components/CompanyIdentity.tsx': 2, // brand-company-page
-  'features/companies/components/CompanySearch.tsx': 1, // brand-company-page
   'features/filings/components/FilingsHistoryNote.tsx': 1, // brand-company-page
   'features/filings/components/SourceTrace.tsx': 6, // brand-filing-page
   'features/filings/components/SupersededFilingNotice.tsx': 1, // brand-filing-page
@@ -124,12 +123,11 @@ const RING_RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/PaneResizer.tsx': 1, // brand-copilot
   'features/filings/components/copilot/ReaderTable.tsx': 2, // brand-copilot (Markdown renderer props spreads)
   'features/filings/components/copilot/SecondaryPaneTabs.tsx': 1, // brand-copilot
-  'features/fundamentals/components/FundamentalsTrendChart.tsx': 4, // brand-company-page
-  'features/insiders/components/InsiderActivityPanel.tsx': 1, // brand-company-page
+  'features/fundamentals/components/FundamentalsTrendChart.tsx': 3, // the chart props spreads the scan cannot read; #1292 ringed its controls
   'features/marketing/components/CatchCard.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
-  'features/peers/components/PeerComparisonPanel.tsx': 3, // brand-company-page
+  'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
   'features/search/components/FullTextSearch.tsx': 4, // brand-calendar-search
   'features/subscriptions/components/PeekLocked.tsx': 1, // brand-settings-subscriptions
   'features/subscriptions/components/TrialBanner.tsx': 1, // brand-settings-subscriptions
@@ -138,7 +136,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
   'features/watchlist/components/PopularTickerChips.tsx': 1, // brand-dashboard-watchlist
 }
-const RING_RESIDUE_MAX = { files: 44, stops: 128 }
+const RING_RESIDUE_MAX = { files: 42, stops: 124 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the

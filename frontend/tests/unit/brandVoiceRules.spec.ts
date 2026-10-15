@@ -439,16 +439,13 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'features/feedback/components/FeedbackWidget.tsx': { emoji: 3 }, // brand-chrome-primitives (#1289)
   'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // the Copilot rail's next change (no open PR edits the flagged line; #1278 edits another line of this file; the aria-label "Filing source and Ask")
   'features/filings/components/copilot/PaneResizer.tsx': { sentenceCase: 1 }, // brand-copilot (#1295; the aria-label "Resize Copilot panel")
-  'features/fundamentals/components/FundamentalsTrendChart.tsx': { sentenceCase: 1 }, // brand-company-page (#1292)
-  'features/insiders/components/InsiderActivityPanel.tsx': { sentenceCase: 2 }, // brand-company-page (#1292)
   'features/marketing/components/ProDepth.tsx': { sentenceCase: 1 }, // the FeatureRow title "Change Report": a product screen's name beside Ask this Filing and Multi-Period Analysis, which PROPER_NOUNS lists and this does not, while the product also writes "change report" in prose (ComparePeriodsCard); the name's case is the records PR's call (07-voice.md); #1311 left it
-  'features/peers/components/PeerComparisonPanel.tsx': { sentenceCase: 1 }, // brand-company-page (#1292)
   'features/settings/components/NotificationPreferencesForm.tsx': { sentenceCase: 1, headingIcon: 1 }, // brand-settings-subscriptions (#1291, DSW-13)
   'features/subscriptions/components/PeekLocked.tsx': { buzzword: 1 }, // brand-settings-subscriptions (#1291; DSW-11, "unlock")
   'features/summaries/components/SummaryActionsBar.tsx': { sentenceCase: 1 }, // brand-filing-page (#1293)
   'lib/api/client.ts': { developerWording: 1 }, // brand-chrome-primitives (#1289; CAL-12, "backend API")
 }
-const VOICE_RESIDUE_MAX = { entries: 22, violations: 64 }
+const VOICE_RESIDUE_MAX = { entries: 19, violations: 60 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
   // An element past MAX_VARIANTS throws; the residue test reports it rather than the whole file failing to load.
