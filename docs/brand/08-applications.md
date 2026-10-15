@@ -68,8 +68,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   /waitlist, /login, /register, /forgot-password, /check-email, /verify-email, /reset-password,
   /contact, /privacy, /terms, /security, /delete-account and the flag-off /search join the routes
   `tests/e2e/text-floors.spec.ts` visits; three census cases hold the list to the sitemap's static
-  core (`STATIC_ENTRIES`), the auth shell's routes (`AUTH_ROUTES`) and every static `page.tsx` under
-  `app/` (visited, or named in `NOT_VISITED` with its reason), and it reads which of them render in
+  core (`STATIC_ENTRIES`), the auth shell's routes (`AUTH_ROUTES`) and every `page.tsx` under `app/`,
+  static or dynamic (visited, a dynamic route by a representative path, or named in `NOT_VISITED`
+  with its reason), and it reads which of them render in
   the auth shell from `lib/authShellRoutes.ts`, the list `SiteChrome.tsx` uses.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off

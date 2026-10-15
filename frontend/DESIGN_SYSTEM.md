@@ -977,8 +977,9 @@ which has no site footer; the two token pages are opened without their emailed t
 /privacy, /terms, /security, /delete-account, /search while its flag is off (the 404), and four
 page-level card states (a filing without a summary for a guest and for a signed-in reader whose run
 fails, a writer error, an empty watchlist). Three census cases hold that list to its sources:
-`STATIC_ENTRIES` in `app/sitemap.ts`, `AUTH_ROUTES` in `lib/authShellRoutes.ts`, and every static
-`page.tsx` under `app/`, which the spec must visit or name in `NOT_VISITED` with its reason (the
+`STATIC_ENTRIES` in `app/sitemap.ts`, `AUTH_ROUTES` in `lib/authShellRoutes.ts`, and every
+`page.tsx` under `app/`, static or dynamic (a dynamic route by a representative path, /company/AAPL
+for `/company/[ticker]`), which the spec must visit or name in `NOT_VISITED` with its reason (the
 admin pages, the API-rendered /analysis, /calendar and /dashboard/settings, the labs prototypes).
 Each fails, naming the path, when a route has no entry, and a reason for a page the spec visits, or
 that no longer exists, fails too.
