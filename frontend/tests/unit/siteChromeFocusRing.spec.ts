@@ -110,8 +110,8 @@ const RING_RESIDUE: Record<string, number> = {
   'features/analysis/lib/periodAxis.tsx': 2, // brand-analysis
   'features/auth/components/OAuthStartControl.tsx': 2, // brand-auth-pages-presentation
   'features/auth/components/RegisterForm.tsx': 5, // brand-auth-pages-presentation
-  'features/companies/components/CompanyIdentity.tsx': 2, // brand-company-page
-  'features/filings/components/FilingsHistoryNote.tsx': 1, // brand-company-page
+  'features/companies/components/CompanyIdentity.tsx': 2, // its crumb and link take IDENTITY_CRUMB and IDENTITY_LINK, recipes imported from FilingIdentity, which the scan does not read across files (#1292 ringed them there; review-checked)
+  'features/filings/components/FilingsHistoryNote.tsx': 1, // its link's class is IDENTITY_LINK, imported from FilingIdentity, which the scan does not read across files (#1292 ringed it through that recipe; review-checked)
   'features/filings/components/SourceTrace.tsx': 6, // brand-filing-page
   'features/filings/components/SupersededFilingNotice.tsx': 1, // brand-filing-page
   'features/filings/components/TickerFilingsView.tsx': 3, // brand-filing-page
