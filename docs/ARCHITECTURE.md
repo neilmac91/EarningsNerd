@@ -280,7 +280,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | `saved_summaries.py` / `contact.py` / `feedback.py` / `email.py` | `/api/...` | saved items, forms (rate-limited + Turnstile), email mgmt |
 | `webhooks.py` | `/api` | Resend webhook (`POST /api/webhooks/resend`, Svix-verified) |
 | `admin.py` | `/api/admin` | admin surface (see docs/OPERATIONS.md) |
-| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, backfill-facts, sync-companyfacts, precompute, notable-filings-scan |
+| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, retention-purge, earnings-calendar-refresh, earnings-day-alerts, backfill-facts, notable-filings-scan, sync-companyfacts, backfill-filing-history, precompute; queued to `services/internal_task_runner.py` when `DURABLE_TASKS_ENABLED`, otherwise a background task in its own session (`services/job_sessions.py`) |
 | `sitemap.py` | `/` | sitemap.xml |
 
 ## Frontend architecture
