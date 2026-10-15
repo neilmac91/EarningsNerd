@@ -14,8 +14,11 @@
                  Selected = the primary-button colorway: bg-brand + white;
                  dark FLIPS to navy ink on brand-dark (white on brand.fill-dark
                  is 3.7:1 — never revert to it).
-     - sizes:    sm 26px (desktop toolbars — the calendar) · md 36px (touch) ·
-                 adaptive = 36px below sm, 26px from sm up.
+     - sizes:    sm 1.625rem, 26px at the default root (desktop toolbars — the
+                 calendar) · md 36px (touch) · adaptive = 36px below sm,
+                 1.625rem from sm up. Heights are rem (px figures here are at
+                 the 16px root), so enlarged text keeps its segments: at a 32px
+                 root text-xs's 32px line box overflowed a fixed 26px.
      - mono:     an option whose label is a code (10-K, 10-Q) sets it in the
                  data face, so a form code reads the same here as in the rows.
      - labels never break (10-K/A breaks at its hyphen and slash otherwise);
@@ -65,9 +68,9 @@ const SEGMENT = cx(
 )
 
 const SIZE: Record<SegmentedControlSize, string> = {
-  sm: 'h-[26px] px-3.5 text-xs',
+  sm: 'h-[1.625rem] px-3.5 text-xs',
   md: 'h-9 px-3 text-sm',
-  adaptive: 'h-9 px-3 text-sm sm:h-[26px] sm:px-3.5 sm:text-xs',
+  adaptive: 'h-9 px-3 text-sm sm:h-[1.625rem] sm:px-3.5 sm:text-xs',
 }
 
 const SELECTED = 'bg-brand text-white shadow-e1 dark:bg-brand-dark dark:text-background-dark'

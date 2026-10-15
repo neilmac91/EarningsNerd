@@ -108,10 +108,11 @@ describe('InsiderActivityPanel', () => {
     expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
   })
 
-  // The company page reaches phones and 200% text: below sm the segments are h-9 (2.25rem) with text-sm, so
-  // they grow with the root; the 26px desktop size (a fixed px height) starts at sm. size="sm" would hold
-  // the phone at 26px, which a 32px root's text-xs line box overflows. FilingIndex's filter does the same.
-  it('sizes the time window with the text on a phone: adaptive segments, 2.25rem below sm and 26px from sm up', async () => {
+  // The company page reaches phones and 200% text, so both segment heights are rem and grow with the root:
+  // below sm h-9 (2.25rem) with text-sm, the touch size; from sm up 1.625rem (26px at the default root) with
+  // text-xs, whose line box (32px at a 32px root) a fixed 26px could not hold. size="sm" would hold the phone
+  // at the desktop size. FilingIndex's filter does the same.
+  it('sizes the time window with the text: adaptive segments, 2.25rem below sm and 1.625rem from sm up', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()
     const group = await screen.findByRole('group', { name: 'Time window' })
@@ -119,7 +120,7 @@ describe('InsiderActivityPanel', () => {
     expect(segments.map((segment) => segment.textContent)).toEqual(['90D', '180D', '1Y'])
     for (const segment of segments) {
       const classes = segment.className.split(/\s+/)
-      expect(classes).toEqual(expect.arrayContaining(['h-9', 'text-sm', 'sm:h-[26px]', 'sm:text-xs']))
+      expect(classes).toEqual(expect.arrayContaining(['h-9', 'text-sm', 'sm:h-[1.625rem]', 'sm:text-xs']))
       expect(classes).not.toContain('h-[26px]')
       expect(classes).not.toContain('text-xs')
     }
