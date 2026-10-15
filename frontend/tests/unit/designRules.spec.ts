@@ -113,7 +113,8 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case tracking-normal': true })}>{form}</span></span>",
     // An important reset is a reset.
     '<span className="uppercase tracking-eyebrow"><span className="!normal-case !tracking-normal">{form}</span></span>',
-    // A same-file binding's reset is read by its class-shaped initializer.
+    // A same-file binding's reset is read by its class-shaped initializer, in every branch that reads it.
+    "const RESET = 'normal-case'\nexport const C = ({ form, dense }) => <span className=\"uppercase tracking-eyebrow\"><span className={dense ? RESET : cx(RESET, 'font-data')}>{form}</span></span>",
     "const PLAIN = 'normal-case tracking-normal'\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>",
     // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
     '<Eyebrow className="uppercase tracking-eyebrow">{form}</Eyebrow>',

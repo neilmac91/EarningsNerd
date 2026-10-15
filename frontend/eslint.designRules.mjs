@@ -236,8 +236,9 @@ const RESETS_EYEBROW = /^!?(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
 const intersect = (a, b) => new Set([...a].filter((token) => b.has(token)))
 /** The class tokens a class value sets on every path it can take: a string's, a template's whole static tokens, both
  *  arms' of a conditional, both sides' of `||` and `??`, every argument's of a cx()/clsx() call, and a same-file
- *  binding's by its class-shaped initializer (`init`). `a && b`, and anything else, guarantees nothing; `seen` stops
- *  a binding that reads itself. */
+ *  binding's by its class-shaped initializer (`init`). `a && b`, and anything else, guarantees nothing; `seen` holds the
+ *  bindings on the current path, so it stops a binding that reads itself while a sibling branch reads the same binding
+ *  in full. */
 function guaranteedTokens(raw, init, seen = new Set()) {
   const node = unwrapTs(raw)
   const words = (text) => text.split(/\s+/).filter(Boolean)
@@ -281,8 +282,8 @@ function guaranteedTokens(raw, init, seen = new Set()) {
   if (node.type === 'Identifier') {
     const target = init(node)
     if (!target || seen.has(target)) return new Set()
-    seen.add(target)
-    return guaranteedTokens(target, init, seen)
+    // The bindings on this path alone: a sibling branch that reads the same binding reads it in full.
+    return guaranteedTokens(target, init, new Set([...seen, target]))
   }
   return new Set()
 }
