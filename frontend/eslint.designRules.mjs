@@ -198,13 +198,23 @@ function resolvedVariable(sourceCode, identifier) {
 }
 
 /** The first node in `node` that names or spells a form, else null: a form field wherever it sits (`form`,
- *  `hit.form ?? fallback`, `filing.form.toUpperCase()`), or text (JSX text, a string, a template chunk) that
+ *  `hit.form ?? fallback`, `filing.form.toUpperCase()`, `hit['form']`), or text (JSX text, a string, a template chunk) that
  *  `code` matches. A descriptive prop is skipped, and a nested Badge is checked on its own visit. */
+/** A computed member key's text when it is written out: a string, or a template with no substitution. */
+const staticKey = (key) =>
+  key?.type === 'Literal' && typeof key.value === 'string'
+    ? key.value
+    : key?.type === 'TemplateLiteral' && key.expressions.length === 0
+      ? key.quasis[0].value.cooked
+      : undefined
+
 function formNode(node, keys, code = FORM_CODE) {
   if (!node || typeof node.type !== 'string') return null
   if (node.type === 'JSXAttribute' && DESCRIPTIVE_PROP.test(node.name?.name ?? '')) return null
   if (node.type === 'JSXElement' && isBadge(node.openingElement.name)) return null
   if (node.type === 'Identifier' && FORM_FIELD.test(node.name)) return node
+  // A form field read by bracket notation (`hit['form']`, `filing?.[\`filing_type\`]`) is the field too.
+  if (node.type === 'MemberExpression' && node.computed && FORM_FIELD.test(staticKey(node.property) ?? '')) return node
   if (node.type === 'JSXText' && code.test(node.value)) return node
   if (node.type === 'Literal' && typeof node.value === 'string' && code.test(node.value)) return node
   if (node.type === 'TemplateElement' && code.test(node.value.cooked ?? '')) return node
