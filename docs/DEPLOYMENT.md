@@ -246,12 +246,17 @@ The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 
 `logs-probe: failure class <class> (gcloud's error text withheld)` (`permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, classified as `describe-service` classifies), then the number
 of `company_upsert_conflict` entries in the last seven days when that read succeeds. Then, for each of
-the four lines `main.py` prints as Sentry starts or does not, it names the revisions (API service and
-task worker) that printed it in the last seven days, with a count:
+the four lines `main.py` prints as Sentry starts or does not, it names the API service's revisions that
+printed it in the last seven days, with a count from the newest 500 entries per kind:
 `sentry startup (7d) initialized: <revision> x<n> ...`, and likewise `failed`, `dsn-unset` (no
-`SENTRY_DSN`) and `sdk-missing`, or `none`. After a deploy, the new revision should appear under
-`initialized` and nowhere else. It never prints a log line (the failure line can quote an exception)
-or gcloud's own error text, which names the acting principal, and never fails the step.
+`SENTRY_DSN`) and `sdk-missing`, or `none`; a read that fails prints
+`sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above.
+The task worker runs `task_worker_main.py`, which never imports `main.py` and starts no Sentry, so its
+revisions appear under no kind. After a deploy, the API service's new revision should appear under
+`initialized` and nowhere else, with none of the four lines `UNVERIFIED`. Without the SDK, each start
+would count twice under `sdk-missing`, as `app/routers/users.py` logs the same words. It never prints a
+log line (the failure line can quote an exception) or gcloud's own error text, which names the acting
+principal, and never fails the step.
 
 ### Rollback (when a bad revision is live)
 
