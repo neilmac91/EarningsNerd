@@ -17,7 +17,9 @@ import ts from 'typescript'
  *  - a member read by name or literal key (`MARK.alert`, `MARK['alert']`, a nested `A.b.c`), and one read by a key
  *    the scan cannot read (`MARK[kind]`), which may be any property;
  *  - a member destructured from an object or an array, nested patterns included (`const { alert: Alert } = MARK`,
- *    `const [Mark] = MARKS`, `const [{ alert }] = LIST`);
+ *    `const [Mark] = MARKS`, `const [{ alert }] = LIST`), with its default, which renders when the member is missing
+ *    (`const { mark: Mark = QuotesIcon } = PROPS`); a parameter holds what its caller passes, which the scan cannot
+ *    read, or its default, so a component's default prop (`({ icon: Mark = BellIcon })`) is read too;
  *  - an object literal's properties and spreads, in source order, so a later property overrides a spread's;
  *  - an array literal's elements by index (`const marks = [QuotesIcon]` read as `marks[0]`); past a spread the indices
  *    are unknown, so a literal index there may read any element from the spread on;
@@ -240,9 +242,10 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
     return empty()
   }
 
-  const bindings: ts.VariableDeclaration[] = []
+  const bindings: Array<ts.VariableDeclaration | ts.ParameterDeclaration> = []
   const collect = (node: ts.Node): void => {
     if (ts.isVariableDeclaration(node) && node.initializer) bindings.push(node)
+    if (ts.isParameter(node) && (node.initializer || !ts.isIdentifier(node.name))) bindings.push(node)
     ts.forEachChild(node, collect)
   }
   collect(sf)
@@ -250,7 +253,7 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
   /** What a declaration binds, by the node that declares each name (scopeResolver's): its initializer's value, or what
       each element of an object or array pattern destructures from it, nested patterns included. A rest element is not
       followed. */
-  const bound = (d: ts.VariableDeclaration, record?: Set<ts.Node>): Array<[ts.Node, Held<L>]> => {
+  const bound = (d: ts.VariableDeclaration | ts.ParameterDeclaration, record?: Set<ts.Node>): Array<[ts.Node, Held<L>]> => {
     const out: Array<[ts.Node, Held<L>]> = []
     const bind = (name: ts.BindingName, value: Held<L>, node: ts.Node): void => {
       if (ts.isIdentifier(name)) {
@@ -260,10 +263,14 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       name.elements.forEach((el, index) => {
         if (ts.isOmittedExpression(el) || el.dotDotDotToken) return
         const key = ts.isArrayBindingPattern(name) ? String(index) : propertyKey(el.propertyName ?? el.name)
-        if (key !== undefined) bind(el.name, memberOf(value, key), el)
+        if (key === undefined) return
+        // A default renders when the member is missing, so the element may hold either.
+        const member = memberOf(value, key)
+        bind(el.name, el.initializer ? union(member, valueOf(el.initializer, record)) : member, el)
       })
     }
-    bind(d.name, valueOf(d.initializer!, record), d)
+    // A parameter's caller passes what the scan cannot read: it holds its default, if it has one.
+    bind(d.name, d.initializer ? valueOf(d.initializer, record) : empty<L>(), d)
     return out
   }
 

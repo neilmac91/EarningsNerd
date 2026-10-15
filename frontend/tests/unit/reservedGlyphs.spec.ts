@@ -195,7 +195,9 @@ export function glyphUses(source: string, fileName: string): Counts {
   // reads), nor a member's or a key's name (`Icons.SparkleIcon` reads the namespace, `{ SparkleIcon: x }` a key).
   const isReference = (n: ts.Identifier): boolean => {
     const p = n.parent
-    if (ts.isImportSpecifier(p) || ts.isBindingElement(p) || ts.isJsxAttribute(p)) return false
+    if (ts.isImportSpecifier(p) || ts.isJsxAttribute(p)) return false
+    // A destructuring element's name and key are declarations; its default is a read.
+    if (ts.isBindingElement(p) && (p.name === n || p.propertyName === n)) return false
     if ((ts.isPropertyAccessExpression(p) || ts.isPropertyAssignment(p) || ts.isQualifiedName(p)) && (ts.isQualifiedName(p) ? p.right : p.name) === n) return false
     return true
   }
@@ -236,7 +238,11 @@ export function glyphUses(source: string, fileName: string): Counts {
   const declares = (n: ts.Identifier) => ts.isVariableDeclaration(n.parent) && n.parent.name === n
   const ownsMember = (n: ts.Identifier) => (ts.isPropertyAccessExpression(n.parent) || ts.isElementAccessExpression(n.parent)) && n.parent.expression === n
   const visit = (node: ts.Node): void => {
-    if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) && node.text.includes('✨')) bump('SparkleIcon')
+    // Every ✨ in a literal is a use, so a second one in an already-listed literal counts.
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) {
+      const sparkles = [...node.text.matchAll(/✨/gu)].length
+      if (sparkles > 0) bump('SparkleIcon', sparkles)
+    }
     if (values.held.has(node) || ts.isJsxClosingElement(node)) return
     if (ts.isIdentifier(node) && isReference(node)) {
       const own = rootsOf(node)
@@ -309,10 +315,11 @@ describe('reserved glyphs keep their one meaning', () => {
       "import { SparkleIcon as Spark, QuotesIcon, ArrowRightIcon } from '@/lib/icons'",
       "import { BracketsCurlyIcon } from '@phosphor-icons/react'",
       'function QuoteMark() { return <svg viewBox="0 0 24 24"><path d="M0 0" /></svg> }',
-      'export const A = () => (<><Spark /><Spark className="h-4 w-4"></Spark><QuoteMark /><ArrowRightIcon /><span>✨ Idea</span></>)',
+      'export const A = () => (<><Spark /><Spark className="h-4 w-4"></Spark><QuoteMark /><ArrowRightIcon /><span>✨✨ Idea</span></>)',
       'const config = { Icon: QuotesIcon }',
     ].join('\n')
-    expect(glyphUses(src, 'probe.tsx')).toEqual({ SparkleIcon: 3, QuotesIcon: 3, BracketsCurlyIcon: 1 })
+    // The two sparkle tags and both ✨ in the one literal (each emoji counts, the review's case).
+    expect(glyphUses(src, 'probe.tsx')).toEqual({ SparkleIcon: 4, QuotesIcon: 3, BracketsCurlyIcon: 1 })
     // A namespace's members (a self-closing tag, an open-and-close pair counted once, a literal key), a
     // Phosphor subpath, a deprecated alias, a member destructured from a namespace and a relative path to
     // lib/icons count; another icon, a key the scan cannot read, and a module named for a glyph do not.
@@ -429,6 +436,16 @@ describe('reserved glyphs keep their one meaning', () => {
       'export const I = () => <><Mark /><Mark /><Passage /></>',
     ].join('\n')
     expect(glyphUses(destructured, 'features/zzprobe/Destructured.tsx')).toEqual({ QuotesIcon: 2, SparkleIcon: 1 })
+    // A destructuring default holds its glyph where the member is missing (the review's case), and so does a
+    // parameter's default: Mark and G are each read twice, Glyph once.
+    const defaults = [
+      "import { QuotesIcon, SparkleIcon } from '@/lib/icons'",
+      'const { mark: Mark = QuotesIcon } = {}',
+      'const [Glyph = SparkleIcon] = []',
+      'export const J = () => <><Mark /><Mark /><Glyph /></>',
+      'export function K({ glyph: G = QuotesIcon }: { glyph?: () => null }) { return <><G /><G /></> }',
+    ].join('\n')
+    expect(glyphUses(defaults, 'features/zzprobe/Defaults.tsx')).toEqual({ QuotesIcon: 4, SparkleIcon: 1 })
     // A parameter that shadows an import is not the import: P's two reads are its prop's, so QuotesIcon is a bare import.
     const shadowedImport = [
       "import { QuotesIcon, SparkleIcon } from '@/lib/icons'",

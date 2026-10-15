@@ -110,6 +110,8 @@ const BUZZWORDS: Array<[string, RegExp]> = [
 ]
 
 const EMOJI = /\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F/u
+/** Every emoji in a text: each is a finding, so a second one in an already-listed literal counts. */
+const EMOJI_ALL = new RegExp(EMOJI.source, 'gu')
 const EXCLAMATION = /!/u
 const DEVELOPER_WORDING = /\bbackend\b|\/api\/|\breader\b|\b[45]\d\d\b/i
 const HEADINGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
@@ -514,7 +516,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     const text = literalText(node)
     if (text !== null && !isCodeString(node, text)) {
       if (EXCLAMATION.test(text)) add(node, 'exclamation', text)
-      if (EMOJI.test(text)) add(node, 'emoji', text)
+      for (const _ of text.matchAll(EMOJI_ALL)) add(node, 'emoji', text)
       for (const [word, re] of BUZZWORDS) if (re.test(text)) add(node, 'buzzword', `${word}: ${text}`)
       if (devScope && /\s/.test(text.trim()) && DEVELOPER_WORDING.test(text)) add(node, 'developerWording', text)
     }
@@ -881,8 +883,22 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'export function R(Ring: () => null) { return <h2><Ring />Price alerts</h2> }',
       'export function S() { return <h2><Ring />Price alerts</h2> }',
       'export function T() { const [Bell] = [BellIcon]; return <h2><Bell />Price alerts</h2> }',
+      'export function U() { const [Mark = BellIcon] = []; return <h2><Mark />Price alerts</h2> }',
+      'export function V({ icon: Mark = BellIcon }: { icon?: () => null }) { return <h2><Mark />Price alerts</h2> }',
     ].join('\n')
-    expect(voiceFindings(shadowed, 'features/probe/Shadowed.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual(['2 headingIcon', '6 headingIcon', '7 headingIcon'])
+    // A destructuring default (U) and a component's default prop (V) hold the icon too.
+    expect(voiceFindings(shadowed, 'features/probe/Shadowed.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '2 headingIcon',
+      '6 headingIcon',
+      '7 headingIcon',
+      '8 headingIcon',
+      '9 headingIcon',
+    ])
+    // Every emoji in a literal is a finding (the review's case: a second one in a listed literal counts).
+    expect(voiceFindings("export const P = () => <p>New ✨✨ ideas</p>", 'features/probe/Emoji.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '1 emoji',
+      '1 emoji',
+    ])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
     expect(() => voiceFindings(sixConditionals, 'features/probe/Six.tsx')).toThrow(
