@@ -221,7 +221,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
             ) : (
               <span className="mt-2 flex shrink-0 items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
-                Cited
+                {citationVerificationLabel(citation)}
               </span>
             )}
             {verified && (

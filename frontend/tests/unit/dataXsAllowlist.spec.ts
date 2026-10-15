@@ -19,14 +19,20 @@ import { describe, expect, it } from 'vitest'
  *    is gone with the site that freed it, and a list line added later fails until the cap is raised in
  *    review. A line swapped for a line in one commit keeps both totals; the diff shows the added line.
  * 2. Two recipes are held directly, wherever they appear: the in-text marker (a class string with the
- *    18px inline-target box, `min-h-[18px]`) is 12px, and the element that renders a source-check label
- *    (`citationVerificationLabel(…)`) carries no data-xs.
+ *    18px inline-target box, `min-h-[18px]`) is 12px, and a source-check label never renders at data-xs.
+ *    Both states of a label ("Source match found" and "Cited") render through `citationVerificationLabel(…)`,
+ *    and the size read is the one the label renders at: its element's own size class, else the nearest
+ *    enclosing element's in the file, and at a component's root the size where the file renders that
+ *    component. So moving `text-data-xs` from one site to a wrapper in the same file fails, though the
+ *    file's count is unchanged. A component rendered from another file is past the scan's reach.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'lib', 'hooks']
 const DATA_XS = /(?<![\w-])text-data-xs(?![\w-])/
 const DATA_XS_ALL = new RegExp(DATA_XS.source, 'g')
 const TEXT_XS = /(?<![\w-])text-xs(?![\w-])/
+/** A text-size class (never a colour such as text-text-secondary-light or an alignment such as text-left). */
+const SIZE = /(?<![\w-])text-(?:data-xs|xs|sm|base|lg|[2-9]?xl|\[[^\]]+\])(?![\w-])/
 
 /** Each file's text-data-xs sites today, with why the annotation is dense. Shrink-only: lower DATA_XS_MAX with each shrink. */
 const DATA_XS_ALLOWED: Record<string, { count: number; why: string }> = {
@@ -104,6 +110,37 @@ function ownClassText(opening: ts.JsxOpeningLikeElement): string {
   return parts.join(' ')
 }
 
+/** The name a component function goes by in its file: a function declaration's, or the const it is assigned to. */
+function componentName(fn: ts.Node): string | null {
+  if (ts.isFunctionDeclaration(fn)) return fn.name?.text ?? null
+  if ((ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && ts.isVariableDeclaration(fn.parent) && ts.isIdentifier(fn.parent.name)) {
+    return fn.parent.name.text
+  }
+  return null
+}
+
+/** The size classes a node renders at: the nearest enclosing element's own size class in its file, and at a component's
+    root the size at each place the file renders the component (none when it is rendered only from other files). */
+function sizesAt(node: ts.Node, sf: ts.SourceFile, seen: Set<string> = new Set()): string[] {
+  for (let at: ts.Node | undefined = node; at; at = at.parent) {
+    if (ts.isJsxElement(at) || ts.isJsxSelfClosingElement(at)) {
+      const size = ownClassText(ts.isJsxElement(at) ? at.openingElement : at).match(SIZE)?.[0]
+      if (size) return [size]
+    }
+    if (ts.isFunctionDeclaration(at) || ts.isArrowFunction(at) || ts.isFunctionExpression(at)) {
+      const name = componentName(at)
+      if (!name || seen.has(name)) return []
+      seen.add(name)
+      const uses: ts.JsxOpeningLikeElement[] = []
+      visit(sf, (n) => {
+        if ((ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) && n.tagName.getText(sf) === name) uses.push(n)
+      })
+      return uses.flatMap((use) => sizesAt(ts.isJsxOpeningElement(use) ? use.parent.parent : use.parent, sf, seen))
+    }
+  }
+  return []
+}
+
 describe('text-data-xs stays on dense annotations (shrink-only)', () => {
   it('every file that uses it is listed with its count, and no list line is stale', () => {
     const found = sitesByFile()
@@ -144,7 +181,7 @@ describe('text-data-xs stays on dense annotations (shrink-only)', () => {
     expect(offenders, 'the in-text marker is never smaller than the provenance chip: text-xs').toEqual([])
   })
 
-  it('a source-check label is never data-xs', () => {
+  it('a source-check label is never data-xs, at its own size or the one it inherits', () => {
     const labels: string[] = []
     const offenders: string[] = []
     for (const { rel, sf } of SOURCES) {
@@ -154,12 +191,36 @@ describe('text-data-xs stays on dense annotations (shrink-only)', () => {
         while (el && !ts.isJsxElement(el)) el = el.parent
         if (!el || !ts.isJsxElement(el)) return
         labels.push(where(rel, sf, n))
-        const cls = ownClassText(el.openingElement)
-        if (DATA_XS.test(cls)) offenders.push(`${where(rel, sf, el)} ${JSON.stringify(cls.trim().slice(0, 100))}`)
+        const sizes = sizesAt(el, sf)
+        if (sizes.some((size) => DATA_XS.test(size))) offenders.push(`${where(rel, sf, el)} renders at ${sizes.join(', ')}`)
       })
     }
-    // The answer's TrustBadge and the chip popover both render the label.
-    expect(labels.filter((l) => l.startsWith('features/filings/components/copilot/')).length).toBeGreaterThanOrEqual(2)
+    // Four sites, each state of the answer's TrustBadge and of the chip popover, all through the one helper.
+    expect(labels.filter((l) => l.startsWith('features/filings/components/copilot/')).length).toBe(4)
     expect(offenders, 'a label that carries a verification claim is 12px: text-xs').toEqual([])
+  })
+
+  it('reads the size a label inherits, from a wrapper or where its component is rendered (self-check)', () => {
+    const planted = ts.createSourceFile('planted.tsx', [
+      "import { citationVerificationLabel } from './citationVerification'",
+      'function Badge({ c }: { c: Citation }) {',
+      '  return <span className="rounded-full px-2">{citationVerificationLabel(c)}</span>',
+      '}',
+      'export const Row = ({ c }: { c: Citation }) => (',
+      '  <div className="flex text-data-xs">',
+      '    <Badge c={c} />',
+      '    <span className="text-xs"><b>{citationVerificationLabel(c)}</b></span>',
+      '  </div>',
+      ')',
+    ].join('\n'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const found: string[] = []
+    visit(planted, (n) => {
+      if (!ts.isCallExpression(n) || !ts.isIdentifier(n.expression) || n.expression.text !== 'citationVerificationLabel') return
+      let el: ts.Node | undefined = n.parent
+      while (el && !ts.isJsxElement(el)) el = el.parent
+      if (el) found.push(`${where('planted.tsx', planted, n)} ${sizesAt(el, planted).join(', ')}`)
+    })
+    // 3: the badge inherits data-xs where Row renders it; 8: its own wrapper's text-xs wins over the row's data-xs.
+    expect(found).toEqual(['planted.tsx:3 text-data-xs', 'planted.tsx:8 text-xs'])
   })
 })

@@ -230,9 +230,9 @@ function MarkdownProseWithCitations({
 
 
 /** Attribute the existing source check; excerpt matching is not whole-answer verification. A label
-    that carries a verification claim is 12px, never data-xs (tests/unit/dataXsAllowlist.spec.ts). The
-    badge may shrink and wrap its words, so at an enlarged text size it stays inside the card (it wraps
-    onto its own line first). */
+    that carries a verification claim is 12px, never data-xs (tests/unit/dataXsAllowlist.spec.ts, which
+    reads both states because both render through citationVerificationLabel). The badge may shrink and
+    wrap its words, so at an enlarged text size it stays inside the card (it wraps onto its own line first). */
 function TrustBadge({ citation }: { citation: CopilotCitation }) {
   return citation.verified ? (
     <span className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-px text-xs font-semibold ${CHIP}`}>
@@ -241,7 +241,7 @@ function TrustBadge({ citation }: { citation: CopilotCitation }) {
     </span>
   ) : (
     <span className="inline-flex max-w-full items-center rounded-full border border-border-light bg-white px-2 py-px text-xs font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
-      Cited
+      {citationVerificationLabel(citation)}
     </span>
   )
 }
