@@ -129,8 +129,9 @@ edgartools 5.58.0 ([`dead_path_results.jsonl`](dead_path_results.jsonl), from
 ## The held edgartools bump would revive the path silently
 
 Finding 6 of the hold record for #1285 says that 5.61.0's `Filing.homepage_url` fix does not reach
-`app/`. It does: the section source reaches the index page through `obj()` and `html()`. 5.62.0 also
-reaches the section source by its second route, without the URL fix. With 5.62.0 first on the import
+`app/`. It does: the section source reaches the index page through `obj()` and `html()`. 5.62.0 adds
+a second route: its `html()` no longer sends inline XBRL to the index page, so it revives the path
+even without the URL fix ([`revive_probe_output.txt`](revive_probe_output.txt)). With 5.62.0 first on the import
 path, the same app call returns all three sections live for AAPL's 10-K and NVDA's 10-Q
 ([`bump_5620_results.jsonl`](bump_5620_results.jsonl)). Taking either version would switch every
 newly built eligible excerpt back to native sections inside a dependency change.
