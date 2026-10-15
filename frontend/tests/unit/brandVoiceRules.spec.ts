@@ -441,7 +441,7 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'features/filings/components/copilot/PaneResizer.tsx': { sentenceCase: 1 }, // brand-copilot (#1295; the aria-label "Resize Copilot panel")
   'features/fundamentals/components/FundamentalsTrendChart.tsx': { sentenceCase: 1 }, // brand-company-page (#1292)
   'features/insiders/components/InsiderActivityPanel.tsx': { sentenceCase: 2 }, // brand-company-page (#1292)
-  'features/marketing/components/ProDepth.tsx': { sentenceCase: 1 }, // brand-public-pages (#1311; the FeatureRow title "Change Report")
+  'features/marketing/components/ProDepth.tsx': { sentenceCase: 1 }, // the FeatureRow title "Change Report": a product screen's name beside Ask this Filing and Multi-Period Analysis, which PROPER_NOUNS lists and this does not, while the product also writes "change report" in prose (ComparePeriodsCard); the name's case is the records PR's call (07-voice.md); #1311 left it
   'features/peers/components/PeerComparisonPanel.tsx': { sentenceCase: 1 }, // brand-company-page (#1292)
   'features/settings/components/NotificationPreferencesForm.tsx': { sentenceCase: 1, headingIcon: 1 }, // brand-settings-subscriptions (#1291, DSW-13)
   'features/subscriptions/components/PeekLocked.tsx': { buzzword: 1 }, // brand-settings-subscriptions (#1291; DSW-11, "unlock")

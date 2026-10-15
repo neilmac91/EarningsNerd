@@ -98,8 +98,8 @@ const RESIDUE: Record<string, Counts> = {
   'features/subscriptions/components/SubscriptionGate.tsx': { SparkleIcon: 1 }, // brand-settings-subscriptions (DSW-35 deletes it)
   'features/summaries/components/GenerateSignupGate.tsx': { SparkleIcon: 1 }, // brand-filing-page: the sign-up gate
   'features/feedback/components/FeedbackWidget.tsx': { SparkleIcon: 1 }, // brand-chrome-primitives: the "✨ Idea" option
-  'features/marketing/components/ReaderQuoteSlot.tsx': { QuotesIcon: 1 }, // brand-public-pages: a reader's words, not the filing's (BG-28)
-  'features/marketing/components/AskFilingDemo.tsx': { QuotesIcon: 1 }, // brand-public-pages: the Ask this Filing mark
+  'features/marketing/components/ReaderQuoteSlot.tsx': { QuotesIcon: 1 }, // a reader's words, not the filing's (BG-28): the slot renders nothing until a quote lands (READER_QUOTE is null since #1311), and the glyph is decided with that quote
+  'features/marketing/components/AskFilingDemo.tsx': { QuotesIcon: 1 }, // the Ask this Filing mark on the landing demo, decided with brand-copilot's (#1295) AskFilingAnswer entry, the same mark; #1311 left it
   'features/filings/components/AskFilingAnswer.tsx': { QuotesIcon: 2 }, // brand-copilot: a hand-drawn quotes glyph as the Ask this Filing mark
 }
 const RESIDUE_MAX = { files: 14, uses: 18 }

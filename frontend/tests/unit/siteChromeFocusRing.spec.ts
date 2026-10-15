@@ -126,9 +126,9 @@ const RING_RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/SecondaryPaneTabs.tsx': 1, // brand-copilot
   'features/fundamentals/components/FundamentalsTrendChart.tsx': 4, // brand-company-page
   'features/insiders/components/InsiderActivityPanel.tsx': 1, // brand-company-page
-  'features/marketing/components/CatchCard.tsx': 1, // brand-public-pages
+  'features/marketing/components/CatchCard.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
-  'features/marketing/components/TraceToSourceDemo.tsx': 1, // brand-public-pages
+  'features/marketing/components/TraceToSourceDemo.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/peers/components/PeerComparisonPanel.tsx': 3, // brand-company-page
   'features/search/components/FullTextSearch.tsx': 4, // brand-calendar-search
   'features/subscriptions/components/PeekLocked.tsx': 1, // brand-settings-subscriptions
