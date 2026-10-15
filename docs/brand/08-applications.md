@@ -307,7 +307,8 @@ that PR:
   msg, detail or reason, read through camelCase such as `errorMessage`); a message held under another
   name outside the api modules is the scan's limit.
 - ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` in either case as well as
-  hex, in an arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
+  hex (a 3- or 4-digit hex inside an arbitrary utility or as a whole literal, where it can only be a
+  colour), in an arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
   `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat`, and one pinning any locale but
   `'en-US'` (another locale, or a variable), everywhere, `lib/format.ts`
   included, since its formatter cache pins en-US (`fmtCount`, `fmtDecimal`, or a date helper for a date); `toLocaleDateString()` was already banned

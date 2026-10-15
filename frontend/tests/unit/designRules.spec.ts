@@ -28,7 +28,8 @@ import {
  *    never the browser's and never another locale, a variable included; lib/format.ts, which owns the
  *    formatters, is read too (its cache pins en-US).
  *  - the raw-colour selector (eslint.config.mjs DESIGN_HEX_RULE, BG-19) reads rgb[a]()/hsl[a]() in either
- *    case as well as a 6-digit hex, in a string, a template chunk or an arbitrary utility.
+ *    case as well as a 6-digit hex, in a string, a template chunk or an arbitrary utility, and a 3- or 4-digit
+ *    hex where it can only be a colour: inside an arbitrary utility or as the whole literal.
  *  - no-hand-rolled-toggle-group (CO-15): a role="group" of aria-pressed buttons is the SegmentedControl,
  *    composed from components/ui, never rebuilt in a feature (the primitive's own file is exempt). The pressed
  *    button is read in the group's own markup, through a same-file wrapper component (one level) and through
@@ -422,7 +423,8 @@ describe('the repository config', SLOW, () => {
       '    <div className="shadow-e3 dark:shadow-[0_20px_50px_rgba(15,23,42,0.45)]">',
       '      <span style={{ color: `hsla(120, 20%, 40%, 0.5)` }}>{n.toLocaleString()}</span>',
       '      <time>{new Date(n).toLocaleTimeString()} {new Date(n).toLocaleDateString()}</time>',
-      "      <i style={{ background: 'RGB(15 23 42)', outlineColor: `HSLA(120 20% 40% / 0.5)` }}>{n.toLocaleString('de-DE')}</i>",
+      "      <i className=\"bg-[#fff]\" style={{ background: 'RGB(15 23 42)', fill: '#000a', outlineColor: `HSLA(120 20% 40% / 0.5)` }}>{n.toLocaleString('de-DE')}</i>",
+      '      <b title="PR #619 and #abcd inside copy stay">{n}</b>',
       '    </div>',
       '  )',
       '}',
@@ -436,8 +438,11 @@ describe('the repository config', SLOW, () => {
       // A time through this rule, a date through the date rule: each call reported once.
       '5 earningsnerd/locale-pinned-numbers',
       '5 no-restricted-syntax',
-      // A colour function in capitals, in a string and in a template chunk, and a locale that is not en-US.
+      // A short hex in an arbitrary utility and as a whole literal, a colour function in capitals in a string
+      // and in a template chunk, and a locale that is not en-US; a short hex inside copy (line 7) is not read.
       '6 earningsnerd/locale-pinned-numbers',
+      '6 no-restricted-syntax',
+      '6 no-restricted-syntax',
       '6 no-restricted-syntax',
       '6 no-restricted-syntax',
     ])

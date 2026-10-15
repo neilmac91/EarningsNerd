@@ -43,7 +43,10 @@
 //                       locale ('de-DE'), or one the scan cannot read (a variable, which may be the
 //                       browser's), since the product formats numbers and times in en-US alone.
 //                       `Intl.NumberFormat` reached under another name (`const { NumberFormat } = Intl`,
-//                       `globalThis.Intl`) passes, which no file writes today. `Intl.DateTimeFormat` is not
+//                       `globalThis.Intl`) passes, which no file writes today, and so does a computed
+//                       member (`n['toLocaleString']()`, `Intl['NumberFormat']`): no one writes it by
+//                       accident, and a deliberate way round the rule belongs in review (an eslint-disable
+//                       with its reason), not in the rule. `Intl.DateTimeFormat` is not
 //                       read (its one call site, features/calendar/lib/dates.ts, pins 'en-CA').
 //   no-hand-rolled-toggle-group (CO-15, CO-22, CO-25) One single-choice toggle group app-wide: the
 //                       SegmentedControl (components/ui). The rule reads an element whose role is the literal
