@@ -22,7 +22,9 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  *
  * The scroll width alone cannot see a bar that squeezes instead of wrapping: its controls may shrink
  * (min-w-0) until a label spills over its neighbours, with nothing past the edge. So in the header or
- * the auth bar no two controls overlap, and no control's text paints beyond its own box sideways.
+ * the auth bar no two controls overlap, and no control's text paints beyond its own box sideways. Nor
+ * does a control enter the logo's clear space (frontend/public/assets/LOGO_README.md: one E-bar, 11.6%
+ * of the mark's width), which a bar full at one row broke with nothing overlapping.
  *
  * The site header also keeps one row at 390px and 200% for a guest: below a 24rem viewport its theme
  * toggle moves into the mobile menu's first row, so the bar is the logo, the account link and the menu
