@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -41,6 +41,16 @@ const featureRequest: FeedbackRecord = {
   created_at: '2026-06-21T00:00:00Z',
 }
 
+/** The page's heading outline: SecondaryHeader's h1 first, then the sections, never skipping a level. */
+function expectOutline(h1: string) {
+  const headings = screen.getAllByRole('heading')
+  expect(headings[0]).toHaveTextContent(h1)
+  const levels = headings.map((h) => Number(h.tagName.slice(1)))
+  expect(levels[0]).toBe(1)
+  expect(levels.filter((level) => level === 1)).toHaveLength(1)
+  levels.slice(1).forEach((level, i) => expect(level).toBeLessThanOrEqual(levels[i] + 1))
+}
+
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -61,6 +71,7 @@ describe('AdminFeedbackPage', () => {
     renderPage()
 
     expect(screen.getByRole('heading', { name: 'Feedback', level: 2 })).toBeInTheDocument()
+    expectOutline('Feedback')
 
     // Both rows populate once the query resolves.
     expect(await screen.findByText(bugReport.message)).toBeInTheDocument()
@@ -73,7 +84,21 @@ describe('AdminFeedbackPage', () => {
   it('shows the empty state when there is no feedback', async () => {
     vi.mocked(listFeedback).mockResolvedValue([])
     renderPage()
-    expect(await screen.findByText(/No feedback yet/i)).toBeInTheDocument()
+    // One plain line in the card (ADM-08, ADM-10): no title, no nested GuidanceCard.
+    const empty = await screen.findByText(/No feedback yet/i)
+    expect(empty).toHaveAttribute('role', 'status')
+    expect(empty).toHaveTextContent(/^No feedback yet\. Reports appear here as people send them\.$/)
+    expect(screen.queryByText(/No Feedback Found/i)).not.toBeInTheDocument()
+  })
+
+  it('shows a load failure as a Notice with a Retry that refetches (ADM-12)', async () => {
+    vi.mocked(listFeedback).mockRejectedValueOnce(new Error('network')).mockResolvedValue([bugReport])
+    renderPage()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load the feedback.')
+    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText(bugReport.message)).toBeInTheDocument()
+    expect(listFeedback).toHaveBeenCalledTimes(2)
   })
 
   it('changing a row status calls updateFeedbackStatus', async () => {
