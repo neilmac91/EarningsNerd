@@ -14,12 +14,17 @@ It also means a value that shrinks (time remaining: a deadline minus a clock rea
 side, or an earlier reading plus an offset as the bound. Lower bounds on elapsed time
 (``elapsed >= 0.4``) cannot fail from slowness, so they pass. A value carried through a helper
 function is out of reach unless its name says it is elapsed time (``elapsed``, ``duration``,
-``took``). A site that remains must be a guard whose bound is many times the time it measures;
-``ALLOWED`` names why, and an entry whose site is gone fails too.
+``took``), as a name, an attribute or a string key. ``min``, ``max``, ``abs``, ``round``, ``sum``,
+``int``, ``float`` and scaling by a constant keep a value's direction. A site that remains must be a
+guard whose bound is many times the time it measures; ``ALLOWED`` names why, and an entry whose site is
+gone fails too.
 
 Out of reach entirely: a real budget patched short enough to race the setup work it also covers
 (a 0.6 s pipeline deadline that expired during a 0.53 s fetch). The fix is the same, arm or expire
-the deadline once the operation it bounds is under way, but no assert shows the race.
+the deadline once the operation it bounds is under way, but no assert shows the race. Also out of
+reach: datetime clocks (``utcnow()``, ``datetime.now(tz)``), an elapsed value compared with
+``== pytest.approx(..., abs=...)``, and a bound written as an earlier reading plus an offset when the
+value it bounds was produced before that reading (flagged anyway; list it with its reason).
 """
 import ast
 import re
@@ -35,6 +40,8 @@ ALLOWED = {
         "an 80 ms lock_timeout measured against 1.5 s, in the serial migrations-postgres job",
     "tests/unit/test_app_loop_lifespan.py::test_hanging_startup_schema_step_fails_the_start_within_the_deadline":
         "a 1 s startup deadline measured against 5 s; the hang it guards against lasts 30 s",
+    "tests/unit/test_copilot_prose_quotations.py::test_quotation_work_is_bounded":
+        "a performance guard: the best of three runs, about 40 ms, against 0.25 s",
     "tests/unit/test_citation_markers.py::TestCopilotConfiguration::test_linear_on_degenerate_whitespace_runs":
         "a performance guard: the linear scan takes milliseconds, the quadratic regression seconds",
     "tests/unit/test_recovery_context.py::test_actual_generation_deadline_covers_source_preparation_and_prevents_late_sdk":
@@ -47,16 +54,29 @@ _CLOCK_FUNCTIONS = {"monotonic", "monotonic_ns", "perf_counter", "perf_counter_n
 # A name that says it holds elapsed time is read as one, wherever it came from: the flake this gate was
 # written after returned its elapsed time from a nested coroutine, through a task result.
 _ELAPSED_NAME = re.compile(r"elapsed|duration|took")
-_ARGLESS_CLOCK_METHODS = _CLOCK_FUNCTIONS | {"time", "time_ns"}  # time.time(), loop.time()
+# Builtins that keep elapsed time elapsed: min(elapsed), abs(now - started), round(...).
+_PASS_THROUGH = {"min", "max", "abs", "round", "sum", "int", "float"}
+_LOOP_GETTERS = {"get_running_loop", "get_event_loop"}
 
 
 def _is_clock_call(node: ast.AST) -> bool:
+    """A monotonic/perf_counter read, or time.time() and a loop's .time(); a datetime's .time() is not."""
     if not isinstance(node, ast.Call) or node.args or node.keywords:
         return False
     func = node.func
-    if isinstance(func, ast.Attribute):
-        return func.attr in _ARGLESS_CLOCK_METHODS
-    return isinstance(func, ast.Name) and func.id in _CLOCK_FUNCTIONS  # from time import monotonic
+    if isinstance(func, ast.Name):
+        return func.id in _CLOCK_FUNCTIONS  # from time import monotonic
+    if not isinstance(func, ast.Attribute):
+        return False
+    if func.attr in _CLOCK_FUNCTIONS:
+        return True
+    if func.attr not in {"time", "time_ns"}:
+        return False
+    owner = func.value
+    if isinstance(owner, ast.Name):
+        return owner.id == "time" or "loop" in owner.id
+    getter = owner.func if isinstance(owner, ast.Call) else None
+    return getattr(getter, "attr", getattr(getter, "id", None)) in _LOOP_GETTERS
 
 
 def _mentions(node: ast.AST, names: set[str]) -> bool:
@@ -73,18 +93,32 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
         if node.id in spans or _ELAPSED_NAME.search(node.id):
             return "up"
         return "down" if node.id in remains else None
+    if isinstance(node, ast.Attribute):
+        return "up" if _ELAPSED_NAME.search(node.attr) else None  # r.elapsed
+    if isinstance(node, ast.Subscript):
+        key = node.slice
+        if isinstance(key, ast.Constant) and isinstance(key.value, str) and _ELAPSED_NAME.search(key.value):
+            return "up"  # row["duration_ms"]
+        return _trend(node.value, readings, spans, remains)
+    if isinstance(node, ast.Call):
+        if not (isinstance(node.func, ast.Name) and node.func.id in _PASS_THROUGH):
+            return None
+        trends = {_trend(arg, readings, spans, remains) for arg in node.args} - {None}
+        return trends.pop() if len(trends) == 1 else None
     if not isinstance(node, ast.BinOp):
         return None
     left = _trend(node.left, readings, spans, remains)
     right = _trend(node.right, readings, spans, remains)
     if isinstance(node.op, ast.Sub):
-        if right == "up" and left is None and not _mentions(node.left, readings):
-            return "down"  # deadline - now
+        if right == "up" and left is None:
+            return "down"  # deadline - now: a fixed point minus a clock read now
         if left == "up" or (left is None and _mentions(node.left, readings) and _mentions(node.right, readings)):
             return "up"  # now - started, or end - started
         return "down" if left == "down" else None
     if isinstance(node.op, ast.Add):
         return left or right
+    if isinstance(node.op, (ast.Mult, ast.Div, ast.FloorDiv)):
+        return left if right is None else None  # (now - started) * 1000 keeps its direction
     return None
 
 
@@ -116,8 +150,8 @@ def _races(function: ast.AST) -> list[int]:
             if value is None or not _assigned_names(node) or not _mentions(value, readings | spans | remains):
                 continue
             # A stored reading (started = loop.time(), deadline = loop.time() + 5) is a fixed point in
-            # time; only a stored difference keeps moving with lateness.
-            is_difference = isinstance(value, ast.BinOp) and isinstance(value.op, ast.Sub)
+            # time; only a value computed from a difference keeps moving with lateness.
+            is_difference = any(isinstance(n, ast.BinOp) and isinstance(n.op, ast.Sub) for n in ast.walk(value))
             trend = _trend(value, readings, spans, remains) if is_difference else None
             for name in _assigned_names(node):
                 kind = spans if trend == "up" else remains if trend == "down" else readings
@@ -188,6 +222,11 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "offset reading": "def t():\n    before = asyncio.get_running_loop().time()\n    d = run()\n    assert d <= before + 75.1\n",
         "chained": "def t():\n    before = time.time()\n    d = run()\n    assert before < d <= before + 75.1\n",
         "an elapsed name from a task": "def t():\n    first, elapsed = await task\n    assert elapsed < 1.2\n",
+        "the best of several runs": "def t():\n    elapsed = []\n    elapsed.append(time.perf_counter() - s)\n    assert min(elapsed) < 0.25\n",
+        "abs of a span": "def t():\n    s = time.monotonic()\n    assert abs(time.monotonic() - s) < 1\n",
+        "an elapsed attribute": "def t():\n    r = run()\n    assert r.elapsed < 1\n",
+        "a scaled span": "def t():\n    s = time.perf_counter()\n    ms = (time.perf_counter() - s) * 1000\n    assert ms < 50\n",
+        "a stored deadline's floor": "def t():\n    deadline = loop.time() + 60\n    assert deadline - loop.time() > 50\n",
         "imported clock": "def t():\n    s = monotonic()\n    run()\n    took = monotonic() - s\n    assert took <= 2\n",
         "a clock read now below a deadline": "def t():\n    deadline = start()\n    assert loop.time() < deadline\n",
         "remaining time above a floor": "def t():\n    timer = arm()\n    assert 70 < timer.when() - loop.time()\n",
@@ -202,6 +241,9 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "clock read in the assert": "def t():\n    d = run()\n    assert d <= time.time() + 5\n",
         "not an assert": "def t():\n    s = time.monotonic()\n    while time.monotonic() - s < 5:\n        poll()\n",
         "remaining time under its budget": "def t():\n    timer = arm()\n    assert timer.when() - loop.time() <= 75\n",
+        "a stored deadline's cap": "def t():\n    deadline = loop.time() + 60\n    assert deadline - loop.time() <= 60\n",
+        "a datetime's time of day": "def t():\n    row = fetch()\n    assert row.accepted_at.time() < dtime(16, 0)\n",
+        "an elapsed field's floor": "def t():\n    events = run()\n    assert events[1][1][\"duration_ms\"] >= 0\n",
     }
     assert {name: _flags(src) for name, src in racing.items() if not _flags(src)} == {}
     assert {name: _flags(src) for name, src in safe.items() if _flags(src)} == {}
