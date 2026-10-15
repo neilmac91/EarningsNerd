@@ -1962,7 +1962,7 @@ describe('brand rule 1: matching claims keep their scope', () => {
       'Cited passages you can check against the filing',
       'Ask a question of one filing. The answer comes from that filing, with cited passages you can check, and each chip says whether we matched the source or only cited it.',
       'A source match does not verify every claim in the answer.',
-      'Figures from XBRL show the tag they came from',
+      'XBRL citations name the tag they came from',
       'I couldn’t verify the cited evidence, so I couldn’t provide this answer.',
       'Answers are not always cited', 'A not-disclosed answer is not cited.', 'Cited passages and answers you can check',
       'Ask this Filing: Get answers on any filing', 'We have an incident response plan to quickly identify, contain, and remediate security issues',

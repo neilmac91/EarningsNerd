@@ -16,12 +16,13 @@ interface CopilotTeaserProps {
   onUpgrade: () => void
 }
 
-// Each claim says only what the answer card shows: cited passages a reader can open, and XBRL rows that
-// name their tag. Not every answer or figure is cited (brandCopyRules rule 1).
+// Each claim says only what the answer card shows: cited passages a reader can open, and an XBRL citation's row
+// that names its tag. Not every answer or figure is cited (brandCopyRules rule 1), so the XBRL line speaks of
+// citations, never of figures (CopilotTeaser.spec.tsx).
 const VALUE_PROPS = [
   'Ask anything about this filing in plain English',
   'Cited passages you can check against the filing',
-  'Figures from XBRL show the tag they came from',
+  'XBRL citations name the tag they came from',
 ]
 
 /**

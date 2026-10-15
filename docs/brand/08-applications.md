@@ -178,8 +178,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   verification mail ends "Verify your email address and you can start reading."
 - **Ask this Filing** (`frontend/features/filings/components/copilot/*`, `features/filings/api/copilot-api.ts`,
   D-034): the teaser, the end-of-summary callout, the coachmark and the rail's empty state claim only
-  what the answer card shows ("Cited passages you can check against the filing", "Figures from XBRL
-  show the tag they came from" and "Answers come from this filing, with cited passages you can check.",
+  what the answer card shows ("Cited passages you can check against the filing", "XBRL citations name
+  the tag they came from", which had said figures show their tag though an answer can carry an uncited one, and "Answers come from this filing, with cited passages you can check.",
   the one sentence the rail, the callout and the coachmark import as `COPILOT_CLAIM` from
   `copilotClaim.ts`), and so does the Pro section's Ask row ("The answer comes from that filing, with cited
   passages you can check", in `ProDepth.tsx`, which had said the answer cites the figures and passages
