@@ -223,6 +223,24 @@ describe('CopilotMessage XBRL fact sources', () => {
   })
 })
 
+describe('CopilotMessage source-check badges', () => {
+  // A badge carries a verification claim, so it is 12px (text-xs, never data-xs; DESIGN_SYSTEM.md §3), and at an
+  // enlarged text size it wraps its words inside the card (max-w-full, never shrink-0; #1326).
+  it('both badges keep their 12px and stay inside the card at any text size', () => {
+    const cited: CopilotCitation = { n: 2, excerpt: 'Services net sales increased', section_ref: 'Item 7', verified: false, fragment_url: null }
+    render(
+      <CopilotMessage
+        message={doneMessage({ content: 'Revenue grew [1] and Services grew [2].', citations: [verifiedCitation, cited] })}
+      />,
+    )
+    for (const badge of [screen.getByText('Source match found'), screen.getByText('Cited')]) {
+      const classes = (badge.getAttribute('class') ?? '').split(/\s+/)
+      expect(classes, badge.textContent ?? '').toEqual(expect.arrayContaining(['max-w-full', 'text-xs']))
+      expect(classes, badge.textContent ?? '').not.toContain('shrink-0')
+    }
+  })
+})
+
 describe('CopilotMessage reading state', () => {
   it('shows only a calm "Reading the filing…" indicator while grounding — no tool activity', () => {
     const reading = doneMessage({
