@@ -1,4 +1,6 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -14,10 +16,10 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
  * a shared link's preview, page first and brand last, and every shared page previews with the site card:
  *
  *   1. Each route's title comes from its own page or from a layout in its own directory, never from the
- *      root default; a 'use client' page cannot export metadata, so its directory carries a layout.tsx
- *      that does (as app/login/layout.tsx does).
+ *      root default, which the root layout holds, so the home page titles itself; a 'use client' page
+ *      cannot export metadata, so its directory carries a layout that does (as app/login/layout.tsx does).
  *   2. Every title reads '<Page name> | EarningsNerd' in sentence case (proper nouns, acronyms and the
- *      company's own name allowed).
+ *      company's own name allowed), each headline variant the home page's experiment serves included.
  *   3. Every private route resolves robots to index: false. No public route resolves it to noindex
  *      from its page's static metadata or from any layout above the page, the root included: Next takes
  *      robots from the deepest segment that sets it, the page over its layouts. The two generated pages
@@ -25,14 +27,21 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
  *      out by design (part 7). Each route is classified below, so a new route fails until someone
  *      decides which it is.
  *   4. Next replaces a nested openGraph or twitter wholesale, so every one a page or layout sets carries
- *      the site card itself ([SOCIAL_CARD], [SOCIAL_CARD.url]); the root's carry no title or description,
- *      so Next fills both from each page.
+ *      the site card itself ([SOCIAL_CARD], [SOCIAL_CARD.url]), in every object literal that sets one,
+ *      whichever state of a generated page returns it; the root's carry no title or description, so Next
+ *      fills both from each page.
  *   5. No description says 'AI-powered' or carries an em-dash.
  *   6. The card's URL with its cache-busting ?v= is typed only in lib/socialCard.ts.
  *   7. The two generateMetadata routes (company, filing) are run in each state with serverApi mocked;
  *      each state sets its own openGraph and twitter with the card, or neither, so the root's apply.
  *
- * The static checks read each file's TypeScript AST, so a `title:` inside page content never counts.
+ * The route files are every page and layout under app/ with an extension Next serves (next.config.js's
+ * pageExtensions, else Next's default). Titles and descriptions are checked as Next reads them: each module
+ * that exports metadata is imported and its metadata evaluated, so a string built from an imported constant
+ * (a plan cap that lib/planLimits mirrors from config) is checked as it renders. Robots and the card are
+ * read from each file's TypeScript AST, and what that reading cannot see fails loudly; a spread of another
+ * object hides its openGraph or twitter from the card reading, and part 7's runs cover the generated pages'
+ * states.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -103,13 +112,28 @@ const descriptionProblems = (text: string): string[] => [
   ...(text.includes('—') ? [`"${text}" carries an em-dash`] : []),
 ]
 
-// ── The static reading ────────────────────────────────────────────────────────────────────────────
+/** An evaluated title or description: a string is checked; anything else (a title template's object) cannot be. */
+const textProblems = (value: unknown, check: (text: string) => string[]): string[] =>
+  typeof value === 'string' ? check(value) : [`${JSON.stringify(value)} is not a string the spec can check (write the whole text)`]
 
+// ── The route files ───────────────────────────────────────────────────────────────────────────────
+
+const requireNode = createRequire(import.meta.url)
+/** What next.config.js exports, as Next's config loader requires it. */
+const NEXT_CONFIG: unknown = requireNode(path.join(FRONTEND, 'next.config.js'))
+/** The extensions Next routes a page or a layout under: next.config.js's own list, else Next's default. */
+const PAGE_EXTENSIONS: string[] =
+  (NEXT_CONFIG as { pageExtensions?: string[] }).pageExtensions ??
+  (requireNode('next/dist/server/config-shared') as { defaultConfig: { pageExtensions: string[] } }).defaultConfig.pageExtensions
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const ROUTE_FILE = new RegExp(`^(page|layout)\\.(${PAGE_EXTENSIONS.map(escapeRegExp).join('|')})$`)
+
+/** Every page and layout under a directory, under each extension Next serves. */
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, entry.name)
     if (entry.isDirectory()) walk(p, out)
-    else if (entry.name === 'page.tsx' || entry.name === 'layout.tsx') out.push(p)
+    else if (ROUTE_FILE.test(entry.name)) out.push(p)
   }
   return out
 }
@@ -117,7 +141,9 @@ function walk(dir: string, out: string[] = []): string[] {
 interface RouteFile {
   file: string
   isClient: boolean
-  /** The `export const metadata` object, when there is one. */
+  /** Whether the module hands Next a `metadata` export in any form, so the title checks import it. */
+  exportsMetadata: boolean
+  /** The `export const metadata` object literal, when it is one: the robots and card readers need it. */
   metadata?: ts.ObjectLiteralExpression
   /** Why the file's metadata export cannot be read as an object literal, when it cannot. */
   unreadable?: string
@@ -125,14 +151,25 @@ interface RouteFile {
   source: ts.SourceFile
 }
 
-/** `{ … } satisfies Metadata`, `{ … } as Metadata` and parentheses still hold the object literal. */
+/** `{ … } satisfies Metadata`, `{ … } as Metadata`, `<Metadata>{ … }` and parentheses still hold the object literal. */
 const unwrap = (node: ts.Expression): ts.Expression =>
-  ts.isSatisfiesExpression(node) || ts.isAsExpression(node) || ts.isParenthesizedExpression(node) ? unwrap(node.expression) : node
+  ts.isSatisfiesExpression(node) || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isParenthesizedExpression(node)
+    ? unwrap(node.expression)
+    : node
+
+/** Each extension parsed as its own language, so a .ts file's `<Metadata>{ … }` reads as a type assertion, not JSX. */
+const SCRIPT_KINDS: Record<string, ts.ScriptKind> = {
+  '.tsx': ts.ScriptKind.TSX,
+  '.ts': ts.ScriptKind.TS,
+  '.jsx': ts.ScriptKind.JSX,
+  '.js': ts.ScriptKind.JS,
+}
 
 function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFile {
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, SCRIPT_KINDS[path.extname(file)] ?? ts.ScriptKind.TSX)
   const first = source.statements[0]
   const isClient = !!first && ts.isExpressionStatement(first) && ts.isStringLiteral(first.expression) && first.expression.text === 'use client'
+  let exportsMetadata = false
   let metadata: ts.ObjectLiteralExpression | undefined
   let unreadable: string | undefined
   let generates = false
@@ -142,6 +179,7 @@ function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFi
       const clause = stmt.exportClause
       const names = !clause ? ['*'] : ts.isNamedExports(clause) ? clause.elements.map((e) => e.name.text) : [clause.name.text]
       if (names.some((n) => ['*', 'metadata', 'generateMetadata'].includes(n))) unreadable = `${stmt.getText()} exports metadata the spec cannot read`
+      if (names.some((n) => n === '*' || n === 'metadata')) exportsMetadata = true
       continue
     }
     const exported = ts.canHaveModifiers(stmt) && ts.getModifiers(stmt)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
@@ -149,6 +187,7 @@ function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFi
     if (ts.isVariableStatement(stmt)) {
       for (const decl of stmt.declarationList.declarations) {
         if (ts.isIdentifier(decl.name) && decl.name.text === 'metadata') {
+          exportsMetadata = true
           const value = decl.initializer && unwrap(decl.initializer)
           if (value && ts.isObjectLiteralExpression(value)) metadata = value
           else unreadable = `metadata is ${decl.initializer?.getText() ?? 'declared with no value'}, not an object literal the spec can read`
@@ -158,55 +197,65 @@ function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFi
     }
     if (ts.isFunctionDeclaration(stmt) && stmt.name?.text === 'generateMetadata') generates = true
   }
-  return { file, isClient, metadata, unreadable, generates, source }
-}
-
-const prop = (obj: ts.ObjectLiteralExpression, name: string) =>
-  obj.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === name)
-
-/** A module-level `const NAME = '…'` the metadata refers to (app/page.tsx's DESCRIPTION). */
-function constText(source: ts.SourceFile, name: string): string | undefined {
-  for (const stmt of source.statements) {
-    if (!ts.isVariableStatement(stmt)) continue
-    for (const decl of stmt.declarationList.declarations) {
-      if (ts.isIdentifier(decl.name) && decl.name.text === name && decl.initializer && ts.isStringLiteralLike(decl.initializer)) return decl.initializer.text
-    }
-  }
-  return undefined
-}
-
-/** The strings a `title` or `description` value can take, or a problem when it cannot be read. */
-function textsOf(node: ts.Expression, rf: RouteFile, key: string): string[] | string {
-  if (ts.isStringLiteralLike(node)) return [node.text]
-  if (ts.isIdentifier(node)) return constText(rf.source, node.text) !== undefined ? [constText(rf.source, node.text)!] : `${key} refers to ${node.text}, which is not a string constant in the file`
-  // The home page titles itself from the served headline; every variant must hold the form.
-  if (key === 'title' && ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'pageTitleFor') {
-    return (Object.keys(HEADLINES) as HeadlineVariant[]).map(pageTitleFor)
-  }
-  return `${key} is ${node.getText()}, not a string the spec can read (write it as a literal)`
-}
-
-/** Every title and description in a metadata object, its openGraph and its twitter. */
-function metadataTexts(rf: RouteFile, obj: ts.ObjectLiteralExpression) {
-  const titles: string[] = []
-  const descriptions: string[] = []
-  const unreadable: string[] = []
-  for (const scope of [obj, ...['openGraph', 'twitter'].map((k) => prop(obj, k)?.initializer).filter((n): n is ts.ObjectLiteralExpression => !!n && ts.isObjectLiteralExpression(n))]) {
-    for (const [key, sink] of [['title', titles], ['description', descriptions]] as const) {
-      const p = prop(scope, key)
-      if (!p) continue
-      const texts = textsOf(p.initializer, rf, key)
-      if (typeof texts === 'string') unreadable.push(`${rel(rf.file)}: ${texts}`)
-      else sink.push(...texts)
-    }
-  }
-  return { titles, descriptions, unreadable }
+  return { file, isClient, exportsMetadata, metadata, unreadable, generates, source }
 }
 
 const ROUTE_FILES = walk(APP).map((file) => readRouteFile(file))
 const byPath = new Map(ROUTE_FILES.map((rf) => [rel(rf.file), rf]))
-const PAGES = ROUTE_FILES.filter((rf) => path.basename(rf.file) === 'page.tsx')
-const routeOf = (page: RouteFile) => path.relative(APP, path.dirname(page.file)).split(path.sep).join('/')
+const isPage = (rf: RouteFile) => path.basename(rf.file).startsWith('page.')
+const PAGES = ROUTE_FILES.filter(isPage)
+/** A route file's segment: its directory under app/ ('' is the root). */
+const routeOf = (rf: RouteFile) => path.relative(APP, path.dirname(rf.file)).split(path.sep).join('/')
+
+/** Each segment's page and layout, whatever its extension; a second one in a segment (page.tsx beside page.js) is a twin. */
+const PAGE_IN = new Map<string, RouteFile>()
+const LAYOUT_IN = new Map<string, RouteFile>()
+const TWINS: string[] = []
+for (const rf of ROUTE_FILES) {
+  const bySegment = isPage(rf) ? PAGE_IN : LAYOUT_IN
+  const twin = bySegment.get(routeOf(rf))
+  if (twin) TWINS.push(`${rel(twin.file)} and ${rel(rf.file)}`)
+  else bySegment.set(routeOf(rf), rf)
+}
+const ROOT_LAYOUT = LAYOUT_IN.get('')!
+
+// next/font is compiled away by Next's build and its runtime module is empty, so the root layout's three
+// loaders are stubbed for the import that reads its metadata.
+vi.mock('next/font/google', () => {
+  const font = () => ({ className: '', variable: '', style: { fontFamily: '' } })
+  return { Inter: font, Geist_Mono: font, Newsreader: font }
+})
+
+/**
+ * The metadata each module exports, evaluated: the module is imported, as Next imports it, so a title or a
+ * description built from an imported constant is checked as it renders, never asked to be typed.
+ */
+const EVALUATED = new Map<RouteFile, Metadata | undefined>(
+  await Promise.all(
+    ROUTE_FILES.filter((rf) => rf.exportsMetadata).map(
+      async (rf) => [rf, ((await import(/* @vite-ignore */ rf.file)) as { metadata?: Metadata }).metadata] as const,
+    ),
+  ),
+)
+
+/** Every title and description an evaluated metadata object sets: its own, its openGraph's and its twitter's. */
+function textsIn(meta: Metadata | undefined) {
+  const scopes = [meta, meta?.openGraph, meta?.twitter] as Array<{ title?: unknown; description?: unknown } | null | undefined>
+  const isSet = (value: unknown) => value !== undefined && value !== null
+  return {
+    titles: scopes.map((scope) => scope?.title).filter(isSet),
+    descriptions: scopes.map((scope) => scope?.description).filter(isSet),
+  }
+}
+
+// ── The AST reading: robots and the card ──────────────────────────────────────────────────────────
+
+const prop = (obj: ts.ObjectLiteralExpression, name: string) =>
+  obj.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === name)
+
+/** A member of an object literal by its name, in any form: `name: value`, the shorthand `name`, a method. */
+const member = (obj: ts.ObjectLiteralExpression, name: string) =>
+  obj.properties.find((p) => !!p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === name)
 
 const UNREADABLE = Symbol('a robots the spec cannot read')
 
@@ -218,9 +267,8 @@ const UNREADABLE = Symbol('a robots the spec cannot read')
 function robotsOf(rf: RouteFile): ts.Expression | typeof UNREADABLE | undefined {
   if (rf.unreadable) return UNREADABLE
   if (!rf.metadata) return undefined
-  const members = rf.metadata.properties
-  if (members.some((p) => ts.isSpreadAssignment(p) || (p.name && ts.isComputedPropertyName(p.name)))) return UNREADABLE
-  const robots = members.find((p) => p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === 'robots')
+  if (rf.metadata.properties.some((p) => ts.isSpreadAssignment(p) || (p.name && ts.isComputedPropertyName(p.name)))) return UNREADABLE
+  const robots = member(rf.metadata, 'robots')
   if (!robots) return undefined
   return ts.isPropertyAssignment(robots) ? robots.initializer : UNREADABLE
 }
@@ -253,23 +301,35 @@ function setsNoindex(rf: RouteFile): boolean | undefined {
 /** What a page-level openGraph or twitter must carry: the site card itself, not any image and not none. */
 const CARD_IMAGES = { openGraph: '[SOCIAL_CARD]', twitter: '[SOCIAL_CARD.url]' } as const
 function cardProblems(obj: ts.ObjectLiteralExpression, key: keyof typeof CARD_IMAGES): string[] {
-  const scope = prop(obj, key)?.initializer
-  if (!scope) return []
-  if (!ts.isObjectLiteralExpression(scope)) return [`${key} is ${scope.getText()}, not an object literal the spec can read`]
+  const set = member(obj, key)
+  if (!set) return []
+  const scope = ts.isPropertyAssignment(set) ? set.initializer : undefined
+  if (!scope || !ts.isObjectLiteralExpression(scope)) return [`${key} is ${(scope ?? set).getText()}, not an object literal the spec can read`]
   const images = prop(scope, 'images')?.initializer.getText().replace(/\s+/g, '')
   return images === CARD_IMAGES[key]
     ? []
     : [`${key}.images is ${images ?? 'missing'}, not ${CARD_IMAGES[key]} (a page-level ${key} replaces the root one, images included)`]
 }
 
+/** Every object literal in a file that sets openGraph or twitter: the static metadata, and each state a generated page returns. */
+function socialLiterals(source: ts.SourceFile): ts.ObjectLiteralExpression[] {
+  const out: ts.ObjectLiteralExpression[] = []
+  const visit = (node: ts.Node) => {
+    if (ts.isObjectLiteralExpression(node) && (member(node, 'openGraph') || member(node, 'twitter'))) out.push(node)
+    node.forEachChild(visit)
+  }
+  visit(source)
+  return out
+}
+
 /** The page, then its own layout, then each ancestor layout up to the root: Next's resolution order, deepest first. */
 function chain(route: string): RouteFile[] {
   const out: RouteFile[] = []
-  const page = byPath.get(path.posix.join('app', route, 'page.tsx'))
+  const page = PAGE_IN.get(route)
   if (page) out.push(page)
   const parts = route ? route.split('/') : []
   for (let i = parts.length; i >= 0; i -= 1) {
-    const layout = byPath.get(path.posix.join('app', ...parts.slice(0, i), 'layout.tsx'))
+    const layout = LAYOUT_IN.get(parts.slice(0, i).join('/'))
     if (layout) out.push(layout)
   }
   return out
@@ -277,8 +337,10 @@ function chain(route: string): RouteFile[] {
 
 describe('route metadata: every route names itself, page first and brand last', () => {
   it('finds the routes it guards (the scan stays meaningful)', () => {
+    expect(typeof NEXT_CONFIG, 'next.config.js exports an object, so its pageExtensions is the list Next reads').toBe('object')
     expect(PAGES.length).toBeGreaterThanOrEqual(24)
-    expect(ROUTE_FILES.filter((rf) => rf.metadata).length).toBeGreaterThanOrEqual(23)
+    expect([...EVALUATED.values()].filter(Boolean).length).toBeGreaterThanOrEqual(23)
+    expect(TWINS, 'a segment holds one page and one layout (Next serves one of them)').toEqual([])
   })
 
   it('classifies every route as public or private', () => {
@@ -289,39 +351,35 @@ describe('route metadata: every route names itself, page first and brand last', 
 
   it.each(PAGES.map((p) => [routeOf(p) || '/', p] as const))('%s takes its title from its own page or layout', (_route, page) => {
     const route = routeOf(page)
-    const own = [page, byPath.get(path.posix.join('app', route, 'layout.tsx'))].filter((rf): rf is RouteFile => !!rf)
-    const titled = own.filter((rf) => rf.generates || (rf.metadata && prop(rf.metadata, 'title')))
-    if (page.isClient) {
-      const layout = own[1]
-      expect(layout?.metadata && prop(layout.metadata, 'title'), `${rel(page.file)} is a client page with no layout.tsx exporting a metadata title beside it`).toBeTruthy()
-    }
-    expect(titled.length, `${rel(page.file)} has no title of its own, so its tab reads the root default`).toBeGreaterThan(0)
+    // The root layout holds the site default, not the home page's own title: for '/' only the page counts.
+    const layout = route ? LAYOUT_IN.get(route) : undefined
+    const titled = (rf?: RouteFile) => !!rf && (rf.generates || EVALUATED.get(rf)?.title != null)
+    if (page.isClient) expect(titled(layout), `${rel(page.file)} is a client page with no layout beside it exporting a metadata title`).toBe(true)
+    expect(titled(page) || titled(layout), `${rel(page.file)} has no title of its own, so its tab reads the root default`).toBe(true)
   })
 
-  it('reads every metadata export as an object literal, and every title in it as a string it can check', () => {
-    const unreadable = ROUTE_FILES.flatMap((rf) => [
-      ...(rf.unreadable ? [`${rel(rf.file)}: ${rf.unreadable}`] : []),
-      ...(rf.metadata ? metadataTexts(rf, rf.metadata).unreadable : []),
-    ])
-    expect(unreadable).toEqual([])
+  it('reads every metadata export as an object literal, the form the robots and card readers take', () => {
+    expect(ROUTE_FILES.flatMap((rf) => (rf.unreadable ? [`${rel(rf.file)}: ${rf.unreadable}`] : []))).toEqual([])
     expect(ROUTE_FILES.filter((rf) => rf.generates).map((rf) => rel(rf.file)).sort(), 'generateMetadata routes this spec runs').toEqual(GENERATED)
   })
 
-  it.each(ROUTE_FILES.filter((rf) => rf.metadata).map((rf) => [rel(rf.file), rf] as const))('%s writes its titles as "Page name | EarningsNerd" in sentence case', (name, rf) => {
-    const { titles } = metadataTexts(rf, rf.metadata!)
-    const residue = TITLE_RESIDUE[name]
-    const checked = residue ? titles.filter((t) => t !== residue.title) : titles
-    expect(checked.flatMap((t) => titleProblems(t))).toEqual([])
+  it.each([...EVALUATED].map(([rf, meta]) => [rel(rf.file), meta] as const))('%s writes its titles as "Page name | EarningsNerd" in sentence case', (name, meta) => {
+    const residue = TITLE_RESIDUE[name]?.title
+    expect(textsIn(meta).titles.filter((t) => t !== residue).flatMap((t) => textProblems(t, (text) => titleProblems(text)))).toEqual([])
+  })
+
+  it('titles the home page in that form for every headline variant (HeroHeadline gives the tab the served one)', () => {
+    expect((Object.keys(HEADLINES) as HeadlineVariant[]).map(pageTitleFor).flatMap((t) => titleProblems(t))).toEqual([])
   })
 
   it.each(Object.entries(TITLE_RESIDUE))('residue %s still carries its pinned title (delete the entry once fixed)', (name, { title }) => {
     const rf = byPath.get(name)
-    expect(rf?.metadata && metadataTexts(rf, rf.metadata).titles, `stale residue: ${name}`).toContain(title)
+    expect(textsIn(rf && EVALUATED.get(rf)).titles, `stale residue: ${name}`).toContain(title)
   })
 
-  it.each(ROUTE_FILES.filter((rf) => rf.metadata || rf.generates).map((rf) => [rel(rf.file), rf] as const))('%s writes descriptions with no "AI-powered" and no em-dash', (name, rf) => {
+  it.each(ROUTE_FILES.filter((rf) => EVALUATED.has(rf) || rf.generates).map((rf) => [rel(rf.file), rf] as const))('%s writes descriptions with no "AI-powered" and no em-dash', (name, rf) => {
     const residue = DESCRIPTION_RESIDUE[name]?.text
-    const texts = rf.metadata ? metadataTexts(rf, rf.metadata).descriptions : []
+    const texts: unknown[] = textsIn(EVALUATED.get(rf)).descriptions
     // generateMetadata builds its strings from parts: read every literal inside it and the helpers beside it.
     if (rf.generates) {
       const visit = (node: ts.Node) => {
@@ -330,12 +388,12 @@ describe('route metadata: every route names itself, page first and brand last', 
       }
       rf.source.statements.filter((s) => !ts.isImportDeclaration(s)).forEach(visit)
     }
-    expect(texts.filter((t) => t !== residue).flatMap(descriptionProblems)).toEqual([])
+    expect(texts.filter((t) => t !== residue).flatMap((t) => textProblems(t, descriptionProblems))).toEqual([])
   })
 
   it.each(Object.entries(DESCRIPTION_RESIDUE))('residue %s still carries its pinned description (delete the entry once fixed)', (name, { text }) => {
     const rf = byPath.get(name)
-    expect(rf?.metadata && metadataTexts(rf, rf.metadata).descriptions, `stale residue: ${name}`).toContain(text)
+    expect(textsIn(rf && EVALUATED.get(rf)).descriptions, `stale residue: ${name}`).toContain(text)
   })
 
   it('holds each residue at its size (an equality, never a ceiling)', () => {
@@ -415,25 +473,59 @@ describe('route metadata: every route names itself, page first and brand last', 
     expect(card("{ openGraph: { type: 'website' } }")).toHaveLength(1)
     expect(card("{ openGraph: { images: ['/other.png'] } }")).toHaveLength(1)
     expect(card('{ twitter: { images: [SOCIAL_CARD] } }')).toHaveLength(1)
+    expect(card('{ openGraph }'), 'a shorthand openGraph').toHaveLength(1)
+    // Every object literal that sets one is read, so a generated page's state that drops the card fails too.
+    const cards = (text: string) => socialLiterals(file(text).source).flatMap((obj) => [...cardProblems(obj, 'openGraph'), ...cardProblems(obj, 'twitter')])
+    expect(
+      cards(`export async function generateMetadata() {
+        if (otc) return { title, description, openGraph: { title, description, type: 'website' } }
+        return { title, openGraph: { title, images: [SOCIAL_CARD] }, twitter: { title, images: [SOCIAL_CARD.url] } }
+      }`),
+    ).toEqual(["openGraph.images is missing, not [SOCIAL_CARD] (a page-level openGraph replaces the root one, images included)"])
+  })
+
+  it('self-check: the walk reads a page or a layout under every extension Next serves, a planted .ts layout included', () => {
+    expect(PAGE_EXTENSIONS, 'next.config.js sets no pageExtensions, so Next serves its default list').toEqual(['tsx', 'ts', 'jsx', 'js'])
+    const root = mkdtempSync(path.join(tmpdir(), 'route-walk-'))
+    try {
+      const plant = (file: string, text = 'export default function Probe() { return null }\n') => {
+        mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
+        writeFileSync(path.join(root, file), text)
+      }
+      const served = ['company/layout.ts', 'company/page.tsx', 'zzprobe/layout.jsx', 'zzprobe/page.js']
+      served.forEach((file) => plant(file))
+      // Not a page or a layout Next serves: another extension, a test beside a page, another special file.
+      for (const file of ['zzprobe/page.mdx', 'zzprobe/page.test.tsx', 'zzprobe/layout.css', 'zzprobe/template.tsx', 'zzprobe/route.ts']) plant(file)
+      expect(walk(root).map((f) => path.relative(root, f).split(path.sep).join('/')).sort()).toEqual(served)
+      // The planted .ts layout parses as TypeScript, a type assertion included, and its noindex is read.
+      plant('company/layout.ts', "import type { Metadata } from 'next'\nexport const metadata = <Metadata>{ robots: { index: false } }\n")
+      const layout = readRouteFile(path.join(root, 'company/layout.ts'))
+      expect([layout.unreadable, setsNoindex(layout)]).toEqual([undefined, true])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it('sets no robots in the root layout, so no public page is noindexed site-wide', () => {
-    const robots = robotsOf(byPath.get('app/layout.tsx')!)
+    const robots = robotsOf(ROOT_LAYOUT)
     expect(robots === UNREADABLE ? UNREADABLE.description : robots?.getText(), 'the root layout sets robots').toBeUndefined()
   })
 
-  it.each(ROUTE_FILES.filter((rf) => rf.metadata && (prop(rf.metadata, 'openGraph') || prop(rf.metadata, 'twitter'))).map((rf) => [rel(rf.file), rf] as const))('%s carries the site card in the openGraph and twitter it sets', (_name, rf) => {
-    expect([...cardProblems(rf.metadata!, 'openGraph'), ...cardProblems(rf.metadata!, 'twitter')]).toEqual([])
-  })
+  it.each(ROUTE_FILES.map((rf) => [rel(rf.file), socialLiterals(rf.source)] as const).filter(([, literals]) => literals.length))(
+    '%s carries the site card in every openGraph and twitter it sets',
+    (_name, literals) => {
+      expect(literals.flatMap((obj) => [...cardProblems(obj, 'openGraph'), ...cardProblems(obj, 'twitter')])).toEqual([])
+    },
+  )
 
   it('leaves the root openGraph and twitter untitled, so each page fills them with its own title', () => {
-    const root = byPath.get('app/layout.tsx')!
-    expect(prop(root.metadata!, 'title')?.initializer.getText()).toBe("'AI summaries of SEC filings | EarningsNerd'")
-    for (const key of ['openGraph', 'twitter']) {
-      const obj = prop(root.metadata!, key)!.initializer as ts.ObjectLiteralExpression
-      expect(['title', 'description'].filter((k) => prop(obj, k)), `the root ${key} sets its own text`).toEqual([])
+    const root = EVALUATED.get(ROOT_LAYOUT)
+    expect(root?.title).toBe('AI summaries of SEC filings | EarningsNerd')
+    for (const [key, scope] of [['openGraph', root?.openGraph], ['twitter', root?.twitter]] as const) {
+      expect(scope, `the root sets a ${key}`).toBeTruthy()
+      expect(['title', 'description'].filter((k) => (scope as Record<string, unknown>)[k] !== undefined), `the root ${key} sets its own text`).toEqual([])
     }
-    expect([...cardProblems(root.metadata!, 'openGraph'), ...cardProblems(root.metadata!, 'twitter')], 'the root carries the site card').toEqual([])
+    expect([...cardProblems(ROOT_LAYOUT.metadata!, 'openGraph'), ...cardProblems(ROOT_LAYOUT.metadata!, 'twitter')], 'the root carries the site card').toEqual([])
   })
 
   it("types the card's versioned URL only in lib/socialCard.ts", () => {
