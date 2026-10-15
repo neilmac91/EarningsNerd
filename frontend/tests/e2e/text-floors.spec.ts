@@ -1,4 +1,6 @@
+import { readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 import { settled } from './fixtures/contrast'
 import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
@@ -123,9 +125,12 @@ const ROUTES: Route[] = [
  * covers every route the sitemap's static core names (STATIC_ENTRIES in app/sitemap.ts, which mirrors the
  * backend's STATIC_PAGES) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
  * /register, /check-email, /verify-email, /forgot-password and /reset-password), and the census cases below
- * hold it to both; beyond them it adds /waitlist and the flag-off /search 404. Kept apart from ROUTES so the
- * cases below that pick a route by its index keep theirs. /waitlist's example falls back to its h2 card here;
- * waitlistPage.spec.tsx reads the outline with the example loaded.
+ * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page) and the
+ * flag-off /search 404. A third census case reads every static page.tsx under app/ and fails on one that no
+ * entry visits unless NOT_VISITED names it with its reason, so a new public page cannot stay outside the gate
+ * in silence. Kept apart from ROUTES so the cases below that pick a route by its index keep theirs.
+ * /waitlist's example falls back to its h2 card here; waitlistPage.spec.tsx reads the outline with the
+ * example loaded.
  */
 const PUBLIC_ROUTES: Route[] = [
   { name: 'waitlist', path: '/waitlist', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByLabel('Email address')).toBeVisible() },
@@ -140,10 +145,42 @@ const PUBLIC_ROUTES: Route[] = [
   { name: 'privacy', path: '/privacy', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible() },
   { name: 'terms', path: '/terms', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible() },
   { name: 'security', path: '/security', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Security' })).toBeVisible() },
+  { name: 'delete account', path: '/delete-account', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Delete your account' })).toBeVisible() },
   // CI builds with NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH off, so /search is the 404 page (app/search/layout.tsx).
   { name: 'search (flag off)', path: '/search', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
 ]
 
+
+/**
+ * The static pages under app/ that no entry visits, each with its reason. A page listed here that the census
+ * does visit, or that no longer exists, fails the census case too, so a reason cannot outlive its page.
+ */
+const NOT_VISITED: Record<string, string> = {
+  '/admin/feedback': 'admin only, no admin session in this e2e; admin-feedback-page.spec.tsx pins its outline',
+  '/admin/invites': 'admin only, no admin session in this e2e; admin-invites-page.spec.tsx pins its outline',
+  '/analysis': 'Multi-Period Analysis renders from the API; its surface is brand-analysis (#1299), which adds its entry',
+  '/calendar': 'the earnings calendar renders from the API; its surface is brand-calendar-search (#1301), which adds its entry',
+  '/dashboard/settings': 'signed-in settings; its surface is brand-settings-subscriptions (#1291), which adds its entry',
+  '/labs/filing-redlines': 'a labs prototype outside the brand series (tasks/todo.md E26)',
+  '/labs/financial-refresh-review': 'a labs prototype outside the brand series (tasks/todo.md E26)',
+  '/labs/research-evidence-packs': 'a labs prototype outside the brand series (tasks/todo.md E26)',
+}
+
+/** Every static route under app/ (a page.tsx with no dynamic segment; a route group's parentheses add no segment). */
+function staticAppRoutes(): string[] {
+  const root = path.resolve(__dirname, '../../app')
+  const routes: string[] = []
+  const walk = (dir: string, segments: string[]) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith('[')) continue
+        walk(path.join(dir, entry.name), /^\(.*\)$/.test(entry.name) ? segments : [...segments, entry.name])
+      } else if (entry.name === 'page.tsx') routes.push('/' + segments.join('/'))
+    }
+  }
+  walk(root, [])
+  return routes.sort()
+}
 
 async function visit(page: Page, baseURL: string, route: Route) {
   await page.addInitScript(() => {
@@ -262,6 +299,24 @@ test.describe('main routes at 1440x900, light theme', () => {
     const visited = [...ROUTES, ...PUBLIC_ROUTES].map((route) => route.path)
     for (const path of AUTH_ROUTES) {
       expect.soft(visited, `${path} is in AUTH_ROUTES (lib/authShellRoutes.ts) but no ROUTES or PUBLIC_ROUTES entry visits it`).toContain(path)
+    }
+  })
+
+  // And the whole app: every static page.tsx under app/ is visited (by ROUTES, PUBLIC_ROUTES or a card state), or
+  // NOT_VISITED names it with its reason; a reason for a page that is visited or gone fails too. Codex's reviews
+  // of 80bb520e, 79336f81 and 26478baa each found a public route the lists above had missed; this case reads the
+  // inventory itself instead of a list retyped from it.
+  test('the census visits every static page under app/, or names why not', () => {
+    const visited = new Set([...ROUTES, ...PUBLIC_ROUTES, ...CARD_STATES.map((state) => state.route)].map((route) => route.path.replace(/\/\d+$/, '')))
+    const pages = staticAppRoutes()
+    expect(pages.length, 'the app directory walk reads the static pages').toBeGreaterThan(20)
+    for (const page of pages) {
+      if (visited.has(page)) continue
+      expect.soft(NOT_VISITED[page], `${page} has a page.tsx but no ROUTES, PUBLIC_ROUTES or card-state entry visits it, and NOT_VISITED gives no reason`).toBeTruthy()
+    }
+    for (const page of Object.keys(NOT_VISITED)) {
+      expect.soft(pages, `${page} is in NOT_VISITED but has no page.tsx: delete its reason`).toContain(page)
+      expect.soft(visited.has(page), `${page} is in NOT_VISITED and the census visits it: delete its reason`).toBe(false)
     }
   })
 })
