@@ -36,6 +36,29 @@
 //                       shows at once. The globals.css classes that stop themselves in a
 //                       reduced-motion block (SELF_GUARDED_ANIMATIONS) need no guard; the spec holds
 //                       each of them, and every other animation globals.css declares, to that block.
+//   no-hand-rolled-toggle-group (CO-15, CO-22, CO-25) One single-choice toggle group app-wide: the
+//                       SegmentedControl (components/ui). The rule reads an element whose role is the literal
+//                       "group" (role="group" or role={'group'}) and walks the children written inside it, a
+//                       .map callback and a conditional included, for a <button>, <Button> or <x.Button> tag
+//                       with aria-pressed written on it; one found is that control rebuilt by hand, and three
+//                       such rows on the company page had drifted from it (no focus ring, a hover that darkens).
+//                       Two shapes are read beyond the group's own markup. A child tag that names a component
+//                       declared in the same file (a function declaration, or a const bound to an arrow or a
+//                       function expression, also inside memo or forwardRef) is read through what it renders:
+//                       an arrow's expression body and every return statement's argument, conditionals and
+//                       logical expressions included; the name resolves through ESLint's scopes, so a prop or
+//                       a parameter of that name is not the same-file component. And the DS Button imported
+//                       under another name (`import { Button as X }` from @/components/ui or
+//                       @/components/ui/Button) is a <Button>. The reading is one level deep and follows
+//                       syntax, not data: a wrapper imported from another file, a wrapper that renders yet
+//                       another wrapper, a class component, aria-pressed reaching the button through spread
+//                       props, and a row without role="group" stay unread (review-checked). The primitive's
+//                       own file is exempt. The one site the wider reading finds is WordingChanges.tsx's review
+//                       row (LabelToggle, features/filings): its toggle clears a label that is already set, so
+//                       "pressed nowhere" is a valid state, which the SegmentedControl (always one selected
+//                       value) cannot hold, and the group's line carries the disable with that reason; E62
+//                       (tasks/todo.md) holds the decision. A group of independent toggles (a multi-select
+//                       filter row) is not this control either: disable the rule on that line with the reason.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -284,11 +307,140 @@ export const noUnguardedAnimation = {
   },
 }
 
+const isGroupRole = (attr) =>
+  attr.type === 'JSXAttribute' &&
+  attr.name?.name === 'role' &&
+  ((attr.value?.type === 'Literal' && attr.value.value === 'group') ||
+    (attr.value?.type === 'JSXExpressionContainer' &&
+      attr.value.expression.type === 'Literal' &&
+      attr.value.expression.value === 'group'))
+const isButtonName = (name) =>
+  (name?.type === 'JSXIdentifier' && (name.name === 'button' || name.name === 'Button')) ||
+  (name?.type === 'JSXMemberExpression' && name.property.name === 'Button')
+const hasPressed = (opening) =>
+  opening.attributes.some((attr) => attr.type === 'JSXAttribute' && attr.name?.name === 'aria-pressed')
+/** The SegmentedControl's own file: the one place a group of pressed buttons is built. */
+const TOGGLE_GROUP_HOME = /(^|[\\/])components[\\/]ui[\\/]SegmentedControl\.tsx$/
+/** The modules the DS Button is imported from: a local name bound to their `Button` export is a <Button>. */
+const DS_BUTTON_SOURCES = new Set(['@/components/ui', '@/components/ui/Button'])
+/** React's component wrappers: `memo(fn)` and `forwardRef(fn)`, bare or as `React.x`, render `fn`. */
+const COMPONENT_WRAPPERS = new Set(['memo', 'forwardRef'])
+const FUNCTION_TYPES = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'])
+
+/** The local names a file binds to the DS Button's `Button` export, `Button` itself included. */
+function dsButtonNames(program) {
+  const names = new Set()
+  for (const statement of program.body) {
+    if (statement.type !== 'ImportDeclaration' || !DS_BUTTON_SOURCES.has(statement.source.value)) continue
+    for (const spec of statement.specifiers) {
+      if (spec.type === 'ImportSpecifier' && (spec.imported.name ?? spec.imported.value) === 'Button') names.add(spec.local.name)
+    }
+  }
+  return names
+}
+
+const calleeName = (callee) =>
+  callee.type === 'Identifier' ? callee.name : callee.type === 'MemberExpression' && !callee.computed ? callee.property.name : null
+
+/** The function a same-file binding declares as a component: a function declaration, or a const bound to an
+ *  arrow or a function expression (through memo, forwardRef, `as` and `satisfies`); else null. */
+function componentFunction(variable) {
+  for (const def of variable.defs) {
+    if (def.type === 'FunctionName' && def.node.body) return def.node
+    if (def.type !== 'Variable' || def.parent?.kind !== 'const') continue
+    let init = def.node.init
+    while (init) {
+      if (init.type === 'TSAsExpression' || init.type === 'TSSatisfiesExpression') init = init.expression
+      else if (init.type === 'CallExpression' && COMPONENT_WRAPPERS.has(calleeName(init.callee))) init = init.arguments[0]
+      else break
+    }
+    if (init?.type === 'ArrowFunctionExpression' || init?.type === 'FunctionExpression') return init
+  }
+  return null
+}
+
+/** What a component function renders: an arrow's expression body, or the argument of every return statement in
+ *  its own body (a nested function's returns are that function's). */
+function renderedBy(fn, keys) {
+  if (fn.body.type !== 'BlockStatement') return [fn.body]
+  const rendered = []
+  const visit = (node) => {
+    if (!node || typeof node.type !== 'string' || FUNCTION_TYPES.has(node.type)) return
+    if (node.type === 'ReturnStatement') {
+      if (node.argument) rendered.push(node.argument)
+      return
+    }
+    for (const key of keys[node.type] ?? []) for (const child of [node[key]].flat()) visit(child)
+  }
+  for (const statement of fn.body.body) visit(statement)
+  return rendered
+}
+
+export const noHandRolledToggleGroup = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'A single-choice toggle group is the SegmentedControl, never a hand-rolled row.' },
+    schema: [],
+    messages: {
+      handRolled:
+        'A role="group" of aria-pressed buttons is a single-choice toggle group: compose <SegmentedControl ' +
+        'label options value onChange> from @/components/ui (the ring, the pressed colorway and the wrapping ' +
+        'come with it). A group of independent toggles is not this control: disable the rule with the reason.',
+    },
+  },
+  create(context) {
+    if (TOGGLE_GROUP_HOME.test(context.filename ?? '')) return {}
+    const { sourceCode } = context
+    const keys = sourceCode.visitorKeys
+    const buttonNames = dsButtonNames(sourceCode.ast)
+    const isButton = (name) => isButtonName(name) || (name?.type === 'JSXIdentifier' && buttonNames.has(name.name))
+    // The same-file component a capitalised tag names, resolved from the tag's own scope outwards, else null.
+    const componentOf = (opening) => {
+      const { name } = opening
+      if (name.type !== 'JSXIdentifier' || !/^[A-Z]/.test(name.name)) return null
+      for (let scope = sourceCode.getScope(opening); scope; scope = scope.upper) {
+        const variable = scope.set.get(name.name)
+        if (variable) return componentFunction(variable)
+      }
+      return null
+    }
+    // The first <button>/<Button> with aria-pressed under `node`, else null. With `follow`, a tag naming a
+    // same-file component is read through what that component renders, one level deep (no further `follow`).
+    const pressedButton = (node, follow) => {
+      if (!node || typeof node.type !== 'string') return null
+      if (node.type === 'JSXOpeningElement') {
+        if (isButton(node.name)) {
+          if (hasPressed(node)) return node
+        } else if (follow) {
+          const component = componentOf(node)
+          if (component && renderedBy(component, keys).some((rendered) => pressedButton(rendered, false))) return node
+        }
+      }
+      for (const key of keys[node.type] ?? []) {
+        for (const child of [node[key]].flat()) {
+          const found = pressedButton(child, follow)
+          if (found) return found
+        }
+      }
+      return null
+    }
+    return {
+      JSXElement(node) {
+        if (!node.openingElement.attributes.some(isGroupRole)) return
+        for (const child of node.children) {
+          if (pressedButton(child, true)) return context.report({ node: node.openingElement, messageId: 'handRolled' })
+        }
+      },
+    }
+  },
+}
+
 const plugin = {
   rules: {
     'no-side-stripe': noSideStripe,
     'no-form-code-badge': noFormCodeBadge,
     'no-unguarded-animation': noUnguardedAnimation,
+    'no-hand-rolled-toggle-group': noHandRolledToggleGroup,
   },
 }
 export default plugin

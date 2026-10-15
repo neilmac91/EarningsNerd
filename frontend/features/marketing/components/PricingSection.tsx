@@ -3,13 +3,13 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import Link from 'next/link'
 import { PRO_PRICING } from '@/app/pricing/prices'
-import { Badge } from '@/components/ui/Badge'
 import { buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { cx } from '@/components/ui/cx'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
 import analytics from '@/lib/analytics'
-import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
+import { ENABLE_ANALYSIS, ENABLE_FPI_FILINGS, ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { CheckIcon, SealCheckIcon } from '@/lib/icons'
 import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 import {
@@ -28,27 +28,38 @@ import {
  * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
  */
 
+// A plan line keyed to a flag lists only while that flag ships its feature; `off` is what it reads
+// while the flag is off, if anything. Multi-Period Analysis and its Excel workbook ship behind
+// ENABLE_ANALYSIS (the route 404s while the flag is off; tests/unit/analysis-route-hidden.spec.tsx);
+// 20-F filings behind ENABLE_FPI_FILINGS, the mirror of the API's flag (tasks/todo.md F39).
+type Flag = 'analysis' | 'fpi'
+type PlanLine = { text: string; flag?: Flag; off?: string }
+// Read at render, so the flag's value is the one the page ships with.
+const isOn = (flag: Flag): boolean => ({ analysis: ENABLE_ANALYSIS, fpi: ENABLE_FPI_FILINGS })[flag]
+const shipped = (items: readonly PlanLine[]): string[] =>
+  items.flatMap((item) => (!item.flag || isOn(item.flag) ? [item.text] : item.off ? [item.off] : []))
+
 // Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts).
-const FREE_FEATURES = [
-  `${FREE_SUMMARY_LIMIT} AI summaries a month`,
-  'Supported 10-K, 10-Q and 20-F filings from SEC EDGAR',
-  'Company search and historical filings',
-  `${FREE_COPILOT_QUESTIONS} Ask this Filing questions`,
-  `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`,
-  'Multi-Period Analysis demo (locked)',
-  `${FREE_HISTORY_RETENTION_DAYS}-day summary history`,
-  'Unlimited watchlist',
+const FREE_FEATURES: readonly PlanLine[] = [
+  { text: `${FREE_SUMMARY_LIMIT} AI summaries a month` },
+  { text: '10-K, 10-Q and 20-F filings from SEC EDGAR', flag: 'fpi', off: '10-K and 10-Q filings from SEC EDGAR' },
+  { text: 'Company search and historical filings' },
+  { text: `${FREE_COPILOT_QUESTIONS} Ask this Filing questions` },
+  { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` },
+  { text: 'Multi-Period Analysis demo (locked)', flag: 'analysis' },
+  { text: `${FREE_HISTORY_RETENTION_DAYS}-day summary history` },
+  { text: 'Unlimited watchlist' },
 ]
 
-const PRO_FEATURES = [
-  'Unlimited summaries',
-  'Unlimited Multi-Period Analysis',
-  'Ask this Filing',
-  'Change Report',
-  'Hourly filing alerts and 8-K alerts',
-  'PDF, CSV and Excel exports',
-  'Full summary history',
-  'Priority support',
+const PRO_FEATURES: readonly PlanLine[] = [
+  { text: 'Unlimited summaries' },
+  { text: 'Unlimited Multi-Period Analysis', flag: 'analysis' },
+  { text: 'Ask this Filing' },
+  { text: 'Change Report' },
+  { text: 'Hourly filing alerts and 8-K alerts' },
+  { text: 'PDF, CSV and Excel exports', flag: 'analysis', off: 'PDF and CSV exports' },
+  { text: 'Full summary history' },
+  { text: 'Priority support' },
 ]
 
 const BILLING_OPTIONS = ['monthly', 'annual'] as const
@@ -123,10 +134,10 @@ export default function PricingSection({
     select(next)
   }
 
+  // The ring sits on each radio's className itself, where the ring scan can read it.
   const radioClass = (option: Billing) =>
     [
       'h-9 rounded px-3.5 text-sm font-semibold transition-colors duration-fast motion-reduce:transition-none',
-      'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       billing === option
         ? 'bg-brand-weak text-text-primary-light dark:bg-brand-weak-dark dark:text-text-primary-dark'
         : `bg-transparent ${MUTED_CLASS}`,
@@ -166,7 +177,7 @@ export default function PricingSection({
                 aria-checked={monthly}
                 tabIndex={monthly ? 0 : -1}
                 onClick={() => select('monthly')}
-                className={radioClass('monthly')}
+                className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('monthly'))}
               >
                 Monthly
               </button>
@@ -179,7 +190,7 @@ export default function PricingSection({
                 aria-checked={!monthly}
                 tabIndex={monthly ? -1 : 0}
                 onClick={() => select('annual')}
-                className={radioClass('annual')}
+                className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('annual'))}
               >
                 Annual{' '}
                 <span className="font-medium">· save {PRO_PRICING.annualSavingsPercent}%</span>
@@ -200,7 +211,7 @@ export default function PricingSection({
               >
                 {access.cta}
               </Link>
-              <FeatureList items={FREE_FEATURES} />
+              <FeatureList items={shipped(FREE_FEATURES)} />
             </Card>
 
             {/* The design's brand border is a 1px inset ring here (the pricing page's Pro-card
@@ -211,10 +222,9 @@ export default function PricingSection({
               elevation="e3"
               className="flex flex-col p-5 ring-1 ring-inset ring-brand-border dark:ring-brand-border-dark sm:p-7"
             >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-xl">Pro</h3>
-                <Badge variant="solid">Most popular</Badge>
-              </div>
+              {/* No "Most popular" badge: the beta has no popularity figure behind one, and the brand ring
+                  already carries the emphasis. */}
+              <h3 className="text-xl">Pro</h3>
               <div className="mt-3 flex items-baseline gap-1.5">
                 <span className={PRICE_CLASS}>{proPrice}</span>
                 <span className={`text-sm ${MUTED_CLASS}`}>per month</span>
@@ -237,7 +247,7 @@ export default function PricingSection({
                   Card required. One trial per account. Cancel any time in the 7 days at no charge.
                 </p>
               )}
-              <FeatureList items={PRO_FEATURES} />
+              <FeatureList items={shipped(PRO_FEATURES)} />
             </Card>
           </div>
         </SectionImpression>

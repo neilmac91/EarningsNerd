@@ -134,9 +134,9 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           <CheckIcon className="h-5 w-5" />
           <span className="text-sm font-semibold uppercase tracking-eyebrow">You&apos;re in</span>
         </div>
-        <h3 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          {success.message || 'You&apos;re on the waitlist.'}
-        </h3>
+        <h2 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          {success.message || "You're on the waitlist."}
+        </h2>
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Your current position is <span className="tnum font-data font-semibold">#{success.position}</span>.
         </p>
