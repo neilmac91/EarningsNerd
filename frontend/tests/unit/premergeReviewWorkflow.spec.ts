@@ -6,7 +6,12 @@
  * undefined for one tier, a loosened vote count), so this spec runs the script itself with stubbed
  * `agent`/`pipeline`/`parallel` and asserts what every stage actually receives and returns:
  *   - every agent call carries a literal, non-premium model and the effort the tier promises;
- *   - the agent counts per tier (records 1, routine 1 + 1 per blocker, high 3 + 2 per serious finding);
+ *   - the agent counts per tier (records 1, routine 1 + 1 per blocker, high 3 + 2 per blocker + 1 dedupe
+ *     + 2 per group of should-fix reports of one defect, or 2 per should-fix when the dedupe gives no valid
+ *     grouping, fails, or has fewer than two lenses' should-fixes to group);
+ *   - the high tier's group refuters vote on every report of their group on its own claim: a report missing
+ *     from a refuter's verdicts, or given two, is unverified, and one report can stand while another is
+ *     refuted; a blocker is never grouped;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -28,7 +33,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const SCRIPT = path.join(repoRoot, '.claude/workflows/premerge-review.js')
 const ALLOWED_MODELS = new Set(['sonnet', 'opus', 'haiku'])
 
-type Call = { label: string; model: unknown; effort: unknown }
+type Call = { label: string; model: unknown; effort: unknown; prompt: string }
 type Findings = { findings: Array<Record<string, unknown>>; summary: string }
 
 const FINDINGS: Findings = {
@@ -73,12 +78,24 @@ type Result = {
   nits: unknown[]
 }
 
-function stub(nullFor?: (label: string) => boolean, opts: { refuted?: boolean; findings?: Findings } = {}) {
+type Verdicts = (label: string) => Array<{ report: number; refuted: boolean; reason: string }>
+
+// With no `groups`, the dedupe returns nothing, and the script verifies each finding on its own.
+function stub(
+  nullFor?: (label: string) => boolean,
+  opts: { refuted?: boolean; findings?: Findings; groups?: unknown; verdicts?: Verdicts } = {},
+) {
   const calls: Call[] = []
-  const agent = async (_prompt: string, o: { label: string; model?: unknown; effort?: unknown }) => {
-    calls.push({ label: o.label, model: o.model, effort: o.effort })
+  const agent = async (prompt: string, o: { label: string; model?: unknown; effort?: unknown }) => {
+    calls.push({ label: o.label, model: o.model, effort: o.effort, prompt })
     if (nullFor && nullFor(o.label)) return null
     if (o.label.startsWith('review:')) return opts.findings ?? FINDINGS
+    if (o.label.startsWith('dedupe:')) return opts.groups === undefined ? null : { groups: opts.groups }
+    if (/^verify:\d+:group\d+#/.test(o.label)) {
+      const n = (prompt.match(/^report \d+:$/gm) ?? []).length
+      const all = Array.from({ length: n }, (_, report) => ({ report, refuted: opts.refuted ?? false, reason: 'r' }))
+      return { verdicts: opts.verdicts ? opts.verdicts(o.label) : all }
+    }
     return { refuted: opts.refuted ?? false, reason: 'r' }
   }
   return { agent, calls }
@@ -93,7 +110,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const expected: Record<string, { agents: number; lensModel: string; lensEffort: unknown; refuterModel?: string; refuterEffort?: unknown; confirmed: string[]; unverified: string[] }> = {
       records: { agents: 1, lensModel: 'sonnet', lensEffort: 'medium', confirmed: [], unverified: ['blocker', 'should'] },
       routine: { agents: 2, lensModel: 'opus', lensEffort: 'high', refuterModel: 'sonnet', refuterEffort: 'medium', confirmed: ['blocker'], unverified: ['should'] },
-      high: { agents: 3 + 6 * 2, lensModel: 'opus', lensEffort: undefined, refuterModel: 'opus', refuterEffort: undefined, confirmed: ['blocker', 'blocker', 'blocker', 'should', 'should', 'should'], unverified: [] },
+      high: { agents: 3 + 1 + 6 * 2, lensModel: 'opus', lensEffort: undefined, refuterModel: 'opus', refuterEffort: undefined, confirmed: ['blocker', 'blocker', 'blocker', 'should', 'should', 'should'], unverified: [] },
     }
     for (const [tier, want] of Object.entries(expected)) {
       const { agent, calls } = stub()
@@ -111,6 +128,11 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
       for (const call of calls) {
         expect(ALLOWED_MODELS.has(call.model as string), `${tier} ${call.label} model=${String(call.model)}`).toBe(true)
         const isLens = call.label.startsWith('review:')
+        if (call.label.startsWith('dedupe:')) {
+          expect(tier).toBe('high')
+          expect([call.model, call.effort], `${tier} ${call.label}`).toEqual(['sonnet', 'medium'])
+          continue
+        }
         expect(call.model, `${tier} ${call.label}`).toBe(isLens ? want.lensModel : want.refuterModel)
         expect(call.effort, `${tier} ${call.label}`).toBe(isLens ? want.lensEffort : want.refuterEffort)
       }
@@ -139,7 +161,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const { agent } = stub()
     const results = (await load()({ prs: [pr('high'), pr()], tier: 'routine' }, agent)) as Result[]
     expect(results.map((r) => r.tier)).toEqual(['high', 'routine'])
-    expect(results.map((r) => r.agents)).toEqual([3 + 6 * 2, 2])
+    expect(results.map((r) => r.agents)).toEqual([3 + 1 + 6 * 2, 2])
   })
 
   it('reviews a PR with no tier as high', async () => {
@@ -191,6 +213,92 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(result.confirmed).toHaveLength(0)
     expect(result.incomplete).toBe(true)
     expect(result.mergeable).toBe(false)
+  })
+
+  it('verifies each high-tier should-fix defect once: two Opus refuters per group, voting on every report; blockers keep their own', async () => {
+    // toVerify is the three lenses' blocker and should-fix in lens order; the dedupe sees only the
+    // should-fixes (toVerify 1, 3, 5) as its indices 0, 1, 2.
+    const { agent, calls } = stub(undefined, { groups: [[0, 1, 2]] })
+    const [result] = (await load()({ prs: [pr('high')] }, agent)) as Array<Result & { groups: string[][] }>
+    const verify = calls.filter((c) => c.label.startsWith('verify:'))
+    expect(verify.map((c) => c.label).sort()).toEqual(['verify:1:a.py#1', 'verify:1:a.py#1', 'verify:1:a.py#1', 'verify:1:a.py#2', 'verify:1:a.py#2', 'verify:1:a.py#2', 'verify:1:group1#1', 'verify:1:group1#2'])
+    for (const call of verify) expect([call.model, call.effort]).toEqual(['opus', undefined])
+    // The dedupe is shown the should-fixes only, and each group refuter sees all three reports of its defect.
+    const dedupe = calls.filter((c) => c.label.startsWith('dedupe:'))
+    expect(dedupe).toHaveLength(1)
+    expect(dedupe[0].prompt).not.toContain('severity: blocker')
+    for (const call of verify.filter((c) => c.label.includes(':group'))) expect((call.prompt.match(/^report \d+:$/gm) ?? []).length).toBe(3)
+    expect(result.agents).toBe(3 + 1 + (3 + 1) * 2)
+    expect(calls).toHaveLength(result.agents)
+    expect(titles(result.confirmed)).toEqual(['blocker', 'blocker', 'blocker', 'should', 'should', 'should'])
+    expect(result.groups).toEqual([['should', 'should', 'should']])
+    expect(result.incomplete).toBe(false)
+    expect(result.mergeable).toBe(false)
+    const refutedAll = stub(undefined, { groups: [[0, 1, 2]], refuted: true })
+    const [freed] = (await load()({ prs: [pr('high')] }, refutedAll.agent)) as Result[]
+    expect(titles(freed.refuted)).toEqual(['blocker', 'blocker', 'blocker', 'should', 'should', 'should'])
+    expect(freed.mergeable).toBe(true)
+  })
+
+  it('verifies each finding on its own when the dedupe returns nothing, throws, or gives a grouping that is not a partition', async () => {
+    const bad: unknown[] = [undefined, 'x', [[0, 1], [1, 2]], [[0, 1]], [[0, 1, 2, 3]], [[0.5, 1, 2]], [[], [0, 1, 2]], [[-1, 0, 1, 2]], [['0', 1, 2]], [[0], 1, 2]]
+    for (const groups of bad) {
+      const { agent, calls } = stub(undefined, { groups })
+      const [result] = (await load()({ prs: [pr('high')] }, agent)) as Array<Result & { groups: string[][] }>
+      expect(result.agents, JSON.stringify(groups)).toBe(3 + 1 + 6 * 2)
+      expect(calls.filter((c) => c.label.includes(':group')), JSON.stringify(groups)).toHaveLength(0)
+      expect(result.groups, JSON.stringify(groups)).toEqual([])
+      expect(result.confirmed, JSON.stringify(groups)).toHaveLength(6)
+    }
+    const { agent: base, calls } = stub(undefined, { groups: [[0, 1, 2]] })
+    const throwing = async (prompt: string, o: { label: string }) => {
+      if (o.label.startsWith('dedupe:')) {
+        calls.push({ label: o.label, model: undefined, effort: undefined, prompt })
+        throw new Error('dedupe failed')
+      }
+      return base(prompt, o)
+    }
+    const [result] = (await load()({ prs: [pr('high')] }, throwing)) as Array<Result & { groups: string[][] }>
+    expect(result.agents).toBe(3 + 1 + 6 * 2)
+    expect(result.confirmed).toHaveLength(6)
+    expect(result.incomplete).toBe(false)
+  })
+
+  it('never calls the dedupe without should-fixes from two lenses, and never groups a blocker', async () => {
+    const blockersOnly: Findings = { findings: [{ file: 'a.py', title: 'blocker', detail: 'd', severity: 'blocker', evidence: 'e' }], summary: 's' }
+    const one = stub(undefined, { findings: blockersOnly, groups: [[0, 1, 2]] })
+    const [result] = (await load()({ prs: [pr('high')] }, one.agent)) as Result[]
+    expect(one.calls.filter((c) => c.label.startsWith('dedupe:'))).toHaveLength(0)
+    expect(result.agents).toBe(3 + 3 * 2)
+    // Only one lens reports a should-fix: nothing to deduplicate across lenses.
+    const lensFindings = (label: string): Findings => (label.endsWith(':correctness') ? FINDINGS : blockersOnly)
+    const single = stub(undefined, { groups: [[0]] })
+    const agent = async (prompt: string, o: { label: string; model?: unknown; effort?: unknown }) =>
+      o.label.startsWith('review:') ? (single.calls.push({ label: o.label, model: o.model, effort: o.effort, prompt }), lensFindings(o.label)) : single.agent(prompt, o)
+    const [lone] = (await load()({ prs: [pr('high')] }, agent)) as Result[]
+    expect(single.calls.filter((c) => c.label.startsWith('dedupe:'))).toHaveLength(0)
+    expect(lone.agents).toBe(3 + 4 * 2)
+  })
+
+  it('lets one report of a group stand while another is refuted, and leaves a report unverified when a group refuter omits its verdict or gives two', async () => {
+    const splitVerdicts: Verdicts = () => [0, 1, 2].map((report) => ({ report, refuted: report === 1, reason: 'r' }))
+    const split = stub(undefined, { groups: [[0, 1, 2]], verdicts: splitVerdicts })
+    const [a] = (await load()({ prs: [pr('high')] }, split.agent)) as Result[]
+    expect(titles(a.confirmed)).toEqual(['blocker', 'blocker', 'blocker', 'should', 'should'])
+    expect(titles(a.refuted)).toEqual(['should'])
+    expect(a.incomplete).toBe(false)
+    // Refuter #1 gives report 0 twice and omits report 2: both are unverified; report 1 stays refuted.
+    const broken: Verdicts = (label) =>
+      label.endsWith('#1')
+        ? [{ report: 0, refuted: false, reason: 'r' }, { report: 0, refuted: false, reason: 'r' }, { report: 1, refuted: true, reason: 'r' }]
+        : splitVerdicts(label)
+    const partial = stub(undefined, { groups: [[0, 1, 2]], verdicts: broken })
+    const [b] = (await load()({ prs: [pr('high')] }, partial.agent)) as Result[]
+    expect(titles(b.unverified)).toEqual(['should', 'should'])
+    expect(titles(b.refuted)).toEqual(['should'])
+    expect(titles(b.confirmed)).toEqual(['blocker', 'blocker', 'blocker'])
+    expect(b.incomplete).toBe(true)
+    expect(b.mergeable).toBe(false)
   })
 
   it('keeps a finding whose verification throws, as unverified, and marks the result incomplete', async () => {

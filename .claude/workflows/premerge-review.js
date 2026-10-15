@@ -1,9 +1,9 @@
 export const meta = {
   name: 'premerge-review',
-  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix; missing tier reviews as high',
+  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker and per distinct should-fix (1 Sonnet dedupe); missing tier reviews as high',
   phases: [
     { title: 'Review', detail: 'records: one combined lens on Sonnet; routine: one combined lens on Opus; high: correctness / rules+brief / tests+gates on Opus' },
-    { title: 'Verify', detail: 'routine: one Sonnet refuter per blocker; high: two Opus refuters per blocker or should-fix' },
+    { title: 'Verify', detail: 'routine: one Sonnet refuter per blocker; high: two Opus refuters per blocker, and per should-fix defect after a Sonnet dedupe of the lenses\' reports, voting on each report' },
   ],
 }
 
@@ -19,7 +19,7 @@ if (args.tier && !BATCH_TIER) throw new Error(`args.tier may be routine or high,
 const TIERS = {
   records: { lenses: ['combined'], lensModel: 'sonnet', lensEffort: 'medium', refuters: 0, verify: [] },
   routine: { lenses: ['combined'], lensModel: 'opus', lensEffort: 'high', refuters: 1, refuterModel: 'sonnet', refuterEffort: 'medium', verify: ['blocker'] },
-  high: { lenses: ['correctness', 'rules-and-brief', 'tests-and-gates'], lensModel: 'opus', refuters: 2, refuterModel: 'opus', verify: ['blocker', 'should-fix'] },
+  high: { lenses: ['correctness', 'rules-and-brief', 'tests-and-gates'], lensModel: 'opus', refuters: 2, refuterModel: 'opus', verify: ['blocker', 'should-fix'], dedupe: 'should-fix' },
 }
 const tierOf = (pr) => pr.tier || BATCH_TIER || 'high'
 // Own keys only: an inherited name (`constructor`, `toString`, `__proto__`) is not a tier, and would
@@ -62,6 +62,58 @@ const VERDICT_SCHEMA = {
   required: ['refuted', 'reason'],
 }
 
+// The high tier's lenses often report one should-fix defect two or three times (27% of 190 reports in
+// 35 runs). One Sonnet call groups the should-fix reports of the same defect, and each group, not each
+// report, gets the tier's refuters, who judge every report in it on its own claim, so each report still
+// gets its own complete vote. Blockers are never grouped: each keeps its own two refuters.
+const GROUPS_SCHEMA = {
+  type: 'object',
+  properties: { groups: { type: 'array', items: { type: 'array', items: { type: 'integer' } } } },
+  required: ['groups'],
+}
+
+const GROUP_VERDICT_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          report: { type: 'integer' },
+          refuted: { type: 'boolean' },
+          reason: { type: 'string' },
+          corrected_severity: { type: 'string', enum: ['blocker', 'should-fix', 'nit'] },
+        },
+        required: ['report', 'refuted', 'reason'],
+      },
+    },
+  },
+  required: ['verdicts'],
+}
+
+// Every index from 0 to n - 1 exactly once, integers only; anything else is not a grouping.
+const isPartition = (groups, n) => {
+  if (!Array.isArray(groups)) return false
+  const seen = new Set()
+  for (const g of groups) {
+    if (!Array.isArray(g) || g.length === 0) return false
+    for (const i of g) {
+      if (!Number.isInteger(i) || i < 0 || i >= n || seen.has(i)) return false
+      seen.add(i)
+    }
+  }
+  return seen.size === n
+}
+
+const dedupePrompt = (pr, fs) => `These are the should-fix findings that independent review lenses returned for PR #${pr.number} "${pr.title}". Do not read or run anything; group them from this text alone.
+
+${fs.map((f, i) => `[${i}] lens: ${f.lens}; severity: ${f.severity}; ${f.file}${f.line ? ':' + f.line : ''}
+title: ${f.title}
+detail: ${String(f.detail).slice(0, 1500)}`).join('\n\n')}
+
+Group the findings that report the same defect: the same root cause in the same code, so that one fix resolves every finding in the group. Two findings stay in separate groups when they concern different code paths, different inputs or constructs, different claims, or would need different fixes, even if they touch the same function or line or share words. When unsure, keep them separate: a missed merge only costs a duplicate verification. Return groups: an array of index arrays that covers every index from 0 to ${fs.length - 1} exactly once (singletons included).`
+
 const COMMON = (pr) => { const BASE = `origin/${pr.base || 'main'}`; return `
 Repo: /home/user/EarningsNerd (branches already fetched; do NOT modify the working tree, do not check out branches, do not create worktrees — read-only review via git plumbing).
 PR #${pr.number} "${pr.title}", branch origin/${pr.branch}, base ${BASE}.
@@ -100,6 +152,17 @@ You are an independent skeptic #${i + 1}. A reviewer claims this finding about P
   evidence: ${f.evidence}
 Try to REFUTE it by reading the actual code on the branch (git show origin/${pr.branch}:<path>, git grep on the branch, two-dot diff vs ${BASE}). A finding is refuted if the code does not behave as claimed, the "defect" is out of the PR's scope by the brief or PR body, it is already handled elsewhere on the branch, or the evidence is misquoted. If it stands but the severity is wrong, keep refuted=false and set corrected_severity. Default to refuted=true if you cannot confirm it from the code. Give a one-paragraph reason with file:line.` }
 
+const groupRefuterPrompt = (pr, fs, i) => { const BASE = `origin/${pr.base || 'main'}`; return `${COMMON(pr)}
+
+You are an independent skeptic #${i + 1}. Different reviewers made these ${fs.length} reports about PR #${pr.number}; they may describe one defect:
+${fs.map((f, k) => `report ${k}:
+  file: ${f.file}${f.line ? ':' + f.line : ''}
+  title: ${f.title}
+  severity claimed: ${f.severity}
+  detail: ${f.detail}
+  evidence: ${f.evidence}`).join('\n')}
+Try to REFUTE each report on its own claim by reading the actual code on the branch (git show origin/${pr.branch}:<path>, git grep on the branch, two-dot diff vs ${BASE}). A report is refuted if the code does not behave as it claims, the "defect" is out of the PR's scope by the brief or PR body, it is already handled elsewhere on the branch, or its evidence is misquoted. A report can stand while another is refuted when they claim different things. If a report stands but its severity is wrong, keep refuted=false and set corrected_severity. Default to refuted=true if you cannot confirm it from the code. Return one verdict per report (report = its number), each with a one-paragraph reason with file:line.` }
+
 const results = await pipeline(
   PRS,
   async (pr) => {
@@ -120,20 +183,53 @@ const results = await pipeline(
     const toVerify = findings.filter((f) => T.verify.includes(f.severity))
     const unverified = findings.filter((f) => f.severity !== 'nit' && !T.verify.includes(f.severity))
     log(`PR #${pr.number} (${tier}): ${toVerify.length} to verify, ${unverified.length} reported unverified, ${nits.length} nits; ${T.refuters} ${T.refuterModel || ''} refuter(s) each${missingLenses.length ? `; MISSING lenses: ${missingLenses.join(', ')}` : ''}`)
-    const verified = await parallel(toVerify.map((f) => () =>
-      parallel(Array.from({ length: T.refuters }, (_, i) => () =>
-        agent(refuterPrompt(pr, f, i), { label: `verify:${pr.number}:${f.file.split('/').pop()}#${i + 1}`, phase: 'Verify', schema: VERDICT_SCHEMA, model: T.refuterModel, ...(T.refuterEffort ? { effort: T.refuterEffort } : {}) })
-      )).then((votes) => {
-        const v = votes.filter(Boolean)
-        // Fewer votes than refuters = a refuter returned nothing: the finding stays unverified, not refuted.
-        const complete = v.length === T.refuters
-        const stands = complete && v.every((x) => !x.refuted)
-        const sev = v.map((x) => x.corrected_severity).filter(Boolean)[0] || f.severity
-        return { ...f, complete, stands, severity: stands ? sev : f.severity, votes: v.map((x) => ({ refuted: x.refuted, reason: x.reason })) }
-      })
-    ))
-    // A verification that threw resolves to null: keep its finding, unverified, rather than drop it.
-    const checked = verified.map((x, i) => x || { ...toVerify[i], complete: false, stands: false, votes: [] })
+    // Without a valid grouping every finding is its own group, which is the per-finding review.
+    let groups = toVerify.map((_, i) => [i])
+    let dedupeAgents = 0
+    // Only the tier's dedupe severity is pooled, and only when two or more lenses reported it.
+    const pool = T.dedupe ? toVerify.map((_, i) => i).filter((i) => toVerify[i].severity === T.dedupe) : []
+    if (new Set(pool.map((i) => toVerify[i].lens)).size > 1) {
+      dedupeAgents = 1
+      let grouping = null
+      try {
+        const g = await agent(dedupePrompt(pr, pool.map((i) => toVerify[i])), { label: `dedupe:${pr.number}`, phase: 'Verify', schema: GROUPS_SCHEMA, model: 'sonnet', effort: 'medium' })
+        if (g && isPartition(g.groups, pool.length)) grouping = g.groups
+      } catch {
+        grouping = null // a failed dedupe costs only the saving: every finding is verified on its own
+      }
+      if (grouping) groups = toVerify.map((_, i) => i).filter((i) => !pool.includes(i)).map((i) => [i]).concat(grouping.map((x) => x.map((k) => pool[k])))
+      else log(`PR #${pr.number}: no valid grouping; each finding gets its own refuters`)
+    }
+    const judge = (f, votes) => {
+      const v = votes.filter(Boolean)
+      // Fewer votes than refuters = a refuter returned nothing: the finding stays unverified, not refuted.
+      const complete = v.length === T.refuters
+      const stands = complete && v.every((x) => !x.refuted)
+      const sev = v.map((x) => x.corrected_severity).filter(Boolean)[0] || f.severity
+      return { ...f, complete, stands, severity: stands ? sev : f.severity, votes: v.map((x) => ({ refuted: x.refuted, reason: x.reason })) }
+    }
+    // A group of reports is labelled by its place among the groups (group1, group2, ...).
+    const groupNo = groups.map((g, k) => groups.slice(0, k + 1).filter((x) => x.length > 1).length)
+    const verifiedGroups = await parallel(groups.map((g, k) => () => {
+      const fs = g.map((i) => toVerify[i])
+      if (fs.length === 1) {
+        const f = fs[0]
+        return parallel(Array.from({ length: T.refuters }, (_, i) => () =>
+          agent(refuterPrompt(pr, f, i), { label: `verify:${pr.number}:${f.file.split('/').pop()}#${i + 1}`, phase: 'Verify', schema: VERDICT_SCHEMA, model: T.refuterModel, ...(T.refuterEffort ? { effort: T.refuterEffort } : {}) })
+        )).then((votes) => [judge(f, votes)])
+      }
+      return parallel(Array.from({ length: T.refuters }, (_, i) => () =>
+        agent(groupRefuterPrompt(pr, fs, i), { label: `verify:${pr.number}:group${groupNo[k]}#${i + 1}`, phase: 'Verify', schema: GROUP_VERDICT_SCHEMA, model: T.refuterModel, ...(T.refuterEffort ? { effort: T.refuterEffort } : {}) })
+      )).then((outs) => fs.map((f, r) => judge(f, outs.map((o) => {
+        // A refuter's vote on a report: its one verdict for that report number, or no vote at all.
+        const mine = o && Array.isArray(o.verdicts) ? o.verdicts.filter((x) => x.report === r) : []
+        return mine.length === 1 ? mine[0] : null
+      }))))
+    }))
+    // A verification that threw resolves to null: keep its findings, unverified, rather than drop them.
+    const byIndex = new Map()
+    groups.forEach((g, k) => g.forEach((i, r) => byIndex.set(i, verifiedGroups[k] ? verifiedGroups[k][r] : null)))
+    const checked = toVerify.map((f, i) => byIndex.get(i) || { ...f, complete: false, stands: false, votes: [] })
     const confirmed = checked.filter((x) => x.complete && x.stands)
     const refuted = checked.filter((x) => x.complete && !x.stands)
     const unverifiedAll = unverified.concat(checked.filter((x) => !x.complete))
@@ -150,7 +246,8 @@ const results = await pipeline(
       refuted: refuted.map((r) => ({ title: r.title, file: r.file, reasons: r.votes.map((v) => v.reason) })),
       unverified: unverifiedAll,
       nits,
-      agents: T.lenses.length + toVerify.length * T.refuters,
+      agents: T.lenses.length + dedupeAgents + groups.length * T.refuters,
+      groups: groups.filter((g) => g.length > 1).map((g) => g.map((i) => toVerify[i].title)),
     }
   },
 )
