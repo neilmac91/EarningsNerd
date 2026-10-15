@@ -525,7 +525,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
                  segment rounded (8), 600 weight — 12px labels at 26px (sm; adaptive from sm up), 14px at 36px
                  (md; adaptive below sm); selected = the primary colorway (bg-brand + white; dark NAVY ink on
-                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
+                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. The 26px height is
+                 1.625rem, so it scales with the root and holds its label at 200% text. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments), so every option stays visible; from sm up
@@ -535,6 +536,27 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
+                 A long option set is not a segmented control: the company page's peer and trend
+                 metric pickers (nine and up to 23 options) are a raw compact select beside a visible
+                 "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 options in sentence case; the insider window (three codes) keeps the control. At a
+                 32px root (200% text) on a 320px screen the select is capped at the card's inner width,
+                 so its closed face clips the name ("Revenue" shows four letters); the open list shows
+                 every name whole and nothing overflows (E34).
+                 Gate: earningsnerd/no-hand-rolled-toggle-group (eslint.designRules.mjs) fails a
+                 role="group" holding an aria-pressed <button> or <Button>, anywhere outside
+                 components/ui/SegmentedControl.tsx. It reads the button in the group's own markup,
+                 through a same-file wrapper component (one level) and through the DS Button imported
+                 under another name. WordingChanges' review row (LabelToggle) carries the rule's one
+                 disable: a second press clears its label, a state the control cannot hold (E62). A row
+                 without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
+                 file and a wrapper that renders another wrapper are outside its reach (review-checked).
+                 Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
+                 more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
+                 cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
+                 plus the company's forms, at run time and renders it past five as the toolbar's compact
+                 select (the year filter's Select, density compact), so no SegmentedControl ever shows
+                 more than five.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover

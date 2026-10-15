@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import {
   localePinnedNumbers,
   noFormCodeBadge,
+  noHandRolledToggleGroup,
   noSideStripe,
   noUnguardedAnimation,
   SELF_GUARDED_ANIMATIONS,
@@ -27,6 +28,10 @@ import {
  *    never the browser's; lib/format.ts, which owns the formatters, is the one file it is off for.
  *  - the raw-colour selector (eslint.config.mjs DESIGN_HEX_RULE, BG-19) reads rgb[a]()/hsl[a]() as well
  *    as a 6-digit hex, in a string, a template chunk or an arbitrary utility.
+ *  - no-hand-rolled-toggle-group (CO-15): a role="group" of aria-pressed buttons is the SegmentedControl,
+ *    composed from components/ui, never rebuilt in a feature (the primitive's own file is exempt). The pressed
+ *    button is read in the group's own markup, through a same-file wrapper component (one level) and through
+ *    the DS Button imported under another name; an imported wrapper and a wrapper of a wrapper stay unread.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -104,6 +109,117 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: '<Badge>{f.form}</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<Badge>{`10-K`}</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<ui.Badge variant="neutral">{filing.filing_type}</ui.Badge>', errors: [{ messageId: 'badge' }] },
+  ],
+})
+
+ruleTester.run('no-hand-rolled-toggle-group', noHandRolledToggleGroup, {
+  valid: [
+    '<SegmentedControl label="Metric" value={metric} onChange={setMetric} options={options} />',
+    // A group of plain actions (no pressed state) is not a toggle group.
+    '<div role="group" aria-label="Recent period presets"><Button onClick={pick}>Last 4</Button></div>',
+    // A lone toggle outside a group (the watchlist star, the alert bell).
+    '<Button aria-pressed={on} onClick={toggle}>Watch</Button>',
+    // The primitive builds the group itself.
+    {
+      code: '<div role="group" aria-label={label}>{options.map((o) => <button aria-pressed={o.value === value} />)}</div>',
+      filename: '/repo/frontend/components/ui/SegmentedControl.tsx',
+    },
+    // A same-file wrapper that renders a plain button (no pressed state) is a group of actions.
+    [
+      'function Action({ onClick, children }) {',
+      '  return <button type="button" onClick={onClick}>{children}</button>',
+      '}',
+      'const row = <div role="group" aria-label="Recent period presets"><Action onClick={pick}>Last 4</Action></div>',
+    ].join('\n'),
+    // A wrapper imported from another file is not read (one file at a time).
+    "import { LabelToggle } from './LabelToggle'\nconst row = <div role=\"group\"><LabelToggle pressed /></div>",
+    // One level: a wrapper that renders another wrapper is not followed into it.
+    [
+      'const Inner = ({ on }) => <button aria-pressed={on} />',
+      'const Outer = ({ on }) => <Inner on={on} />',
+      'const row = <div role="group"><Outer on /></div>',
+    ].join('\n'),
+    // The tag resolves through scopes: here <Toggle> is the parameter, not the same-file function.
+    [
+      'function Toggle({ on }) { return <button aria-pressed={on} /> }',
+      'export function Row({ Toggle }) { return <div role="group"><Toggle on /></div> }',
+    ].join('\n'),
+  ],
+  invalid: [
+    // The company page's three rows: a mapped <button> with aria-pressed inside role="group".
+    {
+      code: '<div className="flex flex-wrap gap-2" role="group" aria-label="Select metric">{METRICS.map((m) => <button key={m.key} type="button" aria-pressed={m.key === metric}>{m.label}</button>)}</div>',
+      filename: '/repo/frontend/features/peers/components/PeerComparisonPanel.tsx',
+      errors: [{ messageId: 'handRolled' }],
+    },
+    // The DS Button, nested deeper, and role written as an expression.
+    {
+      code: "<section role={'group'}><span><Button aria-pressed={a}>A</Button><Button aria-pressed={!a}>B</Button></span></section>",
+      errors: [{ messageId: 'handRolled' }],
+    },
+    { code: '<div role="group"><ui.Button aria-pressed="true">One</ui.Button></div>', errors: [{ messageId: 'handRolled' }] },
+    // Only the SegmentedControl's own file is exempt, not its directory: another primitive rebuilding it fails.
+    {
+      code: '<div role="group" aria-label={label}>{options.map((o) => <button aria-pressed={o.value === value} />)}</div>',
+      filename: '/repo/frontend/components/ui/FilterChips.tsx',
+      errors: [{ messageId: 'handRolled' }],
+    },
+    // A same-file wrapper, a function declaration, returning the pressed button (WordingChanges' LabelToggle shape).
+    {
+      code: [
+        'function LabelToggle({ pressed, onClick, children }) {',
+        '  return (',
+        '    <button type="button" aria-pressed={pressed} onClick={onClick}>',
+        '      {children}',
+        '    </button>',
+        '  )',
+        '}',
+        'export function Row({ current, toggle }) {',
+        '  return (',
+        '    <div role="group" aria-label="Mark change">',
+        "      {['reviewed', 'follow_up'].map((v) => <LabelToggle key={v} pressed={current === v} onClick={() => toggle(v)}>{v}</LabelToggle>)}",
+        '    </div>',
+        '  )',
+        '}',
+      ].join('\n'),
+      errors: [{ messageId: 'handRolled', line: 10 }],
+    },
+    // A const arrow whose expression body is a conditional over the DS Button.
+    {
+      code: [
+        'const Toggle = ({ on, label }) => (label ? <Button aria-pressed={on}>{label}</Button> : null)',
+        'const row = <div role="group"><Toggle on label="A" /><Toggle label="B" /></div>',
+      ].join('\n'),
+      errors: [{ messageId: 'handRolled', line: 2 }],
+    },
+    // A const function expression: every return statement is read, a logical expression included.
+    {
+      code: [
+        'const Toggle = function ({ on, label }) {',
+        '  if (!label) return null',
+        '  return on !== undefined && <button aria-pressed={on}>{label}</button>',
+        '}',
+        'const row = <div role="group"><Toggle on label="A" /></div>',
+      ].join('\n'),
+      errors: [{ messageId: 'handRolled', line: 5 }],
+    },
+    // React's own wrappers render the function they wrap.
+    {
+      code: [
+        'const Toggle = memo(forwardRef(function Toggle({ on }, ref) { return <button ref={ref} aria-pressed={on} /> }))',
+        'const row = <div role="group"><Toggle on /></div>',
+      ].join('\n'),
+      errors: [{ messageId: 'handRolled', line: 2 }],
+    },
+    // The DS Button imported under another name, from the barrel and from its own module.
+    {
+      code: "import { Button as B } from '@/components/ui'\nconst row = <div role=\"group\"><B aria-pressed={a}>A</B><B aria-pressed={!a}>B</B></div>",
+      errors: [{ messageId: 'handRolled', line: 2 }],
+    },
+    {
+      code: "import { Button as Choice } from '@/components/ui/Button'\nconst row = <div role=\"group\">{opts.map((o) => <Choice key={o} aria-pressed={o === v}>{o}</Choice>)}</div>",
+      errors: [{ messageId: 'handRolled', line: 2 }],
+    },
   ],
 })
 
@@ -264,7 +380,7 @@ describe('globals.css animations stop under reduced motion', () => {
 const SLOW = { timeout: 30_000 }
 
 describe('the repository config', SLOW, () => {
-  it('runs the three rules as errors on app code', async () => {
+  it('runs the four rules as errors on app code', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const [result] = await eslint.lintText(
       [
@@ -274,6 +390,7 @@ describe('the repository config', SLOW, () => {
         '    <div className={`border-l-4 ${tone} rounded-xl p-4`}>',
         '      <Badge variant="neutral">{form.filing_type}</Badge>',
         '      <span className="animate-spin" />',
+        '      <div role="group" aria-label="Window"><button type="button" aria-pressed={tone === "a"}>A</button></div>',
         '    </div>',
         '  )',
         '}',
@@ -283,6 +400,7 @@ describe('the repository config', SLOW, () => {
     )
     expect(result.messages.map((m) => m.ruleId).sort()).toEqual([
       'earningsnerd/no-form-code-badge',
+      'earningsnerd/no-hand-rolled-toggle-group',
       'earningsnerd/no-side-stripe',
       'earningsnerd/no-unguarded-animation',
     ])
@@ -316,5 +434,35 @@ describe('the repository config', SLOW, () => {
       filePath: path.join(frontendRoot, 'lib/format.ts'),
     })
     expect(format.messages.map((m) => m.ruleId)).toEqual([])
+  })
+
+  it('reads a same-file wrapper and the DS Button under another name through the app parser (typescript-eslint)', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const [result] = await eslint.lintText(
+      [
+        "import { Button as Choice } from '@/components/ui'",
+        '',
+        'function LabelToggle({ pressed, children }: { pressed: boolean; children: string }) {',
+        '  return <button type="button" aria-pressed={pressed}>{children}</button>',
+        '}',
+        'const Pill = ({ on }: { on: boolean }) => (on ? <Choice aria-pressed>On</Choice> : null)',
+        '',
+        'export function Probe({ value }: { value: string }) {',
+        '  return (',
+        '    <>',
+        "      <div role=\"group\" aria-label=\"Mark\">{['a', 'b'].map((v) => <LabelToggle key={v} pressed={v === value}>{v}</LabelToggle>)}</div>",
+        "      <div role=\"group\" aria-label=\"Pick\"><Choice aria-pressed={value === 'a'}>A</Choice></div>",
+        "      <div role=\"group\" aria-label=\"Pill\"><Pill on={value === 'b'} /></div>",
+        '    </>',
+        '  )',
+        '}',
+        '',
+      ].join('\n'),
+      { filePath: path.join(frontendRoot, 'app/toggle-group-probe.tsx') },
+    )
+    expect(result.messages.filter((m) => m.fatal)).toEqual([])
+    expect(
+      result.messages.filter((m) => m.ruleId === 'earningsnerd/no-hand-rolled-toggle-group').map((m) => m.line),
+    ).toEqual([11, 12, 13])
   })
 })
