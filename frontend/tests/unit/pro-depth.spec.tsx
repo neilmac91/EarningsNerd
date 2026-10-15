@@ -180,12 +180,10 @@ describe('ProDepth', () => {
     }
   })
 
-  it('sells Multi-Period Analysis (row, CTA, Excel tile, lead) only while the analysis route exists', () => {
-    const { unmount } = render(<ProDepth />)
-    expect(screen.getByRole('region', { name: 'More ways to read one filing.' })).not.toHaveTextContent(/Multi-Period|periods side by side|Excel|XLSX/)
-    expect(screen.queryByRole('link', { name: /Try it on Apple/ })).toBeNull()
-    unmount()
-
+  // The flag invariant (nothing of Multi-Period or Excel while the route is off, both named while it is on) has
+  // one gate, analysis-route-hidden.spec.tsx; this case pins the shape the flag-on row ships with, which that
+  // gate does not read: the lead, the row's heading and Pro chip, the Excel tile and the CTA's href.
+  it('with the analysis route on, renders the Multi-Period row, its CTA, the Excel tile and the lead as designed', () => {
     flags.analysis = true
     render(<ProDepth />)
     const section = screen.getByRole('region', { name: 'More ways to read one filing.' })
