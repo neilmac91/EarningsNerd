@@ -164,45 +164,75 @@ def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
 
 
 _EDGAR_DIRS = ("EDGAR_LOCAL_DATA_DIR", "EDGAR_CACHE_DIR")
+# Each test appends where its process's EdgarTools reads and writes, to a file, because xdist keeps a
+# worker's output.
 _EDGAR_PROBE = (
     "import json, os\n"
     "from edgar.httpclient import get_cache_directory\n"
     "from edgar.paths import get_anchor_cache_directory, get_data_directory\n\n"
-    "def test_report_where_edgartools_writes():\n"
-    "    print('EDGAR-DIRS ' + json.dumps({'db': os.environ['DATABASE_URL'], 'dirs': [str(get_data_directory()),\n"
-    "          get_cache_directory(), str(get_anchor_cache_directory())]}))\n"
+    "def _report():\n"
+    "    with open(os.environ['EDGAR_PROBE_REPORT'], 'a', encoding='utf-8') as out:\n"
+    "        out.write(json.dumps({'worker': os.environ.get('PYTEST_XDIST_WORKER', 'main'), 'db': os.environ['DATABASE_URL'],\n"
+    "                              'dirs': [str(get_data_directory()), get_cache_directory(),\n"
+    "                                       str(get_anchor_cache_directory())]}) + '\\n')\n\n"
+    "def test_report_once():\n    _report()\n\n"
+    "def test_report_twice():\n    _report()\n"
 )
 
 
-def _edgar_probe(tmp_path, **edgar_env):
-    # HOME is a fresh directory, so anything EdgarTools wrote to its home defaults would show there.
-    home = tmp_path / "home"
+def _edgar_probe(tmp_path, *args, **edgar_env):
+    """Each probe process's temp directory and EdgarTools' directories, by xdist worker ("main" if none)."""
+    # HOME (USERPROFILE on Windows) is a fresh directory, so anything EdgarTools wrote to its home
+    # defaults would show there.
+    home, report = tmp_path / "home", tmp_path / "report.jsonl"
     home.mkdir()
     probe = tmp_path / "test_edgar_dirs_probe.py"
     probe.write_text(_EDGAR_PROBE, encoding="utf-8")
     environ = {k: v for k, v in os.environ.items() if k not in _EDGAR_DIRS}
-    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", "-s", str(probe),
-                           environ={**environ, **edgar_env, "HOME": str(home)})
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", *args, str(probe),
+                           environ={**environ, **edgar_env, "HOME": str(home), "USERPROFILE": str(home),
+                                    "EDGAR_PROBE_REPORT": str(report)})
     assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-2000:]
-    report = json.loads(next(line for line in result.stdout.splitlines() if line.startswith("EDGAR-DIRS "))[11:])
     assert not any(home.iterdir()), sorted(home.rglob("*"))
-    return Path(make_url(report["db"]).database).parent, [Path(d) for d in report["dirs"]]
+    seen = {}
+    for row in map(json.loads, report.read_text(encoding="utf-8").splitlines()):
+        # Resolved, as EdgarTools resolves its own: macOS reaches the temp directory through a symlink.
+        private = Path(make_url(row["db"]).database).resolve().parent
+        seen.setdefault(row["worker"], set()).add((private, tuple(Path(d) for d in row["dirs"])))
+    assert all(len(places) == 1 for places in seen.values()), seen  # one process, one set of directories
+    return {worker: places.pop() for worker, places in seen.items()}
 
 
 def test_edgartools_writes_only_to_the_processs_temp_directory(tmp_path):
     # This process: both set, so EdgarTools never falls back to ~/.edgar or ~/.edgar_cache.
     assert all(os.environ.get(name) for name in _EDGAR_DIRS), {n: os.environ.get(n) for n in _EDGAR_DIRS}
-    private, dirs = _edgar_probe(tmp_path)
+    ((private, dirs),) = _edgar_probe(tmp_path).values()
     assert private.name.startswith("earningsnerd-tests-main-"), private
     assert all(private in d.parents for d in dirs), (private, dirs)
     assert not private.exists()  # removed with the database when the process ended
 
 
+def test_each_xdist_worker_keeps_edgartools_in_its_own_temp_directory(tmp_path):
+    # The controller assigns its directories before it starts the workers, which inherit its environment.
+    runs = _edgar_probe(tmp_path, "-n", "2", "--dist", "each")
+    assert set(runs) == {"gw0", "gw1"}, runs
+    for worker, (private, dirs) in runs.items():
+        assert private.name.startswith(f"earningsnerd-tests-{worker}-"), (worker, private)
+        assert all(private in d.parents for d in dirs), (worker, private, dirs)
+
+
 def test_an_edgartools_directory_set_before_pytest_starts_is_kept(tmp_path):
     data, cache = tmp_path / "data", tmp_path / "cache"
-    _, dirs = _edgar_probe(tmp_path, EDGAR_LOCAL_DATA_DIR=str(data), EDGAR_CACHE_DIR=str(cache))
-    assert dirs == [data.resolve(), data.resolve() / "_tcache", cache.resolve() / "anchors"], dirs
+    ((_, dirs),) = _edgar_probe(tmp_path, EDGAR_LOCAL_DATA_DIR=str(data), EDGAR_CACHE_DIR=str(cache)).values()
+    assert dirs == (data.resolve(), data.resolve() / "_tcache", cache.resolve() / "anchors"), dirs
     assert all(d.is_dir() for d in dirs)  # a developer's directories outlive the run
+
+
+def test_an_empty_edgartools_directory_gets_a_private_one_beside_a_kept_one(tmp_path):
+    data = tmp_path / "data"
+    ((private, dirs),) = _edgar_probe(tmp_path, EDGAR_LOCAL_DATA_DIR=str(data), EDGAR_CACHE_DIR="").values()
+    assert dirs[:2] == (data.resolve(), data.resolve() / "_tcache"), dirs
+    assert private in dirs[2].parents, (private, dirs)  # EdgarTools reads "" as unset: the home default
 
 
 def test_sqlite_never_reissues_a_deleted_id():
