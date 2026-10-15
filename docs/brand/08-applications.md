@@ -77,7 +77,13 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   gate up or down, so a referral counts; the success card states the bonus once, from
   `REFERRAL_BONUS` (`features/waitlist/lib/referral.ts`, mirrored from the backend), and the "A
   numbered spot" card says your link moves you up without the number. The join answers "You're on
-  the waitlist." or "This email is already on the waitlist.", without an exclamation mark.
+  the waitlist." or "This email is already on the waitlist.", without an exclamation mark. A code no
+  signup holds comes back as the router's `invalid_referral` (a 400 with no `detail`), which the form
+  routes by its code to its own sentence, "We can't find this referral code on the waitlist. Check the
+  link with whoever shared it.", where it printed axios's status line before. The link is set in the
+  data face, whose Geist Mono has no contextual alternates, so the x of a code reads as Copy copies it
+  (Inter's draws it as a multiplication sign between digits), and the share links wrap inside the card
+  at 200% text.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
