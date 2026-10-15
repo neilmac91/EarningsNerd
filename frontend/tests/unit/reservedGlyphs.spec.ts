@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { PHOSPHOR, isIconModule } from './iconModules'
+import { heldValues, leavesOf, memberKey } from './heldValues'
 
 /**
  * Three glyphs carry one meaning each (DESIGN.md › Icons; docs/brand/06-system.md §4): the quotes glyph
@@ -17,11 +18,12 @@ import { PHOSPHOR, isIconModule } from './iconModules'
  * `Quotes`, `BracketsCurly`, read off the package's own per-icon declarations): a named import, a member
  * of a namespace import (`<Icons.SparkleIcon />`, `Icons['QuotesIcon']`) and a member destructured from
  * one (`const { SparkleIcon: Spark } = Icons`), a namespace held by another name included. A glyph a same-file
- * binding holds counts where the binding is read, never where it is held: an alias, a conditional or logical
- * hold and a held element (`const EvidenceGlyph = QuotesIcon`, `const Icon = ok ? BracketsCurlyIcon :
- * QuotesIcon`, `const mark = <QuotesIcon />`, a chain of them) at each reference; an object's property
- * (`const GLYPH = { passage: QuotesIcon }`, and an object that spreads one, `{ ...GLYPH }`, a later property
- * overriding the spread's) at each read of it by name or literal key, and every glyph the object holds at a
+ * binding holds counts where the binding is read, never where it is held, by the reading the heading-icon clause
+ * shares (tests/unit/heldValues.ts): an alias with its shape kept, a conditional or logical hold and a held
+ * element (`const EvidenceGlyph = QuotesIcon`, `const Icon = ok ? BracketsCurlyIcon : QuotesIcon`, `const mark =
+ * <QuotesIcon />`, a chain of them) at each reference; an object's property (`const GLYPH = { passage: QuotesIcon
+ * }`, an object that spreads one, `{ ...GLYPH }`, a later property overriding the spread's, a nested object and a
+ * member destructured from one) at each read of it by name or literal key, and every glyph the object holds at a
  * read by a key the scan cannot read (`GLYPH[kind]`) or of the object whole; a holder
  * nobody reads counts once, as a bare import does. It counts every hand-drawn stand-in (a local component
  * named for one of them that draws its own <svg>), and the ✨ emoji, against two lists:
@@ -195,93 +197,23 @@ export function glyphUses(source: string, fileName: string): Counts {
   const glyphOf = new Map<Root, Glyph>()
   for (const [name, glyph] of local) glyphOf.set(`n:${name}`, glyph)
   for (const [name, glyph] of drawn) glyphOf.set(`d:${name}`, glyph)
-  const memberKey = (n: ts.PropertyAccessExpression | ts.ElementAccessExpression): string | undefined =>
-    ts.isPropertyAccessExpression(n) ? n.name.text : ts.isStringLiteralLike(n.argumentExpression) || ts.isNumericLiteral(n.argumentExpression) ? n.argumentExpression.text : undefined
-  /** A namespace member's root, read by name or by a literal key (`Icons.SparkleIcon`, `Icons['QuotesIcon']`). */
-  const memberRoot = (n: ts.PropertyAccessExpression | ts.ElementAccessExpression): Root | undefined => {
-    const key = memberKey(n)
-    const glyph = key === undefined ? undefined : GLYPH_NAMES.get(key)
-    if (!glyph) return undefined
-    glyphOf.set(`m:${n.getStart(sf)}`, glyph)
-    return `m:${n.getStart(sf)}`
-  }
-  // Holders, read by name to a fixed point: a binding whose value is a glyph, and an object whose properties hold one.
-  const aliases = new Map<string, Set<Root>>()
-  const objects = new Map<string, Map<string, Set<Root>>>()
-  const objectRoots = (name: string): Root[] => [...objects.get(name)!.values()].flatMap((roots) => [...roots])
-  /** The roots a value holds; each node it reads them through is pushed to `leaves`. */
-  const held = (e: ts.Expression, leaves: ts.Node[]): Root[] => {
-    const x = unwrapHeld(e)
-    if (ts.isIdentifier(x)) {
-      const roots = local.has(x.text) ? [`n:${x.text}`] : drawn.has(x.text) ? [`d:${x.text}`]
-        : aliases.has(x.text) ? [...aliases.get(x.text)!] : objects.has(x.text) ? objectRoots(x.text) : []
-      if (roots.length) leaves.push(x)
-      return roots
-    }
-    if ((ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) && ts.isIdentifier(x.expression)) {
-      const owner = x.expression.text
+  /** The roots an expression is by itself: an import's or a stand-in's name, or a namespace's member by name or
+      literal key (`Icons.SparkleIcon`, `Icons['QuotesIcon']`). */
+  const rootsOf = (x: ts.Expression): Root[] | undefined => {
+    if (ts.isIdentifier(x)) return local.has(x.text) ? [`n:${x.text}`] : drawn.has(x.text) ? [`d:${x.text}`] : undefined
+    if ((ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) && ts.isIdentifier(x.expression) && namespaces.has(x.expression.text)) {
       const key = memberKey(x)
-      const roots = namespaces.has(owner) ? [memberRoot(x)].filter((root): root is Root => !!root)
-        : objects.has(owner) ? (key === undefined ? objectRoots(owner) : [...(objects.get(owner)!.get(key) ?? [])]) : []
-      if (roots.length) leaves.push(x)
-      return roots
+      const glyph = key === undefined ? undefined : GLYPH_NAMES.get(key)
+      if (!glyph) return undefined
+      glyphOf.set(`m:${x.getStart(sf)}`, glyph)
+      return [`m:${x.getStart(sf)}`]
     }
-    if (ts.isJsxSelfClosingElement(x) || ts.isJsxElement(x)) {
-      const tag = (ts.isJsxElement(x) ? x.openingElement : x).tagName
-      return ts.isIdentifier(tag) || ts.isPropertyAccessExpression(tag) ? held(tag, leaves) : []
-    }
-    if (ts.isConditionalExpression(x)) return [...held(x.whenTrue, leaves), ...held(x.whenFalse, leaves)]
-    if (ts.isBinaryExpression(x)) {
-      const op = x.operatorToken.kind
-      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return [...held(x.left, leaves), ...held(x.right, leaves)]
-      if (op === ts.SyntaxKind.AmpersandAmpersandToken) return held(x.right, leaves)
-    }
-    return []
+    return undefined
   }
-  const bindings: ts.VariableDeclaration[] = []
-  const collect = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && !local.has(node.name.text) && !drawn.has(node.name.text)) bindings.push(node)
-    ts.forEachChild(node, collect)
-  }
-  collect(sf)
-  const leavesOf = new Map<ts.VariableDeclaration, ts.Node[]>()
-  const heldSize = () => [...aliases.values()].reduce((sum, roots) => sum + roots.size, 0)
-    + [...objects.values()].reduce((sum, props) => sum + [...props.values()].reduce((n, roots) => n + roots.size, 0), 0)
-  for (let before = -1; before !== heldSize();) {
-    before = heldSize()
-    for (const d of bindings) {
-      const name = (d.name as ts.Identifier).text
-      const leaves: ts.Node[] = []
-      const value = unwrapHeld(d.initializer!)
-      if (ts.isObjectLiteralExpression(value)) {
-        const props = new Map<string, Set<Root>>()
-        for (const p of value.properties) {
-          // A spread of a glyph object copies its properties here, in order, so a later property overrides one.
-          if (ts.isSpreadAssignment(p)) {
-            const from = unwrapHeld(p.expression)
-            if (ts.isIdentifier(from) && from.text !== name && objects.has(from.text)) {
-              leaves.push(from)
-              for (const [key, roots] of objects.get(from.text)!) props.set(key, new Set(roots))
-            }
-            continue
-          }
-          if (!(ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p))) continue
-          if (!(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) || ts.isNumericLiteral(p.name))) continue
-          const roots = held(ts.isPropertyAssignment(p) ? p.initializer : p.name, leaves)
-          if (roots.length) props.set(p.name.text, new Set(roots))
-          else props.delete(p.name.text)
-        }
-        if (props.size) objects.set(name, props)
-      } else {
-        const roots = held(value, leaves)
-        if (roots.length) aliases.set(name, new Set(roots))
-      }
-      leavesOf.set(d, leaves)
-    }
-  }
-  // Each read of a root, a holder or a namespace member. A held leaf counts where its holder is read, and a closing
+  // What each same-file binding holds, by the reading the heading-icon clause shares (tests/unit/heldValues.ts).
+  const values = heldValues(sf, rootsOf)
+  // Each read of a root, of a holder or of a holder's member. A hold counts where its holder is read, and a closing
   // tag repeats its opening tag's name: one use.
-  const heldLeaves = new Set([...leavesOf.values()].flat())
   const uses = new Map<Root, number>()
   const tally = (roots: Iterable<Root>) => {
     for (const root of roots) uses.set(root, (uses.get(root) ?? 0) + 1)
@@ -290,25 +222,25 @@ export function glyphUses(source: string, fileName: string): Counts {
   const ownsMember = (n: ts.Identifier) => (ts.isPropertyAccessExpression(n.parent) || ts.isElementAccessExpression(n.parent)) && n.parent.expression === n
   const visit = (node: ts.Node): void => {
     if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) && node.text.includes('✨')) bump('SparkleIcon')
-    if (heldLeaves.has(node) || ts.isJsxClosingElement(node)) return
+    if (values.held.has(node) || ts.isJsxClosingElement(node)) return
     if (ts.isIdentifier(node) && isReference(node)) {
-      const name = node.text
-      if (local.has(name)) tally([`n:${name}`])
-      else if (drawn.has(name)) tally([`d:${name}`])
-      else if (aliases.has(name) && !declares(node)) tally(aliases.get(name)!)
-      // An object read whole (passed on, spread, iterated) reads every glyph it holds.
-      else if (objects.has(name) && !declares(node) && !ownsMember(node)) tally(objectRoots(name))
+      const own = rootsOf(node)
+      if (own) tally(own)
+      // A holder read whole (rendered, passed on, spread, iterated) reads every glyph it holds.
+      else if (!declares(node) && !ownsMember(node) && values.holders.has(node.text)) tally(leavesOf(values.holders.get(node.text)!))
     }
-    if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && ts.isIdentifier(node.expression)) {
-      const owner = node.expression.text
-      // A namespace's member, by name or by a literal key (`<Icons.SparkleIcon />`, `Icons['QuotesIcon']`).
-      if (namespaces.has(owner)) {
-        const root = memberRoot(node)
-        if (root) tally([root])
-      // An object's property by name or literal key, or every glyph it holds for a key the scan cannot read.
-      } else if (objects.has(owner)) {
-        const key = memberKey(node)
-        tally(key === undefined ? objectRoots(owner) : objects.get(owner)!.get(key) ?? [])
+    if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+      const own = rootsOf(node)
+      if (own) {
+        tally(own)
+        return
+      }
+      // A holder's member, by name or literal key and nested or not, or every glyph it holds for a key the scan
+      // cannot read: read here once, so its object is not read again whole.
+      const read = leavesOf(values.valueOf(node))
+      if (read.size > 0) {
+        tally(read)
+        return
       }
     }
     ts.forEachChild(node, visit)
@@ -425,5 +357,18 @@ describe('reserved glyphs keep their one meaning', () => {
       'export const E = () => <><copy.passage /><copy.passage /><copy.passage /><over.passage /></>',
     ].join('\n')
     expect(glyphUses(spread, 'features/zzprobe/Spread.tsx')).toEqual({ QuotesIcon: 3, SparkleIcon: 1 })
+    // A binding keeps the shape of what it holds (tests/unit/heldValues.ts): an alias of an object spread into another
+    // (the review's case, read three times), an object nested in another read through two members (twice), and a
+    // member destructured from an object (once).
+    const shapes = [
+      "import { QuotesIcon } from '@/lib/icons'",
+      'const base = { passage: QuotesIcon }',
+      'const alias = base',
+      'const copy = { ...alias }',
+      'const NEST = { inner: { passage: QuotesIcon } }',
+      'const { passage: Passage } = base',
+      'export const F = () => <><copy.passage /><copy.passage /><copy.passage /><NEST.inner.passage /><NEST.inner.passage /><Passage /></>',
+    ].join('\n')
+    expect(glyphUses(shapes, 'features/zzprobe/Shapes.tsx')).toEqual({ QuotesIcon: 6 })
   })
 })

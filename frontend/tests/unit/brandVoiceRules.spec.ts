@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { heldValues, leavesOf } from './heldValues'
 import { isIconModule } from './iconModules'
 
 /**
@@ -37,8 +38,9 @@ import { isIconModule } from './iconModules'
  *    ...Icon (a hand-drawn component named for its icon), or a same-file binding that holds one, read by its
  *    name to a fixed point (`const AlertMark = BellIcon`, `const Mark = Ph.Bell`, a conditional or a chain of
  *    them, a member destructured from an icon namespace), or an object's property that holds one (`<MARK.alert />`,
- *    and `MARK[kind]` held by a binding); and an icon element a binding holds, placed in the heading (`const mark =
- *    <BellIcon />` read as `{mark}`). An icon re-exported through another app module,
+ *    `MARK[kind]` held by a binding, a spread of the object, a nested member); and an icon element a binding holds,
+ *    placed in the heading (`const mark = <BellIcon />` read as `{mark}`). Bindings are read by the reading the glyph
+ *    gate shares (tests/unit/heldValues.ts). An icon re-exported through another app module,
  *    and a binding assigned an icon after its declaration, are review-checked.
  *  - developerWording: copy in lib/ and hooks/ (the fallback errors a user reads) never names the
  *    backend, an API path, a "reader" or an HTTP status number.
@@ -413,73 +415,33 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     if (bindings && ts.isNamedImports(bindings)) for (const el of bindings.elements) iconNames.add(el.name.text)
     if (bindings && ts.isNamespaceImport(bindings)) iconNamespaces.add(bindings.name.text)
   }
-  // An object whose properties hold icons (`const MARK = { alert: BellIcon }`), by the keys that hold one: a member
-  // read by its name or a literal key is that property, and one read by a key the scan cannot read may be any.
-  const iconObjects = new Map<string, Set<string>>()
-  const objectIcon = (x: ts.Expression): boolean => {
-    if (!(ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) || !ts.isIdentifier(x.expression)) return false
-    const keys = iconObjects.get(x.expression.text)
-    const key = ts.isPropertyAccessExpression(x) ? x.name.text : ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression.text : undefined
-    return !!keys && (key === undefined || keys.has(key))
-  }
-  const isIconTag = (n: ts.JsxOpeningLikeElement): boolean => {
-    const name = n.tagName
-    if (ts.isIdentifier(name)) return iconNames.has(name.text) || /Icon$/.test(name.text)
-    if (ts.isPropertyAccessExpression(name) && ts.isIdentifier(name.expression)) {
-      return iconNamespaces.has(name.expression.text) || /Icon$/.test(name.name.text) || objectIcon(name)
-    }
-    return /Icon$/.test(tagOf(n))
-  }
-  // A same-file binding that holds an icon is the icon too, read by its name to a fixed point: a const or let whose
-  // value is one (`const AlertMark = BellIcon`, `const Mark = Ph.Bell`, `const Mark = ok ? CheckIcon : WarningIcon`,
-  // a chain of them), and a member destructured from an icon namespace (`const { Bell: Mark } = Ph`). A binding
-  // that holds an icon element (`const mark = <BellIcon />`) puts the icon wherever it is placed.
-  const iconElements = new Set<string>()
-  const holds = (e: ts.Expression, leaf: (x: ts.Expression) => boolean): boolean => {
-    const x = unwrapHeld(e)
-    if (ts.isConditionalExpression(x)) return holds(x.whenTrue, leaf) || holds(x.whenFalse, leaf)
-    if (ts.isBinaryExpression(x)) {
-      const op = x.operatorToken.kind
-      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return holds(x.left, leaf) || holds(x.right, leaf)
-      if (op === ts.SyntaxKind.AmpersandAmpersandToken) return holds(x.right, leaf)
-    }
-    return leaf(x)
-  }
-  const isIconValue = (x: ts.Expression): boolean =>
-    (ts.isIdentifier(x) && (iconNames.has(x.text) || /Icon$/.test(x.text)))
-    || (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && (iconNamespaces.has(x.expression.text) || /Icon$/.test(x.name.text)))
-    || objectIcon(x)
-  const isIconElement = (x: ts.Expression): boolean =>
-    (ts.isJsxSelfClosingElement(x) && isIconTag(x)) || (ts.isJsxElement(x) && isIconTag(x.openingElement)) || (ts.isIdentifier(x) && iconElements.has(x.text))
-  const bindings: ts.VariableDeclaration[] = []
-  const collectBindings = (n: ts.Node): void => {
-    if (ts.isVariableDeclaration(n) && n.initializer) bindings.push(n)
-    ts.forEachChild(n, collectBindings)
-  }
-  collectBindings(sf)
-  for (let grew = true; grew;) {
-    grew = false
-    for (const d of bindings) {
-      const value = unwrapHeld(d.initializer!)
-      if (ts.isIdentifier(d.name) && ts.isObjectLiteralExpression(value)) {
-        for (const p of value.properties) {
-          if (!(ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p))) continue
-          if (!(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) || ts.isNumericLiteral(p.name))) continue
-          const keys = iconObjects.get(d.name.text) ?? new Set<string>()
-          if (!keys.has(p.name.text) && holds(ts.isPropertyAssignment(p) ? p.initializer : p.name, isIconValue)) {
-            iconObjects.set(d.name.text, keys.add(p.name.text))
-            grew = true
-          }
-        }
-      } else if (ts.isIdentifier(d.name)) {
-        if (!iconNames.has(d.name.text) && holds(value, isIconValue)) { iconNames.add(d.name.text); grew = true }
-        if (!iconElements.has(d.name.text) && holds(value, isIconElement)) { iconElements.add(d.name.text); grew = true }
-      } else if (ts.isObjectBindingPattern(d.name) && ts.isIdentifier(value) && iconNamespaces.has(value.text)) {
-        for (const el of d.name.elements) {
-          if (ts.isIdentifier(el.name) && !iconNames.has(el.name.text)) { iconNames.add(el.name.text); grew = true }
-        }
+  // A member destructured from an icon namespace (`const { Bell: Mark } = Ph`) is an icon by its import too.
+  const destructured = (n: ts.Node): void => {
+    if (ts.isVariableDeclaration(n) && ts.isObjectBindingPattern(n.name) && n.initializer) {
+      const from = unwrapHeld(n.initializer)
+      if (ts.isIdentifier(from) && iconNamespaces.has(from.text)) {
+        for (const el of n.name.elements) if (ts.isIdentifier(el.name)) iconNames.add(el.name.text)
       }
     }
+    ts.forEachChild(n, destructured)
+  }
+  destructured(sf)
+  // An icon by itself: a name bound to an icon import, a namespace's member, or a name ending in Icon (a hand-drawn
+  // component named for its icon).
+  const iconLeaf = (x: ts.Expression): Array<'icon'> | undefined =>
+    (ts.isIdentifier(x) && (iconNames.has(x.text) || /Icon$/.test(x.text)))
+    || (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && (iconNamespaces.has(x.expression.text) || /Icon$/.test(x.name.text)))
+      ? ['icon']
+      : undefined
+  // What each same-file binding holds, by the reading the glyph gate shares (tests/unit/heldValues.ts): an alias, a
+  // conditional, an element (`const mark = <BellIcon />`), an object's property, a spread or a nested member of one,
+  // a member destructured from one, each read by name to a fixed point.
+  const values = heldValues(sf, iconLeaf)
+  const holdsIcon = (e: ts.Expression) => leavesOf(values.valueOf(e)).size > 0
+  const isIconTag = (n: ts.JsxOpeningLikeElement): boolean => {
+    const name = n.tagName
+    if (ts.isIdentifier(name) || ts.isPropertyAccessExpression(name)) return holdsIcon(name)
+    return /Icon$/.test(tagOf(n))
   }
 
   const visit = (node: ts.Node, inMetadata: boolean): void => {
@@ -505,9 +467,10 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
         const find = (n: ts.Node) => {
           if (ts.isJsxElement(n) && CONTROLS.has(tagOf(n.openingElement))) return
           if ((ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) && isIconTag(n)) icons.push(n)
-          // An icon element a binding holds, placed in the heading (`{mark}`).
+          // An icon a binding or a member holds, placed in the heading (`{mark}`, `{MARK.alert}`); an inline element
+          // is read by its tag above.
           const placed = ts.isJsxExpression(n) && n.expression ? unwrapHeld(n.expression) : undefined
-          if (placed && ts.isIdentifier(placed) && iconElements.has(placed.text)) icons.push(n)
+          if (placed && (ts.isIdentifier(placed) || ts.isPropertyAccessExpression(placed) || ts.isElementAccessExpression(placed)) && holdsIcon(placed)) icons.push(n)
           ts.forEachChild(n, find)
         }
         node.children.forEach(find)
@@ -677,6 +640,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       "      <p>{'Great!!'}</p>",
       '      <p>Really!?</p>',
       '      <span>Hello!Welcome</span>',
+      '      <h2><marks.alert />Alerts</h2>',
+      '      <h2><NESTED.group.alert />Alerts</h2>',
       '    </div>',
       '  )',
       '}',
@@ -703,6 +668,10 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       // A RegExp's source is code: its lookbehind and its class of sentence stops are not exclamations.
       "const END = new RegExp('(?<!\\b[A-Za-z])[.!?](?=\\s)', 'u')",
       "const STOP = RegExp('(?<!Mr)[.!?]$')",
+      // An icon object copied by a spread, and one nested in another object.
+      'const base = { alert: BellIcon }',
+      'const marks = { ...base }',
+      'const NESTED = { group: { alert: BellIcon } }',
     ].join('\n')
     expect(voiceFindings(src, 'features/probe/Probe.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '2 sentenceCase',
@@ -767,6 +736,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '56 exclamation',
       '57 exclamation',
       '58 exclamation',
+      // An icon object's property through a spread of it (line 59) and through a nested object (line 60).
+      '59 headingIcon',
+      '60 headingIcon',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
