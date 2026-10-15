@@ -107,12 +107,19 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     "const EYEBROW = 'text-xs uppercase tracking-eyebrow'\nexport const Label = () => <dt className={EYEBROW}>Change</dt>",
     // Prose that opens with an insider form's name is copy, as it is for a numbered code.
     '<p className="uppercase tracking-eyebrow">Form 4 filings this week</p>',
+    // The letters after a dash are each form family's own: a span of years or a rank is not a form.
+    '<span className="uppercase tracking-eyebrow">10-year</span>',
+    '<Badge>Top 10</Badge>',
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
     // The insider forms are written as words (the search's "Form 4" chip sends `4`): a code to this rule too.
     { code: '<Badge>Form 4</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">Form 4</span>', errors: [{ messageId: 'chip' }] },
+    // The other families the product renders: the ownership filings the notable-filing card shows, a fund's holdings report.
+    { code: '<span className="uppercase tracking-eyebrow">SC 13D</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<Badge>13F-HR</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{"SC 13D/A · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge variant="neutral">{data.filingType}</Badge>', errors: [{ messageId: 'badge' }] },
     {
       code: "<Badge variant={/10-Q|6-K/i.test(filing.filing_type) ? 'info' : 'neutral'}>{form}</Badge>",
@@ -418,6 +425,29 @@ describe('the repository config', SLOW, () => {
       'earningsnerd/no-unguarded-animation',
     ])
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
+  })
+
+  it('reads the eyebrow recipe behind `as const` or `satisfies` through the app parser (typescript-eslint)', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const [result] = await eslint.lintText(
+      [
+        "const EYEBROW = 'uppercase tracking-eyebrow' as const",
+        "const META = 'text-xs uppercase tracking-eyebrow' satisfies string",
+        "const DATA = 'font-data text-text-primary-light' as const",
+        'export function Probe({ form, ago }: { form: string; ago: string }) {',
+        '  return (',
+        '    <>',
+        '      <span className={EYEBROW}>{form}</span>',
+        '      <p className={`${META} mt-1`}>{form} · Filed {ago}</p>',
+        '      <span className={DATA}>{form}</span>',
+        '    </>',
+        '  )',
+        '}',
+        '',
+      ].join('\n'),
+      { filePath: path.join(frontendRoot, 'app/design-rules-probe.tsx') },
+    )
+    expect(result.messages.map((m) => `${m.line} ${m.ruleId}`)).toEqual(['7 earningsnerd/no-form-code-badge', '8 earningsnerd/no-form-code-badge'])
   })
 
   it('reads a same-file wrapper and the DS Button under another name through the app parser (typescript-eslint)', async () => {

@@ -10,7 +10,8 @@
 //                       text that is always there around it), so `border-l-4 ${tone} … rounded-xl`
 //                       is caught although no single literal holds both classes. A primitive that
 //                       always rounds itself (Card) needs no rounded-* beside the stripe.
-//   no-form-code-badge  (P-04) A form code (10-K, 10-Q, 6-K …, and the insider forms the product
+//   no-form-code-badge  (P-04) A form code (the form families EDGAR writes, 10-K, 10-Q, 8-K, SC 13D,
+//                       S-1, DEF 14A and their kin, FORM_CODES, and the insider forms the product
 //                       writes as words, Form 3, Form 4 and Form 5) is text in the data face, never a
 //                       Badge: a blue chip on 10-Q spent the status colour on a category, and a
 //                       neutral one still reads as a status. The rule flags a <Badge> (or ui.Badge)
@@ -125,10 +126,16 @@ const DESCRIPTIVE_PROP = /^(title|alt|aria-[a-z]+)$/
 const isBadge = (name) =>
   (name?.type === 'JSXIdentifier' && name.name === 'Badge') ||
   (name?.type === 'JSXMemberExpression' && name.property.name === 'Badge')
-// The numbered codes, and the insider forms written as words: the search's chip labels the code 4 "Form 4".
-const FORM_CODE = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A|Form\s[345])(\/A)?\s*$/i
+// The form families the product renders, written as EDGAR writes them: the periodic and current reports
+// (10-K, 10-Q, 10-KT, 20-F, 40-F, 11-K, 8-K, 6-K, 1-A, 1-K, 1-U), the registration statements (S-1 to
+// S-11, F-1 to F-4, the 424B prospectuses), the ownership and tender families (SC 13D, SC 13G, SC TO,
+// SC 14D9, 13F-HR, 13F-NT), the proxy family (DEF 14A, DEFA14A, DEFM14A, PRE 14A), the fund reports
+// (N-CSR, N-Q, N-PX, N-1A, N-2) and the insider forms written as words (the search's chip labels the
+// code 4 "Form 4"). The letters after a dash are each family's own, so "10-year" and "Top 10" are not forms.
+const FORM_CODES = String.raw`(?:10|20|40|11)-[KQF]T?|[86]-K|1-[AKU]|13F-(?:HR|NT)|SC 13[DG]|SC TO-[ICT]|SC 14D9|(?:DEF|DEFA|DEFM|PRE) ?14A|[SF]-(?:1|3|4|8|11)|424B\d|N-(?:CSR|Q|PX|1A|2)|Form\s[345]`
+const FORM_CODE = new RegExp(String.raw`^\s*(${FORM_CODES})(\/A)?\s*$`, 'i')
 // A text child that opens with a form code and then only a separator (`10-Q · Filed `), never prose (`10-K filings`).
-const FORM_CODE_LEAD = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A|Form\s[345])(\/A)?\s*($|[·•|])/i
+const FORM_CODE_LEAD = new RegExp(String.raw`^\s*(${FORM_CODES})(\/A)?\s*($|[·•|])`, 'i')
 const CHIP_CLASS = /^(class|className)$/
 const EYEBROW_CHIP = [/(^|:)uppercase$/, /(^|:)tracking-eyebrow$/]
 // The helpers a class binding may call: `const EYEBROW = cx('uppercase', 'tracking-eyebrow')`.
@@ -147,12 +154,23 @@ function attributeText(node, keys, binding, out = []) {
   return out
 }
 
-/** A binding initializer read as class text: a string, a template, or a cx()/clsx() call. An object of
- *  recipes, a function or any other expression is not, so `styles.data` never reads `styles.chip`. */
-const isClassShaped = (init) =>
-  (init?.type === 'Literal' && typeof init.value === 'string') ||
-  init?.type === 'TemplateLiteral' ||
-  (init?.type === 'CallExpression' && init.callee.type === 'Identifier' && CLASS_HELPER.test(init.callee.name))
+/** The expression under TypeScript's wrappers, which change its type and not its text: `as const`,
+ *  `satisfies`, a non-null `!` and the angle-bracket assertion. */
+const unwrapTs = (node) => {
+  while (node && /^TS(?:As|Satisfies|NonNull|TypeAssertion)Expression$|^TSTypeAssertion$/.test(node.type)) node = node.expression
+  return node
+}
+/** A binding initializer read as class text: a string, a template, or a cx()/clsx() call, under TypeScript's
+ *  wrappers or not (`'uppercase tracking-eyebrow' as const`). An object of recipes, a function or any other
+ *  expression is not, so `styles.data` never reads `styles.chip`. */
+const isClassShaped = (raw) => {
+  const init = unwrapTs(raw)
+  return (
+    (init?.type === 'Literal' && typeof init.value === 'string') ||
+    init?.type === 'TemplateLiteral' ||
+    (init?.type === 'CallExpression' && init.callee.type === 'Identifier' && CLASS_HELPER.test(init.callee.name))
+  )
+}
 
 /** The variable an identifier reads, from ESLint's scope analysis; null for a name that is not a
  *  reference (a property key) and for a global. */
