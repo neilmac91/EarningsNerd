@@ -11,9 +11,9 @@ import {
   InsiderTransaction,
 } from '@/features/insiders/api/insiders-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtScale } from '@/lib/format'
+import { fmtCurrency, fmtShares } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { Badge, Card, DataTable, Skeleton, type Column } from '@/components/ui'
+import { Badge, Card, DataTable, SegmentedControl, Skeleton, type Column } from '@/components/ui'
 
 const WINDOWS: { days: number; label: string }[] = [
   { days: 90, label: '90D' },
@@ -23,8 +23,8 @@ const WINDOWS: { days: number; label: string }[] = [
 
 const MAX_ROWS = 8
 
-const fmtShares = (n: number | null | undefined): string =>
-  n === null || n === undefined ? '—' : fmtScale(Math.abs(n), { digits: 1 })
+const shares = (n: number | null | undefined, options?: { signed?: boolean }): string =>
+  n === null || n === undefined ? '—' : fmtShares(n, options)
 
 const fmtMoney = (n: number | null | undefined): string =>
   n === null || n === undefined ? '—' : fmtCurrency(Math.abs(n), { compact: true })
@@ -45,8 +45,8 @@ function isBuy(t: InsiderTransaction): boolean {
 }
 
 // v2 DataTable columns: Shares/Value/Date are numeric (data face + tabular-nums,
-// right-aligned); the Type cell tone carries buy/sell as gain/loss — the label
-// text ("Buy"/"Sell") means color is never the sole cue.
+// right-aligned); the Type cell tone carries buy/sell as gain/loss, with a ▲/▼ glyph
+// and the label text ("Buy"/"Sell"), so color is never the sole cue.
 const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
   {
     key: 'insider',
@@ -66,6 +66,7 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
     tone: (t) => (isBuy(t) ? 'gain' : 'loss'),
     render: (t) => (
       <>
+        <span aria-hidden="true">{isBuy(t) ? '▲' : '▼'} </span>
         {t.transaction_label ?? (isBuy(t) ? 'Buy' : 'Sell')}
         {t.is_10b5_1 && (
           <Badge variant="neutral" icon={null} className="ml-1.5">
@@ -75,7 +76,7 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
       </>
     ),
   },
-  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => fmtShares(t.shares) },
+  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => shares(t.shares) },
   { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => fmtMoney(t.value) },
   { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? '—' },
 ]
@@ -114,7 +115,7 @@ export default function InsiderActivityPanel({
   if (isFpi) {
     return (
       <Card as="section" className="mb-8 p-6">
-        <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
+        <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Insider (Form&nbsp;4) reporting is not generally required for foreign private issuers, so
           no open-market insider trades are available for this company.
@@ -146,29 +147,19 @@ export default function InsiderActivityPanel({
       : direction === 'sell'
         ? 'Net insider selling'
         : 'Balanced insider activity'
-  const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
+  const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${shares(signalValue)} shares`
 
   return (
     <Card as="section" className="mb-8 p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Select window">
-          {WINDOWS.map((w) => (
-            <button
-              key={w.days}
-              type="button"
-              onClick={() => setWindowDays(w.days)}
-              aria-pressed={w.days === windowDays}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                w.days === windowDays
-                  ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
-                  : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
-              }`}
-            >
-              {w.label}
-            </button>
-          ))}
-        </div>
+        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
+        <SegmentedControl
+          label="Time window"
+          size="adaptive"
+          value={String(windowDays)}
+          onChange={(v) => setWindowDays(Number(v))}
+          options={WINDOWS.map((w) => ({ value: String(w.days), label: w.label, mono: true }))}
+        />
       </div>
 
       {isLoading && !hasTrades ? (
@@ -192,9 +183,9 @@ export default function InsiderActivityPanel({
               </p>
               {planSells > 0 && (
                 <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-                  Excludes {fmtShares(planSells)} shares sold under pre-scheduled 10b5-1 plans
+                  Excludes {shares(planSells)} shares sold under pre-scheduled 10b5-1 plans
                   {summary.discretionary_net_shares !== summary.net_shares && (
-                    <> · discretionary net {fmtShares(summary.discretionary_net_shares)} shares</>
+                    <> · discretionary net {shares(summary.discretionary_net_shares, { signed: true })} shares</>
                   )}
                 </p>
               )}
@@ -208,7 +199,7 @@ export default function InsiderActivityPanel({
                 Buys ({summary.buy_count})
               </p>
               <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {fmtMoney(summary.buy_value) !== '—' ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
+                {fmtMoney(summary.buy_value) !== '—' ? fmtMoney(summary.buy_value) : `${shares(summary.buy_shares)} sh`}
               </p>
             </div>
             <div className="rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
@@ -216,7 +207,7 @@ export default function InsiderActivityPanel({
                 Sells ({summary.sell_count})
               </p>
               <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {fmtMoney(summary.sell_value) !== '—' ? fmtMoney(summary.sell_value) : `${fmtShares(summary.sell_shares)} sh`}
+                {fmtMoney(summary.sell_value) !== '—' ? fmtMoney(summary.sell_value) : `${shares(summary.sell_shares)} sh`}
               </p>
             </div>
             <div className="rounded-lg bg-background-light p-3 dark:bg-white/5">
@@ -239,7 +230,7 @@ export default function InsiderActivityPanel({
       )}
 
       <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-        Open-market Form 4 trades from SEC EDGAR. 10b5-1 marks pre-scheduled trades (weaker signal).
+        Open-market Form 4 trades from SEC EDGAR. 10b5-1 marks a trade scheduled in advance under a trading plan.
       </p>
     </Card>
   )
