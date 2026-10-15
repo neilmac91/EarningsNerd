@@ -172,19 +172,38 @@ def test_a_developers_database_url_never_reaches_the_suite(tmp_path):
     assert not developer.exists()
 
 
+_PROBE_PREFIXES = ("test_probe_", "test_isolation_")  # both halves of a pair
+
+
+def _probe_ids(body: list[ast.stmt], prefix: str) -> set[str]:
+    """The probes defined in a module or class body, as pytest node ids (Class::method in a class)."""
+    found = set()
+    for node in body:
+        if isinstance(node, ast.ClassDef):
+            found |= _probe_ids(node.body, f"{prefix}::{node.name}")
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(_PROBE_PREFIXES):
+            found.add(f"{prefix}::{node.name}")
+    return found
+
+
 def test_every_isolation_probe_runs_in_the_ordered_process():
     # Under -n auto a probe pair outside _ORDERED_PROBES holds only when xdist keeps it together.
     probes = set()
     for path in sorted((BACKEND_DIR / "tests").rglob("test_*.py")):
         source = path.read_text(encoding="utf-8")
-        if "probe" in source:
-            probes |= {
-                f"{path.relative_to(BACKEND_DIR).as_posix()}::{node.name}"
-                for node in ast.parse(source).body
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and node.name.startswith(("test_probe_", "test_isolation_"))  # both halves of a pair
-            }
+        if any(prefix in source for prefix in _PROBE_PREFIXES):
+            probes |= _probe_ids(ast.parse(source).body, path.relative_to(BACKEND_DIR).as_posix())
     assert probes and probes <= set(_ORDERED_PROBES), sorted(probes - set(_ORDERED_PROBES))
+
+
+def test_the_probe_scan_reads_class_methods_and_both_prefixes():
+    source = (
+        "def test_isolation_next_test_sees_it():\n    pass\n"
+        "class TestPair:\n    def test_probe_dirties(self):\n        pass\n    def test_other(self):\n        pass\n"
+    )
+    assert _probe_ids(ast.parse(source).body, "t.py") == {
+        "t.py::test_isolation_next_test_sees_it", "t.py::TestPair::test_probe_dirties",
+    }
 
 
 def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
