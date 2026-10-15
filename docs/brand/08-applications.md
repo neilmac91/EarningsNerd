@@ -63,15 +63,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   beside a `<name>-dark` such as `brand-weak`, to a `dark:` colour twin, outside a listed residue of
   fourteen files). The login page's Google and Apple account-conflict error names the
   provider tried: "This email already has an EarningsNerd account, and the two could not be linked.
-  Sign in the way you created that account, verify your email, and Google will link once both sides
-  have verified it." The register subhead follows the server's config: under the invite gate an
+  Sign in the way you created that account and verify your email. Once the email is verified on
+  EarningsNerd and Google, try Google again." (verifying links nothing by itself; the provider links on
+  that later sign-in). The register subhead follows the server's config: under the invite gate an
   invited visitor is promised Pro only while the beta promo is on (`betaPricingActive`), otherwise
   reads "Your invite opens an account during the private beta."; an uninvited visitor under the gate
   gets no subhead, the private-beta notice says it; open registration shows the free-plan line to
   everyone, invited or not. That invite-path Pro line is a founder claim, like the pricing pages'
-  "Unlimited" line (the founder's review files both under F32, now F41 on brand-public-pages, #1311):
-  this one is conditional on the server's promo config, while the pricing lines wait on F41's
-  decision. Every page link and button on these routes carries the brand focus ring.
+  "Unlimited" line (the founder's review filed both under F32, later F41): this one is conditional on
+  the server's promo config, and D-040 keeps "Unlimited" on the plan cards, with the fair-use guardrail
+  stated once after the series (E58). Every page link and button on these routes carries the brand
+  focus ring.
 - **Pricing** (`frontend/app/pricing/page.tsx`): the free plan's call to action reads the
   registration mode (`features/marketing/api/access-api.ts`, the client twin of the server's
   `fetchSignupConfig`), so a guest under the invite gate sees "Request an invite" and goes to the

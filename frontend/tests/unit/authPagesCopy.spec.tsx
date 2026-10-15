@@ -165,19 +165,22 @@ describe('reset password', () => {
 describe('login: an OAuth account conflict', () => {
   // One sentence for the three paths behind both codes (backend/app/services/oauth_account_service.py): an
   // unverified email on the account or at the provider, and a lost first-sign-in race. The account may have
-  // no password, so the sentence never sends the reader to one.
+  // no password, so the sentence never sends the reader to one. Verifying links nothing by itself: the
+  // provider links on a later sign-in through it (resolve_google_user, resolve_apple_user), so the
+  // sentence ends on that next step.
   it.each([
     ['google_account_conflict', 'Google'],
     ['apple_account_conflict', 'Apple'],
-  ])('%s names the provider tried and the way back', (code, provider) => {
+  ])('%s names the provider tried, the way back, and the sign-in that links it', (code, provider) => {
     useSearchParams.mockReturnValue(new URLSearchParams(`error=${code}`))
     withQueryClient(<LoginPage />)
     expect(
       screen.getByText(
-        `This email already has an EarningsNerd account, and the two could not be linked. Sign in the way you created that account, verify your email, and ${provider} will link once both sides have verified it.`,
+        `This email already has an EarningsNerd account, and the two could not be linked. Sign in the way you created that account and verify your email. Once the email is verified on EarningsNerd and ${provider}, try ${provider} again.`,
       ),
     ).toBeInTheDocument()
     expect(screen.queryByText(/password instead/i)).toBeNull()
+    expect(screen.queryByText(/will link/i)).toBeNull()
   })
 })
 
@@ -191,7 +194,7 @@ describe('verification banner and dialog', () => {
     ])
   })
 
-  it('the banner says verifying unlocks subscribing, the one action that refuses an unverified email', async () => {
+  it('the banner says verifying unlocks subscribing: checkout is the one feature gated on it (linking Google or Apple also waits on it)', async () => {
     sessionStorage.clear()
     vi.mocked(getCurrentUserSafe).mockResolvedValue({ id: 1, email: 'a@example.com', email_verified: false } as never)
     withQueryClient(<VerificationBanner />)

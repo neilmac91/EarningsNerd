@@ -20,7 +20,9 @@ Apple sign-in to an existing account waits on both sides' verification, as the s
 sentence said. The verification dialog kept the first claim, and its "We sent a link to" on an
 action that sends nothing, because only its comment had been edited. The founder's review also found
 the account-conflict sentence sending every reader to a password, which an account created through
-Google or Apple does not have and which a lost first-sign-in race does not call for.
+Google or Apple does not have and which a lost first-sign-in race does not call for. Its rewrite
+then said "Google will link once both sides have verified it", which reads as automatic: verifying
+links nothing, and the provider links only on a later sign-in through it (the principal review).
 
 **Rule**:
 - Before writing "withheld", "verified", "the filing's own words", "every", "any company" or a
@@ -37,6 +39,9 @@ Google or Apple does not have and which a lost first-sign-in race does not call 
   comment, a record, a mail) and fix or hand off every copy in the same change.
 - An error's remedy is a promise for every path that sends its code: read each raise site before
   naming what the reader should do.
+- A remedy names the reader's next action. When the code acts only on a later request (a provider
+  links on the next sign-in through it), say that request ("try Google again"), never that the
+  change happens by itself.
 
 **Evidence**: founder review 5484603342 on PR #1226 (P2, quote guarantee);
 `backend/app/services/ai/forward_quote_gate.py`, `backend/app/config.py` (`AI_FORWARD_QUOTE_GATE`),
@@ -44,7 +49,8 @@ Google or Apple does not have and which a lost first-sign-in race does not call 
 `frontend/features/marketing/components/MeasuredClaims.tsx`, `TrustStrip.tsx`, `EvidenceSection.tsx`;
 `brandCopyRules.spec.ts` rule 1c, which fails on the three reviewed sites. Founder review 5511059785 on
 PR #1310 (P2, the banner's generation gate; P3, the account-conflict remedy) and that PR's second
-review (the dialog's sentence, the "only checkout" records); `backend/app/routers/subscriptions.py`
+review (the dialog's sentence, the "only checkout" records), and the principal review's P3 of
+2026-10-14 on the same PR (the conflict sentence's automatic linking); `backend/app/routers/subscriptions.py`
 (the one 403), `backend/app/services/oauth_account_service.py` (linking waits on both sides);
 `frontend/tests/unit/authPagesCopy.spec.tsx`, whose dialog and 403 cases hold the scoped lines to
 that route.

@@ -25,10 +25,11 @@ import { Button, Input, Notice } from '@/components/ui'
  * (`backend/app/services/oauth_account_service.py`): the email is unverified on the account or at the
  * provider, or this first sign-in lost a race to a parallel one that created the account. The account
  * may have no password (made through a provider), so the sentence sends the reader back the way it was
- * made, and says when the provider links: only once both sides have verified the email.
+ * made. Verifying links nothing by itself: `resolve_google_user` / `resolve_apple_user` link on a later
+ * provider sign-in, once both sides have verified the email, so the sentence names that next step.
  */
 const accountConflict = (provider: 'Google' | 'Apple') =>
-  `This email already has an EarningsNerd account, and the two could not be linked. Sign in the way you created that account, verify your email, and ${provider} will link once both sides have verified it.`
+  `This email already has an EarningsNerd account, and the two could not be linked. Sign in the way you created that account and verify your email. Once the email is verified on EarningsNerd and ${provider}, try ${provider} again.`
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_denied: 'Google sign-in was cancelled.',
