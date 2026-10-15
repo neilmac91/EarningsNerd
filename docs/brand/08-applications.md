@@ -108,6 +108,31 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
   the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays.
+- **Company page** (`frontend/app/company/[ticker]/page-client.tsx`,
+  `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
+  `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
+  `features/filings/components/FilingIndex.tsx`): a company that fails
+  to load says "Couldn’t load this company" with a Retry and never prints the raw error; only a 404
+  reads "Company not found", an answer in the empty card (the error card stays for the load failure),
+  with the search's scope ("No company with a ticker on SEC EDGAR matches
+  …"). The watched star keeps the button's own ink, its fill and `aria-pressed` carrying the state. The
+  search field reads "Search company or ticker" everywhere (the landing's string) and its result rows
+  take the inset focus ring. Sector peers and financial trends pick their metric through a compact select
+  sized to its content beside its "Metric" label (nine and up to 23 options, in sentence case on its
+  face); insider activity picks its window through the SegmentedControl; headings in sentence case; the
+  percentile is an ordinal ("21st percentile"); a trade's type carries a hidden ▲ or ▼ beside its
+  label and the discretionary net keeps its sign; the 10b5-1 note says what a plan trade is. "Full
+  history on SEC EDGAR" opens the company's EDGAR list through the shared company link the lead
+  uses (`edgarCompanyUrl`: every form, and EDGAR's own defaults in place of the old `owner=include`
+  and `count=40`), in the filing identity's quiet link. `earningsnerd/no-hand-rolled-toggle-group`
+  (new ESLint rule) fails a hand-built role="group" of pressed buttons outside the SegmentedControl's own
+  file, reading a pressed `<button>` or `<Button>` in the group's own markup, through a same-file wrapper
+  and through the DS Button under another name (a row without role="group", an imported wrapper and a
+  wrapper of a wrapper are outside its reach, review-checked); `tests/unit/segmentedControlOptionCount.spec.ts`
+  (new) fails a SegmentedControl given more than five options, so a long set takes the compact select,
+  and the filings form filter, a set known only at run time, renders as the toolbar's compact select
+  past five (a filer with both domestic and foreign forms), so no SegmentedControl ever shows more than
+  five; `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).

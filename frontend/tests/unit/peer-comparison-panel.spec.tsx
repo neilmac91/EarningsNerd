@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // recharts measures the DOM, which jsdom can't — stub it for deterministic rendering.
@@ -66,12 +66,43 @@ describe('PeerComparisonPanel', () => {
     getPeers.mockResolvedValue(RESP)
     renderPanel()
 
-    expect(await screen.findByText('Sector Peers')).toBeInTheDocument()
+    expect(await screen.findByText('Sector peers')).toBeInTheDocument()
     expect(screen.getByText(/#3/)).toBeInTheDocument()
     expect(screen.getByText(/of 3 on Revenue/)).toBeInTheDocument()
+    // The percentile reads as an ordinal (CO-13): 0 is "0th", and 1, 2, 3 and 21 take st, nd, rd, st.
+    expect(screen.getByText(/of 3 on Revenue/)).toHaveTextContent('· 0th percentile')
     expect(screen.getByTestId('peers-chart')).toBeInTheDocument()
     // Clean data → no honesty badge.
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
+  })
+
+  it('reads a percentile as an English ordinal', async () => {
+    getPeers.mockResolvedValue({ ...RESP, subject: peer('AAPL', 100, true, 3, 21.4) })
+    renderPanel()
+    expect(await screen.findByText(/of 3 on Revenue/)).toHaveTextContent('· 21st percentile')
+  })
+
+  it('picks the metric through a compact select beside its "Metric" label (CO-15), its options in sentence case', async () => {
+    getPeers.mockResolvedValue(RESP)
+    renderPanel()
+    const picker = await screen.findByRole('combobox', { name: 'Metric' })
+    expect(picker.tagName).toBe('SELECT')
+    expect(picker.closest('label')).toHaveTextContent(/^Metric/)
+    // inputClasses({ select: true, autoWidth: true }): sized to its content, capped at its container,
+    // with the field's brand focus ring; nine metrics are never a row of pressed segments.
+    expect(picker.className).toContain('max-w-full')
+    expect(picker.className).not.toMatch(/(^| )w-full( |$)/)
+    expect(picker.className).toContain('focus:shadow-ring-brand')
+    expect(screen.queryByRole('group', { name: 'Metric' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Revenue' })).toBeNull()
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Revenue', 'Net income', 'Gross profit', 'Operating income', 'Net margin', 'Operating margin',
+      'Gross margin', 'Diluted EPS', 'Total assets',
+    ])
+    expect(picker).toHaveValue('revenue')
+    fireEvent.change(picker, { target: { value: 'net_income' } })
+    await waitFor(() => expect(getPeers).toHaveBeenCalledWith('AAPL', 'net_income'))
+    expect(picker).toHaveValue('net_income')
   })
 
   it('shows a source check when a shown value is flagged', async () => {
@@ -104,6 +135,6 @@ describe('PeerComparisonPanel', () => {
     })
     renderPanel()
 
-    await waitFor(() => expect(screen.queryByText('Sector Peers')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Sector peers')).not.toBeInTheDocument())
   })
 })

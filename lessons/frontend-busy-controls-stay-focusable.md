@@ -234,6 +234,9 @@ that starts no focus) and needs a touch-device pass. Fixed, all on
 RetryButton: the dashboard's account, plan and Your companies Retry buttons, FilingFeed's Retry, the
 company page's filings Retry (`FilingIndex.spec.tsx` for the control, `busyControls.watchlist.spec.tsx` for the
 hold through its retry and the hand-off to the "SEC filings" heading; its pins removed from the Retry gate in #1147),
+the company page's company Retry (`company-page-lead.spec.tsx`: the card and its busy, focused Retry held through
+the retry instead of the page spinner, then the hand-off to the "SEC filings" heading, the not-found title on a 404,
+or the coverage card's title for an unsupported issuer; a 404 card held through a background refetch, #1292),
 CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when it goes), the pricing
 page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
 `CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,
