@@ -27,11 +27,23 @@ The review source remains 1f12fc835fcbf525042473ab0e988b4827734f38. Delivery mai
 
 The plugin storage write succeeded and its trend helper returned the new entry, 28/40, one P0 and four P1 instrument issues. The complete report adds the wider census findings. No mutation proof applies to this records-only PR; future gate-changing plan items name their required proof.
 
+## Publication follow-up
+
+The independent [scan review](scan-review.md) confirms a false positive in the design inventory's radius identifier. Its identifier field was renamed without changing source values or counts. Gitleaks 8.24.3, verified against the CI-pinned SHA-256, reports no leaks in the current records directory. The exact unpublished [exception patch](data/proposed-secret-scan-exception.patch) covers only the already-published commit's finding. With that one pin supplied through a scratch ignore file, the unchanged full-history command produced:
+
+```text
+10:41AM INF 2129 commits scanned.
+10:41AM INF scanned ~76932398 bytes (76.93 MB) in 5.33s
+10:41AM INF no leaks found
+```
+
+The gate configuration is unchanged. Its history false positive remains a merge blocker until the gate owner accepts that exact exception. The draft-only review-gate failure is expected and no ready/merge action was taken. Codex completed the first published head without major issues; the final records-format follow-up is re-requested and its completion recorded in the PR body.
+
 Final records-check tail:
 
 ```text
-  "markdown_files": 12,
-  "links_checked": 1523,
+  "markdown_files": 13,
+  "links_checked": 1527,
   "immutable_source_line_links": 745,
   "json_archives_parsed": 35,
   "jpeg_files": 339,
@@ -40,4 +52,4 @@ Final records-check tail:
 }
 ```
 
-The storage helper emitted trailing whitespace after an empty YAML field; that whitespace was normalized. `git diff --check` on the complete records diff then produced no output and exited 0. No frontend/application test result is implied.
+The storage helper emitted trailing whitespace after an empty YAML field; it was normalized before the complete-diff whitespace check. No frontend/application test result is implied by the records check.
