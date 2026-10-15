@@ -361,12 +361,15 @@ class TestAnalysisPdfHtml:
             mode="annual",
             period_key="FY2022..FY2024",
             narrative_md=(
-                "## The trajectory\nRevenue grew from $1,000 [1] to <b>$1,500</b> [2].\n\n"
+                # The CAGR sentence as observations.py writes it: the stored window key, "..".
+                "## The trajectory\nRevenue grew from $1,000 [1] to <b>$1,500</b> [2]. "
+                "Revenue CAGR was 22.5% over FY2022..FY2024 [3].\n\n"
                 "## Red flags\nNothing structural in these numbers."
             ),
             citations_json=[
                 {"n": 1, "excerpt": "Revenue = 1,000 USD (FY2022)", "section_ref": "XBRL · us-gaap:Revenues"},
                 {"n": 2, "excerpt": "Revenue = 1,500 USD (FY2024)", "section_ref": "XBRL · us-gaap:Revenues"},
+                {"n": 3, "excerpt": "Revenue CAGR = 22.5% (FY2022..FY2024)", "section_ref": "Computed · CAGR"},
             ],
             dataset_json={
                 "mode": "annual", "period_key": "FY2022..FY2024",
@@ -597,7 +600,12 @@ class TestAnalysisPdfHtml:
         html = ExportService().generate_analysis_pdf_html(analysis, self._company())
         assert "<h1>Test &amp; Co · Multi-Period Analysis</h1>" in html
         assert "<h2>Sources &amp; methods</h2>" in html and "appear in Sources &amp; methods." in html
+        # The window reads as a range in the meta line, the narrative's CAGR sentence and its source.
         assert '<span class="data">FY2022–FY2024</span>' in html and "FY2022..FY2024" not in html
+        assert "Revenue CAGR was 22.5% over FY2022–FY2024 [3]" in html
+        assert "Revenue CAGR = 22.5% (FY2022–FY2024)" in html
+        # Display only: the stored narrative and citations keep the key.
+        assert "FY2022..FY2024 [3]" in analysis.narrative_md and analysis.citations_json[2]["excerpt"].endswith("(FY2022..FY2024)")
         assert '<span class="ref">(1 figure)</span>' in html
         assert '<span class="ref">(3 figures)</span>' in html and "0 comparisons" not in html
 

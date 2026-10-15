@@ -421,7 +421,10 @@ class ExportService:
         citation_items, marks = self._analysis_citations(citations, notes)
         # Storage keeps raw operand tails for older tabs. Format a PDF-only copy;
         # the shared precision policy retains distinct amounts that would round alike.
-        narrative = self._narrative_to_html(compact_narrative_text(analysis.narrative_md or ""))
+        # The export's period_label then prints a window key ("FY2016..FY2025" in the CAGR
+        # sentence) as the range the rest of this PDF prints; it runs after the compaction, whose
+        # evidence offsets index the stored text. The web and the stored narrative are unchanged.
+        narrative = self._narrative_to_html(period_label(compact_narrative_text(analysis.narrative_md or "")))
         narrative = re.sub(r"\[(\d+)\]", lambda match: match[0] + marks.get(match[1], ""), narrative)
         generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
         generated = iso_z(ensure_utc(generated_at)) if generated_at else "Not recorded"

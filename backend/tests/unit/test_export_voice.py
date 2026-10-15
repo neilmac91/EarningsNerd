@@ -8,7 +8,9 @@ that reach every fixed line the four export modules write, and fails on:
 
 1. an em-dash, unless the cell or text run is the bare null token "—" (the one sanctioned em-dash);
 2. an exclamation mark or an emoji (a pictograph, a dingbat or the emoji variation selector);
-3. a heading the export modules own that is not in sentence case: the PDFs' titles, the analysis PDF's
+3. a window key's ".." where a range prints ("FY2016..FY2025", the stored form the CAGR sentence
+   carries): the voice guide's range takes the en-dash, "FY2016–FY2025";
+4. a heading the export modules own that is not in sentence case: the PDFs' titles, the analysis PDF's
    section headings (its narrative carries none here, so every <h2> is the builder's), the CSV's title
    row, and the workbook's title, sheet names, header rows and fact labels. A proper noun passes (the
    company's name, "Multi-Period Analysis", "EarningsNerd", "YoY") and so does any word with no
@@ -35,8 +37,9 @@ from app.services.export_service import ExportService
 from app.services.trend_analysis.data_notes import data_notes
 
 EM_DASH = "—"
+WINDOW_KEY = re.compile(r"(?:FY)?\d{4}(?:Q[1-4])?\.\.(?:FY)?\d{4}|Q[1-4] \d{4}\.\.Q[1-4] \d{4}")
 EMOJI = re.compile("[\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff]")
-PROPER =("BIOGEN INC.", "Test & Co", "Multi-Period Analysis", "EarningsNerd")
+PROPER = ("BIOGEN INC.", "Test & Co", "Multi-Period Analysis", "EarningsNerd")
 MIXED_CASE = frozenset({"YoY", "QoQ"})
 _WORD = re.compile(r"[A-Za-z][A-Za-z0-9'’-]*")
 _VOID = frozenset({"br", "meta", "img", "hr", "link", "input", "wbr"})
@@ -83,9 +86,11 @@ def read_html(document: str) -> _Runs:
 
 
 def breaks(texts: list[str]) -> list[str]:
-    """Texts that carry an em-dash other than the bare null token, an exclamation mark or an emoji."""
+    """Texts that carry an em-dash other than the bare null token, an exclamation mark, an emoji or a
+    window key where a range prints."""
     return [text for text in texts
-            if (EM_DASH in text and text.strip() != EM_DASH) or "!" in text or EMOJI.search(text)]
+            if (EM_DASH in text and text.strip() != EM_DASH) or "!" in text or EMOJI.search(text)
+            or WINDOW_KEY.search(text)]
 
 
 def not_sentence_case(text: str) -> str | None:
@@ -110,7 +115,8 @@ def _analysis():
     """The PDF fixture with a narrative that carries no heading, a calculated point with its operand's
     source fields, and data notes in every count the summary line prints."""
     analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
-    analysis.narrative_md = "Revenue grew from $1,000 [1] to $1,500 [2]."
+    # The CAGR sentence as observations.py stores it, with the window key.
+    analysis.narrative_md = "Revenue grew from $1,000 [1] to $1,500 [2]. Revenue CAGR was 22.5% over FY2022..FY2024 [3]."
     points = analysis.dataset_json["series"][0]["points"]
     points[0]["provenance"] = {"method": "reported", "validation": "needs_review", "reasons": ["source_conflict"]}
     points[1].update(yoy=0.2, yoy_provenance={"method": "calculated", "validation": "needs_review",
@@ -147,7 +153,7 @@ def _workbook_texts(data: bytes) -> list[str]:
     return texts
 
 
-def test_no_em_dash_exclamation_or_emoji_in_what_the_exports_print():
+def test_no_em_dash_exclamation_emoji_or_window_key_in_what_the_exports_print():
     service = ExportService()
     summary, filing = _summary()
     analysis = _analysis()
@@ -192,6 +198,10 @@ def test_the_readers_flag_the_forms_this_pr_fixed():
     assert breaks(["BIOGEN INC. — 10-K Summary", "“We remain focused.” — CEO", "Ready!", "Exported \U0001F389",
                    "Done \u2705", EM_DASH, f" {EM_DASH} ", "1 calculated †", "FY2022–FY2024 · 3 periods"]) == [
         "BIOGEN INC. — 10-K Summary", "“We remain focused.” — CEO", "Ready!", "Exported \U0001F389", "Done \u2705",
+    ]
+    assert breaks(["Revenue CAGR was 22.5% over FY2016..FY2025 [3].", "2025Q1..2026Q2", "Q1 2025..Q2 2026",
+                   "FY2016–FY2025", "Q1 2025–Q2 2026", "Loading...", "10..20"]) == [
+        "Revenue CAGR was 22.5% over FY2016..FY2025 [3].", "2025Q1..2026Q2", "Q1 2025..Q2 2026",
     ]
     assert not_sentence_case("BIOGEN INC. · 10-K Summary") == "Summary"
     assert not_sentence_case("Sources & Methods") == "Methods"
