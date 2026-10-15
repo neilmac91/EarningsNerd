@@ -70,8 +70,10 @@ fi
 # Sentry at startup: main.py prints one of four lines as an API-service revision starts (the task worker
 # runs task_worker_main.py, which starts no Sentry and prints none). Name the revisions that printed each in
 # the last seven days, with a count from the newest 500 entries per kind; never a line itself, which can
-# quote an exception. A read that fails prints UNVERIFIED with a closed class, never gcloud's text.
+# quote an exception. A read that fails prints UNVERIFIED with a closed class, never gcloud's text, and the
+# step adds one warning naming those kinds and the remedy (lessons/ops-denied-reads-report-unverified.md).
 SCOPE='resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend"'
+UNVERIFIED=""
 for KIND in "initialized:Sentry error tracking initialized" "failed:Sentry initialization failed" \\
     "dsn-unset:SENTRY_DSN not configured" "sdk-missing:Sentry SDK not available"; do
   if gcloud logging read "$SCOPE AND textPayload:\\"${KIND#*:}\\"" --freshness=7d --limit=500 \\
@@ -84,8 +86,12 @@ for KIND in "initialized:Sentry error tracking initialized" "failed:Sentry initi
     elif grep -qsF -e UNAVAILABLE -e DEADLINE_EXCEEDED /tmp/sentry.err; then CLASS=unavailable
     else CLASS="error (gcloud exit $RC)"; fi
     echo "sentry startup (7d) ${KIND%%:*}: UNVERIFIED ($CLASS; gcloud's error text withheld)"
+    UNVERIFIED="$UNVERIFIED ${KIND%%:*}=$CLASS"
   fi
 done
+if [ -n "$UNVERIFIED" ]; then
+  echo "::warning::sentry startup UNVERIFIED:$UNVERIFIED. Not evidence that Sentry started or failed; for permission_denied the Ops identity needs its Logging read role, for not_found check the project and the service, otherwise dispatch logs-probe again."
+fi
 """
 # The four lines main.py prints as Sentry starts, or does not, by the kind the logs-probe step names for each.
 SENTRY_KINDS = (("initialized", "Sentry error tracking initialized"), ("failed", "Sentry initialization failed"),
@@ -335,28 +341,35 @@ def test_logs_probe_prints_permitted_reads_and_conflicts_unchanged(tmp_path):
 def test_logs_probe_reports_a_failed_sentry_read_as_unverified(tmp_path, stderr, code, klass):
     """A Sentry read that fails prints its kind as UNVERIFIED with the closed class, never gcloud's text and never a
     verdict (lessons/ops-denied-reads-report-unverified.md); the other reads still print theirs, and the step passes."""
-    failing = {"stdout": "", "stderr": stderr, "rc": code}
+    # gcloud prints entries page by page, so a read that fails late has already written some: never a verdict.
+    failing = {"stdout": "PRIVATE_PARTIAL_REVISION\n", "stderr": stderr, "rc": code}
     unverified = {kind: f"sentry startup (7d) {kind}: UNVERIFIED ({klass}; gcloud's error text withheld)"
                   for kind, _ in SENTRY_KINDS}
     (tmp_path / "all").mkdir()
     lines = _probe(tmp_path / "all", "t1\n", "", 0, [failing] * 4)
-    assert len(lines) == 6 and lines[2:] == list(unverified.values())
+    warning = ("::warning::sentry startup UNVERIFIED: " + " ".join(f"{kind}={klass}" for kind, _ in SENTRY_KINDS) +
+               ". Not evidence that Sentry started or failed; for permission_denied the Ops identity needs its Logging read"
+               " role, for not_found check the project and the service, otherwise dispatch logs-probe again.")
+    assert len(lines) == 7 and lines[2:] == [*unverified.values(), warning]
     (tmp_path / "one").mkdir()
     ok = _sentry_ok("denied")
     lines = _probe(tmp_path / "one", "t1\n", "", 0, [ok[0], failing, ok[2], ok[3]])
     printed = SENTRY_PRINTED["denied"]
-    assert lines[2:] == [printed[0], unverified["failed"], printed[2], printed[3]]
+    assert lines[2:] == [printed[0], unverified["failed"], printed[2], printed[3],
+                         warning.replace(" ".join(f"{kind}={klass}" for kind, _ in SENTRY_KINDS), f"failed={klass}")]
 
 
 def _import_time_prints(tree):
-    """The literal text of each one-argument print a module makes as it is imported: its top-level statements and the
-    bodies of top-level if, try and with blocks, never a function, a class or an `if __name__ == "__main__"` block;
-    the argument a str constant or an f-string (its literal parts), never a value a call builds."""
+    """The literal text of each one-argument print a module makes as it is imported: its top-level statements and,
+    nested to any depth, the bodies of its if, try, with, for and while blocks, never a function, a class or an
+    `if __name__ == "__main__"` block; the argument a str constant or an f-string (its literal parts), never a value a
+    call builds. It reads the source only (a block under `if False:` or a rebound print still counts)."""
     texts, stack = [], list(tree.body)
     while stack:
         node = stack.pop()
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) or (
-                isinstance(node, ast.If) and ast.unparse(node.test).replace("'", '"') == '__name__ == "__main__"'):
+                isinstance(node, ast.If)
+                and ast.unparse(node.test).replace("'", '"') in ('__name__ == "__main__"', '"__main__" == __name__')):
             continue
         call = node.value if isinstance(node, ast.Expr) else None
         if (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "print"
@@ -374,6 +387,7 @@ def _import_time_prints(tree):
     ('if a:\n    print(f"⚠️  Sentry initialization failed ({e})")', True),
     ('def f():\n    print("Sentry SDK not available")', False),
     ('if __name__ == "__main__":\n    print("Sentry SDK not available")', False),
+    ('if "__main__" == __name__:\n    print("Sentry SDK not available")', False),
     ('print("Sentry SDK not available".lower())', False),
     ('print(json.dumps({"message": "Sentry SDK not available"}))', False),
 ])

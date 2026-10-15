@@ -250,7 +250,8 @@ the four lines `main.py` prints as Sentry starts or does not, it names the API s
 printed it in the last seven days, with a count from the newest 500 entries per kind:
 `sentry startup (7d) initialized: <revision> x<n> ...`, and likewise `failed`, `dsn-unset` (no
 `SENTRY_DSN`) and `sdk-missing`, or `none`; a read that fails prints
-`sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above.
+`sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above,
+and the step adds one `::warning::` that names those kinds and the remedy for each class.
 The task worker runs `task_worker_main.py`, which never imports `main.py` and starts no Sentry, so its
 revisions appear under no kind. After a deploy, the API service's new revision should appear under
 `initialized` and nowhere else, with none of the four lines `UNVERIFIED`. Without the SDK, each start
