@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { heldValues, leavesOf } from './heldValues'
+import { heldValues, leavesOf, scopeResolver } from './heldValues'
 import { isIconModule } from './iconModules'
 
 /**
@@ -285,7 +285,7 @@ function childTexts(owner: ts.JsxElement | ts.JsxFragment, read: ReadsLabel): st
   }
   owner.children.forEach(visit)
   if (count > MAX_VARIANTS) {
-    const tag = ts.isJsxElement(owner) ? tagOf(owner.openingElement) : ''
+    const tag = ts.isJsxElement(owner) ? owner.openingElement.tagName.getText() : ''
     throw new Error(`${where(owner)} <${tag}> renders ${count} combinations of its conditionals, more than MAX_VARIANTS (${MAX_VARIANTS}) reads: split the element or raise the bound`)
   }
   return texts
@@ -313,15 +313,40 @@ const importsOf = (sf: ts.SourceFile) => {
   }
   return found
 }
-/** The component a tag renders, by the name its module exports it under: an import renamed in this file
-    (`<Title>` for `CardTitle as Title`) and a namespace's member (`<UI.CardTitle>`) are read as the component they
-    name, since a rename does not change what renders. A default import keeps its local name. */
-const tagOf = (node: ts.JsxOpeningLikeElement) => {
-  const name = node.tagName
-  const { renamed, namespaces } = importsOf(node.getSourceFile())
-  if (ts.isIdentifier(name)) return renamed.get(name.text) ?? name.text
-  if (ts.isPropertyAccessExpression(name) && ts.isIdentifier(name.expression) && namespaces.has(name.expression.text)) return name.name.text
-  return name.getText()
+const resolvers = new WeakMap<ts.SourceFile, ReturnType<typeof scopeResolver>>()
+const declarationOf = (id: ts.Identifier) => {
+  const sf = id.getSourceFile()
+  const resolve = resolvers.get(sf) ?? scopeResolver(sf)
+  resolvers.set(sf, resolve)
+  return resolve(id)
+}
+/** The names an expression naming a component may be: a same-file alias, resolved by scope, is every name its
+    initializer may be (`const Title = CardTitle`, `const Heading = big ? 'h2' : 'h3'`, a fallback's two sides); an
+    import renamed in the file is the name its module exports (`CardTitle as Title`), a namespace's member its member's
+    name (`UI.CardTitle`) and a string its tag. What the scan cannot read names nothing. */
+function namesOf(e: ts.Expression, seen: Set<ts.Node>): string[] {
+  const x = unwrapHeld(e)
+  if (ts.isIdentifier(x)) {
+    const declaration = declarationOf(x)
+    if (declaration && ts.isVariableDeclaration(declaration) && declaration.initializer && !seen.has(declaration)) {
+      seen.add(declaration)
+      const names = namesOf(declaration.initializer, seen)
+      if (names.length) return names
+    }
+    return [importsOf(x.getSourceFile()).renamed.get(x.text) ?? x.text]
+  }
+  if (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && importsOf(x.getSourceFile()).namespaces.has(x.expression.text)) return [x.name.text]
+  if (ts.isStringLiteralLike(x)) return [x.text]
+  if (ts.isConditionalExpression(x)) return [...namesOf(x.whenTrue, seen), ...namesOf(x.whenFalse, seen)]
+  const op = ts.isBinaryExpression(x) ? x.operatorToken.kind : undefined
+  if (ts.isBinaryExpression(x) && (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken)) return [...namesOf(x.left, seen), ...namesOf(x.right, seen)]
+  return []
+}
+/** The components a tag may render (namesOf), since neither a rename nor an alias changes what renders; a tag the
+    scan cannot resolve is read by its own text. */
+const tagsOf = (node: ts.JsxOpeningLikeElement): string[] => {
+  const names = ts.isIdentifier(node.tagName) || ts.isPropertyAccessExpression(node.tagName) ? namesOf(node.tagName, new Set()) : []
+  return names.length ? names : [node.tagName.getText()]
 }
 /** An expression under its parentheses and type assertions (`as`, `satisfies`, `!`). */
 const unwrapHeld = (e: ts.Expression): ts.Expression =>
@@ -359,7 +384,7 @@ export interface Reach {
 
 const SEED_REACH: Reach = { children: new Set([...HEADINGS, ...BUTTONS, ...TITLE_CHILDREN]), titles: new Set(TITLED) }
 
-const readsChildren = (reach: Reach): ReadsLabel => (node) => reach.children.has(tagOf(node)) || reachesButtonVariants(node)
+const readsChildren = (reach: Reach): ReadsLabel => (node) => tagsOf(node).some((tag) => reach.children.has(tag)) || reachesButtonVariants(node)
 
 /** The component a node is written in: a named function, or a function bound to a capitalised name
     (directly or through forwardRef or memo). */
@@ -386,7 +411,7 @@ function renderedProp(expr: ts.Expression): 'children' | 'title' | null {
 function landsInLabel(expr: ts.JsxExpression, reach: Reach): boolean {
   if (ts.isJsxAttribute(expr.parent)) {
     const owner = expr.parent.parent.parent
-    return expr.parent.name.getText() === 'title' && reach.titles.has(tagOf(owner))
+    return expr.parent.name.getText() === 'title' && tagsOf(owner).some((tag) => reach.titles.has(tag))
   }
   const read = readsChildren(reach)
   for (let n: ts.Node | undefined = expr.parent; n && !ts.isFunctionLike(n); n = n.parent) {
@@ -473,7 +498,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
   const isIconTag = (n: ts.JsxOpeningLikeElement): boolean => {
     const name = n.tagName
     if (ts.isIdentifier(name) || ts.isPropertyAccessExpression(name)) return holdsIcon(name)
-    return /Icon$/.test(tagOf(n))
+    return tagsOf(n).some((tag) => /Icon$/.test(tag))
   }
 
   const visit = (node: ts.Node, inMetadata: boolean): void => {
@@ -487,17 +512,17 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     }
     // Headings, titles, buttons: their rendered text; headings: no icon inside.
     if (ts.isJsxElement(node)) {
-      const tag = tagOf(node.openingElement)
+      const tag = tagsOf(node.openingElement).find((name) => HEADINGS.has(name))
       if (read(node.openingElement)) {
         const rendered = titleCased(elementTexts(node, read))
         if (rendered !== undefined) add(node, 'sentenceCase', rendered)
       }
-      if (HEADINGS.has(tag)) {
+      if (tag) {
         const icons: ts.Node[] = []
         // An icon inside a control the heading wraps (a disclosure button's caret) is the control's
         // affordance, not the heading's icon.
         const find = (n: ts.Node) => {
-          if (ts.isJsxElement(n) && CONTROLS.has(tagOf(n.openingElement))) return
+          if (ts.isJsxElement(n) && tagsOf(n.openingElement).some((name) => CONTROLS.has(name))) return
           if ((ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) && isIconTag(n)) icons.push(n)
           // An icon a binding or a member holds, placed in the heading (`{mark}`, `{MARK.alert}`); an inline element
           // is read by its tag above.
@@ -514,7 +539,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     // A component's title (GuidanceCard, Notice, Modal, SecondaryHeader and the discovered ones), and
     // any element's aria-label.
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      for (const name of reach.titles.has(tagOf(node)) ? ['title', 'aria-label'] : ['aria-label']) {
+      for (const name of tagsOf(node).some((tag) => reach.titles.has(tag)) ? ['title', 'aria-label'] : ['aria-label']) {
         const expr = attributeValue(attribute(node, name))
         const value = expr ? titleCased(renderedVariants(expr, read)) : undefined
         if (value !== undefined) add(expr!, 'sentenceCase', value)
@@ -685,6 +710,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <Title>Recent Filings</Title>',
       '      <UI.Button>View All Filings</UI.Button>',
       '      <Button>SEC EDGAR</Button>',
+      '      <LocalTitle>Recent Filings</LocalTitle>',
+      '      <Heading>Quarterly Results</Heading>',
+      '      <Heading><BellIcon />Alerts</Heading>',
       '    </div>',
       '  )',
       '}',
@@ -697,6 +725,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       "import { BellIcon as Bell } from '@/lib/icons'",
       "import * as Ph from '@phosphor-icons/react/dist/ssr'",
       "import { Bell as Ring } from './bells'",
+      // A label component held by a same-file alias, and a heading level chosen by a conditional.
+      'const LocalTitle = CardTitle',
+      "const Heading = big ? 'h2' : 'h3'",
       // A label component imported under another name, and one read through a namespace.
       "import { CardTitle as Title } from '@/components/ui'",
       "import * as UI from '@/components/ui'",
@@ -798,6 +829,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '68 sentenceCase',
       '69 sentenceCase',
       '70 sentenceCase',
+      '72 sentenceCase',
+      '73 sentenceCase',
+      '74 headingIcon',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
@@ -825,6 +859,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '{x} NEW FILINGS',
       'Recent Filings',
       'View All Filings',
+      'Recent Filings',
+      'Quarterly Results',
     ])
     // A name two functions declare reads its own function's binding: Q's Mark holds no icon, so its heading passes.
     const shadowed = [

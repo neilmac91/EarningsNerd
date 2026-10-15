@@ -395,6 +395,17 @@ describe('reserved glyphs keep their one meaning', () => {
       'export function R() { const Mark = Other; return <Mark /> }',
     ].join('\n')
     expect(glyphUses(shadowed, 'features/zzprobe/Shadowed.tsx')).toEqual({ QuotesIcon: 1, SparkleIcon: 2 })
+    // An array holds its elements by index (the review's case: `marks[0]` read twice is two uses): a read by a key the
+    // scan cannot read is any element, a literal index on the array itself reads its element, and past a spread a
+    // literal index may read any element from the spread on.
+    const arrays = [
+      "import { QuotesIcon, SparkleIcon } from '@/lib/icons'",
+      'const marks = [<QuotesIcon />, <SparkleIcon />]',
+      'const Picked = [QuotesIcon][0]',
+      'const more = [...marks, <QuotesIcon />]',
+      'export const H = ({ i }: { i: number }) => <>{marks[0]}{marks[0]}{marks[i]}<Picked />{more[2]}</>',
+    ].join('\n')
+    expect(glyphUses(arrays, 'features/zzprobe/Arrays.tsx')).toEqual({ QuotesIcon: 5, SparkleIcon: 2 })
     // A declaration that reads itself would count without end: the scan throws.
     const cycle = [
       "import { QuotesIcon } from '@/lib/icons'",

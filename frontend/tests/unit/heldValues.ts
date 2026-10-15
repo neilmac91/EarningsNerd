@@ -18,6 +18,8 @@ import ts from 'typescript'
  *    the scan cannot read (`MARK[kind]`), which may be any property;
  *  - a member destructured from an object (`const { alert: Alert } = MARK`);
  *  - an object literal's properties and spreads, in source order, so a later property overrides a spread's;
+ *  - an array literal's elements by index (`const marks = [QuotesIcon]` read as `marks[0]`); past a spread the indices
+ *    are unknown, so a literal index there may read any element from the spread on;
  *  - a conditional's two arms, both sides of `||` and `??`, the right of `&&`;
  *  - a JSX element's tag and its children (`<BellIcon />` holds what BellIcon holds, `<span><BellIcon /></span>` and
  *    the fragment `<><BellIcon /></>` hold it too, as do `{expressions}` among the children);
@@ -73,6 +75,9 @@ export function leavesOf<L>(value: Held<L>): Map<L, number> {
   return out
 }
 
+/** The key prefix of an array's elements from a spread on, whose indices the scan cannot know. */
+const REST = '…'
+
 const size = <L>(value: Held<L>): number =>
   [...value.leaves.values()].reduce(add, 0) + [...(value.props?.entries() ?? [])].reduce((n, [key, prop]) => n + key.length + size(prop), 0)
 
@@ -98,7 +103,7 @@ const propertyKey = (name: ts.PropertyName | ts.BindingName): string | undefined
  * imports; a `for` statement and a `catch` clause their own bindings. The node returned is the declaration of a bare
  * name and the element of a destructured one. Undefined for a global.
  */
-function scopeResolver(sf: ts.SourceFile): (id: ts.Identifier) => ts.Node | undefined {
+export function scopeResolver(sf: ts.SourceFile): (id: ts.Identifier) => ts.Node | undefined {
   const declared = new Map<ts.Node, Map<string, ts.Node>>()
   const declare = (scope: ts.Node | undefined, name: string, node: ts.Node) => {
     if (!scope) return
@@ -169,7 +174,10 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       const base = valueOf(x.expression)
       if (!base.props) return empty()
       const key = memberKey(x)
-      const value = key === undefined ? [...base.props.values()].reduce(union, empty<L>()) : base.props.get(key) ?? empty<L>()
+      // A literal index an array's known elements do not reach may read any element from its spread on.
+      const rest = () => [...base.props!].filter(([k]) => k.startsWith(REST)).map(([, v]) => v).reduce(union, empty<L>())
+      const value =
+        key === undefined ? [...base.props.values()].reduce(union, empty<L>()) : base.props.get(key) ?? (/^\d+$/.test(key) ? rest() : empty<L>())
       if (leavesOf(value).size > 0) record?.add(x)
       return value
     }
@@ -188,6 +196,24 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
         else if (ts.isJsxExpression(child) && child.expression) value = both(value, valueOf(child.expression, record))
       }
       return value
+    }
+    if (ts.isArrayLiteralExpression(x)) {
+      const props = new Map<string, Held<L>>()
+      let index = 0
+      let rest = 0
+      const place = (value: Held<L>) => {
+        if (leavesOf(value).size > 0) props.set(index < 0 ? `${REST}${rest++}` : String(index), value)
+      }
+      for (const el of x.elements) {
+        if (ts.isSpreadElement(el)) {
+          index = -1
+          for (const value of valueOf(el.expression, record).props?.values() ?? []) place(value)
+          continue
+        }
+        if (!ts.isOmittedExpression(el)) place(valueOf(el, record))
+        if (index >= 0) index++
+      }
+      return { leaves: new Map(), props }
     }
     if (ts.isObjectLiteralExpression(x)) {
       const props = new Map<string, Held<L>>()
