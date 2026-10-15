@@ -17,7 +17,8 @@ import { isIconModule } from './iconModules'
  *    word (`START FREE TRIAL`, `START FREE TRIAL…`, `SIGN-UP NOW:`; an acronym beside lowercase words, `Export CSV`, passes). The labels read: the text of a heading (h1 to h6), of a
  *    dialog or card title (ModalHeader, CardTitle, CardHeader), of a button (<Button>, <button>, and any
  *    element whose className reaches buttonVariants(), such as a <Link> or <a> styled as a button) and
- *    of every component found to render its children into one of those (see discoverReach); the title
+ *    of every component found to render its children into one of those (see discoverReach), a component read by the name
+ *    its module exports (an import under another name, `CardTitle as Title`, or a namespace's member); the title
  *    prop of a GuidanceCard, Notice, Modal, ModalHeader, SecondaryHeader or UpgradeModal and of every
  *    component found to render its title prop into a label; every aria-label; a page's metadata title.
  *    The check is a heuristic, so a false positive goes to the residue with its reason, never to a
@@ -212,10 +213,11 @@ export function titleCaseWords(text: string): string[] {
     })
   })
   // Two or more words all in capitals (`START FREE TRIAL`) is shouting, not a label; an acronym stands alone or
-  // beside lowercase words (`Export CSV`), and a proper noun reads as `{n}` above. Each word is read as spelled
-  // (bareWord: `TRIAL…` and `NOW:` are capitals), a hyphen or an apostrophe inside it included (`SIGN-UP`, `DON'T`).
-  const lettered = t.trim().split(/\s+/).filter((w) => /\p{L}/u.test(w))
-  if (lettered.length >= 2 && lettered.every((w) => /^[A-Z]{2,}(?:[-'’][A-Z]+)*$/.test(bareWord(w)))) out.push(...lettered)
+  // beside lowercase words (`Export CSV`). Each word is read as spelled (bareWord: `TRIAL…` and `NOW:` are capitals),
+  // a hyphen or an apostrophe inside it included (`SIGN-UP`, `DON'T`). A proper noun (`{n}` above) and an expression
+  // (`{x}`) are not words of the label: `SEC FILING ALERTS` and `{count} NEW FILINGS` shout in the words around them.
+  const lettered = t.trim().split(/\s+/).map((w) => bareWord(w.replace(/\{[nx]\}/g, ''))).filter((w) => /\p{L}/u.test(w))
+  if (lettered.length >= 2 && lettered.every((w) => /^[A-Z]{2,}(?:[-'’][A-Z]+)*$/.test(w))) out.push(...lettered)
   return out
 }
 
@@ -295,7 +297,32 @@ const elementTexts = (element: ts.JsxElement, read: ReadsLabel) => [...new Set(c
 /** The first of the texts a node can render that breaks sentence case. */
 const titleCased = (texts: string[]) => texts.find((t) => titleCaseWords(t).length)
 
-const tagOf = (node: ts.JsxOpeningLikeElement) => node.tagName.getText()
+/** The names a source imports under another name, and its namespace imports: `import { CardTitle as Title }` maps
+    `Title` to `CardTitle`. */
+const importsBySource = new WeakMap<ts.SourceFile, { renamed: Map<string, string>; namespaces: Set<string> }>()
+const importsOf = (sf: ts.SourceFile) => {
+  let found = importsBySource.get(sf)
+  if (!found) {
+    found = { renamed: new Map(), namespaces: new Set() }
+    for (const stmt of sf.statements) {
+      const bindings = ts.isImportDeclaration(stmt) ? stmt.importClause?.namedBindings : undefined
+      if (bindings && ts.isNamedImports(bindings)) for (const el of bindings.elements) if (el.propertyName) found.renamed.set(el.name.text, el.propertyName.text)
+      if (bindings && ts.isNamespaceImport(bindings)) found.namespaces.add(bindings.name.text)
+    }
+    importsBySource.set(sf, found)
+  }
+  return found
+}
+/** The component a tag renders, by the name its module exports it under: an import renamed in this file
+    (`<Title>` for `CardTitle as Title`) and a namespace's member (`<UI.CardTitle>`) are read as the component they
+    name, since a rename does not change what renders. A default import keeps its local name. */
+const tagOf = (node: ts.JsxOpeningLikeElement) => {
+  const name = node.tagName
+  const { renamed, namespaces } = importsOf(node.getSourceFile())
+  if (ts.isIdentifier(name)) return renamed.get(name.text) ?? name.text
+  if (ts.isPropertyAccessExpression(name) && ts.isIdentifier(name.expression) && namespaces.has(name.expression.text)) return name.name.text
+  return name.getText()
+}
 /** An expression under its parentheses and type assertions (`as`, `satisfies`, `!`). */
 const unwrapHeld = (e: ts.Expression): ts.Expression =>
   ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isNonNullExpression(e) ? unwrapHeld(e.expression) : e
@@ -480,7 +507,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
         }
         node.children.forEach(find)
         for (const icon of icons) {
-          add(icon, 'headingIcon', `${ts.isJsxExpression(icon) ? icon.getText() : `<${tagOf(icon as ts.JsxOpeningLikeElement)}>`} in <${tag}>`)
+          add(icon, 'headingIcon', `${ts.isJsxExpression(icon) ? icon.getText() : `<${(icon as ts.JsxOpeningLikeElement).tagName.getText()}>`} in <${tag}>`)
         }
       }
     }
@@ -653,6 +680,11 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <Button>START FREE TRIAL…</Button>',
       '      <h3>SIGN-UP NOW:</h3>',
       '      <Button>Export CSV…</Button>',
+      '      <Button>SEC FILING ALERTS</Button>',
+      '      <h3>{count} NEW FILINGS</h3>',
+      '      <Title>Recent Filings</Title>',
+      '      <UI.Button>View All Filings</UI.Button>',
+      '      <Button>SEC EDGAR</Button>',
       '    </div>',
       '  )',
       '}',
@@ -665,6 +697,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       "import { BellIcon as Bell } from '@/lib/icons'",
       "import * as Ph from '@phosphor-icons/react/dist/ssr'",
       "import { Bell as Ring } from './bells'",
+      // A label component imported under another name, and one read through a namespace.
+      "import { CardTitle as Title } from '@/components/ui'",
+      "import * as UI from '@/components/ui'",
       // Bindings that hold an icon (an alias, a namespace member under a cast, a conditional chain, an element, a
       // member destructured from an icon namespace), and one holding Ring, which is not an icon.
       'const AlertMark = BellIcon',
@@ -759,6 +794,10 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '63 headingIcon',
       '64 sentenceCase',
       '65 sentenceCase',
+      '67 sentenceCase',
+      '68 sentenceCase',
+      '69 sentenceCase',
+      '70 sentenceCase',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
@@ -782,6 +821,10 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'Show More…',
       'START FREE TRIAL…',
       'SIGN-UP NOW:',
+      'SEC FILING ALERTS',
+      '{x} NEW FILINGS',
+      'Recent Filings',
+      'View All Filings',
     ])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
