@@ -152,6 +152,7 @@ class TestOverviewSheet:
     def test_title_provenance_and_terms(self, workbook):
         texts = self._texts(workbook)
         assert "Test & Co · Multi-Period Analysis" in texts
+        assert "Chart & metrics data export · EarningsNerd · AI summaries of SEC filings" in texts  # the masthead line
         assert "TST" in texts
         assert "FY2022–FY2024 · 3 periods" in texts  # the window key as a range; never "FY2022..FY2024"
         assert "SEC filings and calculations via EarningsNerd · earningsnerd.io" in texts

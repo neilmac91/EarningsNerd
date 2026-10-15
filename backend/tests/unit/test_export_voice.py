@@ -7,7 +7,7 @@ CSV, the analysis PDF and the workbook (its cells, comments, sheet names and cha
 that reach every fixed line the four export modules write, and fails on:
 
 1. an em-dash, unless the cell or text run is the bare null token "—" (the one sanctioned em-dash);
-2. an exclamation mark;
+2. an exclamation mark or an emoji (a pictograph, a dingbat or the emoji variation selector);
 3. a heading the export modules own that is not in sentence case: the PDFs' titles, the analysis PDF's
    section headings (its narrative carries none here, so every <h2> is the builder's), the CSV's title
    row, and the workbook's title, sheet names, header rows and fact labels. A proper noun passes (the
@@ -35,7 +35,8 @@ from app.services.export_service import ExportService
 from app.services.trend_analysis.data_notes import data_notes
 
 EM_DASH = "—"
-PROPER = ("BIOGEN INC.", "Test & Co", "Multi-Period Analysis", "EarningsNerd")
+EMOJI = re.compile("[\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff]")
+PROPER =("BIOGEN INC.", "Test & Co", "Multi-Period Analysis", "EarningsNerd")
 MIXED_CASE = frozenset({"YoY", "QoQ"})
 _WORD = re.compile(r"[A-Za-z][A-Za-z0-9'’-]*")
 _VOID = frozenset({"br", "meta", "img", "hr", "link", "input", "wbr"})
@@ -82,8 +83,9 @@ def read_html(document: str) -> _Runs:
 
 
 def breaks(texts: list[str]) -> list[str]:
-    """Texts that carry an em-dash other than the bare null token, or an exclamation mark."""
-    return [text for text in texts if (EM_DASH in text and text.strip() != EM_DASH) or "!" in text]
+    """Texts that carry an em-dash other than the bare null token, an exclamation mark or an emoji."""
+    return [text for text in texts
+            if (EM_DASH in text and text.strip() != EM_DASH) or "!" in text or EMOJI.search(text)]
 
 
 def not_sentence_case(text: str) -> str | None:
@@ -145,7 +147,7 @@ def _workbook_texts(data: bytes) -> list[str]:
     return texts
 
 
-def test_no_em_dash_or_exclamation_in_what_the_exports_print():
+def test_no_em_dash_exclamation_or_emoji_in_what_the_exports_print():
     service = ExportService()
     summary, filing = _summary()
     analysis = _analysis()
@@ -165,7 +167,7 @@ def test_the_headings_the_exports_own_are_in_sentence_case():
     summary, filing = _summary()
     filing_pdf = read_html(service.generate_pdf_html(summary, filing))
     analysis_pdf = read_html(service.generate_analysis_pdf_html(_analysis(), export_fixtures.TestAnalysisPdfHtml()._company()))
-    csv_rows = list(csv.reader(io.StringIO(service.generate_csv(summary, filing).removeprefix("﻿"))))
+    csv_rows = list(csv.reader(io.StringIO(service.generate_csv(summary, filing).removeprefix("\ufeff"))))
     book = _workbook()
     overview = book["Overview"]
     headings = {
@@ -187,8 +189,9 @@ def test_the_headings_the_exports_own_are_in_sentence_case():
 
 def test_the_readers_flag_the_forms_this_pr_fixed():
     """Planted forms: the old copy fails each check, and the null token and a sentence-case title pass."""
-    assert breaks(["BIOGEN INC. — 10-K Summary", "“We remain focused.” — CEO", "Ready!", EM_DASH, f" {EM_DASH} "]) == [
-        "BIOGEN INC. — 10-K Summary", "“We remain focused.” — CEO", "Ready!",
+    assert breaks(["BIOGEN INC. — 10-K Summary", "“We remain focused.” — CEO", "Ready!", "Exported \U0001F389",
+                   "Done \u2705", EM_DASH, f" {EM_DASH} ", "1 calculated †", "FY2022–FY2024 · 3 periods"]) == [
+        "BIOGEN INC. — 10-K Summary", "“We remain focused.” — CEO", "Ready!", "Exported \U0001F389", "Done \u2705",
     ]
     assert not_sentence_case("BIOGEN INC. · 10-K Summary") == "Summary"
     assert not_sentence_case("Sources & Methods") == "Methods"

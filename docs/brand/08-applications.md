@@ -190,7 +190,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   export colour to its token and role, every text colour to 4.5:1 on its ground and sage to links
   and the wordmark by
   `test_export_palette_parity.py`; the rendered copy (no em-dash but the null token, no exclamation
-  mark, the headings the exports own in sentence case) by `test_export_voice.py`; the eval's
+  mark or emoji, the headings the exports own in sentence case) by `test_export_voice.py`; the eval's
   blinding of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real
   export; and the backend's hand-composed wordmarks to the PDF's and the mail's by
   `wordmarkSingleSource.spec.ts`.
