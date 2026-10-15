@@ -22,6 +22,8 @@ from app.models.job_run import JobRun
 from app.models.billing_payment import BillingPayment
 from app.models.usage_reservation import UsageReservation
 from app.models.notification_delivery import DeliveryBatch, DeliveryItem
+from app.models.filing_section_text import FilingSectionText
+from app.models.section_review import SectionReview
 
 logger = logging.getLogger(__name__)
 
@@ -352,6 +354,7 @@ __all__ = [
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
+    "FilingSectionText",
     "InviteCode",
     "LoginAttempt",
     "NotificationLog",
@@ -359,6 +362,7 @@ __all__ = [
     "OAuthAccount",
     "OAuthState",
     "SavedSummary",
+    "SectionReview",
     "StripeEvent",
     "Subscription",
     "Summary",

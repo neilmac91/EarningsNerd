@@ -516,6 +516,73 @@ export interface PriorFilingRef {
   period_end_date: string | null
 }
 
+/** One word-level edit inside a modified paragraph; equal segments carry the later filing's typography.
+ *  Segments carry no edge spaces: join them with one space to read the paragraph. */
+export type WordOp = ['equal' | 'delete' | 'insert', string]
+
+/** One change of Item 1A against the prior same-form original, in the later filing's reading order.
+ *  `id` is content-addressed (a stable key; repeated content is numbered). A modified paragraph
+ *  carries only its word ops: the later text is the equal and insert segments, the prior text the
+ *  equal and delete segments. */
+export type SectionChange =
+  | { id: string; kind: 'modified'; index: number; prior_index: number; similarity: number; moved: boolean; ops: WordOp[] }
+  | { id: string; kind: 'added'; index: number; after: string }
+  | { id: string; kind: 'removed'; prior_index: number; before: string }
+  | { id: string; kind: 'moved'; index: number; prior_index: number; after: string }
+
+export interface SectionSide {
+  status: string
+  extracted_at: string | null
+  /** A 10-Q whose Item 1A only refers back to the annual report's risk factors (nothing restated). */
+  reference_only: boolean
+  char_count: number | null
+  paragraph_count: number | null
+}
+
+export interface SectionChangesFilingRef extends PriorFilingRef {
+  accession_number: string
+}
+
+interface SectionChangesBase {
+  section: 'item_1a'
+  section_label: string
+  /** What this viewer got: the counts and the first items (`truncated`), or every item. */
+  access: 'teaser' | 'full'
+  engine_version: number
+  /** The filing the section is compared against, whenever one exists. */
+  prior_filing: SectionChangesFilingRef | null
+}
+
+export interface SectionChangesOk extends SectionChangesBase {
+  status: 'ok'
+  reason: null
+  current: SectionSide
+  prior: SectionSide
+  paragraphs: { prior: number; later: number; prior_excluded: number; later_excluded: number }
+  counts: { unchanged: number; modified: number; added: number; removed: number; moved: number }
+  words: { later_total: number; inserted: number; deleted: number; changed_ratio: number }
+  has_changes: boolean
+  items: SectionChange[]
+  items_total: number
+  truncated: boolean
+}
+
+export interface SectionChangesNotOk extends SectionChangesBase {
+  /** `pending`: a side is not extracted yet and the hourly batch will extract it; `no_prior`: no earlier
+   *  same-form original; `unavailable`: nothing to compare as things stand (`reason` says why:
+   *  form_not_supported, current_<status>, prior_<status>, or a side with no row that the batch will not
+   *  select: current_outside_window / prior_outside_window, current_outside_cohort / prior_outside_cohort). */
+  status: 'pending' | 'no_prior' | 'unavailable'
+  reason: string
+  current?: SectionSide
+  prior?: SectionSide
+}
+
+/** The filing-text wording diff of the change report (Item 1A against the prior same-form original),
+ *  served behind ENABLE_SECTION_CHANGES: null while the feature is off, and absent from a sample or
+ *  an older backend. */
+export type SectionChanges = SectionChangesOk | SectionChangesNotOk
+
 export interface ChangeReport {
   has_prior: boolean
   comparison_basis: string | null
@@ -527,11 +594,74 @@ export interface ChangeReport {
   risks: RiskDiff | null
   /** @deprecated T1.6: always null — the What-changed lead is now metrics.headline; kept for API compat. */
   key_changes: string | null
+  /** XBRL deltas exist (the metrics block); the wording diff has its own state in `section_changes`. */
   has_changes: boolean
+  section_changes?: SectionChanges | null
 }
 
 export const getWhatChanged = async (filingId: number): Promise<ChangeReport> => {
   const response = await api.get(`/api/summaries/filing/${filingId}/what-changed`)
+  return response.data
+}
+
+// --- The Pro review of the wording changes (E27, PR B) -----------------------------------------
+// A reader labels each change of the section_changes list `reviewed` or `follow_up`; the review is
+// complete when every change carries a label, and the server then freezes a receipt naming the
+// two texts compared. Both endpoints are Pro-only (403 otherwise); labels hang on the changes'
+// content-addressed ids. Read through features/summaries/hooks/useWordingReview.
+
+export type WordingLabel = 'reviewed' | 'follow_up'
+
+export interface WordingReceipt {
+  version: number
+  completed_at: string
+  section: 'item_1a'
+  section_label: string
+  filing: SectionChangesFilingRef
+  prior_filing: SectionChangesFilingRef
+  texts: {
+    current: { sha256: string | null; extractor_version: number | null; extracted_at: string | null }
+    prior: { sha256: string | null; extractor_version: number | null; extracted_at: string | null }
+  }
+  engine_version: number
+  app_version: string
+  paragraphs: SectionChangesOk['paragraphs']
+  counts: SectionChangesOk['counts']
+  words: SectionChangesOk['words']
+  items_total: number
+  labels: { reviewed: number; follow_up: number }
+  follow_up_ids: string[]
+}
+
+export interface WordingReviewState {
+  filing_id: number
+  section: 'item_1a'
+  section_label: string
+  /** `unavailable`: nothing to review yet (no comparison, or the feature is off); no items then. */
+  status: 'ok' | 'unavailable'
+  engine_version: number
+  items_total: number
+  /** Change id to label, for the changes of the current comparison only. */
+  labels: Record<string, WordingLabel>
+  counts: { reviewed: number; follow_up: number; unlabeled: number }
+  /** Set while every change is labelled and the receipt still describes the live comparison. */
+  completed_at: string | null
+  receipt: WordingReceipt | null
+  /** On a label's answer only: this label completed the queue (the transition the completion event counts). */
+  completed_now?: boolean
+}
+
+export const getWordingReview = async (filingId: number): Promise<WordingReviewState> => {
+  const response = await api.get(`/api/summaries/filing/${filingId}/wording-review`)
+  return response.data
+}
+
+export const setWordingLabel = async (
+  filingId: number,
+  itemId: string,
+  label: WordingLabel | null,
+): Promise<WordingReviewState> => {
+  const response = await api.put(`/api/summaries/filing/${filingId}/wording-review/labels`, { item_id: itemId, label })
   return response.data
 }
 

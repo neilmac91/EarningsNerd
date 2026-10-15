@@ -1,11 +1,13 @@
 export { Button, buttonVariants, primaryUnavailableClass, secondaryUnavailableClass, type ButtonProps, type ButtonVariant, type ButtonSize, type ButtonVariantsOptions } from './Button'
 export { Badge, type BadgeProps, type BadgeVariant } from './Badge'
+// The count control (D-030): a control whose label carries a count rests in the ink, sage under the pointer.
+export { countControlClass, type CountControlKind } from './countControl'
 export {
   Input, Textarea, Select, FieldSpinner, inputClasses, fieldUnavailableClass,
   type InputProps, type TextareaProps, type SelectProps, type InputClassesOptions, type FieldDensity,
 } from './Input'
 // v3.1: the one single-choice toggle group (calendar view + filings form filter).
-export { SegmentedControl, type SegmentedControlProps, type SegmentedOption, type SegmentedControlSize } from './SegmentedControl'
+export { SegmentedControl, MAX_SEGMENTS, type SegmentedControlProps, type SegmentedOption, type SegmentedControlSize } from './SegmentedControl'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
 export { Switch, type SwitchProps } from './Switch'

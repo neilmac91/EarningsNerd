@@ -1,13 +1,13 @@
 'use client'
 
 import { useMemo, type Ref } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import type { Filing } from '@/features/filings/api/filings-api'
-import { getWhatChanged, type ChangeReport, type Summary } from '@/features/summaries/api/summaries-api'
+import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
+import type { WordingContext } from '@/features/filings/components/WordingChanges'
 import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCallout'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
@@ -15,10 +15,10 @@ import { Button } from '@/components/ui/Button'
 import { Badge, Card, CardBody, GuidanceCard } from '@/components/ui'
 import { ChatCircleTextIcon } from '@/lib/icons'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
-import { queryKeys } from '@/lib/queryKeys'
 import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
 import { useSummaryExports } from '../hooks/useSummaryExports'
+import { useWhatChanged } from '../hooks/useWhatChanged'
 import { cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
@@ -93,16 +93,20 @@ export function SummaryDisplay({
 
   const { exportPdf, exportCsv } = useSummaryExports(filing)
 
-  // A5 "What Changed": deterministic period-over-period diff (metric deltas, risk changes, key
-  // changes). DB-only/cheap on the backend; only renders when there's something material to report.
-  // Seeded from the server read, so the section is in the first render: a late insert pushed every
-  // later section down and renumbered the table of contents.
-  const { data: changeReport } = useQuery({
-    queryKey: queryKeys.whatChanged(filing.id),
-    queryFn: () => getWhatChanged(filing.id),
-    staleTime: 10 * 60 * 1000,
-    initialData: initialChangeReport,
-  })
+  // A5 "What Changed": deterministic period-over-period diff (metric deltas, and the Item 1A wording
+  // comparison the viewer is entitled to). DB-only/cheap on the backend; only renders when there's
+  // something material to report. Seeded from the server read, so the section is in the first
+  // render: a late insert pushed every later section down and renumbered the table of contents.
+  const { report: changeReport, provisional: changeReportProvisional } = useWhatChanged(filing.id, initialChangeReport)
+  const ticker = filing.company?.ticker ?? null
+  const wordingIdentity = useMemo<Omit<WordingContext, 'provisional'>>(
+    () => ({ filingId: filing.id, ticker, filingType: filing.filing_type, isAuthenticated }),
+    [filing.id, ticker, filing.filing_type, isAuthenticated],
+  )
+  const whatChangedContext = useMemo<WordingContext>(
+    () => ({ ...wordingIdentity, provisional: changeReportProvisional }),
+    [wordingIdentity, changeReportProvisional],
+  )
 
   const writerFallback = rawSummary?.writer?.fallback_used === true
   // A stored summary that failed (placeholder filler, a writer error, the fallback body, nothing left
@@ -166,7 +170,7 @@ export function SummaryDisplay({
             }
           />
           {/* A stored summary that failed holds no sections, but the change report needs none. */}
-          <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+          <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} context={wordingIdentity} />
         </>
       ) : (
         <>
@@ -204,7 +208,13 @@ export function SummaryDisplay({
               numbered section (2026-10 critique P-07); a legacy markdown summary keeps it as a card
               under the markdown, the card the page shows wherever no section holds it. */}
           {hasSections ? (
-            <SummaryBlocks sections={renderedSections} summary={summary} whatChanged={changeReport} firstHeadingRef={headingRef} />
+            <SummaryBlocks
+              sections={renderedSections}
+              summary={summary}
+              whatChanged={changeReport}
+              whatChangedContext={whatChangedContext}
+              firstHeadingRef={headingRef}
+            />
           ) : hasPolishedMarkdown ? (
             <>
               <Card as="section" className="overflow-hidden">
@@ -215,7 +225,7 @@ export function SummaryDisplay({
                   </ReactMarkdown>
                 </CardBody>
               </Card>
-              <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+              <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} context={wordingIdentity} />
             </>
           ) : null}
 

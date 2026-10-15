@@ -325,6 +325,33 @@ def _filing_url(filing_id: int | None, filing_url: str | None) -> str:
     return filing_url or settings.FRONTEND_URL
 
 
+def wording_changes_line(wording_changes: dict | None, filing_type: str) -> str | None:
+    """The "wording changes in Item 1A" field of a filing alert (tasks/todo.md E27, PR B), from the
+    filing's cached comparison summary (``filing_section_service.wording_change_summaries``), or
+    None when there is no comparison to report (nothing is written rather than a zero) or the
+    filing's own section only points at the annual report. Pro recipients only: the caller
+    passes the summary for a plan with ``section_changes``. Plain text; the renderers escape it."""
+    if not wording_changes or wording_changes.get("reference_only"):
+        return None
+    total = int(wording_changes.get("items_total") or 0)
+    if wording_changes.get("prior_reference_only"):
+        # No count: the comparison's items also count the pointer paragraph(s) the prior lost, so
+        # "N paragraphs" would overstate the section (the cards print the same line without one).
+        return f"Risk factors restated in full since the prior {filing_type}."
+    if wording_changes.get("has_changes") and total:
+        return f"Risk factor wording: {total} paragraph{'s' if total != 1 else ''} changed since the prior {filing_type}."
+    return f"Risk factor wording: no changes since the prior {filing_type}."
+
+
+def _wording_html(line: str | None, url: str) -> str:
+    if line is None:
+        return ""
+    return (
+        f'<p style="margin:0 0 16px;font-size:14px;">{html.escape(line)} '
+        f'<a href="{url}#what-changed" style="color:#3C6650;">Review the changes</a></p>'
+    )
+
+
 def render_new_filing_alert(
     *,
     name: str | None,
@@ -334,9 +361,11 @@ def render_new_filing_alert(
     filing_date: str,
     filing_id: int | None = None,
     filing_url: str | None = None,
+    wording_changes: dict | None = None,
 ) -> tuple[str, str]:
     greeting = _greeting(name)
     url = _filing_url(filing_id, filing_url)
+    wording = wording_changes_line(wording_changes, filing_type)
     # SEC EDGAR fields are external data — escape before interpolating into HTML.
     e_company, e_ticker, e_type, e_date = (
         html.escape(company_name), html.escape(ticker), html.escape(filing_type), html.escape(filing_date)
@@ -345,6 +374,7 @@ def render_new_filing_alert(
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;"><strong>{e_company} ({e_ticker})</strong> just filed a
       <strong>{e_type}</strong> with the SEC ({e_date}).</p>
+    {_wording_html(wording, url)}
     <p style="margin:0 0 24px;">
       <a href="{url}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Read the AI summary</a>
     </p>
@@ -352,7 +382,9 @@ def render_new_filing_alert(
     """
     text_body = (
         f"{greeting}\n\n{company_name} ({ticker}) just filed a {filing_type} with the SEC "
-        f"({filing_date}).\n\nRead the AI summary: {url}"
+        f"({filing_date}).\n\n"
+        + (f"{wording} Review the changes: {url}#what-changed\n\n" if wording else "")
+        + f"Read the AI summary: {url}"
     )
     return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
 
@@ -362,15 +394,21 @@ def render_daily_digest(
     name: str | None,
     items: list[dict],
 ) -> tuple[str, str]:
-    """`items`: dicts with company_name, ticker, filing_type, filing_date, and filing_id or filing_url."""
+    """`items`: dicts with company_name, ticker, filing_type, filing_date, and filing_id or filing_url;
+    an optional ``wording_changes`` summary adds the Item 1A line (``wording_changes_line``)."""
     greeting = _greeting(name)
+
+    def _row_wording(it: dict) -> str:
+        line = wording_changes_line(it.get("wording_changes"), it["filing_type"])
+        return f'<br><span style="font-size:14px;">{html.escape(line)}</span>' if line else ""
+
     # Escape external SEC EDGAR fields before interpolating into HTML.
     rows_html = "".join(
         f"""
         <tr>
           <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;">
             <strong>{html.escape(it['company_name'])} ({html.escape(it['ticker'])})</strong> — {html.escape(it['filing_type'])}
-            <span style="color:#6B7280;">· {html.escape(it['filing_date'])}</span><br>
+            <span style="color:#6B7280;">· {html.escape(it['filing_date'])}</span>{_row_wording(it)}<br>
             <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">Read the summary →</a>
           </td>
         </tr>"""
@@ -381,8 +419,12 @@ def render_daily_digest(
     <p style="margin:0 0 16px;">New filings from companies you track:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
     """
+    def _text_wording(it: dict) -> str:
+        line = wording_changes_line(it.get("wording_changes"), it["filing_type"])
+        return f" {line}" if line else ""
+
     text_lines = "\n".join(
-        f"- {it['company_name']} ({it['ticker']}) — {it['filing_type']} ({it['filing_date']}): "
+        f"- {it['company_name']} ({it['ticker']}) — {it['filing_type']} ({it['filing_date']}):{_text_wording(it)} "
         f"{_filing_url(it.get('filing_id'), it.get('filing_url'))}"
         for it in items
     )
@@ -595,6 +637,7 @@ async def send_new_filing_alert(
     filing_date: str,
     filing_id: int | None = None,
     filing_url: str | None = None,
+    wording_changes: dict | None = None,
 ) -> None:
     subject, html = build_new_filing_alert(
         name=name,
@@ -604,6 +647,7 @@ async def send_new_filing_alert(
         filing_date=filing_date,
         filing_id=filing_id,
         filing_url=filing_url,
+        wording_changes=wording_changes,
     )
     await send_email(to=[to_email], subject=subject, html=html)
 
@@ -617,8 +661,12 @@ def build_new_filing_alert(
     filing_date: str,
     filing_id: int | None = None,
     filing_url: str | None = None,
+    wording_changes: dict | None = None,
 ) -> tuple[str, str]:
-    """The exact ``(subject, html)`` a new-filing alert sends; frozen on a delivery batch (E11b-1)."""
+    """The exact ``(subject, html)`` a new-filing alert sends; frozen on a delivery batch (E11b-1).
+    ``wording_changes`` (a Pro recipient's Item 1A comparison summary, when known at selection
+    time) adds the wording line; the real-time pass usually precedes the extraction batch, so the
+    digest and a rebuilt batch carry it more often than the first alert does."""
     html, text = render_new_filing_alert(
         name=name,
         company_name=company_name,
@@ -627,6 +675,7 @@ def build_new_filing_alert(
         filing_date=filing_date,
         filing_id=filing_id,
         filing_url=filing_url,
+        wording_changes=wording_changes,
     )
     return f"{ticker} filed a {filing_type}", f"{html}{_hidden_text(text)}"
 

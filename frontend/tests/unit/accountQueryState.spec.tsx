@@ -9,7 +9,7 @@ import type { InternalAxiosRequestConfig } from 'axios'
 import api from '@/lib/api/client'
 import { getCurrentUser, getCurrentUserSafe, login, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
-import { logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { ACCOUNT_QUERY_FAMILIES, logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, getExplicitSessionGeneration, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -339,11 +339,12 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.subscription.byUser(2))).toBeUndefined()
   })
 
-  it('resets both families even when the ordinary logout request fails', async () => {
+  it('resets the account families, the wording reviews included, even when the ordinary logout request fails', async () => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), makeUser(1))
     client.setQueryData(queryKeys.subscription.byUser(1), { is_pro: true })
     client.setQueryData(queryKeys.usage.byUser(1), { summaries_used: 9 })
+    client.setQueryData(queryKeys.wordingReview.byFiling(42), { status: 'ok', labels: { a1: 'reviewed' } })
     markSessionActive()
     api.defaults.adapter = async () => { throw new Error('offline logout') }
     await expect(logoutAndResetAccount(client, logout)).rejects.toThrow('offline logout')
@@ -351,6 +352,33 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.subscription.all() })).toHaveLength(0)
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.usage.all() })).toHaveLength(0)
+    // The previous account's labels and receipts never show to the next account in this tab.
+    expect(client.getQueryCache().findAll({ queryKey: queryKeys.wordingReview.all() })).toHaveLength(0)
+  })
+
+  it('an account change removes every account-owned snapshot and keeps the shared ones', async () => {
+    const client = newClient()
+    // One entry in each account-owned family; most keys name no reader, so the next account would read them.
+    const owned = [
+      queryKeys.subscription.byUser(1), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(42),
+      queryKeys.whatChanged.byViewer(7, 1),
+      queryKeys.whatChanged.byViewer(7, null), // the anonymous entry, which a reader whose /me failed reads with their session
+      queryKeys.savedSummaries(), queryKeys.savedSummaryStatus(5, 1), queryKeys.watchlist(), queryKeys.watchlistInsights(),
+      queryKeys.earningsAlertTickers(), queryKeys.dashboardFeed(), queryKeys.dashboardCalendar(), queryKeys.notifications(),
+      queryKeys.notificationPreferences(), queryKeys.authConnections(), queryKeys.adminInvites(),
+      queryKeys.adminFeedback.list({ status: 'new' }),
+    ]
+    const shared = [
+      queryKeys.company('AAPL'), queryKeys.summary(7), queryKeys.filing(7), queryKeys.registrationConfig(),
+    ]
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    for (const key of [...owned, ...shared]) client.setQueryData(key, { owner: 1 })
+    markSessionActive()
+    api.defaults.adapter = async (config) => response(config, {})
+    await logoutAndResetAccount(client, logout)
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
+    expect(shared.filter((key) => client.getQueryData(key) === undefined)).toEqual([])
   })
 })
 
@@ -363,6 +391,40 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('account query ownership structural gate', () => {
+  it('every query family is classified, and an account change removes exactly the account-owned ones', () => {
+    // A new family in lib/queryKeys.ts fails here until it is placed. An account-owned one joins
+    // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
+    const accountOwned = [
+      'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
+      'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
+      'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback',
+    ]
+    const identity = ['currentUser'] // the reset publishes null for it
+    const shared = [
+      'registrationConfig', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals', 'analysisCoverage',
+      'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary', 'summaryProgress',
+      'company', 'companyFilings', 'companies',
+    ]
+    const classified = [...accountOwned, ...identity, ...shared]
+    expect(new Set(classified).size).toBe(classified.length)
+    expect([...classified].sort()).toEqual(Object.keys(queryKeys).sort())
+    type Factory = (...args: unknown[]) => readonly unknown[]
+    // The first element of every key a family builds: its one factory, or each member of an object family.
+    const prefixesOf = (name: string) => {
+      const entry = (queryKeys as unknown as Record<string, Factory | Record<string, Factory>>)[name]
+      const factories = typeof entry === 'function' ? [entry] : Object.values(entry)
+      return new Set(factories.map((factory) => factory(...Array<unknown>(factory.length).fill('x'))[0]))
+    }
+    // An owned family's members share one prefix, so removing it removes them all; a member under a
+    // prefix of its own (a re-split like the copilot usage key F1 merged) would outlive the account.
+    expect(accountOwned.filter((name) => prefixesOf(name).size !== 1)).toEqual([])
+    const ownedPrefixes = new Set(accountOwned.flatMap((name) => [...prefixesOf(name)]))
+    expect(new Set(ACCOUNT_QUERY_FAMILIES.map((key) => key[0]))).toEqual(ownedPrefixes)
+    expect(ACCOUNT_QUERY_FAMILIES.every((key) => key.length === 1)).toBe(true) // whole families, by prefix
+    // No other family builds a key under an owned prefix, or the reset would remove it too.
+    expect([...identity, ...shared].filter((name) => [...prefixesOf(name)].some((prefix) => ownedPrefixes.has(prefix)))).toEqual([])
+  })
+
   it('the canonical fetcher is the only positive current-user publisher', () => {
     const errors: string[] = []
     const identityWrites: string[] = []
@@ -402,7 +464,9 @@ describe('account query ownership structural gate', () => {
     }
     expect(errors).toEqual([])
     expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts'])
-    expect(allWrites).toHaveLength(6) // current user null, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row).
+    // current user null, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
+    // wording review x3 (the label applied as it is pressed, its rollback, the server's state).
+    expect(allWrites).toHaveLength(9)
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {

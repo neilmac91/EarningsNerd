@@ -3,11 +3,11 @@
 import { type ComponentProps, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { Button } from '@/components/ui'
+import { Button, countControlClass, cx } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
-import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
+import { ArrowClockwiseIcon, ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
@@ -107,10 +107,13 @@ function FollowupChips({
 type MdExtra = { node?: unknown }
 
 /** v2.2 GFM manners for the mono answer register: mb-3 block rhythm, tnum
-    numerals, reader-style hairline tables, brand links. `inject` routes a
+    numerals, reader-style hairline tables, prose links. `inject` routes a
     text-bearing element's children through the citation-chip walker — the
     SAME coverage set as before the restyle (p/li/strong/em/td); everything
-    else is style-only. */
+    else is style-only. A link prints what the model wrote, a figure or a
+    date included, so it takes the prose links' rule in globals.css (the
+    answer's own ink, underlined, sage under the pointer; D-030) and adds
+    only its weight. */
 function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
   return {
     p: ({ node: _n, children, ...rest }: ComponentProps<'p'> & MdExtra) => (
@@ -140,10 +143,7 @@ function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
       <em {...rest}>{inject(children)}</em>
     ),
     a: ({ node: _n, children, ...rest }: ComponentProps<'a'> & MdExtra) => (
-      <a
-        {...rest}
-        className="font-semibold text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark"
-      >
+      <a {...rest} className="font-semibold">
         {children}
       </a>
     ),
@@ -237,15 +237,16 @@ function TagIcon({ className }: { className?: string }) {
   )
 }
 
-/** Attribute the existing source check; excerpt matching is not whole-answer verification. */
+/** Attribute the existing source check; excerpt matching is not whole-answer verification. The badge may shrink and
+    wrap its words, so at an enlarged text size it stays inside the card (it wraps onto its own line first). */
 function TrustBadge({ citation }: { citation: CopilotCitation }) {
   return citation.verified ? (
-    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-data-xs font-semibold ${CHIP}`}>
+    <span className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-px text-data-xs font-semibold ${CHIP}`}>
       <CheckCircleIcon className="h-2.5 w-2.5" aria-hidden="true" />
       {citationVerificationLabel(citation)}
     </span>
   ) : (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-border-light bg-white px-2 py-px text-data-xs font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
+    <span className="inline-flex max-w-full items-center rounded-full border border-border-light bg-white px-2 py-px text-data-xs font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
       Cited
     </span>
   )
@@ -254,11 +255,24 @@ function TrustBadge({ citation }: { citation: CopilotCitation }) {
 /* Footnote evidence rows (v2.2): bracket marker chip + brand-rail excerpt
    blockquote (XBRL facts swap the quote register for the tag glyph + concept
    anchor + tabular figure) + locator link + trust badge. The decorative curly
-   quotes are pseudo-elements so the excerpt stays an exact text node. */
+   quotes are pseudo-elements so the excerpt stays an exact text node. A
+   locator prints the citation's section name as the model wrote it ("Item 7.
+   MD&A"), so it is the count control's link (D-030): the secondary ink at
+   rest, sage and the underline under the pointer, the brand ring on focus. */
+const LOCATOR_LINK = cx('inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm text-xs font-semibold', countControlClass('link'))
+
+/** The locator's new-tab cue, as the app's other links to the original draw it. */
+function OpensOriginal() {
+  return (
+    <>
+      <ArrowSquareOutIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
+      <span className="sr-only"> (opens in a new tab)</span>
+    </>
+  )
+}
+
 function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   if (!citations.length) return null
-  const linkClass =
-    'text-xs font-semibold text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
       <p className="mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
@@ -289,14 +303,15 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                         <span className="min-w-0 break-all font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">{tag}</span>
                       </div>
                     )}
-                    <p className="tnum mt-1 font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
+                    <p className="tnum mt-1 break-words font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
                       {c.excerpt}
                     </p>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {isHttpUrl(c.fragment_url) ? (
-                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={linkClass}>
-                        {c.section_ref ?? 'XBRL'} · EDGAR ↗
+                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
+                        <span className="min-w-0 break-words">{c.section_ref ?? 'XBRL'} · EDGAR</span>
+                        <OpensOriginal />
                       </a>
                     ) : c.section_ref ? (
                       <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>
@@ -306,13 +321,14 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                 </div>
               ) : (
                 <div className="min-w-0 flex-1">
-                  <blockquote className="border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light before:content-['“'] after:content-['”'] dark:border-brand-border-dark dark:text-text-secondary-dark">
+                  <blockquote className="break-words border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light before:content-['“'] after:content-['”'] dark:border-brand-border-dark dark:text-text-secondary-dark">
                     {c.excerpt}
                   </blockquote>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {isHttpUrl(c.fragment_url) ? (
-                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={linkClass}>
-                        {c.section_ref ?? 'View in filing'} ↗
+                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
+                        <span className="min-w-0 break-words">{c.section_ref ?? 'View in filing'}</span>
+                        <OpensOriginal />
                       </a>
                     ) : c.section_ref ? (
                       <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>

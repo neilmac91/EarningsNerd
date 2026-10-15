@@ -135,6 +135,38 @@ describe('FilingIndex', () => {
     for (const segment of within(group).getAllByRole('button')) expect(segment).toHaveClass('whitespace-nowrap')
   })
 
+  // DESIGN.md: a SegmentedControl holds at most five options, and the form filter's set is known only at run time.
+  const AMENDMENTS = [filing(7, '10-K/A', '2026-03-10', '2026-01-25'), filing(8, '10-Q/A', '2025-12-01', '2025-10-26')]
+  const FOREIGN = [filing(9, '20-F', '2026-04-28', '2025-12-31'), filing(10, '6-K', '2025-08-14', '2025-06-30')]
+
+  it('keeps a domestic filer’s forms on the segments: All plus four is five, the cap, and no form select', () => {
+    render(<Harness filings={[...FILINGS, ...AMENDMENTS]} />)
+    const group = screen.getByRole('group', { name: 'Filter by form' })
+    expect(within(group).getAllByRole('button')).toHaveLength(5)
+    expect(screen.queryByRole('combobox', { name: 'Filter by form' })).toBeNull()
+  })
+
+  it('renders a mixed filer’s seven options as the toolbar’s select, which filters as the segments do', () => {
+    render(<Harness filings={[...FILINGS, ...AMENDMENTS, ...FOREIGN]} />)
+    expect(screen.queryByRole('group', { name: 'Filter by form' })).toBeNull()
+    const select = screen.getByRole('combobox', { name: 'Filter by form' })
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'All forms', '10-K', '10-Q', '20-F', '6-K', '10-K/A', '10-Q/A',
+    ])
+    expect(select).toHaveDisplayValue('All forms')
+    fireEvent.change(select, { target: { value: '20-F' } })
+    expect(select).toHaveDisplayValue('20-F')
+    expect(screen.getByText('1 of 10 filings')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^20-F\s+Fiscal year ended Dec 31, 2025\s+Filed Apr 28, 2026$/ })).toHaveAttribute('href', '/filing/9')
+    expect(screen.queryByRole('link', { name: /^10-Q\s/ })).toBeNull()
+    // One filter state, whichever control sets it: the same empty line, and Clear filters resets the select.
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by report year' }), { target: { value: '2024' } })
+    expect(screen.getByText('No 20-F filings in 2024.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(select).toHaveDisplayValue('All forms')
+    expect(screen.getByText('10 filings')).toBeInTheDocument()
+  })
+
   it('opens the group of a chosen year (a filter always shows its result)', () => {
     render(<Harness initiallyOpen={['2026']} />)
     fireEvent.change(screen.getByRole('combobox', { name: 'Filter by report year' }), { target: { value: '2024' } })

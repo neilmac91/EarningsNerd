@@ -19,6 +19,11 @@ vi.mock('@/features/summaries/api/summaries-api', async importOriginal => ({
 vi.mock('@/features/summaries/hooks/useSummaryExports', () => ({
   useSummaryExports: () => ({ exportPdf: actions.pdf, exportCsv: actions.csv }),
 }))
+// The change report's read waits for /me (useWhatChanged); no network under vitest.
+vi.mock('@/features/auth/api/auth-api', async importOriginal => ({
+  ...await importOriginal<typeof import('@/features/auth/api/auth-api')>(),
+  getCurrentUserSafe: async () => null,
+}))
 
 const filing: Filing = {
   id: 42, filing_type: '20-F', filing_date: '2026-02-11', accession_number: 'test-accession',

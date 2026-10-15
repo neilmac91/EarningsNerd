@@ -64,7 +64,13 @@ clause (EN-05) checks what RetryButton is given: each element of its `failures` 
 hook its module exports, under any name an import gives it; a same-named local or a shadowing parameter is not it),
 inline, through a same-file `const` or either branch of a conditional, or, when it is a prop of the component
 rendering RetryButton, at every JSX use of that component (by its declared name in its own file, by any
-imported name elsewhere; a prop nobody passes fails). RetryButton is matched under its import aliases too. What
+imported name elsewhere; a prop nobody passes fails), or destructured from what a hook in another module returns
+(ComparePeriodsCard's `const { failure } = useWhatChanged(id)`, renamed or not: the hook is a named import, its
+module is read from disk, and every own `return` of that export is an object literal whose property is retained
+there by the same rules, so one hook may hand on another's and a cycle fails; a default value, a nested, rest or
+array pattern, a `let`, a member read, a default import, an export list, a bare `return`, a returned literal that
+spreads another object, a module the scan cannot read or one that exists as both `.ts` and `.tsx` counts as built
+by hand). RetryButton is matched under its import aliases too. What
 the scan cannot prove counts as built by hand: a `let`, a spread element, an empty list (a visible Retry whose
 press retries nothing), any JSX spread on RetryButton (a
 forwarding wrapper) or into such a component. A failure built by hand skips the hold and can carry
@@ -228,6 +234,9 @@ that starts no focus) and needs a touch-device pass. Fixed, all on
 RetryButton: the dashboard's account, plan and Your companies Retry buttons, FilingFeed's Retry, the
 company page's filings Retry (`FilingIndex.spec.tsx` for the control, `busyControls.watchlist.spec.tsx` for the
 hold through its retry and the hand-off to the "SEC filings" heading; its pins removed from the Retry gate in #1147),
+the company page's company Retry (`company-page-lead.spec.tsx`: the card and its busy, focused Retry held through
+the retry instead of the page spinner, then the hand-off to the "SEC filings" heading, the not-found title on a 404,
+or the coverage card's title for an unsupported issuer; a 404 card held through a background refetch, #1292),
 CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when it goes), the pricing
 page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
 `CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,
@@ -235,7 +244,9 @@ page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyCon
 (`StreamingSummaryDisplay.spec.tsx`, `useRetainedFailure.spec.tsx`, e2e `summary-generation-focus.spec.ts`); the completed-generation arrival in the persistent filing shell (first summary heading, only after a run, preserving held focus and modal ownership; the same e2e); and
 EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
 plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
-subscription are fixed too (`busyControls.dashboard.spec.tsx`).
+subscription are fixed too (`busyControls.dashboard.spec.tsx`). The admin invites and feedback list
+Retry buttons hold their Notice through the retry and hand focus to the "Invites" or "Feedback" list
+heading (`busyControls.admin-auth.spec.tsx`).
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,
 `aria-disabled={pending || undefined}` plus an early return). `tests/unit/calendarBellKeepsFocus.spec.tsx`
