@@ -216,7 +216,7 @@ const THEME_PAIR_RESIDUE: Record<string, number> = {
   'components/ThemeToggle.tsx': 1, // the pre-mount placeholder's ink, before the theme is known
   'components/ui/Button.tsx': 2, // the destructive fill and its disabled tint are red-700 under a white label in both themes
   'features/auth/components/GoogleSignInButton.tsx': 1, // Google's button stays white in both themes, with its light hairline
-  // tasks/todo.md E53: brand-border hairlines and the interactive card's pressed fill with no dark twin,
+  // tasks/todo.md E66: brand-border hairlines and the interactive card's pressed fill with no dark twin,
   // so dark mode draws the light theme's pale sage on navy.
   'app/waitlist/page.tsx': 1,
   'components/ui/Card.tsx': 1,

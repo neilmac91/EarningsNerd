@@ -72,7 +72,7 @@ function LoginContent() {
     const explicitGeneration = getExplicitSessionGeneration()
     try {
       await login(email, password, turnstileToken)
-      // Cancel the old identity and remove both account snapshots before resolving this login.
+      // Cancel the old identity and remove every account family before resolving this login.
       // Reset leaves the active marker set by successful login intact.
       const acceptedGeneration = acceptLoginAndResetAccount(queryClient, explicitGeneration)
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.all() })

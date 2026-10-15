@@ -3,10 +3,37 @@
 import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { submitContactForm } from '@/features/contact/api/contact-api'
+import { CONTACT_LIMITS, isPlausibleEmail, trimmedLength } from '@/features/contact/lib/limits'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
+import { Notice } from '@/components/ui/Notice'
+import { ApiError } from '@/lib/api/client'
+import { getErrorStatus } from '@/lib/api/types'
+
+/** The message maximum as the hint and the refusal print it (2,000). */
+const MESSAGE_MAX = CONTACT_LIMITS.messageMax.toLocaleString('en-US')
+
+const RATE_LIMITED = 'Too many messages from this connection. Try again in an hour.'
+const CHECK_FIELDS = 'Check the fields and send again.'
+const SEND_FAILED = "We couldn't send your message. Try again in a minute."
+
+/** What a failed send tells the reader. The rate limit is read from the status, never from the
+    message's words (the backend's 429 sentence has no "429" in it), and so is a 422, which asks the
+    reader to check the fields. A 5xx shows the surface's sentence: the route's own 500 detail
+    ("Failed to save contact form submission") is developer wording with no next step. Otherwise the
+    backend's own detail, or the surface's sentence when the body carried none: `backendDetail` is
+    set only from a string `detail` in the body, never from the client's status fallbacks or axios's
+    "Request failed with status code N". */
+function sendErrorMessage(err: unknown): string {
+  const status = getErrorStatus(err)
+  if (status === 429) return RATE_LIMITED
+  if (status === 422) return CHECK_FIELDS
+  if (status !== undefined && status >= 500) return SEND_FAILED
+  const detail = err instanceof ApiError ? err.backendDetail : undefined
+  return typeof detail === 'string' && detail.trim() ? detail : SEND_FAILED
+}
 
 export default function ContactForm() {
   const [name, setName] = useState('')
@@ -39,21 +66,43 @@ export default function ContactForm() {
     setError(null)
     setSuccess(false)
 
-    // Client-side validation
+    // Client-side validation. Lengths are checked in code points, as the server's len() counts them;
+    // the fields carry no native maxLength, which counts UTF-16 units and would cut an emoji-heavy
+    // message the server accepts.
     if (!name.trim()) {
       setError('Please enter your name.')
+      return
+    }
+    if (trimmedLength(name) < CONTACT_LIMITS.nameMin) {
+      setError(`Your name needs at least ${CONTACT_LIMITS.nameMin} characters.`)
+      return
+    }
+    if (trimmedLength(name) > CONTACT_LIMITS.nameMax) {
+      setError(`Your name can be at most ${CONTACT_LIMITS.nameMax} characters.`)
       return
     }
     if (!email.trim()) {
       setError('Please enter your email address.')
       return
     }
+    if (!isPlausibleEmail(email.trim())) {
+      setError('Please enter a valid email address.')
+      return
+    }
+    if (trimmedLength(subject) > CONTACT_LIMITS.subjectMax) {
+      setError(`Your subject can be at most ${CONTACT_LIMITS.subjectMax} characters.`)
+      return
+    }
     if (!message.trim()) {
       setError('Please enter a message.')
       return
     }
-    if (message.trim().length < 10) {
-      setError('Message must be at least 10 characters long.')
+    if (trimmedLength(message) < CONTACT_LIMITS.messageMin) {
+      setError(`Your message needs at least ${CONTACT_LIMITS.messageMin} characters.`)
+      return
+    }
+    if (trimmedLength(message) > CONTACT_LIMITS.messageMax) {
+      setError(`Your message can be at most ${MESSAGE_MAX} characters.`)
       return
     }
 
@@ -78,12 +127,7 @@ export default function ContactForm() {
       setSubject('')
       setMessage('')
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send message. Please try again.'
-      if (errorMessage.includes('429')) {
-        setError('Too many requests. Please try again in an hour.')
-      } else {
-        setError(errorMessage)
-      }
+      setError(sendErrorMessage(err))
     } finally {
       setIsSubmitting(false)
     }
@@ -108,23 +152,22 @@ export default function ContactForm() {
               />
             </svg>
           </div>
-          <h3
+          <h2
             ref={successHeadingRef}
             tabIndex={-1}
             className="mb-2 text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
           >
             Message sent
-          </h3>
+          </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Thank you for contacting us. We&apos;ve received your message and will get back to you within 1-2 business
-            days.
+            We have your message and will reply within 1–2 business days.
           </p>
           <button
             onClick={() => {
               swapped.current = true
               setSuccess(false)
             }}
-            className="mt-6 text-sm font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
+            className="mt-6 rounded-sm text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
           >
             Send another message
           </button>
@@ -219,19 +262,15 @@ export default function ContactForm() {
             readOnly={isSubmitting}
             rows={6}
             className={clsx(inputClasses(), 'mt-2')}
-            placeholder="Tell us more about your inquiry..."
+            placeholder="What happened, or what you'd like to know"
           />
           <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-            Minimum 10 characters
+            {CONTACT_LIMITS.messageMin} to {MESSAGE_MAX} characters
           </p>
         </div>
 
         {/* Error Message */}
-        {error && (
-          <div className="rounded-lg bg-error-light/10 p-4 dark:bg-error-dark/15">
-            <p className="text-sm text-error-light dark:text-error-dark">{error}</p>
-          </div>
-        )}
+        {error && <Notice variant="error" title="Message not sent" description={error} />}
 
         <TurnstileWidget onToken={setTurnstileToken} />
 
@@ -242,11 +281,11 @@ export default function ContactForm() {
         <Button
           type="submit"
           loading={isSubmitting}
-          loadingText="Sending..."
+          loadingText="Sending…"
           disabled={TURNSTILE_ENABLED && !turnstileToken}
           className="w-full"
         >
-          Send Message
+          Send message
         </Button>
       </div>
     </form>

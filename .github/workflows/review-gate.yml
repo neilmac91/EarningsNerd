@@ -18,7 +18,7 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, edited]
   # `@codex review` on an unchanged head re-triggers Codex but fires no pull-request event, so the
-  # comment itself re-runs this pull request's latest gate run (a new attempt on the same head).
+  # comment itself re-runs the newest gate run on the pull request's head (a new attempt on that head).
   issue_comment:
     types: [created]
 
@@ -35,7 +35,14 @@ concurrency:
 
 jobs:
   review-gate:
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
+    # Every pull-request event runs this job, drafts included. A job skipped by its `if` reports
+    # success, which a required check counts as passing, and an event's payload can still say draft
+    # after the pull request was marked ready: on #1315 one update fired `ready_for_review` and an
+    # `edited` event with a draft payload, which ran second, cancelled the ready run before it could
+    # wait, and skipped. The script reads the live draft flag and fails while the pull request is a
+    # draft. Nothing else in this job may skip or soften the gate step (a step `if`,
+    # `continue-on-error`, `needs`, another step); backend/tests/unit/test_review_gate.py pins its shape.
+    if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -72,23 +79,45 @@ jobs:
       actions: write
       pull-requests: read
     steps:
-      - name: Re-run this pull request's latest review-gate run so it waits for the re-requested review
+      # The run is looked up by the pull request's current head SHA, so it is found however many runs
+      # other pull requests have had since; the newest 50 runs repo-wide, which this used to search,
+      # missed most open pull requests. Of the runs on that commit it takes this pull request's head
+      # branch and repository (by id, so a deleted fork matches nothing), not a run whose `pull_requests`
+      # lists it: that field lists every open pull request on the run's head or branch, and none for a
+      # fork's. Two pull requests from one branch to different bases still share runs, as they share the
+      # commit's check. The branch name is the author's, so it reaches jq as data ($ENV), never as
+      # program text. A skipped run is never re-run: only a run from before #1331 can skip (its job
+      # carried a draft condition), and a re-run keeps the definition and payload it started with, so it
+      # would skip again and, in the concurrency group, cancel a run that was waiting (#1319, #1318).
+      # GitHub re-runs a run only within 30 days of its first attempt, at most 50 times. Each outcome
+      # goes to this job's log, which sits on main's commit, not the pull request.
+      - name: Re-run the newest review-gate run on this pull request's head so it waits for the re-requested review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
-          run_id=$(gh api "repos/$REPO/actions/workflows/review-gate.yml/runs?event=pull_request_target&per_page=50" \
-            --jq "[.workflow_runs[] | select(any(.pull_requests[]?; .number == $PR))][0].id // empty")
-          if [ -z "$run_id" ]; then
-            echo "review-gate: no gate run for pull request #$PR yet (opened before the gate existed?); nothing to re-run"
+          pull=$(gh api "repos/$REPO/pulls/$PR" --jq '"\(.head.sha) \(.head.ref) \(.head.repo.id // "-")"')
+          read -r head HEAD_REF HEAD_REPO_ID <<< "$pull"
+          export HEAD_REF HEAD_REPO_ID
+          run=$(gh api "repos/$REPO/actions/workflows/review-gate.yml/runs?event=pull_request_target&head_sha=$head&per_page=100" \
+            --jq '[.workflow_runs[] | select(.head_branch == $ENV.HEAD_REF and (.head_repository.id | tostring) == $ENV.HEAD_REPO_ID)] | max_by(.run_number) // empty | "\(.id) \(.status) \(.conclusion // "none")"')
+          if [ -z "$run" ]; then
+            echo "review-gate: no gate run on #$PR's head ${head:0:12} yet; push or edit the pull request to start one"
             exit 0
           fi
-          status=$(gh api "repos/$REPO/actions/runs/$run_id" --jq .status)
+          read -r run_id status conclusion <<< "$run"
           if [ "$status" != "completed" ]; then
             echo "review-gate: run $run_id is still $status; it will observe the re-requested review itself"
             exit 0
           fi
-          gh api -X POST "repos/$REPO/actions/runs/$run_id/rerun" >/dev/null
-          echo "review-gate: re-ran run $run_id for pull request #$PR"
+          if [ "$conclusion" = "skipped" ]; then
+            echo "review-gate: run $run_id skipped under the gate's old draft condition, and a re-run would skip again; push or edit #$PR to start a new run"
+            exit 0
+          fi
+          if ! gh api -X POST "repos/$REPO/actions/runs/$run_id/rerun" >/dev/null; then
+            echo "::error::review-gate: GitHub refused to re-run run $run_id (it re-runs a run only within 30 days of its first attempt, and at most 50 times); push or edit #$PR to start a new run"
+            exit 1
+          fi
+          echo "review-gate: re-ran run $run_id for #$PR at head ${head:0:12}"

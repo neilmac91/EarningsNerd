@@ -1,6 +1,6 @@
 'use client'
 
-import { PaperPlaneTiltIcon } from '@/lib/icons'
+import { LinkIcon, PaperPlaneTiltIcon } from '@/lib/icons'
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import CopyLinkButton from '@/features/admin/components/CopyLinkButton'
 import ShareInvite from '@/features/admin/components/ShareInvite'
@@ -10,6 +10,8 @@ interface ResendShareModalProps {
   link: string
   /** The email the new invite is bound to (null for a link-only invite). */
   email: string | null
+  /** The API's `emailed` flag: the backend emails a bound invite best-effort, and never a link-only one. */
+  emailed: boolean
   onClose: () => void
 }
 
@@ -19,16 +21,16 @@ interface ResendShareModalProps {
  * returns to the element that opened it — all supplied by ui/Modal (v3, DS-04), which
  * also portals to <body> so the dialog escapes the table's stacking/overflow context.
  */
-export default function ResendShareModal({ link, email, onClose }: ResendShareModalProps) {
+export default function ResendShareModal({ link, email, emailed, onClose }: ResendShareModalProps) {
   return (
     <Modal open onClose={onClose} labelledBy="resend-share-modal-title" size="md">
       <ModalHeader
         id="resend-share-modal-title"
         onClose={onClose}
-        icon={<PaperPlaneTiltIcon className="h-5 w-5" />}
+        icon={emailed ? <PaperPlaneTiltIcon className="h-5 w-5" /> : <LinkIcon className="h-5 w-5" />}
         tone="success"
       >
-        Invite re-sent. Share the new link
+        {emailed ? 'Invite re-sent' : 'New invite link ready'}
       </ModalHeader>
       <ModalBody>
         <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
@@ -39,6 +41,7 @@ export default function ResendShareModal({ link, email, onClose }: ResendShareMo
                 {email}
               </span>{' '}
               is ready. The previous link no longer works.
+              {emailed && <> We emailed it to {email}.</>}
             </>
           ) : (
             <>A fresh single-use link is ready. The previous link no longer works.</>

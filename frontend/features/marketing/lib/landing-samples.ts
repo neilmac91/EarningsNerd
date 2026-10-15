@@ -58,7 +58,7 @@ export const SAMPLE_FINANCIAL_METRICS: FinancialMetric[] = [
     commentary: 'Grew three times as fast as revenue; the provision for income taxes fell.',
     source_url: AAPL_FY25_EDGAR_URL,
     source_verified: true,
-    xbrl_concept: 'NetIncomeLoss',
+    xbrl_concept: 'Net income',
     source_section_ref: 'Consolidated Statements of Operations',
   },
   {
@@ -97,23 +97,34 @@ export const SAMPLE_CATCH = {
   url: AAPL_FY25_EDGAR_URL,
 } as const
 
-/** Ask this Filing demo: one answer with an XBRL figure chip ([F1]) and a passage chip ([1]).
- *  Services net sales from the Products and Services Performance table: $109,158M vs $96,169M. */
+/** Ask this Filing demo: one answer as a live run returns it. Two XBRL figure chips in
+ *  fact_to_citation's own format (backend/app/services/copilot_tools.py: total net sales, a fact the
+ *  tool can fetch, and its year-over-year growth, which compute_metric derives from the same fact) and
+ *  one passage chip. The server renumbers every marker in first-appearance order
+ *  (copilot/resolution.py), so the answer carries [1] [2] [3], never [F1]. Figures: 416,161M vs
+ *  391,035M (docs/brand/00-audit.md §4); tests/unit/landingSamplesVerified.spec.ts holds it. */
 export const SAMPLE_ASK = {
-  question: 'How much did Services revenue grow, and what drove it?',
+  question: 'How much did net sales grow, and what drove Services?',
   // Markers are injected as CitationChips by lib/citationMarkers, exactly as CopilotMessage does.
   answer:
-    'Services net sales were $109.2B, up 13.5% from $96.2B [F1]. Management attributes the increase to advertising, the App Store and cloud services [1].',
+    'Total net sales were $416.2B [1], up 6.4% on the prior year [2]. Management attributes the Services increase to advertising, the App Store and cloud services [3].',
   citations: [
     {
-      n: 'F1',
-      excerpt: 'Services net sales: $109,158 million (FY2025) vs $96,169 million (FY2024)',
-      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax · Services',
+      n: 1,
+      excerpt: 'Revenue = $416.16B USD (FY2025/FY)',
+      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
       verified: true,
       fragment_url: AAPL_FY25_EDGAR_URL,
     },
     {
-      n: 1,
+      n: 2,
+      excerpt: 'Revenue YoY growth = 6.4% (FY2025/FY)',
+      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+      verified: true,
+      fragment_url: AAPL_FY25_EDGAR_URL,
+    },
+    {
+      n: 3,
       excerpt:
         'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.',
       section_ref: 'Item 7 · Products and Services Performance',
