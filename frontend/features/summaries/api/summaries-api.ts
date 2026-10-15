@@ -326,7 +326,7 @@ const runStreamAttempt = async (
       onProgress(stageName, message, progressData)
     } else if (data.type === 'complete' || data.type === 'partial') {
       if (!Number.isSafeInteger(data.summary_id) || data.summary_id <= 0) {
-        streamErrorMessage = 'The summary stream returned an invalid completion. Please try again.'
+        streamErrorMessage = 'The summary ended with an invalid completion. Try again.'
         return
       }
       completed = true
@@ -359,9 +359,12 @@ const runStreamAttempt = async (
         else if (typeof errorData?.message === 'string') errorMessage = errorData.message
       } catch (error) {
         if (controller.signal.aborted) throw error
-        if (response.status === 403) errorMessage = 'You do not have permission to perform this action.'
-        else if (response.status === 429) errorMessage = 'Rate limit exceeded. Please try again later.'
-        else if (response.status >= 500) errorMessage = 'Server error. Please try again later.'
+        // "permission" stays in the 403 sentence: it is the one place the word isNonRetryableStreamError tests
+        // for is written (no backend message on this route says it), and the matcher gates hold each of its
+        // phrases to a writer (tests/unit/streamErrorCopy.spec.ts). A 403 is never retried in any case.
+        if (response.status === 403) errorMessage = 'Your account does not have permission to generate this summary.'
+        else if (response.status === 429) errorMessage = 'Too many summary requests just now. Try again shortly.'
+        else if (response.status >= 500) errorMessage = 'The server could not start the summary. Try again in a moment.'
       }
       return { ok: false, retryable: response.status >= 500, error: errorMessage }
     }
@@ -397,20 +400,24 @@ const runStreamAttempt = async (
       return {
         ok: false,
         retryable: true,
-        error: 'The connection closed before the summary finished. Please try again.',
+        error: 'The connection closed before the summary finished. Try again.',
       }
     }
     return { ok: true, retryable: false, error: '' }
   } catch (error: unknown) {
+    // The card prints this result's error, so it is a sentence in the product voice, never the transport's
+    // own text ("Failed to fetch", "Load failed", "NetworkError when attempting to fetch resource."); the
+    // transport's text goes to the console. Both are retryable, so no matcher phrase is involved.
     const errObj = error as { name?: string; message?: string }
     if (errObj?.name === 'AbortError') {
       return {
         ok: false,
         retryable: true,
-        error: `Request timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without activity.`,
+        error: `The summary timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without progress. Try again.`,
       }
     }
-    return { ok: false, retryable: true, error: errObj?.message || 'Failed to generate summary stream.' }
+    console.warn(`[summary] ${filingId} stream transport failed: ${errObj?.message ?? String(error)}`)
+    return { ok: false, retryable: true, error: 'The connection dropped before the summary finished. Try again.' }
   } finally {
     clearTimeoutSafely()
     controller.abort()

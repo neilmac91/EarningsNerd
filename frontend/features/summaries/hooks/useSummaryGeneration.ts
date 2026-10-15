@@ -13,13 +13,14 @@ import {
 } from '../api/summaries-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { queryKeys } from '@/lib/queryKeys'
+import { ApiError } from '@/lib/api/client'
 import analytics from '@/lib/analytics'
 import { IN_PROGRESS_MARKER } from '../lib/summaryPlaceholder'
 
 // The hook's own fallback sentences are written in the product voice; a backend sentence is mapped
 // where it is shown (features/summaries/lib/streamErrorCopy.ts, read by StreamingSummaryDisplay), so the
-// raw message stays the one the paywall and retry matchers read. "Sign in" stays in the signed-out
-// sentence: isNonRetryableStreamError routes on it.
+// raw message stays the one the paywall and retry matchers read. The signed-out sentence below is set
+// before any stream starts, so no matcher reads it; it says what to do.
 const getFriendlyErrorMessage = (error: unknown): string | null => {
   if (!error) return null
 
@@ -31,9 +32,13 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
     if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
       return 'The summary timed out. Retry to generate it again.'
     }
-    return error.message
+    // axios's own message ("Network Error", "Request failed with status code 500") is transport text.
+    return 'The summary could not load. Try again.'
   }
 
+  // The API client's own status sentences are transport text, not copy (a dropped connection names the
+  // API's URL): only a message the backend wrote reaches the card.
+  if (error instanceof ApiError) return error.backendDetail || 'The summary could not load. Try again.'
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
 
