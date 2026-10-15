@@ -541,16 +541,16 @@ const TONED_FILING: Route = {
   ready: (p) => expect(p.getByText('Management tone: cautious', { exact: true })).toBeVisible(),
 }
 
-/** Each summary section's heading row (a heading whose group opens on its "01" index): whether the heading
-    sits beside its index, and for a toned row whether its badge's box meets the heading's, sits wholly
-    beneath it, and how far either reaches past the row or the viewport. */
+/** Each summary section's heading row (the section's first child, holding its "01" index): whether the
+    heading sits beside its index, and for a toned row whether its badge's box meets the heading's, sits
+    wholly beneath it, and how far either reaches past the row or the viewport. Read from the section, so
+    any arrangement of the row's items is measured, not only the one the page ships. */
 const headingRows = (page: Page) =>
   page.evaluate(() =>
     [...document.querySelectorAll('section h2')].flatMap((heading) => {
-      const group = heading.parentElement!
-      const index = group.firstElementChild
-      if (!index || index === heading || !/^\d{2}$/.test((index.textContent ?? '').trim())) return []
-      const row = group.parentElement!
+      const row = heading.closest('section')?.firstElementChild
+      const index = row?.querySelector('span[aria-hidden="true"]')
+      if (!row || !index || !row.contains(heading) || !/^\d{2}$/.test((index.textContent ?? '').trim())) return []
       const h = heading.getBoundingClientRect()
       const i = index.getBoundingClientRect()
       const badge = [...row.children].find((child) => (child.textContent ?? '').startsWith('Management tone: '))
