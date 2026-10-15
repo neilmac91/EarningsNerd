@@ -277,7 +277,7 @@ describe('SegmentedControl option count (DESIGN.md: a long set of options is a c
   })
 
   it('UNRESOLVED is shrink-only, and every entry has a reason', () => {
-    expect(Object.keys(UNRESOLVED).length).toBeLessThanOrEqual(MAX_UNRESOLVED)
+    expect(Object.keys(UNRESOLVED).length).toBe(MAX_UNRESOLVED)
     for (const [file, { reason }] of Object.entries(UNRESOLVED)) expect(reason.trim().length, file).toBeGreaterThan(0)
   })
 })
