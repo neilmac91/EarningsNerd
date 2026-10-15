@@ -123,7 +123,6 @@ PROPER_NAMES = ("EarningsNerd", "Multi-Period Analysis", "Ask this Filing", "Cha
 
 # What breaks today, grouped by the PR or decision that owns the fix. Shrink-only (module docstring).
 EXEMPT: dict[str, str] = {
-    "app/routers/auth.py": "founder: the auth router's details wait for the go-ahead",
     "app/services/ai/markdown_render.py": "founder: eval-pinned summary fallback text",
     "app/services/ai/summary_finalize.py": "founder: the pipeline's 'Unable to retrieve' sentence (failure.py routes on it)",
     "app/services/summary_stages/admission.py": "founder: summary pipeline sentences",
@@ -146,6 +145,10 @@ EXEMPT: dict[str, str] = {
     "app/services/fallback_summary.py": "backend-copy-high",
     "app/services/summary_sections.py": "backend-copy-high",
 
+    "app/routers/auth.py": (
+        "backend-copy-low (tasks/todo.md E45): the auth router's details, in the voice pass on the five routers "
+        "the founder approved (D-040)"
+    ),
     "app/routers/email.py::send_test_email": "backend-copy-low (tasks/todo.md E45): the admin-only Resend test mail",
     "app/services/edgar/ads_ratios.py": "backend-copy-low (tasks/todo.md E45): the ADS-ratio sources PerAdsNote shows",
     "app/services/trend_analysis/citations.py": "backend-copy-low (tasks/todo.md E45): the analysis citation's derived-Q4 label",
