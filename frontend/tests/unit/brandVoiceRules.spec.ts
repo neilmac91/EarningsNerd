@@ -25,7 +25,8 @@ import { isIconModule } from './iconModules'
  *    className styled through a variable (`const btn = buttonVariants()`) are not followed; those stay
  *    review-checked (lessons/test-gates-must-be-as-wide-as-their-rule.md). A label joined with `+` is
  *    read as the joined text.
- *  - exclamation: no exclamation mark in copy.
+ *  - exclamation: no exclamation mark in copy, wherever it sits (`Great!!`, `Really!?`, `Hello!Welcome`); the
+ *    source a RegExp is built from is code, not copy.
  *  - emoji: no emoji in copy: a character that presents as an emoji by default, or any pictograph
  *    forced to one with U+FE0F. Typographic glyphs (the ▲ ▼ direction marks, ↗ for an external link,
  *    © ® ™) are text, not emoji.
@@ -106,7 +107,7 @@ const BUZZWORDS: Array<[string, RegExp]> = [
 ]
 
 const EMOJI = /\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F/u
-const EXCLAMATION = /[\p{L}\p{N})'"’”.]!(?=\s|$|['"’”)])/u
+const EXCLAMATION = /!/u
 const DEVELOPER_WORDING = /\bbackend\b|\/api\/|\breader\b|\b[45]\d\d\b/i
 const HEADINGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
 /** Components whose title prop is a visible title. UpgradeModal is named because its title reaches its
@@ -120,7 +121,7 @@ const CONTROLS = new Set(['Button', 'button', 'a', 'Link'])
 /** Attributes that hold code, not copy. */
 const CODE_ATTRS = /^(?:className|class|href|src|srcSet|id|key|type|role|name|rel|target|variant|size|as|method|action|htmlFor|autoComplete|inputMode|enterKeyHint|lang|viewBox|d|fill|stroke|strokeWidth|strokeLinecap|strokeLinejoin|xmlns|mode|side|align|tone|tabIndex|pattern|form|scope|dateTime|sizes|crossOrigin|referrerPolicy|layout|data-[\w-]+|aria-(?:controls|labelledby|describedby|haspopup|live|current|expanded|hidden|selected|pressed|checked|disabled|modal|orientation|sort|atomic|relevant|busy|invalid|required|owns|activedescendant))$/
 /** Calls whose string arguments are class lists or keys. */
-const CODE_CALLS = new Set(['cx', 'clsx', 'cn', 'buttonVariants', 'inputClasses', 'require', 'querySelector', 'querySelectorAll', 'getItem', 'setItem', 'removeItem', 'addEventListener', 'removeEventListener', 'getElementById', 'matchMedia', 'startsWith', 'endsWith', 'includes', 'replace', 'split', 'test', 'match', 'capture', 'track', 'identify', 'register', 'useQuery', 'setAttribute', 'getAttribute', 'createElement'])
+const CODE_CALLS = new Set(['RegExp', 'cx', 'clsx', 'cn', 'buttonVariants', 'inputClasses', 'require', 'querySelector', 'querySelectorAll', 'getItem', 'setItem', 'removeItem', 'addEventListener', 'removeEventListener', 'getElementById', 'matchMedia', 'startsWith', 'endsWith', 'includes', 'replace', 'split', 'test', 'match', 'capture', 'track', 'identify', 'register', 'useQuery', 'setAttribute', 'getAttribute', 'createElement'])
 
 interface Finding {
   rel: string
@@ -176,6 +177,8 @@ function isCodeString(node: ts.Node, text: string): boolean {
     if (ts.isJsxAttribute(n)) return CODE_ATTRS.test(n.name.getText())
     if (ts.isPropertyAssignment(n) && /^(?:className|classNames|href|key|queryKey|id|type|variant)$/.test(n.name.getText())) return true
     if (ts.isCallExpression(n) && CODE_CALLS.has(callName(n))) return true
+    // The source a RegExp is built from (`new RegExp(\`(?<!x)[.!?]\`)`) is a pattern, not a sentence.
+    if (ts.isNewExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'RegExp') return true
     // An expression rendered as an element's child is copy, whatever its shape.
     if (ts.isJsxExpression(n) && (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))) return false
     if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isBlock(n) || ts.isSourceFile(n)) break
@@ -671,6 +674,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <h2><MARK.alert />Price alerts</h2>',
       '      <h2><MARK.ring />Doorbells</h2>',
       '      <h2><Keyed />Price alerts</h2>',
+      "      <p>{'Great!!'}</p>",
+      '      <p>Really!?</p>',
+      '      <span>Hello!Welcome</span>',
       '    </div>',
       '  )',
       '}',
@@ -694,6 +700,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       // An object whose property holds an icon, read by name and through a binding by a key the scan cannot read.
       'const MARK = { alert: BellIcon, ring: Ring } as const',
       'const Keyed = MARK[kind]',
+      // A RegExp's source is code: its lookbehind and its class of sentence stops are not exclamations.
+      "const END = new RegExp('(?<!\\b[A-Za-z])[.!?](?=\\s)', 'u')",
+      "const STOP = RegExp('(?<!Mr)[.!?]$')",
     ].join('\n')
     expect(voiceFindings(src, 'features/probe/Probe.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '2 sentenceCase',
@@ -754,6 +763,10 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '52 headingIcon',
       '53 headingIcon',
       '55 headingIcon',
+      // Every exclamation mark in copy: doubled, beside a question mark, and between two words.
+      '56 exclamation',
+      '57 exclamation',
+      '58 exclamation',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
