@@ -15,6 +15,7 @@ import { formatLocalDate } from '@/lib/format'
 import { toast } from 'sonner'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import TrialBanner from '@/features/subscriptions/components/TrialBanner'
+import { takeCarriedReturnNotice, useCarryReturnNotice } from '@/features/subscriptions/lib/returnNotice'
 import CompanySearch from '@/features/companies/components/CompanySearch'
 import FilingFeed from '@/features/dashboard/components/FilingFeed'
 import EarningsCalendar from '@/features/dashboard/components/EarningsCalendar'
@@ -171,12 +172,21 @@ export default function DashboardPage() {
   // the page out of the server HTML. The notice only reads the subscription query the page already
   // holds; the webhook can land after the redirect, so a plan still Free is not called Pro. The flag is
   // read once, then dropped from the address (other params kept), so a reload, a history entry or a
-  // bookmark of the return URL does not announce a checkout again.
+  // bookmark of the return URL does not announce a checkout again. A remount in the same commit (the
+  // PostHog provider swaps its element when cookie consent arrives) keeps the notice
+  // (features/subscriptions/lib/returnNotice.ts).
   const [checkoutReturned, setCheckoutReturned] = useState(false)
+  useCarryReturnNotice('dashboard-checkout-success', checkoutReturned)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('success') !== 'true') return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot post-hydration read of the return flag, as the filing page reads its URL flags; reading window.location during render would mismatch the server HTML
+    // One-shot post-hydration read of the return flag, as the filing page reads its URL flags; reading
+    // window.location during render would mismatch the server HTML. Without the flag, the notice a remount
+    // in this same commit carried, which exists only after the commit that unmounted the page showing it.
+    if (params.get('success') !== 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the post-hydration reads above: the flag, or the carried notice
+      if (takeCarriedReturnNotice('dashboard-checkout-success')) setCheckoutReturned(true)
+      return
+    }
     setCheckoutReturned(true)
     params.delete('success')
     const query = params.toString()

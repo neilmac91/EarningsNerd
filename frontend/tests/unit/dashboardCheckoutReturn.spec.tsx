@@ -14,7 +14,8 @@ import DashboardPage from '@/app/dashboard/page'
  * - `?success=true` says "Pro is active" only when the subscription query says Pro, and "Checkout finished"
  *   (a title, then "Your plan updates in a moment." as its description; a Notice title is one phrase, never
  *   two clauses joined by a semicolon, which noticeTitlesAreOnePhrase.spec.ts holds app-wide) only while it
- *   still says Free. The flag is then dropped from the address, so a second visit to the same page says nothing.
+ *   still says Free. The flag is then dropped from the address, so a second visit to the same page says nothing,
+ *   while a remount in the same commit (the PostHog provider's swap once consent arrives) keeps the notice.
  * - The trial banner keys on the resolved plan (`subscription.is_pro`), never the /me `is_pro` mirror,
  *   which stays true on an expired trial remnant (lessons/frontend-trial-labels-use-entitlements.md). Its
  *   fixtures sit at midday UTC, the same calendar day only from UTC-12 to UTC+11, so every case reads in UTC
@@ -118,8 +119,10 @@ describe('Dashboard after checkout', () => {
     expect(api.routerReplace).toHaveBeenCalledWith('/dashboard?tab=alerts', { scroll: false })
     expect(window.location.search).toBe('?tab=alerts')
 
-    // A second visit to the address left behind (a reload, a history entry) says nothing.
+    // A second visit to the address left behind (a reload, a history entry) says nothing. A later visit
+    // comes in a later task than the unmount, never in the same commit.
     cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 0))
     await renderDashboard(free)
     expect(screen.queryByText(UPDATING)).not.toBeInTheDocument()
     expect(screen.queryByText(UPDATING_DETAIL)).not.toBeInTheDocument()
@@ -135,8 +138,33 @@ describe('Dashboard after checkout', () => {
     expect(window.location.pathname + window.location.search).toBe('/dashboard')
 
     cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 0))
     await renderDashboard(pro)
     expect(screen.queryByText(PRO_ACTIVE)).not.toBeInTheDocument()
+  })
+
+  // PostHogProvider renders <>{children}</> until cookie consent arrives and <PHProvider> after, so the page
+  // remounts in that commit; the flag already left the address, and the notice stays.
+  it('keeps the notice when a parent swaps its element type, as the PostHog provider does once consent arrives', async () => {
+    window.history.replaceState(null, '', '/dashboard?success=true')
+    api.getCurrentUserSafe.mockResolvedValue(user)
+    api.getUsage.mockResolvedValue(usage)
+    api.getSubscriptionStatus.mockResolvedValue(pro)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const Provider = ({ children }: { children: ReactNode }) => <>{children}</>
+    const tree = (consented: boolean) => (
+      <QueryClientProvider client={client}>
+        {consented ? <Provider><DashboardPage /></Provider> : <><DashboardPage /></>}
+      </QueryClientProvider>
+    )
+    const { rerender } = render(tree(false))
+    const before = await screen.findByText(PRO_ACTIVE)
+    expect(window.location.search).toBe('')
+
+    rerender(tree(true))
+    const after = await screen.findByText(PRO_ACTIVE)
+    // A new node: the page remounted, and the notice came with it.
+    expect(after).not.toBe(before)
   })
 })
 

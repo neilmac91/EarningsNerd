@@ -150,11 +150,36 @@ describe('PricingPage', () => {
       expect(mockReplace).toHaveBeenCalledWith('/pricing?billing=monthly', { scroll: false })
       expect(mockSearchParams.toString()).toBe('billing=monthly')
 
-      // A second visit to the address left behind (a reload, a history entry) says nothing.
+      // A second visit to the address left behind (a reload, a history entry) says nothing. A later visit
+      // comes in a later task than the unmount, never in the same commit.
       unmount()
+      await new Promise((resolve) => setTimeout(resolve, 0))
       renderPricing()
       await screen.findByRole('button', { name: /^current plan$/i })
       expect(screen.queryByText(RETURNED)).not.toBeInTheDocument()
+    })
+
+    // PostHogProvider renders <>{children}</> until cookie consent arrives and <PHProvider> after, so the page
+    // remounts in that commit; the flag already left the address, and the notice stays.
+    it('keeps the notice when a parent swaps its element type, as the PostHog provider does once consent arrives', async () => {
+      mockSearchParams.set('canceled', 'true')
+      mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const Provider = ({ children }: { children: React.ReactNode }) => <>{children}</>
+      const tree = (consented: boolean) => (
+        <QueryClientProvider client={queryClient}>
+          {consented ? <Provider><PricingPage /></Provider> : <><PricingPage /></>}
+        </QueryClientProvider>
+      )
+      const { rerender } = render(tree(false))
+      const before = await screen.findByText('You can choose a plan below.')
+      expect(mockSearchParams.has('canceled')).toBe(false)
+
+      rerender(tree(true))
+      const after = await screen.findByText('You can choose a plan below.')
+      // A new node: the page remounted, and the notice came with it.
+      expect(after).not.toBe(before)
+      expect(screen.getByText(RETURNED)).toBeInTheDocument()
     })
 
     it('an account already on Pro is told its plan is Pro, with no invitation to choose', async () => {

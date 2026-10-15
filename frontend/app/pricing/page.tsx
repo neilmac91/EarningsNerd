@@ -18,6 +18,7 @@ import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, shipped } from '
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
+import { takeCarriedReturnNotice, useCarryReturnNotice } from '@/features/subscriptions/lib/returnNotice'
 import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
 
 interface CurrentUser {
@@ -602,6 +603,13 @@ export default function PricingPage() {
   const [billingResolved, setBillingResolved] = useState(false)
   const [checkoutCanceled, setCheckoutCanceled] = useState(false)
   const noteCheckoutCanceled = useCallback(() => setCheckoutCanceled(true), [])
+  // The flag is gone from the address once read, so a remount in the same commit (the PostHog provider
+  // swaps its element when cookie consent arrives) keeps the notice (features/subscriptions/lib/returnNotice.ts).
+  useCarryReturnNotice('pricing-checkout-canceled', checkoutCanceled)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- takes the notice a remount in this same commit carried; it exists only after the commit that unmounted the page showing it
+    if (takeCarriedReturnNotice('pricing-checkout-canceled')) setCheckoutCanceled(true)
+  }, [])
   const resolveBilling = useCallback((cycle: BillingCycle) => {
     setBillingCycle(cycle)
     setBillingResolved(true)
