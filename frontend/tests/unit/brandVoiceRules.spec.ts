@@ -32,9 +32,12 @@ import { isIconModule } from './iconModules'
  *  - buzzword: none of the banned words (BUZZWORDS).
  *  - headingIcon: no icon element inside a heading (a section heading carries no icon; DESIGN.md). An icon is
  *    a tag bound to an import from @/lib/icons (by its alias or a relative path) or the Phosphor package (any
- *    entry), under any local name or as a namespace's member (tests/unit/iconModules.ts), or a tag named
- *    ...Icon (a hand-drawn component named for its icon); an icon re-exported through another app module is
- *    review-checked.
+ *    entry), under any local name or as a namespace's member (tests/unit/iconModules.ts), a tag named
+ *    ...Icon (a hand-drawn component named for its icon), or a same-file binding that holds one, read by its
+ *    name to a fixed point (`const AlertMark = BellIcon`, `const Mark = Ph.Bell`, a conditional or a chain of
+ *    them, a member destructured from an icon namespace); and an icon element a binding holds, placed in the
+ *    heading (`const mark = <BellIcon />` read as `{mark}`). An icon re-exported through another app module,
+ *    and a binding assigned an icon after its declaration, are review-checked.
  *  - developerWording: copy in lib/ and hooks/ (the fallback errors a user reads) never names the
  *    backend, an API path, a "reader" or an HTTP status number.
  *
@@ -282,6 +285,9 @@ const elementTexts = (element: ts.JsxElement, read: ReadsLabel) => [...new Set(c
 const titleCased = (texts: string[]) => texts.find((t) => titleCaseWords(t).length)
 
 const tagOf = (node: ts.JsxOpeningLikeElement) => node.tagName.getText()
+/** An expression under its parentheses and type assertions (`as`, `satisfies`, `!`). */
+const unwrapHeld = (e: ts.Expression): ts.Expression =>
+  ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isNonNullExpression(e) ? unwrapHeld(e.expression) : e
 
 const attribute = (node: ts.JsxOpeningLikeElement, name: string) =>
   node.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === name)
@@ -411,6 +417,46 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     }
     return /Icon$/.test(tagOf(n))
   }
+  // A same-file binding that holds an icon is the icon too, read by its name to a fixed point: a const or let whose
+  // value is one (`const AlertMark = BellIcon`, `const Mark = Ph.Bell`, `const Mark = ok ? CheckIcon : WarningIcon`,
+  // a chain of them), and a member destructured from an icon namespace (`const { Bell: Mark } = Ph`). A binding
+  // that holds an icon element (`const mark = <BellIcon />`) puts the icon wherever it is placed.
+  const iconElements = new Set<string>()
+  const holds = (e: ts.Expression, leaf: (x: ts.Expression) => boolean): boolean => {
+    const x = unwrapHeld(e)
+    if (ts.isConditionalExpression(x)) return holds(x.whenTrue, leaf) || holds(x.whenFalse, leaf)
+    if (ts.isBinaryExpression(x)) {
+      const op = x.operatorToken.kind
+      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return holds(x.left, leaf) || holds(x.right, leaf)
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) return holds(x.right, leaf)
+    }
+    return leaf(x)
+  }
+  const isIconValue = (x: ts.Expression): boolean =>
+    (ts.isIdentifier(x) && (iconNames.has(x.text) || /Icon$/.test(x.text)))
+    || (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && (iconNamespaces.has(x.expression.text) || /Icon$/.test(x.name.text)))
+  const isIconElement = (x: ts.Expression): boolean =>
+    (ts.isJsxSelfClosingElement(x) && isIconTag(x)) || (ts.isJsxElement(x) && isIconTag(x.openingElement)) || (ts.isIdentifier(x) && iconElements.has(x.text))
+  const bindings: ts.VariableDeclaration[] = []
+  const collectBindings = (n: ts.Node): void => {
+    if (ts.isVariableDeclaration(n) && n.initializer) bindings.push(n)
+    ts.forEachChild(n, collectBindings)
+  }
+  collectBindings(sf)
+  for (let grew = true; grew;) {
+    grew = false
+    for (const d of bindings) {
+      const value = unwrapHeld(d.initializer!)
+      if (ts.isIdentifier(d.name)) {
+        if (!iconNames.has(d.name.text) && holds(value, isIconValue)) { iconNames.add(d.name.text); grew = true }
+        if (!iconElements.has(d.name.text) && holds(value, isIconElement)) { iconElements.add(d.name.text); grew = true }
+      } else if (ts.isObjectBindingPattern(d.name) && ts.isIdentifier(value) && iconNamespaces.has(value.text)) {
+        for (const el of d.name.elements) {
+          if (ts.isIdentifier(el.name) && !iconNames.has(el.name.text)) { iconNames.add(el.name.text); grew = true }
+        }
+      }
+    }
+  }
 
   const visit = (node: ts.Node, inMetadata: boolean): void => {
     // Copy: every literal outside code's own strings.
@@ -435,10 +481,15 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
         const find = (n: ts.Node) => {
           if (ts.isJsxElement(n) && CONTROLS.has(tagOf(n.openingElement))) return
           if ((ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) && isIconTag(n)) icons.push(n)
+          // An icon element a binding holds, placed in the heading (`{mark}`).
+          const placed = ts.isJsxExpression(n) && n.expression ? unwrapHeld(n.expression) : undefined
+          if (placed && ts.isIdentifier(placed) && iconElements.has(placed.text)) icons.push(n)
           ts.forEachChild(n, find)
         }
         node.children.forEach(find)
-        for (const icon of icons) add(icon, 'headingIcon', `<${tagOf(icon as ts.JsxOpeningLikeElement)}> in <${tag}>`)
+        for (const icon of icons) {
+          add(icon, 'headingIcon', `${ts.isJsxExpression(icon) ? icon.getText() : `<${tagOf(icon as ts.JsxOpeningLikeElement)}>`} in <${tag}>`)
+        }
       }
     }
     // A component's title (GuidanceCard, Notice, Modal, SecondaryHeader and the discovered ones), and
@@ -590,6 +641,12 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <h3>START FREE TRIAL</h3>',
       '      <h2>{count} companies · SEC EDGAR · Export CSV</h2>',
       "      <button>{'Send Message' + ' Again Later'}</button>",
+      '      <h2><AlertMark />Price alerts</h2>',
+      '      <h2><PhMark />Price alerts</h2>',
+      '      <h2><Chained />Price alerts</h2>',
+      '      <h2>{mark}Price alerts</h2>',
+      '      <h2><Doorbell />Doorbells</h2>',
+      '      <h2><Picked />Price alerts</h2>',
       '    </div>',
       '  )',
       '}',
@@ -602,6 +659,14 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       "import { BellIcon as Bell } from '@/lib/icons'",
       "import * as Ph from '@phosphor-icons/react/dist/ssr'",
       "import { Bell as Ring } from './bells'",
+      // Bindings that hold an icon (an alias, a namespace member under a cast, a conditional chain, an element, a
+      // member destructured from an icon namespace), and one holding Ring, which is not an icon.
+      'const AlertMark = BellIcon',
+      'const PhMark = (Ph.Bell) as typeof Ph.Bell',
+      'const Chained = flag ? AlertMark : null',
+      "const mark = <BellIcon className='h-4' />",
+      'const Doorbell = Ring',
+      'const { Bell: Picked } = Ph',
     ].join('\n')
     expect(voiceFindings(src, 'features/probe/Probe.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '2 sentenceCase',
@@ -651,6 +716,13 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '43 sentenceCase',
       '44 sentenceCase',
       '46 sentenceCase',
+      // An icon held by a binding inside a heading: an alias, a namespace member, a conditional chain, an element
+      // placed as `{mark}`, a destructured namespace member; line 51's Doorbell holds Ring, not an icon.
+      '47 headingIcon',
+      '48 headingIcon',
+      '49 headingIcon',
+      '50 headingIcon',
+      '52 headingIcon',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
