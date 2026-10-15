@@ -101,7 +101,9 @@ describe('check email', () => {
     useSearchParams.mockReturnValue(new URLSearchParams('email=new@example.com'))
     render(<CheckEmailPage />)
     expect(screen.getByText('We send verification links to')).toBeInTheDocument()
-    expect(screen.getByText('new@example.com')).toBeInTheDocument()
+    // An address has no break opportunity: at 200% text a long one ran past the column to the screen's
+    // edge, so its line may break inside it (overflow-wrap: break-word; the column's width is definite).
+    expect(screen.getByText('new@example.com')).toHaveClass('break-words')
     expect(
       screen.getByText(`Open the newest one to verify your email address. Each link expires ${verifyLinkHours()} hours after we send it.`),
     ).toBeInTheDocument()

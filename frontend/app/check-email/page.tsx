@@ -63,7 +63,9 @@ function CheckEmailContent() {
           <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
             We send verification links to
           </p>
-          <p className="mt-1 text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+          {/* An address has no break opportunity, so at 200% text a long one overflows the column;
+              break-words lets it break at the edge (the column is a block of definite width). */}
+          <p className="mt-1 break-words text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
             {email}
           </p>
           <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
