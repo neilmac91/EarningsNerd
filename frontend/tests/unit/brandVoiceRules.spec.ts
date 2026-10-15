@@ -13,8 +13,8 @@ import { isIconModule } from './iconModules'
  *
  *  - sentenceCase: a label is in sentence case: its first word starts with a capital (or a digit, a
  *    symbol or an expression), after the first word of a phrase a capitalised word must be a proper noun
- *    (PROPER_NOUNS), and a label of two or more words is never all capitals (`START FREE TRIAL`; an
- *    acronym beside lowercase words, `Export CSV`, passes). The labels read: the text of a heading (h1 to h6), of a
+ *    (PROPER_NOUNS), and a label of two or more words is never all capitals, whatever punctuation closes a
+ *    word (`START FREE TRIAL`, `START FREE TRIAL…`, `SIGN-UP NOW:`; an acronym beside lowercase words, `Export CSV`, passes). The labels read: the text of a heading (h1 to h6), of a
  *    dialog or card title (ModalHeader, CardTitle, CardHeader), of a button (<Button>, <button>, and any
  *    element whose className reaches buttonVariants(), such as a <Link> or <a> styled as a button) and
  *    of every component found to render its children into one of those (see discoverReach); the title
@@ -188,6 +188,9 @@ function isCodeString(node: ts.Node, text: string): boolean {
   return looksLikeClasses(text)
 }
 
+/** A word as it is spelled: the punctuation that opens or closes it (`More…`, `Again!`, `(Beta)`) is not its spelling. */
+const bareWord = (raw: string) => raw.replace(/^['‘’"“(\[]+|[,.;:!?…'‘’"”)\]]+$/g, '')
+
 /** The words that break sentence case: a capitalised word after a phrase's first that is not a proper noun, a
     first word that starts lowercase, and every word of a label two or more words long written all in capitals. */
 export function titleCaseWords(text: string): string[] {
@@ -204,14 +207,15 @@ export function titleCaseWords(text: string): string[] {
     if (index === 0 && first && /^\p{Ll}/u.test(first)) out.push(first)
     words.slice(1).forEach((raw) => {
       // A word's own punctuation is not its spelling: `More…` and `Again!` are read as `More` and `Again`.
-      const word = raw.replace(/^['‘’"“(\[]+|[,.;:!?…'‘’"”)\]]+$/g, '')
+      const word = bareWord(raw)
       if (/^[A-Z][a-z]+(?:['’]s)?$/.test(word)) out.push(word)
     })
   })
   // Two or more words all in capitals (`START FREE TRIAL`) is shouting, not a label; an acronym stands alone or
-  // beside lowercase words (`Export CSV`), and a proper noun reads as `{n}` above.
+  // beside lowercase words (`Export CSV`), and a proper noun reads as `{n}` above. Each word is read as spelled
+  // (bareWord: `TRIAL…` and `NOW:` are capitals), a hyphen or an apostrophe inside it included (`SIGN-UP`, `DON'T`).
   const lettered = t.trim().split(/\s+/).filter((w) => /\p{L}/u.test(w))
-  if (lettered.length >= 2 && lettered.every((w) => /^[A-Z]{2,}[,.!?]?$/.test(w))) out.push(...lettered)
+  if (lettered.length >= 2 && lettered.every((w) => /^[A-Z]{2,}(?:[-'’][A-Z]+)*$/.test(bareWord(w)))) out.push(...lettered)
   return out
 }
 
@@ -646,6 +650,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <Button>Show More…</Button>',
       '      <h2>{frag}Alerts</h2>',
       '      <h2>{wrapped}Alerts</h2>',
+      '      <Button>START FREE TRIAL…</Button>',
+      '      <h3>SIGN-UP NOW:</h3>',
+      '      <Button>Export CSV…</Button>',
       '    </div>',
       '  )',
       '}',
@@ -750,6 +757,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '61 sentenceCase',
       '62 headingIcon',
       '63 headingIcon',
+      '64 sentenceCase',
+      '65 sentenceCase',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
@@ -771,6 +780,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'START FREE TRIAL',
       'Send Message Again Later',
       'Show More…',
+      'START FREE TRIAL…',
+      'SIGN-UP NOW:',
     ])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"

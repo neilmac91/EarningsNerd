@@ -21,7 +21,8 @@ import { heldValues, leavesOf, memberKey } from './heldValues'
  * binding holds counts where the binding is read, never where it is held, by the reading the heading-icon clause
  * shares (tests/unit/heldValues.ts): an alias with its shape kept, a conditional or logical hold and a held
  * element (`const EvidenceGlyph = QuotesIcon`, `const Icon = ok ? BracketsCurlyIcon : QuotesIcon`, `const mark =
- * <QuotesIcon />`, a chain of them) at each reference; an object's property (`const GLYPH = { passage: QuotesIcon
+ * <QuotesIcon />`, a chain of them) at each reference, each glyph as many times as the value renders it (`const pair =
+ * <><QuotesIcon /><QuotesIcon /></>` is two uses at each read; a conditional's, its larger arm's); an object's property (`const GLYPH = { passage: QuotesIcon
  * }`, an object that spreads one, `{ ...GLYPH }`, a later property overriding the spread's, a nested object and a
  * member destructured from one) at each read of it by name or literal key, and every glyph the object holds at a
  * read by a key the scan cannot read (`GLYPH[kind]`) or of the object whole; a holder
@@ -215,8 +216,8 @@ export function glyphUses(source: string, fileName: string): Counts {
   // Each read of a root, of a holder or of a holder's member. A hold counts where its holder is read, and a closing
   // tag repeats its opening tag's name: one use.
   const uses = new Map<Root, number>()
-  const tally = (roots: Iterable<Root>) => {
-    for (const root of roots) uses.set(root, (uses.get(root) ?? 0) + 1)
+  const tally = (roots: Root[] | Map<Root, number>) => {
+    for (const [root, n] of Array.isArray(roots) ? roots.map((root): [Root, number] => [root, 1]) : roots) uses.set(root, (uses.get(root) ?? 0) + n)
   }
   const declares = (n: ts.Identifier) => ts.isVariableDeclaration(n.parent) && n.parent.name === n
   const ownsMember = (n: ts.Identifier) => (ts.isPropertyAccessExpression(n.parent) || ts.isElementAccessExpression(n.parent)) && n.parent.expression === n
@@ -226,7 +227,7 @@ export function glyphUses(source: string, fileName: string): Counts {
     if (ts.isIdentifier(node) && isReference(node)) {
       const own = rootsOf(node)
       if (own) tally(own)
-      // A holder read whole (rendered, passed on, spread, iterated) reads every glyph it holds.
+      // A holder read whole (rendered, passed on, spread, iterated) reads every glyph it holds, as often as it renders it.
       else if (!declares(node) && !ownsMember(node) && values.holders.has(node.text)) tally(leavesOf(values.holders.get(node.text)!))
     }
     if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
@@ -370,13 +371,24 @@ describe('reserved glyphs keep their one meaning', () => {
       'export const F = () => <><copy.passage /><copy.passage /><copy.passage /><NEST.inner.passage /><NEST.inner.passage /><Passage /></>',
     ].join('\n')
     expect(glyphUses(shapes, 'features/zzprobe/Shapes.tsx')).toEqual({ QuotesIcon: 6 })
-    // A JSX value holds what its children hold: a fragment and a wrapper element, each placed twice.
+    // A JSX value holds what its children hold, as many times as it renders them: a fragment and a wrapper element,
+    // each placed twice; a value that renders the glyph twice, placed once (the review's case: two uses); and a
+    // conditional between that value and one glyph, which counts its larger arm (two more).
     const jsx = [
       "import { QuotesIcon } from '@/lib/icons'",
       'const frag = <><QuotesIcon /></>',
       "const chip = <span className='inline-flex'><QuotesIcon /></span>",
-      'export const G = () => <>{frag}{frag}{chip}{chip}</>',
+      'const pair = <><QuotesIcon /><QuotesIcon /></>',
+      'const either = ok ? pair : <QuotesIcon />',
+      'export const G = () => <>{frag}{frag}{chip}{chip}{pair}{either}</>',
     ].join('\n')
-    expect(glyphUses(jsx, 'features/zzprobe/Jsx.tsx')).toEqual({ QuotesIcon: 4 })
+    expect(glyphUses(jsx, 'features/zzprobe/Jsx.tsx')).toEqual({ QuotesIcon: 8 })
+    // Two scopes' bindings of one name that read each other would count without end: the scan throws.
+    const cycle = [
+      "import { QuotesIcon } from '@/lib/icons'",
+      'export function A() { const a = <>{b}<QuotesIcon /></>; return a }',
+      'export function B() { const b = <>{a}</>; return b }',
+    ].join('\n')
+    expect(() => glyphUses(cycle, 'features/zzprobe/Cycle.tsx')).toThrow('features/zzprobe/Cycle.tsx: what a same-file binding holds reads itself')
   })
 })
