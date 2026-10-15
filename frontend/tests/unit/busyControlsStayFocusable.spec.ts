@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -39,8 +39,9 @@ import { bindingResolver, type Binding } from './astBindings'
  * reasons: ALLOW_RETRY and ALLOW_RETRY_LABEL. RetryButton's own definition is the one exemption from both
  * Retry clauses (it is the sanctioned wiring and label); the busy-disabled clause still scans it. Every Retry
  * converted in the retry-hardening follow-up fails both at its pre-conversion version (026d6df). A third clause
- * holds what RetryButton is given: each of its `failures` is `useRetainedFailure(…)`'s, or a failure built by
- * hand that ALLOW_HAND_BUILT_FAILURE pins (a stream restart, which has no query to hold).
+ * holds what RetryButton is given: each of its `failures` is `useRetainedFailure(…)`'s (in this file, or in the
+ * module of a hook it was destructured from), or a failure built by hand that ALLOW_HAND_BUILT_FAILURE pins (a
+ * stream restart, which has no query to hold).
  */
 const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|refetching|fetching|mutating|deleting|removing|inflight/i
 /** Flags a control's own success sets, which leave it unavailable while it still holds focus. */
@@ -302,15 +303,135 @@ function retryLabelSites(source: string, fileName: string): Site[] {
  * default import may take any name). The value passed there must be retained the same way; a use that spreads props into it (`{...rest}`)
  * cannot be proven and fails, and a prop no scanned file passes fails as unproven. One hop only: a value that
  * is itself a prop at the call site fails.
+ *
+ * A failure destructured from what a hook in another module returns (ComparePeriodsCard's `const { failure } =
+ * useWhatChanged(id)`, renamed or not) is followed into that module: the hook is a named import here (under any
+ * alias, with no local binding shadowing it), its module is read from disk (`.ts`, then `.tsx`, under the
+ * frontend root), and the export of that name is a function (declared, or a const arrow or function expression)
+ * whose every own `return` is an object literal giving the property a value retained there by these same rules,
+ * so one hook may hand on another's (a cycle stops). Anything else counts as built by hand: a default value
+ * (`{ failure = x }`), a rest or nested pattern, a `let`, a member read (`thing.failure`), a default import, a
+ * module the scan cannot read, a bare `return`, a return that is not an object literal, or a property missing
+ * from one return.
  */
 const RETAINED_FAILURE = 'useRetainedFailure'
 interface FailureProp { component: string; prop: string; line: number; isDefault: boolean }
 
-/** Whether an expression is a retained failure, resolved in its own file. */
-function retainedIn(sf: ts.SourceFile, fileName: string): (e: ts.Expression) => boolean {
+/** A module's file and source by its root-relative path without extension; null when the scan cannot read it. */
+type ModuleSource = (module: string) => { file: string; source: string } | null
+const MODULE_EXTENSIONS = ['.ts', '.tsx']
+/** The one file the import names; null when none or more than one exists (two files for one import: not proven). */
+const moduleFile = (module: string, has: (file: string) => boolean): string | null => {
+  const found = MODULE_EXTENSIONS.map((ext) => `${module}${ext}`).filter(has)
+  return found.length === 1 ? found[0] : null
+}
+const diskModules = new Map<string, { file: string; source: string } | null>()
+/** Modules under the frontend root, read once from disk. */
+const diskModule: ModuleSource = (module) => {
+  if (!diskModules.has(module)) {
+    const file = moduleFile(module, (candidate) => existsSync(path.join(frontendRoot, candidate)))
+    diskModules.set(module, file ? { file, source: readFileSync(path.join(frontendRoot, file), 'utf8') } : null)
+  }
+  return diskModules.get(module) ?? null
+}
+/** Modules a self-test supplies, keyed by file (`features/x/useThing.ts`). */
+const mappedModules =
+  (sources: Map<string, string>): ModuleSource =>
+  (module) => {
+    const file = moduleFile(module, (candidate) => sources.has(candidate))
+    return file ? { file, source: sources.get(file) as string } : null
+  }
+
+/** The named import binding `local` in this file: the module it resolves to and the name exported there. */
+function namedImport(sf: ts.SourceFile, fileName: string, local: string): { module: string; exported: string } | null {
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    const named = statement.importClause?.namedBindings
+    if (!named || !ts.isNamedImports(named)) continue
+    for (const el of named.elements) {
+      if (el.name.text === local) return { module: resolveModule(fileName, statement.moduleSpecifier.text), exported: (el.propertyName ?? el.name).text }
+    }
+  }
+  return null
+}
+
+/** The function a module exports under `name`: a declaration, or a const bound to an arrow or function expression. */
+function exportedFunction(sf: ts.SourceFile, name: string): ts.FunctionLikeDeclaration | null {
+  const isExported = (st: ts.Statement) => !!ts.getModifiers(st)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+  for (const st of sf.statements) {
+    if (!isExported(st)) continue
+    if (ts.isFunctionDeclaration(st) && st.name?.text === name && st.body) return st
+    if (!ts.isVariableStatement(st)) continue
+    for (const decl of st.declarationList.declarations) {
+      if (!ts.isIdentifier(decl.name) || decl.name.text !== name || !decl.initializer) continue
+      if ((ts.getCombinedNodeFlags(decl) & ts.NodeFlags.Const) === 0) return null
+      return ts.isArrowFunction(decl.initializer) || ts.isFunctionExpression(decl.initializer) ? decl.initializer : null
+    }
+  }
+  return null
+}
+
+/** A function's own returns (an expression body is one); null when one is bare, or a nested function's are the only ones. */
+function ownReturns(fn: ts.FunctionLikeDeclaration): ts.Expression[] | null {
+  if (!fn.body) return null
+  if (!ts.isBlock(fn.body)) return [fn.body]
+  const out: ts.Expression[] = []
+  let bare = false
+  const visit = (node: ts.Node): void => {
+    if (ts.isReturnStatement(node)) {
+      if (node.expression) out.push(node.expression)
+      else bare = true
+      return
+    }
+    if (ts.isFunctionLike(node) || ts.isClassLike(node)) return
+    ts.forEachChild(node, visit)
+  }
+  visit(fn.body)
+  return bare || !out.length ? null : out
+}
+
+/**
+ * Whether an expression is a retained failure, resolved in its own file; `modules` reads the module of a hook
+ * it was destructured from, and `hooks` the hooks already being followed (a cycle is not retained).
+ */
+function retainedIn(sf: ts.SourceFile, fileName: string, modules: ModuleSource = diskModule, hooks = new Set<string>()): (e: ts.Expression) => boolean {
   const visible = bindingResolver(sf)
   const isConst = (binding: Binding) =>
     ts.isVariableDeclaration(binding.decl) && (ts.getCombinedNodeFlags(binding.decl) & ts.NodeFlags.Const) !== 0
+  const unparen = (e: ts.Expression): ts.Expression => (ts.isParenthesizedExpression(e) ? unparen(e.expression) : e)
+  /** `const { failure } = useX(…)`, `failure` renamed or not: the property of what the hook returns, proven in its module. */
+  const fromHook = (binding: Binding): boolean => {
+    const decl = binding.decl
+    if (!ts.isBindingElement(decl) || decl.initializer || decl.dotDotDotToken || !ts.isObjectBindingPattern(decl.parent)) return false
+    const variable = decl.parent.parent
+    if (!ts.isVariableDeclaration(variable) || variable.name !== decl.parent || !variable.initializer) return false
+    if ((ts.getCombinedNodeFlags(variable) & ts.NodeFlags.Const) === 0) return false
+    const call = unparen(variable.initializer)
+    if (!ts.isCallExpression(call) || !ts.isIdentifier(call.expression) || visible(call.expression)) return false
+    const property = decl.propertyName ?? decl.name
+    if (!ts.isIdentifier(property)) return false
+    const target = namedImport(sf, fileName, call.expression.text)
+    if (!target) return false
+    const id = `${target.module}:${target.exported}`
+    const found = hooks.has(id) ? null : modules(target.module)
+    if (!found) return false
+    const hookSf = ts.createSourceFile(found.file, found.source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const fn = exportedFunction(hookSf, target.exported)
+    const returns = fn ? ownReturns(fn) : null
+    if (!returns) return false
+    const retainedThere = retainedIn(hookSf, found.file, modules, new Set([...hooks, id]))
+    return returns.every((value) => {
+      const literal = unparen(value)
+      if (!ts.isObjectLiteralExpression(literal)) return false
+      // A spread can carry the same property name from anywhere, after the one named here.
+      if (literal.properties.some(ts.isSpreadAssignment)) return false
+      const member = literal.properties.find(
+        (p) => (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) && ts.isIdentifier(p.name) && p.name.text === property.text,
+      )
+      if (!member) return false
+      return retainedThere(ts.isPropertyAssignment(member) ? member.initializer : (member as ts.ShorthandPropertyAssignment).name)
+    })
+  }
   // The hook as this file names it: what an import of its module binds (an alias included) with no local
   // binding shadowing that name, or, in the module itself, its own top-level declaration.
   const home = withoutExtension(RETRY_BUTTON.file)
@@ -328,8 +449,9 @@ function retainedIn(sf: ts.SourceFile, fileName: string): (e: ts.Expression) => 
     if (ts.isCallExpression(e)) return isHook(e.expression)
     if (ts.isIdentifier(e)) {
       const binding = visible(e)
-      if (!binding?.init || seen.has(binding) || !isConst(binding)) return false
-      return retained(binding.init, new Set([...seen, binding]))
+      if (!binding || seen.has(binding)) return false
+      if (binding.init) return isConst(binding) && retained(binding.init, new Set([...seen, binding]))
+      return fromHook(binding)
     }
     return false
   }
@@ -395,9 +517,9 @@ const jsxOf = (attr: ts.Node): ts.JsxOpeningElement | ts.JsxSelfClosingElement |
   attr.parent && (ts.isJsxOpeningElement(attr.parent.parent) || ts.isJsxSelfClosingElement(attr.parent.parent)) ? attr.parent.parent : null
 
 /** RetryButton's failures in one file: those built by hand, and those that arrive as a prop (followed by propPassSites). */
-function failureScan(source: string, fileName: string): { handBuilt: Site[]; props: FailureProp[] } {
+function failureScan(source: string, fileName: string, modules: ModuleSource = diskModule): { handBuilt: Site[]; props: FailureProp[] } {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const retained = retainedIn(sf, fileName)
+  const retained = retainedIn(sf, fileName, modules)
   const retryNames = retryButtonNames(sf, fileName)
   const handBuilt: Site[] = []
   const props: FailureProp[] = []
@@ -944,6 +1066,108 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       'export const E = () => <RetryButton failures={[useRetainedFailure(q, k)]} focusTarget={ref} />', // the hook's own module
     ].join('\n')
     expect(lines(failureScan(ownModule, 'hooks/useRetainedFailure.tsx'))).toEqual([])
+  })
+
+  it("follows a failure destructured from a hook in another module into that hook's returns, and nothing looser", () => {
+    const modules = mappedModules(
+      new Map([
+        [
+          'features/x/useThing.ts',
+          [
+            "import { useRetainedFailure } from '@/hooks/useRetainedFailure'",
+            'export function useThing(id: number) {',
+            '  const query = useQuery({ queryKey: key, queryFn })',
+            '  const failure = useRetainedFailure(query, key)',
+            '  const loose = { failed: q.isError, error: q.error, busy: q.isFetching, retry: q.refetch }',
+            '  const inner = () => { return { failure: loose } }', // a nested function's return is not the hook's
+            '  return { query, failure, held: (useRetainedFailure(query, key)), loose, inner }',
+            '}',
+            'export const useArrow = (id: number) => ({ failure: useRetainedFailure(useQuery({ queryKey: key, queryFn }), key) })',
+            'export function useMixed(flag: boolean) {',
+            '  const failure = useRetainedFailure(query, key)',
+            '  if (flag) return { failure }',
+            '  return { failure: { failed: true, error: null, busy: false, retry: () => {} } }', // one return built by hand
+            '}',
+            'export function useBare(flag: boolean) {',
+            '  if (flag) return', // a bare return: nothing to read a property from
+            '  return { failure: useRetainedFailure(query, key) }',
+            '}',
+            'export function useOther() { return useThing(1) }', // returns a call, not an object literal
+            'export let useLet = () => ({ failure: useRetainedFailure(query, key) })', // a let: a later assignment can replace it
+            'function useListed() { return { failure: useRetainedFailure(query, key) } }', // a declaration of that name, not exported
+            'export { useLocal as useListed }', // an export list is not followed, whatever it is named
+            'export function useSpread(extra: object) {',
+            '  const failure = useRetainedFailure(query, key)',
+            '  return { failure, ...extra }', // a spread after the property can carry a `failure` of its own
+            '}',
+          ].join('\n'),
+        ],
+        ['features/x/useTwin.ts', "import { useRetainedFailure } from '@/hooks/useRetainedFailure'\nexport function useTwin() { return { failure: useRetainedFailure(query, key) } }"],
+        ['features/x/useTwin.tsx', "export function useTwin() { return { failure: { failed: true, error: null, busy: false, retry: () => {} } } }"], // two files for one import
+        [
+          'features/x/useChain.tsx',
+          [
+            "import { useThing } from './useThing'", // a relative import, resolved from the module's own folder
+            'export function useChain(id: number) {',
+            '  const { failure } = useThing(id)', // one hook hands on another's
+            '  return { failure }',
+            '}',
+          ].join('\n'),
+        ],
+        ['features/x/useCycleA.ts', "import { useCycleB } from './useCycleB'\nexport function useCycleA() { const { failure } = useCycleB(); return { failure } }"],
+        ['features/x/useCycleB.ts', "import { useCycleA } from './useCycleA'\nexport function useCycleB() { const { failure } = useCycleA(); return { failure } }"],
+      ]),
+    )
+    const consumer = [
+      "import { RetryButton } from '@/hooks/useRetainedFailure'",
+      "import { useThing, useThing as useAlias, useArrow, useMixed, useBare, useOther, useLet, useListed, useSpread } from '@/features/x/useThing'",
+      "import { useChain } from '@/features/x/useChain'",
+      "import { useCycleA } from '@/features/x/useCycleA'",
+      "import { useMissing } from '@/features/x/missing'",
+      "import { useTwin } from '@/features/x/useTwin'",
+      "import useDefault from '@/features/x/useThing'",
+      'export function A() {',
+      '  const { failure } = useThing(1)', // the hook's retained failure
+      '  const { failure: renamed, held } = (useAlias(2))', // renamed, and the hook under an import alias
+      '  const { failure: arrow } = useArrow(3)',
+      '  const { failure: chained } = useChain(4)',
+      '  const { loose } = useThing(5)', // the hook's own hand-built property
+      '  const { failure: mixed } = useMixed(true)', // one of its returns is built by hand
+      '  const { failure: bare } = useBare(true)',
+      '  const { failure: other } = useOther()',
+      '  const { failure: fromLet } = useLet()',
+      '  const { failure: listed } = useListed()',
+      '  const { failure: spread } = useSpread({})', // the literal spreads another object
+      '  const { failure: twin } = useTwin()', // the module exists as .ts and .tsx
+      '  const { failure: cyclic } = useCycleA()',
+      '  const { failure: missing } = useMissing()', // a module the scan cannot read
+      '  const { failure: viaDefault } = useDefault(6)', // a default import
+      '  const { failure: defaulted = loose } = useThing(7)', // a default value
+      '  const { thing: { failure: deep } } = useThing(8)', // a nested pattern
+      '  const { ...rest } = useThing(9)', // a rest element
+      '  const { ...failure2 } = useThing(12)', // a rest element named like the property is still the rest
+      '  const [failure3] = useThing(13)', // an array pattern
+      '  let { failure: mutable } = useThing(10)', // a let
+      '  const whole = useThing(11)',
+      '  return (<>',
+      '    <RetryButton failures={[failure, renamed, held, arrow, chained]} focusTarget={ref} />',
+      '    <RetryButton failures={[loose, mixed, bare, other, fromLet, listed, spread, twin, cyclic, missing, viaDefault, defaulted, deep, rest, failure2, failure3, mutable]} focusTarget={ref} />',
+      '    <RetryButton failures={[whole.failure]} focusTarget={ref} />', // a member read: not followed
+      '  </>)',
+      '}',
+      'export function B(useThing: () => Thing) {',
+      '  const { failure } = useThing()', // a parameter shadows the import
+      '  return <RetryButton failures={[failure]} focusTarget={ref} />',
+      '}',
+    ].join('\n')
+    const { handBuilt, props } = failureScan(consumer, 'app/page.tsx', modules)
+    const flagged = ['loose', 'mixed', 'bare', 'other', 'fromLet', 'listed', 'spread', 'twin', 'cyclic', 'missing', 'viaDefault', 'defaulted', 'deep', 'rest', 'failure2', 'failure3', 'mutable']
+    expect(handBuilt.map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      ...flagged.map((name) => `33: ${name}`),
+      '34: whole.failure',
+      '39: failure',
+    ])
+    expect(props).toEqual([])
   })
 
   it('follows a failure prop to every use of its component, under any imported name, and fails a spread or an unproven prop', () => {

@@ -119,7 +119,7 @@ export default function EarningsCalendarPage() {
           {/* Coverage caption — shown only when the backend confirms the index filter is active, so
               it never claims a curated universe while serving everything (accurate across flag states). */}
           {query.data?.universe === 'sp500_nasdaq100' && (
-            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-weak px-2.5 py-1 text-xs font-semibold text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark">
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border-light bg-panel-light px-2.5 py-1 text-xs font-semibold text-text-secondary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark">
               Covering the S&amp;P 500 &amp; Nasdaq 100
             </span>
           )}

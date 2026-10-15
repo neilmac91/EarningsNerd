@@ -47,9 +47,14 @@ beforeAll(() => {
   dialogProto.showModal = function (this: HTMLElement) {
     this.setAttribute('open', '')
   }
+  // The page takes its week from the clock; a holiday Monday renders "Market closed" in place of the
+  // reports this spec opens, so the week is pinned to one with no market holiday.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-03-10T15:00:00Z'))
 })
 afterAll(() => {
   delete dialogProto.showModal
+  vi.useRealTimers()
 })
 
 async function renderPage() {
