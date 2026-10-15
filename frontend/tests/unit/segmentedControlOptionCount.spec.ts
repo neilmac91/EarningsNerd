@@ -7,15 +7,22 @@
    up to 23 options) left the control for that select in #1292; this gate keeps
    the next long set from arriving as segments.
 
-   The cap is five options. Every segment shows at once and a label never breaks,
-   so the set has to be taken in at a glance on a phone at 200% text. Five is the
-   most the control holds by design today, the filings form filter of a domestic
-   filer (All, 10-K, 10-Q, 10-K/A, 10-Q/A), and the usual ceiling for the pattern
-   (Apple's HIG: about five segments on iPhone; Material's segmented button: "only
-   2-5 options", chips past five). Six or more is a menu, and a menu is the select.
-   The sites today: the insider window 3 (90D, 180D, 1Y) and the calendar view 2
-   (Week, Month), both counted; the filings form filter is All plus the company's
-   forms, a runtime set, pinned in UNRESOLVED; the five other sites hold two or
+   The cap is five options: MAX_SEGMENTS, exported by the primitive
+   (components/ui/SegmentedControl.tsx) and read here as MAX_OPTIONS, so the
+   component and this gate cannot drift apart. Every segment shows at once and a
+   label never breaks, so the set has to be taken in at a glance on a phone at
+   200% text. Five is the most the control holds by design, the filings form
+   filter of a domestic filer (All, 10-K, 10-Q, 10-K/A, 10-Q/A), and the usual
+   ceiling for the pattern (Apple's HIG: about five segments on iPhone; Material's
+   segmented button: "only 2-5 options", chips past five). Six or more is a menu,
+   and a menu is the select. The rule holds at run time too: the filings form
+   filter is All plus the company's forms, a set this scan cannot count, so it is
+   pinned in UNRESOLVED, and FilingIndex counts it as it renders: past
+   MAX_SEGMENTS options (a filer with both domestic and foreign forms) it renders
+   the toolbar's compact select instead, so its SegmentedControl never shows more
+   than five (FilingIndex.spec.tsx renders both sides). The sites today: the
+   insider window 3 (90D, 180D, 1Y) and the calendar view 2 (Week, Month), both
+   counted; the filings form filter, pinned; the five other sites hold two or
    three (the analysis mode and table window, and the comparison source, review
    scope and evidence workspace switches of three prototypes).
 
@@ -36,12 +43,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { MAX_SEGMENTS } from '@/components/ui/SegmentedControl'
 import { bindingResolver, type Binding } from './astBindings'
 
 const ROOT = path.join(__dirname, '../..')
 const SCAN_DIRS = ['app', 'components', 'features']
 const CONTROL = 'SegmentedControl'
-const MAX_OPTIONS = 5
+// The primitive's own cap, so raising it there moves this gate with it, and the pin below fails.
+const MAX_OPTIONS = MAX_SEGMENTS
 
 // Shrink-only: lower MAX_UNRESOLVED when an entry goes; never raise it to fit a new site.
 const MAX_UNRESOLVED = 1
@@ -49,10 +58,12 @@ const UNRESOLVED: Record<string, { sites: number; reason: string }> = {
   'features/filings/components/FilingIndex.tsx': {
     sites: 1,
     reason:
-      'The form filter is "All" plus the distinct forms of the loaded list (sortForms over the filings), counted ' +
-      'at runtime. The list serves 10-K, 10-Q and their amendments, and 20-F, 6-K and 40-F with FPI filings on, so ' +
-      'a domestic filer shows at most five (All, 10-K, 10-Q, 10-K/A, 10-Q/A); a filer with both domestic and ' +
-      'foreign forms can show more, and `fullWidth` wraps them onto another row.',
+      'The form filter is "All" plus the distinct forms of the loaded list (sortForms over the filings), a set ' +
+      'known only at run time, so this scan cannot count it. FilingIndex counts it as it renders: the list serves ' +
+      '10-K, 10-Q and their amendments, and 20-F, 6-K and 40-F with FPI filings on, so a domestic filer shows five ' +
+      'segments (All, 10-K, 10-Q, 10-K/A, 10-Q/A), and past MAX_SEGMENTS options (a filer with both domestic and ' +
+      'foreign forms) the filter renders as the toolbar\'s compact select instead. This SegmentedControl holds at ' +
+      'most five segments (FilingIndex.spec.tsx renders both sides).',
   },
 }
 
@@ -214,6 +225,12 @@ export function Probe({ forms }: { forms: string[] }) {
   )
 }
 `
+
+describe('the cap', () => {
+  it('is five, the number DESIGN.md states, read from the primitive', () => {
+    expect(MAX_OPTIONS, 'DESIGN.md: a SegmentedControl holds at most five options; a longer set is a select').toBe(5)
+  })
+})
 
 describe('the option reader', () => {
   it('counts a six-option site and a three-option site in a fixed probe, and only the six is over the cap', () => {

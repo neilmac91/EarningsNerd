@@ -23,6 +23,9 @@
                  data face, so a form code reads the same here as in the rows.
      - labels never break (10-K/A breaks at its hyphen and slash otherwise);
                  fullWidth wraps whole segments onto another row instead.
+     - cap:      at most MAX_SEGMENTS (five) options; a longer set is a compact
+                 select beside its label (DESIGN.md). A set known only at run
+                 time (the filings form filter) checks itself against it.
    Focus-visible = ring-brand. No hover:opacity anywhere (it darkens).
 ============================================================================= */
 
@@ -30,6 +33,12 @@ import { type ReactNode } from 'react'
 import { cx } from './cx'
 
 export type SegmentedControlSize = 'sm' | 'md' | 'adaptive'
+
+/** The most options one control holds (DESIGN.md, the SegmentedControl paragraph): every segment shows at once
+ *  and a label never breaks, so a longer set is a compact select. FilingIndex's form filter, a set known only at
+ *  run time, renders as the select past it; tests/unit/segmentedControlOptionCount.spec.ts holds every set it can
+ *  count statically to it. */
+export const MAX_SEGMENTS = 5
 
 export interface SegmentedOption<T extends string> {
   value: T

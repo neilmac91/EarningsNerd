@@ -549,8 +549,11 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  LabelToggle, E62), anywhere outside components/ui/SegmentedControl.tsx. A hand-built
                  row without role="group" is outside its reach (FeedbackWidget's type row, E35).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
-                 more than five options, and pins a site it cannot count statically (FilingIndex's
-                 form filter).
+                 more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
+                 cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
+                 plus the company's forms, at run time and renders it past five as the toolbar's compact
+                 select (the year filter's Select, density compact), so no SegmentedControl ever shows
+                 more than five.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover

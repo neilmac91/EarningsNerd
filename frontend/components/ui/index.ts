@@ -7,7 +7,7 @@ export {
   type InputProps, type TextareaProps, type SelectProps, type InputClassesOptions, type FieldDensity,
 } from './Input'
 // v3.1: the one single-choice toggle group (calendar view + filings form filter).
-export { SegmentedControl, type SegmentedControlProps, type SegmentedOption, type SegmentedControlSize } from './SegmentedControl'
+export { SegmentedControl, MAX_SEGMENTS, type SegmentedControlProps, type SegmentedOption, type SegmentedControlSize } from './SegmentedControl'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
 export { Switch, type SwitchProps } from './Switch'

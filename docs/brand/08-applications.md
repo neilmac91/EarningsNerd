@@ -87,7 +87,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   and what to do. The heading "Generation interrupted" stays.
 - **Company page** (`frontend/app/company/[ticker]/page-client.tsx`,
   `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
-  `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`): a company that fails
+  `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
+  `features/filings/components/FilingIndex.tsx`): a company that fails
   to load says "Couldn’t load this company" with a Retry and never prints the raw error; only a 404
   reads "Company not found", an answer in the empty card (the error card stays for the load failure),
   with the search's scope ("No company with a ticker on SEC EDGAR matches
@@ -104,8 +105,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (new ESLint rule) fails a hand-built role="group" of pressed buttons written in the group's own markup,
   not in a wrapper component or imported under another name, outside the SegmentedControl's own file (a
   row without role="group" is outside its reach); `tests/unit/segmentedControlOptionCount.spec.ts`
-  (new) fails a SegmentedControl given more than five options, so a long set takes the compact select;
-  `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
+  (new) fails a SegmentedControl given more than five options, so a long set takes the compact select,
+  and the filings form filter, a set known only at run time, renders as the toolbar's compact select
+  past five (a filer with both domestic and foreign forms), so no SegmentedControl ever shows more than
+  five; `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).
