@@ -14,7 +14,8 @@ import ts from 'typescript'
  *  - a member destructured from an object (`const { alert: Alert } = MARK`);
  *  - an object literal's properties and spreads, in source order, so a later property overrides a spread's;
  *  - a conditional's two arms, both sides of `||` and `??`, the right of `&&`;
- *  - a JSX element's tag (`<BellIcon />` holds what BellIcon holds);
+ *  - a JSX element's tag and its children (`<BellIcon />` holds what BellIcon holds, `<span><BellIcon /></span>` and
+ *    the fragment `<><BellIcon /></>` hold it too, as do `{expressions}` among the children);
  *  - parentheses, `as`, `satisfies`, `<T>` and `!`.
  * Out of its reach, for each gate to name: a binding assigned after its declaration, a value built by a call
  * (`Object.assign`, a function's return, an array's methods) and what a function or a component renders.
@@ -106,9 +107,14 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       if (op === ts.SyntaxKind.AmpersandAmpersandToken) return valueOf(x.right, record)
       return empty()
     }
-    if (ts.isJsxSelfClosingElement(x) || ts.isJsxElement(x)) {
-      const tag = (ts.isJsxElement(x) ? x.openingElement : x).tagName
-      return ts.isIdentifier(tag) || ts.isPropertyAccessExpression(tag) ? valueOf(tag, record) : empty()
+    if (ts.isJsxSelfClosingElement(x) || ts.isJsxElement(x) || ts.isJsxFragment(x)) {
+      const tag = ts.isJsxFragment(x) ? undefined : (ts.isJsxElement(x) ? x.openingElement : x).tagName
+      let value = tag && (ts.isIdentifier(tag) || ts.isPropertyAccessExpression(tag)) ? valueOf(tag, record) : empty<L>()
+      for (const child of ts.isJsxSelfClosingElement(x) ? [] : x.children) {
+        if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)) value = union(value, valueOf(child, record))
+        else if (ts.isJsxExpression(child) && child.expression) value = union(value, valueOf(child.expression, record))
+      }
+      return value
     }
     if (ts.isObjectLiteralExpression(x)) {
       const props = new Map<string, Held<L>>()

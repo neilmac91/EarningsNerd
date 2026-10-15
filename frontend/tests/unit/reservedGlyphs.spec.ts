@@ -370,5 +370,13 @@ describe('reserved glyphs keep their one meaning', () => {
       'export const F = () => <><copy.passage /><copy.passage /><copy.passage /><NEST.inner.passage /><NEST.inner.passage /><Passage /></>',
     ].join('\n')
     expect(glyphUses(shapes, 'features/zzprobe/Shapes.tsx')).toEqual({ QuotesIcon: 6 })
+    // A JSX value holds what its children hold: a fragment and a wrapper element, each placed twice.
+    const jsx = [
+      "import { QuotesIcon } from '@/lib/icons'",
+      'const frag = <><QuotesIcon /></>',
+      "const chip = <span className='inline-flex'><QuotesIcon /></span>",
+      'export const G = () => <>{frag}{frag}{chip}{chip}</>',
+    ].join('\n')
+    expect(glyphUses(jsx, 'features/zzprobe/Jsx.tsx')).toEqual({ QuotesIcon: 4 })
   })
 })

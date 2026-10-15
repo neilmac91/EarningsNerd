@@ -203,7 +203,8 @@ export function titleCaseWords(text: string): string[] {
     const first = words[0]?.replace(/^['‘’]+/, '')
     if (index === 0 && first && /^\p{Ll}/u.test(first)) out.push(first)
     words.slice(1).forEach((raw) => {
-      const word = raw.replace(/^['‘’]+|[,'‘’]+$/g, '')
+      // A word's own punctuation is not its spelling: `More…` and `Again!` are read as `More` and `Again`.
+      const word = raw.replace(/^['‘’"“(\[]+|[,.;:!?…'‘’"”)\]]+$/g, '')
       if (/^[A-Z][a-z]+(?:['’]s)?$/.test(word)) out.push(word)
     })
   })
@@ -642,6 +643,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <span>Hello!Welcome</span>',
       '      <h2><marks.alert />Alerts</h2>',
       '      <h2><NESTED.group.alert />Alerts</h2>',
+      '      <Button>Show More…</Button>',
+      '      <h2>{frag}Alerts</h2>',
+      '      <h2>{wrapped}Alerts</h2>',
       '    </div>',
       '  )',
       '}',
@@ -672,6 +676,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'const base = { alert: BellIcon }',
       'const marks = { ...base }',
       'const NESTED = { group: { alert: BellIcon } }',
+      // An icon held inside a fragment and inside a wrapper element.
+      'const frag = <><BellIcon /></>',
+      "const wrapped = <span className='inline-flex'><BellIcon /></span>",
     ].join('\n')
     expect(voiceFindings(src, 'features/probe/Probe.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '2 sentenceCase',
@@ -739,6 +746,10 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       // An icon object's property through a spread of it (line 59) and through a nested object (line 60).
       '59 headingIcon',
       '60 headingIcon',
+      // A Title Case word with its own punctuation (`More…`), and an icon placed inside a fragment and a wrapper.
+      '61 sentenceCase',
+      '62 headingIcon',
+      '63 headingIcon',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
@@ -759,6 +770,7 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'save changes',
       'START FREE TRIAL',
       'Send Message Again Later',
+      'Show More…',
     ])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
