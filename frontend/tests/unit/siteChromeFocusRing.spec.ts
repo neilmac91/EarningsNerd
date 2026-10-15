@@ -24,7 +24,9 @@ import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
  * to (a, area, button, embed, input, object, select, summary, textarea, next/link's Link, anything with a
  * tabIndex the scan cannot prove negative: 0 or more, or a dynamic value such as a roving
  * `tabIndex={selected ? 0 : -1}`, and any contentEditable region the scan cannot prove off). Its className
- * must carry the whole triple, or be the DS factory `buttonVariants(…)`, which composes it (pinned below).
+ * must carry the whole triple, or be the DS factory `buttonVariants(…)`, which composes it (pinned below), imported
+ * from `@/components/ui` (the barrel or components/ui/Button.tsx, a namespace member included; a page's own function
+ * of that name is not the factory, and its className is read as any call is).
  * The scan reads a className as the file writes it: a string, a template's static text, `cx(…)` (the DS
  * joiner) by its readable arguments, `buttonVariants(…)` as the factory, and two more sources of classes.
  * `countControlClass(…)` imported from `@/components/ui` (the barrel or components/ui/countControl.ts, under
@@ -252,6 +254,21 @@ interface Finding {
   problem: string
 }
 
+/** The DS button factory, under the modules a file can import it from (`moduleKey`'s form). */
+const BUTTON_FACTORY_IMPORTS = { 'components/ui/index': ['buttonVariants'], 'components/ui/Button': ['buttonVariants'] }
+/** Whether a callee is the DS button factory: its import (importedName), or, in the factory's own module, the
+    module-level function that declares it. A page's own function of the name is neither. */
+function buttonFactory(sf: ts.SourceFile): (callee: ts.Expression) => boolean {
+  const imported = importedName(sf, BUTTON_FACTORY_IMPORTS)
+  const resolve = bindingResolver(sf)
+  const own = sf.fileName.replace(/\.(tsx?|js)$/, '') === 'components/ui/Button'
+  return (callee) => {
+    if (imported(callee)) return true
+    if (!own || !ts.isIdentifier(callee) || callee.text !== 'buttonVariants') return false
+    const decl = resolve(callee)?.decl
+    return !!decl && ts.isFunctionDeclaration(decl) && decl.parent === sf
+  }
+}
 /** The count control's recipe, under the modules a file can import it from (`moduleKey`'s form). */
 const COUNT_CONTROL_IMPORTS = { 'components/ui/index': ['countControlClass'], 'components/ui/countControl': ['countControlClass'] }
 /** The count control's kinds, read off the union components/ui/countControl.ts declares (`CountControlKind`), so a
@@ -280,8 +297,13 @@ function countControlTokens(arg: ts.Expression | undefined): string[] {
 interface ClassContext {
   resolve: (ref: ts.Identifier) => Binding | undefined
   isCountControl: (callee: ts.Expression) => boolean
+  isButtonFactory: (callee: ts.Expression) => boolean
 }
-const classContext = (sf: ts.SourceFile): ClassContext => ({ resolve: bindingResolver(sf), isCountControl: importedName(sf, COUNT_CONTROL_IMPORTS) })
+const classContext = (sf: ts.SourceFile): ClassContext => ({
+  resolve: bindingResolver(sf),
+  isCountControl: importedName(sf, COUNT_CONTROL_IMPORTS),
+  isButtonFactory: buttonFactory(sf),
+})
 
 /** The static class tokens of a className attribute, `'factory'` for buttonVariants(…), or null if unreadable. */
 function classTokens(init: ts.JsxAttributeValue | undefined, ctx: ClassContext): string[] | 'factory' | null {
@@ -312,8 +334,8 @@ function expressionTokens(expr: ts.Expression, ctx: ClassContext, seen: Readonly
     return expressionTokens(decl.initializer, ctx, new Set([...seen, decl]))
   }
   if (ts.isCallExpression(expr) && ctx.isCountControl(expr.expression)) return countControlTokens(expr.arguments[0])
+  if (ts.isCallExpression(expr) && ctx.isButtonFactory(expr.expression)) return 'factory'
   if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
-    if (expr.expression.text === 'buttonVariants') return 'factory'
     if (expr.expression.text === 'cx') {
       const parts = expr.arguments.map((arg) => expressionTokens(arg, ctx, seen))
       return parts.includes('factory') ? 'factory' : parts.flatMap((part) => (Array.isArray(part) ? part : []))
@@ -998,6 +1020,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
   it('the actions-slot scan reads only the slot, under any import name', () => {
     const src = `
       import PageHeader from '@/components/SecondaryHeader'
+      import { buttonVariants } from '@/components/ui'
       export function P() {
         return (
           <>
@@ -1133,17 +1156,22 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       export function B() {
         const countControlClass = (kind: string) => kind
         return <a href="/d" className={countControlClass('link')}>See all 4 companies</a>
+      }
+      export function C() {
+        const buttonVariants = () => 'px-2'
+        return <a href="/e" className={buttonVariants()}>Open</a>
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(9)
+    expect(stops).toBe(10)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       // The recipe removed from the count link, and the const removed from the button.
       '14 <NextLink> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       '16 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       // A let may be reassigned, so its ring is not read.
       '20 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
-      // A local function of the recipe's name is not the recipe.
+      // A local function of the recipe's name is not the recipe, and one of the button factory's name is not the factory.
       '26 <a> a className the scan cannot read',
+      '30 <a> a className the scan cannot read',
     ])
   })
 
@@ -1177,7 +1205,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       export function Scrim({ className, ...rest }: Props) { return <button {...rest} tabIndex={-1} className={cx('inset-0', className)} /> }
       export function Page() {
         return <><ModalHeader {...headerProps} /><Body tabIndex={0} className="p-2" /></>
-      }`
+      }
+      import { buttonVariants } from '@/components/ui/Button'`
     const { stops, findings } = missingRings(src)
     expect(stops).toBe(13)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([

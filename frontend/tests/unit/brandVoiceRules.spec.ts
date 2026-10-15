@@ -464,20 +464,28 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
   const devScope = rel.startsWith('lib/') || rel.startsWith('hooks/')
   // An icon by where it comes from, not its local spelling: every name bound to an import from the icon modules,
   // and every namespace imported from one (so `import { BellIcon as Bell }` and `<Icons.Bell />` are read).
-  const iconNames = new Set<string>()
-  const iconNamespaces = new Set<string>()
+  // Each name read by the declaration its scope gives it (heldValues.ts's scopeResolver), so a parameter or a local that
+  // shadows an icon's import is not the icon.
+  const iconDeclarations = new Set<ts.Node>()
+  const namespaceDeclarations = new Set<ts.Node>()
   for (const stmt of sf.statements) {
     if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier) || !isIconModule(stmt.moduleSpecifier.text, rel)) continue
     const bindings = stmt.importClause?.namedBindings
-    if (bindings && ts.isNamedImports(bindings)) for (const el of bindings.elements) iconNames.add(el.name.text)
-    if (bindings && ts.isNamespaceImport(bindings)) iconNamespaces.add(bindings.name.text)
+    if (bindings && ts.isNamedImports(bindings)) for (const el of bindings.elements) iconDeclarations.add(el)
+    if (bindings && ts.isNamespaceImport(bindings)) namespaceDeclarations.add(bindings)
   }
+  const declaredIn = (set: Set<ts.Node>) => (id: ts.Identifier) => {
+    const declaration = declarationOf(id)
+    return !!declaration && set.has(declaration)
+  }
+  const isIconName = declaredIn(iconDeclarations)
+  const isIconNamespace = declaredIn(namespaceDeclarations)
   // A member destructured from an icon namespace (`const { Bell: Mark } = Ph`) is an icon by its import too.
   const destructured = (n: ts.Node): void => {
     if (ts.isVariableDeclaration(n) && ts.isObjectBindingPattern(n.name) && n.initializer) {
       const from = unwrapHeld(n.initializer)
-      if (ts.isIdentifier(from) && iconNamespaces.has(from.text)) {
-        for (const el of n.name.elements) if (ts.isIdentifier(el.name)) iconNames.add(el.name.text)
+      if (ts.isIdentifier(from) && isIconNamespace(from)) {
+        for (const el of n.name.elements) if (ts.isIdentifier(el.name)) iconDeclarations.add(el)
       }
     }
     ts.forEachChild(n, destructured)
@@ -486,8 +494,8 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
   // An icon by itself: a name bound to an icon import, a namespace's member, or a name ending in Icon (a hand-drawn
   // component named for its icon).
   const iconLeaf = (x: ts.Expression): Array<'icon'> | undefined =>
-    (ts.isIdentifier(x) && (iconNames.has(x.text) || /Icon$/.test(x.text)))
-    || (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && (iconNamespaces.has(x.expression.text) || /Icon$/.test(x.name.text)))
+    (ts.isIdentifier(x) && (isIconName(x) || /Icon$/.test(x.text)))
+    || (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && (isIconNamespace(x.expression) || /Icon$/.test(x.name.text)))
       ? ['icon']
       : undefined
   // What each same-file binding holds, by the reading the glyph gate shares (tests/unit/heldValues.ts): an alias, a
@@ -863,12 +871,18 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'Quarterly Results',
     ])
     // A name two functions declare reads its own function's binding: Q's Mark holds no icon, so its heading passes.
+    // A parameter that shadows an icon's import is not the icon (R), while the import itself is (S); a member
+    // destructured from an array holds what the array holds (T).
     const shadowed = [
       "import { BellIcon } from '@/lib/icons'",
       'export function P() { const Mark = BellIcon; return <h2><Mark />Price alerts</h2> }',
       'export function Q() { const Mark = Chip; return <h2><Mark />Price alerts</h2> }',
+      "import { BellIcon as Ring } from '@/lib/icons'",
+      'export function R(Ring: () => null) { return <h2><Ring />Price alerts</h2> }',
+      'export function S() { return <h2><Ring />Price alerts</h2> }',
+      'export function T() { const [Bell] = [BellIcon]; return <h2><Bell />Price alerts</h2> }',
     ].join('\n')
-    expect(voiceFindings(shadowed, 'features/probe/Shadowed.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual(['2 headingIcon'])
+    expect(voiceFindings(shadowed, 'features/probe/Shadowed.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual(['2 headingIcon', '6 headingIcon', '7 headingIcon'])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
     expect(() => voiceFindings(sixConditionals, 'features/probe/Six.tsx')).toThrow(

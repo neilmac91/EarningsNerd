@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { PHOSPHOR, isIconModule } from './iconModules'
-import { heldValues, leavesOf, memberKey } from './heldValues'
+import { heldValues, leavesOf, memberKey, scopeResolver } from './heldValues'
 
 /**
  * Three glyphs carry one meaning each (DESIGN.md › Icons; docs/brand/06-system.md §4): the quotes glyph
@@ -17,7 +17,8 @@ import { heldValues, leavesOf, memberKey } from './heldValues'
  * per-icon path), under any local name and under Phosphor's deprecated alias for the glyph (`Sparkle`,
  * `Quotes`, `BracketsCurly`, read off the package's own per-icon declarations): a named import, a member
  * of a namespace import (`<Icons.SparkleIcon />`, `Icons['QuotesIcon']`) and a member destructured from
- * one (`const { SparkleIcon: Spark } = Icons`), a namespace held by another name included. A glyph a same-file
+ * one (`const { SparkleIcon: Spark } = Icons`), a namespace held by another name included. Each name is read by the
+ * declaration its scope gives it, so a parameter or a local that shadows an import is not the import. A glyph a same-file
  * binding holds counts where the binding is read, never where it is held, by the reading the heading-icon clause
  * shares (tests/unit/heldValues.ts), each name read by its scope (a name two functions declare reads its own): an alias with its shape kept, a conditional or logical hold and a held
  * element (`const EvidenceGlyph = QuotesIcon`, `const Icon = ok ? BracketsCurlyIcon : QuotesIcon`, `const mark =
@@ -123,19 +124,26 @@ export function glyphUses(source: string, fileName: string): Counts {
   const bump = (glyph: Glyph, n = 1) => {
     counts[glyph] = (counts[glyph] ?? 0) + n
   }
-  const local = new Map<string, Glyph>()
-  const namespaces = new Set<string>()
+  // By declaration (heldValues.ts's scopeResolver): an import or a destructured member to its name and glyph, and the
+  // namespace imports and their aliases.
+  const declarationOf = scopeResolver(sf)
+  const local = new Map<ts.Node, [string, Glyph]>()
+  const namespaces = new Set<ts.Node>()
+  const isNamespace = (id: ts.Identifier) => {
+    const declaration = declarationOf(id)
+    return !!declaration && namespaces.has(declaration)
+  }
   for (const stmt of sf.statements) {
     if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier) || !isIconModule(stmt.moduleSpecifier.text, fileName)) continue
     const bindings = stmt.importClause?.namedBindings
     if (bindings && ts.isNamedImports(bindings)) {
       for (const el of bindings.elements) {
         const glyph = GLYPH_NAMES.get((el.propertyName ?? el.name).text)
-        if (glyph) local.set(el.name.text, glyph)
+        if (glyph) local.set(el, [el.name.text, glyph])
       }
     }
     // A namespace import (`import * as Icons from '@/lib/icons'`) draws a glyph through its members.
-    if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings.name.text)
+    if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings)
   }
   const unwrapHeld = (e: ts.Expression): ts.Expression =>
     ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isNonNullExpression(e) ? unwrapHeld(e.expression) : e
@@ -145,7 +153,7 @@ export function glyphUses(source: string, fileName: string): Counts {
     const alias = (node: ts.Node): void => {
       if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
         const value = unwrapHeld(node.initializer)
-        if (ts.isIdentifier(value) && namespaces.has(value.text)) namespaces.add(node.name.text)
+        if (ts.isIdentifier(value) && isNamespace(value)) namespaces.add(node)
       }
       ts.forEachChild(node, alias)
     }
@@ -153,18 +161,18 @@ export function glyphUses(source: string, fileName: string): Counts {
   }
   // A member destructured from a namespace (`const { SparkleIcon: Spark } = Icons`) is a local name for its glyph.
   const destructure = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && ts.isIdentifier(node.initializer) && namespaces.has(node.initializer.text)) {
+    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && ts.isIdentifier(node.initializer) && isNamespace(node.initializer)) {
       for (const el of node.name.elements) {
         const key = el.propertyName ?? el.name
         const glyph = ts.isIdentifier(key) || ts.isStringLiteral(key) ? GLYPH_NAMES.get(key.text) : undefined
-        if (glyph && ts.isIdentifier(el.name)) local.set(el.name.text, glyph)
+        if (glyph && ts.isIdentifier(el.name)) local.set(el, [el.name.text, glyph])
       }
     }
     ts.forEachChild(node, destructure)
   }
   destructure(sf)
   // Hand-drawn stand-ins: a function or const named for a glyph whose body draws an <svg>.
-  const drawn = new Map<string, Glyph>()
+  const drawn = new Map<ts.Node, [string, Glyph]>()
   const drawsSvg = (node: ts.Node) => {
     let svg = false
     const find = (n: ts.Node) => {
@@ -176,9 +184,9 @@ export function glyphUses(source: string, fileName: string): Counts {
   }
   const declare = (node: ts.Node): void => {
     const name = (ts.isFunctionDeclaration(node) || ts.isVariableDeclaration(node)) && node.name && ts.isIdentifier(node.name) ? node.name.text : null
-    if (name && !local.has(name) && /^[A-Z]/.test(name) && drawsSvg(node)) {
+    if (name && /^[A-Z]/.test(name) && drawsSvg(node)) {
       const hit = HAND_DRAWN.find(([, re]) => re.test(name))
-      if (hit) drawn.set(name, hit[0])
+      if (hit) drawn.set(node, [name, hit[0]])
     }
     ts.forEachChild(node, declare)
   }
@@ -196,13 +204,19 @@ export function glyphUses(source: string, fileName: string): Counts {
   // and once when nothing does (a bare import, a holder nobody reads).
   type Root = string
   const glyphOf = new Map<Root, Glyph>()
-  for (const [name, glyph] of local) glyphOf.set(`n:${name}`, glyph)
-  for (const [name, glyph] of drawn) glyphOf.set(`d:${name}`, glyph)
+  for (const [name, glyph] of local.values()) glyphOf.set(`n:${name}`, glyph)
+  for (const [name, glyph] of drawn.values()) glyphOf.set(`d:${name}`, glyph)
   /** The roots an expression is by itself: an import's or a stand-in's name, or a namespace's member by name or
       literal key (`Icons.SparkleIcon`, `Icons['QuotesIcon']`). */
   const rootsOf = (x: ts.Expression): Root[] | undefined => {
-    if (ts.isIdentifier(x)) return local.has(x.text) ? [`n:${x.text}`] : drawn.has(x.text) ? [`d:${x.text}`] : undefined
-    if ((ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) && ts.isIdentifier(x.expression) && namespaces.has(x.expression.text)) {
+    if (ts.isIdentifier(x)) {
+      const declaration = declarationOf(x)
+      const imported = declaration && local.get(declaration)
+      if (imported) return [`n:${imported[0]}`]
+      const stand = declaration && drawn.get(declaration)
+      return stand ? [`d:${stand[0]}`] : undefined
+    }
+    if ((ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) && ts.isIdentifier(x.expression) && isNamespace(x.expression)) {
       const key = memberKey(x)
       const glyph = key === undefined ? undefined : GLYPH_NAMES.get(key)
       if (!glyph) return undefined
@@ -406,6 +420,22 @@ describe('reserved glyphs keep their one meaning', () => {
       'export const H = ({ i }: { i: number }) => <>{marks[0]}{marks[0]}{marks[i]}<Picked />{more[2]}</>',
     ].join('\n')
     expect(glyphUses(arrays, 'features/zzprobe/Arrays.tsx')).toEqual({ QuotesIcon: 5, SparkleIcon: 2 })
+    // A member destructured from an array, and from an object nested in one, counts at each read (the review's case:
+    // `const [Mark] = [QuotesIcon]` read twice is two uses).
+    const destructured = [
+      "import { QuotesIcon, SparkleIcon } from '@/lib/icons'",
+      'const [Mark] = [QuotesIcon]',
+      'const [{ passage: Passage }] = [{ passage: SparkleIcon }]',
+      'export const I = () => <><Mark /><Mark /><Passage /></>',
+    ].join('\n')
+    expect(glyphUses(destructured, 'features/zzprobe/Destructured.tsx')).toEqual({ QuotesIcon: 2, SparkleIcon: 1 })
+    // A parameter that shadows an import is not the import: P's two reads are its prop's, so QuotesIcon is a bare import.
+    const shadowedImport = [
+      "import { QuotesIcon, SparkleIcon } from '@/lib/icons'",
+      'export function P({ QuotesIcon }: { QuotesIcon: () => null }) { return <><QuotesIcon /><QuotesIcon /></> }',
+      'export function Q() { return <><SparkleIcon /><SparkleIcon /></> }',
+    ].join('\n')
+    expect(glyphUses(shadowedImport, 'features/zzprobe/ShadowedImport.tsx')).toEqual({ QuotesIcon: 1, SparkleIcon: 2 })
     // A declaration that reads itself would count without end: the scan throws.
     const cycle = [
       "import { QuotesIcon } from '@/lib/icons'",

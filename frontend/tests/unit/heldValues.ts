@@ -16,7 +16,8 @@ import ts from 'typescript'
  *    shadows an outer holder;
  *  - a member read by name or literal key (`MARK.alert`, `MARK['alert']`, a nested `A.b.c`), and one read by a key
  *    the scan cannot read (`MARK[kind]`), which may be any property;
- *  - a member destructured from an object (`const { alert: Alert } = MARK`);
+ *  - a member destructured from an object or an array, nested patterns included (`const { alert: Alert } = MARK`,
+ *    `const [Mark] = MARKS`, `const [{ alert }] = LIST`);
  *  - an object literal's properties and spreads, in source order, so a later property overrides a spread's;
  *  - an array literal's elements by index (`const marks = [QuotesIcon]` read as `marks[0]`); past a spread the indices
  *    are unknown, so a literal index there may read any element from the spread on;
@@ -77,6 +78,15 @@ export function leavesOf<L>(value: Held<L>): Map<L, number> {
 
 /** The key prefix of an array's elements from a spread on, whose indices the scan cannot know. */
 const REST = '…'
+
+/** A member of a value by its key: undefined for a key the scan cannot read, which may be any property; a literal index
+    an array's known elements do not reach may read any element from its spread on. */
+function memberOf<L>(base: Held<L>, key: string | undefined): Held<L> {
+  if (!base.props) return empty()
+  if (key === undefined) return [...base.props.values()].reduce(union, empty<L>())
+  const rest = () => [...base.props!].filter(([k]) => k.startsWith(REST)).map(([, v]) => v).reduce(union, empty<L>())
+  return base.props.get(key) ?? (/^\d+$/.test(key) ? rest() : empty<L>())
+}
 
 const size = <L>(value: Held<L>): number =>
   [...value.leaves.values()].reduce(add, 0) + [...(value.props?.entries() ?? [])].reduce((n, [key, prop]) => n + key.length + size(prop), 0)
@@ -173,11 +183,7 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
     if (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
       const base = valueOf(x.expression)
       if (!base.props) return empty()
-      const key = memberKey(x)
-      // A literal index an array's known elements do not reach may read any element from its spread on.
-      const rest = () => [...base.props!].filter(([k]) => k.startsWith(REST)).map(([, v]) => v).reduce(union, empty<L>())
-      const value =
-        key === undefined ? [...base.props.values()].reduce(union, empty<L>()) : base.props.get(key) ?? (/^\d+$/.test(key) ? rest() : empty<L>())
+      const value = memberOf(base, memberKey(x))
       if (leavesOf(value).size > 0) record?.add(x)
       return value
     }
@@ -241,20 +247,23 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
   }
   collect(sf)
 
-  /** What a declaration binds, by the node that declares each name (scopeResolver's): its initializer's value, or the
-      members it destructures. */
+  /** What a declaration binds, by the node that declares each name (scopeResolver's): its initializer's value, or what
+      each element of an object or array pattern destructures from it, nested patterns included. A rest element is not
+      followed. */
   const bound = (d: ts.VariableDeclaration, record?: Set<ts.Node>): Array<[ts.Node, Held<L>]> => {
-    if (ts.isIdentifier(d.name)) return [[d, valueOf(d.initializer!, record)]]
-    if (!ts.isObjectBindingPattern(d.name)) return []
-    const value = valueOf(d.initializer!, record)
-    if (!value.props) return []
     const out: Array<[ts.Node, Held<L>]> = []
-    for (const el of d.name.elements) {
-      if (el.dotDotDotToken || !ts.isIdentifier(el.name)) continue
-      const key = propertyKey(el.propertyName ?? el.name)
-      const prop = key === undefined ? undefined : value.props.get(key)
-      if (prop) out.push([el, prop])
+    const bind = (name: ts.BindingName, value: Held<L>, node: ts.Node): void => {
+      if (ts.isIdentifier(name)) {
+        out.push([node, value])
+        return
+      }
+      name.elements.forEach((el, index) => {
+        if (ts.isOmittedExpression(el) || el.dotDotDotToken) return
+        const key = ts.isArrayBindingPattern(name) ? String(index) : propertyKey(el.propertyName ?? el.name)
+        if (key !== undefined) bind(el.name, memberOf(value, key), el)
+      })
     }
+    bind(d.name, valueOf(d.initializer!, record), d)
     return out
   }
 
@@ -274,7 +283,9 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
 
   const held = new Set<ts.Node>()
   for (const d of bindings) {
-    const declarations: ts.Node[] = ts.isIdentifier(d.name) ? [d] : ts.isObjectBindingPattern(d.name) ? [...d.name.elements] : []
+    const elementsOf = (name: ts.BindingName): ts.Node[] =>
+      ts.isIdentifier(name) ? [] : name.elements.flatMap((el) => (ts.isOmittedExpression(el) ? [] : ts.isIdentifier(el.name) ? [el] : elementsOf(el.name)))
+    const declarations: ts.Node[] = ts.isIdentifier(d.name) ? [d] : elementsOf(d.name)
     if (declarations.some((declaration) => holders.has(declaration))) bound(d, held)
   }
   const holderOf = (id: ts.Identifier) => {
