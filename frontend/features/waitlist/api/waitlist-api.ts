@@ -21,14 +21,6 @@ export interface WaitlistStats {
   total_signups: number
 }
 
-// Public status lookup: position and referral progress only (no referral code/link, no
-// verification state) — the backend response model is the source of truth.
-export interface WaitlistStatusResult {
-  position: number
-  referrals_count: number
-  positions_gained: number
-}
-
 // The waitlist endpoints are public (no auth); routing them through the shared axios client (was raw
 // fetch) unifies baseURL + `withCredentials` + error handling on the client's `ApiError`. Callers read
 // `err.detail` on an HTTP error and treat `err.status === 0` (no response) as a network failure.
@@ -45,10 +37,5 @@ export const joinWaitlist = async (
 
 export const getWaitlistStats = async (): Promise<WaitlistStats> => {
   const response = await api.get('/api/waitlist/stats')
-  return response.data
-}
-
-export const getWaitlistStatus = async (email: string): Promise<WaitlistStatusResult> => {
-  const response = await api.get(`/api/waitlist/status/${encodeURIComponent(email)}`)
   return response.data
 }

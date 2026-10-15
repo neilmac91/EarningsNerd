@@ -30,9 +30,11 @@ export default function InviteRow({ invite }: InviteRowProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   // Holds the freshly-minted link after a resend so we can offer it for sharing.
-  const [resendShare, setResendShare] = useState<{ link: string; email: string | null } | null>(
-    null,
-  )
+  const [resendShare, setResendShare] = useState<{
+    link: string
+    email: string | null
+    emailed: boolean
+  } | null>(null)
 
   // Client-side cooldown countdown after a resend, so an admin can't hammer the endpoint and
   // mint a pile of fresh links in a few seconds.
@@ -48,7 +50,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
       setCooldown(RESEND_COOLDOWN_SECONDS)
       toast.success(result.emailed ? `Invite re-sent to ${result.email}` : 'Fresh invite link minted')
       // Surface the fresh link in a dialog so the admin can copy/share it right away.
-      setResendShare({ link: result.invite_link, email: result.email })
+      setResendShare({ link: result.invite_link, email: result.email, emailed: result.emailed })
       queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     },
     onError: (err: unknown) => {
@@ -70,7 +72,9 @@ export default function InviteRow({ invite }: InviteRowProps) {
 
   const isUsed = invite.status === 'used'
   const isRevoked = invite.status === 'revoked'
-  const emailLabel = invite.email ?? 'this invite'
+  // A link-only invite has no address to name, so its actions say what it is.
+  const resendLabel = invite.email ? `Resend invite to ${invite.email}` : 'Resend this link-only invite'
+  const revokeLabel = invite.email ? `Revoke invite to ${invite.email}` : 'Revoke this link-only invite'
   const resendDisabled = resendMutation.isPending || cooldown > 0
 
   return (
@@ -109,7 +113,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
               }}
               aria-disabled={resendDisabled || undefined}
               aria-busy={resendMutation.isPending || undefined}
-              aria-label={`Resend invite to ${emailLabel}`}
+              aria-label={resendLabel}
               className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:cursor-not-allowed aria-disabled:border-border-light/50 aria-disabled:text-text-primary-light/50 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50"
             >
               {resendMutation.isPending ? (
@@ -131,8 +135,8 @@ export default function InviteRow({ invite }: InviteRowProps) {
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
-              aria-label={`Revoke invite to ${emailLabel}`}
-              className="focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-error-light transition-colors hover:bg-error-light/10 dark:text-error-dark dark:hover:bg-error-dark/15"
+              aria-label={revokeLabel}
+              className="focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-error-light transition-colors hover:bg-error-light/10 dark:text-error-dark dark:hover:border-error-dark/40 dark:hover:bg-transparent"
             >
               <ProhibitIcon className="h-3.5 w-3.5" />
               Revoke
@@ -154,6 +158,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
         <ResendShareModal
           link={resendShare.link}
           email={resendShare.email}
+          emailed={resendShare.emailed}
           onClose={() => setResendShare(null)}
         />
       )}

@@ -59,36 +59,37 @@ describe('RevenueBars', () => {
 })
 
 describe('AskFilingDemo', () => {
-  it('injects the real CitationChip for [F1] and [1], each reachable as an EDGAR anchor', () => {
+  it('injects the real CitationChip for [1], [2] and [3], each reachable as an EDGAR anchor', () => {
     render(<AskFilingDemo />)
     expect(screen.getByText(SAMPLE_ASK.question)).toBeInTheDocument()
 
-    const fact = screen.getByRole('link', { name: /^Citation F1:/ })
-    const passage = screen.getByRole('link', { name: /^Citation 1:/ })
-    for (const chip of [fact, passage]) {
+    const [total, growth, passage] = [1, 2, 3].map((n) => screen.getByRole('link', { name: new RegExp(`^Citation ${n}:`) }))
+    for (const chip of [total, growth, passage]) {
       expect(chip).toHaveAttribute('href', AAPL_FY25_EDGAR_URL)
       expect(chip).toHaveAttribute('target', '_blank')
     }
-    expect(fact).toHaveAttribute('data-citation-kind', 'xbrl')
-    expect(fact).toHaveTextContent('[F1]')
+    // Numbered as a live answer is: the server renumbers every marker, so an XBRL figure reads [1], never [F1].
+    expect(total).toHaveAttribute('data-citation-kind', 'xbrl')
+    expect(total).toHaveTextContent('[1]')
+    expect(growth).toHaveAttribute('data-citation-kind', 'xbrl')
+    expect(growth).toHaveTextContent('[2]')
     expect(passage).toHaveAttribute('data-citation-kind', 'text')
-    expect(passage).toHaveTextContent('[1]')
+    expect(passage).toHaveTextContent('[3]')
 
-    // The chips replaced the markers inside the answer: the answer paragraph holds both anchors.
-    const answer = screen.getByText(/Services net sales were/).closest('p')
+    // The chips replaced the markers inside the answer: the answer paragraph holds all three anchors.
+    const answer = screen.getByText(/Total net sales were/).closest('p')
     expect(answer).not.toBeNull()
-    expect(within(answer as HTMLElement).getAllByRole('link')).toHaveLength(2)
+    expect(within(answer as HTMLElement).getAllByRole('link')).toHaveLength(3)
+    expect(answer!.textContent).not.toMatch(/\[F\d+\]/)
   })
 
   it('names each chip kind in plain words with its locator and verification', () => {
     render(<AskFilingDemo />)
-    expect(screen.getByText('XBRL figure')).toBeInTheDocument()
-    expect(
-      screen.getByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax · Services'),
-    ).toBeInTheDocument()
+    expect(screen.getAllByText('XBRL figure')).toHaveLength(2)
+    expect(screen.getAllByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax')).toHaveLength(2)
     expect(screen.getByText('Passage')).toBeInTheDocument()
-    expect(screen.getByText(SAMPLE_ASK.citations[1].section_ref as string)).toBeInTheDocument()
-    expect(screen.getAllByText('Verified')).toHaveLength(2)
+    expect(screen.getByText(SAMPLE_ASK.citations[2].section_ref as string)).toBeInTheDocument()
+    expect(screen.getAllByText('Verified')).toHaveLength(3)
   })
 
   it('keeps the static composer decorative: no button, hidden from assistive tech', () => {
@@ -151,18 +152,16 @@ describe('ProDepth', () => {
     flags.analysis = false
   })
 
-  it('is a labelled section with the three Pro rows, the extras grid and mirror-driven caps', () => {
+  it('is a labelled section with the Pro rows, the extras grid and mirror-driven caps', () => {
     render(<ProDepth />)
     const section = screen.getByRole('region', { name: 'More ways to read one filing.' })
     expect(section.id).toBe('pro')
-    expect(
-      within(section).getByText('Ask it a question, read its periods side by side, see what changed since the last one.'),
-    ).toBeInTheDocument()
+    expect(within(section).getByText('Ask it a question, then see what changed since the last one.')).toBeInTheDocument()
 
-    for (const title of ['Ask this Filing', 'Multi-Period Analysis', 'Change Report']) {
+    for (const title of ['Ask this Filing', 'Change Report']) {
       expect(within(section).getByRole('heading', { level: 3, name: title })).toBeInTheDocument()
     }
-    expect(within(section).getAllByText('Pro')).toHaveLength(3)
+    expect(within(section).getAllByText('Pro')).toHaveLength(2)
 
     expect(
       within(section).getByText(`Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`, { exact: false }),
@@ -173,21 +172,28 @@ describe('ProDepth', () => {
 
     expect(within(section).getByRole('heading', { level: 3, name: 'Also in Pro' })).toBeInTheDocument()
     expect(within(section).getByText('Watchlists are unlimited on both plans.')).toBeInTheDocument()
-    for (const extra of ['Excel export', 'Summary export', 'Filing alerts', 'Full history']) {
+    for (const extra of ['Summary export', 'Filing alerts', 'Full history']) {
       expect(within(section).getByRole('heading', { level: 4, name: extra })).toBeInTheDocument()
     }
-    for (const tag of ['XLSX', 'PDF', 'CSV', '10-K', '10-Q', '8-K', 'Unlimited']) {
+    for (const tag of ['PDF', 'CSV', '10-K', '10-Q', '8-K', 'Unlimited']) {
       expect(within(section).getByText(tag)).toBeInTheDocument()
     }
   })
 
-  it('shows the Multi-Period CTA only while the analysis route exists', () => {
-    const { unmount } = render(<ProDepth />)
-    expect(screen.queryByRole('link', { name: /Try it on Apple/ })).toBeNull()
-    unmount()
-
+  // The flag invariant (nothing of Multi-Period or Excel while the route is off, both named while it is on) has
+  // one gate, analysis-route-hidden.spec.tsx; this case pins the shape the flag-on row ships with, which that
+  // gate does not read: the lead, the row's heading and Pro chip, the Excel tile and the CTA's href.
+  it('with the analysis route on, renders the Multi-Period row, its CTA, the Excel tile and the lead as designed', () => {
     flags.analysis = true
     render(<ProDepth />)
+    const section = screen.getByRole('region', { name: 'More ways to read one filing.' })
+    expect(
+      within(section).getByText('Ask it a question, read its periods side by side, see what changed since the last one.'),
+    ).toBeInTheDocument()
+    expect(within(section).getByRole('heading', { level: 3, name: 'Multi-Period Analysis' })).toBeInTheDocument()
+    expect(within(section).getAllByText('Pro')).toHaveLength(3)
+    expect(within(section).getByRole('heading', { level: 4, name: 'Excel export' })).toBeInTheDocument()
+    expect(within(section).getByText('XLSX')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Try it on Apple/ })).toHaveAttribute('href', '/analysis?ticker=AAPL')
   })
 })
