@@ -171,8 +171,10 @@ idea. State the action directly; no filler phrases. Messages and PR bodies are r
 Handover: one page, written as the top block of `tasks/todo.md`, never a new file. It holds, in
 this order: the date and author; where things stand (at most five lines: production revision,
 balance, open PRs, holds by pointer); the open items, one line each with owner and next step; and
-what to doubt first. Anything longer belongs in the PR that produced it. Closed items leave
-`tasks/todo.md` in the PR that closes them; the file never grows into a ledger again.
+what to doubt first. No line holds more than 500 characters of visible text (link targets not
+counted; `test_agent_workflow_rules.py` checks it): anything longer belongs in the PR that produced
+it. Closed items leave `tasks/todo.md` in the PR that closes them; the file never grows into a
+ledger again.
 
 Founder deliberations (pricing, fundraising, strategy, council transcripts) never enter this
 repository. The repository API reported public visibility on 2026-10-11; do not assume that
