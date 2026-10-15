@@ -35,8 +35,9 @@ import { isIconModule } from './iconModules'
  *    entry), under any local name or as a namespace's member (tests/unit/iconModules.ts), a tag named
  *    ...Icon (a hand-drawn component named for its icon), or a same-file binding that holds one, read by its
  *    name to a fixed point (`const AlertMark = BellIcon`, `const Mark = Ph.Bell`, a conditional or a chain of
- *    them, a member destructured from an icon namespace); and an icon element a binding holds, placed in the
- *    heading (`const mark = <BellIcon />` read as `{mark}`). An icon re-exported through another app module,
+ *    them, a member destructured from an icon namespace), or an object's property that holds one (`<MARK.alert />`,
+ *    and `MARK[kind]` held by a binding); and an icon element a binding holds, placed in the heading (`const mark =
+ *    <BellIcon />` read as `{mark}`). An icon re-exported through another app module,
  *    and a binding assigned an icon after its declaration, are review-checked.
  *  - developerWording: copy in lib/ and hooks/ (the fallback errors a user reads) never names the
  *    backend, an API path, a "reader" or an HTTP status number.
@@ -409,11 +410,20 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     if (bindings && ts.isNamedImports(bindings)) for (const el of bindings.elements) iconNames.add(el.name.text)
     if (bindings && ts.isNamespaceImport(bindings)) iconNamespaces.add(bindings.name.text)
   }
+  // An object whose properties hold icons (`const MARK = { alert: BellIcon }`), by the keys that hold one: a member
+  // read by its name or a literal key is that property, and one read by a key the scan cannot read may be any.
+  const iconObjects = new Map<string, Set<string>>()
+  const objectIcon = (x: ts.Expression): boolean => {
+    if (!(ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) || !ts.isIdentifier(x.expression)) return false
+    const keys = iconObjects.get(x.expression.text)
+    const key = ts.isPropertyAccessExpression(x) ? x.name.text : ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression.text : undefined
+    return !!keys && (key === undefined || keys.has(key))
+  }
   const isIconTag = (n: ts.JsxOpeningLikeElement): boolean => {
     const name = n.tagName
     if (ts.isIdentifier(name)) return iconNames.has(name.text) || /Icon$/.test(name.text)
     if (ts.isPropertyAccessExpression(name) && ts.isIdentifier(name.expression)) {
-      return iconNamespaces.has(name.expression.text) || /Icon$/.test(name.name.text)
+      return iconNamespaces.has(name.expression.text) || /Icon$/.test(name.name.text) || objectIcon(name)
     }
     return /Icon$/.test(tagOf(n))
   }
@@ -435,6 +445,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
   const isIconValue = (x: ts.Expression): boolean =>
     (ts.isIdentifier(x) && (iconNames.has(x.text) || /Icon$/.test(x.text)))
     || (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && (iconNamespaces.has(x.expression.text) || /Icon$/.test(x.name.text)))
+    || objectIcon(x)
   const isIconElement = (x: ts.Expression): boolean =>
     (ts.isJsxSelfClosingElement(x) && isIconTag(x)) || (ts.isJsxElement(x) && isIconTag(x.openingElement)) || (ts.isIdentifier(x) && iconElements.has(x.text))
   const bindings: ts.VariableDeclaration[] = []
@@ -447,7 +458,17 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     grew = false
     for (const d of bindings) {
       const value = unwrapHeld(d.initializer!)
-      if (ts.isIdentifier(d.name)) {
+      if (ts.isIdentifier(d.name) && ts.isObjectLiteralExpression(value)) {
+        for (const p of value.properties) {
+          if (!(ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p))) continue
+          if (!(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) || ts.isNumericLiteral(p.name))) continue
+          const keys = iconObjects.get(d.name.text) ?? new Set<string>()
+          if (!keys.has(p.name.text) && holds(ts.isPropertyAssignment(p) ? p.initializer : p.name, isIconValue)) {
+            iconObjects.set(d.name.text, keys.add(p.name.text))
+            grew = true
+          }
+        }
+      } else if (ts.isIdentifier(d.name)) {
         if (!iconNames.has(d.name.text) && holds(value, isIconValue)) { iconNames.add(d.name.text); grew = true }
         if (!iconElements.has(d.name.text) && holds(value, isIconElement)) { iconElements.add(d.name.text); grew = true }
       } else if (ts.isObjectBindingPattern(d.name) && ts.isIdentifier(value) && iconNamespaces.has(value.text)) {
@@ -647,6 +668,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <h2>{mark}Price alerts</h2>',
       '      <h2><Doorbell />Doorbells</h2>',
       '      <h2><Picked />Price alerts</h2>',
+      '      <h2><MARK.alert />Price alerts</h2>',
+      '      <h2><MARK.ring />Doorbells</h2>',
+      '      <h2><Keyed />Price alerts</h2>',
       '    </div>',
       '  )',
       '}',
@@ -667,6 +691,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       "const mark = <BellIcon className='h-4' />",
       'const Doorbell = Ring',
       'const { Bell: Picked } = Ph',
+      // An object whose property holds an icon, read by name and through a binding by a key the scan cannot read.
+      'const MARK = { alert: BellIcon, ring: Ring } as const',
+      'const Keyed = MARK[kind]',
     ].join('\n')
     expect(voiceFindings(src, 'features/probe/Probe.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '2 sentenceCase',
@@ -717,12 +744,16 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '44 sentenceCase',
       '46 sentenceCase',
       // An icon held by a binding inside a heading: an alias, a namespace member, a conditional chain, an element
-      // placed as `{mark}`, a destructured namespace member; line 51's Doorbell holds Ring, not an icon.
+      // placed as `{mark}`, a destructured namespace member; line 51's Doorbell holds Ring, not an icon. An object's
+      // property that holds an icon, by name (line 53) and through a binding by a key the scan cannot read (line
+      // 55); line 54's property holds Ring.
       '47 headingIcon',
       '48 headingIcon',
       '49 headingIcon',
       '50 headingIcon',
       '52 headingIcon',
+      '53 headingIcon',
+      '55 headingIcon',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
