@@ -170,14 +170,24 @@ def test_workflow_publishes_the_gate_on_every_pull_request_event_without_write_p
     # step `if`, `continue-on-error`, a `needs:` on a job that skips, a `shell` or `defaults` that
     # never runs the script, or another step. So the whole shape is pinned.
     assert set(workflow) == {"name", "on", "permissions", "concurrency", "jobs"}
+    # The trigger set decides where a run attaches: a trigger whose runs attach to a pull request's head
+    # (pull_request_review, push, workflow_dispatch) would skip the gate job there and report success.
+    # issue_comment runs attach to main's HEAD, so their skipped job never satisfies a pull request's check.
+    assert set(workflow["on"]) == {"pull_request_target", "issue_comment"}
+    assert set(workflow["jobs"]) == {"review-gate", "rerun-on-review-request"}
+    assert "name" not in workflow["jobs"]["rerun-on-review-request"]  # no second job can carry the check's name
     assert set(job) == {"if", "runs-on", "timeout-minutes", "steps"}
     assert [sorted(step) for step in job["steps"]] == [["uses", "with"], ["uses", "with"], ["env", "name", "run"]]
     assert "permissions" not in job  # the polling job keeps the workflow-level read-only token
     assert workflow["concurrency"]["cancel-in-progress"] == "true"  # a new push supersedes the wait for the old head
     checkout = job["steps"][0]
-    assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["ref"] == "${{ github.event.pull_request.base.ref }}"  # trusted base code, never the PR's own gate
-    assert checkout["with"]["persist-credentials"] == "false"
+    assert checkout["uses"].startswith("actions/checkout@")
+    # Both `with` maps whole: a `repository:` input pointing at the head repository would fetch a fork's
+    # branch named like the base and run the fork's copy of the gate script; `path` or a sparse checkout
+    # would fail closed, but the pin leaves nothing to reason about.
+    assert checkout["with"] == {"ref": "${{ github.event.pull_request.base.ref }}", "persist-credentials": "false"}  # trusted base code, never the PR's own gate
     assert job["steps"][1]["uses"].startswith("actions/setup-python@")  # not another action that could rewrite the script
+    assert job["steps"][1]["with"] == {"python-version": "3.11"}
     step = job["steps"][-1]
     assert step["run"] == "python backend/scripts/review_gate.py"
     assert set(step["env"]) == {"GITHUB_TOKEN", "REVIEW_GATE_REPO", "REVIEW_GATE_PR", "REVIEW_GATE_HEAD",
