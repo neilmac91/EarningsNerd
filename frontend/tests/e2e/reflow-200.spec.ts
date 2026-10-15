@@ -106,11 +106,17 @@ const measure = (page: Page): Promise<Overflow> =>
     const root = document.documentElement
     const vw = root.clientWidth
     /** Fixed boxes and anything a clipping box holds add nothing to the document's scroll width.
-        `own` counts the element's own overflow too: a text run is clipped by its parent. */
+        `own` counts the element's own overflow too: a text run is clipped by its parent. An absolutely
+        positioned box escapes the overflow of every ancestor below its containing block (the nearest
+        positioned one), so those do not hold it: an sr-only span in a truncated label is past the edge. */
     const clipped = (el: Element, own: boolean) => {
+      let escaping = false
       for (let n: Element | null = el; n && n !== document.body; n = n.parentElement) {
         const style = getComputedStyle(n)
-        if (style.position === 'fixed' || ((own || n !== el) && style.overflowX !== 'visible')) return true
+        if (style.position === 'fixed') return true
+        if (escaping && style.position !== 'static') escaping = false
+        if (!escaping && (own || n !== el) && style.overflowX !== 'visible') return true
+        if (style.position === 'absolute') escaping = true
       }
       return false
     }
