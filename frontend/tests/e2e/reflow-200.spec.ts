@@ -164,6 +164,28 @@ const collisions = (bar: Locator): Promise<string[]> =>
     return found
   })
 
+/** The logo's clear space (frontend/public/assets/LOGO_README.md): one E-bar, 11.6% of the mark's width, on every
+    side of the logo (the bare mark, or the lockup), which no other control in the bar enters. A bar that squeezes
+    its controls against the logo to keep one row would break it with nothing overlapping. */
+const logoClearSpace = (bar: Locator): Promise<string[]> =>
+  bar.evaluate((root) => {
+    const home = root.querySelector('a[href="/"]')
+    const mark = home?.querySelector('svg, img')
+    if (!home || !mark) return ['the bar has no home link with the mark']
+    const logo = home.getBoundingClientRect()
+    const space = mark.getBoundingClientRect().width * 0.116
+    const found: string[] = []
+    for (const el of root.querySelectorAll('a, button')) {
+      if (el === home || !el.checkVisibility()) continue
+      const b = el.getBoundingClientRect()
+      if (b.left < logo.right + space - 0.5 && b.right > logo.left - space + 0.5 && b.top < logo.bottom + space - 0.5 && b.bottom > logo.top - space + 0.5) {
+        const name = (el.textContent?.trim() || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').slice(0, 30)
+        found.push(`${el.tagName.toLowerCase()} "${name}" from ${Math.round(b.left)}px enters the logo's ${space.toFixed(1)}px clear space (logo ${Math.round(logo.left)}-${Math.round(logo.right)}px)`)
+      }
+    }
+    return found
+  })
+
 /** The header against one row's worth: its tallest item (the logo, or the action group) plus the bar's
     vertical padding and the header's bottom border. A second row adds that row and the row gap. */
 const rows = (header: Locator) =>
@@ -238,6 +260,7 @@ test.describe('a 360px phone at the default text size', () => {
     const at360 = await measure(page)
     expect(at360.scrollWidth, `/ at 360px: ${why(at360)}`).toBeLessThanOrEqual(at360.clientWidth)
     expect(await collisions(siteHeader.bar(page)), '/ at 360px: the bar\'s controls').toEqual([])
+    expect(await logoClearSpace(siteHeader.bar(page)), '/ at 360px: the logo\'s clear space').toEqual([])
   })
 })
 
@@ -260,6 +283,7 @@ for (const route of ROUTES) {
     const atDefault = await measure(page)
     expect(atDefault.scrollWidth, `${route.path} at the default text size: ${why(atDefault)}`).toBeLessThanOrEqual(atDefault.clientWidth)
     expect(await collisions(route.bar(page)), `${route.path} at the default text size: the bar's controls`).toEqual([])
+    expect(await logoClearSpace(route.bar(page)), `${route.path} at the default text size: the logo's clear space`).toEqual([])
     if (route.oneRow) await expectOneRow(route.bar(page), `${route.path} at the default text size`)
 
     await doubleText(page)
@@ -267,6 +291,7 @@ for (const route of ROUTES) {
     const enlarged = await measure(page)
     expect(enlarged.scrollWidth, `${route.path} at 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
     expect(await collisions(route.bar(page)), `${route.path} at 200% text: the bar's controls`).toEqual([])
+    expect(await logoClearSpace(route.bar(page)), `${route.path} at 200% text: the logo's clear space`).toEqual([])
     if (route.oneRow) await expectOneRow(route.bar(page), `${route.path} at 200% text`, HEADER_AT_200)
   })
 }

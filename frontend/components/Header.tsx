@@ -109,7 +109,10 @@ export default function Header({
 
   return (
     <header ref={headerRef} className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+      {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
+          frontend/public/assets/LOGO_README.md), when a full bar sets the account link beside the mark: at 390px and
+          200% text the link touched it (tests/e2e/reflow-200.spec.ts). */}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-1.5 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center">
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
