@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { GuidanceCard, buttonVariants } from '@/components/ui'
 import analytics from '@/lib/analytics'
@@ -55,10 +55,16 @@ export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; ent
     staleTime: 60 * 60 * 1000,
   })
   const isPublic = resolveAccessMode(registration ?? null) === 'public'
-  const login = (
-    <Link href={loginHrefWithRedirect(redirectPath)} className={buttonVariants({ variant: 'ghost' })}>
-      Log in
-    </Link>
+  // The card's action row does not wrap (GuidanceCard), so the two links sit in a row of their own that
+  // does, and each label may wrap inside its button: at 200% text on a phone they stack inside the card
+  // instead of running past both of its edges.
+  const actions = (primary: ReactNode) => (
+    <div className="flex max-w-full flex-wrap items-center justify-center gap-2">
+      {primary}
+      <Link href={loginHrefWithRedirect(redirectPath)} className={buttonVariants({ variant: 'ghost', wrap: true, className: 'max-w-full' })}>
+        Log in
+      </Link>
+    </div>
   )
 
   if (!isPublic) {
@@ -67,14 +73,11 @@ export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; ent
         title="Summaries need an account"
         headingLevel="h2"
         description="EarningsNerd is in private beta. Request an invite, or log in if you have one."
-        action={
-          <>
-            <Link href={ACCESS_COPY.invite.href} className={buttonVariants()}>
-              {ACCESS_COPY.invite.cta}
-            </Link>
-            {login}
-          </>
-        }
+        action={actions(
+          <Link href={ACCESS_COPY.invite.href} className={buttonVariants({ wrap: true, className: 'max-w-full' })}>
+            {ACCESS_COPY.invite.cta}
+          </Link>,
+        )}
       />
     )
   }
@@ -91,14 +94,11 @@ export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; ent
           )}
         </>
       }
-      action={
-        <>
-          <Link href={registerHrefWithRedirect(redirectPath)} className={buttonVariants()}>
-            Create free account
-          </Link>
-          {login}
-        </>
-      }
+      action={actions(
+        <Link href={registerHrefWithRedirect(redirectPath)} className={buttonVariants({ wrap: true, className: 'max-w-full' })}>
+          Create free account
+        </Link>,
+      )}
     />
   )
 }

@@ -343,7 +343,9 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
   return (
     <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Financial Highlights</CardTitle>
+        {/* Sentence case, as every card title: the summary's own section heading is the backend's schema
+            title ("Financial Highlights", summary_sections.py), which this standalone card does not show. */}
+        <CardTitle>Financial highlights</CardTitle>
       </CardHeader>
       {layouts}
       {notes && (

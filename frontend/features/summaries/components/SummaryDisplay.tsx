@@ -147,6 +147,7 @@ export function SummaryDisplay({
         isSaved={isSaved}
         saveMutation={saveMutation}
         isPro={isPro}
+        summaryFinished={!isError}
         onExportPdf={exportPdf}
         onExportCsv={exportCsv}
       />

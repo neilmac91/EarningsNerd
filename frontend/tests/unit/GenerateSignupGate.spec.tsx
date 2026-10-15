@@ -81,7 +81,7 @@ describe('GenerateSignupGate', () => {
   it('offers the free account in public mode, the trial only while it ships', async () => {
     state.registration.mockResolvedValue({ mode: 'public', beta_promo_enabled: false })
     await settled(mount(), 'success')
-    expect(await screen.findByRole('heading', { name: 'Create a free account to summarize this filing' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Create a free account to summarize this filing' })).toBeInTheDocument()
     expect(screen.getByText(new RegExp(`Free accounts get ${FREE_SUMMARY_LIMIT} AI summaries a month`))).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Create free account' }).getAttribute('href')).toMatch(/^\/register\?redirect=/)
     expect(screen.queryByText(/days free/)).toBeNull()
@@ -90,5 +90,26 @@ describe('GenerateSignupGate', () => {
     state.ENABLE_PRO_TRIAL = true
     mount()
     expect(await screen.findByText(new RegExp(`get ${TRIAL_DAYS} days free, cancel anytime`))).toBeInTheDocument()
+  })
+
+  // The capture review at 200% text on a 390px phone: the card's action row does not wrap, so the two links
+  // ran past both of its edges (the primary's left edge cut at x=0). They sit in a row of their own that
+  // wraps, and each label may wrap inside its button, in both modes.
+  it.each([
+    ['invite_only', 'Request an invite'],
+    ['public', 'Create free account'],
+  ] as const)('stacks its two links inside the card when they do not fit side by side (%s)', async (mode, primary) => {
+    state.registration.mockResolvedValue({ mode, beta_promo_enabled: false })
+    await settled(mount(), 'success')
+    const classes = (el: Element) => el.className.split(/\s+/)
+    const first = await screen.findByRole('link', { name: primary })
+    const login = screen.getByRole('link', { name: 'Log in' })
+    const row = first.parentElement!
+    expect(login.parentElement).toBe(row)
+    expect(classes(row)).toEqual(expect.arrayContaining(['flex', 'flex-wrap', 'max-w-full']))
+    for (const link of [first, login]) {
+      expect(classes(link)).toEqual(expect.arrayContaining(['whitespace-normal', 'max-w-full']))
+      expect(classes(link)).not.toContain('whitespace-nowrap')
+    }
   })
 })

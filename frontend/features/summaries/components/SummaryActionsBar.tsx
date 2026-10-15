@@ -17,6 +17,9 @@ export interface SummaryActionsBarProps {
   isSaved: boolean
   saveMutation: SaveMutation
   isPro: boolean
+  /** Whether the summary finished. Saving and exporting act on a summary, so a stored one that did not
+   *  finish offers neither; the filing link is the filing's, and stays. */
+  summaryFinished: boolean
   onExportPdf: () => void
   onExportCsv: () => void
 }
@@ -32,6 +35,7 @@ export function SummaryActionsBar({
   isSaved,
   saveMutation,
   isPro,
+  summaryFinished,
   onExportPdf,
   onExportCsv,
 }: SummaryActionsBarProps) {
@@ -42,7 +46,7 @@ export function SummaryActionsBar({
   const savedRef = useRef<HTMLSpanElement>(null)
   const savePressed = useRef(false)
 
-  // A successful save swaps the focused Save Summary button for the Saved chip, dropping focus to
+  // A successful save swaps the focused Save summary button for the Saved chip, dropping focus to
   // <body>; hand it to the chip instead (unless focus has already moved elsewhere). Only after
   // Save's own press, so an already-saved summary never takes focus on load.
   useEffect(() => {
@@ -68,7 +72,7 @@ export function SummaryActionsBar({
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-      {isAuthenticated && (
+      {isAuthenticated && summaryFinished && (
         <div>
           {summaryId != null && (
             isSaved ? (
@@ -125,8 +129,8 @@ export function SummaryActionsBar({
           </p>
         )}
       </div>
-      {/* Export buttons - only show for Pro users */}
-      {isPro && (
+      {/* Export buttons: Pro only, and only for a summary that finished */}
+      {isPro && summaryFinished && (
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="secondary" onClick={onExportPdf}>
             <DownloadSimpleIcon className="h-4 w-4" />

@@ -330,8 +330,10 @@ export default function StreamingSummaryDisplay({
             {stageAnnouncement(stage, filing.filing_type)}
           </p>
 
-          {/* Header: title + live status + count-up percent */}
-          <div className="flex items-start justify-between gap-4">
+          {/* Header: title + live status + count-up percent. The row wraps: where the heading and the
+              percent do not fit side by side (200% text on a phone) the percent moves beneath, still at
+              the right (ml-auto), instead of printing over the heading. */}
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             {/* No glyph beside the heading (DESIGN.md › Icons): the heading says what is running in words. */}
             <div className="min-w-0">
               <h2
@@ -341,11 +343,12 @@ export default function StreamingSummaryDisplay({
               >
                 Generating the summary
               </h2>
+              {/* The form code wraps whole: "10-K" never breaks at its hyphen. */}
               <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                {filing.filing_type} • Processing…
+                <span className="whitespace-nowrap">{filing.filing_type}</span> · Processing…
               </p>
             </div>
-            <div className="flex flex-col items-end flex-none">
+            <div className="ml-auto flex flex-none flex-col items-end">
               <span className="tnum font-data text-2xl font-semibold leading-none text-text-primary-light dark:text-text-primary-dark">
                 {pctLabel}
               </span>

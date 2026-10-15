@@ -103,6 +103,29 @@ describe('canonical filing link action', () => {
     expect(posthog.capture).toHaveBeenCalledExactlyOnceWith('filing_link_copied', { filing_id: 42 })
   })
 
+  // The capture review: a stored summary that did not finish showed Save summary, Export PDF and Export CSV
+  // above its "This summary did not finish" card, offering to save and export a summary that is not there.
+  // Those act on a summary; the filing link is the filing's, and stays.
+  it.each([
+    ['its fallback body', { business_overview: 'Summary temporarily unavailable. Please retry.', raw_summary: {} }],
+    ['a writer error', { business_overview: '## Overview\n\nText.', raw_summary: { writer_error: 'timeout' } }],
+  ])('offers neither Save nor an export above a stored summary that did not finish (%s)', (_, failed) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    clients.push(client)
+    render(
+      <QueryClientProvider client={client}>
+        <SummaryDisplay filing={filing} summary={{ id: 91, filing_id: filing.id, rendered_sections: [], ...failed }}
+          isAuthenticated isPro isSaved={false}
+          saveMutation={{ mutate: actions.save, isPending: false }} onAsk={vi.fn()} />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByRole('heading', { name: 'This summary did not finish' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save summary' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Export PDF' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Export CSV' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy filing link' })).toBeInTheDocument()
+  })
+
   it('offers the manual canonical link when the Clipboard API is absent', async () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
     render(view())

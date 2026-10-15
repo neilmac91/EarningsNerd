@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { useRef, useState } from 'react'
 import StreamingSummaryDisplay from '@/app/filing/[id]/StreamingSummaryDisplay'
 import { GuidanceCard } from '@/components/ui'
@@ -94,6 +94,10 @@ describe('StreamingSummaryDisplay step log', () => {
     renderAt('fetching')
     await act(async () => {})
     const pending = screen.getByText('Writing the summary')
+    // Its marker: the empty hairline circle (no check, no dot) beside the label.
+    const marker = pending.previousElementSibling as HTMLElement
+    expect(marker.className.split(/\s+/)).toEqual(expect.arrayContaining(['rounded-full', 'border', 'border-border-light', 'dark:border-border-dark']))
+    expect(marker.childElementCount).toBe(0)
     // Whole class tokens: a translucent ink (`text-text-tertiary-light/40`) fades it as opacity-40 did.
     expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-secondary-dark']))
     expect(pending.className).not.toMatch(/text-text-(?:tertiary|secondary)-(?:light|dark)\//)
@@ -125,14 +129,35 @@ describe('StreamingSummaryDisplay step log', () => {
 // both headings say what they are in words. The progress card's head and the streamed summary's head
 // carried a 20px sparkle each until the design owner's call on #1288's MEANING thread.
 describe('StreamingSummaryDisplay headings', () => {
-  it('sets no icon beside "Generating the summary" or "AI-generated summary"', async () => {
+  it('sets no icon in or beside "Generating the summary" or "AI-generated summary"', async () => {
     render(<StreamingSummaryDisplay streamingText="Revenue rose." stage="summarizing" message="" filing={filing} />)
     await act(async () => {})
     for (const name of ['Generating the summary', 'AI-generated summary']) {
       const heading = screen.getByRole('heading', { level: 2, name })
-      expect(heading.parentElement!.querySelector(':scope > svg'), name).toBeNull()
-      expect(heading.parentElement!.parentElement!.querySelector(':scope > svg'), name).toBeNull()
+      // The heading's own row (the nearest flex row holding it), the heading included, at any depth: a glyph
+      // inside the heading or wrapped in a span beside it is a glyph beside a section heading all the same.
+      const row = heading.closest('div.flex') as HTMLElement
+      expect(row, name).not.toBeNull()
+      expect(row.querySelector('svg'), name).toBeNull()
     }
+  })
+
+  // The capture review at 200% text on a 390px phone: the percent printed over "Generating the summary",
+  // "Usually 30–60s" collided with it, and the meta line broke "10-|K". The header row wraps, the percent
+  // keeps to the right edge on a line of its own, and the form code is one unbreakable run.
+  it('lets the percent move beneath the heading, and keeps the form code whole', async () => {
+    renderAt('fetching')
+    await act(async () => {})
+    const classes = (el: Element) => el.className.split(/\s+/)
+    const heading = screen.getByRole('heading', { level: 2, name: 'Generating the summary' })
+    const row = heading.parentElement!.parentElement!
+    expect(classes(row)).toContain('flex-wrap')
+    const percent = row.lastElementChild!
+    expect(percent).toHaveTextContent(/\d+%/)
+    expect(classes(percent)).toEqual(expect.arrayContaining(['ml-auto', 'flex-none']))
+    const meta = heading.nextElementSibling as HTMLElement
+    expect(meta).toHaveTextContent('10-K · Processing…')
+    expect(classes(within(meta).getByText('10-K'))).toContain('whitespace-nowrap')
   })
 })
 
@@ -198,7 +223,7 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
         {/* The stream's callbacks, from outside the display: a click() here moves no focus. */}
         <button onClick={() => setRun(FAILED)}>fail</button>
         <button onClick={() => setRun(LIMIT)}>limit</button>
-        <button onClick={() => setRun({ ...FAILED, error: 'Server error. Please try again later.' })}>fail differently</button>
+        <button onClick={() => setRun({ ...FAILED, error: 'The server could not start the summary. Try again in a moment.' })}>fail differently</button>
         <StreamingSummaryDisplay
           streamingText=""
           stage={run.stage}
@@ -287,7 +312,7 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     act(() => (document.activeElement as HTMLElement).blur())
     outside('fail differently')
     await settle()
-    expect(screen.getByText('Server error. Please try again later.')).toBeInTheDocument()
+    expect(screen.getByText('The server could not start the summary. Try again in a moment.')).toBeInTheDocument()
     expect(document.activeElement).toBe(document.body)
   })
 })

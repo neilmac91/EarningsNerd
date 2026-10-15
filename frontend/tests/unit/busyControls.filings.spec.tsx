@@ -108,6 +108,7 @@ describe('SummaryActionsBar Save summary', () => {
         isSaved={false}
         saveMutation={saveMutation}
         isPro={false}
+        summaryFinished
         onExportPdf={() => {}}
         onExportCsv={() => {}}
       />
@@ -143,6 +144,7 @@ describe('SummaryActionsBar Save summary', () => {
         isSaved={isSaved}
         saveMutation={saveMutation}
         isPro={false}
+        summaryFinished
         onExportPdf={() => {}}
         onExportCsv={() => {}}
       />
@@ -169,6 +171,7 @@ describe('SummaryActionsBar Save summary', () => {
         isSaved
         saveMutation={{ mutate: vi.fn(), isPending: false }}
         isPro={false}
+        summaryFinished
         onExportPdf={() => {}}
         onExportCsv={() => {}}
       />,
