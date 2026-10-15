@@ -77,7 +77,7 @@ export default function WaitlistPage() {
           {[
             {
               title: 'Filings are long.',
-              body: 'A 10-K runs past a hundred pages, and the part you want is spread across six of its sections.',
+              body: 'A 10-K is long, and the part you want is spread across its sections.',
             },
             {
               title: 'Checking takes an afternoon.',
