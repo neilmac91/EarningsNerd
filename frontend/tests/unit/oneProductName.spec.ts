@@ -13,8 +13,9 @@ import { describe, expect, it } from 'vitest'
  * hooks and lib, the way brandCopyRules.spec.ts reads them, and counts each mention of the name, its
  * plural and the hyphenated spelling included. In any literal, a one-word label too, it fails on the
  * capitalised "Copilot" and on "co-pilot" in any case, since no identifier is spelled either way. Where a
- * literal reads as copy (JSX text, a string of more than one word, or a template part with whitespace at
- * a substitution edge, as the tail " copilot" of `Ask your ${type} copilot`) it fails on the word in any
+ * literal reads as copy (JSX text, a string of more than one word, a template part with whitespace at a
+ * substitution edge, as the tail " copilot" of `Ask your ${type} copilot`, or a literal substituted into a
+ * template whose joined text reads as copy, as 'copilot' in `Ask the ${'copilot'} now`) it fails on the word in any
  * case, and only a letter, a digit or `_` joins it to more there: "Ask the copilot: what changed", "the
  * copilot-powered rail", "the copilot/filing pane" and "Ask @copilot anything" fail. A one-word literal is
  * read as an id and keeps the joins (`:`, `-`, `/`, `.`, `@`): the "copilot" tab id, the PostHog event
@@ -73,13 +74,37 @@ function copyText(node: ts.Node): string | null {
   return null
 }
 
-/** JSX text, a string of more than one word, or a template part with whitespace at a substitution edge reads as copy;
-    any other one-word literal may be an id. */
+/** The string a substitution holds: a literal, through parentheses, `as` and a conditional's branches; '' otherwise. */
+function substitutedText(e: ts.Expression): string {
+  if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e)) return substitutedText(e.expression)
+  if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return e.text
+  if (ts.isConditionalExpression(e)) return substitutedText(e.whenTrue) || substitutedText(e.whenFalse)
+  return ''
+}
+
+/** The template a literal is substituted into (through parentheses, `as`, a conditional's branches, `&&`, `||`, `??` and
+    `+`), or null. */
+function templateOf(node: ts.Node): ts.TemplateExpression | null {
+  for (let at: ts.Node = node, p = node.parent; p; at = p, p = p.parent) {
+    if (ts.isTemplateSpan(p)) return p.expression === at ? p.parent : null
+    const passes = ts.isParenthesizedExpression(p) || ts.isAsExpression(p) ||
+      (ts.isConditionalExpression(p) && p.condition !== at) || (ts.isBinaryExpression(p) && JOINS_CLASSES.has(p.operatorToken.kind))
+    if (!passes) return null
+  }
+  return null
+}
+
+/** JSX text, a string of more than one word, a template part with whitespace at a substitution edge, or a literal substituted
+    into a template whose joined text has more than one word reads as copy; any other one-word literal may be an id. */
 function readsAsCopy(node: ts.Node, text: string): boolean {
   if (ts.isJsxText(node) || /\S\s+\S/.test(text.trim())) return true
   const openEnd = (ts.isTemplateHead(node) || ts.isTemplateMiddle(node)) && /\s$/.test(text)
   const openStart = (ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) && /^\s/.test(text)
-  return openEnd || openStart
+  if (openEnd || openStart) return true
+  const template = (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) ? templateOf(node) : null
+  if (!template) return false
+  const joined = template.head.text + template.templateSpans.map((span) => substitutedText(span.expression) + span.literal.text).join('')
+  return /\S\s+\S/.test(joined.trim())
 }
 
 /** A module specifier (import, export, import(), require) or a console argument: never user copy. */
@@ -190,7 +215,7 @@ describe('one product name in copy (D-034)', () => {
       // Lowercase, in a sentence: the planted phrases round 2's gate let through.
       'You have 2 free copilot questions left', 'Meet your filing copilot.', 'An AI copilot for SEC filings', 'copilot answers, cited',
       // Joined to punctuation in copy: the planted phrases round 3's gate let through.
-      'Ask the copilot: what changed', 'the copilot-powered rail', 'the copilot/filing pane', 'Meet your copilot: answers',
+      'Ask the copilot: what changed', 'the copilot-powered rail', 'the copilot/filing pane', 'Meet your copilot: answers', 'copilot: ready',
       'Ask @copilot anything', 'Open the .copilot pane', 'AI copilots for filings', 'the copilot’s answer',
       // The hyphenated spelling, in any literal and any case, a one-word label included.
       'co-pilot', 'Co-pilot', 'Co-Pilot', 'Ask the co-pilot', 'Your filing CO-PILOT',
@@ -227,11 +252,13 @@ describe('one product name in copy (D-034)', () => {
       "export const B = () => <span className={EXPORTED}>{SHOWN}</span>",
       "export const EXPORTED = 'copilot-chip x'",
       "const SHOWN = 'copilot-chip y'",
+      "export const C = ({ id }: { id: string }) => <p title={`Ask the ${'copilot'} now`} data-x={`${'copilot'}-${id}`}>x</p>",
     ].join('\n'))
     const lines = (sites([{ rel: 'planted.tsx', sf: planted }]).get('planted.tsx') ?? []).map((site) => Number(/:(\d+) /.exec(site)?.[1]))
     // 2: a const read as text; 5: the tail " copilot"; 6: three mentions in one JSX text; 11: an exported const may be read
-    // elsewhere; 12: a const read as text. The cx and className lists (1, 4, 5) and the one-word id `copilot-${type}` pass.
-    expect(lines).toEqual([2, 5, 6, 6, 6, 11, 12])
+    // elsewhere; 12: a const read as text; 13: a one-word literal substituted into a sentence. The cx and className lists
+    // (1, 4, 5), the one-word id `copilot-${type}` and the one-word joined id `${'copilot'}-${id}` pass.
+    expect(lines).toEqual([2, 5, 6, 6, 6, 11, 12, 13])
   })
 
   it('the scan sees the Ask surfaces it guards', () => {
