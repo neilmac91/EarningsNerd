@@ -88,8 +88,8 @@ file instead.
   `frontend/tests/unit/nodeVersionLockstep.spec.ts`; for `copilot-eval.yml` also
   `test_copilot_gate.py`, `test_copilot_live_regressions.py` and `test_retired_model_ids.py`, which
   pin its event set, step names and flags, run its steps and check its model ids, and
-  `test_copilot_eval_paths.py` once #1123 merges: it refuses any key, env, action input or run
-  command it does not know, so a new step fails it locally before it fails `backend-tests`).
+  `test_copilot_eval_paths.py`, which refuses any key, env, action input or run command it does
+  not know, so a new step fails it locally before it fails `backend-tests`).
 - Do not add a second test for a rule that is already gated. Do not write tests for reversible,
   low-impact changes that merely mirror the implementation.
 
@@ -159,7 +159,7 @@ PR touching deployable backend files only after the previous
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Read the head SHA from the PR before merging; never type one from memory.
 Marking a PR ready for review triggers the paid `copilot-eval` run when it touches that
-workflow's `paths:` filter (`backend/**` before #1123, the eval's own inputs after it): reserve the spend first
+workflow's `paths:` filter (the eval's own inputs): reserve the spend first
 (`tasks/code-red-20261004/runtime/control/DECISIONS-09.md`, reservation rule).
 
 ## 7. PR body, handover and open-items formats
