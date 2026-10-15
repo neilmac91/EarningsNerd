@@ -295,13 +295,15 @@ async def test_retry_cancellation_closes_the_active_provider_without_terminal_pr
 @pytest.mark.asyncio
 @pytest.mark.parametrize("limit", ["caller", "wrapper", "expired"])
 async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(monkeypatch, limit):
-    # The deadline the wrapper must honour is 0.5s away (or already past); the one it must not
+    # The deadline the wrapper must honour is 30s away (or already past); the one it must not
     # honour is 60s away. The test records the wrapper's own budget and the deadline the chat path
-    # cuts the stream at (the asyncio.timeout_at it enters), and compares those values. An elapsed
-    # bound between the two deadlines told them apart only with slack to spare on a loaded xdist
-    # runner (#1241 saw 0.34s against a 0.2s bound; the widened 1.0s bound left half a second).
-    honoured, decoy = 0.5, 60.0
-    calls, closed, own, cutoffs = [], [], [], []
+    # cuts the stream at (the asyncio.timeout_at it enters), compares those values, and expires the
+    # entered timeout by hand once the request is on the wire. No real deadline races the test: an
+    # elapsed bound told the two apart only with slack to spare on a loaded xdist runner (#1241 saw
+    # 0.34s against a 0.2s bound), and a real 0.5s deadline still covered the SDK's first request,
+    # which detects the platform in a worker thread.
+    honoured, decoy = 30.0, 60.0
+    calls, closed, own, cutoffs, timers = [], [], [], [], []
     monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", honoured if limit == "wrapper" else decoy)
     real_chat_deadline = copilot_chat.chat_deadline
 
@@ -311,7 +313,8 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
 
     def recording_timeout_at(when):
         cutoffs.append(when)
-        return asyncio.timeout_at(when)
+        timers.append(asyncio.timeout_at(when))
+        return timers[-1]
 
     monkeypatch.setattr(copilot_chat, "chat_deadline", recording_chat_deadline)
     monkeypatch.setattr(copilot_chat, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout_at": recording_timeout_at}))
@@ -329,15 +332,19 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
         return httpx2.Response(200, headers={"content-type": "text/event-stream"}, stream=Body())
 
     async with service_for(handler) as service:
-        # Build the SDK client before starting the caller's budget. Its first request still pays
-        # the platform detection inside the budget, which `honoured` leaves room for.
         before = asyncio.get_running_loop().time()
         deadline = before + (honoured if limit == "caller" else decoy if limit == "wrapper" else -1)
         async def receive():
             return [piece async for piece in service.stream_chat_with_tools(
                 [], [], lambda *_args: {}, deadline=deadline,
             )]
-        output = await asyncio.wait_for(receive(), 10)  # a hang guard: honouring the decoy would hit it
+        task = asyncio.create_task(receive())
+        if limit != "expired":
+            async with asyncio.timeout(10):  # hang guards only, here and below
+                while not calls:
+                    await asyncio.sleep(0.01)
+            timers[0].reschedule(asyncio.get_running_loop().time())  # the honoured deadline passes
+        output = await asyncio.wait_for(task, 10)
     assert output[-1].startswith(STREAM_ERROR_SENTINEL)
     assert len(calls) == (0 if limit == "expired" else 1)
     assert len(closed) == len(calls)
