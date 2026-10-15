@@ -52,7 +52,8 @@ export default function CopilotTeaser({
     <div className="flex-1 overflow-y-auto px-4 py-4">
       {/* Blurred sample answer: conveys the value without giving it away. Decorative (aria-hidden). Its
           figures are Apple's verified FY2025 10-K set (docs/brand/00-audit.md §4), and its markers are
-          sequential [n], as the server renumbers every live answer's markers. */}
+          sequential [n], as the server renumbers every live answer's markers. It cites passages, never an
+          XBRL chip: Services is a dimensioned fact the tool cannot fetch (landingSamplesVerified.spec.ts). */}
       <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-3">
         <div aria-hidden="true" className="pointer-events-none select-none space-y-2 blur-[3px]">
           <p className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">AAPL · 10-K · FY2025</p>
