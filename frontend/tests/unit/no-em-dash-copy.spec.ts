@@ -22,11 +22,16 @@ import { describe, expect, it } from 'vitest'
  * a template's substitution; a template's head, middle or tail is never
  * exempt, since the template joins it to what its substitutions render. So a
  * spaced dash beside an expression fails in each spelling: `— {speaker}`,
- * `{'—'} {speaker}`, `'—' + ' ' + speaker` (BG-02). A token held in a name,
- * handed to a function (a formatter's fallback) or returned is read where it
- * is written, and exempt there; what the code does with it afterwards (a
- * `concat`, an array's `join`, a sibling the name is rendered beside) is out
- * of a literal scan's reach and review-checked. The self-check below plants
+ * `{'—'} {speaker}`, `'—' + ' ' + speaker` (BG-02). A token held in a `const`
+ * or `let` is followed to each reference of the name in its file, one name at
+ * a time (a name holding the name is followed too), and each reference is held
+ * to the same test, so `const DASH = '—'` rendered as `{DASH} {speaker}` fails
+ * at the reference. References are read by name, so a same-named binding in a
+ * nested scope reads as the token's. A reference the scan cannot see (an export
+ * read in another file) and what a function or an array does with the token
+ * afterwards (a formatter's fallback, a `concat`, a `join`) are out of a literal
+ * scan's reach and review-checked, as is a token handed to a function or
+ * returned, which is read where it is written. The self-check below plants
  * each form.
  *
  * If you're writing copy and want a dash: restructure the sentence (split it,
@@ -63,17 +68,11 @@ function soleChild(child: ts.JsxText | ts.JsxExpression): boolean {
   return meaningful.length === 1 && meaningful[0] === child
 }
 
-/** The bare missing-value token is the one sanctioned em-dash: a JSX text node trimming to '—' that is the
-    only child of its element, or a string or no-substitution template literal that is exactly '—' where the
-    value it gives stands alone (see the header). */
-function isBareMissingToken(node: ts.Node, literalText: string): boolean {
-  if (ts.isJsxText(node)) return literalText.trim() === EM_DASH && soleChild(node)
-  // A template's head, middle or tail is joined to what its substitutions render: never the whole value.
-  if (!ts.isStringLiteral(node) && !ts.isNoSubstitutionTemplateLiteral(node)) return false
-  if (literalText !== EM_DASH) return false
-  // Follow the value up to where it is used, through what passes it on unchanged as React renders it:
-  // parentheses, a type assertion, a conditional's branch, either side of `??` or `||` and the right of `&&`.
-  let value: ts.Node = node
+/** Where a value (the token, or a name holding it) is used, following what passes it on unchanged as React
+    renders it: parentheses, a type assertion, a conditional's branch, either side of `??` or `||` and the right
+    of `&&`. */
+function usageOf(token: ts.Node): { value: ts.Node; use: ts.Node } {
+  let value: ts.Node = token
   for (;;) {
     const up: ts.Node = value.parent
     const op = ts.isBinaryExpression(up) ? up.operatorToken.kind : undefined
@@ -83,16 +82,55 @@ function isBareMissingToken(node: ts.Node, literalText: string): boolean {
     else if (op === ts.SyntaxKind.AmpersandAmpersandToken && (up as ts.BinaryExpression).right === value) value = up
     else break
   }
-  const use = value.parent
+  return { value, use: value.parent }
+}
+
+/** Every reference to `name` in the file that reads its value: an identifier of that name which is not the
+    declaration itself and not the `name` of its parent (a property or attribute of that name, another binding
+    of it, an export of it, which another file reads). */
+function referencesTo(name: string, declared: ts.Identifier, source: ts.SourceFile): ts.Identifier[] {
+  const refs: ts.Identifier[] = []
+  const visit = (node: ts.Node) => {
+    if (ts.isIdentifier(node) && node.text === name && node !== declared && (node.parent as ts.Node & { name?: ts.Node }).name !== node) {
+      refs.push(node)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return refs
+}
+
+/** The nodes where a bare token, or a name holding one, is joined into copy: none when every use stands alone
+    (see the header). A `const` or `let` holding the token is followed to each reference of its name in the file,
+    one name at a time. */
+function joinedUses(token: ts.Node, source: ts.SourceFile, seen = new Set<string>()): ts.Node[] {
+  const { value, use } = usageOf(token)
   // Joined into copy: an operand of `+`, the right of `+=`, a template's substitution.
   if (ts.isBinaryExpression(use)) {
     const op = use.operatorToken.kind
-    if (op === ts.SyntaxKind.PlusToken || (op === ts.SyntaxKind.PlusEqualsToken && use.right === value)) return false
+    if (op === ts.SyntaxKind.PlusToken || (op === ts.SyntaxKind.PlusEqualsToken && use.right === value)) return [token]
   }
-  if (ts.isTemplateSpan(use)) return false
+  if (ts.isTemplateSpan(use)) return [token]
   // A JSX child: the token only as its element's sole meaningful child, as JSX text is (an attribute's value stands alone).
-  if (ts.isJsxExpression(use) && !ts.isJsxAttribute(use.parent)) return soleChild(use)
-  return true
+  if (ts.isJsxExpression(use) && !ts.isJsxAttribute(use.parent)) return soleChild(use) ? [] : [token]
+  // Held in a name: each reference of the name is held to the same test.
+  if (ts.isVariableDeclaration(use) && use.initializer === value && ts.isIdentifier(use.name) && !seen.has(use.name.text)) {
+    seen.add(use.name.text)
+    return referencesTo(use.name.text, use.name, source).flatMap((ref) => joinedUses(ref, source, seen))
+  }
+  return []
+}
+
+/** The bare missing-value token is the one sanctioned em-dash: a JSX text node trimming to '—' that is the
+    only child of its element, or a string or no-substitution template literal that is exactly '—' where the
+    value it gives stands alone (see the header). Returns the nodes where the literal is copy instead: the
+    literal itself, or each reference of a name holding the token that is joined into copy. */
+function tokenViolations(node: ts.Node, literalText: string, source: ts.SourceFile): ts.Node[] {
+  if (ts.isJsxText(node)) return literalText.trim() === EM_DASH && soleChild(node) ? [] : [node]
+  // A template's head, middle or tail is joined to what its substitutions render: never the whole value.
+  if (!ts.isStringLiteral(node) && !ts.isNoSubstitutionTemplateLiteral(node)) return [node]
+  if (literalText !== EM_DASH) return [node]
+  return joinedUses(node, source)
 }
 
 /** Every em-dash in `text` outside the sanctioned token, as `file:line text`. */
@@ -102,9 +140,11 @@ function violationsIn(text: string, file: string): string[] {
   const violations: string[] = []
 
   const record = (node: ts.Node, literalText: string) => {
-    if (!literalText.includes(EM_DASH) || isBareMissingToken(node, literalText)) return
-    const { line } = source.getLineAndCharacterOfPosition(node.getStart())
-    violations.push(`${path.relative(FRONTEND_ROOT, file)}:${line + 1} ${literalText.trim().slice(0, 80)}`)
+    if (!literalText.includes(EM_DASH)) return
+    for (const at of tokenViolations(node, literalText, source)) {
+      const { line } = source.getLineAndCharacterOfPosition(at.getStart())
+      violations.push(`${path.relative(FRONTEND_ROOT, file)}:${line + 1} ${literalText.trim().slice(0, 80)}`)
+    }
   }
 
   const visit = (node: ts.Node) => {
@@ -149,13 +189,22 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       "export const E = (speaker: string) => { let s = speaker; s += '—'; return s }",
       "export const MISSING = '—'",
       "export const F = (x?: string) => (x !== '—' ? x : null) ?? `—`",
+      "const DASH = '—'",
+      'export const G = ({ speaker }: { speaker: string }) => <cite>{DASH} {speaker}</cite>',
+      "export const H = (speaker: string) => DASH + ' ' + speaker",
+      "const NONE = '—'",
+      'export const I = ({ v }: { v?: string }) => <td>{v ?? NONE}</td>',
+      'const HELD = NONE',
+      'export const J = (x: string) => `${HELD}${x}`',
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
-    // attribute's value) and 18 to 19 are read where they are written (a name, a comparison, a fallback returned).
-    // Lines 8 to 11 sit beside sibling children (as text, a literal, a conditional's branch, the right of `||`
-    // in parentheses), 14 is a `+` operand, 15 a template's substitution, 16 a template's head and 17 the
-    // right of `+=`.
-    expect(violationsIn(src, file)).toEqual([8, 9, 10, 11, 14, 15, 16, 17].map((line) => `features/zzprobe/Probe.tsx:${line} —`))
+    // attribute's value) and 18 to 19 are read where they are written (a name no line reads, a comparison, a
+    // fallback returned). Lines 8 to 11 sit beside sibling children (as text, a literal, a conditional's branch,
+    // the right of `||` in parentheses), 14 is a `+` operand, 15 a template's substitution, 16 a template's head
+    // and 17 the right of `+=`. A name holding the token is followed to its references: DASH (20) is rendered
+    // beside a sibling at 21 and is a `+` operand at 22; NONE (23) stands alone as a fallback at 24, and HELD
+    // (25), which holds NONE, is a template's substitution at 26.
+    expect(violationsIn(src, file)).toEqual([8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26].map((line) => `features/zzprobe/Probe.tsx:${line} —`))
   })
 
   it('finds no em-dash in any string literal, template literal, or JSX text', () => {

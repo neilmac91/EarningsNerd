@@ -273,8 +273,9 @@ that PR:
 - `no-em-dash-copy.spec.ts`: a literal is exempt only when it is exactly the bare missing-value
   token (a lone em-dash) and stands alone: as a JSX child, written as text or as an expression (a
   conditional's branch or a fallback included), only as the sole child of its element, and never as
-  an operand of `+`, a template's substitution or a part of a template; a token held in a name and
-  joined elsewhere is review-checked; the summary's quote attribution loses its dash: on the page
+  an operand of `+`, a template's substitution or a part of a template; a token held in a `const` is
+  followed to each reference of the name in its file and fails where one is joined into copy (a
+  reference in another file is review-checked); the summary's quote attribution loses its dash: on the page
   the cite sits on its own line under the quotation, with the evidence chip (a control, not
   attribution) beside it when the quote carries evidence, and in the PDF the speaker stands alone,
   the one device D-031 names for both (the CSV keeps a speaker column).
