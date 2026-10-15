@@ -235,3 +235,14 @@ next review named a metric row's formatted figures outside it; so rule 2 classif
 API types declare that can hold a string, an array of them included, a figure field or a word field,
 and fails one it has not classified. A gate keyed on a list of names holds only when a test makes
 the list exhaustive over its domain.
+
+**Recurrence (2026-10-15, route metadata)**: `frontend/tests/unit/routeMetadata.spec.ts` (#1312) read
+a title or a description only as a typed literal and walked `page.tsx` and `layout.tsx` alone. The
+literal reader failed #1299's description, a template over the period caps `lib/planLimits.ts`
+mirrors from config, and the literal it asked for would have failed #1299's lockstep gate, so
+whichever PR landed second went red; the walk let a noindex `layout.ts` take every company page out
+of the index with all 132 tests green. The spec now imports each module and checks the metadata it
+exports as Next evaluates it, and walks every page and layout under the extensions Next serves
+(next.config.js's `pageExtensions`, else Next's default), with a `.ts` layout planted in its
+self-check. A gate over a framework's files reads the file names the framework reads, and a gate
+over a value reads the value, not the way one file typed it.
