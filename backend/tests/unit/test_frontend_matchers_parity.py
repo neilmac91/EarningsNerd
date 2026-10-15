@@ -40,7 +40,6 @@ BACKEND = {
     "summaries": "backend/app/routers/summaries.py",
     "analysis": "backend/app/routers/analysis.py",
     "subscriptions": "backend/app/routers/subscriptions.py",
-    "contact": "backend/app/routers/contact.py",
 }
 
 
@@ -65,12 +64,10 @@ MATCHERS = (
     Matcher("features/analysis/api/analysis-api.ts", "isAnalysisPaywallError",
             (BACKEND["dependencies"], BACKEND["analysis"]), ("features/analysis/api/analysis-api.ts",)),
     Matcher("lib/api/client.ts", None, (BACKEND["subscriptions"],), ()),
-    # The spec's tree-wide pass reaches these two (a test on error.message, on errorMessage). The dashboard's
-    # error boundary lists no source: auth.py's and client.ts's "/api/auth/..." paths would pass "auth" on a
-    # URL, not a message. The contact form reads client.ts's ApiError: the contact route's 429 detail or
-    # client.ts's own 429 fallback.
+    # The spec's tree-wide pass reaches this one (a test on error.message). The dashboard's error boundary
+    # lists no source: auth.py's and client.ts's "/api/auth/..." paths would pass "auth" on a URL, not a
+    # message. ContactForm.tsx left the table when #1303 read the contact form's rate limit from the status.
     Matcher("app/dashboard/error.tsx", "DashboardError", (), ()),
-    Matcher("features/contact/components/ContactForm.tsx", "handleSubmit", (BACKEND["contact"],), ("lib/api/client.ts",)),
 )
 
 # Phrases no file writes today, each with its reason (the spec's table, keys and reasons word for word;
@@ -94,15 +91,10 @@ UNSOURCED = {
     "DashboardError Unauthorized": _DASHBOARD_UNSOURCED,
     "DashboardError authentication": _DASHBOARD_UNSOURCED,
     "DashboardError auth": _DASHBOARD_UNSOURCED,
-    "handleSubmit 429": (
-        "the contact route's 429 reads \"Too many requests. Please try again in 1 hour(s).\" and client.ts's 429 "
-        "fallback has no \"429\" either; brand-contact-security-presentation reads the status instead and "
-        "deletes this line"
-    ),
 }
-# Seeded at 2 when the spec scanned the api modules; 7 since its scan reached app/dashboard/error.tsx and
-# ContactForm.tsx. It only falls after.
-UNSOURCED_MAX = 7
+# Seeded at 2 when the spec scanned the api modules; 7 when its scan reached app/dashboard/error.tsx and
+# ContactForm.tsx; 6 since #1303 read the contact form's rate limit from the status. It only falls after.
+UNSOURCED_MAX = 6
 
 
 @dataclass(frozen=True)
