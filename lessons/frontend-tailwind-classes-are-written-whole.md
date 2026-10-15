@@ -21,9 +21,14 @@ emitted-CSS check.
 **Evidence**: `frontend/components/ui/Button.tsx` (`NARROW_WRAP`, `NARROW_MIN_H`, `NARROW_PY`: whole
 literal strings) and `frontend/tests/e2e/reflow-200.spec.ts` on the reflow-200 branch, 2026-10-12.
 Gate: `frontend/tests/unit/tailwindClassesWrittenWhole.spec.ts` fails, under `app`, `components`,
-`features`, `hooks` or `lib`, on an interpolation or a `+` operand that resolves to a variant prefix (a whole
-`token:` chain, read through a same-file const, a conditional or a concatenation), on an
-interpolation or a non-literal operand that runs straight into a utility token (hyphenated or
-single-word), and on a utility stem that runs straight into one; a conditional between whole tokens
-and prose that ends in a colon are left alone. With the Button's narrow classes put back as a
-template literal, the gate names `components/ui/Button.tsx` and each token.
+`features`, `hooks` or `lib`, on an interpolation or a part of a concatenation (`+`, `+=`, a string's
+`.concat`, the `.join` of an array the file holds, its separator read between the elements) that
+resolves to a variant prefix (a whole `token:` chain), on one that may end inside a token and runs
+straight into a utility token (hyphenated or single-word), and on a utility stem that runs straight
+into one, reading what comes before each seam through same-file consts, conditionals and
+concatenations; a part that can only end in whitespace, and prose that ends in a colon, are left
+alone. Its self-check scores planted forms kept in the spec: 28 that break the rule, 18 look-alikes and
+6 gaps its header names. Scored on them at `53b7c8d5` (#1278's principal review had found
+`['[@media(max-width:24rem)]:', 'h-auto'].join('')` passing), the gate named only the 8 template and `+`
+forms and failed 1 look-alike, `(open ? 'ring-2 ' : '') + 'h-auto'`. With the Button's narrow classes
+put back as a template literal, the gate names `components/ui/Button.tsx` and each token.
