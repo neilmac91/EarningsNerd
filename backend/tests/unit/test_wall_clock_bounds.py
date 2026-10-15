@@ -15,10 +15,11 @@ side, or an earlier reading plus an offset as the bound. Lower bounds on elapsed
 (``elapsed >= 0.4``) cannot fail from slowness, so they pass. A value carried through a helper
 function is out of reach unless its name says it is elapsed time: ``elapsed``, ``duration(s)`` or
 ``took`` as a whole name part, bare, numbered or with a unit (``total_elapsed``, ``durations``,
-``elapsed1``, ``duration_ms``, ``durationMs``; not ``duration_days``), as a name, an attribute or a
-string key. ``min``, ``max``, ``round``, ``sum``, ``int``, ``float``, ``.total_seconds()`` and scaling
+``elapsed1``, ``duration_ms``, ``durationMs``; not ``duration_days``, ``duration_30`` or a
+``period_duration``/``periodDuration``), as a name, an attribute or a string key. ``min``, ``max``, ``round``, ``sum``, ``int``, ``float``, ``.total_seconds()`` and scaling
 by a constant on either side keep a value's direction; dividing by elapsed time reverses it (a rate
-falls). ``abs`` of a moving value, and the ratio of two, race on both sides of a comparison. A value
+falls). ``abs`` of a value that can fall (time remaining, or a deviation from a target), and the ratio of
+two moving values, race on both sides of a comparison; ``abs`` of elapsed time stays elapsed time. A value
 stored in a name, or added to a list with ``append``/``extend``/``+=``, keeps its direction, unless it
 is a clock reading or an earlier reading plus an offset, which is a fixed point in time. A site that
 remains must be a guard whose bound is many times the time it measures; ``ALLOWED`` names why, and an
@@ -30,10 +31,11 @@ the deadline once the operation it bounds is under way, but no assert shows the 
 reach: datetime clocks (``utcnow()``, ``datetime.now(tz)``), an elapsed value compared with
 ``== pytest.approx(..., abs=...)``, and a bound written as an earlier reading plus an offset when the
 value it bounds was produced before that reading (flagged anyway; list it with its reason). A
-``.time()`` call is read as a clock unless its owner is named or built like a datetime or a fake
-(``*_at``, ``*_on``, ``*date*``, ``dt``, ``ts``, ``*stamp``, ``now``, ``when``, ``*fake*``, ``*frozen*``,
-or a call such as ``datetime.now(tz)``), so a datetime or a hand-moved clock whose name says neither
-(``filed.time()``, ``clock.time()``) is flagged as well: rename it or list it.
+``.time()`` call is read as a clock unless its owner is named or built like a datetime or a fake (a
+name or attribute that is or ends in ``_at``, ``_on``, ``_dt``, ``_ts``, ``_now`` or ``_when``, or
+contains ``date``, ``stamp``, ``fake`` or ``frozen``; or any call other than ``get_running_loop()`` /
+``get_event_loop()``, such as ``datetime.now(tz)``), so a datetime or a hand-moved clock whose name
+says neither (``filed.time()``, ``clock.time()``) is flagged as well: rename it or list it.
 """
 import ast
 import re
@@ -63,9 +65,9 @@ _CLOCK_FUNCTIONS = {"monotonic", "monotonic_ns", "perf_counter", "perf_counter_n
 # A name that says it holds elapsed time is read as one, wherever it came from: the flake this gate was
 # written after returned its elapsed time from a nested coroutine, through a task result.
 # A whole name part, bare, numbered or with a unit: total_elapsed, durations, elapsed1, durationMs;
-# not duration_days or overtook.
+# not duration_days, duration_30, period_duration (an XBRL period) or overtook.
 _ELAPSED_NAME = re.compile(
-    r"(?:^|_)(?:elapsed|durations?|took)(?:_?\d+)?(?:_(?:s|ms|us|ns|sec|secs|seconds|millis|times?|total))?$"
+    r"(?:^|_)(?<!period_)(?:elapsed|durations?|took)\d*(?:_(?:s|ms|us|ns|sec|secs|seconds|millis|times?|total))?$"
 )
 _CAMEL_HUMP = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 # Builtins that keep elapsed time elapsed: min(elapsed), round(...); abs() is read as a deviation.
@@ -140,7 +142,8 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
             return None
         trend = _merge(_trend(arg, readings, spans, remains) for arg in node.args)
         # abs(remaining - 75) < 0.5 breaks as the deviation grows; abs(remaining) > 70 as the value falls.
-        return _BOTH if func.id == "abs" and trend else trend
+        # Elapsed time is never negative, so abs() leaves it rising.
+        return _BOTH if func.id == "abs" and trend in ("down", _BOTH) else trend
     if not isinstance(node, ast.BinOp):
         return None
     left = _trend(node.left, readings, spans, remains)
@@ -200,7 +203,9 @@ def _kinds(value: ast.AST, readings: set[str], spans: set[str], remains: set[str
     # A stored reading is a fixed point in time: started = loop.time(), deadline = loop.time() + (a - b),
     # deadline = start + duration. A value computed from a difference involving a clock, or from elapsed
     # time already held under a name, attribute or key (ms = elapsed * 1000), keeps moving with lateness.
-    if any(moving_sub(n) for n in ast.walk(value)) or (trend and not _mentions(value, readings)):
+    # Only a pure reading is a fixed point: a name first seen as a reading (t = perf_counter(), then
+    # t = perf_counter() - t) can join spans later, and a copy of it moves (xs.append(t), ms = t * 1000).
+    if any(moving_sub(n) for n in ast.walk(value)) or (trend and not _mentions(value, readings - spans - remains)):
         return {"up": [spans], "down": [remains], _BOTH: [spans, remains]}.get(trend, [readings])
     return [readings] if _mentions(value, readings | spans | remains) else []
 
@@ -325,6 +330,14 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "gathered durations": "def t():\n    durations = await asyncio.gather(*tasks)\n    assert max(durations) < 1.2\n",
         "a numbered elapsed name": "def t():\n    elapsed1 = await first\n    assert elapsed1 < 1\n",
         "a camelCase key": "def t():\n    body = get()\n    assert body[\"durationMs\"] < 50\n",
+        "a reused name, appended": (
+            "def t():\n    t = time.perf_counter()\n    run()\n    t = time.perf_counter() - t\n    xs.append(t)\n"
+            "    assert min(xs) < 0.25\n"
+        ),
+        "a start read inside a block": (
+            "def t():\n    with x:\n        s = time.monotonic()\n    e = time.monotonic()\n    span = e - s\n"
+            "    secs = span\n    assert secs < 1\n"
+        ),
         "a ratio of two spans": (
             "def t():\n    s = time.perf_counter()\n    a = time.perf_counter() - s\n    t = time.perf_counter()\n"
             "    b = time.perf_counter() - t\n    assert a / b > 2\n"
@@ -344,6 +357,8 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "a datetime's time of day": "def t():\n    row = fetch()\n    assert row.accepted_at.time() < dtime(16, 0)\n",
         "a datetime built in the assert": "def t():\n    assert datetime.now(tz).time() < dtime(16, 0)\n",
         "a date's time of day": "def t():\n    filed_date = fetch()\n    assert filed_date.time() < dtime(16, 0)\n",
+        "a lower bound on abs of a span": "def t():\n    s = time.monotonic()\n    assert abs(time.monotonic() - s) >= 0.4\n",
+        "a period's duration": "def t():\n    f = fact()\n    assert f[\"periodDuration\"] <= 92 and f[\"duration_30\"] < 5\n",
         "a hand-moved fake clock": "def t():\n    fake_clock = FakeClock()\n    fake_clock.advance(5)\n    assert fake_clock.time() <= 5\n",
         "an elapsed field's floor": "def t():\n    events = run()\n    assert events[1][1][\"duration_ms\"] >= 0\n",
         "a stored deadline's cap, offset by a difference": (
