@@ -270,9 +270,9 @@ REFUSED_FILE_COMMANDS = {
     # here-document text.
     "a write after a subshell whose here-document text holds an EOF) line": (
         "(cat <<'EOF'\na\nEOF)\ndon't\nEOF\n) && gh pr comment 1 --body-file body.md"),
-    # A here-document left waiting when its substitution or subshell closes takes its text from the
-    # next line, as in bash: a substitution's first, then those of its line, which a subshell shares.
-    # In arithmetic, << is a shift.
+    # Where bash reads a here-document's text: a line's own from the line after it (a subshell shares
+    # them, being read by the same parser); one a substitution leaves waiting when it closes, at once,
+    # from the line after the one it closes on, before the line's own. In arithmetic, << is a shift.
     "a write after a substitution's waiting here-document, which bash reads before its line's own": (
         "cat <<A; X=$(cat <<B)\nB\nA\ngh pr comment 1 --body-file body.md\nB"),
     "a write after a here-document whose text starts inside a subshell opened after it": (
@@ -283,10 +283,50 @@ REFUSED_FILE_COMMANDS = {
         "X=\"$(cat <<'EOF')\"\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
     "a write after a here-document whose subshell closes on its opening line": (
         "(cat > /tmp/x <<'EOF')\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
+    "a write after a here-document whose process substitution closes on its opening line": (
+        "diff <(cat <<'EOF') /dev/null\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
     "a write after a second here-document, left waiting by the first one's EOF) end": (
         "X=$(cat <<A <<'B'\na\nA)\ndon't\nB\ngh pr comment 1 --body-file body.md"),
     "a write after an arithmetic command's shift": "((x = 1 << 2))\ngh pr comment 1 --body-file body.md\n2",
     "a write after a shift in quoted arithmetic": "echo \"$((1 << 2))\"\ngh pr comment 1 --body-file body.md\n2",
+    "a write after nested substitutions that close on one line, each leaving a here-document": (
+        "X=$(cat <<A; Y=$(cat <<B))\nB\nA\ngh pr comment 1 --body-file body.md\nB"),
+    "a write after a substitution inside arithmetic that leaves a here-document waiting": (
+        "echo $(( $(cat >/dev/null <<'EOF') 1 ))\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
+    "a write after a shift in arithmetic that spans a newline": "echo $((1 << x\n))\ngh pr comment 1 --body-file body.md\nx",
+    "a write after an arithmetic command's shift that spans a newline": (
+        "((y = 1 << x\n))\ngh pr comment 1 --body-file body.md\nx"),
+    "a write after a subshell's << inside arithmetic that spans a newline": (
+        "echo $(( (cat <<'EOF') )\n)\ngh pr comment 1 --body-file body.md\nEOF"),
+    # Text bash has read ahead is skipped by whatever reads on past its line: a continuation, a quote,
+    # backquotes, another substitution, and the rest of an EOF) line, which bash pushes back and reads
+    # before what waits for the end of the line.
+    "a write after a continuation past a waiting here-document's text": (
+        "X=$(cat <<'EOF') \\\nEOF\ngh pr comment 1 --body-file body.md\nEOF"),
+    "a write after a substitution that spans lines past a waiting here-document's text": (
+        "X=$(cat <<'EOF') ; Y=$(echo s\nEOF\n)\ngh pr comment 1 --body-file body.md\nEOF"),
+    "a write after a single quote that spans a waiting here-document's text": (
+        "X=$(cat <<'EOF') ; echo 'a\ndon't\nEOF\nb' ; gh pr comment 1 --body-file body.md"),
+    "a write after a double quote that spans a waiting here-document's text": (
+        "X=$(cat <<'EOF') ; echo \"a\n5\"x\nEOF\nb\"\ngh pr comment 1 --body-file body.md"),
+    "a write after a double quote's backslash-newline into a waiting here-document's text": (
+        "X=$(cat <<'EOF') ; echo \"a\\\n5\"x\nEOF\nb\"\ngh pr comment 1 --body-file body.md"),
+    "a write after backquotes that span a waiting here-document's text": (
+        "X=$(cat <<'EOF') ; echo `echo a\na`'b\nEOF\n`\ngh pr comment 1 --body-file body.md"),
+    "a write after a continuation past the text of the words an EOF) end leaves": (
+        "X=$(cat <<'A' <<'B'\na\nA) \\\nB\ngh pr comment 1 --body-file body.md\nB"),
+    "a write after a quoted substitution whose waiting here-document ends at EOF)": (
+        "X=\"$(cat <<'EOF')\"\nEOF)\ngh pr comment 1 --body-file body.md\nEOF"),
+    "a write after a subshell holding a substitution whose waiting here-document ends at EOF)": (
+        "(X=$(cat <<'EOF')\nEOF)\ngh pr comment 1 --body-file body.md\nEOF"),
+    "a write on the rest of an EOF) line, before the text of its line's own here-document": (
+        "(cat <<A; X=$(cat <<'EOF')\nEOF) ; gh pr comment 1 --body-file body.md\nA"),
+    "a write on the rest of an EOF) line, before the text of a second substitution on its line": (
+        "(X=$(cat <<'EOF') ; Y=$(cat <<'B')\nEOF) ; gh pr comment 1 --body-file body.md\nB"),
+    "a write before substitutions whose waiting here-documents meet the command's last line": (
+        "gh pr comment 1 --body-file body.md; X=$(cat <<A) ; Y=$(cat <<B)\nA"),
+    "a write before a line's here-document after a substitution's that ends the command": (
+        "gh pr comment 1 --body-file body.md; cat <<Z; X=$(cat <<A)\nA"),
     # Each here-document's text is read once: a later line that repeats its word is a command.
     "a write between a here-document's text and a line that repeats its word": (
         "cat > /tmp/x <<'EOF'\nnotes\nEOF\necho next\ngh pr comment 1 --body-file body.md\nEOF"),
@@ -302,6 +342,8 @@ REFUSED_FILE_COMMANDS = {
         + "\ngh pr comment 1 --body-file body.md"),
     "a write after 20 000 here-documents that never end, inside a substitution": (
         "X=$(" + "\n".join(f"x <<W{n}" for n in range(20_000)) + "\n)\ngh pr comment 1 --body-file body.md"),
+    "a write after 12 000 here-documents whose word ends in a blank, never ended, and as many EOF) lines": (
+        "X=$(" + "x <<'EOF '\n" * 12_000 + "EOF)\n" * 12_000 + ")\ngh pr comment 1 --body-file body.md"),
 }
 # What the shell may never run, read anyway: the hook reads more than the shell runs where it cannot be
 # sure, and refuses these.
@@ -384,12 +426,14 @@ ALLOWED_COMMANDS = {
         "X=$(cat <<'EOF '\na\nEOF)\nEOF\t)\ngh pr comment 1 --body-file body.md\nEOF \n)"),
     "a here-document in a substitution, its text holding an indented EOF) and a write": (
         "X=$(cat <<'EOF'\na\n  EOF)\ngh pr comment 1 --body-file body.md\nEOF\n)"),
+    "a here-document whose quoted word holds a ), its text holding a)bc and a write": (
+        "X=$(cat <<'a)b'\na)bc\ngh pr comment 1 --body-file body.md\na)b\n)"),
 }
 # The lesson's stated limits, which pass through: text a command builds as it runs, a command
-# substitution inside a here-document's text, an `EOFX)` end, a program that reads its body from
-# standard input unasked, the body files of a command another shell runs, the commit messages
-# gh pr create --fill copies, and a body file over 1 MiB or that is not a regular file (one under
-# /proc is the test below).
+# substitution inside a here-document's text, an `EOFX)` end, the rarer forms bash reads otherwise, a
+# program that reads its body from standard input unasked, the body files of a command another shell
+# runs, the commit messages gh pr create --fill copies, and a body file over 1 MiB or that is not a
+# regular file (one under /proc is the test below).
 KNOWN_GAPS = {
     "a body held in a variable": 'gh pr comment 1 --body "$BODY"',
     "the output of a command substitution": 'gh pr comment 1 --body "$(cat body.md)"',
@@ -399,6 +443,14 @@ KNOWN_GAPS = {
     # apostrophe hides the write.
     "an EOFX) end inside a substitution": (
         "git commit -m \"$(cat <<'EOF'\nfix: don't\nEOFX)\" && gh pr create --title x --body-file body.md"),
+    # Rarer forms bash reads otherwise, each running the write in bash 5.2.
+    "a backslash-newline in an unquoted here-document's text, before a line that is its word": (
+        "cat <<EOF\nfoo \\\nEOF\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
+    "a <<- word that starts with a tab": "cat <<-'\tEOF'\ndon't\n\tEOF\ngh pr comment 1 --body-file body.md",
+    "a newline inside ${...} while a here-document waits": (
+        "cat <<A; echo ${X:-\nA\n}\ndon't\nA\ngh pr comment 1 --body-file body.md"),
+    "a shift in $[...] arithmetic": "echo $[1 << x]\ngh pr comment 1 --body-file body.md\nx",
+    "a (( that bash reads as two subshells": "((cat <<'EOF') )\ndon't\nEOF\ngh pr comment 1 --body-file body.md",
     "a body file named relative to a directory the command enters": "cd sub && gh pr create --title x --body-file notes.md",
     "the commit messages gh pr create --fill copies": "gh pr create --fill",
     "a command another shell runs": "bash -c 'gh pr comment 1 --body-file body.md'",
