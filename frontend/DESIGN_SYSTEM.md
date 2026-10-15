@@ -49,7 +49,8 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 on the same property under the same variants, in the same class list. A twin under a condition, or one
 that is itself a light token, does not count, and a stylesheet rule block's `@apply` lines are one list.
 Tokens with no dark sibling (the chart palette, `overlay`, and the `-text` and `-emphasis` inks) are not
-read. Its residue is listed per file, with a cap equal to it.
+read. Its residue is listed per file and class, with a cap equal to it, and every file under the scanned
+directories is read or listed as holding no class list.
 
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.

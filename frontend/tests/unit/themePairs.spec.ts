@@ -23,21 +23,28 @@ import { describe, expect, it } from 'vitest'
  * twin. Tokens the config gives no dark sibling (the chart palette and overlay, one value in both themes,
  * and `brand-emphasis`, `gain-text`, `loss-text`, `info-text`, `error-emphasis`) are not read.
  *
- * A class list is the strings that always render together: one string, the static parts of one template,
- * or the unconditional strings of one call to the class joiners (`cx`, `clsx`, `cn`), one inline
- * `[…].join(…)` or one `+` chain. A string under a condition (`on && '…'`, a ternary branch, a template
- * slot) renders only sometimes, so it is a class list of its own beside those unconditional strings: its
- * light class may take its twin from them, but nothing takes a twin from it. A joiner nested under a
- * condition pairs its own unconditional strings the same way. A call that is not a joiner (a helper
- * building its own list) is read on its own, and a value in a lookup table (`STRENGTH_COLORS[score]`) is a
- * class list of its own and carries its own twin. In a stylesheet under the scanned directories
- * (app/globals.css), the `@apply` statements of one rule block, from its `{` to its `}` with nested blocks
- * apart and comments removed, style one element, so together they are one class list.
+ * A class list is the strings that always render together: one string, the static parts of one template, or
+ * the unconditional strings of one call to the class joiners (`cx`, `clsx`, `cn`), one inline `[…].join(…)`
+ * or one `+` chain. A string under a condition (`on && '…'`, a ternary arm, a `clsx({ '…': on })` key, a
+ * template slot) renders only sometimes, so it is a class list of its own beside those unconditional
+ * strings: its light class may take its twin from them, but nothing takes a twin from it, and no arm or key
+ * takes one from another. A joiner nested under a condition pairs its own unconditional strings the same
+ * way. A call that is not a joiner (a helper building its own list) is read on its own, and a value in a
+ * lookup table (`STRENGTH_COLORS[score]`) is a class list of its own and carries its own twin. In a
+ * stylesheet under the scanned directories (app/globals.css), the `@apply` statements of one rule block,
+ * from its `{` to its `}` with nested blocks apart and comments removed, style one element, so together
+ * they are one class list.
  *
- * THEME_PAIR_RESIDUE holds what the scan finds, counted per file, and THEME_PAIR_RESIDUE_MAX equals its
- * totals: a new unpaired class fails (an unlisted file, or a listed count that rises), a fixed one fails
- * until its count is lowered or its line deleted, and the cap moves down with the list in the same commit,
- * so a shrink leaves no headroom for a later class to refill.
+ * The scan reads every script and stylesheet under SCAN_DIRS (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`,
+ * `.css`); any other file there fails the first case until it is read or listed in NOT_READ with why it
+ * holds no class list, so a new kind of source cannot sit outside the scan.
+ *
+ * THEME_PAIR_RESIDUE holds what the scan finds, counted per file and per class (variants and opacity
+ * included), and THEME_PAIR_RESIDUE_MAX equals its totals: a new unpaired class fails (an unlisted file or
+ * class, or a listed count that rises), a fixed one fails until its count is lowered or its entry deleted,
+ * and the cap moves down with the list in the same commit, so a shrink leaves no headroom for a later
+ * class to refill. Swapping a fixed class for a different one fails too; what a count cannot see is the
+ * same class moved to another element of the same file.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
@@ -74,16 +81,40 @@ function lightProperty(utility: string): string | undefined {
 
 type Finding = { rel: string; line: number; className: string }
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : sourceFiles(full)
-    return /\.(tsx?|css)$/.test(entry.name) && !/\.(spec|test)\.tsx?$/.test(entry.name) && !entry.name.endsWith('.d.ts') ? [full] : []
-  })
+/** Scripts (TS or JS, JSX or not) and stylesheets are read. */
+const READ = /\.(?:[cm]?[jt]sx?|css)$/
+/** Every other extension under SCAN_DIRS, with why it holds no class list. */
+const NOT_READ: Record<string, string> = {
+  '.json': 'data (the analysis demo), never a className',
+  '.md': 'prose (a feature README), never rendered',
 }
 
+function allFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : allFiles(full)
+    return [full]
+  })
+}
+/** A test or a type declaration renders nothing (tests live under tests/, testHomesAllowlist.spec.ts). */
+const isSource = (file: string) => READ.test(file) && !/\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file) && !/\.d\.[cm]?ts$/.test(file)
+const scriptKind = (rel: string) =>
+  rel.endsWith('.tsx') ? ts.ScriptKind.TSX : rel.endsWith('.jsx') ? ts.ScriptKind.JSX : /\.[cm]?js$/.test(rel) ? ts.ScriptKind.JS : ts.ScriptKind.TS
+
+/** A class's variants and utility, split on the colons outside brackets (`dark:text-[color:var(--ink)]`). */
 function splitClass(token: string): { variants: string[]; utility: string } {
-  const parts = token.split(':')
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < token.length; i++) {
+    if (token[i] === '[') depth++
+    else if (token[i] === ']') depth--
+    else if (token[i] === ':' && depth === 0) {
+      parts.push(token.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(token.slice(start))
   return { variants: parts.slice(0, -1), utility: parts[parts.length - 1].replace(/^!/, '') }
 }
 
@@ -140,7 +171,7 @@ function staticText(node: ts.Node): string | undefined {
 }
 
 function themePairFindings(source: string, rel: string): Finding[] {
-  const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, scriptKind(rel))
   const findings: Finding[] = []
   const report = (node: ts.Node, own: string, shared: string) => {
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
@@ -203,32 +234,34 @@ function applyFindings(source: string, rel: string): Finding[] {
   return findings
 }
 
-/** Unpaired per file, re-seeded on 2026-10-14 for the light halves without the suffix. Each line names who owns the fix, or why the class stays light. */
-const THEME_PAIR_RESIDUE: Record<string, number> = {
-  // The native checkboxes #1289's Checkbox replaces: the admin invite's checked ink (text-brand-strong) alone,
-  // and the consent dialog's three, each with border-border-light and that ink alone. The later of #1289 and
-  // #1310 to land deletes these two lines and lowers the cap to { files: 12, classes: 15 }.
-  'app/admin/invites/page.tsx': 1,
-  'components/CookieConsent.tsx': 6,
+/** Unpaired per file and class, as of main at 5dab7d82. Each entry names who owns the fix, or why the class stays light. */
+const THEME_PAIR_RESIDUE: Record<string, Record<string, number>> = {
+  // The native checkboxes #1289's Checkbox replaces: the admin invite's checked ink alone, and the consent
+  // dialog's three, each with its hairline and that ink alone. The later of #1289 and #1310 to land deletes
+  // these two entries and lowers the cap to { files: 12, classes: 15 }.
+  'app/admin/invites/page.tsx': { 'text-brand-strong': 1 },
+  'components/CookieConsent.tsx': { 'border-border-light': 3, 'text-brand-strong': 3 },
   // The forced-light modes (`mode="light"`) are light on purpose: no dark twin.
-  'components/EarningsNerdLogo.tsx': 2,
-  'components/EarningsNerdLogoIcon.tsx': 1,
-  'components/ThemeToggle.tsx': 1, // the pre-mount placeholder's ink, before the theme is known
-  'components/ui/Button.tsx': 2, // the destructive fill and its disabled tint are red-700 under a white label in both themes
-  'features/auth/components/GoogleSignInButton.tsx': 1, // Google's button stays white in both themes, with its light hairline
+  'components/EarningsNerdLogo.tsx': { 'text-text-primary-light': 1, 'text-brand-strong': 1 },
+  'components/EarningsNerdLogoIcon.tsx': { 'text-brand-strong': 1 },
+  'components/ThemeToggle.tsx': { 'text-text-secondary-light': 1 }, // the pre-mount placeholder's ink, before the theme is known
+  // The destructive fill and its disabled tint are red-700 under a white label in both themes.
+  'components/ui/Button.tsx': { 'bg-error-light': 1, 'disabled:bg-error-light/40': 1 },
+  'features/auth/components/GoogleSignInButton.tsx': { 'border-border-light': 1 }, // Google's button stays white in both themes, with its light hairline
   // tasks/todo.md E66: brand-border hairlines and the interactive card's pressed fill with no dark twin,
   // so dark mode draws the light theme's pale sage on navy.
-  'app/waitlist/page.tsx': 1,
-  'components/ui/Card.tsx': 1,
-  'features/filings/components/copilot/AskCopilotRail.tsx': 1,
-  'features/filings/components/copilot/AskFilingCallout.tsx': 1,
-  'features/filings/components/copilot/CopilotMessage.tsx': 2,
-  'features/filings/components/copilot/CopilotTeaser.tsx': 1,
-  'features/summaries/components/SummaryDisplay.tsx': 1,
+  'app/waitlist/page.tsx': { 'hover:border-brand-border': 1 },
+  'components/ui/Card.tsx': { 'active:bg-brand-weak/60': 1 },
+  'features/filings/components/copilot/AskCopilotRail.tsx': { 'hover:border-brand-border': 1 },
+  'features/filings/components/copilot/AskFilingCallout.tsx': { 'hover:border-brand-border': 1 },
+  'features/filings/components/copilot/CopilotMessage.tsx': { 'hover:border-brand-border': 1, 'ring-brand-border': 1 },
+  'features/filings/components/copilot/CopilotTeaser.tsx': { 'ring-brand-border': 1 },
+  'features/summaries/components/SummaryDisplay.tsx': { 'hover:border-brand-border': 1 },
 }
 const THEME_PAIR_RESIDUE_MAX = { files: 14, classes: 22 }
 
-const FILES = SCAN_DIRS.flatMap((dir) => sourceFiles(path.join(ROOT, dir)))
+const ALL_FILES = SCAN_DIRS.flatMap((dir) => allFiles(path.join(ROOT, dir)))
+const FILES = ALL_FILES.filter(isSource)
 const rel = (file: string) => path.relative(ROOT, file).split(path.sep).join('/')
 
 const findingsIn = (file: string): Finding[] => {
@@ -240,6 +273,10 @@ describe('every light-half theme token has its dark: twin (DESIGN_SYSTEM.md §2)
   const findings = FILES.flatMap(findingsIn)
 
   it('reads the app and its stylesheet (a scan that finds no source must not pass)', () => {
+    expect(
+      ALL_FILES.filter((file) => !READ.test(file) && !(path.extname(file) in NOT_READ)).map(rel),
+      'a file the scan does not read: read its extension (READ), or list it in NOT_READ with why it holds no class list',
+    ).toEqual([])
     expect(FILES.length).toBeGreaterThan(300)
     expect(FILES.map(rel)).toEqual(
       expect.arrayContaining(['features/auth/components/PasswordField.tsx', 'components/ui/Notice.tsx', 'app/globals.css']),
@@ -252,26 +289,38 @@ describe('every light-half theme token has its dark: twin (DESIGN_SYSTEM.md §2)
   })
 
   it('every unpaired class is in the residue, and every residue count is current', () => {
-    const byFile = new Map<string, Finding[]>()
-    for (const f of findings) byFile.set(f.rel, [...(byFile.get(f.rel) ?? []), f])
-    const problems: string[] = []
-    for (const [file, list] of byFile) {
-      const allowed = THEME_PAIR_RESIDUE[file] ?? 0
-      const lines = list.map((f) => `${f.rel}:${f.line} ${f.className}`)
-      if (list.length > allowed) problems.push(`${file}: ${list.length} unpaired, ${allowed} in THEME_PAIR_RESIDUE\n  ${lines.join('\n  ')}`)
-      else if (list.length < allowed) problems.push(`${file}: ${list.length} unpaired, ${allowed} in THEME_PAIR_RESIDUE: lower the count`)
+    const found = new Map<string, Map<string, Finding[]>>()
+    for (const f of findings) {
+      const byClass = found.get(f.rel) ?? new Map<string, Finding[]>()
+      byClass.set(f.className, [...(byClass.get(f.className) ?? []), f])
+      found.set(f.rel, byClass)
     }
-    for (const file of Object.keys(THEME_PAIR_RESIDUE)) {
-      if (!byFile.has(file)) problems.push(`${file}: none left, delete it from THEME_PAIR_RESIDUE`)
+    const problems: string[] = []
+    for (const file of new Set([...found.keys(), ...Object.keys(THEME_PAIR_RESIDUE)])) {
+      const byClass = found.get(file)
+      if (!byClass) {
+        problems.push(`${file}: none left, delete it from THEME_PAIR_RESIDUE`)
+        continue
+      }
+      const listed = THEME_PAIR_RESIDUE[file] ?? {}
+      for (const className of new Set([...byClass.keys(), ...Object.keys(listed)])) {
+        const list = byClass.get(className) ?? []
+        const allowed = listed[className] ?? 0
+        const lines = list.map((f) => `${f.rel}:${f.line} ${f.className}`)
+        if (list.length > allowed) problems.push(`${file} ${className}: ${list.length} unpaired, ${allowed} in THEME_PAIR_RESIDUE\n  ${lines.join('\n  ')}`)
+        else if (list.length < allowed) problems.push(`${file} ${className}: ${list.length} unpaired, ${allowed} in THEME_PAIR_RESIDUE: lower the count, or delete it at none`)
+      }
     }
     expect(problems, 'give each light-half class its dark: twin in the same class list').toEqual([])
   })
 
   it('the cap equals the residue, so a shrink moves it down in the same commit', () => {
-    const counts = Object.values(THEME_PAIR_RESIDUE)
-    expect(counts.length, 'THEME_PAIR_RESIDUE_MAX.files must equal the files in THEME_PAIR_RESIDUE: lower it with the list, never raise it').toBe(
-      THEME_PAIR_RESIDUE_MAX.files,
-    )
+    const counts = Object.values(THEME_PAIR_RESIDUE).flatMap((byClass) => Object.values(byClass))
+    expect(counts.filter((n) => !Number.isInteger(n) || n < 1), 'a listed count is a whole number of classes: delete an entry at none').toEqual([])
+    expect(
+      Object.keys(THEME_PAIR_RESIDUE).length,
+      'THEME_PAIR_RESIDUE_MAX.files must equal the files in THEME_PAIR_RESIDUE: lower it with the list, never raise it',
+    ).toBe(THEME_PAIR_RESIDUE_MAX.files)
     expect(
       counts.reduce((sum, n) => sum + n, 0),
       'THEME_PAIR_RESIDUE_MAX.classes must equal the classes in THEME_PAIR_RESIDUE: lower it with the list, never raise it',
@@ -304,6 +353,16 @@ describe('every light-half theme token has its dark: twin (DESIGN_SYSTEM.md §2)
       "const lit = cx('dark:text-white', on && 'text-success-light')",
       "const card = cx('border border-border-light dark:border-white/10', on && cx('hover:border-brand-border', 'dark:hover:border-brand-border-dark'))",
       "const chain = 'border-brand-border bg-brand-weak ' + 'dark:border-brand-border-dark dark:bg-brand-weak-dark'",
+      // A twin in another arm of a ternary, across an `&&` or under another object key never renders with the
+      // class: each arm and each key is a list of its own (the principal review's five shapes).
+      "const arm = cx(on ? 'bg-error-light' : 'bg-success-light dark:bg-success-dark')",
+      "const and = cx('bg-error-light', on && 'dark:bg-error-dark')",
+      "const keys = clsx({ 'bg-error-light': a, 'dark:bg-error-dark': b })",
+      "const arms = cn('p-2', isOpen ? 'text-text-primary-light' : 'dark:text-text-primary-dark')",
+      "const listed = [on ? 'border-border-light' : 'dark:border-border-dark', 'p-2'].join(' ')",
+      // An arm or a key paired within itself is paired; a type-hinted arbitrary colour is a twin.
+      "const own = cx(on ? 'bg-error-light dark:bg-error-dark' : 'bg-success-light dark:bg-success-dark', { 'border-border-light dark:border-white/10': a })",
+      "const typed = 'text-text-primary-light dark:text-[color:var(--ink)]'",
     ].join('\n')
     expect(themePairFindings(src, 'probe.tsx').map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 bg-warning-light',
@@ -321,6 +380,11 @@ describe('every light-half theme token has its dark: twin (DESIGN_SYSTEM.md §2)
       '13 bg-error-light',
       '13 ring-brand-border',
       '15 hover:bg-brand-weak',
+      '19 bg-error-light',
+      '20 bg-error-light',
+      '21 bg-error-light',
+      '22 text-text-primary-light',
+      '23 border-border-light',
     ])
     const css = [
       '.a { @apply text-text-primary-light dark:text-text-primary-dark; }',
