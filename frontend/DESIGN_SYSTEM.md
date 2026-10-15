@@ -987,7 +987,8 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
 - **Evidence identity:** a provenance chip that cites a filing passage uses the Phosphor `quotes` glyph
   (braces for an XBRL figure, and on the Ask answer's XBRL source rows); the Ask tab, the Ask callout, the
-  standalone Ask launcher and header, "Ask about this" and the follow-up prompts use `chat-circle-text`,
+  standalone Ask launcher and header (and the landing's Ask demo, which draws that header), "Ask about this"
+  and the follow-up prompts use `chat-circle-text`,
   the Filing tab and the Source launcher `file-text`; an upgrade button that carries a glyph uses `lightning`
   (the rail's exhausted-state Upgrade and the taste line's text button carry none).
   `sparkle` appears ONLY on the "AI summary" chip.
