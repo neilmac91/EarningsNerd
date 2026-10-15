@@ -26,7 +26,7 @@ a machine gate" (CI fails those on its own) and
 - ops-hand-over-when-the-harness-refuses-the-conversation.md — Hand over to a fresh session when the harness refuses the conversation, not the action
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
-- ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (no gate yet: E63)
+- ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (partly gated by `.claude/hooks/codex_mention_guard.py`; text a command builds as it runs, sessions that load no repository hooks and a person's own write are not)
 - ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
 - ops-serial-merge-adjacent-line-prs.md — Serialize merges of PRs that edit the same file within a few lines
