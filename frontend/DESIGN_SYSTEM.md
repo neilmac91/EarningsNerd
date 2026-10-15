@@ -476,8 +476,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
                  hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
                  pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
-                 there carrying a bg- class fails; both badges held to the recipe; the type chip
-                 measured as it renders on FeedbackRow's grounds).
+                 there carrying a bg- class fails; a chip colour under any variant but its theme's own
+                 (hover:, focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the
+                 <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
+                 it renders on FeedbackRow's grounds).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
