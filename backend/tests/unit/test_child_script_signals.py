@@ -12,11 +12,13 @@ signal (``signal.pthread_sigmask``) and taking it with ``signal.sigwait`` keeps 
 whenever it arrives. ``SIG_IGN`` and ``SIG_DFL`` are the kernel's own dispositions and cannot race.
 
 This gate parses every string constant under ``backend/tests`` that is not a docstring as Python and
-fails on a call to ``signal.signal`` there (also through ``import signal as s``, or a bare ``signal(...)``
-call) whose handler is neither disposition. It parses the string constants inside a parsed script the
-same way, so an inline ``-c`` grandchild a child script starts is read too. A string that does not
-parse, such as one piece of a script built by concatenation, is read line by line: a line calling
-``signal(`` with two arguments fails unless it names ``SIG_IGN`` or ``SIG_DFL``. An alias bound in one
+fails on a call to ``signal.signal`` there (also through ``import signal as s``, ``from signal import
+signal``, or a bare ``signal(sig, handler)`` with two arguments) whose handler is neither disposition.
+It parses the string constants inside a parsed script the same way, docstrings aside, so an inline
+``-c`` grandchild a child script starts is read too. A string that does not parse, such as one piece
+of a script built by concatenation, is read line by line: a line calling ``signal(`` with two
+arguments, a nested call, or nothing after the parenthesis fails unless it names ``SIG_IGN`` or
+``SIG_DFL``. An alias bound in one
 string and used in another (``"\\n".join`` of separate lines) is out of reach. The test process's own
 handlers are not child scripts and are not read.
 """
@@ -29,7 +31,8 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parents[1]
 BACKEND = TESTS.parent
 _KERNEL_DISPOSITIONS = {"SIG_IGN", "SIG_DFL"}
-_CALL_TEXT = re.compile(r"\bsignal\([^()]*,")  # two arguments: prose naming signal(SIGTERM) passes
+# Two arguments, a nested call or a line break: prose naming signal(SIGTERM) passes.
+_CALL_TEXT = re.compile(r"\bsignal\((?:[^()]*[,(]|\s*$)")
 _DISPOSITION_TEXT = re.compile(r"\bSIG_(IGN|DFL)\b")
 
 
@@ -50,9 +53,10 @@ def _python_handlers(text: str) -> list[int]:
     except (SyntaxError, ValueError, MemoryError, RecursionError):
         return [n for n, line in enumerate(text.splitlines(), 1)
                 if _CALL_TEXT.search(line) and not _DISPOSITION_TEXT.search(line)]
-    # The names the signal module and signal.signal are bound to. A bare signal(sig, handler) counts even
-    # without its import, which may sit in another string; the module itself is not callable.
-    modules, functions = {"signal"}, {"signal"}
+    # The names the signal module and signal.signal are bound to. A bare signal(sig, handler) with two
+    # arguments counts even without its import, which may sit in another string; signal("started") is
+    # another library's signal.
+    modules, functions = {"signal"}, set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             modules |= {alias.asname or alias.name for alias in node.names if alias.name == "signal"}
@@ -63,20 +67,21 @@ def _python_handlers(text: str) -> list[int]:
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        installs = (
-            isinstance(func, ast.Attribute) and func.attr == "signal"
-            and isinstance(func.value, ast.Name) and func.value.id in modules
-        ) or (isinstance(func, ast.Name) and func.id in functions)
-        if not installs:
-            continue
         handler = node.args[1] if len(node.args) > 1 else next(
             (kw.value for kw in node.keywords if kw.arg == "handler"), None
         )
+        installs = (
+            isinstance(func, ast.Attribute) and func.attr == "signal"
+            and isinstance(func.value, ast.Name) and func.value.id in modules
+        ) or (isinstance(func, ast.Name) and (func.id in functions or (func.id == "signal" and handler is not None)))
+        if not installs:
+            continue
         if handler is None or not _is_disposition(handler):  # signal.signal(*args) is read as a handler
             lines.append(node.lineno)
     # A script inside the script: subprocess.Popen([sys.executable, "-c", "import signal ..."]).
-    lines += [node.lineno for node in ast.walk(tree)
-              if isinstance(node, ast.Constant) and isinstance(node.value, str) and _python_handlers(node.value)]
+    skip = _docstrings(tree)
+    lines += [node.lineno for node in ast.walk(tree) if isinstance(node, ast.Constant)
+              and isinstance(node.value, str) and id(node) not in skip and _python_handlers(node.value)]
     return sorted(lines)
 
 
@@ -123,6 +128,8 @@ def test_the_detector_reads_handlers_and_spares_kernel_dispositions():
             "subprocess.Popen([sys.executable, '-c', 'import signal, time\\nsignal.signal(signal.SIGTERM, stop)\\n'])\n"
         ),
         "a bare call in a line of its own": "signal(SIGTERM, stop)",
+        "a fragment ending at the call": "signal.signal(\n",
+        "a fragment with a nested call": "signal.signal(getattr(signal, 'SIGTERM'), stop) + (",
     }
     safe = {
         "ignored": "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n",
@@ -134,6 +141,8 @@ def test_the_detector_reads_handlers_and_spares_kernel_dispositions():
         "a fragment ignoring": "signal.signal(signal.SIGTERM, signal.SIG_IGN\n",
         "prose": "the child got signal 15 and exited",
         "prose naming the call": "the child must call signal(SIGTERM) before it reads stdin",
+        "another library's signal": "started = signal('started')\n",
+        "a docstring inside a child script": "def f():\n    \'\'\'Never signal.signal(signal.SIGTERM, stop) here.\'\'\'\n",
         "a long run of operators": "-" * 6000,
         "a deeper run of operators": "-" * 3000 + "1",
         "an ignoring grandchild inside a child script": (
