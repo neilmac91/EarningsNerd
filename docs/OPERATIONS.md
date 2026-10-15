@@ -492,9 +492,13 @@ exact head, or when the pull request body carries a line `Review override: <reas
 characters); a completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
 twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the newest gate run
-on the pull request's current head automatically, found by head SHA so a run of any age counts (the
-workflow's `issue_comment` job, the only one holding a write scope, `actions: write`), so a
-re-requested review is observed without a manual re-run. Logic in
+on the pull request's current head automatically (the workflow's `issue_comment` job, the only one
+holding a write scope, `actions: write`), so a re-requested review is observed without a manual
+re-run. The job finds that run by the head commit and the pull request's head branch and repository,
+however many runs other pull requests have had since. GitHub re-runs a run only within 30 days of its
+first attempt, at most 50 times; past that the job fails, giving GitHub's reason and the remedy (push,
+or edit the body). The job reports each outcome only in its own log, in the Actions tab: its run sits
+on `main`'s latest commit, so the pull request's checks do not show it. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
 neither its own gate script nor the workflow definition (the job never executes pull-request code and
@@ -506,7 +510,12 @@ stood at the run's event, and a re-run keeps that definition, so a change here r
 at its next pull-request event. The re-run job never re-runs a skipped run: only a run from before
 #1331 can skip, under its old draft condition, and a re-run would replay the skip. A ready pull
 request whose newest gate run is such a skip needs a new pull-request event, an edit to its body for
-instance, and `@codex review` says so.
+instance. Never re-run such a run by hand ("Re-run all jobs"): it replays the skip, which a required
+check counts as passing. Those runs pass GitHub's 30-day re-run limit around 2026-11-14. A draft whose
+newest gate run is such a skip also shows it as its newest check from the moment it is marked ready
+until its ready run's check appears, a few seconds, or for good when no run starts (an Actions outage,
+or a transition made with a workflow's `GITHUB_TOKEN`): push or edit its body while it is still a
+draft, so its newest check is a real run, then mark it ready.
 
 The check binds merges through the ruleset on `main` (id 23561253, created 2026-09-16, `gh api
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
