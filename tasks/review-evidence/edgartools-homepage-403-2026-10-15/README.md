@@ -114,16 +114,25 @@ The PR's eval-baseline run is the measurement of what the summaries gain.
 ## Tests and mutation proofs
 
 `tests/unit/test_edgartools_compat.py` (4 tests) and `tests/unit/test_xbrl_sections_errors.py`
-(7 tests) run offline. Each mutation ran on the committed fix in a separate worktree and was restored
-with `git checkout`:
+(10 tests) run offline. Each mutation below ran on the committed head in a separate worktree, serially
+(`-n0`), and was restored with `git checkout`. Every one fails at least one test:
 
 | Mutation | Result |
 | --- | --- |
-| The backport is not applied (`client.py` call removed) | 3 failed, 8 passed |
-| `getattr(obj, "sections", None)` restored | 2 failed, 9 passed |
-| The 10-K branch drops the caught error | 1 failed, 10 passed |
-| The backport builds a wrong URL | 3 failed, 8 passed |
-| Restored | 11 passed |
+| M1: the backport is not applied (`client.py` call removed) | 3 failed, 11 passed |
+| M2: `getattr(obj, "sections", None)` restored | 2 failed, 12 passed |
+| M3: the 10-K branch drops the caught error | 1 failed, 13 passed |
+| M4: the backport builds a wrong URL | 3 failed, 11 passed |
+| M5: the 10-Q risk key mistyped (`part_i_item_1a`) | 1 failed, 13 passed |
+| M6: the 20-F Item 18 and Item 17 order swapped | 1 failed, 13 passed |
+| M7: the 20-F Item 8 fallback dropped | 1 failed, 13 passed |
+| M8: the last read error logged instead of the first | 1 failed, 13 passed |
+| M9: the part-keyed minimum off by one (`>` for `>=`) | 1 failed, 13 passed |
+| M10: the warning also fires on a partial parse | 1 failed, 13 passed |
+| Restored | 14 passed |
+
+`test_the_pinned_release_still_needs_the_backport` fails with its "delete the backport" message when
+edgartools 5.61.0 is first on the path; the other three backport tests pass there.
 
 ## Production impact and what remains
 
