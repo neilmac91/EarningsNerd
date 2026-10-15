@@ -1,7 +1,6 @@
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import HowItWorks from '@/features/marketing/components/HowItWorks'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
-import { SAMPLE_FILING } from '@/features/marketing/lib/landing-samples'
 
 /** The nine summary sections as the schema names them (backend/app/services/summary_schema.py,
  *  SECTION_META), in its order. The live page adds "What changed" from the change report and omits a
@@ -18,8 +17,9 @@ const SECTIONS = [
   'Notable Footnotes',
 ] as const
 
-// The contents card is labelled with the same sample filing every product screen on the page uses.
-const FILING_NOTE = `${SAMPLE_FILING.companyName} · ${SAMPLE_FILING.filingType} · ${SAMPLE_FILING.fiscalYear}`
+// The card lists the schema's outline, not one filing's rail (the Apple sample omits Segments), so it
+// is labelled as the outline: a filing shows up to these nine.
+const OUTLINE_NOTE = 'Up to nine parts'
 
 /**
  * "What a summary contains" (design section 5): the intro, a contents card listing the nine
@@ -47,7 +47,7 @@ export default function SummaryContents() {
             <CardHeader className="flex-wrap justify-between gap-x-3 gap-y-2">
               <CardTitle>Contents</CardTitle>
               <span className="whitespace-nowrap font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {FILING_NOTE}
+                {OUTLINE_NOTE}
               </span>
             </CardHeader>
             <ol className="grid grid-cols-1 gap-x-6 px-3 py-2 sm:grid-cols-2">
