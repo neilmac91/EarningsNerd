@@ -19,7 +19,7 @@ twice; SQLite's default max(rowid)+1 re-issues a deleted test's id to the next t
 the first test left behind (SQLite here enforces no foreign keys) silently joins the new parent.
 
 Conftest's autouse resets are pinned by probe pairs: one test leaves the state dirty, the next asserts
-the clean default. Under ``-n auto`` and random order a pair can land on two workers or run reversed,
+the clean default (the mock-leak guard instead by a child run that leaks a mock). Under ``-n auto`` and random order a pair can land on two workers or run reversed,
 which proves nothing, so ``test_ordered_probes_hold_in_a_fresh_serial_process`` runs every probe in
 a fixed order in one fresh process.
 """
@@ -27,13 +27,14 @@ import ast
 import json
 import os
 import platform
+import datetime
 import stat
 import subprocess  # nosec B404 - runs this repo's own pytest on fixed nodes of the suite
 import sys
 import tempfile
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
@@ -54,6 +55,8 @@ _ORDERED_PROBES = [
     f"{_THIS}::test_probe_next_test_sees_the_pristine_canonical_payload",
     f"{_THIS}::test_probe_exhausts_a_shared_summary_account",
     f"{_THIS}::test_probe_next_test_starts_with_an_empty_summary_limiter",
+    f"{_THIS}::test_probe_leaves_delivery_and_lease_rows_behind",
+    f"{_THIS}::test_probe_next_test_finds_no_delivery_or_lease_rows",
     f"{_AI_METRICS}::test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint",
     f"{_AI_METRICS}::test_isolation_next_test_starts_from_the_default_trigger",
 ]
@@ -114,9 +117,38 @@ def test_probe_next_test_starts_with_an_empty_summary_limiter():
     assert not SUMMARY_LIMITER._hits
 
 
-def _fresh_pytest(*args, environ=None):
+# The tables conftest's _reset_delivery_ownership empties before every test: rows keyed by user and filing
+# ids that a scenario deleting its users leaves behind (SQLite here enforces no foreign keys).
+_OWNERSHIP_TABLES = ("earningsnerd_delivery_batches", "earningsnerd_delivery_items", "earningsnerd_usage_reservations")
+_FILLERS = {int: 1, str: "probe", bool: False, datetime.datetime: datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)}
+
+
+def test_probe_leaves_delivery_and_lease_rows_behind():
+    # One row per table, every required column filled from its type (a new type needs a _FILLERS entry).
+    with engine.begin() as conn:
+        for name in _OWNERSHIP_TABLES:
+            table = Base.metadata.tables[name]
+            conn.execute(table.insert().values({
+                column.name: _FILLERS[column.type.python_type] for column in table.columns
+                if not (column.primary_key or column.nullable or column.default is not None
+                        or column.server_default is not None)
+            }))
+        counts = {name: conn.execute(select(func.count()).select_from(Base.metadata.tables[name])).scalar_one()
+                  for name in _OWNERSHIP_TABLES}
+    assert counts == dict.fromkeys(_OWNERSHIP_TABLES, 1)
+
+
+def test_probe_next_test_finds_no_delivery_or_lease_rows():
+    with engine.connect() as conn:
+        counts = {name: conn.execute(select(func.count()).select_from(Base.metadata.tables[name])).scalar_one()
+                  for name in _OWNERSHIP_TABLES}
+    assert counts == dict.fromkeys(_OWNERSHIP_TABLES, 0)
+
+
+def _fresh_pytest(*args, environ=None, extra_env=None):
     env = {k: v for k, v in (os.environ if environ is None else environ).items()
            if not k.startswith(("PYTEST_", "DATABASE_URL"))}
+    env.update(extra_env or {})  # after the filter: a child can be handed a DATABASE_URL on purpose
     return subprocess.run(  # nosec B603 - fixed argv: this interpreter running pytest on fixed nodes
         [sys.executable, "-m", "pytest", "-q", "-n", "0", "-p", "no:cacheprovider", "-p", "no:randomly", *args],
         cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=120,
@@ -130,6 +162,16 @@ def test_ordered_probes_hold_in_a_fresh_serial_process():
     )
 
 
+def test_a_developers_database_url_never_reaches_the_suite(tmp_path):
+    # conftest sets DATABASE_URL unconditionally. CI sets none, so a setdefault would pass every other test
+    # there while handing a developer's own database to the whole suite.
+    developer = tmp_path / "developer.db"
+    result = _fresh_pytest(f"{_THIS}::test_the_suite_database_is_a_private_temp_file_per_process",
+                           extra_env={"DATABASE_URL": f"sqlite:///{developer}"})
+    assert result.returncode == 0 and "1 passed" in result.stdout, result.stdout[-3000:] + result.stderr[-2000:]
+    assert not developer.exists()
+
+
 def test_every_isolation_probe_runs_in_the_ordered_process():
     # Under -n auto a probe pair outside _ORDERED_PROBES holds only when xdist keeps it together.
     probes = set()
@@ -140,7 +182,7 @@ def test_every_isolation_probe_runs_in_the_ordered_process():
                 f"{path.relative_to(BACKEND_DIR).as_posix()}::{node.name}"
                 for node in ast.parse(source).body
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and node.name.startswith(("test_probe_", "test_isolation_probe"))
+                and node.name.startswith(("test_probe_", "test_isolation_"))  # both halves of a pair
             }
     assert probes and probes <= set(_ORDERED_PROBES), sorted(probes - set(_ORDERED_PROBES))
 
@@ -153,12 +195,14 @@ def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
         "from unittest.mock import AsyncMock\n"
         "from app.services import summary_pipeline\n\n"
         "def test_leaves_a_mock_behind():\n"
-        "    summary_pipeline.sec_edgar_service.get_filing_document = AsyncMock()\n",
+        "    summary_pipeline.sec_edgar_service.get_filing_document = AsyncMock()\n\n"
+        "def test_the_next_test_gets_the_real_method_back():\n"
+        "    assert not isinstance(summary_pipeline.sec_edgar_service.get_filing_document, AsyncMock)\n",
         encoding="utf-8",
     )
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
     summary = result.stdout.strip().splitlines()[-1]
-    assert result.returncode == 1 and "1 passed" in summary and "1 error" in summary, result.stdout[-3000:]
+    assert result.returncode == 1 and "2 passed" in summary and "1 error" in summary, result.stdout[-3000:]
     assert "mock left on a shared generation singleton after the test: " in result.stdout
     assert "get_filing_document" in result.stdout
 

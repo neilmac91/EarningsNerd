@@ -1,7 +1,10 @@
 """
 Pytest configuration for EarningsNerd backend tests.
 
-Provides shared fixtures and markers for all test suites.
+Makes every pytest process hermetic and order-independent: a private temp database and EdgarTools
+directory per process (each xdist worker is one), pinned environment, the network gate, and autouse
+resets of process-wide state. Markers live in backend/pytest.ini; gates for all of this are in
+tests/unit/test_suite_isolation.py (lessons/ops-one-test-process-per-worktree.md).
 """
 
 import atexit
@@ -81,8 +84,7 @@ os.environ["TURNSTILE_SECRET_KEY"] = ""
 pytest_plugins = ("tests.support.network_gate",)
 
 # NOTE: custom markers are registered in backend/pytest.ini (single source of test config).
-# Shared fixtures are added below as the Wave 0 characterization anchors are written and a
-# fixture is repeated across ≥2 of them.
+# The characterization anchors' shared helpers live in tests/support/summary_stream_harness.py.
 
 
 
