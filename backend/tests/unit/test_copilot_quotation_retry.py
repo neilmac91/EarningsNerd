@@ -125,6 +125,13 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
     monkeypatch.setattr(copilot_envelope, "normalize_for_match", normalized)
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool", fact)
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    question_budgets, real_chat_deadline = [], copilot_service.chat_deadline
+
+    def recording_chat_deadline():
+        question_budgets.append(real_chat_deadline())
+        return question_budgets[-1]
+
+    monkeypatch.setattr(copilot_service, "chat_deadline", recording_chat_deadline)
     before = asyncio.get_running_loop().time()
     rows = await collect(selected)
     terminal = [row for row in rows if row["type"] in {"complete", "error"}]
@@ -139,7 +146,9 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
     assert source_reads == [selected] and normalizations.count(SOURCE) == 1
     assert calls[0]["usage_sink"] == calls[1]["usage_sink"]
     assert isinstance(calls[0]["deadline"], (int, float))
-    assert before < calls[0]["deadline"] <= before + 75.1
+    # Both attempts carry the one budget the question fixed (75 s from chat_deadline), compared as
+    # values: an upper bound of `before + 75.1` left 0.1 s of wall clock for the service's awaits.
+    assert before < calls[0]["deadline"] and [calls[0]["deadline"]] == question_budgets
     assert calls[0]["deadline"] == calls[1]["deadline"]
     assert SOURCE in json.dumps(calls[1]["messages"])
     assert "UNRELATED CACHE REPLACEMENT" not in json.dumps(calls[1]["messages"])
@@ -287,13 +296,25 @@ async def test_retry_cancellation_closes_the_active_provider_without_terminal_pr
 @pytest.mark.parametrize("limit", ["caller", "wrapper", "expired"])
 async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(monkeypatch, limit):
     # The deadline the wrapper must honour is 0.5s away (or already past); the one it must not
-    # honour is 2s away. The elapsed bound sits between them, so on a loaded xdist runner the
-    # request has half a second to reach the handler (the SDK's first request on a client detects
-    # the platform in a thread) and the stream half a second more to end, while honouring the
-    # wrong deadline overshoots the bound by a full second (#1241 saw 0.34s against a 0.2s bound).
-    honoured, decoy = 0.5, 2.0
-    calls, closed = [], []
+    # honour is 60s away. The test records the wrapper's own budget and the deadline the chat path
+    # cuts the stream at (the asyncio.timeout_at it enters), and compares those values. An elapsed
+    # bound between the two deadlines told them apart only with slack to spare on a loaded xdist
+    # runner (#1241 saw 0.34s against a 0.2s bound; the widened 1.0s bound left half a second).
+    honoured, decoy = 0.5, 60.0
+    calls, closed, own, cutoffs = [], [], [], []
     monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", honoured if limit == "wrapper" else decoy)
+    real_chat_deadline = copilot_chat.chat_deadline
+
+    def recording_chat_deadline():
+        own.append(real_chat_deadline())
+        return own[-1]
+
+    def recording_timeout_at(when):
+        cutoffs.append(when)
+        return asyncio.timeout_at(when)
+
+    monkeypatch.setattr(copilot_chat, "chat_deadline", recording_chat_deadline)
+    monkeypatch.setattr(copilot_chat, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout_at": recording_timeout_at}))
 
     class Body(httpx2.AsyncByteStream):
         async def __aiter__(self):
@@ -316,14 +337,13 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
             return [piece async for piece in service.stream_chat_with_tools(
                 [], [], lambda *_args: {}, deadline=deadline,
             )]
-        # Outlasts the decoy, so honouring the wrong deadline fails the elapsed bound below with
-        # its measured time rather than as a bare cancellation.
-        output = await asyncio.wait_for(receive(), decoy + 1.0)
-    elapsed = asyncio.get_running_loop().time() - before
-    assert elapsed < 1.0, elapsed
+        output = await asyncio.wait_for(receive(), 10)  # a hang guard: honouring the decoy would hit it
     assert output[-1].startswith(STREAM_ERROR_SENTINEL)
     assert len(calls) == (0 if limit == "expired" else 1)
     assert len(closed) == len(calls)
+    [own_budget] = own
+    expected = {"caller": [deadline], "wrapper": [own_budget], "expired": []}[limit]  # an expired one enters none
+    assert cutoffs == expected, (cutoffs, deadline, own_budget)
 
 
 @pytest.fixture
