@@ -107,6 +107,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 - test-absence-claims-come-from-git-grep.md — Make an absence claim only from `git grep` over every tracked file (and never from a suffix allow-list in a test)
 - test-adversarial-lens-verification.md — Verify large mechanical changes with independent adversarial lenses, not one review pass
+- test-allowlist-caps-are-equalities.md — An allowlist cap is an equality, never a ceiling: the shrinking PR lowers the cap in the same commit (gate: allowlistCapsAreEqualities.spec.ts)
 - test-audit-every-judge-channel-for-truncation.md — Audit every grounding channel the judge sees for its own truncation cap
 - test-audit-file-relative-shims-on-move.md — Audit __file__-relative shims whenever relocating a test or script
 - test-bakeoff-hold-knobs-constant.md — Bake off model swaps with every knob held constant, verified by one raw-inspected call
