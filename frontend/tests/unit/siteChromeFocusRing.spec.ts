@@ -965,7 +965,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     // RetryButton) accept props and are not raw page controls; their existing owning gates remain.
     const pages = chromeFiles(PAGE_ROOTS).filter((file) => !discovered.includes(file)
       && (file.startsWith('app/') || file.startsWith('features/') || file === 'components/ui/Switch.tsx'))
-    for (const file of ['app/pricing/page.tsx', 'app/company/[ticker]/page-client.tsx', 'features/settings/components/ConnectedAccounts.tsx', 'features/settings/components/NotificationPreferencesForm.tsx', 'features/admin/components/InviteRow.tsx', 'features/watchlist/components/WatchlistAddSearch.tsx', 'features/filings/components/copilot/AskCopilotRail.tsx', 'components/ui/Switch.tsx']) {
+    for (const file of ['app/pricing/page.tsx', 'app/company/[ticker]/page-client.tsx', 'features/settings/components/ConnectedAccounts.tsx', 'features/settings/components/NotificationPreferencesForm.tsx', 'features/admin/components/InviteRow.tsx', 'features/admin/components/CopyLinkButton.tsx', 'features/admin/components/EmailChipsInput.tsx', 'features/admin/components/ShareInvite.tsx', 'features/admin/components/FeedbackRow.tsx', 'features/watchlist/components/WatchlistAddSearch.tsx', 'features/filings/components/copilot/AskCopilotRail.tsx', 'components/ui/Switch.tsx']) {
       expect(pages, 'the page graph must reach its controls').toContain(file)
     }
     const found = new Map<string, string[]>()

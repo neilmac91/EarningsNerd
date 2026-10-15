@@ -127,6 +127,21 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
+- **Admin invites and feedback** (`frontend/app/admin/`, `frontend/features/admin/components/`): an
+  invite is "created", and "emailed" only when Email invites was on and the backend's best-effort send
+  went through (the API's `emailed` flag). A batch reads "3 invites created · 3 emailed", "3 invite
+  links created" with email off, or warns "3 invites created · 2 emailed. Copy the rest from the list
+  below."; the results head "3 created · 2 emailed" and mark each link still to share "Not emailed";
+  the resend dialog says "Invite re-sent" and "We emailed it to {email}." only when it was emailed,
+  "New invite link ready" otherwise. A link-only row's actions are named "Resend this link-only
+  invite" and "Revoke this link-only invite". The empty lists are one plain line in the card ("No
+  invites yet. Send your first one above.", "No feedback yet. Reports appear here as people send
+  them."), a failed load is a Notice with a Retry, and the section headings carry no icon. The status
+  chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
+  them takes the same quiet ground in dark (no fill, its hairline kept), "New" feedback takes an unread
+  envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
+  and the remaining admin controls carry the brand ring (`statusChipContrast.spec.ts`,
+  `inviteOutcomeEmailed.spec.tsx`, `siteChromeFocusRing.spec.ts`).
 
 ## 4. The mark's files and the icons
 
