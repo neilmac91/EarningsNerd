@@ -99,6 +99,10 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     '<span className="uppercase tracking-eyebrow">10-K filings this week</span>',
     // An element after the form ends the match: a composed row, judged element by element.
     '<div className="uppercase tracking-eyebrow">{filing.form}<Badge>New</Badge></div>',
+    // A nested wrapper that resets the recipe sets the code in a face of its own, and a component inside the
+    // wrapper is judged by its own rule.
+    '<p className="uppercase tracking-eyebrow"><span className="normal-case tracking-normal font-data">{filing.form}</span> · Filed {ago}</p>',
+    '<span className="uppercase tracking-eyebrow"><Eyebrow>{form}</Eyebrow></span>',
     // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
     '<Eyebrow className="uppercase tracking-eyebrow">{form}</Eyebrow>',
     // A same-file class binding is read as an inline class is: one that is not the eyebrow recipe passes
@@ -127,6 +131,9 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: '<span className="uppercase tracking-eyebrow">{"SC 13D/A · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
     // The registration families read as ranges: S-6, F-10 and SF-3 are forms EDGAR writes.
     { code: '<span className="uppercase tracking-eyebrow">S-6</span>', errors: [{ messageId: 'chip' }] },
+    // The lead read through nested HTML wrappers: uppercase and letter-spacing inherit, so the inner span is the chip.
+    { code: '<span className="uppercase tracking-eyebrow"><span>{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow"><span><b>{filing.form}</b></span> · Filed {ago}</p>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge>F-10</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">{"SF-3 · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
     // A meta line's separator may be a comma, a colon or semicolon, or a dash set off by a space, not only a middot.

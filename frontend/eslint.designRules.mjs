@@ -23,7 +23,8 @@
 //                       declared in the same file (`const EYEBROW = 'uppercase tracking-eyebrow'`
 //                       read as `className={EYEBROW}`; the initializer a string, a template or a
 //                       cx()/clsx() call), and whose first non-blank child, text or an expression,
-//                       reads a form field anywhere in it (`{hit.form ?? fallback}`,
+//                       reads a form field anywhere in it (`{hit.form ?? fallback}`, read through nested
+//                       HTML wrappers too, since uppercase and letter-spacing inherit: `<span>{form}</span>`),
 //                       `{filing.form.toUpperCase()}`) or holds a code, or text opening with one
 //                       before a separator (a middot, bullet or pipe, a comma, colon or semicolon,
 //                       or a dash set off by a space: `{'10-Q · Filed'}`, `10-Q - Filed`), followed
@@ -207,26 +208,49 @@ function formNode(node, keys, code = FORM_CODE) {
   return null
 }
 
-/** A hand-rolled chip around a form: an HTML element set in eyebrow type (uppercase, tracking-eyebrow, in
- *  its class text or a same-file binding it reads) whose first non-blank child, text or an expression, shows
- *  a form by formNode's reading (its strings tested with FORM_CODE_LEAD, so `{'10-Q · Filed'}` counts),
- *  followed only by text or expressions (the codebase's `{form} • Filed {ago}` meta line). A Badge by
- *  another hand. A sentence that names a form later (`Latest {filing.filing_type}`) or opens with one as
- *  prose (`10-K filings`) is copy, and an element child ends the match. The children are read first, so a
- *  class binding is resolved only around a form. */
-function isEyebrowFormChip(node, keys, binding) {
-  const name = node.openingElement.name
-  if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return false
-  const children = node.children.filter(
+const meaningfulChildren = (node) =>
+  node.children.filter(
     (c) =>
       !(c.type === 'JSXText' && c.value.trim() === '') &&
       !(c.type === 'JSXExpressionContainer' && c.expression.type === 'JSXEmptyExpression'),
   )
-  if (children.length === 0) return false
-  if (!children.every((c) => c.type === 'JSXText' || c.type === 'JSXExpressionContainer')) return false
-  if (!formNode(children[0], keys, FORM_CODE_LEAD)) return false
+const classTokens = (node, keys, binding) => {
   const classAttr = node.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
-  const tokens = classAttr ? attributeText(classAttr.value, keys, binding).join(' ').split(/\s+/) : []
+  return classAttr ? attributeText(classAttr.value, keys, binding).join(' ').split(/\s+/) : []
+}
+// An inner element that resets the recipe (`normal-case`, or a letter-spacing of its own) is a face of its own.
+const RESETS_EYEBROW = /(^|:)(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
+
+/** The lead of an element's content: its first non-blank child, text or an expression, read through nested
+ *  HTML wrappers, since uppercase and letter-spacing inherit (`<span className="uppercase tracking-eyebrow">
+ *  <span>{form}</span></span>` renders the same chip). Null when a wrapper is a component or a Badge (judged by
+ *  its own rule), resets the recipe, or is followed by an element. */
+function leadChild(node, keys, binding, depth = 0) {
+  const children = meaningfulChildren(node)
+  if (children.length === 0) return null
+  if (!children.slice(1).every((c) => c.type === 'JSXText' || c.type === 'JSXExpressionContainer')) return null
+  const first = children[0]
+  if (first.type === 'JSXText' || first.type === 'JSXExpressionContainer') return first
+  if (first.type !== 'JSXElement' || depth >= 3) return null
+  const name = first.openingElement.name
+  if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return null
+  if (classTokens(first, keys, binding).some((token) => RESETS_EYEBROW.test(token))) return null
+  return leadChild(first, keys, binding, depth + 1)
+}
+
+/** A hand-rolled chip around a form: an HTML element set in eyebrow type (uppercase, tracking-eyebrow, in
+ *  its class text or a same-file binding it reads) whose lead (leadChild: its first non-blank child, text or
+ *  an expression, read through nested HTML wrappers) shows a form by formNode's reading (its strings tested
+ *  with FORM_CODE_LEAD, so `{'10-Q · Filed'}` counts), followed only by text or expressions (the codebase's
+ *  `{form} • Filed {ago}` meta line). A Badge by another hand. A sentence that names a form later (`Latest
+ *  {filing.filing_type}`) or opens with one as prose (`10-K filings`) is copy, and an element after the lead
+ *  ends the match. The children are read first, so a class binding is resolved only around a form. */
+function isEyebrowFormChip(node, keys, binding) {
+  const name = node.openingElement.name
+  if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return false
+  const lead = leadChild(node, keys, binding)
+  if (!lead || !formNode(lead, keys, FORM_CODE_LEAD)) return false
+  const tokens = classTokens(node, keys, binding)
   return EYEBROW_CHIP.every((pattern) => tokens.some((token) => pattern.test(token)))
 }
 
