@@ -514,16 +514,19 @@ test('at 390px the filing page keeps body text 16px off the edges, with the Ask 
 
 /**
  * The tone badge beside a section heading ("Management tone: cautious", filing/F20; the founder's
- * design review of #1293): the heading row wraps, so where the badge does not fit beside its heading
- * it moves beneath it instead of squeezing the heading, and its label wraps inside it rather than
- * push the page wider. Measured on the painted boxes at 320px with the default text size and at
- * 390x844 with Chromium's text doubled (standard 32px). Geometry only, so the light theme stands for
- * both. The fixture's sections carry no tone, so this case gives the first two one.
+ * design review of #1293): the index and the heading are one group that never wraps, and the row wraps
+ * only the badge, so where the badge does not fit beside its heading it moves beneath it instead of
+ * squeezing the heading, its label wraps inside it rather than push the page wider, and a long heading
+ * wraps its own words beside its index instead of dropping beneath it (the principal review of #1293).
+ * Measured on the painted boxes at 320px with the default text size and at 390x844 with Chromium's text
+ * doubled (standard 32px). Geometry only, so the light theme stands for both. The fixture's sections
+ * carry no tone, so this case gives the first two one, and the second the schema's longest title
+ * (summary_schema.py's "Earnings Quality & Cash Conversion"), which no 320px row holds on one line.
  */
 const TONED_SUMMARY = {
   ...SUMMARY,
   rendered_sections: (SUMMARY.rendered_sections as Array<Record<string, unknown>>).map((section, i) =>
-    i === 0 ? { ...section, tone: 'cautious' } : i === 1 ? { ...section, tone: 'positive' } : section,
+    i === 0 ? { ...section, tone: 'cautious' } : i === 1 ? { ...section, title: 'Earnings Quality & Cash Conversion', tone: 'positive' } : section,
   ),
 }
 const TONED_FILING: Route = {
@@ -538,38 +541,53 @@ const TONED_FILING: Route = {
   ready: (p) => expect(p.getByText('Management tone: cautious', { exact: true })).toBeVisible(),
 }
 
-/** Each toned heading row: whether its badge's box meets its heading's, and how far either reaches. */
-const toneRows = (page: Page) =>
+/** Each summary section's heading row (a heading whose group opens on its "01" index): whether the heading
+    sits beside its index, and for a toned row whether its badge's box meets the heading's, sits wholly
+    beneath it, and how far either reaches past the row or the viewport. */
+const headingRows = (page: Page) =>
   page.evaluate(() =>
     [...document.querySelectorAll('section h2')].flatMap((heading) => {
-      const row = heading.parentElement!
-      const badge = [...row.children].find((child) => (child.textContent ?? '').startsWith('Management tone: '))
-      if (!badge) return []
+      const group = heading.parentElement!
+      const index = group.firstElementChild
+      if (!index || index === heading || !/^\d{2}$/.test((index.textContent ?? '').trim())) return []
+      const row = group.parentElement!
       const h = heading.getBoundingClientRect()
-      const b = badge.getBoundingClientRect()
-      const meets = h.left < b.right && b.left < h.right && h.top < b.bottom && b.top < h.bottom
+      const i = index.getBoundingClientRect()
+      const badge = [...row.children].find((child) => (child.textContent ?? '').startsWith('Management tone: '))
+      const b = badge?.getBoundingClientRect()
       const rowRight = row.getBoundingClientRect().right
       const viewport = document.documentElement.clientWidth
       return [{
         heading: (heading.textContent ?? '').trim(),
-        meets,
-        pastRow: Math.max(0, Math.round(Math.max(h.right, b.right) - rowRight)),
-        pastViewport: Math.max(0, Math.round(Math.max(h.right, b.right, rowRight) - viewport)),
+        // Beside its index: the heading starts right of the index and its first line is the index's line.
+        besideIndex: h.left >= i.right - 0.5 && h.top < i.bottom,
+        toned: !!b,
+        meets: !!b && h.left < b.right && b.left < h.right && h.top < b.bottom && b.top < h.bottom,
+        beneath: !!b && b.top >= h.bottom - 1,
+        pastRow: Math.max(0, Math.round(Math.max(h.right, b?.right ?? 0) - rowRight)),
+        pastViewport: Math.max(0, Math.round(Math.max(h.right, b?.right ?? 0, rowRight) - viewport)),
       }]
     }),
   )
 
-test('the tone badge moves beneath its heading at 320px', async ({ page, baseURL }) => {
+test('the tone badge moves beneath its heading at 320px, and the page stays 320px wide', async ({ page, baseURL }) => {
   await page.setViewportSize({ width: 320, height: 720 })
   await visit(page, baseURL!, TONED_FILING)
-  const rows = await toneRows(page)
-  expect(rows.map((r) => r.heading), 'both toned sections were measured').toHaveLength(2)
-  expect(rows.filter((r) => r.meets || r.pastRow > 0), 'a badge meets its heading or runs past the row').toEqual([])
+  const rows = await headingRows(page)
+  expect(rows.filter((r) => r.toned).map((r) => r.heading), 'both toned sections were measured').toEqual(['The Print', 'Earnings Quality & Cash Conversion'])
+  expect(rows.filter((r) => !r.besideIndex).map((r) => r.heading), 'a heading dropped beneath its index').toEqual([])
+  expect(
+    rows.filter((r) => r.toned && (r.meets || !r.beneath || r.pastRow > 0 || r.pastViewport > 0)),
+    'a badge meets its heading, stays beside it, runs past its row, or its row runs past the viewport',
+  ).toEqual([])
+  // The founder's ask at 320px with the default text size: no sideways scroll.
+  const width = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }))
+  expect(width.scroll, `the document is ${width.scroll}px wide against a ${width.client}px viewport`).toBeLessThanOrEqual(width.client)
 })
 
 // The page's own width at 200% is reflow-200.spec.ts's gate (#1278): on main the site header's phone
 // cluster and the "Ask this filing" Button still run past 390px at that size, which no filing-page
-// change can bring in. This case holds what the badge controls: its box and its row.
+// change can bring in. This case holds what the heading row controls: its heading, its badge and its row.
 test('the tone badge stays inside its row and the viewport at 390px and 200% text', async ({ page, baseURL }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await visit(page, baseURL!, TONED_FILING)
@@ -579,10 +597,11 @@ test('the tone badge stays inside its row and the viewport at 390px and 200% tex
     .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize), { message: 'the 200% text setting took' })
     .toBe('32px')
   await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
-  const rows = await toneRows(page)
-  expect(rows.map((r) => r.heading), 'both toned sections were measured').toHaveLength(2)
+  const rows = await headingRows(page)
+  expect(rows.filter((r) => r.toned).map((r) => r.heading), 'both toned sections were measured').toEqual(['The Print', 'Earnings Quality & Cash Conversion'])
+  expect(rows.filter((r) => !r.besideIndex).map((r) => r.heading), 'a heading dropped beneath its index').toEqual([])
   expect(
-    rows.filter((r) => r.meets || r.pastRow > 0 || r.pastViewport > 0),
-    'a badge meets its heading, runs past the row, or its row runs past the viewport',
+    rows.filter((r) => r.toned && (r.meets || !r.beneath || r.pastRow > 0 || r.pastViewport > 0)),
+    'a badge meets its heading, stays beside it, runs past its row, or its row runs past the viewport',
   ).toEqual([])
 })

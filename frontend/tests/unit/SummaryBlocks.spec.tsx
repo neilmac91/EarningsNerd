@@ -283,18 +283,41 @@ describe('SummaryBlocks', () => {
     render(<SummaryBlocks sections={toneSections} summary={summary} />)
     const label = screen.getByText('Management tone: cautious')
     const badge = label.parentElement!
-    const row = screen.getByRole('heading', { level: 2, name: 'Executive Assessment' }).parentElement!
+    const group = screen.getByRole('heading', { level: 2, name: 'Executive Assessment' }).parentElement!
+    const row = group.parentElement!
     const classes = (el: HTMLElement) => el.className.split(/\s+/)
     // The founder's review (320px, and 390px at 200% text): a row that cannot wrap squeezed the heading
-    // and pushed the page wider. The row wraps, the badge may shrink to its container, and the label's
-    // own span lets its words wrap inside the Badge (whose base recipe is nowrap).
-    expect(row).toContainElement(badge)
+    // and pushed the page wider. The row wraps, the badge is its only other item (so only the badge moves
+    // beneath), the badge may shrink to its container, and the label's own span lets its words wrap inside
+    // the Badge (whose base recipe is nowrap).
+    expect([...row.children]).toEqual([group, badge])
     expect(classes(row)).toContain('flex-wrap')
     expect(classes(row)).not.toContain('flex-nowrap')
     expect(classes(badge)).not.toContain('shrink-0')
     expect(classes(badge)).toContain('max-w-full')
     expect(classes(label)).toContain('whitespace-normal')
     expect(classes(label).filter((c) => /nowrap|shrink-0|truncate/.test(c))).toEqual([])
+  })
+
+  // The principal review of #1293: a wrapping row of index, heading and badge dropped a long heading beneath
+  // its index on every section (a flex line places items at their whole width before shrinking them). The
+  // index and the heading are one group that never wraps, on toned sections and plain ones alike.
+  it('keeps every heading beside its index: the two are one group that never wraps', () => {
+    const plainAndToned: RenderedSection[] = [
+      { id: 'earnings-quality', title: 'Earnings Quality & Cash Conversion', blocks: [{ kind: 'paragraph', text: 'Cash tracked earnings.' }] },
+      { id: 'forward-signals', title: 'Forward Signals', tone: 'positive', blocks: [{ kind: 'paragraph', text: 'Guidance was raised.' }] },
+    ]
+    render(<SummaryBlocks sections={plainAndToned} summary={summary} />)
+    const classes = (el: HTMLElement) => el.className.split(/\s+/)
+    const headings = screen.getAllByRole('heading', { level: 2 })
+    expect(headings.map((h) => h.textContent)).toEqual(['Earnings Quality & Cash Conversion', 'Forward Signals'])
+    headings.forEach((heading, i) => {
+      const group = heading.parentElement!
+      expect([...group.children].map((child) => child.textContent)).toEqual([String(i + 1).padStart(2, '0'), heading.textContent])
+      expect(classes(group)).toEqual(expect.arrayContaining(['flex', 'min-w-0', 'items-baseline']))
+      expect(classes(group).filter((c) => /wrap/.test(c))).toEqual([])
+      expect(classes(heading)).toContain('min-w-0')
+    })
   })
 
   it('renders a compact mobile jump-nav whose anchors mirror the desktop TOC', () => {

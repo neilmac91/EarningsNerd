@@ -180,22 +180,26 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
                 aria-labelledby={`${section.id}-heading`}
                 className="scroll-mt-32 lg:scroll-mt-24"
               >
-                {/* The row wraps: when the heading and the tone badge do not fit on one line (a 320px
-                    phone, or 200% text) the badge moves beneath the heading instead of squeezing it or
-                    pushing the page wider, and its label wraps inside the badge if even a line of its
-                    own is too narrow (the label's span overrides the Badge's nowrap). */}
+                {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
+                    so a long heading wraps its own words beside its index, never drops beneath it. When
+                    the group and the badge do not fit on one line (a 320px phone, or 200% text) the badge
+                    moves beneath the heading instead of squeezing it or pushing the page wider, and its
+                    label wraps inside the badge if even a line of its own is too narrow (the label's span
+                    overrides the Badge's nowrap). */}
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
-                    {sectionIndex(i)}
-                  </span>
-                  <h2
-                    ref={i === 0 ? firstHeadingRef : undefined}
-                    tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
-                    id={`${section.id}-heading`}
-                    className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
-                  >
-                    {section.title}
-                  </h2>
+                  <div className="flex min-w-0 items-baseline gap-3">
+                    <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
+                      {sectionIndex(i)}
+                    </span>
+                    <h2
+                      ref={i === 0 ? firstHeadingRef : undefined}
+                      tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
+                      id={`${section.id}-heading`}
+                      className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
+                    >
+                      {section.title}
+                    </h2>
+                  </div>
                   {toneLabel && (
                     <Badge variant="neutral" className="max-w-full self-center">
                       <span className="min-w-0 whitespace-normal">{toneLabel}</span>
