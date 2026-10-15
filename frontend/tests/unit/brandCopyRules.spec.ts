@@ -203,7 +203,7 @@ const CHECKER = PROGRAM.getTypeChecker()
     public route renders (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c without anyone
     naming it (BG-16). */
 const PUBLIC_ROUTES = ['app', 'app/waitlist', 'app/pricing', 'app/login', 'app/register', 'app/forgot-password', 'app/contact', 'app/security',
-  'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]']
+  'app/privacy', 'app/terms', 'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]']
 const ROUTE_FILES = ['page.tsx', 'layout.tsx', 'not-found.tsx', 'error.tsx', 'global-error.tsx']
 const PUBLIC_ROOTS = PUBLIC_ROUTES.flatMap((dir) => routeFiles(dir, ROUTE_FILES, ROOT).filter((file) => path.posix.dirname(file) === dir))
 const PUBLIC_FILES = new Set(walkImports(PUBLIC_ROOTS, ROOT))
