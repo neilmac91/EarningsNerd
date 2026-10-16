@@ -104,11 +104,48 @@ describe('the week view picks the sheet or the list by its own width in em', () 
   })
 })
 
+/** The calendar range's answer: `pending` holds it in flight, so the page shows its loading skeleton. */
+const calendarRange = vi.hoisted(() => ({ pending: false }))
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => null }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getUsage: async () => ({ is_pro: false }) }))
 vi.mock('@/features/calendar/api/calendar-api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/calendar/api/calendar-api')>()
-  return { ...actual, getCalendar: async (from: string) => ({ events: [event('AAA', from, 90)], universe: 'all' as const }), getEarningsAlertTickers: async () => [] }
+  return {
+    ...actual,
+    getCalendar: (from: string) =>
+      calendarRange.pending
+        ? new Promise<never>(() => {})
+        : Promise.resolve({ events: [event('AAA', from, 90)], universe: 'all' as const }),
+    getEarningsAlertTickers: async () => [],
+  }
+})
+
+describe('the loading skeleton switches where the week view does', () => {
+  afterAll(() => {
+    calendarRange.pending = false
+  })
+
+  // The review of #1369: the skeleton switched at the md viewport while the week view switches at 42.5em of its own
+  // width, so the layout jumped when the week landed (at 200% text on a desktop, and from a 680px view to md).
+  it('is the five-column sheet from 42.5em of the same width and one column below it, never at a viewport breakpoint', async () => {
+    calendarRange.pending = true
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <EarningsCalendarPage />
+      </QueryClientProvider>,
+    )
+    const skeleton = await screen.findByRole('status', { name: 'Loading calendar' })
+    // The container is a wrapper with no border, as WeekView's root is, so both read the same width.
+    expect(skeleton.parentElement).toHaveClass('[container-type:inline-size]')
+    const grid = skeleton.firstElementChild as HTMLElement
+    expect(grid).toHaveClass('grid-cols-1', '[@container(width>=42.5em)]:grid-cols-5')
+    const [first, ...rest] = Array.from(grid.children)
+    expect(first).not.toHaveClass('hidden')
+    expect(rest).toHaveLength(4)
+    for (const column of rest) expect(column).toHaveClass('hidden', '[@container(width>=42.5em)]:block', '[@container(width>=42.5em)]:border-l')
+    expect(skeleton.parentElement?.outerHTML).not.toMatch(/\bmd:/)
+  })
 })
 
 describe("the toolbar's range label", () => {

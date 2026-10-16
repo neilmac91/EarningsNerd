@@ -242,40 +242,53 @@ export default function EarningsCalendarPage() {
   )
 }
 
-/** Five-column bone sheet mirroring the week layout (single-column on mobile).
+/** Five-column bone sheet mirroring the week layout, one column below it.
+    It switches where WeekView does, at 42.5em of the same width (a wrapper with
+    no border of its own, as WeekView's), so nothing jumps when the week lands:
+    not at 200% text on a desktop, and not between a 680px view and the md
+    viewport at the default size.
     Raw bones are aria-hidden, so the wrapper carries role="status" + sr-only
     label per the skeleton a11y rule (DESIGN_SYSTEM §4). */
 function CalendarSkeleton() {
   return (
-    <div
-      role="status"
-      aria-label="Loading calendar"
-      className="overflow-hidden rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
-    >
-      <div className="grid grid-cols-1 md:grid-cols-5">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className={cx('p-3.5', i > 0 && 'md:border-l md:border-border-light/60 dark:md:border-white/[0.06]', i > 0 && 'hidden md:block')}>
-            <Skeleton className="h-3 w-14" />
-            <div className="mt-4 flex flex-col gap-3.5">
-              <Skeleton className="h-2.5 w-2/5" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
-              </div>
-              <Skeleton className="h-2.5 w-2/5" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
+    <div className="[container-type:inline-size]">
+      <div
+        role="status"
+        aria-label="Loading calendar"
+        className="overflow-hidden rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+      >
+        <div className="grid grid-cols-1 [@container(width>=42.5em)]:grid-cols-5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div
+              key={i}
+              className={cx(
+                'p-3.5',
+                i > 0 &&
+                  'hidden [@container(width>=42.5em)]:block [@container(width>=42.5em)]:border-l [@container(width>=42.5em)]:border-border-light/60 dark:[@container(width>=42.5em)]:border-white/[0.06]',
+              )}
+            >
+              <Skeleton className="h-3 w-14" />
+              <div className="mt-4 flex flex-col gap-3.5">
+                <Skeleton className="h-2.5 w-2/5" />
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
+                <Skeleton className="h-2.5 w-2/5" />
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <span className="sr-only">Loading calendar…</span>
       </div>
-      <span className="sr-only">Loading calendar…</span>
     </div>
   )
 }
