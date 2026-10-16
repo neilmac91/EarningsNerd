@@ -152,17 +152,13 @@ def test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link(db, 
     The purge is cut after its first one-row batch: the token left behind must still carry its link,
     and replaying it must still sweep the live head of the chain."""
     engine = db.get_bind()
-
-    @event.listens_for(engine, "connect")
-    def _foreign_keys(dbapi_conn, _record):  # pragma: no cover - fresh connections only
-        dbapi_conn.execute("PRAGMA foreign_keys=ON")
-
-    db.execute(text("PRAGMA foreign_keys=ON"))  # the StaticPool connection already exists
+    db.execute(text("PRAGMA foreign_keys=ON"))  # the fixture's one StaticPool connection, before any write
 
     @event.listens_for(engine, "before_execute", retval=True)
     def _heap_order(conn, clauseelement, multiparams, params, execution_options):
         if (isinstance(clauseelement, Select) and not clauseelement._order_by_clauses
-                and [c.table.name for c in clauseelement.selected_columns] == ["refresh_tokens"]):
+                and [getattr(getattr(c, "table", None), "name", None) for c in clauseelement.selected_columns]
+                == ["refresh_tokens"]):
             clauseelement = clauseelement.order_by(RefreshToken.id.desc())
         return clauseelement, multiparams, params
 
@@ -206,7 +202,6 @@ def test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link(db, 
     finally:
         monkeypatch.setattr(db, "commit", real_commit)
         event.remove(engine, "before_execute", _heap_order)
-        event.remove(engine, "connect", _foreign_keys)
     db.rollback()
     db.expire_all()
 
