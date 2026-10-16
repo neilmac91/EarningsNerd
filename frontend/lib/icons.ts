@@ -48,7 +48,6 @@ export {
   FilePdfIcon,
   FileTextIcon,
   FileXlsIcon,
-  FlameIcon,
   FunnelIcon,
   GearIcon,
   GitDiffIcon,

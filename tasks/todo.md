@@ -4,7 +4,8 @@ One line per open item, newest first, with owner, disposition and next step, in 
 characters; full evidence belongs in the PR that produced it. Holds stay pointers; delete an engineering
 line in the PR that closes it. The [historical ledger](archive/todo-ledger-through-2026-10-07.md) is
 evidence, not a queue. Format: `AGENTS.md` §7. Founder rows stay until the founder closes them. Rows
-condensed on 2026-10-15 keep their full text in `git show 1062046e:tasks/todo.md`.
+condensed on 2026-10-15 keep their full text in `git show 1062046e:tasks/todo.md`, and E65 in
+`git show 137cf36f:tasks/todo.md`.
 
 ## Where things stand — 2026-10-14, CODE RED chief (refreshing its 2026-10-13 block)
 
@@ -44,6 +45,7 @@ Founder:
 - [ ] F27 — PREPARE: decide the two unfixed high frontend audit findings, `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm) and `extract-zip` 2.0.1 (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3): accept both and say so in the record, or schedule the tailwindcss 4 migration as its own high-tier PR (clears only braces's tailwind path) ([evidence](review-evidence/deps-2026-10-13/README.md), second sweep).
 
 Engineering:
+- [ ] E65 — DO (brand sweep): `calendar/components/WeekView.tsx` line 175 labels the expanded mobile day list's toggle "Show top 5", a ranking no longer claimed (large caps, most followed first per report time; #1301's rule 1d in `brandCopyRules.spec.ts`); #1251 (CAL-01–04, `dfaf494d`) left it. Make it "Show fewer". Done when `calendarDayDialogPopover.spec.tsx` presses the mobile "+2 more" and finds "Show fewer", no "Show top 5", and `docs/brand/08-applications.md`'s Calendar line follows.
 - [ ] E62 — PREPARE (design decision on the review queue #1307 shipped): decide a clearable SegmentedControl mode or keep the `no-hand-rolled-toggle-group` disable in `WordingChanges.tsx`; then update or remove the disable and its reason, the rule header in `frontend/eslint.designRules.mjs`, the `DESIGN_SYSTEM.md` Segmented ctrl row and, for a new mode, `DESIGN.md` and `SegmentedControl.tsx`.
 - [ ] E60 — DO (each draft's owner, before marking it ready): if its newest `review-gate` run is a skip created before #1331 merged (2026-10-15 07:14:54 UTC), push or edit its body while still a draft, then mark it ready; never re-run that skip by hand (`docs/OPERATIONS.md` › Review gate). Delete the row when none is left.
 - [ ] E59 — DO (after the brand series lands): convert the 21 `toBeLessThanOrEqual(MAX)` list caps to `toBe` (cap = count) in the seven specs under `CEILINGS` in `frontend/tests/unit/allowlistCapsAreEqualities.spec.ts`, shrinking it per file; `bottomChromeLadder.spec.ts` keeps its two z ceilings (D-040; `lessons/test-allowlist-caps-are-equalities.md`).
@@ -64,6 +66,7 @@ Engineering:
 - [ ] E10 — POSTPONE: the read-only GET gate's boundaries after #1248, none with a live instance (tests only; its docstring lists four): a module re-exported as a package's attribute; a re-export chain over eight deep; a Connection via `execution_options(...)` or `await engine.connect()`; a `:=` whose value reads its comprehension's own names; DML via `db.scalar(...)`/`db.scalars(...)`, which the gate does not count. Further router moves wait for dependencies and reserved release capacity.
 - [ ] E12 — POSTPONE (founder): supply the private WP-07+ list or confirm completion; the repository defines WP-01–WP-06 only (#1069 series).
 - [ ] E13 — Suppressing the [critique's](../.impeccable/critique/2026-10-04T16-43-55Z__frontend-app-filing-id-page-tsx.md#design-specificity-verdict-mixed) quotation `side-tab` false positive and sanctioned `--ease-pop` warning is CANCEL-RECOMMENDED; old consent/dialog harnesses wait for reuse, memoization for measurements, and missing-prior web/export dashes for a compatible backend batch.
+- [ ] E39 — PREPARE (brand sweep): `NEXT_PUBLIC_ENABLE_CALENDAR` and `NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH` are set only in Vercel, so CI's e2e build serves /calendar and /search as 404 and `tests/e2e/text-floors.spec.ts` cannot visit them for the contrast census or the heading outline; set both flags (with `NEXT_PUBLIC_CALENDAR_FIXTURES`, since e2e runs with no backend, and the search answered through `page.route`) in the e2e build and add the two routes, a CI file change reviewed at high tier.
 - [ ] E14 — IN-FLIGHT: prevent disabled hover/active tint [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262), merged October 12 (`a902fd9e`); Modal-host Escape is CANCEL-RECOMMENDED because Modal has no native-dialog host, and the founder-only class-7 SQL read is PREPARE.
 - [ ] E15 — IN-FLIGHT: Insider gain/loss ink [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262), merged October 12 (`a902fd9e`) after passing local acceptance. Analysis Run’s locked native-disabled contract remains a separate founder decision.
 - [ ] E20 — PREPARE (CODE RED chief): the Resend webhook HMAC uses the raw `whsec_` string and hex, where Svix uses the base64-decoded key and base64; check Resend's and Svix's docs, fix with a test on a known signature; high tier, the merge deploys the backend (#1281; `code-red-20261004/runtime/control/DECISIONS-25.md`).
