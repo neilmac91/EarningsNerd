@@ -168,7 +168,8 @@ addendum 1 in [`PREREGISTRATION.md`](PREREGISTRATION.md).
 main at `0b52b86b`. The draw gate logged "No earlier draw on ff6836cfdd15: this run draws." Every validity condition
 held:
 - `preparation.json`: status `complete`, `USE_EDGARTOOLS_SECTIONS` true, edgartools `5.58.0`;
-- BABA FY2025's source hashed to `be4499769327`, and the other five sources to their sections hashes;
+- BABA FY2025's source hashed to `be4499769327`, and the other five to the hashes in the table under "Main's #1347 and
+  the merge": four from sections, and ASML's 20-F from the regex fallback, by design (its sections parse returns null);
 - all 18 first generations hashed to `c221b7e3c5c2`;
 - no row took a retry, so neither retry hash occurred.
 
@@ -180,7 +181,7 @@ held:
 | AAPL, TSLA, MSFT | 0 of 3 each | none; the new lines added no text citation |
 | BABA FY2025 | 0 of 3 | none; each answer used the XBRL fact alone |
 | BABA FY2026 | 2 of 3 | one whole sentence; the whole `Consolidated revenue` row |
-| ASML | 2 of 3 | the whole `Total net sales` statement row, both times |
+| ASML | 2 of 3 | the whole `Total net sales` statement row, both times; run 0 also declared the whole `Net income` row, verified but unreferenced, so not published |
 
 On BABA FY2025's sections source, the first generation under #1111's prompt (`d46ef28f000a`) failed 7 of 9 across
 three draws on the identical source text:
@@ -211,6 +212,11 @@ prepared byte-identical sources for all six questions:
 | BABA viewed-native-revenue-2025 | `be4499769327` | `be4499769327` |
 | ASML us-gaap-sales-net-income-2025 | `3d5c91eb152d` | `3d5c91eb152d` |
 
-So draw 2 measured the change on the sources production prepares after #1347. #1347 also landed E25 (the eval
-harnesses' `EDGAR_CACHE_DIR`), identically, so the merge takes main's copy and this PR no longer carries it.
-`PREREGISTRATION.md`'s addendum 2 says how the merge head's own draw counts.
+So, for these six filings, draw 2 measured the change on the sources that main's code prepares in the eval harness
+after #1347. #1347's draw ran on a tree identical to main's `a9738b38`. This does not cover excerpts production already
+stored in `filing_content_cache` (E28 (b)) or preparation under load (E77).
+
+#1347 also landed E25 (the eval harnesses' `EDGAR_CACHE_DIR`) with the same values, so the merge takes main's harnesses
+and tests, and this PR's own bootstrap test goes. Main's tests still catch the M11 mutation: on the merge, dropping
+`EDGAR_CACHE_DIR` from `copilot_bootstrap.py` fails 2 of `test_copilot_bootstrap.py`'s tests. `PREREGISTRATION.md`'s
+addendum 2 says how the merge head's own draw counts.

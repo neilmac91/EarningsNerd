@@ -123,23 +123,35 @@ Draw 2 ([run 38878772611](https://github.com/neilmac91/EarningsNerd/actions/runs
 with this branch. The conflict is resolved by a merge commit. Once a PR is ready, every new head draws, so the merge head
 gets its own draw. This addendum is committed in the same push, before that draw.
 
-**What the merge head's draw is.** It is the same code measured again: the prompt bytes are unchanged, and #1347's
-draw prepared byte-identical sources for all six questions (README, "Main's #1347 and the merge"). It is a requirement
-for merging, not a replacement for draw 2. Draw 2 stays the pre-registered measurement, and this draw is reported beside
-it.
+**What the merge head's draw is.** The Copilot code, prompt bytes, scorer and workflow are unchanged from `ff6836cf`.
+The head differs by main's source-preparation code (#1347) and main's other changes under `backend/`, so it is an
+ordinary new draw on a new head, not a re-draw. #1347's draw prepared byte-identical sources for all six questions
+(README, "Main's #1347 and the merge"), and the source-hash condition below checks that the merge did not move one. The
+draw is a requirement for merging, not a replacement for draw 2: draw 2 stays the pre-registered measurement, and this
+draw is reported beside it.
 
-**Validity.** These are addendum 1's conditions:
+**Validity.** These are the `preparation.json` conditions above (status `complete`, `USE_EDGARTOOLS_SECTIONS` true,
+edgartools `5.58.0`) plus:
 - every first generation is `c221b7e3c5c2`;
 - a decision-F retry is `34d01dadbac0`;
 - a citation retry is `bf240eb01f4c`;
 - the six sources hash as in the README's table.
 
-A changed source hash means #1347 or a later main change moved a source. The draw is then reported with the change named.
+If any condition fails, a changed source hash included, the draw is void (outcome 3): it is reported to the founder with
+the change named, and the PR does not merge on it.
 
 **Acceptance.** The repository's bar on the head that merges: `accepted: true`, 18 of 18.
 
 **If it is red.** The PR does not merge. There is no further draw: no re-run and no push made only to draw again. The
 artifact is classified and reported to the founder with draw 2 beside it, and the founder decides.
+
+**Records.** Draw 2's run and readout go into this merge commit (README "Draw 2", the RUNBOOK row), because this head
+draws regardless. That replaces addendum 1's plan of a records-only follow-up for them. The merge head's own readout
+goes in a PR comment and, if the PR merges, in a records-only follow-up on main, never as a push to this PR.
+
+**The merge head's eval-baseline.** It is the first on this PR to run #1347's native-section floor. It is read under the
+RUNBOOK's "Regression gate (B1)": gate PASS, and a note of 62 of 64 native-section excerpts. It is advisory and not part
+of this draw's acceptance.
 
 **Spend.** The reservation rule, with the dearest measured runs:
 - `eval-baseline`: USD 0.362652 (on `ff6836cf`) × 1.5 = USD 0.54;

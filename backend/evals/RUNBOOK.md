@@ -820,7 +820,7 @@ to them is review-checked. #1111's revision was measured only on the regex fallb
 | `a88b6fb1de5b` | — | — | before #1111 | sections to 2026-10-05, then the regex fallback | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | 2026-10-16, citation retry | sections: run 38860895429, 17/18 (one BABA row withheld after its retry) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | 2026-10-16, whole-row rule | sections: run 38878772611, 18/18 with no retry (pre-registered); the merged head's own draw also had to pass 18/18 | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | 2026-10-16, whole-row rule | sections: run 38878772611, 18/18 with no retry (pre-registered); merging also required the merge head's own 18/18 draw (README) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,

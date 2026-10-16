@@ -21,8 +21,9 @@ fails.
 
 **Evidence**: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` (finding 3, and the corpus
 scripts). Gate: `backend/tests/unit/test_copilot_prompt_revisions.py` fails when the current first-generation or
-retry bytes have no row in the table, or a row has no measured source or no existing evidence path. For eval-baseline
-the source check is gated since #1347 (`backend/evals/regression_gate.py`'s native-section floor). Review checks the
+retry bytes have no row in the table, or a row has no measured source or no existing evidence path. For eval-baseline,
+#1347 added a native-section share floor (`backend/evals/regression_gate.py`: HARD below 0.90, WARN below 0.95) in an
+advisory job, so its gate result and the note's list of non-native filings still have to be read. Review checks the
 rest: a copilot-eval draw's prepared sources until E80 in `tasks/todo.md` lands, what a row says, a row overwritten in
 both the table and the test's list, and the model-facing bytes that have no row (the context message, tool schemas
 and generation options).
