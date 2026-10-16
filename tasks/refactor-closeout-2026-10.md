@@ -422,8 +422,8 @@ the AMZN 10-K attempt (accession 0001018724-26-000004) at 2026-10-10T23:27:52.38
 model, null usage and no cost; its retry at 23:28:05.502Z succeeded at an estimated USD 0.002544. No per-call
 provider billing record is available, so the failed call's cost cannot be established, and the hold is not
 released. The run's artifact expires around 2026-10-24; these facts are kept here. On 2026-10-16 the founder left
-the hold to the agent's recommendation: it is booked for good as that call's upper bound, so the ledger keeps
-USD 4.369016 and no billing record is sought.
+the hold to the agent's recommendation: it is booked as spent for good, at that call's upper bound, so the
+ledger keeps USD 4.369016 and no billing record is sought.
 
 ### Free balance readings for the follow-up work
 
