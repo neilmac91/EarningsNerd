@@ -15,6 +15,7 @@ import {
   type FeedbackType,
 } from '@/features/admin/api/admin-api'
 import FeedbackRow from '@/features/admin/components/FeedbackRow'
+import TableScroll from '@/features/admin/components/TableScroll'
 
 const LIST_LIMIT = 200
 
@@ -57,7 +58,9 @@ export default function AdminFeedbackPage() {
             >
               Feedback
             </h2>
-            <div className="flex flex-wrap items-center gap-2">
+            {/* min-w-0: at 200% text the status filter alone is wider than this header on a phone (255px in 158px at
+                320); as a flex item this row would otherwise grow to that width and push the card past the screen. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <label htmlFor="filter-status" className="sr-only">
                 Filter by status
               </label>
@@ -118,7 +121,7 @@ export default function AdminFeedbackPage() {
               {hasFilters ? 'No feedback matches these filters.' : 'No feedback yet. Reports appear here as people send them.'}
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <TableScroll label="Feedback">
               <table className="min-w-full divide-y divide-border-light dark:divide-white/10">
                 <thead className="bg-background-light dark:bg-white/5">
                   <tr>
@@ -139,7 +142,7 @@ export default function AdminFeedbackPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           )}
 
           <p className="border-t border-border-light px-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">

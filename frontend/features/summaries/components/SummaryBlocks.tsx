@@ -145,7 +145,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
       {/* Sticky table of contents, widescreen only (it would crowd a reflowed reading column), on the
           reading side of the page: each entry carries its section's index. */}
       <aside className="hidden lg:block">
-        <nav aria-label="Summary sections" className="sticky top-24">
+        <nav aria-label="Summary sections" className="sticky top-[calc(var(--site-header-h,4rem)_+_2rem)]">
           <p className={`mb-3 text-xs font-medium ${MUTED}`}>On this page</p>
           <ol role="list" className="space-y-1">
             {pageSections.map((section, i) => (
@@ -178,7 +178,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
                 key={section.id}
                 id={section.id}
                 aria-labelledby={`${section.id}-heading`}
-                className="scroll-mt-32 lg:scroll-mt-24"
+                className="scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)] lg:scroll-mt-[calc(var(--site-header-h,4rem)_+_2rem)]"
               >
                 {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
                     so a long heading wraps its own words beside its index, never drops beneath it. When
@@ -227,7 +227,7 @@ function MobileSectionNav({ sections }: { sections: PageSection[] }) {
   return (
     <nav
       aria-label="Jump to section"
-      className="sticky top-16 z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
+      className="sticky top-[var(--site-header-h,4rem)] z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
     >
       <ul className="flex gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {sections.map((section, i) => (

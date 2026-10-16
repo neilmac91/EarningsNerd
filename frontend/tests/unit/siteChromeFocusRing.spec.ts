@@ -359,14 +359,24 @@ function ownRestProps(spread: ts.JsxSpreadAttribute, element: ts.JsxOpeningEleme
 
 /**
  * Whether a class expression always includes the binding `name`: the binding itself, a template's
- * `${name}`, or an argument of `cx(…)` that is one of these. A conditional (`open && className`) can
- * drop the caller's classes, ring included, so it does not count.
+ * `${name}`, an argument of `cx(…)` that is one of these, or the `className` option of
+ * `buttonVariants(…)` when it is the binding (the factory joins that option last, unconditionally;
+ * pinned below). A conditional (`open && className`) can drop the caller's classes, ring included,
+ * so it does not count.
  */
 function carries(expr: ts.Expression | undefined, name: string): boolean {
   if (!expr) return false
   if (ts.isIdentifier(expr)) return expr.text === name
   if (ts.isTemplateExpression(expr)) return expr.templateSpans.some((span) => carries(span.expression, name))
-  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression) && expr.expression.text === 'cx') return expr.arguments.some((arg) => carries(arg, name))
+  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
+    if (expr.expression.text === 'cx') return expr.arguments.some((arg) => carries(arg, name))
+    if (expr.expression.text === 'buttonVariants') {
+      const options = expr.arguments[0]
+      return !!options && ts.isObjectLiteralExpression(options) && options.properties.some((p) =>
+        (ts.isShorthandPropertyAssignment(p) && p.name.text === 'className' && name === 'className')
+        || (ts.isPropertyAssignment(p) && p.name.getText() === 'className' && ts.isIdentifier(p.initializer) && p.initializer.text === name))
+    }
+  }
   return false
 }
 
@@ -1049,6 +1059,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     }
     expect(block('destructive')).toContain('focus-visible:shadow-ring-error')
     expect(block('destructive')).toContain('dark:focus-visible:shadow-ring-error-dark')
+    // carries() trusts the factory's className option: the factory joins it last, on no condition.
+    expect(button).toContain('VARIANT[resolveVariant(variant)], className)')
   })
 
   it('the scan catches what it is for (a self-check on fixed sources)', () => {
@@ -1187,9 +1199,15 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       export function Page() {
         return <><ModalHeader {...headerProps} /><Body tabIndex={0} className="p-2" /></>
       }
+      export const Cta = forwardRef(function Cta({ className, ...rest }: Props, ref) {
+        return <button ref={ref} className={buttonVariants({ variant: 'primary', className })} {...rest} />
+      })
+      export const Soft = forwardRef(function Soft({ className, open, ...rest }: Props, ref) {
+        return <button ref={ref} className={buttonVariants({ variant: 'ghost', className: open && className })} {...rest} />
+      })
       import { buttonVariants } from '@/components/ui/Button'`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(13)
+    expect(stops).toBe(15)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       '8 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       '9 <button> missing focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
@@ -1209,6 +1227,9 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       // What a call site gives a component is read at the call site.
       '25 <ModalHeader> a props spread the scan cannot read',
       '25 <Body> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      // The factory's own className option carries the caller's classes (Cta, line 28, is read); a
+      // conditional one does not.
+      '31 <button> a props spread the scan cannot read',
     ])
   })
 
