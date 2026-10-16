@@ -289,6 +289,64 @@ New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
 - `founderNote.spec.tsx` was retired with the unused slot described in §6.
 - `waitlistCounter.spec.tsx`: no number below the floor, no "0+" frame, the count in neutral ink.
 
+Seven gates added or widened by the copy and signal gates PR (D-031), each with a mutation proof in
+that PR:
+
+- `no-em-dash-copy.spec.ts`: a literal is exempt only when it is exactly the bare missing-value
+  token (a lone em-dash) and stands alone: as a JSX child, written as text or as an expression (a
+  conditional's branch or a fallback included), only as the sole child of its element, and never as
+  an operand of `+`, a template's substitution or a part of a template; a token held in a `const` is
+  followed to each reference of the name in its file and fails where one is joined into copy (a
+  reference in another file is review-checked); the summary's quote attribution loses its dash: on the page
+  the cite sits on its own line under the quotation, with the evidence chip (a control, not
+  attribution) beside it when the quote carries evidence, and in the PDF the speaker stands alone,
+  the one device D-031 names for both (the CSV keeps a speaker column).
+- `brandCopyRules.spec.ts`: the public scope is walked from the public routes through the import
+  graph (`tests/unit/importWalk.ts`), not listed, so a product component a public page renders
+  (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c, the one rule read on the
+  public scope alone (rule 2 reads the whole app under D-030).
+- `brandVoiceRules.spec.ts` (new): sentence case (a capital first word, no capitalised word after it
+  but a proper noun, never an all-caps label) on headings h1 to h6, dialog and card titles
+  (`ModalHeader`, `CardTitle`, `CardHeader`), the title prop of `GuidanceCard`, `Notice`, `Modal`,
+  `SecondaryHeader` and `UpgradeModal`, button labels (a `<Link>` or `<a>` whose className reaches
+  `buttonVariants()` included), every aria-label and meta titles, plus the components found across
+  the tree to render their children or title into one of those; a label passed through a renamed
+  variable, a spread or a helper function, or a className styled through a variable, is
+  review-checked (`lessons/test-gates-must-be-as-wide-as-their-rule.md`); no exclamation mark, emoji or banned
+  buzzword in copy, a placeholder included; no icon inside a heading (an icon imported from `lib/icons` or
+  the Phosphor package under any name or through a namespace, or a tag named for one); no developer wording
+  ("backend", an API path, "reader", an HTTP status) in `lib/` and `hooks/`.
+- `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage and the braces an XBRL
+  fact, nowhere else; the sparkle belongs to an AI-summary chip, which does not exist yet, so it has
+  no sanctioned site: the two heading sparkles in `StreamingSummaryDisplay.tsx` stay listed only until
+  brand-filing-page removes them and drops their entry in the same merge; a hand-drawn stand-in or
+  the ✨ emoji counts.
+- `backendMessageMatches.spec.ts` (new): every phrase the frontend routes the paywall, the no-retry
+  path, the verification event or the dashboard's sign-in redirect on is written by the code that
+  raises the message (docstrings do not count), or is listed as unsourced with its reason (the contact
+  form, once matched on "429", reads the status since #1303). No other literal match exists in the
+  api modules (`lib/api`, `features/<domain>/api`), nor anywhere under `app`, `components`,
+  `features`, `hooks` and `lib` on a receiver named for an error or a message (err, error, message,
+  msg, detail or reason, read through camelCase such as `errorMessage`); a message held under another
+  name outside the api modules is the scan's limit.
+- ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` in either case as well as
+  hex (a 3- or 4-digit hex inside an arbitrary utility or as a whole literal, where it can only be a
+  colour), in an arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
+  `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat`, and one pinning any locale but
+  `'en-US'` (another locale, or a variable), everywhere, `lib/format.ts`
+  included, since its formatter cache pins en-US (`fmtCount`, `fmtDecimal`, or a date helper for a date); `toLocaleDateString()` was already banned
+  outright by the date rule in `eslint.config.mjs`, which names `formatLocalDate`.
+- `siteChromeFocusRing.spec.ts`: the page scan discovers every route's page and the feature
+  modules it reaches, in place of the named routes (`PAGE_CONTROL_ROOTS`).
+
+Four of them carry a shrink-only residue: `VOICE_RESIDUE`, the glyphs' `RESIDUE`, `RING_RESIDUE`
+and the matchers' `UNSOURCED`. Each holds what the audit found when its gate landed, counted per
+file, with the PR or the reason that clears each entry; a fixed entry fails until its count is lowered, and each
+list's size must equal its cap, so a PR that shrinks a list lowers the cap in the same commit and no
+slack is left. `UNSOURCED`'s cap moved once with the scan's reach, the day the scan reached the
+dashboard boundary and the contact form. A PR that adds an entry raises the cap and gives its reason
+in its body.
+
 The design gates
 (`designSnapshotParity.spec.ts`, the ESLint design rules, `no-em-dash-copy.spec.ts`,
 `wordmarkSingleSource.spec.ts`) run unchanged against the new surfaces; their tails are in the
