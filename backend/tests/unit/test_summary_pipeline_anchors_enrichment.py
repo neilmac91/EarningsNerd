@@ -267,18 +267,19 @@ async def test_a_stale_stored_excerpt_is_reused_without_a_section_parse():
 
 @pytest.mark.asyncio
 async def test_a_parse_not_done_in_its_share_of_the_join_still_leaves_the_regex_excerpt(caplog):
-    """A section parse that outlives ``SECTION_PARSE_WAIT_SECONDS`` is cancelled with a warning, and the
-    excerpt is still built (without sections, so the regex excerpt) inside the join: a slow parse
-    costs the native sections, never the excerpt."""
+    """A section parse that outlives ``SECTION_PARSE_WAIT_SECONDS`` is cancelled there, with a warning,
+    before the provider call (a queued parse must not keep the one parse worker), and the excerpt is
+    still built (without sections, so the regex excerpt) inside the join: a slow parse costs the
+    native sections, never the excerpt."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
-    cancelled = []
+    order = []
 
     async def never_done(*_args, **_kwargs):
         try:
             await asyncio.Event().wait()
         except asyncio.CancelledError:
-            cancelled.append(True)
+            order.append("parse cancelled")
             raise
 
     excerpt = MagicMock(return_value="EXCERPT")
@@ -288,10 +289,11 @@ async def test_a_parse_not_done_in_its_share_of_the_join_still_leaves_the_regex_
             patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
             patch.object(summary_pipeline.xbrl_service, "get_filing_sections", never_done), \
             patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt):
+        summarize.side_effect = lambda *_a, **_k: order.append("provider") or deepcopy(CANONICAL_PAYLOAD)
         events = await _drain(filing_id)
 
     _assert_complete(events)
-    assert cancelled == [True]
+    assert order == ["parse cancelled", "provider"]
     assert excerpt.call_args.args[2] == DOC_TEXT and excerpt.call_args.kwargs == {"sections": None}
     assert summarize.await_args.kwargs["filing_excerpt"] == "EXCERPT"
     assert (logging.WARNING, f"[stream:{filing_id}] Section parse not done after 0s; building the excerpt without it") \
