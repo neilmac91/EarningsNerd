@@ -5,8 +5,14 @@ or ticker merely contains the query. The company page, the filings list and prec
 take its first hit as the requested ticker's company, so a ticker missing from SEC's file (retired,
 renamed or mistyped) that is a substring of another entry's name or ticker served and persisted an
 unrelated issuer: RTN bound to Enterprise Products PARTNERS, SQ to SQM, FB to FB Financial (FBK) and
-X to Exxon (XOM), and precompute paid to summarize it. These tests pin the exact resolver (case-insensitive, '.' and '-' the same share-class
-separator) on all three callers, and that the typeahead still returns partial matches.
+X to Exxon (XOM), and precompute paid to summarize it. These tests pin the exact resolver on all
+three callers, and that the typeahead still returns partial matches.
+
+Exact means case-insensitive and nothing more, the comparison the search's exact tier already
+used, so the fix only narrows: a ticker that 404'd before it still does. BRK.B is one: SEC's file
+spells the class BRK-B, and mapping one spelling onto the other is a canonicalization question for
+every ticker-keyed route (peers, insider, watchlist), not something to answer on the company lookup
+alone.
 
 Only the ticker file is faked (seeded into the L1 cache, so ``_get_cached_tickers``,
 ``_local_search`` and ``primary_ticker_for_cik`` run for real), plus the filings listing and the
@@ -53,9 +59,9 @@ LISTED = [
     ("aapl", APPLE_CIK, "AAPL"),
     ("BRK-B", BERKSHIRE_CIK, "BRK-B"),
     ("brk-b", BERKSHIRE_CIK, "BRK-B"),
-    ("BRK.B", BERKSHIRE_CIK, "BRK-B"),
-    ("brk.b", BERKSHIRE_CIK, "BRK-B"),
 ]
+# A class ticker spelled with a dot where SEC's file has a dash: not found, unchanged from main.
+OTHER_CLASS_SPELLING = ["BRK.B", "brk.b"]
 
 _CIKS = [str(entry["cik_str"]).zfill(10) for entry in TICKER_FILE.values()] + [STORED_RETIRED["cik"]]
 
@@ -156,7 +162,7 @@ async def test_precompute_reports_company_not_found_for_a_ticker_missing_from_th
 
 
 @pytest.mark.parametrize("ticker, cik, canonical", LISTED)
-def test_company_route_resolves_listed_tickers_in_any_case_and_class_spelling(client, ticker, cik, canonical):
+def test_company_route_resolves_listed_tickers_in_any_case(client, ticker, cik, canonical):
     resp = client.get(f"/api/companies/{ticker}")
     assert resp.status_code == 200, resp.json()
     assert (resp.json()["cik"], resp.json()["ticker"]) == (cik, canonical)
@@ -172,10 +178,41 @@ def test_filings_route_lists_the_listed_tickers_own_cik(client, listing, ticker,
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("ticker, cik, _canonical", LISTED)
-async def test_precompute_resolves_listed_tickers_in_any_case_and_class_spelling(listing, ticker, cik, _canonical):
+async def test_precompute_resolves_listed_tickers_in_any_case(listing, ticker, cik, _canonical):
     result = await precompute_one(ticker, "10-K", dry_run=True)
     assert result["status"] == "no_filings", result
     assert listing == [cik]
+
+
+# --- unchanged from main: a class ticker spelled unlike SEC's file stays not found --------------
+
+
+@pytest.mark.parametrize("ticker", OTHER_CLASS_SPELLING)
+def test_company_route_still_404s_a_class_ticker_spelled_unlike_the_sec_file(client, ticker):
+    resp = client.get(f"/api/companies/{ticker}")
+    assert resp.status_code == 404, resp.json()
+    assert resp.json() == {"detail": "Company not found"}
+    assert _stored_ciks() == []
+
+
+@pytest.mark.parametrize("ticker", OTHER_CLASS_SPELLING)
+def test_filings_route_still_404s_a_class_ticker_spelled_unlike_the_sec_file(client, listing, ticker):
+    resp = client.get(f"/api/filings/company/{ticker}")
+    assert resp.status_code == 404, resp.json()
+    assert resp.json() == {"detail": "Company not found"}
+    assert listing == []
+    assert _stored_ciks() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ticker", OTHER_CLASS_SPELLING)
+async def test_precompute_still_reports_company_not_found_for_a_class_ticker_spelled_unlike_the_sec_file(
+    listing, ticker
+):
+    result = await precompute_one(ticker, "10-K")
+    assert result["status"] == "company_not_found", result
+    assert listing == []
+    assert _stored_ciks() == []
 
 
 def test_a_company_stored_under_a_retired_ticker_is_still_served_from_the_db(client, monkeypatch):
@@ -199,13 +236,13 @@ def test_a_company_stored_under_a_retired_ticker_is_still_served_from_the_db(cli
 
 
 @pytest.mark.asyncio
-async def test_resolve_ticker_is_exact_case_insensitive_and_treats_dot_and_dash_alike():
+async def test_resolve_ticker_is_exact_and_case_insensitive_only():
     resolve = sec_edgar_service.resolve_ticker
     assert await resolve("aapl") == {"ticker": "AAPL", "name": "Apple Inc.", "cik": APPLE_CIK, "exchange": None}
-    for spelling in ("BRK-B", "brk-b", "BRK.B", "brk.b", " BRK.B "):
+    for spelling in ("BRK-B", "brk-b", " BRK-B "):
         assert (await resolve(spelling))["ticker"] == "BRK-B", spelling
-    assert (await resolve("BRK.A"))["ticker"] == "BRK-A"
-    for missing in ("RTN", "SQ", "FB", "X", "APL", "BRK", "", "   "):
+    assert (await resolve("brk-a"))["ticker"] == "BRK-A"
+    for missing in ("RTN", "SQ", "FB", "X", "APL", "BRK", "BRK.B", "brk.b", "BRK.A", "BRKB", "", "   "):
         assert await resolve(missing) is None, missing
 
 
@@ -231,12 +268,8 @@ async def test_search_still_returns_partial_name_and_ticker_matches():
     assert await tickers("sq") == ["SQM"]
     assert await tickers("fb") == ["FBK"]
     assert await tickers("brk") == ["BRK-B", "BRK-A"]
-
-
-@pytest.mark.asyncio
-async def test_search_ranks_a_dotted_class_ticker_as_its_exact_match():
-    hits = await sec_edgar_service.search_company("brk.b")
-    assert [hit["ticker"] for hit in hits] == ["BRK-B"]
+    assert await tickers("brk-b") == ["BRK-B"]
+    assert await tickers("brk.b") == []  # unchanged from main: no exact or substring hit
 
 
 def test_search_route_still_returns_partial_matches(client):
