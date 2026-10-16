@@ -242,7 +242,7 @@ SECTIONS_10K = {
     "part_ii_item_8": _Section("f" * 200),
 }
 SECTIONS_10Q = {
-    "part_i_item_1": _Section("F" * 300),
+    "part_i_item_1": _Section("\n" + "F" * 300 + "  "),  # returned stripped
     "part_i_item_2": _Section("M" * 300, method=False),
     "part_ii_item_1a": _Section("  " + "R" * 199 + "  "),  # 203 raw, 199 stripped: a stub
     "part_ii_item_2": _Section(_WRONG_KEY),  # Part II Item 2 is not MD&A
@@ -251,7 +251,7 @@ SECTIONS_20F = {
     "part_i_item_3": _Section("K" * 300),
     "part_i_item_5": _Section("O" * 300),
     "part_iii_item_18": _Section("S" * 150),  # stub: falls through to the next candidate
-    "part_iii_item_17": _Section("E" * 300),
+    "part_iii_item_17": _Section(" " + "E" * 300 + "\n"),  # returned stripped
     "part_i_item_8": _Section("G" * 300),  # a later candidate is never read once one wins
 }
 SECTIONS_STUBS = {"part_i_item_1a": _Section("r" * 199), "part_ii_item_7": _Section(""),
@@ -374,6 +374,8 @@ async def test_x0_2_parser_failure_is_a_missing_section(parser, filing_type, exp
     parser.index_items = {"7": "<p>" + "Cross reference MD&amp;A. " * 20 + "</p>"}
 
     assert await EdgarXBRLService().get_filing_sections(ACC, filing_type, html=HTML) == expected
+    # All three 10-K items reach the index, which is still built only once.
+    assert parser.index_built == (1 if filing_type == "10-K" else 0)
 
 
 @pytest.mark.asyncio

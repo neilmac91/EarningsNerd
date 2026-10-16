@@ -307,7 +307,9 @@ async def test_summary_disconnect_joins_actual_worker_before_releasing_leadershi
             assert await asyncio.to_thread(entered.wait, 2)
             task.cancel()
             await asyncio.wait_for(draining.wait(), 2)
-            assert not task.done(), "the request ended while its actual worker was still running"
+            # Cleanup that skipped the thread would finish within a few loop turns; give it time.
+            done, _ = await asyncio.wait({task}, timeout=0.3)
+            assert not done, "the request ended while its actual worker was still running"
             assert not closed.is_set()
             finish.set()
             with pytest.raises(asyncio.CancelledError):
@@ -375,7 +377,9 @@ async def test_summary_disconnect_joins_the_section_parse_worker_before_releasin
             assert parsed == [(document_text, "10-K")]
             task.cancel()
             await asyncio.wait_for(draining.wait(), 2)
-            assert not task.done(), "the request ended while its section parse was still running"
+            # Cleanup that skipped the thread would finish within a few loop turns; give it time.
+            done, _ = await asyncio.wait({task}, timeout=0.3)
+            assert not done, "the request ended while its section parse was still running"
             assert not closed.is_set()
             finish.set()
             with pytest.raises(asyncio.CancelledError):

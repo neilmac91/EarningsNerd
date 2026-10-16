@@ -214,6 +214,28 @@ async def test_edgartools_sections_reach_the_excerpt_builder_inside_extract_exce
     assert filing_id not in summary_pipeline._inflight_generations
 
 
+@pytest.mark.asyncio
+async def test_sections_flag_off_skips_the_parse_and_builds_the_regex_excerpt():
+    """With ``USE_EDGARTOOLS_SECTIONS`` off a 10-K never awaits the section parse: the excerpt builder
+    runs on the fetched document with ``sections=None``."""
+    filing_id = seed_company_filing()
+    get_sections = AsyncMock(return_value=deepcopy(SECTIONS))
+    excerpt = MagicMock(return_value="EXCERPT")
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
+            patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", False), \
+            patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
+            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", get_sections), \
+            patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt):
+        events = await _drain(filing_id)
+
+    _assert_complete(events)
+    get_sections.assert_not_awaited()
+    excerpt.assert_called_once()
+    assert excerpt.call_args.args[2] == DOC_TEXT
+    assert excerpt.call_args.kwargs == {"sections": None}
+    assert summarize.await_args.kwargs["filing_excerpt"] == "EXCERPT"
+
+
 # ------------------------------------------------------------ B5: a non-XBRL form (8-K) skips enrichment
 
 @pytest.mark.asyncio
