@@ -35,7 +35,9 @@ page's holds three, the header's, the panel's and the footer line's. Around them
   it sits on every mail, the earnings-day alert among them, whose report dates come from a provider (D-043);
 - pads no table through its ``style`` attribute (the shell has no ``<style>`` block), since classic
   Outlook ignores a table's padding and the body would sit against the panel's border, out of line with
-  the header.
+  the header;
+- writes every colour as a design token's, six-digit hex (``DESIGN.md``'s frontmatter): the panel's border
+  and the rows' rules are ``border-light``, the header's hairlines' grey.
 
 ``tests/support/mail_styles.py`` models how Blink and WebKit read a page's inline styles, and its header
 names what the model leaves out. The planted pages below score it, as edits of a frozen copy of the shell, and
@@ -57,6 +59,7 @@ from tests.support.mail_styles import (
     lent_runs,
     long_run_problems,
     long_runs,
+    colour_problems,
     outlook_width_problems,
     reach_problems,
     text_size_problems,
@@ -172,7 +175,7 @@ def test_the_header_and_footer_line_are_the_templates(monkeypatch):
     assert cells[2] == footer_line, (
         "the mail's footer line is no longer the template's (docs/brand/templates/email-header.html): change both"
     )
-    assert any(token.startswith("<table") and "border:1px solid #E5E1D8" in token for token in cells[1]), (
+    assert any(token.startswith("<table") and "border:1px solid #E5E7EB" in token for token in cells[1]), (
         "the panel sits between the header and the footer line"
     )
 
@@ -195,7 +198,7 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
     page = email_service._wrap_html(body, footer=footer)
 
     tokens = _tokens(page)
-    panel = _table(tokens, next(t for t in tokens if t.startswith("<table") and "border:1px solid #E5E1D8" in t))
+    panel = _table(tokens, next(t for t in tokens if t.startswith("<table") and "border:1px solid #E5E7EB" in t))
     assert page.count(body) == 1 and body in "".join(panel), "the body sits once, in the panel"
     assert page.count(footer) == 1 and footer in "".join(panel), "the footer sits once, in the panel"
     assert "</td>" in page[page.index(body) : page.index(footer)], "the footer has a cell of its own, after the body's"
@@ -440,6 +443,9 @@ LONG_RUNS = [
     ("a run across an image its align floats right", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" align="right">{_UNDER}</p>'),), _NOWHERE),
     ("a run across an image whose align is written in capitals, which HTML reads in any case", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" align="LEFT">{_UNDER}</p>'),), _NOWHERE),
     ("a run across an object's fallback text after a param", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<object width="8" height="8"><param name="a" value="b">{_UNDER}</object></p>'),), _NOWHERE),
+    ("a run across an object's fallback set display:inline, which lays its fallback out in the line", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<object width="8" height="8" style="display:inline;">{_UNDER}</object></p>'),), _NOWHERE),
+    ("a run across an embed with no source set display:inline, which lays out nothing", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<embed style="display:inline;">{_UNDER}</p>'),), _NOWHERE),
+    ("a run across a wbr set display:contents, which computes to none", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<wbr style="display:contents;">{_UNDER}</p>'),), _NOWHERE),
     # Pass.
     ("the line as the mails write it", (), None),
     ("overflow-wrap:anywhere alone", ((_BREAK, "overflow-wrap:anywhere;"),), None),
@@ -483,6 +489,13 @@ LONG_RUNS = [
     ("two stretches either side of an image set display:inline, which is placed whole", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" style="display:inline;">{_UNDER}</p>'),), None),
     ("two stretches either side of a button set display:inline, which is placed whole", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<button style="display:inline;">b</button>{_UNDER}</p>'),), None),
     ("two stretches either side of an image whose float:revert-layer finds no align, which stays in the line", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" style="float:revert-layer;">{_UNDER}</p>'),), None),
+    ("two stretches either side of an object whose fallback is set display:block, which ends the line", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<object width="8" height="8" style="display:block;">y</object>{_UNDER}</p>'),), None),
+    ("a stretch beside a select set display:contents, which computes to none", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<select style="display:contents;"><option>{_UNDER}</option></select></p>'),), None),
+    ("a stretch beside a text area set display:contents, which computes to none", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<textarea style="display:contents;">{_UNDER}</textarea></p>'),), None),
+    ("a stretch beside a meter set display:contents, which computes to none", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<meter value="0.5" style="display:contents;">{_UNDER}</meter></p>'),), None),
+    ("a stretch beside a progress bar set display:contents, which computes to none", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<progress value="0.5" style="display:contents;">{_UNDER}</progress></p>'),), None),
+    ("a stretch beside an audio with controls set display:contents, which computes to none", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<audio controls style="display:contents;">{_UNDER}</audio></p>'),), None),
+    ("a stretch beside a math element set display:contents, which computes to none", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<math style="display:contents;"><mi>{_UNDER}</mi></math></p>'),), None),
 ]
 
 
@@ -666,7 +679,7 @@ WIDTHS = [
     ("a field of a type HTML does not know, a text field", ((_BODY_LINE, '<input type="bogus" style="width:230px;">' + _BODY_LINE),), _TOO_WIDE),
     ("a date field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="date" style="width:226px;">' + _BODY_LINE),), _TOO_WIDE),
     ("a text area a pixel past the column with its own border and padding", ((_BODY_LINE, '<textarea style="width:225px;"></textarea>' + _BODY_LINE),), _TOO_WIDE),
-    ("a range slider as wide as the column, which its own side margins widen", ((_BODY_LINE, '<input type="range" style="width:230px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a range slider a pixel past the column with its own side margins", ((_BODY_LINE, '<input type="range" style="width:227px;">' + _BODY_LINE),), _TOO_WIDE),
     ("a checkbox a pixel past the column with its own side margins, 4 px and 3 px", ((_BODY_LINE, '<input type="checkbox" style="width:224px;">' + _BODY_LINE),), _TOO_WIDE),
     ("an input drawn as an image 300 px wide", ((_BODY_LINE, f'<input type="image" {_IMAGE} width="300">' + _BODY_LINE),), _TOO_WIDE),
     ("an input drawn as an image with no width, at its natural size", ((_BODY_LINE, f'<input type="image" {_IMAGE}>' + _BODY_LINE),), _NATURAL),
@@ -701,7 +714,53 @@ WIDTHS = [
     ("an object that holds whitespace alone, which is no fallback", ((_BODY_LINE, '<object width="300" height="10">\n  \n</object>' + _BODY_LINE),), _TOO_WIDE),
     ("an image in a legend, past its own padding", ((_BODY_LINE, f'<fieldset><legend><img {_IMAGE} width="196"></legend></fieldset>' + _BODY_LINE),), _TOO_WIDE),
     ("two cells across two columns each, overlapping, padded 78 px a side, which their three columns share alike", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 78px;"></td><td></td></tr><tr><td></td><td colspan="2" style="padding:0 78px;"></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
-    ("a fixed table layout's row below a cell that spans the rest of its section (rowspan 0)", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td rowspan="0">a</td><td width="50">b</td></tr><tr><td><img {_IMAGE} width="100"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's third row below a cell that spans the rest of its section (rowspan 0)", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td rowspan="0">a</td><td width="50">b</td></tr><tr><td>c</td></tr><tr><td><img {_IMAGE} width="100"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("two cells across two columns each, overlapping, padded 76 px a side, whose excess the check counts in full, where Chromium shares their middle column", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 76px;"></td><td></td></tr><tr><td></td><td colspan="2" style="padding:0 76px;"></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("two cells across two columns each, overlapping, padded 60 px a side, beside a column of wrapping text, which takes one's excess whole", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 60px;"></td><td></td></tr><tr><td></td><td colspan="2" style="padding:0 60px;"></td></tr><tr><td>{"a " * 59}a</td><td></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a cell across the last two columns above one across the first two, which Chromium widens column by column", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td></td><td colspan="2" style="padding:0 100px;"></td></tr><tr><td colspan="2" style="padding:0 50px;"></td><td></td></tr><tr><td></td><td></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("an SVG 30em wide, a length its font sets, as CSS reads an SVG's width", ((_BODY_LINE, '<svg width="30em" height="10"></svg>' + _BODY_LINE),), _NOT_RESOLVED),
+    ("an SVG 3in wide, 288 px, as CSS reads an SVG's width", ((_BODY_LINE, '<svg width="3in" height="10"></svg>' + _BODY_LINE),), _TOO_WIDE),
+    ("an SVG 2.5e2 wide, 250 px, as CSS reads a number", ((_BODY_LINE, '<svg width="2.5e2" height="10"></svg>' + _BODY_LINE),), _TOO_WIDE),
+    ("an SVG 100vw wide, a length the screen sets", ((_BODY_LINE, '<svg width="100vw" height="10"></svg>' + _BODY_LINE),), _NOT_RESOLVED),
+    ("a fixed table layout's cell across two columns in percent, which splits over them, beside an image past the third", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="10" style="table-layout:fixed;"><tr><td colspan="2" width="50%">a</td><td><img {_IMAGE} width="96"></td></tr><tr><td>d</td><td>e</td><td>f</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("two columns whose min-widths, 116 px each, pass the table together", ((_BODY_LINE, f'{_BARE_TABLE}><col style="min-width:116px;"><col style="min-width:116px;"><tr><td></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a fixed table layout's two columns whose min-widths, 120 px each, pass the table together", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="min-width:120px;"><col style="min-width:120px;"><tr><td></td><td></td></tr></table>' + _BODY_LINE),), _FIXED),
+    ("a column's min-width beside a cell padded 60 px a side", ((_BODY_LINE, f'{_BARE_TABLE}><col style="min-width:120px;"><col><tr><td></td><td style="padding:0 60px;"></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a submit input set content-box, past the column with its own padding and border", ((_BODY_LINE, '<input type="submit" value="Go" style="box-sizing:content-box;width:215px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a reset input set content-box, its own padding and border", ((_BODY_LINE, '<input type="reset" value="Go" style="box-sizing:content-box;width:215px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a button input set content-box, its own padding and border", ((_BODY_LINE, '<input type="button" value="Go" style="box-sizing:content-box;width:215px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a colour well set content-box, its own padding and border", ((_BODY_LINE, '<input type="color" style="box-sizing:content-box;width:225px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a select set content-box, its own border", ((_BODY_LINE, '<select style="box-sizing:content-box;width:229px;"><option>x</option></select>' + _BODY_LINE),), _TOO_WIDE),
+    ("a button set content-box, its own padding and border", ((_BODY_LINE, '<button style="box-sizing:content-box;width:215px;">x</button>' + _BODY_LINE),), _TOO_WIDE),
+    ("a block hidden until found, which Chromium lays out", ((_BODY_LINE, '<div hidden="until-found" style="width:400px;"></div>' + _BODY_LINE),), _TOO_WIDE),
+    ("a table hidden until found, laid out", ((_BODY_LINE, '<table hidden="until-found" width="400"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a block hidden UNTIL-FOUND, which HTML reads in any case", ((_BODY_LINE, '<div hidden="UNTIL-FOUND" style="width:400px;"></div>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's column whose min-width holds the table, not its share, past its image", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="min-width:150px;"><col><tr><td><img {_IMAGE} width="120"></td><td></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a column spanning two whose min-width holds each, past the table together", ((_BODY_LINE, f'{_BARE_TABLE}><col span="2" style="min-width:116px;"><tr><td></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a hidden embed given a width in its style, which Chromium lays out", ((_BODY_LINE, '<embed hidden src="https://e.test/x.png" type="image/png" style="width:400px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a text field set display:table-row, still one box", ((_BODY_LINE, '<input style="display:table-row;width:300px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a select set display:table-row-group, one box", ((_BODY_LINE, '<select style="display:table-row-group;width:300px;"><option>x</option></select>' + _BODY_LINE),), _TOO_WIDE),
+    ("a text area set display:table-header-group, one box", ((_BODY_LINE, '<textarea style="display:table-header-group;width:300px;"></textarea>' + _BODY_LINE),), _TOO_WIDE),
+    ("a meter set display:table-footer-group, one box", ((_BODY_LINE, '<meter value="0.5" style="display:table-footer-group;width:300px;"></meter>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's row below a cell across two columns and two rows, which keeps both columns", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td colspan="2" rowspan="2">a</td><td width="30">b</td></tr><tr><td><img {_IMAGE} width="50"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's column beside a cell across two, past the rest", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="10" style="table-layout:fixed;"><tr><td colspan="2" width="100">a</td><td><img {_IMAGE} width="105"></td></tr><tr><td>d</td><td>e</td><td>f</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's column set to 0, which Chromium keeps", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="0"><col><tr><td><img {_IMAGE} width="50"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's column over its first row's cell, which the column's width sets", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="200"><col><tr><td width="50">a</td><td><img {_IMAGE} width="100"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's second footer, laid out where it is written, its row setting 300 px", ((_BODY_LINE, f'{_FIXED_TABLE}><tfoot><tr><td>f1</td></tr></tfoot><tfoot><tr><td width="300">f2</td></tr></tfoot></table>' + _BODY_LINE),), _FIXED),
+    ("a fieldset set display:contents, whose content lays out in its place", ((_BODY_LINE, f'<fieldset style="display:contents;"><img {_IMAGE} width="300"></fieldset>' + _BODY_LINE),), _TOO_WIDE),
+    ("a legend set display:contents, whose content lays out in its place", ((_BODY_LINE, f'<fieldset style="margin:0;padding:0;border:0;"><legend style="display:contents;"><img {_IMAGE} width="300"></legend></fieldset>' + _BODY_LINE),), _TOO_WIDE),
+    ("a marquee set display:contents, whose content lays out in its place", ((_BODY_LINE, f'<marquee style="display:contents;"><img {_IMAGE} width="300"></marquee>' + _BODY_LINE),), _TOO_WIDE),
+    ("a button set display:contents, whose content lays out in its place", ((_BODY_LINE, f'<button style="display:contents;"><img {_IMAGE} width="300"></button>' + _BODY_LINE),), _TOO_WIDE),
+    ("an email field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="email" style="width:223px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a password field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="password" style="width:223px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a phone number field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="tel" style="width:223px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("an address field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="url" style="width:223px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a number field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="number" style="width:223px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a time field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="time" style="width:226px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a local date and time field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="datetime-local" style="width:226px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a month field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="month" style="width:226px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a week field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="week" style="width:226px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("an input drawn as an image, its type in capitals", ((_BODY_LINE, f'<input type="IMAGE" {_IMAGE} width="300">' + _BODY_LINE),), _TOO_WIDE),
     # Pass.
     ("the shell as it is built", (), None),
     ("a fixed image held to the screen by its max-width", ((_BODY_LINE, f'<img {_IMAGE} width="560" style="max-width:100%;height:auto;">' + _BODY_LINE),), None),
@@ -793,8 +852,37 @@ WIDTHS = [
     ("a cell whose style reverts its table's cellpadding, beside an empty cell", ((_BODY_LINE, f'<table width="100%" cellpadding="20" cellspacing="0"><tr><td style="padding:revert;"><img {_IMAGE} width="229"></td><td style="padding:revert;"></td></tr></table>' + _BODY_LINE),), None),
     ("a fixed table layout's hidden first row under revert-layer, which keeps it hidden", ((_BODY_LINE, f'{_FIXED_TABLE}><tr hidden style="display:revert-layer;"><td width="300">a</td></tr><tr><td>b</td></tr></table>' + _BODY_LINE),), None),
     ("a fixed table layout's column of 50 px beside one that sets none, whose image the rest holds", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="50"><col><tr><td>a</td><td><img {_IMAGE} width="150"></td></tr></table>' + _BODY_LINE),), None),
-    ("two cells across two columns each, overlapping, padded 76 px a side, which their three columns share alike", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 76px;"></td><td></td></tr><tr><td></td><td colspan="2" style="padding:0 76px;"></td></tr></table>' + _BODY_LINE),), None),
     ("two padded cells in one column, which the column holds once", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td style="padding:0 60px;">a</td><td>b</td></tr><tr><td style="padding:0 60px;">c</td><td>d</td></tr></table>' + _BODY_LINE),), None),
+    ("an SVG 2in wide, 192 px", ((_BODY_LINE, '<svg width="2in" height="10"></svg>' + _BODY_LINE),), None),
+    ("two cells across two columns each, side by side, padded 55 px a side, whose columns they share with no other", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 55px;"></td><td colspan="2" style="padding:0 55px;"></td></tr><tr><td></td><td></td><td></td><td></td></tr></table>' + _BODY_LINE),), None),
+    ("a cell across two padded 100 px a side, over a column's padded cell, whose width its excess counts on", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 100px;"></td></tr><tr><td style="padding:0 75px;"></td><td></td></tr></table>' + _BODY_LINE),), None),
+    ("a cell across two padded 90 px a side, which the spacing between its columns holds", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><tr><td colspan="2" style="padding:0 90px;"></td></tr><tr><td></td><td></td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's padded cell across two columns in percent, whose padding the split leaves out", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td colspan="2" width="50%" style="padding:0 30px;">a</td><td><img {_IMAGE} width="115"></td></tr><tr><td>d</td><td>e</td><td>f</td></tr></table>' + _BODY_LINE),), None),
+    ("two columns whose min-widths, 115 px each, fit the table together", ((_BODY_LINE, f'{_BARE_TABLE}><col style="min-width:115px;"><col style="min-width:115px;"><tr><td></td><td></td></tr></table>' + _BODY_LINE),), None),
+    ("a submit input set content-box that fits with its own padding and border", ((_BODY_LINE, '<input type="submit" value="Go" style="box-sizing:content-box;width:214px;">' + _BODY_LINE),), None),
+    ("a button set content-box that fits with its own padding and border", ((_BODY_LINE, '<button style="box-sizing:content-box;width:214px;">x</button>' + _BODY_LINE),), None),
+    ("a hidden embed with no width, which its own style sheet sets to 0", ((_BODY_LINE, '<embed hidden src="https://e.test/x.png" type="image/png">' + _BODY_LINE),), None),
+    ("a block whose hidden attribute names until-found after a space, which hides it", ((_BODY_LINE, '<div hidden=" until-found" style="width:400px;"></div>' + _BODY_LINE),), None),
+    ("a fixed table layout's first-row cell whose width holds its padding, beside an image that fits", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="100" style="box-sizing:border-box;padding:0 40px;">a</td><td><img {_IMAGE} width="125"></td></tr></table>' + _BODY_LINE),), None),
+    ("a span whose float is reverted, which sets it no width", ((_BODY_LINE, '<span style="float:revert;width:400px;">x</span>' + _BODY_LINE),), None),
+    ("a fixed table layout's next body below a cell that spans two rows, which the span stops short of", ((_BODY_LINE, f'{_FIXED_TABLE}><tbody><tr><td rowspan="2">a</td><td width="50">b</td></tr></tbody><tbody><tr><td><img {_IMAGE} width="100"></td></tr></tbody></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's cell across two columns, which holds the spacing between them", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="10" style="table-layout:fixed;"><tr><td colspan="2" width="100"><img {_IMAGE} width="100"></td><td>c</td></tr><tr><td>d</td><td>e</td><td>f</td></tr></table>' + _BODY_LINE),), None),
+    ("a table set 0 wide, which sets none", ((_BODY_LINE, f'<table width="0" cellpadding="0" cellspacing="0"><tr><td><img {_IMAGE} width="200"></td></tr></table>' + _BODY_LINE),), None),
+    ("a header cell set 0 wide, which sets none", ((_BODY_LINE, f'{_BARE_TABLE}><tr><th width="0"><img {_IMAGE} width="200"></th></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column group in a relative length, which Chromium ignores", ((_BODY_LINE, f'{_FIXED_TABLE}><colgroup width="3*"></colgroup><col><tr><td><img {_IMAGE} width="100"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("an image in a legend that fits within its own padding", ((_BODY_LINE, f'<fieldset><legend><img {_IMAGE} width="194"></legend></fieldset>' + _BODY_LINE),), None),
+    ("an image set display:contents, which computes to none", ((_BODY_LINE, f'<img {_IMAGE} width="600" style="display:contents;">' + _BODY_LINE),), None),
+    ("a video set display:contents, none", ((_BODY_LINE, '<video width="600" style="display:contents;"></video>' + _BODY_LINE),), None),
+    ("a frame set display:contents, none", ((_BODY_LINE, '<iframe width="600" style="display:contents;"></iframe>' + _BODY_LINE),), None),
+    ("a canvas set display:contents, none", ((_BODY_LINE, '<canvas width="600" style="display:contents;"></canvas>' + _BODY_LINE),), None),
+    ("an SVG set display:contents, none", ((_BODY_LINE, '<svg width="600" height="10" style="display:contents;"></svg>' + _BODY_LINE),), None),
+    ("an object that may load, set display:contents, none", ((_BODY_LINE, f'<object {_PNG} width="600" style="display:contents;"></object>' + _BODY_LINE),), None),
+    ("an embed set display:contents, none", ((_BODY_LINE, '<embed src="https://e.test/x.png" type="image/png" width="600" style="display:contents;">' + _BODY_LINE),), None),
+    ("a file input that fits with no border or padding of its own", ((_BODY_LINE, '<input type="file" style="width:228px;">' + _BODY_LINE),), None),
+    ("a time field that fits with its own border and padding", ((_BODY_LINE, '<input type="time" style="width:225px;">' + _BODY_LINE),), None),
+    ("a local date and time field that fits with its own border and padding", ((_BODY_LINE, '<input type="datetime-local" style="width:225px;">' + _BODY_LINE),), None),
+    ("a month field that fits with its own border and padding", ((_BODY_LINE, '<input type="month" style="width:225px;">' + _BODY_LINE),), None),
+    ("a week field that fits with its own border and padding", ((_BODY_LINE, '<input type="week" style="width:225px;">' + _BODY_LINE),), None),
 ]
 
 
@@ -853,6 +941,53 @@ def test_the_viewport_check_scores_every_planted_page(edits, shells):
     assert (sets == [_DEVICE_WIDTH]) is shells, f"expected {'the shell viewport alone' if shells else 'another'}, got {sets}"
 
 
+_PANEL_BORDER = "border:1px solid #E5E7EB;border-radius:16px"
+_NO_TOKEN = "no design token's colour"
+# Each way a page can write a colour no design token holds, and the look-alikes that write a token's.
+COLOURS = [
+    # Flagged.
+    ("the panel's border in main's grey, which no token holds", ((_PANEL_BORDER, _PANEL_BORDER.replace("#E5E7EB", "#E5E1D8")),), "border is #E5E1D8"),
+    ("a body line in a named colour", ((_BODY_LINE, '<p style="color:red;">x</p>' + _BODY_LINE),), "color is red"),
+    ("a body line in a short hex", ((_BODY_LINE, '<p style="color:#fff;">x</p>' + _BODY_LINE),), "color is #fff"),
+    ("a token's colour written as rgb()", ((_BODY_LINE, '<p style="color:rgb(26,26,23);">x</p>' + _BODY_LINE),), "color is rgb(26,26,23)"),
+    ("a gradient's stop no token holds", ((_BODY_LINE, '<p style="background:linear-gradient(#F4F3EE,#000000);">x</p>' + _BODY_LINE),), "background is #000000"),
+    ("a shadow's colour, read whatever the property", ((_BODY_LINE, '<p style="box-shadow:0 0 2px #123456;">x</p>' + _BODY_LINE),), "box-shadow is #123456"),
+    ("a cell's bgcolor no token holds", ((_BODY_LINE, '<table><tr><td bgcolor="#FFFFFE">x</td></tr></table>' + _BODY_LINE),), "bgcolor is '#FFFFFE'"),
+    ("a bgcolor in a word, which HTML turns into a colour", ((_BODY_LINE, '<table><tr><td bgcolor="sage">x</td></tr></table>' + _BODY_LINE),), "bgcolor is 'sage'"),
+    ("a font's color attribute no token holds", ((_BODY_LINE, '<font color="#123456">x</font>' + _BODY_LINE),), "color is '#123456'"),
+    ("a colour in Outlook's view alone", ((_BODY_LINE, '<!--[if mso]><p style="color:#000000;">x</p><![endif]-->' + _BODY_LINE),), "color is #000000"),
+    ("a colour mixed from two tokens' colours, which no token holds", ((_BODY_LINE, '<p style="color:color-mix(in srgb,#3C6650 50%,#FFFFFF);">x</p>' + _BODY_LINE),), "color is color-mix("),
+    ("a token's colour made translucent", ((_BODY_LINE, '<p style="color:rgb(from #3C6650 r g b / 50%);">x</p>' + _BODY_LINE),), "color is rgb(from"),
+    ("light-dark()'s dark colour no token holds", ((_BODY_LINE, '<p style="color:light-dark(#1A1A17,#123456);">x</p>' + _BODY_LINE),), "color is #123456"),
+    ("a body's text colour no token holds", (("<body", '<body text="#123456"'),), "text is '#123456'"),
+    ("a body's link colour no token holds", (("<body", '<body link="#123456"'),), "link is '#123456'"),
+    ("a body's visited-link colour no token holds", (("<body", '<body vlink="#123456"'),), "vlink is '#123456'"),
+    ("a body's active-link colour no token holds", (("<body", '<body alink="#123456"'),), "alink is '#123456'"),
+    ("a table's border colour no token holds", ((_BODY_LINE, '<table bordercolor="#123456"><tr><td>x</td></tr></table>' + _BODY_LINE),), "bordercolor is '#123456'"),
+    # Pass.
+    ("the shell as it is built", (), None),
+    ("a body line in a token's colour", ((_BODY_LINE, '<p style="color:#3C6650;">x</p>' + _BODY_LINE),), None),
+    ("a token's colour in small letters", ((_BODY_LINE, '<p style="color:#3c6650;">x</p>' + _BODY_LINE),), None),
+    ("a colour in a comment, which no client reads", ((_BODY_LINE, '<!-- color:#123456 -->' + _BODY_LINE),), None),
+    ("a colour in text, which is no style", ((_BODY_LINE, '<p>#123456 is a hex code.</p>' + _BODY_LINE),), None),
+    ("a border with no colour", ((_BODY_LINE, '<p style="border:0;">x</p>' + _BODY_LINE),), None),
+    ("no colour of its own, in a word: none, and the text's", ((_BODY_LINE, '<p style="background:transparent;border:1px solid currentcolor;">x</p>' + _BODY_LINE),), None),
+    ("a bgcolor of transparent, which sets none", ((_BODY_LINE, '<table><tr><td bgcolor="transparent">x</td></tr></table>' + _BODY_LINE),), None),
+    ("a bgcolor of a token's colour in small letters, spaces around it", ((_BODY_LINE, '<table><tr><td bgcolor=" #fbfaf6 ">x</td></tr></table>' + _BODY_LINE),), None),
+    ("fonts named like colours", ((_BODY_LINE, '<p style="font:16px Gold,serif;font-family:Red Hat Text,sans-serif;">x</p>' + _BODY_LINE),), None),
+    ("light-dark() of two tokens' colours", ((_BODY_LINE, '<p style="color:light-dark(#1A1A17,#D7DADC);">x</p>' + _BODY_LINE),), None),
+]
+
+
+@pytest.mark.parametrize("edits, expected", [case[1:] for case in COLOURS], ids=[case[0] for case in COLOURS])
+def test_the_colour_check_scores_every_planted_page(edits, expected):
+    problems = colour_problems(_scored(_planted(_WIDTH_BODY), edits))
+    if expected is None:
+        assert not problems, problems
+    else:
+        assert any(expected in problem and _NO_TOKEN in problem for problem in problems), f"expected {expected!r}, got {problems}"
+
+
 def test_the_planted_lists_keep_their_counts():
     """Each list's pages that must fail and that must pass. Equalities, not floors, so a page dropped after one
     is added still fails (lessons/test-allowlist-caps-are-equalities.md): change a count in the diff that adds or
@@ -864,15 +999,17 @@ def test_the_planted_lists_keep_their_counts():
         "LENDS": (sum(c[-1] is True for c in LENDS), sum(c[-1] is False for c in LENDS)),
         "REACHES": (sum(c[-1] is True for c in REACHES), sum(c[-1] is False for c in REACHES)),
         "VIEWPORTS": (sum(c[-1] is False for c in VIEWPORTS), sum(c[-1] is True for c in VIEWPORTS)),
+        "COLOURS": (sum(isinstance(c[-1], str) for c in COLOURS), sum(c[-1] is None for c in COLOURS)),
     }
     assert counts == {
         "TEXT_SIZES": (40, 20),
-        "LONG_RUNS": (88, 43),
-        "WIDTHS": (147, 92),
+        "LONG_RUNS": (91, 50),
+        "WIDTHS": (193, 121),
         "LENDS": (6, 4),
         "REACHES": (6, 4),
         "VIEWPORTS": (3, 3),
+        "COLOURS": (18, 11),
     }, "a planted page was added or dropped: keep these counts equal to the lists in the same diff"
-    for name, cases in (("TEXT_SIZES", TEXT_SIZES), ("LONG_RUNS", LONG_RUNS), ("WIDTHS", WIDTHS), ("LENDS", LENDS), ("REACHES", REACHES), ("VIEWPORTS", VIEWPORTS)):
+    for name, cases in (("TEXT_SIZES", TEXT_SIZES), ("LONG_RUNS", LONG_RUNS), ("WIDTHS", WIDTHS), ("LENDS", LENDS), ("REACHES", REACHES), ("VIEWPORTS", VIEWPORTS), ("COLOURS", COLOURS)):
         labels = [case[0] for case in cases]
         assert len(set(labels)) == len(labels), f"each page {name} plants has a name of its own"

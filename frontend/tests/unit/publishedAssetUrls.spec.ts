@@ -383,14 +383,17 @@ describe('the register', () => {
     ['Object.defineProperty onto the metadata', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nObject.defineProperty(metadata, 'metadataBase', { value: new URL('https://earningsnerd.io') })", ['https://www.earningsnerd.io', '']],
     ['the metadata handed to a function', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\ndecorate(metadata)", ['https://www.earningsnerd.io', '']],
     ['a key named metadata on another object, which is no mention', "export const config = { metadata: true }\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nconfig.metadata = false", ['https://www.earningsnerd.io']],
+    ['a numeric key beside metadataBase, which names another property', "export const metadata: Metadata = {\n  0: 'x',\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a computed key in a template with no fields', "export const metadata: Metadata = {\n  [`metadataBase`]: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
   ]
   for (const [what, source, expected] of LAYOUTS) {
     it(`reads a planted layout's metadataBase: ${what}`, () => {
       expect(metadataBases(source)).toEqual(expected)
     })
   }
-  it('keeps every planted layout', () => {
-    expect(LAYOUTS.length, 'a planted layout leaves this list only with its count').toBe(25)
+  it('keeps every planted layout, each with a name of its own', () => {
+    expect(LAYOUTS.length, 'a planted layout leaves this list only with its count').toBe(27)
+    expect(new Set(LAYOUTS.map(([what]) => what)).size, 'each planted layout has a name of its own').toBe(LAYOUTS.length)
   })
 })
 

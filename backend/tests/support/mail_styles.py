@@ -13,7 +13,14 @@
   parent gives it on that phone;
 - ``outlook_width_problems``: classic Outlook, which reads no ``max-width``, holds each column capped at
   600 px at 600 px, through a table only its conditional comments show;
-- ``viewports``: the viewports a page sets, wherever it sets them.
+- ``viewports``: the viewports a page sets, wherever it sets them;
+- ``colour_problems``: every colour a page writes, in a style's declarations or an attribute HTML maps to a
+  colour, in its own view and in classic Outlook's, is a design token's (``DESIGN.md``'s frontmatter, which
+  ``frontend/tests/unit/designSnapshotParity.spec.ts`` holds to the frontend's token sources), written as
+  six-digit hex, as the mail module writes every colour: a name, a colour function (``rgb()``, ``color-mix()``),
+  a short hex or a hex no token holds fails. ``transparent`` and ``currentcolor`` write no colour of their own,
+  and a font's name is none. Unread: a ``<style>`` block, which the other rules refuse, a system colour
+  (``CanvasText``) and an SVG's presentation attributes (``fill``).
 
 A page is read as a browser builds it, by ``tinyhtml5``, the WHATWG tree builder (``requirements.in``): an
 end tag a browser implies is implied, a ``/>`` on an element that is not void is ignored, the first of two
@@ -83,47 +90,55 @@ object's border from its ``border``, each a whole number, so ``5%`` is 5 px, and
 embed's margins from its ``hspace``, a length in px or a percentage of the room (an iframe's sets none); else as a
 browser's own style sheet does: a body's 8 px margins, a list's 40 px indent, a blockquote's and a figure's 40 px
 margins, a checkbox's and a radio button's side margins, an iframe's 2 px border, a table's 2 px spacing, a text
-field's 2 px border and 2 px padding (a date or a time field's 1 px), a text area's 1 px border and 2 px padding,
-a range slider's 2 px margins and a legend's 2 px padding, an input of a type HTML does not know being a text
-field (measured in Chromium 141). ``revert`` drops the attributes' values and ``revert-layer`` keeps them
+field's 2 px border and 2 px padding (a date or a time field's 1 px at its start), a text area's 1 px border and 2
+px padding, a range slider's 2 px margins and a legend's 2 px padding, an input of a type HTML does not know being
+a text field (measured in Chromium 141). ``revert`` drops the attributes' values and ``revert-layer`` keeps them
 (measured in Chromium 141). The shell's own boxes leave a body ``WIDEST_FIXED``. A box's width is its ``width`` in
 its ``style``, else its ``width`` attribute where HTML maps one (a table's, a cell's, a column's, a rule's, an
-image's, an ``<svg>``'s, an input drawn as an image's or another replaced element's): a number is pixels, a number
-then ``%`` a percentage of the room, save that a table's or a cell's zero sets none (HTML's nonzero dimension),
-nor does a column's relative length such as ``3*`` (measured in Chromium 141). A table, a button, a select, a
-meter, a progress and an input drawn as a button, a box, a colour well or a search field count their border and
-padding in their width, as a browser's own style sheet sets them; another box, a ``<div>`` set ``display:table``
-among them, adds them. A box set wider than its room fails, whether a fixed width, a percentage over 100% or a
-``min-width`` sets it, and so do margins, borders and padding that leave a box's content no room. A ``max-width``
-in pixels caps a width; one in percent holds an image or another replaced element alone, since in a table's cell
-it does not hold the box's own content (CSS Sizing 3, its cyclic percentages). An image or another replaced
-element with no width shows at its natural size, which the reader does not know, so it fails unless a
-``max-width`` holds it, and then it may show as wide as that, with its margins, borders and padding added. An
-``<object>`` whose ``data`` or ``type`` asks for content is held as a replaced element even where it holds
-fallback, since the content may load. A width set by the font or the screen, such as ``em`` or ``vw``, by the
-parent (``inherit``), or by the content (``max-content``) is refused rather than guessed, and so is a margin, a
-padding or a table's spacing set that way. An inline element's box takes no width, save an image, another replaced
-element or a form control, which a browser places whole, as one box, whatever display a page gives it.
+image's, an input drawn as an image's or another replaced element's): a number is pixels, a number then ``%`` a
+percentage of the room, save that a table's or a cell's zero sets none (HTML's nonzero dimension), nor does a
+column's relative length such as ``3*``. An ``<svg>``'s is a presentation attribute, which CSS reads as it reads
+``width``, a number with no unit being px, so ``30em`` is a length the font sets (measured in Chromium 141). A
+table, a button, a select, a meter, a progress and an input drawn as a button, a box, a colour well or a search
+field count their border and padding in their width, as a browser's own style sheet sets them; another box, a
+``<div>`` set ``display:table`` among them, adds them, and so does one of those a page sets ``content-box``: a
+button's and a button input's 6 px padding and 2 px border, a colour well's 2 px padding and 1 px border and a
+select's 1 px border (measured in Chromium 141). A box set wider than its room fails, whether a fixed width, a
+percentage over 100% or a ``min-width`` sets it, and so do margins, borders and padding that leave a box's content
+no room. A ``max-width`` in pixels caps a width; one in percent holds an image or another replaced element alone,
+since in a table's cell it does not hold the box's own content (CSS Sizing 3, its cyclic percentages). An image or
+another replaced element with no width shows at its natural size, which the reader does not know, so it fails
+unless a ``max-width`` holds it, and then it may show as wide as that, with its margins, borders and padding
+added. An ``<object>`` whose ``data`` or ``type`` asks for content is held as a replaced element even where it
+holds fallback, since the content may load. A width set by the font or the screen, such as ``em`` or ``vw``, by
+the parent (``inherit``), or by the content (``max-content``) is refused rather than guessed, and so is a margin,
+a padding or a table's spacing set that way. An inline element's box takes no width, save an image, another
+replaced element or a form control, which a browser places whole, as one box, whatever display a page gives it, a
+table's or a table part's among them.
 
 A table's cells and columns are read as its layout reads them, without the rows, sections, cells and columns the
 page hides: its first header group (a ``<thead>``, or a section its display makes one) first and its first footer
 group last, wherever the source puts them, and each row's cells after the columns a cell above still spans, within
-its section. A cell's room is its table's, less the spacing beside its columns, and a percentage is of that room.
-A lone column takes the whole table in either layout, whatever share its cell asks. In an automatic layout, where
-a cell set in px narrows, a cell set in percent takes its share, its padding and borders inside it, and its
-content is held to the share; each column is held to its widest cell's borders, padding and min-width, a cell
-across columns spreading what exceeds the columns it spans over them alike, and the columns, with the spacing
-between them, to the table's room; and a cell or a column (``<col>``) set wider than its table fails: Chromium
-squeezes it, while CSS 2.1's automatic table layout reads its width as its minimum. A column's min-width past its
-table fails in either layout. Under ``table-layout:fixed``, which needs a width, the columns keep the widths their
-``<col>`` elements set, their cells' padding inside, else the widths the first row (the first a browser lays out)
-sets, in px or in percent, each cell's padding added unless its box-sizing holds it, and a cell across columns
-giving them its width less the spacing between them; the other rows' widths go unread. Columns set in percent take
-what those set in px leave, down to none, so the columns set in px, with the spacing between them, are held to the
-table; the room left goes to the columns that set no width, alike, else to those set in px, by their widths, else
-to those set in percent; and each cell is given its columns' width. A share over 100% fails in either layout,
-though Chromium holds it to the table (measured in Chromium 141; that WebKit's table layout does the same is
-inferred).
+its section. A cell's room is its table's, less the spacing beside its columns (a cell across columns holds the
+spacing between them), and a percentage is of that room. A lone column takes the whole table in either layout,
+whatever share its cell asks. In an automatic layout, where a cell set in px narrows, a cell set in percent takes
+its share, its padding and borders inside it, and its content is held to the share; each column is held to its
+widest lone cell's borders, padding and min-width and to its ``<col>``'s min-width, and a cell across columns adds
+what its own exceed the columns it spans. Chromium spreads that excess over the columns by their content, which
+the reader does not measure, so each counts in full: exact where cells across columns share no column, and never
+short of Chromium where they do. The columns, with the spacing between them, are held to the table's room, and a
+cell or a column (``<col>``) set wider than its table fails: Chromium squeezes it, while CSS 2.1's automatic table
+layout reads its width as its minimum. A column's min-width past its table fails in either layout, and so do the
+columns' together. Under ``table-layout:fixed``, which needs a width, the columns keep the widths their ``<col>``
+elements set, their cells' padding inside, else the widths the first row (the first a browser lays out) sets, in
+px or in percent, each cell's padding added unless its box-sizing holds it, and a cell across columns giving them
+its width less the spacing between them, save one set in percent, whose share splits over them, its padding and
+their spacing aside; the ``<col>`` elements' min-widths hold the table's least width, though not a column's share
+of it (measured in Chromium 141); and the other rows' widths go unread. Columns set in percent take what those set
+in px leave, down to none, so the columns set in px, with the spacing between them, are held to the table; the
+room left goes to the columns that set no width, alike, else to those set in px, by their widths, else to those
+set in percent; and each cell is given its columns' width. A share over 100% fails in either layout, though
+Chromium holds it to the table (measured in Chromium 141; that WebKit's table layout does the same is inferred).
 
 Outlook's view is the page as classic Outlook reads its conditional comments, as Outlook 2016 and later
 (``mso 16``) take their conditions: ``mso`` and ``vml`` true, a version compared, ``IE`` false, and ``!``,
@@ -136,11 +151,12 @@ The reader errs toward asking for the rule: it counts no break a browser may tak
 mark, or at a ``<wbr>`` under ``nowrap``, where Chromium breaks, and no width that holds a run in, such as a fixed
 table layout or a clipped box, so it may ask for the rule where a browser would fit the run; it holds a percentage
 cell's content to its share, and a cell's set in px in an automatic layout to its width, where Chromium may widen
-the column at the others' cost; it counts the spacing beside columns only a ``<col>`` defines; it reads a fixed
-layout's first-row cell's min-width and max-width as any box's, though the layout gives the cell its column; and
-it reads an object that asks for content both ways, its fallback in the line and its box held. It does not measure
-what a box's content sets, and so may pass it: a table of amounts whose columns cannot narrow, a widget's own
-width, what an automatic layout's cells hold beside one another (its columns are held to their cells' borders,
+the column at the others' cost; it counts in full the excess of each cell across columns that shares a column with
+another, where Chromium may share it; it counts the spacing beside columns only a ``<col>`` defines; it reads a
+fixed layout's first-row cell's min-width and max-width as any box's, though the layout gives the cell its column;
+and it reads an object that asks for content both ways, its fallback in the line and its box held. It does not
+measure what a box's content sets, and so may pass it: a table of amounts whose columns cannot narrow, a widget's
+own width, what an automatic layout's cells hold beside one another (its columns are held to their cells' borders,
 padding and min-widths, and each cell's content to the table's room alone), images or other boxes kept on one line
 by ``nowrap`` or ``<nobr>``, a flex row's items side by side, a box shifted by a relative offset or a transform, a
 first line set in by ``text-indent``, the padding an inline box adds to its line, and a run in a box narrower than
@@ -151,18 +167,22 @@ carries one. What the reader does not resolve, it refuses rather than guesses: a
 MathML's included, or a linked stylesheet, whose selectors it does not match, and a value one of its properties
 takes from a function, such as ``calc()`` or ``var()``. It reads no text the page does not show: what
 ``display:none`` or the ``hidden`` attribute hides (a presentational hint, which ``display:revert`` drops and
-``revert-layer`` keeps), what a browser's own style sheet hides (the head, and an input of type hidden and an
-audio without its controls, whatever display a page gives them), nor an image's ``alt``, which shows only where
-images are blocked. Text hidden another way, at ``font-size:0`` or in a box clipped to nothing, it reads as shown."""
+``revert-layer`` keeps; ``hidden="until-found"`` hides none, its box laid out and its content skipped, which the
+reader reads, and a hidden ``<embed>`` is laid out at a width of 0 unless the page sets one), what a browser's own
+style sheet hides (the head, and an input of type hidden and an audio without its controls, whatever display a
+page gives them), nor an image's ``alt``, which shows only where images are blocked. Text hidden another way, at
+``font-size:0`` or in a box clipped to nothing, it reads as shown."""
 from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, replace
+from pathlib import Path
 
 import tinycss2
 import tinyhtml5
 from tinycss2.ast import Node
+from tinycss2.color4 import parse_color
 
 # A run this long, with nowhere to break, can fill the panel's text column on the narrowest phone. In
 # Chromium's phone view at 320 px, where the mail's font stacks resolve to Inter here, the shortest runs of a
@@ -295,7 +315,7 @@ _UA_PADDING = {
     "ul": (40.0, 0.0), "ol": (40.0, 0.0), "menu": (40.0, 0.0), "dir": (40.0, 0.0), "fieldset": (12.0, 12.0), "button": (6.0, 6.0),
     "legend": (2.0, 2.0), "textarea": (2.0, 2.0),
 }
-_UA_BORDER = {"fieldset": 2.0, "button": 2.0, "hr": 1.0, "iframe": 2.0, "textarea": 1.0}
+_UA_BORDER = {"fieldset": 2.0, "button": 2.0, "hr": 1.0, "iframe": 2.0, "textarea": 1.0, "select": 1.0}
 # An input's own side margins, padding and border, by its type, as Chromium 141's style sheet sets them, where they
 # add to its width (a border-box input's hold no content the check reads): a type HTML does not know, or none, is a
 # text field.
@@ -306,8 +326,11 @@ _INPUT_TYPES = frozenset({
 _FIELDS = frozenset({"text", "search", "tel", "url", "email", "password", "number"})
 _CLOCKS = frozenset({"date", "time", "datetime-local", "month", "week"})
 _INPUT_MARGIN = {"checkbox": (4.0, 3.0), "radio": (5.0, 3.0), "range": (2.0, 2.0)}
-_INPUT_PADDING = {**dict.fromkeys(_FIELDS, (2.0, 2.0)), **dict.fromkeys(_CLOCKS, (1.0, 0.0))}
-_INPUT_BORDER = dict.fromkeys(_FIELDS | _CLOCKS, 2.0)
+_BUTTONS = frozenset({"button", "submit", "reset"})
+_INPUT_PADDING = {
+    **dict.fromkeys(_FIELDS, (2.0, 2.0)), **dict.fromkeys(_CLOCKS, (1.0, 0.0)), **dict.fromkeys(_BUTTONS, (6.0, 6.0)), "color": (2.0, 2.0),
+}
+_INPUT_BORDER = {**dict.fromkeys(_FIELDS | _CLOCKS | _BUTTONS, 2.0), "color": 1.0}
 _SPACE = " \t\n\r\f"  # HTML's whitespace, which a line of text is stripped of
 # Where a line may wrap: ASCII spaces and line breaks, and the Unicode spaces a line may break after. A form
 # feed, a no-break space, a figure space and a narrow no-break space are no such place.
@@ -540,7 +563,8 @@ def _laid_out(element: ElementTree.Element, display: str | None, reverted: bool 
     ``revert`` drops and ``revert-layer`` keeps, measured in Chromium 141)."""
     if display == "none" or _hidden_whatever_its_display(element):
         return False
-    return display is not None or not (_hidden_by_its_element(element) or (element.get("hidden") is not None and not reverted))
+    hidden = element.get("hidden") is not None and element.get("hidden").lower() != "until-found" and _local(element.tag) != "embed"
+    return display is not None or not (_hidden_by_its_element(element) or (hidden and not reverted))
 
 
 def _laid_out_alone(element: ElementTree.Element) -> bool:
@@ -581,8 +605,15 @@ def _input_type(element: ElementTree.Element) -> str:
 
 def _width_hint(element: ElementTree.Element) -> str | None:
     """The width an element's ``width`` attribute maps: a table's or a cell's ignores a zero (HTML's nonzero
-    dimension), and a column's a relative length such as ``3*`` (measured in Chromium 141)."""
+    dimension), and a column's a relative length such as ``3*`` (measured in Chromium 141). An ``<svg>``'s is a
+    presentation attribute, which CSS reads as it reads ``width``, a number with no unit being px: ``30em`` is a
+    length the font sets, where HTML reads an image's as 30 px (measured in Chromium 141)."""
     value, tag = element.get("width"), _local(element.tag)
+    if tag == "svg":
+        parts = [token for token in tinycss2.parse_component_value_list(value or "", skip_comments=True) if token.type != "whitespace"]
+        if len(parts) == 1 and parts[0].type == "number" and parts[0].value >= 0:
+            return _number(parts[0].value) + "px"
+        return _value("width", parts)
     if tag in ("col", "colgroup") and "*" in (value or ""):
         return None
     width = _attribute_width(value)
@@ -784,6 +815,7 @@ class _Page:
         self.unread: list[str] = []
         self._cell_rooms: dict[int, float] = {}  # a cell -> the room its column gives its content, where the row sets it
         self._fixed_cells: set[int] = set()  # the cells of a fixed layout, whose own widths the columns replace
+        self._span_rooms: dict[int, float] = {}  # a cell across columns -> its room, the spacing between them included
         self.headers = _header_tables(root)
         # A style block or a stylesheet applies wherever it sits, in the head or in what the page hides.
         self.stylesheets = sum(1 for element in root.iter() if isinstance(element.tag, str) and _is_stylesheet(element))
@@ -940,6 +972,7 @@ class _Page:
                 "atomic" if tag in _WIDGETS and display != "contents" and _inline(display)  # a control is one box in the line
                 else "inline" if _inline(display)
                 else "atomic" if display.startswith("inline") or display == "-webkit-inline-box"
+                else "block" if tag in _WIDGETS  # a control is one box, a table's or a table part's display aside
                 else "table" if display == "table"
                 else "part" if display in ("table-row-group", "table-header-group", "table-footer-group", "table-row")
                 else "cell" if display == "table-cell" and tag in _CELLS
@@ -960,7 +993,7 @@ class _Page:
             return state
         if kind == "part":
             return replace(state, room=parent.cell_room if parent.cell_room is not None else parent.room)
-        room = parent.cell_room if kind == "cell" and parent.cell_room is not None else parent.room
+        room = self._span_rooms.get(id(element), parent.cell_room) if kind == "cell" and parent.cell_room is not None else parent.room
         typed = _input_type(element) if tag == "input" else None
         ua_margin = _INPUT_MARGIN.get(typed, (0.0, 0.0)) if typed else _UA_MARGIN.get(tag, (0.0, 0.0))
         ua_padding = (0.0, 0.0) if kind == "cell" else _INPUT_PADDING.get(typed, (0.0, 0.0)) if typed else _UA_PADDING.get(tag, (0.0, 0.0))
@@ -979,7 +1012,9 @@ class _Page:
         extras = padding + borders
         hinted = _width_hint(element) if tag in _WIDTH_HINTED or drawn else None
         width = _won(declared, "width")
-        if width in (None, "revert-layer"):
+        if tag == "embed" and element.get("hidden") is not None and (width == "revert" or (width in (None, "revert-layer") and hinted is None)):
+            width = "0px"  # a hidden embed is laid out, its own style sheet's width 0 below the page's (HTML's rendering)
+        elif width in (None, "revert-layer"):
             width = hinted
         elif width in ("initial", "unset", "revert"):
             width = None
@@ -1108,11 +1143,14 @@ class _Page:
         ``<thead>`` or a ``<tfoot>``, or a section its display makes one), and each row's cells after the columns a
         cell above still spans. Under ``table-layout:fixed`` the columns keep the widths the ``<col>`` elements set,
         their cells' padding inside them, else the widths the first row's cells set, their padding added unless
-        their box-sizing holds it, a cell across columns giving them its width less the spacing between them, and
-        the other rows' widths go unread; those set in percent take what those set in px leave, the room left is
-        shared out, and each cell is given its columns' width. In an automatic layout a cell set in px narrows, so
-        each column is held to its widest cell's borders and padding and the columns to the table, with the
-        spacing between them, and a lone column takes the table. Returns the number of columns."""
+        their box-sizing holds it, a cell across columns giving them its width less the spacing between them (a
+        percentage's share splits over them, its padding and their spacing aside), the ``<col>`` min-widths hold
+        the table's least width, and the other rows' widths go unread; those set in percent take what those set in px
+        leave, the room left is shared out, and each cell is given its columns' width. In an automatic layout a cell
+        set in px narrows, so each column is held to its widest lone cell's borders, padding and min-width and to
+        its ``<col>``'s min-width, a cell across columns adds what its own exceed theirs, in full, and the columns
+        are held to the table, with the spacing between them; a lone column takes the table. Returns the number of
+        columns."""
         sections: list[list[ElementTree.Element]] = []
         cols: list[ElementTree.Element] = []
         parts = [part for part in _children(table) if _laid_out_alone(part)]
@@ -1127,23 +1165,14 @@ class _Page:
         groups = [part for part in parts if _local(part.tag) in ("tbody", "thead", "tfoot")]
         head = next((part for part in groups if group(part) == "table-header-group"), None)
         foot = next((part for part in groups if group(part) == "table-footer-group"), None)
-        loose: list[ElementTree.Element] | None = None  # rows straight in the table: a section of their own
+        # tinyhtml5 holds a table's rows in a <tbody> and its columns in a <colgroup>, as a browser's parser does.
         for part in [head] * (head is not None) + [part for part in parts if part is not head and part is not foot] + [foot] * (foot is not None):
             name = _local(part.tag)
-            if name == "tr":
-                if loose is None:
-                    loose = []
-                    sections.append(loose)
-                loose.append(part)
-                continue
-            loose = None
             if name in ("tbody", "thead", "tfoot"):
                 sections.append([row for row in _children(part) if _local(row.tag) == "tr" and _laid_out_alone(row)])
             elif name == "colgroup":
                 held = [col for col in _children(part) if _local(col.tag) == "col"]
                 cols += [col for col in held if _laid_out_alone(col)] if held else [part]
-            elif name == "col":
-                cols.append(part)
         saved, self.box_problems = self.box_problems, []  # a cell's refusals are noted where its own box is read
         try:
             grid = [[[self._cell(cell, content, padding, border, named) for cell in _children(row) if _local(cell.tag) in _CELLS] for row in rows] for rows in sections]
@@ -1172,18 +1201,33 @@ class _Page:
         gaps = (count + 1) * spacing
         room = max(content - gaps, 0.0)  # what the columns share, and what a percentage is of
         cells = [cell for here in placed for cell in here]
+        for (cell, span, *_), _ in cells:
+            if span > 1:
+                self._span_rooms[id(cell)] = room + (span - 1) * spacing  # a cell across columns holds the spacing between them
+        floors, at = [0.0] * count, 0  # each column's least width, as its <col> sets it, against what the columns share
+        saved, self.box_problems = self.box_problems, []  # a column's refusals are noted where the walk reads it
+        try:
+            for col in cols:
+                span, floor = _span(col.get("span")), self._least(_declarations(col.get("style"))[0], room, named)
+                for k in range(at, at + span):
+                    floors[k] = max(floors[k], floor)
+                at += span
+        finally:
+            self.box_problems = saved
         if not fixed:
             if count > 1:
-                # Each column's widest cell's borders and padding, a cell across columns spreading what its own exceed
-                # over them alike (measured in Chromium 141).
-                widest = [0.0] * count
-                for (_, span, extras, _, border_box, least), at in sorted(cells, key=lambda cell: cell[0][1]):
-                    need = max(extras, least) if border_box else extras + least  # a min-width holds the content box
-                    reach = min(span, count - at)
-                    inside = sum(widest[at : at + reach]) + (reach - 1) * spacing
-                    for k in range(at, at + reach) if need > inside else ():
-                        widest[k] += (need - inside) / reach
-                least = sum(widest) + gaps
+                # Each column holds its widest lone cell's borders, padding and min-width, and its <col>'s min-width,
+                # and a cell across columns adds what its own exceed theirs. Chromium spreads that excess over the
+                # columns by their content, which this check does not measure, so each counts in full: exact where
+                # such cells share no column, and never short of Chromium where they do (measured in Chromium 141).
+                widest, excess = list(floors), 0.0
+                for (_, span, extras, _, border_box, least), at in cells:
+                    if span == 1:
+                        widest[at] = max(widest[at], max(extras, least) if border_box else extras + least)  # a min-width holds the content box
+                for (_, span, extras, _, border_box, least), at in cells:
+                    if span > 1:
+                        excess += max((max(extras, least) if border_box else extras + least) - sum(widest[at : at + span]) - (span - 1) * spacing, 0.0)
+                least = sum(widest) + excess + gaps
                 if least > content + _SLACK:
                     self.box_problems.append(
                         f"{named}'s columns take {least:g} px across in their cells' borders, padding and min-widths alone, "
@@ -1207,18 +1251,22 @@ class _Page:
             at += span
         for (_, span, extras, width, border_box, _), at in placed[0] if placed else ():
             if (px := _as_px(width, room)) is not None:
-                box = px if border_box else px + extras  # a percentage of the room sets the cell's content, as px do
-                for k in range(at, min(at + span, count)):
+                if width.endswith("%") and span > 1:
+                    share = px / span  # a percentage across columns splits over them, its padding and their spacing aside
+                else:
+                    box = px if border_box else px + extras  # a lone cell's percentage sets its content, as px do
+                    share = max(box - (span - 1) * spacing, 0.0) / span  # less the spacing between its columns
+                for k in range(at, at + span):
                     if widths[k] is None:
-                        widths[k] = max(box - (span - 1) * spacing, 0.0) / span  # less the spacing between its columns
-                        shares[k] = width.endswith("%")
+                        widths[k], shares[k] = share, width.endswith("%")
         in_px = sum(w for w, share in zip(widths, shares) if w is not None and not share)
         in_percent = sum(w for w, share in zip(widths, shares) if w is not None and share)
         if in_percent and in_percent > room - in_px:  # columns set in percent take what those set in px leave, down to none
             scale = max(room - in_px, 0.0) / in_percent
             widths = [w * scale if share and w is not None else w for w, share in zip(widths, shares)]
             in_percent *= scale
-        total = in_px + in_percent + gaps
+        # The <col> elements' min-widths hold the table's least width, not a column's share (measured in Chromium 141).
+        total = sum(max(w or 0.0, floor) for w, floor in zip(widths, floors)) + gaps
         if total > content + _SLACK:
             self.box_problems.append(
                 f"{named}'s columns take {total:g} px across under table-layout:fixed, with the spacing between them, where it "
@@ -1463,6 +1511,62 @@ def viewports(page: str) -> list[str]:
         for element in root.iter()
         if isinstance(element.tag, str) and _local(element.tag) == "meta" and (element.get("name") or "").strip().lower() == "viewport"
     ]
+
+
+# The design tokens' colours, which a page may write: DESIGN.md's frontmatter.
+DESIGN = Path(__file__).resolve().parents[3] / "DESIGN.md"
+# The attributes HTML maps to a colour, by its rules for parsing a legacy colour value, which turn any word into one
+# save "transparent", which sets none.
+_COLOUR_ATTRIBUTES = frozenset({"bgcolor", "color", "text", "link", "vlink", "alink", "bordercolor"})
+# The words a colour may take that write no colour of their own, and the properties whose words name fonts, not
+# colours ("Red Hat Text" is no red).
+_NO_COLOUR = frozenset({"transparent", "currentcolor"})
+_FONT_NAMES = frozenset({"font", "font-family"})
+
+
+def token_colours() -> frozenset[str]:
+    """Every colour DESIGN.md's frontmatter names, as ``#RRGGBB`` in capitals."""
+    front = DESIGN.read_text(encoding="utf-8").split("---", 2)[1]
+    return frozenset(value.upper() for value in re.findall(r'"(#[0-9A-Fa-f]{6})"', front))
+
+
+def _colour_tokens(tokens) -> list[Node]:
+    """The tokens of a declaration's value that write a colour: a hex, a name, and a colour function read whole,
+    since one such as ``color-mix()`` or ``rgb(from …)`` writes a colour its arguments do not hold; and those in
+    any other function's arguments, such as a gradient's, or ``light-dark()``'s, which writes one of its two."""
+    found = []
+    for token in tokens:
+        if token.type == "ident" and token.lower_value in _NO_COLOUR:
+            continue
+        if token.type == "function" and (token.lower_name == "light-dark" or token.lower_name not in _COLOUR_FUNCTIONS):
+            found += _colour_tokens(token.arguments)
+        elif token.type == "function" or parse_color(token) is not None:
+            found.append(token)
+    return found
+
+
+def colour_problems(page: str) -> list[str]:
+    """Each colour a page writes that no design token holds, in the page's own view and in classic Outlook's."""
+    tokens, problems = token_colours(), set()
+    for view in (page, outlook_view(page)):
+        for element in tinyhtml5.parse(view, namespace_html_elements=False).iter():
+            if not isinstance(element.tag, str):
+                continue
+            named = f"<{_local(element.tag)}>"
+            for name, value in element.attrib.items():
+                value = value.strip(_SPACE)
+                if name.lower() in _COLOUR_ATTRIBUTES and value and value.lower() != "transparent" and value.upper() not in tokens:
+                    problems.add(f"{named}'s {name} is {value!r}, no design token's colour (DESIGN.md): write a token's, as six-digit hex")
+            for item in tinycss2.parse_declaration_list(element.get("style") or "", skip_comments=True, skip_whitespace=True):
+                if item.type != "declaration" or item.lower_name in _FONT_NAMES:
+                    continue
+                for token in _colour_tokens(item.value):
+                    if not (token.type == "hash" and f"#{token.value}".upper() in tokens):
+                        problems.add(
+                            f"{named}'s {item.lower_name} is {token.serialize()}, no design token's colour (DESIGN.md): write a "
+                            "token's, as six-digit hex"
+                        )
+    return sorted(problems)
 
 
 def _outlook_takes(condition: str) -> bool | None:

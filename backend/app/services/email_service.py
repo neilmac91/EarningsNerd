@@ -61,9 +61,10 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     view that ignores the viewport and fits a wider page to its screen, which no mail client is known to
     do, shows a short mail at a fraction of its size and may enlarge a long one's body past twice the
     wordmark's size. A text zoom scales every line, the header's too (the property multiplies it by one),
-    and an Android WebView sets one from the phone's font size unless its app sets its own: from 150% on
-    a 320 px screen, and 200% at 414 px, the lockup (the tile beside a one-word wordmark) then holds the
-    page wider than the screen.
+    and an Android WebView sets one from the phone's font size unless its app sets its own: from about 133%
+    on a 320 px screen, 181% at 390 px and 197% at 414 px, the lockup (the tile beside a one-word wordmark)
+    then holds the page wider than the screen (measured in Chromium, in Inter; in Arial's metrics each holds
+    2 to 4 points longer, and a phone draws the wordmark in its own sans-serif, unmeasured).
     The panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the body
     lines up under the header there too.
     """
@@ -113,7 +114,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
           <tr>
             <td align="center" style="padding:0 12px 24px 12px;">
               <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="width:100%;max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;color:#1A1A17;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="width:100%;max-width:600px;background:#FBFAF6;border:1px solid #E5E7EB;border-radius:16px;color:#1A1A17;">
                 <tr>
                   <td style="padding:32px 32px 0 32px;border-radius:15px 15px 0 0;font-size:16px;line-height:1.6;color:#1A1A17;">
                     {body}
@@ -511,7 +512,7 @@ def render_daily_digest(
     rows_html = "".join(
         f"""
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;{_BREAK_ANYWHERE}">
+          <td style="padding:10px 0;border-bottom:1px solid #E5E7EB;{_BREAK_ANYWHERE}">
             <strong>{html.escape(it['company_name'])} ({html.escape(it['ticker'])})</strong> — {html.escape(it['filing_type'])}
             <span style="color:#6B7280;white-space:nowrap;">· {html.escape(it['filing_date'])}</span>{_row_wording(it)}<br>
             <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">Read the summary →</a>
@@ -558,7 +559,7 @@ def _dq_rows(items: list[dict], cols) -> str:
     return (
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">'
         + "".join(
-            f'<tr><td style="padding:6px 0;border-bottom:1px solid #E5E1D8;{_BREAK_ANYWHERE}">'
+            f'<tr><td style="padding:6px 0;border-bottom:1px solid #E5E7EB;{_BREAK_ANYWHERE}">'
             + " · ".join(html.escape(str(col(it))) for col in cols)
             + "</td></tr>"
             for it in items
@@ -676,6 +677,9 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
 
 
 _TIME_LABEL = {"bmo": "before open", "amc": "after close", "dmh": "during market hours"}
+# The slot as the HTML row prints it: a two-word slot keeps its words on one line, and "during market hours" wraps
+# between its words, as the row's other words do.
+_TIME_LABEL_HTML = {"bmo": "before&nbsp;open", "amc": "after&nbsp;close", "dmh": "during market hours"}
 
 
 def render_earnings_day_alert(
@@ -689,17 +693,13 @@ def render_earnings_day_alert(
     for it in items:
         ticker = html.escape(str(it.get("ticker", "")))
         company = html.escape(str(it.get("company_name") or it.get("ticker") or ""))
-        slot = _TIME_LABEL.get((it.get("time") or "").lower())
-        # No-break spaces keep the middot with the slot, and a two-word slot ("before open") on one line;
-        # "during market hours" wraps between its words, as the row's other words do.
-        if slot and slot.count(" ") == 1:
-            slot = slot.replace(" ", "&nbsp;")
-        when = f' <span style="color:#6B7280;">·&nbsp;{slot}</span>' if slot else ""
+        slot = _TIME_LABEL_HTML.get((it.get("time") or "").lower())
+        when = f' <span style="color:#6B7280;">·&nbsp;{slot}</span>' if slot else ""  # the middot stays with the slot
         reported = (it.get("status") == "reported")
         tail = " (results are out)" if reported else ""
         rows_html += f"""
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;{_BREAK_ANYWHERE}">
+          <td style="padding:10px 0;border-bottom:1px solid #E5E7EB;{_BREAK_ANYWHERE}">
             <strong>{company} ({ticker})</strong> reports today{when}{html.escape(tail)}<br>
             <a href="{settings.FRONTEND_URL}/company/{ticker}" style="color:#3C6650;">View {ticker} →</a>
           </td>

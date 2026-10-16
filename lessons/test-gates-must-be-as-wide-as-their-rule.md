@@ -101,9 +101,11 @@ Corollary for the anti-vacuity floor: assert the scanner actually found things (
 `frontend/tests/unit/fixtures/brandRule2Forms.tsx`, in `brandCopyRules.spec.ts`; the route-metadata
 readers' self-checks in `routeMetadata.spec.ts`; the register's planted layouts (`LAYOUTS`), their count
 held equal, in `publishedAssetUrls.spec.ts`; the published-asset scan's `FORMS`, with equal counts and a
-header that names each gap a case marks, in `backend/tests/unit/test_mail_published_assets.py`; and the
-mail reader's planted pages (`TEXT_SIZES`, `LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`), each
-list's counts held equal, in `backend/tests/unit/test_mail_header_template.py`.
+header that names each gap a case marks, in `backend/tests/unit/test_mail_published_assets.py`; the
+mail reader's planted pages (`TEXT_SIZES`, `LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`,
+`COLOURS`), each list's counts held equal, in `backend/tests/unit/test_mail_header_template.py`; and the
+rendered gate's planted cases (`PAGES`, `REACHES`, `SENDS`, `ADDRESSES`), their counts held equal, in
+`backend/tests/unit/test_mail_rendered_addresses.py`.
 Scoring a model of a reader against the reader itself has no gate yet: E78 in `tasks/todo.md` would score
 the mail reader against the pinned Chromium in CI.
 
@@ -318,14 +320,19 @@ a fixed layout takes its widths from the first row it lays out, its first header
 room its columns leave by their widths, and resolves a percentage against the table less its spacing,
 shrinking it before it overruns; an `<object>`'s fallback is any child but a `<param>` or whitespace, a
 comment included; and an `<embed>` with a `type` but no `src` makes a box. The next review found more
-reads taken from the specification or from habit, each then measured: a fixed layout adds a percentage
-cell's padding to its share and gives a spanning cell's columns its width less the spacing inside it; a
-row's cells skip what a rowspan above holds; HTML ignores a cell's zero width; a section's display, not
-its tag, makes it a header group; an automatic layout holds each column to its widest cell's padding, and
-spreads a spanning cell's excess over its columns alike; and an image or a form control is one box
-whatever its display. Nine of the 415 mutation proofs survived on reads no page planted (a tenth was
-equivalent), and the reviewers' own mutations found more: a read the model makes is not covered until a
-page that needs it is planted and scored.
+reads taken from the specification or from habit, each then measured: a fixed layout adds a lone
+percentage cell's padding to its share and gives a spanning cell's columns its width less the spacing
+inside it; a row's cells skip what a rowspan above holds; HTML ignores a cell's zero width; a section's
+display, not its tag, makes it a header group; an automatic layout holds each column to its widest cell's
+padding; and an image or a form control is one box whatever its display. Nine of the 415 mutation proofs
+survived on reads no page planted (a tenth was equivalent), and the reviewers' own mutations found more: a
+read the model makes is not covered until a page that needs it is planted and scored. The review after
+that found the next guesses where the model had generalised from one measured shape: Chromium spreads a
+spanning cell's excess by its columns' content, not alike, so the reader, which measures no content, now
+counts each excess in full; a fixed layout splits a spanning percentage over its columns, its padding and
+their spacing aside; an `<svg>`'s width is a CSS length, where an image's is an HTML dimension; and a
+form control stays one box under a table part's display. Measure each shape a read covers, not the one
+that suggested it.
 When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
 parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
 `word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine

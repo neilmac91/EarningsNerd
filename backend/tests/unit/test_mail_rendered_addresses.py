@@ -37,7 +37,10 @@ It must also be built on ``FRONTEND_URL`` with that slash stripped:
 
 The render list is held to ``email_service``'s public functions, save those that build no mail, each
 named with why (``NOT_MAIL``), and no other module in ``backend/app`` may reach its private names, so a
-new mail fails here until it is rendered. Planted modules score that check. What it cannot see:
+new mail fails here until it is rendered. Nor may a module build an HTML page outside the shell,
+``_wrap_html``, save those ``OWN_PAGES`` lists, or reach the mail transport, ``resend_service``, save
+those ``SENDERS`` lists with what each sends, so a new sender fails here until it builds its mail through
+``email_service`` or is listed. Planted modules score each check. What it cannot see:
 - an address in a form it does not read: an attribute outside the list it reads, a script;
 - which way a branch within one line goes (``x if c else y``, ``a or b``, a lookup), so a value no input
   passes may pick an address no render reads;
@@ -45,10 +48,12 @@ new mail fails here until it is rendered. Planted modules score that check. What
 - the links a caller hands in, for which the inputs are stand-ins; the code scan reads the callers;
 - what runs before the mail is built, elsewhere, such as a job rebinding a module's name;
 - an origin of the site's that a setting the render leaves alone points at another site's host;
-- a private name reached through ``getattr`` or ``importlib``;
-- mail built or finished outside ``email_service``: ``routers/contact.py``'s confirmation (E56), the
-  internal admin and team notices, and what a caller adds to a page before it sends it
-  (``data_quality_service.run_and_email`` appends the report's text copy, as ``_hidden_text`` would).
+- a private name or the transport reached through ``getattr`` or ``importlib``, or ``send_email`` through
+  a star import;
+- mail built or finished outside ``email_service``, in the modules ``SENDERS`` lists:
+  ``routers/contact.py``'s confirmation (E56), the internal admin and team notices, and what a caller adds
+  to a page before it sends it (``data_quality_service.run_and_email`` appends the report's text copy, as
+  ``_hidden_text`` would).
 
 It also holds every page it renders to the shell's page rules, which ``test_mail_header_template.py``
 states and plants, and which ``tests/support/mail_styles.py`` models as Blink and WebKit read a page's
@@ -68,7 +73,9 @@ inline styles:
 - no box a client other than classic Outlook shows is set wider than the room its parent gives it on the
   narrowest phone, and classic Outlook, which reads no ``max-width``, holds each column capped at 600 px
   at 600 px;
-- the page sets the shell's viewport alone, at the phone's own width.
+- the page sets the shell's viewport alone, at the phone's own width;
+- every colour a page writes, in a style or an attribute HTML maps to a colour, is a design token's
+  (``DESIGN.md``'s frontmatter), as six-digit hex.
 """
 import ast
 import html
@@ -87,6 +94,7 @@ import pytest
 
 from app.services import email_service
 from tests.support.mail_styles import (
+    colour_problems,
     fixed_width_problems,
     long_run_problems,
     long_runs,
@@ -568,6 +576,159 @@ def test_no_other_module_reaches_the_mail_modules_private_names():
     )
 
 
+# The HTML pages a module of backend/app builds outside the shell, with how many: contact.py's notice to the team
+# and its confirmation to the person who wrote in, until E56 moves the confirmation into the shell, and a PDF
+# export's page, which is no mail. Equalities (lessons/test-allowlist-caps-are-equalities.md): a page that moves into
+# the shell lowers its count in the same diff.
+OWN_PAGES = {"app/routers/contact.py": 2, "app/services/pdf_branding.py": 1}
+_OPENS_A_PAGE = re.compile(r"<html[\s>]", re.IGNORECASE)
+
+
+def own_pages(source: str, shell: str | None = None) -> int:
+    """How many strings in a module's code open an HTML page (``<html``), outside the function named ``shell``;
+    a docstring is no page."""
+    tree = ast.parse(source)
+    skipped = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)
+    }
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == shell:
+            skipped |= {id(inner) for inner in ast.walk(node)}
+    return sum(
+        1
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in skipped and _OPENS_A_PAGE.search(node.value)
+    )
+
+
+def test_no_module_builds_a_page_of_its_own_outside_the_shell():
+    found = {}
+    for path in sorted(APP.rglob("*.py")):
+        if pages := own_pages(path.read_text(encoding="utf-8"), "_wrap_html" if path == EMAIL_SERVICE else None):
+            found[path.relative_to(BACKEND).as_posix()] = pages
+    assert own_pages(EMAIL_SERVICE.read_text(encoding="utf-8")) == 1, "the walk no longer finds the shell's own page"
+    assert found == OWN_PAGES, (
+        f"these modules build HTML pages of their own: {found}. Build mail through email_service's public functions, "
+        "whose shell carries the header, and hold OWN_PAGES to what is left in the same diff"
+    )
+
+
+# Each way a module can open an HTML page, and the look-alikes that open none.
+PAGES = [
+    ("a page in a literal", 'P = "<html><body>x</body></html>"\n', None, 1),
+    ("a page in an f-string, in capitals", 'P = f"<HTML lang=en>{x}"\n', None, 1),
+    ("two pages in one module", 'A = "<html>a</html>"\nB = "<html>b</html>"\n', None, 2),
+    ("a page in a function beside the shell", 'def _wrap_html(b):\n    return f"<html>{b}</html>"\n\n\ndef other():\n    return "<html>x"\n', "_wrap_html", 1),
+    ("the shell's own page", 'def _wrap_html(b):\n    return f"<html>{b}</html>"\n', "_wrap_html", 0),
+    ("a docstring that names a page", 'def f():\n    """Builds no <html> page."""\n    return 1\n', None, 0),
+    ("a comment that names a page", "# <html>\nP = 1\n", None, 0),
+    ("a tag that only starts like the page's", 'P = "<htmlx>"\n', None, 0),
+]
+
+
+@pytest.mark.parametrize("source, shell, pages", [case[1:] for case in PAGES], ids=[case[0] for case in PAGES])
+def test_the_page_check_scores_every_planted_module(source, shell, pages):
+    assert own_pages(source, shell) == pages
+
+
+# The modules of backend/app that reach the mail transport, each with what it sends. A mail to a user is built in
+# email_service, whose shell carries the header; the others send on what email_service builds, or send the team or
+# an admin a page or a fragment of their own. An equality (lessons/test-allowlist-caps-are-equalities.md): a new
+# sender fails here until it sends through email_service or is listed with why, and one that stops leaves the list.
+SENDERS = {
+    "app/services/email_service.py": "every mail it builds, in the shell",
+    "app/services/notification_delivery_service.py": "the filing alerts and digests email_service builds, held for delivery",
+    "app/services/data_quality_service.py": "the data-quality report email_service builds, with its text copy",
+    "app/routers/contact.py": "a notice to the team and a confirmation to the person who wrote in, pages of its own (E56)",
+    "app/routers/admin.py": "an admin's test mail, a fragment",
+    "app/routers/email.py": "an admin's test mail, a fragment",
+    "app/routers/feedback.py": "a notice of beta feedback to the team, a fragment",
+}
+_TRANSPORT = "app.services.resend_service"
+
+
+def senders(app: Path) -> dict[str, list[int]]:
+    """The modules under ``app`` that reach the mail transport, with the lines that do: an import of
+    ``resend_service`` or a name from it, an import of ``send_email`` from any module (``email_service`` holds
+    the transport's under that name), or ``send_email`` read through a name an import binds."""
+    found: dict[str, list[int]] = {}
+    for path in sorted(app.rglob("*.py")):
+        tree, imported, lines = ast.parse(path.read_text(encoding="utf-8")), set(), set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == _TRANSPORT:
+                        lines.add(node.lineno)
+                    imported.add(alias.asname or alias.name.split(".")[0])  # import a.b binds a
+            elif isinstance(node, ast.ImportFrom):
+                module = _imported(node, path, app)
+                for alias in node.names:
+                    if _TRANSPORT in (module, f"{module}.{alias.name}") or alias.name == "send_email":
+                        lines.add(node.lineno)
+                    imported.add(alias.asname or alias.name)
+        while True:  # a name bound to one of those names holds what it holds
+            rebound = {
+                target.id
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name) and node.value.id in imported
+                for target in node.targets
+                if isinstance(target, ast.Name)
+            }
+            if rebound <= imported:
+                break
+            imported |= rebound
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "send_email":
+                root = node.value
+                while isinstance(root, ast.Attribute):
+                    root = root.value
+                if isinstance(root, ast.Name) and root.id in imported:
+                    lines.add(node.lineno)
+        if lines:
+            found[path.relative_to(app.parent).as_posix()] = sorted(lines)
+    return found
+
+
+def test_only_the_listed_modules_reach_the_mail_transport():
+    found = senders(APP)
+    assert set(found) == set(SENDERS), (
+        f"the modules that reach the mail transport changed: {found}. Build mail through email_service's public "
+        "functions, whose shell carries the header, or list the module in SENDERS with what it sends"
+    )
+
+
+# Each way a module can reach the mail transport, and the look-alikes that reach none.
+SENDS = [
+    ("the transport's function imported by name", "from app.services.resend_service import send_email\n", True),
+    ("the transport's error imported by name", "from app.services.resend_service import ResendError\n", True),
+    ("the transport imported from its package", "from app.services import resend_service\n", True),
+    ("the transport imported by its dotted path", "import app.services.resend_service\n", True),
+    ("the transport imported under another name", "import app.services.resend_service as mail\n", True),
+    ("the transport through a relative import of a name", "from .resend_service import send_email\n", True),
+    ("the transport through a relative import of the module", "from . import resend_service\n", True),
+    ("the transport imported inside a function", "def f():\n    from app.services import resend_service\n    return resend_service\n", True),
+    ("the transport's function imported from the mail module", "from app.services.email_service import send_email as deliver\n", True),
+    ("the transport's function read through the mail module", "from app.services import email_service\nemail_service.send_email(html='<p>x</p>')\n", True),
+    ("the transport's function read through a dotted path", "import app.services.email_service\napp.services.email_service.send_email()\n", True),
+    ("the transport's function read through a name bound to the mail module", "from app.services import email_service\nes = email_service\nes.send_email()\n", True),
+    ("a public mail function imported by name", "from app.services.email_service import send_daily_digest\n", False),
+    ("a public mail function read through the module", "from app.services import email_service\nemail_service.send_daily_digest()\n", False),
+    ("a request's flag named send_email", "class Invite:\n    send_email: bool = False\n\n\ndef f(payload):\n    return payload.send_email\n", False),
+    ("a module named like the transport", "import app.services.resend_service_stub\n", False),
+]
+
+
+@pytest.mark.parametrize("source, sends", [case[1:] for case in SENDS], ids=[case[0] for case in SENDS])
+def test_the_sender_check_scores_every_planted_module(tmp_path, source, sends):
+    services = tmp_path / "app" / "services"
+    services.mkdir(parents=True)
+    (services / "recap_mail.py").write_text(source, encoding="utf-8")
+    assert list(senders(tmp_path / "app")) == (["app/services/recap_mail.py"] if sends else [])
+
+
 # Each way another module can reach the mail module's private names, and the look-alikes that must pass.
 REACHES = [
     ("a private name imported by name", "from app.services.email_service import _wrap_html\n", True),
@@ -754,6 +915,21 @@ def test_every_page_sent_sets_the_shells_viewport_alone(rendered):
     )
 
 
+def test_the_earnings_day_rows_keep_a_two_word_slot_on_one_line():
+    page, text = email_service.render_earnings_day_alert(
+        name=None, items=[dict(ticker=f"T{n}", company_name="Acme", time=time) for n, time in enumerate(("bmo", "amc", "dmh"))]
+    )
+    for slot in ("·&nbsp;before&nbsp;open", "·&nbsp;after&nbsp;close", "·&nbsp;during market hours"):
+        assert page.count(slot) == 1, f"the row no longer prints {slot!r}: a two-word slot keeps its words on one line"
+    for slot in ("(before open)", "(after close)", "(during market hours)"):
+        assert slot in text, f"the plain text no longer reads {slot!r}"
+
+
+def test_every_page_sent_takes_its_colours_from_the_tokens(rendered):
+    problems = [f"{name}: {problem}" for name, page in _pages(rendered) for problem in colour_problems(page)]
+    assert not problems, "\n".join(sorted(set(problems)))
+
+
 def _img(src: str) -> str:
     return f'<td><img src="{src}" width="32" alt=""></td>'
 
@@ -845,6 +1021,24 @@ def test_the_reader_scores_every_planted_address(sent, expected):
         assert not verdicts, verdicts
     else:
         assert any(expected in wrong for wrong in verdicts), f"expected {expected!r}, got {verdicts} from {found}"
+
+
+def test_the_planted_lists_keep_their_counts():
+    """Each list's cases that must fail and that must pass. Equalities, not floors, so a case dropped after one
+    is added still fails (lessons/test-allowlist-caps-are-equalities.md): change a count in the diff that adds or
+    drops a case."""
+    counts = {
+        "PAGES": (sum(case[-1] > 0 for case in PAGES), sum(case[-1] == 0 for case in PAGES)),
+        "REACHES": (sum(case[-1] is True for case in REACHES), sum(case[-1] is False for case in REACHES)),
+        "SENDS": (sum(case[-1] is True for case in SENDS), sum(case[-1] is False for case in SENDS)),
+        "ADDRESSES": (sum(isinstance(case[-1], str) for case in ADDRESSES), sum(case[-1] is None for case in ADDRESSES)),
+    }
+    assert counts == {"PAGES": (4, 4), "REACHES": (10, 4), "SENDS": (12, 4), "ADDRESSES": (63, 9)}, (
+        "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
+    )
+    for name, cases in (("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES)):
+        labels = [case[0] for case in cases]
+        assert len(set(labels)) == len(labels), f"each case {name} plants has a name of its own"
 
 
 if __name__ == "__main__":  # the render, in an interpreter of its own (the mail fixture)
