@@ -137,6 +137,32 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   and the filings form filter, a set known only at run time, renders as the toolbar's compact select
   past five (a filer with both domestic and foreign forms), so no SegmentedControl ever shows more than
   five; `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
+- **Dashboard and watchlist** (`frontend/app/dashboard/page.tsx`, `app/dashboard/watchlist/page.tsx`,
+  `features/dashboard/components/*`, `features/watchlist/components/SummaryStatusBadge.tsx`): each
+  watched company's card states its summary from the server's status (ready, being written, none yet,
+  unavailable, failed) with a matching badge ("No summary yet", "Unavailable", "Needs regenerating" in
+  sentence case), never from the regeneration flag alone; a failed load shows its error card with a
+  Retry and no empty card (a run the server still reports as generating after it died reads as being
+  written until tasks/todo.md E43 lands). The what-changed chips take `lib/financialTone`'s direction chip, the
+  700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
+  decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
+  companies you follow."), the limit banner states the account's own count and nothing about
+  Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
+  and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
+  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide, after the series, E58),
+  the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
+  billing", and the route error boundary is in sentence case with a generic line that names no route
+  ("This page didn't load. The error has been logged."). Tickers are set in the data face.
+  `earningsnerd/direction-text-tokens` (new ESLint rule) bans the 600-level gain and loss as text, and
+  sage on a direction glyph it can see by its name, its import or a binding the file writes it to (on
+  the glyph, on the element whose ink it inherits, or in a map that pairs it with its classes);
+  `tests/unit/whatChangedChip.spec.tsx` holds the chip to the direction chip for the server's tone,
+  which no lint can see, and `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences and the
+  Retry through its refetch.
+- **Notification bell** (`frontend/features/notifications/components/NotificationBell.tsx`): an
+  alert reads "New 10-Q from AAPL", the form and ticker in the data face; the unread count rests in
+  the ink, not on sage (D-030), while the sage dot still marks an unread row; the menu sits on the
+  header's rung with the account menu.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).
@@ -147,10 +173,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
   check-email countdown, the period quick picks, the narrative's "Show the N source figures" summary
   and its bracketed Sources chip, the data notes' checked count, the peer rank and the summary's
-  section index rest in the ink, and so do the values beside them: a What-changed chip's rising
-  delta on the dashboard (the primary ink, the icon carrying the direction), the filing viewer's
-  "Showing ·" caption, which prints a section's name, and the "Sources & checks" links, which under
-  the fundamentals chart print a figure's fiscal year. The controls among them that turn sage under
+  section index rest in the ink, and so do the values beside them: the filing viewer's "Showing ·"
+  caption, which prints a section's name, and the "Sources & checks" links, which under the
+  fundamentals chart print a figure's fiscal year. A What-changed chip on the dashboard is a figure's
+  change, so it takes the direction chip above (its gain or loss ink with the sign), never sage. The controls among them that turn sage under
   the pointer compose the count control, `countControlClass` (`frontend/DESIGN_SYSTEM.md`): the
   whole label in the secondary ink as one text run, sage under the pointer (a link set among lines
   of text keeps its underline). The calendar day's "+N more", which never turns sage, and the
@@ -194,8 +220,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1): Light Sage under a
   navy check, as the Primary button pairs them.
 - **Status chips** (`frontend/components/ui/Badge.tsx`): `success` and `error` variants for status
-  (D-032). The watchlist and dashboard rows still borrow the gain and loss colours for "Ready" and
-  "Error" until they move to these variants in the dashboard PR (#1290).
+  (D-032). The watchlist and dashboard rows say "Ready" on success and "Error" on error, and
+  "Unavailable" and "Needs regenerating" on warning; no status borrows the gain and loss colours.
 - **Error copy** (`frontend/lib/api/client.ts`): a lost connection reads "Could not reach the server.
   Try again in a moment." instead of naming the backend and its URL, and a validation error shows
   its first message instead of "[object Object]".

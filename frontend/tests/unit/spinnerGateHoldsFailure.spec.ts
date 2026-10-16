@@ -365,10 +365,10 @@ const ALLOW: Allow = {
       'with a user, so no child refetches the failure and the skeleton cannot loop.',
   },
   'app/dashboard/watchlist/page.tsx': {
-    sites: ['!isReady || isLoading [queryKeys.currentUser, queryKeys.watchlistInsights]'],
+    sites: ['!isReady || (isLoading && !failure.failed) [queryKeys.currentUser]'],
     reason:
-      'A failed /me renders null (`!hasUser`), so nothing below mounts over it. Its watchlist-insights query is ' +
-      'shared only with the dashboard page, another route: nothing this page renders observes it.',
+      'A failed /me renders null (`!hasUser`), so nothing below mounts over it. Its watchlist-insights read is ' +
+      'held (the error card and its Retry stay up through the refetch).',
   },
   'app/delete-account/page.tsx': {
     sites: ['isLoading [queryKeys.currentUser]'],
@@ -640,7 +640,7 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
       ['isReady: !isLoading,', 'isReady: !isLoading && !isFetching,'],
     ])).toEqual([
       expect.stringMatching(
-        /^app\/dashboard\/watchlist\/page\.tsx:\d+: !isReady \|\| isLoading \[queryKeys\.currentUser, queryKeys\.watchlistInsights\] reads a fetch flag of queryKeys\.currentUser$/,
+        /^app\/dashboard\/watchlist\/page\.tsx:\d+: !isReady \|\| \(isLoading && !failure\.failed\) \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/,
       ),
     ])
   })

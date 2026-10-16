@@ -117,7 +117,7 @@ filing page's saved status, which swaps Save for Saved; the dashboard's watchlis
 drop a removed row and end the onboarding panel under the popular-ticker chips (a chip whose
 insights refetch fails still goes live again: open in (h)). The admin feedback
 list is another, because it moves FeedbackRow's controlled select. A success that leaves the page
-(`window.location` to Stripe for Manage billing and Manage subscription) stays pending until the page
+(`window.location` to Stripe for Manage billing, BillingPanel's and the dashboard's) stays pending until the page
 goes. Its `onSuccess` returns `untilPageReturns()` (`lib/untilPageReturns.ts`). That settles on
 `pageshow`, so a back-forward restore brings the button back live. It also settles on the Navigation
 API's `navigateerror`, which Chromium fires when the user aborts the pending navigation with Esc or
@@ -251,9 +251,10 @@ page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyCon
 (`StreamingSummaryDisplay.spec.tsx`, `useRetainedFailure.spec.tsx`, e2e `summary-generation-focus.spec.ts`); the completed-generation arrival in the persistent filing shell (first summary heading, only after a run, preserving held focus and modal ownership; the same e2e); and
 EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
 plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
-subscription are fixed too (`busyControls.dashboard.spec.tsx`). The admin invites and feedback list
-Retry buttons hold their Notice through the retry and hand focus to the "Invites" or "Feedback" list
-heading (`busyControls.admin-auth.spec.tsx`).
+billing are fixed too (`busyControls.dashboard.spec.tsx`), and Watchlist insights' Retry keeps its error
+card, busy and focused, through its refetch (`summaryStatusCopy.spec.tsx`). The admin invites and
+feedback list Retry buttons hold their Notice through the retry and hand focus to the "Invites" or
+"Feedback" list heading (`busyControls.admin-auth.spec.tsx`).
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,
 `aria-disabled={pending || undefined}` plus an early return). `tests/unit/calendarBellKeepsFocus.spec.tsx`

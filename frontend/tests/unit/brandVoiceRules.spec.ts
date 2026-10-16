@@ -626,7 +626,6 @@ const TREE_REACH = discoverReach(SOURCES)
  * file, or why the text stays.
  */
 const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
-  'app/dashboard/error.tsx': { sentenceCase: 4 }, // brand-dashboard-watchlist (#1290, DSW-12)
   'app/dashboard/settings/page.tsx': { sentenceCase: 1 }, // brand-settings-subscriptions (#1291)
   'app/filing/[id]/page.tsx': { sentenceCase: 2 }, // brand-metadata-social (#1312; meta titles)
   'app/privacy/page.tsx': { sentenceCase: 16 }, // founder-gated, legal page: its headings wait on the founder (legalDates bump)
@@ -640,7 +639,7 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'features/subscriptions/components/PeekLocked.tsx': { buzzword: 1 }, // brand-settings-subscriptions (#1291; DSW-11, "unlock")
   'features/summaries/components/SummaryActionsBar.tsx': { sentenceCase: 1 }, // brand-filing-page (#1293)
 }
-const VOICE_RESIDUE_MAX = { entries: 14, violations: 47 }
+const VOICE_RESIDUE_MAX = { entries: 13, violations: 43 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
   // An element past MAX_VARIANTS throws; the residue test reports it rather than the whole file failing to load.

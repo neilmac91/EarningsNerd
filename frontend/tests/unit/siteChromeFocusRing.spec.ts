@@ -98,7 +98,6 @@ const PAGE_ROOTS = routeFiles('app', ['page.tsx'], ROOT)
 const RING_RESIDUE: Record<string, number> = {
   // Each line names the sweep PR that owns the file, or why it waits. A "props spread" finding in a chart
   // or Markdown renderer is the scan's limit (it cannot read what the spread holds), not always a stop.
-  'app/dashboard/page.tsx': 1, // brand-dashboard-watchlist
   'app/delete-account/page.tsx': 4, // auth-adjacent page with no sweep owner yet
   'app/filing/[id]/page-client.tsx': 1, // brand-filing-page
   'app/forgot-password/page.tsx': 1, // brand-auth-pages-presentation
@@ -137,9 +136,8 @@ const RING_RESIDUE: Record<string, number> = {
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryActionsBar.tsx': 1, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
-  'features/watchlist/components/PopularTickerChips.tsx': 1, // brand-dashboard-watchlist
 }
-const RING_RESIDUE_MAX = { files: 40, stops: 117 }
+const RING_RESIDUE_MAX = { files: 38, stops: 115 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
