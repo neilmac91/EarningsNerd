@@ -761,7 +761,7 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  at large text, or with the keyboard up), it spans the visible height over its trigger and
                  scrolls inside, the one placement that covers the trigger: a side that short would show
                  little more than the panel's padding. Gate: placeBellPopover's cases and the rendered
-                 placement cases in BellPopover.spec.tsx.
+                 placement and width cases in BellPopover.spec.tsx (the width read at a 16px and a 32px root).
                  Keyboard: focus moves to the first action, without scrolling the page (a capped panel
                  scrolls itself to show that action and its ring), unless the user already moved it
                  elsewhere (armed once per open, callbacks through a ref); Escape closes in window capture

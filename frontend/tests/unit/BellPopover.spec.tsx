@@ -601,4 +601,29 @@ describe('BellPopover placement', () => {
       else delete (window as { visualViewport?: unknown }).visualViewport
     }
   })
+
+  it("is 18.75rem of the reader's text wide, within the visible area's margins: 600px at 200% text on a desktop, 366px on a phone", () => {
+    // The design review of #1369: a width held at 300px passed every other case, and at 1440px with 200% text the
+    // panel would be 300px wide around 28px text.
+    const own = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+    const MID = { left: 290, top: 156, bottom: 244, right: 378, width: 88, height: 88 } as DOMRect
+    try {
+      for (const [rootPx, areaWidth, width] of [
+        [16, 1440, '300px'],
+        [32, 1440, '600px'],
+        [32, 390, `${390 - 2 * POPOVER_MARGIN}px`],
+      ] as const) {
+        document.documentElement.style.fontSize = `${rootPx}px`
+        Object.defineProperty(window, 'visualViewport', { configurable: true, value: { offsetLeft: 0, offsetTop: 0, width: areaWidth, height: 900 } })
+        renderMeasured(400, MID, (group) => {
+          expect(group.style.width).toBe(width)
+        })
+        cleanup()
+      }
+    } finally {
+      document.documentElement.style.fontSize = ''
+      if (own) Object.defineProperty(window, 'visualViewport', own)
+      else delete (window as { visualViewport?: unknown }).visualViewport
+    }
+  })
 })
