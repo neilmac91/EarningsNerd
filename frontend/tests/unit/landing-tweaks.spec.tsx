@@ -71,7 +71,7 @@ describe('headline experiment (design tweak `headline`)', () => {
     expect(resolveHeadlineVariant('B')).toBe('B')
     expect(resolveHeadlineVariant('control')).toBe(CONTROL_HEADLINE)
     expect(resolveHeadlineVariant('garbage')).toBe('A')
-    expect(pageTitleFor('A')).toBe('EarningsNerd | Read the filing faster. Keep the source in view')
+    expect(pageTitleFor('A')).toBe('Read the filing faster. Keep the source in view | EarningsNerd')
   })
 
   it('renders variant A in server HTML and leaves the document title alone', () => {
