@@ -74,13 +74,17 @@ function backendFiles(): string[] {
   return files(path.join(BACKEND, 'app')).map((file) => path.relative(BACKEND, file).split(path.sep).join('/'))
 }
 
-/** Each line of `source` that `match` finds, as `file::function` (the nearest `def` above the line). */
+/**
+ * Each match of `match` (a global pattern) in `source`, as `file::function`: the nearest `def` at or above
+ * the line the match starts on. The whole file is read, so a match may run across lines.
+ */
 function sites(rel: string, source: string, match: RegExp): string[] {
+  if (!match.global) throw new Error('sites() reads every match: give the pattern the g flag')
   const lines = source.split('\n')
-  return lines.flatMap((line, index) => {
-    if (!match.test(line)) return []
-    const def = lines.slice(0, index).reverse().find((l) => /^\s*(?:async\s+)?def\s+\w+/.test(l))
-    return [`${rel}::${def?.match(/def\s+(\w+)/)?.[1] ?? '<module>'}`]
+  return [...source.matchAll(match)].map((found) => {
+    const line = source.slice(0, found.index).split('\n').length - 1
+    const def = lines.slice(0, line + 1).reverse().find((l) => /^\s*(?:async\s+)?def\s+\w+/.test(l))
+    return `${rel}::${def?.match(/def\s+(\w+)/)?.[1] ?? '<module>'}`
   })
 }
 
@@ -93,16 +97,19 @@ function sites(rel: string, source: string, match: RegExp): string[] {
 function verifyEmailRefusals(): string[] {
   return backendFiles()
     .filter((rel) => rel !== 'app/services/email_service.py')
-    .flatMap((rel) => sites(rel, backend(rel), /verify your email/i))
+    .flatMap((rel) => sites(rel, backend(rel), /verify your email/gi))
 }
 
 /**
- * A line that reads an account's verification state: `.email_verified` not being assigned (`==` is a read),
- * a `getattr` that names it, or a `filter_by` keyword of that name. A provider's claim
- * (`claims["email_verified"]`) and a parameter or a constructor keyword of that name are not the account's
- * state. Read one line at a time, so a read split across lines is not seen.
+ * A read of an account's verification state: `.email_verified` not being assigned (`==` is a read), a
+ * `getattr` that names it, or a `filter_by` keyword of that name. Each form is matched across line breaks
+ * and backslash continuations, as Python allows them (`getattr(` on one line and the name on the next, a
+ * break after the dot inside brackets). A provider's claim (`claims["email_verified"]`) and a parameter or a
+ * constructor keyword of that name are not the account's state. Comments and docstrings are read too, so a
+ * sentence that sets the attribute's name after a full stop counts as a read: reword it.
  */
-const EMAIL_VERIFIED_READ = /\.email_verified\b(?!\s*=[^=])|getattr\([^)]*['"]email_verified['"]|filter_by\([^)]*\bemail_verified\s*=/
+const EMAIL_VERIFIED_READ =
+  /\.(?:\s|\\)*email_verified\b(?!\s*=(?!=))|\bgetattr\(\s*[^,]*?,\s*['"]email_verified['"]|\bfilter_by\([^()]*?\bemail_verified\s*=/g
 
 /**
  * Every backend read of an account's `email_verified`, with what it does. The banner and the dialog name
@@ -237,7 +244,7 @@ describe('verification banner and dialog', () => {
     ).toEqual(EMAIL_VERIFIED_READS.map(([site]) => site).sort())
   })
 
-  it('the read scan sees a gate whatever its refusal says, and not a write or a provider claim', () => {
+  it('the read scan sees a gate whatever its refusal says and however its lines break, and not a write or a provider claim', () => {
     const planted = [
       'async def export_filing(current_user):',
       '    if not current_user.email_verified:',
@@ -248,8 +255,26 @@ describe('verification banner and dialog', () => {
       '    return db.query(User).filter_by(email_verified=False).all()',
       'def flag(user):',
       '    return getattr(user, "email_verified", False)',
+      'async def export_wrapped(current_user):',
+      '    if not getattr(',
+      '        current_user, "email_verified", False',
+      '    ):',
+      '        raise HTTPException(status_code=403, detail="Confirm your address first.")',
+      'def continued(user):',
+      '    return user.\\',
+      '        email_verified',
+      'def bracketed(user):',
+      '    return (user.',
+      '        email_verified)',
+      'def unverified_wrapped(db):',
+      '    return db.query(User).filter_by(',
+      '        email_verified=False,',
+      '    ).all()',
       'def writes(user, claims, email_verified):',
       '    user.email_verified = True',
+      '    user.email_verified = (',
+      '        email_verified',
+      '    )',
       '    by_google = bool(claims.get("email_verified", False))',
       '    return User(email_verified=email_verified and by_google)',
     ].join('\n')
@@ -258,6 +283,10 @@ describe('verification banner and dialog', () => {
       'app/routers/probe.py::unverified',
       'app/routers/probe.py::unverified_by_keyword',
       'app/routers/probe.py::flag',
+      'app/routers/probe.py::export_wrapped',
+      'app/routers/probe.py::continued',
+      'app/routers/probe.py::bracketed',
+      'app/routers/probe.py::unverified_wrapped',
     ])
   })
 
