@@ -286,3 +286,11 @@ keyed to HTTPException beside main's scan of every `detail="…"`; and a cap on 
 dropped the rest silently. A widening adds a reading and keeps the old one beside it (both scanned, a
 find in either reported once), the old gate's failing form is planted beside the new ones so the spec
 fails if the old reading goes, and a reader that caps what it expands fails loudly at the cap.
+The next round's reviews found the fixes widening one side of a pair and leaving the other: the date
+lint read a helper's key written as a template but not a field's, the trial reader held TRIAL_DAYS's
+declaration to lib/planLimits.ts but took its import from any module named planLimits (and the flag's
+from any module at all), and the preference scan read a field from `checked` and `value` alone though
+its rule is every field the form reads. A fix to one side of a pair (a declaration and its imports, a
+helper's key and a field's key, the read side and the save side) widens the other in the same commit.
+And a negated selector attribute holds for every node that lacks it: `[value.name!='x']` matched a
+destructuring that keeps the name with a default, whose value has no name; pin the node's type first.
