@@ -181,8 +181,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   verification mail ends "Verify your email address and you can start reading."
 - **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, on the
   overlay step of the elevation ladder (`e4`), in the theme the reader chose on the site rather than
-  the OS setting; a success or error toast keeps the panel
-  and colours only its icon (Sonner's own rich colours are off).
+  the OS setting; a status toast (success, error, warning, info) keeps the panel
+  and colours only its icon, in its status ink (Sonner's own rich colours are off).
 - **Feedback widget** (`frontend/features/feedback/components/FeedbackWidget.tsx`): the three kinds
   read "Bug", "Idea" and "General", without emoji, on the token hairlines; hover brightens to white
   in light, never darkening to the page ground.

@@ -31,7 +31,9 @@ const TOAST_RING = 'focus-visible:outline-none focus-visible:!shadow-ring-brand 
 // Every toast is a panel card on the tokens, in both themes. Sonner's own surface rules
 // (`[data-sonner-toast][data-styled=true]`, two attributes) outrank a single utility class, so the
 // surface takes `!` as the ring does; the focus ring still wins on focus (it adds a pseudo-class).
-// Without richColors a success or error toast keeps the panel ground; its icon carries the status ink.
+// Without richColors a status toast keeps the panel ground and its icon carries the status ink: each of
+// Sonner's four status types (success, error, warning, info) has its slot, so a type the app calls is
+// never left in the neutral ink (the admin invites page calls toast.warning).
 // The card floats over the page, so it takes the ladder's overlay step (e4, as the popovers do), and
 // no shadow in dark like every other overlay.
 // The close button's forced rest outranks Sonner's own hover too, so the slot states its hover, forced
@@ -50,6 +52,8 @@ export const TOAST_OPTIONS = {
     description: '!text-text-secondary-light dark:!text-text-secondary-dark',
     success: '[&_[data-icon]]:text-success-light dark:[&_[data-icon]]:text-success-dark',
     error: '[&_[data-icon]]:text-error-light dark:[&_[data-icon]]:text-error-dark',
+    warning: '[&_[data-icon]]:text-warning-light dark:[&_[data-icon]]:text-warning-dark',
+    info: '[&_[data-icon]]:text-info-light dark:[&_[data-icon]]:text-info-dark',
     closeButton: TOAST_CLOSE,
     actionButton: TOAST_RING,
     cancelButton: TOAST_RING,

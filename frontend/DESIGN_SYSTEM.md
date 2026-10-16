@@ -489,7 +489,8 @@ Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx)
                  to a toast. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e4
                  light (the ladder's overlay step, as the popovers) and none in dark, each with `!` because
                  Sonner's two-attribute surface rules outrank a utility; the description is secondary ink;
-                 a success or error toast keeps the panel and colours only its icon. The close button
+                 a status toast (success, error, warning, info) keeps the panel and colours only its
+                 icon, in its status ink. The close button
                  rests on the panel in secondary ink, and its hover takes `!` as its rest does (Sonner's
                  own hover loses to a forced rest): the quiet controls' tint (hover:!bg-brand-weak) with
                  the primary ink in light; in dark the primary ink over the panel it keeps, since the

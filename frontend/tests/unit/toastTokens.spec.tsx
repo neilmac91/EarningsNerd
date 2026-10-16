@@ -20,6 +20,9 @@ import { ThemedToaster } from '@/app/providers'
  * and the overlay step of the elevation ladder (e4 in light, no shadow in dark). The close button keeps a
  * hover in both themes: its forced rest outranks Sonner's own hover, so its hover is forced too (no slot
  * holds a hover its own rest outranks), and its fills are opaque, since it overhangs the card's corner.
+ * Each of Sonner's four status toasts (success, error, warning, info) colours its icon and nothing else,
+ * in its own status ink in each theme, and the ink clears 3:1 on the panel (WCAG 1.4.11): without
+ * richColors the icon is the status signal, and a type with no slot would be drawn in the neutral ink.
  */
 
 const captured = vi.hoisted(() => [] as ToasterProps[])
@@ -83,6 +86,19 @@ function translucentFills(classes: string[]): string[] {
   })
 }
 
+/** WCAG contrast of two hex colours. */
+function contrast(a: string, b: string): number {
+  const lum = (h: string) => {
+    const ch = (i: number) => {
+      const s = parseInt(h.slice(1 + i * 2, 3 + i * 2), 16) / 255
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+    }
+    return 0.2126 * ch(0) + 0.7152 * ch(1) + 0.0722 * ch(2)
+  }
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
+  return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100
+}
+
 async function renderToaster(stored: 'light' | 'dark') {
   localStorage.setItem('theme', stored)
   await act(async () => {
@@ -130,6 +146,18 @@ describe('the Toaster on tokens (chrome/F4)', () => {
     expect(offToken('!shadow-e9')).toBe('not a shadow token')
     expect(offToken('!bg-[#111]')).toBe('an arbitrary value')
   })
+
+  it.each(['success', 'error', 'warning', 'info'] as const)(
+    'the %s toast colours only its icon, in its status ink in both themes, at 3:1 on the panel',
+    async (status) => {
+      const props = await renderToaster('light')
+      const classNames = (props.toastOptions?.classNames ?? {}) as Record<string, string>
+      const slot = (classNames[status] ?? '').split(/\s+/).filter(Boolean)
+      expect(slot, `the ${status} slot`).toEqual([`[&_[data-icon]]:text-${status}-light`, `dark:[&_[data-icon]]:text-${status}-dark`])
+      expect(contrast(tokenColor(`${status}-light`)!, tokenColor('panel-light')!), 'light icon on the panel').toBeGreaterThanOrEqual(3)
+      expect(contrast(tokenColor(`${status}-dark`)!, tokenColor('panel-dark')!), 'dark icon on the panel').toBeGreaterThanOrEqual(3)
+    },
+  )
 
   it('keeps a hover on the close button, forced as its rest is, on opaque fills', async () => {
     const props = await renderToaster('light')

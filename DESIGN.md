@@ -477,7 +477,7 @@ A checkbox is the shared [`Checkbox`](frontend/components/ui/Checkbox.tsx), neve
 
 Use [`Modal.tsx`](frontend/components/ui/Modal.tsx) for ordinary dialogs: translucent navy scrim, rounded panel, shared focus trap, Escape handling, opener focus restoration and internal scrolling. Keep the documented bespoke sheets/native calendar-dialog exceptions rather than creating additional dialog systems. Static sidecar samples demonstrate the visual shell only.
 
-A transient confirmation is a Sonner toast at the top centre, in the theme the reader chose on the site: a panel card with a hairline and primary ink, `e4` in light (the overlay step, as the popovers) and no shadow in dark. A success or error toast keeps the panel ground and colours only its icon.
+A transient confirmation is a Sonner toast at the top centre, in the theme the reader chose on the site: a panel card with a hairline and primary ink, `e4` in light (the overlay step, as the popovers) and no shadow in dark. A status toast (success, error, warning or info) keeps the panel ground and colours only its icon, in its status ink.
 
 The signature evidence treatment is a compact citation/source chip attached to a figure or passage, with a route to inspect its source. [`CopilotMessage.tsx`](frontend/features/filings/components/copilot/CopilotMessage.tsx) is the production Ask answer renderer. A source match describes attribution within its stated scope; it must not imply that every claim in an answer was verified. Keep citation labels and evidence states faithful to the renderer.
 
