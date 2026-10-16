@@ -43,6 +43,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
+import { pythonTokens, type Token } from './pythonTokens'
 
 function withQueryClient(ui: React.ReactElement) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -101,15 +102,56 @@ function verifyEmailRefusals(): string[] {
 }
 
 /**
- * A read of an account's verification state: `.email_verified` not being assigned (`==` is a read), a
- * `getattr` that names it, or a `filter_by` keyword of that name. Each form is matched across line breaks
- * and backslash continuations, as Python allows them (`getattr(` on one line and the name on the next, a
- * break after the dot inside brackets). A provider's claim (`claims["email_verified"]`) and a parameter or a
- * constructor keyword of that name are not the account's state. Comments and docstrings are read too, so a
- * sentence that sets the attribute's name after a full stop counts as a read: reword it.
+ * Each read of an account's verification state in Python `source`, as `file::function` (the nearest `def` at or
+ * above the line it starts on), read on the source's tokens (`pythonTokens.ts`), so a comment, a docstring or
+ * any other string that names the field is never a read:
+ * - an attribute `.email_verified` that is not assigned (`==` and `!=` are reads);
+ * - a `getattr` whose second argument is the literal "email_verified";
+ * - a `filter_by` keyword of that name.
+ * Tokens carry no line breaks, so a read split across lines or continued with a backslash is the same read. A
+ * provider's claim (`claims["email_verified"]`), a parameter and a constructor keyword of that name are not the
+ * account's state. An f-string is one string token, so a read inside its braces is not seen: no gate lives there.
  */
-const EMAIL_VERIFIED_READ =
-  /\.(?:\s|\\)*email_verified\b(?!\s*=(?!=))|\bgetattr\(\s*[^,]*?,\s*['"]email_verified['"]|\bfilter_by\([^()]*?\bemail_verified\s*=/g
+function emailVerifiedSites(rel: string, source: string): string[] {
+  const lines = source.split('\n')
+  const site = (line: number) => {
+    const def = lines.slice(0, line).reverse().find((l) => /^\s*(?:async\s+)?def\s+\w+/.test(l))
+    return `${rel}::${def?.match(/def\s+(\w+)/)?.[1] ?? '<module>'}`
+  }
+  const toks = pythonTokens(source).filter((t) => !(t.kind === 'op' && t.text === '\\'))
+  const is = (t: Token | undefined, kind: Token['kind'], text: string) => t?.kind === kind && t.text === text
+  const opens = (t: Token | undefined) => t?.kind === 'op' && '([{'.includes(t.text)
+  const closes = (t: Token | undefined) => t?.kind === 'op' && ')]}'.includes(t.text)
+  /** In the call whose `(` is at `k`, whether `found` holds at any token directly inside it. */
+  const inCall = (k: number, found: (j: number) => boolean) => {
+    for (let j = k + 1, depth = 1; j < toks.length && depth > 0; j++) {
+      if (opens(toks[j])) depth++
+      else if (closes(toks[j])) depth--
+      else if (depth === 1 && found(j)) return true
+    }
+    return false
+  }
+  return toks.flatMap((t, k) => {
+    if (is(t, 'name', 'email_verified') && is(toks[k - 1], 'op', '.')) {
+      const assigned = is(toks[k + 1], 'op', '=') && !is(toks[k + 2], 'op', '=')
+      return assigned ? [] : [site(t.line)]
+    }
+    if (is(t, 'name', 'getattr') && is(toks[k + 1], 'op', '(')) {
+      let second = false
+      inCall(k + 1, (j) => {
+        if (!is(toks[j], 'op', ',')) return false
+        second = is(toks[j + 1], 'str', 'email_verified')
+        return true
+      })
+      return second ? [site(t.line)] : []
+    }
+    if (is(t, 'name', 'filter_by') && is(toks[k + 1], 'op', '(')) {
+      const keyword = (j: number) => is(toks[j], 'name', 'email_verified') && is(toks[j + 1], 'op', '=') && !is(toks[j + 2], 'op', '=')
+      return inCall(k + 1, keyword) ? [site(t.line)] : []
+    }
+    return []
+  })
+}
 
 /**
  * Every backend read of an account's `email_verified`, with what it does. The banner and the dialog name
@@ -127,7 +169,7 @@ const EMAIL_VERIFIED_READS: [site: string, what: string][] = [
 ]
 
 function emailVerifiedReads(): string[] {
-  return backendFiles().flatMap((rel) => sites(rel, backend(rel), EMAIL_VERIFIED_READ))
+  return backendFiles().flatMap((rel) => emailVerifiedSites(rel, backend(rel)))
 }
 
 beforeEach(() => {
@@ -244,7 +286,7 @@ describe('verification banner and dialog', () => {
     ).toEqual(EMAIL_VERIFIED_READS.map(([site]) => site).sort())
   })
 
-  it('the read scan sees a gate whatever its refusal says and however its lines break, and not a write or a provider claim', () => {
+  it('the read scan sees a gate whatever its refusal says and however its lines break, and not a write, a provider claim or prose', () => {
     const planted = [
       'async def export_filing(current_user):',
       '    if not current_user.email_verified:',
@@ -277,8 +319,15 @@ describe('verification banner and dialog', () => {
       '    )',
       '    by_google = bool(claims.get("email_verified", False))',
       '    return User(email_verified=email_verified and by_google)',
+      'def prose(current_user):',
+      '    """Once refused a checkout unless current_user.email_verified held."""',
+      '    # was: if not current_user.email_verified: raise HTTPException(status_code=403)',
+      '    logger.info("current_user.email_verified was read here; getattr(user, \'email_verified\')")',
+      '    return render(f"{current_user.email_verified}")',
     ].join('\n')
-    expect(sites('app/routers/probe.py', planted, EMAIL_VERIFIED_READ)).toEqual([
+    // `prose` names the field in a docstring, a comment, a log string and an f-string, and reads it nowhere else:
+    // the f-string's braces are the scan's one named gap (see emailVerifiedSites).
+    expect(emailVerifiedSites('app/routers/probe.py', planted)).toEqual([
       'app/routers/probe.py::export_filing',
       'app/routers/probe.py::unverified',
       'app/routers/probe.py::unverified_by_keyword',
