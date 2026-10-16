@@ -284,56 +284,10 @@ def _slow_excerpt(seconds, value="EXCERPT"):
 
 
 @pytest.mark.asyncio
-async def test_a_parse_not_done_in_its_wait_still_leaves_the_regex_excerpt(caplog):
-    """A section parse that outlives ``SECTION_PARSE_WAIT_SECONDS`` is cancelled then, with a warning,
-    before the provider call (a queued parse must not keep the one parse worker), and the excerpt is
-    still built without sections (the regex excerpt): a slow parse costs the native sections, not the
-    excerpt."""
-    caplog.set_level(logging.INFO, logger=LOGGER)
-    filing_id = seed_company_filing()
-    order = []
-    excerpt = MagicMock(return_value="EXCERPT")
-    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
-            patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
-            patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", 0.05), \
-            patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
-            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", lambda *_a, **_k: _never_done(order)), \
-            patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt):
-        summarize.side_effect = lambda *_a, **_k: order.append("provider") or deepcopy(CANONICAL_PAYLOAD)
-        events = await asyncio.wait_for(_drain(filing_id), 10)  # a parse awaited unbounded would hang
-
-    _assert_complete(events)
-    assert order == ["parse cancelled", "provider"]
-    assert excerpt.call_args.args[2] == DOC_TEXT and excerpt.call_args.kwargs == {"sections": None}
-    assert summarize.await_args.kwargs["filing_excerpt"] == "EXCERPT"
-    assert (logging.WARNING, f"[stream:{filing_id}] Section parse not done after 0s; building the excerpt without it") \
-        in _pipeline_logs(caplog)
-
-
-@pytest.mark.asyncio
-async def test_the_excerpt_build_keeps_its_floor_after_a_parse_that_used_its_whole_wait():
-    """The join ends ``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS`` after the parse wait began, but never sooner
-    than ``EXCERPT_BUILD_SECONDS`` after it: a build that needs more than the join's remainder still
-    finishes. (Here the remainder is about 0.2 s, the floor 0.5 s and the build 0.3 s.)"""
-    filing_id = seed_company_filing()
-    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
-            patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
-            patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 1.0), \
-            patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", 0.8), \
-            patch.object(summary_pipeline, "EXCERPT_BUILD_SECONDS", 0.5), \
-            patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
-            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", lambda *_a, **_k: _never_done()), \
-            patch.object(summary_pipeline, "get_or_cache_excerpt", _slow_excerpt(0.3)):
-        events = await asyncio.wait_for(_drain(filing_id), 10)
-
-    _assert_complete(events)
-    assert summarize.await_args.kwargs["filing_excerpt"] == "EXCERPT"
-
-
-@pytest.mark.asyncio
-async def test_a_long_parse_wait_takes_from_the_join_not_beyond_it():
-    """One enrichment deadline: after a parse wait of about 0.5 s, the join waits about 1.5 s of the
-    2 s budget, not a fresh 2 s (here for an XBRL fetch that never returns)."""
+async def test_the_join_after_the_section_parse_is_a_fresh_one():
+    """The excerpt waits for the section parse before the join, as before E28, and the join that
+    follows is the full ``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS``: a slow parse takes nothing from XBRL's
+    wait or from the excerpt build."""
     filing_id = seed_company_filing()
     joins = []
     real_wait_for = asyncio.wait_for
@@ -343,19 +297,24 @@ async def test_a_long_parse_wait_takes_from_the_join_not_beyond_it():
             joins.append(timeout)
         return await real_wait_for(aw, timeout)
 
-    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)), \
+    async def slow_parse(*_args, **_kwargs):
+        await asyncio.sleep(0.3)
+        return deepcopy(SECTIONS)
+
+    excerpt = MagicMock(return_value="EXCERPT")
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
             patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
             patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 2.0), \
-            patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", 0.5), \
-            patch.object(summary_pipeline, "EXCERPT_BUILD_SECONDS", 0.1), \
             patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
-            patch.object(summary_pipeline.xbrl_service, "get_xbrl_data", lambda *_a, **_k: _never_done()), \
-            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", lambda *_a, **_k: _never_done()), \
+            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", slow_parse), \
+            patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt), \
             patch.object(asyncio, "wait_for", spy):
         events = await real_wait_for(_drain(filing_id), 10)
 
     _assert_complete(events)
-    assert len(joins) == 1 and 0.5 <= joins[0] <= 1.5  # a fresh join would be 2.0; slow progress writes only shrink it
+    assert joins == [2.0]
+    assert excerpt.call_args.kwargs == {"sections": SECTIONS}
+    assert summarize.await_args.kwargs["filing_excerpt"] == "EXCERPT"
 
 
 @pytest.mark.asyncio

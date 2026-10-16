@@ -344,32 +344,23 @@ def _get_generation_semaphore() -> asyncio.Semaphore:
 
 
 # Pipeline outcome timeout. This is a *backstop* against a genuine hang/runaway — it sits
-# deliberately above the sum of the per-step budgets (≈15s fetch + 28s enrichment at most, the section
-# parse's 18s plus the excerpt build's 10s, + 75s AI fallback ≈ 118s; tests/unit/test_summary_pipeline_budget.py
-# pins the sum) so the per-step timeouts remain the primary controls and the AI fallback
+# deliberately above the sum of the typical per-step budgets (≈15s fetch + 18s enrichment + 75s AI
+# fallback ≈ 108s) so the per-step timeouts remain the primary controls and the AI fallback
 # always gets to produce a (partial) result rather than being pre-empted into a timeout error.
+# Two waits are not in that sum: the fetch's 15s is per attempt (up to three, with backoff), and the
+# section parse is awaited before the enrichment join, bounded by get_filing_sections (30s, 40s for a
+# 20-F; typically under 7s). With every step at its bound together the backstop can pre-empt the
+# AI fallback, as it could before E28.
 # The whole pipeline body runs inside `asyncio.timeout(PIPELINE_TIMEOUT_SECONDS)`.
 # Final cleanup may exceed this deadline while a synchronous worker finishes; cancelling its
 # asyncio waiter cannot kill its thread, and releasing ownership early would abandon that work.
 PIPELINE_TIMEOUT_SECONDS = 120
 
-# Timeout for the XBRL/excerpt enrichment, counted from the start of the section-parse wait. XBRL
-# starts concurrently with the filing document fetch; the excerpt is built after the section parse
-# resolves. This is the *additional* budget both get. The XBRL service's own internal timeout is 15s
-# (EDGAR_DEFAULT_TIMEOUT_SECONDS); an 8s ceiling here silently truncated it on large issuers,
-# producing hollow financials.
+# Timeout for XBRL/excerpt enrichment. XBRL fetch starts concurrently with the filing
+# document fetch, so this is the *additional* budget we wait at the join point. The XBRL
+# service's own internal timeout is 15s (EDGAR_DEFAULT_TIMEOUT_SECONDS); an 8s ceiling here
+# silently truncated it on large issuers, producing hollow financials.
 CONTEXT_ENRICHMENT_TIMEOUT_SECONDS = 18.0
-
-# How long the excerpt waits for the section parse, which needs the fetched document and so starts
-# after the fetch, and the least the excerpt build keeps after that wait. A parse not done in time is
-# cancelled and the excerpt is built without it (the regex excerpt, stored for good like any other),
-# so a short wait turns a moment of load into a lasting regex excerpt. On one CPU with the four
-# largest golden documents at once, an 18 s wait left three of four native, 30 s all four, and 10 s
-# one; a build given only part of an 18 s join was dropped outright under that load
-# (tasks/review-evidence/e28-native-sections-2026-10-15/runtime_limits.md). One large document alone
-# parses in 3 to 6.4 s.
-SECTION_PARSE_WAIT_SECONDS = 18.0
-EXCERPT_BUILD_SECONDS = 10.0
 
 
 def to_sse(event: dict) -> str:

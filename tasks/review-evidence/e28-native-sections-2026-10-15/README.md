@@ -241,11 +241,10 @@ option 1, and PR #1347 moves the source off `obj()`. What it lands:
   SEC request and calls no `obj()`. Documents over 16,000,000 characters are not parsed.
 - **The seam.** `xbrl_service.get_filing_sections(accession, filing_type, *, html)`. The pipeline
   starts the parse once the document is fetched (`summary_stages/enrichment.py::start_section_parse`,
-  request-owned) and waits for it for at most 18 s (`SECTION_PARSE_WAIT_SECONDS`) before the
-  enrichment join. A parse not done by then is cancelled and the regex excerpt is built; the join
-  ends 18 s after the wait began but leaves the excerpt build at least 10 s
-  (`EXCERPT_BUILD_SECONDS`). Before, the parse started with the fetch and had its own 30 s (40 s for
-  a 20-F). The eval runner, the Copilot bootstrap and the acceptance harness pass the same fetched HTML.
+  request-owned) and awaits it before building the excerpt, as before E28, under the seam's own
+  30 s bound (40 s for a 20-F; a parse that runs out returns None and the regex excerpt is built);
+  the excerpt build and XBRL then share the usual fresh 18 s join. Before, the parse started with
+  the fetch, so the same bound ran from the fetch's start. The eval runner, the Copilot bootstrap and the acceptance harness pass the same fetched HTML.
 - **Parity.** The 31 native golden excerpts built through the revived seam match the pre-switch CI
   reports by sha256 and by each section's supplied length; ASML's 20-F has no sections, as before
   ([`revival_parity.txt`](revival_parity.txt), from [`seam_parity_one.py.txt`](seam_parity_one.py.txt)

@@ -47,20 +47,37 @@ async def test_burst(caplog):
         return name, form, fid, round(time.perf_counter() - t0, 2), events[-1]["type"]
 
     calls = []
+    done_at = []
     async def capture(*a, **k):
         calls.append((a[1], len(a[0]), k.get("filing_excerpt")))
         return deepcopy(CANONICAL_PAYLOAD)
 
-    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize_mock,             patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", float(os.environ.get("BURST_WAIT", "10"))),             patch.object(summary_pipeline, "get_or_cache_excerpt", summary_generation_service.get_or_cache_excerpt),             patch.object(summary_pipeline.xbrl_service, "get_filing_sections",
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize_mock,             patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True),             patch.object(summary_pipeline, "get_or_cache_excerpt", summary_generation_service.get_or_cache_excerpt),             patch.object(summary_pipeline.xbrl_service, "get_filing_sections",
                          summary_pipeline.xbrl_service.__class__.get_filing_sections.__get__(summary_pipeline.xbrl_service)):
         summarize_mock.side_effect = capture
         summary_pipeline.sec_edgar_service.get_filing_document = fetch
+        xbrl_cpu = float(os.environ.get("BURST_XBRL_CPU", "0"))
+        if xbrl_cpu:
+            from app.services.edgar.async_executor import run_in_executor
+
+            def burn():  # a stand-in for filing.xbrl()'s instance parse: pure-Python CPU on the SEC pool
+                end = time.thread_time() + xbrl_cpu
+                n = 0
+                while time.thread_time() < end:
+                    n += sum(i * i for i in range(2000))
+                return {"revenue": [{"value": n % 7, "period": "2025-12-31"}]}
+
+            async def xbrl(*_a, **_k):
+                done_at.append(await run_in_executor(burn) and time.perf_counter())
+                return None
+            summary_pipeline.xbrl_service.get_xbrl_data = xbrl
         results = await asyncio.gather(*(one(*s) for s in specs))
     msgs = [r.getMessage() for r in caplog.records]
     prov = [json.loads(m.split("Excerpt provenance: ", 1)[1]) for m in msgs if m.startswith("Excerpt provenance: ")]
     out = {"results": results,
            "excerpts": [{"doc_chars": n, "excerpt_chars": len(x) if x else None} for _, n, x in calls],
            "seconds": {name: s for name, _, _, s, _ in results},
+           "xbrl_done": len(done_at),
            "provenance": [(p["source"], p["excerpt_chars"]) for p in prov],
            "warnings": [m for m in msgs if "Section parse" in m or "Excerpt not built" in m]}
     open(OUT, "w").write(json.dumps(out, indent=1))

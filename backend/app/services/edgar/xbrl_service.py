@@ -290,8 +290,8 @@ class EdgarXBRLService:
         if base_form not in {"10-K", "10-Q", "20-F"} or not html:
             return None
         # Parse time grows with the document (up to ~7 s for a 13 MB 10-K in the golden set), and
-        # parses share one worker, so this bound counts queue time. It is the old section budget; on
-        # the request path the pipeline's shorter parse wait is the effective bound.
+        # parses share one worker, so this bound counts queue time. It is the old section budget, and
+        # the pipeline awaits the parse under it before the enrichment join, as before E28.
         section_timeout = max(self.timeout, 40.0) if base_form == "20-F" else max(self.timeout, 30.0)
         try:
             return await run_parse_with_timeout(

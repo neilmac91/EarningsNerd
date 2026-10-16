@@ -346,8 +346,8 @@ class Settings(BaseSettings):
     # 10-K: 124k chars vs 260k). When True (default), the pipeline parses the 10-K/10-Q/20-F
     # sections from the primary document it already fetched (edgar/xbrl_sections.py; no SEC
     # request) and falls back to the legacy regex + dense-window path whenever sections come back
-    # empty/thin, the document is over the size cap, or the parse fails or misses its 18 s
-    # wait (SECTION_PARSE_WAIT_SECONDS) — so the safety net is preserved. Set USE_EDGARTOOLS_SECTIONS=false for
+    # empty/thin, the document is over the size cap, or the parse fails or runs past its 30 s
+    # bound (40 s for a 20-F) — so the safety net is preserved. Set USE_EDGARTOOLS_SECTIONS=false for
     # instant rollback to the legacy-only behavior.
     USE_EDGARTOOLS_SECTIONS: bool = True
 
