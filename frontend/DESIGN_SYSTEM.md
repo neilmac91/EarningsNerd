@@ -43,7 +43,17 @@ hairlines-as-meaning) ≥ 3:1.
 
 Every color on a surface that renders in **both** themes must be a light/dark **pair**:
 `bg-x-light dark:bg-x-dark`, `text-…-light dark:text-…-dark`. Never ship a single-theme color on a
-shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
+shared surface (it caused white-on-cream and dark-on-cream bugs across the app). Gate:
+`tests/unit/themePairs.spec.ts` holds the light half app-wide, stylesheets included: each colour class on a
+`-light` token, or on a token beside a `<name>-dark` (`brand-weak`, `gain`), needs a `dark:` colour class
+on the same property under the same variants, in the same class list. A twin under a condition, or one
+that is itself a light token, does not count, and a stylesheet rule block's `@apply` lines are one list.
+Tokens with no dark sibling (the chart palette, `overlay`, and the `-text` and `-emphasis` inks) are not
+read. Its residue is listed per file and class, with a cap equal to it, and every file under the scanned
+directories is read or listed as holding no class list. The same gate refuses the other half bare: a
+colour class on a `-dark` token with no `dark:` variant paints the dark theme's colour in the light theme
+(a stylesheet block whose every selector names `.dark` is the dark theme's), except on a surface dark in
+both themes on purpose, listed in its own residue (the logos' forced-dark mode, the debug payload panel).
 
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
@@ -302,7 +312,23 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
 
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
-                 lib/financialTone.directionText IS this recipe — route delta text through it.
+                 lib/financialTone.directionText IS this recipe — route delta text through it; a
+                 direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
+                 a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
+                 600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
+                 the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,
+                 its import (any local name, a namespace member, Phosphor's unsuffixed name) or a binding
+                 the file writes one to (an alias, a ternary, a lookup in a map of glyphs, as the
+                 what-changed chip draws its `<Icon />`), on every element above it up to the first that
+                 gives it an ink on every render (a theme text colour with no variant, or a class part the
+                 rule cannot read, such as directionChip[tone]; a layout or type wrapper such as
+                 `flex gap-1` or `text-sm` passes the ink through), or in a map that pairs one with its
+                 classes; a glyph that reaches a binding as a parameter or a call's result, a glyph
+                 returned from a .map callback and a glyph passed as a JSX prop (`icon={…}`) are past it.
+                 A delta or a figure in sage with no glyph fails tests/unit/brandCopyRules.spec.ts rule 2
+                 (D-030), a figure field such as `display` included. tests/unit/whatChangedChip.spec.tsx
+                 renders the what-changed chip and holds its colour to directionChip for the server's
+                 tone, which no lint can see.
 
 Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
                  letter for its grouped data note. The letter is text-data-xs (11px minimum), zero
@@ -461,7 +487,42 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  tracking-eyebrow around the code, its class written inline or held in a same-file
                  constant; gate: earningsnerd/no-form-code-badge, eslint.designRules.mjs);
                  <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
+                 (replaces raw-amber hand-rolls; "Superseded"). <Badge variant="success|error"> = a STATUS
+                 chip (a summary is ready, a run failed): the status ink on the quiet ground, since the
+                 success ink inside any tint of itself falls under 4.5:1 at 12px. In dark the chip
+                 carries no fill, its hairline only, so a hovered row's white/5 is the one layer under
+                 it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
+                 tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
+                 earnings-surprise direction with their ▲/▼ and never tell a status (gate:
+                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` keeps
+                 its warning tint and pulse for now; the design owner chose the brand tint (bg-brand-weak
+                 text-brand-strong, dark pair) with a sage pulse dot, static under reduced motion, which
+                 lands as its own token change (D-032), so no other colour goes on it meanwhile.
+
+Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
+                 <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
+                 check (6.6:1); dark the Primary's recipe, brand-dark (6.1:1 on panel-dark) under a navy
+                 check (7.8:1), drawn by `dark:checked:[background-image:var(--check-navy)]`, the
+                 plugin's check path in #0B1120 declared in app/globals.css (white on brand-dark would be
+                 2.4:1). Each fill is stated as `checked:bg-*` because a `dark:bg-*` ground outranks the
+                 plugin's checked fill; the unchecked edge is the flat ink (4.6:1 / 5.8:1 on panel).
+                 Gate: tests/unit/checkboxRecipe.spec.tsx (the check read from the stylesheet; the dark
+                 state equal to the Primary's dark fill and label ink).
+
+Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx) with the theme from
+                 ThemeProvider (never "system", which reads the OS setting, not the site's toggle) and no
+                 richColors, for good: status shows in the icon only, the Separate Signals Rule applied
+                 to a toast. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e4
+                 light (the ladder's overlay step, as the popovers) and none in dark, each with `!` because
+                 Sonner's two-attribute surface rules outrank a utility; the description is secondary ink;
+                 a status toast (success, error, warning, info) keeps the panel and colours only its
+                 icon, in its status ink. The close button
+                 rests on the panel in secondary ink, and its hover takes `!` as its rest does (Sonner's
+                 own hover loses to a forced rest): the quiet controls' tint (hover:!bg-brand-weak) with
+                 the primary ink in light; in dark the primary ink over the panel it keeps, since the
+                 button overhangs the card's corner and a translucent tint (brand-weak-dark) would show
+                 the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
+                 card's e4 and dark none; the close button's hover, forced, on opaque fills).
 
 Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on
                  STATUS_CHIP + STATUS_CHIP_INK[tone] from features/admin/lib/statusChip.ts, the one home
@@ -473,8 +534,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
                  FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
                  same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
-                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). When
-                 #1289's Badge status variants land, the recipe moves onto them.
+                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). Badge's
+                 success and error status variants carry this dark recipe, no fill; E47 moves the admin
+                 chips onto Badge after the series, with info, warning and neutral status variants of
+                 their own (Badge's info, warning and neutral are the tints and the quiet chip).
                  Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
                  hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
                  pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
@@ -487,6 +550,7 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
                  Card; inside a Card, Notice is the right scale.
+                 A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
@@ -642,8 +706,11 @@ Popover          An anchored, light-dismiss surface that explains one control (t
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
                  sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
                  workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
-                 z-header 50 (site header; its menus ride it) · z-overlay 60 (popovers incl. BellPopover, the
-                 selection pill) · z-modal 70 (dialogs + the source and viewer sheets — scrim AND panel) ·
+                 z-header 50 (site header; its menus ride it: the notification menu and the account menu
+                 sit on this one rung inside the header's stacking context, NotificationBell on the token
+                 and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
+                 z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
+                 source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
                  The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
@@ -1011,11 +1078,14 @@ plans, the analysis chart panels). `GuidanceCard` titles itself h3 by default, f
 h2 section; where the card stands in for the page's content directly under the h1, pass
 `headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
 summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
+A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
+error boundary, the providers' GlobalErrorBoundary; global-error.tsx writes its own h1; gate:
+tests/unit/errorBoundaryHeadings.spec.tsx).
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
-the 404, /waitlist (its problem cards are h2, since the example beside the form has no heading),
+the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
 /login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
 which has no site footer; the two token pages are opened without their emailed token), /contact,
 /privacy, /terms, /security, /delete-account, /search while its flag is off (the 404), and four
@@ -1081,7 +1151,10 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 ## 9. Exemptions
 
 - **Google / Apple sign-in buttons**: keep their brand-mandated surfaces (white / black). Only
-  their focus rings get rebranded.
+  their focus rings get rebranded. The exemption protects the provider's mandated look (Google: the
+  white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
+  not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
+  against Google's current guideline and record the values here.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**

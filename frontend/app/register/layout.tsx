@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 // indexable content: a specific title (not the site default) + canonical + noindex.
 export const metadata: Metadata = {
   title: 'Create an account | EarningsNerd',
-  description: 'Create a free EarningsNerd account to generate AI summaries of SEC filings.',
+  description: 'Create your EarningsNerd account.',
   alternates: { canonical: '/register' },
   robots: { index: false },
 }
