@@ -312,4 +312,4 @@ run, so recording it here would start another.
   [`copilot_sources_parity.txt`](copilot_sources_parity.txt): the seam's sections for the six Copilot
   sources against #1350's `copilot-eval` run 38817393205 (its retained artifact, read offline).
 - [`mutate.py.txt`](mutate.py.txt), [`mutation_proofs.jsonl`](mutation_proofs.jsonl): the mutation
-  proofs, each mutant applied to the committed tree in a detached worktree.
+  proofs on 6941dcf (46 of 46 killed), each mutant applied to the committed tree in a detached worktree.
