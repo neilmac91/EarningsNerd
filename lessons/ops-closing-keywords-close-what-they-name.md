@@ -39,9 +39,15 @@ run starts (an Actions outage).
 pull request's title, body or any commit message carries such a reference, draft or not and override or
 not, and lists each one (`backend/tests/unit/test_review_gate.py`). It matches more than GitHub documents,
 so an undocumented form fails closed, and it fails a pull request listing 250 commits, the most GitHub
-lists. It reads text as GitHub renders it, so an escaped number sign or an HTML entity counts. Not gated:
-a squash message typed at merge, which no pull-request check can see, and a merge made after an edit but
-before its new gate run's check appears.
+lists. It reads text as GitHub renders it, so an escaped number sign or an HTML entity counts. A squash
+message typed at merge, which no pull-request check can see, is read by `.claude/hooks/closing_keyword_guard.py`
+in an agent's session: `.claude/settings.json` runs it before every Bash command and every GitHub MCP call,
+and it refuses a merge call (the MCP `merge_pull_request` or `enable_pr_auto_merge` commit fields, or a
+Bash line that runs `gh pr merge` or calls a merge endpoint, with the files it sends) whose typed text
+carries such a reference, with the gate's own pattern (`backend/tests/unit/test_closing_keyword_guard.py`).
+Not gated: a merge whose message a command builds as it runs, a merge made in a session that loads no
+repository hooks or by a person, and a merge made after an edit but before its new gate run's check
+appears.
 
 **Evidence**: #1136 (its body's closing note) and #1156 (closed 17:19:34 UTC with no commit, reopened at
 17:29:44, comment 6085958257); #653 with #629 and #694 with #686 (each close one second after the merge,
