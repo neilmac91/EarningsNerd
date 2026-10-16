@@ -151,15 +151,28 @@ const DATE_HELPER_ALIAS_MESSAGE =
   'billing-instant rules (eslint.config.mjs) read a call by its callee, so a renamed or held one hides it.'
 const DATE_HELPER_RULES = [
   ...callsTo('formatLocalDate').flatMap((root) => fieldSelectors(root, BILLING_INSTANT_FIELDS, BILLING_INSTANT_MESSAGE)),
-  // An import or a re-export under another name, the module's name quoted or not (Date, a global, travels by neither).
+  // An import or a re-export under another name, either name quoted or not (Date, a global, travels by neither). Each
+  // negated attribute has its node's type pinned first: a negation holds for every node that lacks the attribute, so an
+  // export named by a string (`export { formatInstant as 'formatInstant' }`) would otherwise read as a rename.
   ...DATE_HELPERS.filter((name) => name !== 'Date').flatMap((name) => [
-    { selector: `ImportSpecifier[imported.name='${name}'][local.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
-    { selector: `ImportSpecifier[imported.value='${name}'][local.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
-    { selector: `ExportSpecifier[local.name='${name}'][exported.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
-    { selector: `ExportSpecifier[local.value='${name}'][exported.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
+    ...['name', 'value'].map((at) => ({
+      selector: `ImportSpecifier[imported.${at}='${name}'][local.type='Identifier'][local.name!='${name}']`,
+      message: DATE_HELPER_ALIAS_MESSAGE,
+    })),
+    ...['name', 'value'].flatMap((at) => [
+      {
+        selector: `ExportSpecifier[local.${at}='${name}'][exported.type='Identifier'][exported.name!='${name}']`,
+        message: DATE_HELPER_ALIAS_MESSAGE,
+      },
+      {
+        selector: `ExportSpecifier[local.${at}='${name}'][exported.type='Literal'][exported.value!='${name}']`,
+        message: DATE_HELPER_ALIAS_MESSAGE,
+      },
+    ]),
   ]),
   // A destructuring that renames it, its key in each spelling, with or without a default: `{ formatInstant: held }`,
-  // `{ ['formatInstant']: held }`, `{ formatInstant: held = fallback }`, `const { Date: D } = globalThis`.
+  // `{ ['formatInstant']: held }`, `{ formatInstant: held = fallback }`, `const { Date: D } = globalThis`. A nested
+  // pattern (`{ formatInstant: { length } = … }`) binds no alias of the helper, so the value's type is pinned first.
   ...DATE_HELPERS.flatMap((name) =>
     KEY_NAME_PATHS.flatMap((at) => [
       {
@@ -167,7 +180,7 @@ const DATE_HELPER_RULES = [
         message: DATE_HELPER_ALIAS_MESSAGE,
       },
       {
-        selector: `ObjectPattern > Property[key.${at}='${name}'][value.type='AssignmentPattern'][value.left.name!='${name}']`,
+        selector: `ObjectPattern > Property[key.${at}='${name}'][value.type='AssignmentPattern'][value.left.type='Identifier'][value.left.name!='${name}']`,
         message: DATE_HELPER_ALIAS_MESSAGE,
       },
     ]),

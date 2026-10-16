@@ -13,11 +13,14 @@ import { describe, expect, it } from 'vitest'
  * Stripe billing date (trial_end, current_period_end) through formatLocalDate is an error: it names the instant's
  * UTC day, not the reader's. Each helper is read by its own name and as a namespace member, its key dotted,
  * bracketed or a template (`fmt.formatInstant(…)`, `fmt['formatInstant'](…)`, `new globalThis['Date'](…)`), and
- * going by another name is an error of its own: an import alias, a destructuring that renames it (its key in any
- * spelling, with or without a default, Date's from globalThis included), a const that holds it. A field is read in
- * each spelling too (`f.filing_date`, `f['filing_date']`, a template with no substitution); a template with one names
- * no field the lint can be sure of. A genuine instant through formatInstant, a calendar date through formatLocalDate
- * and a destructuring that keeps the name, a default added or not, pass, bracketed or not. A field key held in a const
+ * going by another name is an error of its own: an import or an export alias (either name quoted or not), a
+ * destructuring that renames it (its key in any spelling, with or without a default, Date's from globalThis
+ * included), a const that holds it. A field is read in each spelling too (`f.filing_date`, `f['filing_date']`, a
+ * template with no substitution); a template with one names no field the lint can be sure of. A genuine instant
+ * through formatInstant, a calendar date through formatLocalDate, a destructuring that keeps the name (a default
+ * added or not), a nested pattern of a helper's members and an export that keeps the name as a string pass,
+ * bracketed or not. Every negated attribute in the rules has its node's type pinned first, so a node that lacks the
+ * attribute is not read as a rename. A field key held in a const
  * (`filing[KEY]`) is the residual eslint.config.mjs names, planted as a gap the lint does not see. The rendered day is
  * pinned behaviourally in filing-date-local-day.spec.tsx, TrialBanner.spec.tsx and BillingPanel.spec.tsx; this case
  * pins the lint's reach. Each probe line names what the lint must say of it.
@@ -94,6 +97,16 @@ const PROBE: Array<[string, Said]> = [
   ['  const { Date = globalThis.Date } = globalThis', null],
   ['  return [formatInstant, Date]', null],
   ['}', null],
+  // A nested pattern binds no alias of the helper, with a default or not (the re-review of 77b306f6: each negated
+  // attribute's node type is pinned first).
+  ['export function nestedPatterns() {', null],
+  ['  const { formatInstant: { length } = fmt.formatInstant } = fmt', null],
+  ['  const { formatLocalDate: [first] = [] } = fmt', null],
+  ['  return [length, first]', null],
+  ['}', null],
+  // An export named by a string keeps the name, or renames it.
+  ["export { formatInstant as 'formatInstant' }", null],
+  ["export { formatLocalDate as 'heldExport' }", 'alias'],
   ['', null],
 ]
 
