@@ -89,7 +89,7 @@ export default function ForgotPasswordPage() {
       )}
 
       <p className="mt-8 text-center text-sm">
-        <Link href="/login" className="text-text-secondary-light hover:underline dark:text-text-secondary-dark">
+        <Link href="/login" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-text-secondary-light hover:underline dark:text-text-secondary-dark">
           Back to login
         </Link>
       </p>

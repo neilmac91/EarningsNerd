@@ -55,17 +55,35 @@ function CheckEmailContent() {
       <h1 className="mt-6 text-center text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         Check your inbox
       </h1>
-      <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        We sent a verification link to
-      </p>
-      {email && (
-        <p className="mt-1 text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-          {email}
-        </p>
+      {/* Register lands here after sending a link; the account menu's "Verify your email" lands here
+          without one. So the page never says a link was just sent: it names where links go, and Resend
+          is what sends one. */}
+      {email ? (
+        <>
+          <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            We send verification links to
+          </p>
+          {/* An address has no break opportunity, so at 200% text a long one overflows the column;
+              break-words lets it break at the edge (the column is a block of definite width). */}
+          <p className="mt-1 break-words text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+            {email}
+          </p>
+          <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Open the newest one to verify your email address. Each link expires 24 hours after we send it.
+          </p>
+        </>
+      ) : (
+        // Reached without an address (verify-email's "Get a new link"): nothing to
+        // resend to, so the page says where a new link comes from instead of offering Resend.
+        <>
+          <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Open the newest verification link we sent you.
+          </p>
+          <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Need a new one? Sign in, open the account menu and choose Verify your email.
+          </p>
+        </>
       )}
-      <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        Click the link to activate your account. It expires in 24 hours.
-      </p>
 
       {resendStatus === 'sent' && (
         <div className="mt-6">
@@ -78,16 +96,16 @@ function CheckEmailContent() {
         </div>
       )}
 
+      {email && (
       <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Didn&apos;t receive it?{' '}
         {/* In flight and cooling down: aria-disabled (handleResend returns early), not native
             `disabled`. Chromium blurs a focused button that turns disabled, and both states
-            follow this button's own activation. A missing email comes from the URL and never
-            changes here, so that alone stays natively disabled. In flight, the aria-disabled look
-            fades the label's ink, not the element, so the focus indicator keeps its strength. */}
+            follow this button's own activation. Without an email the line is not rendered at
+            all, so nothing here is natively disabled. In flight, the aria-disabled look fades the
+            label's ink, not the element, so the focus indicator keeps its strength. */}
         <button
           onClick={handleResend}
-          disabled={!email}
           aria-disabled={resendLoading || cooldown > 0 || undefined}
           aria-busy={resendLoading || undefined}
           className="group rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed"
@@ -105,6 +123,7 @@ function CheckEmailContent() {
           )}
         </button>
       </p>
+      )}
 
       <p className="mt-4 text-center text-sm">
         <Link
