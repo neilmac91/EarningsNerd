@@ -58,9 +58,9 @@ A change of more than one kind below takes the widest reading. Any of them adds
   list. Read:
   - the rules before the recipe block and the list after it;
   - the shared recipes, whose rules a change can break without touching their component: Primary
-    button, Secondary button, Wrapping button, Link as button, Accent text/link, Count control,
-    Focus ring, Card / panel, Delta text, Data table hover, Solid chip, Status chip, Inline notice,
-    Semantic card, Index list, Stacking and Metric cards;
+    button, Secondary button, Wrapping button, Button size, Link as button, Accent text/link,
+    Count control, Focus ring, Card / panel, Delta text, Data table hover, Solid chip, Status chip,
+    Inline notice, Semantic card, Index list, Stacking and Metric cards;
   - the recipe of each existing component or surface the change uses or edits;
   - the triggered recipes, for what the change adds or changes:
     - a keyboard shortcut: Source pane, Wording changes and Search field (the filing page binds
@@ -82,8 +82,8 @@ A change of more than one kind below takes the widest reading. Any of them adds
       the filing page: Section ledger, Compare periods and Wording changes;
     - a heading or quote drawn from a filing excerpt: Evidence rows;
     - a new state or sticky chrome on the filing page: Section ledger and Source pane;
-    - a scroll box on either axis: Filing reader and Analysis table (a scripted scroll is a
-      motion change: §11 too);
+    - a scroll box on either axis: Filing reader, Analysis table and Admin pages (a scripted
+      scroll is a motion change: §11 too);
     - a filter, window or sort that changes how many items a list shows: Analysis table;
     - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
     - figure tiles outside /analysis: Analysis KPI.
