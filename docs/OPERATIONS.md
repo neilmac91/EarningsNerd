@@ -498,9 +498,9 @@ it (Markdown escapes dropped, HTML entities decoded) and lists each reference; a
 body re-runs the check, and a commit message is reworded on the branch. Until the edit's run reports, the
 previous result stands on the head, as for drafts below, so merge only after it passes. It also fails a
 pull request that lists 250 commits, the most GitHub's commits endpoint returns, because later commit
-messages would go unread. A squash message typed at merge is outside every pull-request check; in an agent's
-session `.claude/hooks/closing_keyword_guard.py` refuses a merge call whose typed message puts a closing
-keyword before a reference. The check passes
+messages would go unread. A squash message typed at merge is outside every pull-request check; in a Claude
+Code session that loads the repository's hooks, `.claude/hooks/closing_keyword_guard.py` refuses a merge
+call whose typed message puts a closing keyword before a reference. The check passes
 only when Codex's "Review Summary" comment reports **Completed** for that
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not

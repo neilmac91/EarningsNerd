@@ -37,13 +37,16 @@ reference that starts the message: each title and message a call types are also 
 title's last and a message's first 1,024 characters), the last 16 of each (gh keeps a flag's last value). On
 a shell line they are gh pr merge's --subject/-t and --body/-b among the line's words as the shell passes
 them (a quoted value may run over lines), and among the words of a word that is itself a merge's line
-(`bash -c 'gh pr merge ...'`), with each file the line reads and each here-document as a message; and
+(`bash -c 'gh pr merge ...'`), a value that is one file's plain `cat` or `<` (`-t "$(cat title.md)"`) read
+as that file's text, and each file the line reads, each here-document and each here-string as a message; and
 GitHub's field names, commit_title with commit_message and commitHeadline with commitBody, as a name=value
-word (`-f 'commit_title=lint fix'`, `--field=...`, httpie's field=value; `=@file` read), a quoted value the
-name takes in a text, read whole (a JSON or GraphQL string, its quotes escaped or not; a script's dictionary
-or keyword argument), a JSON text decoded, or a GraphQL variable such a word or a JSON body gives
-(`commitBody: $b` with `-f b=...`). On MCP they are the same fields and variables among the call's strings,
-and every string of the call in order.
+word (`-f 'commit_title=lint fix'`, `--field=...`, gh's nested `input[commitBody]=...`, httpie's
+field=value; `=@file` read), a quoted value the name takes in a text, read whole and decoded as its language
+reads it (a JSON or GraphQL string, its quotes escaped or not; a script's dictionary or keyword argument), a
+JSON text decoded, or a GraphQL variable such a word or a JSON body gives (`commitBody: $b` with
+`-f b=...`). On MCP they are the same fields and variables among the call's strings, and every string of the
+call in order. A decoded value is also read on its own, so a keyword after an escaped line break (`\n`)
+counts.
 A merge with no typed message passes: its message is the default the gate has read. Reading the whole line,
 and every file it names, refuses more than a merge's own message: another command's text on the same line,
 and a line that only names a merge (a comment that quotes `gh pr merge` with a closing reference). The
@@ -61,8 +64,9 @@ brace expansion, the output of any command but a plain `cat`, a line handed to a
 literal `bash -c '...'` is on the line and read); a file over 1 MiB, a glob's files past its first 16, or a
 file named relative to a directory the line changes into first; more than three -R/--repo options in a row
 before `pr` or `merge`; a title or message past the last 16 of each a call types, or a title's keyword and
-its message's reference more than 1,024 characters from where the two meet; a merge a script or a gh alias
-runs, or whose URL sits in a file a command reads as its configuration (curl's -K, wget's -i); an MCP
+its message's reference more than 1,024 characters from where the two meet; a typed title or message whose
+other half is GitHub's default (a merge commit's default title names its branch); a merge a script or a gh
+alias runs, or whose URL sits in a file a command reads as its configuration (curl's -K, wget's -i); an MCP
 request tool that spreads a merge's target over fields of its own (owner, repository, number, action); a
 GitHub MCP server registered under a name without "github"; a session that loads no repository hooks; and a
 person's own merge.
@@ -131,8 +135,9 @@ CAT = re.compile(r"""(?:^|[\s;&|(`/])\\?(?:cat|'cat'|"cat")((?:[ \t]+""" + _WORD
 # GraphQL variable a word or a field gives. At most 16 of each, the last ones (gh keeps a flag's last value).
 SUBJECT_FLAG = re.compile(r"--subject(?:=([\s\S]*))?|-[A-Za-z]*?t=?([\s\S]*)")
 BODY_FLAG = re.compile(r"--body(?:=([\s\S]*))?|-[A-Za-z]*?b=?([\s\S]*)")
-# gh api's -f/-F/--field/--raw-field name=value, the option attached or not (-fname=value), and httpie's field=value.
-NAMED_WORD = re.compile(r"(?:--(?:raw-)?field=|-[A-Za-z]*?[fF]=?)?(\w+)=([\s\S]*)")
+# gh api's -f/-F/--field/--raw-field name=value, the option attached or not (-fname=value), and httpie's field=value;
+# a nested key (input[commitBody]=value, which gh sends as a field of the input variable) is named by its last key.
+NAMED_WORD = re.compile(r"(?:--(?:raw-)?field=|-[A-Za-z]*?[fF]=?)?(?:\w+\]?\[)*(\w+)\]?(?:\[\])?=([\s\S]*)")
 COMMIT_PART = re.compile(r"""\b(commit_title|commitHeadline|commit_message|commitBody)\b["']?\s*[:=]\s*"""
                          r"""("(?:[^"\\]|\\[\s\S])*"|'[^']*')""")
 COMMIT_VARIABLE = re.compile(r"\b(commit_title|commitHeadline|commit_message|commitBody)\s*:\s*\$(\w+)")
@@ -142,6 +147,9 @@ MAX_PARTS = 16
 # A here-document's opener (not a here-string's `<<<`); its text starts on the next line.
 HEREDOC = re.compile(r"""(?<!<)<<(?!<)-?[ \t]*(?:'[^'\n]+'|"[^"\n]+"|\\?[A-Za-z_][\w.-]*)""")
 MAX_HEREDOCS = 16
+HERESTRING = re.compile(r"<<<[ \t]*" + _VALUE)  # a here-string's word, the text it sends on standard input
+# A value the shell fills from one file: a plain cat's or a `<` redirect's in a command substitution.
+SUBSTITUTED = re.compile(r"""(?:\$\(|`)\s*(?:<|(?:\\|\S*/)?(?:cat|'cat'|"cat")\s)\s*([^\s()`]+)\s*(?:\)|`)""")
 # The join reads a title's end and a message's start: more than any keyword, the marks after it and a reference
 # (a pull request URL is about 240 characters) need, and a bound on each joined text however large its parts.
 JOIN_CHARS = 1024
@@ -275,12 +283,13 @@ def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
 
 
 def _part(value: str) -> str:
-    """A quoted value as written on the line or in a text: a JSON or GraphQL string decoded, a single-quoted one
-    unquoted."""
+    """A quoted value as the language that quotes it reads it: a JSON or GraphQL string, or a script's single-quoted
+    one, with its escapes decoded (`\\n` a line break); unquoted only, for an escape JSON does not know."""
+    body = value[1:-1]
     try:
-        return json.loads(value)
+        return json.loads(value if value[0] == '"' else '"' + body.replace('"', '\\"') + '"')
     except ValueError:
-        return value[1:-1]
+        return body
 
 
 def _json_strings(text: str) -> list[tuple[str, str]]:
@@ -331,28 +340,36 @@ def _commits(texts: list[tuple[str, str]], titles: list[str], messages: list[str
              resolve=lambda value: value) -> list[tuple[str, str]]:
     """The commit a merge writes, its title's end, a blank line, then its message's start, for each title and
     message the call types: those given; GitHub's field names in `named` (a word's name=value, a field) and in its
-    texts as a quoted value; and the `named` values a GraphQL variable takes. `resolve` reads a named value (an
-    @file)."""
+    texts as a quoted value; and the `named` values a GraphQL variable takes. `resolve` reads a value filled from a
+    file (`@file`, `$(cat file)`). Each quoted value is also read on its own, decoded as the server reads it."""
     titles, messages = list(titles), list(messages)
     fields = {field: titles for field in TITLE_FIELDS} | {field: messages for field in MESSAGE_FIELDS}
     names = [(field, field) for field in fields]  # each field named outright, then each variable a field takes
+    parts = []
     for _, text in texts:
         for match in COMMIT_PART.finditer(text):
-            fields[match.group(1)].append(_part(match.group(2)))
+            parts.append(_part(match.group(2)))
+            fields[match.group(1)].append(parts[-1])
         names += COMMIT_VARIABLE.findall(text)
     for field, name in dict.fromkeys(names):
-        fields[field].extend(map(resolve, _last(named.get(name, []))))
-    return [("the commit, title then message", f"{title[-JOIN_CHARS:]}\n\n{message[:JOIN_CHARS]}")
-            for title in _last(titles) for message in _last(messages)]
+        fields[field].extend(_last(named.get(name, [])))
+    titles, messages = [resolve(title) for title in _last(titles)], [resolve(message) for message in _last(messages)]
+    return [("a field's value, decoded", part) for part in dict.fromkeys(parts)] + [
+        ("the commit, title then message", f"{title[-JOIN_CHARS:]}\n\n{message[:JOIN_CHARS]}")
+        for title in titles for message in messages]
 
 
-def _at_file(value: str, cwd: object) -> str:
-    """A field's value, or the text of the file an `@` names in it (gh api's -F name=@file)."""
-    if not value.startswith("@") or value == "@-":
+def _filled(value: str, cwd: object) -> str:
+    """A value as gh or the shell fills it from a file: the file an `@` names (gh api's -F name=@file), or the one a
+    plain cat or a `<` redirect reads in a command substitution (`$(cat title.md)`), its final line breaks dropped
+    as the shell drops them; else the value itself."""
+    substituted = SUBSTITUTED.fullmatch(value)
+    if substituted is None and (not value.startswith("@") or value == "@-"):
         return value
     base = cwd if isinstance(cwd, str) and cwd else os.getcwd()
-    text = _read(os.path.join(base, os.path.expanduser(value[1:])))
-    return value if text is None else text
+    name = _name(substituted.group(1)) if substituted else value[1:]
+    text = _read(os.path.join(base, os.path.expanduser(name)))
+    return value if text is None else text.rstrip("\n") if substituted else text
 
 
 def _reason(references: list[str]) -> str:
@@ -406,9 +423,9 @@ def refusal(event: object) -> str | None:
             named.setdefault(name, []).append(value)
         titles = [value for line in lines for value in _flag_values(line, SUBJECT_FLAG)]
         messages = ([value for line in lines for value in _flag_values(line, BODY_FLAG)] + [text for _, text in files]
-                    + heredocs)
+                    + heredocs + [_name(match.group(1)) for match in HERESTRING.finditer(joined)])
         sources = [("this command", command), ("the line's words", "\n".join(words)), *texts[2:]]
-        texts += _commits(sources, titles, messages, named, lambda value: _at_file(value, cwd))
+        texts += _commits(sources, titles, messages, named, lambda value: _filled(value, cwd))
     else:
         parts = tool.split("__")
         if not (len(parts) >= 3 and parts[0] == "mcp" and "github" in parts[1].lower()):

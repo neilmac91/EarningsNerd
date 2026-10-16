@@ -55,11 +55,13 @@ command builds as the line runs (a variable, a `$'...'` escape, a brace expansio
 command but a plain `cat`) or that reads a file over 1 MiB, a glob's files past its first 16, or a file
 named relative to a directory the line changes into first, a merge with more than three `-R`/`--repo`
 options in a row, a title or message past the last 16 of each a merge call types (gh writes the last), a
-title's keyword and its message's reference more than 1,024 characters from where the two meet, a merge a
-script or a gh alias runs or whose URL sits in a file a command reads as its configuration (curl's `-K`,
-wget's `-i`), a merge through an MCP request tool that spreads its target over fields of its own or through
-a GitHub MCP server registered under a name without "github", a merge made in a session that loads no
-repository hooks or by a person, and a merge made after an edit but before its new gate run's check appears.
+title's keyword and its message's reference more than 1,024 characters from where the two meet, a typed
+title or message whose other half is GitHub's default (a merge commit's default title names its branch), a
+merge a script or a gh alias runs or whose URL sits in a file a command reads as its configuration (curl's
+`-K`, wget's `-i`), a merge through an MCP request tool that spreads its target over fields of its own or
+through a GitHub MCP server registered under a name without "github", a merge made in a session that loads
+no repository hooks or by a person, and a merge made after an edit but before its new gate run's check
+appears.
 
 **Evidence**: #1136 (its body's closing note) and #1156 (closed 17:19:34 UTC with no commit, reopened at
 17:29:44, comment 6085958257); #653 with #629 and #694 with #686 (each close one second after the merge,

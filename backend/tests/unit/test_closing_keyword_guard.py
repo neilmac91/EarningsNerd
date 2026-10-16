@@ -143,6 +143,14 @@ MCP_REFUSED = {
         "method": "POST", "path": "/graphql", "body": json.dumps({"query": (
             'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "lint fix", '
             'commitBody: "#3 carries the rest"}) { clientMutationId } }')})}),
+    # A field's quoted value read as GraphQL decodes it, on its own: a keyword after an escaped line break.
+    "an escaped line break before a keyword in a GraphQL body": ("mcp__github__run_graphql", {
+        "query": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitBody: "Squash of the series.\\n\\n'
+                 'Fixes #3"}) { clientMutationId } }'}),
+    "the same in a JSON-string request body": ("mcp__github__api_request", {
+        "method": "POST", "path": "/graphql", "body": json.dumps({"query": (
+            'mutation { mergePullRequest(input: {pullRequestId: "X", commitBody: "Squash of the series.\\n\\n'
+            'Fixes #3"}) { clientMutationId } }')})}),
     "a JSON body's title and message": ("mcp__github__api_request", {
         "method": "PUT", "path": "/repos/o/r/pulls/5/merge",
         "body": '{"commit_title": "lint fix", "commit_message": "#3 carries the rest"}'}),
@@ -273,6 +281,20 @@ BASH_REFUSED = (
     "json={'commit_title': 'lint fix', 'commit_message': '#3 carries the rest'})\"",
     "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
     "json=dict(commit_title='lint fix', commit_message='#3 carries the rest'))\"",
+    # A field's quoted value read as its language decodes it, on its own: a keyword after an escaped line break.
+    "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"X\", "
+    "commitBody: \"Squash of the series.\\n\\nFixes #3\"}) { clientMutationId } }'",
+    "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
+    "json={'commit_message': 'Squash of the series.\\n\\nFixes #3'})\"",
+    # gh api's nested key for a field of a GraphQL input variable.
+    "gh api graphql -f query='mutation($input: MergePullRequestInput!) { mergePullRequest(input: $input) "
+    "{ clientMutationId } }' -f 'input[pullRequestId]=X' -f 'input[commitHeadline]=lint fix' "
+    "-f 'input[commitBody]=#3 carries the rest'",
+    # A here-string's text as a message; a value filled from one file a plain cat or `<` reads.
+    "gh pr merge 5 -s -t 'lint fix' --body-file - <<< '#3 carries the rest'",
+    "gh pr merge 5 -s -t \"$(cat title.md)\" -b '#3 carries the rest'",
+    "gh pr merge 5 -s -t \"$(<title.md)\" -b '#3 carries the rest'",
+    "gh api -X PUT repos/o/r/pulls/5/merge -f commit_title=\"$(cat title.md)\" -f commit_message='#3 carries the rest'",
     # gh keeps a flag's last value: a title given first and last, with 16 others between.
     "gh pr merge 5 -s -t 'lint fix' " + " ".join(f"-t t{n}" for n in range(16)) + " -t 'lint fix' -b '#3 carries the rest'",
     "gh pr merge 5 -s -F=msg.md",  # pflag drops an `=` after a short option
@@ -378,8 +400,9 @@ BASH_PASSED = (
 # that way), a file named relative to a directory the line changes into, a script, a gh alias, a server named
 # otherwise, a merge whose URL sits in a file a command reads as its configuration, an MCP request tool that
 # spreads a merge's target over fields, a brace expansion, more than three -R in a row, a title past the last 16
-# a call types, a keyword and a reference more than 1,024 characters from where a title and its message meet. A
-# file over 1 MiB and a glob's files past its first 16 have tests of their own.
+# a call types, a keyword and a reference more than 1,024 characters from where a title and its message meet, a
+# typed half whose other half is GitHub's default. A file over 1 MiB and a glob's files past its first 16 have tests
+# of their own.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b $'fixes \\x233'"}),
@@ -394,6 +417,8 @@ GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -t 'lint fix' " + " ".join(f"-t t{n}" for n in range(16))
               + " -b '#3 carries the rest'"}),  # a title past the last 16; gh writes the last
     ("Bash", {"command": "gh pr merge 5 -s -t 'lint fix' -b '" + " " * 1100 + "#3 carries the rest'"}),  # past 1,024
+    ("Bash", {"command": "gh pr merge 5 --merge --body '#3 carries the rest'"}),  # GitHub's default title
+    (MERGE, {"pullNumber": 5, "commit_title": "lint fix"}),  # GitHub's default message
     ("Bash", {"command": "curl -K merge.cfg"}),
     ("Bash", {"command": "wget -i urls.txt --method=PUT --body-file=body.json"}),
     ("mcp__github__api_request", {  # a request tool that spreads the merge's target over fields of its own
@@ -507,6 +532,7 @@ ADVERSARIAL = {
     "one long word": MERGE_LINE + " " + "a" * 1_000_000,
     "distinct titles and bodies": MERGE_LINE + "".join(f" -t t{n} -b b{n}" for n in range(60_000)),
     "here-documents": MERGE_LINE + " <<a\n" * 200_000,
+    "here-strings": MERGE_LINE + " <<<a" * 200_000,
     "multi-line quotes": MERGE_LINE + " '\n" * 300_000,
     "words with spaces": MERGE_LINE + " 'a b'" * 200_000,
     "words that are merge lines": MERGE_LINE + " 'gh pr merge -t x'" * 50_000,
@@ -524,9 +550,32 @@ ADVERSARIAL = {
 }
 
 
+# Merges of about 1 MB that close an issue, each refused inside the hook's timeout, so a hook that skipped a large
+# line or call would fail here: the commonest long merge is a squash message typed in a here-document.
+LARGE_REFUSED = {
+    "a here-document message": ("Bash", {"command": "gh pr merge 5 --squash --body-file - <<'EOF'\n"
+                                                    + "Squash of the series.\n" * 45_000 + "Fixes #3.\nEOF"}),
+    "a quoted body": ("Bash", {"command": "gh pr merge 5 -s -b '" + "x " * 500_000 + "fixes #3'"}),
+    "a field after many": ("Bash", {"command": "gh api -X PUT repos/o/r/pulls/5/merge" + " -f k=v" * 140_000
+                                               + " -f commit_message='fixes #3'"}),
+    "16 titles by 16 here-documents, then a closing line": ("Bash", {"command": MERGE_LINE + "".join(
+        f" -t t{n} <<w{n}\n" for n in range(16)) + "&lt;\n" * 190_000 + "Fixes #3\n"}),
+    "an MCP squash message": (MERGE, {"pullNumber": 5, "commit_message": "Squash of the series.\n" * 45_000
+                                      + "Fixes #3."}),
+    "an MCP GraphQL body with escaped line breaks": ("mcp__github__run_graphql", {
+        "query": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitBody: "' + "Squash.\\n" * 100_000
+                 + 'Fixes #3"}) { clientMutationId } }'}),
+}
+
+
 @pytest.mark.parametrize("command", ADVERSARIAL.values(), ids=list(ADVERSARIAL))
-def test_a_large_command_is_read_inside_the_hooks_timeout(command: str) -> None:
-    assert _decision("Bash", {"command": command}) is None
+def test_a_large_command_is_read_inside_the_hooks_timeout(command: str, tmp_path: Path) -> None:
+    assert _decision("Bash", {"command": command}, cwd=tmp_path) is None  # an empty directory: no file to read
+
+
+@pytest.mark.parametrize("tool, tool_input", LARGE_REFUSED.values(), ids=list(LARGE_REFUSED))
+def test_a_large_merge_is_read_to_its_end_inside_the_hooks_timeout(tool: str, tool_input: dict, tmp_path: Path) -> None:
+    _refused(tool, tool_input, cwd=tmp_path)
 
 
 @pytest.mark.parametrize("event", ["", "not json", "[]", json.dumps({"tool_name": "Bash"}),
