@@ -117,7 +117,9 @@ is never clearance. Record the tier and the review in the PR body under "Review"
 
 `review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
 push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
-the moment the PR is marked ready, before Codex reviews. So record the tier as a `Review tier:
+the moment the PR is marked ready, before Codex reviews, unless the title, body or a commit message puts a
+closing keyword before a reference (`lessons/ops-closing-keywords-close-what-they-name.md`) or the PR
+lists 250 commits, the most GitHub returns. So record the tier as a `Review tier:
 <tier> — <what ran>` line, which the gate ignores, and write `Review override:` only while Codex
 cannot review (credits exhausted, service down), naming the tier and the substitute review
 (`Review override: routine tier per AGENTS.md §5, one Opus lens, 0 blockers`). Codex reviews

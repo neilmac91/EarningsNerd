@@ -17,6 +17,7 @@ a machine gate" (CI fails those on its own) and
 
 - ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on the decision; only without one does it accept your recommendation
 - ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
+- ops-closing-keywords-close-what-they-name.md — Never put a closing keyword before a reference you do not mean to close; the merge closes it, a pull request included (partly gated by `backend/scripts/review_gate.py`, which fails it in a pull request's title, body and commit messages; a squash message typed at merge is review-checked)
 - ops-continue-approved-engineering.md — Continue the approved queue after verified releases and preserve specific founder holds
 - ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md — Demote a lesson from session reading only when every clause of its rule is machine-gated and proven on the bad case
 - ops-denied-reads-report-unverified.md — A denied optional read-back reports UNVERIFIED with a closed failure class; fail closed only on readable evidence
