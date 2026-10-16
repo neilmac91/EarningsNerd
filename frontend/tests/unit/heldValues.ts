@@ -37,7 +37,9 @@ import ts from 'typescript'
  *  - a conditional's two arms, both sides of `||` and `??`, the right of `&&`, an assignment's value, an `await`;
  *  - a JSX element's tag and its children (`<span><BellIcon /></span>` and `<><BellIcon /></>` hold it, as do
  *    `{expressions}` among the children), and the same for React's `createElement` (its type and children) and
- *    `cloneElement` (its element and children);
+ *    `cloneElement` (its element and children); a same-file component's element, by JSX or `createElement`, also
+ *    holds what the component returns, each time it is rendered (`<AlertMark />` where `AlertMark` returns
+ *    `<BellIcon />`), so a glyph or an icon a component draws is read where the component is rendered;
  *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions); an
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
@@ -46,9 +48,8 @@ import ts from 'typescript'
  *    `useMemo` (what its callback returns) and `useCallback` (its callback);
  *  - parentheses, `as`, `satisfies`, `<T>` and `!`.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
- * context's), what React state holds after its setter or a reducer runs, a ref's `current` set later, a class's fields
- * and `this`, a promise's `then`, a generator's yields, and what a component renders where it is placed (a glyph or an
- * icon counts where the component draws it). A value that grows through its own reads (`const a = <>{a}</>`, or a
+ * context's), what React state holds after its setter or a reducer runs, a class's fields and `this`, a promise's
+ * `then` and a generator's yields. A value that grows through its own reads (`const a = <>{a}</>`, or a
  * component that passes its own children back to itself with more added) never settles: the scan throws instead of
  * settling on an arbitrary count.
  */
@@ -68,6 +69,9 @@ export interface HeldValues<L> {
   valueOf(e: ts.Expression): Held<L>
   /** What the binding an identifier reads holds, when it holds a leaf or a function; the binding is resolved by scope. */
   holderOf(id: ts.Identifier): Held<L> | undefined
+  /** What a same-file component renders where this element (a JSX tag or a `createElement` call) renders it: its
+      returns; empty for any other element. */
+  renderOf(element: ts.JsxOpeningLikeElement | ts.CallExpression): Held<L>
   /** The nodes a value is handed on through (an initializer, an assignment, an argument or a prop to a same-file
       function, what a loop or a callback iterates, what is put in an object): a hold, not a use. */
   held: Set<ts.Node>
@@ -351,6 +355,12 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
     if (ts.isJsxSelfClosingElement(x) || ts.isJsxElement(x) || ts.isJsxFragment(x)) {
       const tag = ts.isJsxFragment(x) ? undefined : (ts.isJsxElement(x) ? x.openingElement : x).tagName
       let value = tag && (ts.isIdentifier(tag) || ts.isPropertyAccessExpression(tag)) ? valueOf(tag, record) : empty<L>()
+      // A same-file component's element holds what the component renders, not the component.
+      if (value.fns?.size) {
+        const rendered = returned(value.fns, record)
+        if (leavesOf(rendered).size > 0) record?.add(x)
+        value = { ...rendered, fns: null }
+      }
       for (const child of ts.isJsxSelfClosingElement(x) ? [] : x.children) {
         if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)) value = both(value, valueOf(child, record))
         else if (ts.isJsxExpression(child) && child.expression) value = both(value, valueOf(child.expression, record))
@@ -408,6 +418,11 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
     // React's element calls hold what JSX would: the type and the children; a clone holds its element and children.
     if (name === 'createElement' || name === 'cloneElement') {
       let value = arg(0)
+      if (name === 'createElement' && value.fns?.size) {
+        const rendered = returned(value.fns, record)
+        if (leavesOf(rendered).size > 0) record?.add(x)
+        value = { ...rendered, fns: null }
+      }
       for (let i = 2; i < args.length; i++) value = both(value, arg(i))
       return value
     }
@@ -573,6 +588,8 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       let children = empty<L>()
       for (const a of args.slice(2)) children = both(children, valueOf(a, record))
       pass(fns, [vacant(children) ? props : union(props, withProps([['children', children]]))])
+      // What the component returns renders here, not where it is written.
+      returned(fns, record)
       return
     }
     if (recv) {
@@ -636,6 +653,8 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       if (!vacant(children)) props.set('children', children)
     }
     pass(fns, [{ leaves: new Map(), props, fns: null }])
+    // What the component returns renders here, not where it is written.
+    returned(fns, record)
   }
   /** A loop's variable takes each element of what it iterates. */
   const loop = (x: ts.ForOfStatement, record?: Set<ts.Node>) => {
@@ -690,5 +709,11 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
     const declaration = declarationOf(id)
     return declaration ? holders.get(declaration) : undefined
   }
-  return { valueOf: (e) => valueOf(e), holderOf, held }
+  const renderOf = (element: ts.JsxOpeningLikeElement | ts.CallExpression): Held<L> => {
+    const type = ts.isCallExpression(element) ? (calleeName(element) === 'createElement' ? element.arguments[0] : undefined) : element.tagName
+    if (!type || !(ts.isIdentifier(type) || ts.isPropertyAccessExpression(type))) return empty()
+    const fns = valueOf(type).fns
+    return fns?.size ? { ...returned(fns), fns: null } : empty()
+  }
+  return { valueOf: (e) => valueOf(e), holderOf, renderOf, held }
 }

@@ -44,7 +44,8 @@ import { isIconModule } from './iconModules'
  *    gate shares (tests/unit/heldValues.ts) from every place a name is given one: its declaration, each assignment, a
  *    destructuring, a loop, a parameter at each same-file call (a component's props included), a callback however it is
  *    handed over, a function's return, what is put in an object after it is made, and React's createElement,
- *    cloneElement and Children; any other expression placed in the heading is read by its value (`{ok && mark}`,
+ *    cloneElement and Children; a same-file component that renders an icon puts it in the heading it is placed in
+ *    (`<AlertMark />`); any other expression placed in the heading is read by its value (`{ok && mark}`,
  *    `{createElement(BellIcon)}`). Out of reach, planted as gaps in the self-check and review-checked: an icon that
  *    crosses modules (an app module's export), React state, a class's field read through `this`, a promise's
  *    `then` and a generator's `yield`.
@@ -562,6 +563,13 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
         // affordance, not the heading's icon.
         const find = (n: ts.Node) => {
           if (ts.isJsxElement(n) && tagsOf(n.openingElement).some((name) => CONTROLS.has(name))) return
+          // A same-file component that renders an icon (`<AlertMark />` where AlertMark returns `<BellIcon />`) puts it in
+          // the heading: one finding for the element, whatever it is given.
+          const element = ts.isJsxElement(n) ? n.openingElement : ts.isJsxSelfClosingElement(n) ? n : undefined
+          if (element && leavesOf(values.renderOf(element)).size > 0) {
+            icons.push(element)
+            return
+          }
           if ((ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) && isIconTag(n)) icons.push(n)
           // An icon a binding or a member holds, placed in the heading (`{mark}`, `{MARK.alert}`); an inline element
           // is read by its tag above.
@@ -967,7 +975,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     // assignment, a loop's variable, a parameter at a direct call, a component's prop, a callback handed to an array's
     // method and to a same-file function, a function's return, a property put in after the object is made; and placed in
     // a heading, React's createElement, Children.map over the children a component is given, and a conditional. A name
-    // given only something else (line 28) passes.
+    // given only something else (line 28) passes. A same-file component that draws an icon puts it in the heading it is
+    // placed in, by JSX (the review's case) or createElement, once however it is given the icon (line 35); one that
+    // draws only words (line 33) passes.
     const family = [
       "import { BellIcon } from '@/lib/icons'",
       'let Mark; Mark = BellIcon',
@@ -997,6 +1007,13 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'export const M = ({ ok }) => <h2>{ok && mark}Alerts</h2>',
       'let Plain; Plain = Chip',
       'export const N = () => <h2><Plain />Alerts</h2>',
+      'function AlertMark() { return <BellIcon /> }',
+      'export const O = () => <h2><AlertMark />Alerts</h2>',
+      'export const P = () => <h2>{createElement(AlertMark)}Alerts</h2>',
+      'function Words() { return <span>Alerts</span> }',
+      'export const Q = () => <h2><Words /></h2>',
+      'function Shows({ icon: Shown }) { return <Shown /> }',
+      'export const R = () => <h2><Shows icon={BellIcon} />Alerts</h2>',
     ].join('\n')
     expect(voiceFindings(family, 'features/probe/Family.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '3 headingIcon',
@@ -1012,6 +1029,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '22 headingIcon',
       '23 headingIcon',
       '26 headingIcon',
+      '30 headingIcon',
+      '31 headingIcon',
+      '35 headingIcon',
     ])
     // Out of reach, planted as the gaps the header names (each passes): an icon held in React state, a class's field
     // read through `this`, a promise's then, a generator's yield, and an imported component that renders its prop in a

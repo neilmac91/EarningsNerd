@@ -31,7 +31,8 @@ import { heldValues, isWrite, leavesOf, memberKey, scopeResolver } from './heldV
  * each assignment, a loop's variable, a parameter at each same-file call (a component's props and children included),
  * a callback however it is handed over, a function's return, what is put in an object or an array after it is made,
  * and React's createElement, cloneElement, Children and useMemo; a glyph handed to a same-file function or component
- * counts where it is read there, not where it is passed. It counts every hand-drawn stand-in (a local component
+ * counts where it is read there, not where it is passed, and a glyph a same-file component draws counts at each place
+ * the component is rendered (by JSX or createElement), not inside it. It counts every hand-drawn stand-in (a local component
  * named for one of them that draws its own <svg>), and the ✨ emoji, against two lists:
  *
  *  - MEANING lists the sites that use a glyph for its meaning. A new one is a design decision, made in
@@ -43,7 +44,7 @@ import { heldValues, isWrite, leavesOf, memberKey, scopeResolver } from './heldV
  * Review-checked, out of the scan's reach and planted as gaps in the self-check: a namespace member read by a key it
  * cannot read (`Icons[name]`), a glyph re-exported through a module of the app's own other than lib/icons.ts, a
  * glyph held in React state, a class's field read through `this`, a promise's `then` and a generator's `yield`.
- * A glyph drawn inside a local component or function counts where it is drawn however often the component renders.
+ * A glyph drawn inside a local component that the file never renders counts once where it is drawn.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -95,7 +96,7 @@ const MEANING: Record<string, Counts> = {
 const RESIDUE: Record<string, Counts> = {
   'app/filing/[id]/StreamingSummaryDisplay.tsx': { SparkleIcon: 2 }, // brand-filing-page: the waiting notice and the free-limit card
   'app/dashboard/watchlist/page.tsx': { SparkleIcon: 1 }, // brand-dashboard-watchlist: "Analyze trends" (DSW-18)
-  'features/filings/components/copilot/CopilotMessage.tsx': { SparkleIcon: 2 }, // brand-copilot: follow-up chips, upgrade button
+  'features/filings/components/copilot/CopilotMessage.tsx': { SparkleIcon: 3 }, // brand-copilot: follow-up chips (FollowupChips, rendered at two places), upgrade button
   'features/filings/components/copilot/AskCopilotRail.tsx': { SparkleIcon: 2 }, // brand-copilot: launcher and rail header
   'features/filings/components/copilot/CopilotTeaser.tsx': { SparkleIcon: 1 }, // brand-copilot: upgrade button
   'features/filings/components/copilot/AskAboutSelection.tsx': { SparkleIcon: 1 }, // brand-copilot: the selection prompt
@@ -108,7 +109,7 @@ const RESIDUE: Record<string, Counts> = {
   'features/marketing/components/AskFilingDemo.tsx': { QuotesIcon: 1 }, // the Ask this Filing mark on the landing demo, decided with brand-copilot's (#1295) AskFilingAnswer entry, the same mark; #1311 left it
   'features/filings/components/AskFilingAnswer.tsx': { QuotesIcon: 2 }, // brand-copilot: a hand-drawn quotes glyph as the Ask this Filing mark
 }
-const RESIDUE_MAX = { files: 14, uses: 18 }
+const RESIDUE_MAX = { files: 14, uses: 19 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -248,6 +249,12 @@ export function glyphUses(source: string, fileName: string): Counts {
       if (sparkles > 0) bump('SparkleIcon', sparkles)
     }
     if (values.held.has(node) || ts.isJsxClosingElement(node)) return
+    // A same-file component's element (JSX or createElement) renders what the component returns: its glyphs count
+    // here, at each render, and not inside the component.
+    if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node) || ts.isCallExpression(node)) {
+      const rendered = leavesOf(values.renderOf(node))
+      if (rendered.size > 0) tally(rendered)
+    }
     // An assignment's target is written, not read.
     if (ts.isIdentifier(node) && isReference(node) && !isWrite(node)) {
       const own = rootsOf(node)
@@ -495,6 +502,15 @@ describe('reserved glyphs keep their one meaning', () => {
     ).toEqual({ SparkleIcon: 2 })
     expect(given(['export function N() { const Mark = useMemo(() => QuotesIcon, []); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })
     expect(given(["import { ArrowRightIcon } from '@/lib/icons'", 'let Mark; Mark = ArrowRightIcon', 'export const O = () => <Mark />'])).toEqual({})
+    // A glyph a same-file component draws counts at each place the component is rendered (the review's case: rendered
+    // twice is two uses), by JSX or createElement, through a component that renders another, and once where it is drawn
+    // when the file never renders the component.
+    expect(given(['function PassageMark() { return <QuotesIcon /> }', 'export const U = () => <><PassageMark /><PassageMark /></>'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['function PassageMark() { return <QuotesIcon /> }', 'export const V = () => [createElement(PassageMark), createElement(PassageMark)]'])).toEqual({ QuotesIcon: 2 })
+    expect(
+      given(['function Inner() { return <QuotesIcon /> }', 'function Outer() { return <><Inner /><Inner /></> }', 'export const W = () => <><Outer /><Outer /></>']),
+    ).toEqual({ QuotesIcon: 4 })
+    expect(given(['export function PassageMark() { return <QuotesIcon /> }'])).toEqual({ QuotesIcon: 1 })
     // Out of reach, planted as the gaps the header names: a glyph held in React state, a class's field read through
     // `this`, a promise's then and a generator's yield each count once where they are written, though each renders it
     // twice; and a glyph an app module exports is not known for one.
