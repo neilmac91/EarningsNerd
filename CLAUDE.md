@@ -125,7 +125,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`,
     a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`,
-    chip/delta text off the 700 level: `earningsnerd/direction-text-tokens`)
+    chip/delta text off the 700 level: `earningsnerd/direction-text-tokens`; a figure in sage, with a glyph
+    or none, also fails `tests/unit/brandCopyRules.spec.ts` rule 2)
     `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
     outranks the workspace layers; the consent bar's inset), `tests/e2e/text-floors.spec.ts` (muted text clears
     4.5:1 on what is behind it; no checked route skips a heading level) and

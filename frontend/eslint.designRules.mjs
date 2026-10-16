@@ -76,7 +76,10 @@
 //                       `{xs.map((Icon) => <Icon />)}`, `const Icon = pick(d)`), a glyph returned from a
 //                       callback (`{xs.map((x) => <TrendUpIcon />)}`: the walk up stops at the arrow function),
 //                       and a glyph passed as a JSX prop (`icon={<TrendUpIcon />}`, valid by design: the
-//                       element that draws it is elsewhere) are data-flow, out of scope as below.
+//                       element that draws it is elsewhere) are data-flow, out of scope as below. A delta or a
+//                       figure in sage with no glyph (`+4.2%`, a chip's `{item.display}`) is not read here:
+//                       tests/unit/brandCopyRules.spec.ts rule 2 (sage never colours a number, D-030) fails it,
+//                       a figure field such as `display` or `change_display` included.
 //                       tests/unit/whatChangedChip.spec.tsx holds what no lint can see on the what-changed
 //                       chip: that its colour is directionChip for the tone the server sent, not for the
 //                       direction.

@@ -314,8 +314,10 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  `flex gap-1` or `text-sm` passes the ink through), or in a map that pairs one with its
                  classes; a glyph that reaches a binding as a parameter or a call's result, a glyph
                  returned from a .map callback and a glyph passed as a JSX prop (`icon={…}`) are past it.
-                 tests/unit/whatChangedChip.spec.tsx renders the what-changed chip and holds its colour to
-                 directionChip for the server's tone, which no lint can see.
+                 A delta or a figure in sage with no glyph fails tests/unit/brandCopyRules.spec.ts rule 2
+                 (D-030), a figure field such as `display` included. tests/unit/whatChangedChip.spec.tsx
+                 renders the what-changed chip and holds its colour to directionChip for the server's
+                 tone, which no lint can see.
 
 Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
                  letter for its grouped data note. The letter is text-data-xs (11px minimum), zero
