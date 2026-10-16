@@ -1,13 +1,14 @@
 ---
 name: design-docs-maintenance
 description: Open for any UI change. Which parts of DESIGN.md and frontend/DESIGN_SYSTEM.md it reads (§4's recipes by what the change touches), and how to keep both documents and the .impeccable/design.json sidecar in parity when a change touches documented tokens, typography, reusable component states or visual conventions.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Design-document maintenance
 
-Moved verbatim from `CLAUDE.md` ("Design documentation") on 2026-10-07 so the root file stays
-small. The rules are unchanged; `frontend/tests/unit/designSnapshotParity.spec.ts` still checks them.
+The parity procedure below was moved verbatim from `CLAUDE.md` ("Design documentation") on
+2026-10-07 so the root file stays small; `frontend/tests/unit/designSnapshotParity.spec.ts` still
+checks it. "Which sections to read" is maintained here, and no gate checks it.
 
 [DESIGN.md](../../../../DESIGN.md) is the root visual reference: the design direction, portable
 token snapshot and reusable component patterns.
@@ -43,35 +44,47 @@ CLAUDE.md rule 11.
 
 ## Which sections to read for which UI change
 
+A change of more than one kind below takes the widest reading. Any of them adds
+`DESIGN_SYSTEM.md` §7–§11 for a marketing, theme, exemption, chart or motion change.
+
 - Token, theme or typography change, or a rule that spans components (a brand sweep): both
   documents in full, then this skill.
 - A new or changed reusable component: `frontend/DESIGN_SYSTEM.md` §1–§6 and §12, plus `DESIGN.md`
   from "Overview" on.
-- Route-specific content or layout that uses existing components and tokens: `DESIGN_SYSTEM.md`
-  §1–§3, §5, §6 and §12, `DESIGN.md` from "Overview" on, and §4 by recipe; this is rule 11's
-  reading for this kind of change. §4 is a catalog: some rules, then one fenced block of recipes
-  named in its left column, then a short list. Read:
+- Route-specific content or layout built from existing components and tokens, and nothing more:
+  `DESIGN_SYSTEM.md` §1–§3, §5, §6 and §12, `DESIGN.md` from "Overview" on, and
+  `DESIGN_SYSTEM.md` §4 by recipe; this is rule 11's reading for this kind of change. §4 is a
+  catalog: some rules, then one fenced block of recipes named in its left column, then a short
+  list. Read:
   - the rules before the recipe block and the list after it;
   - the shared recipes, whose rules a change can break without touching their component: Primary
     button, Secondary button, Wrapping button, Link as button, Accent text/link, Count control,
     Focus ring, Card / panel, Delta text, Data table hover, Solid chip, Status chip, Inline notice,
     Semantic card, Index list, Stacking and Metric cards;
-  - the recipe of each component or surface the change adds, changes or composes;
-  - the triggered recipes, for what the change adds:
+  - the recipe of each existing component or surface the change uses or edits;
+  - the triggered recipes, for what the change adds or changes:
     - a keyboard shortcut: Source pane, Wording changes and Search field (the filing page binds
       ⌘K and "/", its wording review list j, k, 1, 2 and the arrows; company search binds "/"
       and ⌘K);
     - a menu, dropdown, tooltip or explainer (anything anchored to a control that closes on
-      Escape or an outside press): Popover;
+      Escape or an outside press, other than a field's list of suggestions): Popover;
+    - a field with a list of suggestions or results (a combobox, as CompanySearch and
+      WatchlistAddSearch are): Search field and Search option;
+    - a control that removes itself, or a region that hides, while it may hold focus (a dismiss,
+      a "Show all", an edit swap): Source pane and Popover, for the focus hand-off;
     - anything raised on the calendar page (a toast, a menu, a popover): Dialog and Popover;
-    - a pressed toggle, or a set of options of which one is chosen: Segmented ctrl, Wording
-      changes and Company identity;
+    - a pressed toggle, a set of options of which one is chosen, or a tab list: Segmented ctrl,
+      Wording changes, Company identity and Source pane;
     - a "summary ready" label: Company identity;
     - a filing's period, form-and-date line or verification count outside the filing page:
       Filing identity;
-    - a change-report figure outside the filing page: Section ledger and Compare periods;
+    - a change figure, a direction glyph (▲/▼), a risk-wording count or review progress outside
+      the filing page: Section ledger, Compare periods and Wording changes;
+    - a heading or quote drawn from a filing excerpt: Evidence rows;
     - a new state or sticky chrome on the filing page: Section ledger and Source pane;
-    - a horizontal scroll box: Filing reader and Analysis table;
+    - a scroll box on either axis: Filing reader and Analysis table (a scripted scroll is a
+      motion change: §11 too);
+    - a filter, window or sort that changes how many items a list shows: Analysis table;
     - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
     - figure tiles outside /analysis: Analysis KPI.
 

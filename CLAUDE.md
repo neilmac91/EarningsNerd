@@ -38,8 +38,8 @@ prod runs the L1 in-memory cache (ADR-0004).
 
 `DESIGN.md` and `frontend/DESIGN_SYSTEM.md` are documentation; the token sources and components
 take precedence ([precedence](AGENTS.md#2-precedence-when-documents-conflict)). When a change
-affects documented tokens, typography, reusable component states or visual conventions, load the
-`design-docs-maintenance` skill and refresh the docs and sidecar together in that PR.
+affects documented tokens, typography, reusable component states or visual conventions, read the
+`design-docs-maintenance` skill (path above) and refresh the docs and sidecar together in that PR.
 
 ## Commands
 
