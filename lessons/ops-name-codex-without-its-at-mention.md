@@ -23,18 +23,54 @@ files, such as the review gate's workflow comment and `docs/OPERATIONS.md`, name
 documentation.
 
 **Rule**: In a pull request's title, body or comments, and in an issue, write "Codex's review command" or
-"a review request". Never write the at-mention, inside backticks or not, except in a comment whose only
-purpose is to request a review and which starts with that command, the form the condition of
+"a review request". Never write the at-mention, inside backticks or not, except in a new conversation
+comment that is the review command alone, with at most the attribution footer: a form the condition of
 `review-gate.yml`'s `rerun-on-review-request` job matches. Quoting a sentence that contains the mention
 counts as a mention, so paraphrase it. When a pull request's title or body already carries the mention,
 edit it out as a precaution. Nothing showed that an edit starts another task: #1337 kept the mention in
 its title through a push and its ready transition, and no second task came. Leave a comment that carries
 it, as evidence, and do not repeat it.
 
-**Gate**: none yet. No gate can stop the first trigger, because Codex sees GitHub's event when it is sent,
-before any workflow reads the text. The review gate fetches the pull request, its body included, on every
-pull-request event, so a check there could only detect the mention after Codex had seen it. A preventive
-gate would be a hook that refuses an agent's GitHub write carrying the mention (E63 in `tasks/todo.md`).
+**Gate**: `.claude/hooks/codex_mention_guard.py`, which `.claude/settings.json` runs before every Bash
+command and every call to an MCP server whose name contains "github" in any case
+(`backend/tests/unit/test_codex_mention_guard.py`). It refuses a GitHub MCP write whose `title` or `body`
+carries the mention. It also refuses a Bash command line whose text, as written or with its quotes
+removed, names `gh pr` or `gh issue` (create or new, comment, edit, review, close, reopen), `gh api` or
+api.github.com, when the mention is in that text or in a file one of the line's GitHub writes sends as a
+body (as the file stands before the command runs): gh's `--body-file`, `-F` or `--input`, an `@file`
+value, wget's `--post-file` or `--body-file`, curl's `-T` or `--upload-file`, or a file redirected with
+`<` or piped from a plain `cat` into a command that reads its body from standard input (one given `-`,
+`/dev/stdin` or `/dev/fd/0`, or httpie wherever it stands, which reads it unasked). The line is read as
+the shell reads it: newlines and `;`, `&`, `&&`, `||`, `|` and `|&` separate commands, a here-document's
+text is no command once its end comes (the line that is its word or, for one opened inside `$(...)`,
+`<(...)` or `>(...)`, one that starts with its word, blanks and a `)`) and is read where bash reads it:
+from the next line of the input that no here-document has taken, once the line ends, or at once for one
+that a substitution leaves waiting when it closes and for the words after an `EOF)` end, the rest of
+whose line bash reads before the rest of the line it was on, the last such rest first (a shift in
+arithmetic opens none), a comment's words are read with their quotes inert (so a commented-out write
+counts), and the text of each command substitution, `$(...)` or backquoted, quoted or not, is read as
+commands of its own, unless it sits in a here-document's text. A GitHub write is a command in which a
+word `gh`, or a path ending in `/gh`, starts a `gh pr`/`gh issue` write or `gh api` wherever it stands
+(`sudo gh api`), or that names api.github.com. Reads count too, so a read or an edit that searches such
+text with a regular expression (grep, sed, jq `test()`) writes the pattern as `[@]codex`. Its one
+exception is a new conversation comment that is the review command alone, with at most the attribution
+footer: the body of the GitHub MCP `add_issue_comment` tool, or a whole command `gh pr comment` (or
+`gh issue comment`) with at most one pull-request argument, `-R`/`--repo` if needed, and that one
+`--body`. A hook that crashes or cannot start lets the call through, so the gate fails open. It is a
+guardrail, not a boundary. It cannot see text a command builds as it runs (a variable, the output of a
+command or process substitution, a body piped from anything but a plain `cat`, a file named relative to a
+directory the command enters first), a command substitution inside a here-document's text, an end bash
+finds inside a substitution at a line where other text follows the word before the `)` (`EOFX)`), rarer
+forms bash reads otherwise (a backslash-newline in an unquoted here-document's text, a `<<-` word that
+starts with a tab, a newline inside `${...}` while a here-document waits, `$[...]` arithmetic, a `((`
+that bash reads as two subshells), a program other than httpie that reads its body from standard input
+unasked, the body files of a command another shell runs (`bash -c`, a here-document fed to a shell), a
+body file over 1 MiB, not a regular file, or under /proc, /sys or /dev, the commit messages
+`gh pr create --fill` copies, a GitHub MCP server registered under a name without "github", a session
+that loads no repository hooks (a cloud session with several repositories, a local folder not yet
+trusted, `disableAllHooks`), or a person's own write. So this lesson stays in session reading. A check in
+a workflow would come too late: Codex sees GitHub's event when it is sent, before any workflow reads the
+text.
 
 **Evidence**: #1336 comments 6188268721 (the mention) and 6188281463 (Codex's task reply); #1337's
 `renamed` event (2026-10-15 09:59:05 UTC) and comment 6188792348; #1337's corrected title and body.

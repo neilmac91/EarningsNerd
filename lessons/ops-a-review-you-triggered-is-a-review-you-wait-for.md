@@ -1,6 +1,6 @@
 # A review you triggered is a review you wait for; merging inside it discards what you asked for
 
-Date: 2026-09-14 (gate added 2026-09-16; its draft skip removed 2026-10-14)   Area: ops
+Date: 2026-09-14 (gate added 2026-09-16; its draft skip removed by #1331)   Area: ops
 
 **Context**: On #856 the pull request was marked ready at 18:19:34Z, which is what triggers Codex
 here; Codex began at 18:19:39Z; the merge landed at 18:19:45Z, six seconds into the review, and the
@@ -33,17 +33,18 @@ nothing here, and that comment also re-runs the gate. The `review-gate` check (`
 required status check needs no approver, so it cannot lock a solo-administrator repository, whereas a
 required pull-request review would (authors cannot approve their own pull requests and there is one
 collaborator). The gate's job never skips on a pull-request event, and nothing in it may skip or
-soften the gate step. It fails while the pull request is a draft, reading the flag as it is now
-rather than from the event, so the job passes only on a completed review of the head or a recorded
-override. That holds for runs created after #1331 merged: a re-run keeps the workflow definition its
-run started with, so a ready pull request whose latest gate run skipped before then needs a new
-pull-request event (an edit to its body), not `@codex review`.
+soften the gate step. On every pull-request event while the pull request is a draft it fails, reading
+the flag as it is now rather than from the event, so the job passes only on a completed review of the
+head or a recorded override.
 
 **Evidence**: #856 timeline and #857; the 2026-09-16 merge audit in `tasks/archive/todo-ledger-through-2026-10-07.md`;
 `backend/tests/unit/test_review_gate.py` (a completed review of another head is `wait`, never
-`pass`; the job's condition is the event name alone and its whole shape is pinned, so no step `if`,
-`continue-on-error`, `needs` or extra step can skip the gate; a draft or an unreadable draft flag
-fails, override or not); GitHub docs on required status checks versus required reviews and administrator
+`pass`; the job's condition is the event name alone, and the trigger set, the job set, the job's keys,
+each step's keys and both steps' `with` maps are pinned, so no new trigger, second job, step `if`,
+`continue-on-error`, `needs`, extra step or checkout input can skip or soften the gate, and no job in
+another workflow may carry the check's name, written out or through an expression that can resolve to it;
+a draft or an
+unreadable draft flag fails, override or not); GitHub docs on required status checks versus required reviews and administrator
 bypass, and on conditions ("a job that is skipped will report its status as 'Success'"); #1315's
 gate runs [38478316282](https://github.com/neilmac91/EarningsNerd/actions/runs/38478316282)
 (cancelled) and [38478317070](https://github.com/neilmac91/EarningsNerd/actions/runs/38478317070)

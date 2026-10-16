@@ -28,6 +28,7 @@ from app.utils.sec_urls import build_sec_archive_url
 
 from .async_executor import run_with_circuit_breaker
 from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS
+from .edgartools_compat import apply_edgartools_backports
 from .exceptions import (
     CompanyNotFoundError,
     FilingNotFoundError,
@@ -40,6 +41,8 @@ logger = logging.getLogger(__name__)
 # Initialize EdgarTools identity on module load
 set_identity(EDGAR_IDENTITY)
 logger.info(f"EdgarTools initialized with identity: {EDGAR_IDENTITY}")
+# Upstream fixes the pinned edgartools release lacks (see edgartools_compat.py).
+apply_edgartools_backports()
 
 # Default cap on filings materialized from the recent submissions window when no explicit limit is
 # given (the company filings-list path). The recent window is already SEC-bounded (~1 year or ~1000

@@ -1,0 +1,62 @@
+edgartools 5.58.0 (pinned) against 5.61.0 (upstream fix, released 2026-10-06T18:49Z): Filing.homepage_url and the head of Filing.html().
+
+--- 5.58.0 edgar/_filings.py homepage_url
+2272:    def homepage_url(self) -> str:
+2273-        return f"{SEC_ARCHIVE_URL}/data/{self.cik}/{self.accession_no}-index.html"
+2274-
+
+--- 5.61.0 edgar/_filings.py homepage_url
+2290:    def homepage_url(self) -> str:
+2291-        # The index page inside the accession folder. SEC answers the shorter
+2292-        # /data/<cik>/<accession>-index.html with a 403 "Access Denied" (GH #1421).
+2293-        return f"{self.base_dir}/{self.accession_no}-index.html"
+2294-
+
+--- 5.58.0 edgar/_filings.py Filing.html(): the inline-XBRL branch that reads through the homepage
+  1603	    @lru_cache(maxsize=4)
+  1604	    def html(self) -> Optional[str]:
+  1605	        """Returns the html contents of the primary document if it is html"""
+  1606	        sgml = self.sgml()
+  1607	        html = sgml.html()
+  1608	        if not html:
+  1609	            document: Attachment = self.homepage.primary_html_document
+  1610	            if document.empty or document.is_binary():
+  1611	                return None
+  1612	            return self.homepage.primary_html_document.download()
+  1613	        if html.endswith("</PDF>"):
+  1614	            return None
+  1615	        if html.startswith("<?xml"):
+  1616	            if self.form in ['3', '3/A', '4', '4/A', '5', '5/A']:
+  1617	                from edgar.ownership import Ownership
+  1618	                ownership: Ownership = self.obj()
+  1619	                html = ownership.to_html()
+  1620	            else:
+  1621	                # Only call self.obj() for XML-native forms (XmlFiling, etc.)
+  1622	                # that have to_html() rendering. Skip for HTML-based data objects
+  1623	                # (S-1, S-3, 424B, etc.) whose from_filing() calls html(),
+  1624	                # which would cause infinite recursion.
+  1625	                from edgar.xmlfiling import XML_FILING_FORMS
+  1626	                if self.form in XML_FILING_FORMS:
+  1627	                    xml_obj = self.obj()
+  1628	                    if xml_obj and hasattr(xml_obj, 'to_html'):
+  1629	                        rendered = xml_obj.to_html()
+  1630	                        if rendered:
+  1631	                            return rendered
+  1632	                html = self.homepage.primary_html_document.download()
+  1633	        if isinstance(html, bytes):
+
+--- diff of Filing.html() 5.58.0 -> 5.61.0 (only a None guard; the homepage URL is the fix)
+5a6,7
+>             # primary_html_document is Optional: it is None when the homepage
+>             # lists no primary documents at all (edgartools-vwwl).
+7c9
+<             if document.empty or document.is_binary():
+---
+>             if document is None or document.empty or document.is_binary():
+
+--- 5.58.0 edgar/company_reports/ten_k.py: TenK.document reads Filing.html(); __getitem__ and sections go through it
+200:    def document(self):
+226:        html = self._filing.html()
+259:    def sections(self):
+420:        html = self._filing.html()
+560:    def __getitem__(self, item_or_part: str):

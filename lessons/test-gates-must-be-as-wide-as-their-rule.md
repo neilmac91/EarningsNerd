@@ -243,6 +243,16 @@ handed to. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
 
+**Recurrence (2026-10-14, #1288)**: the voice gate's record promised sentence case on "headings,
+card and dialog titles, button labels and meta titles", while the spec read h1 to h3, four title
+props and two button tags. The founder's probe (a ModalHeader child, a CardTitle, a SecondaryHeader
+title, two links styled by `buttonVariants()`, an h4, an aria-label) stayed green, and the live
+"Cookie Preferences" dialog title was never counted. The fix read the record's words as the gate's
+extent: every heading level, the title components, any element whose className reaches the button
+factory, and the components found to render their children or title into one of those, found by a
+fixed-point pass over the tree instead of a hand list. Write the record's sentence from what the
+gate reads, and name the rest as review-checked.
+
 **Recurrence (2026-10-14, the Copilot's links)**: rule 2 read every component the app renders.
 Fixing the Copilot's links, which had waited on the founder's call, found the prose links' rule in
 `app/globals.css` setting sage at rest by `@apply` on every link in the filing reader, the summary
