@@ -355,7 +355,7 @@ export default function CopilotMessage({
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand-weak dark:bg-white/5 px-3.5 py-2 text-sm text-text-primary-light dark:text-text-primary-dark ring-1 ring-brand-border">
+        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand-weak dark:bg-white/5 px-3.5 py-2 text-sm text-text-primary-light dark:text-text-primary-dark ring-1 ring-brand-border dark:ring-brand-border-dark">
           {message.content}
         </div>
       </div>
