@@ -26,8 +26,10 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
  *    blocked would be false whenever it does.
  *  - A file that handles a password (renders a password field or reads lib/passwordRules) never writes a
  *    length by hand: no length in copy ("12 characters", "12-character", "12+", "12 or more", "twelve"),
- *    on one line or composed across JSX text and its expressions (`At least {12}` then `characters` on the
- *    next line), no `minLength` or `min_length` number, no local constant whose name says min and len, no
+ *    on one line, composed across JSX text and its expressions (`At least {12}` then `characters` on the
+ *    next line), or composed in a template literal or a `+` chain (its literal parts and the number each
+ *    slot holds, a literal or a numeric constant of any name: `Use at least ${MIN_CHARS} characters.`),
+ *    no `minLength` or `min_length` number, no local constant whose name says min and len, no
  *    `.length` compared against a number or a numeric constant of any name, no `.min(n)` call or `.{n,}`
  *    pattern, and no number equal to the floor anywhere in its code. Any other file that mentions a password
  *    never types the floor itself, in any of those forms or in a constant named for a minimum, a length, a
@@ -37,10 +39,13 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
  *  - Every new-password field carries `minLength={PASSWORD_MIN_LENGTH}`, or its form checks
  *    `.length < PASSWORD_MIN_LENGTH` in its code (CODE_CHECKED, read on the syntax tree, so a comment or a
  *    string does not count). A field is a new-password field when its `autoComplete` names new-password: a
- *    literal, braced or not, inside an expression, or in a spread object. Every password field (`<PasswordField>`
- *    or a `type` that names password) names its `autoComplete` or forwards one passed in (PasswordField
- *    forwards its prop; a spread of props), which is read at the caller that writes it, and the scan must
- *    find the app's new-password fields, so a field it cannot read fails instead of passing unseen.
+ *    literal, braced or not, inside an expression, or in a spread object. Every password field (a `type` that
+ *    names password, or a call of a component that forwards one, PasswordField among them) names its
+ *    `autoComplete` (new-password or current-password; a literal that names neither, such as "off", fails) or
+ *    forwards one passed in (a value that is not all literals, or a spread of props). A forwarding component
+ *    (FORWARDERS, found to a fixed point by what it renders, under the name it is declared with) is read at
+ *    each caller that renders it, and the scan must find the app's new-password fields, so a field it cannot
+ *    read fails instead of passing unseen.
  *  - Every file under SOURCE_ROOTS is read (scripts, Markdown, MDX) or listed in NOT_READ with why it can
  *    hold no password rule.
  *  - The strength meter says "Too short" under the minimum and scores length past it.
@@ -108,6 +113,15 @@ const isScript = (rel: string) => /\.[cm]?[jt]sx?$/.test(rel)
 const scriptKind = (rel: string) =>
   rel.endsWith('.tsx') ? ts.ScriptKind.TSX : rel.endsWith('.jsx') ? ts.ScriptKind.JSX : /\.[cm]?js$/.test(rel) ? ts.ScriptKind.JS : ts.ScriptKind.TS
 const parse = (source: string, rel: string) => ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, scriptKind(rel))
+/** Each source parsed once for the field scans, which read every file more than once (FORWARDERS' fixed point). */
+const PARSED = new Map<string, { source: string; sf: ts.SourceFile }>()
+const parsed = (source: string, rel: string) => {
+  const hit = PARSED.get(rel)
+  if (hit?.source === source) return hit.sf
+  const sf = parse(source, rel)
+  PARSED.set(rel, { source, sf })
+  return sf
+}
 const lineOf = (sf: ts.SourceFile, node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim()
 
@@ -185,15 +199,31 @@ function codeForms(source: string, rel: string): string[] {
     const inner = unwrap(node)
     return ts.isPropertyAccessExpression(inner) && inner.name.text === 'length'
   }
-  // What an element renders as text: its text, its literal or constant expressions, its children's text.
+  const isPlus = (node: ts.Node): node is ts.BinaryExpression => ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken
+  // What a piece of copy renders as text: a literal's own, a template's parts with what each slot holds, a `+` chain
+  // joined; a number from a literal or a numeric constant of any name, and any other value a gap no count spans.
+  const composed = (node: ts.Expression): string => {
+    const inner = unwrap(node)
+    if (ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner)) return inner.text
+    if (ts.isTemplateExpression(inner)) return inner.head.text + inner.templateSpans.map((span) => composed(span.expression) + span.literal.text).join('')
+    if (isPlus(inner)) return composed(inner.left) + composed(inner.right)
+    return String(valueOf(inner) ?? ' … ')
+  }
+  /** Whether a `+` chain carries a string: an operand, through nested chains and parentheses, that is a string or a template. */
+  const carriesText = (node: ts.Expression): boolean => {
+    const inner = unwrap(node)
+    return isPlus(inner) ? carriesText(inner.left) || carriesText(inner.right) : ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner) || ts.isTemplateExpression(inner)
+  }
+  /** Whether a template or a `+` chain is read as part of a larger one: a chain's operand, a slot, or a JSX child an element composes. */
+  const composedByParent = (node: ts.Node): boolean => {
+    let parent = node.parent
+    while (parent && (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent) || ts.isSatisfiesExpression(parent))) parent = parent.parent
+    return !!parent && (isPlus(parent) || ts.isTemplateSpan(parent) || (ts.isJsxExpression(parent) && (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent))))
+  }
+  // What an element renders as text: its text, each expression composed as copy, its children's text.
   const rendered = (node: ts.Node): string => {
     if (ts.isJsxText(node)) return node.text
-    if (ts.isJsxExpression(node)) {
-      const inner = node.expression && unwrap(node.expression)
-      if (!inner) return ''
-      if (ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner)) return inner.text
-      return String(valueOf(inner) ?? ' … ')
-    }
+    if (ts.isJsxExpression(node)) return node.expression ? composed(node.expression) : ''
     return ts.isJsxElement(node) || ts.isJsxFragment(node) ? node.children.map(rendered).join('') : ' '
   }
   const statesCount = (node: ts.Node) => (ts.isJsxElement(node) || ts.isJsxFragment(node)) && copy.test(squash(rendered(node)))
@@ -201,6 +231,11 @@ function codeForms(source: string, rel: string): string[] {
     // The innermost element whose text states a count, so one sentence is one finding.
     if (statesCount(node) && !(node as ts.JsxElement | ts.JsxFragment).children.some(statesCount)) {
       out.push(`${rel}:${lineOf(sf, node)} (copy composed across JSX): ${squash(rendered(node))}`)
+    }
+    // A template or a `+` chain is copy too, read at its outermost node; a string on one line is the line scan's.
+    const piece = ts.isTemplateExpression(node) || (ts.isNoSubstitutionTemplateLiteral(node) && node.text.includes('\n')) || (isPlus(node) && carriesText(node))
+    if (piece && !composedByParent(node) && copy.test(squash(composed(node as ts.Expression)))) {
+      out.push(`${rel}:${lineOf(sf, node)} (copy composed in a template or a + chain): ${squash(composed(node as ts.Expression))}`)
     }
     if (ts.isBinaryExpression(node) && COMPARISONS.has(node.operatorToken.kind)) {
       const other = isLength(node.left) ? node.right : isLength(node.right) ? node.left : undefined
@@ -223,7 +258,7 @@ function codeForms(source: string, rel: string): string[] {
   return out
 }
 
-type Field = { line: number; tag: string; id: string; kind: 'new' | 'current' | 'forwarded' | 'unnamed'; floor: boolean }
+type Field = { line: number; tag: string; id: string; kind: 'new' | 'current' | 'forwarded' | 'unnamed'; floor: boolean; component?: string }
 
 /** Whether a value carries a string that passes `test`: a literal, braced or not, or one inside an expression. */
 function carries(value: ts.Node | undefined, test: (text: string) => boolean): boolean {
@@ -237,11 +272,35 @@ function carries(value: ts.Node | undefined, test: (text: string) => boolean): b
 }
 const namesNew = (text: string) => /\bnew-password\b/i.test(text)
 const namesCurrent = (text: string) => /\bcurrent-password\b/i.test(text)
+/** Whether every value an autoComplete can take is written in place (a literal, a template with no slot, each branch of a
+    condition, each side of `||`, `??` or `+`), so it forwards nothing; no value at all forwards nothing either. */
+function literalOnly(value: ts.Node | undefined): boolean {
+  if (!value) return true
+  if (ts.isJsxExpression(value)) return literalOnly(value.expression)
+  const inner = unwrap(value as ts.Expression)
+  if (ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner)) return true
+  if (ts.isConditionalExpression(inner)) return literalOnly(inner.whenTrue) && literalOnly(inner.whenFalse)
+  if (ts.isTemplateExpression(inner)) return inner.templateSpans.every((span) => literalOnly(span.expression))
+  const joins = [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.PlusToken]
+  return ts.isBinaryExpression(inner) && joins.includes(inner.operatorToken.kind) && literalOnly(inner.left) && literalOnly(inner.right)
+}
+/** The component an element renders in, under the name it is declared with: a named function, or a const holding an arrow
+    or a function expression (through forwardRef or memo). */
+function componentOf(node: ts.Node): string | undefined {
+  for (let p = node.parent; p; p = p.parent) {
+    if (ts.isFunctionDeclaration(p) && p.name) return p.name.text
+    if (!ts.isArrowFunction(p) && !ts.isFunctionExpression(p)) continue
+    let holder: ts.Node = p.parent
+    while (ts.isParenthesizedExpression(holder) || ts.isAsExpression(holder) || (ts.isCallExpression(holder) && /(?:^|\.)(?:forwardRef|memo)$/.test(holder.expression.getText()))) holder = holder.parent
+    if (ts.isVariableDeclaration(holder) && ts.isIdentifier(holder.name)) return holder.name.text
+  }
+  return undefined
+}
 
-/** The password fields (`<PasswordField>`, a `type` that names password) and new-password fields a file renders. */
-function passwordFields(source: string, rel: string): Field[] {
+/** The password fields (a `type` that names password, a call of a forwarding component) and new-password fields a file renders. */
+function passwordFields(source: string, rel: string, forwarders: ReadonlySet<string> = FORWARDERS): Field[] {
   if (!isScript(rel)) return []
-  const sf = parse(source, rel)
+  const sf = parsed(source, rel)
   const out: Field[] = []
   const visit = (node: ts.Node): void => {
     if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
@@ -259,15 +318,16 @@ function passwordFields(source: string, rel: string): Field[] {
       const tag = node.tagName.getText(sf)
       const autoComplete = attrs.get('autoComplete')
       const isNew = carries(autoComplete, namesNew)
-      if (isNew || tag === 'PasswordField' || carries(attrs.get('type'), (text) => text === 'password')) {
+      if (isNew || forwarders.has(tag) || carries(attrs.get('type'), (text) => text === 'password')) {
         const min = attrs.get('minLength')
         const minExpression = min && ts.isJsxExpression(min) ? min.expression : (min as ts.Expression | undefined)
         out.push({
           line: lineOf(sf, node),
           tag,
           id: (attrs.get('id') as ts.StringLiteral | undefined)?.text ?? '',
-          kind: isNew ? 'new' : carries(autoComplete, namesCurrent) ? 'current' : attrs.has('autoComplete') || spreadsProps ? 'forwarded' : 'unnamed',
+          kind: isNew ? 'new' : carries(autoComplete, namesCurrent) ? 'current' : (attrs.has('autoComplete') && !literalOnly(autoComplete)) || spreadsProps ? 'forwarded' : 'unnamed',
           floor: !!minExpression && minExpression.getText(sf) === 'PASSWORD_MIN_LENGTH',
+          component: componentOf(node),
         })
       }
     }
@@ -278,14 +338,35 @@ function passwordFields(source: string, rel: string): Field[] {
 }
 const describeField = (rel: string, field: Field) => `${rel}:${field.line} <${field.tag}>`
 
+/**
+ * The components that forward a password field's autoComplete from their own props, found over `sources` to a fixed
+ * point: a caller of one renders a password field itself, read where it writes the autoComplete (or forwards it on).
+ */
+function forwardingComponents(sources: ReadonlyArray<{ rel: string; source: string }>): Set<string> {
+  const names = new Set<string>()
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const { rel, source } of sources) {
+      for (const field of passwordFields(source, rel, names)) {
+        if (field.kind !== 'forwarded' || !field.component || names.has(field.component)) continue
+        names.add(field.component)
+        grew = true
+      }
+    }
+  }
+  return names
+}
+/** The app's and the file's own forwarding components: a file's fields are read with both. */
+const forwardersFor = (source: string, rel: string) => new Set([...FORWARDERS, ...forwardingComponents([{ rel, source }])])
+
 /** New-password JSX fields whose `minLength` is not the shared constant. */
 const fieldsWithoutFloor = (source: string, rel: string) =>
-  passwordFields(source, rel)
+  passwordFields(source, rel, forwardersFor(source, rel))
     .filter((field) => field.kind === 'new' && !field.floor)
     .map((field) => describeField(rel, field))
 /** Password fields with no `autoComplete` this scan can read or follow. */
 const unnamedFields = (source: string, rel: string) =>
-  passwordFields(source, rel)
+  passwordFields(source, rel, forwardersFor(source, rel))
     .filter((field) => field.kind === 'unnamed')
     .map((field) => describeField(rel, field))
 
@@ -341,6 +422,8 @@ function passwordValidators(source: string): string[] {
 const ALL_FILES = SOURCE_ROOTS.flatMap((root) => walk(path.join(frontendDir, root)))
 const FILES = ALL_FILES.filter((file) => READ.test(file))
 const rel = (file: string) => path.relative(frontendDir, file).split(path.sep).join('/')
+/** The app's forwarding components, PasswordField among them. */
+const FORWARDERS = forwardingComponents(FILES.filter((file) => isScript(rel(file))).map((file) => ({ rel: rel(file), source: readFileSync(file, 'utf8') })))
 const RULE_FILE = 'lib/passwordRules.ts'
 
 describe('the password rule moves in lockstep with the backend', () => {
@@ -414,6 +497,7 @@ describe('the password rule moves in lockstep with the backend', () => {
   it('every new-password field carries minLength={PASSWORD_MIN_LENGTH}, or its form checks the floor in code', () => {
     const sources = FILES.map((file) => ({ rel: rel(file), source: readFileSync(file, 'utf8') }))
     // The scan finds the app's new-password fields: a check that reads none must not pass.
+    expect([...FORWARDERS], 'the scan finds the component the app forwards a password field through').toContain('PasswordField')
     const found = sources.flatMap(({ rel, source }) => passwordFields(source, rel).filter((f) => f.kind === 'new').map((f) => `${rel} <${f.tag} id="${f.id}">`))
     expect(found).toEqual(
       expect.arrayContaining([
@@ -496,6 +580,16 @@ describe('the password rule moves in lockstep with the backend', () => {
           // The shared constant, a count computed at runtime and Math.min are not a hand-typed length.
           'const d = <p>At least {PASSWORD_MIN_LENGTH} characters, {Math.min(a, 8)} left.</p>',
           'if (items.length > 0 && pw.length < PASSWORD_MIN_LENGTH) {}',
+          // The review of #1310's forms: a length in a template literal or a `+` chain, its slot a constant of any
+          // name or a literal; and inside a JSX child, read with the element's text.
+          'const e = `Use at least ${GAP} characters.`',
+          "const f = 'At least ' + GAP + ' characters.'",
+          "const g = 'At least 8 ' + 'characters.'",
+          'const h = <PasswordField hint={`At least ${8} characters.`} />',
+          'const i = <p>{`At least ${GAP}`} characters.</p>',
+          // The shared constant in a template, and a template with no count, are not a hand-typed length.
+          'const j = `At least ${PASSWORD_MIN_LENGTH} characters.`',
+          'const k = `Use ${words} characters you can remember.`',
         ].join('\n'),
         'probe.tsx',
       ),
@@ -505,6 +599,11 @@ describe('the password rule moves in lockstep with the backend', () => {
       'probe.tsx:10 (a length compared against a number): pw.length < GAP',
       'probe.tsx:11 (a minimum call): z.string().min(8)',
       'probe.tsx:12 (a pattern minimum): ".{8,}"',
+      'probe.tsx:15 (copy composed in a template or a + chain): Use at least 8 characters.',
+      'probe.tsx:16 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:17 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:18 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:19 (copy composed across JSX): At least 8 characters.',
     ])
     // Where a file only mentions a password: the floor in those forms, and no other count.
     expect(
@@ -519,6 +618,8 @@ describe('the password rule moves in lockstep with the backend', () => {
           'const b = <p>At most {400} characters.</p>',
           'const LIMIT = 400',
           'if (note.length > LIMIT) {}',
+          `const t = \`at least \${${PASSWORD_MIN_LENGTH}} characters\``,
+          'const u = `at most ${400} characters`',
         ].join('\n'),
         'note.tsx',
       ),
@@ -527,6 +628,7 @@ describe('the password rule moves in lockstep with the backend', () => {
       'note.tsx:4 (a length compared against a number): pw.length < n',
       `note.tsx:5 (a minimum call): z.string().min(${PASSWORD_MIN_LENGTH})`,
       `note.tsx:6 (a pattern minimum): /^.{${PASSWORD_MIN_LENGTH},}$/`,
+      `note.tsx:10 (copy composed in a template or a + chain): at least ${PASSWORD_MIN_LENGTH} characters`,
     ])
     expect(
       fieldsWithoutFloor(
@@ -556,6 +658,27 @@ describe('the password rule moves in lockstep with the backend', () => {
     ].join('\n')
     expect(fieldsWithoutFloor(spreads, 'probe.tsx')).toEqual(['probe.tsx:1 <PasswordField>'])
     expect(unnamedFields(spreads, 'probe.tsx')).toEqual(['probe.tsx:3 <Input>'])
+    // The review of #1310's forms: a literal autoComplete must name new- or current-password ("off", "password", a typo
+    // or a bare attribute names neither), and a forwarding component's caller is a field, whatever the component is called.
+    const named = [
+      '<Input id="n" type="password" autoComplete="off" />',
+      "<Input id=\"o\" type=\"password\" autoComplete={'password'} />",
+      '<PasswordField id="p" autoComplete="off" showStrength />',
+      '<input id="q" type="password" autoComplete="new_password" />',
+      "<input id=\"r\" type=\"password\" autoComplete={on ? 'off' : 'username'} />",
+      '<input id="s" type="password" autoComplete />',
+      'export function SecretInput(props: { id: string; autoComplete?: string }) { return <Input id={props.id} type="password" autoComplete={props.autoComplete} /> }',
+      'const t = <SecretInput id="t" />',
+      'const u = <SecretInput id="u" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} />',
+      'export const Shown = forwardRef(function Shown(props: Props, ref: Ref) { return <input ref={ref} type="password" {...props} /> })',
+      'const v = <Shown id="v" />',
+    ].join('\n')
+    expect(unnamedFields(named, 'probe.tsx')).toEqual([
+      'probe.tsx:1 <Input>', 'probe.tsx:2 <Input>', 'probe.tsx:3 <PasswordField>', 'probe.tsx:4 <input>', 'probe.tsx:5 <input>', 'probe.tsx:6 <input>',
+      'probe.tsx:8 <SecretInput>', 'probe.tsx:11 <Shown>',
+    ])
+    expect(fieldsWithoutFloor(named, 'probe.tsx')).toEqual([])
+    expect([...forwardingComponents([{ rel: 'probe.tsx', source: named }])].sort()).toEqual(['SecretInput', 'Shown'])
     // CODE_CHECKED's check is read on the syntax tree: a comment or a string does not count.
     expect(checksFloorInCode('// if (next.length < PASSWORD_MIN_LENGTH) {}\nconst s = "next.length < PASSWORD_MIN_LENGTH"', 'probe.tsx')).toBe(false)
     expect(checksFloorInCode('if (next.length < PASSWORD_MIN_LENGTH) {}', 'probe.tsx')).toBe(true)
