@@ -280,8 +280,9 @@ for (const theme of ['light', 'dark'] as const) {
         expectClear(m, label)
         expectNoSidewaysScroll(m, label)
       }
-      // The narrow state never splits a chip that fits: at the default size this row is 14.9em, and the short chip
-      // fits it on one line, so a threshold above 14.9em fails here (alice's one-line pill at 390px holds 19.3em).
+      // The narrow state never splits a chip that fits: at the default size this row is 14.9em and the short chip
+      // fits it on one line, so a threshold above 14.9em fails here; alice's one-line pill at 390px catches one above
+      // 19.3em only.
       expectOneLine(await measure(page, '', SHORT), '320px, default text, a short address')
       expectWholeAddresses(await measureAddresses(page, '32px'), '320px, 200% text')
     })

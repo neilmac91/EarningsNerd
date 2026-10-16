@@ -294,7 +294,7 @@ describe('AdminInvitesPage: an email chip stays inside its card', () => {
     vi.mocked(listInvites).mockReset()
   })
 
-  it('keeps an already-invited address, its marker and its remove button inside the chip, the marker on a line of its own when the row is narrow', async () => {
+  it('keeps an already-invited address, its marker and its remove button inside the chip, the address on a line of its own when the row is narrow', async () => {
     vi.mocked(listInvites).mockResolvedValue([invite])
     renderPage()
     await screen.findByText('alice@example.com')
