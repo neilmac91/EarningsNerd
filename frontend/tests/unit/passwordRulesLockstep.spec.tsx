@@ -356,17 +356,17 @@ function forwardingComponents(sources: ReadonlyArray<{ rel: string; source: stri
   }
   return names
 }
-/** The app's and the file's own forwarding components: a file's fields are read with both. */
+/** The app's and a planted source's own forwarding components (the app's files are FORWARDERS' already). */
 const forwardersFor = (source: string, rel: string) => new Set([...FORWARDERS, ...forwardingComponents([{ rel, source }])])
 
 /** New-password JSX fields whose `minLength` is not the shared constant. */
-const fieldsWithoutFloor = (source: string, rel: string) =>
-  passwordFields(source, rel, forwardersFor(source, rel))
+const fieldsWithoutFloor = (source: string, rel: string, forwarders: ReadonlySet<string> = forwardersFor(source, rel)) =>
+  passwordFields(source, rel, forwarders)
     .filter((field) => field.kind === 'new' && !field.floor)
     .map((field) => describeField(rel, field))
 /** Password fields with no `autoComplete` this scan can read or follow. */
-const unnamedFields = (source: string, rel: string) =>
-  passwordFields(source, rel, forwardersFor(source, rel))
+const unnamedFields = (source: string, rel: string, forwarders: ReadonlySet<string> = forwardersFor(source, rel)) =>
+  passwordFields(source, rel, forwarders)
     .filter((field) => field.kind === 'unnamed')
     .map((field) => describeField(rel, field))
 
@@ -509,10 +509,10 @@ describe('the password rule moves in lockstep with the backend', () => {
       ]),
     )
     expect(
-      sources.flatMap(({ rel, source }) => unnamedFields(source, rel)),
+      sources.flatMap(({ rel, source }) => unnamedFields(source, rel, FORWARDERS)),
       "name the field's autoComplete (new-password or current-password), so this check can tell which it is",
     ).toEqual([])
-    const missing = sources.filter(({ rel }) => !(rel in CODE_CHECKED)).flatMap(({ rel, source }) => fieldsWithoutFloor(source, rel))
+    const missing = sources.filter(({ rel }) => !(rel in CODE_CHECKED)).flatMap(({ rel, source }) => fieldsWithoutFloor(source, rel, FORWARDERS))
     expect(missing, 'give the field minLength={PASSWORD_MIN_LENGTH}').toEqual([])
     for (const file of Object.keys(CODE_CHECKED)) {
       expect(checksFloorInCode(readFileSync(path.join(frontendDir, file), 'utf8'), file), `${file} must check .length < PASSWORD_MIN_LENGTH in its code`).toBe(true)
