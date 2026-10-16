@@ -124,6 +124,21 @@ describe('InsiderActivityPanel', () => {
     }
   })
 
+  // At 200% text on a 390px phone, three equal tracks left each tile about 13px for its figure; the tiles share a
+  // line while their figures fit and stack when they do not (lessons/frontend-check-brand-layouts-at-200-percent-text.md).
+  it('lays the buy, sell and net tiles in a wrapping row of content-sized tiles, never three equal tracks', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const row = (await screen.findByText(/^Buys \(2\)$/)).parentElement!.parentElement!
+    expect(row).toHaveClass('flex', 'flex-wrap')
+    expect(row.className).not.toMatch(/\bgrid\b|grid-cols/)
+    expect(row.children).toHaveLength(3)
+    for (const tile of Array.from(row.children)) {
+      expect(tile).toHaveClass('min-w-0', 'flex-auto')
+      expect(tile.lastElementChild).toHaveClass('break-words')
+    }
+  })
+
   it('marks each trade type with a hidden ▲/▼ beside its label, and names the 10b5-1 badge plainly', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()

@@ -200,27 +200,29 @@ export default function InsiderActivityPanel({
             </div>
           </div>
 
-          {/* Buy / Sell / Net stats */}
-          <div className="mb-5 grid grid-cols-3 gap-3">
-            <div className="rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
+          {/* Buy / Sell / Net stats: a wrapping row whose tiles take their content as basis, so they share a line
+              while their figures fit and stack when they do not (at 200% text on a phone), never three equal
+              tracks too narrow for a figure (lessons/frontend-check-brand-layouts-at-200-percent-text.md). */}
+          <div className="mb-5 flex flex-wrap gap-3">
+            <div className="min-w-0 flex-auto rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
               <p className="text-xs font-medium text-gain-text dark:text-gain-dark">
                 Buys ({summary.buy_count})
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+              <p className="mt-0.5 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {summary.buy_value != null ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
               </p>
             </div>
-            <div className="rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
+            <div className="min-w-0 flex-auto rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
               <p className="text-xs font-medium text-loss-text dark:text-loss-dark">
                 Sells ({summary.sell_count})
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+              <p className="mt-0.5 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {summary.sell_value != null ? fmtMoney(summary.sell_value) : `${fmtShares(summary.sell_shares)} sh`}
               </p>
             </div>
-            <div className="rounded-lg bg-background-light p-3 dark:bg-white/5">
+            <div className="min-w-0 flex-auto rounded-lg bg-background-light p-3 dark:bg-white/5">
               <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">Net</p>
-              <p className={`mt-0.5 text-sm font-semibold ${signalColor}`}>
+              <p className={`mt-0.5 break-words text-sm font-semibold ${signalColor}`}>
                 {direction === 'sell' ? '−' : direction === 'buy' ? '+' : ''}
                 {signalMagnitude}
               </p>
