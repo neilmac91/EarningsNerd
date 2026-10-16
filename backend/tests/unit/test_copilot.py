@@ -1688,6 +1688,96 @@ async def test_service_adjacency_keeps_qualitative_placements(monkeypatch):
     assert complete["misplaced_fact_markers"] == 0
 
 
+_NET_LOSS = {**_revenue_fact(-1_200_000_000.0, 2024), "concept": "net_income", "raw_tag": "us-gaap:NetIncomeLoss"}
+_REVENUE_1_2B = _revenue_fact(1_200_000_000.0, 2024)
+_REVENUE_847M = _revenue_fact(847_000_000.0, 2024)
+_REVENUE_DECLINE = {**_REVENUE_847M, "kind": "yoy_growth", "value": -0.153, "unit": "pure",
+                    "source_facts": [_REVENUE_847M, _revenue_fact(1_000_000_000.0, 2023)]}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fact, prose, kept", [
+    # A loss stated as a profit, a decline stated as growth, and a 1,000x or 1,000,000x
+    # understatement: each matches abs(value) at some display scaling, and none is the fact.
+    (_NET_LOSS, "Net income was $1.20 billion", False),
+    (_NET_LOSS, "The company earned net income of $1.2B", False),
+    (_REVENUE_DECLINE, "Revenue grew 15.3% year over year", False),
+    (_REVENUE_1_2B, "Revenue was $1.2 million", False),
+    (_REVENUE_1_2B, "Revenue was $1.2 thousand", False),
+    (_REVENUE_1_2B, "Revenue was $1.2", False),
+    # The same facts stated with their real sign and scale keep the chip.
+    (_NET_LOSS, "The company reported a net loss of $1.2 billion", True),
+    (_NET_LOSS, "Net income was -$1.2 billion", True),
+    (_NET_LOSS, "Net income was $(1.2) billion", True),
+    (_REVENUE_DECLINE, "Revenue declined 15.3% year over year", True),
+    (_REVENUE_1_2B, "Revenue was $1.2 billion", True),
+    (_REVENUE_847M, "Revenue fell to $847 million", True),
+    ({**_revenue_fact(2.04, 2024), "concept": "eps_diluted", "unit": "USD/shares"}, "Diluted EPS was $2.04", True),
+    # A bare figure may still be a display-scaled rendering of the value.
+    (_revenue_fact(81_460_000_000.0, 2022), "Revenue, in billions of dollars, was 81.46", True),
+])
+async def test_service_adjacency_reads_the_figure_sign_and_scale(monkeypatch, fact, prose, kept):
+    """A verified chip must not sit on a figure whose sign or scale contradicts its fact. Main kept
+    each wrong claim above with a chip: the value guard compared abs(value) and let a figure with
+    its own scale word fall back to the display divisors meant for bare numbers."""
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(fact)
+    )
+    answer = f"{prose} [F1]. ===CITATIONS===\n[]"
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _tools_stream([fact], answer)
+    )
+
+    events = await _collect(_fake_filing(), "What were the results?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    if kept:
+        assert complete["answer"] == f"{prose} [1]."
+        assert len(complete["citations"]) == 1 and complete["misplaced_fact_markers"] == 0
+    else:
+        assert complete["answer"] == f"{prose}."
+        assert complete["citations"] == [] and complete["misplaced_fact_markers"] == 1
+
+
+_REVENUE_GROWTH = {"concept": "revenue", "kind": "yoy_growth", "value": 0.153}
+_GROSS_MARGIN = {"concept": "gross_profit", "kind": "margin", "value": 0.179}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("fact, window, kept", [
+    # A positive rate written negative is the opposite claim.
+    (_REVENUE_GROWTH, "Revenue growth was -15.3% ", False),
+    (_REVENUE_GROWTH, "Revenue growth was (15.3%) ", False),
+    (_GROSS_MARGIN, "Gross margin was −17.9% ", False),
+    # A decline in the figure's own clause, with no growth word there, states a negative rate.
+    (_REVENUE_GROWTH, "Revenue fell 15.3% ", False),
+    (_REVENUE_GROWTH, "Revenue rose to $96.77B, while costs fell 15.3% ", False),
+    (_REVENUE_GROWTH, "Despite lower costs, revenue rose 15.3% ", True),
+    (_REVENUE_GROWTH, "Revenue growth fell to 15.3% ", True),
+    # A margin is a level: falling to a positive margin is still a positive margin.
+    (_GROSS_MARGIN, "Gross margin fell to 17.9% ", True),
+    (_GROSS_MARGIN, "Gross profit was $17.45B (17.9% of revenue) ", True),
+    # A hyphen after a digit is a range, and a spaced dash is a list bullet, not a minus sign.
+    (_REVENUE_GROWTH, "Revenue grew 10-15.3% ", True),
+    (_REVENUE_GROWTH, "- 15.3% revenue growth ", True),
+    # A loss named anywhere in the claim span keeps a negative fact's chip.
+    (_NET_LOSS, "Net loss for 2024, after restructuring charges, was $1.2 billion ", True),
+    (_NET_LOSS, "Net income was $1.2 billion ", False),
+])
+def test_value_guard_sign_rules(fact, window, kept):
+    assert copilot_service._fact_matches_adjacent_number(fact, window) is kept
+
+
+@pytest.mark.unit
+def test_currency_guard_still_checks_a_negative_fact():
+    """The currency guard picks out the fact's figure by magnitude alone, so a loss written with
+    its loss wording but in the wrong currency still loses its chip."""
+    loss = {"concept": "net_income", "value": -1_200_000_000.0, "unit": "USD"}
+    assert not copilot_service._fact_matches_adjacent_currency(loss, "Net loss was €1.2 billion ")
+    assert copilot_service._fact_matches_adjacent_currency(loss, "Net loss was $1.2 billion ")
+
+
 def _growth_fact(value: float, year: int, marker: str) -> dict:
     return {
         "concept": "revenue", "kind": "yoy_growth", "value": value, "unit": "pure",

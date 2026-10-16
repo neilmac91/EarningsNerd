@@ -8,6 +8,7 @@ from datetime import date
 from typing import Any, Optional
 
 from app.services import copilot_tools
+from app.services.copilot.figures import _figure_matches_value, _figure_sign_agrees, _is_year
 
 
 def _reporting_currency(filing: Any) -> Optional[str]:
@@ -82,13 +83,15 @@ def _adjacency_window(text: str, marker_start: int, prev_marker_end: int) -> str
 
 
 def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
-    """True when the fact's value plausibly matches a figure stated just before its marker.
+    """True when a figure stated just before the fact's marker plausibly IS the fact's value.
 
     The trust guard for TOOL citations (field report: the model reused revenue fact markers
     [F1]/[F2]/[F3] as year markers on gross-profit/operating-income/net-income figures, so
     chips opened provenance for a DIFFERENT metric than the claim). Text citations verify by
     excerpt matching; fact citations verify by VALUE ADJACENCY: some number in the preceding
-    window must equal the fact's value (at display-rounding tolerance).
+    window must match the fact's magnitude at display-rounding tolerance ("$81.46B" / "81.46" /
+    "$2.04"; a scale word or $ is read at face value) and must not state the opposite sign
+    ("net income was $1.2B" on a loss, "grew 15.3%" on a decline). See ``copilot.figures``.
 
     Falsification-only: a window with NO number tokens can't be checked — the marker is kept
     (qualitative placements like "margins compressed [F1]" exist). Bare 4-digit integers that
@@ -99,48 +102,20 @@ def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
     claim must not vouch for a reused marker sitting on a different number.
     """
     try:
-        value = float(fact.get("value"))
+        float(fact.get("value"))
     except (TypeError, ValueError):
         return True
-    percent_like = fact.get("kind") in ("yoy_growth", "margin")
     # Prior markers in the window ([2], [F1]) are citations, not figures — scrub them.
     scrubbed = re.sub(r"\[\s*F?\s*\d+\s*\]", " ", window, flags=re.IGNORECASE)
-
-    candidates: list[tuple[str, float]] = []
-    saw_token = False
-    for m in _NUMBER_TOKEN.finditer(scrubbed):
-        dollar, raw, suffix = m.group(1), m.group(2).replace(",", ""), (m.group(3) or "").lower()
-        try:
-            num = float(raw)
-        except ValueError:
-            continue
-        if not dollar and not suffix and num.is_integer() and 1900 <= num <= 2100:
-            continue  # a year, not a figure
-        saw_token = True
-        scale = {"billion": 1e9, "bn": 1e9, "b": 1e9, "million": 1e6, "m": 1e6, "thousand": 1e3, "k": 1e3}.get(suffix)
-        if suffix == "%":
-            candidates.append(("pct", num))
-        elif scale:
-            candidates.append(("abs", num * scale))
-        else:
-            candidates.append(("plain", num))
-    if not saw_token:
+    figures = [m for m in _NUMBER_TOKEN.finditer(scrubbed) if not _is_year(m)]
+    if not figures:
         return True
-
-    def _close(a: float, b: float, *, rel: float = 0.01, absolute: float = 0.011) -> bool:
-        return abs(a - b) <= max(rel * max(abs(a), abs(b)), absolute)
-
-    for token_kind, num in candidates:
-        if percent_like:
-            # Prose states percents ("17.9%" or bare "17.9"); the fact value is a fraction.
-            if token_kind in ("pct", "plain") and _close(num, abs(value) * 100.0, absolute=0.11):
-                return True
-        else:
-            if token_kind == "pct":
-                continue
-            # Match the raw value or any display scaling of it ("$81.46B" / "81.46" / "$2.04").
-            if any(_close(num, abs(value) / d) for d in (1.0, 1e3, 1e6, 1e9)):
-                return True
+    for m in figures:
+        # The figure's own clause (see ``_CLAUSE_BOUNDARY``) carries its growth-direction wording.
+        clause = (_CLAUSE_BOUNDARY.split(scrubbed[:m.start()])[-1] + m[0]
+                  + _CLAUSE_BOUNDARY.split(scrubbed[m.end():])[0])
+        if _figure_matches_value(fact, m) and _figure_sign_agrees(fact, scrubbed, m, clause):
+            return True
     return False
 
 
@@ -161,7 +136,8 @@ def _fact_matches_adjacent_currency(fact: dict, window: str) -> bool:
     window = re.sub(r"[*_`]+", "", window)
     scrubbed = re.sub(r"\[\s*F?\s*\d+\s*\]", " ", window, flags=re.I)
     for match in _NUMBER_TOKEN.finditer(scrubbed):
-        if not _fact_matches_adjacent_number(fact, match[0]):
+        # Magnitude alone picks out the fact's figure; its sign is the value guard's question.
+        if not (_is_year(match) or _figure_matches_value(fact, match)):
             continue
         before = _CURRENCY_BEFORE.search(scrubbed[:match.start()].rstrip())
         # The number token owns an optional bare $, so inspect the currency prefix including it.
