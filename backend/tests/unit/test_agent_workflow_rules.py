@@ -145,6 +145,8 @@ def test_todo_is_one_page_of_open_items():
 def test_todo_lines_stay_one_line():
     assert len(LINK_TARGET.sub("]", "- [x](https://example.com/" + "a" * 500 + ")")) == 5
     assert len(LINK_TARGET.sub("]", "- [x](" + "a b " * 200 + ")")) > TODO_MAX_LINE_CHARS
+    assert all(TODO_ITEM_LINE.match(line) for line in ("## Open items", "- [ ] E1 — x", "Founder:"))
+    assert not TODO_ITEM_LINE.match("  continued onto an indented second line")
     lines = TODO.read_text(encoding="utf-8").splitlines()
     long = [
         f"line {number} ({length} characters): {line[:60]}…"

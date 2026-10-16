@@ -1,6 +1,6 @@
 export const meta = {
   name: 'premerge-review',
-  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker and per distinct should-fix (1 Sonnet dedupe); missing tier reviews as high',
+  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker and per group of should-fix reports of one defect (1 Sonnet dedupe once two lenses report should-fixes); missing tier reviews as high',
   phases: [
     { title: 'Review', detail: 'records: one combined lens on Sonnet; routine: one combined lens on Opus; high: correctness / rules+brief / tests+gates on Opus' },
     { title: 'Verify', detail: 'routine: one Sonnet refuter per blocker; high: two Opus refuters per blocker, and per should-fix defect after a Sonnet dedupe of the lenses\' reports, voting on each report' },

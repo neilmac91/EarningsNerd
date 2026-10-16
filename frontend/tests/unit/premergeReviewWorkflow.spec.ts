@@ -12,8 +12,10 @@
  *   - the high tier's group refuters vote on every report of their group on its own claim: each verdict lands
  *     on the report it names, each refuter's vote counts once, a report missing from a refuter's verdicts or
  *     given two is unverified, one report can stand while another is refuted, and the dedupe, the group
- *     refuters and the lone refuters each get their own schema; a blocker is never grouped, and the dedupe
- *     runs only on should-fixes from two or more lenses;
+ *     refuters and the lone refuters each get their own schema, the group one down to each verdict's fields;
+ *     a blocker is never grouped, and the dedupe runs only on should-fixes from two or more lenses;
+ *   - a refuter's corrected severity reaches the result on both paths: a should-fix raised to blocker,
+ *     grouped or alone, is a confirmed blocker and blocks the merge;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -96,12 +98,19 @@ type Result = {
   nits: unknown[]
 }
 
-type Verdicts = (label: string) => Array<{ report: number; refuted: boolean; reason: string }>
+type Verdicts = (label: string) => Array<{ report: number; refuted: boolean; reason: string; corrected_severity?: string }>
 
 // With no `groups`, the dedupe returns nothing, and the script verifies each finding on its own.
+// `corrected` gives a lone refuter's corrected severity by its label.
 function stub(
   nullFor?: (label: string) => boolean,
-  opts: { refuted?: boolean; findings?: Findings | ((label: string) => Findings); groups?: unknown; verdicts?: Verdicts } = {},
+  opts: {
+    refuted?: boolean
+    findings?: Findings | ((label: string) => Findings)
+    groups?: unknown
+    verdicts?: Verdicts
+    corrected?: (label: string) => string | undefined
+  } = {},
 ) {
   const calls: Call[] = []
   const agent = async (prompt: string, o: { label: string; model?: unknown; effort?: unknown; schema?: unknown }) => {
@@ -114,7 +123,8 @@ function stub(
       const all = Array.from({ length: n }, (_, report) => ({ report, refuted: opts.refuted ?? false, reason: 'r' }))
       return { verdicts: opts.verdicts ? opts.verdicts(o.label) : all }
     }
-    return { refuted: opts.refuted ?? false, reason: 'r' }
+    const corrected = opts.corrected?.(o.label)
+    return { refuted: opts.refuted ?? false, reason: 'r', ...(corrected ? { corrected_severity: corrected } : {}) }
   }
   return { agent, calls }
 }
@@ -245,6 +255,11 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     // A group refuter answers per report; a lone finding keeps the one-verdict schema; the dedupe returns groups.
     for (const call of verify) {
       expect(schemaKeys(call.schema), call.label).toEqual(call.label.includes(':group') ? ['verdicts'] : ['corrected_severity', 'reason', 'refuted'])
+      if (!call.label.includes(':group')) continue
+      // Each verdict names its report and may correct its severity.
+      const item = (call.schema as { properties: { verdicts: { items: { properties: object; required: string[] } } } }).properties.verdicts.items
+      expect(Object.keys(item.properties).sort(), call.label).toEqual(['corrected_severity', 'reason', 'refuted', 'report'])
+      expect([...item.required].sort(), call.label).toEqual(['reason', 'refuted', 'report'])
     }
     const dedupe = calls.filter((c) => c.label.startsWith('dedupe:'))
     expect(dedupe).toHaveLength(1)
@@ -267,6 +282,31 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const [freed] = (await load()({ prs: [pr('high')] }, refutedAll.agent)) as Result[]
     expect(titles(freed.refuted)).toEqual(['blocker', 'blocker', 'blocker', 'should-correctness', 'should-rules-and-brief', 'should-tests-and-gates'])
     expect(freed.mergeable).toBe(true)
+  })
+
+  it("carries a refuter's corrected severity on both paths: a should-fix raised to blocker, grouped or alone, is a confirmed blocker that blocks the merge", async () => {
+    const shouldOnly = (label: string): Findings => {
+      const lens = label.split(':').pop() as string
+      return { findings: [{ file: `${lens}.py`, title: `should-${lens}`, detail: 'd', severity: 'should-fix', evidence: 'e' }], summary: 's' }
+    }
+    // Group 1 holds correctness (report 0) and rules-and-brief (report 1); its refuters raise report 0 only.
+    const verdicts: Verdicts = () => [{ report: 0, refuted: false, reason: 'r', corrected_severity: 'blocker' }, { report: 1, refuted: false, reason: 'r' }]
+    const severities = (r: Result) => Object.fromEntries(r.confirmed.map((c) => [c.title, c.severity]))
+    const both = stub(undefined, { findings: shouldOnly, groups: [[0, 1], [2]], verdicts, corrected: (label) => (label.includes('tests-and-gates.py#') ? 'blocker' : undefined) })
+    const [raised] = (await load()({ prs: [pr('high')] }, both.agent)) as Result[]
+    expect(severities(raised)).toEqual({ 'should-correctness': 'blocker', 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': 'blocker' })
+    expect(raised.incomplete).toBe(false)
+    expect(raised.mergeable).toBe(false)
+    // The group's correction alone blocks the merge.
+    const grouped = stub(undefined, { findings: shouldOnly, groups: [[0, 1], [2]], verdicts })
+    const [fromGroup] = (await load()({ prs: [pr('high')] }, grouped.agent)) as Result[]
+    expect(severities(fromGroup)).toEqual({ 'should-correctness': 'blocker', 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': 'should-fix' })
+    expect(fromGroup.mergeable).toBe(false)
+    // Without corrections the same reports stay should-fixes, and the PR is mergeable.
+    const plain = stub(undefined, { findings: shouldOnly, groups: [[0, 1], [2]] })
+    const [kept] = (await load()({ prs: [pr('high')] }, plain.agent)) as Result[]
+    expect(Object.values(severities(kept))).toEqual(['should-fix', 'should-fix', 'should-fix'])
+    expect(kept.mergeable).toBe(true)
   })
 
   it('sends each group verdict to the report it names', async () => {
