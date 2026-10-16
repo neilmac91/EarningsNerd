@@ -47,7 +47,10 @@ const Sep = () => (
  */
 export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
   return (
-    <ul className="divide-y divide-border-light dark:divide-white/[0.06] overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none">
+    // The list clips its rows, and a row's meta line holds sr-only commas, which are absolutely positioned:
+    // `relative` makes the list their containing block, so the clip holds them
+    // (lessons/frontend-sr-only-needs-a-positioned-clip.md).
+    <ul className="relative divide-y divide-border-light dark:divide-white/[0.06] overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none">
       {hits.map((hit) => {
         const href = hit.document_url || hit.sec_url || undefined
         const rowClass = 'flex items-start justify-between gap-4 px-4 py-3'

@@ -118,6 +118,10 @@ describe('FullTextSearchResults', () => {
     // Assistive tech hears a comma (the sr-only span), not the middot.
     expect(meta.textContent).toBe('10-K\u00a0·, Filed 2024-11-01\u00a0·, Period 2024-09-28')
     for (const dot of within(meta).getAllByText('·')) expect(dot).toHaveAttribute('aria-hidden', 'true')
+    // The commas are sr-only (absolutely positioned) inside the list's clip, so the clip is positioned and holds
+    // them (lessons/frontend-sr-only-needs-a-positioned-clip.md).
+    expect(within(meta).getAllByText(',')[0]).toHaveClass('sr-only')
+    expect(meta.closest('ul')).toHaveClass('relative', 'overflow-hidden')
   })
 })
 
