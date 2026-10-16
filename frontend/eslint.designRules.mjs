@@ -308,8 +308,10 @@ const isBlank = (expression) => {
   )
 }
 /** An expression that renders nothing on one of its paths: `cond && x`, a conditional with an empty arm (`cond ?
- *  'New · ' : null`), a fallback that may be empty (`label || null`, `note ?? ''`: the right side renders when the left
- *  is empty, and a value the scan cannot read is taken to render), or an empty value itself (null, a boolean,
+ *  'New · ' : null`), a fallback that may be empty (`label || null`, `note ?? ''`: `||` renders its right side when
+ *  the left is empty, `??` only when the left is null or undefined, so a left of `''` or `false` renders nothing,
+ *  as in `(isNew && 'New') ?? 'Latest'`; a value the scan cannot read is taken to render, so `label ?? 'Latest'` with
+ *  `label` unread passes, as `{label}` does, a gap the spec plants), or an empty value itself (null, a boolean,
  *  undefined, a blank string). */
 const mayRenderNothing = (expression) => {
   const node = unwrapTs(expression)
@@ -317,8 +319,21 @@ const mayRenderNothing = (expression) => {
   if (node.type === 'Literal' && (node.value === null || typeof node.value === 'boolean')) return true
   if (node.type === 'Identifier' && node.name === 'undefined') return true
   if (node.type === 'LogicalExpression' && node.operator === '&&') return true
+  if (node.type === 'LogicalExpression' && node.operator === '??') return mayBeKeptBlank(node.left) || mayRenderNothing(node.right)
   if (node.type === 'LogicalExpression') return mayRenderNothing(node.right)
   if (node.type === 'ConditionalExpression') return mayRenderNothing(node.consequent) || mayRenderNothing(node.alternate)
+  return false
+}
+/** Whether a value may be blank without being null or undefined (a blank string, a boolean, a falsy `&&`): what `??`
+ *  keeps and renders as nothing, where `||` would take its right side. A value the scan cannot read is taken to render. */
+const mayBeKeptBlank = (expression) => {
+  const node = unwrapTs(expression)
+  if (!node) return false
+  if (isBlank(node) || (node.type === 'Literal' && typeof node.value === 'boolean')) return true
+  if (node.type === 'LogicalExpression' && node.operator === '&&') return true
+  if (node.type === 'LogicalExpression' && node.operator === '||') return mayBeKeptBlank(node.right)
+  if (node.type === 'LogicalExpression') return mayBeKeptBlank(node.left) || mayBeKeptBlank(node.right)
+  if (node.type === 'ConditionalExpression') return mayBeKeptBlank(node.consequent) || mayBeKeptBlank(node.alternate)
   return false
 }
 
