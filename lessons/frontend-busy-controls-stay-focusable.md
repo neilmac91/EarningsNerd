@@ -157,7 +157,14 @@ move focus a mouse user did not lose.
   `errorUpdateCount > 0` alone is weaker still. The count tells a second failure in the same millisecond
   from the first; the time tells a failure after a reset of the same key (`resetQueries`, which zeroes both
   counters, so its refetch is a first load) from the one before it at the same count. Data ends the hold (a query that is neither `error` nor `pending`),
-  so a later background refetch over loaded data never shows the old error. A first load is never held, nor
+  so a later background refetch over loaded data never shows the old error. Placeholder data is the one
+  exception (#1301): a query with `placeholderData` (the search's `keepPreviousData`) reports a refetch of
+  its held failure as `status: 'success'` with `isPlaceholderData`, carrying the previous key's data while it
+  has none of its own. So while a failure is held, a placeholder-backed result counts as `pending`: the error
+  UI and its focused Retry stay up, busy, and only the query's own data ends the hold. Read raw, the
+  placeholder ended the hold and unmounted the focused Retry for the previous search's hits
+  (`useRetainedFailure.spec.tsx` and `full-text-search.spec.tsx` pin it). A caller without `placeholderData`
+  never sees `isPlaceholderData`, so nothing changes for it. A first load is never held, nor
   a fresh mount over a failure it never rendered. It is derived from the query's state on each render, so no
   second press, paused fetch or batched settle can wedge it. Gated (rule 12): every caller under app/,
   components/, features/, hooks/ and lib/ passes, as `queryKey`, the same expression as its own same-file
