@@ -286,25 +286,31 @@ def test_edgartools_writes_only_to_the_processs_temp_directory(tmp_path):
 
 def test_offline_enrichment_stubs_exactly_its_listed_files(request):
     # conftest's _offline_stream_enrichment picks its files by "<parent>/<name>". Drive it with each listed
-    # file's real path and with one that is not listed, so a moved file or a changed key fails here, by
-    # name, instead of as an outbound request the network gate blocks in a stream test.
+    # file's real path and with paths that share one part with a listed file (a sibling in its directory,
+    # its name in another directory), so a moved file, or a key on the directory or the name alone, fails
+    # here by name instead of as an outbound request the network gate blocks in a stream test.
     from app.services import summary_pipeline
 
     conftest = request.config.pluginmanager.get_plugin(str(BACKEND_DIR / "tests" / "conftest.py"))
     stub = conftest._offline_stream_enrichment.__wrapped__
     service, seams = summary_pipeline.xbrl_service, ("get_xbrl_data", "get_filing_sections")
     real = {seam: getattr(service, seam) for seam in seams}
-    unlisted = _THIS.removeprefix("tests/")
+    listed = sorted(conftest._OFFLINE_ENRICHMENT_FILES)
+    assert all((BACKEND_DIR / "tests" / rel).is_file() for rel in listed), listed
+    directory, name = listed[0].split("/")
+    unlisted = [f"{directory}/test_not_on_the_list.py", f"unit/{name}", _THIS.removeprefix("tests/")]
+    assert not set(seams) & vars(service).keys()  # the seams start as the class's methods
     stubbed = {}
-    for rel in [*sorted(conftest._OFFLINE_ENRICHMENT_FILES), unlisted]:
-        assert (BACKEND_DIR / "tests" / rel).is_file(), rel
+    for rel in [*listed, *unlisted]:
         steps = stub(SimpleNamespace(path=BACKEND_DIR / "tests" / rel))
         next(steps)
         stubbed[rel] = [seam for seam in seams if isinstance(getattr(service, seam), AsyncMock)]
         with pytest.raises(StopIteration):
             next(steps)
-        assert {seam: getattr(service, seam) for seam in seams} == real, rel  # restored on exit
-    assert stubbed == {**{rel: list(seams) for rel in conftest._OFFLINE_ENRICHMENT_FILES}, unlisted: []}
+        # Restored on exit, with nothing left on the shared instance to shadow a later class-level patch.
+        assert {seam: getattr(service, seam) for seam in seams} == real, rel
+        assert not set(seams) & vars(service).keys(), rel
+    assert stubbed == {**{rel: list(seams) for rel in listed}, **{rel: [] for rel in unlisted}}
 
 
 def test_each_xdist_worker_keeps_edgartools_in_its_own_temp_directory(tmp_path):
