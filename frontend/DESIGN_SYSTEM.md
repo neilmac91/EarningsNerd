@@ -208,10 +208,30 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
 Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
                  its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
                  Constrain width at the call site; never override its height or whitespace.
-                 Default buttons keep their fixed height; icon-sm stays a 32px square.
+                 Default buttons keep their fixed height above a 24rem viewport (below it, the Button
+                 size row); icon-sm stays a 32px square.
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
+
+Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 and 48px) and one line
+                 (whitespace-nowrap) unless `wrap` is set (the row above); icon-sm is a fixed 32px square.
+                 Below a 24rem viewport every labelled size takes the wrap state on its own: h-auto, the
+                 size's min-h and vertical padding, whitespace-normal, centred on tight leading. A media
+                 query's rem is the browser's text size, so that is 384px at the default size (a 390px
+                 phone keeps one line) and 768px under a 200% text setting, where a 390px phone would
+                 otherwise scroll sideways. The variant is `[@media(max-width:24rem)]:`, since Tailwind
+                 drops `max-[24rem]:` while the screens are in px. In that state a caller's own min-h or
+                 vertical padding wins over the size's (the header's account link keeps its 44px target
+                 from min-h-11 on a 360px phone), through <Button className> and buttonVariants alike. A
+                 taller target is set with min-h, never a fixed h-, which h-auto would beat there, and a
+                 min-h or py goes through the factory's className option (<Button>, RetryButton and
+                 MarketingCta pass theirs through it), never beside its output in cx() or a template,
+                 where the narrow state cannot see it (tests/unit/buttonHeightIsAMinimum.spec.ts holds
+                 both). A `whitespace-normal` className still loses to the base `whitespace-nowrap`
+                 above 24rem (stylesheet order): use `wrap`.
+                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at the default),
+                 tests/unit/button-wrap.spec.tsx (the narrow state keeps a caller's min-h and py).
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
@@ -718,6 +738,12 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
                  sticky-cell layering is the one documented exemption.
+                 The header offset: the site header publishes its rendered height on <html> as
+                 `--site-header-h` (components/Header.tsx), the one offset under it. Sticky and fixed chrome
+                 below the header and every section's scroll margin read it, `top-[var(--site-header-h,4rem)]`
+                 or `scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)]`, never a fixed `top-16`, so a bar that
+                 wraps under enlarged text covers nothing. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts
+                 and tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1147,7 +1173,7 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 
 ## 8. Theme mechanics
 
-- **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile). No page-level toggles.
+- **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile; below a 24rem viewport it sits in the mobile menu's first row, not the bar, so the bar keeps one row under enlarged text and the toggle opens in view directly under it: tests/e2e/reflow-200.spec.ts). No page-level toggles.
 - `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme`, else
   light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
   the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
