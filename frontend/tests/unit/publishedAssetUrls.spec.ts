@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPathMatch } from 'next/dist/shared/lib/router/utils/path-match'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -298,10 +299,22 @@ describe('the register', () => {
   })
 
   it("names the site's canonical origin, the root layout's metadataBase", () => {
-    const layout = readFileSync(path.join(FRONTEND, 'app', 'layout.tsx'), 'utf8')
-    const base = layout.match(/metadataBase:\s*new URL\('([^']+)'\)/)
-    expect(base, 'app/layout.tsx no longer names its metadataBase as a literal URL').not.toBeNull()
-    expect(REGISTER.origin, 'mail addresses the published paths on the canonical origin').toBe(new URL(base![1]).origin)
+    // Read as the compiler reads the file, so a line in a comment sets no metadataBase.
+    const file = path.join(FRONTEND, 'app', 'layout.tsx')
+    const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const bases: string[] = []
+    const visit = (node: ts.Node): void => {
+      if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'metadataBase') {
+        const value = node.initializer
+        const literal = ts.isNewExpression(value) && value.expression.getText(sf) === 'URL' && value.arguments?.length === 1
+          ? value.arguments[0] : undefined
+        bases.push(literal && ts.isStringLiteralLike(literal) ? literal.text : '')
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sf)
+    expect(bases.length === 1 && bases[0] !== '', `app/layout.tsx names one metadataBase, as a literal URL: ${JSON.stringify(bases)}`).toBe(true)
+    expect(REGISTER.origin, 'mail addresses the published paths on the canonical origin').toBe(new URL(bases[0]).origin)
   })
 })
 

@@ -62,7 +62,7 @@ cover's comment says how the backend fills them.
 - **The email footer line** names filing data: "Filing data sourced from SEC EDGAR. Not investment
   advice." It sits on every mail, and an earnings-day alert carries a provider's report dates, so it
   narrows the app's sentence form, `SEC_EDGAR_NOT_ADVICE` in `frontend/components/AiDisclaimer.tsx`,
-  which labels the Copilot's filing answers alone (D-017, D-041).
+  which labels the Copilot's filing answers alone (D-017, D-043).
 
 ## Rendering
 

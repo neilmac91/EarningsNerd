@@ -14,10 +14,12 @@ to the rule's mail half (CLAUDE.md rule 12):
   header names. This scan cannot follow a value through the code.
 
 This scan reads the Python's strings as the code builds them, docstrings and the paths of the API's
-route decorators aside: an f-string or a ``+`` chain whole, and a name bound to a registered path, or
-to an address built on one, read as what it holds, in its module or in one that imports it from that
-module (an import of the name, or of the module, relative or not). It reads every other file's text.
-In them:
+route decorators aside: an f-string or a ``+`` chain whole, a template ``textwrap.dedent`` or
+``inspect.cleandoc`` re-indents as written, and a name bound to a registered path, or to an address built
+on one, read as what it holds, in its module or in one that imports it from that module (an import of the
+name, or of the module, relative or not). A name a function or a comprehension binds as its own (a
+parameter, an assignment, a loop's or a comprehension's variable, an import, an ``except``'s name) shadows
+one bound further out. It reads every other file's text. In them:
 
 - the path of a file the site serves from ``frontend/public``, or of one of its directories, where a
   URL path can start (the start of a string, after whitespace, a quote or a backtick, a bracket, "=",
@@ -34,9 +36,11 @@ In them:
 - a registered path is used whole. Its string may sit in the f-string or the concatenation that builds
   an address, in a template a ``.format``, ``%`` or ``string.Template`` fills, or in a name bound to it
   once, which is then read only in those places. A string with nothing in front of the path counts as
-  the path. Every other use the scan sees fails: an argument, a container's item, a default, a return
-  value, a slice, a method other than a read (``startswith``, ``find``) or a format spec other than
-  ``:s`` applied to it, a second binding, a setting the environment can replace. An address built on
+  the path. A comparison reads it. Every other use the scan sees fails: an argument, a container's item, a
+  default, a return value, a slice, a method other than a read (``startswith``, ``find``) or a format spec
+  other than ``:s`` applied to it, a second binding (an assignment, an import or an ``except``'s name, in its
+  scope or through ``global`` or ``nonlocal``, or an attribute another module sets), a setting the
+  environment can replace. An address built on
   one may be handed on, but a slice, a format spec, or a method other than a read or a strip or a
   replacement of whitespace fails on it, where it is built, where a template's fill builds it, or
   through a name that holds it. What is added to it is read with it, as the concatenation, or the
@@ -62,7 +66,7 @@ walk that reads ``backend/app``. Out of the scan's reach, and planted as gaps, o
 - an address handed to a function that changes it: a helper, ``re.sub``, ``str.replace(u, ...)``, a join
 - an address held in a container, an attribute or a conditional, then changed: a list, a dict, ``self.u``, ``x if c else y``, a walrus
 - an address filled into another template, with a suffix: ``"{}@2x.png".format(u)``, ``%``, ``Template``
-- a name bound to a registered path, rebound where the scan does not look: ``global``, ``nonlocal``, ``setattr``
+- a name bound to a registered path, rebound where the scan does not look: ``setattr``
 - a name read through getattr or globals()
 - a Jinja filter applied to a path: ``| replace``, ``~``
 - a path the site serves from a route: ``app/manifest.ts``
@@ -108,7 +112,8 @@ _FIELD = "{}"
 _UNSTRIPPED = "{FRONTEND_URL}"
 _ROUTE_DECORATORS = {"get", "post", "put", "patch", "delete", "head", "options", "api_route", "route", "websocket"}
 _FILLS = {"format", "format_map"}
-_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+_DEDENTS = {"dedent", "cleandoc"}  # textwrap.dedent and inspect.cleandoc change a template's indentation alone
 _READS = {"startswith", "endswith", "find", "rfind", "index", "rindex", "count"}  # hand back no part of it
 _WHITESPACE_STRIPS = {"strip", "lstrip", "rstrip"}  # called with no argument, they leave an address whole
 _SUBSTITUTES = {"substitute", "safe_substitute"}  # string.Template's fills
@@ -241,10 +246,40 @@ def _scan_python(
             node = parent.get(node)
         return node
 
+    # (scope, name) -> the scope a global or a nonlocal there binds the name in.
+    outward: dict[tuple[ast.AST | None, str], ast.AST | None] = {}
+    for node in nodes:
+        if isinstance(node, (ast.Global, ast.Nonlocal)):
+            here = scope(node)
+            for name in node.names:
+                outward[(here, name)] = None if isinstance(node, ast.Global) else scope(here)
+
+    def binder(node: ast.AST, name: str) -> ast.AST | None:
+        """The scope a name stored at ``node`` is bound in: its own, or the one a global or a nonlocal names."""
+        here = scope(node)
+        return outward.get((here, name), here)
+
+    # The names each function or comprehension binds as its own, which shadow a binding further out.
+    own: dict[ast.AST, set[str]] = {}
+    for node in nodes:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            args = node.args
+            own.setdefault(node, set()).update(a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg) if a)
+        elif isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
+            if (here := scope(node)) is not None and binder(node, node.id) is here:
+                own.setdefault(here, set()).add(node.id)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            if (here := scope(node)) is not None and binder(node, node.name) is here:
+                own.setdefault(here, set()).add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)) and (here := scope(node)) is not None:
+            own.setdefault(here, set()).update(alias.asname or alias.name.split(".")[0] for alias in node.names)
+
     def bound(node: ast.AST) -> tuple[str, bool, ast.AST | None] | None:
         if isinstance(node, ast.Name) and node.id in held:
             here = scope(node)
             while (here, node.id) not in names and here is not None:
+                if node.id in own.get(here, ()):  # its own name here shadows a binding further out
+                    return None
                 here = scope(here)
             return names.get((here, node.id))
         if isinstance(node, ast.Attribute):
@@ -282,6 +317,8 @@ def _scan_python(
             arg = _string(node.args[0]) if len(node.args) == 1 and not node.keywords else None
             strips = (node.func.attr in ("rstrip", "strip") and arg is not None and "/" in arg) or (node.func.attr == "removesuffix" and arg == "/")
             return _FIELD if strips else _UNSTRIPPED
+        if dedented(node):
+            return render(node.args[0])  # re-indented: its text as written
         if (template := filled_template(node)) is not None:
             return render(template)  # a template filled by .format or Template: its text, placeholders and all
         return holds[0] if (holds := bound(node)) else _FIELD
@@ -302,9 +339,21 @@ def _scan_python(
             return inner.args[0]
         return None
 
+    def dedented(node: ast.AST | None) -> bool:
+        """Whether ``node`` re-indents one template, ``textwrap.dedent(t)`` or ``inspect.cleandoc(t)``."""
+        return (
+            isinstance(node, ast.Call)
+            and getattr(node.func, "attr", getattr(node.func, "id", None)) in _DEDENTS
+            and len(node.args) == 1
+            and not node.keywords
+        )
+
     def rendered(node: ast.AST) -> bool:
-        """Whether ``node`` is part of the f-string or the ``+`` chain around it, which is read whole."""
+        """Whether ``node`` is part of the f-string, the ``+`` chain or the re-indented template around it,
+        which is read whole."""
         up = parent.get(node)
+        if dedented(up) and up.args[0] is node:
+            return True
         if isinstance(up, ast.FormattedValue):
             return up.value is node and plain(up) and isinstance(parent.get(up), ast.JoinedStr)
         return isinstance(up, ast.JoinedStr) or (isinstance(up, ast.BinOp) and isinstance(up.op, ast.Add))
@@ -341,9 +390,10 @@ def _scan_python(
         return not (up.attr == "replace" and call.args and (_string(call.args[0]) or "x").isspace())
 
     def reads(node: ast.AST) -> bool:
-        """Whether a method that changes nothing is called on ``node`` (``startswith``, ``find``)."""
+        """Whether ``node`` is read and left as it is: compared, or given a method that changes nothing
+        (``startswith``, ``find``)."""
         up = parent.get(node)
-        return isinstance(up, ast.Attribute) and up.value is node and up.attr in _READS
+        return (isinstance(up, ast.Attribute) and up.value is node and up.attr in _READS) or isinstance(up, ast.Compare)
 
     def converted(node: ast.AST) -> bool:
         """Whether an f-string's field reads ``node`` through a format spec, which may cut it."""
@@ -374,7 +424,7 @@ def _scan_python(
         return [
             node
             for node in nodes
-            if (_string(node) is not None or isinstance(node, ast.JoinedStr) or (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)))
+            if (_string(node) is not None or isinstance(node, ast.JoinedStr) or (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)) or dedented(node))
             and id(node) not in skip
             and not rendered(node)
         ]
@@ -435,7 +485,7 @@ def _scan_python(
             elif not is_bare and (changed(node) or converted(node)):
                 found.append(f"{where}:{node.lineno}: {name}: an address on a registered path changed after it is built")
         elif isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load) and node.id in held:
-            holds = names.get((scope(node), node.id))
+            holds = names.get((binder(node, node.id), node.id))
             if holds and holds[1] and holds[2] is not node:
                 found.append(f"{where}:{node.lineno}: {node.id}: a name bound to a registered path is bound again")
             elif holds and holds[2] is not node and isinstance(grown := parent.get(node), ast.AugAssign):
@@ -443,6 +493,18 @@ def _scan_python(
                 before = set(_scan(holds[0])[0])
                 after = _scan(holds[0] + render(grown.value))[0] if isinstance(grown.op, ast.Add) else ["changed in place"]
                 found += [f"{where}:{node.lineno}: {node.id}: {v}" for v in after if v not in before]
+        elif isinstance(node, ast.ExceptHandler) and node.name in held:
+            if (holds := names.get((binder(node, node.name), node.name))) and holds[1]:
+                found.append(f"{where}:{node.lineno}: {node.name}: a name bound to a registered path is bound again")
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                name = alias.asname or alias.name.split(".")[0]
+                holds = names.get((binder(node, name), name)) if name in held else None
+                imported = isinstance(node, ast.ImportFrom) and (source(node), alias.name) in exported  # the binding itself
+                if holds and holds[1] and not imported:
+                    found.append(f"{where}:{node.lineno}: {name}: a name bound to a registered path is bound again")
+        elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store) and (holds := bound(node)) and holds[1]:
+            found.append(f"{where}:{node.lineno}: {node.attr}: a name bound to a registered path is bound again")
     return found, registered, exports
 
 
@@ -536,6 +598,12 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a registered constant bound again", _T + '_T = "/assets/earningsnerd-new.png"', "flag"),
     ("a registered constant added to in place", _T + '_T += "@2x.png"', "flag"),
     ("a registered constant as a loop's variable", _T + "for _T in variants:\n    pass", "flag"),
+    ("a registered constant rebound through global", _T + "def dark():\n    global _T\n    _T = variant()", "flag"),
+    ("a registered path rebound through nonlocal", 'def outer():\n    t = "/assets/earningsnerd-appicon.png"\n\n    def dark():\n        nonlocal t\n        t = variant()\n\n    return dark', "flag"),
+    ("a registered constant rebound by an except's name", _T + "try:\n    pass\nexcept Exception as _T:\n    pass", "flag"),
+    ("a registered constant rebound by an import", _T + "from os import sep as _T", "flag"),
+    ("a registered constant set from another module", {"a.py": _T, "b.py": "from app import a\na._T = variant()"}, "flag"),
+    ("a re-indented template with a field after a registered path", 'P = textwrap.dedent("<img src=\\"{base}/assets/earningsnerd-appicon.png{suffix}\\">")', "flag"),
     ("a registered constant aliased", _T + "TILE = _T", "flag"),
     ("a registered constant imported and changed", {"a.py": _T, "b.py": 'from app.a import _T\nP = _T + "@2x.png"'}, "flag"),
     ("a registered constant imported under another name", {"a.py": _T, "b.py": 'from app.a import _T as TILE\nP = TILE.replace("appicon", "x")'}, "flag"),
@@ -664,6 +732,12 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a name imported from another module than the one that exports it", {"a.py": _T, "b.py": "from app.layout import _T\nP = [_T]"}, "pass"),
     ("a dataclass field on a registered path, and an unrelated .path read elsewhere", {"a.py": '@dataclass\nclass Tile:\n    path: str = "/assets/earningsnerd-appicon.png"\n', "b.py": "def path_of(link):\n    return urlsplit(link).path.startswith('/api/')"}, "pass"),
     ("an address imported and read whole", {"a.py": 'U = f"{base}/assets/earningsnerd-appicon.png"\n', "b.py": 'from app.a import U\nP = f"<img src=\\"{U}\\">"'}, "pass"),
+    ("a parameter named like a registered constant", _T + "def f(_T):\n    return _T.upper()", "pass"),
+    ("a local named like a registered constant", _T + "def f():\n    _T = name\n    return _T.upper()", "pass"),
+    ("a comprehension's variable named like a registered constant", _T + "P = [_T.upper() for _T in names]", "pass"),
+    ("a registered constant compared", _T + "ok = path == _T", "pass"),
+    ("a registered path compared", 'ok = path == "/assets/earningsnerd-appicon.png"', "pass"),
+    ("a re-indented template filled later", 'IMG = textwrap.dedent(\"\"\"\n    <img src="{base}/assets/earningsnerd-appicon.png">\n\"\"\")\nP = IMG.format(base=b)', "pass"),
     # Out of the scan's reach: the header names each, and the rendered gate checks what each puts in mail.
     ("no slash before the path", 'P = urljoin(base + "/", "assets/earningsnerd-new.png")', "gap"),
     ("a path after a bare word", 'P = "BASE_URL/assets/earningsnerd-new.png"', "gap"),
@@ -679,7 +753,7 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("an address handed to a function that changes it", 'def _retina(url):\n    return url.replace(".png", "@2x.png")\n\nU = f"{base}/assets/earningsnerd-appicon.png"\nP = _retina(U)', "gap"),
     ("an address held in a container, an attribute or a conditional, then changed", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = (U if dark else other).replace("appicon", "x")', "gap"),
     ("an address filled into another template, with a suffix", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = "{}@2x.png".format(U)', "gap"),
-    ("a name bound to a registered path, rebound where the scan does not look", _T + "def dark():\n    global _T\n    _T = variant()", "gap"),
+    ("a name bound to a registered path, rebound where the scan does not look", _T + 'setattr(sys.modules[__name__], "_T", variant())', "gap"),
     ("a name read through getattr or globals()", {"a.py": _T, "b.py": 'from app import a\nP = getattr(a, "_T").replace("appicon", "x")'}, "gap"),
     ("a Jinja filter applied to a path", {"templates/mail/tile.html": '{{ "/assets/earningsnerd-appicon.png" | replace("appicon", "x") }}'}, "gap"),
     ("a path the site serves from a route", 'P = "/manifest.webmanifest"', "gap"),
@@ -713,7 +787,7 @@ def test_the_scan_scores_every_planted_form(tmp_path):
     assert gaps == named, "the header names each gap a case marks, and a case marks each gap the header names: keep the two in step"
     outcomes = [outcome for _, _, outcome in FORMS]
     # Equalities, not floors, so a form dropped after one is added still fails (lessons/test-allowlist-caps-are-equalities.md).
-    assert (outcomes.count("flag"), outcomes.count("pass")) == (135, 50), (
+    assert (outcomes.count("flag"), outcomes.count("pass")) == (141, 56), (
         "a planted form was added or dropped: keep these counts equal to FORMS in the same diff, and say why one goes"
     )
 

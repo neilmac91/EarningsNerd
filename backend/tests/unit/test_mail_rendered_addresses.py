@@ -60,9 +60,10 @@ inline styles:
   screen. The inputs print such runs at their real lengths, and a check holds them to it: every input
   that names the reader passes a name typed as an address, 34 characters, and every render that takes a
   name is given that one; every recipient is an address of 39; every company is a real EDGAR name whose
-  longest run is 19 characters; and every link a caller hands in carries a 43-character token. The
-  report's hashes and addresses are its own. ``PRINTS_LONG_RUNS`` holds how many long runs each render's
-  pages print, page by page;
+  longest run is 19 characters; every link a caller hands in carries a 43-character token, each value held
+  to that length; and an input prints each time slot an earnings-day row can show. The report's hashes and
+  addresses are its own. ``PRINTS_LONG_RUNS`` holds how many long runs each render's pages print, page by
+  page;
 - that rule reaches no table, whose amounts it would split;
 - no box a client other than classic Outlook shows is set wider than the room its parent gives it on the
   narrowest phone, and classic Outlook, which reads no ``max-width``, holds each column capped at 600 px
@@ -141,7 +142,7 @@ DIGEST = dict(name=NAME, items=[
 ])
 # The second is an estimated event, a provider's date, in the shape send_earnings_day_alerts builds.
 EARNINGS = [
-    dict(name=NAME, items=[{"ticker": "PVCT", "company_name": COMPANY, "time": "bmo"}, {"ticker": "BETA", "status": "reported"}]),
+    dict(name=NAME, items=[{"ticker": "PVCT", "company_name": COMPANY, "time": "bmo"}, {"ticker": "BETA", "time": "dmh", "status": "reported"}]),
     dict(name=NAME, items=[{"ticker": "PVCT", "company_name": COMPANY, "time": "amc", "status": "estimated"}]),
 ]
 CLEAN_REPORT = {"ticker_mismatches": [], "ticker_not_in_file": [], "coverage_gaps": [], "filing_anomalies": [], "partial_reasons": []}
@@ -704,6 +705,15 @@ def test_the_inputs_hand_in_the_readers_name_and_each_link_at_their_real_lengths
         "an input that names the reader passes NAME, and every render that takes a name is given it once at least; one that "
         "addresses the mail passes TO, one that names a company passes COMPANY, and one that hands in a link passes LINK, so "
         "the lines that print them are held to the long-run rule at the lengths callers send:\n" + "\n".join(short + unnamed)
+    )
+    lengths = {"NAME": len(NAME), "TO": len(TO), "LINK's token": len(LINK.rsplit("=", 1)[-1]), "COMPANY's longest run": max(map(len, COMPANY.split()))}
+    assert lengths == {"NAME": 34, "TO": 39, "LINK's token": 43, "COMPANY's longest run": 19}, (
+        f"the inputs print each run at the length this file's comments and header give: {lengths}"
+    )
+    slots = {item.get("time") for kwargs in EARNINGS for item in kwargs["items"]}
+    assert set(email_service._TIME_LABEL) <= slots, (
+        "an input prints each time slot an earnings-day row can show, so each label is held to the long-run rule: "
+        f"{sorted(set(email_service._TIME_LABEL) - slots)} printed by none"
     )
 
 

@@ -32,7 +32,7 @@ page's holds three, the header's, the panel's and the footer line's. Around them
   its token or the reader's name, carries the rule that lets it break anywhere, since on the panel the
   rule would reach a body's own table and split a column of amounts; nor does a body lend it to a table;
 - names filing data alone in its footer line, "Filing data sourced from SEC EDGAR. Not investment advice.":
-  it sits on every mail, the earnings-day alert among them, whose report dates come from a provider (D-041);
+  it sits on every mail, the earnings-day alert among them, whose report dates come from a provider (D-043);
 - pads no table through its ``style`` attribute (the shell has no ``<style>`` block), since classic
   Outlook ignores a table's padding and the body would sit against the panel's border, out of line with
   the header.
@@ -184,7 +184,7 @@ def test_the_footer_line_names_filing_data_alone():
         text = html.unescape(" ".join(token for token in cell if not token.startswith("<"))).strip()
         assert text == _FOOTER_WORDING, (
             f"{where}'s footer line reads {text!r}: it sits on every mail, the earnings-day alert among them, whose report "
-            f"dates and times come from a provider, so it names the filing data EDGAR sources alone ({_FOOTER_WORDING!r}, D-041)"
+            f"dates and times come from a provider, so it names the filing data EDGAR sources alone ({_FOOTER_WORDING!r}, D-043)"
         )
 
 
@@ -383,10 +383,13 @@ LONG_RUNS = [
     ("a run across a span the hidden attribute marks and its display shows", ((_COPY_LINE, _COPY_LINE + f'<p>{"x" * 10}<span hidden style="display:inline">{"x" * 10}</span></p>'),), _NOWHERE),
     ("a run across a div set display:initial, which is inline", ((_COPY_LINE, _COPY_LINE + f'<div>{_UNDER}<div style="display:initial">{_UNDER}</div></div>'),), _NOWHERE),
     ("a run across a span with a display no engine takes", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<span style="display:banana">{_UNDER}</span></p>'),), _NOWHERE),
+    ("a run across a span set display:block block, a pair no engine takes", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<span style="display:block block">{_UNDER}</span></p>'),), _NOWHERE),
     ("a run across a form feed, where no line breaks", ((_COPY_LINE, _COPY_LINE + f"<p>{_UNDER}\f{_UNDER}</p>"),), _NOWHERE),
     ("a run across a float, whose two sides join in the line", ((_COPY_LINE, _COPY_LINE + f'<div>{_UNDER}<div style="float:left">y</div>{_UNDER}</div>'),), _NOWHERE),
     ("a run across a box positioned absolute", ((_COPY_LINE, _COPY_LINE + f'<div>{_UNDER}<div style="position:absolute">y</div>{_UNDER}</div>'),), _NOWHERE),
     ("a run across a floated image", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" style="float:left">{_UNDER}</p>'),), _NOWHERE),
+    ("a run across an image its align floats", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" align="left">{_UNDER}</p>'),), _NOWHERE),
+    ("a run across a span set float:inherit, which takes its line's none", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<span style="float:inherit">{_UNDER}</span></p>'),), _NOWHERE),
     ("a run across an input of type hidden set display:block, which a browser hides all the same", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<input type="hidden" style="display:block" value="y">{_UNDER}</p>'),), _NOWHERE),
     ("a run across an audio set display:block, which a browser hides all the same", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<audio style="display:block"></audio>{_UNDER}</p>'),), _NOWHERE),
     ("word-wrap:anywhere alone, which WebKit may drop under that name", ((_BREAK, "word-wrap:anywhere;"),), _NOWHERE),
@@ -418,6 +421,7 @@ LONG_RUNS = [
     ("a pre's line break collapsed by white-space-collapse, which joins its two halves", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:pre;white-space-collapse:collapse;">{_UNDER}\n{_UNDER}</p>'),), _NO_WRAP),
     ("the spaces at a pre's start, which it keeps", ((_COPY_LINE, _COPY_LINE + f"<pre>          {'x' * 9}</pre>"),), _NO_WRAP),
     ("a phrase kept whole, past the threshold with its spaces", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:nowrap;">{_PHRASE}</p>'),), _NO_WRAP),
+    ("white-space:collapse wrap after nowrap, which an engine before text-wrap-mode drops", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:nowrap;white-space:collapse wrap;">{_PHRASE}</p>'),), _NO_WRAP),
     # Pass.
     ("the line as the mails write it", (), None),
     ("overflow-wrap:anywhere alone", ((_BREAK, "overflow-wrap:anywhere;"),), None),
@@ -435,7 +439,7 @@ LONG_RUNS = [
     ("a nowrap cell whose style reverts the attribute", ((_BODY_CELL, '<td nowrap style="white-space:revert;padding:32px 32px 0 32px;'),), None),
     ("a float beside a line, each under the threshold", ((_COPY_LINE, _COPY_LINE + f'<div><div style="float:left">{_UNDER}</div>{"y" * 10} {"y" * 10}</div>'),), None),
     ("a run of 17 characters with no rule", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 17}</p>"),), None),
-    ("a 17-character phrase kept whole, with spaces at its ends", ((_COPY_LINE, _COPY_LINE + '<p style="white-space:nowrap;">  Read the summary  </p>'),), None),
+    ("a 16-character phrase kept whole, with spaces at its ends", ((_COPY_LINE, _COPY_LINE + '<p style="white-space:nowrap;">  Read the summary  </p>'),), None),
     ("two blocks side by side, each under the threshold", ((_COPY_LINE, _COPY_LINE + f"<p>{_UNDER}</p><p>{_UNDER}</p>"),), None),
     ("a block opened inside a line, each side under the threshold", ((_COPY_LINE, _COPY_LINE + f"<div>{_UNDER}<div>{_UNDER}</div></div>"),), None),
     ("a long run broken by a thin space", ((_COPY_LINE, _COPY_LINE + f"<p>{_UNDER}\u2009{_UNDER}</p>"),), None),
@@ -448,7 +452,10 @@ LONG_RUNS = [
     ("a long run broken by a wbr", ((_COPY_LINE, _COPY_LINE + f"<p>{_UNDER}<wbr>{_UNDER}</p>"),), None),
     ("a long run broken by a zero-width space", ((_COPY_LINE, _COPY_LINE + f"<p>{_UNDER}\u200b{_UNDER}</p>"),), None),
     ("a pre whose lines are short", ((_COPY_LINE, _COPY_LINE + f"<pre>{_UNDER}\n{_UNDER}</pre>"),), None),
-    ("a short phrase kept whole, its spaces collapsed", ((_COPY_LINE, _COPY_LINE + '<p style="white-space:nowrap;">Read          now</p>'),), None),
+    ("a short phrase kept whole, its spaces collapsed", ((_COPY_LINE, _COPY_LINE + '<p style="white-space:nowrap;">Read            now</p>'),), None),
+    ("two stretches either side of an inline SVG, which is placed whole", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<svg width="8" height="8"></svg>{_UNDER}</p>'),), None),
+    ("two stretches either side of a br set float:left, which still breaks the line", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<br style="float:left">{_UNDER}</p>'),), None),
+    ("two stretches either side of an input typed \" hidden\", which a browser shows", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<input type=" hidden" value="y">{_UNDER}</p>'),), None),
 ]
 
 
@@ -500,6 +507,8 @@ _TOO_WIDE = "where its parent gives it"
 _SQUEEZED = "squeezes the cell"
 _NATURAL = "natural size"
 _NO_ROOM = "leave its content no room"
+_AT_CAP = "at its max-width"
+_FIXED = "a fixed table layout keeps"
 _NOT_RESOLVED = "set by the font, the screen or its parent"
 _BY_CONTENT = "set by its content"
 _NO_OUTLOOK_TABLE = "sits in no table 600 px wide"
@@ -536,8 +545,18 @@ WIDTHS = [
     ("an image with a side margin", ((_BODY_LINE, f'<img {_IMAGE} width="230" style="margin-left:24px;">' + _BODY_LINE),), _TOO_WIDE),
     ("a margin wider than the column", ((_BODY_LINE, '<div style="margin-left:250px;">x</div>' + _BODY_LINE),), _NO_ROOM),
     ("a negative margin", ((_BODY_LINE, '<div style="margin-right:-40px;">x</div>' + _BODY_LINE),), "is negative"),
+    ("an image its max-width holds, padded beside it", ((_BODY_LINE, f'<img {_IMAGE} style="max-width:100%;padding:0 30px;">' + _BODY_LINE),), _AT_CAP),
+    ("an image its max-width holds, with a side margin", ((_BODY_LINE, f'<img {_IMAGE} style="max-width:100%;margin-left:60px;">' + _BODY_LINE),), _AT_CAP),
+    ("an image's hspace, which sets its side margins", ((_BODY_LINE, f'<img {_IMAGE} width="220" hspace="10">' + _BODY_LINE),), _TOO_WIDE),
+    ("an image's border attribute, which draws a border", ((_BODY_LINE, f'<img {_IMAGE} width="226" border="4">' + _BODY_LINE),), _TOO_WIDE),
+    ("an object 300 px wide", ((_BODY_LINE, '<object width="300"></object>' + _BODY_LINE),), _TOO_WIDE),
+    ("a div set display:table, which adds its padding to its width", ((_BODY_LINE, '<div style="display:table;width:230px;padding:0 10px;">x</div>' + _BODY_LINE),), _TOO_WIDE),
+    ("a table whose style reverts its spacing to a browser's 2 px", ((_BODY_LINE, f'<table width="100%" cellspacing="0" style="border-spacing:revert;"><tr><td style="padding:0;"><img {_IMAGE} width="230"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
     ("a margin in em, which the font sets", ((_BODY_LINE, '<div style="margin-left:2em;">x</div>' + _BODY_LINE),), _NOT_RESOLVED),
     ("a body cell 300 px wide", ((_BODY_LINE, '<table width="100%"><tr><td width="300">x</td></tr></table>' + _BODY_LINE),), _SQUEEZED),
+    ("a body column 300 px wide", ((_BODY_LINE, '<table width="100%"><col width="300"><tr><td>x</td></tr></table>' + _BODY_LINE),), "squeezes the column"),
+    ("a cell 300 px wide in a fixed table layout", ((_BODY_LINE, '<table width="100%" style="table-layout:fixed;"><tr><td width="300">x</td></tr></table>' + _BODY_LINE),), _FIXED),
+    ("a column 300 px wide in a fixed table layout", ((_BODY_LINE, '<table width="100%" style="table-layout:fixed;"><col width="300"><tr><td>x</td></tr></table>' + _BODY_LINE),), _FIXED),
     ("a width in em, which the font sets", ((_BODY_LINE, '<table style="width:40em"><tr><td>x</td></tr></table>' + _BODY_LINE),), _NOT_RESOLVED),
     ("a width its parent sets", ((_BODY_LINE, '<table style="width:inherit"><tr><td>x</td></tr></table>' + _BODY_LINE),), _NOT_RESOLVED),
     ("a width its content sets", ((_BODY_LINE, '<p style="width:max-content;">x</p>' + _BODY_LINE),), _BY_CONTENT),
@@ -559,12 +578,18 @@ WIDTHS = [
     ("a fixed block whose width holds its padding", ((_BODY_LINE, '<div style="box-sizing:border-box;width:230px;padding:0 16px;">x</div>' + _BODY_LINE),), None),
     ("a table set in percent", ((_BODY_LINE, '<table width="80%"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
     ("a cell set in percent", ((_BODY_LINE, '<table width="100%"><tr><td width="50%">x</td><td>y</td></tr></table>' + _BODY_LINE),), None),
+    ("columns set in percent in a fixed table layout", ((_BODY_LINE, '<table width="100%" style="table-layout:fixed;"><col width="50%"><col width="50%"><tr><td>x</td><td>y</td></tr></table>' + _BODY_LINE),), None),
+    ("a full-width cell with side padding, which its share of the table holds", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="0"><tr><td width="100%" style="padding:0 16px;">x</td></tr></table>' + _BODY_LINE),), None),
+    ("a full-width cell its table pads", ((_BODY_LINE, '<table width="100%" cellpadding="16" cellspacing="0"><tr><td width="100%">x</td></tr></table>' + _BODY_LINE),), None),
+    ("a button whose width holds its padding, as a browser sizes one", ((_BODY_LINE, '<button style="width:230px;padding:0 20px;">x</button>' + _BODY_LINE),), None),
+    ("a cell whose style reverts its table's cellpadding", ((_BODY_LINE, f'<table width="100%" cellpadding="20" cellspacing="0"><tr><td style="padding:revert;"><img {_IMAGE} width="230"></td></tr></table>' + _BODY_LINE),), None),
+    ("a border whose colour a function gives", ((_BODY_LINE, '<div style="border:1px solid rgba(0,0,0,0.1);">x</div>' + _BODY_LINE),), None),
     ("a table whose style reverts its width attribute", ((_BODY_LINE, '<table width="600" style="width:revert;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
     ("a width attribute on a div, which HTML maps to nothing", ((_BODY_LINE, '<div width="600">x</div>' + _BODY_LINE),), None),
     ("a width on an inline span, which takes none", ((_BODY_LINE, '<span style="width:300px;">x</span>' + _BODY_LINE),), None),
     ("a fixed width inside Outlook's conditional comment", ((_BODY_LINE, '<!--[if mso]><table width="560"><tr><td><![endif]-->x<!--[if mso]></td></tr></table><![endif]-->' + _BODY_LINE),), None),
     ("a fixed width the page hides", ((_BODY_LINE, '<div style="display:none"><table width="600"><tr><td>x</td></tr></table></div>' + _BODY_LINE),), None),
-    ("a body table capped at 600 px that takes the screen's width", ((_BODY_LINE, '<table width="100%" style="max-width:500px;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
+    ("a body table capped at 500 px that takes the screen's width", ((_BODY_LINE, '<table width="100%" style="max-width:500px;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
     ("a body table in the shell's own fluid form, inside the panel's Outlook table", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
     ("the panel's Outlook table written for Outlook 2000 and later", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if gte mso 9]") + _INDENT + _PANEL_COLUMN),), None),
     ("the panel's Outlook table for Outlook or Internet Explorer", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if (gte mso 9)|(IE)]") + _INDENT + _PANEL_COLUMN),), None),
@@ -579,7 +604,6 @@ def test_the_width_checks_score_every_planted_page(edits, expected):
         assert not problems, problems
     else:
         assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
-
 
 
 # A body that prints a table of amounts, and each way it can lend the break rule to the table, where it splits the

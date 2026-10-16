@@ -29,8 +29,8 @@ _HEADER_TILE_PATH = "/assets/earningsnerd-appicon.png"
 # hash, the reader's name, which may be an address typed as a name, or a company's as EDGAR spells it
 # ("BIOPHARMACEUTICALS,"). Unbroken, the run would hold the fluid panel wider than a phone's screen, and widen it
 # past the header where a view fits a wider page to its screen and enlarges its text. On those lines alone, or
-# on a cell of their own, not on the panel or a table: there it would reach a body's own table and split a
-# column of amounts.
+# on a cell of their own that holds no amount, not on the panel or a table: there it would reach a body's own
+# table and split a column of amounts.
 _BREAK_ANYWHERE = "overflow-wrap:anywhere;word-break:break-word;"
 
 
@@ -59,7 +59,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     footer line leave their text to the view. So the header can show smaller than the body: where a
     reader sets a larger text size, Blink enlarges the body and leaves the header; and a view that ignores
     the viewport and fits a wider page to its screen, which no mail client is known to do, shows a short
-    mail at a fraction of its size and may enlarge a long one's body to about three times the header's.
+    mail at a fraction of its size and may enlarge a long one's body past twice the wordmark's size.
     The panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the body
     lines up under the header there too.
     """
@@ -686,7 +686,8 @@ def render_earnings_day_alert(
         ticker = html.escape(str(it.get("ticker", "")))
         company = html.escape(str(it.get("company_name") or it.get("ticker") or ""))
         slot = _TIME_LABEL.get((it.get("time") or "").lower())
-        when = f' <span style="color:#6B7280;white-space:nowrap;">· {slot}</span>' if slot else ""
+        # A no-break space keeps the middot with the slot, which wraps between its words ("during market hours").
+        when = f' <span style="color:#6B7280;">·&nbsp;{slot}</span>' if slot else ""
         reported = (it.get("status") == "reported")
         tail = " (results are out)" if reported else ""
         rows_html += f"""

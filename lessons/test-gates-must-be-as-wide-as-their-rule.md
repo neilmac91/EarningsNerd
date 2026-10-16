@@ -96,6 +96,10 @@ Blink takes. Model the reader's behaviour, such as a box model, rather than the 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
 
+**Gate**: each gate scores its own planted forms in its own suite. Scoring a model of a reader against the
+reader itself has no gate yet: E78 in `tasks/todo.md` would score the mail reader against the pinned
+Chromium in CI.
+
 **Evidence**: [#850](https://github.com/neilmac91/EarningsNerd/pull/850) —
 `frontend/tests/unit/designSystemDoneGate.spec.ts` and `testHomesAllowlist.spec.ts`;
 commits `b7eac32c` (binary denylist), `07817b2b` (mjs/cjs + key enumeration), `35262bef`
@@ -284,7 +288,7 @@ short to print the runs the rule is about: every reader was "Ada". The review af
 same two halves again. The width check read the widths an element declares, while a browser lays boxes
 out: an image at its natural size, a block's padding, a list's indent, a margin, and a table a percentage
 `max-width` does not hold in a cell each held a page wider than a phone with every test green; it now
-gives each box the room its parent leaves, as a box model does. And every company in the inputs was
+gives each box the room its parent leaves, as a box model does, short of the room a row's cells share. And every company in the inputs was
 "Acme Corp", while EDGAR names carry runs of 18 to 21 characters, which the alerts printed with no rule.
 When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
 parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
