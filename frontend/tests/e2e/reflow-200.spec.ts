@@ -43,10 +43,11 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * stays inside its segment with no line starting at its middot (at 360 and 390px; at both, the Annual label
  * ran onto three lines below its segment). Below a 12rem viewport the auth shell's wordmark yields to the
  * mark. The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
- * wheel over the menu and focus each bring its last item into view inside it, the page unmoved and not
- * scrolling sideways (before, the sticky header showed it only at the page's very end). On a 768px and an
- * 834px tablet at 200% every route passes the same checks too: the footer's columns and the final CTA
- * card's open at md at the reader's text size (48rem), where at md's 768px they took pages to 812-886px.
+ * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
+ * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
+ * On a 768px and an 834px tablet at 200% every route passes the same checks too: the footer's columns and
+ * the final CTA card's open at md at the reader's text size (48rem), where at md's 768px they took pages to
+ * 812-886px.
  *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
@@ -557,7 +558,8 @@ for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }
     390x664 phone. At 390x664 and 360x640 at 200% text, for a guest and for a signed-in reader, a wheel over the menu
     brings its last item wholly into view inside it with the page unmoved, and a second wheel at the menu's end leaves
     the page behind it unmoved too; scrolled back to its top, the menu brings the item into view again as focus lands
-    on it, the item's 3px ring clear of the menu's edge; and the page does not scroll sideways. */
+    on it, the item's 3px ring clear of the menu's edge; and neither the page nor the menu scrolls sideways, the menu
+    read on its own, since what it clips adds nothing to the page's width. */
 const MENU_ENDS = [
   {
     who: 'a guest',
@@ -588,11 +590,44 @@ const inMenuView = (item: Locator, ring = 0) =>
     return inside ? 'in view' : `the item at ${Math.round(box.top)}-${Math.round(box.bottom)}px, the menu seen at ${Math.round(top)}-${Math.round(bottom)}px, a hit at its centre reaching ${hit ? hit.tagName.toLowerCase() : 'nothing'}`
   }, ring)
 
+/** The menu panel's own widths and, for a failure message, what reaches past its inner right edge outside any clipping
+    box inside it, read from its start. The panel scrolls, and a non-visible overflow-y makes overflow-x auto too, so a
+    row wider than the menu scrolls sideways inside it and adds nothing to the page's scroll width: `measure` cannot see
+    it, since it skips what a clipping box holds. */
+const menuWidths = (panel: Locator): Promise<Overflow> =>
+  panel.evaluate((root) => {
+    root.scrollTo({ left: 0 })
+    const edge = root.getBoundingClientRect().left + root.clientLeft + root.clientWidth
+    const clipped = (el: Element, own: boolean) => {
+      for (let n: Element | null = el; n && n !== root; n = n.parentElement) {
+        if ((own || n !== el) && getComputedStyle(n).overflowX !== 'visible') return true
+      }
+      return false
+    }
+    const label = (el: Element, text: string) => `${el.tagName.toLowerCase()} "${text.replace(/\s+/g, ' ').trim().slice(0, 40)}"`
+    const past: { right: number; what: string }[] = []
+    for (const el of root.querySelectorAll('*')) {
+      const right = el.getBoundingClientRect().right
+      if (right > edge + 0.5 && !clipped(el, false)) past.push({ right, what: label(el, el.textContent ?? '') })
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const el = node.parentElement
+      if (!el || !node.textContent?.trim() || clipped(el, true)) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const right = range.getBoundingClientRect().right
+      if (right > edge + 0.5) past.push({ right, what: `text in ${label(el, node.textContent)}` })
+    }
+    past.sort((a, b) => b.right - a.right)
+    return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, widest: past.slice(0, 6).map((p) => `${Math.round(p.right)}px ${p.what}`) }
+  })
+
 for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 640 }]) {
   test.describe(`a ${viewport.width}x${viewport.height} phone at 200% text, the menu open`, () => {
     test.use({ viewport, isMobile: true, hasTouch: true })
     for (const reader of MENU_ENDS) {
-      test(`${reader.path} for ${reader.who}: the menu scrolls inside the viewport to its last item, and the page does not scroll sideways`, async ({ page, baseURL }) => {
+      test(`${reader.path} for ${reader.who}: the menu scrolls inside the viewport to its last item, and neither the page nor the menu scrolls sideways`, async ({ page, baseURL }) => {
         await page.addInitScript(() => {
           try {
             localStorage.setItem('theme', 'light')
@@ -631,6 +666,8 @@ for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 640 }
 
         const widths = await measure(page)
         expect(widths.scrollWidth, `${reader.path} at ${viewport.width}x${viewport.height} with the menu open: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
+        const inside = await menuWidths(menu.locator('xpath=..'))
+        expect(inside.scrollWidth, `${reader.path} at ${viewport.width}x${viewport.height}, inside the open menu: ${why(inside)}`).toBeLessThanOrEqual(inside.clientWidth)
       })
     }
   })

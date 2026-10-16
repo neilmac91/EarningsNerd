@@ -805,7 +805,9 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
                  landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
                  a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
-                 menu, and a second wheel at its end leaves the page behind it unmoved).
+                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
+                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 nothing to the page's).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
