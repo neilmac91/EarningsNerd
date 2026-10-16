@@ -3,9 +3,9 @@
 ``search_company`` is the typeahead's search: exact ticker hits first, then any entry whose name
 or ticker merely contains the query. The company page, the filings list and precompute used to
 take its first hit as the requested ticker's company, so a ticker missing from SEC's file (retired,
-renamed or mistyped) served and persisted an unrelated issuer: RTN bound to Enterprise Products
-PARTNERS, SQ to SQM, FB to FB Financial (FBK) and X to Exxon (XOM), and precompute paid to summarize
-it. These tests pin the exact resolver (case-insensitive, '.' and '-' the same share-class
+renamed or mistyped) that is a substring of another entry's name or ticker served and persisted an
+unrelated issuer: RTN bound to Enterprise Products PARTNERS, SQ to SQM, FB to FB Financial (FBK) and
+X to Exxon (XOM), and precompute paid to summarize it. These tests pin the exact resolver (case-insensitive, '.' and '-' the same share-class
 separator) on all three callers, and that the typeahead still returns partial matches.
 
 Only the ticker file is faked (seeded into the L1 cache, so ``_get_cached_tickers``,

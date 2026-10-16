@@ -152,9 +152,10 @@ class CompanyResponse(BaseModel):
 def _unsupported_foreign_response(ticker: str) -> Optional[CompanyResponse]:
     """Honest 'coverage unavailable' response for a known unsupported foreign name, else None.
 
-    Returned BEFORE any SEC resolution so a recognizable ADR ticker can never fuzzy-match onto an
-    unrelated reporting issuer (e.g. TCEHY/Tencent must NOT bind to TME/Tencent Music, a real 20-F
-    filer at a different CIK). The synthesized response is never persisted to the DB. The curated
+    Returned BEFORE any DB or SEC resolution so a recognizable ADR ticker gets this state instead
+    of a bare "Company not found" and can never resolve to a stale DB row bound to an unrelated
+    reporting issuer (e.g. TCEHY/Tencent must NOT be served as TME/Tencent Music, a real 20-F filer
+    at a different CIK). The synthesized response is never persisted to the DB. The curated
     set lives in ``app.services.company_coverage`` (the single source of truth).
     """
     name = unsupported_foreign_name(ticker)
@@ -339,9 +340,9 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
 async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResponse:
     """Get company by ticker"""
     # Known unsupported foreign issuer → honest "coverage unavailable" state, checked BEFORE any DB
-    # or SEC lookup so a recognizable ADR ticker can never resolve to a stale/polluted DB row or
-    # fuzzy-match an unrelated reporting CIK (the TCEHY/Tencent → TME/Tencent Music guard). Not
-    # persisted.
+    # or SEC lookup so a recognizable ADR ticker gets that state, not the exact SEC miss's bare 404,
+    # and can never resolve to a stale/polluted DB row (the TCEHY/Tencent → TME/Tencent Music
+    # guard). Not persisted.
     unsupported = _unsupported_foreign_response(ticker)
     if unsupported is not None:
         return unsupported
