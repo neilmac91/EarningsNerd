@@ -383,6 +383,24 @@ def test_cap_counts_distinct_companies_not_rows():
     db.close()
 
 
+def _mk_watch(db, uid, ticker, watched, *, enabled=True, rows=1):
+    """A new company ``ticker`` with ``rows`` watch rows for ``uid``, watched on 2031-01-``watched``
+    (``None`` leaves ``created_at`` NULL)."""
+    from datetime import datetime, timezone
+
+    from app.models import Company, Watchlist
+
+    c = Company(cik=f"w-{uuid.uuid4().hex[:10]}", ticker=ticker, name=f"{ticker} Inc")
+    db.add(c)
+    db.flush()
+    created = None if watched is None else datetime(2031, 1, watched, tzinfo=timezone.utc)
+    for _ in range(rows):
+        db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=enabled, created_at=created))
+    if watched is None:  # an INSERT of None takes the server default; a legacy NULL needs an UPDATE
+        db.flush()
+        db.query(Watchlist).filter(Watchlist.company_id == c.id).update({"created_at": None})
+
+
 def _mk_event(db, ticker, day, period_end):
     from app.models import EarningsEvent
 
@@ -398,8 +416,9 @@ def _mk_event(db, ticker, day, period_end):
 async def test_downgrade_caps_the_send_at_the_plan_limit_and_an_upgrade_restores_it():
     """The cap holds at send time, not only at toggle time: a Pro user who enabled more alerts
     than the Free cap and then cancels (Stripe ``customer.subscription.deleted``) is sent only the
-    Free cap's worth, the earliest-enabled companies. The rest are skipped, not deleted and not
-    ledgered, so re-subscribing restores every alert."""
+    Free cap's worth, the earliest-watched companies (here also the earliest-enabled, because each
+    enable creates its watch row). The rest are skipped, not deleted and not ledgered, so
+    re-subscribing restores every alert."""
     from app.models import EarningsAlertLog
     from app.services.entitlements import get_entitlements
     from app.services.subscription_sync import apply_subscription_deleted, apply_subscription_upsert
@@ -452,27 +471,22 @@ async def test_downgrade_caps_the_send_at_the_plan_limit_and_an_upgrade_restores
 @pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_send_cap_keeps_the_earliest_watches_by_created_at_then_id():
-    """The companies kept under the cap are fixed by the watch row's ``created_at``, then ``id``,
-    so the same ones alert day to day. A row watched earlier wins over a lower id."""
-    from datetime import datetime, timezone
-
-    from app.models import Company, Watchlist
-
+    """The companies kept under the cap are fixed by the watch row's ``created_at`` (NULLs last),
+    then ``id``, so the same ones alert day to day. A row watched earlier wins over a lower id, and
+    of two rows watched at the same moment the lower id wins."""
     day = date(2031, 2, 5)
     tag = uuid.uuid4().hex[:4].upper()
     uid = _mk_user(is_pro=False)
     db, user = _load_user(uid)
     try:
-        tickers = [f"W{tag}{i}" for i in range(FREE_EARNINGS_ALERT_LIMIT + 1)]
-        # Inserted in ticker order (ascending ids), but the LAST row was watched first and the
-        # first row last, so ordering by id alone would keep a different set.
-        watched_day = [4, 2, 3, 1]
-        for t, d in zip(tickers, watched_day):
-            c = Company(cik=f"ord-{uuid.uuid4().hex[:10]}", ticker=t, name=f"{t} Inc")
-            db.add(c)
-            db.flush()
-            db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True,
-                             created_at=datetime(2031, 1, d, tzinfo=timezone.utc)))
+        # Inserted in ticker order (ascending ids). The send order is 1 (day 1), 3 (day 2), then
+        # 0 and 2 (both day 3, so the lower id first), then 4 (NULL), and the cap keeps 1, 3 and 0.
+        # Ordering by id alone, breaking the tie by the higher id or putting NULLs first would
+        # each keep a different set.
+        watched = [3, 1, 3, 2, None]
+        tickers = [f"W{tag}{i}" for i in range(len(watched))]
+        for t, d in zip(tickers, watched):
+            _mk_watch(db, uid, t, d)
             _mk_event(db, t, day, date(2030, 12, 31))
         db.commit()
         email = user.email
@@ -483,6 +497,78 @@ async def test_send_cap_keeps_the_earliest_watches_by_created_at_then_id():
                 sent.append(sorted(it["ticker"] for it in items))
 
         await alerts.send_earnings_day_alerts(db, today=day, sender=_sender)
-        assert sent == [sorted(tickers[1:])]
+        assert sent == [sorted(tickers[i] for i in (0, 1, 3))]
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_send_cap_spends_slots_only_on_each_users_own_distinct_enabled_companies():
+    """A user within the cap still gets every alert: earlier watches without an alert, a duplicate
+    watch row and another user's alerts take none of the user's slots."""
+    from app.models import User
+
+    day = date(2031, 2, 6)
+    tag = uuid.uuid4().hex[:4].upper()
+    other_uid, uid = _mk_user(is_pro=False), _mk_user(is_pro=False)
+    db, user = _load_user(uid)
+    try:
+        # (owner, enabled, watched day, rows); the other user's alerts are the earliest watched.
+        spec = [
+            (other_uid, True, 1, 1), (other_uid, True, 2, 1), (other_uid, True, 3, 1),
+            (uid, False, 4, 1), (uid, False, 5, 1), (uid, False, 6, 1),
+            (uid, True, 7, 2), (uid, True, 8, 1), (uid, True, 9, 1),
+        ]
+        tickers = [f"V{tag}{i}" for i in range(len(spec))]
+        for t, (owner, enabled, d, rows) in zip(tickers, spec):
+            _mk_watch(db, owner, t, d, enabled=enabled, rows=rows)
+            _mk_event(db, t, day, date(2030, 12, 31))
+        db.commit()
+        assert alerts.count_enabled(db, uid) == FREE_EARNINGS_ALERT_LIMIT
+        emails = {user.email: uid, db.get(User, other_uid).email: other_uid}
+        sent: dict[int, list[str]] = {}
+
+        async def _sender(*, to_email, name, items):
+            if to_email in emails:
+                sent[emails[to_email]] = sorted(it["ticker"] for it in items)
+
+        stats = await alerts.send_earnings_day_alerts(db, today=day, sender=_sender)
+        assert sent == {
+            owner: sorted(t for t, (o, enabled, _d, _r) in zip(tickers, spec) if o == owner and enabled)
+            for owner in (uid, other_uid)
+        }
+        assert stats["capped"] == 0
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_capped_does_not_count_an_event_sent_through_an_in_cap_company_with_its_ticker():
+    """Company tickers are not unique: an over-cap company that shares its ticker with an in-cap
+    one reaches the same event, which still sends once and is not counted as capped."""
+    day = date(2031, 2, 7)
+    tag = uuid.uuid4().hex[:4].upper()
+    uid = _mk_user(is_pro=False)
+    db, user = _load_user(uid)
+    try:
+        tickers = [f"S{tag}{i}" for i in range(FREE_EARNINGS_ALERT_LIMIT)]
+        # One enabled company per ticker, then a last-watched (over-cap) one sharing the first.
+        for d, t in enumerate(tickers + tickers[:1], start=1):
+            _mk_watch(db, uid, t, d)
+        for t in tickers:
+            _mk_event(db, t, day, date(2030, 12, 31))
+        db.commit()
+        email = user.email
+        sent: list[list[str]] = []
+
+        async def _sender(*, to_email, name, items):
+            if to_email == email:
+                sent.append(sorted(it["ticker"] for it in items))
+
+        stats = await alerts.send_earnings_day_alerts(db, today=day, sender=_sender)
+        assert sent == [sorted(tickers)]
+        assert stats["capped"] == 0
     finally:
         db.close()
