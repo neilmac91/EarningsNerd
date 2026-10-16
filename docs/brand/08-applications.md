@@ -76,8 +76,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
   (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
-  visitor, which is why the clause names analytics cookies. The categories, the controls and the
-  privacy link are unchanged.
+  visitor, which is why the clause names analytics cookies. The bar's two choices say what they set:
+  "Essential only" and "Allow analytics" (session recording stays off until it is chosen under
+  Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
+  beside them; the dialog's headings and its "Save preferences" button are in sentence case.
+  The categories, the handlers and the privacy link are unchanged; the analytics clause in the
+  dialog waits on the founder (chrome/F1).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
@@ -175,6 +179,26 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
+- **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, on the
+  overlay step of the elevation ladder (`e4`), in the theme the reader chose on the site rather than
+  the OS setting; a status toast (success, error, warning, info) keeps the panel
+  and colours only its icon, in its status ink (Sonner's own rich colours are off).
+- **Feedback widget** (`frontend/features/feedback/components/FeedbackWidget.tsx`): the three kinds
+  read "Bug", "Idea" and "General", without emoji, on the token hairlines; hover brightens to white
+  in light, never darkening to the page ground.
+- **Chart fallback** (`frontend/components/ChartErrorBoundary.tsx`): "This chart could not be
+  drawn." in the Card recipe on the filing page, where the boundary wraps one chart with no
+  table below it; "These charts could not be drawn." on Multi-Period Analysis when it wraps a grid of more
+  than one chart panel (MetricsTable sits below, outside it). It says only what failed.
+- **Checkbox** (`frontend/components/ui/Checkbox.tsx`): one recipe for the consent dialog and the
+  admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1): Light Sage under a
+  navy check, as the Primary button pairs them.
+- **Status chips** (`frontend/components/ui/Badge.tsx`): `success` and `error` variants for status
+  (D-032). The watchlist and dashboard rows still borrow the gain and loss colours for "Ready" and
+  "Error" until they move to these variants in the dashboard PR (#1290).
+- **Error copy** (`frontend/lib/api/client.ts`): a lost connection reads "Could not reach the server.
+  Try again in a moment." instead of naming the backend and its URL, and a validation error shows
+  its first message instead of "[object Object]".
 - **Admin invites and feedback** (`frontend/app/admin/`, `frontend/features/admin/components/`): an
   invite is "created", and "emailed" only when Email invites was on and the backend's best-effort send
   went through (the API's `emailed` flag). A batch reads "3 invites created · 3 emailed", "3 invite

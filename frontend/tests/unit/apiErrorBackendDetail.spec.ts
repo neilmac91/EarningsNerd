@@ -53,14 +53,13 @@ describe('ApiError.backendDetail', () => {
     expect(err.detail).toBe(detail)
   })
 
-  // FastAPI's validation 422 carries a list in `detail`, not a sentence, and backendDetail is set only from a
-  // string, so it stays undefined here. #1289's detailMessage() changes this answer to the list's first `msg`
-  // when the two meet: this is the row to update then.
-  it('is undefined for a FastAPI validation list (a 422), being set only from a string', async () => {
+  // FastAPI's validation 422 carries a list in `detail`, not a sentence; detailMessage() reads the list's first `msg`,
+  // so backendDetail carries that sentence.
+  it("carries a FastAPI validation list's first msg (a 422), read by detailMessage()", async () => {
     respondWith(422, { detail: [{ loc: ['body', 'q'], msg: 'x', type: 'value_error' }] })
     const err = await caught()
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(422)
-    expect(err.backendDetail).toBeUndefined()
+    expect(err.backendDetail).toBe('x')
   })
 })
