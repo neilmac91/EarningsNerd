@@ -93,7 +93,8 @@ def test_table_citation_publishes_retries_or_stays_terminal(case):
 
 def test_fixture_slices_keep_their_provenance_and_are_unedited():
     """Each slice names the prepared source and offset it was cut from (the full sources are in the
-    copilot-eval artifacts, not the repository) and the hash of its own text, which catches a later edit."""
+    copilot-eval artifacts, not the repository) and the hash of its own text, which catches an accidental
+    edit; an edit that rewrites the hash too is left to review."""
     sources = json.loads(FIXTURE.read_text())["sources"]
     assert set(sources) == {BABA_INCOME, BABA_SCHEDULE, BABA_REGEX, ASML, ASML_KPI, AAPL, BABA_NOTE}
     for value in sources.values():

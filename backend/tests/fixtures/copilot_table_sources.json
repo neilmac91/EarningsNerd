@@ -1,5 +1,5 @@
 {
- "note": "Contiguous slices of the Copilot sources copilot-eval prepared for these accessions (public SEC filing text), cut at the recorded offsets; source_sha256 is the SHA-256 of the whole prepared excerpt (copilot-eval artifacts 12011039068 and 11958638858). tests/unit/test_copilot_table_excerpts.py verifies citations against them as the production source. text_sha256 is each slice's own hash, checked by the test, so an edit to a slice after the cut is caught.",
+ "note": "Contiguous slices of the Copilot sources copilot-eval prepared for these accessions (public SEC filing text), cut at the recorded offsets; source_sha256 is the SHA-256 of the whole prepared excerpt (copilot-eval artifacts 12011039068 and 11958638858). tests/unit/test_copilot_table_excerpts.py verifies citations against them as the production source. text_sha256 is each slice's own hash, checked by the test, so an accidental edit to a slice after the cut is caught; one that also rewrites the hash is left to review.",
  "sources": {
   "baba_fy2025_sections_income_statement": {
    "accession": "0000950170-25-090161",

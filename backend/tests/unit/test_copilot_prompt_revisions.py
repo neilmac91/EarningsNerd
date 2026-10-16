@@ -1,4 +1,4 @@
-"""Every model-facing Copilot composition is recorded with the source its measurement used.
+"""Every Copilot system-message composition is recorded with the source its measurement used.
 
 The RUNBOOK's "Copilot prompt revisions" table lists, by SHA-256 prefix, the first generation's system
 message and the regeneration's system message after a decision-F rejection and after a citation
@@ -15,7 +15,8 @@ from app.services.copilot import prompt
 from app.services.copilot.exceptions import _RegenerableEvidenceMismatch, _UnpublishableAnswer
 
 # Every revision ever recorded, oldest first: (first generation, decision-F retry, citation retry). Append the
-# new triple and its RUNBOOK row together; an edited or dropped entry rewrites history and fails below.
+# new triple and its RUNBOOK row together. Editing either alone fails below; editing both rewrites history,
+# which only review can refuse (the RUNBOOK's "append-only by review").
 REVISIONS = [
     ("a88b6fb1de5b", "—", "—"),
     ("d46ef28f000a", "f3b340db1e35", "f3b340db1e35"),

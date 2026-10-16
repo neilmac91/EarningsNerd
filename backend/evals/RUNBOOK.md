@@ -751,8 +751,9 @@ so it had no recovery ([evidence](../../tasks/review-evidence/copilot-table-exce
 appends `_EVIDENCE_RETRY_GUIDANCE`; after a citation failure (`_RegenerableEvidenceMismatch`, chosen by
 the owned class, never from candidate text) it also appends `_CITATION_EXCERPT_RETRY_GUIDANCE`, which
 names the table-text shapes that fail and the two that verify: no text citation for a figure that has
-its `[F#]`, or one whole sentence or the whole row exactly as the filing shows it. A decision-F
-retry's bytes are unchanged, and the first generation never sees either text.
+its `[F#]`, or one whole sentence or the whole row exactly as the filing shows it. The decision-F
+guidance is unchanged (that retry's bytes move only with `SYSTEM_PROMPT`), and the first generation
+never sees either guidance text.
 Admission checks run in order (envelope, citations, final numbering, decision F) and the first rejection
 decides: an eligible citation failure regenerates even when a later check would also have rejected that
 candidate, and the replacement passes every check. A second rejection, a first rejection for any other
@@ -760,13 +761,17 @@ reason, provider failure or exhausted budget remains terminal. Prompt guidance p
 contiguous direct quotations, with quote-free displayed followups, refusal reasons and section labels.
 Citation excerpts preserve all source punctuation, including inner quotation marks escaped in JSON.
 
-**Copilot prompt revisions.** Each model-facing composition is listed by the first 12 hex digits of
+**Copilot prompt revisions.** Each system-message composition is listed by the first 12 hex digits of
 its SHA-256 (UTF-8), with the source its live measurement used: the first generation's system message
 (`SYSTEM_PROMPT`), and the regeneration's system message after a decision-F rejection and after a
-citation failure. `tests/unit/test_copilot_prompt_revisions.py` keeps the same rows as an append-only
-list: it fails when the current bytes are not the newest entry, when the table differs from the list,
+citation failure. `tests/unit/test_copilot_prompt_revisions.py` keeps the same hashes as a list: it
+fails when the current bytes are not the newest entry, when the table's hashes differ from the list,
 or when a row's evidence path does not exist. So the PR that edits any of them records the new
-identity and what it was measured on, and no earlier row can be overwritten. #1111's revision was measured only on the regex fallback, because SEC's
+identity and what it was measured on. The history is append-only by review: overwriting or dropping a
+row needs the same edit to the list, which shows as a removed line in that test's diff. A row's
+"Measured on" and "Evidence" cells are not compared and may be completed once its measurement exists.
+The context message, tool schemas and generation options are model-facing too but have no row; a change
+to them is review-checked. #1111's revision was measured only on the regex fallback, because SEC's
 403 had silently removed sections from every eval source, and nothing showed it.
 
 | First generation | Decision-F retry | Citation retry | Introduced | Measured on | Evidence |
@@ -774,7 +779,7 @@ identity and what it was measured on, and no earlier row can be overwritten. #11
 | `a88b6fb1de5b` | — | — | before #1111 | sections to 2026-10-05, then the regex fallback | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | 2026-10-16, citation retry | sections: run 38860895429, 17/18 (one BABA row withheld after its retry) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | 2026-10-16, whole-row rule | sections, pre-registered (addendum 1, not yet run) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/PREREGISTRATION.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | 2026-10-16, whole-row rule | sections: the pre-registered addendum-1 draw on #1360's merged head (it merges only at 18/18) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/PREREGISTRATION.md` |
 
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,

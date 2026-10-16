@@ -102,10 +102,16 @@ same workflow with the same 18 attempts.
   citation is.
 - **Generations that are not first generations.** Every retry is reported with its outcome.
 
+**Record.** The RUNBOOK row's "Measured on" cell is written before this draw. Once the PR is ready, every push to
+it draws again (`copilot_eval_draw_gate.py` allows one draw per head), so a commit that only added the run would buy
+a second draw of the same code. If the PR merges, the run and its readout go into the README in a records-only
+follow-up on main.
+
 **If this draw is red.** No further code head goes into this PR without the founder's decision. The artifact is
 classified and reported, and the ceiling's remainder stays unspent. If a question other than BABA FY2025 regresses,
 the four lines are the cause, since nothing else the first generation sees changed.
 
-**Spend.** For this head: USD 0.53 reserved for `eval-baseline` and USD 0.06 for the draw. Cumulative spend stays under
-the USD 2.00 ceiling. Spent so far: `eval-baseline` on `200bcddd`, USD 0.178346 plus one errored call; on `1ccfa33f`,
-read when it finishes. Draw 1: USD 0.025871.
+**Spend.** For the drawn head: USD 0.53 reserved for `eval-baseline` and USD 0.06 for the draw. Cumulative spend stays
+under the USD 2.00 ceiling. Spent before it: `eval-baseline` on `200bcddd`, USD 0.178346 plus one errored call; on
+`1ccfa33f`, USD 0.356388; on `1d885415`, USD 0.353111. Draw 1: USD 0.025871. That is USD 0.913716, so USD 1.50 with
+the drawn head's reservations.

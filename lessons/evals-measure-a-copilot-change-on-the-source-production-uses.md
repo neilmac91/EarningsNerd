@@ -14,11 +14,14 @@ fallback.
 **Rule**: Before accepting a Copilot draw as evidence for a model-facing change, read the artifact's
 `preparation.json` and the rows' source hashes, and confirm that every source that should have sections was
 prepared with them. A draw on the regex fallback measures a different prompt input; it does not accept the change.
-Record each model-facing revision in the RUNBOOK's "Copilot prompt revisions" table, with the source its measurement
-used, in the PR that makes it. Classify a red draw's generations before deciding its cause: a row that recovers on
-its retry hides how often the first generation fails.
+Record each revision of the Copilot's system messages (the first generation and both retries) in the RUNBOOK's
+"Copilot prompt revisions" table, with the source its measurement used, in the PR that makes it. Classify a red
+draw's generations before deciding its cause: a row that recovers on its retry hides how often the first generation
+fails.
 
 **Evidence**: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` (finding 3, and the corpus
 scripts). Gate: `backend/tests/unit/test_copilot_prompt_revisions.py` fails when the current first-generation or
-retry bytes have no row in the table, or a row has no measured source or no existing evidence path. The check of a
-draw's prepared sources is review-checked until E77 in `tasks/todo.md` lands.
+retry bytes have no row in the table, or a row has no measured source or no existing evidence path. Review checks the
+rest: a draw's prepared sources until E77 in `tasks/todo.md` lands, what a row says, a row overwritten in both the
+table and the test's list, and the model-facing bytes that have no row (the context message, tool schemas and
+generation options).
