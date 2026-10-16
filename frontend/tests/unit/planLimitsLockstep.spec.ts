@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -38,9 +39,12 @@ import {
  * documentation and the backend name for the flip. Clauses (3) and (4) read every .ts, .tsx, .js and .jsx
  * file under the cap walk's roots (an .md or .mdx file there is read as copy, line by line), one reader per
  * file (trialReader, below, says what it follows), lib/planLimits.ts included: there, beside the plan lines,
- * and in no other module, the module's own TRIAL_DAYS declaration is TRIAL_DAYS. Out of reach, review-checked: a length said another way
- * ("a week", "a fortnight"), TRIAL_DAYS re-exported under another name by another module, and a guard
- * applied by an early return (`if (!ENABLE_PRO_TRIAL) return null`), which fails closed.
+ * and in no other module, the module's own TRIAL_DAYS declaration is TRIAL_DAYS. An import is TRIAL_DAYS, or the
+ * flag, only when it resolves to that declaration (lib/planLimits.ts's TRIAL_DAYS, lib/featureFlags.ts's
+ * ENABLE_PRO_TRIAL), directly or through a module that re-exports it; a same-named export of any other module
+ * is that module's own. Out of reach, review-checked: a length said another way ("a week", "a fortnight"),
+ * TRIAL_DAYS held in another module's const (`export const LEN = TRIAL_DAYS`), and a guard applied by an
+ * early return (`if (!ENABLE_PRO_TRIAL) return null`), which fails closed.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const entitlements = readFileSync(path.resolve(frontendDir, '../backend/app/services/entitlements.py'), 'utf8')
@@ -697,10 +701,14 @@ const GAP = '\u0000'
 
 /**
  * One reader for both trial clauses, per file, following bindings rather than names:
- *  - TRIAL_DAYS is the import of `TRIAL_DAYS` from lib/planLimits under any local name, a namespace import's
- *    member (`P.TRIAL_DAYS`, `P['TRIAL_DAYS']`), one destructured from it, and a const holding any of those.
- *    A local declaration of the same name shadows it, as the language does.
- *  - A guard is ENABLE_PRO_TRIAL (imported, or a namespace member), an `&&` chain with a guard operand, or a
+ *  - TRIAL_DAYS is lib/planLimits.ts's own export, imported under any local name through an `@/` or relative
+ *    specifier, from that module or from any module that re-exports it (`export { … } from`, `export *`, a
+ *    re-export of its own import; exportsOwn); a namespace import's member (`P.TRIAL_DAYS`, `P['TRIAL_DAYS']`),
+ *    one destructured from it, and a const holding any of those. A same-named export of another module (one
+ *    named planLimits.ts included) is that module's own, a value the reader cannot resolve. A local declaration
+ *    of the same name shadows it, as the language does.
+ *  - A guard is lib/featureFlags.ts's ENABLE_PRO_TRIAL (imported the same way, or a namespace member; another
+ *    module's ENABLE_PRO_TRIAL guards nothing), an `&&` chain with a guard operand, or a
  *    `const` whose initializer is a guard, resolved to the declaration a name binds to: a same-named const in
  *    another function is that function's own, and a `let` or a parameter is never a guard (it can be
  *    reassigned, or holds what a caller hands it).
@@ -738,8 +746,57 @@ const aroundLength = (raw: string) => {
   return `${at > 30 ? '…' : ''}${text.slice(Math.max(0, at - 30), at + 50).trim()}${at + 50 < text.length ? '…' : ''}`
 }
 
-const PLAN_LIMITS = /(?:^|\/)planLimits$/
-const FEATURE_FLAGS = /(?:^|\/)featureFlags$/
+/** The module a project import names: '@/…' from the frontend root, './…' and '../…' from the importer's directory,
+    under the extensions and index files TypeScript resolves; undefined for a package or a path with no file. */
+function moduleFile(importer: string, specifier: string): string | undefined {
+  const base = specifier.startsWith('@/')
+    ? path.join(frontendDir, specifier.slice(2))
+    : specifier.startsWith('.')
+      ? path.resolve(path.dirname(path.resolve(frontendDir, importer)), specifier)
+      : undefined
+  if (base === undefined) return undefined
+  return ['', '.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.tsx'].map((suffix) => base + suffix).find((file) => existsSync(file) && statSync(file).isFile())
+}
+const MODULES = new Map<string, ts.SourceFile>()
+const moduleSource = (file: string) => {
+  let sf = MODULES.get(file)
+  if (!sf) {
+    const kind = /\.tsx$/.test(file) ? ts.ScriptKind.TSX : /\.jsx$/.test(file) ? ts.ScriptKind.JSX : /\.js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS
+    MODULES.set(file, (sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, kind)))
+  }
+  return sf
+}
+const LIB_PLAN_LIMITS = path.join(frontendDir, 'lib', 'planLimits.ts')
+const LIB_FEATURE_FLAGS = path.join(frontendDir, 'lib', 'featureFlags.ts')
+
+/**
+ * Whether module `file` exports as `name` the declaration `want` of module `owner` (TRIAL_DAYS of lib/planLimits.ts,
+ * ENABLE_PRO_TRIAL of lib/featureFlags.ts): the owner's own, or one re-exported on the way (`export { a as name } from`,
+ * `export * from`, a re-export of the module's own import). A declaration of that name in any other module is its own.
+ */
+function exportsOwn(file: string | undefined, name: string, owner: string, want: string, seen = new Set<string>()): boolean {
+  if (!file) return false
+  if (file === owner) return name === want
+  if (seen.has(`${file}#${name}`)) return false
+  seen.add(`${file}#${name}`)
+  const sf = moduleSource(file)
+  const importsOwn = (local: string) => sf.statements.some((statement) => {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) return false
+    const bindings = statement.importClause?.namedBindings
+    const from = moduleFile(file, statement.moduleSpecifier.text)
+    return !!bindings && ts.isNamedImports(bindings) &&
+      bindings.elements.some((element) => element.name.text === local && exportsOwn(from, (element.propertyName ?? element.name).text, owner, want, seen))
+  })
+  return sf.statements.some((statement) => {
+    if (!ts.isExportDeclaration(statement)) return false
+    const from = statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleFile(file, statement.moduleSpecifier.text) : undefined
+    if (!statement.exportClause) return exportsOwn(from, name, owner, want, seen)
+    return ts.isNamedExports(statement.exportClause) && statement.exportClause.elements.some((element) => {
+      const local = (element.propertyName ?? element.name).text
+      return element.name.text === name && (from ? exportsOwn(from, local, owner, want, seen) : importsOwn(local))
+    })
+  })
+}
 
 interface TrialReader {
   /** Every read of TRIAL_DAYS in the file, with whether a guard holds over it. */
@@ -772,38 +829,37 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
   // TRIAL_DAYS, read under the same guard rule as every import of it (it would otherwise read as its number, 7).
   // That file alone: a TRIAL_DAYS declared in any other module, one named planLimits.ts included, is its number.
   const declaresTrial = path.resolve(frontendDir, sf.fileName) === path.join(frontendDir, 'lib', 'planLimits.ts')
+  // Each import by the module it resolves to (exportsOwn): TRIAL_DAYS and the flag are their owners' own exports.
   const trialImports = new Set<string>()
   const flagImports = new Set<string>()
-  const planNamespaces = new Set<string>()
-  const flagNamespaces = new Set<string>()
+  const namespaces = new Map<string, string>()
   for (const statement of sf.statements) {
     if (!ts.isImportDeclaration(statement) || !statement.importClause || !ts.isStringLiteral(statement.moduleSpecifier)) continue
-    const from = statement.moduleSpecifier.text
+    const from = moduleFile(sf.fileName, statement.moduleSpecifier.text)
     const bindings = statement.importClause.namedBindings
-    if (bindings && ts.isNamespaceImport(bindings)) {
-      if (PLAN_LIMITS.test(from)) planNamespaces.add(bindings.name.text)
-      if (FEATURE_FLAGS.test(from)) flagNamespaces.add(bindings.name.text)
-    }
+    if (bindings && ts.isNamespaceImport(bindings) && from) namespaces.set(bindings.name.text, from)
     if (bindings && ts.isNamedImports(bindings)) {
       for (const spec of bindings.elements) {
         const imported = (spec.propertyName ?? spec.name).text
-        if (imported === 'TRIAL_DAYS' && PLAN_LIMITS.test(from)) trialImports.add(spec.name.text)
-        if (imported === 'ENABLE_PRO_TRIAL') flagImports.add(spec.name.text)
+        if (exportsOwn(from, imported, LIB_PLAN_LIMITS, 'TRIAL_DAYS')) trialImports.add(spec.name.text)
+        if (exportsOwn(from, imported, LIB_FEATURE_FLAGS, 'ENABLE_PRO_TRIAL')) flagImports.add(spec.name.text)
       }
     }
   }
   const line = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-  const memberOf = (e: ts.Expression, namespaces: Set<string>, name: string): boolean => {
+  /** Whether an expression is a namespace import's member that is `owner`'s `want`: `P.TRIAL_DAYS`, `P['TRIAL_DAYS']`. */
+  const memberOf = (e: ts.Expression, owner: string, want: string): boolean => {
     const x = unwrapExpr(e)
-    if (ts.isPropertyAccessExpression(x)) return ts.isIdentifier(x.expression) && namespaces.has(x.expression.text) && x.name.text === name
-    if (ts.isElementAccessExpression(x)) return ts.isIdentifier(x.expression) && namespaces.has(x.expression.text) && ts.isStringLiteralLike(x.argumentExpression) && x.argumentExpression.text === name
-    return false
+    const key = ts.isPropertyAccessExpression(x) ? x.name.text
+      : ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression.text : undefined
+    const holder = ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x) ? x.expression : undefined
+    return key !== undefined && !!holder && ts.isIdentifier(holder) && exportsOwn(namespaces.get(holder.text), key, owner, want)
   }
 
   /** Whether an expression is TRIAL_DAYS itself: its import, a namespace member, or a const holding either. */
   const isTrial = (expr: ts.Expression, seen = new Set<ts.Node>()): boolean => {
     const e = unwrapExpr(expr)
-    if (memberOf(e, planNamespaces, 'TRIAL_DAYS')) return true
+    if (memberOf(e, LIB_PLAN_LIMITS, 'TRIAL_DAYS')) return true
     if (!ts.isIdentifier(e)) return false
     const binding = resolve(e)
     if (!binding) return trialImports.has(e.text)
@@ -815,8 +871,8 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
       const key = (binding.decl.propertyName ?? binding.decl.name).getText()
       const pattern = binding.decl.parent
       const holder = ts.isVariableDeclaration(pattern.parent) ? pattern.parent : undefined
-      return key === 'TRIAL_DAYS' && !!holder?.initializer && isConst(holder) && ts.isIdentifier(unwrapExpr(holder.initializer)) &&
-        planNamespaces.has((unwrapExpr(holder.initializer) as ts.Identifier).text)
+      return !!holder?.initializer && isConst(holder) && ts.isIdentifier(unwrapExpr(holder.initializer)) &&
+        exportsOwn(namespaces.get((unwrapExpr(holder.initializer) as ts.Identifier).text), key, LIB_PLAN_LIMITS, 'TRIAL_DAYS')
     }
     return isConst(binding.decl) && !!binding.init && isTrial(binding.init, seen)
   }
@@ -825,10 +881,10 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
   const isGuard = (expr: ts.Node, seen = new Set<ts.Node>()): boolean => {
     const e = ts.isExpression(expr) ? unwrapExpr(expr) : expr
     if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return isGuard(e.left, seen) || isGuard(e.right, seen)
-    if (ts.isExpression(e) && memberOf(e, flagNamespaces, 'ENABLE_PRO_TRIAL')) return true
+    if (ts.isExpression(e) && memberOf(e, LIB_FEATURE_FLAGS, 'ENABLE_PRO_TRIAL')) return true
     if (!ts.isIdentifier(e)) return false
     const binding = resolve(e)
-    if (!binding) return flagImports.has(e.text) || e.text === 'ENABLE_PRO_TRIAL'
+    if (!binding) return flagImports.has(e.text)
     if (seen.has(binding.decl) || !isConst(binding.decl) || !binding.init) return false
     seen.add(binding.decl)
     return isGuard(binding.init, seen)
@@ -940,7 +996,7 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
       const alias = ts.isVariableDeclaration(holder) && holder.initializer === node && isConst(holder)
       if (!alias) reads.push({ line: line(node), guarded: guarded(node) })
     }
-    if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && memberOf(node, planNamespaces, 'TRIAL_DAYS')) {
+    if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && memberOf(node, LIB_PLAN_LIMITS, 'TRIAL_DAYS')) {
       reads.push({ line: line(node), guarded: guarded(node) })
     }
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) copy.push({ node, text: node.text })
@@ -1115,19 +1171,45 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
     expect(Object.entries(looseForms).filter(([, code]) => loose(code) === 0).map(([name]) => name), 'a loose read the clause called guarded').toEqual([])
 
     // In lib/planLimits.ts, which declares it, TRIAL_DAYS is its own declaration: a plan line typed beside it is a
-    // read held to the guard (line 2 loose, line 3 guarded), never a typed length, and a length typed there fails.
+    // read held to the guard (line 3 loose, line 4 guarded), never a typed length, and a length typed there fails.
     const own = (code: string) => trialReader(ts.createSourceFile(path.join(frontendDir, 'lib/planLimits.ts'), code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS))
     const declared = own([
+      "import { ENABLE_PRO_TRIAL } from './featureFlags'",
       'export const TRIAL_DAYS = 7',
       'export const LINE = `Start with a ${TRIAL_DAYS}-day free trial`',
       'export const GUARDED = ENABLE_PRO_TRIAL && `First ${TRIAL_DAYS} days free`',
     ].join('\n'))
-    expect([declared.reads.map((read) => `${read.line} ${read.guarded ? 'guarded' : 'loose'}`), declared.typed]).toEqual([['2 loose', '3 guarded'], []])
+    expect([declared.reads.map((read) => `${read.line} ${read.guarded ? 'guarded' : 'loose'}`), declared.typed]).toEqual([['3 loose', '4 guarded'], []])
     expect(own("export const TRIAL_DAYS = 7\nconst PRO = [{ text: 'a 7-day free trial' }]").typed.map(({ line }) => line)).toEqual([2])
     // That file alone: another module named planLimits.ts that declares its own TRIAL_DAYS types the length it holds.
     const other = trialReader(ts.createSourceFile(path.join(frontendDir, 'features/plans/planLimits.ts'),
       'export const TRIAL_DAYS = 7\nexport const LINE = `Start with a ${TRIAL_DAYS}-day free trial`', ts.ScriptTarget.Latest, true, ts.ScriptKind.TS))
     expect([other.reads, other.typed.map(({ line }) => line)]).toEqual([[], [2]])
+    // An import is TRIAL_DAYS, or the flag, only when it resolves to that declaration (the review of 8fb22fbe): the
+    // review's sibling importing another planLimits.ts's TRIAL_DAYS types the length it cannot read, while a module
+    // that re-exports lib's TRIAL_DAYS (by name, renamed, by `export *`, or its own import) hands on TRIAL_DAYS, each
+    // read of it held to the guard; another module's ENABLE_PRO_TRIAL guards nothing.
+    const root = mkdtempSync(path.join(tmpdir(), 'trial-imports-'))
+    try {
+      for (const [name, text] of [
+        ['planLimits.ts', 'export const TRIAL_DAYS = 7\n'],
+        ['reexport.ts', "export { TRIAL_DAYS } from '@/lib/planLimits'\nexport { TRIAL_DAYS as TRIAL_LENGTH } from '@/lib/planLimits'\n"],
+        ['star.ts', "export * from '@/lib/planLimits'\n"],
+        ['local.ts', "import { TRIAL_DAYS } from '@/lib/planLimits'\nexport { TRIAL_DAYS }\n"],
+        ['flags.ts', 'export const ENABLE_PRO_TRIAL = true\n'],
+      ]) writeFileSync(path.join(root, name), text)
+      const beside = (code: string) => trialReader(ts.createSourceFile(path.join(root, 'Banner.tsx'), code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX))
+      const sibling = beside("import { TRIAL_DAYS } from './planLimits'\nexport const a = <p>Start a {TRIAL_DAYS}-day free trial</p>")
+      expect([sibling.reads, sibling.typed.map(({ line }) => line)], 'another planLimits.ts').toEqual([[], [2]])
+      for (const [local, from] of [['TRIAL_DAYS', './reexport'], ['TRIAL_LENGTH', './reexport'], ['TRIAL_DAYS', './star'], ['TRIAL_DAYS', './local']]) {
+        const reader = beside(`import { ${local} } from '${from}'\nexport const a = <p>Start a {${local}}-day free trial</p>`)
+        expect([reader.reads.map((read) => read.guarded), reader.typed], `${local} from ${from}`).toEqual([[false], []])
+      }
+      const elsewhere = beside("import { ENABLE_PRO_TRIAL } from './flags'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = ENABLE_PRO_TRIAL && <p>{TRIAL_DAYS}</p>")
+      expect(elsewhere.reads.map((read) => read.guarded), "another module's ENABLE_PRO_TRIAL").toEqual([false])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it('TRIAL_DAYS is the length the trial flips to, in the flag and in the backend', () => {
