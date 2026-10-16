@@ -1,0 +1,28 @@
+"""Run xbrl_sections._extract_sections_sync over every non-6-K golden filing (live SEC, no AI).
+
+Usage: python -I golden_sections.py <backend dir> <label>  ->  one JSON line per filing on stdout.
+"""
+import json, os, sys, time, logging
+for k, v in {"SKIP_REDIS_INIT": "true", "SECRET_KEY": "eval-baseline-secret-key-for-ci-0123456789",
+             "STRIPE_SECRET_KEY": "sk_test_ci_eval", "STRIPE_WEBHOOK_SECRET": "whsec_ci_eval",
+             "PWNED_PASSWORD_CHECK_ENABLED": "false", "OPENAI_API_KEY": "sk-test-not-used",
+             "EDGAR_RATE_LIMIT_PER_SEC": "2"}.items():
+    os.environ.setdefault(k, v)
+backend, label = sys.argv[1], sys.argv[2]
+sys.path.insert(0, backend)
+logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
+from app.services.edgar import xbrl_sections  # noqa: E402
+golden = json.load(open(os.path.join(backend, "evals", "golden_set.json")))["filings"]
+for f in golden:
+    form = f["filing_type"].upper()
+    if form.split("/")[0] == "6-K":
+        continue
+    t = time.time()
+    try:
+        out = xbrl_sections._extract_sections_sync(str(f["cik"]).zfill(10), f["accession_number"], form)
+        err = None
+    except Exception as exc:  # noqa: BLE001
+        out, err = None, f"{type(exc).__name__}: {exc}"[:200]
+    print(json.dumps({"label": label, "ticker": f["ticker"], "form": form, "accession": f["accession_number"],
+                      "sections": {k: len(v) for k, v in (out or {}).items()}, "error": err,
+                      "seconds": round(time.time() - t, 1)}), flush=True)
