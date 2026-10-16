@@ -14,7 +14,8 @@ import { isIconModule } from './iconModules'
  *  - sentenceCase: a label is in sentence case: its first word starts with a capital (or a digit, a
  *    symbol or an expression), after the first word of a phrase a capitalised word must be a proper noun
  *    (PROPER_NOUNS), and a label of two or more words is never all capitals, whatever punctuation closes a
- *    word (`START FREE TRIAL`, `START FREE TRIAL…`, `SIGN-UP NOW:`; an acronym beside lowercase words, `Export CSV`, passes). The labels read: the text of a heading (h1 to h6), of a
+ *    word (`START FREE TRIAL`, `START FREE TRIAL…`, `SIGN-UP NOW:`; a proper noun counts as a word without shouting, so
+ *    `SEC ALERTS` shouts and `SEC EDGAR` does not; an acronym beside lowercase words, `Export CSV`, passes). The labels read: the text of a heading (h1 to h6), of a
  *    dialog or card title (ModalHeader, CardTitle, CardHeader), of a button (<Button>, <button>, and any
  *    element whose className reaches buttonVariants() under any local name, an import renamed, a namespace's
  *    member or a same-file alias, such as a <Link> or <a> styled as a button) and
@@ -251,10 +252,13 @@ export function titleCaseWords(text: string): string[] {
   })
   // Two or more words all in capitals (`START FREE TRIAL`) is shouting, not a label; an acronym stands alone or
   // beside lowercase words (`Export CSV`). Each word is read as spelled (bareWord: `TRIAL…` and `NOW:` are capitals),
-  // a hyphen or an apostrophe inside it included (`SIGN-UP`, `DON'T`). A proper noun (`{n}` above) and an expression
-  // (`{x}`) are not words of the label: `SEC FILING ALERTS` and `{count} NEW FILINGS` shout in the words around them.
-  const lettered = t.trim().split(/\s+/).map((w) => bareWord(w.replace(/\{[nx]\}/g, ''))).filter((w) => /\p{L}/u.test(w))
-  if (lettered.length >= 2 && lettered.every((w) => /^[A-Z]{2,}(?:[-'’][A-Z]+)*$/.test(w))) out.push(...lettered)
+  // a hyphen or an apostrophe inside it included (`SIGN-UP`, `DON'T`). A proper noun (`{n}` above) is a word of the
+  // label that never shouts: `SEC ALERTS` and `SEC FILING ALERTS` shout in the words beside it, `SEC EDGAR` does not.
+  // An expression (`{x}`) is not a word: `{count} NEW FILINGS` shouts, `{count} NEW` does not.
+  const tokens = t.trim().split(/\s+/).map((w) => bareWord(w.replace(/\{x\}/g, '')))
+  const nouns = tokens.filter((w) => w.includes('{n}')).length
+  const lettered = tokens.map((w) => w.replace(/\{n\}/g, '')).filter((w) => /\p{L}/u.test(w))
+  if (lettered.length + nouns >= 2 && lettered.every((w) => /^[A-Z]{2,}(?:[-'’][A-Z]+)*$/.test(w))) out.push(...lettered)
   return out
 }
 
@@ -948,6 +952,12 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '2 exclamation',
       '2 buzzword',
     ])
+    // A proper noun is a word of the label, though one in capitals never shouts (the review's case: `SEC ALERTS` is two
+    // words, one shouting); a label of proper nouns alone, or one capitalised word beside an expression, is not shouting.
+    expect(titleCaseWords('SEC ALERTS')).toEqual(['ALERTS'])
+    expect(titleCaseWords('SEC EDGAR ALERTS')).toEqual(['ALERTS'])
+    expect(titleCaseWords('SEC EDGAR')).toEqual([])
+    expect(titleCaseWords('{x} NEW')).toEqual([])
     // A call is read by what its callee is under any local name (calleeNames): the DS button factory renamed on import,
     // read through a namespace or held in a same-file alias styles a link as a button, so its label is read (lines 5 to
     // 7, the review's case); a renamed createElement and cx are what they are, so a data attribute's value (8) and a
