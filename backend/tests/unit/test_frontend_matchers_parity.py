@@ -5,9 +5,9 @@ Copilot rail and the analysis page, the summary paywall card, the verify-your-em
 lib/api/client.ts opens. Until an error code replaces the matching (tasks/todo.md), a copy edit on either
 side can switch that UI off. The frontend spec holds both sides, but only in the frontend job; this test
 runs the same tables in pytest, so a backend-only edit fails the local backend gate (ruff, bandit, pytest)
-before it reaches CI. It follows backendMessageMatches.spec.ts on #1288 (brand-copy-gates), clause 3
-holding the two equal once that spec is on the branch, and reads the way that spec reads: docstrings
-skipped, every literal test inside a matcher function a phrase, a .tsx matcher read with its JSX tags.
+before it reaches CI. It follows backendMessageMatches.spec.ts (on main since #1288), clause 3 holding the
+two equal, and reads the way that spec reads: docstrings skipped, every literal test inside a matcher
+function a phrase (a block body or an expression body), a .tsx matcher read with its JSX tags.
 
 1. Every phrase a MATCHERS function tests for occurs in a string literal of a file that writes the
    message, unless UNSOURCED lists it with its reason (shrink-only; its size equals UNSOURCED_MAX). This
@@ -18,17 +18,14 @@ skipped, every literal test inside a matcher function a phrase, a .tsx matcher r
    matcher's phrases, with module constants such as ``_UPGRADE_HINT`` interpolated. The spec cannot see
    this case: when dependencies.py stops saying "Upgrade to Pro", analysis.py and summaries.py still write
    the phrase, so clause 1 stays green while the Copilot rail's taste-exhausted detail routes to Retry.
-3. When the spec is on the branch, its MATCHERS and BACKEND tables, its UNSOURCED keys and reasons and its
-   UNSOURCED_MAX equal these, so the twins cannot drift. Until #1288 merges the spec is absent and this one case skips with
-   that reason.
+3. The spec's MATCHERS and BACKEND tables, its UNSOURCED keys and reasons and its UNSOURCED_MAX equal
+   these, so the twins cannot drift; a spec moved or gone fails this case rather than skipping it.
 """
 import ast
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator, Optional
-
-import pytest
 
 REPO = Path(__file__).resolve().parents[3]
 FRONTEND = REPO / "frontend"
@@ -59,6 +56,8 @@ MATCHERS = (
             (BACKEND["admission"], BACKEND["dependencies"], BACKEND["summaries"]), ()),
     Matcher("features/summaries/api/summaries-api.ts", "isNonRetryableStreamError",
             (BACKEND["summaries"], BACKEND["admission"]), ("features/summaries/api/summaries-api.ts",)),
+    Matcher("features/filings/api/copilot-api.ts", "isCopilotFairUseLimit",
+            (BACKEND["summaries"],), ("features/filings/api/copilot-api.ts",)),
     Matcher("features/filings/api/copilot-api.ts", "isCopilotPaywallError",
             (BACKEND["dependencies"], BACKEND["summaries"]), ("features/filings/api/copilot-api.ts",)),
     Matcher("features/analysis/api/analysis-api.ts", "isAnalysisPaywallError",
@@ -77,24 +76,16 @@ _DASHBOARD_UNSOURCED = (
     "E31's (a status or an error code), never the brand sweep's"
 )
 UNSOURCED = {
-    "isCopilotPaywallError monthly cap": (
-        "no message says it: the Copilot cap's 429 says \"fair-use limit\" (routers/summaries.py), which "
-        "this matcher does not read; the matcher's owner (brand-copilot, ASK-07) decides"
-    ),
-    "isNonRetryableStreamError sign in": (
-        "no message on the summary stream says it: its 401 is get_current_user's \"Could not validate "
-        "credentials\" (routers/auth.py), which summaries-api.ts surfaces in place of its fallback, and a 401 "
-        "comes back retryable: false by status, so this matcher never sees it; the matcher's logic is E31's "
-        "(an error code field), never the brand sweep's"
-    ),
     "DashboardError 401": _DASHBOARD_UNSOURCED,
     "DashboardError Unauthorized": _DASHBOARD_UNSOURCED,
     "DashboardError authentication": _DASHBOARD_UNSOURCED,
     "DashboardError auth": _DASHBOARD_UNSOURCED,
 }
 # Seeded at 2 when the spec scanned the api modules; 7 when its scan reached app/dashboard/error.tsx and
-# ContactForm.tsx; 6 since #1303 read the contact form's rate limit from the status. It only falls after.
-UNSOURCED_MAX = 6
+# ContactForm.tsx; 6 since #1303 read the contact form's rate limit from the status; 5 since #1293's 401
+# fallback wrote "Sign in again to generate this summary.", a source for "sign in"; 4 since #1295 dropped
+# "monthly cap" from isCopilotPaywallError, whose fair-use 429 isCopilotFairUseLimit reads. It only falls after.
+UNSOURCED_MAX = 4
 
 
 @dataclass(frozen=True)
@@ -108,10 +99,11 @@ class Routed:
     matcher: str  # a MATCHERS fn, or the file of a matcher without one
 
 
+# The analysis route's fair-use 429 left this table when #1299 took "fair-use limit" out of
+# isAnalysisPaywallError: a Pro user's monthly cap is stated in the narrative card with no plan link.
 ROUTED = (
     Routed(BACKEND["dependencies"], "copilot_taste_exhausted_detail", "return", "isCopilotPaywallError"),
     Routed(BACKEND["dependencies"], "require_entitlement", 403, "isAnalysisPaywallError"),
-    Routed(BACKEND["analysis"], "stream_analysis", 429, "isAnalysisPaywallError"),
     Routed(BACKEND["subscriptions"], "create_checkout_session", 403, "lib/api/client.ts"),
 )
 
@@ -234,8 +226,37 @@ def _starts_regex(before: str) -> bool:
     return not before or before[-1] in _REGEX_AFTER or bool(word and word.group(1) in _REGEX_KEYWORDS)
 
 
+# An expression goes on past a line break when its line ends on an operator or the next line starts with one
+# (``||`` at either end, a ``.`` that chains a call, a ternary's ``?`` and ``:``). Never "/": a regex ends on it.
+_GOES_ON_AFTER = tuple("|&?:+-*%=<>^~.")
+_GOES_ON_BEFORE = tuple(".|&?:+-*%=<>^")
+
+
+def _expression_end(masked: str, start: int) -> int:
+    """The end of the expression body of an arrow function that starts at ``start``, as its statement ends: a
+    ``;`` or ``,`` outside its own brackets, a bracket that closes one it did not open, or a line break the
+    expression does not go on past."""
+    depth = 0
+    for i in range(start, len(masked)):
+        c = masked[i]
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            if depth == 0:
+                return i
+            depth -= 1
+        elif depth == 0 and (c in ";," or (
+            c == "\n"
+            and not masked[start:i].rstrip().endswith(_GOES_ON_AFTER)
+            and not masked[i:].lstrip().startswith(_GOES_ON_BEFORE)
+        )):
+            return i
+    return len(masked)
+
+
 def _function_span(masked: str, name: str) -> tuple[int, int]:
-    """The block body of ``function name`` or ``const name = (...) => {`` in the blanked source."""
+    """The block body of ``function name`` or ``const name = (...) => {``, or the expression body of
+    ``const name = (...) => expr`` (isCopilotFairUseLimit's shape), in the blanked source."""
     found = re.search(rf"\b(?:function\s+{name}\b|(?:const|let|var)\s+{name}\s*(?::[^=]*)?=)", masked)
     if not found:
         raise AssertionError(f"{name} is gone; update MATCHERS")
@@ -247,7 +268,7 @@ def _function_span(masked: str, name: str) -> tuple[int, int]:
                 i += 1
             if i < len(masked) and masked[i] == "{":
                 break
-            raise AssertionError(f"{name} is not a block-bodied function; teach _function_span its shape")
+            return i, _expression_end(masked, i)
         depth += {"(": 1, "[": 1, ")": -1, "]": -1}.get(masked[i], 0)
         i += 1
     if i >= len(masked):
@@ -536,6 +557,24 @@ export default function TemplateProbe({ error }: { error: Error }) {
     assert phrases(Matcher("templated.tsx", "TemplateProbe", (), ()), read_templated) == [
         Phrase("401", False), Phrase("sign\\s+in", True),
     ]
+    # An expression body (isCopilotFairUseLimit's shape, #1295) runs to the line break the expression does not
+    # go on past: an operator ending a line or starting the next keeps the chain in, and the next statement's
+    # test stays out.
+    arrows = """
+export const isProbeLimit = (message: string): boolean =>
+  (message || '').toLowerCase().includes('fair-use limit')
+
+const isProbeChain = (m: string): boolean =>
+  m.includes('first') ||
+  m.includes('second')
+  || /third/i.test(m)
+const after = () => m.includes('outside')
+"""
+    read_arrows = {"frontend/arrows.ts": arrows}.__getitem__
+    assert phrases(Matcher("arrows.ts", "isProbeLimit", (), ()), read_arrows) == [Phrase("fair-use limit", False)]
+    assert phrases(Matcher("arrows.ts", "isProbeChain", (), ()), read_arrows) == [
+        Phrase("first", False), Phrase("second", False), Phrase("third", True),
+    ]
     dashboard = next(m for m in MATCHERS if m.fn == "DashboardError")
     assert [phrase.text for phrase in phrases(dashboard)] == ["401", "Unauthorized", "authentication", "auth"]
 
@@ -642,8 +681,8 @@ def _spec_tables(source: str) -> tuple[dict[str, str], set[Matcher], dict[str, s
 
 
 def test_the_twins_share_their_tables():
-    if not SPEC.exists():
-        pytest.skip("frontend/tests/unit/backendMessageMatches.spec.ts lands with #1288; this case holds the twins together after it")
+    # The spec is on main since #1288, so a missing one is a move or a deletion, never a reason to skip.
+    assert SPEC.exists(), f"{SPEC.relative_to(REPO)} is gone or moved: point SPEC at the spec this twin follows"
     backend, matchers, reasons, cap = _spec_tables(SPEC.read_text(encoding="utf-8"))
     ours = {Matcher(m.file, m.fn, tuple(sorted(m.backend)), tuple(sorted(m.frontend))) for m in MATCHERS}
     assert backend == BACKEND, "BACKEND differs from the frontend spec's"
