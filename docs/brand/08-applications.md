@@ -51,7 +51,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   it). The verification banner says "Verify your email to subscribe.", and the dialog that checkout's
   403 opens says "Subscribing requires a verified email. We send verification links to" the address:
   checkout is the one action that refuses an unverified email, with a 403
-  (`tests/unit/authPagesCopy.spec.tsx` holds that 403 to `backend/app/routers/subscriptions.py`), and
+  (`tests/unit/authPagesCopy.spec.tsx` holds that 403 to `backend/app/routers/subscriptions.py`, and
+  every backend read of `email_verified` to a listed site, so a gate worded any other way fails it), and
   a Google or Apple sign-in links to an existing account only once both sides have verified the
   email, as the login page's conflict sentence says.
   /reset-password and the register form state one rule from `frontend/lib/passwordRules.ts`, mirrored

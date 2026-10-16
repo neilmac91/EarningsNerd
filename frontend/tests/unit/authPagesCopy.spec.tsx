@@ -63,6 +63,27 @@ function verifyLinkHours(): number {
   return Number(hours)
 }
 
+/** Every `.py` file under backend/app, relative to backend/. */
+function backendFiles(): string[] {
+  const files = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) return entry.name === '__pycache__' ? [] : files(full)
+      return entry.name.endsWith('.py') ? [full] : []
+    })
+  return files(path.join(BACKEND, 'app')).map((file) => path.relative(BACKEND, file).split(path.sep).join('/'))
+}
+
+/** Each line of `source` that `match` finds, as `file::function` (the nearest `def` above the line). */
+function sites(rel: string, source: string, match: RegExp): string[] {
+  const lines = source.split('\n')
+  return lines.flatMap((line, index) => {
+    if (!match.test(line)) return []
+    const def = lines.slice(0, index).reverse().find((l) => /^\s*(?:async\s+)?def\s+\w+/.test(l))
+    return [`${rel}::${def?.match(/def\s+(\w+)/)?.[1] ?? '<module>'}`]
+  })
+}
+
 /**
  * Every backend line that says "verify your email" (the words lib/api/client.ts reads off a 403 to open
  * the verification dialog), as `file::function`. The mail bodies (`app/services/email_service.py`) are
@@ -70,23 +91,36 @@ function verifyLinkHours(): number {
  * `backend/tests/unit/test_services_http_free_allowlist.py` keeps it free of fastapi.
  */
 function verifyEmailRefusals(): string[] {
-  const files = (dir: string): string[] =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-      const full = path.join(dir, entry.name)
-      if (entry.isDirectory()) return entry.name === '__pycache__' ? [] : files(full)
-      return entry.name.endsWith('.py') ? [full] : []
-    })
-  return files(path.join(BACKEND, 'app'))
-    .map((file) => path.relative(BACKEND, file).split(path.sep).join('/'))
+  return backendFiles()
     .filter((rel) => rel !== 'app/services/email_service.py')
-    .flatMap((rel) => {
-      const lines = backend(rel).split('\n')
-      return lines.flatMap((line, index) => {
-        if (!/verify your email/i.test(line)) return []
-        const def = lines.slice(0, index).reverse().find((l) => /^\s*(?:async\s+)?def\s+\w+/.test(l))
-        return [`${rel}::${def?.match(/def\s+(\w+)/)?.[1] ?? '<module>'}`]
-      })
-    })
+    .flatMap((rel) => sites(rel, backend(rel), /verify your email/i))
+}
+
+/**
+ * A line that reads an account's verification state: `.email_verified` not being assigned (`==` is a read),
+ * a `getattr` that names it, or a `filter_by` keyword of that name. A provider's claim
+ * (`claims["email_verified"]`) and a parameter or a constructor keyword of that name are not the account's
+ * state. Read one line at a time, so a read split across lines is not seen.
+ */
+const EMAIL_VERIFIED_READ = /\.email_verified\b(?!\s*=[^=])|getattr\([^)]*['"]email_verified['"]|filter_by\([^)]*\bemail_verified\s*=/
+
+/**
+ * Every backend read of an account's `email_verified`, with what it does. The banner and the dialog name
+ * subscribing alone because checkout is the one read that gates a feature. The "verify your email" scan
+ * above finds a gate by its words; this list finds it by the field, so a gate worded any other way
+ * ("Confirm your address first.") fails here until the banner and the dialog name what it gates.
+ */
+const EMAIL_VERIFIED_READS: [site: string, what: string][] = [
+  ['app/routers/subscriptions.py::create_checkout_session', 'the gate: its 403 says "verify your email", and the banner and the dialog name subscribing'],
+  ['app/services/oauth_account_service.py::resolve_google_user', "links Google to an existing account only once both sides have verified the email (the login page's conflict sentence)"],
+  ['app/services/oauth_account_service.py::resolve_apple_user', 'the same for Apple'],
+  ['app/routers/auth.py::resend_verification', 'sends no link to a verified address; the answer reads the same either way'],
+  ['app/routers/auth.py::get_current_user_info', 'reports the state (/me), which shows or hides the banner'],
+  ['app/services/admin_account_service.py::_provision_account', "reports a new account's state to the admin who created it"],
+]
+
+function emailVerifiedReads(): string[] {
+  return backendFiles().flatMap((rel) => sites(rel, backend(rel), EMAIL_VERIFIED_READ))
 }
 
 beforeEach(() => {
@@ -193,6 +227,37 @@ describe('verification banner and dialog', () => {
     expect(readFileSync(path.join(FRONTEND, 'lib/api/client.ts'), 'utf8')).toContain('/verify your email/i.test(backendDetail)')
     expect(verifyEmailRefusals(), 'a new "verify your email" refusal: name what it gates in the banner and the dialog, then list it here').toEqual([
       'app/routers/subscriptions.py::create_checkout_session',
+    ])
+  })
+
+  it('every backend read of email_verified is listed with what it does, so a gate worded any way fails until the banner and the dialog name it', () => {
+    expect(
+      emailVerifiedReads().sort(),
+      'a new read of email_verified: if it gates a feature, name that feature in the banner and the dialog; then list the read in EMAIL_VERIFIED_READS with what it does',
+    ).toEqual(EMAIL_VERIFIED_READS.map(([site]) => site).sort())
+  })
+
+  it('the read scan sees a gate whatever its refusal says, and not a write or a provider claim', () => {
+    const planted = [
+      'async def export_filing(current_user):',
+      '    if not current_user.email_verified:',
+      '        raise HTTPException(status_code=403, detail="Confirm your address first.")',
+      'def unverified(db):',
+      '    return db.query(User).filter(User.email_verified == False).all()',
+      'def unverified_by_keyword(db):',
+      '    return db.query(User).filter_by(email_verified=False).all()',
+      'def flag(user):',
+      '    return getattr(user, "email_verified", False)',
+      'def writes(user, claims, email_verified):',
+      '    user.email_verified = True',
+      '    by_google = bool(claims.get("email_verified", False))',
+      '    return User(email_verified=email_verified and by_google)',
+    ].join('\n')
+    expect(sites('app/routers/probe.py', planted, EMAIL_VERIFIED_READ)).toEqual([
+      'app/routers/probe.py::export_filing',
+      'app/routers/probe.py::unverified',
+      'app/routers/probe.py::unverified_by_keyword',
+      'app/routers/probe.py::flag',
     ])
   })
 
