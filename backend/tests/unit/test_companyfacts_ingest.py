@@ -956,21 +956,23 @@ class TestNativeReportingCurrencySync:
         assert after == before
         db.close()
 
-    def test_sync_promotes_native_ratios_over_usd_ones_a_known_older_filing_kept_current(self):
+    @pytest.mark.parametrize("recorded", [True, False], ids=["recorded-operands", "before-provenance"])
+    def test_sync_promotes_native_ratios_over_usd_ones_a_known_older_filing_kept_current(self, recorded):
         # A pre-fix sync read only the USD lists, so it stored each year's net margin from that
         # year's USD operands, under that year's 20-F. With 20F-2022 stored locally and 20F-2024
         # not, the upsert keeps the FY2022 margin current (a known filing date outranks an unknown
         # one) and stores the native one, from 20F-2024, behind it. A newer native calculation
         # stored locally (20F-2025) is not USD-derived, so it stays the FY2023 margin. FY2024's
         # native margin has the stored row's own identity, so the upsert skips it; ingestion never
-        # rewrites an identity, and the journaled repair recomputes that row.
+        # rewrites an identity, and the journaled repair recomputes that row. A sync before
+        # 2026-10-10 recorded no operands, and its derived ratios with no filing owner read USD lists.
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
         from app.services import trend_analysis_service
         from app.services.quarterly_fact_repair import repair_company
 
         db = SessionLocal()
-        fpi = _new_company(db)
+        fpi, other = _new_company(db), _new_company(db)
         fpi.cik = str(uuid.uuid4().int % 10**10)  # the repair matches the payload's CIK
         tag = f"-{uuid.uuid4().hex[:8]}"  # accession numbers are unique across companies
 
@@ -982,29 +984,41 @@ class TestNativeReportingCurrencySync:
                     item["accn"] += tag
             return data
 
-        db.add_all(Filing(company_id=fpi.id, accession_number=f"20F-{fy}{tag}", filing_type="20-F",
-                          filing_date=datetime(fy, 7, 20, tzinfo=timezone.utc),
-                          document_url="https://example.com/d", sec_url="https://example.com/s")
-                   for fy in (2022, 2023, 2025))
+        filings = {fy: Filing(company_id=fpi.id, accession_number=f"20F-{fy}{tag}", filing_type="20-F",
+                              filing_date=datetime(fy, 7, 20, tzinfo=timezone.utc),
+                              document_url="https://example.com/d", sec_url="https://example.com/s")
+                   for fy in (2022, 2023, 2025)}
+        db.add_all(filings.values())
         db.commit()
-        svc.upsert_facts_bulk(db, svc.normalize_companyfacts(fpi.id, payload(("USD", "USD/shares")))[0])
-        newer = next(f for f in svc.normalize_companyfacts(fpi.id, payload())[0]
-                     if (f["concept"], f["period_end"]) == ("net_margin", date(2023, 3, 31)))
-        svc.upsert_facts_bulk(db, [{**newer, "accession": f"20F-2025{tag}", "value": 8.6}])
+        usd_only = svc.normalize_companyfacts(fpi.id, payload(("USD", "USD/shares")))[0]
+        svc.upsert_facts_bulk(db, [f if recorded else {**f, "provenance": None} for f in usd_only])
+        native = {f["fiscal_year"]: f for f in svc.normalize_companyfacts(fpi.id, payload())[0]
+                  if f["concept"] == "net_margin"}
+        newer = {**native[2023], "accession": f"20F-2025{tag}", "value": 8.6}
+        if not recorded:  # then only the per-filing path stored one, in the filing's own currency
+            newer.update(source="edgar_xbrl", filing_id=filings[2025].id, provenance=None)
+        # An earlier native calculation from a filing not stored locally: behind the legacy row,
+        # and not this batch's own.
+        svc.upsert_facts_bulk(db, [newer, {**native[2022], "accession": f"20F-2023A{tag}", "value": 7.4}])
+        # Another company's rows that the session has not committed yet are not this sync's.
+        usd_margin = next(f for f in usd_only if (f["concept"], f["fiscal_year"]) == ("net_margin", 2022))
+        svc.upsert_facts_bulk(db, [{**usd_margin, "company_id": other.id}], commit=False)
 
         svc._persist_companyfacts_payload(db, fpi, payload())
         dataset = trend_analysis_service.build_dataset(db, fpi, "annual", "FY2022", "FY2024")
         margin = next(s for s in dataset["series"] if s["concept"] == "net_margin")
-        assert [(p["value"], {i["unit"] for i in p["provenance"]["inputs"]})
-                for p in margin["points"][:2]] == [(7.5, {"CNY"}), (8.6, {"CNY"})]  # USD-derived: 7.4999999997
+        points = [(p["value"], {i["unit"] for i in p["provenance"]["inputs"]}) for p in margin["points"][:2]]
+        assert points == [(7.5, {"CNY"}), (8.6, {"CNY"} if recorded else set())]  # USD-derived: 7.4999999997
         rows = db.query(FinancialFact).filter_by(company_id=fpi.id, concept="net_margin").all()
         assert sorted((r.period_end.year, r.accession.removesuffix(tag), r.is_latest) for r in rows) == [
-            (2022, "20F-2022", False), (2022, "20F-2024", True),  # demoted, never deleted
+            (2022, "20F-2022", False), (2022, "20F-2023A", False), (2022, "20F-2024", True),
             (2023, "20F-2023", False), (2023, "20F-2024", False), (2023, "20F-2025", True),
             (2024, "20F-2024", True),
-        ]
+        ]  # demoted, never deleted
         same_filing = next(r for r in rows if r.period_end.year == 2024)
-        assert {i["unit"] for i in same_filing.provenance["inputs"]} == {"USD"}  # never rewritten
+        stored = {i["unit"] for i in (same_filing.provenance or {}).get("inputs", ())}
+        assert stored == ({"USD"} if recorded else set())  # never rewritten
+        assert [r.is_latest for r in db.query(FinancialFact).filter_by(company_id=other.id)] == [True]
 
         plan = repair_company(db, fpi.id, payload(), dry_run=True)
         fixed = next(c["after"] for c in plan["changes"] if c["fact_id"] == same_filing.id)

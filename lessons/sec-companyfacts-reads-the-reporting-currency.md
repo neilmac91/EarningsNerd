@@ -28,14 +28,15 @@ calculation built from it, and treat "additive" as "a currency amount" (`is_amou
 period end and fiscal period, it demotes that USD row itself (`demote_convenience_rows`) and never
 deletes it. A ratio (`pure`) keeps its unit across currencies, so the upsert's filing-date rule can
 keep one computed from USD operands current and store the native calculation behind it; the writer
-then demotes the USD-derived ratio and promotes the native one. It never rewrites an identity: a
-ratio stored under the native calculation's own identity (same filing) is corrected by the
-journaled repair. Known gaps: a switcher's years reported in a non-USD currency are not ingested in
-that currency, and after a switch to USD its earlier years come from the USD convenience
-translations, as before; a USD fact at a period-end the native list lacks (a stray, or a switch to
-USD) puts that concept back on the USD list; and after such a flip, native rows an earlier sync
-stored stay current beside the USD rows. Fixing them needs a per-filing pick and a product
-decision.
+then demotes the USD-derived ratio and promotes the native one. A derived ratio with no filing
+owner and no recorded operands predates provenance and was read from the USD lists, so it counts as
+USD-derived too. It never rewrites an identity: a ratio stored under the native calculation's own
+identity (same filing) is corrected by the journaled repair. Known gaps: a switcher's years
+reported in a non-USD currency are not ingested in that currency, and after a switch to USD its
+earlier years come from the USD convenience translations, as before; a USD fact at a period-end the
+native list lacks (a stray, or a switch to USD) puts that concept back on the USD list; and after
+such a flip, native rows an earlier sync stored stay current beside the USD rows. Fixing them needs
+a per-filing pick and a product decision.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;

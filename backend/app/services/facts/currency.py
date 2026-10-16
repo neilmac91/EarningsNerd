@@ -59,6 +59,15 @@ def _operand_unit(provenance: Any) -> Any:
     return units.pop() if len(units) == 1 else None
 
 
+def _usd_derived(row: Any) -> bool:
+    """A stored ratio computed from USD operands. Rows from before operands were recorded
+    (2026-10-10) have no provenance; a derived one with no filing owner came from companyfacts,
+    which then read only the USD lists."""
+    if row.provenance is None:
+        return row.source == "derived" and row.filing_id is None
+    return _operand_unit(row.provenance) == "USD"
+
+
 def demote_convenience_rows(db: Session, facts: list[dict[str, Any]]) -> int:
     """Demote the current rows that native-currency facts supersede; never delete or rewrite one.
 
@@ -67,10 +76,11 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]]) -> int:
     such exact USD twin (``USD`` or ``USD/shares``) is demoted, whatever its source or filing:
     ``series_unit`` already chose the series currency, and a current USD row beside the native one
     would put two currencies in one series. A ratio (``pure``) keeps its unit across currencies, so
-    the upsert's filing-date rule can keep one computed from USD operands current and store the
-    native calculation behind it: that row is demoted and the native calculation promoted. A ratio
-    stored under the native calculation's own identity is skipped by the upsert and left as it is;
-    the journaled repair recomputes it. Rows at any other key are left alone.
+    the upsert's filing-date rule can keep one computed from USD operands (``_usd_derived``) current
+    and store the native calculation behind it: that row is demoted and the batch's own native
+    calculation promoted. A ratio stored under the native calculation's own identity is skipped by
+    the upsert and left as it is; the journaled repair recomputes it. Rows at any other key are
+    left alone.
     """
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
@@ -106,7 +116,7 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]]) -> int:
     for key, group in ratio_rows.items():
         native = next((row for row in group
                        if (row.accession, _operand_unit(row.provenance)) == ratios[key]), None)
-        stale = [row for row in group if row.is_latest and _operand_unit(row.provenance) == "USD"]
+        stale = [row for row in group if row.is_latest and _usd_derived(row)]
         if native is None or not stale:
             continue
         for row in stale:

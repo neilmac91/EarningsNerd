@@ -349,7 +349,9 @@ unused since generation became account-required in #619; kept because migrations
   filing. The newer-accession rule above is per unit; across units the pick has already chosen
   the series currency. A derived ratio (`pure`) keeps its unit, so where a known filing date kept
   one computed from USD operands current, the sync demotes it and promotes the native
-  calculation. One stored under the native calculation's own identity (same filing) keeps its
+  calculation. A ratio stored before operands were recorded (2026-10-10) counts as USD-derived
+  when it is derived and has no filing owner, because companyfacts was then read only in USD.
+  One stored under the native calculation's own identity (same filing) keeps its
   USD operands, because ingestion never rewrites an identity; the journaled repair
   (`docs/quarterly-data-repair.md`) recomputes it.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
