@@ -79,6 +79,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-fk-safe-bulk-deletes.md — Make destructive bulk deletes FK-safe by construction, not by trusting the test DB
 - arch-gate-reference-values-are-themselves-gated.md — A gate that compares against a token or an exemption set must pin those too
 - arch-guard-every-model-facing-surface.md — Suppress a value on EVERY model-facing surface, or the model parrots what the render dropped
+- arch-guard-every-writer-of-the-billing-binding.md — Guard every Stripe handler that writes the account's subscription binding; another subscription's non-entitling event never revokes an entitled one (partly gated by `backend/tests/unit/test_subscription_identity.py` for the three writers; a new writer is review-checked)
 - arch-migrations-no-alembic.md — No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the migration_ledger table
 - arch-moved-code-resolves-seams-through-the-patched-module.md — Code moved out of a patched module keeps resolving its collaborators through that module at call time
 - arch-no-precomputed-deltas-in-grounding.md — Don't pre-chew derived deltas into the grounding without a groundedness guardrail

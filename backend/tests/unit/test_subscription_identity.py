@@ -127,3 +127,46 @@ def test_eligible_replacement_survives_old_checkout_and_deletion(db, old_status,
     assert user.stripe_subscription_id is None
     assert user.is_pro is False
     assert get_plan(user).value == "free"
+
+
+@pytest.mark.parametrize("late_status", ["unpaid", "past_due", "canceled", "incomplete_expired", "trialing"])
+@pytest.mark.parametrize("then", ["bound_update", "bound_deletion", "newer_active"])
+def test_late_old_update_cannot_unbind_entitled_replacement(db, late_status, then):
+    user = _user(db)
+    _apply(db, apply_checkout_completed, _checkout(user))
+    _apply(db, apply_subscription_upsert, {"id": "sub_a", "customer": "cus_a", "status": "past_due"})
+    _apply(db, apply_checkout_completed, _checkout(user, sub_id="sub_b"))
+    assert get_plan(user).value == "pro"
+    before = _state(user)
+
+    result = _apply(db, apply_subscription_upsert, {
+        "id": "sub_a", "customer": "cus_a", "status": late_status,
+        # A late-delivered trial update carries a trial that has since elapsed: not entitling.
+        "trial_end": int((utcnow() - timedelta(days=1)).timestamp()) if late_status == "trialing" else None,
+    })
+    assert _state(user) == before  # old A's dunning outcome or a late retry may not rebind or revoke B
+    assert result is None
+
+    # The guard shields only an entitled binding from another subscription: B's own events and a
+    # newer entitling subscription still apply.
+    if then == "bound_update":
+        _apply(db, apply_subscription_upsert, {"id": "sub_b", "customer": "cus_a", "status": "past_due"})
+        expected = ("sub_b", "past_due", False, "free")
+    elif then == "bound_deletion":
+        _apply(db, apply_subscription_deleted, {"id": "sub_b", "customer": "cus_a"})
+        expected = (None, "canceled", False, "free")
+    else:
+        _apply(db, apply_subscription_upsert, {"id": "sub_c", "customer": "cus_a", "status": "active"})
+        expected = ("sub_c", "active", True, "pro")
+    assert (user.stripe_subscription_id, user.subscription.status, user.is_pro, get_plan(user).value) == expected
+
+
+def test_unentitled_account_still_binds_a_new_non_active_subscription(db):
+    user = _user(db)
+    _apply(db, apply_checkout_completed, _checkout(user))
+    _apply(db, apply_subscription_upsert, {"id": "sub_a", "customer": "cus_a", "status": "past_due"})
+    assert get_plan(user).value == "free"
+    _apply(db, apply_subscription_upsert, {"id": "sub_b", "customer": "cus_a", "status": "incomplete"})
+    # Nothing entitled to protect: B binds, so its later events are current-ID and read Stripe.
+    assert (user.stripe_subscription_id, user.subscription.status, get_plan(user).value) == (
+        "sub_b", "incomplete", "free")
