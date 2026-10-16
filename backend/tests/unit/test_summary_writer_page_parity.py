@@ -2,7 +2,7 @@
 
 The filing page strips leading internal notices and a leading "Executive Summary" heading before it
 renders a summary (frontend/lib/stripInternalNotices.ts, stripLeadingExecutiveHeading.ts), and shows
-the "Summary temporarily unavailable" card when nothing is left. The backend's readiness rule
+the "This summary did not finish" card when nothing is left. The backend's readiness rule
 (summary_placeholders.is_summary_ready: the sitemap, the company search's summary_ready and the
 summary route's unready refresh) does not strip notices. The two agree only while no writer emits a
 body that is notices and headings alone, so this test drives every writer over degenerate inputs and

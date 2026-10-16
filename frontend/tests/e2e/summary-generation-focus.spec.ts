@@ -27,7 +27,7 @@ interface Stream { next: Outcome | 'hold'; release?: (outcome: Outcome) => void 
 const FAILED = 'The filing could not be summarized right now.'
 const ERROR_HEADING = 'Generation interrupted'
 const LIMIT_HEADING = "You've hit this month's free limit"
-const PROGRESS_HEADING = 'Generating your analysis'
+const PROGRESS_HEADING = 'Generating the summary'
 
 async function openFiling(
   page: Page,

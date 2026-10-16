@@ -19,6 +19,7 @@ import {
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_HISTORY_RETENTION_DAYS,
   FREE_SUMMARY_LIMIT,
+  TRIAL_DAYS,
   shipped,
   type PlanLine,
 } from '@/lib/planLimits'
@@ -235,11 +236,11 @@ export default function PricingSection({
                 href={showBeta ? '/pricing' : pricingHref(cycleName(billing))}
                 className={buttonVariants({ variant: 'primary', size: 'md', className: CTA_CLASS })}
               >
-                {showTrial ? 'Start 7-day free trial' : 'Upgrade to Pro'}
+                {showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
               </Link>
               {showTrial && (
                 <p className={`mt-2 text-xs ${MUTED_CLASS}`}>
-                  Card required. One trial per account. Cancel any time in the 7 days at no charge.
+                  Card required. One trial per account. Cancel any time in the {TRIAL_DAYS} days at no charge.
                 </p>
               )}
               <FeatureList items={shipped(PRO_FEATURES)} />

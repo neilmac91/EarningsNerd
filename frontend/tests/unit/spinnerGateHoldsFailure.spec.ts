@@ -14,7 +14,9 @@ import { bindingResolver, type Binding } from './astBindings'
  *
  * What it reads, in every .tsx under app/ (the pages and layouts):
  *  - shared queries: a `useQuery` / `useSuspenseQuery` / `useInfiniteQuery` call whose key family (the
- *    `queryKey` with its call arguments dropped: `queryKeys.usage.byUser`) is observed in at least two modules
+ *    `queryKey` with its call arguments dropped: `queryKeys.usage.byUser`; a key held in a same-file const is
+ *    read as the family of what the const holds, so two modules that name their key const alike, the company
+ *    page's `companyKey` and the ticker route's, share nothing) is observed in at least two modules
  *    under app/, components/, features/, hooks/ and lib/. That over-approximates "a child observes it": the
  *    scan cannot follow JSX into what a page renders, so a family two pages share counts too.
  *  - loading gates: `if (cond) return <render>` (either branch, a block's direct `return` included) and
@@ -41,7 +43,7 @@ import { bindingResolver, type Binding } from './astBindings'
  * still fails.
  *
  * Limits, so a reviewer still reads new gates: a key family built outside a `queryKey:` property (an options
- * helper), a loading state passed in through props, a hold read through an alias
+ * helper), a key handed in as a parameter or a prop (read by its name), a loading state passed in through props, a hold read through an alias
  * (`const failed = failure.failed`), a gate inside a component under features/ or components/, and
  * `cond && <JSX>`, which adds content beside the page rather than replacing it (so `!isLoading && <Panel />`,
  * which unmounts the panel, is not seen).
@@ -76,9 +78,26 @@ const unwrap = (e: ts.Expression): ts.Expression => {
   return e
 }
 
-/** `queryKeys.usage.byUser(id)` → `queryKeys.usage.byUser`; `['feed', id]` → `'feed'`. */
-function keyFamily(key: ts.Expression): string {
+const resolvers = new WeakMap<ts.SourceFile, (ref: ts.Identifier) => Binding | undefined>()
+/** The lexical resolver of a parsed module, built once per module. */
+const resolverOf = (sf: ts.SourceFile) => {
+  let resolve = resolvers.get(sf)
+  if (!resolve) resolvers.set(sf, (resolve = bindingResolver(sf)))
+  return resolve
+}
+
+/** `queryKeys.usage.byUser(id)` → `queryKeys.usage.byUser`; `['feed', id]` → `'feed'`; a key held in a same-file
+    const → the family of what it holds (`const companyKey = queryKeys.company(t)` → `queryKeys.company`). */
+function keyFamily(key: ts.Expression, seen = new Set<ts.Node>()): string {
   let e = unwrap(key)
+  if (ts.isIdentifier(e)) {
+    const binding = resolverOf(e.getSourceFile())(e)
+    const held = binding && ts.isVariableDeclaration(binding.decl) && binding.decl.parent.flags & ts.NodeFlags.Const ? binding.init : undefined
+    if (held && !seen.has(binding!.decl)) {
+      seen.add(binding!.decl)
+      return keyFamily(held, seen)
+    }
+  }
   while (ts.isCallExpression(e)) e = unwrap(e.expression)
   if (ts.isArrayLiteralExpression(e)) return e.elements[0]?.getText() ?? '[]'
   return e.getText()
@@ -652,6 +671,17 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
     expect(unheldGates(settings, 'app/dashboard/settings/page.tsx', shared)).toEqual([])
     const old = unheldGates(settings.replace(held, 'if (userLoading) {'), 'app/dashboard/settings/page.tsx', shared)
     expect(old.map(pin)).toEqual(['userLoading [queryKeys.currentUser]'])
+  })
+
+  it('reads a key held in a same-file const as the family it holds, never by the const\'s name', () => {
+    const families = (source: string) => [...observedFamilies(source, 'fixture.tsx')]
+    expect(families('const companyKey = queryKeys.company(t)\nuseQuery({ queryKey: companyKey })')).toEqual(['queryKeys.company'])
+    expect(families('const companyKey = queryKeys.tickerCompany(t)\nuseQuery({ queryKey: companyKey })')).toEqual(['queryKeys.tickerCompany'])
+    expect(families('const k = queryKeys.usage.byUser(id)\nconst key = k\nuseQuery({ queryKey: key })')).toEqual(['queryKeys.usage.byUser'])
+    expect(families("const key = ['feed', id] as const\nuseQuery({ queryKey: key })")).toEqual(["'feed'"])
+    // A let can be reassigned, and a parameter holds what each caller hands it: both stay read by their name.
+    expect(families('let key = queryKeys.company(t)\nkey = other\nuseQuery({ queryKey: key })')).toEqual(['key'])
+    expect(families('function F({ queryKey }) { return useQuery({ queryKey: queryKey }) }')).toEqual(['queryKey'])
   })
 
   it('finds the shared queries it is meant to guard', () => {

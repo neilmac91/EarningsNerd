@@ -14,7 +14,7 @@ import { Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
-import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, shipped } from '@/lib/planLimits'
+import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, TRIAL_DAYS, shipped } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
@@ -308,7 +308,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
         : showBetaOffer
         ? 'Claim Pro'
         : trialEligible
-        ? 'Start 7-day free trial'
+        ? `Start ${TRIAL_DAYS}-day free trial`
         : 'Upgrade to Pro',
       // Trialing counts as current-plan: their card-required trial IS a live subscription that
       // auto-charges at trial end; an enabled buy button here creates a duplicate (see comment
@@ -316,7 +316,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
       disabled: !accountResolved || isPaidPro || isTrialing,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
-      trialNote: trialEligible ? 'First 7 days free · cancel anytime, no charge' : null,
+      trialNote: trialEligible ? `First ${TRIAL_DAYS} days free · cancel anytime, no charge` : null,
     },
   ]
 
@@ -568,13 +568,13 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
             {ENABLE_PRO_TRIAL && (
               <div>
                 <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
-                  How does the 7-day free trial work?
+                  How does the {TRIAL_DAYS}-day free trial work?
                 </h3>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                  Subscribing to Pro monthly for the first time starts with 7 days free. A card is
+                  Subscribing to Pro monthly for the first time starts with {TRIAL_DAYS} days free. A card is
                   required to start the trial, but you won&apos;t be charged until the trial ends.
-                  Cancel anytime in those 7 days from your billing settings and you pay nothing.
-                  After 7 days, your subscription starts automatically. One trial per account.
+                  Cancel anytime in those {TRIAL_DAYS} days from your billing settings and you pay nothing.
+                  After {TRIAL_DAYS} days, your subscription starts automatically. One trial per account.
                 </p>
               </div>
             )}
