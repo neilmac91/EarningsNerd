@@ -123,6 +123,19 @@ describe('FullTextSearchResults', () => {
     expect(within(meta).getAllByText(',')[0]).toHaveClass('sr-only')
     expect(meta.closest('ul')).toHaveClass('relative', 'overflow-hidden')
   })
+
+  it('makes each fact one run, its label, its value and its middot, so the line breaks only between two facts', () => {
+    // The design review of #1369: only the values were runs, so at 320px the line broke between "Period" and its
+    // date. A run wider than the whole line still wraps inside, after its label (each value stays whole).
+    render(<FullTextSearchResults hits={[hit]} />)
+    const meta = screen.getByText('2024-11-01').closest('p') as HTMLElement
+    const runs = Array.from(meta.children)
+    expect(runs.map((run) => run.textContent)).toEqual(['10-K\u00a0·,', 'Filed 2024-11-01\u00a0·,', 'Period 2024-09-28'])
+    for (const run of runs) expect(run).toHaveClass('inline-block')
+    // Between two runs, a plain space and nothing else: the one place the line breaks.
+    const between = Array.from(meta.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE)
+    expect(between.map((node) => node.textContent)).toEqual([' ', ' '])
+  })
 })
 
 describe('FullTextSearch date filters', () => {

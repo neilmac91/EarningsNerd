@@ -24,18 +24,18 @@ const FORM_FILTERS = [
   { form: '4', label: 'Form 4' },
 ] as const
 
-/** A fact in a hit's meta line: one unbreakable run (a form code or a date never splits at its hyphen). */
-const Fact = ({ children, className }: { children: ReactNode; className?: string }) => (
+/** A value in a hit's meta line, a form code or a date: one unbreakable run, so it never splits at its hyphen. */
+const Value = ({ children, className }: { children: ReactNode; className?: string }) => (
   <span className={cx('whitespace-nowrap', className)}>{children}</span>
 )
 
-/** The middot between two facts, kept to the fact before it by a no-break space: a line breaks only
- *  after it, so a wrapped line never starts with one. Assistive tech hears a comma (FilingIdentity's Sep). */
+/** The middot after a fact, kept to it by a no-break space, so a wrapped line never starts with one.
+ *  Assistive tech hears a comma (FilingIdentity's Sep). */
 const Sep = () => (
   <>
     {'\u00a0'}
     <span aria-hidden="true">·</span>
-    <span className="sr-only">,</span>{' '}
+    <span className="sr-only">,</span>
   </>
 )
 
@@ -43,7 +43,7 @@ const Sep = () => (
  * Pure presentational list of full-text search hits. Each row links out to the matched document on
  * SEC EDGAR (the authoritative source). Exported separately so it can be unit-tested without hooks.
  * Nothing in a row truncates: the company name wraps under its ticker, and the meta line wraps between
- * its facts, each date whole.
+ * its facts, each value whole.
  */
 export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
   return (
@@ -54,12 +54,14 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
       {hits.map((hit) => {
         const href = hit.document_url || hit.sec_url || undefined
         const rowClass = 'flex items-start justify-between gap-4 px-4 py-3'
-        // The meta line's facts, each one run, joined by middots that keep to the fact before them.
+        // The meta line's facts. Each is one run (inline-block) holding its label, its value and the middot after
+        // it, so the line breaks only at the space between two facts; a fact wider than the whole line wraps inside,
+        // after its label, the value whole.
         const facts = [
           // A form code is text in the data face, never a chip (DESIGN.md › Chips).
-          hit.form && <Fact key="form" className="font-data text-text-primary-light dark:text-text-primary-dark">{hit.form}</Fact>,
-          hit.filed_date && <span key="filed">Filed <Fact>{hit.filed_date}</Fact></span>,
-          hit.period_ending && <span key="period">Period <Fact>{hit.period_ending}</Fact></span>,
+          hit.form && <Value key="form" className="font-data text-text-primary-light dark:text-text-primary-dark">{hit.form}</Value>,
+          hit.filed_date && <Fragment key="filed">Filed <Value>{hit.filed_date}</Value></Fragment>,
+          hit.period_ending && <Fragment key="period">Period <Value>{hit.period_ending}</Value></Fragment>,
         ].filter(Boolean)
         const inner = (
           <>
@@ -73,8 +75,11 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
               <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {facts.map((fact, i) => (
                   <Fragment key={i}>
-                    {i > 0 && <Sep />}
-                    {fact}
+                    {i > 0 && ' '}
+                    <span className="inline-block">
+                      {fact}
+                      {i < facts.length - 1 && <Sep />}
+                    </span>
                   </Fragment>
                 ))}
               </p>
