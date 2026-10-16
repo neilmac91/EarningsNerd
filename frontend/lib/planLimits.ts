@@ -30,6 +30,17 @@ export const TRIAL_DAYS = 7
 export const FREE_COPILOT_QUESTIONS = 3
 export const FREE_HISTORY_RETENTION_DAYS = 90
 
+/**
+ * Multi-Period Analysis period caps, mirrored from `backend/app/config.py` (ANALYSIS_MAX_ANNUAL_PERIODS,
+ * ANALYSIS_MAX_QUARTERLY_PERIODS defaults). The picker reads the live values from the coverage
+ * response (`limits`); these exist for copy that renders before it (the /analysis metadata and lead,
+ * the landing, and the /pricing Pro card's line in ANALYSIS_LINES below, which reads the annual cap as
+ * this module evaluates, so the caps are declared first). The same lockstep spec holds them to the
+ * backend and bans the numbers typed in copy.
+ */
+export const ANALYSIS_MAX_ANNUAL_PERIODS = 10
+export const ANALYSIS_MAX_QUARTERLY_PERIODS = 12
+
 /** A flag a plan line follows: `analysis` is NEXT_PUBLIC_ENABLE_ANALYSIS, `fpi` NEXT_PUBLIC_ENABLE_FPI_FILINGS. */
 export type PlanFlag = 'analysis' | 'fpi'
 
@@ -66,7 +77,7 @@ export function shipped(lines: readonly PlanLine[]): string[] {
  */
 export const ANALYSIS_LINES = {
   upgradeDialog: { text: 'Multi-Period Analysis', flag: 'analysis' },
-  pricingPro: { text: 'Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative', flag: 'analysis' },
+  pricingPro: { text: `Unlimited Multi-Period Analysis: ${ANALYSIS_MAX_ANNUAL_PERIODS}-year trends, quarterly deltas & AI narrative`, flag: 'analysis' },
   landingPro: { text: 'Unlimited Multi-Period Analysis', flag: 'analysis' },
   landingFree: { text: 'Multi-Period Analysis demo (locked)', flag: 'analysis' },
   productJsonLd: { text: 'multi-period analysis', flag: 'analysis' },

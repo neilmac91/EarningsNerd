@@ -197,7 +197,7 @@ const PUBLIC_ROUTES: Route[] = [
 const NOT_VISITED: Record<string, string> = {
   '/admin/feedback': 'admin only, no admin session in this e2e; admin-feedback-page.spec.tsx pins its outline',
   '/admin/invites': 'admin only, no admin session in this e2e; admin-invites-page.spec.tsx pins its outline',
-  '/analysis': 'Multi-Period Analysis renders from the API; its surface is brand-analysis (#1299), which adds its entry',
+  '/analysis': 'Multi-Period Analysis renders from the API; its entry, the coverage and dataset answered through page.route, waits on #1289 (tasks/todo.md E38)',
   '/calendar': 'the earnings calendar renders from the API; its surface is brand-calendar-search (#1301), which adds its entry',
   '/dashboard/settings': 'signed-in settings; its surface is brand-settings-subscriptions (#1291), which adds its entry',
   '/labs/filing-redlines': 'a labs prototype outside the brand series (tasks/todo.md E26)',

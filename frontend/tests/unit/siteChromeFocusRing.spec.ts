@@ -107,11 +107,10 @@ const RING_RESIDUE: Record<string, number> = {
   'app/security/page.tsx': 5, // legal page: waits on the founder (presentation follow-up)
   'app/terms/page.tsx': 4, // legal page: waits on the founder (presentation follow-up)
   'app/verify-email/page.tsx': 3, // brand-auth-pages-presentation
-  'features/analysis/components/AnalysisPageClient.tsx': 3, // brand-analysis
-  'features/analysis/components/DataNotesLink.tsx': 1, // brand-analysis
-  'features/analysis/components/NarrativePane.tsx': 1, // brand-analysis
+  'features/analysis/components/DataNotesLink.tsx': 1, // its button's class is sourceTraceChipClass, imported from features/filings/lib/sourceTraceChip, which carries the ring; the scan does not read across files (review-checked)
+  'features/analysis/components/NarrativePane.tsx': 1, // Markdown renderer props spread on p, li, strong, em and td, which the scan cannot read (no Tab stop)
   'features/analysis/components/TrendCharts.tsx': 17, // chart props spreads the scan cannot read
-  'features/analysis/lib/periodAxis.tsx': 2, // brand-analysis
+  'features/analysis/lib/periodAxis.tsx': 2, // chart tick props spread on its SVG text, which the scan cannot read (no Tab stop)
   'features/auth/components/OAuthStartControl.tsx': 2, // brand-auth-pages-presentation
   'features/auth/components/RegisterForm.tsx': 5, // brand-auth-pages-presentation
   'features/companies/components/CompanyIdentity.tsx': 2, // its crumb and link take IDENTITY_CRUMB and IDENTITY_LINK, recipes imported from FilingIdentity, which the scan does not read across files (#1292 ringed them there; review-checked)
@@ -133,7 +132,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 34, stops: 109 }
+const RING_RESIDUE_MAX = { files: 33, stops: 106 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
