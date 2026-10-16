@@ -18,6 +18,7 @@ source URL. A signer the test builds from the same reading of the docs proves no
 reproduces that example. Refusal cases come after the accept case, never instead of it.
 
 **Evidence**: `backend/tests/unit/test_resend_webhook_signature.py` checks the example on
-https://docs.svix.com/receiving/verifying-payloads/how-manual and ties the test's signer to it. The
-pre-E20 implementation fails that test and eleven more on assertions. Partly gated: that file pins this
+https://docs.svix.com/receiving/verifying-payloads/how-manual and ties the test's signer to it. Given
+the module-level clock import the test patches, the pre-E20 implementation fails that test and
+eleven more on assertions; dropped in unchanged, every test errors at setup on the missing import. Partly gated: that file pins this
 webhook. The next verifier's accept case is review-checked.

@@ -82,7 +82,8 @@ The runtime service account already holds `secretmanager.secretAccessor`, and th
 secrets (`--update-secrets`), so a secret bound once survives later deploys:
 
 ```bash
-printf '%s' 'whsec_PASTE_VALUE' | gcloud secrets create RESEND_WEBHOOK_SECRET --data-file=-
+# Paste the whole signing secret from the webhook's page; it already starts with whsec_.
+printf '%s' 'PASTE_THE_WHOLE_SECRET' | gcloud secrets create RESEND_WEBHOOK_SECRET --data-file=-
 gcloud run services update earningsnerd-backend --region=us-west1 \
   --update-secrets=RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest
 ```
@@ -175,7 +176,7 @@ Check your backend logs:
 tail -f /var/log/your-app.log
 
 # Production (Cloud Run)
-gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend" AND "Resend webhook"' --limit=20
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend" AND ("Resend webhook" OR "RESEND_WEBHOOK_SECRET")' --limit=20
 ```
 
 ## Webhook Events Reference
@@ -262,7 +263,9 @@ The HMAC key is not the secret's text: it is the base64-decoded part after the `
 digest is sent base64-encoded, with its version: `v1,<base64 digest>`. The backend
 (`verify_webhook_signature` in `backend/app/routers/webhooks.py`) follows Svix's manual verification
 page (https://docs.svix.com/receiving/verifying-payloads/how-manual), and
-`backend/tests/unit/test_resend_webhook_signature.py` checks it against that page's example.
+`backend/tests/unit/test_resend_webhook_signature.py` checks it against that page's example. Resend's
+own page (https://resend.com/docs/webhooks/verify-webhooks-requests) names the same three headers,
+shows a signature in the same `v1,<base64>` form and points to Svix's libraries.
 
 Example:
 ```
@@ -276,7 +279,9 @@ Signed content: "msg_abc123.1674321000.{"type":"email.sent","data":{...}}"
 ### Timestamp Window
 
 A delivery whose `svix-timestamp` is more than five minutes from the server's clock is refused, as
-Svix's own libraries refuse it, so a captured delivery cannot be replayed later. A retry carries
+Svix's own libraries refuse it, so a captured delivery cannot be replayed after that. Within the window
+a repeat is accepted, as Svix's libraries accept it: the handlers only log, and the click handler stamps a
+batch's first click once. A retry carries
 its own attempt's timestamp and a signature over it ("Every time an attempt is retried the timestamp
 of the attempt is updated", in the Standard Webhooks specification Svix follows), so retries pass.
 
@@ -326,7 +331,7 @@ Handle duplicate webhook events gracefully (Resend may retry failed deliveries).
 ### Signature Verification Failing
 
 1. **Check Secret**: Ensure `RESEND_WEBHOOK_SECRET` matches the signing secret on the webhook's page in the Resend dashboard
-2. **Check Format**: The secret is `whsec_` followed by base64; any other value logs "RESEND_WEBHOOK_SECRET is not a Svix signing secret" and every delivery is refused
+2. **Check Format**: The secret is `whsec_` followed by base64, pasted whole. If what follows the prefix is empty or not base64 (a doubled `whsec_whsec_` is one case), the log says "RESEND_WEBHOOK_SECRET is not a Svix signing secret". A well-formed but wrong key, such as another webhook's secret, logs only "Invalid Resend webhook signature" on each delivery
 3. **Check the Clock**: A delivery more than five minutes from the server's clock logs "Resend webhook timestamp is more than five minutes from the server clock" and is refused
 4. **Check the Binding**: After creating the secret, bind it to the service (`--update-secrets`, above); the new revision reads it
 

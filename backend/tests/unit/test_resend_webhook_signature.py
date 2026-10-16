@@ -42,7 +42,7 @@ def _clock_at_the_vector(monkeypatch):
     _clock(monkeypatch, int(TIMESTAMP))
 
 
-def _clock(monkeypatch, seconds: int) -> None:
+def _clock(monkeypatch, seconds: float) -> None:
     monkeypatch.setattr(webhooks, "utcnow", lambda: datetime.fromtimestamp(seconds, tz=timezone.utc))
 
 
@@ -55,8 +55,11 @@ def test_the_published_svix_example_verifies():
     assert _verify()
 
 
-def test_one_matching_entry_among_several_verifies():
-    assert _verify(signature=f"v1,{base64.b64encode(b'x' * 32).decode()} {SIGNATURE}")
+@pytest.mark.parametrize("genuine_first", [True, False], ids=["genuine-first", "genuine-last"])
+def test_one_matching_entry_among_several_verifies(genuine_first):
+    # Svix sends one entry per active secret while a secret rotates, in no promised order.
+    entries = [f"v1,{base64.b64encode(b'x' * 32).decode()}", SIGNATURE]
+    assert _verify(signature=" ".join(entries[::-1] if genuine_first else entries))
 
 
 @pytest.mark.parametrize(
@@ -85,7 +88,10 @@ def test_a_delivery_that_does_not_match_is_refused(case):
     assert not _verify(**case)
 
 
-@pytest.mark.parametrize(("offset", "accepted"), [(-300, True), (300, True), (-301, False), (301, False)])
+# The libraries' boundary: 300 s either side passes, and a fraction past it fails on both sides.
+@pytest.mark.parametrize(
+    ("offset", "accepted"), [(-300, True), (300, True), (-300.5, False), (300.5, False), (-301, False), (301, False)]
+)
 def test_the_timestamp_must_be_within_five_minutes_of_the_clock(monkeypatch, offset, accepted):
     _clock(monkeypatch, int(TIMESTAMP) + offset)
     assert _verify() is accepted
@@ -130,7 +136,10 @@ def client():
 
 
 def _delivery(client, secret: str, signature=None):
-    body = json.dumps({"type": "email.delivered", "data": {"email_id": "em_1", "to": ["n@example.com"]}}).encode()
+    # Compact, as Resend sends it: the signature covers these bytes, not any re-serialised JSON.
+    body = json.dumps({"type": "email.delivered", "data": {"email_id": "em_1", "to": ["n@example.com"]}},
+                      separators=(",", ":")).encode()
+    assert json.dumps(json.loads(body)).encode() != body
     headers = {
         "svix-id": MSG_ID,
         "svix-timestamp": TIMESTAMP,
@@ -153,3 +162,18 @@ def test_without_a_secret_production_refuses_and_development_skips(client, monke
     monkeypatch.setattr(settings, "RESEND_WEBHOOK_SECRET", "")
     monkeypatch.setattr(settings, "ENVIRONMENT", environment)
     assert _delivery(client, "").status_code == status_code
+
+
+@pytest.mark.parametrize(
+    "case",
+    [dict(), dict(signature=SIGNATURE[:-2]), dict(timestamp="abc"), dict(timestamp=str(int(TIMESTAMP) - 301)),
+     dict(secret="whsec_!!!!")],
+    ids=["genuine", "forged", "bad-timestamp", "stale", "malformed-secret"],
+)
+def test_no_path_logs_the_secret_or_its_key(case, caplog):
+    caplog.set_level(logging.DEBUG, logger=webhooks.logger.name)
+    _verify(**case)
+    logged = " ".join(record.getMessage() for record in caplog.records)
+    secret = case.get("secret", SECRET)
+    assert secret.removeprefix("whsec_") not in logged
+    assert repr(base64.b64decode(SECRET.removeprefix("whsec_"))) not in logged

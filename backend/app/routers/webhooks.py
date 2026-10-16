@@ -41,7 +41,7 @@ def verify_webhook_signature(payload: bytes, signature_header: str, secret: str,
     Svix keys an HMAC-SHA256 with the base64-decoded text of the ``whsec_`` secret, signs
     ``{svix-id}.{svix-timestamp}.{raw body}``, and sends ``v1,<base64 digest>`` entries separated by
     spaces in ``svix-signature``. A timestamp more than five minutes from this server's clock is
-    refused, as Svix's libraries refuse it, so a captured delivery cannot be replayed later.
+    refused, as Svix's libraries refuse it, so a captured delivery cannot be replayed after that.
     """
     if not secret:
         # In non-production environments, we can allow verification to be skipped if the secret is not set.
@@ -61,8 +61,10 @@ def verify_webhook_signature(payload: bytes, signature_header: str, secret: str,
         sent_at = int(svix_timestamp)
     except ValueError:
         return False
-    # Integers on both sides: a long run of digits is no OverflowError.
-    if abs(int(utcnow().timestamp()) - sent_at) > _TIMESTAMP_TOLERANCE_SECONDS:
+    # Compared, never subtracted: Python compares an int with a float exactly, so a long run of digits
+    # is no OverflowError, and the fraction of the clock's second is kept, as Svix's libraries keep it.
+    now = utcnow().timestamp()
+    if not now - _TIMESTAMP_TOLERANCE_SECONDS <= sent_at <= now + _TIMESTAMP_TOLERANCE_SECONDS:
         logger.warning("Resend webhook timestamp is more than five minutes from the server clock")
         return False
 
