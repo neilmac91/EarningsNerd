@@ -58,10 +58,11 @@ refusal and balance read).
   Multi-Period Analysis axis gets two buckets ending on one date. Filing first, the year just
   older than the filing's comparatives keeps a calendar label equal to the next year's fiscal one,
   so one label lands on two period ends: the dataset refuses that flow and coverage loses a year
-  (the oldest, in a short history). Main already mixed this issuer's quarter rows (the 10-Q
-  labeller names the fiscal year), but named its annual rows by calendar year on both sides: one
-  year off, but unmixed. So the annual labeller extends an existing quarterly mix to the annual
-  rows. Abstaining on a late filing is not the fix: it moves the clash onto a late report, or a
+  (the oldest, in a short history). Main named these annual rows by calendar year on both sides:
+  one year off, but unmixed. A 10-Q filer's quarter rows were already mixed on main (the 10-Q
+  labeller names the fiscal year), so for it the annual labeller extends an existing quarterly
+  mix to the annual rows; a 20-F filer has no per-filing quarter rows, so for it the annual mix
+  is new. Abstaining on a late filing is not the fix: it moves the clash onto a late report, or a
   late amendment, that follows a timely one, which both writers now name alike. The open
   follow-up is for the companyfacts writer to name an all-late chain from a late annual report's
   own-period `fy`, under the same FY, year-bound and midpoint trust; that fixes the chain's

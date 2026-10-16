@@ -347,8 +347,9 @@ unused since generation became account-required in #619; kept because migrations
   filing date, name the fiscal year. So a delinquent filer whose fiscal year is named for the
   calendar year before its end (in practice a year ending in January or February, a 52-week year
   ending in early January, or a March 20-F named by its start) carries two labels for one period
-  end. Its quarter rows were already mixed this way before the annual labeller; the open
-  follow-up, in the companyfacts writer, fixes both. The Multi-Period Analysis dataset refuses a
+  end. A 10-Q filer's quarter rows were already mixed this way before the annual labeller (a 20-F
+  filer has none, so for it the annual mix is new); the open follow-up, in the companyfacts
+  writer, fixes both. The Multi-Period Analysis dataset refuses a
   flow label that current rows give to two different period ends, and reads a balance at its
   period's own end in both modes.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
