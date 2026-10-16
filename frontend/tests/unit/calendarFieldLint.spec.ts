@@ -11,48 +11,81 @@ import { describe, expect, it } from 'vitest'
  * list, and the call-case selector names each callee (a hardcoded parseISO root would list its selectors twice, and
  * ESLint rejects such a config, so building the instance here also proves the config loads). The other way, a
  * Stripe billing date (trial_end, current_period_end) through formatLocalDate is an error: it names the instant's
- * UTC day, not the reader's. Each helper is read by its own name and as a namespace member (`fmt.formatInstant(…)`),
- * and going by another name (an import alias, a renaming destructuring, a const that holds it) is an error of its
- * own. A genuine instant through formatInstant and a calendar date through formatLocalDate pass. The rendered day is
- * pinned behaviourally in filing-date-local-day.spec.tsx, TrialBanner.spec.tsx and BillingPanel.spec.tsx; this case
- * pins the lint's reach.
+ * UTC day, not the reader's. Each helper is read by its own name and as a namespace member, its key dotted,
+ * bracketed or a template (`fmt.formatInstant(…)`, `fmt['formatInstant'](…)`, `new globalThis['Date'](…)`), and
+ * going by another name is an error of its own: an import alias, a destructuring that renames it (its key in any
+ * spelling, Date's from globalThis included), a const that holds it. A genuine instant through formatInstant, a
+ * calendar date through formatLocalDate and a destructuring that keeps the name pass, bracketed or not. The rendered
+ * day is pinned behaviourally in filing-date-local-day.spec.tsx, TrialBanner.spec.tsx and BillingPanel.spec.tsx;
+ * this case pins the lint's reach. Each probe line names what the lint must say of it.
  */
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 /** Building ESLint from the real config takes 2-3.5s warm and over 7s cold or on a loaded runner; 5s is too tight. */
 const SLOW = { timeout: 30_000 }
 
+type Said = 'calendar' | 'billing' | 'alias' | null
+const PROBE: Array<[string, Said]> = [
+  ["import { parseISO } from 'date-fns'", null],
+  ["import * as dateFns from 'date-fns'", null],
+  ["import { formatInstant, formatLocalDate } from '@/lib/format'", null],
+  ["import * as fmt from '@/lib/format'", null],
+  ["import { formatInstant as formatDay } from '@/lib/format'", 'alias'],
+  ['export function probe(filing: { filing_date: string }, sub: { trial_end: string; current_period_end: string }) {', null],
+  // A calendar-date field through each constructor: by its name, as a member, its key bracketed or a template.
+  ['  const built = new Date(filing.filing_date)', 'calendar'],
+  ['  const parsed = parseISO(filing.filing_date)', 'calendar'],
+  ["  const wrapped = formatInstant(filing.filing_date, 'MMM d, yyyy')", 'calendar'],
+  ["  const namespaced = fmt.formatInstant(filing.filing_date, 'MMM d, yyyy')", 'calendar'],
+  ["  const bracketed = fmt['formatInstant'](filing.filing_date, 'MMM d, yyyy')", 'calendar'],
+  ["  const parsedBracketed = dateFns['parseISO'](filing.filing_date)", 'calendar'],
+  ["  const builtBracketed = new globalThis['Date'](filing.filing_date)", 'calendar'],
+  ["  const templated = fmt[`formatInstant`](filing.filing_date, 'MMM d, yyyy')", 'calendar'],
+  // A billing instant through formatLocalDate, the same ways.
+  ["  const renews = formatLocalDate(sub.current_period_end, 'MMM d, yyyy')", 'billing'],
+  ["  const ends = fmt.formatLocalDate(sub['trial_end'], 'MMM d, yyyy')", 'billing'],
+  ["  const renewsBracketed = fmt['formatLocalDate'](sub.current_period_end, 'MMM d, yyyy')", 'billing'],
+  ["  const endsTemplated = fmt[`formatLocalDate`](sub.trial_end, 'MMM d, yyyy')", 'billing'],
+  // Each the right way round passes, bracketed or not.
+  ["  const instant = formatInstant(sub.trial_end, 'MMM d, yyyy')", null],
+  ["  const day = formatLocalDate(filing.filing_date, 'MMM d, yyyy')", null],
+  ["  const instantBracketed = fmt['formatInstant'](sub.trial_end, 'MMM d, yyyy')", null],
+  ["  const dayBracketed = fmt['formatLocalDate'](filing.filing_date, 'MMM d, yyyy')", null],
+  // A helper under another name: destructured with its key in each spelling, Date's included, or held in a const.
+  ['  const { formatInstant: held } = fmt', 'alias'],
+  ["  const { ['formatInstant']: heldInstant } = fmt", 'alias'],
+  ["  const { ['formatLocalDate']: heldLocal } = fmt", 'alias'],
+  ["  const { 'parseISO': heldParse } = dateFns", 'alias'],
+  ['  const { Date: HeldDate } = globalThis', 'alias'],
+  ["  const { ['Date']: HeldDateComputed } = globalThis", 'alias'],
+  ['  const local = formatLocalDate', 'alias'],
+  ["  const picked = fmt['formatInstant']", 'alias'],
+  ['  return [built, parsed, wrapped, namespaced, bracketed, parsedBracketed, builtBracketed, templated, renews, ends, renewsBracketed,', null],
+  ['    endsTemplated, instant, day, instantBracketed, dayBracketed, formatDay, held, heldInstant, heldLocal, heldParse, HeldDate,', null],
+  ['    HeldDateComputed, local, picked]', null],
+  ['}', null],
+  // A destructuring that keeps the name renames nothing.
+  ['export function ownNames() {', null],
+  ['  const { formatInstant } = fmt', null],
+  ["  const { ['parseISO']: parseISO } = dateFns", null],
+  ['  const { Date } = globalThis', null],
+  ['  return [formatInstant, parseISO, Date]', null],
+  ['}', null],
+  ['', null],
+]
+
 describe('the calendar-field lint', SLOW, () => {
-  it('errors on a calendar-date field through new Date, parseISO and formatInstant, a billing instant through formatLocalDate, and a renamed helper, and passes an instant and formatLocalDate', async () => {
+  it('errors on a calendar-date field through new Date, parseISO and formatInstant, a billing instant through formatLocalDate, and a renamed helper, each key in any spelling, and passes an instant and formatLocalDate', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
-    const [result] = await eslint.lintText(
-      [
-        "import { parseISO } from 'date-fns'",
-        "import { formatInstant, formatLocalDate } from '@/lib/format'",
-        "import * as fmt from '@/lib/format'",
-        "import { formatInstant as formatDay } from '@/lib/format'",
-        'export function probe(filing: { filing_date: string }, sub: { trial_end: string; current_period_end: string }) {',
-        '  const built = new Date(filing.filing_date)',
-        '  const parsed = parseISO(filing.filing_date)',
-        "  const wrapped = formatInstant(filing.filing_date, 'MMM d, yyyy')",
-        "  const namespaced = fmt.formatInstant(filing.filing_date, 'MMM d, yyyy')",
-        "  const renews = formatLocalDate(sub.current_period_end, 'MMM d, yyyy')",
-        "  const ends = fmt.formatLocalDate(sub['trial_end'], 'MMM d, yyyy')",
-        "  const instant = formatInstant(sub.trial_end, 'MMM d, yyyy')",
-        "  const day = formatLocalDate(filing.filing_date, 'MMM d, yyyy')",
-        '  const { formatInstant: held } = fmt',
-        '  const local = formatLocalDate',
-        '  return [built, parsed, wrapped, namespaced, renews, ends, instant, day, formatDay, held, local]',
-        '}',
-        '',
-      ].join('\n'),
-      { filePath: path.join(frontendRoot, 'app/calendar-field-probe.ts') },
-    )
+    const [result] = await eslint.lintText(PROBE.map(([code]) => code).join('\n'), {
+      filePath: path.join(frontendRoot, 'app/calendar-field-probe.ts'),
+    })
     const lines = (pattern: RegExp) =>
       result.messages.filter((m) => m.ruleId === 'no-restricted-syntax' && pattern.test(m.message)).map((m) => m.line)
-    expect(lines(/calendar-date field/), 'a calendar-date field through a Date constructor').toEqual([6, 7, 8, 9])
-    expect(lines(/Stripe billing date/), 'a billing instant through formatLocalDate').toEqual([10, 11])
-    expect(lines(/by their own names/), 'a helper under another name').toEqual([4, 14, 15])
+    const said = (what: Said) => PROBE.flatMap(([, line], index) => (line === what ? [index + 1] : []))
+    expect(lines(/calendar-date field/), 'a calendar-date field through a Date constructor').toEqual(said('calendar'))
+    expect(lines(/Stripe billing date/), 'a billing instant through formatLocalDate').toEqual(said('billing'))
+    expect(lines(/by their own names/), 'a helper under another name').toEqual(said('alias'))
     expect(result.messages.filter((m) => m.ruleId === 'no-restricted-syntax').every((m) => m.severity === 2)).toBe(true)
   })
 })
