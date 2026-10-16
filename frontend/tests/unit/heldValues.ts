@@ -2,9 +2,10 @@ import ts from 'typescript'
 
 /**
  * What a same-file value holds, followed from where it is written to where it is used, for the gates that read a
- * value rather than its syntax: brandVoiceRules.spec.ts's heading icons and reservedGlyphs.spec.ts's glyph counts. One
- * reading for both, so a shape one gate follows the other follows too (lessons/test-gates-must-be-as-wide-as-their-rule.md:
- * the family is taken from the language, not from the forms a review names).
+ * value rather than its syntax: brandVoiceRules.spec.ts's heading icons, reservedGlyphs.spec.ts's glyph counts and
+ * no-em-dash-copy.spec.ts's missing-value token. One reading for all three, so a shape one gate follows the others follow
+ * too (lessons/test-gates-must-be-as-wide-as-their-rule.md: the family is taken from the language, not from the forms a
+ * review names).
  *
  * A value is the leaves it may be (the gate says what a leaf is: an icon's import, a glyph's root), each with how
  * many times it renders; for an object or an array, what each property or element holds; and the same-file functions
@@ -40,11 +41,13 @@ import ts from 'typescript'
  *    so a literal index there may read any element from the spread on;
  *  - a conditional's two arms, both sides of `||` and `??`, the right of `&&`, an assignment's value, an `await`;
  *  - a JSX element's tag and its children (`<span><BellIcon /></span>` and `<><BellIcon /></>` hold it, as do
- *    `{expressions}` among the children), and the same for React's `createElement` (its type and children) and
- *    `cloneElement` (its element and children); a same-file component's element, by JSX or `createElement`, also
+ *    `{expressions}` among the children, and JSX text for a gate that reads it, `textLeaf`), and the same for React's
+ *    `createElement` (its type and children) and `cloneElement` (its element and children); a same-file component's
+ *    element, by JSX or `createElement`, also
  *    holds what the component returns, each time it is rendered (`<AlertMark />` where `AlertMark` returns
  *    `<BellIcon />`), so a glyph or an icon a component draws is read where the component is rendered;
- *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions); an
+ *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions), unless
+ *    the gate reads a return where it is written (`returns: false`, the em-dash gate: then no call holds a return); an
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
  *    `reduce` (its accumulator); `Object.values`, `Object.entries` (each value at index 1), `Object.assign` (its
@@ -331,6 +334,17 @@ const ELEMENT_RESULTS = new Set(['find', 'findLast', 'at', 'pop', 'shift'])
 /** Array methods that return an array of the elements (and, for `concat` and the splices, what they add). */
 const ARRAY_RESULTS = new Set(['filter', 'slice', 'splice', 'toSpliced', 'concat', 'sort', 'toSorted', 'reverse', 'toReversed', 'flat', 'with'])
 
+/** What a gate tells the shared reading beyond its leaves. */
+export interface HeldOptions<L> {
+  /** The leaves a leaf with members has under a key (a namespace's member), placed at `node`, the read or the binding. */
+  memberLeaf?: (leaf: L, key: string | undefined, node: ts.Node) => L[] | undefined
+  /** The leaves a JSX text child is, for a gate that reads text (the em-dash gate's token). */
+  textLeaf?: (text: ts.JsxText) => L[] | undefined
+  /** False for a gate that reads a function's return where it is written: a call then holds nothing a same-file function
+      or a callback returns. */
+  returns?: boolean
+}
+
 /**
  * The values of one source. `leafOf` names the leaves an expression is by itself (an import of an icon, a
  * namespace's member), or returns undefined.
@@ -338,7 +352,7 @@ const ARRAY_RESULTS = new Set(['filter', 'slice', 'splice', 'toSpliced', 'concat
 export function heldValues<L>(
   sf: ts.SourceFile,
   leafOf: (e: ts.Expression) => L[] | undefined,
-  memberLeaf?: (leaf: L, key: string | undefined, node: ts.Node) => L[] | undefined,
+  { memberLeaf, textLeaf, returns = true }: HeldOptions<L> = {},
 ): HeldValues<L> {
   // Keyed by the declaration (scopeResolver), never by the bare name.
   const holders = new Map<ts.Node, Held<L>>()
@@ -400,6 +414,7 @@ export function heldValues<L>(
   }
   const returned = (fns: Iterable<Fn> | null | undefined, record?: Set<ts.Node>): Held<L> => {
     let value = empty<L>()
+    if (!returns) return value
     for (const fn of fns ?? []) {
       if (evaluating.has(fn)) continue
       evaluating.add(fn)
@@ -412,14 +427,29 @@ export function heldValues<L>(
     return value
   }
 
+  const leavesAre = (own: L[]): Held<L> => {
+    const leaves = new Map<L, number>()
+    for (const leaf of own) leaves.set(leaf, (leaves.get(leaf) ?? 0) + 1)
+    return { leaves, props: null, fns: null }
+  }
+  /** What a JSX child holds: an element or an expression by its value, JSX text by `textLeaf`. */
+  const childValue = (child: ts.JsxChild, record?: Set<ts.Node>): Held<L> =>
+    ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)
+      ? valueOf(child, record)
+      : ts.isJsxExpression(child)
+        ? child.expression
+          ? valueOf(child.expression, record)
+          : empty<L>()
+        : ts.isJsxText(child) && textLeaf
+          ? leavesAre(textLeaf(child) ?? [])
+          : empty<L>()
+
   const valueOf = (e: ts.Expression, record?: Set<ts.Node>): Held<L> => {
     const x = unwrapHeld(e)
     const own = leafOf(x)
     if (own?.length) {
       record?.add(x)
-      const leaves = new Map<L, number>()
-      for (const leaf of own) leaves.set(leaf, (leaves.get(leaf) ?? 0) + 1)
-      return { leaves, props: null, fns: null }
+      return leavesAre(own)
     }
     if (ts.isIdentifier(x)) {
       const declaration = declarationOf(x)
@@ -456,10 +486,7 @@ export function heldValues<L>(
         if (leavesOf(rendered).size > 0) record?.add(x)
         value = { ...rendered, fns: null }
       }
-      for (const child of ts.isJsxSelfClosingElement(x) ? [] : x.children) {
-        if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)) value = both(value, valueOf(child, record))
-        else if (ts.isJsxExpression(child) && child.expression) value = both(value, valueOf(child.expression, record))
-      }
+      for (const child of ts.isJsxSelfClosingElement(x) ? [] : x.children) value = both(value, childValue(child, record))
       return value
     }
     if (ts.isArrayLiteralExpression(x)) {
@@ -748,17 +775,14 @@ export function heldValues<L>(
         continue
       }
       const init = attr.initializer
-      const expression = !init || ts.isStringLiteral(init) ? undefined : ts.isJsxExpression(init) ? init.expression : init
+      const expression = !init ? undefined : ts.isJsxExpression(init) ? init.expression : init
       const value = expression ? valueOf(expression, record) : empty<L>()
       if (!vacant(value)) props.set(attr.name.getText(), value)
       else props.delete(attr.name.getText())
     }
     if (ts.isJsxElement(x)) {
       let children = empty<L>()
-      for (const child of x.children) {
-        if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)) children = both(children, valueOf(child, record))
-        else if (ts.isJsxExpression(child) && child.expression) children = both(children, valueOf(child.expression, record))
-      }
+      for (const child of x.children) children = both(children, childValue(child, record))
       if (!vacant(children)) props.set('children', children)
     }
     pass(fns, [{ leaves: new Map(), props, fns: null }])

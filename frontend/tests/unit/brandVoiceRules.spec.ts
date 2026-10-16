@@ -537,7 +537,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     if (ts.isIdentifier(x)) return isIconName(x) || /Icon$/.test(x.text) ? ['icon'] : isIconNamespace(x) ? ['namespace'] : undefined
     return ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && /Icon$/.test(x.name.text) ? ['icon'] : undefined
   }
-  const values = heldValues(sf, iconLeaf, (leaf) => (leaf === 'namespace' ? ['icon'] : undefined))
+  const values = heldValues<'icon' | 'namespace'>(sf, iconLeaf, { memberLeaf: (leaf) => (leaf === 'namespace' ? ['icon'] : undefined) })
   const holdsIcon = (e: ts.Expression) => leavesOf(values.valueOf(e)).has('icon')
   const isIconTag = (n: ts.JsxOpeningLikeElement): boolean => {
     const name = n.tagName

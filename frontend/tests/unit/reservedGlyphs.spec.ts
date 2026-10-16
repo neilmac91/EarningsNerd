@@ -208,7 +208,7 @@ export function glyphUses(source: string, fileName: string): Counts {
     return glyph ? [rootAt('m', node, glyph)] : undefined
   }
   // What each same-file binding holds, by the reading the heading-icon clause shares (tests/unit/heldValues.ts).
-  const values = heldValues(sf, rootsOf, memberRoots)
+  const values = heldValues(sf, rootsOf, { memberLeaf: memberRoots })
   // Each read of a root, of a holder or of a holder's member. A hold counts where its holder is read, and a closing
   // tag repeats its opening tag's name: one use.
   const uses = new Map<Root, number>()
