@@ -18,11 +18,10 @@ function is out of reach unless its name says it is elapsed time: ``elapsed``, `
 ``elapsed1``, ``elapsed_1``, ``duration_ms``, ``durationMs``; not ``duration_days``, nor an XBRL
 ``period_duration``/``periodDuration``), as a name, an attribute or a string key. ``min``, ``max``,
 ``round``, ``sum``, ``int``, ``float``, ``.total_seconds()`` and scaling by a constant on either side
-keep a value's direction; dividing by elapsed time reverses it (a rate falls). ``abs`` of elapsed time
-itself (a later reading minus an earlier one, or a name or field holding it, scaled or not) stays
-elapsed time. ``abs`` of anything else that moves (time remaining, ``abs(s - time.monotonic())``, or a
-deviation from a target such as ``abs(elapsed - 1.0)``) and the ratio of two moving values race on both
-sides of a comparison. A value stored in a name, or added to a list with ``append``/``extend``/``+=``,
+keep a value's direction; dividing by elapsed time reverses it (a rate falls). ``abs`` of anything that
+moves (time remaining, a deviation from a target such as ``abs(elapsed - 1.0)``, or elapsed time
+itself) and the ratio of two moving values race on both sides of a comparison, so a lower bound on
+``abs`` of a plain span (``abs(time.monotonic() - s) >= 0.4``) is flagged too: drop the ``abs``. A value stored in a name, or added to a list with ``append``/``extend``/``+=``,
 keeps its direction, unless it is a clock reading or an earlier reading plus an offset, which is a
 fixed point in time. Names are not flow-sensitive: a name used for both a reading and elapsed time
 (``t = perf_counter()``, then ``t = perf_counter() - t``) is read as elapsed time throughout the
@@ -74,7 +73,7 @@ _ELAPSED_NAME = re.compile(
     r"(?:^|_)(?:elapsed|took|(?<!period_)durations?)(?:_?\d+)?(?:_(?:s|ms|us|ns|sec|secs|seconds|millis|times?|total))?$"
 )
 _CAMEL_HUMP = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
-# Builtins that keep a value's direction: min(elapsed), round(...); abs() keeps only elapsed time itself rising.
+# Builtins that keep a value's direction: min(elapsed), round(...); abs() of a moving value races both ways.
 _PASS_THROUGH = {"min", "max", "abs", "round", "sum", "int", "float"}
 _LOOP_GETTERS = {"get_running_loop", "get_event_loop"}
 _NOT_A_CLOCK = re.compile(r"(?:^|_)(?:at|on|dt|ts|now|when)$|date|stamp|fake|frozen")  # owners of .time()
@@ -118,19 +117,6 @@ def _mentions(node: ast.AST, names: set[str]) -> bool:
     return any(_is_clock_call(n) or (isinstance(n, ast.Name) and n.id in names) for n in ast.walk(node))
 
 
-def _is_span(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> bool:
-    """Elapsed time itself, never negative: a later reading minus an earlier one, or a name, field or
-    call that holds it, scaled or not; not elapsed time offset from a target (elapsed - 1.0)."""
-    if _trend(node, readings, spans, remains) != "up":
-        return False
-    if not isinstance(node, ast.BinOp):
-        return True
-    if isinstance(node.op, ast.Sub):
-        return _mentions(node.left, readings) and _mentions(node.right, readings)
-    if isinstance(node.op, (ast.Mult, ast.Div, ast.FloorDiv)):
-        return any(_is_span(side, readings, spans, remains) for side in (node.left, node.right))
-    return False
-
 
 def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> str | None:
     """How a value moves when the loop runs late: "up" (a clock read now, or elapsed time), "down" (a
@@ -159,11 +145,9 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
         if not (isinstance(func, ast.Name) and func.id in _PASS_THROUGH):
             return None
         trend = _merge(_trend(arg, readings, spans, remains) for arg in node.args)
-        if func.id != "abs" or not trend:
-            return trend
-        # Elapsed time is never negative, so abs() leaves it rising. Anything else can cross zero:
-        # abs(remaining) > 70 breaks as the value falls, abs(elapsed - 1.0) > 0.5 as it nears its target.
-        return "up" if len(node.args) == 1 and _is_span(node.args[0], readings, spans, remains) else _BOTH
+        # abs(remaining) > 70 breaks as the value falls, abs(elapsed - 1.0) > 0.5 as it nears its target,
+        # and abs(...) < 0.5 as a deviation grows. Telling a plain span apart costs more than it buys.
+        return _BOTH if func.id == "abs" and trend else trend
     if not isinstance(node, ast.BinOp):
         return None
     left = _trend(node.left, readings, spans, remains)
@@ -372,6 +356,19 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "a deviation floor, inline": "def t():\n    s = time.monotonic()\n    assert abs(time.monotonic() - s - 1.0) >= 0.5\n",
         "a field's deviation floor": "def t():\n    r = run()\n    assert abs(r.elapsed - TIMEOUT) >= 0.5\n",
         "a stored deviation floor": "def t():\n    s = time.monotonic()\n    dev = abs(time.monotonic() - s - 1.0)\n    assert dev > 0.5\n",
+        "a swapped deadline's floor in abs": "def t():\n    deadline = loop.time() + 60\n    assert abs(loop.time() - deadline) > 50\n",
+        "a stored target's deviation floor": (
+            "def t():\n    s = time.monotonic()\n    target = s + 1.0\n    run()\n    assert abs(time.monotonic() - target) > 0.5\n"
+        ),
+        "an inline target's deviation floor": "def t():\n    s = time.monotonic()\n    assert abs(time.monotonic() - (s + 1.0)) > 0.5\n",
+        "two spans' deviation floor": (
+            "def t():\n    s = time.monotonic()\n    a = time.monotonic() - s\n    t0 = time.monotonic()\n"
+            "    b = time.monotonic() - t0\n    assert abs(a - b) > 0.5\n"
+        ),
+        "a rounded deviation floor": (
+            "def t():\n    s = time.monotonic()\n    elapsed = time.monotonic() - s\n    assert abs(round(elapsed - 1.0, 2)) > 0.5\n"
+        ),
+        "a cast deviation floor": "def t():\n    r = run()\n    assert abs(float(r.elapsed - TIMEOUT)) >= 0.5\n",
         "a stored deadline's floor in abs": "def t():\n    deadline = loop.time() + 60\n    assert abs(deadline - loop.time()) > 50\n",
         "named remaining time's floor in abs": "def t():\n    left = timer.when() - time.monotonic()\n    assert abs(left) > 70\n",
         "an end built from a duration budget": (
@@ -408,7 +405,6 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "a datetime's time of day": "def t():\n    row = fetch()\n    assert row.accepted_at.time() < dtime(16, 0)\n",
         "a datetime built in the assert": "def t():\n    assert datetime.now(tz).time() < dtime(16, 0)\n",
         "a date's time of day": "def t():\n    filed_date = fetch()\n    assert filed_date.time() < dtime(16, 0)\n",
-        "a lower bound on abs of a span": "def t():\n    s = time.monotonic()\n    assert abs(time.monotonic() - s) >= 0.4\n",
         "a period's duration": "def t():\n    f = fact()\n    assert f[\"periodDuration\"] <= 92 and f.period_duration <= 92\n",
         "a plan's trial length in days": "def t():\n    assert plan.trial_duration_days < 30\n",
         "a hand-moved fake clock": "def t():\n    fake_clock = FakeClock()\n    fake_clock.advance(5)\n    assert fake_clock.time() <= 5\n",
