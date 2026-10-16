@@ -173,23 +173,28 @@ def _pinned_methods():
 
 
 def test_probe_pins_a_singleton_method_like_monkeypatch(monkeypatch):
-    # Test files call monkeypatch.setattr on these singletons 93 times (25 files), and undoing a method
-    # sets the bound method monkeypatch saved back on the instance.
+    # Undoing monkeypatch.setattr of a method on an instance sets the bound method it saved back on the
+    # instance. Pin one method on each singleton; conftest must clear all three.
     from app.services import summary_pipeline
 
     assert _pinned_methods() == []
+    monkeypatch.setattr(summary_pipeline.sec_edgar_service, "search_company", AsyncMock(return_value=[]))
     monkeypatch.setattr(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.setattr(summary_pipeline.openai_service, "stream_chat", AsyncMock())
     monkeypatch.undo()
-    assert _pinned_methods() == ["XBRLServiceCompat.get_xbrl_data"]  # the leftover conftest must clear
+    assert _pinned_methods() == [
+        "OpenAIService.stream_chat", "SECEdgarServiceCompat.search_company", "XBRLServiceCompat.get_xbrl_data",
+    ]
 
 
 def test_probe_next_test_finds_no_pinned_singleton_method():
     assert _pinned_methods() == []
 
 
-def test_pinned_methods_are_found_without_the_pipeline(request, monkeypatch):
+def test_pinned_methods_are_cleared_without_the_pipeline(request, monkeypatch):
     # test_eval_measurement reaches xbrl_service through app.services.edgar.compat and never imports
-    # summary_pipeline, so conftest finds the singletons where they live, not through the pipeline.
+    # summary_pipeline, so conftest finds the singletons where they live and clears them from there. A
+    # bound method stored under another name is not a pin and stays.
     from app.services import openai_service as ai
     from app.services.edgar import compat
 
@@ -198,6 +203,15 @@ def test_pinned_methods_are_found_without_the_pipeline(request, monkeypatch):
     found = conftest._service_singletons()
     expected = [compat.sec_edgar_service, compat.xbrl_service, ai.openai_service]
     assert len(found) == 3 and all(a is b for a, b in zip(found, expected)), found
+    service = compat.xbrl_service
+    try:
+        service.get_xbrl_data = service.get_xbrl_data  # a pin, as monkeypatch's undo leaves it
+        service.xbrl_alias = service.get_xbrl_data  # the same bound method under a name the class lacks
+        conftest._clear_pinned_methods()
+        assert "get_xbrl_data" not in vars(service) and "xbrl_alias" in vars(service), sorted(vars(service))
+    finally:
+        vars(service).pop("get_xbrl_data", None)
+        vars(service).pop("xbrl_alias", None)
 
 
 def test_ordered_probes_hold_in_a_fresh_serial_process():

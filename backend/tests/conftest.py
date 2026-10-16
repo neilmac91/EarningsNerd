@@ -313,9 +313,9 @@ def _service_singletons():
 def _clear_pinned_methods():
     # monkeypatch.setattr on an instance saves the old attribute with getattr, which returns a bound
     # method, and its undo sets that back on the instance: the class's own method, pinned there, where
-    # it would shadow a later class-level patch in whichever tests ran after it (test files call
-    # monkeypatch.setattr on these singletons 93 times). A pin behaves exactly like the class's
-    # method, so it is cleared silently rather than failing the test.
+    # it would shadow a later class-level patch in whichever tests ran after it; tests patch these
+    # singletons this way across dozens of files. A pin behaves exactly like the class's method, so it
+    # is cleared silently rather than failing the test.
     for target in _service_singletons():
         for name, value in list(vars(target).items()):
             if getattr(value, "__self__", None) is target and getattr(value, "__func__", None) is getattr(type(target), name, None):
