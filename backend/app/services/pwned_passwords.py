@@ -30,21 +30,24 @@ async def is_password_pwned(password: str) -> bool:
     so the text bcrypt keys on is screened too (``password_utils.bcrypt_screen_texts``): a
     breached password plus an unlisted tail must not pass as unbreached.
 
-    Returns False when the check is disabled, the password is empty, or the lookup fails for
-    any reason (fail-open).
+    Returns False when the check is disabled, the password is empty, or a lookup fails for any
+    reason (fail-open). The first failed lookup ends the screen: a slow or unreachable HIBP costs one
+    timeout, not one per screened text.
     """
     if not settings.PWNED_PASSWORD_CHECK_ENABLED or not password:
         return False
-    if await _is_listed(password):
-        return True
-    for text in bcrypt_screen_texts(password):
-        if text != password and await _is_listed(text):
+    for text in (password, *(t for t in bcrypt_screen_texts(password) if t != password)):
+        listed = await _is_listed(text)
+        if listed is None:
+            return False
+        if listed:
             return True
     return False
 
 
-async def _is_listed(password: str) -> bool:
-    """One range-API lookup for ``password``; False on any failure (fail-open)."""
+async def _is_listed(password: str) -> bool | None:
+    """One range-API lookup for ``password``: True if listed, False if not, None if the lookup
+    failed (the caller fails open)."""
     # SHA-1 is mandated by the HIBP range API (the k-anonymity protocol hashes with SHA-1); it is
     # NOT used as a security primitive here — the protection comes from matching against the breach
     # corpus, not from SHA-1's collision resistance. usedforsecurity=False documents that intent and
@@ -77,4 +80,4 @@ async def _is_listed(password: str) -> bool:
         logger.warning(
             "Pwned-password check unavailable (%s); allowing password", exc.__class__.__name__
         )
-        return False
+        return None

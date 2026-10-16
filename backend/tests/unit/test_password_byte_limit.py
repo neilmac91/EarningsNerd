@@ -188,8 +188,17 @@ def test_change_password_accepts_a_long_password_and_login_takes_it(client, pass
     assert _login(client, email, SHORT).status_code == 401
 
 
+# Long passwords as bcrypt 4 stored them, a character split at byte 72 included: login and the
+# current-password check apply no policy, so every such account keeps signing in.
+STORED_LONG_PASSWORDS = pytest.mark.parametrize(
+    "password",
+    [ASCII_87, CYRILLIC_42, STRADDLE, THREE_BYTE_STRADDLE, FOUR_BYTE_STRADDLE],
+    ids=["ascii87", "cyrillic84b", "straddles-byte-72", "3-byte-char-straddles", "4-byte-char-straddles"],
+)
+
+
 @pytest.mark.requires_db
-@LONG_PASSWORDS
+@STORED_LONG_PASSWORDS
 def test_login_takes_a_long_password_against_its_bcrypt4_hash(client, password):
     email = _email()
     _create_user(email, _bcrypt4_hash(password))
@@ -197,7 +206,7 @@ def test_login_takes_a_long_password_against_its_bcrypt4_hash(client, password):
 
 
 @pytest.mark.requires_db
-@LONG_PASSWORDS
+@STORED_LONG_PASSWORDS
 def test_change_password_takes_a_long_current_password_against_its_bcrypt4_hash(client, password):
     email = _email()
     _create_user(email, _bcrypt4_hash(password))
@@ -307,6 +316,21 @@ def test_a_password_bcrypt_hashes_whole_is_looked_up_once(range_api):
     api = range_api({"password123"})
     assert asyncio.run(pwned_passwords.is_password_pwned(ASCII_72)) is False
     assert len(api.asked) == 1
+
+
+@pytest.mark.parametrize("password", [ASCII_87, STRADDLE], ids=["ascii87", "straddles-byte-72"])
+def test_an_unreachable_hibp_costs_one_lookup_and_fails_open(monkeypatch, password):
+    monkeypatch.setattr(pwned_passwords.settings, "PWNED_PASSWORD_CHECK_ENABLED", True)
+    asked: list[str] = []
+
+    class _Down(_RangeApi):
+        async def get(self, url, headers=None):
+            asked.append(url)
+            raise pwned_passwords.httpx.ConnectTimeout("HIBP unreachable")
+
+    monkeypatch.setattr(pwned_passwords.httpx, "AsyncClient", _Down(set()))
+    assert asyncio.run(pwned_passwords.is_password_pwned(password)) is False
+    assert len(asked) == 1  # one timeout, then fail open; not one per screened text
 
 
 @pytest.mark.requires_db

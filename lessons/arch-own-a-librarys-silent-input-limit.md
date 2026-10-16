@@ -25,7 +25,8 @@ screen of the whole password alone passed a breached 72-byte password with any t
 the hash, and so login, keyed on the breached part. Screen a text that shares the key exactly: when
 byte 72 splits a character, its lead bytes are part of the key, so the screened text ends with the
 whole split character. Dropping that character screened a text with a different key, and a breached
-text ending in it passed while it opened the account.
+text ending in it passed while it opened the account. A screen that fails open must also stop at its
+first failure: one HIBP timeout per screened text doubled an outage's wait, or tripled it.
 
 **Evidence**: `backend/app/services/password_utils.py` (`_bcrypt_input`, `bcrypt_screen_texts`); gate
 `backend/tests/unit/test_password_byte_limit.py` (a 128-character password of 4-byte characters,
