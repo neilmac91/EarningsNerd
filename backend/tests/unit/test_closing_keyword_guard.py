@@ -94,6 +94,8 @@ def bodies(tmp_path: Path) -> Path:
     (tmp_path / "COMMIT_MSG.md").write_text("Fixes #3.\n", encoding="utf-8")  # capitals after an attached -F
     (tmp_path / "ref-first.md").write_text("#3 carries the rest.\n", encoding="utf-8")  # a message after a title
     (tmp_path / "title.md").write_text("ci: lint fix\n", encoding="utf-8")  # a title before such a message
+    (tmp_path / "my title.md").write_text("ci: lint fix\n", encoding="utf-8")  # the same, named with a space
+    (tmp_path / "merge.sh").write_text("gh pr merge 5 -s -b 'fixes #3'\n", encoding="utf-8")  # a script's merge
     (tmp_path / "clean.md").write_text("Squash of the series; #3 carries the fix.\n", encoding="utf-8")
     (tmp_path / "body.json").write_text('{"merge_method": "squash", "commit_message": "resolves #3"}', encoding="utf-8")
     (tmp_path / "automerge.graphql").write_text(
@@ -147,6 +149,12 @@ MCP_REFUSED = {
     "an escaped line break before a keyword in a GraphQL body": ("mcp__github__run_graphql", {
         "query": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitBody: "Squash of the series.\\n\\n'
                  'Fixes #3"}) { clientMutationId } }'}),
+    "mergeBranch's message, an escaped line break before a keyword": ("mcp__github__run_graphql", {
+        "query": 'mutation { mergeBranch(input: {repositoryId: "R", base: "main", head: "dev", '
+                 'commitMessage: "Sync.\\nFixes #3"}) { clientMutationId } }'}),
+    "a GraphQL block string after a headline": ("mcp__github__run_graphql", {
+        "query": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "lint fix", '
+                 'commitBody: """#3 carries the rest"""}) { clientMutationId } }'}),
     "the same in a JSON-string request body": ("mcp__github__api_request", {
         "method": "POST", "path": "/graphql", "body": json.dumps({"query": (
             'mutation { mergePullRequest(input: {pullRequestId: "X", commitBody: "Squash of the series.\\n\\n'
@@ -209,6 +217,16 @@ MCP_PASSED = {
     "a search whose query names a merge mutation": ("mcp__github__search_code", {"query": "mergePullRequest fixes #3"}),
     "a search that starts with a GraphQL keyword but calls nothing": (
         "mcp__github__search_code", {"query": "query mergePullRequest closes #3"}),
+    # Prose or a JSON file that names a merge call is no GraphQL request: no keyword as a whole word, no "query" key.
+    "a Markdown file whose heading and prose name a merge call": ("mcp__github__create_or_update_file", {
+        "path": "docs/merging.md", "branch": "t", "message": "docs",
+        "content": "# Merging\n\nMutations such as mergePullRequest(input) take a commitBody; one that says fixes #3 "
+                   "closes #3."}),
+    "a JSON file that holds a merge call": ("mcp__github__create_or_update_file", {
+        "path": "cases.json", "branch": "t", "message": "test",
+        "content": '{"cases": ["mutation { mergePullRequest(input: {}) }", "fixes #3"]}'}),
+    "a comment that starts with a word like a GraphQL keyword": ("mcp__github__add_issue_comment", {
+        "issue_number": 5, "body": "Fragmentation note: mergeBranch() then fixes #3"}),
     "a comment that names the GraphQL endpoint and a merge call": ("mcp__github__add_issue_comment", {
         "issue_number": 5, "body": "POST /graphql with mergePullRequest(commitHeadline: 'fixes #3') is refused."}),
 }
@@ -295,6 +313,24 @@ BASH_REFUSED = (
     "gh pr merge 5 -s -t \"$(cat title.md)\" -b '#3 carries the rest'",
     "gh pr merge 5 -s -t \"$(<title.md)\" -b '#3 carries the rest'",
     "gh api -X PUT repos/o/r/pulls/5/merge -f commit_title=\"$(cat title.md)\" -f commit_message='#3 carries the rest'",
+    # mergeBranch's message field; a JSON request a here-document sends, its GraphQL variables decoded.
+    "gh api graphql -f query='mutation { mergeBranch(input: {repositoryId: \"R\", base: \"main\", head: \"dev\", "
+    "commitMessage: \"Sync.\\nFixes #3\"}) { clientMutationId } }'",
+    "gh api graphql --input - <<'EOF'\n{\"query\": \"mutation($b: String!) { mergePullRequest(input: "
+    "{pullRequestId: \\\"X\\\", commitBody: $b}) { clientMutationId } }\", \"variables\": "
+    "{\"b\": \"Squash of the series.\\n\\nFixes #3\"}}\nEOF",
+    # A GraphQL block string; a substituted file named with a space, quoted or escaped.
+    "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"X\", commitHeadline: \"lint fix\", "
+    "commitBody: \"\"\"#3 carries the rest\"\"\"}) { clientMutationId } }'",
+    "gh pr merge 5 -s -t \"$(cat 'my title.md')\" -b '#3 carries the rest'",
+    "gh pr merge 5 -s -t \"$(cat my\\ title.md)\" -b '#3 carries the rest'",
+    # Each documented bound, from below: 1,000 marks on each side of where a title and its message meet, the 16th
+    # distinct title, a line's 16th here-document, and three -R options in a row.
+    "gh pr merge 5 -s -t 'lint fixes" + " " * 1000 + "' -b '" + " " * 1000 + "#3 carries the rest'",
+    "gh pr merge 5 -s -t 'lint fix' " + " ".join(f"-t t{n}" for n in range(1, 16)) + " -b '#3 carries the rest'",
+    "".join(f"cat > /dev/null <<'A{n}'\nscratch {n}\nA{n}\n" for n in range(15))
+    + "gh pr merge 5 -s -t 'lint fix' --body-file - <<'B'\n#3 carries the rest\nB",
+    "gh -R a -R b -R c pr merge 5 -s -b 'fixes #3'",
     # gh keeps a flag's last value: a title given first and last, with 16 others between.
     "gh pr merge 5 -s -t 'lint fix' " + " ".join(f"-t t{n}" for n in range(16)) + " -t 'lint fix' -b '#3 carries the rest'",
     "gh pr merge 5 -s -F=msg.md",  # pflag drops an `=` after a short option
@@ -401,8 +437,8 @@ BASH_PASSED = (
 # otherwise, a merge whose URL sits in a file a command reads as its configuration, an MCP request tool that
 # spreads a merge's target over fields, a brace expansion, more than three -R in a row, a title past the last 16
 # a call types, a keyword and a reference more than 1,024 characters from where a title and its message meet, a
-# typed half whose other half is GitHub's default. A file over 1 MiB and a glob's files past its first 16 have tests
-# of their own.
+# here-document past a line's first 16, a typed half whose other half is GitHub's default. The bodies directory
+# holds the script the line runs. A file over 1 MiB and a glob's files past its first 16 have tests of their own.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b $'fixes \\x233'"}),
@@ -417,6 +453,8 @@ GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -t 'lint fix' " + " ".join(f"-t t{n}" for n in range(16))
               + " -b '#3 carries the rest'"}),  # a title past the last 16; gh writes the last
     ("Bash", {"command": "gh pr merge 5 -s -t 'lint fix' -b '" + " " * 1100 + "#3 carries the rest'"}),  # past 1,024
+    ("Bash", {"command": "".join(f"cat > /dev/null <<'A{n}'\nscratch {n}\nA{n}\n" for n in range(16))  # past 16
+              + "gh pr merge 5 -s -t 'lint fix' --body-file - <<'B'\n#3 carries the rest\nB"}),
     ("Bash", {"command": "gh pr merge 5 --merge --body '#3 carries the rest'"}),  # GitHub's default title
     (MERGE, {"pullNumber": 5, "commit_title": "lint fix"}),  # GitHub's default message
     ("Bash", {"command": "curl -K merge.cfg"}),
@@ -541,6 +579,8 @@ ADVERSARIAL = {
     "titles and here-documents": MERGE_LINE + "".join(f" -t t{n} <<w{n}\n" for n in range(16)) + "&lt;\n" * 190_000,
     "JSON words": MERGE_LINE + " {x}" * 250_000,
     "commit strings": MERGE_LINE + ' commitBody: "x"' * 60_000,
+    "block strings": MERGE_LINE + ' commitBody: """x' * 60_000,
+    "JSON here-documents": MERGE_LINE + "".join(f" <<w{n}\n" for n in range(16)) + '{"a": "' + "x" * 900_000 + '"}',
     "fields": MERGE_LINE + "".join(f" -f commit_title=t{n} -f commit_message=@m{n}" for n in range(30_000)),
     "GraphQL variables": "gh api graphql -f query='mutation { mergePullRequest(input: {" + "commitBody: $b " * 60_000
                          + "}) }'" + " -f b=x" * 20_000,
@@ -565,6 +605,10 @@ LARGE_REFUSED = {
     "an MCP GraphQL body with escaped line breaks": ("mcp__github__run_graphql", {
         "query": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitBody: "' + "Squash.\\n" * 100_000
                  + 'Fixes #3"}) { clientMutationId } }'}),
+    "a JSON-string GraphQL body over 1 MiB": ("mcp__github__api_request", {
+        "method": "POST", "path": "/graphql", "body": json.dumps({"query": (
+            'mutation { mergePullRequest(input: {pullRequestId: "X", commitBody: "' + "Squash.\\n" * 140_000
+            + 'Fixes #3"}) { clientMutationId } }')})}),
 }
 
 

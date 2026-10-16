@@ -10,12 +10,12 @@ at the merge itself. This hook reads that message where an agent types it, with 
 `closing_references` (loaded from backend/scripts/review_gate.py, so the two share one pattern):
 - a call to a GitHub MCP server (a name containing "github" in any case) that merges: a tool whose name
   contains "merge" (merge_pull_request types commit_title and commit_message), or a request handed as a
-  whole string: a GraphQL document or JSON request calling a merge mutation (mergePullRequest(,
-  enablePullRequestAutoMerge(, mergeBranch(), the GraphQL endpoint beside such a call, or a REST merge
-  target (a method, then a URL, a path or a route, templated or with a query string, ending at a pull
-  request's `/merge` or a repository's `/merges`). It reads every string the call is handed, at any depth,
-  whatever the server names the field. A call whose text only mentions a merge (a file's content, a
-  comment, a search) passes;
+  whole string: a GraphQL document (its operation keyword a whole word) or a JSON request (an object with a
+  "query" key) calling a merge mutation (mergePullRequest(, enablePullRequestAutoMerge(, mergeBranch(), the
+  GraphQL endpoint beside such a call, or a REST merge target (a method, then a URL, a path or a route,
+  templated or with a query string, ending at a pull request's `/merge` or a repository's `/merges`). It
+  reads every string the call is handed, at any depth, whatever the server names the field. A call whose
+  text only mentions a merge (a file's content, a comment, a search) passes;
 - a shell line (Bash's, or a Monitor's command) that runs or names `gh pr merge` (gh as a word or a path,
   -R/--repo before the noun or the verb, the words quoted or not), a REST merge endpoint (`/merge` or
   `/merges` with `gh api` or api.github.com), or a GraphQL call (`graphql` with `gh api` or api.github.com)
@@ -39,11 +39,12 @@ a shell line they are gh pr merge's --subject/-t and --body/-b among the line's 
 them (a quoted value may run over lines), and among the words of a word that is itself a merge's line
 (`bash -c 'gh pr merge ...'`), a value that is one file's plain `cat` or `<` (`-t "$(cat title.md)"`) read
 as that file's text, and each file the line reads, each here-document and each here-string as a message; and
-GitHub's field names, commit_title with commit_message and commitHeadline with commitBody, as a name=value
-word (`-f 'commit_title=lint fix'`, `--field=...`, gh's nested `input[commitBody]=...`, httpie's
-field=value; `=@file` read), a quoted value the name takes in a text, read whole and decoded as its language
-reads it (a JSON or GraphQL string, its quotes escaped or not; a script's dictionary or keyword argument), a
-JSON text decoded, or a GraphQL variable such a word or a JSON body gives (`commitBody: $b` with
+GitHub's field names, commit_title with commit_message, and commitHeadline with commitBody or mergeBranch's
+commitMessage, as a name=value word (`-f 'commit_title=lint fix'`, `--field=...`, gh's nested
+`input[commitBody]=...`, httpie's field=value; `=@file` read), a quoted value the name takes in a text, read
+whole and decoded as its language reads it (a JSON or GraphQL string, its quotes escaped or not, or a
+GraphQL block string; a script's dictionary or keyword argument), a JSON text, or the one a here-document
+starts with, decoded, or a GraphQL variable such a word or a JSON body gives (`commitBody: $b` with
 `-f b=...`). On MCP they are the same fields and variables among the call's strings, and every string of the
 call in order. A decoded value is also read on its own, so a keyword after an escaped line break (`\n`)
 counts.
@@ -63,13 +64,13 @@ Not checked: text the shell or a command builds as the line runs (a variable, an
 brace expansion, the output of any command but a plain `cat`, a line handed to another shell that way; a
 literal `bash -c '...'` is on the line and read); a file over 1 MiB, a glob's files past its first 16, or a
 file named relative to a directory the line changes into first; more than three -R/--repo options in a row
-before `pr` or `merge`; a title or message past the last 16 of each a call types, or a title's keyword and
-its message's reference more than 1,024 characters from where the two meet; a typed title or message whose
-other half is GitHub's default (a merge commit's default title names its branch); a merge a script or a gh
-alias runs, or whose URL sits in a file a command reads as its configuration (curl's -K, wget's -i); an MCP
-request tool that spreads a merge's target over fields of its own (owner, repository, number, action); a
-GitHub MCP server registered under a name without "github"; a session that loads no repository hooks; and a
-person's own merge.
+before `pr` or `merge`; a title or message past the last 16 of each a call types, a here-document past a
+line's first 16, or a title's keyword and its message's reference more than 1,024 characters from where the
+two meet; a typed title or message whose other half is GitHub's default (a merge commit's default title
+names its branch); a merge a script or a gh alias runs, or whose URL sits in a file a command reads as its
+configuration (curl's -K, wget's -i); an MCP request tool that spreads a merge's target over fields of its
+own (owner, repository, number, action); a GitHub MCP server registered under a name without "github"; a
+session that loads no repository hooks; and a person's own merge.
 Tests: backend/tests/unit/test_closing_keyword_guard.py.
 """
 from __future__ import annotations
@@ -91,12 +92,14 @@ GH_API = re.compile(r"(?:^|[\s/;&|(`$])gh\s+api\b")
 GRAPHQL = re.compile(r"\bgraphql\b", re.IGNORECASE)
 MERGE_MUTATION = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|mergeBranch)\b", re.IGNORECASE)
 # An MCP string that is, as a whole, a merge request: a GraphQL document (after any comments, any operation or
-# fragment first) or a JSON request that calls a merge mutation; the GraphQL endpoint, whose call then sits in
-# another string; or a REST merge target (a method, then a URL, a path or a route, templated or with a query
-# string, ending at a pull request's /merge or a repository's /merges).
+# fragment first, its keyword a whole word) or a JSON request (an object with a "query" key) that calls a merge
+# mutation; the GraphQL endpoint, whose call then sits in another string; or a REST merge target (a method, then
+# a URL, a path or a route, templated or with a query string, ending at a pull request's /merge or a
+# repository's /merges).
 MUTATION_CALL = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|mergeBranch)\s*\(", re.IGNORECASE)
 GRAPHQL_MERGE = re.compile(
-    r"\A\s*(?:#[^\n]*\n\s*)*(?:query|mutation|subscription|fragment|\{)[\s\S]*?" + MUTATION_CALL.pattern, re.IGNORECASE)
+    r"\A\s*(?:#[^\n]*\n\s*)*(?:(?:query|mutation|subscription|fragment)\b|\{(?=[\s\S]*?\"query\"\s*:))[\s\S]*?"
+    + MUTATION_CALL.pattern, re.IGNORECASE)
 _TARGET = r"\A\s*(?:[A-Za-z]+\s+)?(?:(?:https?://)?api\.github\.com)?/?"
 GRAPHQL_ENDPOINT = re.compile(_TARGET + r"graphql/?(?:\?\S*)?\s*\Z", re.IGNORECASE)
 REST_MERGE = re.compile(
@@ -138,18 +141,21 @@ BODY_FLAG = re.compile(r"--body(?:=([\s\S]*))?|-[A-Za-z]*?b=?([\s\S]*)")
 # gh api's -f/-F/--field/--raw-field name=value, the option attached or not (-fname=value), and httpie's field=value;
 # a nested key (input[commitBody]=value, which gh sends as a field of the input variable) is named by its last key.
 NAMED_WORD = re.compile(r"(?:--(?:raw-)?field=|-[A-Za-z]*?[fF]=?)?(?:\w+\]?\[)*(\w+)\]?(?:\[\])?=([\s\S]*)")
-COMMIT_PART = re.compile(r"""\b(commit_title|commitHeadline|commit_message|commitBody)\b["']?\s*[:=]\s*"""
-                         r"""("(?:[^"\\]|\\[\s\S])*"|'[^']*')""")
-COMMIT_VARIABLE = re.compile(r"\b(commit_title|commitHeadline|commit_message|commitBody)\s*:\s*\$(\w+)")
 TITLE_FIELDS = ("commit_title", "commitHeadline")
-MESSAGE_FIELDS = ("commit_message", "commitBody")
+MESSAGE_FIELDS = ("commit_message", "commitBody", "commitMessage")  # REST's, then GraphQL's merge and mergeBranch's
+_FIELD = "(" + "|".join(TITLE_FIELDS + MESSAGE_FIELDS) + ")"
+# A field's quoted value: a GraphQL block string, a JSON or GraphQL string, or a script's single-quoted string.
+COMMIT_PART = re.compile(r"\b" + _FIELD + r"\b[\"']?\s*[:=]\s*"
+                         r"(\"\"\"(?:[^\"\\]|\\[\s\S]|\"(?!\"\"))*\"\"\"|\"(?:[^\"\\]|\\[\s\S])*\"|'[^']*')")
+COMMIT_VARIABLE = re.compile(r"\b" + _FIELD + r"\s*:\s*\$(\w+)")
 MAX_PARTS = 16
 # A here-document's opener (not a here-string's `<<<`); its text starts on the next line.
 HEREDOC = re.compile(r"""(?<!<)<<(?!<)-?[ \t]*(?:'[^'\n]+'|"[^"\n]+"|\\?[A-Za-z_][\w.-]*)""")
 MAX_HEREDOCS = 16
 HERESTRING = re.compile(r"<<<[ \t]*" + _VALUE)  # a here-string's word, the text it sends on standard input
 # A value the shell fills from one file: a plain cat's or a `<` redirect's in a command substitution.
-SUBSTITUTED = re.compile(r"""(?:\$\(|`)\s*(?:<|(?:\\|\S*/)?(?:cat|'cat'|"cat")\s)\s*([^\s()`]+)\s*(?:\)|`)""")
+SUBSTITUTED = re.compile(r"""(?:\$\(|`)\s*(?:<|(?:\\|\S*/)?(?:cat|'cat'|"cat")\s)\s*"""
+                         r"""((?:'[^']*'|"[^"]*"|\\[\s\S]|[^\s()`'"\\])+)\s*(?:\)|`)""")
 # The join reads a title's end and a message's start: more than any keyword, the marks after it and a reference
 # (a pull request URL is about 240 characters) need, and a bound on each joined text however large its parts.
 JOIN_CHARS = 1024
@@ -159,6 +165,7 @@ LIST_PUNCTUATION = re.compile(r"[\[\],]")  # a program's argument list: ["gh", "
 MAX_FILE_BYTES = 1 << 20
 MAX_GLOB_FILES = 16
 GATE = Path(__file__).resolve().parents[2] / "backend" / "scripts" / "review_gate.py"
+DECODER = json.JSONDecoder()
 
 
 def _closing_references():
@@ -285,6 +292,8 @@ def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
 def _part(value: str) -> str:
     """A quoted value as the language that quotes it reads it: a JSON or GraphQL string, or a script's single-quoted
     one, with its escapes decoded (`\\n` a line break); unquoted only, for an escape JSON does not know."""
+    if value.startswith('"""'):  # a GraphQL block string: raw but for its escaped triple quote
+        return value[3:-3].replace('\\"""', '"""')
     body = value[1:-1]
     try:
         return json.loads(value if value[0] == '"' else '"' + body.replace('"', '\\"') + '"')
@@ -292,13 +301,16 @@ def _part(value: str) -> str:
         return body
 
 
-def _json_strings(text: str) -> list[tuple[str, str]]:
-    """The (name, string) pairs inside a text that is JSON (a request body sent as one string), decoded."""
+def _json_strings(text: str, prefix: bool = False) -> list[tuple[str, str]]:
+    """The (name, string) pairs inside a text that is JSON (a request body sent as one string), decoded; with
+    `prefix`, inside the JSON value the text starts with (a here-document's, which runs on past its end)."""
     stripped = text.strip()
-    if stripped[:1] + stripped[-1:] not in ("{}", "[]") or len(stripped) > MAX_FILE_BYTES:
+    if stripped[:1] not in ("{", "["):
+        return []
+    if not prefix and stripped[-1:] != ("}" if stripped[0] == "{" else "]"):
         return []
     try:
-        return list(_strings(json.loads(stripped)))
+        return list(_strings(DECODER.raw_decode(stripped)[0] if prefix else json.loads(stripped)))
     except (ValueError, RecursionError):
         return []
 
@@ -312,7 +324,7 @@ def _heredocs(text: str) -> list[str]:
     """The text of each here-document on the line (the first 16), from the line after its opener. A message is
     read joined only at its start, so where the document ends does not matter."""
     starts = (text.find("\n", match.end()) for match in islice(HEREDOC.finditer(text), MAX_HEREDOCS))
-    return [text[start + 1:] for start in starts if start >= 0]
+    return list(dict.fromkeys(text[start + 1:] for start in starts if start >= 0))  # openers on one line share it
 
 
 def _flag_values(words: list[str], flag: re.Pattern) -> list[str]:
@@ -413,7 +425,7 @@ def refusal(event: object) -> str | None:
         words = [word for line in lines for word in line]
         heredocs = _heredocs(joined)
         decoded = [pair for text in [*words, *(text for _, text in files)] if "{" in text or "[" in text
-                   for pair in _json_strings(text)]
+                   for pair in _json_strings(text)] + [pair for text in heredocs for pair in _json_strings(text, True)]
         texts += files + [("a JSON body", text) for _, text in decoded]
         if kind == "graphql" and not any(MERGE_MUTATION.search(text) for _, text in texts):
             return None
