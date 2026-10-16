@@ -19,6 +19,8 @@
    States: default / hover / active / focus-visible / disabled / loading.
    Loading is NOT the disabled look — it keeps the resting fill, shows a
    spinner, sets aria-busy, and refuses activation until the work settles.
+   reserveLoadingText keeps a longer loading label's room at rest, so the
+   swap never resizes the button (RetryButton's "Trying again…").
 ============================================================================= */
 
 import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
@@ -193,12 +195,18 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
   /** Optional label swap while loading, e.g. "Generating…" */
   loadingText?: string
+  /** A loading label to keep room for at rest, for a swap to a label longer than the resting one (RetryButton's
+      "Trying again…"): the content is laid out in one cell over an invisible, aria-hidden copy of the loading
+      state (the spinner's box and this label), so the larger of the two sizes the button in every state and
+      neither the spinner nor the label swap resizes it or moves what is around it. What shows still follows
+      `loading` and `loadingText`. */
+  reserveLoadingText?: string
   leftIcon?: ReactNode
   rightIcon?: ReactNode
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', wrap = false, loading = false, loadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
+  { variant = 'primary', size = 'md', wrap = false, loading = false, loadingText, reserveLoadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
   ref,
 ) {
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
@@ -208,6 +216,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     }
     onClick?.(e)
   }
+
+  const content = (
+    <>
+      {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}
+      {loading && loadingText ? loadingText : children}
+      {!loading && rightIcon}
+    </>
+  )
 
   return (
     <button
@@ -223,9 +239,20 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       className={cx(buttonVariants({ variant, size, wrap, className }), loading && 'cursor-progress')}
       {...rest}
     >
-      {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}
-      {loading && loadingText ? loadingText : children}
-      {!loading && rightIcon}
+      {reserveLoadingText === undefined ? (
+        content
+      ) : (
+        // One grid cell: what shows, over the loading state laid out invisibly (hidden from assistive tech, its
+        // spinner a still box of the spinner's size). Both rows take the button's own gap and centring, and the
+        // narrow state's wrapping reaches them as inherited text styles, so each state fills the same cell.
+        <span className="grid place-items-center [gap:inherit]">
+          <span className="col-start-1 row-start-1 inline-flex items-center [gap:inherit]">{content}</span>
+          <span aria-hidden="true" className="invisible col-start-1 row-start-1 inline-flex items-center [gap:inherit]">
+            <span className={cx('inline-block shrink-0', SPINNER_SIZE[size])} />
+            {reserveLoadingText}
+          </span>
+        </span>
+      )}
     </button>
   )
 })

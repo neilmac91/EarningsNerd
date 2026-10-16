@@ -171,7 +171,11 @@ while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` he
 `components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
 chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
 Its label is the product's one retry verb (D-032): "Try again", busy "Trying again…", RetryButton's own, so a
-call site passes none (its props take no children and no aria-label). Where one Notice holds two failed reads, one
+call site passes none (its props take no children and no aria-label). It keeps the room of the spinner and "Trying
+again…" at rest (Button's `reserveLoadingText`, below), so the swap never widens it, wraps its label or moves its
+card: without it, at 390px under 200% text the label wrapped and the card grew 22 to 24px, and the search alert's
+message re-wrapped beside the wider button (e2e `filing-source-chip.spec.ts` holds the box through the swap,
+in both themes at 390 and 1440px). Where one Notice holds two failed reads, one
 RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
 the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
 not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and
@@ -215,6 +219,13 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
 Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
                  its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
                  Constrain width at the call site; never override its height or whitespace.
+
+Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> keeps a loading label's room at
+                 rest when it is longer than the resting one: what shows is laid over an invisible, aria-hidden
+                 copy of the loading state (the spinner's box and that label) in one grid cell, so the swap
+                 never resizes the button or moves what sits beside it. RetryButton's "Trying again…" is its
+                 one use (tests/unit/button-wrap.spec.tsx holds the cell; busyControlsStayFocusable.spec.ts
+                 holds RetryButton to reserving the busy text it shows).
                  Default buttons keep their fixed height above a 24rem viewport (below it, the Button
                  size row); icon-sm stays a 32px square.
 

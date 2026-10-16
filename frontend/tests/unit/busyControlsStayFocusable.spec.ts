@@ -232,6 +232,8 @@ function outsideRetryButton(source: string, fileName: string, sites: Site[]): Si
  */
 const RETRY_LABEL = /^(retry|try again)\b/i
 const RETRY_LOADING_TEXT = /^(Retrying|Trying again)/
+/** The attributes that carry a button's busy text: the one it shows, and the one whose room it keeps at rest. */
+const BUSY_TEXT_ATTRS = new Set(['loadingText', 'reserveLoadingText'])
 function retryLabelSites(source: string, fileName: string): Site[] {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const visible = bindingResolver(sf)
@@ -259,7 +261,7 @@ function retryLabelSites(source: string, fileName: string): Site[] {
       const tag = opening.tagName.getText(sf)
       const labels: string[] = []
       for (const attr of opening.attributes.properties) {
-        if (!ts.isJsxAttribute(attr) || attr.name.getText(sf) !== 'loadingText' || !attr.initializer) continue
+        if (!ts.isJsxAttribute(attr) || !BUSY_TEXT_ATTRS.has(attr.name.getText(sf)) || !attr.initializer) continue
         const value = ts.isStringLiteral(attr.initializer)
           ? [attr.initializer.text]
           : attr.initializer.expression ? literals(attr.initializer.expression) : []
@@ -391,11 +393,11 @@ function oneVerbSites(source: string, fileName: string): Site[] {
         for (const attr of opening.attributes.properties) {
           if (!ts.isJsxAttribute(attr) || !attr.initializer) continue
           const name = attr.name.getText(sf)
-          if (name !== 'loadingText' && name !== 'aria-label') continue
+          if (!BUSY_TEXT_ATTRS.has(name) && name !== 'aria-label') continue
           const read = ts.isStringLiteral(attr.initializer)
             ? { texts: [attr.initializer.text], unread: [] }
             : attr.initializer.expression ? readTexts(attr.initializer.expression, visible) : { texts: [], unread: [] }
-          ;(name === 'loadingText' ? busy : aria).push(...read.texts.map(collapse))
+          ;(BUSY_TEXT_ATTRS.has(name) ? busy : aria).push(...read.texts.map(collapse))
           unread.push(...read.unread.map((part) => `${name}={${part}}`))
         }
         const isRetry = [...labels, ...aria].some((t) => RETRY_LABEL.test(t) || STARTS_RETRY.test(t)) || busy.some((t) => RETRY_BUSY_TEXT.test(t))
@@ -417,22 +419,27 @@ function oneVerbSites(source: string, fileName: string): Site[] {
   return sites
 }
 
-/** RetryButton's own label and busy text, read from its definition: the element inside it that renders them. */
-function retryButtonOwnText(source: string): { labels: string[]; busy: string[] }[] {
+/**
+ * RetryButton's own label and busy texts, read from its definition: the element inside it that renders them, its
+ * label, the busy text it shows (`loadingText`) and the busy text whose room it keeps at rest (`reserveLoadingText`).
+ */
+function retryButtonOwnText(source: string): { labels: string[]; loadingText: string[]; reserveLoadingText: string[] }[] {
   const sf = ts.createSourceFile(RETRY_BUTTON.file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const visible = bindingResolver(sf)
   const definition = sf.statements.find((s) => ts.isFunctionDeclaration(s) && s.name?.text === RETRY_BUTTON.name)
-  const out: { labels: string[]; busy: string[] }[] = []
+  const out: { labels: string[]; loadingText: string[]; reserveLoadingText: string[] }[] = []
   const visit = (node: ts.Node): void => {
     if (ts.isJsxElement(node)) {
-      const loading = node.openingElement.attributes.properties.find(
-        (attr): attr is ts.JsxAttribute => ts.isJsxAttribute(attr) && attr.name.getText(sf) === 'loadingText',
-      )
-      const busy = loading?.initializer && ts.isJsxExpression(loading.initializer) && loading.initializer.expression
-        ? readTexts(loading.initializer.expression, visible).texts
-        : loading?.initializer && ts.isStringLiteral(loading.initializer) ? [loading.initializer.text] : []
+      const texts = (name: string): string[] => {
+        const attr = node.openingElement.attributes.properties.find(
+          (a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && a.name.getText(sf) === name,
+        )
+        if (!attr?.initializer) return []
+        if (ts.isStringLiteral(attr.initializer)) return [attr.initializer.text]
+        return attr.initializer.expression ? readTexts(attr.initializer.expression, visible).texts : []
+      }
       const labels = node.children.filter(ts.isJsxText).map((child) => child.text.replace(/\s+/g, ' ').trim()).filter(Boolean)
-      out.push({ labels, busy })
+      out.push({ labels, loadingText: texts('loadingText'), reserveLoadingText: texts('reserveLoadingText') })
     }
     ts.forEachChild(node, visit)
   }
@@ -1207,6 +1214,7 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '    <Button loading={busy} loadingText={pressedText} onClick={go}>Load</Button>', // a const, conditional
       '    <Button onClick={go}>{label}</Button>', // a parameter: not resolved
       '    <Button loading={busy} loadingText="Trying again…" onClick={go}>Load</Button>', // the one busy form, a Retry's too
+      '    <Button loading={busy} reserveLoadingText="Trying again…" onClick={go}>Load</Button>', // its room kept at rest
       '  </>)',
       '}',
       "const retryLabel = 'Try again'",
@@ -1227,6 +1235,7 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '16: Button "Try again"',
       '17: Button "Retrying…"',
       '19: Button "Trying again…"',
+      '20: Button "Trying again…"',
     ])
   })
 
@@ -1544,6 +1553,7 @@ describe('the one retry verb, "Try again" (D-032; rule-12 gate)', () => {
       '    <Button onClick={go}>{mutable}</Button>', // a let it cannot read, and no retry text: the copy clause sees its string
       "    <Button onClick={go}>{'Try again'}{' '}</Button>", // the one verb, from expressions
       '    {/* <Button>Retry</Button> */}',
+      "    <Button loading={b} loadingText={pressed ? 'Trying again…' : undefined} reserveLoadingText=\"Retrying…\" onClick={go}>Try again</Button>", // the room kept at rest
       '  </>)',
       '}',
       "const retryLabel = 'Retry'",
@@ -1578,18 +1588,23 @@ describe('the one retry verb, "Try again" (D-032; rule-12 gate)', () => {
       '36: Button label "Retry" is not "Try again"',
       '37: Button label "Load" is not "Try again"',
       '37: Button busy text "Retrying…" is not "Trying again…"',
-      '46: Button text it cannot read: {mutable}',
+      '41: Button busy text "Retrying…" is not "Trying again…"',
+      '47: Button text it cannot read: {mutable}',
     ])
   })
 
   it("reads RetryButton's own definition, with no exemption: its label is the one verb and its busy text the one busy form", () => {
     const real = readFileSync(path.join(frontendRoot, RETRY_BUTTON.file), 'utf8')
-    expect(retryButtonOwnText(real)).toEqual([{ labels: [ONE_VERB], busy: [ONE_BUSY_TEXT] }])
+    // The busy text it shows is the one whose room it keeps at rest, so the swap never resizes it.
+    expect(retryButtonOwnText(real)).toEqual([{ labels: [ONE_VERB], loadingText: [ONE_BUSY_TEXT], reserveLoadingText: [ONE_BUSY_TEXT] }])
     expect(oneVerbSites(real, RETRY_BUTTON.file)).toEqual([])
     // The old busy form inside the definition fails the app-wide clause too: nothing exempts it.
     const old = real.replace(`'${ONE_BUSY_TEXT}'`, "'Retrying…'")
     expect(old).not.toBe(real)
-    expect(oneVerbSites(old, RETRY_BUTTON.file).map((site) => site.expr)).toEqual(['Button busy text "Retrying…" is not "Trying again…"'])
+    expect(oneVerbSites(old, RETRY_BUTTON.file).map((site) => site.expr)).toEqual([
+      'Button busy text "Retrying…" is not "Trying again…"',
+      'Button busy text "Retrying…" is not "Trying again…"',
+    ])
   })
 
   it('no RetryButton call site passes a label, and every retry control reads the one verb', () => {

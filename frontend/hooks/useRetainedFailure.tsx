@@ -113,10 +113,21 @@ export function useRetainedFailure(query: UseQueryResult<unknown>, queryKey: Que
   }
 }
 
+/** The one retry verb's busy form (D-032): shown while this button's own press runs, and its room kept at rest. */
+const BUSY_LABEL = 'Trying again…'
+
 export interface RetryButtonProps
   extends Omit<
     ButtonProps,
-    'children' | 'aria-label' | 'aria-labelledby' | 'loading' | 'loadingText' | 'onClick' | 'onFocus' | 'onPointerDown'
+    | 'children'
+    | 'aria-label'
+    | 'aria-labelledby'
+    | 'loading'
+    | 'loadingText'
+    | 'reserveLoadingText'
+    | 'onClick'
+    | 'onFocus'
+    | 'onPointerDown'
   > {
   /** The failures this control retries. Busy while any has a fetch in flight; a press retries the failed ones. */
   failures: RetainedFailure[]
@@ -136,11 +147,18 @@ export interface RetryButtonProps
  * Its label is the product's one retry verb (docs/brand/decisions-log.md D-032): "Try again", and "Trying
  * again…" only while this button's own press runs. The label is RetryButton's own: its props take no
  * children and no aria-label, so no caller names it otherwise (the one-verb clause of
- * tests/unit/busyControlsStayFocusable.spec.ts fails a call site that passes one). The Retry usually sits
- * inside its card's role=alert, which Chromium presents again, whole, on any text change inside it: a label
- * swap on every refetch nobody pressed (a reconnect, window focus) would re-announce the failure each time.
- * A press is the user asking, so its "Trying again…", and the swap back to "Try again" when it fails again,
- * are announced (lessons/frontend-busy-controls-stay-focusable.md (g)).
+ * tests/unit/busyControlsStayFocusable.spec.ts fails a call site that passes one).
+ *
+ * Its size never changes with its state: the room of the spinner and "Trying again…" is kept at rest (Button's
+ * reserveLoadingText), so neither a press nor a refetch nobody pressed widens it, wraps its label or moves the
+ * card around it (without it, at 390px under 200% text the swap wrapped the label and grew the card 22 to 24px,
+ * and the search alert's message re-wrapped beside a wider button; e2e filing-source-chip.spec.ts holds the box
+ * through the swap in a real browser).
+ *
+ * The Retry usually sits inside its card's role=alert, which Chromium presents again, whole, on any text change
+ * inside it: a label swap on every refetch nobody pressed (a reconnect, window focus) would re-announce the
+ * failure each time. A press is the user asking, so its "Trying again…", and the swap back to "Try again" when
+ * it fails again, are announced (lessons/frontend-busy-controls-stay-focusable.md (g)).
  *
  * When it unmounts while it holds focus, for any reason, focus goes to `focusTarget` (useFocusHandoff).
  */
@@ -157,7 +175,10 @@ export function RetryButton({ failures, focusTarget, textField = false, variant 
       ref={attach}
       variant={variant}
       loading={busy}
-      loadingText={pressed ? 'Trying again…' : undefined}
+      loadingText={pressed ? BUSY_LABEL : undefined}
+      // Its room is kept at rest: "Trying again…" with the spinner is wider than "Try again", and the swap
+      // would otherwise widen the button, wrap its label at 200% text on a phone, and move the card around it.
+      reserveLoadingText={BUSY_LABEL}
       onFocus={onFocus}
       // A busy Button refuses the click before onClick runs; pointerdown still reaches us, so a tap on a
       // busy Retry counts as a pointer press (no touch keyboard when it then unmounts).

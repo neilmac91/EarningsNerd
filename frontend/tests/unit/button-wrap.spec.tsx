@@ -36,4 +36,31 @@ describe('Button label wrapping', () => {
     expect(screen.getByRole('button', { name: 'Open report' }).className.split(/\s+/)).not.toContain('[@media(max-width:24rem)]:min-h-10')
     expect(narrow(buttonVariants({ size: 'icon-sm', className: 'min-h-11' }))).toEqual([])
   })
+
+  it('reserveLoadingText lays what shows over the loading state in one cell, the loading state invisible and hidden from assistive tech', () => {
+    const { rerender } = render(<Button reserveLoadingText="Trying again…">Try again</Button>)
+    const button = screen.getByRole('button', { name: 'Try again' })
+    expect(button.children).toHaveLength(1)
+    const cell = button.firstElementChild as HTMLElement
+    expect(cell).toHaveClass('grid', 'place-items-center')
+    const [shown, room] = [...cell.children] as HTMLElement[]
+    expect(shown).toHaveClass('col-start-1', 'row-start-1', 'inline-flex')
+    expect(shown).toHaveTextContent('Try again')
+    // The room: the spinner's box at the button's size, then the loading label, laid out but never seen or read.
+    expect(room).toHaveClass('invisible', 'col-start-1', 'row-start-1', 'inline-flex')
+    expect(room).toHaveAttribute('aria-hidden', 'true')
+    expect(room).toHaveTextContent('Trying again…')
+    expect(room.firstElementChild).toHaveClass('inline-block', 'shrink-0', 'h-4', 'w-4')
+    // Loading swaps what shows, in the same cell; the name follows it.
+    rerender(<Button loading loadingText="Trying again…" reserveLoadingText="Trying again…">Try again</Button>)
+    expect(screen.getByRole('button', { name: 'Trying again…' })).toBe(button)
+    expect(button.firstElementChild).toBe(cell)
+    expect(shown.querySelector('svg')).not.toBeNull()
+    rerender(<Button size="sm" reserveLoadingText="Trying again…">Try again</Button>)
+    expect(room.firstElementChild).toHaveClass('h-3', 'w-3')
+    // Without it, a button's children are its own content, as before.
+    rerender(<Button>Try again</Button>)
+    expect(button.querySelector('[aria-hidden="true"]')).toBeNull()
+    expect(button.firstElementChild).toBeNull()
+  })
 })

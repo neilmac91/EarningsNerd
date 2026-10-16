@@ -187,7 +187,9 @@ move focus a mouse user did not lose.
   (`fetchStatus !== 'idle'`, paused offline included), whoever started it; a press retries only the
   failures that failed, since a healthy sibling refetched too could settle first and end the error UI early;
   the hand-off above. Its label is "Try again", the one retry verb (D-032), and RetryButton's own, so a call
-  site passes none. It reads "Trying again…" only while its own press's retry runs. During a refetch nobody
+  site passes none. It reads "Trying again…" only while its own press's retry runs, and keeps that label's room
+  (with the spinner's) at rest, Button's `reserveLoadingText`, so the swap never resizes it or moves its card
+  (e2e `filing-source-chip.spec.ts` holds the box). During a refetch nobody
   pressed it is busy (aria-busy, aria-disabled, the spinner, a refused press) under its own label: a label
   swap inside the card's `role=alert` would re-announce the failure at every reconnect. Two failed reads in one
   Notice share one RetryButton (the dashboard's plan strip, the pricing page's details Notice): its press
