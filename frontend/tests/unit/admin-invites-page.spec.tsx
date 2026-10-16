@@ -321,13 +321,39 @@ describe('AdminInvitesPage: an email chip stays inside its card', () => {
     expect(chip).toHaveClass('max-w-full', 'rounded-xl')
     expect(chip).not.toHaveClass('rounded-full')
     // The narrow state. The chip row is an inline-size query container; below 8em of its text size the group is too
-    // narrow for "· already", so it dissolves, the chip wraps with no row gap, the address takes the first line's
-    // free width beside the button, and the marker takes a line of its own under them. The marker carries those two
-    // classes and nothing else (no shrink-0 or nowrap, above).
+    // narrow for "· already", so it dissolves, the chip wraps with no row gap, and the address takes the first line
+    // whole and wraps anywhere instead of truncating (beside the button it kept 52px at 320px under 200% text, the
+    // chief designer's review of #1344). The marker takes the rest of the line it shares with the button, and carries
+    // that one class and nothing else (no shrink-0 or nowrap, above).
     expect(chip.parentElement).toHaveClass('[container-type:inline-size]')
     expect(chip).toHaveClass('[@container(width<8em)]:flex-wrap', '[@container(width<8em)]:gap-y-0')
     expect(group).toHaveClass('[@container(width<8em)]:contents')
-    expect(address).toHaveClass('[@container(width<8em)]:flex-1')
-    expect(marker.className).toBe('[@container(width<8em)]:order-last [@container(width<8em)]:basis-full')
+    expectOwnLineWhenNarrow(address)
+    expect(marker.className).toBe('[@container(width<8em)]:flex-1')
+  })
+
+  it('gives a valid and an invalid address the same line of their own when the row is narrow', async () => {
+    vi.mocked(listInvites).mockResolvedValue([])
+    renderPage()
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'bob@example.com, nope' } })
+    fireEvent.blur(field)
+    for (const email of ['bob@example.com', 'nope']) {
+      const chip = (await screen.findByRole('button', { name: `Remove ${email}` })).parentElement!
+      expectOwnLineWhenNarrow(within(chip).getByText(email))
+    }
   })
 })
+
+/** Above 8em of the row the address truncates beside its marker; below it, it takes the first line whole and wraps. */
+function expectOwnLineWhenNarrow(address: HTMLElement) {
+  expect(address).toHaveClass(
+    'truncate',
+    '[@container(width<8em)]:order-first',
+    '[@container(width<8em)]:basis-full',
+    '[@container(width<8em)]:whitespace-normal',
+    '[@container(width<8em)]:[overflow-wrap:anywhere]',
+  )
+  // Sharing the first line with the button (flex-1) is what left it 52px.
+  expect(address).not.toHaveClass('[@container(width<8em)]:flex-1')
+}

@@ -5,14 +5,19 @@ import { test, expect, type Page } from '@playwright/test'
  * clear of its remove button at any width and text size. The founder's recheck of PR #1344 found the marker painting
  * through the button at 320px under a 32px root: the address-and-marker group had shrunk to 52px, and the unbreakable
  * "· already" run (the dot held to its word by a no-break space) ran across the button. Below 8em of the chips row's
- * own text size the chip now gives the marker a line of its own, under the address and the button.
+ * own text size the chip now gives its address the first line whole, wrapped rather than truncated, with the marker
+ * and the button under it: the chief designer's review of that fix found the address cut to 52px beside the button
+ * ("al…", "bo…", and a bare "n" for an invalid one), so an admin could not tell the chips apart.
  *
- * Each case types an already-invited address and a long valid one into the field and reads what Chromium paints (the
- * marker's text through a Range, so text spilling out of its own box still counts), in both themes: the marker never
- * intersects the remove button, its dot sits on the line of "already", the marker stays inside its chip, every chip
- * and its button end inside the card, and the chips never widen the page. At the default size the chip stays a
- * one-line pill where it fits (390px and 1440px). A sweep of widths under a 200% root crosses the 8em threshold, so a
- * threshold set too low fails here even where 320px and 390px pass.
+ * Each case types two already-invited addresses, a long valid one and an invalid one into the field and reads what
+ * Chromium paints (the marker's text through a Range, so text spilling out of its own box still counts), in both
+ * themes: the marker never intersects the remove button, its dot sits on the line of "already", the marker stays
+ * inside its chip, every chip and its button end inside the card, and the chips never widen the page. At 320px and
+ * 390px under a 200% root every address shows whole (each character painted inside the address's own box, nothing
+ * hidden) on lines no other part of its chip shares, and the remove button keeps its 48px; at 390px there the button
+ * sits on the marker's line. At the default size the chip stays a one-line pill where it fits (390px and 1440px). A
+ * sweep of widths under a 200% root crosses the 8em threshold, so a threshold set too low fails here even where 320px
+ * and 390px pass.
  *
  * The 200% cases set the root element's font size, as catch-card-reflow does. The container query's em is the row's
  * own text size, so the threshold follows the text however it is enlarged.
@@ -28,7 +33,10 @@ import { test, expect, type Page } from '@playwright/test'
 
 const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
 const INVITED = 'alice@example.com'
+/** Already invited too: a short address. */
+const SHORT = 'bo@ex.io'
 const LONG = 'maximilian.featherstonehaugh@example-enterprise.com'
+const INVALID = 'not-an-email'
 
 type Theme = 'light' | 'dark'
 type Box = { left: number; right: number; top: number; bottom: number }
@@ -59,7 +67,9 @@ async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string
       case '/api/auth/me':
         return json(200, { id: 1, email: 'ada@example.com', full_name: 'Ada', is_pro: false, is_beta: false, is_admin: true, email_verified: true })
       case '/api/admin/invites':
-        return json(200, { invites: [{ id: 1, email: INVITED, status: 'pending', cohort: 'beta', expires_at: '2026-11-01T00:00:00Z', used_at: null, user_id: null, created_at: '2026-10-14T00:00:00Z' }] })
+        return json(200, {
+          invites: [INVITED, SHORT].map((email, i) => ({ id: i + 1, email, status: 'pending', cohort: 'beta', expires_at: '2026-11-01T00:00:00Z', used_at: null, user_id: null, created_at: '2026-10-14T00:00:00Z' })),
+        })
       case '/api/admin/feedback':
         return json(200, { feedback: [{ id: 1, user_id: 42, user_email: INVITED, type: 'bug', message: 'The summary export button does nothing on Safari.', page_url: '/filing/123', status: 'new', created_at: '2026-10-14T00:00:00Z' }] })
       default:
@@ -74,10 +84,10 @@ async function openInvites(page: Page, baseURL: string, theme: Theme) {
   // The field marks an address as invited only once the list has loaded.
   await expect(page.getByRole('table').getByText(INVITED)).toBeVisible()
   const field = page.getByLabel('Email addresses')
-  await field.fill(`${INVITED}, ${LONG}`)
+  await field.fill(`${INVITED}, ${SHORT}, ${LONG}, ${INVALID}`)
   await field.press('Enter')
-  await expect(page.getByRole('button', { name: `Remove ${LONG}` })).toBeVisible()
-  await expect(page.getByText('· already invited')).toBeVisible()
+  for (const email of [INVITED, SHORT, LONG, INVALID]) await expect(page.getByRole('button', { name: `Remove ${email}` })).toBeVisible()
+  await expect(page.getByText('· already invited')).toHaveCount(2)
   await page.evaluate(() => document.fonts.ready)
 }
 
@@ -173,6 +183,71 @@ async function pageWidth(page: Page, rootFont: string) {
   }, rootFont)
 }
 
+/** Every chip's address against its own box, and the other parts of its chip. */
+async function measureAddresses(page: Page, rootFont: string) {
+  await page.evaluate((size) => {
+    document.documentElement.style.fontSize = size
+  }, rootFont)
+  return inviteCard(page).evaluate((card) => {
+    const box = (r: DOMRect): Box => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+    return [...card.querySelectorAll<HTMLButtonElement>('button[aria-label^="Remove "]')].map((button) => {
+      const email = button.getAttribute('aria-label')!.slice('Remove '.length)
+      const chip = button.parentElement!
+      // The innermost element that holds the address alone (the group around it may hold nothing else).
+      const address = [...chip.querySelectorAll('span')].filter((span) => span.textContent === email).at(-1)!
+      // Where each character is painted, hidden or not: a truncated address still lays out what it hides.
+      const text = address.firstChild as Text
+      const range = document.createRange()
+      const glyphs = Array.from({ length: text.data.length }, (_, i) => {
+        range.setStart(text, i)
+        range.setEnd(text, i + 1)
+        return box(range.getBoundingClientRect())
+      })
+      const style = getComputedStyle(chip)
+      const outer = chip.getBoundingClientRect()
+      const marker = [...chip.querySelectorAll('span')].find((span) => span.textContent!.startsWith('·'))
+      const icon = chip.querySelector(':scope > svg')
+      return {
+        email,
+        address: box(address.getBoundingClientRect()),
+        hidden: { x: address.scrollWidth - address.clientWidth, y: address.scrollHeight - address.clientHeight },
+        glyphs,
+        content: {
+          left: outer.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+          right: outer.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight),
+        },
+        others: [button, marker, icon].filter((part): part is Element => part != null).map((part) => box(part.getBoundingClientRect())),
+        button: box(button.getBoundingClientRect()),
+        marker: marker ? box(marker.getBoundingClientRect()) : null,
+      }
+    })
+  })
+}
+
+type Addresses = Awaited<ReturnType<typeof measureAddresses>>
+
+/**
+ * Below 8em every address shows whole: each character painted inside the address's own box, nothing hidden (so no
+ * ellipsis), the box as wide as the chip's content and on lines of its own, above the marker, the invalid glyph and the
+ * remove button, which keeps its 48px under a 200% root.
+ */
+function expectWholeAddresses(chips: Addresses, label: string) {
+  expect(chips.map(({ email }) => email).sort(), `${label}: the chips`).toEqual([INVITED, SHORT, LONG, INVALID].sort())
+  for (const { email, address, hidden, glyphs, content, others, button } of chips) {
+    expect(hidden.x, `${label}: ${email} hides part of its address`).toBeLessThanOrEqual(1)
+    expect(hidden.y, `${label}: ${email} hides part of its address`).toBeLessThanOrEqual(1)
+    glyphs.forEach((glyph, i) => {
+      const inside = glyph.left >= address.left - 0.5 && glyph.right <= address.right + 0.5 && glyph.top >= address.top - 0.5 && glyph.bottom <= address.bottom + 0.5
+      expect(inside, `${label}: "${email[i]}" (character ${i + 1} of ${email}) is painted outside its address`).toBe(true)
+    })
+    expect(address.left, `${label}: the address ${email} does not start the chip's line`).toBeLessThan(content.left + 1)
+    expect(address.right, `${label}: the address ${email} does not fill the chip's line`).toBeGreaterThan(content.right - 1)
+    for (const other of others) expect(other.top, `${label}: ${email} shares its address's line`).toBeGreaterThanOrEqual(address.bottom - 0.5)
+    expect(button.right - button.left, `${label}: the remove button of ${email}`).toBeCloseTo(48, 0)
+    expect(button.bottom - button.top, `${label}: the remove button of ${email}`).toBeCloseTo(48, 0)
+  }
+}
+
 /** The address, the whole marker and the remove button share one line. */
 function expectOneLine(m: Measure, label: string) {
   expect(m.markerLines.every((line) => Math.abs(line.top - m.marker.top) < 1), `${label}: the marker wraps`).toBe(true)
@@ -183,7 +258,7 @@ function expectOneLine(m: Measure, label: string) {
 
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`an already-invited chip, ${theme} theme`, () => {
-    test('at 320px the marker clears the remove button at the default size and under a 200% root font', async ({ page, baseURL }) => {
+    test('at 320px the marker clears the remove button at the default size and under a 200% root font, where every address shows whole', async ({ page, baseURL }) => {
       await page.setViewportSize({ width: 320, height: 900 })
       await openInvites(page, baseURL!, theme)
       for (const [rootFont, text] of [['', 'default text'], ['32px', '200% text']] as const) {
@@ -192,9 +267,10 @@ for (const theme of ['light', 'dark'] as const) {
         expectClear(m, label)
         expectNoSidewaysScroll(m, label)
       }
+      expectWholeAddresses(await measureAddresses(page, '32px'), '320px, 200% text')
     })
 
-    test('at 390px the marker clears the remove button under a 200% root font, and the chip is one line at the default size', async ({ page, baseURL }) => {
+    test('at 390px the marker clears the remove button under a 200% root font, where every address shows whole, and the chip is one line at the default size', async ({ page, baseURL }) => {
       await page.setViewportSize({ width: 390, height: 900 })
       await openInvites(page, baseURL!, theme)
       const normal = await measure(page, '')
@@ -204,6 +280,14 @@ for (const theme of ['light', 'dark'] as const) {
       const enlarged = await measure(page, '32px')
       expectClear(enlarged, '390px, 200% text')
       expectNoSidewaysScroll(enlarged, '390px, 200% text')
+      const addresses = await measureAddresses(page, '32px')
+      expectWholeAddresses(addresses, '390px, 200% text')
+      // Here "· already" and the button fit side by side, so the button sits on the marker's line.
+      for (const { email, marker, button } of addresses) {
+        if (!marker) continue
+        const middle = (button.top + button.bottom) / 2
+        expect(marker.top < middle && middle < marker.bottom, `390px, 200% text: the remove button of ${email} is not on its marker's line`).toBe(true)
+      }
     })
 
     test('under a 200% root font the marker clears the remove button at every width from 320px to 480px', async ({ page, baseURL }) => {

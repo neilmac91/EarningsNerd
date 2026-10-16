@@ -564,22 +564,28 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  the metric pickers' does (E34), and its open list shows every option whole. Gates:
                  tests/unit/admin-feedback-page.spec.tsx (the class) and tests/e2e/admin-invite-chip-reflow.spec.ts
                  (the page at 320px, at the default size and under a 200% root). An email chip (EmailChipsInput)
-                 puts its address and the "already invited" marker in one `min-w-0` wrapping group: when they do not fit on a line the marker goes
-                 under the address, which truncates, and the remove button stays the chip's last child, inside the
-                 card (a marker that could not shrink squeezed the address out at 200% text and pushed the button
-                 past the card). Its 16px radius (`rounded-xl`) is a pill on one line and a rounded box once it
-                 wraps, as SourceTrace's chip. The chip row is an inline-size query container, and below 8em of its
-                 own text size (`[@container(width<8em)]:`) that group is too narrow for "· already" (the dot is held
-                 to its word by a no-break space), so the group dissolves (`contents`), the chip wraps with no row
-                 gap, the address and the remove button share the first line and the marker takes a line of its own
-                 under them (`order-last basis-full`), where it cannot paint over the button (at 320px under 200%
-                 text it ran across it). An invited chip needs about 9.6em on one line, so the narrow state never
-                 splits a chip that fits; at the default size it starts at a 128px row, so 390 and 1440 keep the
-                 one-line pill. Reading and Tab order stay address, marker, button. The em is the text's actual
-                 size however it is enlarged (a media query's rem is only the browser's text setting), as in the
-                 Analysis KPI strip. Gates: tests/unit/admin-invites-page.spec.tsx (the classes) and
-                 tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and 1440px, at the default
-                 size and under a 200% root, in both themes, and at every 10px from 320 to 480px under 200%).
+                 puts its address and the "already invited" marker in one `min-w-0` wrapping group: when they do not
+                 fit on a line the marker goes under the address, which truncates, and the remove button stays the
+                 chip's last child, inside the card (a marker that could not shrink squeezed the address out at 200%
+                 text and pushed the button past the card). Its 16px radius (`rounded-xl`) is a pill on one line and
+                 a rounded box once it wraps, as SourceTrace's chip. The chip row is an inline-size query container,
+                 and below 8em of its own text size (`[@container(width<8em)]:`) that group is too narrow for
+                 "· already" (the dot is held to its word by a no-break space), so the group dissolves (`contents`),
+                 the chip wraps with no row gap and the address takes the first line whole (`order-first
+                 basis-full`), wrapping anywhere (`whitespace-normal [overflow-wrap:anywhere]`) instead of
+                 truncating: beside the remove button it kept 52px at 320px under 200% text ("al…", "bo…", a bare
+                 "n" for an invalid address), too little to tell the chips apart. The marker, the invalid glyph and
+                 the remove button follow on the lines under it. The marker is `flex-1`, so it wraps "invited" under
+                 "· already" to give the button its line wherever both fit (390px under 200% text; at 320px the
+                 button takes the line under the marker), and it never paints over the button (at 320px under 200%
+                 text it once ran across it). The button keeps its 48px and its ring. An invited chip needs about
+                 9.6em on one line, so the narrow state never splits a chip that fits; at the default size it starts
+                 at a 128px row, so 390 and 1440 keep the one-line pill. Reading and Tab order stay address, marker,
+                 button. The em is the text's actual size however it is enlarged (a media query's rem is only the
+                 browser's text setting), as in the Analysis KPI strip. Gates: tests/unit/admin-invites-page.spec.tsx
+                 (the classes) and tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and
+                 1440px, at the default size and under a 200% root, in both themes, every address whole at 320 and
+                 390px under 200%, and at every 10px from 320 to 480px under 200%).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a

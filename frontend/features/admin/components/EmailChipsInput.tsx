@@ -155,8 +155,11 @@ export default function EmailChipsInput({
             // the button past the card). The 16px radius is a pill on one line and a rounded box once the chip
             // wraps, as SourceTrace's chip is.
             // Below 8em of the row's own text size the group is too narrow for "· already", so it dissolves
-            // (`contents`): the address and the remove button share the first line and the marker takes a line of
-            // its own under them (order-last, basis-full), where it can never paint over the button. An invited chip
+            // (`contents`) and the address takes the first line whole (order-first, basis-full), wrapping anywhere
+            // instead of truncating: beside the button it kept 52px at 320px under 200% text, too little to tell one
+            // chip from another ("al…", "bo…"). The marker, the invalid glyph and the remove button follow under it,
+            // the button on the marker's line wherever "· already" and the button fit side by side (flex-1 lets the
+            // marker wrap "invited" under "· already"), and the marker never paints over the button. An invited chip
             // needs about 9.6em on one line, so the narrow state never splits a chip that fits; at the default size
             // it starts at a 128px row, which no phone reaches. Reading and Tab order stay address, marker, button.
             <span
@@ -169,11 +172,11 @@ export default function EmailChipsInput({
             >
               {chip.kind === 'invalid' && <WarningCircleIcon className="h-3.5 w-3.5 flex-shrink-0" />}
               <span className="flex min-w-0 flex-wrap gap-x-1.5 [@container(width<8em)]:contents">
-                <span className="truncate [@container(width<8em)]:flex-1">{chip.email}</span>
+                <span className="truncate [@container(width<8em)]:order-first [@container(width<8em)]:basis-full [@container(width<8em)]:whitespace-normal [@container(width<8em)]:[overflow-wrap:anywhere]">
+                  {chip.email}
+                </span>
                 {chip.kind === 'invited' && (
-                  <span className="[@container(width<8em)]:order-last [@container(width<8em)]:basis-full">
-                    ·&nbsp;already invited
-                  </span>
+                  <span className="[@container(width<8em)]:flex-1">·&nbsp;already invited</span>
                 )}
               </span>
               <button
