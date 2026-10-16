@@ -21,9 +21,11 @@ import { bindingResolver, type Binding } from './astBindings'
  *      cannot export metadata, so its directory carries a layout that does (as app/login/layout.tsx does).
  *   2. Every title reads '<Page name> | EarningsNerd' in sentence case (proper nouns, acronyms and the
  *      company's own name allowed), each headline variant the home page's experiment serves included. A
- *      generated page holds every title template it can return in that form, in each reading of it (each
- *      branch of a condition, `||` or `??` and each same-file const a substitution names read as its text,
- *      any other substitution as a name), and titles every state (a title of undefined or null titles none).
+ *      generated page holds every title template it can return in that form, read with every substitution a
+ *      name and in each reading of it (each branch of a condition, `||` or `??` and each same-file const a
+ *      substitution names read as its text, any other substitution as a name); a title template with more
+ *      than 64 readings fails rather than be read in part. It titles every state (a title of undefined or
+ *      null titles none).
  *   3. Every private route resolves robots to index: false. No public route resolves it to noindex
  *      from its page's static metadata or from any layout above the page, the root included: Next takes
  *      robots from the deepest segment that sets it, the page over its layouts. The two generated pages
@@ -51,7 +53,8 @@ import { bindingResolver, type Binding } from './astBindings'
  * after its declaration: assigned again, written into, or, an object or array the file makes, handed whole
  * to a call or to another name (changeOf). That holds for the static metadata's title and description, its
  * openGraph's and its twitter's, every spread and computed key in those, and each state a generateMetadata
- * returns, where a call to lib/serverApi is the page's data (part 7 runs it), read for its arguments alone.
+ * returns, where a call to lib/serverApi is the page's data (part 7 runs it), read for its arguments alone (in
+ * static metadata it is followed into lib/serverApi like any call).
  * A route file names its metadata only in its declaration, so nothing writes it after. Robots and the card
  * are read from each file's TypeScript AST, and what that reading cannot see fails loudly; each static
  * module's evaluated robots and card are held to that reading too, so a write its literal does not show
@@ -559,20 +562,21 @@ function changeOf(binding: Binding, reading: ts.Identifier, source: ts.SourceFil
  * in what a name in it stands for, followed to the binding in scope (so a key, a member or a parameter named window
  * is never the global), its module's declarations and every project module it imports, a namespace import's member
  * by its name; or a name in it that its file changes after declaring it (changeOf). A type holds no value and is not
- * read; a call to DATA_SOURCE is a generated page's data, read for its arguments alone.
+ * read. In what a generateMetadata returns (`generated`), a call to DATA_SOURCE is the page's data, read for its
+ * arguments alone; anywhere else it is followed like any call, into the module's own reads.
  */
-function envRead(node: ts.Node, source: ts.SourceFile, seen = new Set<ts.Node>()): string | undefined {
+function envRead(node: ts.Node, source: ts.SourceFile, generated: boolean, seen = new Set<ts.Node>()): string | undefined {
   if (seen.has(node)) return undefined
   seen.add(node)
   const resolve = resolverOf(source)
   const at = (n: ts.Node, what: string) => `${rel(source.fileName)}:${source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1}, ${what}`
   let found: string | undefined
   const follow = (n: ts.Node, file = source) => {
-    found ??= envRead(n, file, seen)
+    found ??= envRead(n, file, generated, seen)
   }
   const visit = (n: ts.Node): void => {
     if (found || isTypeOnly(n)) return
-    if (ts.isCallExpression(n) && dataCall(n, source)) return n.arguments.forEach(visit)
+    if (generated && ts.isCallExpression(n) && dataCall(n, source)) return n.arguments.forEach(visit)
     const member = namespaceMember(n, source)
     if (member) return exportsOf(member.name, member.target).forEach(([decl, file]) => follow(decl, file))
     if (!ts.isIdentifier(n)) return n.forEachChild(visit)
@@ -625,9 +629,12 @@ function textMembers(metadata: ts.ObjectLiteralExpression): Array<[string, ts.No
  * sees one: its static metadata's, and each state its generateMetadata returns.
  */
 const envProblems = (rf: RouteFile): string[] =>
-  [...(rf.metadata ? [rf.metadata] : []), ...(rf.generates ? returnedStates(rf).states : [])].flatMap((literal) =>
+  [
+    ...(rf.metadata ? [{ literal: rf.metadata, generated: false }] : []),
+    ...(rf.generates ? returnedStates(rf).states.map((literal) => ({ literal, generated: true })) : []),
+  ].flatMap(({ literal, generated }) =>
     textMembers(literal).flatMap(([key, node]) => {
-      const at = envRead(node, rf.source)
+      const at = envRead(node, rf.source, generated)
       return at ? [`${rel(rf.file)}: ${key} can differ by environment (${at}), so this test checks one form of it`] : []
     }),
   )
@@ -712,10 +719,17 @@ function socialLiterals(source: ts.SourceFile): ts.ObjectLiteralExpression[] {
   return out
 }
 
-/** The most readings one title template is expanded into (each condition doubles them). */
+/** The most readings one title template is expanded into (each condition doubles them); a title template with more
+    fails (titleTemplates), so no reading is dropped unread. */
 const MAX_TEMPLATE_READINGS = 64
+/** What stands in for the readings past MAX_TEMPLATE_READINGS: it rides on into every reading built from it. */
+const MORE = '\u0000'
+/** Each text the parts render, in order, the same text once; past MAX_TEMPLATE_READINGS, the rest are one MORE. */
 const readings = (parts: string[][]): string[] =>
-  parts.reduce<string[]>((heads, options) => heads.flatMap((head) => options.map((option) => head + option)).slice(0, MAX_TEMPLATE_READINGS), [''])
+  parts.reduce<string[]>((heads, options) => {
+    const next = [...new Set(heads.flatMap((head) => options.map((option) => head + option)))]
+    return next.length > MAX_TEMPLATE_READINGS ? [...next.slice(0, MAX_TEMPLATE_READINGS), MORE] : next
+  }, [''])
 
 /**
  * The texts a template substitution can render: a literal's own, each branch of a condition, `||` or `??`, a `+`
@@ -746,12 +760,25 @@ function substitutionTexts(expression: ts.Expression, source: ts.SourceFile, see
 const templateTexts = (t: ts.TemplateExpression, source: ts.SourceFile, seen = new Set<ts.Node>()): string[] =>
   readings([[t.head.text], ...t.templateSpans.flatMap((span) => [substitutionTexts(span.expression, source, seen), [span.literal.text]])])
 
-/** Every title template in a file: a string or a template literal that ends with the brand, each reading of it (substitutionTexts). */
+/**
+ * Every title template in a file: a string or a template literal that ends with the brand, a template read with
+ * every substitution a name (Ⓝ), so a word after one is mid-title whatever it holds, and in each reading of it
+ * (substitutionTexts). A title template with more than MAX_TEMPLATE_READINGS readings fails, never read in part.
+ */
 function titleTemplates(source: ts.SourceFile): string[] {
   const out: string[] = []
   const visit = (n: ts.Node): void => {
-    const texts = ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) ? [n.text] : ts.isTemplateExpression(n) ? templateTexts(n, source) : []
-    out.push(...texts.filter((text) => text.endsWith(BRAND)))
+    if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
+      if (n.text.endsWith(BRAND)) out.push(n.text)
+    } else if (ts.isTemplateExpression(n)) {
+      const texts = [n.head.text + n.templateSpans.map((span) => `Ⓝ${span.literal.text}`).join(''), ...templateTexts(n, source)]
+      const titled = texts.filter((text) => text.endsWith(BRAND))
+      if (titled.length && texts.some((text) => text.includes(MORE))) {
+        const line = source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1
+        throw new Error(`${rel(source.fileName)}:${line}: the title template ${n.getText(source)} has more than ${MAX_TEMPLATE_READINGS} readings, more than this spec reads: write the title each state takes as its own template, so every reading is read`)
+      }
+      out.push(...titled)
+    }
     n.forEachChild(visit)
   }
   visit(source)
@@ -1061,6 +1088,9 @@ export const metadata = {
       "const KEY = 'title'\nexport const metadata = { openGraph: { [KEY]: process.env.X, images: [SOCIAL_CARD] } }",
       "const { X } = process.env\nexport const metadata = { title: X }",
       `${flag}const OG = { title: ENABLE_ANALYSIS ? 'A | EarningsNerd' : 'B | EarningsNerd', images: [SOCIAL_CARD] }\nexport const metadata = { openGraph: OG }`,
+      // A call to lib/serverApi in static metadata is no generated page's data: it is followed, into the base URL's
+      // process.env read (the review of 3a1368ec's check of the PR's other widenings).
+      "import { fetchSignupConfig } from '@/lib/serverApi'\nexport const metadata = { title: `${String(fetchSignupConfig())} | EarningsNerd` }",
     ]) expect(env(text), text).toHaveLength(1)
     // Texts that read no environment, whatever names they hold: a key, a member or a parameter named window,
     // document or process, a value-imported type, a namespace import's constant, a spread source read twice or
@@ -1123,6 +1153,21 @@ export const metadata = { title: pageTitleFor(DEFAULT_HEADLINE), description: DE
       '"Ⓝ: Amended Filing | EarningsNerd": "Filing" is capitalised mid-title (sentence case)',
     ])
     expect(readingsOf("export const title = (subject: string, filed: string, hasContent: boolean) => `${subject}${filed}${hasContent ? ': AI summary' : ''} | EarningsNerd`")).toEqual([])
+    // Every substitution is a name as well: a word after one is mid-title whatever the file holds for it today.
+    expect(readingsOf("const prefix = ''\nexport const title = `${prefix} Filings | EarningsNerd`")).toEqual([
+      '"Ⓝ Filings | EarningsNerd": "Filings" is capitalised mid-title (sentence case)',
+    ])
+    // Seven conditions (the review of 3a1368ec: the first 64 of 128 readings were read, none with the capitals). The
+    // same text is one reading, so these are read whole; 64 readings that differ are read whole too, and 128 that
+    // differ are more than the spec reads, so the title fails loudly rather than be read in part.
+    const conditions = (words: string[]) =>
+      "export const title = (l: string) => `${l} filings${c1 ? '' : ' With Bad Caps'}" +
+      words.map((word, k) => `\${c${k + 2} ? '' : ' ${word}'}`).join('') +
+      ' | EarningsNerd`'
+    const capitals = '"Ⓝ filings With Bad Caps | EarningsNerd": "With" is capitalised mid-title (sentence case)'
+    expect(readingsOf(conditions(['x', 'x', 'x', 'x', 'x', 'x']))).toContain(capitals)
+    expect(readingsOf(conditions(['a', 'b', 'c', 'd', 'e']))).toContain(capitals)
+    expect(() => readingsOf(conditions(['a', 'b', 'c', 'd', 'e', 'f']))).toThrow(/^app\/zzprobe\/page\.tsx:2: the title template .* has more than 64 readings/)
     // A generated state's texts are held to one environment too, its locals followed to their values; a call to
     // lib/serverApi is the page's data, read for its arguments alone.
     const generatedEnv = (body: string) => envProblems(readRouteFile(path.join(APP, 'zzprobe/page.tsx'), body))
