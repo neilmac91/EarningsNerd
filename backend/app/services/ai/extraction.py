@@ -3,8 +3,9 @@
 ``_ExtractionMixin`` holds the pure text-processing path that turns raw/HTML filing text into the
 bounded, section-labelled excerpt the summary prompt is grounded on: per-form config, the regex
 section extractor, table-of-contents/stub detection, dense-window backfill, and the assembler for
-sections parsed from the fetched primary document (``edgar/xbrl_sections.py``). No AI call, no DB, no settings — regex + BeautifulSoup only. The per-form
-display-label/length-cap constants (``_SECTION_LAYOUT`` et al.) travel with it as class attributes.
+sections parsed from the fetched primary document (``edgar/xbrl_sections.py``). No AI call, no DB,
+no settings — regex + BeautifulSoup only. The per-form display-label/length-cap constants
+(``_SECTION_LAYOUT`` et al.) travel with it as class attributes.
 Mixed into ``OpenAIService``; methods resolve through ``self``. Extracted verbatim.
 """
 from __future__ import annotations
