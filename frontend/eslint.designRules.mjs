@@ -31,7 +31,10 @@
 //                       or a dash set off by a space: `{'10-Q · Filed'}`, `10-Q - Filed`), as in
 //                       `{form} • Filed {ago}`. A component, a Badge or an element that resets the
 //                       face before the lead ends the reading (it is judged by its own rule or sets
-//                       its own face); nothing after the lead takes the chip's face off it.
+//                       its own face); nothing after the lead takes the chip's face off it. A class
+//                       a fixed truthiness rules out never counts (`cx({ uppercase: false })`,
+//                       `cx(false && 'uppercase')`), and one it guarantees always does
+//                       (`cx({ 'normal-case': 1 })`); any other string in the class counts.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that
@@ -153,18 +156,76 @@ const EYEBROW_CHIP = [/(^|:)!?uppercase$/, /(^|:)!?tracking-eyebrow$/]
 // The helpers a class binding may call: `const EYEBROW = cx('uppercase', 'tracking-eyebrow')`.
 const CLASS_HELPER = /^(cx|clsx)$/
 
+// Values whose truthiness their text fixes: an array, object, function or class expression is truthy.
+const TRUTHY_SHAPE = /^(?:ArrayExpression|ObjectExpression|FunctionExpression|ArrowFunctionExpression|ClassExpression)$/
+
+/** An expression's truthiness whatever runs: true or false, or undefined when it depends on what runs. A literal by its
+ *  value (a regex is truthy); a template truthy once a chunk has text, falsy when empty with no substitution; an array,
+ *  object, function or class expression truthy; the globals `undefined` and `NaN` falsy, `Infinity` truthy; `void x`
+ *  falsy, `typeof x` truthy, `!x` the opposite of x; `&&`, `||`, `??` (a truthy left is never null or undefined), a
+ *  conditional and a comma sequence by JavaScript's rules over their parts. Anything else is undefined. */
+function staticTruth(raw) {
+  const node = unwrapTs(raw)
+  if (!node) return undefined
+  if (node.type === 'Literal') return node.regex ? true : node.value === null && node.bigint !== undefined ? undefined : !!node.value
+  if (node.type === 'TemplateLiteral') {
+    if (node.quasis.some((q) => (q.value.cooked ?? q.value.raw) !== '')) return true
+    return node.expressions.length === 0 ? false : undefined
+  }
+  if (TRUTHY_SHAPE.test(node.type)) return true
+  if (node.type === 'Identifier') return node.name === 'undefined' || node.name === 'NaN' ? false : node.name === 'Infinity' ? true : undefined
+  if (node.type === 'UnaryExpression') {
+    if (node.operator === 'void') return false
+    if (node.operator === 'typeof') return true
+    const argument = node.operator === '!' ? staticTruth(node.argument) : undefined
+    return argument === undefined ? undefined : !argument
+  }
+  if (node.type === 'LogicalExpression') {
+    const left = staticTruth(node.left)
+    const right = staticTruth(node.right)
+    if (node.operator === '&&') return left === false ? false : left === true ? right : right === false ? false : undefined
+    if (node.operator === '||') return left === true ? true : left === false ? right : right === true ? true : undefined
+    return left === true ? true : left === false && right === false ? false : undefined
+  }
+  if (node.type === 'ConditionalExpression') {
+    const test = staticTruth(node.test)
+    const [yes, no] = [staticTruth(node.consequent), staticTruth(node.alternate)]
+    return test === true ? yes : test === false ? no : yes === no ? yes : undefined
+  }
+  if (node.type === 'SequenceExpression') return staticTruth(node.expressions[node.expressions.length - 1])
+  return undefined
+}
+
+/** The operand of a logical or conditional expression that never renders because its truthiness is fixed: the right of
+ *  `&&` after a falsy left, of `||` or `??` after a truthy one, the arm a fixed test never takes; else null. */
+function untaken(node) {
+  if (node.type === 'LogicalExpression') {
+    const left = staticTruth(node.left)
+    return (node.operator === '&&' ? left === false : left === true) ? node.right : null
+  }
+  if (node.type === 'ConditionalExpression') {
+    const test = staticTruth(node.test)
+    return test === undefined ? null : test ? node.alternate : node.consequent
+  }
+  return null
+}
+
 /** Every string an attribute's value can contribute (literals and template chunks), joined. An identifier
  *  contributes what `binding` reads for it: the class text of a binding declared in the same file. A class helper's
  *  object form names its classes by key (`cx({ uppercase: active })`), so a bare key contributes its name, as a quoted
- *  key contributes its text. */
+ *  key contributes its text. A part that never renders contributes nothing: an entry whose value is falsy whatever runs
+ *  (`cx({ uppercase: false })`), and an operand a fixed truthiness leaves untaken (`cx(false && 'uppercase')`). Every
+ *  other string counts wherever it stands, a condition's included, so the reading fails closed. */
 function attributeText(node, keys, binding, out = []) {
   if (!node || typeof node.type !== 'string') return out
+  if (node.type === 'Property' && staticTruth(node.value) === false) return out
   if (node.type === 'Literal' && typeof node.value === 'string') out.push(node.value)
   if (node.type === 'Property' && !node.computed && node.key.type === 'Identifier') out.push(node.key.name)
   if (node.type === 'TemplateElement') out.push(node.value.cooked ?? node.value.raw)
   if (node.type === 'Identifier') out.push(...binding(node))
+  const skipped = untaken(node)
   for (const key of keys[node.type] ?? []) {
-    for (const child of [node[key]].flat()) attributeText(child, keys, binding, out)
+    for (const child of [node[key]].flat()) if (child !== skipped) attributeText(child, keys, binding, out)
   }
   return out
 }
@@ -249,9 +310,11 @@ const RESETS_EYEBROW = /^!?(?:normal-case|lowercase|capitalize|tracking-(?!eyebr
 /** Whether a class value resets the eyebrow face on every path it can take. Each path needs a reset, not the same one
  *  (`plain ? 'normal-case' : 'tracking-normal'` cancels one half of the recipe on each path): a string's tokens, a
  *  template's whole static tokens, both arms of a conditional, both sides of `||` and `??`, any argument of a cx()/clsx()
- *  call (an object's key only when its value is the literal true), and a same-file binding by its class-shaped
- *  initializer (`init`). `a && b`, and anything else, resets nothing; `seen` holds the bindings on the current path, so
- *  it stops a binding that reads itself while a sibling branch reads the same binding in full. */
+ *  call (an object's key only when its value is truthy whatever runs), and a same-file binding by its class-shaped
+ *  initializer (`init`). A fixed truthiness picks the path (staticTruth): the arm a fixed test takes, the right of `&&`
+ *  after a truthy left, the side of `||` or `??` a fixed left decides. `a && b` otherwise, and anything else, resets
+ *  nothing; `seen` holds the bindings on the current path, so it stops a binding that reads itself while a sibling
+ *  branch reads the same binding in full. */
 function resetsOnEveryPath(raw, init, seen = new Set()) {
   const node = unwrapTs(raw)
   const resets = (tokens) => tokens.some((token) => RESETS_EYEBROW.test(token))
@@ -270,17 +333,23 @@ function resetsOnEveryPath(raw, init, seen = new Set()) {
     })
   }
   if (node.type === 'ConditionalExpression') {
+    const test = staticTruth(node.test)
+    if (test !== undefined) return resetsOnEveryPath(test ? node.consequent : node.alternate, init, seen)
     return resetsOnEveryPath(node.consequent, init, seen) && resetsOnEveryPath(node.alternate, init, seen)
   }
   if (node.type === 'LogicalExpression') {
-    return node.operator !== '&&' && resetsOnEveryPath(node.left, init, seen) && resetsOnEveryPath(node.right, init, seen)
+    const left = staticTruth(node.left)
+    if (node.operator === '&&') return left === true && resetsOnEveryPath(node.right, init, seen)
+    if (left === true) return resetsOnEveryPath(node.left, init, seen)
+    if (left === false && node.operator === '||') return resetsOnEveryPath(node.right, init, seen)
+    return resetsOnEveryPath(node.left, init, seen) && resetsOnEveryPath(node.right, init, seen)
   }
   if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPER.test(node.callee.name)) {
     return node.arguments.some((arg) => {
       const value = unwrapTs(arg)
-      // An object argument resets on every path only by a key whose value is the literal true.
+      // An object argument resets on every path only by a key whose value is truthy whatever runs.
       if (value?.type === 'ObjectExpression') {
-        return value.properties.some((p) => p.type === 'Property' && !p.computed && p.value.type === 'Literal' && p.value.value === true
+        return value.properties.some((p) => p.type === 'Property' && !p.computed && staticTruth(p.value) === true
           && resets(words(p.key.type === 'Identifier' ? p.key.name : String(p.key.value))))
       }
       return resetsOnEveryPath(arg, init, seen)

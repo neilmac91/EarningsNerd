@@ -122,6 +122,31 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     "<span className=\"uppercase tracking-eyebrow\">{label ?? 'Latest'}{form}</span>",
     // A class helper's object form resets the face when the key's value is the literal true.
     "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case tracking-normal': true })}>{form}</span></span>",
+    // A helper's key whose value is falsy whatever runs never emits its class (the review's case, and the rest of the
+    // family: null, 0, undefined, void, a falsy `&&`, a conditional with both arms falsy).
+    "<span className={cx({ uppercase: false, 'tracking-eyebrow': false })}>{form}</span>",
+    "<span className={cx({ uppercase: null, 'tracking-eyebrow': 0 })}>{form}</span>",
+    "<span className={cx({ uppercase: undefined, 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx({ uppercase: void 0, 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx({ uppercase: dense && false, 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx({ uppercase: dense ? false : '', 'tracking-eyebrow': true })}>{form}</span>",
+    // The rest of the family a fixed truthiness decides (staticTruth): a negation of a value whose truthiness is fixed,
+    // and an operand that never renders, the right of `&&` after a falsy left, of `||` and `??` after a truthy one, the
+    // arm a fixed test never takes.
+    "<span className={cx({ uppercase: !!0, 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx({ uppercase: ![], 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx(false && 'uppercase', 'tracking-eyebrow')}>{form}</span>",
+    "<span className={cx('tracking-eyebrow', 'quiet' || 'uppercase')}>{form}</span>",
+    "<span className={cx('tracking-eyebrow', 'quiet' ?? 'uppercase')}>{form}</span>",
+    "<span className={cx('tracking-eyebrow', true ? 'font-medium' : 'uppercase')}>{form}</span>",
+    // A reset a fixed truthiness guarantees is a reset on every path: a helper key truthy whatever runs, the arm a fixed
+    // test takes, the right of `&&` after a truthy left, the side of `||` or `??` a fixed left decides.
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': 1 })}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': !0 })}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={true ? 'normal-case' : ''}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={!0 && 'normal-case'}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={'' || 'normal-case'}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={'normal-case' ?? plain}>{form}</span></span>",
     // An important reset is a reset.
     '<span className="uppercase tracking-eyebrow"><span className="!normal-case !tracking-normal">{form}</span></span>',
     // Either half of the recipe reset is a reset, in any of its forms: another text-transform (the review's case
@@ -200,6 +225,25 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: "<span className={cx({ uppercase: true, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
     { code: "const EYEBROW = cx({ uppercase: true, 'tracking-eyebrow': active })\nexport const C = ({ form, active }) => <span className={EYEBROW}>{form}</span>", errors: [{ messageId: 'chip' }] },
     { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': plain })}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    // A key whose value may be truthy keeps its class: an `||` or `??` with a side that may be truthy, a conditional with
+    // an arm that may be, a negated falsy literal, an `&&` with no side always falsy, a template with an expression.
+    { code: "<span className={cx({ uppercase: dense || false, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: dense ?? null, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: dense ? true : false, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: !0, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: dense && 'on', 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: `${dense}`, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    // An operand that may render keeps its class: the right of `&&` after a truthy left, of `||` after a falsy left or
+    // one that may be, the arm a fixed test takes.
+    { code: "<span className={cx(true && 'uppercase', 'tracking-eyebrow')}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx('tracking-eyebrow', false || 'uppercase')}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx('tracking-eyebrow', dense || 'uppercase')}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx('tracking-eyebrow', false ? 'font-medium' : 'uppercase')}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    // A reset a fixed truthiness leaves out on a path is no reset: a key falsy whatever runs, the arm a fixed test takes
+    // without one, `??` after a falsy left that is never null or undefined.
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': 0 })}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={false ? 'normal-case' : ''}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={'' ?? 'normal-case'}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
     // A form field read by bracket notation is the field.
     { code: "<span className=\"uppercase tracking-eyebrow\">{hit['form']}</span>", errors: [{ messageId: 'chip' }] },
     { code: '<span className="uppercase tracking-eyebrow">{filing?.[`filing_type`]} · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
