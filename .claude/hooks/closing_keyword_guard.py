@@ -26,10 +26,10 @@ registered command (`python3 -I -S`: standard library only) maps Python's own ex
 open) to 1, so a broken install never blocks every Bash command and every GitHub call.
 
 Not checked: text a command builds as it runs (a variable, a command substitution's output, a message file
-written by an earlier command in the same line), a body file named relative to a directory the command
-changes into first, a merge run by another shell (`bash -c '...'`) or a script, a GitHub MCP server
-registered under a name without "github", a session that loads no repository hooks, and a person's own
-merge.
+written by an earlier command in the same line, a line handed to another shell that way; a literal
+`bash -c '...'` is on the line and read), a body file named relative to a directory the command changes
+into first, a merge a script runs, a GitHub MCP server registered under a name without "github", a session
+that loads no repository hooks, and a person's own merge.
 Tests: backend/tests/unit/test_closing_keyword_guard.py.
 """
 from __future__ import annotations

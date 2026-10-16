@@ -45,9 +45,10 @@ in an agent's session: `.claude/settings.json` runs it before every Bash command
 and it refuses a merge call (the MCP `merge_pull_request` or `enable_pr_auto_merge` commit fields, or a
 Bash line that runs `gh pr merge` or calls a merge endpoint, with the files it sends) whose typed text
 carries such a reference, with the gate's own pattern (`backend/tests/unit/test_closing_keyword_guard.py`).
-Not gated: a merge whose message a command builds as it runs, a merge made in a session that loads no
-repository hooks or by a person, and a merge made after an edit but before its new gate run's check
-appears.
+Not gated: a merge whose message a command builds as it runs or reads from a file named relative to a
+directory it changes into first, a merge a script runs, a merge through a GitHub MCP server registered under
+a name without "github", a merge made in a session that loads no repository hooks or by a person, and a
+merge made after an edit but before its new gate run's check appears.
 
 **Evidence**: #1136 (its body's closing note) and #1156 (closed 17:19:34 UTC with no commit, reopened at
 17:29:44, comment 6085958257); #653 with #629 and #694 with #686 (each close one second after the merge,

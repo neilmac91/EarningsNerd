@@ -115,6 +115,7 @@ BASH_REFUSED = (
     "gh pr merge 5 -s -Fmsg.md",
     "gh pr merge 5 -s --body-file - <<'EOF'\nSquash.\n\nfixes #3\nEOF",
     "cd backend && gh pr merge 5 -s -b 'resolved #3'",
+    "bash -c 'gh pr merge 5 -s -b \"fixes #3\"'",  # another shell, handed the line as written
     "gh api -X PUT repos/o/r/pulls/5/merge -f merge_method=squash -f commit_message='fixes #3'",
     "curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge -d '{\"commit_message\": \"closes #3\"}'",
     "gh api repos/o/r/merges -f base=main -f head=topic -f commit_message='fix #3'",
@@ -133,11 +134,14 @@ BASH_PASSED = (
     "ls -la",
     "echo merge",
 )
-# The stated gaps: text a command builds as it runs, a server named otherwise, another shell.
+# The stated gaps: text a command builds as it runs, a body file named relative to a directory it changes
+# into, a script, a server named otherwise.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b \"$(cat msg.md)\""}),
     ("Bash", {"command": "bash -c \"$(printf 'gh pr merge 5 -s -F %s' msg.md)\""}),
+    ("Bash", {"command": "cd .. && gh pr merge 5 -s -F {here}/msg.md"}),  # {here}: the body files' directory
+    ("Bash", {"command": "./merge.sh 5"}),
     ("mcp__gh__merge_pull_request", {"commit_message": "fixes #3"}),
 )
 
@@ -165,6 +169,8 @@ def test_other_bash_commands_and_clean_merges_go_through(command: str, bodies: P
 @pytest.mark.parametrize("tool, tool_input", GAPS)
 def test_text_built_as_the_command_runs_and_a_server_named_otherwise_are_stated_gaps(
         tool: str, tool_input: dict, bodies: Path) -> None:
+    if "command" in tool_input:
+        tool_input = {"command": tool_input["command"].replace("{here}", bodies.name)}
     assert _decision(tool, tool_input, cwd=bodies) is None
 
 
