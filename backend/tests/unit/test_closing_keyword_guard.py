@@ -37,10 +37,10 @@ def _registered() -> list[dict]:
     ]
 
 
-def _run(stdin: str, project_dir: Path = ROOT) -> subprocess.CompletedProcess[str]:
+def _run(stdin: str, project_dir: Path = ROOT, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     """Run the command .claude/settings.json registers, as Claude Code does (`/bin/sh -c`), within its timeout."""
     [hook] = [hook for entry in _registered() for hook in entry["hooks"]]
-    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)}
+    env = {**os.environ, **(env or {}), "CLAUDE_PROJECT_DIR": str(project_dir)}
     return subprocess.run(["sh", "-c", hook["command"]], input=stdin, capture_output=True, text=True, env=env,
                           timeout=hook["timeout"])
 
@@ -52,8 +52,8 @@ def _event(tool: str, tool_input: object, cwd: Path = ROOT) -> str:
     })
 
 
-def _decision(tool: str, tool_input: object, cwd: Path = ROOT) -> dict | None:
-    proc = _run(_event(tool, tool_input, cwd))
+def _decision(tool: str, tool_input: object, cwd: Path = ROOT, env: dict[str, str] | None = None) -> dict | None:
+    proc = _run(_event(tool, tool_input, cwd), env=env)
     assert proc.returncode == 0, proc.stderr
     if not proc.stdout:
         return None
@@ -66,8 +66,8 @@ def _decision(tool: str, tool_input: object, cwd: Path = ROOT) -> dict | None:
     return output
 
 
-def _refused(tool: str, tool_input: object, cwd: Path = ROOT) -> str:
-    output = _decision(tool, tool_input, cwd)
+def _refused(tool: str, tool_input: object, cwd: Path = ROOT, env: dict[str, str] | None = None) -> str:
+    output = _decision(tool, tool_input, cwd, env)
     assert output is not None and output["permissionDecision"] == "deny", output
     reason = output["permissionDecisionReason"]
     assert "closing_keyword_guard.py" in reason and "closing keyword" in reason and "by hand after the merge" in reason
@@ -79,6 +79,12 @@ def bodies(tmp_path: Path) -> Path:
     (tmp_path / "msg.md").write_text("Squash of the series.\n\nFixes #3.\n", encoding="utf-8")
     (tmp_path / "clean.md").write_text("Squash of the series; #3 carries the fix.\n", encoding="utf-8")
     (tmp_path / "body.json").write_text('{"merge_method": "squash", "commit_message": "resolves #3"}', encoding="utf-8")
+    (tmp_path / "automerge.graphql").write_text(
+        'mutation { enablePullRequestAutoMerge(input: {pullRequestId: "X", commitBody: "resolves #3"}) '
+        "{ clientMutationId } }\n", encoding="utf-8")
+    (tmp_path / "query.json").write_text(
+        '{"query": "mutation { mergePullRequest(input: {pullRequestId: \\"X\\", commitHeadline: \\"fixes #3\\"}) '
+        '{ clientMutationId } }"}', encoding="utf-8")
     return tmp_path
 
 
@@ -87,12 +93,13 @@ MCP_REFUSED = {
     "a squash message": (MERGE, {"pullNumber": 5, "merge_method": "squash", "commit_message": "Reviewed and fixed: #1156"}),
     "a squash title": (MERGE, {"pullNumber": 5, "commit_title": "test: close #1177's open findings (#1243)"}),
     "an escaped number sign": (MERGE, {"pullNumber": 5, "commit_message": "fixed \\#3"}),
-    "an auto-merge headline": ("mcp__github__enable_pr_auto_merge", {"pullNumber": 5, "commit_headline": "resolves #3"}),
-    "an auto-merge body": ("mcp__github__enable_pr_auto_merge", {"pullNumber": 5, "commit_body": "Closes #3"}),
+    "a GraphQL-named headline": (MERGE, {"pullNumber": 5, "commitHeadline": "resolves #3"}),
+    "a nested GraphQL body": ("mcp__github__run_graphql", {"variables": {"input": {"commitBody": "Closes #3"}}}),
     "another server named for github": ("mcp__plugin_GitHub-tools__merge_pull_request", {"commit_message": "fix #3"}),
 }
 MCP_PASSED = {
     "no typed message": (MERGE, {"pullNumber": 5, "merge_method": "squash"}),
+    "auto-merge, which types no message": ("mcp__github__enable_pr_auto_merge", {"pullNumber": 5, "mergeMethod": "SQUASH"}),
     "a clean message": (MERGE, {"pullNumber": 5, "commit_title": "ci: gate (#1351)", "commit_message": "#3 carries the fix"}),
     "a pull request body, which review-gate reads": ("mcp__github__update_pull_request", {"pullNumber": 5, "body": "Fixes #3"}),
     "a comment": ("mcp__github__add_issue_comment", {"issue_number": 5, "body": "closes #3 once merged"}),
@@ -106,13 +113,23 @@ BASH_REFUSED = (
     "gh pr --repo=o/r merge 5 --squash --body 'fixes o/r#3'",
     "/usr/local/bin/gh pr merge 5 -s -b 'fixes #3'",
     "sudo gh pr merge 5 -s -b 'fixes #3'",
+    "(gh pr merge 5 -s -b 'fixes #3')",
+    "out=$(gh pr merge 5 -s -b 'fixes #3')",
+    "echo `gh pr merge 5 -s -b 'fixes #3'`",
     "gh 'pr' 'mer''ge' 5 -s -b 'fixes #3'",
     "gh pr merge 5 -s -b 'clo''ses #3'",  # the keyword is whole only once the shell removes the quotes
     "gh pr merge 5 -s -b fi\"x\"ed\\ \\#3",
+    "gh pr merge 5 -s -b fix\\\nes\\ \\#3",  # a line continuation the shell joins inside the keyword
     "gh pr merge 5 -s --body-file msg.md",
     "gh pr merge 5 -s -F msg.md",
     "gh pr merge 5 -s --body-file=msg.md",
     "gh pr merge 5 -s -Fmsg.md",
+    "gh pr merge 5 -sF msg.md",
+    "gh pr merge 5 -s -d --body-file msg.md",  # -d is --delete-branch, never the value of the next option
+    "gh pr merge 5 -s -d -F msg.md",
+    "gh pr merge 5 -s -F - < msg.md",
+    "gh pr merge 5 -s --body-file /dev/stdin < msg.md",
+    "cat msg.md | gh pr merge 5 -s -F -",
     "gh pr merge 5 -s --body-file - <<'EOF'\nSquash.\n\nfixes #3\nEOF",
     "cd backend && gh pr merge 5 -s -b 'resolved #3'",
     "bash -c 'gh pr merge 5 -s -b \"fixes #3\"'",  # another shell, handed the line as written
@@ -120,17 +137,34 @@ BASH_REFUSED = (
     "curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge -d '{\"commit_message\": \"closes #3\"}'",
     "gh api repos/o/r/merges -f base=main -f head=topic -f commit_message='fix #3'",
     "gh api -X PUT repos/o/r/pulls/5/merge -F commit_message=@msg.md",
+    "gh api -X PUT repos/o/r/pulls/5/merge --field commit_message=@msg.md",
     "gh api -X PUT repos/o/r/pulls/5/merge --input body.json",
+    "gh api -X PUT repos/o/r/pulls/5/merge --input=body.json",
+    "gh api -X PUT repos/o/r/pulls/5/merge --input - < body.json",
     "curl -X PUT -d @body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT --data @body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT --data-binary @body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT --json @body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT -T body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT https://API.GitHub.com/repos/o/r/pulls/5/merge -d '{\"commit_message\": \"closes #3\"}'",
+    "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"X\", commitHeadline: \"fixes #3\"}) "
+    "{ clientMutationId } }'",
+    "gh api graphql -F query=@automerge.graphql",
+    "curl -X POST -d @query.json https://api.github.com/graphql",
 )
 BASH_PASSED = (
     "gh pr merge 5 --squash",
     "gh pr merge 5 --squash --delete-branch",
+    "gh pr merge 5 -s -d",
     "gh pr merge 5 -s -b '#3 carries the fix; addressed in #4'",
     "gh pr merge 5 -s --body-file clean.md",
     "gh pr view 5 --json body | grep -c 'fixes #3'",  # not a merge: review-gate reads the pull request's own text
     "git merge origin/main -m 'fixes #3'",  # a branch commit: review-gate reads the pull request's commits
     "gh pr comment 5 --body 'closes #3 once merged'",
+    # GraphQL without a merge mutation: a query, and a comment that names a reference.
+    "gh api graphql -f query='query { repository(owner: \"o\", name: \"r\") { issue(number: 3) { title } } }'",
+    "gh api graphql -f query='mutation { addComment(input: {subjectId: \"X\", body: \"closes #3 once merged\"}) "
+    "{ clientMutationId } }'",
     "ls -la",
     "echo merge",
 )
@@ -139,6 +173,7 @@ BASH_PASSED = (
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b \"$(cat msg.md)\""}),
+    ("Bash", {"command": "sed 's/x/y/' msg.md | gh pr merge 5 -s -F -"}),
     ("Bash", {"command": "bash -c \"$(printf 'gh pr merge 5 -s -F %s' msg.md)\""}),
     ("Bash", {"command": "cd .. && gh pr merge 5 -s -F {here}/msg.md"}),  # {here}: the body files' directory
     ("Bash", {"command": "./merge.sh 5"}),
@@ -185,6 +220,19 @@ def test_the_hook_reads_with_review_gates_own_pattern(case, title, body, message
     else:  # the gate labels a reference by where it found it; the hook's text is one commit message
         reference = expected.split('"')[1] if '"' in expected else expected
         assert output is not None and reference in output["permissionDecisionReason"]
+
+
+def test_a_body_file_under_home_is_read(bodies: Path) -> None:
+    _refused("Bash", {"command": "gh pr merge 5 -s --body-file ~/msg.md"}, env={"HOME": str(bodies)})
+
+
+def test_a_file_over_the_cap_and_one_under_proc_are_not_read(bodies: Path) -> None:
+    (bodies / "big.md").write_text("Fixes #3.\n" + "x" * (1 << 20), encoding="utf-8")
+    assert _decision("Bash", {"command": "gh pr merge 5 -s -F big.md"}, cwd=bodies) is None
+    # /proc, /sys and /dev are skipped (a read there can block, or is a pipe): the hook's own environment
+    # names a reference, and it is not read.
+    command = "gh pr merge 5 -s --body-file /proc/self/environ"
+    assert _decision("Bash", {"command": command}, cwd=bodies, env={"SQUASH_NOTE": "fixes #3"}) is None
 
 
 def test_a_large_command_is_read_inside_the_timeout() -> None:

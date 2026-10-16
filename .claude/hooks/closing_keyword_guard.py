@@ -9,16 +9,18 @@ message: the title, or the one commit's subject, then every commit message. It c
 at the merge itself. This hook reads that message where an agent types it, with the gate's own
 `closing_references` (loaded from backend/scripts/review_gate.py, so the two share one pattern):
 - a call to a GitHub MCP server (a name containing "github" in any case) that carries a merge's commit
-  text: `commit_title`, `commit_message`, `commit_headline` or `commit_body` (merge_pull_request,
-  enable_pr_auto_merge);
+  text, at any depth, under REST's names or GraphQL's in either spelling: `commit_title` and
+  `commit_message` (merge_pull_request types these), `commitHeadline` and `commitBody`;
 - a Bash command line that runs `gh pr merge` (gh as a word or a path, -R/--repo before the noun or the
-  verb, the words quoted or not), or that calls GitHub's merge endpoints (`/merge` or `/merges` with
-  `gh api` or api.github.com): the whole line, as written and with its quotes removed, here-document text
-  included, and the files it sends as the message (gh pr merge's `--body-file` and `-F`, gh api's
-  `--input` and `-F key=@file`, curl's `-d @file`).
-A merge with no typed message passes: its message is the default the gate has read. Reading the whole line
-refuses more than the merge's own message (another command on the line that names a closing reference);
-the remedy, rewording, is cheap.
+  verb, the words quoted or not), that calls a REST merge endpoint (`/merge` or `/merges` with `gh api` or
+  api.github.com), or that calls the GraphQL API (`graphql` with `gh api` or api.github.com) with a merge
+  mutation (mergePullRequest, enablePullRequestAutoMerge, mergeBranch) on the line or in a file it sends:
+  the whole line, as written and with its quotes removed, here-document text included, and the files it
+  sends (gh pr merge's `--body-file` and `-F`, gh api's `--input` and `-F`/`--field key=@file`, curl's
+  `-d`/`--data`/`--json @file` and `-T`, a file redirected with `<`, and one piped from a plain `cat`).
+A merge with no typed message passes: its message is the default the gate has read. Reading the whole line,
+and every file it names that way, refuses more than the merge's own message (another command on the line
+that names a closing reference); the remedy, rewording, is cheap.
 
 A refusal is a JSON deny on stdout, which Claude Code hands to Claude as the reason; anything else exits 0
 with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call through. The
@@ -26,9 +28,9 @@ registered command (`python3 -I -S`: standard library only) maps Python's own ex
 open) to 1, so a broken install never blocks every Bash command and every GitHub call.
 
 Not checked: text a command builds as it runs (a variable, a command substitution's output, a message file
-written by an earlier command in the same line, a line handed to another shell that way; a literal
-`bash -c '...'` is on the line and read), a body file named relative to a directory the command changes
-into first, a merge a script runs, a GitHub MCP server registered under a name without "github", a session
+written by an earlier command in the same line, a message piped from anything but a plain `cat`, a line
+handed to another shell that way; a literal `bash -c '...'` is on the line and read), a file over 1 MiB, a
+file named relative to a directory the command changes into first, a merge a script runs, a GitHub MCP server registered under a name without "github", a session
 that loads no repository hooks, and a person's own merge.
 Tests: backend/tests/unit/test_closing_keyword_guard.py.
 """
@@ -39,18 +41,27 @@ import re
 import sys
 from pathlib import Path
 
-# The commit text a merge call types, by the names GitHub's REST and GraphQL APIs give it.
-COMMIT_FIELDS = ("commit_title", "commit_message", "commit_headline", "commit_body")
+# The commit text a merge call types: REST's commit_title and commit_message, GraphQL's commitHeadline and
+# commitBody, compared with underscores dropped and case folded so either spelling counts.
+COMMIT_FIELDS = ("committitle", "commitmessage", "commitheadline", "commitbody")
 _REPO = r"(?:\s+(?:-R\s*\S+|--repo(?:=|\s+)\S+))*"  # gh takes -R/--repo before the noun and before the verb
 GH_MERGE = re.compile(rf"(?:^|[\s/;&|(`$])gh{_REPO}\s+pr{_REPO}\s+merge\b")
 MERGE_ENDPOINT = re.compile(r"/merges?\b")
 GH_API = re.compile(r"(?:^|[\s/;&|(`$])gh\s+api\b")
-# An option whose value is, or names with `@`, a file the merge sends: gh pr merge's --body-file and -F, gh
-# api's -F key=@file and --input, curl's -d/--data/--data-binary @file. A regular expression, not shlex: it
-# reads a 1 MiB line in milliseconds.
+GRAPHQL = re.compile(r"\bgraphql\b", re.IGNORECASE)
+MERGE_MUTATION = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|mergeBranch)\b", re.IGNORECASE)
+# A file name: quoted, a lone `-` (standard input), or a word that does not start with `-` (that is the next
+# option, as in `-d --body-file msg.md`, where -d is gh pr merge's --delete-branch).
+_VALUE = r"""('[^'\n]*'|"[^"\n]*"|-(?![^\s;&|()<>])|[^\s;&|()<>'"-][^\s;&|()<>'"]*)"""
+# The files a line sends: an option whose value is, or names with `@`, a file (gh pr merge's --body-file
+# and -F, gh api's --input and -F/--field key=@file, curl's -d/--data/--data-binary/--data-ascii/--json
+# @file and -T/--upload-file; a short flag may close a run of others, as in -sF), a `<` redirect's target,
+# and the file a plain `cat` pipes on. Regular expressions, not shlex: they read a 1 MiB line in milliseconds.
 FILE_ARG = re.compile(
-    r"""(?:^|[\s;&|(])(?:--body-file(?:=|\s+)|-F[ \t]*|--input(?:=|\s+)|-d[ \t]*|--data(?:-binary)?(?:=|\s+))"""
-    r"""('[^'\n]*'|"[^"\n]*"|[^\s;&|()<>'"]+)""")
+    r"""(?:^|[\s;&|(])(?:--(?:body-file|input|field|data(?:-binary|-ascii)?|json|upload-file)(?:=|\s+)"""
+    r"""|-[A-Za-z]*[FdT][ \t]*)""" + _VALUE)
+REDIRECT = re.compile(r"(?<![<&])<(?![<(&>])[ \t]*" + _VALUE)
+CAT_PIPE = re.compile(r"(?:^|[\s;&|(])cat[ \t]+" + _VALUE + r"[ \t]*\|(?!\|)")
 UNQUOTE = str.maketrans("", "", "'\"\\")
 MAX_FILE_BYTES = 1 << 20
 GATE = Path(__file__).resolve().parents[2] / "backend" / "scripts" / "review_gate.py"
@@ -74,32 +85,41 @@ def _commit_texts(value: object, field: str | None = None):
     elif isinstance(value, list):
         for item in value:
             yield from _commit_texts(item, field)
-    elif isinstance(value, str) and field in COMMIT_FIELDS:
+    elif isinstance(value, str) and isinstance(field, str) and field.replace("_", "").lower() in COMMIT_FIELDS:
         yield field, value
 
 
-def _merges(command: str) -> bool:
-    """Whether the line runs `gh pr merge` or calls a merge endpoint, its quotes removed or not."""
-    for text in (command, command.replace("\\\n", "").translate(UNQUOTE)):
-        if GH_MERGE.search(text):
-            return True
-        if MERGE_ENDPOINT.search(text) and (GH_API.search(text) or "api.github.com" in text.lower()):
-            return True
-    return False
+def _plain(command: str) -> str:
+    """The line with its quotes, backslashes and line continuations removed, as the shell joins its words."""
+    return command.replace("\\\n", "").translate(UNQUOTE)
+
+
+def _merge_kind(command: str) -> str | None:
+    """"merge" when the line runs `gh pr merge` or calls a REST merge endpoint, "graphql" when it calls the
+    GraphQL API (a merge only with a merge mutation), else None; read as written and with its quotes removed."""
+    kind = None
+    for text in (command, _plain(command)):
+        api = bool(GH_API.search(text)) or "api.github.com" in text.lower()
+        if GH_MERGE.search(text) or (api and MERGE_ENDPOINT.search(text)):
+            return "merge"
+        if api and GRAPHQL.search(text):
+            kind = "graphql"
+    return kind
 
 
 def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
-    """The text of each regular file, up to 1 MiB, that the line sends as the merge's message: the value of
-    --body-file, -F or --input, or the file an `@` names in a field (`commit_message=@msg.md`, `-d @body.json`)."""
+    """The text of each regular file, up to 1 MiB, that the line sends: an option's file, or the one an `@`
+    names in a field (`commit_message=@msg.md`, `-d @body.json`), a `<` redirect's target, a `cat`-piped file."""
     names = []
     for match in FILE_ARG.finditer(command):
         value = match.group(1).strip("'\"")
         at = value.find("@")
         names.append(value[at + 1:] if at >= 0 and (at == 0 or value[at - 1] == "=") else value)
+    names += [match.group(1).strip("'\"") for pattern in (REDIRECT, CAT_PIPE) for match in pattern.finditer(command)]
     base = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
     texts = []
     for name in dict.fromkeys(names):
-        if name == "-":  # standard input: a here-document's text is in the line, which is read whole
+        if name == "-":  # standard input: a here-document is on the line, a redirect or a cat pipe read above
             continue
         try:
             path = (base / Path(name).expanduser()).resolve()
@@ -134,11 +154,16 @@ def refusal(event: object) -> str | None:
         command = tool_input.get("command")
         if not isinstance(command, str):
             return None
-        plain = command.replace("\\\n", "").translate(UNQUOTE)  # no quotes, backslashes or continuations
-        if "merge" not in plain or not _merges(command):
+        plain = _plain(command)
+        if "merge" not in plain and "graphql" not in plain.lower():
+            return None
+        kind = _merge_kind(command)
+        if kind is None:
             return None
         texts = [("this command", command), ("this command", plain)]
         texts += _body_files(command, event.get("cwd"))
+        if kind == "graphql" and not any(MERGE_MUTATION.search(text) for _, text in texts):
+            return None
     else:
         parts = tool.split("__")
         if not (len(parts) >= 3 and parts[0] == "mcp" and "github" in parts[1].lower()):
