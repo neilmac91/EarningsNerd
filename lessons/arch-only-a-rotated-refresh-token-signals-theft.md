@@ -49,8 +49,10 @@ deleting a successor clears its predecessor's link, so every delete in those fil
 DELETE` in a string or a migration) is counted. `User.refresh_tokens` is `delete-orphan`, so a token
 dropped from it is deleted at flush and strips its predecessor's link the same way: every drop
 (`user.refresh_tokens.remove(t)`, `pop`, `clear`, an item or slice stored or deleted, the collection
-reassigned, augmented or deleted, a token's `user` set or deleted, by name too) and every `merge` (a
-merged detached user deletes the tokens its copy lacks) counts as a delete. Those checks know the
+reassigned, augmented or deleted, a token's `user` set or deleted, by name too, `del_attribute`
+included) and every `merge` (a merged detached user deletes the tokens its copy lacks) counts as a
+delete. They go by name, not type, so any object's `user` store and any `merge` in those files count
+and need a reviewed entry saying they drop no token. Those checks know the
 relationships by name, so a test holds the mappers to them: `User.refresh_tokens` is the only
 relationship into the model and `user` its only one, and a second delete-orphan collection, a rename
 or a relationship over the link (`t.replaced_by = None` writes it) fails it. The one refresh-token
@@ -58,9 +60,12 @@ deleter that exists, the retention purge, deletes in ascending id order, so a ch
 always goes before its successor and keeps its link even if a run stops between batches
 (`test_retention_purge.py::test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link`).
 The gate scores its scan on planted forms and names its gaps: a generic helper elsewhere handed a
-token or a model to delete or merge, or the collection to drop members from, a name from code the
-folder does not run, a whole-row copy or load (`INSERT ... SELECT *`, a positional
-`INSERT ... VALUES`, `COPY`), a write through an ORM synonym, a psql variable standing in for the
-column, dynamic SQL that builds both names, and a same-kind swap inside one function.
+token or a model to delete or merge, or a token to cut from its user; the collection handed to any
+helper that drops its members, one in the same module too, or reached through a binding other than
+`x.refresh_tokens`, `getattr(x, "refresh_tokens")` or a plain `name = x.refresh_tokens` (a walrus,
+a `getattr`-bound name, unpacking, an attribute holding it); a name from code the folder does not
+run, a whole-row copy or load (`INSERT ... SELECT *`, a positional `INSERT ... VALUES`, `COPY`), a
+write through an ORM synonym, a psql variable standing in for the column, dynamic SQL that builds
+both names, and a same-kind swap inside one function.
 Replaying a rotated-away token still revokes the live chain (`test_refresh_replay.py`,
 `test_auth_token_flows.py`).
