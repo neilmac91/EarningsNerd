@@ -3,15 +3,17 @@ delete on a clock, in bounded batches, and a dry run counts without deleting."""
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import create_engine, event, select, update
+from sqlalchemy import Select, create_engine, event, select, text, update
 from sqlalchemy.sql.dml import Delete
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.models import ContactSubmission, LoginAttempt, OAuthState, RefreshToken, User, UserSearch
+from app.services import refresh_token_service
 from app.services import retention_service as retention
 from app.services.job_run_service import JOB_CADENCES
+from app.utils.datetimes import utcnow
 
 NOW = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
 NAIVE_NOW = NOW.replace(tzinfo=None)
@@ -140,6 +142,86 @@ def test_a_row_refreshed_between_select_and_delete_survives_and_is_not_counted(d
     assert refreshed, "the listener must have fired on the login_attempts delete"
     assert stats["login_attempts_purged"] == 0
     assert _remaining(db)["attempts"] == {"a", "b", "c"}
+
+
+def test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link(db, monkeypatch):
+    """The theft check reads ``replaced_by_id`` (rotate_refresh_token), and the column is ON DELETE
+    SET NULL, so the purge must delete a chain's predecessor before its successor. Rotation rewrites
+    the predecessor after inserting the successor, so PostgreSQL's heap order hands the successor to
+    an unordered scan first; the hook below plays that order for any key select without ORDER BY.
+    The purge is cut after its first one-row batch: the token left behind must still carry its link,
+    and replaying it must still sweep the live head of the chain."""
+    engine = db.get_bind()
+
+    @event.listens_for(engine, "connect")
+    def _foreign_keys(dbapi_conn, _record):  # pragma: no cover - fresh connections only
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+
+    db.execute(text("PRAGMA foreign_keys=ON"))  # the StaticPool connection already exists
+
+    @event.listens_for(engine, "before_execute", retval=True)
+    def _heap_order(conn, clauseelement, multiparams, params, execution_options):
+        if (isinstance(clauseelement, Select) and not clauseelement._order_by_clauses
+                and [c.table.name for c in clauseelement.selected_columns] == ["refresh_tokens"]):
+            clauseelement = clauseelement.order_by(RefreshToken.id.desc())
+        return clauseelement, multiparams, params
+
+    now = utcnow()
+    naive = now.replace(tzinfo=None)
+    user = User(email="chain@example.com", is_active=True)
+    db.add(user)
+    db.flush()
+    raw = {name: f"raw-{name}" for name in ("t1", "t2", "t3", "t4")}
+    # t1 -> t2 -> t3 -> t4: t1 and t2 were rotated away more than 30 days ago (both qualify), t3 five
+    # days ago, and t4 is the live head of the chain.
+    created = {"t1": 70, "t2": 40, "t3": 35, "t4": 5}
+    tokens = {
+        name: RefreshToken(user_id=user.id, token_hash=refresh_token_service._hash_token(raw[name]),
+                           expires_at=naive - timedelta(days=days) + timedelta(days=30))
+        for name, days in created.items()
+    }
+    db.add_all(tokens.values())
+    db.flush()
+    for prev, succ in (("t1", "t2"), ("t2", "t3"), ("t3", "t4")):
+        tokens[prev].revoked_at = naive - timedelta(days=created[succ])
+        tokens[prev].replaced_by_id = tokens[succ].id
+    db.commit()
+    ids = {name: token.id for name, token in tokens.items()}
+    hashes = {name: token.token_hash for name, token in tokens.items()}
+    assert ids["t1"] < ids["t2"] < ids["t3"] < ids["t4"]
+
+    commits = {"n": 0}
+    real_commit = db.commit
+
+    def _stop_after_first_batch():
+        commits["n"] += 1
+        if commits["n"] > 1:
+            raise RuntimeError("purge interrupted")
+        real_commit()
+
+    monkeypatch.setattr(db, "commit", _stop_after_first_batch)
+    try:
+        with pytest.raises(RuntimeError, match="purge interrupted"):
+            retention.run_retention_purge(db, now=now, batch_size=1)
+    finally:
+        monkeypatch.setattr(db, "commit", real_commit)
+        event.remove(engine, "before_execute", _heap_order)
+        event.remove(engine, "connect", _foreign_keys)
+    db.rollback()
+    db.expire_all()
+
+    left = {r.token_hash: r for r in db.execute(select(RefreshToken)).scalars()}
+    rotated_left = [left[hashes[n]] for n in ("t1", "t2", "t3") if hashes[n] in left]
+    assert len(left) == 3, "the cut purge must have deleted exactly one row"
+    assert all(r.replaced_by_id is not None for r in rotated_left), (
+        "a rotated-away token kept by the cut purge lost its replaced_by_id: its successor was deleted first"
+    )
+    oldest_left = next(n for n in ("t1", "t2", "t3") if hashes[n] in left)
+    with pytest.raises(refresh_token_service.RefreshTokenReuseError):
+        refresh_token_service.rotate_refresh_token(db, raw[oldest_left])
+    db.flush()
+    db.expire_all()  # the sweep is a bulk UPDATE; read the row back from the database
+    assert db.get(RefreshToken, ids["t4"]).revoked_at is not None, "the replay must sweep the live head"
 
 
 def test_retention_purge_is_a_tracked_job_with_a_weekly_cadence():

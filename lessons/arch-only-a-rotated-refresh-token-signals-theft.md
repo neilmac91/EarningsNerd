@@ -33,5 +33,8 @@ all four. Its last test pins the residual: a copy the owner's own refresh rotate
 after a reset, still ends the new login.
 `backend/tests/unit/test_replaced_by_id_writers_allowlist.py` holds every mention of
 `replaced_by_id` in `backend/app` (reads included, so an aliased or by-name write cannot slip past
-it) to rotation's own read and write and the column definition, and scores its scan on planted forms. Replaying a rotated-away token still revokes the live chain
+it) to rotation's own read and write and the column definition, and scores its scan on planted forms. Because the column is `ON DELETE SET NULL`, the retention purge
+deletes refresh tokens in ascending id order, so a chain's predecessor always goes before its
+successor and keeps its link even if a run stops between batches
+(`test_retention_purge.py::test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link`). Replaying a rotated-away token still revokes the live chain
 (`test_refresh_replay.py`, `test_auth_token_flows.py`).
