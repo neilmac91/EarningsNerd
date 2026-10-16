@@ -1,0 +1,229 @@
+"""Concurrent whole summary generations on golden documents (E28 final review, an independent harness).
+
+Run as a throwaway test file in a worktree of the PR head, so the hermetic test conftest applies, one
+pytest process per run, pinned to one CPU:
+    V3_DOCS="path:form,..." V3_XBRL_CPU=3 V3_DURABLE=1 V3_OUT=run.json \
+        taskset -c 0 python -m pytest -q -p no:cacheprovider -n 0 tests/unit/test_v3_emp_burst.py
+V3_XBRL_CPU is thread-CPU seconds burned per generation on the SEC pool in place of XBRL (0 = stubbed).
+V3_SHARED=1 sends the parse through the shared four-thread SEC pool instead, emulating origin/main's
+scheduling. The slower-CPU series pinned a duty-cycled busy loop to the same CPU beside the run (busy
+30 or 60 ms of every 100 ms). The driver added a "label" to each run; burst_up_to_six.jsonl keeps
+each run's rows, parses and excerpt builds. The first 32 runs used an earlier revision of this file
+that did not record excerpt builds or join starts (null there).
+"""
+import asyncio
+import json
+import logging
+import os
+import resource
+import threading
+import time
+from copy import deepcopy
+from unittest.mock import patch
+
+import pytest
+
+from app.database import SessionLocal, engine
+from app.models import Base, Filing
+from app.services import summary_generation_service, summary_pipeline
+from app.services.edgar import xbrl_service as edgar_xbrl_module
+from app.services.edgar.async_executor import run_in_executor
+from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, reset_inflight, seed_company_filing, stream_boundaries
+
+
+def _cpu0_busy():
+    with open("/proc/stat") as fh:
+        for line in fh:
+            if line.startswith("cpu0 "):
+                v = [int(x) for x in line.split()[1:]]
+                return sum(v) - v[3] - v[4], sum(v)  # busy (minus idle, iowait), total
+    return 0, 0
+
+
+@pytest.mark.asyncio
+async def test_v3_burst(caplog):
+    caplog.set_level(logging.INFO)
+    Base.metadata.create_all(bind=engine)
+    reset_inflight()
+    xbrl_cpu = float(os.environ.get("V3_XBRL_CPU", "0"))
+    gens = []
+    for spec in os.environ["V3_DOCS"].split(","):
+        path, form = spec.rsplit(":", 1)
+        fid = seed_company_filing(filing_type=form)
+        with SessionLocal() as db:
+            f = db.get(Filing, fid)
+            gens.append({"name": os.path.basename(path).split("_")[0], "form": form, "path": path,
+                         "fid": fid, "url": f.document_url, "acc": f.accession_number})
+    url_to_path = {g["url"]: g["path"] for g in gens}
+    texts = {}
+    for g in gens:  # read up front so the measured window holds no disk I/O
+        with open(g["path"], encoding="utf-8", errors="replace", newline="") as fh:
+            texts[g["path"]] = fh.read()
+        g["doc_chars"] = len(texts[g["path"]])
+    by_acc = {g["acc"]: g for g in gens}
+    by_name_form = {}
+
+    async def fetch(url, timeout=None):  # the ONE fetch patch: document_url -> local golden file
+        return texts[url_to_path[url]]
+
+    provider = {}
+
+    async def capture(text, company, form, **kw):
+        provider[len(text)] = {"excerpt_chars": len(kw["filing_excerpt"]) if kw.get("filing_excerpt") else None,
+                               "xbrl_metrics": kw.get("xbrl_metrics") is not None,
+                               "t": time.perf_counter()}
+        return deepcopy(CANONICAL_PAYLOAD)
+
+    parse_log = []
+    real_parse = edgar_xbrl_module._sections_from_html
+
+    active = [0]
+    lock = threading.Lock()
+
+    def timed_parse(html, base_form):
+        t0, c0 = time.perf_counter(), time.thread_time()
+        with lock:
+            active[0] += 1
+        try:
+            out = real_parse(html, base_form)
+        finally:
+            parse_log.append({"chars": len(html), "start": t0, "wall": time.perf_counter() - t0,
+                              "thread_cpu": time.thread_time() - c0})
+            with lock:
+                active[0] -= 1
+        return out
+
+    xbrl_state = {}
+
+    def burn():
+        with lock:
+            active[0] += 1
+        try:
+            end = time.thread_time() + xbrl_cpu
+            n = 0
+            while time.thread_time() < end:
+                n += sum(i * i for i in range(2000))
+            return n
+        finally:
+            with lock:
+                active[0] -= 1
+
+    async def xbrl_standin(accession, cik):
+        try:
+            await run_in_executor(burn)
+        except asyncio.CancelledError:
+            xbrl_state[accession] = "cancelled"
+            raise
+        xbrl_state[accession] = time.perf_counter()
+        return None
+
+    real_seam = type(summary_pipeline.xbrl_service).get_filing_sections.__get__(summary_pipeline.xbrl_service)
+
+    from app.services.edgar.async_executor import run_in_executor_with_timeout
+
+    async def shared_parse(func, timeout):  # origin/main's scheduling: the four-thread SEC pool
+        return await run_in_executor_with_timeout(func, timeout=timeout)
+
+    excerpt_log = []
+
+    def timed_excerpt(db, filing, text, sections=None):
+        t0, c0 = time.perf_counter(), time.thread_time()
+        try:
+            return summary_generation_service.get_or_cache_excerpt(db, filing, text, sections=sections)
+        finally:
+            excerpt_log.append({"chars": len(text or ""), "native_input": bool(sections), "start": t0,
+                                "wall": time.perf_counter() - t0, "thread_cpu": time.thread_time() - c0})
+
+    async def one(g):
+        t0 = time.perf_counter()
+        frames = []
+        async for ev in summary_pipeline.stream_filing_summary(
+            filing_id=g["fid"], current_user=None, user_id=None, telemetry_distinct_id="offline",
+            telemetry_entry_point=None, telemetry_ctx={}, emit_funnel_telemetry=False,
+        ):
+            frames.append((time.perf_counter(), ev.get("type"), ev.get("percent")))
+        gaps = [(round(b[0] - a[0], 2), f"{a[1]}:{a[2]}->{b[1]}:{b[2]}") for a, b in zip([(t0, "start", None)] + frames, frames)]
+        g["seconds"] = round(time.perf_counter() - t0, 2)
+        g["terminal_at"] = round(frames[-1][0] - t0, 2) if frames else None
+        fifty = [f[0] for f in frames if f[1] == "progress" and f[2] == 50]
+        g["join_start_abs"] = fifty[0] if fifty else None
+        g["t_end"] = time.perf_counter()
+        g["terminal"] = frames[-1][1] if frames else None
+        g["max_gap"] = max(gaps) if gaps else None
+        g["n_frames"] = len(frames)
+
+    ru0 = resource.getrusage(resource.RUSAGE_SELF)
+    busy0, tot0 = _cpu0_busy()
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
+            patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", fetch), \
+            patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
+            patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 3), \
+            patch.object(summary_pipeline.settings, "DURABLE_TASKS_ENABLED", os.environ.get("V3_DURABLE") == "1"), \
+            patch.object(summary_pipeline, "get_or_cache_excerpt", timed_excerpt), \
+            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", real_seam), \
+            patch.object(edgar_xbrl_module, "_sections_from_html", timed_parse), \
+            patch.object(edgar_xbrl_module, "run_parse_with_timeout", shared_parse if os.environ.get("V3_SHARED") == "1" else edgar_xbrl_module.run_parse_with_timeout):
+        summarize.side_effect = capture
+        if xbrl_cpu:
+            stack_patch = patch.object(summary_pipeline.xbrl_service, "get_xbrl_data", xbrl_standin)
+            stack_patch.start()
+        t_start = time.perf_counter()
+        try:
+            await asyncio.gather(*(one(g) for g in gens))
+        finally:
+            if xbrl_cpu:
+                stack_patch.stop()
+        # let any runaway parse thread finish so the next run starts clean
+        t_gather_end = time.perf_counter()
+        for _ in range(600):
+            if active[0] == 0:
+                break
+            await asyncio.sleep(0.1)
+        runaway_s = time.perf_counter() - t_gather_end
+    ru1 = resource.getrusage(resource.RUSAGE_SELF)
+    busy1, tot1 = _cpu0_busy()
+    wall = t_gather_end - t_start
+    msgs = [(r.levelname, r.getMessage()) for r in caplog.records]
+    prov = {}
+    for lvl, m in msgs:
+        if m.startswith("Excerpt provenance: "):
+            p = json.loads(m.split("Excerpt provenance: ", 1)[1])
+            prov[p["accession"]] = (p["source"], p["excerpt_chars"], [s["key"] for s in p["supplied_sections"]])
+    rows = []
+    for g in gens:
+        pv = provider.get(g["doc_chars"])
+        src = prov.get(g["acc"])
+        if pv is None:
+            outcome = "no-provider-call"
+        elif pv["excerpt_chars"] is None:
+            outcome = "DROPPED"
+        elif src and src[0] == "edgartools":
+            outcome = "native"
+        elif src and src[0] == "regex_fallback":
+            outcome = "regex"
+        else:
+            outcome = f"other:{src}"
+        xs = xbrl_state.get(g["acc"]) if xbrl_cpu else "stub"
+        rows.append({
+            "name": g["name"], "form": g["form"], "doc_chars": g["doc_chars"], "outcome": outcome,
+            "provenance": src, "excerpt_chars_to_provider": pv and pv["excerpt_chars"],
+            "xbrl": ("finished_before_join_end" if isinstance(xs, float) and pv and xs <= pv["t"] else xs if not isinstance(xs, float) else "after"),
+            "join_start_rel": round(g["join_start_abs"] - t_start, 2) if g["join_start_abs"] else None,
+            "seconds": g["seconds"], "terminal_at": g["terminal_at"], "terminal": g["terminal"], "max_gap": g["max_gap"], "frames": g["n_frames"],
+            "warnings": [m for lvl, m in msgs if lvl in ("WARNING", "ERROR") and (f"[stream:{g['fid']}]" in m or g["acc"] in m)],
+        })
+    out = {
+        "docs": len(gens), "xbrl_cpu": xbrl_cpu, "durable": os.environ.get("V3_DURABLE") == "1", "shared_pool": os.environ.get("V3_SHARED") == "1", "wall_s": round(wall, 2), "runaway_after_s": round(runaway_s, 2),
+        "proc_cpu_s": round((ru1.ru_utime - ru0.ru_utime) + (ru1.ru_stime - ru0.ru_stime), 2),
+        "cpu0_busy_s": round((busy1 - busy0) / os.sysconf("SC_CLK_TCK"), 2),
+        "rows": rows,
+        "parses": [{"chars": p["chars"], "start_rel": round(p["start"] - t_start, 2), "wall": round(p["wall"], 2),
+                    "thread_cpu": round(p["thread_cpu"], 2)} for p in parse_log],
+        "excerpt_builds": [{"chars": e["chars"], "native_input": e["native_input"], "start_rel": round(e["start"] - t_start, 2),
+                            "wall": round(e["wall"], 2), "thread_cpu": round(e["thread_cpu"], 2)} for e in excerpt_log],
+        "other_warnings": [m for lvl, m in msgs if lvl in ("WARNING", "ERROR") and not any(
+            (f"[stream:{g['fid']}]" in m or g["acc"] in m) for g in gens)][:20],
+    }
+    with open(os.environ["V3_OUT"], "w") as fh:
+        fh.write(json.dumps(out, indent=1))
+    reset_inflight()

@@ -77,7 +77,7 @@ async def test_burst(caplog):
     out = {"results": results,
            "excerpts": [{"doc_chars": n, "excerpt_chars": len(x) if x else None} for _, n, x in calls],
            "seconds": {name: s for name, _, _, s, _ in results},
-           "xbrl_done": len(done_at),
+           "xbrl_done": len(done_at) if float(os.environ.get("BURST_XBRL_CPU", "0")) else None,  # None: XBRL stubbed
            "provenance": [(p["source"], p["excerpt_chars"]) for p in prov],
            "warnings": [m for m in msgs if "Section parse" in m or "Excerpt not built" in m]}
     open(OUT, "w").write(json.dumps(out, indent=1))

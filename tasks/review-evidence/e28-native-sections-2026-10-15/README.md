@@ -6,7 +6,8 @@ path (`backend/app/services/edgar/xbrl_sections.py::_extract_sections_sync`, edg
 summary evaluation against live SEC and a local reproduction. Production runs the same pinned
 edgartools against the same SEC URL, so its rate is inferred to be zero too. Each 10-K, 10-Q and 20-F
 excerpt built there since then would come from the regex extractor, while the configuration says
-native sections are on. The `Excerpt provenance` log count at the end of this record confirms it.
+native sections are on. The `Excerpt provenance` log count at the end of this record would confirm it;
+it has not been run.
 
 CI's evaluation builds its excerpts fresh on every run. There, mean citation fidelity fell from 0.97
 to between 0.818 and 0.871 when native sections stopped: the four retained post-switch reports read
@@ -100,7 +101,7 @@ A built excerpt is stored and reused, so the switch reached only the excerpts fi
 - Only precompute's `force` path (`precompute_service.py`) and the admin filing reset
   (`admin_filing_service.py`) clear one.
 
-So in production, by the code above and the CI measurement (the log count below confirms it):
+So in production, by the code above and the CI measurement (the log count below would confirm it):
 
 - Excerpts stored before the switch are still native.
 - Excerpts first built since early October are regex and stay regex.
@@ -310,9 +311,12 @@ run, so recording it here would start another.
   burst, single worker against the shared pool; [`excerpt_build_times.py.txt`](excerpt_build_times.py.txt),
   [`excerpt_build_times.jsonl`](excerpt_build_times.jsonl): the excerpt build that follows a parse.
 - [`burst_end_to_end.py.txt`](burst_end_to_end.py.txt), [`burst_end_to_end.jsonl`](burst_end_to_end.jsonl):
-  whole summary generations several at once on one CPU, three enrichment designs compared.
+  whole summary generations several at once on one CPU, this PR's design against the superseded
+  bounded-wait designs; [`burst_up_to_six.py.txt`](burst_up_to_six.py.txt),
+  [`burst_up_to_six.jsonl`](burst_up_to_six.jsonl): the final review's independent harness, up to
+  six at once, with origin/main's scheduling emulated.
 - [`compare_copilot_sources.py.txt`](compare_copilot_sources.py.txt),
   [`copilot_sources_parity.txt`](copilot_sources_parity.txt): the seam's sections for the six Copilot
   sources against #1350's `copilot-eval` run 38817393205 (its retained artifact, read offline).
 - [`mutate.py.txt`](mutate.py.txt), [`mutation_proofs.jsonl`](mutation_proofs.jsonl): the mutation
-  proofs on 6941dcf (46 of 46 killed), each mutant applied to the committed tree in a detached worktree.
+  proofs on ab131da (44 of 44 killed), each mutant applied to the committed tree in a detached worktree.

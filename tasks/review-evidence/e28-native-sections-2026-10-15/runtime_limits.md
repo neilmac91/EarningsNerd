@@ -58,7 +58,7 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
   for a 20-F), counting time queued behind another parse, and returns None when that runs out; the
   excerpt is then the regex excerpt, stored for good like any other. The excerpt build and XBRL then
   share the usual fresh 18 s join (`CONTEXT_ENRICHMENT_TIMEOUT_SECONDS`), exactly as before E28. On
-  one CPU the four largest documents take 2.4 to 2.9 s for a regex excerpt and up to 2.4 s to
+  one CPU four of the largest documents take 2.4 to 2.9 s for a regex excerpt and up to 2.4 s to
   assemble parsed sections when nothing else runs
   ([`excerpt_build_times.jsonl`](excerpt_build_times.jsonl), from
   [`excerpt_build_times.py.txt`](excerpt_build_times.py.txt)).
@@ -68,7 +68,9 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
   (up to three, with backoff), so with every step at its bound together the 120 s backstop can
   pre-empt the AI fallback, as it could before E28 (the `PIPELINE_TIMEOUT_SECONDS` comment).
 - **Cancellation.** A parse still queued when its waiter is cancelled, by its own bound or by a
-  disconnect, never runs. A running parse is joined at cleanup, before the generation slot and the
+  disconnect, never runs. A parse whose bound runs out while it is running is not stopped: its result
+  is discarded, and it holds the only worker until it ends, so the parses queued behind it can run
+  out of their own bounds (the six-at-once runs below). A running parse is joined at cleanup, before the generation slot and the
   in-flight leadership are released (`backend/tests/unit/test_durable_request_ownership.py`). That
   holds where `DURABLE_TASKS_ENABLED` is on: the API service since 2026-10-08, and the task worker.
   Elsewhere a running parse finishes on its own.
@@ -80,7 +82,13 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
   contract (CLAUDE.md rule 6).
 - **Stored excerpts.** A filing with a stored excerpt, fresh or past its 24-hour window, is not
   parsed: `get_or_cache_excerpt` returns the stored excerpt as it is. This covers regenerations,
-  including the drain on the pregenerate job.
+  including the drain on the pregenerate job. One side effect changes against main. Main still ran
+  the `obj()` read for a filing whose stored excerpt was past its window, discarded its sections, and
+  awaited it before the join; XBRL, which starts before the fetch, kept running meanwhile. On such a
+  regeneration XBRL now has the fetch plus the 18 s join, where main gave it the longer of the fetch
+  and the `obj()` read, plus 18 s. The excerpt is the stored one either way, and XBRL that a first
+  run persisted returns at once either way. The final review measured it: with XBRL taking 19.5 or
+  20 s, main's run delivered it and this branch's did not.
 - **Size cap.** Documents over 16,000,000 characters are not parsed. The largest golden document with
   sections is JPMorgan's 12.9M (6.2 s above). ASML's 24.9M-character 20-F yields no sections and is
   skipped.
@@ -94,8 +102,9 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
 `stream_filing_summary`, several at once on one pinned CPU, with the real section parse, excerpt
 build and enrichment join. The document fetch and the provider are stubbed. XBRL is either stubbed
 (0 s) or replaced by 3 s of pure-Python CPU per generation on the SEC pool, a stand-in for the
-instance parse a first-time large filing runs. The documents are the four largest golden ones
-(JPMorgan, Prologis, Alibaba, TSMC). Results are in [`burst_end_to_end.jsonl`](burst_end_to_end.jsonl):
+instance parse a first-time large filing runs. The documents are four of the largest golden ones
+(JPMorgan, Prologis, Alibaba, TSMC); Berkshire's 10-K, larger than TSMC's 20-F and the slowest single
+parse in the set (6.4 s), is in the six-at-once runs below. Results are in [`burst_end_to_end.jsonl`](burst_end_to_end.jsonl):
 
 | design | XBRL CPU | 2 at once | 4 at once |
 |---|---|---|---|
@@ -109,13 +118,51 @@ instance parse a first-time large filing runs. The documents are the four larges
 | an 18 s wait before a fresh 18 s join (superseded) | 3 s | 1 native, 1 regex | 4 excerpts dropped |
 
 This PR's design dropped no excerpt in any of its 16 runs (one to four documents, both XBRL loads), and
-XBRL finished in every generation. A dropped excerpt is the review's blocker: the summary gets no
+XBRL finished in every generation of the 8 runs with the XBRL load. A dropped excerpt is the review's blocker: the summary gets no
 excerpt at all. A regex excerpt is stored for good, so a short wait turns a moment of load into a
 lasting regex excerpt. Bounding the wait inside the request budget (the superseded designs) cost
 native excerpts and, once XBRL's own CPU work was in the mix, dropped excerpts; awaiting the parse
-as before E28 costs latency under a burst instead. In an earlier series, one single-document run
+as before E28 costs latency under a burst instead, and with the XBRL load some native excerpts
+become regex excerpts, stored for good. In an earlier series, one single-document run
 stalled for 31 s with nothing else on the machine using the CPU, and its excerpt was dropped
 (superseded design, `burst_end_to_end.jsonl`); it did not reproduce in five more runs.
+
+## Six at once
+
+The API service admits six generations per process. The final review measured six at once with its
+own harness ([`burst_up_to_six.py.txt`](burst_up_to_six.py.txt), results in
+[`burst_up_to_six.jsonl`](burst_up_to_six.jsonl)), built the same way: whole generations through
+`stream_filing_summary` on one pinned CPU, the real parse, excerpt build and join, the fetch and the
+provider stubbed, XBRL stubbed or 3 s of CPU on the SEC pool. Its repeat of the one-to-four runs
+above dropped no excerpt either, and at four at once with the XBRL load 2 to 4 of 4 were native. Two
+mixes: JPMorgan, Prologis, Alibaba, TSMC, Apple and Microsoft; and six large 10-Ks (JPMorgan,
+Prologis, Berkshire, Microsoft, Exxon Mobil, MercadoLibre).
+
+| six at once, this PR | XBRL CPU | native excerpts (runs) | slowest generation |
+|---|---|---|---|
+| the mix with two 20-Fs | 0 s | 5 of 6 (4 runs) | 33.6 to 37.4 s |
+| the same | 3 s | 3, 2, 3 and 1 of 6 | 45.7 to 49.0 s |
+| six large 10-Ks | 0 s | 6 of 6 (2 runs) | 28.6 to 30.6 s |
+| the same | 3 s | 2, 2, 2, 1, 2 and 1 of 6 | 40.1 to 47.4 s |
+
+No excerpt was dropped in these 16 runs; the rest are regex excerpts, stored for good. XBRL finished
+before the join ended in every generation with the XBRL load. Every queued parse's bound counts its
+time in the queue, so the parses behind the first few run out at about 30 s together and build regex
+excerpts beside a parse whose bound has run out but which still holds the worker. The slowest
+recorded excerpt build took 14.4 s of the join's 18 s (four runs recorded their builds).
+
+On a slower CPU (six large 10-Ks, the XBRL load, `DURABLE_TASKS_ENABLED` on, a busy loop on the same
+CPU):
+
+- with the loop taking about 15% of the CPU, 1 and 0 of 6 were native and none was dropped; the
+  slowest excerpt builds took 15.5 and 17.3 s;
+- with about 26 to 30%, 4, 4 and 3 of 6 excerpts were dropped in three runs, each logged as
+  `Excerpt not built by the enrichment join`, and some XBRL was cancelled.
+
+The same harness with the parse on the shared SEC pool, emulating origin/main's scheduling, dropped
+1 of 6 at full speed (1 native, 4 regex) and 4 of 6 in both runs at the same slower speed. The drop at six at once on
+a slower CPU predates this PR, and the single worker does no worse. It is open item E77 in
+`tasks/todo.md`.
 
 ## Not measured here
 

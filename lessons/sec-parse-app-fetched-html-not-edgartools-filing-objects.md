@@ -32,8 +32,8 @@ rule stay as they are: `edgar/sixk_extractor.py` (6-K exhibit text, through a ge
 `insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). The summary-section path,
 `edgar/xbrl_sections.py`, joined the rule with E28: it parses the document the pipeline fetched with
 the same parser and holds no `obj()` entry. Before that it called `filing.obj()`, which returned
-nothing from about 2026-10-06 until the backport above, and each call re-downloaded the filing
-through edgartools' client. Part keys differ by form: a 10-K's Item 1A is Part I, a 10-Q's is
+nothing from early October (between CI's reports of 4 and 7 October) until the backport above,
+and each call re-downloaded the filing through edgartools' client. Part keys differ by form: a 10-K's Item 1A is Part I, a 10-Q's is
 Part II; ask for the part first and fall back to any part.
 
 **Evidence**: `backend/app/services/filing_section_service.py::parse_item_1a` and its tests in

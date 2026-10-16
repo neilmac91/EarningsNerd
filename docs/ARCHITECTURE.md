@@ -77,7 +77,8 @@ stream_filing_summary(filing_id, ...)
   a. Fetch filing text from SEC EDGAR   (24h FilingContentCache short-circuit)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
   c. Parse critical sections locally from the fetched primary-document HTML (edgar/xbrl_sections;
-                                         no SEC call; starts once (a) has the text, joined with (b))
+                                         no SEC call; starts once (a) has the text; awaited (30 s /
+                                         40 s bound) before the excerpt is built and joined with (b))
   d. Summarize with the AI model; the admission lease is counted as one usage unit when the
                                          request dispatcher signals the first provider request
                                          (in-stage timeout → deterministic XBRL fallback)
