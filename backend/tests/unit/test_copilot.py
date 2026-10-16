@@ -1808,7 +1808,17 @@ _FCF_BURN = {"concept": "free_cash_flow", "value": -300_000_000.0}
     (_NET_LOSS, "Higher costs and lower other income left a $1.2 billion ", True),
     ({**_NET_LOSS, "value": -800_000_000.0}, "Net income swung to an $800 million ", True),
     ({"concept": "operating_cash_flow", "value": -3e8}, "Operating cash flow was a $300 million ", True),
+    # A hedge adverb or a currency label between the article and the figure still needs that noun.
+    (_NET_LOSS, "Net income swung to a roughly $1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to an approximately $1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to a €1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to a US$1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to a NT$1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to an RMB1.2 billion ", True),
+    # An adjective that completes the amount's noun phrase, or a comparative on a margin, states a level.
     (_NET_LOSS, "Net income was a record $1.2 billion ", False),
+    (_NET_LOSS, "Net income was an estimated $1.2 billion ", False),
+    ({"concept": "operating_income", "kind": "margin", "value": -0.052}, "Operating margin was a narrower 5.2% ", False),
     # An unsigned comparative, a trend row or cash-flow wording names no profit and keeps its chip.
     (_PRIOR_LOSS, ", compared with $0.8 billion ", True),
     (_PRIOR_LOSS, "; 2023 $0.8B ", True),
@@ -1839,6 +1849,7 @@ def test_value_guard_sign_rules(fact, window, kept):
      "profitability initiatives, totaling $1.2 billion [F1].", 1, 0),
     ("Earnings turned into a $1.2 billion [F1] loss.", 1, 0),
     ("Higher costs and lower other income left a $1.2 billion [F1] net loss.", 1, 0),
+    ("Net income swung to an approximately US$1.2 billion [F1] loss.", 1, 0),
     ("Net loss was $1.2 billion [F1], compared with net income of $0.8 billion [F2] in 2023.", 1, 1),
 ])
 def test_resolver_keeps_a_loss_chip_unless_its_clause_names_a_profit(raw, cited, misplaced):
@@ -1859,6 +1870,7 @@ def test_resolver_keeps_a_loss_chip_unless_its_clause_names_a_profit(raw, cited,
     ({**_NET_LOSS, "concept": "operating_income", "value": -500_000_000.0},
      "Operating income was a $500 million [F1] loss."),
     (_NET_LOSS, "Net income declined to a $1.2 billion [F1] loss."),
+    ({**_NET_LOSS, "unit": "EUR"}, "Net income swung to a roughly €1.2 billion [F1] loss in 2024."),
     # A profit word in an earlier clause names another item, not the figure.
     (_NET_LOSS, "The net loss for fiscal 2024, which includes a $250 million income tax valuation allowance, "
                 "was $1.2 billion [F1]."),

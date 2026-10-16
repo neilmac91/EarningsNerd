@@ -4,7 +4,7 @@ The value guard (``fact_guards._fact_matches_adjacent_number``) keeps a fact mar
 figure in its claim span passes both readings here; the currency guard picks out the fact's figure by
 magnitude alone. Both readings are falsification-only: they reject a figure only when it states a
 different magnitude or the prose states the opposite sign, and wording that says neither keeps the
-marker. The sign reading's known false keeps are listed in ``_figure_sign_agrees``.
+marker. The sign reading's known false keeps and false strips are listed in ``_figure_sign_agrees``.
 """
 from __future__ import annotations
 
@@ -27,10 +27,15 @@ _LEVEL_NAMES = re.compile(
     r"\b(?:income|profit\w*|earn\w*|eps|margins?|cash flows?|equity|working capital|provided|generat\w*|inflows?)\b"
 )
 # The label a figure follows ("Net income: $1.2B", "**Net income:** $1.2B"), which names it although
-# the colon ends a clause; and a figure used attributively ("a $1.2B [F1] loss"), whose noun follows
-# the marker, beyond the claim span.
+# the colon ends a clause; and a figure used attributively ("a $1.2B [F1] loss", "a roughly €1.2B [F1]
+# loss", "an RMB1.2B [F1] loss"), whose noun follows the marker, beyond the claim span. Between the
+# article and the figure only a hedge adverb and a currency label may sit: either still needs that
+# noun. An adjective that completes the amount's own noun phrase ("a record $1.2B", "an estimated
+# $1.2B") does not, and a comparative states a margin's level ("a narrower 5.2%").
 _LABEL = re.compile(r"([^;:()—–.,]*):[\s*_]*\Z")
-_ATTRIBUTIVE = re.compile(r"\ban?\s+\$?\s*\Z", re.IGNORECASE)
+_ATTRIBUTIVE = re.compile(
+    r"\b[Aa]n?\s+(?:(?:roughly|approximately|nearly|almost)\s+)?(?:[A-Z]{0,3}\$|[€£¥]|[A-Z]{3})?\s*\Z"
+)
 # Wording that states a fall, and wording that states a rise.
 _DECLINE_CUES = re.compile(
     r"\b(?:declin\w*|decreas\w*|fell|fall(?:s|ing)?|drop\w*|dipped|down|lower(?:ed)?|contract(?:ed|ing|ion)|"
@@ -128,7 +133,8 @@ def _figure_sign_agrees(fact: dict, token: re.Match, clause: str) -> bool:
       anywhere in the span ("net income was $1.2B", "Net income: $1.2B", or "net income fell to
       $1.2B": a direction word states a change, not a sign). An unsigned figure that names no
       metric keeps its marker ("Net loss was $1.2B [F1], compared with $0.8B [F2]"), and so does one
-      used attributively, whose noun follows the marker ("a $1.2B [F1] loss").
+      used attributively, whose noun follows the marker ("a $1.2B [F1] loss", "a roughly €1.2B [F1]
+      loss"; see ``_ATTRIBUTIVE``).
     * A negative growth rate, written unsigned, is contradicted by a rise stated in its clause
       ("revenue grew 15.3%" on a decline).
     * A positive rate is contradicted by a figure written negative, and a positive growth rate also
@@ -141,7 +147,10 @@ def _figure_sign_agrees(fact: dict, token: re.Match, clause: str) -> bool:
     ("the bottom line was $1.2B") or used attributively before a profit noun ("a $1.2B profit");
     on a negative rate, "(15.3%)" reads as written negative even after a rise word ("revenue grew
     strongly (15.3%)"); and a rate's clause that names any loss is not read for direction ("revenue
-    fell 15.3% as losses mounted").
+    fell 15.3% as losses mounted"). Known false strips: a profit-named loss figure whose sign noun
+    follows the marker after an adjective, which cannot be told apart from a stated profit ("net
+    income swung to a record $1.2B [F1] loss" reads as "net income was a record $1.2B"; also "an
+    estimated" and the comparatives "a wider", "a deeper").
     """
     value, kind = float(fact.get("value")), fact.get("kind")
     if value < 0:

@@ -30,14 +30,18 @@ The sign is read only where the prose states one, so the check stays falsificati
 
 Do not demand sign wording the prose may lack. A comparative ("compared with $0.8 billion") sits in
 a span the previous chip has bounded, away from the word "loss", and is correct. The prompt puts the
-marker right after the figure, so a figure used attributively ("a $1.2 billion [F1] loss") has its
-sign noun outside the span and keeps its chip. Read the profit name only where it names the figure:
-an earlier clause names other items ("reflecting lower interest income, was $1.2 billion"). When
-the guard picks out a figure for another check (currency), pick it by magnitude alone so the sign
-rule cannot hide it from that check.
+marker right after the figure, so a figure used attributively ("a $1.2 billion [F1] loss", also
+after a hedge adverb or a currency label: "a roughly €1.2 billion [F1] loss") has its sign noun
+outside the span and keeps its chip. An adjective that completes the amount's own noun phrase cannot
+be told apart from a stated profit, so "a record $1.2 billion [F1] loss" is a known false strip
+("net income was a record $1.2 billion" must lose its chip). Read the profit name only where it
+names the figure: an earlier clause names other items ("reflecting lower interest income, was $1.2
+billion"). When the guard picks out a figure for another check (currency), pick it by magnitude
+alone so the sign rule cannot hide it from that check.
 
 **Evidence:** `backend/app/services/copilot/figures.py` (`_figure_matches_value`,
-`_figure_sign_agrees`, whose docstring lists the known false keeps), wired in `fact_guards.py`; gate
+`_figure_sign_agrees`, whose docstring lists the known false keeps and false strips), wired in
+`fact_guards.py`; gate
 `backend/tests/unit/test_copilot.py::test_service_adjacency_reads_the_figure_sign_and_scale`,
 `::test_value_guard_sign_rules`, `::test_resolver_keeps_a_loss_chip_unless_its_clause_names_a_profit`,
 `::test_service_keeps_a_loss_chip_whose_sign_word_is_outside_its_clause` and
