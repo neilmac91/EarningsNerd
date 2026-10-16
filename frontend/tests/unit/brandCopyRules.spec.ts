@@ -1894,7 +1894,7 @@ describe('brand rule 1d: the calendar claims only what its data holds', () => {
   // CAL-08, CAL-09, CAL-10). Each phrase below claimed otherwise on the page, its metadata or a row.
   const SCOPE = ['app/calendar/', 'features/calendar/']
   const CLAIMS: [RegExp, string][] = [
-    [/\bmost[- ]anticipated\b|\banticipat(?:ed|ion)\b/i, 'the order is large caps and most followed first, not anticipation'],
+    [/\bmost[- ]anticipated\b|\banticipat(?:ed|ion)\b/i, 'the order is by report time, then large caps and most followed first, not anticipation'],
     [/\bconfirmed\b[^.;]*\bdates?\b/i, 'no date is ever confirmed: estimated or reported'],
     [/\bday-of\b/i, 'an alert is an email the morning a company reports'],
     [/\breporting patterns?\b/i, 'estimated dates come from a market-data provider'],

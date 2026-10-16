@@ -78,6 +78,18 @@ function openDay(): HTMLElement {
   throw new Error('no "+N more" opened the day dialog')
 }
 
+describe('the day dialog says the order it shows', () => {
+  it('groups the day by report time and ranks each group, as its subtitle says', async () => {
+    await renderPage()
+    const text = openDay().textContent ?? ''
+    expect(text).toMatch(/grouped by report time, large caps and most followed first in each/)
+    // The fixture's Monday alternates before open and after close with falling scores, so a less followed company
+    // reporting before the open (T6X) shows above a more followed one reporting after the close (T1X).
+    expect(text.indexOf('T6X')).toBeGreaterThan(-1)
+    expect(text.indexOf('T6X')).toBeLessThan(text.indexOf('T1X'))
+  })
+})
+
 describe('the bell popover never outlives a change of the day dialog', () => {
   it('closing the day (its X, from the keyboard) closes the popover inside it; Escape is not swallowed', async () => {
     await renderPage()

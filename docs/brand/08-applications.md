@@ -194,8 +194,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   page, its metadata and its footer say where each date comes from: a reported date from the
   company's 8-K results filing on SEC EDGAR, an estimated date and EPS estimate from a market-data
   provider, and "usually" for a time the company has not confirmed. Nothing claims a confirmed
-  date, a reporting pattern or "the most-anticipated" reports; the day dialog orders "large caps and
-  most followed first". The anticipation flame is gone: the order already ranks the rows, and the
+  date, a reporting pattern or "the most-anticipated" reports; the day dialog groups the day by report
+  time (before open, after close, then the rest) and orders each group "large caps and most followed
+  first". The anticipation flame is gone: the order already ranks the rows, and the
   warning colour is for status. A signed-out bell offers an email the morning a company reports, and
   its second action follows the registration mode ("Request an invite" while invite-only). The error
   card's "Try again" is a `RetryButton`. `brandCopyRules.spec.ts` rule 1d bans the old claims under
