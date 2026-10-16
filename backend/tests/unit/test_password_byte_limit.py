@@ -25,10 +25,13 @@ Real endpoints against the app's SQLite database, like the rest of the auth suit
 ``_postgres_shaped_expiries`` fixture gives the reset-token expiry the production shape.
 """
 import ast
+import asyncio
+import hashlib
 import subprocess
 import uuid
 from datetime import timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import bcrypt
@@ -42,7 +45,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import User
 from app.routers.auth import create_access_token
-from app.services import auth_account_service, password_utils
+from app.services import auth_account_service, password_utils, pwned_passwords
 from app.services.password_utils import get_password_hash, validate_password_strength, verify_password
 from tests.support.summary_stream_harness import reset_rate_limiters
 
@@ -204,6 +207,83 @@ def test_change_password_takes_a_long_current_password_against_its_bcrypt4_hash(
     assert resp.status_code == 200, resp.text
     client.cookies.clear()
     assert _login(client, email, SHORT).status_code == 200
+
+
+# ── breach screening sees what bcrypt keys on ───────────────────────────────
+
+# A breached password of exactly 72 bytes, and one of 71 so a 2-byte character straddles byte 72.
+BREACHED_72 = "breached passphrase " * 3 + "breached pas"  # gitleaks:allow
+BREACHED_71 = BREACHED_72[:71]  # gitleaks:allow
+
+
+class _RangeApi:
+    """Stands in for httpx.AsyncClient against the HIBP range API; ``listed`` holds the breached
+    passwords, and ``asked`` records each lookup's SHA-1 prefix."""
+
+    def __init__(self, listed: set[str]):
+        self.listed = {hashlib.sha1(p.encode("utf-8")).hexdigest().upper() for p in listed}
+        self.asked: list[str] = []
+
+    def __call__(self, *_args, **_kwargs):
+        return self
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_exc):
+        return False
+
+    async def get(self, url, headers=None):
+        prefix = url.rsplit("/", 1)[1]
+        self.asked.append(prefix)
+        body = "\n".join(f"{h[5:]}:7" for h in self.listed if h.startswith(prefix))
+        return SimpleNamespace(text=body, raise_for_status=lambda: None)
+
+
+@pytest.fixture
+def range_api(monkeypatch):
+    monkeypatch.setattr(pwned_passwords.settings, "PWNED_PASSWORD_CHECK_ENABLED", True)
+
+    def install(listed: set[str]) -> _RangeApi:
+        api = _RangeApi(listed)
+        monkeypatch.setattr(pwned_passwords.httpx, "AsyncClient", api)
+        return api
+
+    return install
+
+
+@pytest.mark.parametrize(
+    "password, breached",
+    [(BREACHED_72 + " and a tail nobody listed", BREACHED_72), (BREACHED_71 + "é tail", BREACHED_71)],
+    ids=["breached-72-byte-prefix", "breached-prefix-before-a-split-character"],
+)
+def test_a_breached_bcrypt_prefix_with_an_unlisted_tail_is_screened_as_breached(range_api, password, breached):
+    api = range_api({breached})
+    assert asyncio.run(pwned_passwords.is_password_pwned(password)) is True
+    assert len(api.asked) == 2  # the whole password, then the part bcrypt keys on
+
+
+def test_a_long_password_with_an_unlisted_prefix_passes_screening(range_api):
+    api = range_api({"password123"})
+    assert asyncio.run(pwned_passwords.is_password_pwned(ASCII_87)) is False
+    assert len(api.asked) == 2
+
+
+def test_a_password_bcrypt_hashes_whole_is_looked_up_once(range_api):
+    api = range_api({"password123"})
+    assert asyncio.run(pwned_passwords.is_password_pwned(ASCII_72)) is False
+    assert len(api.asked) == 1
+
+
+@pytest.mark.requires_db
+def test_register_refuses_a_breached_bcrypt_prefix_behind_an_unlisted_tail(client, range_api):
+    range_api({BREACHED_72})
+    resp = client.post(
+        "/api/auth/register",
+        json={"email": _email(), "password": BREACHED_72 + " and a tail nobody listed"},
+    )
+    assert resp.status_code == 400, resp.text
+    assert "known data breach" in resp.json()["detail"]
 
 
 # ── every path to bcrypt goes through _bcrypt_input ─────────────────────────

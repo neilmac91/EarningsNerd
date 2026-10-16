@@ -20,10 +20,14 @@ and test an input past the cap. Reproduce the library's old handling exactly (he
 migration or a second format. Any other input limit, such as a column width or a payload size, is
 not ours to cut to fit: validate and reject the input where it enters (CLAUDE.md rule 9). A comment
 that describes a library's implicit behaviour cannot fail when the library changes; the test can.
+Once the cut is ours, every check of that input must also see what the library keys on: a breach
+screen of the whole password alone passed a breached 72-byte password with any tail appended, while
+the hash, and so login, keyed on the breached part.
 
-**Evidence**: `backend/app/services/password_utils.py` (`_bcrypt_input`); gate
+**Evidence**: `backend/app/services/password_utils.py` (`_bcrypt_input`, `bcrypt_effective_text`); gate
 `backend/tests/unit/test_password_byte_limit.py` (a 128-character password of 4-byte characters,
 the exact 72-byte boundary, a character straddling byte 72, a bcrypt-4-shaped hash of a long
 password through login and change-password, and an AST walk that keeps every bcrypt call behind
-`_bcrypt_input`, scored on planted forms with its gaps named). Hashes made with bcrypt 4.3.0 from
+`_bcrypt_input`, scored on planted forms with its gaps named; breach screening of the 72-byte
+prefix through `pwned_passwords.is_password_pwned` and register). Hashes made with bcrypt 4.3.0 from
 84- to 512-byte passwords verify under bcrypt 5.0.0 with the fix.

@@ -15,6 +15,7 @@ import logging
 import httpx
 
 from app.config import settings
+from app.services.password_utils import bcrypt_effective_text
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +26,23 @@ _TIMEOUT_SECONDS = 2.5
 async def is_password_pwned(password: str) -> bool:
     """Return True only if ``password`` is known to appear in public breach corpora.
 
+    A password longer than bcrypt's 72-byte limit authenticates with its first 72 bytes alone,
+    so that prefix is screened too (``password_utils.bcrypt_effective_text``): a breached
+    password plus an unlisted tail must not pass as unbreached.
+
     Returns False when the check is disabled, the password is empty, or the lookup fails for
     any reason (fail-open).
     """
     if not settings.PWNED_PASSWORD_CHECK_ENABLED or not password:
         return False
+    if await _is_listed(password):
+        return True
+    effective = bcrypt_effective_text(password)
+    return bool(effective) and await _is_listed(effective)
 
+
+async def _is_listed(password: str) -> bool:
+    """One range-API lookup for ``password``; False on any failure (fail-open)."""
     # SHA-1 is mandated by the HIBP range API (the k-anonymity protocol hashes with SHA-1); it is
     # NOT used as a security primitive here — the protection comes from matching against the breach
     # corpus, not from SHA-1's collision resistance. usedforsecurity=False documents that intent and
