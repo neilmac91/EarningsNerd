@@ -17,9 +17,10 @@ import { describe, expect, it } from 'vitest'
  *
  * The values the form offers are read where they are written, in each form a choice takes: any element's
  * `value="…"` or `value={'…'}` (an <option>, a radio input, a custom item; `value={prefs.x}` is the control's
- * state, a field), each entry's `value` in an `options` prop (SegmentedControl, the design system's single
- * choice, or any select wrapper), and a literal a save or mutate call writes into a field (`save({ digest:
- * 'weekly' })`, each branch of a condition over literals). A value or an `options` entry may also be the element,
+ * state, a field, and on an <option>, whose value is what it offers, a value the scan cannot read), each
+ * entry's `value` in an `options` prop (SegmentedControl, the design system's single choice, or any select
+ * wrapper), and a literal a save or mutate call writes into a field (`save({ digest: 'weekly' })`, each
+ * branch of a condition over literals). A value or an `options` entry may also be the element,
  * or one of its fields, of the array a `.map` takes (`DIGESTS.map((d) => <option value={d}>)`,
  * `CHOICES.map((c) => ({ value: c.value }))`), the array written in place or as a const in the form. A `value`
  * or an `options` written any other way fails the scan, so a choice it cannot read never ships unread.
@@ -221,10 +222,11 @@ function formPreferences(file: string, text: string) {
         const name = attr.name.getText(source)
         const init = attr.initializer
         const expression = ts.isJsxExpression(init) ? init.expression : undefined
-        // checked={prefs.x} / value={prefs.x}: a preference the form renders as a control's state.
+        // checked={prefs.x} / value={prefs.x}: a preference the form renders as a control's state. An <option>'s value is
+        // what it offers, so there it is read as an offered value too, and no literal can be read from it.
         if ((name === 'checked' || name === 'value') && expression && ts.isPropertyAccessExpression(expression) && expression.expression.getText(source) === 'prefs') {
           fields.set(expression.name.text, line(init))
-          continue
+          if (tag !== 'option') continue
         }
         // value="weekly", value={'weekly'}, a value a .map writes (an <option>, a radio, any item); options={[{ value: … }]}.
         const values = name === 'value'
@@ -316,6 +318,8 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       "export const K = () => <button type=\"button\" onClick={() => save({ digest: on ? 'never' : 'hourly' })}>Never</button>",
       'export const L = () => <SegmentedControl label="x" options={load()} value={prefs.l} onChange={() => {}} />',
       "export const M = () => <SegmentedControl label=\"x\" options={[{ value: v, label: 'V' }]} value={prefs.m} onChange={() => {}} />",
+      // A select's value is its state; an <option>'s is what it offers, and the current preference offers no literal.
+      'export const N = () => <select value={prefs.digest}><option value={prefs.digest}>Current</option></select>',
     ].join('\n')
     const { options, unreadable } = formPreferences('fixture.tsx', fixture)
     expect([...options.keys()].sort()).toEqual([
@@ -326,6 +330,7 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       'fixture.tsx:8 <option value={x}>',
       'fixture.tsx:16 <SegmentedControl options={load()}>',
       "fixture.tsx:17 <SegmentedControl options={[{ value: v, label: 'V' }]}>",
+      'fixture.tsx:18 <option value={prefs.digest}>',
     ])
   })
 
