@@ -30,7 +30,8 @@ rule covers, so it was green while the rule was violated:
 This is more dangerous than having no gate. A missing gate is a known hole; a narrow gate
 reports "enforced" and stops anyone looking.
 
-**Rule**: Five sub-rules, each learned the hard way; the context above, the evidence and the recurrences below record how.
+**Rule**: Five sub-rules, each learned the hard way; the context above, the evidence and the recurrences
+below record how.
 
 *Ask the source of truth rather than approximating it.* `git ls-files` is the exact set of
 files in the repo; a hand-written skip list is a guess at what git already knows, and it is
@@ -97,12 +98,12 @@ Corollary for the anti-vacuity floor: assert the scanner actually found things (
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
 
 **Gate**: each gate scores its own planted forms in its own suite: rule 2's fixture,
-`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, in `brandCopyRules.spec.ts`; the route-metadata readers'
-self-checks in `routeMetadata.spec.ts`; the register's planted layouts (`LAYOUTS`) in
-`publishedAssetUrls.spec.ts`; the published-asset scan's `FORMS`, with equal counts and a header that names
-each gap a case marks, in `backend/tests/unit/test_mail_published_assets.py`; and the mail reader's planted
-pages (`TEXT_SIZES`, `LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`) in
-`backend/tests/unit/test_mail_header_template.py`.
+`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, in `brandCopyRules.spec.ts`; the route-metadata
+readers' self-checks in `routeMetadata.spec.ts`; the register's planted layouts (`LAYOUTS`), their count
+held equal, in `publishedAssetUrls.spec.ts`; the published-asset scan's `FORMS`, with equal counts and a
+header that names each gap a case marks, in `backend/tests/unit/test_mail_published_assets.py`; and the
+mail reader's planted pages (`TEXT_SIZES`, `LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`), each
+list's counts held equal, in `backend/tests/unit/test_mail_header_template.py`.
 Scoring a model of a reader against the reader itself has no gate yet: E78 in `tasks/todo.md` would score
 the mail reader against the pinned Chromium in CI.
 
@@ -312,11 +313,19 @@ out: an image at its natural size, a block's padding, a list's indent, a margin,
 `max-width` does not hold in a cell each held a page wider than a phone with every test green; it now
 gives each box the room its parent leaves, as a box model does. And every company in the inputs was
 "Acme Corp", while EDGAR names carry runs of 18 to 21 characters, which the alerts printed with no rule.
-The table model was still written from the specification, and each read measured in Chromium corrected
-it: a fixed layout takes its widths from the first row it lays out, its first header group first, shares
-the room its columns leave by their widths, and resolves a percentage against the table less its spacing,
-shrinking it before it overruns; an `<object>`'s fallback is any child but a `<param>`, a comment included;
-and an `<embed>` with a `type` but no `src` makes a box.
+The table model was still written from the specification, and each read measured in Chromium corrected it:
+a fixed layout takes its widths from the first row it lays out, its first header group first, shares the
+room its columns leave by their widths, and resolves a percentage against the table less its spacing,
+shrinking it before it overruns; an `<object>`'s fallback is any child but a `<param>` or whitespace, a
+comment included; and an `<embed>` with a `type` but no `src` makes a box. The next review found more
+reads taken from the specification or from habit, each then measured: a fixed layout adds a percentage
+cell's padding to its share and gives a spanning cell's columns its width less the spacing inside it; a
+row's cells skip what a rowspan above holds; HTML ignores a cell's zero width; a section's display, not
+its tag, makes it a header group; an automatic layout holds each column to its widest cell's padding, and
+spreads a spanning cell's excess over its columns alike; and an image or a form control is one box
+whatever its display. Nine of the 415 mutation proofs survived on reads no page planted (a tenth was
+equivalent), and the reviewers' own mutations found more: a read the model makes is not covered until a
+page that needs it is planted and scored.
 When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
 parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
 `word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine

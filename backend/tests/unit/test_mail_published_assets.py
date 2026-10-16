@@ -13,18 +13,21 @@ to the rule's mail half (CLAUDE.md rule 12):
   address in what is sent, so it checks an address however the code derived it, within the limits its
   header names. This scan cannot follow a value through the code.
 
-This scan reads the Python's strings as the code builds them, docstrings and the paths of the API's
-route decorators aside: an f-string or a ``+`` chain whole, a template ``textwrap.dedent`` or
-``inspect.cleandoc`` re-indents as written (each known by the module's imports, not by its name alone), and
-a name bound to a registered path, or to an address built on one, read as what it holds, in its module or in
-one that imports it from that module (an import of the name, or of the module, relative or not). A name a
-function or a comprehension binds as its own (a parameter, an assignment, a loop's or a comprehension's
-variable, a ``def``'s or a ``class``'s name, an import, an ``except``'s name, a ``match``'s capture) shadows one
-bound further out, and its defaults, annotations and decorators, like a comprehension's first iterable, are
-read in the scope around it; a walrus in a comprehension binds in the scope around it, ``nonlocal`` names the
-nearest function around that binds the name, and a class's body binds the class's attributes, which the
-body reads first and ``self.``, ``cls.`` and the class's name read, not names of the scope around it. It reads
-every other file's text. In them:
+This scan reads the Python's strings as the code builds them, docstrings and the paths of the API's route
+decorators aside: an f-string or a ``+`` chain whole, a template ``textwrap.dedent`` or ``inspect.cleandoc``
+re-indents (each known by the module's imports, not by its name alone) or ``.strip()`` strips of whitespace as
+written, and a name bound to a registered path, or to an address built on one, read as what it holds, in its
+module or in one that imports it from that module (an import of the name, or of the module, relative or not).
+A name a function or a comprehension binds as its own (a parameter, an assignment, a loop's or a
+comprehension's variable, a ``def``'s or a ``class``'s name, an import, an ``except``'s name, a ``match``'s
+capture) shadows one bound further out, and its defaults, annotations and decorators, like a comprehension's
+first iterable and a class's decorators and bases, are read in the scope around it; a walrus in a
+comprehension binds in the scope around it, and ``global`` and ``nonlocal``, in a function or a class's body,
+bind the name where they name it: the module, or the nearest function around that binds it. A class's body
+binds the class's attributes, which the body reads once it has bound them, and the scope around's names before
+that; ``self.``, ``cls.``, ``type(self)``, the class's name and an instance of it (``C()``) read them, a
+class's own first and then its bases', in the class's module and in one that imports the class or a subclass
+of it. It reads every other file's text. In them:
 
 - the path of a file the site serves from ``frontend/public``, or of one of its directories, where a
   URL path can start (the start of a string, after whitespace, a quote or a backtick, a bracket, "=",
@@ -38,20 +41,22 @@ every other file's text. In them:
   reads ``FRONTEND_URL`` where the f-string or the concatenation names it, read as it is (``str()``,
   ``!s``, ``:s``, or a conditional, an ``or`` or an ``and`` that may yield it), and counts it stripped
   only under ``.rstrip()`` or ``.strip()`` with "/" among its characters, or ``.removesuffix("/")``;
-- a registered path is used whole. Its string may sit in the f-string or the concatenation that builds
-  an address, in a template a ``.format``, ``%`` or ``string.Template`` fills, or in a name bound to it
-  once, which is then read only in those places. A string with nothing in front of the path counts as
-  the path. A comparison reads it, in a container the comparison holds or as a ``match``'s case. Every other
-  use the scan sees fails: an argument, a container's item, a
-  default, a return value, a slice, a method other than a read (``startswith``, ``find``) or a format spec
-  other than ``:s`` applied to it, a second binding (an assignment, a ``def`` or a ``class``, an import, an
+- a registered path is used whole. Its string may sit in the f-string or the concatenation that builds an
+  address, in a template a ``.format``, ``%`` or ``string.Template`` fills, or in a name bound to it once,
+  which is then read only in those places. A string with nothing in front of the path counts as the path,
+  and literals joined with ``+``, or an f-string with no fields, are one string. A comparison reads it, as a
+  ``match``'s subject or case, or in what the comparison holds (a tuple, a list, a set, a dict's keys, or a
+  ``frozenset()``, ``set()``, ``tuple()`` or ``list()`` of one, at any depth). Every other use the scan sees
+  fails: an argument, a container's item, a default, a return value, a slice, a method other than a read
+  (``startswith``, ``find``) or a strip of whitespace alone, which it passes through, or a format spec other
+  than ``:s`` applied to it, a second binding (an assignment, a ``def`` or a ``class``, an import, an
   ``except``'s name or a ``match``'s capture, in the scope or the class body that binds it, or through
   ``global`` or ``nonlocal``, or an attribute another module sets or deletes), a setting the environment can
-  replace. A template re-indented from a literal is that literal. An address built on
-  one may be handed on, but a slice, a format spec, or a method other than a read or a strip or a
-  replacement of whitespace fails on it, where it is built, where a template's fill builds it, or
-  through a name that holds it. What is added to it is read with it, as the concatenation, or the
-  in-place addition, builds it.
+  replace. A template re-indented or stripped of whitespace is what it is built from: a string, or a name
+  bound to one. An address built on one may be handed on, but a slice, a format spec, or a method other than
+  a read or a strip or a replacement of whitespace fails on it, where it is built, where a template's fill
+  builds it, or through a name that holds it. What is added to it is read with it, as the concatenation, or
+  the in-place addition, builds it.
 
 The header's tile follows ``FRONTEND_URL`` whatever it is set to, with a trailing slash stripped, and
 ``FRONTEND_URL``'s default is the register's origin.
@@ -75,8 +80,10 @@ walk that reads ``backend/app``. Out of the scan's reach, and planted as gaps, o
 - an address held in a container, an attribute or a conditional, then changed: a list, a dict, ``self.u``, ``x if c else y``, a walrus
 - an address filled into another template, with a suffix: ``"{}@2x.png".format(u)``, ``%``, ``Template``
 - a name bound to a registered path, rebound where the scan does not look: ``setattr``, ``globals()`` or ``vars()``,
-  ``__dict__``, a class's attribute set from another module
+  ``__dict__``
 - a name read through getattr or globals()
+- a class's attribute read through an instance held in a name, or a class nested in another: ``m = C(); m.TILE``,
+  ``Outer.Inner.TILE``
 - a Jinja filter applied to a path: ``| replace``, ``~``
 - a path the site serves from a route: ``app/manifest.ts``
 
@@ -220,7 +227,6 @@ def _scan_python(
     held: set[str] = set()  # the names in ``names``, for a quick test before a scope is looked up
     package = module if where.endswith("__init__.py") else module.rpartition(".")[0]
     class_nodes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
-    classes = {node.name for node in class_nodes}
 
     def source(node: ast.ImportFrom) -> str:
         """The module an import names, a relative one resolved from this module's package."""
@@ -287,12 +293,19 @@ def _scan_python(
         the scope around the class."""
         below, child, up = None, node, parent.get(node) if node is not None else None
         while up is not None:
-            if isinstance(up, ast.ClassDef):
-                return up if any(child is statement for statement in up.body) else None
+            if isinstance(up, ast.ClassDef) and any(child is statement for statement in up.body):
+                return up  # its decorators, bases and keywords are read in the scope around it
             if isinstance(up, _SCOPES) and inside(up, child, below):
                 return None
             below, child, up = child, up, parent.get(up)
         return None
+
+    def statement(node: ast.AST, klass: ast.ClassDef) -> int | None:
+        """Where in a class's body the statement that holds ``node`` stands, or None outside the body."""
+        child, up = node, parent.get(node)
+        while up is not None and up is not klass:
+            child, up = up, parent.get(up)
+        return next((i for i, line in enumerate(klass.body) if line is child), None) if up is klass else None
 
     def home(node: ast.AST) -> ast.AST | None:
         """The scope a binding at ``node`` is made in: a walrus in a comprehension binds in the scope around it."""
@@ -302,22 +315,29 @@ def _scan_python(
                 here = scope(here)
         return here
 
-    # The globals and nonlocals each scope declares, which it does not bind as its own.
-    declared: dict[ast.AST | None, dict[str, bool]] = {}  # scope -> name -> whether it is global
+    # The globals and nonlocals each scope or class body declares, which it does not bind as its own.
+    declared: dict[ast.AST | None, dict[str, bool]] = {}  # scope or class -> name -> whether it is global
     for node in nodes:
         if isinstance(node, (ast.Global, ast.Nonlocal)):
             for name in node.names:
-                declared.setdefault(scope(node), {})[name] = isinstance(node, ast.Global)
+                declared.setdefault(body_class(node) or scope(node), {})[name] = isinstance(node, ast.Global)
 
-    # The names each function or comprehension binds as its own, which shadow a binding further out.
+    # The names each function or comprehension binds as its own, which shadow a binding further out, and the
+    # names each class's body binds, with the first statement that binds each, after which its body reads the
+    # class's own.
     own: dict[ast.AST, set[str]] = {}
+    class_own: dict[ast.ClassDef, dict[str, int]] = {}
     for node in nodes:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
             args = node.args
             own.setdefault(node, set()).update(a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg) if a)
         stored = [(home(node), node.id)] if isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load) else []
         for here, name in stored + [(scope(node), name) for name in binds(node)]:
-            if here is not None and name not in declared.get(here, {}) and body_class(node) is None:
+            if (klass := body_class(node)) is not None:
+                if name not in declared.get(klass, {}):
+                    first, at = class_own.setdefault(klass, {}), statement(node, klass)
+                    first[name] = min(first.get(name, at), at)
+            elif here is not None and name not in declared.get(here, {}):
                 own.setdefault(here, set()).add(name)
 
     # (scope, name) -> the scope a global or a nonlocal there binds the name in: the module, or the nearest
@@ -334,14 +354,52 @@ def _scan_python(
         """The scope a name bound at ``node`` lives in: the class whose body binds it as an attribute, the one it
         is bound in, or the one a global or a nonlocal there names."""
         if (klass := body_class(node)) is not None:
-            return klass
+            return outward.get((klass, name), klass)
         here = home(node)
         return outward.get((here, name), here)
 
+    def module_class(node: ast.AST) -> ast.ClassDef | None:
+        """The class of this module a name or a call of it names, where no function binds the name."""
+        if isinstance(node, ast.Call):
+            node = node.func  # an instance's attribute is its class's, unless it sets its own
+        if isinstance(node, ast.Name):
+            return next((klass for klass in class_nodes if klass.name == node.id and scope(klass) is None and body_class(klass) is None), None)
+        return None
+
+    def attributes(klass: ast.ClassDef, seen: frozenset = frozenset()) -> set[str]:
+        """The names under which a class's attributes, its own or its bases', may hold a registered path, which
+        ``attribute`` reads."""
+        found = {name for (where_bound, name) in names if where_bound is klass}
+        for base in klass.bases:
+            if (inner := module_class(base)) is not None and inner not in seen:
+                found |= attributes(inner, seen | {klass})
+            elif (owner := dotted(base)) is not None:
+                found |= {name for (exporter, name) in exported if exporter == owner}
+        return found
+
+    def attribute(klass: ast.ClassDef, name: str, seen: frozenset = frozenset()) -> tuple[str, bool, ast.AST | None] | None:
+        """What a class's attribute holds, its own or one a base it names gives it: a class of this module's, or
+        one another module exports."""
+        if (klass, name) in names:
+            return names[(klass, name)]
+        if name in class_own.get(klass, {}):
+            return None  # the class's own attribute, which holds no registered path
+        for base in klass.bases:
+            if (inner := module_class(base)) is not None and inner not in seen:
+                if (holds := attribute(inner, name, seen | {klass})) is not None:
+                    return holds
+            elif (owner := dotted(base)) is not None and (owner, name) in exported:
+                return (*exported[(owner, name)], None)
+        return None
+
     def bound(node: ast.AST) -> tuple[str, bool, ast.AST | None] | None:
         if isinstance(node, ast.Name) and node.id in held:
-            if (klass := body_class(node)) is not None and (klass, node.id) in names:
-                return names[(klass, node.id)]  # a class's body reads its own attributes first
+            if (klass := body_class(node)) is not None:
+                if (klass, node.id) in names:
+                    return names[(klass, node.id)]  # a class's body reads its own attributes first
+                first = class_own.get(klass, {}).get(node.id)
+                if first is not None and first < (statement(node, klass) or 0):
+                    return None  # read after its own binding of the name, which holds no registered path
             here = scope(node)
             while (here, node.id) not in names and here is not None:
                 if node.id in own.get(here, ()):  # its own name here shadows a binding further out
@@ -349,16 +407,25 @@ def _scan_python(
                 here = scope(here)
             return names.get((here, node.id))
         if isinstance(node, ast.Attribute):
-            if isinstance(node.value, ast.Name) and node.value.id in {"self", "cls", *classes}:
-                # A class's own attribute, read through an instance or the class in a method, or by the class's name.
-                if node.value.id in ("self", "cls"):
-                    owners, up = [], parent.get(node)
-                    while up is not None and not owners:
-                        owners, up = [up] if isinstance(up, ast.ClassDef) else [], parent.get(up)
-                else:
-                    owners = [klass for klass in class_nodes if klass.name == node.value.id]
-                return next((names[(klass, node.attr)] for klass in owners if (klass, node.attr) in names), None)
-            if (owner := dotted(node.value)) is not None and (owner, node.attr) in exported:
+            # A class's attribute, its own or a base's: read through an instance or the class in a method, by the
+            # class's name or an instance of it, or from another module that imports the class.
+            around = isinstance(node.value, ast.Name) and node.value.id in ("self", "cls")
+            around |= (
+                isinstance(node.value, ast.Call) and getattr(node.value.func, "id", None) == "type" and len(node.value.args) == 1
+                and getattr(node.value.args[0], "id", None) in ("self", "cls")
+            )
+            if around:
+                owners, up = [], parent.get(node)
+                while up is not None and not owners:
+                    owners, up = [up] if isinstance(up, ast.ClassDef) else [], parent.get(up)
+            else:
+                owners = [klass for klass in class_nodes if isinstance(node.value, ast.Name) and klass.name == node.value.id]
+                owners += [klass] if (klass := module_class(node.value)) is not None and klass not in owners else []
+            for klass in owners:
+                if (holds := attribute(klass, node.attr)) is not None:
+                    return holds
+            target = node.value.func if isinstance(node.value, ast.Call) else node.value
+            if (owner := dotted(target)) is not None and (owner, node.attr) in exported:
                 return (*exported[(owner, node.attr)], None)
         return None
 
@@ -390,6 +457,8 @@ def _scan_python(
             arg = _string(node.args[0]) if len(node.args) == 1 and not node.keywords else None
             strips = (node.func.attr in ("rstrip", "strip") and arg is not None and "/" in arg) or (node.func.attr == "removesuffix" and arg == "/")
             return _FIELD if strips else _UNSTRIPPED
+        if stripped(node):
+            return render(node.func.value)  # whitespace off its ends: its text as written
         if dedented(node):
             return render(node.args[0])  # re-indented: its text as written
         if (template := filled_template(node)) is not None:
@@ -417,11 +486,23 @@ def _scan_python(
         through the module's imports, so a function of another's that takes the name is no such call."""
         return isinstance(node, ast.Call) and dotted(node.func) in _DEDENTS and len(node.args) == 1 and not node.keywords
 
+    def stripped(node: ast.AST | None) -> bool:
+        """Whether ``node`` strips whitespace alone off a string's ends, ``t.strip()``, which leaves it whole."""
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in _WHITESPACE_STRIPS
+            and not node.args
+            and not node.keywords
+        )
+
     def rendered(node: ast.AST) -> bool:
-        """Whether ``node`` is part of the f-string, the ``+`` chain or the re-indented template around it,
-        which is read whole."""
+        """Whether ``node`` is part of the f-string, the ``+`` chain, the re-indented template or the strip of
+        whitespace around it, which is read whole."""
         up = parent.get(node)
         if dedented(up) and up.args[0] is node:
+            return True
+        if isinstance(up, ast.Attribute) and up.value is node and stripped(parent.get(up)) and parent[up].func is up:
             return True
         if isinstance(up, ast.FormattedValue):
             return up.value is node and plain(up) and isinstance(parent.get(up), ast.JoinedStr)
@@ -459,23 +540,50 @@ def _scan_python(
         return not (up.attr == "replace" and call.args and (_string(call.args[0]) or "x").isspace())
 
     def reads(node: ast.AST) -> bool:
-        """Whether ``node`` is read and left as it is: compared (in a container a comparison holds, or as a
-        ``match``'s case), or given a method that changes nothing (``startswith``, ``find``)."""
+        """Whether ``node`` is read and left as it is: compared, as a ``match``'s subject or case or in what a
+        comparison holds (a tuple, a list, a set, a dict's keys, or a ``frozenset()``, ``set()``, ``tuple()`` or
+        ``list()`` of one, at any depth), or given a method that changes nothing (``startswith``, ``find``)."""
         up = parent.get(node)
-        return (
-            (isinstance(up, ast.Attribute) and up.value is node and up.attr in _READS)
-            or isinstance(up, (ast.Compare, ast.MatchValue))
-            or (isinstance(up, (ast.Tuple, ast.List, ast.Set)) and isinstance(parent.get(up), ast.Compare))
-        )
+        if isinstance(up, ast.Attribute) and up.value is node and up.attr in _READS:
+            return True
+        if isinstance(up, ast.Match) and up.subject is node:
+            return True  # compared with its cases
+        child = node
+        while True:
+            if isinstance(up, (ast.Compare, ast.MatchValue)):
+                return True
+            held_in = isinstance(up, (ast.Tuple, ast.List, ast.Set)) or (isinstance(up, ast.Dict) and any(key is child for key in up.keys))
+            collected = (
+                isinstance(up, ast.Call) and getattr(up.func, "id", None) in ("frozenset", "set", "tuple", "list")
+                and len(up.args) == 1 and up.args[0] is child and not up.keywords
+            )
+            if not (held_in or collected):
+                return False
+            child, up = up, parent.get(up)
 
     def converted(node: ast.AST) -> bool:
         """Whether an f-string's field reads ``node`` through a format spec, which may cut it."""
         up = parent.get(node)
         return isinstance(up, ast.FormattedValue) and up.value is node and not plain(up)
 
+    def literal(node: ast.AST) -> bool:
+        """Whether ``node`` is a string however it is written: a literal, literals joined with ``+``, or an
+        f-string with no fields."""
+        if _string(node) is not None:
+            return True
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return literal(node.left) and literal(node.right)
+        return isinstance(node, ast.JoinedStr) and all(_string(value) is not None for value in node.values)
+
     def bare(node: ast.AST, text: str) -> bool:
-        """Whether ``node`` builds a registered path itself, with nothing in front of it, not an address."""
-        return _string(node) is not None or text.startswith(tuple(REGISTERED)) or (dedented(node) and _string(node.args[0]) is not None)
+        """Whether ``node`` builds a registered path itself, with nothing in front of it, not an address: a
+        string, a name bound to one, or a template re-indented or stripped of whitespace from either."""
+        if literal(node) or text.startswith(tuple(REGISTERED)):
+            return True
+        if dedented(node) or stripped(node):
+            inner = node.args[0] if dedented(node) else node.func.value
+            return bare(inner, render(inner))
+        return bool((holds := bound(node)) and holds[1])
 
     def in_settings(node: ast.AST) -> bool:
         """Whether ``node`` sits in a settings class's body, whose fields the environment can replace."""
@@ -497,7 +605,7 @@ def _scan_python(
         return [
             node
             for node in nodes
-            if (_string(node) is not None or isinstance(node, ast.JoinedStr) or (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)) or dedented(node))
+            if (_string(node) is not None or isinstance(node, ast.JoinedStr) or (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)) or dedented(node) or stripped(node))
             and id(node) not in skip
             and not rendered(node)
         ]
@@ -508,7 +616,7 @@ def _scan_python(
         for node in nodes:
             if isinstance(node, ast.ImportFrom):
                 for alias in node.names:
-                    key = (scope(node), alias.asname or alias.name)
+                    key = (binder(node, alias.asname or alias.name), alias.asname or alias.name)
                     if (source(node), alias.name) in exported and key not in names:
                         names[key], new = (*exported[(source(node), alias.name)], None), True
                         held.add(key[1])
@@ -517,7 +625,7 @@ def _scan_python(
                 if not _scan(text)[1]:
                     continue
                 for target in targets:
-                    key = (body_class(target) or scope(target), target.id)
+                    key = (binder(target, target.id), target.id)
                     if key not in names:
                         names[key], new = (text, bare(node, text), target), True
                         held.add(target.id)
@@ -526,6 +634,11 @@ def _scan_python(
     while bind():  # a binding the walk reaches before the one it reads is read on the next pass
         pass
     exports = {(module, name): holds[:2] for (where_bound, name), holds in names.items() if where_bound is None}
+    for klass in class_nodes:
+        if scope(klass) is None and body_class(klass) is None:  # a class of the module's own, which it exports
+            for name in attributes(klass):
+                if (holds := attribute(klass, name)) is not None:
+                    exports[(f"{module}.{klass.name}", name)] = holds[:2]
     if exports_only:
         return [], {}, exports
 
@@ -628,6 +741,8 @@ def _scan_app(root: Path = APP) -> tuple[list[str], dict[str, set[str]], dict[st
 
 # The tile's path, and a constant bound to it, as the planted cases spell them.
 _T = '_T = "/assets/earningsnerd-appicon.png"\n'
+# A class that holds the tile's path as an attribute.
+_TILES = 'class Tiles:\n    HEADER = "/assets/earningsnerd-appicon.png"\n'
 # (what, the files under app/ the case writes, "flag" or "pass" or "gap"): a string is app/form.py.
 # An unregistered path is spelled with a name no image will take (earningsnerd-new, -unregistered).
 # "flag" breaks the rule, "pass" is a look-alike, "gap" breaks the rule out of the scan's reach (the
@@ -713,6 +828,41 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a registered path changed by a method", 'P = "/assets/earningsnerd-appicon.png".replace("appicon", "x")', "flag"),
     ("an address built on a registered path, changed", 'P = f"{base}/assets/earningsnerd-appicon.png".replace("appicon", "x")', "flag"),
     ("a name holding an address on a registered path, sliced", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = U[:-4] + "@2x.png"', "flag"),
+    # A name bound through global or nonlocal, a class's attributes through its bases, an instance, another module.
+    ("a name a global binds to a registered path's address, changed in another function", '_TILE_URL = None\n\n\ndef _init():\n    global _TILE_URL\n    _TILE_URL = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"\n\n\ndef retina():\n    return _TILE_URL.replace(".png", "@2x.png")\n', 'flag'),
+    ('a registered path a global binds, sliced in the module', '_T = None\n\n\ndef _init():\n    global _T\n    _T = "/assets/earningsnerd-appicon.png"\n\n\nP = _T[:-4]\n', 'flag'),
+    ('a registered path a nonlocal binds, changed in the function around', 'def outer():\n    t = None\n\n    def inner():\n        nonlocal t\n        t = "/assets/earningsnerd-appicon.png"\n\n    inner()\n    return t.replace("appicon", "x")\n', 'flag'),
+    ("a registered path a class's body binds through global, bound again there", _T + 'class Mail:\n    global _T\n    _T = variant()\n', 'flag'),
+    ("a registered path a class's body binds through global, changed in the body", 'class Mail:\n    global _U\n    _U = "/assets/earningsnerd-appicon.png"\n    P = _U[:-4]\n', 'flag'),
+    ("a class's attribute read from another module that imports the class", {'a.py': _TILES, 'b.py': 'from app.a import Tiles\nP = Tiles.HEADER.replace("appicon", "x")\n'}, 'flag'),
+    ("a class's attribute read through the module that holds the class", {'a.py': _TILES, 'b.py': 'from app import a\nP = a.Tiles.HEADER[:-4]\n'}, 'flag'),
+    ("a class's attribute set from another module", {'a.py': _TILES, 'b.py': 'from app.a import Tiles\nTiles.HEADER = variant()\n'}, 'flag'),
+    ("a base's attribute read through a subclass's self", _TILES + '\n\nclass Dark(Tiles):\n    def url(self):\n        return self.HEADER.replace("appicon", "x")\n', 'flag'),
+    ("a base's attribute read through a subclass's name", _TILES + '\n\nclass Dark(Tiles):\n    pass\n\n\nP = Dark.HEADER.replace("appicon", "x")\n', 'flag'),
+    ("a base's attribute read through a subclass in another module", {'a.py': _TILES, 'b.py': 'from app.a import Tiles\n\n\nclass Dark(Tiles):\n    def url(self):\n        return self.HEADER.replace("appicon", "x")\n'}, 'flag'),
+    ("a base's attribute read from a third module through the subclass", {'a.py': _TILES, 'b.py': 'from app.a import Tiles\n\n\nclass Dark(Tiles):\n    pass\n', 'c.py': 'from app.b import Dark\nP = Dark.HEADER.replace("appicon", "x")\n'}, 'flag'),
+    ("a class's attribute read through an instance", _TILES + '\n\nP = Tiles().HEADER.replace("appicon", "x")\n', 'flag'),
+    ("a class's attribute read through type(self)", _TILES + '\n    def url(self):\n        return type(self).HEADER.replace("appicon", "x")\n', 'flag'),
+    ("a class's attribute read through cls, changed", 'class Mail:\n    TILE = "/assets/earningsnerd-appicon.png"\n\n    @classmethod\n    def retina(cls):\n        return cls.TILE.replace(".png", "@2x.png")\n', 'flag'),
+    ("an enum member's value added to in another module", {'a.py': 'import enum\n\n\nclass Tile(str, enum.Enum):\n    HEADER = "/assets/earningsnerd-appicon.png"\n', 'b.py': 'from app.a import Tile\nP = Tile.HEADER.value + "@2x"\n'}, 'flag'),
+    ("a class's body that imports a registered path, changed through self", {'a.py': _T, 'b.py': 'class Mail:\n    from app.a import _T\n\n    def dark(self):\n        return self._T.replace("appicon", "x")\n'}, 'flag'),
+    ('a decorator that changes a registered path, over a function whose parameter shares its name', _T + '\n\n@deco(_T.replace("appicon", "x"))\ndef f(_T):\n    return _T\n', 'flag'),
+    ('an annotation that changes a registered path, on a parameter that shares its name', _T + '\n\ndef f(_T: _T.replace("appicon", "x")):\n    return 1\n', 'flag'),
+    ("a class's body that reads a module's registered path before it binds the name", _T + '\n\nclass C:\n    Y = _T.replace("appicon", "x")\n    _T = "x"\n', 'flag'),
+    ("a class's body that binds a registered path's name to a change of it", _T + '\n\nclass C:\n    _T = _T.replace("appicon", "x")\n', 'flag'),
+    ("a nested class's decorator that changes its outer class's attribute", _TILES + '\n    @deco(HEADER.replace("appicon", "x"))\n    class Dark:\n        pass\n', 'flag'),
+    ('a template re-indented from a name, handed to a function', 'import textwrap\n\nT = \'<img src="{base}/assets/earningsnerd-appicon.png">\'\nP = _helper(textwrap.dedent(T))\n', 'flag'),
+    ('a template re-indented from a name, returned', 'import textwrap\n\nT = \'<img src="{base}/assets/earningsnerd-appicon.png">\'\n\n\ndef img():\n    IMG = textwrap.dedent(T)\n    return IMG\n', 'flag'),
+    ('a template re-indented twice, handed to a function', 'import textwrap\n\nP = _helper(textwrap.dedent(textwrap.dedent(\'<img src="{base}/assets/earningsnerd-appicon.png">\')))\n', 'flag'),
+    ('a registered path stripped of whitespace, returned', _T + '\n\ndef tile():\n    return _T.strip()\n', 'flag'),
+    ('literals joined with + into a template, handed to a function', 'P = _helper(\'<img src="{base}\' + \'/assets/earningsnerd-appicon.png">\')\n', 'flag'),
+    ('literals joined with + into a template, re-indented and handed to a function', 'import textwrap\n\nP = _helper(textwrap.dedent(\'<img src="{base}\' + \'/assets/earningsnerd-appicon.png">\'))\n', 'flag'),
+    ('an f-string with no fields, a template handed to a function', 'P = _helper(f\'<img src="{{base}}/assets/earningsnerd-appicon.png">\')\n', 'flag'),
+    ("a registered path a class's body binds through nonlocal, bound again there", 'def outer():\n    t = "/assets/earningsnerd-appicon.png"\n\n    class C:\n        nonlocal t\n        t = variant()\n\n    return C\n', 'flag'),
+    ("a class's attribute changed through the class's name", _TILES + '\n\nP = Tiles.HEADER.replace("appicon", "x")\n', 'flag'),
+    ("a class's attribute deleted through the class's name", _TILES + '\n\ndel Tiles.HEADER\n', 'flag'),
+    ("a match mapping's rest that binds a registered path's name again", _T + 'match data:\n    case {**_T}:\n        pass\n', 'flag'),
+    ("a nonlocal through a function that declares it nonlocal too, binding a registered path's name again", 'def a():\n    t = "/assets/earningsnerd-appicon.png"\n\n    def b():\n        nonlocal t\n\n        def c():\n            nonlocal t\n            t = variant()\n\n        c()\n\n    b()\n', 'flag'),
     # A string with nothing in front of a registered path is the path, and an address is changed however it is read.
     ("a registered constant in an f-string with nothing before it, handed to a function", _T + 'P = _img(f"{_T}")', "flag"),
     ("a registered constant after an empty string, in a container", _T + 'P = ["" + _T]', "flag"),
@@ -855,6 +1005,17 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a registered path compared against a set", 'ok = path not in {"/assets/earningsnerd-appicon.png"}', "pass"),
     ("a registered path matched by a case", 'match path:\n    case "/assets/earningsnerd-appicon.png":\n        ok = True', "pass"),
     ("a re-indented template filled later", 'import textwrap\nIMG = textwrap.dedent(\"\"\"\n    <img src="{base}/assets/earningsnerd-appicon.png">\n\"\"\")\nP = IMG.format(base=b)', "pass"),
+    ("a class's body that binds a module path's name to another value, then reads it", _T + '\n\nclass C:\n    _T = "x"\n    Y = _T.replace("x", "y")\n', 'pass'),
+    ('literals joined with + into a template, filled where it is built', 'P = (\'<img src="{base}\' + \'/assets/earningsnerd-appicon.png">\').format(base=b)\n', 'pass'),
+    ("a subclass's own attribute that shares its base's name", _TILES + '\n\nclass Text(Tiles):\n    HEADER = "x"\n\n    def url(self):\n        return self.HEADER.replace("x", "y")\n', 'pass'),
+    ('a template re-indented, stripped of whitespace, then filled', 'import textwrap\n\nIMG = textwrap.dedent("""\n    <img src="{base}/assets/earningsnerd-appicon.png">\n""").strip()\nP = IMG.format(base=b)\n', 'pass'),
+    ('a registered path compared against a nested tuple', _T + 'ok = p in (("a", _T), ("b", "c"))\n', 'pass'),
+    ('a registered path in a frozenset a comparison holds', _T + 'ok = p in frozenset({_T, "x"})\n', 'pass'),
+    ("a registered path as a dict's key a comparison holds", _T + 'ok = p in {_T: 1}\n', 'pass'),
+    ('a registered path a match compares with its cases', _T + 'match _T:\n    case "x":\n        pass\n', 'pass'),
+    ('an address a global binds, handed on whole', '_TILE_URL = None\n\n\ndef _init():\n    global _TILE_URL\n    _TILE_URL = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"\n\n\ndef url():\n    return _TILE_URL\n', 'pass'),
+    ("a class's attribute read from another module and used whole", {'a.py': 'class Tiles:\n    HEADER = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"\n', 'b.py': 'from app.a import Tiles\nP = f"<img src=\\"{Tiles.HEADER}\\">"\n'}, 'pass'),
+    ("a comprehension's walrus that binds the function's own name", _T + '\n\ndef f(names):\n    [(_T := n) for n in names]\n    return _T.upper()\n', 'pass'),
     # Out of the scan's reach: the header names each, and the rendered gate checks what each puts in mail.
     ("no slash before the path", 'P = urljoin(base + "/", "assets/earningsnerd-new.png")', "gap"),
     ("a path after a bare word", 'P = "BASE_URL/assets/earningsnerd-new.png"', "gap"),
@@ -875,12 +1036,12 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
      '        self.u = f"{base}/assets/earningsnerd-appicon.png"\n\n    def dark(self):\n        return self.u.replace("appicon", "x")', "gap"),
     ("an address filled into another template, with a suffix", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = "{}@2x.png".format(U)', "gap"),
     ("a name bound to a registered path, rebound where the scan does not look", {
-        "a.py": _T + 'setattr(sys.modules[__name__], "_T", variant())\nglobals()["_T"] = variant()\nvars()["_T"] = variant()\n\n\n'
-        'class Mail:\n    TILE = "/assets/earningsnerd-appicon.png"\n',
-        "b.py": 'from app import a\nfrom app.a import Mail\na.__dict__["_T"] = variant()\nMail.TILE = variant()\n',
+        "a.py": _T + 'setattr(sys.modules[__name__], "_T", variant())\nglobals()["_T"] = variant()\nvars()["_T"] = variant()\n',
+        "b.py": 'from app import a\na.__dict__["_T"] = variant()\n',
     }, "gap"),
     ("a name read through getattr or globals()", {"a.py": _T, "b.py": 'from app import a\nP = getattr(a, "_T").replace("appicon", "x")'}, "gap"),
     ("a Jinja filter applied to a path", {"templates/mail/tile.html": '{{ "/assets/earningsnerd-appicon.png" | replace("appicon", "x") }}'}, "gap"),
+    ("a class's attribute read through an instance held in a name, or a class nested in another", 'class Mail:\n    class Tiles:\n        HEADER = "/assets/earningsnerd-appicon.png"\n\n\nP = Mail.Tiles.HEADER.replace("appicon", "x")\nm = Mail.Tiles()\nQ = m.HEADER.replace("appicon", "x")\n', 'gap'),
     ("a path the site serves from a route", 'P = "/manifest.webmanifest"', "gap"),
 ]
 # One case for each character the header says a URL path can start after. The list is written here,
@@ -912,7 +1073,7 @@ def test_the_scan_scores_every_planted_form(tmp_path):
     assert gaps == named, "the header names each gap a case marks, and a case marks each gap the header names: keep the two in step"
     outcomes = [outcome for _, _, outcome in FORMS]
     # Equalities, not floors, so a form dropped after one is added still fails (lessons/test-allowlist-caps-are-equalities.md).
-    assert (outcomes.count("flag"), outcomes.count("pass")) == (162, 78), (
+    assert (outcomes.count("flag"), outcomes.count("pass")) == (196, 89), (
         "a planted form was added or dropped: keep these counts equal to FORMS in the same diff, and say why one goes"
     )
 

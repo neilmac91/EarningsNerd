@@ -39,7 +39,10 @@ const PUBLISHED = REGISTER.paths
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 // The URLs a layout's exported metadata object gives metadataBase, read as the compiler reads the file: a line
-// in a comment sets none, nor does another object's metadataBase; one that is no literal URL reads as ''.
+// in a comment sets none, nor does another object's metadataBase; one that is no literal URL reads as '', and so
+// does each other way the value may be set: a spread in the object, a key the reader cannot read, a getter, a
+// method or a shorthand, and each mention of the metadata object outside its declaration (an assignment to a key
+// of its, Object.assign onto it, an alias, a function it is handed to), which may change it.
 function metadataBases(source: string): string[] {
   const sf = ts.createSourceFile('layout.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const bases: string[] = []
@@ -50,14 +53,36 @@ function metadataBases(source: string): string[] {
       while (value && (ts.isSatisfiesExpression(value) || ts.isAsExpression(value) || ts.isParenthesizedExpression(value))) value = value.expression
       if (!ts.isIdentifier(declaration.name) || declaration.name.text !== 'metadata' || !value || !ts.isObjectLiteralExpression(value)) continue
       for (const property of value.properties) {
-        const name = ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) ? property.name.text : ''
-        if (!ts.isPropertyAssignment(property) || name !== 'metadataBase') continue
+        if (ts.isSpreadAssignment(property)) {
+          bases.push('')
+          continue
+        }
+        // A computed key names one only as a literal: another may be metadataBase.
+        const key = ts.isComputedPropertyName(property.name) ? property.name.expression : property.name
+        const name = ts.isStringLiteralLike(key) || ts.isNumericLiteral(key) || (ts.isIdentifier(key) && key === property.name) ? key.text : undefined
+        if (name === undefined) {
+          bases.push('')
+          continue
+        }
+        if (name !== 'metadataBase') continue
+        if (!ts.isPropertyAssignment(property)) {
+          bases.push('')
+          continue
+        }
         const init = property.initializer
         const literal = ts.isNewExpression(init) && init.expression.getText(sf) === 'URL' && init.arguments?.length === 1 ? init.arguments[0] : undefined
         bases.push(literal && ts.isStringLiteralLike(literal) ? literal.text : '')
       }
     }
   }
+  // A key named metadata, and a declaration's own name, are no mention of the object.
+  const mentions = (node: ts.Node): void => {
+    const up = node.parent
+    const named = (ts.isPropertyAccessExpression(up) || ts.isPropertyAssignment(up) || ts.isVariableDeclaration(up)) && up.name === node
+    if (ts.isIdentifier(node) && node.text === 'metadata' && !named) bases.push('')
+    ts.forEachChild(node, mentions)
+  }
+  ts.forEachChild(sf, mentions)
   return bases
 }
 const PUBLIC = path.join(FRONTEND, 'public')
@@ -323,7 +348,10 @@ describe('the register', () => {
 
   it("names the site's canonical origin, the root layout's metadataBase", () => {
     const bases = metadataBases(readFileSync(path.join(FRONTEND, 'app', 'layout.tsx'), 'utf8'))
-    expect(bases.length === 1 && bases[0] !== '', `app/layout.tsx names one metadataBase, as a literal URL: ${JSON.stringify(bases)}`).toBe(true)
+    expect(
+      bases.length === 1 && bases[0] !== '',
+      `app/layout.tsx names one metadataBase, as a literal URL, and mentions its metadata nowhere else ('' is a way the check cannot read): ${JSON.stringify(bases)}`,
+    ).toBe(true)
     expect(REGISTER.origin, 'mail addresses the published paths on the canonical origin').toBe(new URL(bases[0]).origin)
   })
 
@@ -339,12 +367,31 @@ describe('the register', () => {
     ["another exported object's metadataBase", "export const preview = { metadataBase: new URL('https://earningsnerd.io') }\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
     ['a URL held in a name, which the check does not resolve', "export const metadata: Metadata = {\n  metadataBase: new URL(SITE),\n}", ['']],
     ['a metadataBase given as a string', "export const metadata: Metadata = {\n  metadataBase: 'https://www.earningsnerd.io',\n}", ['']],
+    ['the metadata cast with as', "export const metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n} as Metadata", ['https://www.earningsnerd.io']],
+    ['the metadata in brackets', "export const metadata: Metadata = ({\n  metadataBase: new URL('https://www.earningsnerd.io'),\n})", ['https://www.earningsnerd.io']],
+    ['a spread after the literal, which may set metadataBase again', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n  ...preview,\n}", ['https://www.earningsnerd.io', '']],
+    ['a later assignment to metadataBase', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nmetadata.metadataBase = new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io', '']],
+    ['a later assignment through a key the reader cannot read', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nmetadata[key] = new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io', '']],
+    ['Object.assign onto the metadata', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nObject.assign(metadata, preview)", ['https://www.earningsnerd.io', '']],
+    ['a metadataBase a getter gives', "export const metadata: Metadata = {\n  get metadataBase() {\n    return new URL('https://www.earningsnerd.io')\n  },\n}", ['']],
+    ['a shorthand metadataBase', "const metadataBase = new URL('https://www.earningsnerd.io')\nexport const metadata: Metadata = { metadataBase }", ['']],
+    ["an assignment to another object's metadataBase", "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\npreview.metadataBase = new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io']],
+    ['a computed key the reader cannot read', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n  [KEY]: new URL('https://earningsnerd.io'),\n}", ['https://www.earningsnerd.io', '']],
+    ['a computed key spelled as a string', "export const metadata: Metadata = {\n  ['metadataBase']: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a later compound assignment to metadataBase', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nmetadata.metadataBase ??= new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io', '']],
+    ['an alias of the metadata, through which metadataBase is set', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nconst m = metadata\nm.metadataBase = new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io', '']],
+    ['Object.defineProperty onto the metadata', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nObject.defineProperty(metadata, 'metadataBase', { value: new URL('https://earningsnerd.io') })", ['https://www.earningsnerd.io', '']],
+    ['the metadata handed to a function', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\ndecorate(metadata)", ['https://www.earningsnerd.io', '']],
+    ['a key named metadata on another object, which is no mention', "export const config = { metadata: true }\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nconfig.metadata = false", ['https://www.earningsnerd.io']],
   ]
   for (const [what, source, expected] of LAYOUTS) {
     it(`reads a planted layout's metadataBase: ${what}`, () => {
       expect(metadataBases(source)).toEqual(expected)
     })
   }
+  it('keeps every planted layout', () => {
+    expect(LAYOUTS.length, 'a planted layout leaves this list only with its count').toBe(25)
+  })
 })
 
 describe('published asset URLs', () => {

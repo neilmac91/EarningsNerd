@@ -56,10 +56,14 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     ``_BREAK_ANYWHERE``, so the run cannot hold the page wider than a phone's screen. The header keeps the
     template's ``-webkit-text-size-adjust:100%`` on its table, so a view that enlarges text leaves its
     lines their proportions (enlarged, the tagline would outgrow the wordmark), and the panel and the
-    footer line leave their text to the view. So the header can show smaller than the body: where a
-    reader sets a larger text size, Blink enlarges the body and leaves the header; and a view that ignores
-    the viewport and fits a wider page to its screen, which no mail client is known to do, shows a short
-    mail at a fraction of its size and may enlarge a long one's body past twice the wordmark's size.
+    footer line leave their text to the view. So the header can show smaller than the body: where
+    Blink's text autosizer applies a larger font scale, it enlarges the body and leaves the header; and a
+    view that ignores the viewport and fits a wider page to its screen, which no mail client is known to
+    do, shows a short mail at a fraction of its size and may enlarge a long one's body past twice the
+    wordmark's size. A text zoom scales every line, the header's too (the property multiplies it by one),
+    and an Android WebView sets one from the phone's font size unless its app sets its own: from 150% on
+    a 320 px screen, and 200% at 414 px, the lockup (the tile beside a one-word wordmark) then holds the
+    page wider than the screen.
     The panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the body
     lines up under the header there too.
     """
@@ -686,7 +690,10 @@ def render_earnings_day_alert(
         ticker = html.escape(str(it.get("ticker", "")))
         company = html.escape(str(it.get("company_name") or it.get("ticker") or ""))
         slot = _TIME_LABEL.get((it.get("time") or "").lower())
-        # A no-break space keeps the middot with the slot, which wraps between its words ("during market hours").
+        # No-break spaces keep the middot with the slot, and a two-word slot ("before open") on one line;
+        # "during market hours" wraps between its words, as the row's other words do.
+        if slot and slot.count(" ") == 1:
+            slot = slot.replace(" ", "&nbsp;")
         when = f' <span style="color:#6B7280;">·&nbsp;{slot}</span>' if slot else ""
         reported = (it.get("status") == "reported")
         tail = " (results are out)" if reported else ""

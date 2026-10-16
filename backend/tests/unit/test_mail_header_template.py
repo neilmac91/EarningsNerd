@@ -27,7 +27,7 @@ page's holds three, the header's, the panel's and the footer line's. Around them
 - carries no inline SVG, which Gmail and Outlook drop;
 - keeps the header at its set size in a view that enlarges small text, such as one that fits a wider page
   to a phone's screen (``-webkit-text-size-adjust:100%`` on its table), and leaves every other line to the
-  view, the panel's and the footer line's;
+  view, the panel's and the footer line's (a text zoom scales every line, the header's too: F26);
 - breaks no run of a body's for it: a line that prints a run with nowhere to break, such as a link with
   its token or the reader's name, carries the rule that lets it break anywhere, since on the panel the
   rule would reach a body's own table and split a column of amounts; nor does a body lend it to a table;
@@ -38,7 +38,8 @@ page's holds three, the header's, the panel's and the footer line's. Around them
   the header.
 
 ``tests/support/mail_styles.py`` models how Blink and WebKit read a page's inline styles, and its header
-names what the model leaves out. The planted pages below score it, as edits of a frozen copy of the shell.
+names what the model leaves out. The planted pages below score it, as edits of a frozen copy of the shell, and
+each list's counts are held equal.
 ``test_mail_rendered_addresses.py`` holds every page the mail module sends to its rules.
 """
 import html
@@ -434,6 +435,11 @@ LONG_RUNS = [
     ("a run across an object that holds a comment, which is fallback", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<object width="8" height="8"><!-- c --></object>{_UNDER}</p>'),), _NOWHERE),
     ("a run across an object that holds a no-break space, which is no whitespace", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<object width="8" height="8">&nbsp;</object>{_UNDER}</p>'),), _NOWHERE),
     ("a lone wrap after nowrap, which an engine before text-wrap-mode drops", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:nowrap;white-space:wrap;">{_PHRASE}</p>'),), _NO_WRAP),
+    ("a run across an image set display:contents, which makes no box", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" style="display:contents;">{_UNDER}</p>'),), _NOWHERE),
+    ("a run across a button set display:contents, whose label lays out in the line", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<button style="display:contents;">{_UNDER}</button></p>'),), _NOWHERE),
+    ("a run across an image its align floats right", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" align="right">{_UNDER}</p>'),), _NOWHERE),
+    ("a run across an image whose align is written in capitals, which HTML reads in any case", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" align="LEFT">{_UNDER}</p>'),), _NOWHERE),
+    ("a run across an object's fallback text after a param", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<object width="8" height="8"><param name="a" value="b">{_UNDER}</object></p>'),), _NOWHERE),
     # Pass.
     ("the line as the mails write it", (), None),
     ("overflow-wrap:anywhere alone", ((_BREAK, "overflow-wrap:anywhere;"),), None),
@@ -474,6 +480,9 @@ LONG_RUNS = [
     ("two stretches either side of an object that holds a param and whitespace alone", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<object width="8" height="8">\n  <param name="a" value="b">\n</object>{_UNDER}</p>'),), None),
     ("two stretches either side of an embed with a type and no source, which is placed whole", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<embed type="image/png" width="8" height="8">{_UNDER}</p>'),), None),
     ("two stretches either side of an embed with an empty source, which is placed whole", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<embed src="" width="8" height="8">{_UNDER}</p>'),), None),
+    ("two stretches either side of an image set display:inline, which is placed whole", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" style="display:inline;">{_UNDER}</p>'),), None),
+    ("two stretches either side of a button set display:inline, which is placed whole", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<button style="display:inline;">b</button>{_UNDER}</p>'),), None),
+    ("two stretches either side of an image whose float:revert-layer finds no align, which stays in the line", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" style="float:revert-layer;">{_UNDER}</p>'),), None),
 ]
 
 
@@ -537,7 +546,7 @@ _IMAGE = 'src="https://e.test/x.png" alt=""'
 _BARE_TABLE = '<table width="100%" cellpadding="0" cellspacing="0"'  # a body table that adds no padding or spacing
 _FIXED_TABLE = _BARE_TABLE + ' style="table-layout:fixed;"'
 _PNG = 'data="https://e.test/x.png" type="image/png"'
-_IN_A_ROW = "in a row in their borders and padding alone"
+_PADDING_ALONE = "in their cells' borders, padding and min-widths alone"
 _OVER_THE_WHOLE = "keep it to 100% or less"
 # A body whose own lines fit the narrowest phone, so a planted page that holds fits in Chromium too.
 _WIDTH_BODY = "<p>Hi Ada,</p><p>Copy this link to reset your password.</p>"
@@ -548,7 +557,7 @@ WIDTHS = [
     # Flagged.
     ("the panel set 600 px wide in its style", ((_PANEL_STYLE, _PANEL_STYLE.replace("width:100%;", "width:600px;")),), _TOO_WIDE),
     ("the panel's width attribute at 600, its style's width dropped", ((_PANEL_COLUMN, _PANEL_COLUMN.replace('width="100%"', 'width="600"').replace("width:100%;", "")),), _TOO_WIDE),
-    ("the header given a min-width of 600 px", ((_HEADER_STYLE, _HEADER_STYLE.replace("max-width:600px;", "max-width:600px;min-width:600px;")),), _TOO_WIDE),
+    ("the header given a min-width of 600 px", ((_HEADER_STYLE, _HEADER_STYLE.replace("max-width:600px;", "max-width:600px;min-width:600px;")),), "min-width holds it at"),
     ("the footer line's Outlook table shown to every client", ((_OUTLOOK_TABLE + _INDENT + _FOOTER_COLUMN, _OUTLOOK_TABLE[len("<!--[if mso]>") : -len("<![endif]-->")] + _INDENT + _FOOTER_COLUMN),), _TOO_WIDE),
     ("a body table 400 px wide", ((_BODY_LINE, '<table width="400"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
     ("a width with spaces before its number", ((_BODY_LINE, '<table width=" 400"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
@@ -595,7 +604,7 @@ WIDTHS = [
     ("a width its content sets", ((_BODY_LINE, '<p style="width:max-content;">x</p>' + _BODY_LINE),), _BY_CONTENT),
     ("a width through calc()", ((_BODY_LINE, '<table style="width:calc(100% + 20px)"><tr><td>x</td></tr></table>' + _BODY_LINE),), "takes its value from a function"),
     ("revert-layer on a table's width, which keeps its attribute", ((_BODY_LINE, '<table width="600" style="width:revert-layer;"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
-    ("a checkbox as wide as the column, which its own side margins widen", ((_BODY_LINE, '<input type="checkbox" style="width:230px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a checkbox as wide as the column, which its own side margins widen", ((_BODY_LINE, '<input type="checkbox" style="width:230px;">' + _BODY_LINE),), "set its side margins to 0"),
     ("a radio button a pixel past the column with its own side margins, 5 px and 3 px", ((_BODY_LINE, '<input type="radio" style="width:223px;">' + _BODY_LINE),), _TOO_WIDE),
     ("an iframe whose own 2 px border takes it past the column", ((_BODY_LINE, '<iframe width="228" height="20"></iframe>' + _BODY_LINE),), _TOO_WIDE),
     ("a text input whose width leaves out its padding and border", ((_BODY_LINE, '<input type="text" style="width:230px;padding:0 10px;">' + _BODY_LINE),), _TOO_WIDE),
@@ -614,8 +623,8 @@ WIDTHS = [
     ("revert-layer on a cell's padding, which keeps its table's cellpadding", ((_BODY_LINE, f'<table width="100%" cellpadding="20" cellspacing="0"><tr><td style="padding:revert-layer;"><img {_IMAGE} width="230"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
     ("a cell's min-width past its share", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td width="50%" style="min-width:300px;">x</td><td>y</td></tr></table>' + _BODY_LINE),), "its min-width holds it"),
     ("a table's border-spacing in em, which the font sets", ((_BODY_LINE, '<table width="100%" style="border-spacing:1em;"><tr><td>x</td></tr></table>' + _BODY_LINE),), "border-spacing is set by the font or the screen"),
-    ("two cells set in percent whose padding takes the row past the table", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td width="50%" style="padding:0 60px;">a</td><td width="50%" style="padding:0 60px;">b</td></tr></table>' + _BODY_LINE),), _IN_A_ROW),
-    ("two cells whose padding takes the row past the table", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td style="padding:0 60px;">a</td><td style="padding:0 60px;">b</td></tr></table>' + _BODY_LINE),), _IN_A_ROW),
+    ("two cells set in percent whose padding takes the row past the table", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td width="50%" style="padding:0 60px;">a</td><td width="50%" style="padding:0 60px;">b</td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("two cells whose padding takes the row past the table", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td style="padding:0 60px;">a</td><td style="padding:0 60px;">b</td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
     ("two images side by side in cells of half the table", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td width="50%"><img {_IMAGE} width="200"></td><td width="50%"><img {_IMAGE} width="200"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
     ("three cells of 100 px in a fixed table layout", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="100">a</td><td width="100">b</td><td width="100">c</td></tr></table>' + _BODY_LINE),), _FIXED),
     ("two columns of 150 px in a fixed table layout", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="150"><col width="150"><tr><td>a</td><td>b</td></tr></table>' + _BODY_LINE),), _FIXED),
@@ -640,6 +649,59 @@ WIDTHS = [
     ("the panel's Outlook table for Internet Explorer outside Outlook", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if (!mso)&(IE)]") + _INDENT + _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
     ("the panel's Outlook table in a revealed block Outlook skips", ((_PANEL_OUTLOOK, "<![if !mso]>" + _OUTLOOK_TABLE[len("<!--[if mso]>") : -len("<![endif]-->")] + "<![endif]>" + _INDENT + _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
     ("the panel's Outlook table under a condition the reader cannot parse", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if mso &]") + _INDENT + _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
+    ("an image set display:inline, which a browser still places whole", ((_BODY_LINE, f'<img {_IMAGE} width="600" style="display:inline;">' + _BODY_LINE),), _TOO_WIDE),
+    ("an image with no width set display:inline, at its natural size", ((_BODY_LINE, f'<img {_IMAGE} style="display:inline;">' + _BODY_LINE),), _NATURAL),
+    ("an image set display:inline flow, placed whole", ((_BODY_LINE, f'<img {_IMAGE} width="600" style="display:inline flow;">' + _BODY_LINE),), _TOO_WIDE),
+    ("an image set display:ruby, placed whole", ((_BODY_LINE, f'<img {_IMAGE} width="600" style="display:ruby;">' + _BODY_LINE),), _TOO_WIDE),
+    ("an image set display:inline list-item, placed whole", ((_BODY_LINE, f'<img {_IMAGE} width="600" style="display:inline list-item;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a button set display:inline, which a browser draws as one box", ((_BODY_LINE, '<button style="display:inline;width:300px;">x</button>' + _BODY_LINE),), _TOO_WIDE),
+    ("a text field set display:inline, one box", ((_BODY_LINE, '<input style="display:inline;width:300px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a select set display:inline, one box", ((_BODY_LINE, '<select style="display:inline;width:300px;"><option>x</option></select>' + _BODY_LINE),), _TOO_WIDE),
+    ("an iframe set display:inline, placed whole", ((_BODY_LINE, '<iframe width="300" height="20" style="display:inline;"></iframe>' + _BODY_LINE),), _TOO_WIDE),
+    ("a video set display:inline, placed whole", ((_BODY_LINE, '<video width="300" style="display:inline;"></video>' + _BODY_LINE),), _TOO_WIDE),
+    ("an object whose data may load, set display:inline and held", ((_BODY_LINE, f'<object {_PNG} width="300" height="10" style="display:inline;">fallback</object>' + _BODY_LINE),), _TOO_WIDE),
+    ("an object whose data alone may load, though it holds fallback", ((_BODY_LINE, '<object data="https://e.test/x.png" width="300" height="10">fallback</object>' + _BODY_LINE),), _TOO_WIDE),
+    ("a text field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="text" style="width:223px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a field with no type, a text field, its own border and padding past the column", ((_BODY_LINE, '<input style="width:230px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a field of a type HTML does not know, a text field", ((_BODY_LINE, '<input type="bogus" style="width:230px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a date field a pixel past the column with its own border and padding", ((_BODY_LINE, '<input type="date" style="width:226px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a text area a pixel past the column with its own border and padding", ((_BODY_LINE, '<textarea style="width:225px;"></textarea>' + _BODY_LINE),), _TOO_WIDE),
+    ("a range slider as wide as the column, which its own side margins widen", ((_BODY_LINE, '<input type="range" style="width:230px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a checkbox a pixel past the column with its own side margins, 4 px and 3 px", ((_BODY_LINE, '<input type="checkbox" style="width:224px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("an input drawn as an image 300 px wide", ((_BODY_LINE, f'<input type="image" {_IMAGE} width="300">' + _BODY_LINE),), _TOO_WIDE),
+    ("an input drawn as an image with no width, at its natural size", ((_BODY_LINE, f'<input type="image" {_IMAGE}>' + _BODY_LINE),), _NATURAL),
+    ("a figure's own side margins, 40 px each", ((_BODY_LINE, f'<figure style="margin-top:0;"><img {_IMAGE} width="160"></figure>' + _BODY_LINE),), _TOO_WIDE),
+    ("a definition's own 40 px indent", ((_BODY_LINE, f'<dl><dd><img {_IMAGE} width="200"></dd></dl>' + _BODY_LINE),), _TOO_WIDE),
+    ("an ordered list's own 40 px indent", ((_BODY_LINE, f'<ol><li><img {_IMAGE} width="200"></li></ol>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fieldset's own margins, border and padding", ((_BODY_LINE, f'<fieldset><img {_IMAGE} width="200"></fieldset>' + _BODY_LINE),), _TOO_WIDE),
+    ("a rule as wide as the column, which its own border widens", ((_BODY_LINE, '<hr style="width:230px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("an image in a button, past its own padding and border", ((_BODY_LINE, f'<button><img {_IMAGE} width="230"></button>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's cell of half the table, its padding added, beside an image a pixel too wide", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="50%" style="padding:0 20px;">a</td><td><img {_IMAGE} width="76"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's cellpadding added to a cell of half the table", ((_BODY_LINE, f'<table width="100%" cellpadding="20" cellspacing="0" style="table-layout:fixed;"><tr><td width="50%">a</td><td><img {_IMAGE} width="50"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's cell across two columns, its width less the spacing between them", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="10" style="table-layout:fixed;"><tr><td colspan="2" width="100"><img {_IMAGE} width="105"></td><td>c</td></tr><tr><td>d</td><td>e</td><td>f</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's cell across two columns, which share its width", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td>a</td><td colspan="2" width="200">b</td></tr><tr><td>c</td><td><img {_IMAGE} width="150"></td><td>e</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's row below a cell that spans two rows", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td rowspan="2">a</td><td width="50">b</td></tr><tr><td><img {_IMAGE} width="100"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's cell of width 0, which HTML ignores", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="0">a</td><td><img {_IMAGE} width="150"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's cell of width 0%, which HTML ignores", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="0%">a</td><td><img {_IMAGE} width="150"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's columns in relative lengths, which Chromium ignores", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="3*"><col width="1*"><tr><td><img {_IMAGE} width="150"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's columns set in their style", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="width:150px;"><col style="width:150px;"><tr><td>a</td><td>b</td></tr></table>' + _BODY_LINE),), _FIXED),
+    ("a fixed table layout's columns past its one cell", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="50"><col width="50"><col width="200"><tr><td>a</td></tr></table>' + _BODY_LINE),), _FIXED),
+    ("a column's min-width past its table", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="min-width:300px;"><tr><td>a</td></tr></table>' + _BODY_LINE),), "min-width holds it at"),
+    ("two cells' padding in two rows, which their columns add", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td style="padding:0 60px;">a</td><td>b</td></tr><tr><td>c</td><td style="padding:0 60px;">d</td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("two cells' min-widths side by side in an automatic table layout", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td style="min-width:150px;">a</td><td style="min-width:150px;">b</td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("two padded cells and the spacing between them in an automatic table layout", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="10"><tr><td style="padding:0 55px;">a</td><td style="padding:0 55px;">b</td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a cell's room less the spacing beside its columns", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="10"><tr><td><img {_IMAGE} width="205"></td><td>y</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's body set as its header group, its row setting 300 px", ((_BODY_LINE, f'{_FIXED_TABLE}><tbody><tr><td>b</td></tr></tbody><tbody style="display:table-header-group;"><tr><td width="300">h</td></tr></tbody></table>' + _BODY_LINE),), _FIXED),
+    ("a cellpadding written with a plus sign, which HTML reads", ((_BODY_LINE, f'<table width="100%" cellpadding="+5" cellspacing="0"><tr><td><img {_IMAGE} width="225"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a table's border attribute bordering its cells, a pixel each side", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="0" border="1"><tr><td><img {_IMAGE} width="227"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's hidden first row, which the revert of its display shows, setting 300 px", ((_BODY_LINE, f'{_FIXED_TABLE}><tr hidden style="display:revert;"><td width="300">a</td></tr><tr><td>b</td></tr></table>' + _BODY_LINE),), _FIXED),
+    ("a hidden block the revert of its display shows", ((_BODY_LINE, '<div hidden style="display:revert;"><table width="400"><tr><td>x</td></tr></table></div>' + _BODY_LINE),), _TOO_WIDE),
+    ("an image in a cell its table pads, beside another cell", ((_BODY_LINE, f'<table width="100%" cellpadding="20" cellspacing="0"><tr><td><img {_IMAGE} width="200"></td><td>y</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("an image as wide as the column in a cell beside another, which its 1 px padding narrows", ((_BODY_LINE, f'<table width="100%" cellspacing="0"><tr><td><img {_IMAGE} width="{WIDEST_FIXED}"></td><td></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("an object that holds whitespace alone, which is no fallback", ((_BODY_LINE, '<object width="300" height="10">\n  \n</object>' + _BODY_LINE),), _TOO_WIDE),
+    ("an image in a legend, past its own padding", ((_BODY_LINE, f'<fieldset><legend><img {_IMAGE} width="196"></legend></fieldset>' + _BODY_LINE),), _TOO_WIDE),
+    ("two cells across two columns each, overlapping, padded 78 px a side, which their three columns share alike", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 78px;"></td><td></td></tr><tr><td></td><td colspan="2" style="padding:0 78px;"></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a fixed table layout's row below a cell that spans the rest of its section (rowspan 0)", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td rowspan="0">a</td><td width="50">b</td></tr><tr><td><img {_IMAGE} width="100"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
     # Pass.
     ("the shell as it is built", (), None),
     ("a fixed image held to the screen by its max-width", ((_BODY_LINE, f'<img {_IMAGE} width="560" style="max-width:100%;height:auto;">' + _BODY_LINE),), None),
@@ -665,7 +727,7 @@ WIDTHS = [
     ("a body table in the shell's own fluid form, inside the panel's Outlook table", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
     ("the panel's Outlook table written for Outlook 2000 and later", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if gte mso 9]") + _INDENT + _PANEL_COLUMN),), None),
     ("the panel's Outlook table for Outlook or Internet Explorer", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if (gte mso 9)|(IE)]") + _INDENT + _PANEL_COLUMN),), None),
-    ("a checkbox that fits with its own side margins", ((_BODY_LINE, '<input type="checkbox" style="width:222px;">' + _BODY_LINE),), None),
+    ("a checkbox that fits with its own side margins", ((_BODY_LINE, '<input type="checkbox" style="width:223px;">' + _BODY_LINE),), None),
     ("a radio button that fits with its own side margins", ((_BODY_LINE, '<input type="radio" style="width:221px;">' + _BODY_LINE),), None),
     ("an iframe that fits with its own 2 px border", ((_BODY_LINE, '<iframe width="226" height="20"></iframe>' + _BODY_LINE),), None),
     ("an iframe's hspace, which sets no margins", ((_BODY_LINE, '<iframe width="210" height="20" hspace="11"></iframe>' + _BODY_LINE),), None),
@@ -706,6 +768,33 @@ WIDTHS = [
     ("a fixed table layout's column in px beside one in percent, which takes the room left", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="50"><col width="25%"><tr><td><img {_IMAGE} width="100"></td><td>y</td></tr></table>' + _BODY_LINE),), None),
     ("a fixed table layout's columns in px that share the room left by their widths", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="50"><col width="50"><col width="100"><tr><td>a</td><td>b</td><td><img {_IMAGE} width="112"></td></tr></table>' + _BODY_LINE),), None),
     ("a fixed table layout's column in percent beside a wide one in px, which gives way", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="50%"><col width="200"><tr><td>a</td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("an image set display:inline that fits", ((_BODY_LINE, f'<img {_IMAGE} width="200" style="display:inline;">' + _BODY_LINE),), None),
+    ("an image set display:contents, which makes no box", ((_BODY_LINE, f'<img {_IMAGE} width="600" style="display:contents;">' + _BODY_LINE),), None),
+    ("a text field set display:contents, which makes no box", ((_BODY_LINE, '<input style="display:contents;width:600px;">' + _BODY_LINE),), None),
+    ("a button set display:contents, which lays its label out in the line", ((_BODY_LINE, '<button style="display:contents;width:600px;">x</button>' + _BODY_LINE),), None),
+    ("a search field as wide as the column, which holds its border and padding", ((_BODY_LINE, '<input type="search" style="width:230px;">' + _BODY_LINE),), None),
+    ("a text field that fits with its own border and padding", ((_BODY_LINE, '<input type="text" style="width:222px;">' + _BODY_LINE),), None),
+    ("a date field that fits with its own border and padding", ((_BODY_LINE, '<input type="date" style="width:225px;">' + _BODY_LINE),), None),
+    ("a text area that fits with its own border and padding", ((_BODY_LINE, '<textarea style="width:224px;"></textarea>' + _BODY_LINE),), None),
+    ("a range slider that fits with its own side margins", ((_BODY_LINE, '<input type="range" style="width:226px;">' + _BODY_LINE),), None),
+    ("a checkbox whose width holds its padding, as a browser sizes one", ((_BODY_LINE, '<input type="checkbox" style="width:222px;padding:0 10px;">' + _BODY_LINE),), None),
+    ("a radio button whose width holds its padding, as a browser sizes one", ((_BODY_LINE, '<input type="radio" style="width:221px;padding:0 10px;">' + _BODY_LINE),), None),
+    ("an input drawn as an image that fits", ((_BODY_LINE, f'<input type="image" {_IMAGE} width="200">' + _BODY_LINE),), None),
+    ("an SVG whose width attribute fits", ((_BODY_LINE, '<svg width="100" height="10"></svg>' + _BODY_LINE),), None),
+    ("a fixed table layout's cell of half the table, its padding added, holding an image that fits", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="50%" style="padding:0 20px;"><img {_IMAGE} width="80"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column beside a cell across two, which takes the rest", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="10" style="table-layout:fixed;"><tr><td colspan="2" width="100">a</td><td><img {_IMAGE} width="95"></td></tr><tr><td>d</td><td>e</td><td>f</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's cell spanning two rows, whose column the next row skips", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td rowspan="2" width="50">a</td><td>b</td></tr><tr><td><img {_IMAGE} width="100"></td></tr></table>' + _BODY_LINE),), None),
+    ("an automatic table layout's cell of width 0, which HTML ignores", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td width="0"><img {_IMAGE} width="50"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's header set as a body, which lays out in its place", ((_BODY_LINE, f'{_FIXED_TABLE}><tbody><tr><td>b</td></tr></tbody><thead style="display:table-row-group;"><tr><td width="300">h</td></tr></thead></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's hidden cell, which takes no column", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="200" style="display:none;">a</td><td><img {_IMAGE} width="200"></td></tr></table>' + _BODY_LINE),), None),
+    ("two padded cells in two rows that their columns hold", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td style="padding:0 50px;">a</td><td>b</td></tr><tr><td>c</td><td style="padding:0 50px;">d</td></tr></table>' + _BODY_LINE),), None),
+    ("an image inside the borders a table's border attribute gives its cell", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="0" border="1"><tr><td><img {_IMAGE} width="226"></td></tr></table>' + _BODY_LINE),), None),
+    ("a hidden block revert-layer keeps hidden", ((_BODY_LINE, '<div hidden style="display:revert-layer;"><table width="400"><tr><td>x</td></tr></table></div>' + _BODY_LINE),), None),
+    ("a cell whose style reverts its table's cellpadding, beside an empty cell", ((_BODY_LINE, f'<table width="100%" cellpadding="20" cellspacing="0"><tr><td style="padding:revert;"><img {_IMAGE} width="229"></td><td style="padding:revert;"></td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's hidden first row under revert-layer, which keeps it hidden", ((_BODY_LINE, f'{_FIXED_TABLE}><tr hidden style="display:revert-layer;"><td width="300">a</td></tr><tr><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column of 50 px beside one that sets none, whose image the rest holds", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="50"><col><tr><td>a</td><td><img {_IMAGE} width="150"></td></tr></table>' + _BODY_LINE),), None),
+    ("two cells across two columns each, overlapping, padded 76 px a side, which their three columns share alike", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 76px;"></td><td></td></tr><tr><td></td><td colspan="2" style="padding:0 76px;"></td></tr></table>' + _BODY_LINE),), None),
+    ("two padded cells in one column, which the column holds once", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td style="padding:0 60px;">a</td><td>b</td></tr><tr><td style="padding:0 60px;">c</td><td>d</td></tr></table>' + _BODY_LINE),), None),
 ]
 
 
@@ -762,3 +851,28 @@ VIEWPORTS = [
 def test_the_viewport_check_scores_every_planted_page(edits, shells):
     sets = viewports(_scored(_planted(_WIDTH_BODY), edits))
     assert (sets == [_DEVICE_WIDTH]) is shells, f"expected {'the shell viewport alone' if shells else 'another'}, got {sets}"
+
+
+def test_the_planted_lists_keep_their_counts():
+    """Each list's pages that must fail and that must pass. Equalities, not floors, so a page dropped after one
+    is added still fails (lessons/test-allowlist-caps-are-equalities.md): change a count in the diff that adds or
+    drops a page, and say why one goes."""
+    counts = {
+        "TEXT_SIZES": (sum(isinstance(c[-1], str) for c in TEXT_SIZES), sum(c[-1] is None for c in TEXT_SIZES)),
+        "LONG_RUNS": (sum(isinstance(c[-1], str) for c in LONG_RUNS), sum(c[-1] is None for c in LONG_RUNS)),
+        "WIDTHS": (sum(isinstance(c[-1], str) for c in WIDTHS), sum(c[-1] is None for c in WIDTHS)),
+        "LENDS": (sum(c[-1] is True for c in LENDS), sum(c[-1] is False for c in LENDS)),
+        "REACHES": (sum(c[-1] is True for c in REACHES), sum(c[-1] is False for c in REACHES)),
+        "VIEWPORTS": (sum(c[-1] is False for c in VIEWPORTS), sum(c[-1] is True for c in VIEWPORTS)),
+    }
+    assert counts == {
+        "TEXT_SIZES": (40, 20),
+        "LONG_RUNS": (88, 43),
+        "WIDTHS": (147, 92),
+        "LENDS": (6, 4),
+        "REACHES": (6, 4),
+        "VIEWPORTS": (3, 3),
+    }, "a planted page was added or dropped: keep these counts equal to the lists in the same diff"
+    for name, cases in (("TEXT_SIZES", TEXT_SIZES), ("LONG_RUNS", LONG_RUNS), ("WIDTHS", WIDTHS), ("LENDS", LENDS), ("REACHES", REACHES), ("VIEWPORTS", VIEWPORTS)):
+        labels = [case[0] for case in cases]
+        assert len(set(labels)) == len(labels), f"each page {name} plants has a name of its own"
