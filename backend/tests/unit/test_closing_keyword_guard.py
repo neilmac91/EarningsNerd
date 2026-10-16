@@ -24,7 +24,7 @@ from tests.unit.test_review_gate import CLOSING_CASES
 ROOT = Path(__file__).resolve().parents[3]
 SETTINGS = ROOT / ".claude" / "settings.json"
 COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/closing_keyword_guard.py" || exit 1'
-MATCHER = "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$"
+MATCHER = "^(Bash|Monitor|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$"
 MERGE = "mcp__github__merge_pull_request"
 
 
@@ -77,6 +77,7 @@ def _refused(tool: str, tool_input: object, cwd: Path = ROOT, env: dict[str, str
 @pytest.fixture
 def bodies(tmp_path: Path) -> Path:
     (tmp_path / "msg.md").write_text("Squash of the series.\n\nFixes #3.\n", encoding="utf-8")
+    (tmp_path / "my notes.md").write_text("Closes #3.\n", encoding="utf-8")
     (tmp_path / "clean.md").write_text("Squash of the series; #3 carries the fix.\n", encoding="utf-8")
     (tmp_path / "body.json").write_text('{"merge_method": "squash", "commit_message": "resolves #3"}', encoding="utf-8")
     (tmp_path / "automerge.graphql").write_text(
@@ -96,6 +97,7 @@ MCP_REFUSED = {
     "a GraphQL-named headline": (MERGE, {"pullNumber": 5, "commitHeadline": "resolves #3"}),
     "a nested GraphQL body": ("mcp__github__run_graphql", {"variables": {"input": {"commitBody": "Closes #3"}}}),
     "another server named for github": ("mcp__plugin_GitHub-tools__merge_pull_request", {"commit_message": "fix #3"}),
+    "a merge tool's field under another name": (MERGE, {"pullNumber": 5, "message": "fixes #3"}),
 }
 MCP_PASSED = {
     "no typed message": (MERGE, {"pullNumber": 5, "merge_method": "squash"}),
@@ -103,6 +105,7 @@ MCP_PASSED = {
     "a clean message": (MERGE, {"pullNumber": 5, "commit_title": "ci: gate (#1351)", "commit_message": "#3 carries the fix"}),
     "a pull request body, which review-gate reads": ("mcp__github__update_pull_request", {"pullNumber": 5, "body": "Fixes #3"}),
     "a comment": ("mcp__github__add_issue_comment", {"issue_number": 5, "body": "closes #3 once merged"}),
+    "a search, not a merge tool": ("mcp__github__search_pull_requests", {"query": "is:merged fixes #3"}),
 }
 BASH_REFUSED = (
     "gh pr merge 5 --squash --body 'Closes #3'",
@@ -113,6 +116,7 @@ BASH_REFUSED = (
     "gh pr --repo=o/r merge 5 --squash --body 'fixes o/r#3'",
     "/usr/local/bin/gh pr merge 5 -s -b 'fixes #3'",
     "sudo gh pr merge 5 -s -b 'fixes #3'",
+    "echo 5 | xargs gh pr merge -s -b 'fixes #3'",
     "(gh pr merge 5 -s -b 'fixes #3')",
     "out=$(gh pr merge 5 -s -b 'fixes #3')",
     "echo `gh pr merge 5 -s -b 'fixes #3'`",
@@ -130,6 +134,15 @@ BASH_REFUSED = (
     "gh pr merge 5 -s -F - < msg.md",
     "gh pr merge 5 -s --body-file /dev/stdin < msg.md",
     "cat msg.md | gh pr merge 5 -s -F -",
+    "cat clean.md msg.md | gh pr merge 5 -s -F -",  # each file a plain cat reads, wherever it sits
+    "gh pr merge 5 -s -b \"$(cat msg.md)\"",
+    "gh pr merge 5 -s -b \"`cat msg.md`\"",
+    "gh pr merge 5 -s --body-file <(cat msg.md)",
+    "gh pr merge 5 -s -b \"$(<msg.md)\"",
+    "gh pr merge 5 -s -F my\\ notes.md",  # a name as the shell passes it: escapes resolved, globs expanded
+    "gh pr merge 5 -s -F 'my notes.md'",
+    "gh pr merge 5 -s --body-file \\\nmsg.md",
+    "gh pr merge 5 -s -F m*.md",
     "gh pr merge 5 -s --body-file - <<'EOF'\nSquash.\n\nfixes #3\nEOF",
     "cd backend && gh pr merge 5 -s -b 'resolved #3'",
     "bash -c 'gh pr merge 5 -s -b \"fixes #3\"'",  # another shell, handed the line as written
@@ -151,6 +164,10 @@ BASH_REFUSED = (
     "{ clientMutationId } }'",
     "gh api graphql -F query=@automerge.graphql",
     "curl -X POST -d @query.json https://api.github.com/graphql",
+    "http PUT api.github.com/repos/o/r/pulls/5/merge commit_message=@msg.md",
+    "wget --method=PUT --body-file=body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
+    "json={'commit_message': 'fixes #3'})\"",
 )
 BASH_PASSED = (
     "gh pr merge 5 --squash",
@@ -168,15 +185,19 @@ BASH_PASSED = (
     "ls -la",
     "echo merge",
 )
-# The stated gaps: text a command builds as it runs, a body file named relative to a directory it changes
-# into, a script, a server named otherwise.
+# The stated gaps, one per form the hook's docstring names: text the shell or a command builds as the line
+# runs (a variable, an ANSI-C escape, any command's output but a plain cat's, a line handed to another shell
+# that way), a file named relative to a directory the line changes into, a script, a gh alias, a server named
+# otherwise. A file over 1 MiB has its own test.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
-    ("Bash", {"command": "gh pr merge 5 -s -b \"$(cat msg.md)\""}),
+    ("Bash", {"command": "gh pr merge 5 -s -b $'fixes \\x233'"}),
+    ("Bash", {"command": "gh pr merge 5 -s -b \"$(head -n 5 msg.md)\""}),
     ("Bash", {"command": "sed 's/x/y/' msg.md | gh pr merge 5 -s -F -"}),
     ("Bash", {"command": "bash -c \"$(printf 'gh pr merge 5 -s -F %s' msg.md)\""}),
     ("Bash", {"command": "cd .. && gh pr merge 5 -s -F {here}/msg.md"}),  # {here}: the body files' directory
     ("Bash", {"command": "./merge.sh 5"}),
+    ("Bash", {"command": "gh m 5 -s -b 'fixes #3'"}),  # `gh alias set m 'pr merge'`
     ("mcp__gh__merge_pull_request", {"commit_message": "fixes #3"}),
 )
 
@@ -220,6 +241,19 @@ def test_the_hook_reads_with_review_gates_own_pattern(case, title, body, message
     else:  # the gate labels a reference by where it found it; the hook's text is one commit message
         reference = expected.split('"')[1] if '"' in expected else expected
         assert output is not None and reference in output["permissionDecisionReason"]
+
+
+def test_a_monitor_runs_its_command_through_the_shell_as_bash_does(bodies: Path) -> None:
+    monitor = {"command": "gh pr merge 5 -s -F msg.md", "description": "merge", "timeout_ms": 1000}
+    _refused("Monitor", monitor, cwd=bodies)
+    assert _decision("Monitor", {**monitor, "command": "gh pr merge 5 -s"}, cwd=bodies) is None
+
+
+def test_a_glob_is_read_to_its_first_16_files(bodies: Path) -> None:
+    for number in range(40):
+        (bodies / f"part{number}.md").write_text(f"Fixes #{100 + number}.\n", encoding="utf-8")
+    reason = _refused("Bash", {"command": "gh pr merge 5 -s -F part*.md"}, cwd=bodies)
+    assert sum(f"#{100 + number}" in reason for number in range(40)) == 16
 
 
 def test_a_body_file_under_home_is_read(bodies: Path) -> None:
