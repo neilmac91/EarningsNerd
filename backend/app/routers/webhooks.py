@@ -226,7 +226,7 @@ def _link_path(link: Any) -> Optional[str]:
 
 def _record_alert_return(provider_email_id: str, link_path: Optional[str], clicked_at: Any) -> None:
     """Stamp the batch's first click and report it, so alert-to-return is measurable per kind."""
-    from app.database import SessionLocal
+    from app.services.job_sessions import run_in_own_session_sync
     from app.services.notification_delivery_service import record_first_click
     from app.services.posthog_client import capture_event
     from app.utils.datetimes import ensure_utc, utcnow
@@ -239,8 +239,7 @@ def _record_alert_return(provider_email_id: str, link_path: Optional[str], click
     except ValueError:
         clicked = now
     try:
-        with SessionLocal() as db:
-            hit = record_first_click(db, provider_email_id, clicked)
+        hit = run_in_own_session_sync(record_first_click, provider_email_id, clicked)
         if hit is None:
             return  # transactional mail, a repeat click, or a send that predates the batch ledger
         # SQLite hands back naive stamps for timezone-aware columns; PostgreSQL returns aware ones.
