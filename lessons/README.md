@@ -87,6 +87,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-operand-matches-do-not-authorize-financial-assertions.md — Use tagged operands for bounded withholding without promoting them to assertion authority
 - arch-payments-need-allocation-evidence.md — Measure canonical allocations with explicit attribution, coverage and deletion limits
 - arch-per-process-state-on-cloud-run.md — In-memory state is per-process — count every Cloud Run instance and job before trusting it
+- arch-plan-caps-hold-where-the-effect-fires.md — Apply a plan cap where its effect fires, not only where the setting is written; a downgrade rewrites no settings (partly gated by `backend/tests/unit/test_earnings_alerts.py` for the earnings-day alert send; the next capped setting is review-checked)
 - arch-qualified-income-deltas-need-source-ownership.md — Withhold qualified income arithmetic when attribution and entity ownership are unsupported
 - arch-reconciliation-follows-values-and-growth.md — Carry reconciliation quality through values, growth, citations and exports
 - arch-redis-off-in-prod.md — Production runs with Redis OFF — the two-tier cache is L1-only in prod

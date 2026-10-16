@@ -21,20 +21,21 @@ def _tables():
 
 @pytest.fixture(autouse=True)
 def _cleanup_rows():
-    """Delete every row these tests create (users, companies, watchlist, events, alert logs) so the
-    shared SQLite DB stays clean — leftover Watchlist rows otherwise pollute the global
-    filing-scan/digest queries in other test files."""
+    """Delete every row these tests create (users, companies, watchlist, events, alert logs,
+    subscriptions) so the shared SQLite DB stays clean — leftover Watchlist rows otherwise pollute
+    the global filing-scan/digest queries in other test files, and a leftover Subscription would
+    set the plan of a later user who reuses the id."""
     from app.database import SessionLocal
-    from app.models import Company, EarningsAlertLog, EarningsEvent, User, Watchlist
+    from app.models import Company, EarningsAlertLog, EarningsEvent, Subscription, User, Watchlist
 
-    models = [User, Company, Watchlist, EarningsEvent, EarningsAlertLog]
+    models = [User, Company, Watchlist, EarningsEvent, EarningsAlertLog, Subscription]
     db = SessionLocal()
     before = {m: {r[0] for r in db.query(m.id).all()} for m in models}
     db.close()
     yield
     db = SessionLocal()
     # Child → parent order for FK safety.
-    for m in (EarningsAlertLog, Watchlist, EarningsEvent, Company, User):
+    for m in (EarningsAlertLog, Watchlist, EarningsEvent, Company, Subscription, User):
         db.query(m).filter(~m.id.in_(before[m])).delete(synchronize_session=False)
     db.commit()
     db.close()
@@ -380,3 +381,108 @@ def test_cap_counts_distinct_companies_not_rows():
     db.commit()
     assert alerts.count_enabled(db, uid) == 1
     db.close()
+
+
+def _mk_event(db, ticker, day, period_end):
+    from app.models import EarningsEvent
+
+    db.add(EarningsEvent(
+        ticker=ticker, company_name=f"{ticker} Inc", fiscal_period_end=period_end,
+        event_date=day, event_time="amc", status="estimated", confidence="medium",
+        anticipation_score=5.0, source="alpha_vantage",
+    ))
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_downgrade_caps_the_send_at_the_plan_limit_and_an_upgrade_restores_it():
+    """The cap holds at send time, not only at toggle time: a Pro user who enabled more alerts
+    than the Free cap and then cancels (Stripe ``customer.subscription.deleted``) is sent only the
+    Free cap's worth, the earliest-enabled companies. The rest are skipped, not deleted and not
+    ledgered, so re-subscribing restores every alert."""
+    from app.models import EarningsAlertLog
+    from app.services.entitlements import get_entitlements
+    from app.services.subscription_sync import apply_subscription_deleted, apply_subscription_upsert
+
+    # Fixture days that no other test seeds; each has its own fiscal period (unique per ticker).
+    day1, day2 = date(2031, 2, 3), date(2031, 2, 4)
+    tag = uuid.uuid4().hex[:4].upper()
+    tickers = [f"Q{tag}{i}" for i in range(6)]
+    for t in tickers:
+        _mk_company(t)
+    uid = _mk_user(is_pro=False)
+    db, user = _load_user(uid)
+    try:
+        sub_id, cus_id = f"sub_{tag}", f"cus_{tag}"
+        apply_subscription_upsert(db, {"id": sub_id, "customer": cus_id, "status": "active"}, user=user)
+        db.commit()
+        for t in tickers:  # Pro: six enables fit under the Pro cap
+            assert alerts.set_earnings_alert(db, user, t, enabled=True) is True
+        for t in tickers:
+            _mk_event(db, t, day1, date(2030, 12, 31))
+            _mk_event(db, t, day2, date(2031, 3, 31))
+        db.commit()
+
+        apply_subscription_deleted(db, {"id": sub_id, "customer": cus_id}, user=user)
+        db.commit()
+        assert get_entitlements(user).earnings_alert_limit == FREE_EARNINGS_ALERT_LIMIT
+        email = user.email
+        sent: list[list[str]] = []
+
+        async def _sender(*, to_email, name, items):
+            if to_email == email:
+                sent.append(sorted(it["ticker"] for it in items))
+
+        stats = await alerts.send_earnings_day_alerts(db, today=day1, sender=_sender)
+        assert sent == [sorted(tickers[:FREE_EARNINGS_ALERT_LIMIT])]
+        assert stats["capped"] == len(tickers) - FREE_EARNINGS_ALERT_LIMIT
+        # Skipped, not deleted: every flag stays on, and only the sent alerts were ledgered.
+        assert alerts.count_enabled(db, uid) == len(tickers)
+        assert db.query(EarningsAlertLog).filter(EarningsAlertLog.user_id == uid).count() == FREE_EARNINGS_ALERT_LIMIT
+
+        apply_subscription_upsert(db, {"id": f"{sub_id}2", "customer": cus_id, "status": "active"}, user=user)
+        db.commit()
+        sent.clear()
+        await alerts.send_earnings_day_alerts(db, today=day2, sender=_sender)
+        assert sent == [sorted(tickers)]
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_send_cap_keeps_the_earliest_watches_by_created_at_then_id():
+    """The companies kept under the cap are fixed by the watch row's ``created_at``, then ``id``,
+    so the same ones alert day to day. A row watched earlier wins over a lower id."""
+    from datetime import datetime, timezone
+
+    from app.models import Company, Watchlist
+
+    day = date(2031, 2, 5)
+    tag = uuid.uuid4().hex[:4].upper()
+    uid = _mk_user(is_pro=False)
+    db, user = _load_user(uid)
+    try:
+        tickers = [f"W{tag}{i}" for i in range(FREE_EARNINGS_ALERT_LIMIT + 1)]
+        # Inserted in ticker order (ascending ids), but the LAST row was watched first and the
+        # first row last, so ordering by id alone would keep a different set.
+        watched_day = [4, 2, 3, 1]
+        for t, d in zip(tickers, watched_day):
+            c = Company(cik=f"ord-{uuid.uuid4().hex[:10]}", ticker=t, name=f"{t} Inc")
+            db.add(c)
+            db.flush()
+            db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True,
+                             created_at=datetime(2031, 1, d, tzinfo=timezone.utc)))
+            _mk_event(db, t, day, date(2030, 12, 31))
+        db.commit()
+        email = user.email
+        sent: list[list[str]] = []
+
+        async def _sender(*, to_email, name, items):
+            if to_email == email:
+                sent.append(sorted(it["ticker"] for it in items))
+
+        await alerts.send_earnings_day_alerts(db, today=day, sender=_sender)
+        assert sent == [sorted(tickers[1:])]
+    finally:
+        db.close()
