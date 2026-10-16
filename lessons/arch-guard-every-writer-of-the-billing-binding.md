@@ -20,7 +20,10 @@ deletion included) and an entitling event for another subscription still apply, 
 with nothing entitled to protect still takes the new binding. Ask `entitlements.py` whether a
 state grants Pro (`subscription_state_grants_pro`, `is_pro_user`), never a status list of your
 own: an elapsed-trial "trialing" state is not entitling, a future one is. When you add a guard to
-one writer, add the same late-event case for each sibling writer.
+one writer, add the same late-event case for each sibling writer. A handler returns None for an
+event it ignores, and the worker queues a handler's analytics only from a result that is not None
+(`subscription_activated` from checkout, `trial_started` from the upsert), so an ignored event
+records nothing on the account it was kept from changing.
 
 **Still open**: an *entitling* event for another subscription still rebinds (pinned in
 `test_subscription_reconciliation.py`), and that strands a payer even with one live subscription.
@@ -40,7 +43,9 @@ on one cancellation order.
 `test_late_old_update_cannot_unbind_entitled_replacement` (update; unpaid, past_due, canceled,
 incomplete_expired, elapsed trialing), with the boundary pins
 `test_bound_and_entitling_events_still_apply_to_a_replacement` (B's update, B's deletion, a newer
-active or future-trial C) and `test_unentitled_account_still_binds_a_new_non_active_subscription`.
+active or future-trial C) and `test_unentitled_account_still_binds_a_new_non_active_subscription`;
+`test_trial_started_is_recorded_only_when_the_upsert_applies` holds the worker's analytics to the
+same outcome (an ignored late created(trialing) for A queues no trial start, an applied one does).
 The same file inventories every writer: `test_every_mention_of_the_binding_is_reviewed` counts each
 mention of `stripe_subscription_id` in every Python, SQL, shell and workflow file that can reach the
 production database (the whole repository but the browser app and the test homes: the backend and

@@ -170,6 +170,7 @@ def apply_subscription_upsert(
     While the account is entitled, a state that grants no Pro for a subscription other than the
     bound one (an old subscription's dunning outcome, a late retry) is ignored, so it cannot unbind
     a paying replacement. The bound subscription's own events and an entitling one still apply.
+    Returns the affected user, or None for an unknown user or an ignored event.
     """
     stripe_sub_id = sub_obj.get("id")
     stripe_customer_id = sub_obj.get("customer")

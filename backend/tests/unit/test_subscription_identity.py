@@ -14,11 +14,13 @@ from sqlalchemy.orm import Session
 from app.database import Base
 from app.models import Subscription, User
 from app.services.entitlements import get_plan
+from app.services.posthog_client import EVENT_TRIAL_STARTED
 from app.services.subscription_sync import (
     apply_checkout_completed,
     apply_subscription_deleted,
     apply_subscription_upsert,
 )
+from app.services.subscription_webhook_service import _apply_event
 from app.utils.datetimes import utcnow
 
 
@@ -190,6 +192,25 @@ def test_unentitled_account_still_binds_a_new_non_active_subscription(db):
     # Nothing entitled to protect: B binds, so its later events are current-ID and read Stripe.
     assert (user.stripe_subscription_id, user.subscription.status, get_plan(user).value) == (
         "sub_b", "incomplete", "free")
+
+
+@pytest.mark.parametrize("sub_id, trial_days, applied", [
+    pytest.param("sub_a", -1, False, id="ignored_old_elapsed_trial"),
+    pytest.param("sub_c", 30, True, id="applied_newer_trial"),
+])
+def test_trial_started_is_recorded_only_when_the_upsert_applies(db, sub_id, trial_days, applied):
+    user = _replacement_bound(db)
+    user_id, before = str(user.id), _state(user)
+    obj = {"id": sub_id, "customer": "cus_a", "status": "trialing", "trial_end": _ts(trial_days)}
+
+    analytics = _apply_event(db, "customer.subscription.created", obj, user)
+    db.commit()
+    db.expire_all()
+    # A late created(trialing) for old A whose trial has elapsed is ignored, so it records no trial
+    # start on replacement B's account; a created event that applies still records one.
+    started = [(user_id, EVENT_TRIAL_STARTED, {"source": "stripe", "trial_end": obj["trial_end"]})]
+    assert analytics == (started if applied else [])
+    assert (_state(user) != before) is applied
 
 
 # ── Every writer of the binding is inventoried ────────────────────────────────────────────────
