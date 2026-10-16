@@ -100,10 +100,14 @@ class Routed:
 
 
 # The analysis route's fair-use 429 left this table when #1299 took "fair-use limit" out of
-# isAnalysisPaywallError: a Pro user's monthly cap is stated in the narrative card with no plan link.
+# isAnalysisPaywallError: a Pro user's monthly cap is stated in the narrative card with no plan link. The
+# Copilot route's fair-use 429 is routed by its words (isCopilotFairUseLimit, #1295), so it is held here:
+# clause 1 alone stays green on a reword of that detail while another literal in summaries.py, a log line
+# say, still writes "fair-use limit", and a Pro user at the cap would get Retry instead of the plan card.
 ROUTED = (
     Routed(BACKEND["dependencies"], "copilot_taste_exhausted_detail", "return", "isCopilotPaywallError"),
     Routed(BACKEND["dependencies"], "require_entitlement", 403, "isAnalysisPaywallError"),
+    Routed(BACKEND["summaries"], "ask_filing_stream", 429, "isCopilotFairUseLimit"),
     Routed(BACKEND["subscriptions"], "create_checkout_session", 403, "lib/api/client.ts"),
 )
 
@@ -235,7 +239,12 @@ _GOES_ON_BEFORE = tuple(".|&?:+-*%=<>^")
 def _expression_end(masked: str, start: int) -> int:
     """The end of the expression body of an arrow function that starts at ``start``, as its statement ends: a
     ``;`` or ``,`` outside its own brackets, a bracket that closes one it did not open, or a line break the
-    expression does not go on past."""
+    expression does not go on past.
+
+    Limits, where the spec's TypeScript reader is right and this one is not (no matcher in MATCHERS has these
+    shapes): a line that ends on a JSX closing tag's ``>`` or a postfix ``++`` or ``--`` reads as going on, so
+    the next statement's test is read as the matcher's; a next line that opens with ``[`` or a line break
+    inside a template literal outside any bracket ends the body, so the phrases after it are dropped."""
     depth = 0
     for i in range(start, len(masked)):
         c = masked[i]
@@ -568,6 +577,14 @@ const isProbeChain = (m: string): boolean =>
   m.includes('first') ||
   m.includes('second')
   || /third/i.test(m)
+const isProbeTernary = (m: string): boolean =>
+  m.startsWith('x')
+    ? m.includes('yes')
+    : /no/i.test(m)
+const isProbeDots = (m: string): boolean =>
+  (m || '')
+    .toLowerCase()
+    .includes('dotted')
 const after = () => m.includes('outside')
 """
     read_arrows = {"frontend/arrows.ts": arrows}.__getitem__
@@ -575,6 +592,11 @@ const after = () => m.includes('outside')
     assert phrases(Matcher("arrows.ts", "isProbeChain", (), ()), read_arrows) == [
         Phrase("first", False), Phrase("second", False), Phrase("third", True),
     ]
+    # A ternary's ? and : and a chain's leading . go on past their line break as || does.
+    assert phrases(Matcher("arrows.ts", "isProbeTernary", (), ()), read_arrows) == [
+        Phrase("x", False), Phrase("yes", False), Phrase("no", True),
+    ]
+    assert phrases(Matcher("arrows.ts", "isProbeDots", (), ()), read_arrows) == [Phrase("dotted", False)]
     dashboard = next(m for m in MATCHERS if m.fn == "DashboardError")
     assert [phrase.text for phrase in phrases(dashboard)] == ["401", "Unauthorized", "authentication", "auth"]
 
