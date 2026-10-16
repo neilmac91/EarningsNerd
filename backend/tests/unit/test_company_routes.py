@@ -14,6 +14,8 @@ in the shared test DB (trending uses a private engine) and every shared-DB row t
 is deleted.
 """
 import logging
+import os
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -366,6 +368,61 @@ def test_trending_orders_by_recent_filing_count_and_honours_limit(client, overri
         ]
         limited = client.get("/api/companies/trending", params={"limit": 1})
         assert [r["ticker"] for r in limited.json()] == ["TWO"]
+    finally:
+        engine.dispose()
+
+
+
+@pytest.fixture
+def process_clock():
+    """Run the test under another process time zone (the TZ variable), and restore it after."""
+    saved = os.environ.get("TZ")
+
+    def set_zone(zone: str) -> None:
+        os.environ["TZ"] = zone
+        time.tzset()
+
+    yield set_zone
+    if saved is None:
+        os.environ.pop("TZ", None)
+    else:
+        os.environ["TZ"] = saved
+    time.tzset()
+
+
+@pytest.mark.parametrize("zone", ["Etc/UTC", "Etc/GMT+10", "Etc/GMT-10"])  # UTC, UTC-10, UTC+10
+def test_trending_window_is_thirty_utc_days_whatever_the_process_clock(client, override_db, tmp_path,
+                                                                         process_clock, zone):
+    """The window's lower bound is 30 days before the UTC instant, not before the process's local
+    wall clock: filing dates are stored as UTC. A filing 3 hours inside the window always counts and
+    one 3 hours outside never does, whatever time zone the process runs in."""
+    process_clock(zone)
+    engine = create_engine(f"sqlite:///{tmp_path / 'trending.db'}", connect_args={"check_same_thread": False})
+    Company.__table__.create(engine)
+    Filing.__table__.create(engine)
+    sessions = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    edge = datetime.now(timezone.utc) - timedelta(days=30)
+    with sessions() as seed:
+        inside = Company(cik="0000000011", ticker="INSIDE", name="Inside")
+        outside = Company(cik="0000000012", ticker="OUTSIDE", name="Outside")
+        seed.add_all([inside, outside])
+        seed.flush()
+        for n, (company, filed) in enumerate([(inside, edge + timedelta(hours=3)),
+                                              (outside, edge - timedelta(hours=3))]):
+            seed.add(Filing(
+                company_id=company.id,
+                accession_number=f"0000000000-26-00010{n}",
+                filing_type="10-Q",
+                filing_date=filed,
+                document_url="https://example.test/f",
+                sec_url="https://example.test/f/",
+            ))
+        seed.commit()
+    override_db(sessions())
+    try:
+        resp = client.get("/api/companies/trending")
+        assert resp.status_code == 200
+        assert [row["ticker"] for row in resp.json()] == ["INSIDE"]
     finally:
         engine.dispose()
 
