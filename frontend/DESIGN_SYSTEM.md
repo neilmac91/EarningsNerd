@@ -587,12 +587,14 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  button takes the line under the marker), and it never paints over the button (at 320px under 200%
                  text it once ran across it). The button keeps its 48px and its ring. An invited chip needs about
                  9.6em on one line, so the narrow state never splits a chip that fits; at the default size it starts
-                 at a 128px row, so 390 and 1440 keep the one-line pill. Reading and Tab order stay address, marker,
-                 button. The em is the text's actual size however it is enlarged (a media query's rem is only the
-                 browser's text setting), as in the Analysis KPI strip. Gates: tests/unit/admin-invites-page.spec.tsx
-                 (the classes) and tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and
-                 1440px, at the default size and under a 200% root, in both themes, every address whole at 320 and
-                 390px under 200%, and at every 10px from 320 to 480px under 200%).
+                 at a 128px row, so a chip that fits keeps the one-line pill from 320 up (a short address at 320,
+                 whose row is 14.9em, and alice@example.com at 390 and 1440). Reading and Tab order stay address,
+                 marker, button. The em is the text's actual size however it is enlarged (a media query's rem is only
+                 the browser's text setting), as in the Analysis KPI strip. Gates:
+                 tests/unit/admin-invites-page.spec.tsx (the classes) and tests/e2e/admin-invite-chip-reflow.spec.ts
+                 (what they paint at 320, 390 and 1440px, at the default size and under a 200% root, in both themes,
+                 every address whole at 320 and 390px under 200%, a short chip on one line at 320px at the default
+                 size, and at every 10px from 320 to 480px under 200%).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a

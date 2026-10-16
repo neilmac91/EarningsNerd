@@ -15,9 +15,10 @@ import { test, expect, type Page } from '@playwright/test'
  * inside its chip, every chip and its button end inside the card, and the chips never widen the page. At 320px and
  * 390px under a 200% root every address shows whole (each character painted inside the address's own box, nothing
  * hidden) on lines no other part of its chip shares, and the remove button keeps its 48px; at 390px there the button
- * sits on the marker's line. At the default size the chip stays a one-line pill where it fits (390px and 1440px). A
- * sweep of widths under a 200% root crosses the 8em threshold, so a threshold set too low fails here even where 320px
- * and 390px pass.
+ * sits on the marker's line. At the default size a chip stays a one-line pill where it fits: alice's at 390px and
+ * 1440px, and the short one's at 320px, whose row is 14.9em, so a threshold set too high fails here (alice's row at
+ * 390px alone held it only below 19.3em). A sweep of widths under a 200% root crosses the 8em threshold, so a
+ * threshold set too low fails here even where 320px and 390px pass.
  *
  * The 200% cases set the root element's font size, as catch-card-reflow does. The container query's em is the row's
  * own text size, so the threshold follows the text however it is enlarged.
@@ -104,7 +105,8 @@ async function openInvites(page: Page, baseURL: string, theme: Theme) {
 
 const inviteCard = (page: Page) => page.locator('section', { has: page.getByRole('heading', { name: 'Invite people' }) })
 
-async function measure(page: Page, rootFont: string) {
+/** What Chromium paints for the chip of `invited`, an already-invited address (alice's unless another is named). */
+async function measure(page: Page, rootFont: string, invited = INVITED) {
   await page.evaluate((size) => {
     document.documentElement.style.fontSize = size
   }, rootFont)
@@ -156,7 +158,7 @@ async function measure(page: Page, rootFont: string) {
       already: box(painted(already, already + 'already'.length).getBoundingClientRect()),
       page: { clientWidth: doc.clientWidth, withChips, withoutChips },
     }
-  }, INVITED)
+  }, invited)
 }
 
 type Measure = Awaited<ReturnType<typeof measure>>
@@ -269,7 +271,7 @@ function expectOneLine(m: Measure, label: string) {
 
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`an already-invited chip, ${theme} theme`, () => {
-    test('at 320px the marker clears the remove button at the default size and under a 200% root font, where every address shows whole', async ({ page, baseURL }) => {
+    test('at 320px the marker clears the remove button at the default size and under a 200% root font, where every address shows whole, and a short chip is one line at the default size', async ({ page, baseURL }) => {
       await page.setViewportSize({ width: 320, height: 900 })
       await openInvites(page, baseURL!, theme)
       for (const [rootFont, text] of [['', 'default text'], ['32px', '200% text']] as const) {
@@ -278,6 +280,9 @@ for (const theme of ['light', 'dark'] as const) {
         expectClear(m, label)
         expectNoSidewaysScroll(m, label)
       }
+      // The narrow state never splits a chip that fits: at the default size this row is 14.9em, and the short chip
+      // fits it on one line, so a threshold above 14.9em fails here (alice's one-line pill at 390px holds 19.3em).
+      expectOneLine(await measure(page, '', SHORT), '320px, default text, a short address')
       expectWholeAddresses(await measureAddresses(page, '32px'), '320px, 200% text')
     })
 
