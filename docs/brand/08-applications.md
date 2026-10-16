@@ -225,6 +225,29 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Error copy** (`frontend/lib/api/client.ts`): a lost connection reads "Could not reach the server.
   Try again in a moment." instead of naming the backend and its URL, and a validation error shows
   its first message instead of "[object Object]".
+- **Settings and subscription** (`frontend/features/settings/`, `frontend/features/subscriptions/`,
+  D-033): Filing alerts offer only what the alert jobs read. The digest row states "Daily" in the
+  data face ("Alerts that aren't real-time arrive in one email a day.") in place of a frequency
+  select no job honoured; real-time alerts read "An email from the hourly filing check, instead of
+  the daily digest." and 8-K alerts "Current reports on material events." The Pro list in the
+  upgrade dialog is one shared string, and every plan list (the dialog, the /pricing and landing
+  plan cards, the /pricing Product JSON-LD) names Multi-Period Analysis only through
+  `lib/planLimits.ts`, read through its `shipped()` while that flag ships it (D-040). The trial
+  banner and the billing panel state the trial's end date ("Your Pro trial ends Jun 25, 2026."),
+  never a countdown, and the banner shows only while the resolved plan is a live Pro trial. In
+  settings and the subscription surfaces, commerce carries the Lightning glyph (the Pro badge, the
+  trial banner) and "Analyze trends" a chart glyph; the sparkle leaves commerce there (D-031 records
+  that it has no sanctioned site until an AI-summary chip exists), and #1295 takes it off the
+  Copilot's two upgrade buttons (`CopilotMessage.tsx`, `CopilotTeaser.tsx`). The dead
+  SubscriptionGate is gone. The locked overlay reads "Upgrade to Pro". Section headings in settings
+  and on the dashboard carry no icon. The dashboard answers a finished checkout ("Pro is active", or
+  "Checkout finished" with "Your plan updates in a moment. Reload this page if it still shows Free."
+  while the query still says Free) and pricing a cancelled one ("You returned from checkout", then
+  "You can choose a plan below." or, for an account already on Pro, "Your plan is Pro."), reading
+  only the subscription query and the return URL, which says nothing about a charge. Each page drops
+  its return flag from the address once read. On /pricing a signed-in Pro account's Free card names
+  the plan, "Free plan", disabled, where it read the guest's "Request an invite" (gate:
+  `PricingPage.spec.tsx`).
 - **Admin invites and feedback** (`frontend/app/admin/`, `frontend/features/admin/components/`): an
   invite is "created", and "emailed" only when Email invites was on and the backend's best-effort send
   went through (the API's `emailed` flag). A batch reads "3 invites created · 3 emailed", "3 invite
