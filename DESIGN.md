@@ -350,7 +350,7 @@ Chart series follow the configured order: **Teal → Honey → Cornflower → Co
 
 **Body Font:** Apple system first, then the loaded Inter font, then generic system and platform fallbacks. Preserve the system-first order.
 
-**Label/Mono Font:** Geist Mono, reached through `--font-geist-mono`, for figures, tickers, data columns and Ask-this-Filing answers. UI labels otherwise use the body or heading register appropriate to their component.
+**Label/Mono Font:** Geist Mono, reached through `--font-geist-mono`, for figures, tickers, data columns, Ask-this-Filing answers and a code a reader may retype (the waitlist referral link). UI labels otherwise use the body or heading register appropriate to their component.
 
 **Editorial Font:** Newsreader, reached through `--font-newsreader`, for the original filing's own words in `.filing-reader` only.
 
@@ -368,7 +368,7 @@ Chart series follow the configured order: **Teal → Honey → Cornflower → Co
 | Body | 400; root browser sample 16/24px; `text-base` explicitly sets 16/25.6px | General prose; local leading utilities can override the scale |
 | UI | 14/20px, commonly 500 or 600 for controls | Navigation, forms and medium buttons |
 | Metric label | 12/16px; 600; uppercase with 0.08em eyebrow tracking | Table headers and metric labels |
-| Data | Geist Mono; tabular figures; size follows context | Financial values, tickers and evidence output |
+| Data | Geist Mono; tabular figures; size follows context | Financial values, tickers, evidence output and a code a reader may retype |
 | Dense data annotation | 11/16px | Compact chart annotations and in-card micro-labels; never a provenance chip, which is 12px |
 | Filing reader | Newsreader 19px, line-height 1.7, optical sizing | Original filing prose |
 
