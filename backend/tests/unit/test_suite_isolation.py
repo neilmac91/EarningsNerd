@@ -33,6 +33,10 @@ import subprocess  # nosec B404 - runs this repo's own pytest on fixed nodes of 
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import make_url
@@ -246,17 +250,22 @@ _EDGAR_PROBE = (
 def _edgar_probe(tmp_path, *args, **edgar_env):
     """Each probe process's temp directory and EdgarTools' directories, by xdist worker ("main" if none)."""
     # HOME (USERPROFILE on Windows) is a fresh directory, so anything EdgarTools wrote to its home
-    # defaults would show there.
-    home, report = tmp_path / "home", tmp_path / "report.jsonl"
+    # defaults would show there. The temp root is fresh too, so a directory any process of the run left
+    # behind (the xdist controller's included) shows there, unmixed with other runs on the machine.
+    home, temp, report = tmp_path / "home", tmp_path / "temp", tmp_path / "report.jsonl"
     home.mkdir()
+    temp.mkdir()
     probe = tmp_path / "test_edgar_dirs_probe.py"
     probe.write_text(_EDGAR_PROBE, encoding="utf-8")
     environ = {k: v for k, v in os.environ.items() if k not in _EDGAR_DIRS}
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", *args, str(probe),
                            environ={**environ, **edgar_env, "HOME": str(home), "USERPROFILE": str(home),
+                                    "TMPDIR": str(temp), "TEMP": str(temp), "TMP": str(temp),
                                     "EDGAR_PROBE_REPORT": str(report)})
     assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-2000:]
     assert not any(home.iterdir()), sorted(home.rglob("*"))
+    # Every process removed its directory when it ended: the serial run, each worker and the controller.
+    assert not sorted(temp.glob("earningsnerd-tests-*")), sorted(temp.glob("earningsnerd-tests-*"))
     seen = {}
     for row in map(json.loads, report.read_text(encoding="utf-8").splitlines()):
         # Resolved, as EdgarTools resolves its own: macOS reaches the temp directory through a symlink.
@@ -273,6 +282,29 @@ def test_edgartools_writes_only_to_the_processs_temp_directory(tmp_path):
     assert private.name.startswith("earningsnerd-tests-main-"), private
     assert all(private in d.parents for d in dirs), (private, dirs)
     assert not private.exists()  # removed with the database when the process ended
+
+
+def test_offline_enrichment_stubs_exactly_its_listed_files(request):
+    # conftest's _offline_stream_enrichment picks its files by "<parent>/<name>". Drive it with each listed
+    # file's real path and with one that is not listed, so a moved file or a changed key fails here, by
+    # name, instead of as an outbound request the network gate blocks in a stream test.
+    from app.services import summary_pipeline
+
+    conftest = request.config.pluginmanager.get_plugin(str(BACKEND_DIR / "tests" / "conftest.py"))
+    stub = conftest._offline_stream_enrichment.__wrapped__
+    service, seams = summary_pipeline.xbrl_service, ("get_xbrl_data", "get_filing_sections")
+    real = {seam: getattr(service, seam) for seam in seams}
+    unlisted = _THIS.removeprefix("tests/")
+    stubbed = {}
+    for rel in [*sorted(conftest._OFFLINE_ENRICHMENT_FILES), unlisted]:
+        assert (BACKEND_DIR / "tests" / rel).is_file(), rel
+        steps = stub(SimpleNamespace(path=BACKEND_DIR / "tests" / rel))
+        next(steps)
+        stubbed[rel] = [seam for seam in seams if isinstance(getattr(service, seam), AsyncMock)]
+        with pytest.raises(StopIteration):
+            next(steps)
+        assert {seam: getattr(service, seam) for seam in seams} == real, rel  # restored on exit
+    assert stubbed == {**{rel: list(seams) for rel in conftest._OFFLINE_ENRICHMENT_FILES}, unlisted: []}
 
 
 def test_each_xdist_worker_keeps_edgartools_in_its_own_temp_directory(tmp_path):
