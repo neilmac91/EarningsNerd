@@ -1,0 +1,152 @@
+"""Mutation proofs on a committed sha: each mutation must make its named tests fail.
+
+Usage: python mutate.py <sha> <out.jsonl>   (runs every mutation in one detached worktree)
+"""
+import json, subprocess, sys, time
+from pathlib import Path
+
+SHA, OUT = sys.argv[1], Path(sys.argv[2])
+REPO = Path("/home/user/EarningsNerd")
+WT = Path(f"/root/gates/mut-{SHA}")
+PY = "/root/venv/bin/python"
+
+M = [
+  # (id, file, old, new, tests)
+  ("parity-min-chars", "app/services/edgar/xbrl_sections.py", "_SECTION_MIN_CHARS = 200", "_SECTION_MIN_CHARS = 400",
+   ["tests/unit/test_summary_sections_parity.py"]),
+  ("parity-20f-key-order", "app/services/edgar/xbrl_sections.py",
+   '("part_iii_item_18", "part_iii_item_17", "part_i_item_8")', '("part_i_item_8", "part_iii_item_18", "part_iii_item_17")',
+   ["tests/unit/test_summary_sections_parity.py", "tests/unit/test_xbrl_service_anchors.py"]),
+  ("parity-no-strip-10q20f", "app/services/edgar/xbrl_sections.py",
+   "                    out[canonical] = text.strip()\n                    break", "                    out[canonical] = text\n                    break",
+   ["tests/unit/test_summary_sections_parity.py", "tests/unit/test_xbrl_service_anchors.py"]),
+  ("parity-10k-parser-config-unformed", "app/services/edgar/xbrl_sections.py",
+   "HTMLParser(ParserConfig(form=base_form))", "HTMLParser(ParserConfig())",
+   ["tests/unit/test_summary_sections_parity.py"]),
+  ("tenk-no-combined", "app/services/edgar/xbrl_sections.py",
+   "            if combined.match(key):", "            if False and combined.match(key):",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("tenk-no-part-line-rstrip", "app/services/edgar/xbrl_sections.py",
+   "            return text.rstrip(last_line) if _PART_LINE.match(last_line) else text", "            return text",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("tenk-index-not-cached", "app/services/edgar/xbrl_sections.py",
+   "            if not index_cache:", "            if True:",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("tenk-parser-failure-aborts", "app/services/edgar/xbrl_sections.py",
+   '        if base_form != "10-K":\n            logger.warning', "        if True:\n            logger.warning",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("size-cap-removed", "app/services/edgar/xbrl_sections.py",
+   "    if len(html) > _MAX_SECTION_HTML_CHARS:", "    if False:",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("service-timeout-handler-removed", "app/services/edgar/xbrl_service.py",
+   "        except EdgarTimeoutError:", "        except ZeroDivisionError:",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("service-20f-timeout", "app/services/edgar/xbrl_service.py",
+   "max(self.timeout, 40.0)", "max(self.timeout, 30.0)",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("pipeline-section-worker-unowned", "app/services/summary_stages/enrichment.py",
+   "        with run.worker_owner.activate():\n            run.sections_task = asyncio.create_task(parse_sections())",
+   "        run.sections_task = asyncio.create_task(parse_sections())",
+   ["tests/unit/test_durable_request_ownership.py"]),
+  ("pipeline-wrong-html", "app/services/summary_stages/enrichment.py",
+   "run.filing_accession_number, run.filing_type, html=run.filing_text", "run.filing_accession_number, run.filing_type, html=\"\"",
+   ["tests/unit/test_summary_pipeline_anchors_enrichment.py", "tests/unit/test_durable_request_ownership.py"]),
+  ("pipeline-sections-ignored", "app/services/summary_stages/enrichment.py",
+   "        return await run.run_sync_db(extract_excerpt_sync, sections)", "        return await run.run_sync_db(extract_excerpt_sync, None)",
+   ["tests/unit/test_summary_pipeline_anchors_enrichment.py"]),
+  ("pipeline-flag-ignored", "app/services/summary_stages/enrichment.py",
+   "        and pipeline.settings.USE_EDGARTOOLS_SECTIONS\n        and run.filing_text", "        and run.filing_text",
+   ["tests/unit/test_summary_pipeline_anchors_enrichment.py", "tests/unit/test_durable_request_ownership.py"]),
+  ("runner-old-signature", "evals/runner.py",
+   "get_filing_sections(filing.accession_number, form, html=text)", "get_filing_sections(filing.accession_number, form)",
+   ["tests/unit/test_eval_measurement.py"]),
+  ("bootstrap-anchor-cache-dropped", "evals/copilot_bootstrap.py",
+   '        "EDGAR_CACHE_DIR": str(output / "edgar-anchor-cache"),\n', "",
+   ["tests/unit/test_copilot_bootstrap.py"]),
+  ("bootstrap-no-html", "evals/copilot_bootstrap.py",
+   'source["accession_number"], source["filing_type"], html=html)', 'source["accession_number"], source["filing_type"], html="")',
+   ["tests/unit/test_copilot_bootstrap.py"]),
+  ("executor-anchor-cache-dropped", "evals/acceptance_executor.py",
+   "               EDGAR_CACHE_DIR=str(invocation.parent / 'edgar-anchor-cache'),\n", "",
+   ["tests/unit/test_acceptance_executor.py"]),
+  ("archive-input-check-dropped", "evals/acceptance_archive.py",
+   '            if not isinstance(html, str) or input_sha != primary_sha:', '            if False:',
+   ["tests/unit/test_acceptance_archive.py"]),
+  ("archive-result-binding-dropped", "evals/acceptance_archive.py",
+   "            if result and _sections_digest(result) not in self._parsed_sections_sha256:", "            if False:",
+   ["tests/unit/test_acceptance_archive.py"]),
+  ("archive-accession-check-dropped", "evals/acceptance_archive.py",
+   '            if requested_accession != accession or form != self.spec["filing_type"]:\n                self._violate("edgar.get_filing_sections", "different selected filing")',
+   '            if False:\n                self._violate("edgar.get_filing_sections", "different selected filing")',
+   ["tests/unit/test_acceptance_archive.py"]),
+  ("executor-shared-pool", "app/services/edgar/xbrl_service.py",
+   "            return await run_parse_with_timeout(", "            return await run_in_executor_with_timeout(",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("executor-two-workers", "app/services/edgar/async_executor.py", "_PARSE_WORKERS = 1", "_PARSE_WORKERS = 2",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("executor-queued-parse-survives-cancel", "app/services/edgar/async_executor.py",
+   "return await asyncio.wait_for(run_executor_work(_get_parse_executor(), func), timeout=timeout)",
+   "return await asyncio.wait_for(asyncio.shield(run_executor_work(_get_parse_executor(), func)), timeout=timeout)",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("executor-shutdown-skips-parse-worker", "app/services/edgar/async_executor.py",
+   "    if _parse_executor is not None:\n        _parse_executor.shutdown(wait=wait)\n        _parse_executor = None\n", "",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("executor-parse-timeout-not-translated", "app/services/edgar/async_executor.py",
+   "    except asyncio.TimeoutError as exc:\n        raise EdgarTimeoutError(\n            message=f\"Local parse timed out", "    except ZeroDivisionError as exc:\n        raise EdgarTimeoutError(\n            message=f\"Local parse timed out",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("skip-stored-excerpt-removed", "app/services/summary_stages/enrichment.py",
+   '        not run.filing_fields["cache_excerpt"]\n', "        True\n",
+   ["tests/unit/test_summary_pipeline_anchors_enrichment.py", "tests/unit/test_durable_request_ownership.py"]),
+  ("warning-10q-parser-failure-silent", "app/services/edgar/xbrl_sections.py",
+   '            logger.warning(f"Section parse found nothing in a {base_form} document: {exc!r}")\n            return None',
+   "            return None",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("warning-10k-nothing-silent", "app/services/edgar/xbrl_sections.py",
+   "    if not out and error is not None:\n", "    if False:\n",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("warning-10k-last-error", "app/services/edgar/xbrl_sections.py",
+   "                text, error = None, error or exc", "                text, error = None, exc",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("warning-10k-parser-error-dropped", "app/services/edgar/xbrl_sections.py",
+   "        sections, error = {}, exc  #", "        sections = {}  #",
+   ["tests/unit/test_xbrl_service_anchors.py"]),
+  ("gate-hard-floor-zero", "evals/regression_gate.py", "_NATIVE_SHARE_HARD_FLOOR = 0.90", "_NATIVE_SHARE_HARD_FLOOR = 0.0",
+   ["tests/unit/test_eval_regression_gate.py"]),
+  ("gate-warn-floor-off", "evals/regression_gate.py", "_NATIVE_SHARE_WARN_FLOOR = 0.95", "_NATIVE_SHARE_WARN_FLOOR = 0.90",
+   ["tests/unit/test_eval_regression_gate.py"]),
+  ("gate-not-called", "evals/regression_gate.py",
+   "    native_findings, native_notes = _check_native_sections(report, baseline, only)",
+   "    native_findings, native_notes = [], []",
+   ["tests/unit/test_eval_regression_gate.py"]),
+]
+
+def sh(*a, **k):
+    return subprocess.run(a, capture_output=True, text=True, **k)
+
+sh("git", "-C", str(REPO), "worktree", "remove", "--force", str(WT))
+r = sh("git", "-C", str(REPO), "worktree", "add", "--detach", str(WT), SHA)
+assert r.returncode == 0, r.stderr
+B = WT / "backend"
+only = set(sys.argv[3:])
+with OUT.open("w") as out:
+    for mid, rel, old, new, tests in M:
+        if only and mid not in only:
+            continue
+        path = B / rel
+        text = path.read_text()
+        n = text.count(old)
+        if n != 1:
+            out.write(json.dumps({"id": mid, "error": f"old occurs {n} times"}) + "\n"); out.flush(); continue
+        path.write_text(text.replace(old, new))
+        t0 = time.time()
+        p = sh(PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-n", "0", *tests, cwd=B)
+        tail = [l for l in p.stdout.splitlines() if l.startswith(("FAILED", "ERROR")) or " passed" in l or " failed" in l][-12:]
+        out.write(json.dumps({"id": mid, "killed": p.returncode != 0, "rc": p.returncode,
+                              "secs": round(time.time() - t0, 1), "tail": tail}) + "\n"); out.flush()
+        sh("git", "checkout", "--", ".", cwd=WT)
+    # Control: the unmutated tree passes the same union of tests.
+    allt = sorted({t for *_, ts in M for t in ts})
+    p = sh(PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-n", "0", *allt, cwd=B)
+    out.write(json.dumps({"id": "control-unmutated", "passed": p.returncode == 0,
+                          "tail": [l for l in p.stdout.splitlines() if " passed" in l or " failed" in l or l.startswith("FAILED")][-8:]}) + "\n")
+sh("git", "-C", str(REPO), "worktree", "remove", "--force", str(WT))
