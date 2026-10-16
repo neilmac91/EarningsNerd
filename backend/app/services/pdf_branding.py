@@ -227,6 +227,8 @@ td.num, .data {{
   font-variant-numeric: tabular-nums;
 }}
 td.num, th.num {{ text-align: right; }}
+/* A figure keeps to one line, as the page's figure cells do ("+14.4 ppts" beside a long takeaway). */
+td.num {{ white-space: nowrap; }}
 
 blockquote {{
   margin: 10px 0;

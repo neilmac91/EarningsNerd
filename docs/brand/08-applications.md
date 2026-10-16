@@ -324,7 +324,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   date; the PDF's closing note is two sentences, and a quote's attribution sits on its own line in
   the PDF and follows a middot in the CSV, never a dash. Tables read as the page's reader tables do
   (D-041, applying D-030): headers in the tertiary ink on no fill, hairline rows and no grid, and a
-  column of figures right-aligned in the data face by the page's numeric-column rule; quotes sit on
+  column of figures right-aligned in the data face, each figure on one line, where the page sets
+  one: the Financial Highlights table's Current Period, Prior Period and Change by name, as
+  FinancialMetricsTable does, and any other table's by the page's numeric-column rule; quotes sit on
   a neutral hairline. A PDF link rests in its line's ink with an underline, as the page's prose
   links rest, because print has no pointer to turn it sage, so the wordmark's "Nerd" is the only
   sage text in the exports. The workbook's header rows rest in the ink on the neutral ground and its

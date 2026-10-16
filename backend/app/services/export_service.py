@@ -19,11 +19,16 @@ from app.services.summary_sections import Block, Section, render_sections
 from app.services.provenance_service import project_summary_risks
 from app.utils.datetimes import ensure_utc, iso_z, utcnow
 
-# The web's numeric-column rule (SummaryBlocks.tsx, GenericTable), so a PDF table aligns the same
-# columns the page does: a column is numeric when it holds a value and every non-empty cell is a
-# whole figure, with no letters beyond one trailing K/M/B/T scale and a leading number that
-# lib/format.ts parseNumeric reads ("$391.0B", "61.2%", "(12.4)"), or the bare "-" or "—".
-# Commentary that opens with a figure ("41% operating margin") and "+14.4 ppts" stay prose.
+# A PDF table aligns the same columns the page does. The metrics block (Financial Highlights) is
+# FinancialMetricsTable on the page, whose Current Period, Prior Period and Change columns are
+# right-aligned and numeric by definition, whatever a cell holds ("+14.4 ppts", "—"), so the PDF
+# marks those three by header. Every other table (segments, footnotes) is GenericTable on the page
+# (SummaryBlocks.tsx) and takes its content rule: a column is numeric when it holds a value and
+# every non-empty cell is a whole figure, with no letters beyond one trailing K/M/B/T scale and a
+# leading number that lib/format.ts parseNumeric reads ("$391.0B", "61.2%", "(12.4)"), or the bare
+# "-" or "—". Commentary that opens with a figure ("41% operating margin") and "+14.4 ppts" stay
+# prose there.
+_METRIC_FIGURE_HEADERS = frozenset({"Current Period", "Prior Period", "Change"})
 _WHOLE_FIGURE = re.compile(r"^[\W\d_]*[KMBT]?$", re.IGNORECASE)
 _LEADING_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 _NOT_A_NUMBER = frozenset({
@@ -136,8 +141,12 @@ class ExportService:
             if not block.rows:
                 return ""
             # A numeric column takes class="num" on its header and cells: right-aligned figures in
-            # the data face, as the page's table sets them.
-            numeric = numeric_columns(block.rows, max(len(block.headers), *(len(row) for row in block.rows)))
+            # the data face, as the page's table sets them (the metrics block by header, any other
+            # table by its content; see _METRIC_FIGURE_HEADERS).
+            numeric = (
+                [header in _METRIC_FIGURE_HEADERS for header in block.headers] if block.kind == "metrics"
+                else numeric_columns(block.rows, max(len(block.headers), *(len(row) for row in block.rows)))
+            )
             thead = ""
             if block.headers:
                 head_cells = "".join(f"<th{_num(numeric, c)}>{escape(h)}</th>" for c, h in enumerate(block.headers))
