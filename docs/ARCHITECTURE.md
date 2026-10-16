@@ -341,8 +341,13 @@ unused since generation became account-required in #619; kept because migrations
   the report date (a transition period), the label is the calendar year of the end, never NULL (a
   NULL year would drop the period from Multi-Period Analysis). The fact identity leaves the year
   out, so this is what lets the per-filing and companyfacts writers name a period alike whichever
-  stores it first. That dataset refuses a flow label that current rows give to two different
-  period ends, and reads a balance at its period's own end in both modes.
+  stores it first, wherever a timely annual report (filed within 180 days of its end) anchors the
+  companyfacts year chain. Where a contiguous chain holds none, the companyfacts writer keeps
+  calendar years while the per-filing labeller, which sees no filing date, names the fiscal year,
+  so a delinquent non-calendar filer's rows carry two labels for one period end (an open
+  follow-up in the companyfacts writer). The Multi-Period Analysis dataset refuses a flow label
+  that current rows give to two different period ends, and reads a balance at its period's own
+  end in both modes.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
   deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
   company row and preserve a known newer accession. The per-filing writer also preserves untied

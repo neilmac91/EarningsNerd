@@ -21,12 +21,13 @@ disagreed again, now for calendar-year filers.
 
 **Rule**: Derive every per-filing fiscal label from the filing's own DEI focus and the point's
 whole-period distance from the report date (`edgar/fiscal_periods.filing_point_label`, shared by
-the instance extractor and the companyfacts fallback). Trust an annual focus no more widely than
-the companyfacts writer does: an annual form (`facts/calendar.ANNUAL_FORMS`), an FY focus, the end
-year or the year before, and the year before only where most of the year lies in it. Without a
-trusted focus, or for a point that is not a whole number of years from the report date, keep the
-calendar year of its end; never write a NULL year, which drops the period from Multi-Period
-Analysis and the filing chart's axis. When two writers can store the same identity, they must
+the instance extractor and the companyfacts fallback). Trust an annual focus only inside the
+companyfacts writer's year bound, and more narrowly: an annual form (`facts/calendar.ANNUAL_FORMS`),
+an FY focus, the end year or the year before, and the year before only where most of the year lies
+in it. The labeller sees no filing date, so it cannot apply that writer's 180-day timeliness bound
+(see the known limits). Without a trusted focus, or for a point that is not a whole number of
+years from the report date, keep the calendar year of its end; never write a NULL year, which drops
+the period from Multi-Period Analysis and the filing chart's axis. When two writers can store the same identity, they must
 compute the same label from the same evidence; prove it by running both orders over a
 non-calendar issuer and over a calendar issuer whose one filing carries an outlier focus, not only
 a calendar-aligned one. A reader that indexes flows by label must refuse a label that current rows
@@ -38,5 +39,20 @@ period's own end. Rows already stored under the old label need a separate, found
 gate `backend/tests/unit/test_annual_fact_fiscal_labels.py` (both writers in three orders for
 Target, Home Depot, Johnson & Johnson, Apple, a December filer with a lagging focus and two March
 20-F filers; every annual form and amendment; the filing chart; the fallback; the dataset's flow
-refusal and balance read). Known limit: one filing cannot outvote a lagging focus on a year ending
-January to early July, which the companyfacts writer's year chain can.
+refusal and balance read).
+
+**Known limits.**
+- One filing cannot outvote a lagging focus on a year ending January to early July, which the
+  companyfacts writer's year chain can.
+- A year chain with no timely annual report. The companyfacts writer names a year only from an
+  annual report filed within 180 days of the year's end (`facts/calendar.reported_fiscal_year`);
+  where a contiguous chain holds none, it falls back to calendar years
+  (`facts/calendar._consistent_year_chain`). The per-filing labeller still names a non-calendar
+  year from the late report's focus. So for such a delinquent filer, per-filing-only concepts
+  (`return_on_assets`) and companyfacts-only concepts sit under different labels for one period end,
+  the Multi-Period Analysis axis gets two buckets ending on one date, and a colliding identity keeps
+  whichever writer stored it first. Before the annual labeller, both writers named that issuer by
+  calendar year: one year off, but unmixed. Abstaining on a late filing is not the fix: it moves the
+  clash onto a late report, or a late amendment, that follows a timely one, which both writers now
+  name alike. The open follow-up is for the companyfacts writer to name an all-late chain from a late
+  annual report's own-period `fy`, under the same FY, year-bound and midpoint trust.

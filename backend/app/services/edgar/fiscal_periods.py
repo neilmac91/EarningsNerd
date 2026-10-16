@@ -48,7 +48,9 @@ def annual_fiscal_label(end: str, report_end: Any, fiscal_year: Any, fiscal_peri
     (``facts/calendar.reported_fiscal_year``) this trusts only an annual report's FY focus that names
     the anchor's end year or the year before; it narrows the year before to a year that mostly lies
     in it (one ending by early July), so a lagging focus on a December year keeps the default.
-    Unlike that writer it sees one filing, so it cannot outvote an outlier focus across the years.
+    Unlike that writer it sees one filing and no filing date, so it can neither outvote an outlier
+    focus across the years nor set aside a late report's focus; both are known limits
+    (``lessons/sec-fact-writers-name-a-period-alike.md``).
     Returns {} when the calendar year of the end already names the year (the fact normalizer's
     default, so a calendar-aligned issuer's points keep their exact shape), when the focus is not
     trusted, or when the point is not a whole number of years before the anchor.

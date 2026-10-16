@@ -2,13 +2,14 @@
 
 The fact identity (concept, period_end, fiscal_period, unit, accession) leaves out the fiscal
 year, so whichever writer stores an identity first keeps its label and the other is skipped. The
-companyfacts writer names a year from SEC's original annual reports; the per-filing writer used to
+companyfacts writer names a year from SEC's timely original annual reports; the per-filing writer used to
 name every 10-K point by the calendar year of its end. For an issuer whose fiscal year is named
 for the year it starts in (a retailer's year ending around 1 February) or a 52-week year that ends
 on 1 January, the two disagreed, and the label depended on which writer ran first. These tests
 drive the production paths end to end: the instance extractor and the companyfacts fallback, the
 standardized metrics, the per-filing writer, the companyfacts writer, the Multi-Period Analysis
-dataset and coverage, and the filing page's annual chart.
+dataset and coverage, and the filing page's annual chart. Every issuer here files a timely annual
+report; a year chain with none is a known limit (``lessons/sec-fact-writers-name-a-period-alike.md``).
 """
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
