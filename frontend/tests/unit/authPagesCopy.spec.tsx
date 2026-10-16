@@ -120,18 +120,21 @@ function verifyEmailRefusals(): string[] {
 }
 
 /**
- * Every refusal a route body raises as an HTTPException, read on its tokens: the status (`status_code=` or the
- * first argument, `status.HTTP_400_…` or a number) and the detail (`detail=` or the second), its adjacent string
- * literals joined in any quoting. A detail written any other way (a name, a call) is unreadable, and a status
- * other than 400 is a reason /verify-email cannot show (verifyEmailFailureMessage reads a 400's alone), so
- * either is a problem. A refusal raised another way (a helper, an exception handler) is review-checked.
+ * Every refusal a route body raises, read on its tokens: each HTTPException, its status `status_code=` or the
+ * first argument (`status.HTTP_400_…` or a number) and its detail `detail=` or the second, and each other call
+ * that passes a `detail=` (an exception of the app's own, any callee), its status `status_code=`; the detail's
+ * adjacent string literals joined in any quoting. A detail written any other way (a name, a call) is unreadable,
+ * and a status other than 400, or none the scan can read, is a reason /verify-email cannot show
+ * (verifyEmailFailureMessage reads a 400's alone), so each is a problem. A refusal whose detail is not written in
+ * the body (a helper that builds it, an exception handler) is review-checked.
  */
 function refusalsIn(body: string): { reasons: string[]; problems: string[] } {
   const toks = pythonTokens(body).filter((t) => !(t.kind === 'op' && t.text === '\\'))
   const reasons: string[] = []
   const problems: string[] = []
   toks.forEach((t, k) => {
-    if (t.kind !== 'name' || t.text !== 'HTTPException' || toks[k + 1]?.text !== '(') return
+    // A call: a name and its parenthesis, where no `def` declares it (a parameter's default is no refusal).
+    if (t.kind !== 'name' || toks[k + 1]?.text !== '(' || (toks[k - 1]?.kind === 'name' && toks[k - 1].text === 'def')) return
     const args: Token[][] = [[]]
     for (let j = k + 2, depth = 1; j < toks.length; j++) {
       const tok = toks[j]
@@ -142,7 +145,10 @@ function refusalsIn(body: string): { reasons: string[]; problems: string[] } {
     }
     const isKeyword = (arg: Token[]) => arg[0]?.kind === 'name' && arg[1]?.text === '=' && arg[2]?.text !== '='
     const keyword = (name: string) => args.find((arg) => isKeyword(arg) && arg[0].text === name)?.slice(2)
-    const positional = args.filter((arg) => arg.length > 0 && !isKeyword(arg))
+    // Only an HTTPException's arguments are known by place; any other call is read by its keywords.
+    const exception = t.text === 'HTTPException'
+    const positional = exception ? args.filter((arg) => arg.length > 0 && !isKeyword(arg)) : []
+    if (!exception && !keyword('detail')) return
     const status = (keyword('status_code') ?? positional[0] ?? []).map((tok) => tok.text).join('')
     const detail = keyword('detail') ?? positional[1] ?? []
     if (!detail.length || detail.some((tok) => tok.kind !== 'str')) {
@@ -152,7 +158,9 @@ function refusalsIn(body: string): { reasons: string[]; problems: string[] } {
     const reason = detail.map((tok) => tok.text).join('')
     reasons.push(reason)
     const code = status.match(/\bHTTP_(\d{3})_|^(\d{3})$/)
-    if ((code?.[1] ?? code?.[2]) !== '400') problems.push(`"${reason}" is raised with status ${status}: /verify-email shows a reason only for a 400`)
+    if ((code?.[1] ?? code?.[2]) !== '400') {
+      problems.push(`"${reason}" is raised with ${status ? `status ${status}` : 'no status the scan can read'}: /verify-email shows a reason only for a 400`)
+    }
   })
   return { reasons, problems }
 }
@@ -271,7 +279,7 @@ describe('verify email', () => {
     expect([...reasons].sort()).toEqual([...VERIFY_EMAIL_REASONS].sort())
   })
 
-  it('the reasons reader takes any quoting, a split literal and a positional detail, and refuses a name or another status (self-check)', () => {
+  it('the reasons reader takes any quoting, a split literal, a positional detail and a refusal of another class, and refuses a name or another status (self-check)', () => {
     const planted = [
       'async def verify_email(payload, db):',
       '    try:',
@@ -290,10 +298,22 @@ describe('verify email', () => {
       '        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=LINK_USED) from None',
       '    except E:',
       '        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Moved to a 410.") from None',
+      // A refusal of another class is read by its keywords (main read every detail= in the body): one with no status, one a 400.
+      '    except F:',
+      '        raise LinkError(detail="Raised another way.") from None',
+      '    except G:',
+      '        raise errors.LinkError(status_code=status.HTTP_400_BAD_REQUEST, detail="A 400 of its own.") from None',
+      // A parameter's default named detail is no refusal.
+      '    def note(detail="Not a refusal."):',
+      '        return detail',
     ].join('\n')
     expect(refusalsIn(planted)).toEqual({
-      reasons: ['Double quoted.', 'Single quoted.', 'Split across two literals.', 'Moved to a 410.'],
-      problems: ['a detail the scan cannot read: LINK_USED', '"Moved to a 410." is raised with status status.HTTP_410_GONE: /verify-email shows a reason only for a 400'],
+      reasons: ['Double quoted.', 'Single quoted.', 'Split across two literals.', 'Moved to a 410.', 'Raised another way.', 'A 400 of its own.'],
+      problems: [
+        'a detail the scan cannot read: LINK_USED',
+        '"Moved to a 410." is raised with status status.HTTP_410_GONE: /verify-email shows a reason only for a 400',
+        '"Raised another way." is raised with no status the scan can read: /verify-email shows a reason only for a 400',
+      ],
     })
   })
 
