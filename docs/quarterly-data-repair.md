@@ -28,6 +28,12 @@ normal migration runner; never manually edit a recorded migration. Retain a data
 save the preview JSON with the intended environment, code revision and operator review. Run
 against staging first. A production apply is a separate operational action.
 
+A US-GAAP filer that reports in another currency (the CNY 20-F shape) normalizes into that
+currency (`facts/currency.py`), so its repair plans native-currency identities. The repair does
+not demote the USD convenience rows an older sync stored; only the companyfacts sync does that.
+Sync such a company first (`POST /internal/jobs/sync-companyfacts` with `"force": true`), then
+preview its repair. Otherwise, after the apply, both currencies are current for the same periods.
+
 The CLI requires explicit tickers, defaults to a maximum of 10, and permits at most 50 per run.
 Each company is its own transaction, bounded to 10,000 stored facts. Network reads complete before
 the write transaction starts. Companies are serialized with the existing company-row lock used

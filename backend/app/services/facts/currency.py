@@ -8,11 +8,10 @@ currency, picked by the per-filing extractor's own rule.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.orm import Session
-
-from app.models import FinancialFact
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def is_amount_unit(unit: Any) -> bool:
@@ -25,9 +24,11 @@ def series_unit(usgaap: dict, tags: tuple[str, ...], default_unit: str) -> str:
     """The unit list one concept is read from: its reporting currency across its candidate tags.
 
     ``default_unit`` is the concept's USD unit ("USD" or "USD/shares"); only lists of the same
-    shape compete. The pick is ``_reporting_currency``'s: the currency covering the most distinct
-    period-ends, then the one present at the latest period-end (a full history has no single
-    report date), then a non-USD code. A domestic filer keeps ``default_unit``.
+    shape compete. Only a currency present at the latest period-end can win: that is a full
+    history's analogue of the filing's own period, so a filer that switched currency is read in
+    its current one. Among those, the pick is ``_reporting_currency``'s: the most distinct
+    period-ends, then a non-USD code. A domestic filer keeps ``default_unit`` unless a foreign
+    list at its latest period-end covers as many period-ends (the per-filing tie rule).
     """
     from app.services.edgar.instance.core import _reporting_currency  # lazy: facts imports stay EDGAR-free
 
@@ -44,16 +45,22 @@ def series_unit(usgaap: dict, tags: tuple[str, ...], default_unit: str) -> str:
                               for item in items if isinstance(item, dict) and item.get("end"))
     if not candidates:
         return default_unit
-    return f"{_reporting_currency(candidates, max(end for end, *_ in candidates))}{suffix}"
+    latest = max(end for end, *_ in candidates)
+    current = {currency for end, _value, currency, _decimals in candidates if end == latest}
+    return f"{_reporting_currency([c for c in candidates if c[2] in current], latest)}{suffix}"
 
 
 def demote_convenience_rows(db: Session, facts: list[dict[str, Any]]) -> int:
     """Demote the current USD rows that native-currency facts supersede; never delete one.
 
-    ``is_latest`` is kept per unit, so a CNY row does not demote the USD convenience row an
-    earlier sync stored for the same concept, period end and fiscal period, and both currencies
-    would stay current. Only that exact USD twin (``USD`` or ``USD/shares``) is demoted.
+    ``is_latest`` is kept per unit, so a CNY row does not demote the USD row already current for
+    the same concept, period end and fiscal period, and both currencies would stay current. Any
+    such exact USD twin (``USD`` or ``USD/shares``) is demoted, whatever its source or filing:
+    ``series_unit`` already chose the series currency, and a current USD row beside the native one
+    would put two currencies in one series. Rows at any other key are left alone.
     """
+    from app.models import FinancialFact  # lazy: the pure normalizers import this module
+
     twins: dict[tuple[Any, ...], str] = {}
     for fact in facts:
         currency = fact["unit"].partition("/")[0]

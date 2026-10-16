@@ -10,14 +10,19 @@ reported +1.8%, and the peer panel ranked the filer against USD filers, because 
 labelled USD. The per-filing path already picked the native currency with `_reporting_currency`;
 the full-history path had a second, hard-coded answer. Fixing the read alone was not enough:
 `is_latest` is kept per unit, so the new CNY rows left the old USD rows current for the same
-periods.
+periods. Counting period-ends over the whole history was not enough either. A filer that switched
+from CNY to USD still has more CNY period-ends, so its history was read in CNY, and the newest USD
+year sat in a series labelled CNY.
 
 **Rule**: Pick a companyfacts concept's unit list with the per-filing rule
 (`edgar/instance/core.py::_reporting_currency`, reached through `facts/currency.py::series_unit`),
-never a hard-coded "USD". Carry the picked unit on every row and every calculation built from it,
-and treat "additive" as "a currency amount" (`is_amount_unit`), not as "USD". When a writer starts
-storing a different unit for a period it already holds, it demotes the old unit's current row
-itself (`demote_convenience_rows`); it never deletes it.
+never a hard-coded "USD". Only a currency present at the latest period-end competes; that is the
+full history's analogue of the filing's own period. Carry the picked unit on every row and every
+calculation built from it, and treat "additive" as "a currency amount" (`is_amount_unit`), not as
+"USD". When a writer stores a native-currency row where a USD row is current at the same concept,
+period end and fiscal period, it demotes that USD row itself (`demote_convenience_rows`) and never
+deletes it. The reverse direction is a known gap: a later pick of USD over current native rows
+leaves both current. Fixing it needs the per-filing pick that a currency switcher would need.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;
