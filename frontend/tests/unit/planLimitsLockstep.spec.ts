@@ -406,7 +406,8 @@ describe('Multi-Period Analysis period caps move in lockstep with the backend', 
     for (const rel of ['app/analysis/page.tsx', 'features/analysis/components/AnalysisPageClient.tsx', 'features/marketing/components/ProDepth.tsx']) {
       expect(readFileSync(path.join(frontendDir, rel), 'utf8'), `${rel} states the caps from the mirror`).toMatch(/ANALYSIS_MAX_ANNUAL_PERIODS[\s\S]*ANALYSIS_MAX_QUARTERLY_PERIODS/)
     }
-    expect(readFileSync(path.join(frontendDir, 'app/pricing/page.tsx'), 'utf8'), 'the Pro card states the annual cap from the mirror')
-      .toMatch(/\$\{ANALYSIS_MAX_ANNUAL_PERIODS\}-year trends/)
+    // The /pricing Pro card lists ANALYSIS_LINES.pricingPro, typed once in lib/planLimits.ts (D-040).
+    expect(readFileSync(path.join(frontendDir, 'lib/planLimits.ts'), 'utf8'), 'the Pro card states the annual cap from the mirror')
+      .toMatch(/pricingPro: \{ text: `[^`]*\$\{ANALYSIS_MAX_ANNUAL_PERIODS\}-year trends/)
   })
 })

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { formatLocalDate } from '@/lib/format'
-import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, ClockIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
+import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, ChartBarIcon, ClockIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
@@ -75,7 +75,7 @@ export default function WatchlistDashboardPage() {
       actions={
         ENABLE_ANALYSIS ? (
           <Link href="/analysis" className={buttonVariants({ variant: 'primary' })}>
-            <SparkleIcon className="h-4 w-4" />
+            <ChartBarIcon className="h-4 w-4" />
             Analyze trends
           </Link>
         ) : undefined
