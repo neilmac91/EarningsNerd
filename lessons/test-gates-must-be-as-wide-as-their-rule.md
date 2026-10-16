@@ -294,3 +294,13 @@ its rule is every field the form reads. A fix to one side of a pair (a declarati
 helper's key and a field's key, the read side and the save side) widens the other in the same commit.
 And a negated selector attribute holds for every node that lacks it: `[value.name!='x']` matched a
 destructuring that keeps the name with a default, whose value has no name; pin the node's type first.
+Round four's review found the neighbours of round three's forms again (a save helper in `useCallback`
+beside the arrow in a const, a spread beside a prop, a default whose left side is a pattern), so the
+round closed the family rather than the instances. The root cause was a reader that knew a function
+by one syntax; the fix lists the language's forms and reads each: a function declared, held, wrapped
+in any call, an object's method, a hook's return, handed on as a prop or an argument; the value moved
+by a const, a key, a prop, a spread, an argument, a return or a context. What stays out of reach (another
+module, a class component, React state or a ref, a computed key, call/apply/bind, an array of
+functions) is named in the spec's header and planted as a gap the self-check asserts unread, so the
+limit is pinned rather than silent. And the round-three rule went to every negated selector attribute
+at once, five of them, not the one a reviewer named.
