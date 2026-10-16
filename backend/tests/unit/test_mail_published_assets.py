@@ -94,6 +94,7 @@ walk that reads ``backend/app``. Out of the scan's reach, and planted as gaps, o
 - a name a star import binds: ``from m import *``
 - a name read through a module a second module binds, past the module's own names: ``from b import a``, then
   ``a.C.TILE``
+- a method's receiver named other than self or cls: ``def url(this)``, then ``this.TILE``
 - a class's attribute read through a class or an instance held in a name, or a class nested in another: ``T = C; T.TILE``,
   ``m = C(); m.TILE``, ``Outer.Inner.TILE``
 - a metaclass's attribute read through a class of it: ``type(cls).TILE``, ``C.TILE``
@@ -932,6 +933,10 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a class's body that annotates a module path's name with no value, then changes the module's", _T + '\n\nclass C:\n    _T: str\n    Y = _T.replace("appicon", "x")\n', "flag"),
     ("a class's body that binds a module path's name in a walrus that may not run, then changes the module's", _T + '\n\nclass C:\n    X = flag and (_T := "x")\n    Y = _T.replace("appicon", "x")\n', "flag"),
     ("a class's body that adds to a module path's name in place", _T + '\n\nclass C:\n    _T += "@2x.png"\n', "flag"),
+    ("a registered constant captured by a match's later case, then changed", _T + 'match _T:\n    case "x":\n        pass\n    case t:\n        P = t.replace("appicon", "x")\n', "flag"),
+    ("a registered constant captured inside a match's sequence pattern, then changed", _T + 'p = 1\nmatch (p, _T):\n    case (a, t):\n        P = t.replace("appicon", "x")\n', "flag"),
+    ("a class re-exported inside a try, then changed through the module that imports it", {"a.py": _TILES, "b.py": "try:\n    from app.a import Tiles\nexcept ImportError:\n    pass\n", "c.py": 'from app.b import Tiles\nP = Tiles.HEADER.replace("appicon", "x")\n'}, "flag"),
+    ("a package's own constant, read through the name a dotted import binds, from a third module", {"__init__.py": _T, "pkg/__init__.py": "", "pkg/a.py": "", "b.py": "import app.pkg.a\n", "c.py": 'from app.b import app as root\nP = root._T.replace("appicon", "x")\n'}, "flag"),
     ("a subclass's attribute deleted in its body, its base's changed", _TILES + '\n\nclass Dark(Tiles):\n    HEADER = "x"\n    del HEADER\n\n\nP = Dark.HEADER.replace("appicon", "x")\n', "flag"),
     # What a comparison, a match or a strip reads, and what a dotted import binds.
     ("a registered constant as a dict's value a comparison holds", _T + 'ok = p in {"k": _T}\n', "flag"),
@@ -1085,6 +1090,9 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a registered path matched by a case", 'match path:\n    case "/assets/earningsnerd-appicon.png":\n        ok = True', "pass"),
     ("a re-indented template filled later", 'import textwrap\nIMG = textwrap.dedent(\"\"\"\n    <img src="{base}/assets/earningsnerd-appicon.png">\n\"\"\")\nP = IMG.format(base=b)', "pass"),
     ("a class's body that binds a module path's name to another value, then reads it", _T + '\n\nclass C:\n    _T = "x"\n    Y = _T.replace("x", "y")\n', 'pass'),
+    ("a class's body that defines a function named like a module path, then changes its own", _T + '\n\nclass C:\n    def _T(self):\n        return "x"\n\n    Y = _T.replace("appicon", "x")\n', "pass"),
+    ("a class's body that imports a name like a module path's, then changes its own", _T + '\n\nclass C:\n    from os import sep as _T\n\n    Y = _T.replace("appicon", "x")\n', "pass"),
+    ("a class's body that annotates and binds a module path's name, then changes its own", _T + '\n\nclass C:\n    _T: str = "x"\n    Y = _T.replace("appicon", "x")\n', "pass"),
     ('literals joined with + into a template, filled where it is built', 'P = (\'<img src="{base}\' + \'/assets/earningsnerd-appicon.png">\').format(base=b)\n', 'pass'),
     ("a subclass's own attribute that shares its base's name", _TILES + '\n\nclass Text(Tiles):\n    HEADER = "x"\n\n    def url(self):\n        return self.HEADER.replace("x", "y")\n', 'pass'),
     ('a template re-indented, stripped of whitespace, then filled', 'import textwrap\n\nIMG = textwrap.dedent("""\n    <img src="{base}/assets/earningsnerd-appicon.png">\n""").strip()\nP = IMG.format(base=b)\n', 'pass'),
@@ -1133,6 +1141,7 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a class's attribute read through a class or an instance held in a name, or a class nested in another", _TILES + '\n\nT = Tiles\nP = T.HEADER.replace("appicon", "x")\nm = Tiles()\nQ = m.HEADER.replace("appicon", "x")\n\n\nclass Mail:\n    class Inner:\n        HEADER = "/assets/earningsnerd-appicon.png"\n\n\nR = Mail.Inner.HEADER.replace("appicon", "x")\n', 'gap'),
     ("a metaclass's attribute read through a class of it", 'class Meta(type):\n    TILE = "/assets/earningsnerd-appicon.png"\n\n\nclass Mail(metaclass=Meta):\n    @classmethod\n    def f(cls):\n        return type(cls).TILE.replace("appicon", "x")\n\n\nP = Mail.TILE.replace("appicon", "x")\n', "gap"),
     ("a name read through a module a second module binds, past the module's own names", {"a.py": _TILES, "b.py": "from app import a\n", "c.py": 'from app.b import a\nP = a.Tiles.HEADER.replace("appicon", "x")\n'}, "gap"),
+    ("a method's receiver named other than self or cls", _TILES + '\n    def url(this):\n        return this.HEADER.replace("appicon", "x")\n', "gap"),
     ("a path the site serves from a route", 'P = "/manifest.webmanifest"', "gap"),
 ]
 # One case for each character the header says a URL path can start after. The list is written here,
@@ -1164,7 +1173,7 @@ def test_the_scan_scores_every_planted_form(tmp_path):
     assert gaps == named, "the header names each gap a case marks, and a case marks each gap the header names: keep the two in step"
     outcomes = [outcome for _, _, outcome in FORMS]
     # Equalities, not floors, so a form dropped after one is added still fails (lessons/test-allowlist-caps-are-equalities.md).
-    assert (outcomes.count("flag"), outcomes.count("pass"), outcomes.count("gap")) == (223, 96, 22), (
+    assert (outcomes.count("flag"), outcomes.count("pass"), outcomes.count("gap")) == (227, 99, 23), (
         "a planted form was added or dropped: keep these counts equal to FORMS in the same diff, and say why one goes"
     )
 

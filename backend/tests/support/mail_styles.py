@@ -15,12 +15,15 @@
   600 px at 600 px, through a table only its conditional comments show;
 - ``viewports``: the viewports a page sets, wherever it sets them;
 - ``colour_problems``: every colour a page writes, in a style's declarations or an attribute HTML maps to a
-  colour, in its own view and in classic Outlook's, is a design token's (``DESIGN.md``'s frontmatter, which
+  colour (and VML's ``fillcolor``, ``strokecolor`` and ``color2``, which classic Outlook paints), in its own view
+  and in classic Outlook's, is a design token's (``DESIGN.md``'s frontmatter, which
   ``frontend/tests/unit/designSnapshotParity.spec.ts`` holds to the frontend's token sources), written as
   six-digit hex, as the mail module writes every colour: a name, a colour function (``rgb()``, ``color-mix()``),
-  a short hex or a hex no token holds fails. ``transparent`` and ``currentcolor`` write no colour of their own,
-  and a font's name is none. Unread: a ``<style>`` block, which the other rules refuse, a system colour
-  (``CanvasText``) and an SVG's presentation attributes (``fill``).
+  a value read through ``attr()``, a short hex or a hex no token holds fails, and so does the browser's own
+  colour: ``-webkit-link`` by name, ``initial``, ``revert`` or ``revert-layer`` as ``color`` (black, or a link's
+  blue), and a link that sets no colour of its own. ``transparent`` and ``currentcolor`` write no colour of their
+  own, nor do ``inherit`` and ``unset``, and a font's name is none. Unread: a ``<style>`` block, which the other
+  rules refuse in either view, a system colour (``CanvasText``) and an SVG's presentation attributes (``fill``).
 
 A page is read as a browser builds it, by ``tinyhtml5``, the WHATWG tree builder (``requirements.in``): an
 end tag a browser implies is implied, a ``/>`` on an element that is not void is ignored, the first of two
@@ -98,7 +101,9 @@ its ``style``, else its ``width`` attribute where HTML maps one (a table's, a ce
 image's, an input drawn as an image's or another replaced element's): a number is pixels, a number then ``%`` a
 percentage of the room, save that a table's or a cell's zero sets none (HTML's nonzero dimension), nor does a
 column's relative length such as ``3*``. An ``<svg>``'s is a presentation attribute, which CSS reads as it reads
-``width``, a number with no unit being px, so ``30em`` is a length the font sets (measured in Chromium 141). A
+``width``, a number with no unit being px and a CSS-wide keyword setting none, so ``30em`` is a length the font
+sets; and a length past Chromium's longest, 2^25 px, is held to it, as Chromium clamps it (measured in Chromium
+141). A
 table, a button, a select, a meter, a progress and an input drawn as a button, a box, a colour well or a search
 field count their border and padding in their width, as a browser's own style sheet sets them; another box, a
 ``<div>`` set ``display:table`` among them, adds them, and so does one of those a page sets ``content-box``: a
@@ -114,7 +119,7 @@ holds fallback, since the content may load. A width set by the font or the scree
 the parent (``inherit``), or by the content (``max-content``) is refused rather than guessed, and so is a margin,
 a padding or a table's spacing set that way. An inline element's box takes no width, save an image, another
 replaced element or a form control, which a browser places whole, as one box, whatever display a page gives it, a
-table's or a table part's among them.
+table's or a table part's among them, save a marquee, which Chromium lays out as the table part a page makes it.
 
 A table's cells and columns are read as its layout reads them, without the rows, sections, cells and columns the
 page hides: its first header group (a ``<thead>``, or a section its display makes one) first and its first footer
@@ -123,42 +128,49 @@ its section. A cell's room is its table's, less the spacing beside its columns (
 spacing between them), and a percentage is of that room. A lone column takes the whole table in either layout,
 whatever share its cell asks. In an automatic layout, where a cell set in px narrows, a cell set in percent takes
 its share, its padding and borders inside it, and its content is held to the share; each column is held to its
-widest lone cell's borders, padding and min-width and to its ``<col>``'s min-width, and a cell across columns adds
-what its own exceed the columns it spans. Chromium spreads that excess over the columns by their content, which
-the reader does not measure, so each counts in full: exact where cells across columns share no column, and never
-short of Chromium where they do. The columns, with the spacing between them, are held to the table's room, and a
-cell or a column (``<col>``) set wider than its table fails: Chromium squeezes it, while CSS 2.1's automatic table
-layout reads its width as its minimum. A column's min-width past its table fails in either layout, and so do the
-columns' together. Under ``table-layout:fixed``, which needs a width, the columns keep the widths their ``<col>``
-elements set, their cells' padding inside, else the widths the first row (the first a browser lays out) sets, in
-px or in percent, each cell's padding added unless its box-sizing holds it, and a cell across columns giving them
-its width less the spacing between them, save one set in percent, whose share splits over them, its padding and
-their spacing aside; the ``<col>`` elements' min-widths hold the table's least width, though not a column's share
-of it (measured in Chromium 141); and the other rows' widths go unread. Columns set in percent take what those set
-in px leave, down to none, so the columns set in px, with the spacing between them, are held to the table; the
-room left goes to the columns that set no width, alike, else to those set in px, by their widths, else to those
-set in percent; and each cell is given its columns' width. A share over 100% fails in either layout, though
-Chromium holds it to the table (measured in Chromium 141; that WebKit's table layout does the same is inferred).
+widest lone cell's borders, padding and min-width and to its ``<col>``'s min-width, and each set of columns that
+cells span adds the most one of them needs past its lone cells. Chromium spreads that excess over the columns by
+their content, which the reader does not measure, and a ``<col>``'s min-width under it takes it or adds to it as
+the spread falls, so each set adds its excess in full, past the min-widths: exact where such sets share no column
+and no ``<col>``'s min-width sits under one, and never short of Chromium otherwise (measured in Chromium 141). The
+columns, with the spacing between them, are held to the table's room, and a cell or a column (``<col>``) set wider
+than its table fails: Chromium squeezes it, while CSS 2.1's automatic table layout reads its width as its minimum.
+A column's min-width past its table fails in either layout, and so do the columns' together. Under
+``table-layout:fixed``, which needs a width, the columns keep the widths their ``<col>`` elements set, their
+cells' padding inside, else the widths the first row (the first a browser lays out) sets, in px or in percent, a
+cell's max-width in px capping its width in px before its padding, each cell's padding added unless its box-sizing
+holds it, and a cell across columns giving them its width less the spacing between them, save one set in percent,
+whose share splits over them, its padding and their spacing aside; a ``<col>``'s min-width holds a column a width
+sets, and every column's holds the table's least width; and the other rows' widths go unread, as do a first-row
+cell's min-width, its max-width in percent or on a width in percent, and a ``<col>``'s max-width (measured in
+Chromium 141). Columns set in percent take what those set in px leave, down to none, so the columns set in px,
+with the spacing between them, are held to the table; the room the columns a width sets leave goes to the columns
+that set none, alike, whatever their min-widths, else to those set in px, by their held widths, else to those set
+in percent; and each cell is given its columns' width. A share over 100% fails in either layout, though Chromium
+holds it to the table (measured in Chromium 141; that WebKit's table layout does the same is inferred).
 
 Outlook's view is the page as classic Outlook reads its conditional comments, as Outlook 2016 and later
 (``mso 16``) take their conditions: ``mso`` and ``vml`` true, a version compared, ``IE`` false, and ``!``,
 ``&``, ``|`` and brackets as written. What a condition Outlook takes holds shows there, and what one it does not
 take holds does not, in a comment or in a revealed block (``<![if !mso]>``); a condition the reader cannot
 parse hides what it holds. A column capped at 600 px is held when the nearest table around it set to a fixed
-width is 600 px wide.
+width is 600 px wide, and a ``<style>`` block or a linked stylesheet in Outlook's view is refused there, as it is
+in the page's own.
 
 The reader errs toward asking for the rule: it counts no break a browser may take at a hyphen or after a question
 mark, or at a ``<wbr>`` under ``nowrap``, where Chromium breaks, and no width that holds a run in, such as a fixed
 table layout or a clipped box, so it may ask for the rule where a browser would fit the run; it holds a percentage
 cell's content to its share, and a cell's set in px in an automatic layout to its width, where Chromium may widen
-the column at the others' cost; it counts in full the excess of each cell across columns that shares a column with
-another, where Chromium may share it; it counts the spacing beside columns only a ``<col>`` defines; it reads a
-fixed layout's first-row cell's min-width and max-width as any box's, though the layout gives the cell its column;
-and it reads an object that asks for content both ways, its fallback in the line and its box held. It does not
-measure what a box's content sets, and so may pass it: a table of amounts whose columns cannot narrow, a widget's
-own width, what an automatic layout's cells hold beside one another (its columns are held to their cells' borders,
-padding and min-widths, and each cell's content to the table's room alone), images or other boxes kept on one line
-by ``nowrap`` or ``<nobr>``, a flex row's items side by side, a box shifted by a relative offset or a transform, a
+the column at the others' cost; it counts in full the excess of each set of columns that cells span, past the
+``<col>`` min-widths under it, where Chromium may share it with another set or let a min-width take it; it counts
+the spacing beside columns only a ``<col>`` defines; it holds an automatic layout's column to its ``<col>``'s
+min-width in percent, which Chromium ignores; it reads a fixed layout's first-row cell's min-width as any box's,
+though the layout ignores it; it holds a marquee set to a table part's display as one box; and it reads an object
+that asks for content both ways, its fallback in the line and its box held. It does not measure what a box's
+content sets, and so may pass it: a table of amounts whose columns cannot narrow, a widget's own width, what an
+automatic layout's cells hold beside one another (its columns are held to their cells' borders, padding and
+min-widths, and each cell's content to the table's room alone), images or other boxes kept on one line by
+``nowrap`` or ``<nobr>``, a flex row's items side by side, a box shifted by a relative offset or a transform, a
 first line set in by ``text-indent``, the padding an inline box adds to its line, and a run in a box narrower than
 the panel's column, which is measured against the column. ``reach_problems`` allows the break rule on a cell of
 its own, which must hold no amount: on an amount's cell it splits the amount. The header is the table capped at
@@ -177,6 +189,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, replace
+from functools import cache
 from pathlib import Path
 
 import tinycss2
@@ -219,6 +232,7 @@ _KEYWORDS = {  # a one-word value each property can take
 _SIZING = frozenset({"min-content", "max-content", "fit-content", "stretch", "-webkit-fill-available"})
 _WIDTH_WORDS = {"width": _SIZING | {"auto"}, "min-width": _SIZING | {"auto"}, "max-width": _SIZING | {"none"}}
 _ABSOLUTE = {"px": 1.0, "pt": 4 / 3, "pc": 16.0, "in": 96.0, "cm": 96 / 2.54, "mm": 96 / 25.4, "q": 96 / 101.6}
+_LONGEST = 2.0**25  # Chromium's longest layout length, in px, to which it clamps a longer one (measured in Chromium 141)
 _RELATIVE = frozenset({
     "em", "rem", "ex", "rex", "ch", "rch", "cap", "rcap", "ic", "ric", "lh", "rlh", "vw", "vh", "vi", "vb", "vmin",
     "vmax", "svw", "svh", "svi", "svb", "svmin", "svmax", "lvw", "lvh", "lvi", "lvb", "lvmin", "lvmax", "dvw", "dvh",
@@ -349,8 +363,9 @@ _SLACK = 0.5  # px, for the sums of widths written in other units
 
 
 def _number(value: float) -> str:
-    """A CSS number as the reader compares it, written out in full."""
-    return f"{value:f}".rstrip("0").rstrip(".")
+    """A CSS number as the reader compares it, written out in full, held to Chromium's largest layout length, to
+    which it clamps a longer one (``1e999px``)."""
+    return f"{max(min(value, _LONGEST), -_LONGEST):f}".rstrip("0").rstrip(".")
 
 
 def _px(value: str) -> float:
@@ -613,7 +628,8 @@ def _width_hint(element: ElementTree.Element) -> str | None:
         parts = [token for token in tinycss2.parse_component_value_list(value or "", skip_comments=True) if token.type != "whitespace"]
         if len(parts) == 1 and parts[0].type == "number" and parts[0].value >= 0:
             return _number(parts[0].value) + "px"
-        return _value("width", parts)
+        width = _value("width", parts)
+        return None if width in _GLOBAL else width  # a CSS-wide keyword sets no width there (Chromium 141 lays it out as unset)
     if tag in ("col", "colgroup") and "*" in (value or ""):
         return None
     width = _attribute_width(value)
@@ -984,7 +1000,7 @@ class _Page:
                 else "part" if tag in _TABLE_PARTS
                 else "cell" if tag in _CELLS
                 else "atomic" if tag in _WIDGETS
-                else "block" if tag in _RUN_EDGES and tag not in ("br", "col", "colgroup", "math", "caption")
+                else "block" if tag in _RUN_EDGES and tag not in ("br", "col", "colgroup", "math")  # a caption is a block, its padding inside the table
                 else "inline"
             )
         if out_of_line and kind in ("inline", "block"):
@@ -1217,17 +1233,21 @@ class _Page:
         if not fixed:
             if count > 1:
                 # Each column holds its widest lone cell's borders, padding and min-width, and its <col>'s min-width,
-                # and a cell across columns adds what its own exceed theirs. Chromium spreads that excess over the
-                # columns by their content, which this check does not measure, so each counts in full: exact where
-                # such cells share no column, and never short of Chromium where they do (measured in Chromium 141).
-                widest, excess = list(floors), 0.0
+                # and each set of columns that cells span adds the most one of them needs past its lone cells. Chromium
+                # spreads that excess over the columns by their content, which this check does not measure, and a
+                # <col>'s min-width under it takes it or adds to it as the spread falls, so each set adds its excess in
+                # full, past the min-widths: exact where such sets share no column and no <col>'s min-width sits under
+                # one, and never short of Chromium otherwise (measured in Chromium 141).
+                lone = [0.0] * count  # each column's widest lone cell
                 for (_, span, extras, _, border_box, least), at in cells:
                     if span == 1:
-                        widest[at] = max(widest[at], max(extras, least) if border_box else extras + least)  # a min-width holds the content box
+                        lone[at] = max(lone[at], max(extras, least) if border_box else extras + least)  # a min-width holds the content box
+                excess: dict[tuple[int, int], float] = {}  # a set of columns, by its first and its count -> its excess
                 for (_, span, extras, _, border_box, least), at in cells:
                     if span > 1:
-                        excess += max((max(extras, least) if border_box else extras + least) - sum(widest[at : at + span]) - (span - 1) * spacing, 0.0)
-                least = sum(widest) + excess + gaps
+                        need = (max(extras, least) if border_box else extras + least) - sum(lone[at : at + span]) - (span - 1) * spacing
+                        excess[at, span] = max(excess.get((at, span), 0.0), need)
+                least = sum(max(cell, floor) for cell, floor in zip(lone, floors)) + sum(excess.values()) + gaps
                 if least > content + _SLACK:
                     self.box_problems.append(
                         f"{named}'s columns take {least:g} px across in their cells' borders, padding and min-widths alone, "
@@ -1245,15 +1265,18 @@ class _Page:
             span, width = _span(col.get("span")), _won(_declarations(col.get("style"))[0], "width")
             if width in (None, "revert-layer"):
                 width = _width_hint(col)
-            for k in range(at, min(at + span, count)):
+            for k in range(at, at + span):
                 if (px := _as_px(width, room)) is not None:
                     widths[k], shares[k] = px, width.endswith("%")
             at += span
-        for (_, span, extras, width, border_box, _), at in placed[0] if placed else ():
+        for (cell, span, extras, width, border_box, _), at in placed[0] if placed else ():
             if (px := _as_px(width, room)) is not None:
                 if width.endswith("%") and span > 1:
                     share = px / span  # a percentage across columns splits over them, its padding and their spacing aside
                 else:
+                    cap = _won(_declarations(cell.get("style"))[0], "max-width")
+                    if not width.endswith("%") and cap is not None and not cap.endswith("%") and (limit := _as_px(cap, room)) is not None:
+                        px = min(px, limit)  # a max-width in px caps a width in px, its padding aside
                     box = px if border_box else px + extras  # a lone cell's percentage sets its content, as px do
                     share = max(box - (span - 1) * spacing, 0.0) / span  # less the spacing between its columns
                 for k in range(at, at + span):
@@ -1264,8 +1287,9 @@ class _Page:
         if in_percent and in_percent > room - in_px:  # columns set in percent take what those set in px leave, down to none
             scale = max(room - in_px, 0.0) / in_percent
             widths = [w * scale if share and w is not None else w for w, share in zip(widths, shares)]
-            in_percent *= scale
-        # The <col> elements' min-widths hold the table's least width, not a column's share (measured in Chromium 141).
+        # A <col>'s min-width holds a column a width sets, and every column's holds the table's least width
+        # (measured in Chromium 141).
+        held = [max(w, floor) if w is not None else None for w, floor in zip(widths, floors)]
         total = sum(max(w or 0.0, floor) for w, floor in zip(widths, floors)) + gaps
         if total > content + _SLACK:
             self.box_problems.append(
@@ -1273,16 +1297,19 @@ class _Page:
                 f"gives them {content:g} px on a {NARROWEST_SCREEN} px phone: a fixed table layout keeps each column's width, "
                 "so set them in percent"
             )
-        # The room the columns leave goes to those that set no width, alike; else to those set in px, by their
-        # widths; else to those set in percent, by theirs (measured in Chromium 141).
-        left, unset = max(content - total, 0.0), [k for k, w in enumerate(widths) if w is None]
+        # The room the columns a width sets leave goes to those that set none, alike, whatever their min-widths;
+        # else to those set in px, by their held widths; else to those set in percent, by theirs (measured in
+        # Chromium 141).
+        left = max(content - sum(w for w in held if w is not None) - gaps, 0.0)
+        unset = [k for k, w in enumerate(held) if w is None]
         if unset:
-            columns = [left / len(unset) if w is None else w for w in widths]
+            columns = [left / len(unset) if w is None else w for w in held]
         else:
-            takers, weight = ([not share for share in shares], in_px) if in_px else (shares, in_percent)
-            columns = [w + left * w / weight if takes and weight else w for w, takes in zip(widths, takers)]
+            in_px = sum(w for w, share in zip(held, shares) if not share)
+            takers, weight = ([not share for share in shares], in_px) if in_px else (shares, sum(held))
+            columns = [w + left * w / weight if takes and weight else w for w, takes in zip(held, takers)]
         for (cell, span, extras, _, _, _), at in cells:
-            taken = sum(columns[at : at + span]) + (min(span, count - at) - 1) * spacing
+            taken = sum(columns[at : at + span]) + (span - 1) * spacing
             self._cell_rooms[id(cell)] = max(taken - extras, 0.0)
             self._fixed_cells.add(id(cell))
         return count
@@ -1517,13 +1544,18 @@ def viewports(page: str) -> list[str]:
 DESIGN = Path(__file__).resolve().parents[3] / "DESIGN.md"
 # The attributes HTML maps to a colour, by its rules for parsing a legacy colour value, which turn any word into one
 # save "transparent", which sets none.
-_COLOUR_ATTRIBUTES = frozenset({"bgcolor", "color", "text", "link", "vlink", "alink", "bordercolor"})
+_COLOUR_ATTRIBUTES = frozenset({"bgcolor", "color", "text", "link", "vlink", "alink", "bordercolor", "fillcolor", "strokecolor", "color2"})
 # The words a colour may take that write no colour of their own, and the properties whose words name fonts, not
 # colours ("Red Hat Text" is no red).
 _NO_COLOUR = frozenset({"transparent", "currentcolor"})
+# The browser's own colours, by name: its link colours and its focus ring, which no token holds.
+_BROWSER_COLOURS = frozenset({"-webkit-link", "-webkit-activelink", "-webkit-focus-ring-color", "-webkit-text"})
+# The keywords that leave color to the browser's own: black at its initial value, a link's blue under revert.
+_BROWSER_DEFAULTS = frozenset({"initial", "revert", "revert-layer"})
 _FONT_NAMES = frozenset({"font", "font-family"})
 
 
+@cache
 def token_colours() -> frozenset[str]:
     """Every colour DESIGN.md's frontmatter names, as ``#RRGGBB`` in capitals."""
     front = DESIGN.read_text(encoding="utf-8").split("---", 2)[1]
@@ -1538,9 +1570,11 @@ def _colour_tokens(tokens) -> list[Node]:
     for token in tokens:
         if token.type == "ident" and token.lower_value in _NO_COLOUR:
             continue
-        if token.type == "function" and (token.lower_name == "light-dark" or token.lower_name not in _COLOUR_FUNCTIONS):
+        if token.type == "function" and (token.lower_name == "light-dark" or token.lower_name not in _COLOUR_FUNCTIONS | {"attr"}):
             found += _colour_tokens(token.arguments)
         elif token.type == "function" or parse_color(token) is not None:
+            found.append(token)  # a colour function, attr(), which reads a colour the page holds elsewhere, or a name
+        elif token.type == "ident" and token.lower_value in _BROWSER_COLOURS:
             found.append(token)
     return found
 
@@ -1557,9 +1591,27 @@ def colour_problems(page: str) -> list[str]:
                 value = value.strip(_SPACE)
                 if name.lower() in _COLOUR_ATTRIBUTES and value and value.lower() != "transparent" and value.upper() not in tokens:
                     problems.add(f"{named}'s {name} is {value!r}, no design token's colour (DESIGN.md): write a token's, as six-digit hex")
-            for item in tinycss2.parse_declaration_list(element.get("style") or "", skip_comments=True, skip_whitespace=True):
-                if item.type != "declaration" or item.lower_name in _FONT_NAMES:
+            declarations = [
+                item
+                for item in tinycss2.parse_declaration_list(element.get("style") or "", skip_comments=True, skip_whitespace=True)
+                if item.type == "declaration"
+            ]
+            if named == "<a>" and element.get("href") is not None and not any(
+                item.lower_name == "color" and any(token.type != "whitespace" for token in item.value) for item in declarations
+            ):
+                problems.add(
+                    "<a> sets no colour of its own, so a client paints it the browser's link blue (#0000EE), no design token's "
+                    "colour (DESIGN.md): set its color to a token's, as six-digit hex"
+                )
+            for item in declarations:
+                if item.lower_name in _FONT_NAMES:
                     continue
+                words = [token for token in item.value if token.type != "whitespace"]
+                if item.lower_name == "color" and len(words) == 1 and words[0].type == "ident" and words[0].lower_value in _BROWSER_DEFAULTS:
+                    problems.add(
+                        f"{named}'s color is {words[0].lower_value}, the browser's own colour (black, or a link's blue), no design "
+                        "token's colour (DESIGN.md): write a token's, as six-digit hex"
+                    )
                 for token in _colour_tokens(item.value):
                     if not (token.type == "hash" and f"#{token.value}".upper() in tokens):
                         problems.add(
@@ -1655,6 +1707,11 @@ def outlook_width_problems(page: str) -> list[str]:
     root = tinyhtml5.parse(outlook_view(page), namespace_html_elements=False)
     parents = {child: parent for parent in root.iter() for child in parent}
     problems = []
+    if any(isinstance(element.tag, str) and _is_stylesheet(element) for element in root.iter()):
+        problems.append(  # one a conditional comment holds is Outlook's alone, which the page's own view never reads
+            "in classic Outlook's view the page carries a <style> block or a linked stylesheet, whose selectors this check "
+            "does not read: set the style inline"
+        )
     for table in (element for element in root.iter() if element.tag == "table" and _capped(element)):
         around, width = parents.get(table), None
         while around is not None:

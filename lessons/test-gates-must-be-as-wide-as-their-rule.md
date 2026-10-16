@@ -332,7 +332,13 @@ spanning cell's excess by its columns' content, not alike, so the reader, which 
 counts each excess in full; a fixed layout splits a spanning percentage over its columns, its padding and
 their spacing aside; an `<svg>`'s width is a CSS length, where an image's is an HTML dimension; and a
 form control stays one box under a table part's display. Measure each shape a read covers, not the one
-that suggested it.
+that suggested it. The review of that fix found the same twice more, and two new gates as narrow as their
+first readers. A `<col>`'s min-width, measured beside columns that set no width, holds a fixed layout's
+column a width sets, and under a cell across columns Chromium lets it take the cell's excess or adds the
+two as its spread falls, so the reader adds them; and counting each spanning cell's excess in full failed a
+list whose rows each span the table, where cells across the same columns count once. The colour gate read
+the colours a page writes but not those a client paints where it writes none (a link with no colour of
+its own, `initial`, `-webkit-link`), and the sender gate read the transport but not the queue that feeds it.
 When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
 parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
 `word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine

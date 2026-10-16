@@ -38,9 +38,11 @@ It must also be built on ``FRONTEND_URL`` with that slash stripped:
 The render list is held to ``email_service``'s public functions, save those that build no mail, each
 named with why (``NOT_MAIL``), and no other module in ``backend/app`` may reach its private names, so a
 new mail fails here until it is rendered. Nor may a module build an HTML page outside the shell,
-``_wrap_html``, save those ``OWN_PAGES`` lists, or reach the mail transport, ``resend_service``, save
-those ``SENDERS`` lists with what each sends, so a new sender fails here until it builds its mail through
-``email_service`` or is listed. Planted modules score each check. What it cannot see:
+``_wrap_html`` (a string that opens a doctype, ``<html>``, ``<head>`` or ``<body>``), save those
+``OWN_PAGES`` lists, or send mail, through the transport (``resend_service``), the delivery queue, which
+sends the pages it is handed, or the provider itself, save those ``SENDERS`` lists with how many sends each
+names and what they send, so a new sender, or a new send in a listed one, fails here until it builds its
+mail through ``email_service`` or is listed. Planted modules score each check. What it cannot see:
 - an address in a form it does not read: an attribute outside the list it reads, a script;
 - which way a branch within one line goes (``x if c else y``, ``a or b``, a lookup), so a value no input
   passes may pick an address no render reads;
@@ -48,8 +50,8 @@ those ``SENDERS`` lists with what each sends, so a new sender fails here until i
 - the links a caller hands in, for which the inputs are stand-ins; the code scan reads the callers;
 - what runs before the mail is built, elsewhere, such as a job rebinding a module's name;
 - an origin of the site's that a setting the render leaves alone points at another site's host;
-- a private name or the transport reached through ``getattr`` or ``importlib``, or ``send_email`` through
-  a star import;
+- a private name, the transport or the queue reached through ``getattr`` or ``importlib``, or ``send_email``
+  through a star import, and a call of the mail provider that names neither its settings nor its address;
 - mail built or finished outside ``email_service``, in the modules ``SENDERS`` lists:
   ``routers/contact.py``'s confirmation (E56), the internal admin and team notices, and what a caller adds
   to a page before it sends it (``data_quality_service.run_and_email`` appends the report's text copy, as
@@ -581,12 +583,12 @@ def test_no_other_module_reaches_the_mail_modules_private_names():
 # export's page, which is no mail. Equalities (lessons/test-allowlist-caps-are-equalities.md): a page that moves into
 # the shell lowers its count in the same diff.
 OWN_PAGES = {"app/routers/contact.py": 2, "app/services/pdf_branding.py": 1}
-_OPENS_A_PAGE = re.compile(r"<html[\s>]", re.IGNORECASE)
+_OPENS_A_PAGE = re.compile(r"<(?:html|head|body)[\s>]|<!doctype\s", re.IGNORECASE)
 
 
 def own_pages(source: str, shell: str | None = None) -> int:
-    """How many strings in a module's code open an HTML page (``<html``), outside the function named ``shell``;
-    a docstring is no page."""
+    """How many strings in a module's code open an HTML page (a doctype, ``<html>``, ``<head>`` or ``<body>``),
+    outside the function named ``shell``, an f-string read whole; a docstring is no page."""
     tree = ast.parse(source)
     skipped = {
         id(node.body[0].value)
@@ -597,18 +599,34 @@ def own_pages(source: str, shell: str | None = None) -> int:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == shell:
             skipped |= {id(inner) for inner in ast.walk(node)}
-    return sum(
-        1
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in skipped and _OPENS_A_PAGE.search(node.value)
-    )
+        elif isinstance(node, ast.JoinedStr):
+            skipped |= {id(part) for part in ast.walk(node) if part is not node}  # its pieces, read with it
+    pages = 0
+    for node in ast.walk(tree):
+        if id(node) in skipped:
+            continue
+        if isinstance(node, ast.JoinedStr):
+            text = "".join(part.value for part in node.values if isinstance(part, ast.Constant) and isinstance(part.value, str))
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            text = node.value
+        else:
+            continue
+        pages += bool(_OPENS_A_PAGE.search(text))
+    return pages
+
+
+def page_walk(app: Path) -> dict[str, int]:
+    """Each module under ``app`` that builds HTML pages of its own, with how many: the mail module's shell aside, and
+    no other module's function of that name."""
+    found = {}
+    for path in sorted(app.rglob("*.py")):
+        if pages := own_pages(path.read_text(encoding="utf-8"), "_wrap_html" if path == app / "services" / "email_service.py" else None):
+            found[path.relative_to(app.parent).as_posix()] = pages
+    return found
 
 
 def test_no_module_builds_a_page_of_its_own_outside_the_shell():
-    found = {}
-    for path in sorted(APP.rglob("*.py")):
-        if pages := own_pages(path.read_text(encoding="utf-8"), "_wrap_html" if path == EMAIL_SERVICE else None):
-            found[path.relative_to(BACKEND).as_posix()] = pages
+    found = page_walk(APP)
     assert own_pages(EMAIL_SERVICE.read_text(encoding="utf-8")) == 1, "the walk no longer finds the shell's own page"
     assert found == OWN_PAGES, (
         f"these modules build HTML pages of their own: {found}. Build mail through email_service's public functions, "
@@ -624,8 +642,15 @@ PAGES = [
     ("a page in a function beside the shell", 'def _wrap_html(b):\n    return f"<html>{b}</html>"\n\n\ndef other():\n    return "<html>x"\n', "_wrap_html", 1),
     ("the shell's own page", 'def _wrap_html(b):\n    return f"<html>{b}</html>"\n', "_wrap_html", 0),
     ("a docstring that names a page", 'def f():\n    """Builds no <html> page."""\n    return 1\n', None, 0),
+    ("a module's docstring that names a page", '"""Builds no <html> page."""\nP = 1\n', None, 0),
+    ("a class's docstring that names a page", 'class C:\n    """Holds no <html> page."""\n', None, 0),
     ("a comment that names a page", "# <html>\nP = 1\n", None, 0),
     ("a tag that only starts like the page's", 'P = "<htmlx>"\n', None, 0),
+    ("a page that opens with its doctype, head and body, and no html tag", 'P = "<!doctype html><head></head><body>x</body>"\n', None, 1),
+    ("a page that opens with its body alone", 'P = "<body>x</body>"\n', None, 1),
+    ("an f-string's page, counted once whatever its fields part", 'P = f"<html><head><title>{t}</title></head><body>{b}</body></html>"\n', None, 1),
+    ("a fragment with no page around it, which the sender check holds", 'P = "<p>Hi</p>"\n', None, 0),
+    ("a tag that only starts like a body's", 'P = "<bodyx>"\n', None, 0),
 ]
 
 
@@ -634,90 +659,146 @@ def test_the_page_check_scores_every_planted_module(source, shell, pages):
     assert own_pages(source, shell) == pages
 
 
-# The modules of backend/app that reach the mail transport, each with what it sends. A mail to a user is built in
-# email_service, whose shell carries the header; the others send on what email_service builds, or send the team or
-# an admin a page or a fragment of their own. An equality (lessons/test-allowlist-caps-are-equalities.md): a new
-# sender fails here until it sends through email_service or is listed with why, and one that stops leaves the list.
+def test_the_page_walk_sets_aside_the_mail_modules_shell_alone(tmp_path):
+    services = tmp_path / "app" / "services"
+    services.mkdir(parents=True)
+    shell = 'def _wrap_html(body):\n    return f"<html>{body}</html>"\n'
+    (services / "email_service.py").write_text(shell, encoding="utf-8")
+    (services / "recap_mail.py").write_text(shell, encoding="utf-8")  # a shell of its own, under the mail module's name
+    assert page_walk(tmp_path / "app") == {"app/services/recap_mail.py": 1}
+
+
+# The modules of backend/app that send mail, each with how many times it names a function that sends (``senders``)
+# and what it sends. email_service builds its mail in the shell that carries the header, and the render list holds
+# each mail it builds, so its sends go uncounted; the queue, the filing scan and the data-quality report send what it
+# builds; contact.py builds two pages of its own, one to the person who wrote in (E56), and the admin and feedback
+# routes send fragments. Equalities (lessons/test-allowlist-caps-are-equalities.md): a new sender, or a new send in a
+# listed one, fails here until it sends through email_service or is listed with what it sends.
 SENDERS = {
-    "app/services/email_service.py": "every mail it builds, in the shell",
-    "app/services/notification_delivery_service.py": "the filing alerts and digests email_service builds, held for delivery",
-    "app/services/data_quality_service.py": "the data-quality report email_service builds, with its text copy",
-    "app/routers/contact.py": "a notice to the team and a confirmation to the person who wrote in, pages of its own (E56)",
-    "app/routers/admin.py": "an admin's test mail, a fragment",
-    "app/routers/email.py": "an admin's test mail, a fragment",
-    "app/routers/feedback.py": "a notice of beta feedback to the team, a fragment",
+    "app/services/email_service.py": (None, "every mail it builds, in the shell"),
+    "app/services/notification_delivery_service.py": (1, "the filing alerts and digests email_service builds, held for delivery"),
+    "app/services/filing_scan_service.py": (7, "the filing alerts and digests email_service builds, queued: three batches, two drains, and the prepared send its transports take"),
+    "app/services/data_quality_service.py": (1, "the data-quality report email_service builds, with its text copy"),
+    "app/routers/contact.py": (2, "a notice to the team and a confirmation to the person who wrote in, pages of its own (E56)"),
+    "app/routers/admin.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
+    "app/routers/email.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
+    "app/routers/feedback.py": (1, "a notice of beta feedback to the team, a fragment"),
 }
-_TRANSPORT = "app.services.resend_service"
+# The functions that send a page or hand one on to be sent, by the module that holds them: the transport's, the mail
+# module's hold of it (email_service imports send_email), and the delivery queue's, which take a page or send one.
+_SENDS = {
+    "app.services.resend_service": frozenset({"send_email"}),
+    "app.services.email_service": frozenset({"send_email"}),
+    "app.services.notification_delivery_service": frozenset({"create_batch", "replace_batch", "PreparedSend", "send_prepared", "drain"}),
+}
+_PROVIDER = frozenset({"RESEND_API_KEY", "RESEND_BASE_URL"})  # what a call of the provider itself needs
 
 
-def senders(app: Path) -> dict[str, list[int]]:
-    """The modules under ``app`` that reach the mail transport, with the lines that do: an import of
-    ``resend_service`` or a name from it, an import of ``send_email`` from any module (``email_service`` holds
-    the transport's under that name), or ``send_email`` read through a name an import binds."""
-    found: dict[str, list[int]] = {}
+def _dotted(node: ast.AST) -> str | None:
+    """A name or a chain of attributes on one, written out (``a.b.c``)."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute) and (owner := _dotted(node.value)) is not None:
+        return f"{owner}.{node.attr}"
+    return None
+
+
+def senders(app: Path) -> dict[str, int]:
+    """The modules under ``app`` that send mail, each with how many times it names a function that sends a page or
+    hands one on: the transport's ``send_email`` (``email_service`` holds it under that name, and a module may import
+    it from either), the delivery queue's, imported by name or read through the module, or handed on by a name bound
+    to one; and the provider's key or address, which a call of the provider past the transport needs. An import
+    alone sends nothing, nor does a caught ``ResendError``. The transport and the settings that define the provider
+    are not read."""
+    found: dict[str, int] = {}
     for path in sorted(app.rglob("*.py")):
-        tree, imported, lines = ast.parse(path.read_text(encoding="utf-8")), set(), set()
+        if path in (app / "services" / "resend_service.py", app / "config.py"):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        functions: set[str] = set()  # the names this module binds to a function that sends
+        modules: dict[str, str] = {}  # the names it binds to a module that holds one, and the module
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name == _TRANSPORT:
-                        lines.add(node.lineno)
-                    imported.add(alias.asname or alias.name.split(".")[0])  # import a.b binds a
+                modules.update({alias.asname: alias.name for alias in node.names if alias.asname and alias.name in _SENDS})
             elif isinstance(node, ast.ImportFrom):
                 module = _imported(node, path, app)
                 for alias in node.names:
-                    if _TRANSPORT in (module, f"{module}.{alias.name}") or alias.name == "send_email":
-                        lines.add(node.lineno)
-                    imported.add(alias.asname or alias.name)
+                    if f"{module}.{alias.name}" in _SENDS:
+                        modules[alias.asname or alias.name] = f"{module}.{alias.name}"
+                    elif alias.name in _SENDS.get(module, ()) or alias.name == "send_email":
+                        functions.add(alias.asname or alias.name)
         while True:  # a name bound to one of those names holds what it holds
-            rebound = {
-                target.id
-                for node in ast.walk(tree)
-                if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name) and node.value.id in imported
-                for target in node.targets
-                if isinstance(target, ast.Name)
-            }
-            if rebound <= imported:
+            grown = False
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name):
+                    for target in (target for target in node.targets if isinstance(target, ast.Name)):
+                        if node.value.id in functions and target.id not in functions:
+                            functions.add(target.id)
+                            grown = True
+                        elif node.value.id in modules and target.id not in modules:
+                            modules[target.id] = modules[node.value.id]
+                            grown = True
+            if not grown:
                 break
-            imported |= rebound
+        sends = 0
         for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and node.attr == "send_email":
-                root = node.value
-                while isinstance(root, ast.Attribute):
-                    root = root.value
-                if isinstance(root, ast.Name) and root.id in imported:
-                    lines.add(node.lineno)
-        if lines:
-            found[path.relative_to(app.parent).as_posix()] = sorted(lines)
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in functions:
+                sends += 1
+            elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load) and (owner := _dotted(node.value)) is not None:
+                held = _SENDS.get(modules.get(owner, owner), frozenset())  # a name bound to the module, or its dotted path
+                sends += node.attr in held or node.attr in _PROVIDER
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str) and "api.resend.com" in node.value:
+                sends += 1
+        if sends:
+            found[path.relative_to(app.parent).as_posix()] = sends
     return found
 
 
-def test_only_the_listed_modules_reach_the_mail_transport():
+def test_only_the_listed_modules_send_mail():
     found = senders(APP)
-    assert set(found) == set(SENDERS), (
-        f"the modules that reach the mail transport changed: {found}. Build mail through email_service's public "
-        "functions, whose shell carries the header, or list the module in SENDERS with what it sends"
+    held = {module: sends for module, (sends, _) in SENDERS.items()}
+    unlisted = {module: sends for module, sends in found.items() if module not in held}
+    assert not unlisted and set(found) == set(held), (
+        f"the modules that send mail changed: {found}. Build mail through email_service's public functions, whose shell "
+        "carries the header, or list the module in SENDERS with what it sends"
+    )
+    counted = {module: found[module] for module, sends in held.items() if sends is not None}
+    assert counted == {module: sends for module, sends in held.items() if sends is not None}, (
+        f"a listed module names a function that sends a different number of times: {counted}. Say in SENDERS what the "
+        "new send sends, and hold its count to it"
     )
 
 
-# Each way a module can reach the mail transport, and the look-alikes that reach none.
+# Each way a module can send mail, with how many sends it names, and the look-alikes that send none.
 SENDS = [
-    ("the transport's function imported by name", "from app.services.resend_service import send_email\n", True),
-    ("the transport's error imported by name", "from app.services.resend_service import ResendError\n", True),
-    ("the transport imported from its package", "from app.services import resend_service\n", True),
-    ("the transport imported by its dotted path", "import app.services.resend_service\n", True),
-    ("the transport imported under another name", "import app.services.resend_service as mail\n", True),
-    ("the transport through a relative import of a name", "from .resend_service import send_email\n", True),
-    ("the transport through a relative import of the module", "from . import resend_service\n", True),
-    ("the transport imported inside a function", "def f():\n    from app.services import resend_service\n    return resend_service\n", True),
-    ("the transport's function imported from the mail module", "from app.services.email_service import send_email as deliver\n", True),
-    ("the transport's function read through the mail module", "from app.services import email_service\nemail_service.send_email(html='<p>x</p>')\n", True),
-    ("the transport's function read through a dotted path", "import app.services.email_service\napp.services.email_service.send_email()\n", True),
-    ("the transport's function read through a name bound to the mail module", "from app.services import email_service\nes = email_service\nes.send_email()\n", True),
-    ("a public mail function imported by name", "from app.services.email_service import send_daily_digest\n", False),
-    ("a public mail function read through the module", "from app.services import email_service\nemail_service.send_daily_digest()\n", False),
-    ("a request's flag named send_email", "class Invite:\n    send_email: bool = False\n\n\ndef f(payload):\n    return payload.send_email\n", False),
-    ("a module named like the transport", "import app.services.resend_service_stub\n", False),
+    ("the transport's function imported by name and called", 'from app.services.resend_service import send_email\nsend_email(html="<p>x</p>")\n', 1),
+    ("the transport imported from its package, its function called", 'from app.services import resend_service\nresend_service.send_email(html="<p>x</p>")\n', 1),
+    ("the transport by its dotted path", "import app.services.resend_service\napp.services.resend_service.send_email()\n", 1),
+    ("the transport imported under another name", "import app.services.resend_service as mail\nmail.send_email()\n", 1),
+    ("the transport's function through a relative import of a name", "from .resend_service import send_email\nsend_email()\n", 1),
+    ("the transport through a relative import of the module", "from . import resend_service\nresend_service.send_email()\n", 1),
+    ("the transport imported and called inside a function", "def f():\n    from app.services import resend_service\n    return resend_service.send_email()\n", 1),
+    ("the transport's function imported from the mail module under another name", "from app.services.email_service import send_email as deliver\ndeliver()\n", 1),
+    ("the transport's function read through the mail module", "from app.services import email_service\nemail_service.send_email(html='<p>x</p>')\n", 1),
+    ("the transport's function read through the mail module's dotted path", "import app.services.email_service\napp.services.email_service.send_email()\n", 1),
+    ("the transport's function read through a name bound to the mail module", "from app.services import email_service\nes = email_service\nes.send_email()\n", 1),
+    ("the transport's function handed on under a name, then called", "from app.services.resend_service import send_email\nSEND = send_email\nSEND()\n", 2),
+    ("two sends in one module, each counted", 'from app.services.resend_service import send_email\nsend_email(html="<p>a</p>")\nsend_email(html="<p>b</p>")\n', 2),
+    ("the delivery queue imported whole, a batch made", 'from app.services import notification_delivery_service as delivery\ndelivery.create_batch(html="<p>x</p>")\n', 1),
+    ("the delivery queue by its dotted path", "import app.services.notification_delivery_service\napp.services.notification_delivery_service.create_batch()\n", 1),
+    ("the delivery queue through a relative import", "from . import notification_delivery_service\nnotification_delivery_service.send_prepared(p)\n", 1),
+    ("the queue's batch, which takes a page, imported by name and called", 'from app.services.notification_delivery_service import create_batch\ncreate_batch(html="<p>x</p>")\n', 1),
+    ("the queue's prepared send, imported by name", 'from app.services.notification_delivery_service import PreparedSend, send_prepared\nsend_prepared(PreparedSend(html="<p>x</p>"))\n', 2),
+    ("the provider's key read past the transport, as a call of the provider needs", "from app.config import settings\nKEY = settings.RESEND_API_KEY\n", 1),
+    ("the provider's address written out", 'URL = "https://api.resend.com/emails"\n', 1),
+    ("the transport's error imported by name, which sends nothing", "from app.services.resend_service import ResendError\n", 0),
+    ("the transport imported for its error alone", "from app.services import resend_service\ntry:\n    pass\nexcept resend_service.ResendError:\n    pass\n", 0),
+    ("the transport's function imported and never named", "from app.services.resend_service import send_email\n", 0),
+    ("a public mail function imported by name and called", "from app.services.email_service import send_daily_digest\nsend_daily_digest()\n", 0),
+    ("a public mail function read through the module", "from app.services import email_service\nemail_service.send_daily_digest()\n", 0),
+    ("a request's flag named send_email", "class Invite:\n    send_email: bool = False\n\n\ndef f(payload):\n    return payload.send_email\n", 0),
+    ("a module named like the transport", "import app.services.resend_service_stub\napp.services.resend_service_stub.send_email()\n", 0),
+    ("the queue's click record, which sends nothing, imported by name", 'from app.services.notification_delivery_service import record_first_click\nrecord_first_click(db, "x", now)\n', 0),
 ]
 
 
@@ -726,7 +807,7 @@ def test_the_sender_check_scores_every_planted_module(tmp_path, source, sends):
     services = tmp_path / "app" / "services"
     services.mkdir(parents=True)
     (services / "recap_mail.py").write_text(source, encoding="utf-8")
-    assert list(senders(tmp_path / "app")) == (["app/services/recap_mail.py"] if sends else [])
+    assert senders(tmp_path / "app") == ({"app/services/recap_mail.py": sends} if sends else {})
 
 
 # Each way another module can reach the mail module's private names, and the look-alikes that must pass.
@@ -920,9 +1001,16 @@ def test_the_earnings_day_rows_keep_a_two_word_slot_on_one_line():
         name=None, items=[dict(ticker=f"T{n}", company_name="Acme", time=time) for n, time in enumerate(("bmo", "amc", "dmh"))]
     )
     for slot in ("·&nbsp;before&nbsp;open", "·&nbsp;after&nbsp;close", "·&nbsp;during market hours"):
-        assert page.count(slot) == 1, f"the row no longer prints {slot!r}: a two-word slot keeps its words on one line"
+        assert page.count(slot) == 1, (
+            f"the row no longer prints {slot!r}: the middot stays with the slot, and a two-word slot keeps its words on one line"
+        )
     for slot in ("(before open)", "(after close)", "(during market hours)"):
         assert slot in text, f"the plain text no longer reads {slot!r}"
+    # The row's map and the plain text's name the same slots in the same words, so the inputs, which print each slot
+    # _TIME_LABEL holds, print each the row can show.
+    assert {key: html.unescape(label).replace("\xa0", " ") for key, label in email_service._TIME_LABEL_HTML.items()} == email_service._TIME_LABEL, (
+        "the HTML row and the plain text name the same slots in the same words: keep _TIME_LABEL_HTML in step with _TIME_LABEL"
+    )
 
 
 def test_every_page_sent_takes_its_colours_from_the_tokens(rendered):
@@ -1030,10 +1118,10 @@ def test_the_planted_lists_keep_their_counts():
     counts = {
         "PAGES": (sum(case[-1] > 0 for case in PAGES), sum(case[-1] == 0 for case in PAGES)),
         "REACHES": (sum(case[-1] is True for case in REACHES), sum(case[-1] is False for case in REACHES)),
-        "SENDS": (sum(case[-1] is True for case in SENDS), sum(case[-1] is False for case in SENDS)),
+        "SENDS": (sum(case[-1] > 0 for case in SENDS), sum(case[-1] == 0 for case in SENDS)),
         "ADDRESSES": (sum(isinstance(case[-1], str) for case in ADDRESSES), sum(case[-1] is None for case in ADDRESSES)),
     }
-    assert counts == {"PAGES": (4, 4), "REACHES": (10, 4), "SENDS": (12, 4), "ADDRESSES": (63, 9)}, (
+    assert counts == {"PAGES": (7, 8), "REACHES": (10, 4), "SENDS": (20, 8), "ADDRESSES": (63, 9)}, (
         "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     )
     for name, cases in (("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES)):
