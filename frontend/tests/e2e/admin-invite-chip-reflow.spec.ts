@@ -9,13 +9,14 @@ import { test, expect, type Page } from '@playwright/test'
  * and the button under it: the chief designer's review of that fix found the address cut to 52px beside the button
  * ("al…", "bo…", and a bare "n" for an invalid one), so an admin could not tell the chips apart.
  *
- * Each case types two already-invited addresses, a long valid one and an invalid one into the field and reads what
- * Chromium paints (the marker's text through a Range, so text spilling out of its own box still counts), in both
- * themes: the marker never intersects the remove button, its dot sits on the line of "already", the marker stays
- * inside its chip, every chip and its button end inside the card, and the chips never widen the page. At 320px and
- * 390px under a 200% root every address shows whole (each character painted inside the address's own box, nothing
- * hidden) on lines no other part of its chip shares, and the remove button keeps its 48px; at 390px there the button
- * sits on the marker's line. At the default size a chip stays a one-line pill where it fits: alice's at 390px and
+ * Each case types two already-invited addresses (alice's and a short one), a short and a long valid one and an
+ * invalid one into the field and reads what Chromium paints (the marker's text through a Range, so text spilling out
+ * of its own box still counts), in both themes: the marker never intersects the remove button, its dot sits on the
+ * line of "already", the marker stays inside its chip, every chip and its button end inside the card, and the chips
+ * never widen the page. At 320px and 390px under a 200% root every address shows whole (each character painted inside
+ * the address's own box, nothing hidden) on lines no other part of its chip shares, and the remove button keeps its
+ * 48px and ends its chip on whatever line it lands, its right edge on the chip's content edge; at 390px there the
+ * button sits on the marker's line. At the default size a chip stays a one-line pill where it fits: alice's at 390px and
  * 1440px, and the short one's at 320px, whose row is 14.9em, so a threshold set too high fails here (alice's row at
  * 390px alone held it only below 19.3em). A sweep of widths under a 200% root crosses the 8em threshold, so a
  * threshold set too low fails here even where 320px and 390px pass.
@@ -38,8 +39,12 @@ const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://local
 const INVITED = 'alice@example.com'
 /** Already invited too: a short address. */
 const SHORT = 'bo@ex.io'
+/** A short address that is not invited. */
+const SHORT_VALID = 'bob@example.com'
 const LONG = 'maximilian.featherstonehaugh@example-enterprise.com'
 const INVALID = 'not-an-email'
+/** Every address the chip cases type, one chip each. */
+const CHIPS = [INVITED, SHORT, SHORT_VALID, LONG, INVALID]
 /** A reporter's address of 50 characters. */
 const REPORTER_50 = 'maximilian.featherstonehaugh@exampleenterprise.com'
 
@@ -96,9 +101,9 @@ async function openInvites(page: Page, baseURL: string, theme: Theme) {
   // The field marks an address as invited only once the list has loaded.
   await expect(page.getByRole('table').getByText(INVITED)).toBeVisible()
   const field = page.getByLabel('Email addresses')
-  await field.fill(`${INVITED}, ${SHORT}, ${LONG}, ${INVALID}`)
+  await field.fill(CHIPS.join(', '))
   await field.press('Enter')
-  for (const email of [INVITED, SHORT, LONG, INVALID]) await expect(page.getByRole('button', { name: `Remove ${email}` })).toBeVisible()
+  for (const email of CHIPS) await expect(page.getByRole('button', { name: `Remove ${email}` })).toBeVisible()
   await expect(page.getByText('· already invited')).toHaveCount(2)
   await page.evaluate(() => document.fonts.ready)
 }
@@ -245,7 +250,7 @@ type Addresses = Awaited<ReturnType<typeof measureAddresses>>
  * remove button, which keeps its 48px under a 200% root.
  */
 function expectWholeAddresses(chips: Addresses, label: string) {
-  expect(chips.map(({ email }) => email).sort(), `${label}: the chips`).toEqual([INVITED, SHORT, LONG, INVALID].sort())
+  expect(chips.map(({ email }) => email).sort(), `${label}: the chips`).toEqual([...CHIPS].sort())
   for (const { email, address, hidden, glyphs, content, others, button } of chips) {
     expect(hidden.x, `${label}: ${email} hides part of its address`).toBeLessThanOrEqual(1)
     expect(hidden.y, `${label}: ${email} hides part of its address`).toBeLessThanOrEqual(1)
@@ -258,6 +263,16 @@ function expectWholeAddresses(chips: Addresses, label: string) {
     for (const other of others) expect(other.top, `${label}: ${email} shares its address's line`).toBeGreaterThanOrEqual(address.bottom - 0.5)
     expect(button.right - button.left, `${label}: the remove button of ${email}`).toBeCloseTo(48, 0)
     expect(button.bottom - button.top, `${label}: the remove button of ${email}`).toBeCloseTo(48, 0)
+  }
+}
+
+/**
+ * Below 8em the remove button ends its chip on whatever line it lands, as it does above: its right edge on the chip's
+ * content edge, alone on a line, beside the invalid glyph or after the marker.
+ */
+function expectButtonsEndChips(chips: Addresses, label: string) {
+  for (const { email, button, content } of chips) {
+    expect(Math.abs(button.right - content.right), `${label}: the remove button of ${email} does not end its chip`).toBeLessThanOrEqual(1)
   }
 }
 
@@ -284,7 +299,9 @@ for (const theme of ['light', 'dark'] as const) {
       // fits it on one line, so a threshold above 14.9em fails here; alice's one-line pill at 390px catches one above
       // 19.3em only.
       expectOneLine(await measure(page, '', SHORT), '320px, default text, a short address')
-      expectWholeAddresses(await measureAddresses(page, '32px'), '320px, 200% text')
+      const addresses = await measureAddresses(page, '32px')
+      expectWholeAddresses(addresses, '320px, 200% text')
+      expectButtonsEndChips(addresses, '320px, 200% text')
     })
 
     test('at 390px the marker clears the remove button under a 200% root font, where every address shows whole, and the chip is one line at the default size', async ({ page, baseURL }) => {
@@ -299,6 +316,7 @@ for (const theme of ['light', 'dark'] as const) {
       expectNoSidewaysScroll(enlarged, '390px, 200% text')
       const addresses = await measureAddresses(page, '32px')
       expectWholeAddresses(addresses, '390px, 200% text')
+      expectButtonsEndChips(addresses, '390px, 200% text')
       // Here "· already" and the button fit side by side, so the button sits on the marker's line.
       for (const { email, marker, button } of addresses) {
         if (!marker) continue

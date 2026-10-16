@@ -159,9 +159,10 @@ export default function EmailChipsInput({
             // instead of truncating: beside the button it kept 52px at 320px under 200% text, too little to tell one
             // chip from another ("al…", "bo…"). The marker, the invalid glyph and the remove button follow under it,
             // the button on the marker's line wherever "· already" and the button fit side by side (flex-1 lets the
-            // marker wrap "invited" under "· already"), and the marker never paints over the button. An invited chip
-            // needs about 9.6em on one line, so the narrow state never splits a chip that fits; at the default size
-            // it starts at a 128px row, which no phone reaches. Reading and Tab order stay address, marker, button.
+            // marker wrap "invited" under "· already"), and the marker never paints over the button. The × ends the
+            // chip on whatever line it lands (ml-auto), as it does above 8em. An invited chip needs about 9.6em on one
+            // line, so the narrow state never splits a chip that fits; at the default size it starts at a 128px row,
+            // which no phone reaches. Reading and Tab order stay address, marker, button.
             <span
               key={chip.email}
               aria-invalid={chip.kind === 'invalid' || undefined}
@@ -184,7 +185,7 @@ export default function EmailChipsInput({
                 onClick={() => removeChip(chip.email)}
                 disabled={disabled}
                 aria-label={`Remove ${chip.email}`}
-                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-1.5 transition-colors hover:bg-white/40 disabled:opacity-50 dark:hover:bg-white/10"
+                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-1.5 transition-colors hover:bg-white/40 disabled:opacity-50 dark:hover:bg-white/10 [@container(width<8em)]:ml-auto"
               >
                 <XIcon className="h-3 w-3" />
               </button>

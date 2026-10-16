@@ -294,7 +294,7 @@ describe('AdminInvitesPage: an email chip stays inside its card', () => {
     vi.mocked(listInvites).mockReset()
   })
 
-  it('keeps an already-invited address, its marker and its remove button inside the chip, the address on a line of its own when the row is narrow', async () => {
+  it('keeps an already-invited address, its marker and its remove button inside the chip, the address on a line of its own and the button ending the chip when the row is narrow', async () => {
     vi.mocked(listInvites).mockResolvedValue([invite])
     renderPage()
     await screen.findByText('alice@example.com')
@@ -330,20 +330,30 @@ describe('AdminInvitesPage: an email chip stays inside its card', () => {
     expect(group).toHaveClass('[@container(width<8em)]:contents')
     expectOwnLineWhenNarrow(address)
     expect(marker.className).toBe('[@container(width<8em)]:flex-1')
+    expectEndsChipWhenNarrow(remove)
   })
 
-  it('gives a valid and an invalid address the same line of their own when the row is narrow', async () => {
+  it('gives a valid and an invalid address the same line of their own, the button ending the chip, when the row is narrow', async () => {
     vi.mocked(listInvites).mockResolvedValue([])
     renderPage()
     const field = screen.getByLabelText('Email addresses')
     fireEvent.change(field, { target: { value: 'bob@example.com, nope' } })
     fireEvent.blur(field)
     for (const email of ['bob@example.com', 'nope']) {
-      const chip = (await screen.findByRole('button', { name: `Remove ${email}` })).parentElement!
-      expectOwnLineWhenNarrow(within(chip).getByText(email))
+      const remove = await screen.findByRole('button', { name: `Remove ${email}` })
+      expectOwnLineWhenNarrow(within(remove.parentElement!).getByText(email))
+      expectEndsChipWhenNarrow(remove)
     }
   })
 })
+
+/**
+ * Below 8em the remove button ends the chip on whatever line it lands, as it does above (the chief designer's call on
+ * #1344): alone on a line it sat at the line's start.
+ */
+function expectEndsChipWhenNarrow(remove: HTMLElement) {
+  expect(remove).toHaveClass('[@container(width<8em)]:ml-auto')
+}
 
 /** Above 8em of the row the address truncates beside its marker; below it, it takes the first line whole and wraps. */
 function expectOwnLineWhenNarrow(address: HTMLElement) {
