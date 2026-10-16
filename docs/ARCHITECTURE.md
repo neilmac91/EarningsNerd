@@ -336,6 +336,11 @@ unused since generation became account-required in #619; kept because migrations
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
+- Companyfacts reads each concept from its reporting-currency unit list, picked by the per-filing
+  extractor's `_reporting_currency` rule (`facts/currency.py`), so a foreign US-GAAP filer's
+  history is stored as reported (CNY, JPY), never from its USD convenience translations. Quarter
+  derivation works in any currency. A sync demotes, never deletes, the USD row an earlier sync
+  stored for the same concept and period once the native row arrives.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

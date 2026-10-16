@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import Company, Filing
 from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import COMPANYFACTS_INFLIGHT_WAIT_SECONDS, _is_financial_sic
+from app.services.facts.currency import demote_convenience_rows
 from app.services.facts.transport import _fetch_companyfacts_async, logger
 from app.services.facts.upsert import upsert_facts_bulk
 from app.utils.datetimes import ensure_utc, utcnow
@@ -51,15 +52,13 @@ def _companyfacts_fresh_result(
 def _persist_companyfacts_payload(
     db: Session, company: Company, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Normalize and persist one already-fetched payload in the caller's short transaction."""
+    """Normalize and persist one already-fetched payload in the caller's short transaction; its
+    native-currency rows demote the USD convenience twins an earlier sync stored (never deleted)."""
     facts, meta = normalize_companyfacts(
         company.id, payload, financial_sic=_is_financial_sic(company.sic)
     )
-    result = (
-        upsert_facts_bulk(db, facts, commit=False)
-        if facts
-        else {"inserted": 0, "skipped": 0, "demoted": 0}
-    )
+    result = upsert_facts_bulk(db, facts, commit=False)  # all-zero counters for an empty batch
+    result["demoted"] += demote_convenience_rows(db, facts)
     company.facts_synced_at = utcnow()
     db.commit()
     logger.info(

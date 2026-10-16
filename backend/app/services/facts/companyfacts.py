@@ -11,9 +11,9 @@ from app.services.facts.calendar import (
 )
 from app.services.facts.concepts import (
     COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, NON_NEGATIVE_CONCEPTS,
-    _CONCEPT_UNITS, _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP,
-    _classify_duration, _parse_date,
+    _CONCEPT_UNITS, _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP, _classify_duration, _parse_date,
 )
+from app.services.facts.currency import series_unit
 from app.services.facts.derive import derive_same_period_metrics
 from app.services.facts.quarterly import (
     QUARTER_WINDOW, derive_cumulative_quarters, derive_quarter_sum_fallback, reported_fact,
@@ -148,7 +148,7 @@ def normalize_companyfacts(
     quarter_labels = _label_quarters(duration_values, fy_windows, fy_labels)
 
     def _base_fact(concept: str, record: dict[str, Any]) -> dict[str, Any]:
-        return reported_fact(company_id, concept, _CONCEPT_UNITS.get(concept, "USD"), record)
+        return reported_fact(company_id, concept, record["unit"], record)
 
     facts: list[dict[str, Any]] = []
     _append_reported_companyfacts(
@@ -203,19 +203,19 @@ def _collect_companyfacts_concepts(
     dict[str, dict[tuple[date, str], dict[str, Any]]],
     dict[str, dict[tuple[date, str], dict[str, Any]]],
 ]:
-    """Collect duration concepts before instant concepts in registry order."""
+    """Collect each concept from its reporting-currency unit list; durations first, registry order."""
     duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_DURATION_TAGS.items():
         if financial_sic and concept in _FI_SKIPPED_CONCEPTS:
             continue
-        unit_key = "USD/shares" if _CONCEPT_UNITS.get(concept, "USD").endswith("/shares") else "USD"
+        unit_key = series_unit(usgaap, tags, _CONCEPT_UNITS.get(concept, "USD"))
         values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False)
         if values:
             duration_values[concept] = values
 
     instant_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_INSTANT_TAGS.items():
-        values = _collect_companyfacts_values(usgaap, tags, "USD", instant=True)
+        values = _collect_companyfacts_values(usgaap, tags, series_unit(usgaap, tags, "USD"), instant=True)
         if values:
             instant_values[concept] = values
     return duration_values, instant_values
