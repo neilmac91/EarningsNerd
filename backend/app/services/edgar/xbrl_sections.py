@@ -26,7 +26,7 @@ _SECTION_MIN_CHARS = 200
 
 # Documents above this size are not parsed; the pipeline keeps the regex excerpt. Parse time and
 # peak memory grow with the document. In the golden set the largest document with sections is
-# JPMorgan's 12.9 MB 10-K (5.7 to 6.5 s; 503 MB process peak), and ASML's 24.9 MB 20-F took 10.9 s
+# JPMorgan's 12.9 MB 10-K (5.7 to 6.4 s; 503 MB process peak), and ASML's 24.9 MB 20-F took 10.9 s
 # to parse and peaked at 713 MB to yield no sections at all
 # (tasks/review-evidence/e28-native-sections-2026-10-15/parse_results.jsonl).
 _MAX_SECTION_HTML_CHARS = 16_000_000

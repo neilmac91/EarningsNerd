@@ -1,7 +1,7 @@
-{"accession": "0000320193-25-000079", "form": "10-K", "ticker": "AAPL", "recorded": {"financials": 60874, "mda": 18018, "risk": 68163}, "this_pr": {"risk": 68163, "mda": 18018, "financials": 60874}, "sections_sha256_identical": true}
-{"accession": "0001628280-25-003063", "form": "10-K", "ticker": "TSLA", "recorded": {"financials": 149471, "mda": 48601, "risk": 79676}, "this_pr": {"risk": 79676, "mda": 48601, "financials": 149471}, "sections_sha256_identical": true}
-{"accession": "0000950170-25-100235", "form": "10-K", "ticker": "MSFT", "recorded": {"financials": 128086, "mda": 49534, "risk": 68824}, "this_pr": {"risk": 68824, "mda": 49534, "financials": 128086}, "sections_sha256_identical": true}
-{"accession": "0001193125-26-231755", "form": "20-F", "ticker": "BABA", "recorded": {"financials": 761, "mda": 139430, "risk": 410872}, "this_pr": {"risk": 410872, "mda": 139430, "financials": 761}, "sections_sha256_identical": true}
-{"accession": "0000950170-25-090161", "form": "20-F", "ticker": "BABA", "recorded": {"financials": 847, "mda": 2219, "risk": 77525}, "this_pr": {"risk": 77525, "mda": 2219, "financials": 847}, "sections_sha256_identical": true}
-{"accession": "0001628280-26-011378", "form": "20-F", "ticker": "ASML", "recorded": {}, "this_pr": {}, "sections_sha256_identical": true}
-6 of 6 Copilot sources: identical sections
+{"accession": "0000320193-25-000079", "form": "10-K", "ticker": "AAPL", "recorded": {"financials": 60874, "mda": 18018, "risk": 68163}, "this_pr": {"risk": 68163, "mda": 18018, "financials": 60874}, "sections_sha256_identical": true, "excerpt_identical": true}
+{"accession": "0001628280-25-003063", "form": "10-K", "ticker": "TSLA", "recorded": {"financials": 149471, "mda": 48601, "risk": 79676}, "this_pr": {"risk": 79676, "mda": 48601, "financials": 149471}, "sections_sha256_identical": true, "excerpt_identical": true}
+{"accession": "0000950170-25-100235", "form": "10-K", "ticker": "MSFT", "recorded": {"financials": 128086, "mda": 49534, "risk": 68824}, "this_pr": {"risk": 68824, "mda": 49534, "financials": 128086}, "sections_sha256_identical": true, "excerpt_identical": true}
+{"accession": "0001193125-26-231755", "form": "20-F", "ticker": "BABA", "recorded": {"financials": 761, "mda": 139430, "risk": 410872}, "this_pr": {"risk": 410872, "mda": 139430, "financials": 761}, "sections_sha256_identical": true, "excerpt_identical": true}
+{"accession": "0000950170-25-090161", "form": "20-F", "ticker": "BABA", "recorded": {"financials": 847, "mda": 2219, "risk": 77525}, "this_pr": {"risk": 77525, "mda": 2219, "financials": 847}, "sections_sha256_identical": true, "excerpt_identical": true}
+{"accession": "0001628280-26-011378", "form": "20-F", "ticker": "ASML", "recorded": {}, "this_pr": {}, "sections_sha256_identical": true, "excerpt_identical": true}
+6 of 6 Copilot sources: identical sections and excerpt

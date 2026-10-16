@@ -241,18 +241,19 @@ option 1, and PR #1347 moves the source off `obj()`. What it lands:
   SEC request and calls no `obj()`. Documents over 16,000,000 characters are not parsed.
 - **The seam.** `xbrl_service.get_filing_sections(accession, filing_type, *, html)`. The pipeline
   starts the parse once the document is fetched (`summary_stages/enrichment.py::start_section_parse`,
-  request-owned) and awaits it inside the 18 s enrichment join, alongside XBRL, for at most 12 s
-  (`SECTION_PARSE_WAIT_SECONDS`); a parse not done by then is cancelled and the regex excerpt is
-  built. Before, the parse started with the fetch and had its own 30 s (40 s for a 20-F) outside the
-  join. The eval runner, the Copilot bootstrap and the acceptance harness pass the same fetched HTML.
+  request-owned) and waits for it for at most 18 s (`SECTION_PARSE_WAIT_SECONDS`) before the
+  enrichment join. A parse not done by then is cancelled and the regex excerpt is built; the join
+  ends 18 s after the wait began but leaves the excerpt build at least 10 s
+  (`EXCERPT_BUILD_SECONDS`). Before, the parse started with the fetch and had its own 30 s (40 s for
+  a 20-F). The eval runner, the Copilot bootstrap and the acceptance harness pass the same fetched HTML.
 - **Parity.** The 31 native golden excerpts built through the revived seam match the pre-switch CI
   reports by sha256 and by each section's supplied length; ASML's 20-F has no sections, as before
   ([`revival_parity.txt`](revival_parity.txt), from [`seam_parity_one.py.txt`](seam_parity_one.py.txt)
   and [`revival_parity_compare.py.txt`](revival_parity_compare.py.txt);
   [`seam_parity_results.jsonl`](seam_parity_results.jsonl)). All 32 golden documents are inline XBRL
-  that opens with an XML declaration, so a primary without one is not measured. The sections for all
-  six Copilot sources, two of them outside the golden set, match #1350's `copilot-eval` run of the
-  backported `obj()` path by sha256 ([`copilot_sources_parity.txt`](copilot_sources_parity.txt), from
+  that opens with an XML declaration, so a primary without one is not measured. The sections and
+  excerpts for all six Copilot sources, two of them outside the golden set, match #1350's
+  `copilot-eval` run of the backported `obj()` path byte for byte ([`copilot_sources_parity.txt`](copilot_sources_parity.txt), from
   [`compare_copilot_sources.py.txt`](compare_copilot_sources.py.txt)).
   `backend/tests/unit/test_summary_sections_parity.py` pins three golden filings in CI (FIGS's 10-Q,
   MercadoLibre's 10-K and Sea's 20-F) from fixtures already in the repository.
@@ -263,7 +264,8 @@ option 1, and PR #1347 moves the source off `obj()`. What it lands:
   0.90, WARN below 0.95, absolute, from `results`. No re-pin.
 - **Retired.** The tripwire and the `obj()` allow-list entry are deleted, and so is #1350's
   `test_xbrl_sections_errors.py`, which tested the deleted `obj()` reader; its rule, a warning when a
-  read error leaves no section, moved into the parser and its X0.2 cases. E25 closes in the same PR.
+  read error leaves no section, moved into the seam (the parser re-raises the read error and the
+  service logs it with the accession) and its X0.2 cases. E25 closes in the same PR.
 - **Runtime.** Parses run one at a time on their own worker, off the four-thread SEC pool, and a
   filing with a stored excerpt is not parsed at all (`get_or_cache_excerpt` would return the stored
   one). Measured on one pinned CPU in [`runtime_limits.md`](runtime_limits.md).
@@ -308,6 +310,8 @@ run, so recording it here would start another.
   [`burst_results.jsonl`](burst_results.jsonl): the parse's time, memory and SEC-pool effect under a
   burst, single worker against the shared pool; [`excerpt_build_times.py.txt`](excerpt_build_times.py.txt),
   [`excerpt_build_times.jsonl`](excerpt_build_times.jsonl): the excerpt build that follows a parse.
+- [`burst_end_to_end.py.txt`](burst_end_to_end.py.txt), [`burst_end_to_end.jsonl`](burst_end_to_end.jsonl):
+  whole summary generations several at once on one CPU, three enrichment designs compared.
 - [`compare_copilot_sources.py.txt`](compare_copilot_sources.py.txt),
   [`copilot_sources_parity.txt`](copilot_sources_parity.txt): the seam's sections for the six Copilot
   sources against #1350's `copilot-eval` run 38817393205 (its retained artifact, read offline).

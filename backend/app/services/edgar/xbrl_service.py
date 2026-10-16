@@ -291,7 +291,7 @@ class EdgarXBRLService:
             return None
         # Parse time grows with the document (up to ~7 s for a 13 MB 10-K in the golden set), and
         # parses share one worker, so this bound counts queue time. It is the old section budget; on
-        # the request path the shorter enrichment join is the effective bound.
+        # the request path the pipeline's shorter parse wait is the effective bound.
         section_timeout = max(self.timeout, 40.0) if base_form == "20-F" else max(self.timeout, 30.0)
         try:
             return await run_parse_with_timeout(

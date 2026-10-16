@@ -12,6 +12,7 @@ text the code formats.
 import asyncio
 import inspect
 import logging
+import time
 from copy import deepcopy
 from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -265,29 +266,38 @@ async def test_a_stale_stored_excerpt_is_reused_without_a_section_parse():
     assert summarize.await_args.kwargs["filing_excerpt"] == "STORED EXCERPT"
 
 
+async def _never_done(record=None):
+    try:
+        await asyncio.Event().wait()
+    except asyncio.CancelledError:
+        if record is not None:
+            record.append("parse cancelled")
+        raise
+
+
+def _slow_excerpt(seconds, value="EXCERPT"):
+    """A ``get_or_cache_excerpt`` stand-in whose build takes ``seconds`` in its worker thread."""
+    def build(*_args, **_kwargs):
+        time.sleep(seconds)
+        return value
+    return MagicMock(side_effect=build)
+
+
 @pytest.mark.asyncio
-async def test_a_parse_not_done_in_its_share_of_the_join_still_leaves_the_regex_excerpt(caplog):
-    """A section parse that outlives ``SECTION_PARSE_WAIT_SECONDS`` is cancelled there, with a warning,
+async def test_a_parse_not_done_in_its_wait_still_leaves_the_regex_excerpt(caplog):
+    """A section parse that outlives ``SECTION_PARSE_WAIT_SECONDS`` is cancelled then, with a warning,
     before the provider call (a queued parse must not keep the one parse worker), and the excerpt is
-    still built (without sections, so the regex excerpt) inside the join: a slow parse costs the
-    native sections, never the excerpt."""
+    still built without sections (the regex excerpt): a slow parse costs the native sections, not the
+    excerpt."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
     order = []
-
-    async def never_done(*_args, **_kwargs):
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            order.append("parse cancelled")
-            raise
-
     excerpt = MagicMock(return_value="EXCERPT")
     with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
             patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
             patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", 0.05), \
             patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
-            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", never_done), \
+            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", lambda *_a, **_k: _never_done(order)), \
             patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt):
         summarize.side_effect = lambda *_a, **_k: order.append("provider") or deepcopy(CANONICAL_PAYLOAD)
         events = await asyncio.wait_for(_drain(filing_id), 10)  # a parse awaited unbounded would hang
@@ -301,27 +311,74 @@ async def test_a_parse_not_done_in_its_share_of_the_join_still_leaves_the_regex_
 
 
 @pytest.mark.asyncio
-async def test_an_excerpt_the_join_drops_is_logged(caplog):
-    """When the enrichment join's deadline cancels the excerpt build itself, the stream says so and the
-    provider gets no excerpt (the AI layer extracts its own)."""
-    caplog.set_level(logging.INFO, logger=LOGGER)
+async def test_the_excerpt_build_keeps_its_floor_after_a_parse_that_used_its_whole_wait():
+    """The join ends ``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS`` after the parse wait began, but never sooner
+    than ``EXCERPT_BUILD_SECONDS`` after it: a build that needs more than the join's remainder still
+    finishes. (Here the remainder is about 0.2 s, the floor 0.5 s and the build 0.3 s.)"""
     filing_id = seed_company_filing()
-
-    async def never_done(*_args, **_kwargs):
-        await asyncio.Event().wait()
-
     with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
             patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
-            patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 0.05), \
-            patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", 10.0), \
+            patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 1.0), \
+            patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", 0.8), \
+            patch.object(summary_pipeline, "EXCERPT_BUILD_SECONDS", 0.5), \
             patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
-            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", never_done):
-        events = await asyncio.wait_for(_drain(filing_id), 10)  # a parse awaited outside the join would hang
+            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", lambda *_a, **_k: _never_done()), \
+            patch.object(summary_pipeline, "get_or_cache_excerpt", _slow_excerpt(0.3)):
+        events = await asyncio.wait_for(_drain(filing_id), 10)
 
     _assert_complete(events)
-    assert summarize.await_args.kwargs["filing_excerpt"] is None
-    assert (logging.WARNING, f"[stream:{filing_id}] Excerpt not built by the enrichment join; the AI layer extracts its own") \
-        in _pipeline_logs(caplog)
+    assert summarize.await_args.kwargs["filing_excerpt"] == "EXCERPT"
+
+
+@pytest.mark.asyncio
+async def test_a_long_parse_wait_takes_from_the_join_not_beyond_it():
+    """One enrichment deadline: after a parse wait of about 0.5 s, the join waits about 1.5 s of the
+    2 s budget, not a fresh 2 s (here for an XBRL fetch that never returns)."""
+    filing_id = seed_company_filing()
+    joins = []
+    real_wait_for = asyncio.wait_for
+
+    async def spy(aw, timeout=None):
+        if isinstance(aw, asyncio.Future) and not isinstance(aw, asyncio.Task):  # the join's gather
+            joins.append(timeout)
+        return await real_wait_for(aw, timeout)
+
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)), \
+            patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
+            patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 2.0), \
+            patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", 0.5), \
+            patch.object(summary_pipeline, "EXCERPT_BUILD_SECONDS", 0.1), \
+            patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
+            patch.object(summary_pipeline.xbrl_service, "get_xbrl_data", lambda *_a, **_k: _never_done()), \
+            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", lambda *_a, **_k: _never_done()), \
+            patch.object(asyncio, "wait_for", spy):
+        events = await real_wait_for(_drain(filing_id), 10)
+
+    _assert_complete(events)
+    assert len(joins) == 1 and 1.2 < joins[0] <= 1.5
+
+
+@pytest.mark.asyncio
+async def test_an_excerpt_the_join_drops_is_logged_and_a_slow_xbrl_alone_is_not(caplog):
+    """When the join's deadline cancels the excerpt build itself, the stream says so and the provider
+    gets no excerpt (the AI layer extracts its own). When only XBRL is slow, the excerpt arrives and
+    nothing is logged about it."""
+    caplog.set_level(logging.INFO, logger=LOGGER)
+    dropped, slow_xbrl = seed_company_filing(), seed_company_filing()
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
+            patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 0.05), \
+            patch.object(summary_pipeline, "get_or_cache_excerpt", _slow_excerpt(0.5)):
+        await asyncio.wait_for(_drain(dropped), 10)
+        dropped_excerpt = summarize.await_args.kwargs["filing_excerpt"]
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
+            patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 0.2), \
+            patch.object(summary_pipeline.xbrl_service, "get_xbrl_data", lambda *_a, **_k: _never_done()):
+        await asyncio.wait_for(_drain(slow_xbrl), 10)
+        slow_xbrl_excerpt = summarize.await_args.kwargs["filing_excerpt"]
+
+    assert dropped_excerpt is None and slow_xbrl_excerpt == "EXCERPT"
+    drop_lines = [m for _, m in _pipeline_logs(caplog) if "Excerpt not built by the enrichment join" in m]
+    assert drop_lines == [f"[stream:{dropped}] Excerpt not built by the enrichment join; the AI layer extracts its own"]
 
 
 # ------------------------------------------------------------ B5: a non-XBRL form (8-K) skips enrichment

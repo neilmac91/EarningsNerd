@@ -53,26 +53,28 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
 
 ## On the request path
 
-- **Time budget.** The parse starts once the document is fetched. It is awaited inside the 18 s
-  enrichment join (`CONTEXT_ENRICHMENT_TIMEOUT_SECONDS`), alongside XBRL, for at most 12 s
-  (`SECTION_PARSE_WAIT_SECONDS`). A parse not done by then is cancelled and the excerpt is built
-  without it: the regex excerpt, stored like any other, with a warning naming the filing. The rest
-  of the join is the excerpt build's. On one CPU the four largest documents take 2.4 to 2.9 s for a
-  regex excerpt and up to 2.4 s to assemble parsed sections
-  ([`excerpt_build_times.jsonl`](excerpt_build_times.jsonl), from
+- **Time budget.** The parse starts once the document is fetched. The excerpt waits for it for at
+  most 18 s (`SECTION_PARSE_WAIT_SECONDS`), before the enrichment join. A parse not done by then is
+  cancelled and the excerpt is built without it: the regex excerpt, stored for good like any other,
+  with a warning naming the stream. The join then ends 18 s (`CONTEXT_ENRICHMENT_TIMEOUT_SECONDS`)
+  after that wait began, but never sooner than 10 s (`EXCERPT_BUILD_SECONDS`) after it, so a slow
+  parse takes from the join's XBRL wait (XBRL has run since before the fetch), never from the excerpt
+  build. Enrichment therefore takes at most 28 s, and 15 s fetch + 28 s + 75 s provider stays under
+  the 120 s backstop (`backend/tests/unit/test_summary_pipeline_budget.py`). On one CPU the four
+  largest documents take 2.4 to 2.9 s for a regex excerpt and up to 2.4 s to assemble parsed sections
+  when nothing else runs ([`excerpt_build_times.jsonl`](excerpt_build_times.jsonl), from
   [`excerpt_build_times.py.txt`](excerpt_build_times.py.txt)).
-- **What changed against the `obj()` path.** The request's budget (15 + 18 + 75 s against the 120 s
-  backstop) is unchanged, but the parse's own bound is shorter. The `obj()` path started with the
-  fetch and was awaited before the join under its own 30 s (40 s for a 20-F); a parse cannot start
-  before the fetch now, and the budget has no room for that wait. In the burst above the third and
-  fourth documents finish after 12 s, so with four large filings at once two would get regex
-  excerpts. One large filing alone parses in 3 to 6.5 s.
-- **Cancellation.** A parse still queued when its waiter is cancelled, by the join's deadline or a
+- **What changed against the `obj()` path.** The `obj()` path started with the fetch and was awaited
+  before the join under its own 30 s (40 s for a 20-F). A parse cannot start before the fetch now, so
+  its wait is 18 s after the fetch, inside the same 28 s enrichment bound. One large filing alone
+  parses in 3 to 6.4 s.
+- **Cancellation.** A parse still queued when its waiter is cancelled, at the end of its wait or by a
   disconnect, never runs. A running parse is joined at cleanup, before the generation slot and the
   in-flight leadership are released (`backend/tests/unit/test_durable_request_ownership.py`). That
   holds where `DURABLE_TASKS_ENABLED` is on: the API service since 2026-10-08, and the task worker.
   Elsewhere a running parse finishes on its own.
-- **Stream silence.** The longest silent stretch is the 18 s join plus under a second. The client
+- **Stream silence.** The longest silent stretch is the 18 s parse wait, or the join (at most 18 s),
+  plus under a second. The client
   aborts after 120 s with no frame (`STREAM_TIMEOUT_MS`, reset on every frame, in
   `frontend/features/summaries/api/summaries-api.ts`). The request-timeout middleware skips stream
   paths (`backend/main.py`), and Cloud Run's 600 s request timeout covers the stream. No heartbeat is
@@ -86,6 +88,30 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
 - **Other callers.** The eval runner and the Copilot bootstrap call the same seam, so they share the
   single worker. CI's evaluation runs two filings at a time (`EVAL_CONCURRENCY=2`), so a parse there
   waits behind at most one other, well inside the seam's 30 s (40 s for a 20-F) bound.
+
+## End to end under a burst
+
+[`burst_end_to_end.py.txt`](burst_end_to_end.py.txt) runs whole summary generations through
+`stream_filing_summary`, several at once on one pinned CPU, with the real section parse, excerpt
+build and enrichment join; the document fetch, XBRL and the provider are stubbed. The documents are
+the four largest golden ones (JPMorgan, Prologis, Alibaba, TSMC, in that order). Results are in
+[`burst_end_to_end.jsonl`](burst_end_to_end.jsonl):
+
+| design | 2 at once | 3 at once | 4 at once |
+|---|---|---|---|
+| the parse awaited inside an 18 s join for 12 s of it (`a6cd05d`) | — | — | 1 native, 3 excerpts dropped |
+| a 10 s wait before the full 18 s join | 1 native, 1 regex | — | 1 native, 3 regex |
+| a 20 s wait before the full 18 s join | 2 native | — | 3 native, 1 regex |
+| a 30 s wait before the full 18 s join | 2 native | — | 4 native (slowest 28.7 s) |
+| this PR: an 18 s wait, one 18 s deadline, a 10 s build floor (two runs) | 2 native, twice | 2 and 3 native | 3 native, 1 regex, twice (slowest 28.0 s) |
+
+A dropped excerpt is the review's blocker: the build ran inside part of the join and missed its
+deadline under load, so the summary got no excerpt at all. A regex excerpt is stored for good, so a
+short wait turns a moment of load into a lasting regex excerpt; a longer one costs only latency
+under load, since the CPU work is the same either way. One large document alone took 6.2 to 7.2 s
+and stayed native in five of six runs. The sixth stalled for 31 s, with nothing else on the machine
+using the CPU, and its excerpt was dropped: a stall that outlasts both the wait and the build floor
+drops an excerpt under any of these designs.
 
 ## Not measured here
 
