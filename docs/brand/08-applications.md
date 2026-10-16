@@ -335,9 +335,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   each count that is not zero, singular at one, and the passed count only when no figure needs
   review; a window reads "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
   tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
-  outlines by `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour to its token and
-  role, every text colour to 4.5:1 on its ground, sage to the wordmark's "Nerd" and every PDF link
-  to the ink with an underline by `test_export_palette_parity.py`; the rendered copy (no em-dash but
+  outlines, with no transform anywhere in either PDF's stylesheet, by
+  `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour value to a token in its role
+  (no colour function, colour keyword or indirection), the grounds to the page and the masthead's
+  tint, every text colour to 4.5:1 on each, sage to the wordmark's "Nerd" and every rule that can
+  style a PDF link to the ink with an underline by `test_export_palette_parity.py`, which reads a
+  stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case) by
   `test_export_voice.py`; the eval's blinding of the generation date by a case in
   `test_acceptance_readiness.py` that runs it on a real export; and the backend's hand-composed

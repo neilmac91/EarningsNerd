@@ -4,28 +4,49 @@ The frontend's colour gates (designSnapshotParity, designTokenParity, the ESLint
 Python, and the exports had drifted: pdf_branding.PALETTE held #6B7280 as the tertiary ink, the
 flat-delta grey, which reads 4.26:1 on the masthead's tint, where the tertiary ink token is #636A77.
 This test reads DESIGN.md's frontmatter (designSnapshotParity holds it equal to tailwind.config.js)
-and checks the exports as they render:
+and checks the exports as they render. A PDF's stylesheet is read as WeasyPrint reads it: every
+declaration of every block in order, none collapsed, a rule nested in another (CSS nesting) under
+its full selector, a rule inside @media or @supports, @font-face, and @page's margin boxes as
+"@page @top-left".
 
 1. Roles: each PALETTE key names one token in ROLES and holds that token's value, so a value that is
    some other token (the flat grey for the tertiary ink) fails; CHART_SERIES is chart-1 to chart-6 in
    order. A new PALETTE key fails until ROLES names its token.
-2. Output: every colour in the two PDFs' stylesheets and SVG fills, every colour the workbook sets on
-   a cell, a tab or a chart, and every hex literal in the four export modules is a token value.
-3. Contrast: every text colour the PDF stylesheet sets clears 4.5:1 on its ground (the rule's own
-   background, else the masthead's tint for a masthead rule, else the white page): the masthead's
-   document kind, the table header and the tertiary ink among them. Every workbook cell's font
-   clears 4.5:1 on its fill, or on white without one.
+2. Output: every colour value in the two PDFs is a token's hex, `inherit` or `currentColor`, in every
+   declaration of the stylesheet and in the SVG's paint attributes. A colour function (rgb(), hsl(),
+   color-mix() and the rest), a named, system or `transparent` keyword, a hex with an alpha digit, an
+   indirection the gate cannot read (var(), env(), attr()) and a CSS-wide keyword other than inherit
+   on a property that carries a colour (initial, unset, revert) each fail. So that every colour sits
+   where this reads it, no element carries a style or an opacity attribute and no stylesheet is
+   linked or imported. Every colour the workbook sets on a cell, a border, a tab or a chart is a
+   token's RGB: a theme, indexed, preset or automatic colour fails, but for exactly one, Excel's
+   default text colour (theme 1), which the font of every cell the workbook leaves unstyled carries.
+   Every hex literal in the four export modules is a token value.
+3. Grounds and contrast: the rules that paint behind text or change how its colours composite
+   (background, box-shadow, border-image, opacity, filter, backdrop-filter, mix-blend-mode, mask) are
+   exactly `.masthead`'s background in each PDF, so a new ground fails until it is named here. The
+   gate cannot know where a selector matches, so every text colour the stylesheet sets clears 4.5:1
+   on every ground the stylesheet paints and on the white page: the masthead's document kind, the
+   table header and the tertiary ink among them. Every workbook cell's font clears 4.5:1 on its fill,
+   or on white without one.
 4. Sage (D-041, applying D-030 to the exports): the wordmark's "Nerd" is the only text that takes a
    brand colour. A PDF link rests in its line's ink with an underline, since print has no pointer to
    turn it sage and a link's text can carry an index ("Source filing 1"): each PDF's stylesheet
    carries that rule, which also keeps WeasyPrint's default link blue off the page, and no rule that
-   styles a link (its last compound an `a`, in any scope) sets a colour other than inherit or an
-   ink, or a text decoration without the underline. In the workbook no text takes sage (the sheet
-   tabs keep it).
+   styles a link sets a colour other than inherit, currentColor or an ink, or drops the underline (a
+   text decoration without it, a zero thickness, `all`). A rule styles a link when its subject, read
+   with cssselect2 (WeasyPrint's own selector parser), can select an `<a href>`: an `a`, a link
+   pseudo-class (`:link`, `:any-link`, `:visited`, `:local-link`), an `[href]` attribute, `:is()` or
+   `:where()` holding one, or a subject with no type, class, id or other attribute (`*`,
+   `:first-child`, `:not(p)`), with a pseudo-element or without; and when it selects an `<a>` in
+   either rendered PDF, whatever its form. In the workbook no text takes sage (the sheet tabs keep it).
 5. The wordmark (the PDF rendition of BG-27): "Earnings" in the ink, "Nerd" italic in brand-strong.
 
-Out of reach (review): a colour set in an inline style attribute (the export modules write none) and
-the embedded brand PNG's pixels.
+The planted forms in test_the_checks_read_what_they_claim score each reader on the forms its rule can
+take and on look-alikes that must pass. Out of reach (review): a colour written in an export module
+other than as a hex, where the fixtures do not render it; a rule that reaches a link only through a
+class or id the fixtures' links do not carry; the colours Excel and WeasyPrint draw where nothing
+sets one (a chart's text); and the embedded brand PNG's pixels.
 """
 from __future__ import annotations
 
@@ -35,9 +56,14 @@ import re
 import zipfile
 from pathlib import Path
 
+import cssselect2
 import tinycss2
+import tinycss2.color4
+import tinyhtml5
 import yaml
-from openpyxl import load_workbook
+from cssselect2 import parser as selectors
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Border, Color, Font, PatternFill, Side
 
 import tests.unit.test_excel_export as workbook_fixtures
 import tests.unit.test_export_service as export_fixtures
@@ -68,8 +94,39 @@ ROLES = {
     "ink_tertiary": "text-tertiary-light",
     "border": "border-light",
 }
-HEX = re.compile(r"#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})(?![0-9A-Za-z])")
-BARE_HEX = re.compile(r"^[0-9A-Fa-f]{6}$")  # openpyxl's form: no "#"
+# A hex in a module literal: 3, 4, 6 or 8 digits, the alpha forms read as written (never a token).
+HEX = re.compile(r"#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{3})(?![0-9A-Za-z])")
+BARE_HEX = re.compile(r"^(?:[0-9A-Fa-f]{2})?[0-9A-Fa-f]{6}$")  # openpyxl's RGB or aRGB: no "#"
+HEX_COLOUR = re.compile(r"^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$")  # the only hex a token can be
+
+# What can name a colour in a CSS value besides a hex, and what reaches one the gate cannot read.
+COLOUR_FUNCTIONS = {
+    "rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch", "color", "color-mix",
+    "device-cmyk", "light-dark", "contrast-color",
+}
+INDIRECTIONS = {"var", "env", "attr"}
+SYSTEM_COLOURS = {
+    "accentcolor", "accentcolortext", "activetext", "buttonborder", "buttonface", "buttontext", "canvas",
+    "canvastext", "field", "fieldtext", "graytext", "highlight", "highlighttext", "linktext", "mark",
+    "marktext", "selecteditem", "selecteditemtext", "visitedtext", "activeborder", "activecaption",
+    "appworkspace", "background", "buttonhighlight", "buttonshadow", "captiontext", "inactiveborder",
+    "inactivecaption", "inactivecaptiontext", "infobackground", "infotext", "menu", "menutext", "scrollbar",
+    "threeddarkshadow", "threedface", "threedhighlight", "threedlightshadow", "threedshadow", "window",
+    "windowframe", "windowtext",
+}
+CSS_WIDE = {"initial", "unset", "revert", "revert-layer"}  # inherit is the one that keeps a read colour
+CARRIES_COLOUR = re.compile(
+    r"colou?r|^(?:-[a-z]+-)?(?:all|background|border|outline|text-decoration|text-emphasis|column-rule|fill"
+    r"|stroke|box-shadow|text-shadow)"
+)
+# A rule that paints behind text or changes how its colours composite.
+GROUND = re.compile(
+    r"^(?:-[a-z]+-)?(?:background|box-shadow$|border-image|opacity$|filter$|backdrop-filter$|mix-blend-mode$|mask)"
+)
+SVG_PAINT = {"fill", "stroke", "color", "stop-color", "flood-color", "lighting-color"}
+OPACITY_ATTRIBUTES = {"opacity", "fill-opacity", "stroke-opacity", "stop-opacity", "flood-opacity"}
+LINK_PSEUDO_CLASSES = {"link", "any-link", "visited", "local-link"}
+WORKBOOK_DEFAULT_TEXT = "theme 1"  # Excel's default text colour, on every cell the workbook leaves unstyled
 
 
 def normal(hex_value: str) -> str:
@@ -90,70 +147,241 @@ def contrast(ink: str, ground: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
-def css_rules(css: str) -> list[tuple[str, dict[str, str]]]:
-    """(selector, declarations) for each block of a stylesheet; a margin box nested in @page reads as
-    "@page @top-left", so its declarations are checked like any rule's."""
-    rules: list[tuple[str, dict[str, str]]] = []
+def selector_parts(selector_list: str) -> list[str]:
+    """A selector list's selectors, split at its top-level commas (a comma inside `:is()` stays)."""
+    parts: list[list] = [[]]
+    for token in tinycss2.parse_component_value_list(selector_list):
+        if token.type == "literal" and token.value == ",":
+            parts.append([])
+        else:
+            parts[-1].append(token)
+    return [text for text in (tinycss2.serialize(part).strip() for part in parts) if text]
 
-    def declarations(content) -> tuple[dict[str, str], list]:
-        items = tinycss2.parse_declaration_list(content, skip_comments=True, skip_whitespace=True)
-        found = {item.name: tinycss2.serialize(item.value).strip() for item in items if item.type == "declaration"}
-        return found, [item for item in items if item.type == "at-rule"]
 
-    def walk(nodes, prefix: str) -> None:
-        for node in nodes:
-            if node.type == "qualified-rule":
-                rules.append((prefix + tinycss2.serialize(node.prelude).strip(), declarations(node.content)[0]))
-            elif node.type == "at-rule" and node.content is not None and node.lower_at_keyword != "font-face":
-                name = f"{prefix}@{node.lower_at_keyword} {tinycss2.serialize(node.prelude).strip()}".strip()
-                found, nested = declarations(node.content)
-                if found:
-                    rules.append((name, found))
-                walk(nested, name + " ")
+def css_rules(css: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """(name, declarations) for every block of a stylesheet, as WeasyPrint reads it. A style rule is named
+    by its selectors, a rule nested in another under its full selector (`&` replaced, else a descendant of
+    its parent), a rule inside @media or @supports by its own; an at-rule's own block by the at-rule, so a
+    margin box nested in @page reads "@page @top-left". Every declaration, in order, none collapsed."""
+    rules: list[tuple[str, list[tuple[str, str]]]] = []
 
-    walk(tinycss2.parse_stylesheet(css, skip_comments=True, skip_whitespace=True), "")
+    def contents(node) -> list:
+        return tinycss2.parse_blocks_contents(node.content, skip_comments=True, skip_whitespace=True)
+
+    def block(name: str, items: list, parents: list[str] | None) -> None:
+        declarations = [(item.lower_name, tinycss2.serialize(item.value).strip())
+                        for item in items if item.type == "declaration"]
+        if declarations:
+            rules.append((name, declarations))
+        for item in items:
+            if item.type == "qualified-rule":
+                own = selector_parts(tinycss2.serialize(item.prelude))
+                full = own if parents is None else [
+                    part.replace("&", parent) if "&" in part else f"{parent} {part}" for parent in parents for part in own
+                ]
+                block(", ".join(full), contents(item), full)
+            elif item.type == "at-rule" and item.content is not None:
+                at = f"@{item.lower_at_keyword} {tinycss2.serialize(item.prelude).strip()}".strip()
+                # In a style rule, a conditional group's declarations are that rule's (CSS nesting).
+                inner = ", ".join(parents) if parents is not None else f"{name} {at}" if name.startswith("@") else at
+                block(inner, contents(item), parents)
+
+    block("", tinycss2.parse_stylesheet(css, skip_comments=True, skip_whitespace=True), None)
     return rules
 
 
+def last(rules: list[tuple[str, list[tuple[str, str]]]], name: str) -> dict[str, str]:
+    """The declarations in force in the last block of that name (the last of each property wins)."""
+    return dict([block for rule, block in rules if rule == name][-1])
+
+
 def stylesheet(html: str) -> str:
-    return "".join(re.findall(r"<style>(.*?)</style>", html, re.DOTALL))
+    return "".join(re.findall(r"<style\b[^>]*>(.*?)</style>", html, re.DOTALL))
 
 
-def colour(value: str | None) -> str | None:
-    match = HEX.search(value or "")
-    return normal(match.group()) if match else None
+def elements(html: str) -> list:
+    """Every element of the document as WeasyPrint parses it (tinyhtml5), the inline SVG's included."""
+    return list(tinyhtml5.parse(html).iter())
 
 
-def text_colours(html: str) -> list[tuple[str, str, str]]:
-    """(selector, text colour, ground) for every rule that sets a text colour."""
-    rules = css_rules(stylesheet(html))
-    masthead = next((colour(decl.get("background")) for selector, decl in rules if selector == ".masthead"), None)
+def colours_in(name: str, value: str) -> list[str]:
+    """Every colour a declaration names, as written: a hex, a colour function, a colour keyword (named,
+    system, `transparent`, `currentColor`), an indirection (var(), env(), attr()), and on a property that
+    carries a colour, a CSS-wide keyword other than inherit, whose colour is not one the gate can read."""
+    found: list[str] = []
+    nodes = tinycss2.parse_component_value_list(value, skip_comments=True)
+
+    def walk(items) -> None:
+        for node in items:
+            if node.type == "hash":
+                found.append("#" + node.value)
+            elif node.type == "function":
+                if node.lower_name in COLOUR_FUNCTIONS | INDIRECTIONS:
+                    found.append(tinycss2.serialize([node]))
+                else:
+                    walk(node.arguments)
+            elif node.type in ("() block", "[] block", "{} block"):
+                walk(node.content)
+            elif node.type == "ident" and (
+                node.lower_value in SYSTEM_COLOURS or tinycss2.color4.parse_color(node) is not None
+            ):
+                found.append(node.value)
+
+    walk(nodes)
+    words = [node for node in nodes if node.type not in ("whitespace", "comment")]
+    if len(words) == 1 and words[0].type == "ident" and words[0].lower_value in CSS_WIDE and CARRIES_COLOUR.search(name):
+        found.append(words[0].value)
+    return found
+
+
+def is_token(colour_value: str) -> bool:
+    return HEX_COLOUR.match(colour_value) is not None and normal(colour_value) in TOKEN_VALUES
+
+
+def pdf_colour_problems(html: str) -> list[str]:
+    """Each colour a PDF carries that is not a token's hex or currentColor, and each place a colour could
+    sit unread: a style or opacity attribute, a linked or imported stylesheet."""
     found = []
-    for selector, decl in rules:
-        ink = colour(decl.get("color"))
-        if ink is None:
+    for rule, block in css_rules(stylesheet(html)):
+        for name, value in block:
+            found += [f"{rule} {{ {name}: {value} }} names {c}" for c in colours_in(name, value)
+                      if not is_token(c) and c.lower() != "currentcolor"]
+    found += [f"@import {tinycss2.serialize(node.prelude).strip()}"
+              for node in tinycss2.parse_stylesheet(stylesheet(html), skip_comments=True, skip_whitespace=True)
+              if node.type == "at-rule" and node.lower_at_keyword == "import"]
+    for element in elements(html):
+        tag = element.tag.rsplit("}", 1)[-1]
+        for attribute, value in element.attrib.items():
+            if attribute == "style":
+                found.append(f"<{tag} style={value!r}>: a style attribute")
+            elif attribute in OPACITY_ATTRIBUTES:
+                found.append(f"<{tag} {attribute}={value!r}>: an opacity attribute")
+            elif attribute in SVG_PAINT:
+                found += [f"<{tag} {attribute}={value!r}> names {c}" for c in colours_in(attribute, value)
+                          if not is_token(c) and c.lower() != "currentcolor"]
+        if tag == "link" and "stylesheet" in element.get("rel", "").lower().split():
+            found.append(f"<link rel=stylesheet href={element.get('href')!r}>: a linked stylesheet")
+    return found
+
+
+def text_colours(html: str) -> list[tuple[str, str]]:
+    """(rule, text colour) for every hex a `color` declaration sets (any other colour fails above)."""
+    return [(rule, normal(value)) for rule, block in css_rules(stylesheet(html))
+            for name, value in block if name == "color" and HEX_COLOUR.match(value)]
+
+
+def ground_rules(html: str) -> dict[str, list[str]]:
+    """Each rule that paints behind text or changes how its colours composite, with the properties that do."""
+    found: dict[str, set[str]] = {}
+    for rule, block in css_rules(stylesheet(html)):
+        for name, _ in block:
+            if GROUND.match(name):
+                found.setdefault(rule, set()).add(name)
+    return {rule: sorted(names) for rule, names in found.items()}
+
+
+def grounds(html: str) -> set[str]:
+    """The white page and every hex a rule paints behind text."""
+    return {WHITE} | {normal(c) for _, block in css_rules(stylesheet(html)) for name, value in block
+                      if GROUND.match(name) for c in colours_in(name, value) if HEX_COLOUR.match(c)}
+
+
+def low_contrast(html: str) -> list[str]:
+    """Each text colour that falls below 4.5:1 on a ground the stylesheet paints, or on the white page."""
+    return [f"{rule} {ink} on {ground} is {contrast(ink, ground):.2f}:1"
+            for rule, ink in text_colours(html) for ground in sorted(grounds(html)) if contrast(ink, ground) < 4.5]
+
+
+def _subject(selector) -> list:
+    """The simple selectors of a parsed selector's subject: its last compound."""
+    tree = selector.parsed_tree
+    while isinstance(tree, selectors.CombinedSelector):
+        tree = tree.right
+    return tree.simple_selectors
+
+
+def _holds_for_every_link(simple: list) -> bool:
+    """Whether a compound selects every <a href> (`a`, `:link`, `:any-link`, `[href]`), so `:not()` of it
+    selects none."""
+    return bool(simple) and all(
+        (isinstance(s, selectors.LocalNameSelector) and s.lower_local_name == "a")
+        or (isinstance(s, selectors.PseudoClassSelector) and s.name in ("link", "any-link"))
+        or (isinstance(s, selectors.AttributeSelector) and s.lower_name == "href" and s.operator is None)
+        for s in simple
+    )
+
+
+def _styles_a_link(simple: list) -> bool:
+    """Whether a compound can select an <a href>. It cannot with a type other than `a`, a `:not()` of
+    every link, or an `:is()` or `:where()` none of whose members can. It can when an `a`, a link
+    pseudo-class, an [href] or such an `:is()` marks it, whatever class narrows it, and when it is bare
+    (no type, class, id or other attribute: `*`, `:first-child`, `:not(p)`), since that selects a link too."""
+    logical = (selectors.MatchesAnySelector, selectors.SpecificityAdjustmentSelector)
+    if any(isinstance(s, selectors.LocalNameSelector) and s.lower_local_name != "a" for s in simple):
+        return False
+    if any(isinstance(s, selectors.NegationSelector) and any(_holds_for_every_link(_subject(m)) for m in s.selector_list)
+           for s in simple):
+        return False
+    if any(isinstance(s, logical) and not any(_styles_a_link(_subject(m)) for m in s.selector_list) for s in simple):
+        return False
+    marked = any(
+        isinstance(s, (selectors.LocalNameSelector, *logical))
+        or (isinstance(s, selectors.PseudoClassSelector) and s.name in LINK_PSEUDO_CLASSES)
+        or (isinstance(s, selectors.AttributeSelector) and s.lower_name == "href")
+        for s in simple
+    )
+    bare = not any(
+        isinstance(s, (selectors.ClassSelector, selectors.IDSelector))
+        or (isinstance(s, selectors.AttributeSelector) and s.lower_name != "href")
+        for s in simple
+    )
+    return marked or bare
+
+
+def link_rules(html: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """(selector, declarations) for each selector that styles a link: by its form (its subject can select
+    an <a href>, a link pseudo-class, an [href] or a bare subject among them) or by what it selects in this
+    rendered PDF (an <a>). A selector WeasyPrint cannot compile styles nothing, as WeasyPrint drops it."""
+    root = cssselect2.ElementWrapper.from_html_root(tinyhtml5.parse(html))
+    anchors = [element for element in root.iter_subtree() if element.local_name == "a"]
+    found = []
+    for rule, block in css_rules(stylesheet(html)):
+        if rule.startswith("@"):
             continue
-        own = colour(decl.get("background") or decl.get("background-color"))
-        ground = own or (masthead if selector.startswith(".masthead ") else None) or WHITE
-        found.append((selector, ink, ground))
+        for part in selector_parts(rule):
+            try:
+                parsed, compiled = list(selectors.parse(part)), cssselect2.compile_selector_list(part)
+            except cssselect2.SelectorError:
+                continue
+            if any(_styles_a_link(_subject(selector)) for selector in parsed) or any(
+                selector.test(anchor) for selector in compiled for anchor in anchors
+            ):
+                found.append((part, block))
     return found
 
 
 def link_problems(html: str) -> list[str]:
-    """Each declaration a rule styling a link (its last compound an `a`, in any scope) makes against
-    D-041: a colour other than inherit or an ink, or a text decoration without the underline."""
+    """Each declaration a rule styling a link makes against D-041: a colour other than inherit,
+    currentColor or an ink, or a text decoration that drops the underline."""
     found = []
-    for selector, decl in css_rules(stylesheet(html)):
-        for part in (piece.strip() for piece in selector.split(",")):
-            if not re.match(r"a(?:$|[.#:\[])", re.split(r"[\s>+~]+", part)[-1]):
-                continue
-            for name, value in decl.items():
-                if name == "color" and value != "inherit" and colour(value) not in INKS:
-                    found.append(f"{part} sets {name}: {value}")
-                elif name != "color" and any(normal(hex_value) not in INKS for hex_value in HEX.findall(value)):
-                    found.append(f"{part} sets {name}: {value}")
-                elif name in ("text-decoration", "text-decoration-line") and "underline" not in value:
-                    found.append(f"{part} sets {name}: {value}")
+    for part, block in link_rules(html):
+        for name, value in block:
+            colours = colours_in(name, value)
+            if name == "color" and not (value.lower() in ("inherit", "currentcolor")
+                                        or (HEX_COLOUR.match(value) and normal(value) in INKS)):
+                found.append(f"{part} sets {name}: {value}")
+            elif name != "color" and any(
+                c.lower() != "currentcolor" and not (HEX_COLOUR.match(c) and normal(c) in INKS) for c in colours
+            ):
+                found.append(f"{part} sets {name}: {value}")
+            elif re.fullmatch(r"(?:-[a-z]+-)?text-decoration(?:-line)?", name) and "underline" not in value.lower():
+                found.append(f"{part} sets {name}: {value}")
+            elif re.fullmatch(r"(?:-[a-z]+-)?text-decoration-thickness", name) and re.fullmatch(
+                r"[+-]?0*\.?0*[a-z%]*", value.lower()
+            ):
+                found.append(f"{part} sets {name}: {value}")
+            elif name == "all":
+                found.append(f"{part} sets {name}: {value}")
     return found
 
 
@@ -170,44 +398,71 @@ def _workbook_bytes() -> bytes:
     return build_analysis_workbook(workbook_fixtures._dataset(), exported_at=workbook_fixtures.EXPORTED_AT)
 
 
+def _xl(color) -> str:
+    """An openpyxl colour as the gate reads it: "#RRGGBB" for an RGB, its kind and index otherwise."""
+    if color is None:
+        return "automatic"
+    if color.type == "rgb":
+        return normal(color.rgb)
+    if color.type == "theme":
+        return f"theme {color.theme}" + (f" tint {color.tint}" if color.tint else "")
+    if color.type == "indexed":
+        return f"indexed {color.indexed}"
+    return str(color.type)
+
+
 def workbook_colours(data: bytes) -> list[tuple[str, str, str | None]]:
-    """(where, colour, role) for every colour the workbook sets; role is "text" with its ground."""
+    """(where, colour, ground) for every colour the workbook sets, whatever its kind; the ground is the
+    cell's fill (or white) for a font, None for anything else."""
     found: list[tuple[str, str, str | None]] = []
     book = load_workbook(io.BytesIO(data))
     for sheet in book.worksheets:
         tab = sheet.sheet_properties.tabColor
-        if tab is not None and tab.type == "rgb":
-            found.append((f"{sheet.title} tab", normal(tab.rgb), None))
+        if tab is not None:
+            found.append((f"{sheet.title} tab", _xl(tab), None))
         for row in sheet.iter_rows():
             for cell in row:
                 where = f"{sheet.title}!{cell.coordinate}"
-                fill = normal(cell.fill.start_color.rgb) if cell.fill.patternType == "solid" else None
+                fill = _xl(cell.fill.start_color) if cell.fill.patternType == "solid" else None
                 if fill:
                     found.append((where + " fill", fill, None))
                 for side in ("left", "right", "top", "bottom"):
                     edge = getattr(cell.border, side)
-                    if edge is not None and edge.color is not None and edge.color.type == "rgb":
-                        found.append((f"{where} {side} border", normal(edge.color.rgb), None))
-                font = cell.font.color
-                if font is not None and font.type == "rgb" and cell.value not in (None, ""):
-                    found.append((where + " text", normal(font.rgb), fill or WHITE))
+                    if edge is not None and edge.style is not None:
+                        found.append((f"{where} {side} border", _xl(edge.color), None))
+                if cell.value not in (None, ""):
+                    found.append((where + " text", _xl(cell.font.color), fill if fill and fill.startswith("#") else WHITE))
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         for name in archive.namelist():
             if name.startswith("xl/charts/"):
-                for value in re.findall(r'srgbClr val="([0-9A-Fa-f]{6})"', archive.read(name).decode("utf-8")):
-                    found.append((name, normal(value), None))
+                xml = archive.read(name).decode("utf-8")
+                found += [(name, normal(value), None) for value in re.findall(r'srgbClr val="([0-9A-Fa-f]{6})"', xml)]
+                found += [(name, f"{kind}{attributes}", None)
+                          for kind, attributes in re.findall(r"<a:(schemeClr|sysClr|prstClr|scrgbClr|hslClr)\b([^>]*)>", xml)]
     return found
+
+
+def workbook_off_token(found: list[tuple[str, str, str | None]]) -> list[tuple[str, str]]:
+    return [(where, value) for where, value, ground in found
+            if value not in TOKEN_VALUES and not (where.endswith(" text") and value == WORKBOOK_DEFAULT_TEXT)]
+
+
+def hex_literals(source: str) -> list[tuple[int, str]]:
+    """(line, colour) for each hex in a string literal of Python source: "#RRGGBB" for a 3- or 6-digit hex
+    and for openpyxl's RGB or aRGB ("FF1A1A17"), a CSS hex with alpha as written (never a token)."""
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            values = [normal(value) if HEX_COLOUR.match(value) else value for value in HEX.findall(node.value)]
+            if BARE_HEX.match(node.value):
+                values.append(normal(node.value))  # an aRGB keeps its colour in the last six digits
+            found += [(node.lineno, value) for value in values]
+    return sorted(found)
 
 
 def module_hex_literals() -> list[tuple[str, int, str]]:
-    found = []
-    for module in EXPORT_MODULES:
-        path = ROOT / "backend" / "app" / "services" / module
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                hexes = HEX.findall(node.value) + ([node.value] if BARE_HEX.match(node.value) else [])
-                found += [(module, node.lineno, normal(value)) for value in hexes]
-    return found
+    return [(module, line, value) for module in EXPORT_MODULES
+            for line, value in hex_literals((ROOT / "backend" / "app" / "services" / module).read_text(encoding="utf-8"))]
 
 
 def test_each_palette_key_holds_its_roles_token():
@@ -219,26 +474,30 @@ def test_each_palette_key_holds_its_roles_token():
 
 
 def test_every_rendered_and_written_colour_is_a_token():
-    off_token = []
-    for name, html in _pdfs().items():
-        css = stylesheet(html)
-        fills = re.findall(r'(?:fill|stroke)="([^"]+)"', html)
-        off_token += [(name, value) for value in HEX.findall(css) + fills
-                      if value != "currentColor" and normal(value) not in TOKEN_VALUES]
-    off_token += [(where, value) for where, value, _ in workbook_colours(_workbook_bytes()) if value not in TOKEN_VALUES]
+    off_token = [(name, problem) for name, html in _pdfs().items() for problem in pdf_colour_problems(html)]
+    off_token += workbook_off_token(workbook_colours(_workbook_bytes()))
     off_token += [(f"{module}:{line}", value) for module, line, value in module_hex_literals() if value not in TOKEN_VALUES]
     assert off_token == []
+    # The readers found what they read: the stylesheets' hexes, the mark's fill and the workbook's colours.
+    assert all(sum(len(colours_in(n, v)) for _, b in css_rules(stylesheet(html)) for n, v in b) > 20 for html in _pdfs().values())
+    assert len(workbook_colours(_workbook_bytes())) > 100
+
+
+def test_the_grounds_are_the_page_and_the_masthead_alone():
+    """A rule that paints behind text is a ground every text colour must clear; the masthead's tint is
+    the only one, so a new ground (a tinted section, an inset shadow, a page colour) fails here first."""
+    for name, html in _pdfs().items():
+        assert ground_rules(html) == {".masthead": ["background"]}, name
+        assert grounds(html) == {WHITE, TOKENS["brand-weak"]}, name
 
 
 def test_every_text_colour_clears_its_ground():
     checked, low = set(), []
     for name, html in _pdfs().items():
-        for selector, ink, ground in text_colours(html):
-            checked.add(selector)
-            if contrast(ink, ground) < 4.5:
-                low.append(f"{name}: {selector} {ink} on {ground} is {contrast(ink, ground):.2f}:1")
+        checked |= {rule for rule, _ in text_colours(html)}
+        low += [f"{name}: {problem}" for problem in low_contrast(html)]
     for where, ink, ground in workbook_colours(_workbook_bytes()):
-        if ground is not None and contrast(ink, ground) < 4.5:
+        if ground is not None and ink.startswith("#") and contrast(ink, ground) < 4.5:
             low.append(f"workbook: {where} {ink} on {ground} is {contrast(ink, ground):.2f}:1")
     assert low == []
     # The roles the rule names are among the rules read, so a pass covers them.
@@ -246,14 +505,13 @@ def test_every_text_colour_clears_its_ground():
 
 
 def test_sage_colours_only_the_wordmarks_nerd():
-    """D-041: a header, a label, a figure and a link rest in the ink; the wordmark's "Nerd" is the
-    only sage text in the exports."""
+    """D-041: a header, a label, a figure and a link rest in the ink; the wordmark's "Nerd" is the only
+    sage text in the exports."""
     sage_text = []
     for name, html in _pdfs().items():
-        for selector, ink, _ in text_colours(html):
+        for rule, ink in text_colours(html):
             if ink in SAGE:
-                sage_text += [(name, part.strip()) for part in selector.split(",")
-                              if part.strip() != ".masthead .wordmark em"]
+                sage_text += [(name, part) for part in selector_parts(rule) if part != ".masthead .wordmark em"]
     sage_text += [(where, ink) for where, ink, ground in workbook_colours(_workbook_bytes())
                   if ground is not None and ink in SAGE]
     assert sage_text == []
@@ -263,36 +521,126 @@ def test_every_pdf_link_rests_in_the_ink_with_an_underline():
     """Print has no pointer, so a link never turns sage: it keeps its line's ink and an underline in
     the tertiary ink. Without the rule, WeasyPrint's default stylesheet would paint links blue."""
     for name, html in _pdfs().items():
-        links = dict(css_rules(stylesheet(html))).get("a")
-        assert links is not None, f"the {name} PDF's stylesheet carries no rule for its links"
+        rules = css_rules(stylesheet(html))
+        assert any(rule == "a" for rule, _ in rules), f"the {name} PDF's stylesheet carries no rule for its links"
+        links = last(rules, "a")
         assert links.get("color") == "inherit" and "underline" in links.get("text-decoration", ""), name
-        assert colour(links.get("text-decoration-color")) == TOKENS["text-tertiary-light"], name
+        assert normal(links.get("text-decoration-color", "")) == TOKENS["text-tertiary-light"], name
         assert link_problems(html) == [], name  # no scoped rule turns a link sage or drops its underline
+        assert "a" in [part for part, _ in link_rules(html)], name  # the reader found the link rule
     assert '<a href="' in _pdfs()["analysis"]  # the fixture renders links (its data-note letters)
 
 
 def test_the_wordmark_reads_earnings_in_the_ink_and_nerd_italic_in_brand_strong():
     for name, html in _pdfs().items():
         assert '<span class="wordmark">Earnings<em>Nerd</em></span>' in html, name
-        rules = dict(css_rules(stylesheet(html)))
-        assert colour(rules[".masthead .wordmark"]["color"]) == TOKENS["text-primary-light"], name
-        nerd = rules[".masthead .wordmark em"]
-        assert colour(nerd["color"]) == TOKENS["brand-strong"] and nerd["font-style"] == "italic", name
+        rules = css_rules(stylesheet(html))
+        assert normal(last(rules, ".masthead .wordmark")["color"]) == TOKENS["text-primary-light"], name
+        nerd = last(rules, ".masthead .wordmark em")
+        assert normal(nerd["color"]) == TOKENS["brand-strong"] and nerd["font-style"] == "italic", name
+
+
+PLANTED_STYLES = """
+.masthead { background: #ECF2EE; } .masthead .doc-kind { color: #6B7280; } th { color: #3C6650; }
+@page { size: A4; @top-left { color: #636A77; } }
+"""
 
 
 def test_the_checks_read_what_they_claim():
-    """Planted forms: the contrast and sage readers flag the defects this PR fixed."""
+    """Planted forms: each reader names the forms its rule can take and passes the look-alikes."""
     assert round(contrast("#6B7280", TOKENS["brand-weak"]), 2) == 4.26  # the old tertiary on the tint
     assert round(contrast(TOKENS["text-tertiary-light"], TOKENS["brand-weak"]), 2) == 4.80
-    planted = ".masthead { background: #ECF2EE; } .masthead .doc-kind { color: #6B7280; } th { color: #3C6650; }"
-    found = {selector: (ink, ground) for selector, ink, ground in text_colours(f"<style>{planted}</style>")}
-    assert found == {".masthead .doc-kind": ("#6B7280", "#ECF2EE"), "th": ("#3C6650", WHITE)}
-    nested = css_rules("@page { size: A4; @top-left { color: #636A77; } }")
-    assert ("@page @top-left", {"color": "#636A77"}) in nested
-    links = ("<style>a { color: inherit; text-decoration: underline; } .sources a { text-decoration: none; } "
-             ".methods > a:link { color: #3C6650; } .x a.y { text-decoration-color: #3C6650; } "
-             ".data-note a { color: blue; } .ok a { color: #374151; } abbr { color: #3C6650; }</style>")
-    assert link_problems(links) == [
+    page = f"<style>{PLANTED_STYLES}</style>"
+    assert text_colours(page) == [(".masthead .doc-kind", "#6B7280"), ("th", "#3C6650"), ("@page @top-left", "#636A77")]
+    assert low_contrast(page) == [".masthead .doc-kind #6B7280 on #ECF2EE is 4.26:1"]
+
+    # 2. Colour values: every form but a token's hex, inherit and currentColor fails, wherever it sits.
+    flagged = {
+        ".ref { color: rgb(60, 102, 80); }": "rgb(60, 102, 80)",
+        ".sources strong { color: green; }": "green",
+        ".x { color: hsl(150 26% 32%); }": "hsl(150 26% 32%)",
+        ".x { color: #3C6650FF; }": "#3C6650FF",
+        ".x { color: #3C68; }": "#3C68",
+        ".x { color: transparent; }": "transparent",
+        ".x { color: var(--sage); }": "var(--sage)",
+        ".x { color: color-mix(in srgb, #3C6650, #FFFFFF); }": "color-mix(in srgb, #3C6650, #FFFFFF)",
+        ".x { color: CanvasText; }": "CanvasText",
+        ".x { color: initial; }": "initial",
+        ".x { color: revert; }": "revert",
+        ".x { border-bottom: 1px solid rebeccapurple; }": "rebeccapurple",
+        ".x { text-decoration: underline green; }": "green",
+        ".x { box-shadow: 0 0 0 1px rgb(0 0 0 / 50%); }": "rgb(0 0 0 / 50%)",
+        ".sources { .x { color: green; } }": "green",  # a nested rule
+        "@media print { .ref { color: green; } }": "green",  # a rule in a conditional group
+        ".x { color: #636A77; color: green; }": "green",  # a declaration a later one overrides
+    }
+    for css, form in flagged.items():
+        problems = pdf_colour_problems(f"<style>{css}</style>")
+        assert len(problems) == 1 and problems[0].endswith(f"names {form}"), (css, problems)
+    passing = (
+        "a { color: inherit; } .x { color: currentColor; border: 0; } .y { color: #636A77; }"
+        " th { text-transform: uppercase; font-family: 'Geist Mono', monospace; } ul { list-style: none; }"
+        ' @page { @bottom-right { content: "Page " counter(page); color: #636A77; } } a { text-decoration: underline; }'
+    )
+    assert pdf_colour_problems(f"<style>{passing}</style>") == []
+    assert pdf_colour_problems('<svg><path fill="#3C6650" d="M0"/><path fill="none" stroke="currentColor" d="M0"/></svg>') == []
+    assert pdf_colour_problems(
+        '<div style="color: #636A77">x</div><svg><path fill="green" d="M0"/><path fill-opacity="0.5" d="M0"/></svg>'
+        '<link rel="stylesheet" href="x.css"><style>@import url(x.css);</style><style media="print">.r { color: red; }</style>'
+    ) == [
+        ".r { color: red } names red",  # a <style> with attributes is read too
+        "@import url(x.css)",
+        "<div style='color: #636A77'>: a style attribute",
+        "<path fill='green'> names green",
+        "<path fill-opacity='0.5'>: an opacity attribute",
+        "<link rel=stylesheet href='x.css'>: a linked stylesheet",
+    ]
+
+    # A module literal's hex: the alpha forms fail, an aRGB reads as its colour.
+    assert hex_literals('A = "#3C6650FF"\nB = "FF1A1A17"\nC = f"#3c6650 {x}"\nD = "#3C68"') == [
+        (1, "#3C6650FF"), (2, "#1A1A17"), (3, "#3C6650"), (4, "#3C68"),
+    ]
+    # The workbook: a theme, an indexed and an automatic colour fail; an unstyled cell's default text passes.
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Planted"
+    sheet["A1"] = "unstyled"
+    sheet["A2"], sheet["A2"].font = "theme", Font(color=Color(theme=4))
+    sheet["A3"], sheet["A3"].fill = "indexed", PatternFill("solid", start_color=Color(indexed=10))
+    sheet["A4"].border = Border(bottom=Side(style="thin"))
+    buffer = io.BytesIO()
+    book.save(buffer)
+    assert workbook_off_token(workbook_colours(buffer.getvalue())) == [
+        ("Planted!A2 text", "theme 4"), ("Planted!A3 fill", "indexed 10"), ("Planted!A4 bottom border", "automatic"),
+    ]
+
+    # 3. Grounds: a rule painting behind text joins the grounds, and every text colour is held to each.
+    tinted = f"<style>{PLANTED_STYLES} .methods {{ background: #E5E7EB; }} .footnote {{ color: #636A77; }}</style>"
+    assert ground_rules(tinted) == {".masthead": ["background"], ".methods": ["background"]}
+    assert ".footnote #636A77 on #E5E7EB is 4.40:1" in low_contrast(tinted)
+    for css in (".x { box-shadow: inset 0 0 0 99px #E5E7EB; }", "@page { background: #ECF2EE; }",
+                ".x { opacity: 0.8; }", ".x { background-image: linear-gradient(#ECF2EE, #ECF2EE); }",
+                ".x { .y { background-color: #ECF2EE; } }", ".x { filter: brightness(0.9); }"):
+        assert len(ground_rules(f"<style>{css}</style>")) == 1, css
+
+    # 4. Links: each form that styles a link is read, and each look-alike is not.
+    links = (
+        "a { color: inherit; text-decoration: underline; } .sources a { text-decoration: none; }"
+        " .methods > a:link { color: #3C6650; } .x a.y { text-decoration-color: #3C6650; }"
+        " .data-note a { color: blue; } .ok a { color: #374151; } abbr { color: #3C6650; }"
+        " .sources :any-link { text-decoration: none; } .methods [href] { color: green; }"
+        " .x :link { color: #3C6650; } .x * { text-decoration-line: none; } .x :is(a, b) { color: #4F7A63; }"
+        " .x :not(p) { text-decoration: none; } .x a::after { color: #3C6650; } .x :visited { all: unset; }"
+        " .x { a { text-decoration: none; } } .x a { text-decoration-thickness: 0; } .src { text-decoration: none; }"
+        " .footnote { text-decoration: none; } .x :not(a) { color: #3C6650; } .x :not(:link) { color: #3C6650; }"
+        " td.num { color: #374151; }"
+    )
+    assert link_problems(f'<style>{links}</style><p><a href="#n" class="src">1</a></p>') == [
         ".sources a sets text-decoration: none", ".methods > a:link sets color: #3C6650",
         ".x a.y sets text-decoration-color: #3C6650", ".data-note a sets color: blue",
+        ".sources :any-link sets text-decoration: none", ".methods [href] sets color: green",
+        ".x :link sets color: #3C6650", ".x * sets text-decoration-line: none", ".x :is(a, b) sets color: #4F7A63",
+        ".x :not(p) sets text-decoration: none", ".x a::after sets color: #3C6650", ".x :visited sets all: unset",
+        ".x a sets text-decoration: none", ".x a sets text-decoration-thickness: 0",
+        ".src sets text-decoration: none",  # a class the rendered link carries: read by what it selects
     ]
