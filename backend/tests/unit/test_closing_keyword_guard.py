@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import time
 from pathlib import Path
 
 import pytest
@@ -83,6 +82,11 @@ def bodies(tmp_path: Path) -> Path:
     (tmp_path / "automerge.graphql").write_text(
         'mutation { enablePullRequestAutoMerge(input: {pullRequestId: "X", commitBody: "resolves #3"}) '
         "{ clientMutationId } }\n", encoding="utf-8")
+    (tmp_path / "notes[1].md").write_text("Fixes #3.\n", encoding="utf-8")  # a glob's text, quoted or escaped
+    (tmp_path / "notes1.md").write_text("#3 carries the fix.\n", encoding="utf-8")  # what the glob matches
+    (tmp_path / "odd[2].md").write_text("Fixes #3.\n", encoding="utf-8")  # a glob that matches nothing
+    (tmp_path / "curl.cfg").write_text('data = "{\\"commit_message\\": \\"fixes #3\\"}"\n', encoding="utf-8")
+    (tmp_path / "note.md").write_text("Try `gh pr merge 5 -s -b 'fixes #3'`: the hook refuses it.\n", encoding="utf-8")
     (tmp_path / "query.json").write_text(
         '{"query": "mutation { mergePullRequest(input: {pullRequestId: \\"X\\", commitHeadline: \\"fixes #3\\"}) '
         '{ clientMutationId } }"}', encoding="utf-8")
@@ -100,6 +104,11 @@ MCP_REFUSED = {
         "variables": {"input": {"pullRequestId": "X", "commitBody": "Closes #3"}}}),
     "another server named for github": ("mcp__plugin_GitHub-tools__merge_pull_request", {"commit_message": "fix #3"}),
     "a merge tool's field under another name": (MERGE, {"pullNumber": 5, "message": "fixes #3"}),
+    "a request whose query names a merge mutation": ("mcp__github__api_request", {
+        "query": "mutation($input: MergePullRequestInput!) { mergePullRequest(input: $input) { clientMutationId } }",
+        "variables": {"input": {"pullRequestId": "X", "commitHeadline": "fixes #3"}}}),
+    "a GraphQL tool's document": ("mcp__github__graphql", {
+        "document": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "fixes #3"}) { clientMutationId } }'}),
 }
 MCP_PASSED = {
     "no typed message": (MERGE, {"pullNumber": 5, "merge_method": "squash"}),
@@ -112,6 +121,11 @@ MCP_PASSED = {
         "query": 'mutation { addComment(input: {subjectId: "X", body: "closes #3 once merged"}) { clientMutationId } }'}),
     "a branch commit, which review-gate reads": (
         "mcp__github__create_or_update_file", {"path": "a.md", "content": "x", "message": "fixes #3", "branch": "t"}),
+    # A mutation's name outside a GraphQL request is text, not a merge: a file's content, a comment.
+    "a file that names a merge mutation": ("mcp__github__create_or_update_file", {
+        "path": "t.py", "content": "mergePullRequest(commitHeadline: 'fixes #3')", "message": "test", "branch": "t"}),
+    "a comment that names a merge mutation": ("mcp__github__add_issue_comment", {
+        "issue_number": 5, "body": "A mergePullRequest with commitHeadline 'fixes #3' is refused."}),
 }
 BASH_REFUSED = (
     "gh pr merge 5 --squash --body 'Closes #3'",
@@ -130,6 +144,13 @@ BASH_REFUSED = (
     "gh pr merge 5 -s -b 'clo''ses #3'",  # the keyword is whole only once the shell removes the quotes
     "gh pr merge 5 -s -b fi\"x\"ed\\ \\#3",
     "gh pr merge 5 -s -b fix\\\nes\\ \\#3",  # a line continuation the shell joins inside the keyword
+    "gh pr merge 5 -s -b\"Fixes \"#3",  # a value attached to -b or -t, after any run of short flags
+    "gh pr merge 5 -s -bFixes\\ \\#3",
+    "gh pr merge 5 -sbFixes\\ \\#3",
+    "gh pr merge 5 -s -tFixes\\ \\#3 -b ok",
+    # Naming a merge is enough: a comment that quotes one is refused too, and the reason says to send such
+    # text from a file (the --body-file look-alike below passes).
+    "gh pr comment 5 --body \"try gh pr merge 5 -s -b 'fixes #3'\"",
     "gh pr merge 5 -s --body-file msg.md",
     "gh pr merge 5 -s -F msg.md",
     "gh pr merge 5 -s --body-file=msg.md",
@@ -141,12 +162,18 @@ BASH_REFUSED = (
     "gh pr merge 5 -s --body-file /dev/stdin < msg.md",
     "cat msg.md | gh pr merge 5 -s -F -",
     "cat clean.md msg.md | gh pr merge 5 -s -F -",  # each file a plain cat reads, wherever it sits
+    "/bin/cat msg.md | gh pr merge 5 -s -F -",
     "gh pr merge 5 -s -b \"$(cat msg.md)\"",
     "gh pr merge 5 -s -b \"`cat msg.md`\"",
     "gh pr merge 5 -s --body-file <(cat msg.md)",
     "gh pr merge 5 -s -b \"$(<msg.md)\"",
     "gh pr merge 5 -s -F my\\ notes.md",  # a name as the shell passes it: escapes resolved, globs expanded
     "gh pr merge 5 -s -F 'my notes.md'",
+    "gh pr merge 5 -s -F 'my notes'.md",  # a word of quoted and plain pieces
+    "gh pr merge 5 -s -F ./\"msg.md\"",
+    "gh pr merge 5 -s -F 'notes[1].md'",  # a quoted or escaped glob character is literal
+    "gh pr merge 5 -s -F notes\\[1\\].md",
+    "gh pr merge 5 -s -F odd[2].md",  # a glob that matches nothing is passed as written
     "gh pr merge 5 -s --body-file \\\nmsg.md",
     "gh pr merge 5 -s -F m*.md",
     "gh pr merge 5 -s --body-file - <<'EOF'\nSquash.\n\nfixes #3\nEOF",
@@ -177,6 +204,10 @@ BASH_REFUSED = (
     "curl -X POST -d @query.json https://api.github.com/graphql",
     "http PUT api.github.com/repos/o/r/pulls/5/merge commit_message=@msg.md",
     "wget --method=PUT --body-file=body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "wget --post-file=query.json https://api.github.com/graphql",
+    "curl -X PUT -K curl.cfg https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT --config curl.cfg https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT --variable msg@msg.md --expand-data '{{msg}}' https://api.github.com/repos/o/r/pulls/5/merge",
     "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
     "json={'commit_message': 'fixes #3'})\"",
 )
@@ -189,6 +220,8 @@ BASH_PASSED = (
     "gh api -X PUT repos/o/r/pulls/5/merge --field commit_message=msg.md",
     "gh pr merge 5 -s -b '#3 carries the fix; addressed in #4'",
     "gh pr merge 5 -s --body-file clean.md",
+    "gh pr merge 5 -s -F notes[1].md",  # the glob matches notes1.md, the file the shell passes
+    "gh pr comment 5 --body-file note.md",  # text that quotes a merge, sent from a file
     "gh pr view 5 --json body | grep -c 'fixes #3'",  # not a merge: review-gate reads the pull request's own text
     "git merge origin/main -m 'fixes #3'",  # a branch commit: review-gate reads the pull request's commits
     "gh pr comment 5 --body 'closes #3 once merged'",
@@ -202,7 +235,7 @@ BASH_PASSED = (
 # The stated gaps, one per form the hook's docstring names: text the shell or a command builds as the line
 # runs (a variable, an ANSI-C escape, any command's output but a plain cat's, a line handed to another shell
 # that way), a file named relative to a directory the line changes into, a script, a gh alias, a server named
-# otherwise. A file over 1 MiB has its own test.
+# otherwise. A file over 1 MiB and a glob's files past its first 16 have tests of their own.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b $'fixes \\x233'"}),
@@ -263,31 +296,36 @@ def test_a_monitor_runs_its_command_through_the_shell_as_bash_does(bodies: Path)
     assert _decision("Monitor", {**monitor, "command": "gh pr merge 5 -s"}, cwd=bodies) is None
 
 
-def test_a_glob_is_read_to_its_first_16_files(bodies: Path) -> None:
+def test_a_glob_is_read_to_its_first_16_files_in_the_shells_order(bodies: Path) -> None:
     for number in range(40):
         (bodies / f"part{number}.md").write_text(f"Fixes #{100 + number}.\n", encoding="utf-8")
     reason = _refused("Bash", {"command": "gh pr merge 5 -s -F part*.md"}, cwd=bodies)
-    assert sum(f"#{100 + number}" in reason for number in range(40)) == 16
+    first = {int(name[4:-3]) for name in sorted(f"part{number}.md" for number in range(40))[:16]}
+    assert {number for number in range(40) if f"#{100 + number}" in reason} == first
+
+
+def test_a_glob_under_a_directory_whose_name_has_glob_characters_is_read(bodies: Path) -> None:
+    here = bodies / "dir[x]"
+    here.mkdir()
+    (here / "msg.md").write_text("Fixes #3.\n", encoding="utf-8")
+    _refused("Bash", {"command": "gh pr merge 5 -s -F m*.md"}, cwd=here)
 
 
 def test_a_body_file_under_home_is_read(bodies: Path) -> None:
     _refused("Bash", {"command": "gh pr merge 5 -s --body-file ~/msg.md"}, env={"HOME": str(bodies)})
 
 
-def test_a_file_over_the_cap_and_one_under_proc_are_not_read(bodies: Path) -> None:
+def test_a_file_over_the_cap_and_a_pipe_are_not_read(bodies: Path) -> None:
     (bodies / "big.md").write_text("Fixes #3.\n" + "x" * (1 << 20), encoding="utf-8")
     assert _decision("Bash", {"command": "gh pr merge 5 -s -F big.md"}, cwd=bodies) is None
-    # /proc, /sys and /dev are skipped (a read there can block, or is a pipe): the hook's own environment
-    # names a reference, and it is not read.
-    command = "gh pr merge 5 -s --body-file /proc/self/environ"
-    assert _decision("Bash", {"command": command}, cwd=bodies, env={"SQUASH_NOTE": "fixes #3"}) is None
+    os.mkfifo(bodies / "pipe.md")  # opened, it would wait for a writer past the hook's timeout
+    assert _decision("Bash", {"command": "gh pr merge 5 -s -F pipe.md"}, cwd=bodies) is None
 
 
-def test_a_large_command_is_read_inside_the_timeout() -> None:
+def test_a_large_command_is_read_inside_the_hooks_timeout() -> None:
+    # _run gives the hook the timeout .claude/settings.json registers; a slower read fails with TimeoutExpired.
     command = "gh pr merge 5 -s -b 'ok' && echo " + "fix-" * 250_000
-    started = time.monotonic()
     assert _decision("Bash", {"command": command}) is None
-    assert time.monotonic() - started < 5
 
 
 @pytest.mark.parametrize("event", ["", "not json", "[]", json.dumps({"tool_name": "Bash"}),

@@ -43,12 +43,14 @@ lists. It reads text as GitHub renders it, so an escaped number sign or an HTML 
 message typed at merge, which no pull-request check can see, is read by
 `.claude/hooks/closing_keyword_guard.py` in an agent's session: `.claude/settings.json` runs it before every
 Bash command, every Monitor and every GitHub MCP call, and it refuses a merge call (any string handed to a
-GitHub MCP call that merges or names a merge mutation, or a shell line that runs `gh pr merge`, calls a REST
-merge endpoint or sends a GraphQL merge mutation, with every file the line names to send or read) whose text
-carries such a reference, with the gate's own pattern (`backend/tests/unit/test_closing_keyword_guard.py`).
-Not gated: a merge whose message the shell or a command builds as the line runs (a variable, a `$'...'`
-escape, or the output of any command but a plain `cat`) or that reads a file over 1 MiB or named relative to
-a directory the line changes into first, a merge a script or a gh alias runs, a merge through a GitHub MCP
+GitHub MCP merge tool or to a GraphQL request naming a merge mutation, or a shell line that runs or names
+`gh pr merge`, a REST merge endpoint or a GraphQL merge mutation, with every file the line names to send or
+read) whose text carries such a reference, with the gate's own pattern
+(`backend/tests/unit/test_closing_keyword_guard.py`). A line that only names a merge, such as a comment
+quoting one, is refused too; such text goes in a body file. Not gated: a merge whose message the shell or a
+command builds as the line runs (a variable, a `$'...'` escape, or the output of any command but a plain
+`cat`) or that reads a file over 1 MiB, a glob's files past its first 16, or a file named relative to a
+directory the line changes into first, a merge a script or a gh alias runs, a merge through a GitHub MCP
 server registered under a name without "github", a merge made in a session that loads no repository hooks or
 by a person, and a merge made after an edit but before its new gate run's check appears.
 

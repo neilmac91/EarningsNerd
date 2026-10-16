@@ -9,24 +9,28 @@ message: the title, or the one commit's subject, then every commit message. It c
 at the merge itself. This hook reads that message where an agent types it, with the gate's own
 `closing_references` (loaded from backend/scripts/review_gate.py, so the two share one pattern):
 - a call to a GitHub MCP server (a name containing "github" in any case) that merges: a tool whose name
-  contains "merge" (merge_pull_request types commit_title and commit_message), or one handed a merge
-  mutation's name (a GraphQL runner's mergePullRequest, enablePullRequestAutoMerge, mergeBranch). It reads
-  every string the call is handed, at any depth, whatever the server names the field;
-- a shell line (Bash's, or a Monitor's command) that runs `gh pr merge` (gh as a word or a path, -R/--repo
-  before the noun or the verb, the words quoted or not), that calls a REST merge endpoint (`/merge` or
-  `/merges` with `gh api` or api.github.com), or that calls the GraphQL API (`graphql` with `gh api` or
-  api.github.com) with a merge mutation (mergePullRequest, enablePullRequestAutoMerge, mergeBranch) on the
-  line or in a file it sends. It reads the whole line, as written and as the shell joins it (quotes,
-  backslashes and continuations removed), here-document text included, and every file the line names to
+  contains "merge" (merge_pull_request types commit_title and commit_message), or a GraphQL request (a tool
+  whose name contains "graphql", or a `query` argument) that names a merge mutation (mergePullRequest,
+  enablePullRequestAutoMerge, mergeBranch). It reads every string the call is handed, at any depth, whatever
+  the server names the field. A call that only mentions a mutation (a file's content, a comment) passes;
+- a shell line (Bash's, or a Monitor's command) that runs or names `gh pr merge` (gh as a word or a path,
+  -R/--repo before the noun or the verb, the words quoted or not), a REST merge endpoint (`/merge` or
+  `/merges` with `gh api` or api.github.com), or a GraphQL call (`graphql` with `gh api` or api.github.com)
+  with a merge mutation on the line or in a file it sends. It reads the whole line as written, as the shell
+  joins it (quotes, backslashes and continuations removed, here-document text included), and with gh's
+  `-b`/`-t` split from a value attached to them (`-b"Fixes "#3`). It reads every file the line names to
   send or read: an option whose value is a file (gh pr merge's `--body-file`/`-F`, gh api's `--input`,
-  curl's `-T`/`--upload-file`, wget's `--body-file`), a file an `@` names (gh api's `-F`/`--field
-  key=@file`, curl's `-d`/`--data`/`--json @file`, httpie's `field=@file`; quoted or attached, as in
-  `-d@file`), a `<` redirect's target (`$(<file)` too), and each file a plain `cat` reads, piped or inside
-  `$(...)`, `<(...)` or backticks. A name is read as the shell passes it:
-  escapes resolved, `~` expanded, and a glob expanded to its first 16 files.
+  curl's `-T`/`--upload-file` and `-K`/`--config`, wget's `--body-file`/`--post-file`), a file an `@` names
+  (gh api's `-F`/`--field key=@file`, curl's `-d`/`--data`/`--json @file` and `--variable name@file`,
+  httpie's `field=@file`; quoted or attached, as in `-d@file`), a `<` redirect's target (`$(<file)` too),
+  and each file a plain `cat`, by name or path, reads, piped or inside `$(...)`, `<(...)` or backticks. A
+  name is read as the shell passes it: its quoted, escaped and plain pieces joined, `~` expanded, and an
+  unquoted glob expanded, sorted, to its first 16 files (to the word itself when nothing matches).
 A merge with no typed message passes: its message is the default the gate has read. Reading the whole line,
-and every file it names, refuses more than the merge's own message (another command on the line that names
-a closing reference); the remedy, rewording, is cheap.
+and every file it names, refuses more than a merge's own message: another command's text on the same line,
+and a line that only names a merge (a comment that quotes `gh pr merge` with a closing reference). The
+remedy is cheap: reword, or send such text from a file (`--body-file`), which a line that names no merge
+never has read.
 
 A refusal is a JSON deny on stdout, which Claude Code hands to Claude as the reason; anything else exits 0
 with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call through. The
@@ -35,18 +39,19 @@ open) to 1, so a broken install never blocks every Bash command and every GitHub
 
 Not checked: text the shell or a command builds as the line runs (a variable, an ANSI-C `$'...'` escape,
 the output of any command but a plain `cat`, a line handed to another shell that way; a literal
-`bash -c '...'` is on the line and read); a file over 1 MiB, or named relative to a directory the line
-changes into first; a merge a script or a gh alias runs; a GitHub MCP server registered under a name
-without "github"; a session that loads no repository hooks; and a person's own merge.
+`bash -c '...'` is on the line and read); a file over 1 MiB, a glob's files past its first 16, or a file
+named relative to a directory the line changes into first; a merge a script or a gh alias runs; a GitHub
+MCP server registered under a name without "github"; a session that loads no repository hooks; and a
+person's own merge.
 Tests: backend/tests/unit/test_closing_keyword_guard.py.
 """
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
 import sys
-from glob import iglob
 from itertools import islice
 from pathlib import Path
 
@@ -57,23 +62,29 @@ MERGE_ENDPOINT = re.compile(r"/merges?\b")
 GH_API = re.compile(r"(?:^|[\s/;&|(`$])gh\s+api\b")
 GRAPHQL = re.compile(r"\bgraphql\b", re.IGNORECASE)
 MERGE_MUTATION = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|mergeBranch)\b", re.IGNORECASE)
-# A shell word: quoted, or unquoted with backslash escapes.
-_WORD = r"""(?:'[^'\n]*'|"[^"\n]*"|(?:[^\s;&|()<>'"`\\]|\\.)+)"""
+# gh pr merge's -b (body) or -t (subject) with its value attached, after any run of other short flags.
+ATTACHED = re.compile(r"(?<!\S)(-[A-Za-z]*?[bt])(?=\S)")
+# A shell word: a run of single-quoted, double-quoted, escaped and plain pieces, and each piece of one.
+_WORD = r"""(?:'[^'\n]*'|"[^"\n]*"|\\.|[^\s;&|()<>'"`\\])+"""
 _VALUE = "(" + _WORD + ")"  # a file name; a lone `-` is standard input
+_PIECE = re.compile(r"""'([^'\n]*)'|"([^"\n]*)"|\\(.)|(.)""", re.DOTALL)
 # The files a line sends, read by regular expressions, not shlex (they read a 1 MiB line in milliseconds):
 # an option whose value is a file (gh pr merge's --body-file and -F, gh api's --input, curl's
-# -T/--upload-file, wget's --body-file; a short flag may close a run of others, as in -sF); a file an `@`
-# names, which gh api's -F/--field, curl's -d/--data/--json/-F and httpie's fields read (alone, after `=`,
-# attached to a short option as in -d@file, or quoted); a `<` redirect's target; the files a plain `cat`
-# reads. A plain -d or --field value is data, not a file.
-FILE_ARG = re.compile(r"(?:^|[\s;&|(])(?:--(?:body-file|input|upload-file)(?:=|\s+)|-[A-Za-z]*[FT][ \t]*)" + _VALUE)
-AT_FILE = re.compile(r"(?:^|[\s=]|\s-[A-Za-z]+)@" + _VALUE)
+# -T/--upload-file and -K/--config, wget's --body-file and --post-file; a short flag may close a run of
+# others, as in -sF); a file an `@` names, which gh api's -F/--field, curl's -d/--data/--json/-F and
+# --variable, and httpie's fields read (alone, after `=` or a variable's name, attached to a short option as
+# in -d@file, or quoted); a `<` redirect's target; the files a plain `cat` reads. A plain -d or --field value
+# is data, not a file.
+FILE_ARG = re.compile(
+    r"(?:^|[\s;&|(])(?:--(?:body-file|post-file|input|upload-file|config)(?:=|\s+)|-[A-Za-z]*[FTK][ \t]*)" + _VALUE)
+AT_FILE = re.compile(r"(?:^|[\s=]|\s-[A-Za-z]+|--variable(?:=|\s+)[\w.%-]*)@" + _VALUE)
 AT_QUOTED = re.compile(r"""(?:^|[\s=]|\s-[A-Za-z]+)(['"])(?:[^'"\n=]*=)?@([^'"\n]*)\1""")
 REDIRECT = re.compile(r"(?<![<&])<(?![<(&>])[ \t]*" + _VALUE)
-CAT = re.compile(r"(?:^|[\s;&|(`])cat((?:[ \t]+" + _WORD + r")+)")
+CAT = re.compile(r"(?:^|[\s;&|(`/])cat((?:[ \t]+" + _WORD + r")+)")
 UNQUOTE = str.maketrans("", "", "'\"\\")
 MAX_FILE_BYTES = 1 << 20
 MAX_GLOB_FILES = 16
+MAX_GLOB_SCAN = 4096  # the matches sorted to find a glob's first files
 GATE = Path(__file__).resolve().parents[2] / "backend" / "scripts" / "review_gate.py"
 
 
@@ -99,11 +110,27 @@ def _strings(value: object, field: str | None = None):
         yield field or "an argument", value
 
 
-def _name(word: str) -> str:
-    """A shell word as the shell passes it: quotes stripped, backslash escapes resolved."""
-    if word[:1] in ("'", '"'):
-        return word[1:-1]
-    return re.sub(r"\\(.)", r"\1", word, flags=re.DOTALL)
+def _word(word: str) -> tuple[str, str]:
+    """A shell word as the shell passes it, and as a glob in which only its unquoted, unescaped part is special."""
+    name, pattern = [], []
+    for match in _PIECE.finditer(word):
+        single, double, escaped, plain = match.groups()
+        literal = next((piece for piece in (single, double, escaped) if piece is not None), None)
+        name.append(plain if literal is None else literal)
+        pattern.append(plain if literal is None else glob.escape(literal))
+    return "".join(name), "".join(pattern)
+
+
+def _read(path: str) -> str | None:
+    """A regular file's text, or None for anything else (a pipe, a device, a directory) or a file over 1 MiB."""
+    try:
+        if not os.path.isfile(path):
+            return None
+        with open(path, "rb") as handle:
+            data = handle.read(MAX_FILE_BYTES + 1)
+    except (OSError, ValueError):
+        return None
+    return None if len(data) > MAX_FILE_BYTES else data.decode("utf-8", errors="replace")
 
 
 def _plain(command: str) -> str:
@@ -129,37 +156,34 @@ def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
     names (`commit_message=@msg.md`, `-d @body.json`), a `<` redirect's target, and each file a plain `cat`
     reads, wherever it sits on the line."""
     joined = command.replace("\\\n", "")  # a continuation can split an option from its file
-    names = [_name(match.group(1)) for pattern in (FILE_ARG, AT_FILE, REDIRECT) for match in pattern.finditer(joined)]
-    names += [match.group(2) for match in AT_QUOTED.finditer(joined)]
-    names += [_name(word) for match in CAT.finditer(joined) for word in re.findall(_WORD, match.group(1))
+    words = [match.group(1) for pattern in (FILE_ARG, AT_FILE, REDIRECT) for match in pattern.finditer(joined)]
+    words += [word for match in CAT.finditer(joined) for word in re.findall(_WORD, match.group(1))
               if not word.startswith("-")]
+    names = [_word(word) for word in words]
+    names += [(match.group(2), glob.escape(match.group(2))) for match in AT_QUOTED.finditer(joined)]
     base = cwd if isinstance(cwd, str) and cwd else os.getcwd()
     texts = []
-    for name in dict.fromkeys(names):
+    for name, pattern in dict.fromkeys(names):
         if name == "-":  # standard input: a here-document is on the line, a redirect or a cat read above
             continue
-        pattern = os.path.join(base, os.path.expanduser(name))
-        found = islice(iglob(pattern), MAX_GLOB_FILES) if any(char in name for char in "*?[") else (pattern,)
-        try:
-            for candidate in found:
-                path = Path(candidate).resolve()
-                if str(path).startswith(("/proc/", "/sys/", "/dev/")):
-                    continue
-                if path.is_file() and path.stat().st_size <= MAX_FILE_BYTES:
-                    texts.append((f"the file {name}", path.read_text(encoding="utf-8", errors="replace")))
-        except (OSError, RuntimeError, ValueError):
-            continue
+        paths = [os.path.join(base, os.path.expanduser(name))]
+        if any(char in pattern for char in "*?["):  # bash passes the word itself when nothing matches
+            found = glob.iglob(os.path.join(glob.escape(base), os.path.expanduser(pattern)))
+            paths = sorted(islice(found, MAX_GLOB_SCAN))[:MAX_GLOB_FILES] or paths
+        texts += [(f"the file {name}", text) for text in map(_read, paths) if text is not None]
     return texts
 
 
 def _reason(references: list[str]) -> str:
     return (
-        "Refused by .claude/hooks/closing_keyword_guard.py: this merge's commit text puts a closing keyword "
-        "before an issue or pull request reference (" + "; ".join(references) + "). GitHub closes what it "
-        "names when the commit reaches main, a pull request included. Reword each so no form of close, fix or "
-        "resolve sits right before the reference (\"addressed in #N\", or the reference first: \"#N carries "
-        "the fix\"), or leave the message out to merge with the default, which review-gate has read; close "
-        "anything you mean to close by hand after the merge (lessons/ops-closing-keywords-close-what-they-name.md)."
+        "Refused by .claude/hooks/closing_keyword_guard.py: this call merges or names a merge, and its text or "
+        "a file it sends puts a closing keyword before an issue or pull request reference ("
+        + "; ".join(references) + "). GitHub closes what it names when the commit reaches main, a pull request "
+        "included. Reword each so no form of close, fix or resolve sits right before the reference (\"addressed "
+        "in #N\", or the reference first: \"#N carries the fix\"), or leave the message out to merge with the "
+        "default, which review-gate has read; text that only quotes a merge (a comment) can go in a --body-file "
+        "instead. Close anything you mean to close by hand after the merge "
+        "(lessons/ops-closing-keywords-close-what-they-name.md)."
     )
 
 
@@ -180,7 +204,8 @@ def refusal(event: object) -> str | None:
         kind = _merge_kind(command)
         if kind is None:
             return None
-        texts = [("this command", command), ("this command", plain)]
+        # As written, and as the shell joins it with gh's -b/-t split from an attached value.
+        texts = [("this command", command), ("this command", ATTACHED.sub(r"\1 ", plain))]
         texts += _body_files(command, event.get("cwd"))
         if kind == "graphql" and not any(MERGE_MUTATION.search(text) for _, text in texts):
             return None
@@ -189,8 +214,12 @@ def refusal(event: object) -> str | None:
         if not (len(parts) >= 3 and parts[0] == "mcp" and "github" in parts[1].lower()):
             return None
         texts = list(_strings(tool_input))
-        # A merge tool, or a call handed a merge mutation, may carry its commit text in any string.
-        if not ("merge" in "__".join(parts[2:]).lower() or any(MERGE_MUTATION.search(text) for _, text in texts)):
+        name = "__".join(parts[2:]).lower()
+        # A merge tool, or a GraphQL request that names a merge mutation, may carry its commit text in any
+        # string; a mutation's name in another call's text (a file's content, a comment) is not a merge.
+        graphql = "graphql" in name
+        if not ("merge" in name or any(
+                MERGE_MUTATION.search(text) for field, text in texts if graphql or field == "query")):
             return None
     references = list(dict.fromkeys(_closing_references()(texts)))
     return _reason(references) if references else None
