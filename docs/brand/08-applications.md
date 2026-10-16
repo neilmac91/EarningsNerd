@@ -56,8 +56,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   email, as the login page's conflict sentence says.
   /reset-password and the register form state one rule from `frontend/lib/passwordRules.ts`, mirrored
   from the server's `PASSWORD_MIN_LENGTH`: "At least 12 characters. A longer passphrase is stronger.
-  Breached passwords are rejected." (true while `PWNED_PASSWORD_CHECK_ENABLED` keeps its default), and
-  the strength meter reads "Too short" under that minimum and "Weak" at it, adding a bar for four
+  We check new passwords against known data breaches." (true while `PWNED_PASSWORD_CHECK_ENABLED` keeps
+  its default; it names the check, not a refusal, because the lookup lets a password through when it
+  fails), and the strength meter reads "Too short" under that minimum and "Weak" at it, adding a bar for four
   characters past it, for letters with digits and for a symbol; its bars carry dark twins
   (`tests/unit/themePairs.spec.ts` holds every colour class on a light half, a `-light` token or one
   beside a `<name>-dark` such as `brand-weak`, to a `dark:` colour twin, outside a listed residue,

@@ -18,9 +18,12 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
  *    validator's body is pinned (a helper call is a statement too), and every password field of the auth
  *    schemas (backend/app/routers/auth.py) is a bare `str` whose validator only calls it, so PASSWORD_RULE
  *    states the whole rule. A check written into a route handler's own body is not read here.
- *  - PASSWORD_RULE's "Breached passwords are rejected" stands only while the HaveIBeenPwned check defaults
- *    on (backend/app/config.py PWNED_PASSWORD_CHECK_ENABLED, backend/app/services/pwned_passwords.py) and
- *    the two routes behind the pages that state it (register and reset_password) call it.
+ *  - PASSWORD_RULE's "We check new passwords against known data breaches" stands only while the
+ *    HaveIBeenPwned check defaults on (backend/app/config.py PWNED_PASSWORD_CHECK_ENABLED,
+ *    backend/app/services/pwned_passwords.py) and the two routes behind the pages that state it (register
+ *    and reset_password) call it. It names the check, never a refusal: the lookup fails open (an outage or
+ *    an error lets the password through), so a sentence saying breached passwords are rejected, refused or
+ *    blocked would be false whenever it does.
  *  - A file that handles a password (renders a password field or reads lib/passwordRules) never writes a
  *    length by hand: no length in copy ("12 characters", "12-character", "12+", "12 or more", "twelve"),
  *    on one line or composed across JSX text and its expressions (`At least {12}` then `characters` on the
@@ -377,8 +380,11 @@ describe('the password rule moves in lockstep with the backend', () => {
     ])
   })
 
-  it('says breached passwords are rejected only while the breach check defaults on and the routes behind the sentence call it', () => {
-    expect(PASSWORD_RULE).toContain('Breached passwords are rejected.')
+  it('names the breach check only while it defaults on and the routes behind the sentence call it, and never a refusal the fail-open lookup cannot keep', () => {
+    expect(PASSWORD_RULE).toContain('We check new passwords against known data breaches.')
+    expect(PASSWORD_RULE, 'is_password_pwned fails open, so a breached password can get through: name the check, not a refusal').not.toMatch(
+      /\b(?:reject|refus|block|den(?:y|ied)|not allowed|never accept|can(?:no|['\u2019])t use)/i,
+    )
     expect(backend('app/config.py')).toMatch(/^\s*PWNED_PASSWORD_CHECK_ENABLED:\s*bool\s*=\s*True\b/m)
     // /register and /reset-password state PASSWORD_RULE; these are the routes their forms post to.
     const router = backend('app/routers/auth.py')
