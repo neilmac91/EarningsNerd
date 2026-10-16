@@ -11,7 +11,9 @@ import { brandText, direction600Text, directionTextTokens, isTextColour } from '
  * clause of CLAUDE.md rule 11 was review-checked only, and the dashboard's what-changed chips shipped a
  * gain in sage (audit DSW-08, filing/F03). The walk up from a glyph reads every element to the first that
  * gives it an ink on every render, so a layout or type wrapper never shields the sage above it (the
- * principal review of #1290).
+ * principal review of #1290). A glyph is known by its import as well as its spelling (Codex on 6aa1baa9): a local
+ * name an import from the icon modules binds to one, a namespace member and Phosphor's unsuffixed name, in JSX
+ * and in a direction map.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -56,6 +58,10 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
   valid: [
     // The 700-level inks and financialTone's recipes.
     '<span className="text-gain-text dark:text-gain-dark">+4.2%</span>',
+    // An import is a trend glyph only from the icon modules, and only under a trend glyph's name.
+    "import { TrendUp } from './charts';\n<span className=\"text-brand-strong\"><TrendUp /></span>",
+    "import { ArrowRightIcon as Up } from '@/lib/icons';\n<span className=\"text-brand-strong\"><Up /></span>",
+    "import * as Ph from '@phosphor-icons/react';\n<span className=\"text-brand-strong\"><Ph.ArrowRight /></span>",
     '<span className={`inline-flex border ${directionChip[tone]}`}><TrendUpIcon aria-hidden="true" />Revenue</span>',
     // The 600 levels stay graphic: a border, a fill, a chart stroke.
     '<span className="border-gain-light/20 bg-gain-soft fill-loss-light" />',
@@ -128,6 +134,30 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
     // A direction map's value built by a call or a ternary is read whole.
     { code: "const DIRECTION = { up: { Icon: TrendUpIcon, cls: cx('text-brand-strong') } }", errors: [{ messageId: 'brand' }] },
     { code: "const DIRECTION = { up: { Icon: TrendUpIcon, cls: x ? 'text-brand-strong' : 'text-xs' } }", errors: [{ messageId: 'brand' }] },
+    // A glyph known by its import (Codex on 6aa1baa9): any local name, Phosphor's unsuffixed names, a namespace
+    // member, in JSX and in a direction map, by the barrel's alias or a relative path to it.
+    {
+      code: "import { TrendUpIcon as Up } from '@/lib/icons';\n<span className=\"text-brand-strong\"><Up /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { TrendDown } from '@phosphor-icons/react';\n<span className=\"text-brand-strong\"><TrendDown /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import * as Ph from '@phosphor-icons/react/dist/ssr';\n<span className=\"text-brand-strong\"><Ph.TrendUp /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { TrendDownIcon as Down } from '@/lib/icons';\nconst DIRECTION = { down: { Icon: Down, cls: 'text-brand-strong' } }",
+      errors: [{ messageId: 'brand' }],
+    },
+    { code: "const DIRECTION = { up: { Icon: icons.TrendUpIcon, cls: 'text-brand-strong' } }", errors: [{ messageId: 'brand' }] },
+    {
+      code: "import { TrendUpIcon as Up } from '../../../lib/icons';\n<span className=\"text-brand-strong\"><Up /></span>",
+      filename: path.join(frontendRoot, 'features/dashboard/components/probe.tsx'),
+      errors: [{ messageId: 'brand' }],
+    },
   ],
 })
 

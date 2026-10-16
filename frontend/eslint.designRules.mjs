@@ -56,10 +56,16 @@
 //                       text-data-xs), an alignment, a wrap or an overflow mode, so a layout or type
 //                       wrapper passes the ink through, as does a colour set only under a variant
 //                       (dark:, hover:, md:) or in one branch.
+//                       A glyph is known by its import as well as its spelling: a name spelled TrendUpIcon or
+//                       TrendDownIcon wherever it comes from, the local name an import from the icon modules
+//                       binds to one (`import { TrendUpIcon as Up }`, Phosphor's unsuffixed `TrendUp`), and a
+//                       member of a namespace import of them (`<Ph.TrendUp />`, `{ Icon: icons.TrendUpIcon }`).
+//                       The icon modules are `@/lib/icons`, by its alias or a path relative to the file, and
+//                       the Phosphor package at any entry, as tests/unit/iconModules.ts reads them for the
+//                       glyph and heading gates; a glyph re-exported through another app module is out of
+//                       reach there too.
 //                       Known limits: a glyph reached through a variable rendered elsewhere
-//                       (`const Icon = GLYPH[d]` then `<Icon />`), a glyph imported under another name
-//                       (`TrendUpIcon as Up`), a member-expression glyph in a map
-//                       ({ Icon: icons.TrendUpIcon }), a map whose Icon value is a ternary
+//                       (`const Icon = GLYPH[d]` then `<Icon />`), a map whose Icon value is a ternary
 //                       ({ Icon: up ? TrendUpIcon : TrendDownIcon }), a glyph returned from a callback
 //                       (`{xs.map((x) => <TrendUpIcon />)}`: the walk up stops at the arrow function),
 //                       and a glyph passed as a JSX prop (`icon={<TrendUpIcon />}`, valid by design: the
@@ -134,6 +140,7 @@
 // (`styles.eyebrow`), a function's return value and a later assignment to the binding stay unread.
 
 import { createRequire } from 'node:module'
+import path from 'node:path'
 import {
   branchTexts,
   classUnitVisitors,
@@ -668,9 +675,51 @@ function ownInk(node) {
   }
 }
 
-const isTrendIcon = (name) =>
-  (name?.type === 'JSXIdentifier' && TREND_ICON.test(name.name)) ||
-  (name?.type === 'JSXMemberExpression' && TREND_ICON.test(name.property.name))
+/** A trend glyph's exported names: Phosphor exports each glyph with and without the Icon suffix, the barrel the
+ *  suffixed name alone. */
+const TREND_GLYPH = /^Trend(Up|Down)(Icon)?$/
+const PHOSPHOR = '@phosphor-icons/react'
+
+/** Whether an import draws from the icon modules: `@/lib/icons` (by its alias or a path relative to the file) and
+ *  the Phosphor package at any entry, read as tests/unit/iconModules.ts reads them for the glyph and heading gates. */
+const isIconModule = (source, filename, cwd) => {
+  if (source === PHOSPHOR || source.startsWith(`${PHOSPHOR}/`)) return true
+  const target = source.startsWith('@/')
+    ? source.slice(2)
+    : source.startsWith('.')
+      ? path.relative(cwd, path.resolve(path.dirname(filename), source)).split(path.sep).join('/')
+      : source
+  return target.replace(/\.tsx?$/, '').replace(/\/index$/, '') === 'lib/icons'
+}
+
+/** The trend glyphs one file can name: a name spelled TrendUpIcon or TrendDownIcon, wherever it comes from; the local
+ *  name an import from the icon modules binds to one (`TrendUpIcon as Up`, Phosphor's `TrendUp`); and a member of a
+ *  namespace import of them (`Ph.TrendUp`). `tag` reads a JSX tag, `value` an expression (a direction map's value). */
+function trendGlyphs(program, filename, cwd) {
+  const locals = new Set()
+  const namespaces = new Set()
+  for (const stmt of program?.body ?? []) {
+    if (stmt.type !== 'ImportDeclaration' || !isIconModule(String(stmt.source.value), filename, cwd)) continue
+    for (const s of stmt.specifiers) {
+      const imported = s.type === 'ImportSpecifier' ? (s.imported.name ?? s.imported.value) : undefined
+      if (imported !== undefined && TREND_GLYPH.test(imported)) locals.add(s.local.name)
+      if (s.type === 'ImportNamespaceSpecifier') namespaces.add(s.local.name)
+    }
+  }
+  const named = (name) => TREND_ICON.test(name) || locals.has(name)
+  const member = (object, property) => TREND_ICON.test(property) || (namespaces.has(object) && TREND_GLYPH.test(property))
+  return {
+    tag: (name) =>
+      (name?.type === 'JSXIdentifier' && named(name.name)) ||
+      (name?.type === 'JSXMemberExpression' && member(name.object.type === 'JSXIdentifier' ? name.object.name : '', name.property.name)),
+    value: (node) =>
+      (node.type === 'Identifier' && named(node.name)) ||
+      (node.type === 'MemberExpression' &&
+        !node.computed &&
+        node.property.type === 'Identifier' &&
+        member(node.object.type === 'Identifier' ? node.object.name : '', node.property.name)),
+  }
+}
 
 /** The nodes a glyph's ink passes through on its way up to the element that sets it: a `{…}` child,
  *  a ternary or `&&` around it, a fragment, and an element (which the walk reads for sage and passes when
@@ -704,7 +753,11 @@ export const directionTextTokens = {
     }
     const classAttrs = (opening) =>
       opening.attributes.filter((a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && CLASS_ATTR.test(a.name.name))
+    let glyph = trendGlyphs(null, context.filename, context.cwd)
     return {
+      Program(node) {
+        glyph = trendGlyphs(node, context.filename, context.cwd)
+      },
       ...classUnitVisitors((node, pieces) => {
         for (const text of branchTexts(pieces)) {
           const token = direction600Text(text)
@@ -716,7 +769,7 @@ export const directionTextTokens = {
       // classes give it an ink on every render (ownInk). A wrapper that sets no text colour (`flex
       // gap-1`, `text-sm`), or sets one only under a variant or in one branch, passes the ink through.
       JSXElement(node) {
-        if (!isTrendIcon(node.openingElement.name)) return
+        if (!glyph.tag(node.openingElement.name)) return
         for (const attr of classAttrs(node.openingElement)) reportBrand(attr, textsOf(attr.value))
         for (let up = node.parent; up && PASS_THROUGH.has(up.type); up = up.parent) {
           if (up.type !== 'JSXElement') continue
@@ -725,11 +778,12 @@ export const directionTextTokens = {
           if (attrs.some((attr) => ownInk(attr.value))) break
         }
       },
-      // A direction map: an object that holds a trend glyph beside the classes it is drawn with. Every
-      // value is read, whatever builds it (a literal, a template, a cx() call, a ternary).
+      // A direction map: an object that holds a trend glyph (by name or as a namespace member) beside the
+      // classes it is drawn with. Every value is read, whatever builds it (a literal, a template, a cx()
+      // call, a ternary).
       ObjectExpression(node) {
         const props = node.properties.filter((p) => p.type === 'Property')
-        if (!props.some((p) => p.value.type === 'Identifier' && TREND_ICON.test(p.value.name))) return
+        if (!props.some((p) => glyph.value(p.value))) return
         for (const p of props) reportBrand(p.value, textsOf(p.value))
       },
     }

@@ -305,15 +305,15 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  lib/financialTone.directionText IS this recipe — route delta text through it; a
                  direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
                  a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
-                 600-level gain/loss as text anywhere, and sage on a TrendUp/TrendDown glyph named in JSX,
-                 on every element above it up to the first that gives it an ink on every render (a theme
-                 text colour with no variant, or a class part the rule cannot read, such as
-                 directionChip[tone]; a layout or type wrapper such as `flex gap-1` or `text-sm` passes
-                 the ink through), or in a map that pairs one with its classes; a glyph drawn through a
-                 variable (`<Icon />`), an alias import, a member or a ternary as a map's Icon value, a
-                 glyph returned from a .map callback and a glyph passed as a JSX prop (`icon={…}`) are
-                 past it, so tests/unit/whatChangedChip.spec.tsx renders the what-changed chip and holds
-                 its colour to directionChip for the server's tone.
+                 600-level gain/loss as text anywhere, and sage on a TrendUp/TrendDown glyph, known by its
+                 import (any local name, a namespace member, Phosphor's unsuffixed name), on every element
+                 above it up to the first that gives it an ink on every render (a theme text colour with
+                 no variant, or a class part the rule cannot read, such as directionChip[tone]; a layout
+                 or type wrapper such as `flex gap-1` or `text-sm` passes the ink through), or in a map
+                 that pairs one with its classes; a glyph drawn through a variable (`<Icon />`), a
+                 ternary as a map's Icon value, a glyph returned from a .map callback and a glyph passed
+                 as a JSX prop (`icon={…}`) are past it, so tests/unit/whatChangedChip.spec.tsx renders
+                 the what-changed chip and holds its colour to directionChip for the server's tone.
 
 Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
                  letter for its grouped data note. The letter is text-data-xs (11px minimum), zero

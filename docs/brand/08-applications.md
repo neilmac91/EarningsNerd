@@ -154,9 +154,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face.
   `earningsnerd/direction-text-tokens` (new ESLint rule) bans the 600-level gain and loss as text, and
-  sage on a direction glyph it can see by name (on the glyph, on the element whose ink it inherits, or
-  in a map that pairs it with its classes); `tests/unit/whatChangedChip.spec.tsx` holds the chip, whose
-  glyph the rule cannot follow, to the direction chip for the server's tone, and
+  sage on a direction glyph it can see by its name or its import (on the glyph, on the element whose
+  ink it inherits, or in a map that pairs it with its classes); `tests/unit/whatChangedChip.spec.tsx`
+  holds the chip, whose glyph the rule cannot follow, to the direction chip for the server's tone, and
   `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences and the Retry through its refetch.
 - **Notification bell** (`frontend/features/notifications/components/NotificationBell.tsx`): an
   alert reads "New 10-Q from AAPL", the form and ticker in the data face; the unread count rests in
