@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, keepPreviousData, onlineManager, useQuery } from '@tanstack/react-query'
 import { useRef, useState, type ReactNode } from 'react'
-import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { RetryButton, useRetainedFailure, type RetainedFailure, type RetryButtonProps } from '@/hooks/useRetainedFailure'
 import { useFocusHandoff, useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { bindingResolver, type Binding } from './astBindings'
 
@@ -603,6 +603,27 @@ describe('RetryButton', () => {
     act(() => el.focus())
     fireEvent.click(el, { detail: 1 })
   }
+
+  // TypeScript refuses all three (RetryButtonProps declares them never); a spread or a cast can still bring one in,
+  // and the drop keeps it off the button, so its name stays the one verb (D-032).
+  it.each([
+    ['an aria-label', { 'aria-label': 'Retry usage' }],
+    ['an aria-labelledby', { 'aria-labelledby': 'usage-title' }],
+    ['a child', { children: 'Retry' }],
+  ])('names itself: %s a caller brings in never reaches the button', (_how, extra) => {
+    const failure: RetainedFailure = { failed: true, error: null, busy: false, retry: () => {} }
+    const brought = extra as unknown as Partial<RetryButtonProps>
+    render(
+      <div>
+        <h2 id="usage-title">Retry usage</h2>
+        <RetryButton failures={[failure]} focusTarget={{ current: null }} {...brought} />
+      </div>,
+    )
+    const button = screen.getByRole('button', { name: 'Try again' })
+    expect(button).not.toHaveAttribute('aria-label')
+    expect(button).not.toHaveAttribute('aria-labelledby')
+    expect(button).not.toHaveTextContent('Retry')
+  })
 
   it('busy is focusable: aria-busy and aria-disabled, never native disabled, and a press while busy sends nothing', async () => {
     const { client, fn, retry } = await failedRetry()

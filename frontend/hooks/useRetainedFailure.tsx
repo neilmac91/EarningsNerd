@@ -136,6 +136,13 @@ export interface RetryButtonProps
   focusTarget: RefObject<HTMLElement | null>
   /** The target is a text field: skip the hand-off after a pointer press (a tap on it busy included), so a tap never raises the touch keyboard. */
   textField?: boolean
+  /** No label of a caller's own: the label is RetryButton's (D-032). Each is declared `never`, so TypeScript refuses
+   * one (an omitted name alone would not do: JSX leaves an undeclared hyphenated name such as aria-label unchecked),
+   * and RetryButton drops each at run time too, for one that a spread or a cast brings in. The gate in
+   * tests/unit/busyControlsStayFocusable.spec.ts holds these three declarations. */
+  children?: never
+  'aria-label'?: never
+  'aria-labelledby'?: never
 }
 
 /**
@@ -145,9 +152,11 @@ export interface RetryButtonProps
  * error UI early.
  *
  * Its label is the product's one retry verb (docs/brand/decisions-log.md D-032): "Try again", and "Trying
- * again…" only while this button's own press runs. The label is RetryButton's own: its props take no
- * children and no aria-label, so no caller names it otherwise (the one-verb clause of
- * tests/unit/busyControlsStayFocusable.spec.ts fails a call site that passes one).
+ * again…" only while this button's own press runs. The label is RetryButton's own, so no caller names it
+ * otherwise: TypeScript refuses a child, an aria-label and an aria-labelledby (RetryButtonProps declares them
+ * `never`), RetryButton drops all three before the rest of its props reach Button (one a spread or a cast brings
+ * in never replaces the name), and the one-verb clause of tests/unit/busyControlsStayFocusable.spec.ts fails a
+ * call site that passes one (useRetainedFailure.spec.tsx renders each and finds the name "Try again").
  *
  * Its size never changes with its state: the room of the spinner and "Trying again…" is kept at rest (Button's
  * reserveLoadingText), so neither a press nor a refetch nobody pressed widens it, wraps its label or moves the
@@ -162,7 +171,17 @@ export interface RetryButtonProps
  *
  * When it unmounts while it holds focus, for any reason, focus goes to `focusTarget` (useFocusHandoff).
  */
-export function RetryButton({ failures, focusTarget, textField = false, variant = 'secondary', ...rest }: RetryButtonProps) {
+export function RetryButton({
+  failures,
+  focusTarget,
+  textField = false,
+  variant = 'secondary',
+  // A label of a caller's own is dropped here, so it never reaches the button and replaces the one verb.
+  children: _child,
+  'aria-label': _label,
+  'aria-labelledby': _labelledBy,
+  ...rest
+}: RetryButtonProps) {
   const busy = failures.some((failure) => failure.busy)
   // This button's press started the fetch now running. The press renders busy at once (retry() renders
   // the fetch it started), so the first render that sees no fetch is the end of the press's retry.

@@ -44,8 +44,9 @@ import { bindingResolver, type Binding } from './astBindings'
  * ALLOW_HAND_BUILT_FAILURE pins (a stream restart, which has no query to hold).
  *
  * A third gate holds the one retry verb (D-032), "Try again", busy "Trying again…": a RetryButton call site
- * passes no label, every retry control (RetryButton's own definition included, with no exemption) reads exactly
- * the one verb, and no copy says "retry" (oneVerbSites and retryWordSites, with ALLOW_RETRY_WORD).
+ * passes no label, and RetryButtonProps declares each label prop `never` (neverProps), every retry control
+ * (RetryButton's own definition included, with no exemption) reads exactly the one verb, and no copy says
+ * "retry" (oneVerbSites and retryWordSites, with ALLOW_RETRY_WORD).
  */
 const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|refetching|fetching|mutating|deleting|removing|inflight/i
 /** Flags a control's own success sets, which leave it unavailable while it still holds focus. */
@@ -297,17 +298,24 @@ function retryLabelSites(source: string, fileName: string): Site[] {
  * oneVerbSites, on controls. A RetryButton call site passes no label of its own: the label is RetryButton's,
  * so the verb has one source. Any child (text, an expression, an element; whitespace and a `{/* comment *\/}`
  * aside), a `children`, `aria-label` or `aria-labelledby` attribute, or a JSX spread (whose props the scan cannot
- * read) fails; RetryButton is matched by its own name and its import aliases, and RetryButtonProps takes none of
- * them either. Every other element is a retry control when its label, its aria-label or its busy text reads as
- * one (RETRY_LABEL, any text that starts "Retry", or a busy text that starts "Retrying" or "Trying again"),
- * RetryButton's own definition included: each label it can show is exactly "Try again" (or "Trying again…", a
- * busy branch), its busy text exactly "Trying again…", its aria-label exactly "Try again", and any of them that
- * starts "Retry" fails whatever follows. The label is read as the label scan reads it (text children, string
- * children, each branch of a conditional apart), plus `&&`'s rendered side alone, a `||` or `??` both sides and
- * a same-file `const`; a part of a retry control it cannot read (a parameter, a `let`, a call, a member, a
- * template with a substitution) fails as unread instead of passing. Its limit: a label split across elements
- * (`Try <b>again</b>`) is read per element, and a control no text marks as a retry (a "Reload" wired to a
- * refetch) is the wiring clause's and the label pins' to see.
+ * read) fails. RetryButton is matched by its own name and by every name an import of its module gives it (`{
+ * RetryButton as Again }`, a default import, `H.RetryButton` under `import * as H`); any other use of it fails as
+ * a form whose label the scan cannot read: the name anywhere but a JSX tag, an import or a type (an alias, a
+ * prop, a createElement argument, an export of it), an `export *` of its module or an `import()` of it. This
+ * clause is the third of three holds on the label: RetryButtonProps declares the three label props `never`, so
+ * TypeScript refuses each at a call site, and RetryButton drops each at run time, for one a spread or a cast
+ * brings in. Every other element is a retry control when its label (its text, or a `children` attribute), its
+ * aria-label or its busy text reads as one (RETRY_LABEL, any text that starts "Retry", or a busy text that starts
+ * "Retrying" or "Trying again"), RetryButton's own definition included: each label it can show is exactly "Try
+ * again" (or "Trying again…", a busy branch), its busy text exactly "Trying again…", its aria-label exactly "Try
+ * again", and any of them that starts "Retry" fails whatever follows. The label is read as the label scan reads
+ * it (text children, string children, each branch of a conditional apart), plus `&&`'s rendered side alone, a
+ * `||` or `??` both sides and a same-file `const`; a part of a retry control it cannot read (a parameter, a
+ * `let`, a call, a member, a template with a substitution, an aria-labelledby, whose name is another element's
+ * text) fails as unread instead of passing. Its limit: a label split across elements (`Try <b>again</b>`) is
+ * read per element; a control no text marks as a retry (a "Reload" wired to a refetch) is the wiring clause's
+ * and the label pins' to see; and the text an aria-labelledby points to is read only by the copy clause, which
+ * fails a "retry" in it.
  *
  * retryWordSites, on copy: no string literal, template text or JSX text in any .ts or .tsx under the scanned
  * roots says "retry", "retrying", "retries" or "retried", in any case: a description beside the control says
@@ -356,13 +364,39 @@ function oneVerbSites(source: string, fileName: string): Site[] {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const visible = bindingResolver(sf)
   const retryNames = retryButtonNames(sf, fileName)
+  const isHome = (specifier: ts.Node | undefined) =>
+    !!specifier && ts.isStringLiteralLike(specifier) && withoutExtension(resolveModule(fileName, specifier.text)) === withoutExtension(RETRY_BUTTON.file)
   const collapse = (text: string) => text.replace(/\s+/g, ' ').trim()
+  const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
   const sites: Site[] = []
+  /** A name in a place that renders nothing: an import, a declaration's own name, a type, a member's name. */
+  const inert = (node: ts.Node): boolean => {
+    const parent = node.parent
+    if (ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isNamespaceImport(parent)) return true
+    if ('name' in parent && (parent as { name?: ts.Node }).name === node && !ts.isShorthandPropertyAssignment(parent) && !ts.isExportSpecifier(parent)) return true
+    for (let up: ts.Node | undefined = parent; up; up = up.parent) if (ts.isTypeNode(up)) return true
+    return false
+  }
+  const isTag = (node: ts.Node) =>
+    (ts.isJsxOpeningElement(node.parent) || ts.isJsxSelfClosingElement(node.parent) || ts.isJsxClosingElement(node.parent)) && node.parent.tagName === node
   const visit = (node: ts.Node): void => {
+    // `export * from` its module, or `export * as`, hands RetryButton on under a name no import of its module
+    // gives it; an `import()` of its module (next/dynamic's) loads it under one.
+    if (ts.isExportDeclaration(node) && isHome(node.moduleSpecifier) && (!node.exportClause || ts.isNamespaceExport(node.exportClause))) {
+      sites.push({ line: lineOf(node), expr: `${collapse(node.getText(sf))}: re-exports RetryButton under a name the scan cannot follow` })
+    }
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && isHome(node.arguments[0])) {
+      sites.push({ line: lineOf(node), expr: `${collapse(node.getText(sf))}: loads RetryButton under a name the scan cannot follow` })
+    }
+    // RetryButton named as a value, not a tag (an alias, a prop, a createElement argument, an export): its label
+    // is then set where the scan cannot read it.
+    if ((ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) && retryNames.has(node.getText(sf)) && !isTag(node) && !inert(node)) {
+      sites.push({ line: lineOf(node), expr: `${node.getText(sf)} used other than as a JSX tag: a label the scan cannot read` })
+    }
     if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
       const opening = ts.isJsxElement(node) ? node.openingElement : node
       const tag = opening.tagName.getText(sf)
-      const at = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+      const at = lineOf(node)
       const flag = (what: string) => sites.push({ line: at, expr: `${tag} ${what}` })
       const children = ts.isJsxElement(node) ? node.children : ts.factory.createNodeArray<ts.JsxChild>()
       if (retryNames.has(tag)) {
@@ -393,11 +427,16 @@ function oneVerbSites(source: string, fileName: string): Site[] {
         for (const attr of opening.attributes.properties) {
           if (!ts.isJsxAttribute(attr) || !attr.initializer) continue
           const name = attr.name.getText(sf)
-          if (!BUSY_TEXT_ATTRS.has(name) && name !== 'aria-label') continue
+          // aria-labelledby names the control with another element's text, which the scan does not read here.
+          if (name === 'aria-labelledby') {
+            unread.push(collapse(attr.getText(sf)))
+            continue
+          }
+          if (!BUSY_TEXT_ATTRS.has(name) && name !== 'aria-label' && name !== 'children') continue
           const read = ts.isStringLiteral(attr.initializer)
             ? { texts: [attr.initializer.text], unread: [] }
             : attr.initializer.expression ? readTexts(attr.initializer.expression, visible) : { texts: [], unread: [] }
-          ;(BUSY_TEXT_ATTRS.has(name) ? busy : aria).push(...read.texts.map(collapse))
+          ;(BUSY_TEXT_ATTRS.has(name) ? busy : name === 'children' ? labels : aria).push(...read.texts.map(collapse))
           unread.push(...read.unread.map((part) => `${name}={${part}}`))
         }
         const isRetry = [...labels, ...aria].some((t) => RETRY_LABEL.test(t) || STARTS_RETRY.test(t)) || busy.some((t) => RETRY_BUSY_TEXT.test(t))
@@ -445,6 +484,21 @@ function retryButtonOwnText(source: string): { labels: string[]; loadingText: st
   }
   if (definition) visit(definition)
   return out
+}
+
+/**
+ * The props RetryButtonProps declares `never`, read from its definition: the ones TypeScript refuses at a call
+ * site. Leaving a name out of the props would not do for a hyphenated one: JSX never checks an undeclared
+ * attribute such as aria-label against the props.
+ */
+function neverProps(source: string): string[] {
+  const sf = ts.createSourceFile(RETRY_BUTTON.file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const props = sf.statements.find((s): s is ts.InterfaceDeclaration => ts.isInterfaceDeclaration(s) && s.name.text === `${RETRY_BUTTON.name}Props`)
+  return (props?.members ?? []).flatMap((member) =>
+    ts.isPropertySignature(member) && member.type?.kind === ts.SyntaxKind.NeverKeyword && (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name))
+      ? [member.name.text]
+      : [],
+  )
 }
 
 /** Attributes whose string is code, not copy: what the word scan skips. */
@@ -699,10 +753,24 @@ function resolveModule(fileName: string, specifier: string): string {
 }
 const withoutExtension = (file: string) => file.replace(/\.(tsx?|jsx?)$/, '').replace(/\/index$/, '')
 
-/** RetryButton's local names in this file: its own, and any an import from its module gives it. */
+/**
+ * RetryButton's tag names in this file, for the one-verb and failures clauses: its own; any name an import of its
+ * module gives it (`{ RetryButton as Again }`, and a default import: the module has none today, so TypeScript
+ * refuses one, and one it gains later is read as RetryButton until this says otherwise); and `H.RetryButton` for
+ * a namespace import of its module (`import * as H`). Any other way to reach it (an alias, a prop, a
+ * createElement argument, a re-export, an `import()`) fails the one-verb clause as a form the scan cannot read.
+ */
 function retryButtonNames(sf: ts.SourceFile, fileName: string): Set<string> {
   const home = withoutExtension(RETRY_BUTTON.file)
-  return new Set([RETRY_BUTTON.name, ...importedNames(sf, fileName, (m) => withoutExtension(m) === home, RETRY_BUTTON.name, false)])
+  const fromHome = (m: string) => withoutExtension(m) === home
+  const names = new Set([RETRY_BUTTON.name, ...importedNames(sf, fileName, fromHome, RETRY_BUTTON.name, true)])
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    if (!fromHome(resolveModule(fileName, statement.moduleSpecifier.text))) continue
+    const bindings = statement.importClause?.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings)) names.add(`${bindings.name.text}.${RETRY_BUTTON.name}`)
+  }
+  return names
 }
 
 /** The component a destructured prop belongs to, the prop's name, and whether it is its module's default export. */
@@ -1593,6 +1661,61 @@ describe('the one retry verb, "Try again" (D-032; rule-12 gate)', () => {
     ])
   })
 
+  it('reads RetryButton under every name an import of its module gives it, fails any other use of it, and reads aria-labelledby and children on any retry control', () => {
+    const fixture = [
+      "import * as H from '@/hooks/useRetainedFailure'",
+      "import Again, { RetryButton, type RetryButtonProps } from '../hooks/useRetainedFailure'", // a default import, a relative path
+      "import { createElement } from 'react'",
+      "export * from '@/hooks/useRetainedFailure'", // an importer of this file gets it under any name
+      "export * as Retained from '@/hooks/useRetainedFailure'",
+      "export { RetryButton as Retry, useRetainedFailure } from '@/hooks/useRetainedFailure'", // renamed; the hook is not it
+      'const Alias = RetryButton',
+      "const Lazy = dynamic(() => import('@/hooks/useRetainedFailure').then((m) => m.RetryButton))",
+      'type Props = RetryButtonProps & { as?: typeof RetryButton | typeof H.RetryButton }', // a type renders nothing
+      'export function X({ label }: { label: string }) {',
+      '  const { RetryButton: Renamed } = H',
+      '  return (<>',
+      '    <H.RetryButton failures={[f]} focusTarget={ref} />', // a namespace member, no label of its own
+      '    <H.RetryButton failures={[f]} focusTarget={ref} aria-labelledby="usage-title" />',
+      '    <H.RetryButton failures={[f]} focusTarget={ref}>Retry</H.RetryButton>',
+      '    <Again failures={[f]} focusTarget={ref} aria-label="Retry usage" />',
+      '    {createElement(RetryButton, { failures: [f], focusTarget: ref })}',
+      '    <Slot as={H.RetryButton} render={{ RetryButton }} />',
+      '    <Button onClick={go} aria-labelledby="usage-title">Try again</Button>', // named by text the scan does not read
+      '    <Button onClick={go} aria-labelledby="usage-title">Reload</Button>', // nothing marks it a retry
+      '    <Button onClick={go} children="Retry" />',
+      '    <Button onClick={go} children={label} aria-label="Try again" />',
+      '  </>)',
+      '}',
+      'export default RetryButton',
+    ].join('\n')
+    expect(oneVerbSites(fixture, 'components/fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      "4: export * from '@/hooks/useRetainedFailure': re-exports RetryButton under a name the scan cannot follow",
+      "5: export * as Retained from '@/hooks/useRetainedFailure': re-exports RetryButton under a name the scan cannot follow",
+      '6: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '7: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      "8: import('@/hooks/useRetainedFailure'): loads RetryButton under a name the scan cannot follow",
+      '11: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '14: H.RetryButton aria-labelledby="usage-title": a label of its own',
+      '15: H.RetryButton "Retry": a label of its own',
+      '16: Again aria-label="Retry usage": a label of its own',
+      '17: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '18: H.RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '18: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '19: Button text it cannot read: aria-labelledby="usage-title"',
+      '21: Button label "Retry" is not "Try again"',
+      '22: Button text it cannot read: children={label}',
+      '25: RetryButton used other than as a JSX tag: a label the scan cannot read',
+    ])
+    // The failures clause matches it by the same names: each `f` here is built by hand.
+    expect(failureScan(fixture, 'components/fixture.tsx').handBuilt.map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '13: f',
+      '14: f',
+      '15: f',
+      '16: f',
+    ])
+  })
+
   it("reads RetryButton's own definition, with no exemption: its label is the one verb and its busy text the one busy form", () => {
     const real = readFileSync(path.join(frontendRoot, RETRY_BUTTON.file), 'utf8')
     // The busy text it shows is the one whose room it keeps at rest, so the swap never resizes it.
@@ -1605,6 +1728,11 @@ describe('the one retry verb, "Try again" (D-032; rule-12 gate)', () => {
       'Button busy text "Retrying…" is not "Trying again…"',
       'Button busy text "Retrying…" is not "Trying again…"',
     ])
+  })
+
+  it('RetryButtonProps declares each label prop `never`, so TypeScript refuses one at a call site', () => {
+    const real = readFileSync(path.join(frontendRoot, RETRY_BUTTON.file), 'utf8')
+    expect(neverProps(real).sort()).toEqual([...LABEL_ATTRS].sort())
   })
 
   it('no RetryButton call site passes a label, and every retry control reads the one verb', () => {

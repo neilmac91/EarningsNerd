@@ -71,7 +71,8 @@ module is read from disk, and every own `return` of that export is an object lit
 there by the same rules, so one hook may hand on another's and a cycle fails; a default value, a nested, rest or
 array pattern, a `let`, a member read, a default import, an export list, a bare `return`, a returned literal that
 spreads another object, a module the scan cannot read or one that exists as both `.ts` and `.tsx` counts as built
-by hand). RetryButton is matched under its import aliases too. What
+by hand). RetryButton is matched under any name an import of its module gives it too (an alias, a default
+import, `H.RetryButton` under `import * as H`). What
 the scan cannot prove counts as built by hand: a `let`, a spread element, an empty list (a visible Retry whose
 press retries nothing), any JSX spread on RetryButton (a
 forwarding wrapper) or into such a component. A failure built by hand skips the hold and can carry
@@ -79,11 +80,17 @@ forwarding wrapper) or into such a component. A failure built by hand skips the 
 capped; converting another stream restart moves its pin there from ALLOW_RETRY_LABEL. The one retry verb
 (docs/brand/decisions-log.md D-032; E44) is two more clauses in the same file. On controls: a RetryButton call
 site that passes a label of its own fails (a child, a `children`, `aria-label` or `aria-labelledby` attribute,
-or a JSX spread it cannot read; RetryButtonProps takes none of them, so TypeScript refuses them too), and so does
-any retry control, RetryButton's own definition included with no exemption, whose label is not exactly "Try
-again", whose busy text (shown or reserved) is not exactly "Trying again…" (U+2026) or whose text starts "Retry";
-a part of a retry control the scan cannot read (a parameter, a `let`, a call) fails as unread, and RetryButton's
-definition must reserve the busy text it shows. On copy: every string, template text and JSX text in the .ts
+or a JSX spread it cannot read), and so does a use of RetryButton the scan cannot follow (its name anywhere but
+a JSX tag, an import or a type, such as an alias or a createElement argument; an `export *` or `import()` of
+its module). That clause is one of three holds on the label. TypeScript refuses each of the three at a call site
+because RetryButtonProps declares it `never`, which the gate checks: leaving a name out of the props would not
+do, since JSX never checks an undeclared hyphenated attribute such as aria-label. RetryButton drops all three at
+run time, for one a spread or a cast brings in (useRetainedFailure.spec.tsx renders each and finds the name "Try
+again"). Any other retry control fails, RetryButton's own definition included with no exemption, when its label
+(its text, or a `children` attribute) is not exactly "Try again", its busy text (shown or reserved) is not
+exactly "Trying again…" (U+2026) or its text starts "Retry"; a part of a retry control the scan cannot read (a
+parameter, a `let`, a call, an aria-labelledby, whose name is another element's text) fails as unread, and
+RetryButton's definition must reserve the busy text it shows. On copy: every string, template text and JSX text in the .ts
 and .tsx modules under the same roots is read, and "retry", "retrying", "retries" or "retried" fails, outside
 console calls, imports, object keys, string types, code attributes and the header name Retry-After;
 ALLOW_RETRY_WORD pins, with reasons and caps equal to the list, the two backend tokens the app matches and never

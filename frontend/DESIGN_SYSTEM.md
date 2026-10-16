@@ -172,7 +172,9 @@ while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` he
 `components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
 chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
 Its label is the product's one retry verb (D-032): "Try again", busy "Trying again…", RetryButton's own, so a
-call site passes none (its props take no children and no aria-label). It keeps the room of the spinner and "Trying
+call site passes none: TypeScript refuses a child, an aria-label and an aria-labelledby (RetryButtonProps declares
+each `never`), RetryButton drops each at run time (one a spread or a cast brings in), and the gate fails a call
+site that passes one, under any name an import gives RetryButton. It keeps the room of the spinner and "Trying
 again…" at rest (Button's `reserveLoadingText`, below), so the swap never widens it, wraps its label or moves its
 card: without it, at 390px under 200% text the label wrapped and the card grew 22 to 24px, and the search alert's
 message re-wrapped beside the wider button (e2e `filing-source-chip.spec.ts` holds the box through the swap,
@@ -189,7 +191,8 @@ and its hand-off target is the progress card's heading. A failure built by hand 
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
-imported name), and under RetryButton's own import aliases; what it cannot prove (a `let`, a JSX spread on
+imported name), and under any name an import of RetryButton's module gives it (an alias, a default import,
+`H.RetryButton`); what it cannot prove (a `let`, a JSX spread on
 RetryButton or into such a component, an empty list) fails as built by hand. A card that ends a run the user is
 waiting on (a failed generation, the monthly limit) takes focus when it appears, on its title
 (`GuidanceCard`'s `headingRef`: `tabIndex={-1}`, no outline, described by the card's description), and only when nobody holds focus (`useFocusOnArrival`,
@@ -220,6 +223,8 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
 Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
                  its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
                  Constrain width at the call site; never override its height or whitespace.
+                 Default buttons keep their fixed height above a 24rem viewport (below it, the Button
+                 size row); icon-sm stays a 32px square.
 
 Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> keeps a loading label's room at
                  rest when it is longer than the resting one: what shows is laid over an invisible, aria-hidden
@@ -227,8 +232,6 @@ Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> kee
                  never resizes the button or moves what sits beside it. RetryButton's "Trying again…" is its
                  one use (tests/unit/button-wrap.spec.tsx holds the cell; busyControlsStayFocusable.spec.ts
                  holds RetryButton to reserving the busy text it shows).
-                 Default buttons keep their fixed height above a 24rem viewport (below it, the Button
-                 size row); icon-sm stays a 32px square.
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
