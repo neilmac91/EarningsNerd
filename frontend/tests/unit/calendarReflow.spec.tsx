@@ -167,6 +167,28 @@ describe('the loading skeleton switches where the week view does', () => {
     for (const column of rest) expect(column).toHaveClass('hidden', '[@container(width>=42.5em)]:block', '[@container(width>=42.5em)]:border-l')
     expect(skeleton.parentElement?.outerHTML).not.toMatch(/\bmd:/)
   })
+
+  it("switches on the week view's own container query: the two rendered conditions are one, whatever its value", async () => {
+    // The cases above pin each literal on its own, so moving the week view's switch with its case would leave the
+    // skeleton on the old one (the re-review of #1369). This compares the classes the two views render.
+    calendarRange.pending = true
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <EarningsCalendarPage />
+      </QueryClientProvider>,
+    )
+    const grid = (await screen.findByRole('status', { name: 'Loading calendar' })).firstElementChild as HTMLElement
+    const days: DayBucket[] = ['2026-03-09', '2026-03-10'].map((iso) => ({ iso, isToday: false, holidayName: null, events: [event('AAA', iso, 90)] }))
+    const { container } = render(<WeekView days={days} alerts={ALERTS} signedIn={false} onShowMore={() => {}} />)
+    const [sheet, list] = Array.from((container.firstElementChild as HTMLElement).children)
+    /** The container conditions an element's own classes switch on, such as `[@container(width>=42.5em)]`. */
+    const conditions = (...elements: Element[]) => [
+      ...new Set(elements.flatMap((el) => el.className.split(/\s+/).flatMap((c) => /^(?:dark:)?(\[@container\([^\]]*\)\]):/.exec(c)?.[1] ?? []))),
+    ]
+    expect(conditions(sheet, list)).toHaveLength(1)
+    expect(conditions(grid, ...Array.from(grid.children))).toEqual(conditions(sheet, list))
+  })
 })
 
 describe("the toolbar's range label", () => {
