@@ -44,7 +44,9 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * ran onto three lines below its segment). Below a 12rem viewport the auth shell's wordmark yields to the
  * mark. The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved and not
- * scrolling sideways (before, the sticky header showed it only at the page's very end).
+ * scrolling sideways (before, the sticky header showed it only at the page's very end). On a 768px and an
+ * 834px tablet at 200% every route passes the same checks too: the footer's columns and the final CTA
+ * card's open at md at the reader's text size (48rem), where at md's 768px they took pages to 812-886px.
  *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
@@ -624,6 +626,53 @@ for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 640 }
 
         const widths = await measure(page)
         expect(widths.scrollWidth, `${reader.path} at ${viewport.width}x${viewport.height} with the menu open: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
+      })
+    }
+  })
+}
+
+/** A tablet at 200% text. At 768px with the text doubled, the footer's four columns took every route with the footer to
+    812px (an fr column never shrinks below its longest word, here the Legal column's), and from 780 to 880px the final
+    CTA card's two columns ran its one-line "See a live example" past its half, taking / to 886px. Both now open their
+    columns at md at the reader's text size, 48rem: 768px at the default size, 1536px with the text doubled. At 768 and
+    834px every route in the loop passes the width, bar and clear-space checks; the 200% setting is confirmed by the
+    root's 32px and by the 48rem query not matching. */
+async function doubleTextOnATablet(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  await expect
+    .poll(() => page.evaluate(() => ({ root: getComputedStyle(document.documentElement).fontSize, md: matchMedia('(min-width: 48rem)').matches })), {
+      message: 'the 200% text setting took: the root computes to 32px and the 48rem query does not match',
+    })
+    .toEqual({ root: '32px', md: false })
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  await page.evaluate(() => document.fonts.ready)
+}
+
+for (const viewport of [{ width: 768, height: 1024 }, { width: 834, height: 1194 }]) {
+  test.describe(`a ${viewport.width}px tablet at 200% text`, () => {
+    test.use({ viewport, isMobile: true, hasTouch: true })
+    for (const route of ROUTES) {
+      test(`${route.name} (${route.path}) does not scroll sideways at ${viewport.width}px and 200% text`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('en:copilot-coachmark-v1', '1')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await route.open(page, baseURL!)
+        const response = await page.goto(route.path)
+        if (route.status) expect(response?.status()).toBe(route.status)
+        await route.ready(page)
+        await expect(route.chrome(page)).toBeVisible()
+        await page.evaluate(() => document.fonts.ready)
+        await doubleTextOnATablet(page)
+
+        const enlarged = await measure(page)
+        expect(enlarged.scrollWidth, `${route.path} at ${viewport.width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
+        expect(await collisions(route.bar(page)), `${route.path} at ${viewport.width}px and 200% text: the bar's controls`).toEqual([])
+        expect(await logoClearSpace(route.bar(page)), `${route.path} at ${viewport.width}px and 200% text: the logo's clear space`).toEqual([])
       })
     }
   })
