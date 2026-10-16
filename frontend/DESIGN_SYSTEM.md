@@ -1098,6 +1098,10 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
   cards 16 (`rounded-xl`). Config `md` (10px) is legacy off-scale — don't use in new code.
+  Chips are full while they keep to one line (Badge); a chip whose label can wrap takes 16
+  (`rounded-xl`) instead, a pill on one line and a rounded box once it wraps, since a 9999px radius
+  turns a wrapped chip into a capsule whose curve crosses its text (SourceTrace's provenance chip, the
+  admin email chip in EmailChipsInput).
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
