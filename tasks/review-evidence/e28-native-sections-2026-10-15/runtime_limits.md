@@ -53,10 +53,20 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
 
 ## On the request path
 
-- **Time budget.** The parse starts once the document is fetched and resolves inside the 18 s
-  enrichment join (`CONTEXT_ENRICHMENT_TIMEOUT_SECONDS`), alongside XBRL. The documented budget
-  (15 + 18 + 75 s against the 120 s backstop) is unchanged. A parse not done by the join leaves the
-  excerpt to the regex extractor, as before E28.
+- **Time budget.** The parse starts once the document is fetched. It is awaited inside the 18 s
+  enrichment join (`CONTEXT_ENRICHMENT_TIMEOUT_SECONDS`), alongside XBRL, for at most 12 s
+  (`SECTION_PARSE_WAIT_SECONDS`). A parse not done by then is cancelled and the excerpt is built
+  without it: the regex excerpt, stored like any other, with a warning naming the filing. The rest
+  of the join is the excerpt build's. On one CPU the four largest documents take 2.4 to 2.9 s for a
+  regex excerpt and up to 2.4 s to assemble parsed sections
+  ([`excerpt_build_times.jsonl`](excerpt_build_times.jsonl), from
+  [`excerpt_build_times.py.txt`](excerpt_build_times.py.txt)).
+- **What changed against the `obj()` path.** The request's budget (15 + 18 + 75 s against the 120 s
+  backstop) is unchanged, but the parse's own bound is shorter. The `obj()` path started with the
+  fetch and was awaited before the join under its own 30 s (40 s for a 20-F); a parse cannot start
+  before the fetch now, and the budget has no room for that wait. In the burst above the third and
+  fourth documents finish after 12 s, so with four large filings at once two would get regex
+  excerpts. One large filing alone parses in 3 to 6.5 s.
 - **Cancellation.** A parse still queued when its waiter is cancelled, by the join's deadline or a
   disconnect, never runs. A running parse is joined at cleanup, before the generation slot and the
   in-flight leadership are released (`backend/tests/unit/test_durable_request_ownership.py`). That

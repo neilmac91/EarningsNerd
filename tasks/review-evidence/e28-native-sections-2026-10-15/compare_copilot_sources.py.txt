@@ -1,0 +1,30 @@
+"""Run PR #1347's section seam on the HTML #1350's copilot-eval prepared, and compare with the
+sections and excerpt that run produced through the backported obj() path.
+
+Usage: python -I compare_copilot_sources.py ARTIFACT_DIR   (copilot-fidelity-38817393205, unpacked)
+Local files only; no network. Prints one JSON line per source and a total.
+"""
+import asyncio, hashlib, json, os, sys
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+for k in ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"): os.environ.setdefault(k, "x")
+sys.path.insert(0, os.environ.get("BACKEND", "/home/user/EarningsNerd/backend"))
+from app.services.edgar.compat import xbrl_service
+
+root = sys.argv[1]
+prep = json.load(open(os.path.join(root, "preparation.json")))
+same = 0
+for source in prep["sources"]:
+    acc = source["accession_number"]
+    form = source.get("filing_type") or source.get("form")
+    folder = os.path.join(root, acc)
+    html = open(os.path.join(folder, "filing.html"), "rb").read().decode("utf-8")
+    recorded = json.load(open(os.path.join(folder, "sections.json")))
+    mine = asyncio.run(xbrl_service.get_filing_sections(acc, form, html=html))
+    sha = lambda v: hashlib.sha256(json.dumps(v, sort_keys=True, default=str).encode()).hexdigest()
+    match = sha(mine) == sha(recorded)
+    same += match
+    print(json.dumps({"accession": acc, "form": form, "ticker": source.get("ticker"),
+                      "recorded": {k: len(v) for k, v in (recorded or {}).items()},
+                      "this_pr": {k: len(v) for k, v in (mine or {}).items()},
+                      "sections_sha256_identical": match}))
+print(f"{same} of {len(prep['sources'])} Copilot sources: identical sections")

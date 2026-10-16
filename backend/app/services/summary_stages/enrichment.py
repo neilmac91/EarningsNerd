@@ -4,7 +4,8 @@
 XBRL only needs the accession number and CIK and runs concurrently with the (slow) document fetch.
 ``parse_and_enrich`` is the stage that starts the section parse (it reads the fetched document, so it
 cannot start earlier), emits the parsing/analyzing/summarizing progress, builds the excerpt once the
-parse resolves and joins the excerpt and XBRL tasks under ``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS``.
+parse resolves or its share of the join (``SECTION_PARSE_WAIT_SECONDS``) runs out, and joins the
+excerpt and XBRL tasks under ``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS``.
 """
 from __future__ import annotations
 
@@ -145,10 +146,21 @@ async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
             return pipeline.get_or_cache_excerpt(thread_session, thread_filing, run.filing_text, sections=sections)
 
     async def build_excerpt():
-        # The section parse resolves inside the enrichment join below, concurrently with the XBRL
-        # wait, so it adds no budget of its own. A parse still running at the deadline leaves the
-        # excerpt to the AI layer's own regex extraction, as a slow excerpt build always has.
-        sections = await run.sections_task if run.sections_task is not None else None
+        # The section parse is awaited inside the enrichment join below, beside the XBRL wait, for
+        # at most its share of the join. A parse not done by then is cancelled (a queued one never
+        # starts; a running one is joined at release) and the excerpt is built without it, so a
+        # slow parse costs the native sections, never the excerpt.
+        sections = None
+        if run.sections_task is not None:
+            done, _ = await asyncio.wait({run.sections_task}, timeout=pipeline.SECTION_PARSE_WAIT_SECONDS)
+            if done:
+                sections = run.sections_task.result()
+            else:
+                run.sections_task.cancel()
+                logger.warning(
+                    f"[stream:{filing_id}] Section parse not done after {pipeline.SECTION_PARSE_WAIT_SECONDS:.0f}s; "
+                    "building the excerpt without it"
+                )
         return await run.run_sync_db(extract_excerpt_sync, sections)
 
     if run.cache_is_valid:
@@ -192,7 +204,9 @@ async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
             timeout=pipeline.CONTEXT_ENRICHMENT_TIMEOUT_SECONDS
         )
     except asyncio.TimeoutError:
-        pass  # wait_for has cancelled/drained pending siblings; retain completed results.
+        # wait_for has cancelled/drained pending siblings; retain completed results.
+        if run.excerpt_task.cancelled():
+            logger.warning(f"[stream:{filing_id}] Excerpt not built by the enrichment join; the AI layer extracts its own")
     except Exception as e:
         logger.warning(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
 

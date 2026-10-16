@@ -354,11 +354,18 @@ PIPELINE_TIMEOUT_SECONDS = 120
 
 # Timeout for the XBRL/excerpt enrichment join. XBRL starts concurrently with the filing
 # document fetch; the section parse needs the fetched document, so it starts after the fetch and
-# resolves inside the excerpt task. This is the *additional* budget both share at the join point
-# (a parse still running at the deadline leaves the excerpt to the AI layer's regex extraction).
+# is awaited inside the excerpt task. This is the *additional* budget both share at the join point.
 # The XBRL service's own internal timeout is 15s (EDGAR_DEFAULT_TIMEOUT_SECONDS); an 8s ceiling
 # here silently truncated it on large issuers, producing hollow financials.
 CONTEXT_ENRICHMENT_TIMEOUT_SECONDS = 18.0
+
+# The section parse's share of that join. A parse not done by then is cancelled and the excerpt is
+# built without it (the regex excerpt, stored like any other), so the build keeps about 6 s of the
+# join: on one CPU the largest golden documents take up to 2.9 s for a regex excerpt and 2.4 s to
+# assemble parsed sections. The parse cannot start before the fetch, and the request budget above
+# has no room for a longer wait
+# (tasks/review-evidence/e28-native-sections-2026-10-15/runtime_limits.md).
+SECTION_PARSE_WAIT_SECONDS = CONTEXT_ENRICHMENT_TIMEOUT_SECONDS - 6.0
 
 
 def to_sse(event: dict) -> str:

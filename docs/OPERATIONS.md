@@ -114,7 +114,7 @@ set (the deploy pins it `false`), and company search answers from the cached SEC
 edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
 generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
 to companyfacts (its section parse makes no SEC request: parses run one at a time on their own
-worker, off the edgar pool, and a parse not done by the 18 s enrichment join leaves the regex excerpt); a
+worker, off the edgar pool, and a parse not done within 12 s of the 18 s enrichment join is cancelled and the regex excerpt is built); a
 mega-filer's filing older than its recent submissions window needs about 43 history requests, past
 every enrichment budget; and a
 company's first filings list, coverage and full-text search each wait for their request. Breaker-wrapped

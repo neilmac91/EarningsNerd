@@ -148,9 +148,11 @@ every newly built eligible excerpt back to native sections inside a dependency c
 
 The hold record now carries an addendum
 ([`../edgartools-5.61.1-hold-2026-10-13/README.md`](../edgartools-5.61.1-hold-2026-10-13/README.md#addendum-2026-10-15-finding-6-corrected-e28)).
-Until the fix landed (see "Outcome"), the tripwire `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` keyed on the installed
-edgartools version, not on one URL or code path. It held the version at 5.58.0, the version measured
-dead, for as long as `test_edgartools_obj_allowlist.py` carried the section source's `obj()` entry.
+While this record was a records-only PR, its branch carried a tripwire,
+`backend/tests/unit/test_edgartools_sections_revival_tripwire.py`, keyed on the installed edgartools
+version rather than one URL or code path. It held the version at 5.58.0, the version measured dead,
+for as long as `test_edgartools_obj_allowlist.py` carried the section source's `obj()` entry. The
+tripwire never reached main: the same PR moved the source off `obj()` and deleted it (see "Outcome").
 
 ## Reviving native sections without edgartools' HTTP client, measured offline
 
@@ -239,15 +241,24 @@ option 1, and PR #1347 moves the source off `obj()`. What it lands:
   SEC request and calls no `obj()`. Documents over 16,000,000 characters are not parsed.
 - **The seam.** `xbrl_service.get_filing_sections(accession, filing_type, *, html)`. The pipeline
   starts the parse once the document is fetched (`summary_stages/enrichment.py::start_section_parse`,
-  request-owned) and resolves it inside the 18 s enrichment join, alongside XBRL. The eval runner,
-  the Copilot bootstrap and the acceptance harness pass the same fetched HTML.
-- **Parity.** All 32 golden 10-K, 10-Q and 20-F excerpts built through the revived seam match the
-  pre-switch CI reports byte for byte ([`revival_parity.txt`](revival_parity.txt), from
-  [`seam_parity_one.py.txt`](seam_parity_one.py.txt) and
-  [`revival_parity_compare.py.txt`](revival_parity_compare.py.txt);
-  [`seam_parity_results.jsonl`](seam_parity_results.jsonl)). 31 are native; ASML's 20-F has no
-  sections, as before. `backend/tests/unit/test_summary_sections_parity.py` pins three of them in CI
-  (FIGS's 10-Q, MercadoLibre's 10-K and Sea's 20-F) from fixtures already in the repository.
+  request-owned) and awaits it inside the 18 s enrichment join, alongside XBRL, for at most 12 s
+  (`SECTION_PARSE_WAIT_SECONDS`); a parse not done by then is cancelled and the regex excerpt is
+  built. Before, the parse started with the fetch and had its own 30 s (40 s for a 20-F) outside the
+  join. The eval runner, the Copilot bootstrap and the acceptance harness pass the same fetched HTML.
+- **Parity.** The 31 native golden excerpts built through the revived seam match the pre-switch CI
+  reports by sha256 and by each section's supplied length; ASML's 20-F has no sections, as before
+  ([`revival_parity.txt`](revival_parity.txt), from [`seam_parity_one.py.txt`](seam_parity_one.py.txt)
+  and [`revival_parity_compare.py.txt`](revival_parity_compare.py.txt);
+  [`seam_parity_results.jsonl`](seam_parity_results.jsonl)). All 32 golden documents are inline XBRL
+  that opens with an XML declaration, so a primary without one is not measured. The sections for all
+  six Copilot sources, two of them outside the golden set, match #1350's `copilot-eval` run of the
+  backported `obj()` path by sha256 ([`copilot_sources_parity.txt`](copilot_sources_parity.txt), from
+  [`compare_copilot_sources.py.txt`](compare_copilot_sources.py.txt)).
+  `backend/tests/unit/test_summary_sections_parity.py` pins three golden filings in CI (FIGS's 10-Q,
+  MercadoLibre's 10-K and Sea's 20-F) from fixtures already in the repository.
+- **Size cap.** Documents over 16,000,000 characters are not parsed, an input change against the
+  `obj()` path, which parsed any size within 30 s (40 s for a 20-F). The only golden document over
+  the cap, ASML's, has no sections either way; production's others log `Section parse skipped`.
 - **The gate.** `backend/evals/regression_gate.py` checks the native-section share: HARD below
   0.90, WARN below 0.95, absolute, from `results`. No re-pin.
 - **Retired.** The tripwire and the `obj()` allow-list entry are deleted, and so is #1350's
@@ -263,8 +274,8 @@ option 1, and PR #1347 moves the source off `obj()`. What it lands:
   the app imported (about 182 to 205 MB before the parse); ASML's 24.9 MB 20-F is skipped by the cap
   ([`seam_parity_results.jsonl`](seam_parity_results.jsonl)).
 - **Remaining** (E28 in `tasks/todo.md`): confirm the source in production from the `Excerpt
-  provenance` logs, and size and regenerate the October cohort (excerpts first built between about
-  2026-10-06 and #1350's deploy) on the founder's go.
+  provenance` logs, and size and regenerate the October cohort (excerpts first built between
+  2026-10-04 09:29Z, CI's last native report, and #1350's deploy) on the founder's go.
 
 The PR's own `eval-baseline` run is recorded in the PR body: every push to the PR starts a paid
 run, so recording it here would start another.
@@ -295,4 +306,10 @@ run, so recording it here would start another.
   the revived seam's excerpts against the pre-switch reports, filing by filing.
 - [`runtime_limits.md`](runtime_limits.md), [`burst_through_seam.py.txt`](burst_through_seam.py.txt),
   [`burst_results.jsonl`](burst_results.jsonl): the parse's time, memory and SEC-pool effect under a
-  burst, single worker against the shared pool.
+  burst, single worker against the shared pool; [`excerpt_build_times.py.txt`](excerpt_build_times.py.txt),
+  [`excerpt_build_times.jsonl`](excerpt_build_times.jsonl): the excerpt build that follows a parse.
+- [`compare_copilot_sources.py.txt`](compare_copilot_sources.py.txt),
+  [`copilot_sources_parity.txt`](copilot_sources_parity.txt): the seam's sections for the six Copilot
+  sources against #1350's `copilot-eval` run 38817393205 (its retained artifact, read offline).
+- [`mutate.py.txt`](mutate.py.txt), [`mutation_proofs.jsonl`](mutation_proofs.jsonl): the mutation
+  proofs, each mutant applied to the committed tree in a detached worktree.

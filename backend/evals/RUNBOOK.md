@@ -338,7 +338,9 @@ WARN (`tasks/review-evidence/e28-native-sections-2026-10-15/README.md`). The gat
 eligible attempts (10-K, 10-Q, 20-F, amendments included) whose source is `edgartools`. In the
 native state that is 62 of 64 per two-run report: ASML's 20-F has no parsable item headings, so its
 two attempts are expected misses. Below 0.90 is HARD (a collapse, a broken form or three more
-filings), below 0.95 is WARN (one or two more). The check is deterministic, a local parse with no
+filings), below 0.95 is WARN (one or two more). The floors are calibrated on the full set: a subset
+report (`--forms 20-F`, `--tickers`) that includes ASML can cross them on ASML alone (a healthy
+20-F-only run reads 12 of 14), so judge a subset by its note's non-native list. The check is deterministic, a local parse with no
 model call, which is why it can be HARD. It reads `results`, needs no pinned value and authorized no
 re-pin: the revival restored byte-identical excerpts (sha256 against the 3–4 October reports), so
 the 2026-09-19 pin measures the same inputs again. With `use_edgartools_sections` false in the
@@ -1059,7 +1061,7 @@ A future `trends_golden_set.json` + scorer (validating selected IDs, rendered ob
 | Wrong ground truth | Spot-check against the filing — it silently corrupts every score |
 | FPI figure renders as `$` | Reporting currency not captured — re-check `reporting_currency` (Step B); the value must be native (RMB/EUR/TWD) |
 | FPI metric missing (double-tagged) | Filer tags the same line twice (statement + rounded) → dropped as ambiguous; hand-fill ground truth from the statement value |
-| Huge document section parse slow or skipped (e.g. ASML's 24.9 MB 20-F) | The section parse is local CPU work on the fetched document: documents over 16,000,000 characters are skipped, and `get_filing_sections` bounds the parse at 30 s (40 s for a 20-F; the pipeline's 18 s enrichment join is the tighter bound). Either returns None and the excerpt falls back to the dense-window extractor (lower precision, still usable). ASML's 20-F yields no sections even when parsed, so its two attempts are the expected misses in the native-section share. Don't raise the bounds: the parse runs on the API process. |
+| Huge document section parse slow or skipped (e.g. ASML's 24.9 MB 20-F) | The section parse is local CPU work on the fetched document: documents over 16,000,000 characters are skipped, and `get_filing_sections` bounds the parse at 30 s (40 s for a 20-F; in the pipeline the parse gets 12 s of the 18 s enrichment join, the tighter bound, while the eval runner awaits the seam's own bound). Either returns None and the excerpt falls back to the dense-window extractor (lower precision, still usable). ASML's 20-F yields no sections even when parsed, so its two attempts are the expected misses in the native-section share. Don't raise the bounds: the parse runs on the API process. |
 
 ### September parity measurement: component omission
 
@@ -1347,8 +1349,8 @@ version-2 count without re-judging its retained `report.json`.
 
 Acceptance bar for a grounding candidate (from the assessment): the negative controls move from a
 false explanation to abstention (no G4/G5 failure), no new G2/G3 failure, and the deterministic
-regression gate unchanged. Judge only an artifact whose native-section share is at the pinned level
-(the gate's note); one built on regex excerpts measures a different model input. A better mean dimension score is not the bar. Before the first use as a
+regression gate unchanged. Judge only an artifact whose gate note reads 62 of 64 native-section
+excerpts on the full set (no `native_section_share` finding); one built on regex excerpts measures a different model input. A better mean dimension score is not the bar. Before the first use as a
 gate, hand-check about five verdicts: the judge's own accuracy on causal claims is unmeasured.
 
 ## Attribution-verifier claim context candidate — September 19, 2026

@@ -302,7 +302,7 @@ class EdgarXBRLService:
             logger.warning(f"Section parse timed out for {accession_number} after {section_timeout:.0f}s")
             return None
         except Exception as e:  # noqa: BLE001 — never let section parsing break generation
-            logger.warning(f"Section parse failed for {accession_number}: {e}")
+            logger.warning(f"Section parse found nothing for {accession_number} ({base_form}): {e!r}")
             return None
 
     async def _fallback_to_company_facts(

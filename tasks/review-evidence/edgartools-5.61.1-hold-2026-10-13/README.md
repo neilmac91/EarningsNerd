@@ -142,9 +142,10 @@ blocks it writes. Each seam probe matches the marker occurrence adjacent to its 
   0.871 across eight runs on 7 October
   ([`../e28-native-sections-2026-10-15/README.md`](../e28-native-sections-2026-10-15/README.md)).
 - The hold decision itself is unchanged; it rests on the Ford affix and seam regressions. The next
-  replay (6.0) must also land E28's decision first. Until it does,
-  `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` fails any edgartools other than
-  5.58.0 while the section source holds its `obj()` allow-list entry.
+  replay (6.0) must also land E28's decision first. Until then, PR #1347's branch carried
+  `backend/tests/unit/test_edgartools_sections_revival_tripwire.py`, failing any edgartools other
+  than 5.58.0 while the section source held its `obj()` allow-list entry. PR #1347 deleted it with
+  that entry, so it never reached main (see the next addendum).
 
 ## Addendum, 2026-10-16: E28 landed (#1350, then PR #1347)
 

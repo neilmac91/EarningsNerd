@@ -392,7 +392,7 @@ async def test_x0_2_parser_failure_is_a_missing_section(parser, caplog, filing_t
     # All three 10-K items reach the index, which is still built only once.
     assert parser.index_built == (1 if filing_type == "10-K" else 0)
     assert [r.getMessage() for r in caplog.records if r.levelname == "WARNING"] == (
-        [] if expected else [f"Section parse found nothing in a {filing_type} document: RuntimeError('parser failed')"])
+        [] if expected else [f"Section parse found nothing for {ACC} ({filing_type}): RuntimeError('parser failed')"])
 
 
 @pytest.mark.asyncio
@@ -404,13 +404,13 @@ async def test_x0_2_parser_failure_is_a_missing_section(parser, caplog, filing_t
 ], ids=["unreadable-items", "parser-failed-no-index", "empty-parse"])
 async def test_x0_2_a_ten_k_read_error_that_leaves_no_section_is_logged(parser, caplog, sections, error, warning):
     """X0.2 — the 10-K's per-item and parser errors are contained, but when they leave no section the
-    first one is logged, never swallowed (the silent 2026-10 failure, #1350's rule)."""
+    first one is logged with the accession, never swallowed (the silent 2026-10 failure, #1350's rule)."""
     parser.sections, parser.error = sections, error
     caplog.set_level("WARNING")
 
     assert await EdgarXBRLService().get_filing_sections(ACC, "10-K", html=HTML) is None
     assert [r.getMessage() for r in caplog.records if r.levelname == "WARNING"] == (
-        [f"Section parse found nothing in a 10-K document: {warning}"] if warning else [])
+        [f"Section parse found nothing for {ACC} (10-K): {warning}"] if warning else [])
 
 
 @pytest.mark.asyncio
@@ -463,7 +463,7 @@ async def test_x0_2_timeout_and_failure_are_logged_and_none(monkeypatch, parser,
     assert await EdgarXBRLService().get_filing_sections(ACC, "10-Q", html=HTML) is None
     messages = [record.getMessage() for record in caplog.records]
     assert f"Section parse timed out for {ACC} after 30s" in messages
-    assert f"Section parse failed for {ACC}: sections exploded" in messages
+    assert f"Section parse found nothing for {ACC} (10-Q): RuntimeError('sections exploded')" in messages
 
 
 @pytest.mark.asyncio

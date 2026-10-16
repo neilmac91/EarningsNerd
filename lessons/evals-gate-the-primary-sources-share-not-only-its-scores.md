@@ -6,8 +6,8 @@ Date: 2026-10-16   Area: evals
 refused edgartools 5.58.0's index URL behind `Filing.obj()`), and every 10-K, 10-Q and 20-F excerpt
 silently fell back to the regex extractor (E28). The fallback was designed to be acceptable, and it
 was: numeric accuracy and coverage held, citation fidelity fell from 0.97 to 0.818–0.871, and the
-regression gate treats citation fidelity as a WARN. Every eval-baseline run for the next twelve days
-printed a warning and passed, while each report recorded `coverage_inventory.source:
+regression gate treats citation fidelity as a WARN. Every eval-baseline run from 7 October until
+#1350's backport on 16 October printed a warning and passed, while each report recorded `coverage_inventory.source:
 regex_fallback` for all 64 eligible attempts. The evidence was in every artifact; no check read it.
 
 **Rule**: When an output can come from a primary source or a degraded fallback, the regression gate

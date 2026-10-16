@@ -57,9 +57,9 @@ def _get_executor() -> ThreadPoolExecutor:
 
 # CPU-bound parses of content the app already fetched (the summary's section parse, E28) get one
 # worker of their own, off the SEC pool above. On one vCPU, parallel parses only add memory and
-# latency (four large 10-Ks at once: each 14 to 19 s and +495 MB, against +180 to 230 MB one at a
-# time), and on the SEC pool they would queue timed calls whose timeouts count as circuit-breaker
-# failures (tasks/review-evidence/e28-native-sections-2026-10-15/runtime_limits.md).
+# latency (four large 10-Ks and 20-Fs at once: 13.8 to 18.5 s each and +513 MB on the SEC pool, against
+# +297 MB on one worker), and on the SEC pool they would queue timed calls whose timeouts count as
+# circuit-breaker failures (tasks/review-evidence/e28-native-sections-2026-10-15/runtime_limits.md).
 _PARSE_WORKERS = 1
 _parse_executor: ThreadPoolExecutor | None = None
 

@@ -26,8 +26,8 @@ _SECTION_MIN_CHARS = 200
 
 # Documents above this size are not parsed; the pipeline keeps the regex excerpt. Parse time and
 # peak memory grow with the document. In the golden set the largest document with sections is
-# JPMorgan's 12.9 MB 10-K (5.7 to 6.5 s; 503 MB process peak), and ASML's 24.9 MB 20-F took 11 to
-# 14 s and peaked at 713 MB to yield no sections at all
+# JPMorgan's 12.9 MB 10-K (5.7 to 6.5 s; 503 MB process peak), and ASML's 24.9 MB 20-F took 10.9 s
+# to parse and peaked at 713 MB to yield no sections at all
 # (tasks/review-evidence/e28-native-sections-2026-10-15/parse_results.jsonl).
 _MAX_SECTION_HTML_CHARS = 16_000_000
 
@@ -96,7 +96,7 @@ def _sections_from_html(html: str, base_form: str) -> Optional[Dict[str, str]]:
     Returns ``{"financials" | "mda" | "risk": text}`` with only the sections that parsed to real
     content, or None when the form is unsupported, the document is empty or too large, or nothing
     usable was found (callers then fall back to the regex extractor). A read error that leaves no
-    section is logged as a warning, never swallowed
+    section is raised for the service to log with the accession, never swallowed
     (``lessons/sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md``).
     """
     if base_form not in ("10-K", "10-Q", "20-F") or not html:
@@ -107,10 +107,9 @@ def _sections_from_html(html: str, base_form: str) -> Optional[Dict[str, str]]:
     error: Optional[Exception] = None
     try:
         sections = HTMLParser(ParserConfig(form=base_form)).parse(html).sections
-    except Exception as exc:  # noqa: BLE001 - an unparsable document is a missing section, not an error
+    except Exception as exc:  # noqa: BLE001 - a 10-K can still read the Cross Reference Index
         if base_form != "10-K":
-            logger.warning(f"Section parse found nothing in a {base_form} document: {exc!r}")
-            return None
+            raise  # a 10-Q or 20-F has no other source
         sections, error = {}, exc  # TenK still tries the Cross Reference Index when its parser fails
 
     out: Dict[str, str] = {}
@@ -139,5 +138,5 @@ def _sections_from_html(html: str, base_form: str) -> Optional[Dict[str, str]]:
                     break
 
     if not out and error is not None:
-        logger.warning(f"Section parse found nothing in a {base_form} document: {error!r}")
+        raise error  # the first read error, as the reason nothing parsed
     return out or None
