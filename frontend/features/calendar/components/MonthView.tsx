@@ -89,7 +89,7 @@ export function MonthView({
                   'flex min-h-24 flex-col items-start gap-1 py-2 text-left transition-colors duration-fast',
                   // The sheet's width sets the padding, so nothing resets it to zero (button-icon-size-gate bans that
                   // reset app-wide): as before from 42em, less from 21em, none at the count, so a two-digit day and
-                  // today's marker fit whole.
+                  // today's marker (sized below) fit whole.
                   '[@container(width>=42em)]:px-2.5 [@container(21em<=width<42em)]:px-1 [@container(width<21em)]:items-center',
                   i > 0 && 'border-l border-border-light/60 dark:border-white/[0.06]',
                   openable && 'cursor-pointer hover:bg-white dark:hover:bg-white/5',
@@ -103,8 +103,11 @@ export function MonthView({
                   <span
                     className={cx(
                       'font-data text-xs font-semibold tabular-nums',
+                      // Today's marker is sized in rem, as the week header's is, so it grows with the digits it holds
+                      // (22px at the default size, 44px at 200% text, where a 22px pill cut their lower half). Its
+                      // least width is capped at its day's, so in the narrowest days it shrinks to the cell.
                       isToday
-                        ? 'grid h-[22px] min-w-[22px] place-items-center rounded-full bg-brand px-1 text-white dark:bg-brand-dark dark:text-background-dark'
+                        ? 'grid h-[1.375rem] min-w-[min(1.375rem,100%)] place-items-center rounded-full bg-brand px-0.5 text-white dark:bg-brand-dark dark:text-background-dark'
                         : weekend || !inMonth
                           ? 'text-text-tertiary-light dark:text-text-secondary-dark'
                           : 'text-text-primary-light dark:text-text-primary-dark',

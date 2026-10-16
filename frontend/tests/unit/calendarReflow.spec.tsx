@@ -57,6 +57,15 @@ describe('the month sheet shows a day only what fits whole', () => {
     expect(day.className.split(/\s+/).filter((c) => /^p[xlr]?-/.test(c))).toEqual([])
   })
 
+  it("sizes today's marker in rem, never px, so it holds its digits at any text size, and caps its width at its day's", () => {
+    // The design review of #1369: a fixed 22px pill held 24px digits in a 32px line box at 200% text, so they ran
+    // about 9px past its bottom edge, and the lower half of the white digits vanished into the light panel.
+    renderMonth()
+    const today = within(screen.getByRole('button', { name: /^Wednesday, January 14,/ })).getByText('14')
+    expect(today).toHaveClass('rounded-full', 'h-[1.375rem]', 'min-w-[min(1.375rem,100%)]')
+    expect(today.className.split(/\s+/).filter((c) => /^(min-|max-)?(h|w|size)-\[[^\]]*px[^\]]*\]$/.test(c))).toEqual([])
+  })
+
   it('narrow, a day shows the count of companies reporting in place of tickers, and the caption says so', () => {
     renderMonth()
     const day = screen.getByRole('button', { name: /^Tuesday, January 13, 5 companies report/ })
