@@ -9,6 +9,7 @@ import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, Card } from '@/components/ui'
+import { directionChip, type Direction } from '@/lib/financialTone'
 
 // A filing counts as "New" for up to two weeks. Because the feed now always shows each company's
 // latest filing regardless of age, this badge is what distinguishes "fresh this week" from "their
@@ -29,15 +30,14 @@ function isRecentFiling(value: string | null, withinDays = 14): boolean {
   return diffDays >= 0 && diffDays <= withinDays
 }
 
-// Calm directional chips: the icon carries the direction and the ink the value, up in the primary
-// ink and down and flat muted — never sage, which never colours a value (D-030), and never casino
-// red/green. Deliberate exception to financialTone.directionChip (gain/loss tones): a feed of watched
-// companies isn't a P&L readout, so it keeps the calm treatment.
-const DIRECTION = {
-  up: { Icon: TrendUpIcon, cls: 'text-text-primary-light dark:text-text-primary-dark bg-brand-weak dark:bg-white/5' },
-  down: { Icon: TrendDownIcon, cls: 'text-text-secondary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
-  flat: { Icon: MinusIcon, cls: 'text-text-tertiary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
-} as const
+// A metric chip is a figure's change, so it takes the direction chip of lib/financialTone: the 700-level
+// gain and loss inks on their soft grounds (flat in the secondary ink), never sage (D-030, DESIGN.md
+// Separate Signals). The colour follows the tone the server computed with the signed display string;
+// the glyph follows its direction and is decorative, since the sign (or, with no figure, the sr-only
+// word) says the direction. Gates: eslint's earningsnerd/direction-text-tokens reads `<Icon />` through
+// GLYPH and bans sage on it; tests/unit/whatChangedChip.spec.tsx holds its colour to the tone.
+const GLYPH = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as const
+const TONE: Record<WhatChangedItem['tone'], Direction> = { gain: 'up', loss: 'down', flat: 'flat' }
 
 function ctaLabel(status: string): string {
   if (status === 'ready') return 'Read summary'
@@ -62,14 +62,18 @@ export function wordingLine(wording: WordingChangesSummary | null | undefined): 
 }
 
 function MetricChip({ item }: { item: WhatChangedItem }) {
-  const { Icon, cls } = DIRECTION[item.direction] ?? DIRECTION.flat
+  const Icon = GLYPH[item.direction] ?? GLYPH.flat
+  const tone = TONE[item.tone] ?? item.direction ?? 'flat'
+  const shown = item.direction !== 'flat' && item.display
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>
-      <Icon className="h-3.5 w-3.5" />
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${directionChip[tone]}`}>
+      <Icon aria-hidden="true" className="h-3.5 w-3.5" />
       {item.label}
-      {item.direction !== 'flat' && item.display && (
-        <span className="font-semibold">{item.display}</span>
-      )}
+      {shown ? (
+        <span className="font-data font-semibold">{item.display}</span>
+      ) : item.direction !== 'flat' ? (
+        <span className="sr-only">{item.direction === 'up' ? ' up' : ' down'}</span>
+      ) : null}
     </span>
   )
 }
@@ -91,7 +95,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
               <span className="truncate font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {formatCompanyName(company.name)}
               </span>
-              <span className="rounded-full bg-panel-light px-2 py-0.5 text-xs font-semibold text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark">
+              <span className="rounded-full bg-panel-light px-2 py-0.5 font-data text-xs font-semibold text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark">
                 {company.ticker}
               </span>
             </div>

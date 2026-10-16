@@ -643,7 +643,7 @@ const STREAM_RESTART =
 const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
   'app/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'app/global-error.tsx': { sites: ['button "Try again"'], reason: ERROR_BOUNDARY_RESET },
-  'app/dashboard/error.tsx': { sites: ['Button "Try Again"'], reason: ERROR_BOUNDARY_RESET },
+  'app/dashboard/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'components/GlobalErrorBoundary.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'features/summaries/components/SummaryDisplay.tsx': {
     sites: ['Button "Retry"'],
