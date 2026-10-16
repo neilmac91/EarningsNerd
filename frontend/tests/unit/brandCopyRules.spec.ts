@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { Badge, buttonVariants, countControlClass, type BadgeVariant, type ButtonVariant, type CountControlKind } from '@/components/ui'
 import { HEADLINES } from '@/features/marketing/lib/headline'
+import { routeFiles, walkImports } from './importWalk'
 
 /**
  * Three brand rules as gates (CLAUDE.md rule 12; docs/brand/06-system.md §6; docs/voice-and-style.md
@@ -22,6 +23,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    they can be", "the server can check"). The 2026-10-11 review caught a voice pass that had
  *    deleted that scope in nine places. Two siblings keep the other scopes: 1b, the outline is "up
  *    to nine parts"; 1c, only risk excerpts are promised as located or withheld.
+ *    Rule 1c alone reads the public scope (PUBLIC_FILES below, walked from the public routes through
+ *    the import graph); rules 1, 1b, 2 and 3 read every scanned file.
  * 2. Sage never colours a number, anywhere in the app (DESIGN.md › the Separate Signals Rule;
  *    docs/brand/decisions-log.md D-030, the founder's call of 2026-10-11: the strict reading holds
  *    inside the product as on the public surfaces). Nothing an element renders in sage ink at rest
@@ -193,13 +196,43 @@ const TSCONFIG = ts.readConfigFile(path.join(ROOT, 'tsconfig.json'), ts.sys.read
 const PARSED = ts.parseJsonConfigFileContent(TSCONFIG.config, ts.sys, ROOT)
 const PROGRAM = ts.createProgram([...FILES, FORMS], { ...PARSED.options, noEmit: true, skipLibCheck: true })
 const CHECKER = PROGRAM.getTypeChecker()
-/** The surfaces a stranger meets before signing in, where the brand brief's strict reading holds. */
-const PUBLIC_SURFACES = [
-  'app/page.tsx', 'app/not-found.tsx', 'app/waitlist/', 'app/pricing/', 'app/login/', 'app/register/', 'app/forgot-password/',
-  'features/marketing/', 'features/waitlist/', 'features/auth/components/',
-  'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
-]
-const isPublic = (rel: string) => PUBLIC_SURFACES.some((prefix) => (prefix.endsWith('/') ? rel.startsWith(prefix) : rel === prefix))
+/** The routes a stranger can open before signing in, the scope rule 1c reads (rule 1c alone: rule 2 reads
+    every file under D-030, as rules 1, 1b and 3 do): the root layout (header, footer, consent bar), the root
+    boundaries, and each public route's own page and layout. Derived, not listed, at both ends. The routes are
+    every directory under app/ that holds a route file (ROUTE_FILES; a private `_folder` is not a route), less
+    the ones middleware.ts sends a signed-out visitor to /login from: its PROTECTED_ROUTES, read from the file
+    and tested as it tests them (`pathname.startsWith(route)`). So a new page (app/about) is read the day it
+    lands, and a route the middleware starts to protect leaves the reading with it. A flag-gated route is
+    public: the calendar and the analysis (NEXT_PUBLIC_ENABLE_CALENDAR, NEXT_PUBLIC_ENABLE_ANALYSIS, on in
+    production and off in CI) and the three labs prototypes (app/labs/*, each behind its own
+    NEXT_PUBLIC_ENABLE_* flag and no sign-in, off in production today) are read whatever the flags say where
+    the walk runs. The files: PUBLIC_FILES is every module these routes reach through the import graph
+    (tests/unit/importWalk.ts), so a product component the landing or a public route renders (SourceTrace,
+    FinancialMetricsTable, CompanySearch) is held to rule 1c without anyone naming it (BG-16). */
+const ROUTE_FILES = ['page.tsx', 'layout.tsx', 'not-found.tsx', 'error.tsx', 'global-error.tsx']
+/** middleware.ts's PROTECTED_ROUTES, the URL prefixes it guards; a file without the list fails the suite. */
+function protectedPrefixes(source: string): string[] {
+  const sf = ts.createSourceFile('middleware.ts', source, ts.ScriptTarget.Latest, true)
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue
+    for (const d of stmt.declarationList.declarations) {
+      let init = d.initializer
+      while (init && (ts.isAsExpression(init) || ts.isSatisfiesExpression(init) || ts.isParenthesizedExpression(init))) init = init.expression
+      if (ts.isIdentifier(d.name) && d.name.text === 'PROTECTED_ROUTES' && init && ts.isArrayLiteralExpression(init) && init.elements.length > 0
+        && init.elements.every((e) => ts.isStringLiteral(e))) return init.elements.map((e) => (e as ts.StringLiteral).text)
+    }
+  }
+  throw new Error('middleware.ts declares no PROTECTED_ROUTES list of strings: rule 1c cannot tell the signed-in routes from the public ones')
+}
+/** A route directory's URL path: a route group's `(name)` and a parallel slot's `@name` add no segment. */
+const routeUrl = (dir: string) => `/${dir.split('/').slice(1).filter((segment) => !/^\(.*\)$|^@/.test(segment)).join('/')}`
+const PROTECTED = protectedPrefixes(readFileSync(path.join(ROOT, 'middleware.ts'), 'utf8'))
+const ROUTE_DIRS = [...new Set(routeFiles('app', ROUTE_FILES, ROOT).map((file) => path.posix.dirname(file)))]
+  .filter((dir) => !dir.split('/').some((segment) => segment.startsWith('_')))
+const PUBLIC_ROUTES = ROUTE_DIRS.filter((dir) => !PROTECTED.some((route) => routeUrl(dir).startsWith(route)))
+const PUBLIC_ROOTS = PUBLIC_ROUTES.flatMap((dir) => routeFiles(dir, ROUTE_FILES, ROOT).filter((file) => path.posix.dirname(file) === dir))
+const PUBLIC_FILES = new Set(walkImports(PUBLIC_ROOTS, ROOT))
+const isPublic = (rel: string) => PUBLIC_FILES.has(rel)
 const SOURCES = FILES.map((file) => {
   const sf = PROGRAM.getSourceFile(file)
   if (!sf) throw new Error(`${file} is not in the program`)
@@ -2072,6 +2105,38 @@ describe('brand rule 1b: the nine-part outline keeps its scope', () => {
   })
 })
 
+describe('brand rule 1d: the calendar claims only what its data holds', () => {
+  // The earnings calendar's dates come from two places (backend/app/services/earnings_calendar_service.py):
+  // a reported date from the company's 8-K results filing, an estimated one from the market-data
+  // provider. No path writes a confirmed date and no estimator reads a company's reporting pattern;
+  // the day's order is a curated large-cap list plus EarningsNerd follow counts, not a market measure
+  // of anticipation; an alert is one email the morning a company reports (audit CAL-05, CAL-06,
+  // CAL-08, CAL-09, CAL-10). Each phrase below claimed otherwise on the page, its metadata or a row.
+  const SCOPE = ['app/calendar/', 'features/calendar/']
+  const CLAIMS: [RegExp, string][] = [
+    [/\bmost[- ]anticipated\b|\banticipat(?:ed|ion)\b/i, 'the order is by report time, then large caps and most followed first, not anticipation'],
+    [/\bconfirmed\b[^.;]*\bdates?\b/i, 'no date is ever confirmed: estimated or reported'],
+    [/\bday-of\b/i, 'an alert is an email the morning a company reports'],
+    [/\breporting patterns?\b/i, 'estimated dates come from a market-data provider'],
+  ]
+
+  it('no string or JSX text under the calendar route or feature makes a claim its data does not hold', () => {
+    const offenders: string[] = []
+    const scanned = SOURCES.filter((s) => SCOPE.some((prefix) => s.rel.startsWith(prefix)))
+    expect(scanned.map((s) => s.rel)).toEqual(
+      expect.arrayContaining(['app/calendar/page.tsx', 'features/calendar/components/EarningsCalendarPage.tsx', 'features/calendar/components/AlertBell.tsx']),
+    )
+    for (const { rel, sf } of scanned) {
+      visit(sf, (n) => {
+        const text = literalText(n)
+        if (text === null || ts.isNumericLiteral(n)) return
+        for (const [claim, say] of CLAIMS) if (claim.test(text)) offenders.push(`${where(rel, sf, n, text)}: ${say}`)
+      })
+    }
+    expect(offenders, 'say what the calendar data holds').toEqual([])
+  })
+})
+
 describe('brand rule 1c: the withholding promise names risk excerpts', () => {
   // Of a summary's quotes, only risk excerpts are withheld when the filing's text does not match:
   // the server projects a risk only from a whitespace-exact span and counts the rest
@@ -3136,7 +3201,34 @@ describe('brand rule 3: the Marked Copy Rule', () => {
   })
 
   it('the scan sees the surfaces it guards (the rules above stay meaningful)', () => {
-    expect(PUBLIC_SURFACES.every((prefix) => SOURCES.some((s) => (prefix.endsWith('/') ? s.rel.startsWith(prefix) : s.rel === prefix))), 'every public surface prefix matches a file').toBe(true)
+    // The routes come from the tree less the middleware's guarded prefixes: the prefixes are read, the public
+    // reading holds the routes a stranger opens and none the middleware guards, a route group or a parallel slot
+    // adds no URL segment, and a middleware without the list fails rather than reading every route as public.
+    expect(PROTECTED).toEqual(expect.arrayContaining(['/dashboard', '/admin']))
+    expect(PUBLIC_ROUTES).toEqual(expect.arrayContaining(['app', 'app/waitlist', 'app/pricing', 'app/login', 'app/company/[ticker]', 'app/filing/[id]',
+      'app/calendar', 'app/analysis', 'app/labs/filing-redlines', 'app/labs/financial-refresh-review', 'app/labs/research-evidence-packs']))
+    expect(PUBLIC_ROUTES.filter((dir) => /^app\/(dashboard|admin)(\/|$)/.test(dir)), 'a guarded route is outside the public reading').toEqual([])
+    expect(ROUTE_DIRS.filter((dir) => /^app\/(dashboard|admin)(\/|$)/.test(dir)).length, 'the walk sees the guarded routes it leaves out').toBeGreaterThan(0)
+    expect(['app', 'app/(marketing)/about', 'app/@modal/login', 'app/company/[ticker]'].map(routeUrl)).toEqual(['/', '/about', '/login', '/company/[ticker]'])
+    expect(protectedPrefixes("const PROTECTED_ROUTES = ['/a', '/b'] as const")).toEqual(['/a', '/b'])
+    expect(() => protectedPrefixes("const GUARDED = ['/dashboard']")).toThrow('middleware.ts declares no PROTECTED_ROUTES list of strings')
+    // The walk reaches the chrome and the product components a stranger meets.
+    for (const rel of ['app/global-error.tsx', 'app/error.tsx', 'app/not-found.tsx', 'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
+      'features/auth/components/AuthShell.tsx', 'features/marketing/components/HeroHeadline.tsx', 'features/filings/components/SourceTrace.tsx',
+      'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx', 'app/delete-account/page.tsx',
+      // Reached only through their routes: the company page's peers panel, the filing page's summary, the
+      // flag-gated calendar and analysis, and the labs prototypes, public wherever their flags are on.
+      'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx',
+      'features/calendar/components/MonthView.tsx', 'app/analysis/page.tsx',
+      'features/filing-redlines/components/FilingRedlines.tsx', 'features/research-evidence-packs/components/ResearchEvidencePacks.tsx',
+      'features/financial-refresh-review/components/FinancialRefreshReview.tsx']) {
+      expect(PUBLIC_FILES.has(rel), `${rel} is public`).toBe(true)
+    }
+    // Out of rule 1c's public reading: the signed-in product (the dashboard, admin). Rule 2 reads it, as it
+    // reads every file (D-030).
+    for (const rel of ['app/dashboard/page.tsx', 'features/admin/components/InviteRow.tsx']) {
+      expect(PUBLIC_FILES.has(rel), `${rel} is signed-in, outside the public reading`).toBe(false)
+    }
     const rels = new Set(SOURCES.map((s) => s.rel))
     for (const rel of ['features/marketing/components/HeroHeadline.tsx', 'features/marketing/components/HeroExample.tsx', 'app/waitlist/page.tsx', 'app/pricing/page.tsx', 'features/auth/components/AuthShell.tsx', 'features/calendar/components/EarningsCalendarPage.tsx', 'features/calendar/components/MonthView.tsx', 'features/calendar/components/WeekView.tsx']) {
       expect(rels.has(rel), rel).toBe(true)

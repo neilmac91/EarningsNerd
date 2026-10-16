@@ -2,8 +2,9 @@
 
 edgartools' ``Filing.obj()`` (and the ``CompanyReport`` it returns) fetches the filing homepage
 and the SGML index through edgartools' own HTTP client, which the app's limiter, breaker and
-diagnostics never see, and it returned nothing for every document probed from the build
-environment. Section text is parsed from the primary document the app fetched
+diagnostics never see. From about 2026-10-06 that client's short homepage URL got SEC's 403 and
+every section read failed; ``app/services/edgar/edgartools_compat.py`` backports upstream's fix.
+Section text is parsed from the primary document the app fetched
 (``filing_section_service.parse_item_1a``). This test encodes the rule the way the os.getenv
 gate does: an AST walk over ``app/**/*.py`` collects every access to an attribute named ``obj``:
 the call (``filing.obj()``), the bare read that aliases the accessor (``loader = filing.obj``,

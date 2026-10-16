@@ -15,11 +15,13 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
     <div className="grid grid-cols-1 min-h-screen lg:grid-cols-2">
       {/* Form pane */}
       <div className="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
-        <div className="flex items-center justify-between px-6 py-6 sm:px-10">
+        {/* The theme toggle and "Back to home" wrap onto their own row at the right when the logo
+            leaves them no room (enlarged text, the narrowest phones; tests/e2e/reflow-200.spec.ts). */}
+        <div className="flex flex-wrap items-center justify-between gap-y-2 px-6 py-6 sm:px-10">
           <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             <EarningsNerdLogo iconClassName="h-8 w-8" wordmarkClassName="text-lg" />
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-2">
             <ThemeToggle />
             <Link
               href="/"

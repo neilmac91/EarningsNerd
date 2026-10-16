@@ -166,6 +166,9 @@ const takeawayField = (row: FinancialMetric, twin?: string): ReactNode => (
         verified={row.commentary_evidence.verified}
         sectionRef={row.commentary_evidence.section_ref}
         excerpt={row.commentary_evidence.verified ? row.commentary_evidence.excerpt : null}
+        // A takeaway is a sentence the summary wrote, so the panel says what was checked: the passage it
+        // cites, not the takeaway itself. Unverified evidence keeps the panel's own "Cited" line.
+        note={row.commentary_evidence.verified ? 'The passage cited for this takeaway was found in the filing text.' : null}
         layoutTwin={twin}
       />
     )}
@@ -340,7 +343,9 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
   return (
     <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Financial Highlights</CardTitle>
+        {/* Sentence case, as every card title: the summary's own section heading is the backend's schema
+            title ("Financial Highlights", summary_sections.py), which this standalone card does not show. */}
+        <CardTitle>Financial highlights</CardTitle>
       </CardHeader>
       {layouts}
       {notes && (

@@ -624,17 +624,9 @@ const ALLOW_RETRY: Record<string, { sites: string[]; reason: string }> = {
       'list; activating the button unmounts it), and it is not a Retry. Its focus through that refetch and its ' +
       'hand-off to the "SEC filings" heading are pinned in busyControls.watchlist.spec.tsx.',
   },
-  'features/calendar/components/EarningsCalendarPage.tsx': {
-    sites: ['() => query.refetch()'],
-    reason: '"Try again" on the calendar error card: open in rule (h).',
-  },
-  'features/search/components/FullTextSearch.tsx': {
-    sites: ['() => refetch()'],
-    reason: 'The full-text search Retry: open in rule (h).',
-  },
 }
-const MAX_RETRY_ALLOWLIST_SIZE = 3
-const MAX_RETRY_PINNED_SITES = 3
+const MAX_RETRY_ALLOWLIST_SIZE = 1
+const MAX_RETRY_PINNED_SITES = 1
 
 /**
  * Every element the label scan sees that is not a RetryButton, pinned by `Tag "label"`, with a reason.
@@ -651,7 +643,7 @@ const STREAM_RESTART =
 const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
   'app/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'app/global-error.tsx': { sites: ['button "Try again"'], reason: ERROR_BOUNDARY_RESET },
-  'app/dashboard/error.tsx': { sites: ['Button "Try Again"'], reason: ERROR_BOUNDARY_RESET },
+  'app/dashboard/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'components/GlobalErrorBoundary.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'features/summaries/components/SummaryDisplay.tsx': {
     sites: ['Button "Retry"'],
@@ -661,17 +653,9 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     sites: ['Button "Retry"'],
     reason: STREAM_RESTART + 'Re-asks a copilot question whose answer stream failed.',
   },
-  'features/calendar/components/EarningsCalendarPage.tsx': {
-    sites: ['Button "Try again"'],
-    reason: '"Try again" on the calendar error card: open in rule (h) (also in ALLOW_RETRY).',
-  },
-  'features/search/components/FullTextSearch.tsx': {
-    sites: ['button "Retry"'],
-    reason: 'The full-text search Retry: open in rule (h) (also in ALLOW_RETRY).',
-  },
 }
-const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 8
-const MAX_RETRY_LABEL_PINNED_SITES = 8
+const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 6
+const MAX_RETRY_LABEL_PINNED_SITES = 6
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {

@@ -274,9 +274,13 @@ export default function NarrativePane({
           )}
           {state.status === 'done' && <DataNotesLink notes={citedNotes} />}
           {state.status === 'done' && completion?.cached && !sample && (
-            <Badge title="Served from a previous run of this exact period range. It regenerates automatically when new filings arrive.">
-              Cached
-            </Badge>
+            // The explanation is a visible line, not a title tooltip: a phone or a keyboard never shows a title.
+            <>
+              <Badge>Cached</Badge>
+              <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                Served from an earlier run · regenerates if these figures change
+              </span>
+            </>
           )}
         </div>
         {state.status === 'done' && !notEnoughData && (

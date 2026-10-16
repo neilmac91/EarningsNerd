@@ -30,7 +30,7 @@ const CEILINGS: Record<string, { count: number; why: string }> = {
   },
   'tests/unit/busyControlsStayFocusable.spec.ts': {
     count: 6,
-    why: 'the file and site caps of ALLOW, ALLOW_RETRY and ALLOW_HAND_BUILT_FAILURE (E59); the ALLOW_RETRY_LABEL pair is an equality, which #1295 and #1301 each lower',
+    why: 'the file and site caps of ALLOW, ALLOW_RETRY and ALLOW_HAND_BUILT_FAILURE (E59); the ALLOW_RETRY_LABEL pair is an equality since #1301, and #1295 lowers it',
   },
   'tests/unit/dialogAllowlist.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
   'tests/unit/fullPageSpinnerGate.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
