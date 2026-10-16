@@ -13,7 +13,9 @@ import { brandText, direction600Text, directionTextTokens, isTextColour } from '
  * gives it an ink on every render, so a layout or type wrapper never shields the sage above it (the
  * principal review of #1290). A glyph is known by its import as well as its spelling (Codex on 6aa1baa9): a local
  * name an import from the icon modules binds to one, a namespace member and Phosphor's unsuffixed name, in JSX
- * and in a direction map.
+ * and in a direction map. And by a binding the file writes one to (Codex on f1044c98), read through ESLint's
+ * scopes: an alias, a destructured member, a later assignment, a default, a ternary's arm, a logical operand and
+ * a lookup in a map of glyphs, as the what-changed chip draws its glyph (`GLYPH[d] ?? GLYPH.flat`).
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -62,6 +64,15 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
     "import { TrendUp } from './charts';\n<span className=\"text-brand-strong\"><TrendUp /></span>",
     "import { ArrowRightIcon as Up } from '@/lib/icons';\n<span className=\"text-brand-strong\"><Up /></span>",
     "import * as Ph from '@phosphor-icons/react';\n<span className=\"text-brand-strong\"><Ph.ArrowRight /></span>",
+    // A binding holds what the file writes to it (Codex on f1044c98): another glyph, a parameter that shadows a glyph's
+    // binding, a map's other entry by its key, another namespace member, an HTML tag of the same name, and a binding
+    // that only reads itself.
+    "import { ArrowRightIcon } from '@/lib/icons';\nconst Icon = ArrowRightIcon;\n<span className=\"text-brand-strong\"><Icon /></span>",
+    "import { TrendUpIcon } from '@/lib/icons';\nconst Up = TrendUpIcon;\nfunction Row({ Up }) { return <span className=\"text-brand-strong\"><Up /></span> }",
+    "import { ArrowRightIcon, TrendUpIcon } from '@/lib/icons';\nconst GLYPHS = { up: TrendUpIcon, link: ArrowRightIcon };\n<span className=\"text-brand-strong\"><GLYPHS.link /></span>",
+    "import * as Ph from '@phosphor-icons/react';\nconst { ArrowRight: Go } = Ph;\n<span className=\"text-brand-strong\"><Go /></span>",
+    "import { TrendUpIcon } from '@/lib/icons';\nconst up = TrendUpIcon;\n<up className=\"text-brand-strong\" />",
+    "let A;\nlet B;\nA = B;\nB = A;\n<span className=\"text-brand-strong\"><A /></span>",
     '<span className={`inline-flex border ${directionChip[tone]}`}><TrendUpIcon aria-hidden="true" />Revenue</span>',
     // The 600 levels stay graphic: a border, a fill, a chart stroke.
     '<span className="border-gain-light/20 bg-gain-soft fill-loss-light" />',
@@ -158,6 +169,66 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
       filename: path.join(frontendRoot, 'features/dashboard/components/probe.tsx'),
       errors: [{ messageId: 'brand' }],
     },
+    // A glyph known by a binding the file writes it to (Codex on f1044c98): an alias of an import or of a namespace
+    // member, a destructured member, a later assignment, a default, either arm of a ternary, a logical operand, a
+    // lookup in a map or a list of glyphs by its key or by a key the scan cannot read, a namespace's alias read twice
+    // on one path, and a cycle that holds one; in JSX and in a direction map.
+    {
+      code: "import { TrendUpIcon } from '@/lib/icons';\nconst Up = TrendUpIcon;\n<span className=\"text-brand-strong\"><Up /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import * as Icons from '@/lib/icons';\nconst Up = Icons.TrendUpIcon;\n<Up className=\"h-4 w-4 text-brand-strong\" />",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import * as Ph from '@phosphor-icons/react';\nconst { TrendDown: Down } = Ph;\n<span className=\"text-brand-strong\"><Down /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { ArrowRightIcon, TrendDownIcon } from '@/lib/icons';\nlet Icon = ArrowRightIcon;\nif (down) Icon = TrendDownIcon;\n<span className=\"text-brand-strong\"><Icon /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { TrendUpIcon } from '@/lib/icons';\nfunction Chip({ Icon = TrendUpIcon }) { return <span className=\"text-brand-strong\"><Icon /></span> }",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { ArrowRight, TrendUp } from '@phosphor-icons/react';\nconst Icon = up ? TrendUp : ArrowRight;\n<span className=\"text-brand-strong\"><Icon /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import * as Ph from '@phosphor-icons/react';\nconst P = Ph;\nconst Icon = flag ? P.ArrowRight : P.TrendUp;\n<span className=\"text-brand-strong\"><Icon /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { TrendDownIcon } from '@/lib/icons';\nconst Icon = falling && TrendDownIcon;\n<span className=\"text-brand-strong\">{Icon && <Icon />}</span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons';\nconst GLYPH = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon };\nconst Icon = GLYPH[d] ?? GLYPH.flat;\n<span className=\"text-brand-strong\"><Icon /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { ArrowRightIcon, TrendUpIcon } from '@/lib/icons';\nconst GLYPHS = { up: TrendUpIcon, link: ArrowRightIcon };\n<span className=\"text-brand-strong\"><GLYPHS.up /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { TrendUpIcon } from '@/lib/icons';\nconst GLYPHS = [TrendUpIcon];\nconst Icon = GLYPHS[0];\n<span className=\"text-brand-strong\"><Icon /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { TrendUpIcon } from '@/lib/icons';\nlet A = TrendUpIcon;\nconst C = A;\nA = C;\n<span className=\"text-brand-strong\"><C /></span>",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "import { TrendUpIcon as Up } from '@/lib/icons';\nconst Rising = Up;\nconst DIRECTION = { up: { Icon: Rising, cls: 'text-brand-strong' } }",
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: "const DIRECTION = { any: { Icon: up ? TrendUpIcon : TrendDownIcon, cls: 'text-brand-strong' } }",
+      errors: [{ messageId: 'brand' }],
+    },
   ],
 })
 
@@ -189,5 +260,22 @@ describe('the repository config', SLOW, () => {
       '6 earningsnerd/direction-text-tokens',
     ])
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
+  })
+
+  it('reads a glyph through a binding under the TypeScript parser, its wrappers included', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const [result] = await eslint.lintText(
+      [
+        "import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'",
+        'const GLYPH = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as const',
+        "export function Probe({ d }: { d: 'up' | 'down' | 'flat' }) {",
+        '  const Icon = GLYPH[d]! ?? GLYPH.flat',
+        '  return <span className="text-brand-strong"><Icon /></span>',
+        '}',
+        '',
+      ].join('\n'),
+      { filePath: path.join(frontendRoot, 'features/dashboard/components/direction-binding-probe.tsx') },
+    )
+    expect(result.messages.map((m) => `${m.line} ${m.ruleId}`)).toEqual(['5 earningsnerd/direction-text-tokens'])
   })
 })

@@ -7,8 +7,9 @@ import { directionChip } from '@/lib/financialTone'
 
 /**
  * The what-changed chip on the dashboard feed (audit DSW-08, filing/F03; D-030, DESIGN.md "Separate
- * Signals"). Its glyph is picked from a map and drawn as `<Icon />`, a variable earningsnerd/direction-
- * text-tokens cannot follow (the rule's header lists it as a known limit), so this spec holds the chip:
+ * Signals"). Its glyph is picked from a map and drawn as `<Icon />`; earningsnerd/direction-text-tokens
+ * reads that binding and bans sage on it, but no lint can tell which chip the server's tone asks for, so
+ * this spec holds the chip:
  * - the colour is directionChip for the TONE the server sent with the signed display string, not for the
  *   direction (costs that rose are a loss: tone 'loss', direction 'up');
  * - the glyph follows the DIRECTION and is aria-hidden;

@@ -56,22 +56,30 @@
 //                       text-data-xs), an alignment, a wrap or an overflow mode, so a layout or type
 //                       wrapper passes the ink through, as does a colour set only under a variant
 //                       (dark:, hover:, md:) or in one branch.
-//                       A glyph is known by its import as well as its spelling: a name spelled TrendUpIcon or
-//                       TrendDownIcon wherever it comes from, the local name an import from the icon modules
-//                       binds to one (`import { TrendUpIcon as Up }`, Phosphor's unsuffixed `TrendUp`), and a
-//                       member of a namespace import of them (`<Ph.TrendUp />`, `{ Icon: icons.TrendUpIcon }`).
-//                       The icon modules are `@/lib/icons`, by its alias or a path relative to the file, and
-//                       the Phosphor package at any entry, as tests/unit/iconModules.ts reads them for the
-//                       glyph and heading gates; a glyph re-exported through another app module is out of
-//                       reach there too.
-//                       Known limits: a glyph reached through a variable rendered elsewhere
-//                       (`const Icon = GLYPH[d]` then `<Icon />`), a map whose Icon value is a ternary
-//                       ({ Icon: up ? TrendUpIcon : TrendDownIcon }), a glyph returned from a callback
-//                       (`{xs.map((x) => <TrendUpIcon />)}`: the walk up stops at the arrow function),
+//                       A glyph is known by its spelling, its import and its bindings, read through ESLint's
+//                       scopes: a name spelled TrendUpIcon or TrendDownIcon wherever it comes from; a binding
+//                       an import from the icon modules makes (`import { TrendUpIcon as Up }`, Phosphor's
+//                       unsuffixed `TrendUp`, a namespace whose trend members are glyphs: `<Ph.TrendUp />`,
+//                       `{ Icon: icons.TrendUpIcon }`); and a binding of the file, which holds every value
+//                       written to it (its initialiser, a default, a later assignment), read through an alias
+//                       (`const Up = TrendUpIcon`, `const Up = Icons.TrendUpIcon`), a destructured member
+//                       (`const { TrendUp: Up } = Ph`), a ternary's arms, a logical operand (the right of `&&`
+//                       alone) and a lookup in an object or array literal, by its key or, for a key the scan
+//                       cannot read, in every value: the what-changed chip's
+//                       `const Icon = GLYPH[item.direction] ?? GLYPH.flat` then `<Icon />` is read so. The icon
+//                       modules are `@/lib/icons`, by its alias or a path relative to the file, and the
+//                       Phosphor package at any entry, as tests/unit/iconModules.ts reads them for the glyph
+//                       and heading gates. A glyph re-exported through another app module, or a map of glyphs
+//                       imported from one, is out of reach.
+//                       Known limits: a glyph that reaches a binding from outside the file's writes (a
+//                       parameter or a prop past its default, a loop variable, a call's result:
+//                       `{xs.map((Icon) => <Icon />)}`, `const Icon = pick(d)`), a glyph returned from a
+//                       callback (`{xs.map((x) => <TrendUpIcon />)}`: the walk up stops at the arrow function),
 //                       and a glyph passed as a JSX prop (`icon={<TrendUpIcon />}`, valid by design: the
-//                       element that draws it is elsewhere) are data-flow, out of scope as below; the
-//                       what-changed chip draws its glyph through a variable, so
-//                       tests/unit/whatChangedChip.spec.tsx renders it and holds its colour to directionChip.
+//                       element that draws it is elsewhere) are data-flow, out of scope as below.
+//                       tests/unit/whatChangedChip.spec.tsx holds what no lint can see on the what-changed
+//                       chip: that its colour is directionChip for the tone the server sent, not for the
+//                       direction.
 //                       On the walk, an unread part that holds no colour (`${size}`) stops it as an ink
 //                       would, while a colour set only by a clsx object key ({ 'text-x': up }) or by a
 //                       variant that styles the glyph from its parent (`[&>svg]:text-x`) does not, so
@@ -692,32 +700,126 @@ const isIconModule = (source, filename, cwd) => {
   return target.replace(/\.tsx?$/, '').replace(/\/index$/, '') === 'lib/icons'
 }
 
-/** The trend glyphs one file can name: a name spelled TrendUpIcon or TrendDownIcon, wherever it comes from; the local
- *  name an import from the icon modules binds to one (`TrendUpIcon as Up`, Phosphor's `TrendUp`); and a member of a
- *  namespace import of them (`Ph.TrendUp`). `tag` reads a JSX tag, `value` an expression (a direction map's value). */
-function trendGlyphs(program, filename, cwd) {
-  const locals = new Set()
-  const namespaces = new Set()
-  for (const stmt of program?.body ?? []) {
-    if (stmt.type !== 'ImportDeclaration' || !isIconModule(String(stmt.source.value), filename, cwd)) continue
-    for (const s of stmt.specifiers) {
-      const imported = s.type === 'ImportSpecifier' ? (s.imported.name ?? s.imported.value) : undefined
-      if (imported !== undefined && TREND_GLYPH.test(imported)) locals.add(s.local.name)
-      if (s.type === 'ImportNamespaceSpecifier') namespaces.add(s.local.name)
+/** What the glyph reading can tell a value holds: a trend glyph, a namespace import of the icon modules, or (the
+ *  node itself) an object or array literal, whose values a lookup reads. */
+const A_GLYPH = 'glyph'
+const AN_ICON_NAMESPACE = 'icon namespace'
+
+/** A member's or a destructured property's key when it is written out (`GLYPH.up`, `GLYPH['up']`, `GLYPHS[0]`,
+ *  `{ up: Up }`), else null. */
+const writtenKey = (key, computed) =>
+  !computed ? (key.name ?? String(key.value)) : key.type === 'Literal' ? String(key.value) : (staticKey(key) ?? null)
+
+/** The keys a destructuring pattern reads on its way from `source`, the value written, down to `identifier`:
+ *  `const { TrendUp: Up } = Ph` reads ['TrendUp'], `const Up = TrendUpIcon` and a default (`Up = TrendUpIcon`)
+ *  none. A key the scan cannot read is null; a shape the reading does not follow (a rest element, a loop's
+ *  variable) gives undefined. */
+function patternKeys(identifier, source) {
+  const keys = []
+  for (let node = identifier; node.parent; node = node.parent) {
+    const { parent } = node
+    if (parent.type === 'VariableDeclarator') return parent.init === source ? keys : undefined
+    if (parent.type === 'AssignmentExpression') return parent.right === source ? keys : undefined
+    if (parent.type === 'AssignmentPattern' && parent.right === source) return keys
+    if (parent.type === 'Property' && parent.parent?.type === 'ObjectPattern') keys.unshift(writtenKey(parent.key, parent.computed))
+    else if (parent.type === 'ArrayPattern') keys.unshift(String(parent.elements.indexOf(node)))
+    else if (parent.type !== 'AssignmentPattern' && parent.type !== 'ObjectPattern') return undefined
+  }
+  return undefined
+}
+
+/** Reads whether a JSX tag or an expression names a trend glyph. A name spelled TrendUpIcon or TrendDownIcon is one
+ *  wherever it comes from. Any other name is read through ESLint's scopes to its binding: one an import from the
+ *  icon modules makes (`TrendUpIcon as Up`, Phosphor's unsuffixed `TrendUp`, or a namespace, whose trend members are
+ *  glyphs: `Ph.TrendUp`), or one of the file, which holds every value written to it (its initialiser, a default, a
+ *  later assignment). A value is read through an alias, a member of a namespace or of an object or array literal (by
+ *  its key: `GLYPH.up`; by every value for a key the scan cannot read: `GLYPH[d]`), a ternary's arms, a logical
+ *  operator's operands (the right of `&&` alone), a destructuring pattern's keys and TypeScript's wrappers. A binding
+ *  read again on its own path gives nothing more, so a cycle ends. `tag` reads a JSX tag (a lower-case name is an
+ *  HTML element, never a binding), `value` an expression (a direction map's value). */
+function glyphReader(context) {
+  const { sourceCode, filename, cwd } = context
+  const bindingOf = (node) => {
+    for (let scope = sourceCode.getScope(node); scope; scope = scope.upper) {
+      const variable = scope.set.get(node.name)
+      if (variable) return variable
+    }
+    return null
+  }
+  const reading = new Set()
+  const ofBinding = (variable) => {
+    if (reading.has(variable)) return []
+    reading.add(variable)
+    try {
+      const found = []
+      for (const def of variable.defs) {
+        if (def.type !== 'ImportBinding' || !isIconModule(String(def.parent.source.value), filename, cwd)) continue
+        if (def.node.type === 'ImportNamespaceSpecifier') found.push(AN_ICON_NAMESPACE)
+        if (def.node.type === 'ImportSpecifier' && TREND_GLYPH.test(def.node.imported.name ?? def.node.imported.value)) {
+          found.push(A_GLYPH)
+        }
+      }
+      for (const ref of variable.references) {
+        const keys = ref.writeExpr ? patternKeys(ref.identifier, ref.writeExpr) : undefined
+        if (keys) found.push(...keys.reduce((values, key) => values.flatMap((value) => member(value, key)), holds(ref.writeExpr)))
+      }
+      return found
+    } finally {
+      reading.delete(variable)
     }
   }
-  const named = (name) => TREND_ICON.test(name) || locals.has(name)
-  const member = (object, property) => TREND_ICON.test(property) || (namespaces.has(object) && TREND_GLYPH.test(property))
+  // What an expression or a JSX tag may hold: A_GLYPH, AN_ICON_NAMESPACE, or an object or array literal.
+  const holds = (node) => {
+    switch (node?.type) {
+      case 'Identifier':
+      case 'JSXIdentifier': {
+        const variable = bindingOf(node)
+        return [...(TREND_ICON.test(node.name) ? [A_GLYPH] : []), ...(variable ? ofBinding(variable) : [])]
+      }
+      case 'MemberExpression':
+      case 'JSXMemberExpression': {
+        const key = writtenKey(node.property, node.computed)
+        return key !== null && TREND_ICON.test(key) ? [A_GLYPH] : holds(node.object).flatMap((value) => member(value, key))
+      }
+      case 'ConditionalExpression':
+        return [...holds(node.consequent), ...holds(node.alternate)]
+      case 'LogicalExpression':
+        return node.operator === '&&' ? holds(node.right) : [...holds(node.left), ...holds(node.right)]
+      case 'ChainExpression':
+      case 'TSAsExpression':
+      case 'TSSatisfiesExpression':
+      case 'TSNonNullExpression':
+      case 'TSTypeAssertion':
+        return holds(node.expression)
+      case 'ObjectExpression':
+      case 'ArrayExpression':
+        return [node]
+      default:
+        return []
+    }
+  }
+  // What `value[key]` may hold: a namespace's trend member, or a literal's values at that key (every value for a key
+  // the scan cannot read), a spread read at the same key.
+  const member = (value, key) => {
+    if (value === AN_ICON_NAMESPACE) return key !== null && TREND_GLYPH.test(key) ? [A_GLYPH] : []
+    if (value === A_GLYPH) return []
+    const spread = (node, at) => holds(node.argument).flatMap((inner) => member(inner, at))
+    if (value.type === 'ArrayExpression') {
+      const exact = key !== null && !value.elements.some((e) => e?.type === 'SpreadElement')
+      const items = exact ? [value.elements[Number(key)]] : value.elements
+      return items.flatMap((e) => (!e ? [] : e.type === 'SpreadElement' ? spread(e, null) : holds(e)))
+    }
+    return value.properties.flatMap((p) =>
+      p.type === 'SpreadElement'
+        ? spread(p, key)
+        : key === null || [key, null].includes(writtenKey(p.key, p.computed))
+          ? holds(p.value)
+          : [],
+    )
+  }
   return {
-    tag: (name) =>
-      (name?.type === 'JSXIdentifier' && named(name.name)) ||
-      (name?.type === 'JSXMemberExpression' && member(name.object.type === 'JSXIdentifier' ? name.object.name : '', name.property.name)),
-    value: (node) =>
-      (node.type === 'Identifier' && named(node.name)) ||
-      (node.type === 'MemberExpression' &&
-        !node.computed &&
-        node.property.type === 'Identifier' &&
-        member(node.object.type === 'Identifier' ? node.object.name : '', node.property.name)),
+    tag: (name) => (name.type !== 'JSXIdentifier' || /^[A-Z]/.test(name.name)) && holds(name).includes(A_GLYPH),
+    value: (node) => holds(node).includes(A_GLYPH),
   }
 }
 
@@ -753,11 +855,8 @@ export const directionTextTokens = {
     }
     const classAttrs = (opening) =>
       opening.attributes.filter((a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && CLASS_ATTR.test(a.name.name))
-    let glyph = trendGlyphs(null, context.filename, context.cwd)
+    const glyph = glyphReader(context)
     return {
-      Program(node) {
-        glyph = trendGlyphs(node, context.filename, context.cwd)
-      },
       ...classUnitVisitors((node, pieces) => {
         for (const text of branchTexts(pieces)) {
           const token = direction600Text(text)
@@ -778,9 +877,9 @@ export const directionTextTokens = {
           if (attrs.some((attr) => ownInk(attr.value))) break
         }
       },
-      // A direction map: an object that holds a trend glyph (by name or as a namespace member) beside the
-      // classes it is drawn with. Every value is read, whatever builds it (a literal, a template, a cx()
-      // call, a ternary).
+      // A direction map: an object that holds a trend glyph (read as glyphReader reads one: by its name, its
+      // import or a binding the file writes it to) beside the classes it is drawn with. Every value is read,
+      // whatever builds it (a literal, a template, a cx() call, a ternary).
       ObjectExpression(node) {
         const props = node.properties.filter((p) => p.type === 'Property')
         if (!props.some((p) => glyph.value(p.value))) return

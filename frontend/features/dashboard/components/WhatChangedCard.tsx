@@ -34,8 +34,8 @@ function isRecentFiling(value: string | null, withinDays = 14): boolean {
 // gain and loss inks on their soft grounds (flat in the secondary ink), never sage (D-030, DESIGN.md
 // Separate Signals). The colour follows the tone the server computed with the signed display string;
 // the glyph follows its direction and is decorative, since the sign (or, with no figure, the sr-only
-// word) says the direction. Gate: tests/unit/whatChangedChip.spec.tsx, since eslint's
-// earningsnerd/direction-text-tokens cannot follow a glyph drawn through a variable (`<Icon />`).
+// word) says the direction. Gates: eslint's earningsnerd/direction-text-tokens reads `<Icon />` through
+// GLYPH and bans sage on it; tests/unit/whatChangedChip.spec.tsx holds its colour to the tone.
 const GLYPH = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as const
 const TONE: Record<WhatChangedItem['tone'], Direction> = { gain: 'up', loss: 'down', flat: 'flat' }
 
