@@ -137,7 +137,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
           </Link>
         </div>
 
-        <div className="rounded-3xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-6 shadow-e3 dark:shadow-[0_20px_50px_rgba(15,23,42,0.45)]">
+        <div className="rounded-3xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-6 shadow-e3 dark:shadow-none">
           <h2
             ref={filingsHeadingRef}
             tabIndex={-1}

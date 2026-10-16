@@ -1,11 +1,15 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { ApiError } from '@/lib/api/client'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { ArrowSquareOutIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 import { FieldSpinner, inputClasses } from '@/components/ui'
+import { fmtCount } from '@/lib/format'
+import { SEARCH_QUERY_MAX, clampQuery } from '@/features/search/lib/queryLimit'
 
 // EFTS is a global SEC index (independent of our ENABLE_FPI_FILINGS discovery flag), so the
 // foreign-issuer forms are always searchable. EFTS matches on root_form, which folds amendments
@@ -40,13 +44,10 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
                 <span className="truncate text-sm text-text-primary-light dark:text-text-secondary-dark">{hit.company ?? 'Unknown filer'}</span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {hit.form && (
-                  <span className="rounded border border-border-light dark:border-white/10 bg-black/[0.03] dark:bg-white/5 px-1.5 py-0.5 uppercase tracking-eyebrow">
-                    {hit.form}
-                  </span>
-                )}
-                {hit.filed_date && <span>Filed {hit.filed_date}</span>}
-                {hit.period_ending && <span>· Period {hit.period_ending}</span>}
+                {/* A form code is text in the data face, never a chip (DESIGN.md › Chips). */}
+                {hit.form && <span className="font-data text-text-primary-light dark:text-text-primary-dark">{hit.form}</span>}
+                {hit.filed_date && <span>{hit.form && '· '}Filed {hit.filed_date}</span>}
+                {hit.period_ending && <span>{(hit.form || hit.filed_date) && '· '}Period {hit.period_ending}</span>}
               </div>
             </div>
             {/* Only the linkable rows get the external-link affordance. */}
@@ -61,7 +62,9 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                className={`${rowClass} transition-colors hover:bg-black/[0.03] dark:hover:bg-white/5`}
+                // The list clips its rows (overflow-hidden), so the ring sits inside the row. Hover brightens
+                // to the product's row tint (DESIGN_SYSTEM.md section 6), never darkens.
+                className={`${rowClass} transition-colors hover:bg-brand-weak focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-inset-dark`}
               >
                 {inner}
               </a>
@@ -94,7 +97,8 @@ export default function FullTextSearch() {
   // range can be inverted (start > end); don't fire a request that the upstream would 400/502 on.
   const validRange = !startDate || !endDate || startDate <= endDate
 
-  const { data, isError, error, refetch, isFetching } = useQuery({
+  const inputRef = useRef<HTMLInputElement>(null)
+  const search = useQuery({
     queryKey: queryKeys.fullTextSearch(query, formsParam, startDate, endDate),
     queryFn: () =>
       searchFullText({
@@ -107,6 +111,17 @@ export default function FullTextSearch() {
     placeholderData: keepPreviousData, // keep prior results visible while refining (no flash)
     staleTime: 5 * 60 * 1000,
   })
+  const { data, isFetching } = search
+  // The alert keeps its failure through any refetch until the query's own data replaces it (a focused
+  // Retry in it included; keepPreviousData's placeholder does not count); a new query is another query,
+  // so typing one drops the old failure.
+  const failure = useRetainedFailure(search, queryKeys.fullTextSearch(query, formsParam, startDate, endDate))
+  // The backend's own detail (the 429 and 502 sentences) reads verbatim, or the surface's sentence when
+  // the body carried none: `backendDetail` is unset for a lost connection, a non-string detail, an HTML
+  // gateway page, and lib/api/client's status fallbacks or axios's "Request failed with status code N".
+  const backendDetail = failure.error instanceof ApiError ? failure.error.backendDetail : undefined
+  const errorText =
+    typeof backendDetail === 'string' && backendDetail ? backendDetail : 'Search did not load. Try again in a minute.'
 
   const toggleForm = (form: string) =>
     setForms((prev) => (prev.includes(form) ? prev.filter((f) => f !== form) : [...prev, form]))
@@ -128,8 +143,13 @@ export default function FullTextSearch() {
           className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
         />
         <input
+          ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          // The backend refuses a longer query (routers/search.py, `q: str = Query(..., max_length=...)`), counted
+          // in code points; the field clamps the trimmed query it sends by code points too, where a native maxLength
+          // would count UTF-16 units and the leading whitespace the trim drops (features/search/lib/queryLimit.ts,
+          // held to the router by tests/unit/searchQueryLimitParity.spec.tsx).
+          onChange={(e) => setInput(clampQuery(e.target.value, SEARCH_QUERY_MAX))}
           placeholder="Search the full text of filings…"
           aria-label="Search the full text of SEC filings"
           aria-busy={isFetching || undefined}
@@ -142,16 +162,18 @@ export default function FullTextSearch() {
       <div className="flex flex-wrap gap-2">
         {FORM_FILTERS.map((filter) => {
           const active = forms.includes(filter.form)
+          // An unselected toggle brightens like a result row (brand-weak); in dark it rests on white/5,
+          // so its hover steps to white/10, as the product's other chip toggles do.
           return (
             <button
               key={filter.form}
               type="button"
               onClick={() => toggleForm(filter.form)}
               aria-pressed={active}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${
                 active
                   ? 'border-brand-border dark:border-brand-dark/40 bg-brand-weak dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark'
-                  : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-black/[0.03] dark:hover:bg-white/10'
+                  : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
               }`}
             >
               {filter.label}
@@ -186,7 +208,7 @@ export default function FullTextSearch() {
               setStartDate('')
               setEndDate('')
             }}
-            className="text-text-secondary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark hover:underline"
+            className="rounded text-text-secondary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             Clear dates
           </button>
@@ -194,22 +216,20 @@ export default function FullTextSearch() {
         {!validRange && <span className="text-warning-light dark:text-warning-dark">Start date must be on or before end date.</span>}
       </div>
 
-      {isError && (
+      {failure.failed && (
         <div
           role="alert"
           className="flex items-center justify-between gap-3 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"
         >
           <span className="flex items-center gap-2">
             <WarningIcon className="h-4 w-4" aria-hidden />
-            {error instanceof Error ? error.message : 'Search is temporarily unavailable.'}
+            {errorText}
           </span>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="rounded-lg border border-error-light/40 dark:border-error-dark/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-error-light/10 dark:hover:bg-error-dark/15"
-          >
+          {/* When the alert goes while Retry holds focus (the search lands), focus moves to the field,
+              except after a tap, which would raise the touch keyboard. */}
+          <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField>
             Retry
-          </button>
+          </RetryButton>
         </div>
       )}
 
@@ -219,11 +239,13 @@ export default function FullTextSearch() {
         </p>
       )}
 
-      {query.length > 0 && !isError && data && (
+      {/* While a failure is held, no hits render: during its Retry, `data` is the previous query's
+          results (keepPreviousData), which must not show under this query. */}
+      {query.length > 0 && !failure.failed && data && (
         data.hits.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              {data.total.toLocaleString()} filing{data.total === 1 ? '' : 's'} match · showing{' '}
+              {fmtCount(data.total)} filing{data.total === 1 ? '' : 's'} match · showing{' '}
               {data.count}
             </p>
             <FullTextSearchResults hits={data.hits} />

@@ -1,9 +1,10 @@
 import type { PerAdsValue } from '@/types/summary'
+import { fmtDecimal } from '@/lib/format'
 
 // Format the per-ADS figure in the issuer's reporting currency, matching the backend's
 // code-prefixed style ("CNY 45.6") so the headline and the arithmetic caption read consistently.
 function formatPerAds(value: number, currency?: string | null): string {
-  const num = value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  const num = fmtDecimal(value, { maxDigits: 2 })
   return currency ? `${currency} ${num}` : num
 }
 

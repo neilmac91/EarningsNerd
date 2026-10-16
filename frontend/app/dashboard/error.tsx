@@ -40,10 +40,11 @@ export default function DashboardError({
         <div className="w-full max-w-md">
           <GuidanceCard
             variant="error"
+            headingLevel="h1"
             icon={<LockSimpleIcon className="h-5 w-5" />}
-            title="Authentication Required"
+            title="Authentication required"
             description="Please log in to access your dashboard."
-            action={<Button onClick={() => router.push('/login')}>Go to Login</Button>}
+            action={<Button onClick={() => router.push('/login')}>Go to login</Button>}
           />
         </div>
       </div>
@@ -56,14 +57,15 @@ export default function DashboardError({
       <div className="w-full max-w-md">
         <GuidanceCard
           variant="error"
+          headingLevel="h1"
           icon={<WarningCircleIcon className="h-5 w-5" />}
           title="Something went wrong"
-          description="We encountered an unexpected error. Please try again."
+          description="This page didn't load. The error has been logged."
           action={
             <>
-              <Button onClick={reset}>Try Again</Button>
+              <Button onClick={reset}>Try again</Button>
               <Button variant="secondary" onClick={() => router.push('/')}>
-                Go Home
+                Go home
               </Button>
             </>
           }

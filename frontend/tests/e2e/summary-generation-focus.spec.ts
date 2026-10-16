@@ -151,7 +151,7 @@ for (const theme of ['light', 'dark'] as const) {
         const stream: Stream = { next: 'hold' }
         await openFiling(page, baseURL!, stream, 'pro', { theme, consent: false })
         await page.getByRole('button', { name: 'Customize', exact: true }).click()
-        const dialog = page.getByRole('dialog', { name: 'Cookie Preferences' })
+        const dialog = page.getByRole('dialog', { name: 'Cookie preferences' })
         await expect(dialog).toBeVisible()
         await expect.poll(() => stream.release !== undefined).toBe(true)
         // A dialog control can leave between commits; body focus does not release its modal owner.

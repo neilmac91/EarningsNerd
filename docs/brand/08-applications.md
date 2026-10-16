@@ -76,8 +76,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
   (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
-  visitor, which is why the clause names analytics cookies. The categories, the controls and the
-  privacy link are unchanged.
+  visitor, which is why the clause names analytics cookies. The bar's two choices say what they set:
+  "Essential only" and "Allow analytics" (session recording stays off until it is chosen under
+  Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
+  beside them; the dialog's headings and its "Save preferences" button are in sentence case.
+  The categories, the handlers and the privacy link are unchanged; the analytics clause in the
+  dialog waits on the founder (chrome/F1).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
@@ -184,6 +188,32 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   and the filings form filter, a set known only at run time, renders as the toolbar's compact select
   past five (a filer with both domestic and foreign forms), so no SegmentedControl ever shows more than
   five; `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
+- **Dashboard and watchlist** (`frontend/app/dashboard/page.tsx`, `app/dashboard/watchlist/page.tsx`,
+  `features/dashboard/components/*`, `features/watchlist/components/SummaryStatusBadge.tsx`): each
+  watched company's card states its summary from the server's status (ready, being written, none yet,
+  unavailable, failed) with a matching badge ("No summary yet", "Unavailable", "Needs regenerating" in
+  sentence case), never from the regeneration flag alone; a failed load shows its error card with a
+  Retry and no empty card (a run the server still reports as generating after it died reads as being
+  written until tasks/todo.md E43 lands). The what-changed chips take `lib/financialTone`'s direction chip, the
+  700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
+  decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
+  companies you follow."), the limit banner states the account's own count and nothing about
+  Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
+  and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
+  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide, after the series, E58),
+  the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
+  billing", and the route error boundary is in sentence case with a generic line that names no route
+  ("This page didn't load. The error has been logged."). Tickers are set in the data face.
+  `earningsnerd/direction-text-tokens` (new ESLint rule) bans the 600-level gain and loss as text, and
+  sage on a direction glyph it can see by its name, its import or a binding the file writes it to (on
+  the glyph, on the element whose ink it inherits, or in a map that pairs it with its classes);
+  `tests/unit/whatChangedChip.spec.tsx` holds the chip to the direction chip for the server's tone,
+  which no lint can see, and `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences and the
+  Retry through its refetch.
+- **Notification bell** (`frontend/features/notifications/components/NotificationBell.tsx`): an
+  alert reads "New 10-Q from AAPL", the form and ticker in the data face; the unread count rests in
+  the ink, not on sage (D-030), while the sage dot still marks an unread row; the menu sits on the
+  header's rung with the account menu.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding). The standalone card (the landing's
@@ -196,10 +226,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
   check-email countdown, the period quick picks, the narrative's "Show the N source figures" summary
   and its bracketed Sources chip, the data notes' checked count, the peer rank and the summary's
-  section index rest in the ink, and so do the values beside them: a What-changed chip's rising
-  delta on the dashboard (the primary ink, the icon carrying the direction), the filing viewer's
-  "Showing ·" caption, which prints a section's name, and the "Sources & checks" links, which under
-  the fundamentals chart print a figure's fiscal year. The controls among them that turn sage under
+  section index rest in the ink, and so do the values beside them: the filing viewer's "Showing ·"
+  caption, which prints a section's name, and the "Sources & checks" links, which under the
+  fundamentals chart print a figure's fiscal year. A What-changed chip on the dashboard is a figure's
+  change, so it takes the direction chip above (its gain or loss ink with the sign), never sage. The controls among them that turn sage under
   the pointer compose the count control, `countControlClass` (`frontend/DESIGN_SYSTEM.md`): the
   whole label in the secondary ink as one text run, sage under the pointer (a link set among lines
   of text keeps its underline). The calendar day's "+N more", which never turns sage, and the
@@ -228,6 +258,49 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
+- **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, on the
+  overlay step of the elevation ladder (`e4`), in the theme the reader chose on the site rather than
+  the OS setting; a status toast (success, error, warning, info) keeps the panel
+  and colours only its icon, in its status ink (Sonner's own rich colours are off).
+- **Feedback widget** (`frontend/features/feedback/components/FeedbackWidget.tsx`): the three kinds
+  read "Bug", "Idea" and "General", without emoji, on the token hairlines; hover brightens to white
+  in light, never darkening to the page ground.
+- **Chart fallback** (`frontend/components/ChartErrorBoundary.tsx`): "This chart could not be
+  drawn." in the Card recipe on the filing page, where the boundary wraps one chart with no
+  table below it; "These charts could not be drawn." on Multi-Period Analysis when it wraps a grid of more
+  than one chart panel (MetricsTable sits below, outside it). It says only what failed.
+- **Checkbox** (`frontend/components/ui/Checkbox.tsx`): one recipe for the consent dialog and the
+  admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1): Light Sage under a
+  navy check, as the Primary button pairs them.
+- **Status chips** (`frontend/components/ui/Badge.tsx`): `success` and `error` variants for status
+  (D-032). The watchlist and dashboard rows say "Ready" on success and "Error" on error, and
+  "Unavailable" and "Needs regenerating" on warning; no status borrows the gain and loss colours.
+- **Error copy** (`frontend/lib/api/client.ts`): a lost connection reads "Could not reach the server.
+  Try again in a moment." instead of naming the backend and its URL, and a validation error shows
+  its first message instead of "[object Object]".
+- **Settings and subscription** (`frontend/features/settings/`, `frontend/features/subscriptions/`,
+  D-033): Filing alerts offer only what the alert jobs read. The digest row states "Daily" in the
+  data face ("Alerts that aren't real-time arrive in one email a day.") in place of a frequency
+  select no job honoured; real-time alerts read "An email from the hourly filing check, instead of
+  the daily digest." and 8-K alerts "Current reports on material events." The Pro list in the
+  upgrade dialog is one shared string, and every plan list (the dialog, the /pricing and landing
+  plan cards, the /pricing Product JSON-LD) names Multi-Period Analysis only through
+  `lib/planLimits.ts`, read through its `shipped()` while that flag ships it (D-040). The trial
+  banner and the billing panel state the trial's end date ("Your Pro trial ends Jun 25, 2026."),
+  never a countdown, and the banner shows only while the resolved plan is a live Pro trial. In
+  settings and the subscription surfaces, commerce carries the Lightning glyph (the Pro badge, the
+  trial banner) and "Analyze trends" a chart glyph; the sparkle leaves commerce there (D-031 records
+  that it has no sanctioned site until an AI-summary chip exists), and #1295 takes it off the
+  Copilot's two upgrade buttons (`CopilotMessage.tsx`, `CopilotTeaser.tsx`). The dead
+  SubscriptionGate is gone. The locked overlay reads "Upgrade to Pro". Section headings in settings
+  and on the dashboard carry no icon. The dashboard answers a finished checkout ("Pro is active", or
+  "Checkout finished" with "Your plan updates in a moment. Reload this page if it still shows Free."
+  while the query still says Free) and pricing a cancelled one ("You returned from checkout", then
+  "You can choose a plan below." or, for an account already on Pro, "Your plan is Pro."), reading
+  only the subscription query and the return URL, which says nothing about a charge. Each page drops
+  its return flag from the address once read. On /pricing a signed-in Pro account's Free card names
+  the plan, "Free plan", disabled, where it read the guest's "Request an invite" (gate:
+  `PricingPage.spec.tsx`).
 - **Admin invites and feedback** (`frontend/app/admin/`, `frontend/features/admin/components/`): an
   invite is "created", and "emailed" only when Email invites was on and the backend's best-effort send
   went through (the API's `emailed` flag). A batch reads "3 invites created · 3 emailed", "3 invite
@@ -243,6 +316,28 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
   and the remaining admin controls carry the brand ring (`statusChipContrast.spec.ts`,
   `inviteOutcomeEmailed.spec.tsx`, `siteChromeFocusRing.spec.ts`).
+- **Earnings calendar** (`frontend/app/calendar/page.tsx`, `features/calendar/components/*`): the
+  page, its metadata and its footer say where each date comes from: a reported date from the
+  company's 8-K results filing on SEC EDGAR, an estimated date and EPS estimate from a market-data
+  provider, and "usually" for a time the company has not confirmed. Nothing claims a confirmed
+  date, a reporting pattern or "the most-anticipated" reports; the day dialog groups the day by report
+  time (before open, after close, then the rest) and orders each group "large caps and most followed
+  first". The anticipation flame is gone: the order already ranks the rows, and the
+  warning colour is for status. A signed-out bell offers an email the morning a company reports, and
+  its second action follows the registration mode ("Request an invite" while invite-only). The error
+  card's "Try again" is a `RetryButton`. `brandCopyRules.spec.ts` rule 1d bans the old claims under
+  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker.
+- **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
+  the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
+  flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
+  such as "{form} · Filed {ago}" (the notable-filing card, dormant off `/`, moved to the data face
+  with it). The form toggles, "Clear dates" and Retry (a `RetryButton`) carry the brand ring, the
+  result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
+  on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
+  accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an
+  error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
+  in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
+  longer promises every filing, and the title is in sentence case.
 
 ## 4. The mark's files and the icons
 
@@ -319,6 +414,64 @@ New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
   at 390px (default and 200% text), 320px and 1280px under a 200% root font, in both themes.
 - `founderNote.spec.tsx` was retired with the unused slot described in §6.
 - `waitlistCounter.spec.tsx`: no number below the floor, no "0+" frame, the count in neutral ink.
+
+Seven gates added or widened by the copy and signal gates PR (D-031), each with a mutation proof in
+that PR:
+
+- `no-em-dash-copy.spec.ts`: a literal is exempt only when it is exactly the bare missing-value
+  token (a lone em-dash) and stands alone: as a JSX child, written as text or as an expression (a
+  conditional's branch or a fallback included), only as the sole child of its element, and never as
+  an operand of `+`, a template's substitution or a part of a template; a token held in a `const` is
+  followed to each reference of the name in its file and fails where one is joined into copy (a
+  reference in another file is review-checked); the summary's quote attribution loses its dash: on the page
+  the cite sits on its own line under the quotation, with the evidence chip (a control, not
+  attribution) beside it when the quote carries evidence, and in the PDF the speaker stands alone,
+  the one device D-031 names for both (the CSV keeps a speaker column).
+- `brandCopyRules.spec.ts`: the public scope is walked from the public routes through the import
+  graph (`tests/unit/importWalk.ts`), not listed, so a product component a public page renders
+  (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c, the one rule read on the
+  public scope alone (rule 2 reads the whole app under D-030).
+- `brandVoiceRules.spec.ts` (new): sentence case (a capital first word, no capitalised word after it
+  but a proper noun, never an all-caps label) on headings h1 to h6, dialog and card titles
+  (`ModalHeader`, `CardTitle`, `CardHeader`), the title prop of `GuidanceCard`, `Notice`, `Modal`,
+  `SecondaryHeader` and `UpgradeModal`, button labels (a `<Link>` or `<a>` whose className reaches
+  `buttonVariants()` included), every aria-label and meta titles, plus the components found across
+  the tree to render their children or title into one of those; a label passed through a renamed
+  variable, a spread or a helper function, or a className styled through a variable, is
+  review-checked (`lessons/test-gates-must-be-as-wide-as-their-rule.md`); no exclamation mark, emoji or banned
+  buzzword in copy, a placeholder included; no icon inside a heading (an icon imported from `lib/icons` or
+  the Phosphor package under any name or through a namespace, or a tag named for one); no developer wording
+  ("backend", an API path, "reader", an HTTP status) in `lib/` and `hooks/`.
+- `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage and the braces an XBRL
+  fact, nowhere else; the sparkle belongs to an AI-summary chip, which does not exist yet, so it has
+  no sanctioned site: the two heading sparkles in `StreamingSummaryDisplay.tsx` stay listed only until
+  brand-filing-page removes them and drops their entry in the same merge; a hand-drawn stand-in or
+  the ✨ emoji counts.
+- `backendMessageMatches.spec.ts` (new): every phrase the frontend routes the paywall, the no-retry
+  path, the verification event or the dashboard's sign-in redirect on is written by the code that
+  raises the message (docstrings do not count), or is listed as unsourced with its reason (the contact
+  form, once matched on "429", reads the status since #1303). No other literal match exists in the
+  api modules (`lib/api`, `features/<domain>/api`), nor anywhere under `app`, `components`,
+  `features`, `hooks` and `lib` on a receiver named for an error or a message (err, error, message,
+  msg, detail or reason, read through camelCase such as `errorMessage`); a message held under another
+  name outside the api modules is the scan's limit.
+- ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` in either case as well as
+  hex (a 3- or 4-digit hex inside an arbitrary utility or as a whole literal, where it can only be a
+  colour), in an arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
+  `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat`, and one pinning any locale but
+  `'en-US'` (another locale, or a variable), everywhere, `lib/format.ts`
+  included, since its formatter cache pins en-US (`fmtCount`, `fmtDecimal`, or a date helper for a date); `toLocaleDateString()` was already banned
+  outright by the date rule in `eslint.config.mjs`, which names `formatLocalDate`.
+- `siteChromeFocusRing.spec.ts`: the page scan discovers every route's page and the feature
+  modules it reaches, in place of the named routes (`PAGE_CONTROL_ROOTS`).
+
+Four of them carry a shrink-only residue: `VOICE_RESIDUE`, the glyphs' `RESIDUE`, `RING_RESIDUE`
+and the matchers' `UNSOURCED`. Each holds what the audit found when its gate landed, counted per
+file, with the PR or the reason that clears each entry; a fixed entry fails until its count is lowered, and each
+list's size must equal its cap, so a PR that shrinks a list lowers the cap in the same commit and no
+slack is left. `UNSOURCED`'s cap moved once with the scan's reach, the day the scan reached the
+dashboard boundary and the contact form. A PR that adds an entry raises the cap and gives its reason
+in its body.
 
 The design gates
 (`designSnapshotParity.spec.ts`, the ESLint design rules, `no-em-dash-copy.spec.ts`,

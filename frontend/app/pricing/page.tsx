@@ -12,12 +12,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import { Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
-import { ENABLE_ANALYSIS, ENABLE_FPI_FILINGS, ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
+import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
-import { FREE_SUMMARY_LIMIT, TRIAL_DAYS } from '@/lib/planLimits'
+import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, TRIAL_DAYS, shipped } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
+import { takeCarriedReturnNotice, useCarryReturnNotice } from '@/features/subscriptions/lib/returnNotice'
 import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
 
 interface CurrentUser {
@@ -35,33 +36,47 @@ interface CurrentUser {
 // while it lived in PricingContent the whole body (H1, plans, prices, FAQ) shipped as the spinner
 // fallback and crawlers saw no content. Renders nothing — it resolves the incoming billing cycle
 // and reacts to Stripe's return params without removing the plans from server HTML.
-function PricingQueryEffects({ onBillingResolved }: { onBillingResolved: (cycle: BillingCycle) => void }) {
+function PricingQueryEffects({ onBillingResolved, onCheckoutCanceled }: {
+  onBillingResolved: (cycle: BillingCycle) => void
+  onCheckoutCanceled: () => void
+}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestedBilling = searchParams.get('billing')
+  const checkoutCanceled = searchParams.get('canceled') === 'true'
 
   useEffect(() => {
     onBillingResolved(billingCycleFromQuery(requestedBilling))
   }, [requestedBilling, onBillingResolved])
 
+  // Stripe's cancel_url (backend routers/subscriptions.py) returns here with ?canceled=true; the page
+  // says so beside its intro. The flag is read once, then dropped from the address (other params kept),
+  // so a reload, a history entry or a bookmark of the return URL does not say it again. Presentation
+  // only: nothing about the plan or checkout changes.
   useEffect(() => {
-    // Handle success/cancel from Stripe
+    if (!checkoutCanceled) return
+    onCheckoutCanceled()
+    const rest = new URLSearchParams(searchParams.toString())
+    rest.delete('canceled')
+    const query = rest.toString()
+    router.replace(query ? `/pricing?${query}` : '/pricing', { scroll: false })
+  }, [checkoutCanceled, searchParams, router, onCheckoutCanceled])
+
+  useEffect(() => {
+    // Handle success from Stripe: refresh subscription status
     if (searchParams.get('success') === 'true') {
-      // Refresh subscription status
       router.refresh()
-    }
-    if (searchParams.get('canceled') === 'true') {
-      // Handle cancellation
     }
   }, [searchParams, router])
 
   return null
 }
 
-function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
+function PricingContent({ billingCycle, setBillingCycle, billingResolved, checkoutCanceled }: {
   billingCycle: BillingCycle
   setBillingCycle: (cycle: BillingCycle) => void
   billingResolved: boolean
+  checkoutCanceled: boolean
 }) {
   const router = useRouter()
   const yearlyLabelId = useId()
@@ -240,21 +255,26 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       price: '$0',
       period: 'forever',
       description: 'For reading a few filings a month',
-      features: [
-        `${FREE_SUMMARY_LIMIT} summaries per month`,
-        // 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS (tasks/todo.md F39).
-        ENABLE_FPI_FILINGS ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR',
-        'The same summaries Pro reads',
-        'Company search',
-        'Historical filing access',
-      ],
+      // 20-F lists only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's flag (tasks/todo.md F39):
+      // lib/planLimits.ts FILING_FORMS_LINE, read through shipped().
+      features: shipped([
+        { text: `${FREE_SUMMARY_LIMIT} summaries per month` },
+        FILING_FORMS_LINE,
+        { text: 'The same summaries Pro reads' },
+        { text: 'Company search' },
+        { text: 'Historical filing access' },
+      ]),
       // Only the genuinely-free user is "on" the Free plan. A Pro user (paid or trialing) would
-      // otherwise see "Current plan" on BOTH cards, which reads as a contradiction.
+      // otherwise see "Current plan" on BOTH cards, which reads as a contradiction. Nor is a Pro
+      // account offered the guest's access CTA ("Request an invite" or "Create a free account") for
+      // a plan it does not need: its disabled Free button names the plan, a fact and no call to action.
       cta: !accountResolved
         ? unresolvedCta
-        : isAuthenticated && !subscription?.is_pro
-        ? 'Current plan'
-        : access.cta,
+        : !isAuthenticated
+        ? access.cta
+        : subscription?.is_pro
+        ? 'Free plan'
+        : 'Current plan',
       disabled: !accountResolved || isAuthenticated,
       priceId: null,
       betaOriginal: null,
@@ -268,17 +288,17 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       betaOriginal: showBetaOffer ? proPriceDisplay : null,
       billingNote: showBetaOffer ? null : billingNote,
       description: 'For deeper filing research',
-      features: [
-        'Unlimited summaries',
-        // Multi-Period Analysis and its Excel workbook are listed only while the analysis route
-        // ships (it 404s with ENABLE_ANALYSIS off).
-        ...(ENABLE_ANALYSIS ? ['Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative'] : []),
-        'Ask this Filing, with cited answers',
-        'Hourly filing alerts',
-        '8-K filing alerts',
-        ENABLE_ANALYSIS ? 'PDF, CSV and Excel exports' : 'PDF and CSV exports',
-        'Priority support',
-      ],
+      // Multi-Period Analysis and its Excel workbook list only while the analysis route ships (it 404s
+      // with the flag off): lib/planLimits.ts types those lines once and shipped() reads the flag.
+      features: shipped([
+        { text: 'Unlimited summaries' },
+        ANALYSIS_LINES.pricingPro,
+        { text: 'Ask this Filing, with cited answers' },
+        { text: 'Hourly filing alerts' },
+        { text: '8-K filing alerts' },
+        ANALYSIS_LINES.exports,
+        { text: 'Priority support' },
+      ]),
       cta: !accountResolved
         ? unresolvedCta
         : isPaidPro
@@ -317,6 +337,21 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
             possible at this price. Pro is billed monthly or annually, and you can upgrade or
             downgrade at any time.
           </p>
+
+          {/* The return URL says only that the visitor came back from Stripe's checkout, not what was charged,
+              so the notice claims no payment outcome. The plan, once the subscription query resolves, is the
+              one fact it adds. */}
+          {checkoutCanceled && (
+            <div className="mt-6 mx-auto max-w-2xl text-left">
+              <Notice
+                variant="info"
+                title="You returned from checkout"
+                description={
+                  !accountResolved ? undefined : subscription?.is_pro ? 'Your plan is Pro.' : 'You can choose a plan below.'
+                }
+              />
+            </div>
+          )}
 
           {identityUnavailable ? (
             // Identity failed with nothing retained: an account error, not a guest view. Each Notice is
@@ -450,7 +485,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
             <Card
               key={plan.name}
               elevation={plan.popular ? 'e3' : 'e2'}
-              className={`relative p-8 ${
+              className={`relative p-6 sm:p-8 ${
                 plan.popular ? 'ring-1 ring-inset ring-brand-strong dark:ring-brand-dark' : ''
               }`}
             >
@@ -496,6 +531,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
               <Button
                 variant={plan.popular ? 'primary' : 'secondary'}
                 size="lg"
+                wrap
                 className="w-full"
                 onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : handleGetStartedFree())}
                 disabled={plan.disabled || (isAuthenticated && !plan.priceId)}
@@ -565,6 +601,15 @@ export default function PricingPage() {
   // until it resolves, do not record a view or offer a checkout for the wrong incoming cycle.
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly')
   const [billingResolved, setBillingResolved] = useState(false)
+  const [checkoutCanceled, setCheckoutCanceled] = useState(false)
+  const noteCheckoutCanceled = useCallback(() => setCheckoutCanceled(true), [])
+  // The flag is gone from the address once read, so a remount in the same commit (the PostHog provider
+  // swaps its element when cookie consent arrives) keeps the notice (features/subscriptions/lib/returnNotice.ts).
+  useCarryReturnNotice('pricing-checkout-canceled', checkoutCanceled)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- takes the notice a remount in this same commit carried; it exists only after the commit that unmounted the page showing it
+    if (takeCarriedReturnNotice('pricing-checkout-canceled')) setCheckoutCanceled(true)
+  }, [])
   const resolveBilling = useCallback((cycle: BillingCycle) => {
     setBillingCycle(cycle)
     setBillingResolved(true)
@@ -573,9 +618,14 @@ export default function PricingPage() {
   return (
     <>
       <Suspense fallback={null}>
-        <PricingQueryEffects onBillingResolved={resolveBilling} />
+        <PricingQueryEffects onBillingResolved={resolveBilling} onCheckoutCanceled={noteCheckoutCanceled} />
       </Suspense>
-      <PricingContent billingCycle={billingCycle} setBillingCycle={setBillingCycle} billingResolved={billingResolved} />
+      <PricingContent
+        billingCycle={billingCycle}
+        setBillingCycle={setBillingCycle}
+        billingResolved={billingResolved}
+        checkoutCanceled={checkoutCanceled}
+      />
     </>
   )
 }

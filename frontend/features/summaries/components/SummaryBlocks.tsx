@@ -273,7 +273,7 @@ function BlockView({ block, tableLabel }: { block: RenderedBlock; tableLabel?: s
             <div className="mt-1 flex items-center gap-2">
               {block.speaker && (
                 <cite className="block text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
-                  — {block.speaker}
+                  {block.speaker}
                 </cite>
               )}
               <EvidenceChip evidence={block.evidence} />

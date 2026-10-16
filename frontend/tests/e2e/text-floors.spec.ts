@@ -143,6 +143,20 @@ const ROUTES: Route[] = [
       await expect(p.getByRole('heading', { level: 3, name: 'Revenue context', exact: true })).toBeVisible()
     },
   },
+  {
+    // The route error boundary (app/error.tsx) replaces the page, so its card opens the outline with the
+    // page's h1 (UA-50). Forced by a malformed company: a numeric name on the coverage-unavailable state
+    // makes formatCompanyName throw while the page renders.
+    name: 'route error boundary',
+    path: '/company/AAPL',
+    open: async (p, b) => {
+      await answerSiteApi(p, b, false)
+      await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/companies/AAPL', (r) =>
+        r.fulfill({ status: 200, headers: corsFor(b), json: { id: 1, cik: '320193', ticker: 'AAPL', name: 42, exchange: 'NASDAQ', coverage_status: 'unsupported_foreign' } }),
+      )
+    },
+    ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Something went wrong' })).toBeVisible(),
+  },
 ]
 
 /**
