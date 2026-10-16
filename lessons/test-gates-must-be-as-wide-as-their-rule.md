@@ -337,8 +337,12 @@ first readers. A `<col>`'s min-width, measured beside columns that set no width,
 column a width sets, and under a cell across columns Chromium lets it take the cell's excess or adds the
 two as its spread falls, so the reader adds them; and counting each spanning cell's excess in full failed a
 list whose rows each span the table, where cells across the same columns count once. The colour gate read
-the colours a page writes but not those a client paints where it writes none (a link with no colour of
-its own, `initial`, `-webkit-link`), and the sender gate read the transport but not the queue that feeds it.
+the hex a page writes but not the colours a client paints in its place (a link that sets none, `initial`,
+`-webkit-link`), and the sender gate read the transport but not the queue that feeds it. The review after
+found the same again: a column no cell starts in merges into the one before it, so a span holds fewer
+spacings than its columns; a fixed layout ignores a `<col>`'s min-width in percent and caps a percent by a
+percent; a link's colour counts only where a browser takes it (it drops `#fffff`); and the mail module's
+own sends went unread as pages where one was not the shell's.
 When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
 parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
 `word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine

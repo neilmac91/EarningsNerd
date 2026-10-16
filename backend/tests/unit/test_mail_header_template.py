@@ -560,6 +560,8 @@ _BARE_TABLE = '<table width="100%" cellpadding="0" cellspacing="0"'  # a body ta
 _FIXED_TABLE = _BARE_TABLE + ' style="table-layout:fixed;"'
 _PNG = 'data="https://e.test/x.png" type="image/png"'
 _PADDING_ALONE = "in their cells' borders, padding and min-widths alone"
+_UNDER_A_SPAN = "a column no cell starts in"
+_PERCENT_OVER = "set in percent ask for"
 _OVER_THE_WHOLE = "keep it to 100% or less"
 # A body whose own lines fit the narrowest phone, so a planted page that holds fits in Chromium too.
 _WIDTH_BODY = "<p>Hi Ada,</p><p>Copy this link to reset your password.</p>"
@@ -707,9 +709,31 @@ WIDTHS = [
     ("a cell across the first two columns padded 100 px a side, beside a lone cell padded 50 px a side", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 100px;"></td><td style="padding:0 50px;"></td></tr><tr><td></td><td></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
     ("a cell across the first two columns padded 60 px a side at a spacing of 20, beside a lone cell padded 26 px a side", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><tr><td colspan="2" style="padding:0 60px;"></td><td style="padding:0 26px;"></td></tr><tr><td></td><td></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
     ("a caption padded 120 px a side, whose padding leaves its text no room", ((_BODY_LINE, f'{_BARE_TABLE}><caption style="padding:0 120px;">x</caption><tr><td>a</td></tr></table>' + _BODY_LINE),), _NO_ROOM),
-    ("a cell across two columns padded 60 px a side, over a column a <col>'s min-width holds at 120 px, which adds to it", ((_BODY_LINE, f'{_BARE_TABLE}><col><col style="min-width:120px;"><col><tr><td colspan="2" style="padding:0 60px;"></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a cell across two columns padded 60 px a side, over a column no cell starts in that a <col>'s min-width holds at 120 px, which Chromium adds to it", ((_BODY_LINE, f'{_BARE_TABLE}><col><col style="min-width:120px;"><col><tr><td colspan="2" style="padding:0 60px;"></td><td></td></tr></table>' + _BODY_LINE),), _UNDER_A_SPAN),
     ("cells across the same two columns, the widest padded 116 px a side between two padded 115", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 115px;"></td></tr><tr><td colspan="2" style="padding:0 116px;"></td></tr><tr><td colspan="2" style="padding:0 115px;"></td></tr><tr><td></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a cell across two columns padded 60 px a side, over a column no cell starts in that a <col>'s min-width holds at 110 px, which this check refuses though Chromium fits it", ((_BODY_LINE, f'{_BARE_TABLE}><col><col style="min-width:110px;"><col><tr><td colspan="2" style="padding:0 60px;"></td><td></td></tr></table>' + _BODY_LINE),), _UNDER_A_SPAN),
+    ("two cells across three columns each, overlapping over a column no cell starts in that a <col>'s min-width holds, which Chromium lays out 310 px wide", ((_BODY_LINE, f'{_BARE_TABLE}><col><col><col style="min-width:100px;"><col><tr><td colspan="3" style="padding:0 60px;"></td><td></td></tr><tr><td style="padding:0 40px;"></td><td colspan="3" style="padding:0 45px;"></td></tr></table>' + _BODY_LINE),), _UNDER_A_SPAN),
+    ("two cells across three columns each at a spacing of 20, sharing a column no cell starts in, which Chromium lays out as one", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><tr><td colspan="3" style="padding:0 60px;"></td><td></td></tr><tr><td style="padding:0 40px;"></td><td colspan="3" style="padding:0 45px;"></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a fixed table layout's column set in percent whose min-width in percent holds nothing, past its image", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="width:10%;min-width:50%;"><col><tr><td><img {_IMAGE} width="100"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's column under a first-row cell across columns set in px, which its <col>'s min-width does not hold, past its image", ((_BODY_LINE, f'{_FIXED_TABLE}><col><col style="min-width:100px;"><tr><td colspan="2" width="100">a</td></tr><tr><td>b</td><td><img {_IMAGE} width="150"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's first-row cell set in percent whose max-width in percent caps it, past its image", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="50%" style="max-width:20%;"><img {_IMAGE} width="100"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's column set in percent whose max-width in percent caps it, past its image", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="width:50%;max-width:10%;"><col><tr><td><img {_IMAGE} width="100"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's first-row cell capped in px above its min-width, which narrows the column beside it past its image", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="100" style="max-width:20px;min-width:80px;">a</td><td width="100"><img {_IMAGE} width="180"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's first-row cell capped in percent, a min-width in px no hold on it, past its image", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="50%" style="max-width:20%;min-width:60px;"><img {_IMAGE} width="50"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's column in percent beside a larger first-row percent, which takes it, past the other column's image", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="10%"><col><tr><td width="40%">a</td><td><img {_IMAGE} width="200"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's border-box first-row cell set narrower than its padding, which holds it, past the other column's image", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="20" style="padding:0 30px;box-sizing:border-box;">a</td><td><img {_IMAGE} width="200"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's first-row cell whose max-width above its width sets nothing, its image past the column", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="50" style="max-width:150px;"><img {_IMAGE} width="140"></td><td width="50">b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a header row's cell across two columns over two cells padded 60 px a side, the most of the set's cells", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 60px;">a</td></tr><tr><td colspan="2" style="padding:0 60px;"></td></tr><tr><td style="padding:0 60px;"></td><td style="padding:0 60px;"></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a cell across two columns whose min-width holds its content box, padded 20 px a side, beside a lone cell padded 25", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="min-width:150px;padding:0 20px;"></td><td style="padding:0 25px;"></td></tr><tr><td></td><td></td><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
     ("a style block in Outlook's view alone, whose selectors no rule reads", (("</head>", "<!--[if mso]><style>td{color:#123456 !important}</style><![endif]--></head>"),), "in classic Outlook's view the page carries a <style> block"),
+    ("a linked stylesheet in Outlook's view alone, whose selectors no rule reads", (("</head>", '<!--[if mso]><link rel="stylesheet" href="https://e.test/mail.css"><![endif]--></head>'),), "in classic Outlook's view the page carries a <style> block or a linked stylesheet"),
+    ("a column no cell starts in that a <col> sets a width on, which keeps it and its spacing, beside a lone cell padded 80 px a side at a spacing of 20", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><col><col style="width:1px;"><col><tr><td colspan="2"></td><td style="padding:0 80px;"></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a column no cell starts in that a <col>'s width attribute sets, which keeps it and its spacing, beside a lone cell padded 80 px a side at a spacing of 20", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><col><col width="1"><col><tr><td colspan="2"></td><td style="padding:0 80px;"></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a cell across three columns that start no other cell, at a spacing of 20, its image past the room they share as one", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="20"><tr><td></td><td colspan="3"><img {_IMAGE} width="180"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a lone column at a spacing of 120, whose spacing alone outgrows its table", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="120"><tr><td></td></tr></table>' + _BODY_LINE),), _PADDING_ALONE),
+    ("a fixed table layout's first-row cell across two columns set in percent, which leaves their <col>s' percentages, past the first column's image", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="15%"><col width="60%"><tr><td colspan="2" width="60%">a</td></tr><tr><td><img {_IMAGE} width="60"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's column in percent beside an equal first-row percent, which keeps the column's, its padding inside, past its image", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="20%"><col><tr><td width="20%" style="padding:0 30px;"><img {_IMAGE} width="40"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table layout's two cells of 60%, whose percentages ask for more than the table, which this check refuses though Chromium scales them", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="60%">a</td><td width="60%">b</td></tr></table>' + _BODY_LINE),), _PERCENT_OVER),
     ("a fixed table layout's cell of width 0%, which HTML ignores", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="0%">a</td><td><img {_IMAGE} width="150"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
     ("a fixed table layout's columns in relative lengths, which Chromium ignores", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="3*"><col width="1*"><tr><td><img {_IMAGE} width="150"></td><td>b</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
     ("a fixed table layout's columns set in their style", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="width:150px;"><col style="width:150px;"><tr><td>a</td><td>b</td></tr></table>' + _BODY_LINE),), _FIXED),
@@ -896,13 +920,23 @@ WIDTHS = [
     ("a cell across two padded 100 px a side, beside a column whose lone cell is padded 70 px a side, which Chromium fits", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="padding:0 100px;"></td></tr><tr><td></td><td style="padding:0 70px;"></td></tr></table>' + _BODY_LINE),), None),
     ("a cell across the first two columns padded 60 px a side at a spacing of 20, beside a lone cell padded 25 px a side, which fit", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><tr><td colspan="2" style="padding:0 60px;"></td><td style="padding:0 25px;"></td></tr><tr><td></td><td></td><td></td></tr></table>' + _BODY_LINE),), None),
     ("a caption padded 10 px a side, which fits", ((_BODY_LINE, f'{_BARE_TABLE}><caption style="padding:0 10px;">x</caption><tr><td>a</td></tr></table>' + _BODY_LINE),), None),
-    ("a cell across two columns padded 60 px a side, over a column a <col>'s min-width holds at 110 px, which fit", ((_BODY_LINE, f'{_BARE_TABLE}><col><col style="min-width:110px;"><col><tr><td colspan="2" style="padding:0 60px;"></td><td></td></tr></table>' + _BODY_LINE),), None),
     ("a header row and eight rows each a cell across both columns padded 16 px a side, which count once", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td>Company</td><td>Filed</td></tr>' + '<tr><td colspan="2" style="padding:0 16px;">a</td></tr>' * 8 + '</table>' + _BODY_LINE),), None),
+    ("a cell across three columns padded 60 px a side, over a column a <col>'s min-width holds that starts a cell of its own, which fit", ((_BODY_LINE, f'{_BARE_TABLE}><col><col style="min-width:100px;"><col><tr><td colspan="3" style="padding:0 60px;"></td></tr><tr><td></td><td></td><td></td></tr></table>' + _BODY_LINE),), None),
+    ("a cell across three columns that start no other cell, at a spacing of 20, laid out as one beside a cell padded 85 px a side", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><tr><td style="padding:0 85px;"></td><td colspan="3"></td></tr></table>' + _BODY_LINE),), None),
+    ("two cells across three columns each at a spacing of 20, over a column no cell starts in that a <col> sets 100 px wide, which keeps it", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><col><col><col style="width:100px;"><col><tr><td colspan="3" style="padding:0 60px;"></td><td></td></tr><tr><td style="padding:0 40px;"></td><td colspan="3" style="padding:0 45px;"></td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column set in percent whose min-width in percent holds nothing, its image within it", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="width:10%;min-width:50%;"><col><tr><td><img {_IMAGE} width="20"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column under a first-row cell across columns set in px, which its <col>'s min-width does not hold, its image within it", ((_BODY_LINE, f'{_FIXED_TABLE}><col><col style="min-width:100px;"><tr><td colspan="2" width="100">a</td></tr><tr><td>b</td><td><img {_IMAGE} width="110"></td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's first-row cell set in percent whose max-width in percent caps it, its image within it", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="50%" style="max-width:20%;"><img {_IMAGE} width="44"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column set in px whose max-width in px sets nothing", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="width:100px;max-width:30px;"><col style="width:100px;"><tr><td><img {_IMAGE} width="110"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column in percent beside a smaller first-row percent, which keeps its own", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="50%"><col><tr><td width="10%"><img {_IMAGE} width="110"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's first-row cell capped in px above its min-width, the column beside it holding its image", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="100" style="max-width:20px;min-width:80px;">a</td><td width="100"><img {_IMAGE} width="125"></td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's border-box first-row cell set narrower than its padding, the other column holding its image", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="20" style="padding:0 30px;box-sizing:border-box;">a</td><td><img {_IMAGE} width="165"></td></tr></table>' + _BODY_LINE),), None),
+    ("a column a <col>'s min-width holds at 120 px beside a lone cell padded 60 px a side, and another padded 55, which fit", ((_BODY_LINE, f'{_BARE_TABLE}><col style="min-width:120px;"><col><tr><td style="padding:0 60px;"></td><td style="padding:0 55px;"></td></tr></table>' + _BODY_LINE),), None),
+    ("an svg whose width is unset, which sets none, held by its max-width", ((_BODY_LINE, '<svg width="unset" height="10" style="max-width:100%;"></svg>' + _BODY_LINE),), None),
     ("a hidden embed whose width rolls back a layer to its own style sheet's 0", ((_BODY_LINE, '<embed hidden src="https://e.test/x.png" type="image/png" style="width:revert-layer;">' + _BODY_LINE),), None),
     ("a style block in a comment no client reads", (("</head>", "<!--[if !mso]><style>td{color:#123456}</style><![endif]--></head>"),), None),
     ("a fixed table layout's column group in a relative length, which Chromium ignores", ((_BODY_LINE, f'{_FIXED_TABLE}><colgroup width="3*"></colgroup><col><tr><td><img {_IMAGE} width="100"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
     ("an image in a legend that fits within its own padding", ((_BODY_LINE, f'<fieldset><legend><img {_IMAGE} width="194"></legend></fieldset>' + _BODY_LINE),), None),
-    ("an image set display:contents, which computes to none", ((_BODY_LINE, f'<img {_IMAGE} width="600" style="display:contents;">' + _BODY_LINE),), None),
     ("a video set display:contents, none", ((_BODY_LINE, '<video width="600" style="display:contents;"></video>' + _BODY_LINE),), None),
     ("a frame set display:contents, none", ((_BODY_LINE, '<iframe width="600" style="display:contents;"></iframe>' + _BODY_LINE),), None),
     ("a canvas set display:contents, none", ((_BODY_LINE, '<canvas width="600" style="display:contents;"></canvas>' + _BODY_LINE),), None),
@@ -914,6 +948,15 @@ WIDTHS = [
     ("a local date and time field that fits with its own border and padding", ((_BODY_LINE, '<input type="datetime-local" style="width:225px;">' + _BODY_LINE),), None),
     ("a month field that fits with its own border and padding", ((_BODY_LINE, '<input type="month" style="width:225px;">' + _BODY_LINE),), None),
     ("a week field that fits with its own border and padding", ((_BODY_LINE, '<input type="week" style="width:225px;">' + _BODY_LINE),), None),
+    ("a column no cell starts in whose <col> width is auto, laid out as one with the column before it, beside a lone cell padded 80 px a side at a spacing of 20", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><col><col style="width:auto;"><col><tr><td colspan="2"></td><td style="padding:0 80px;"></td></tr></table>' + _BODY_LINE),), None),
+    ("a column no cell starts in whose <col> sets a min-width alone, laid out as one with the column before it, beside a lone cell padded 80 px a side at a spacing of 20", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="20"><col><col style="min-width:0;"><col><tr><td colspan="2"></td><td style="padding:0 80px;"></td></tr></table>' + _BODY_LINE),), None),
+    ("a cell across three columns that start no other cell, at a spacing of 20, its image within the room they share as one", ((_BODY_LINE, f'<table width="100%" cellpadding="0" cellspacing="20"><tr><td></td><td colspan="3"><img {_IMAGE} width="170"></td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's first-row cell across two columns set in percent, which leaves their <col>s' percentages, the first column's image within it", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="15%"><col width="60%"><tr><td colspan="2" width="60%">a</td></tr><tr><td><img {_IMAGE} width="40"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column in percent beside a larger first-row percent, which brings its padding, its image within it", ((_BODY_LINE, f'{_FIXED_TABLE}><col width="10%"><col><tr><td width="20%" style="padding:0 30px;"><img {_IMAGE} width="40"></td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's border-box first-row cell set in percent below its padding, which keeps its share, the other column holding its image", ((_BODY_LINE, f'{_FIXED_TABLE}><tr><td width="20%" style="padding:0 30px;box-sizing:border-box;">a</td><td><img {_IMAGE} width="180"></td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column under a first-row cell across columns set in px, whose <col>'s min-width of 200 px holds neither it nor the table", ((_BODY_LINE, f'{_FIXED_TABLE}><col><col style="min-width:200px;"><tr><td colspan="2" width="100">a</td></tr><tr><td>b</td><td>c</td></tr></table>' + _BODY_LINE),), None),
+    ("a fixed table layout's column whose min-width in percent asks for more than the table, which Chromium ignores", ((_BODY_LINE, f'{_FIXED_TABLE}><col style="width:10%;min-width:150%;"><col><tr><td>a</td><td>b</td></tr></table>' + _BODY_LINE),), None),
+    ("a cell across two columns whose border-box min-width holds its padding, padded 20 px a side, beside a lone cell padded 25", ((_BODY_LINE, f'{_BARE_TABLE}><tr><td colspan="2" style="min-width:150px;padding:0 20px;box-sizing:border-box;"></td><td style="padding:0 25px;"></td></tr><tr><td></td><td></td><td></td></tr></table>' + _BODY_LINE),), None),
 ]
 
 
@@ -1013,6 +1056,22 @@ COLOURS = [
     ("a colour written as oklab()", ((_BODY_LINE, '<p style="color:oklab(0.5 -0.1 0.05);">x</p>' + _BODY_LINE),), "color is oklab("),
     ("a colour written as oklch()", ((_BODY_LINE, '<p style="color:oklch(0.5 0.1 150);">x</p>' + _BODY_LINE),), "color is oklch("),
     ("a colour written as color()", ((_BODY_LINE, '<p style="color:color(srgb 0.2 0.4 0.3);">x</p>' + _BODY_LINE),), "color is color("),
+    ("a link whose hex is a digit short, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:#3C665;">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link whose hex has no #, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:3C6650;">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link whose colour is a misspelt name, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:gren;">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link whose colour is two values, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:#3C6650 #3C6650;">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link whose colour is a function no browser takes as one", ((_BODY_LINE, '<a href="https://e.test/" style="color:contrast-color(#3C6650);">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link coloured light-dark() of one colour, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:light-dark(#3C6650);">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link that sets its background alone", ((_BODY_LINE, '<a href="https://e.test/" style="background-color:#4F7A63;">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link with an empty href, still a link", ((_BODY_LINE, '<a href="">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link in Outlook's view alone that sets no colour of its own", ((_BODY_LINE, '<!--[if mso]><a href="https://e.test/">x</a><![endif]-->' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("the mail's button link with its white a digit short, its label then link blue on the button", ((_BODY_LINE, '<a href="https://e.test/" style="display:inline-block;background-color:#4F7A63;color:#fffff;">Go</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("WebKit's active link colour by its name", ((_BODY_LINE, '<p style="color:-webkit-activelink;">x</p>' + _BODY_LINE),), "color is -webkit-activelink"),
+    ("WebKit's focus ring colour by its name", ((_BODY_LINE, '<p style="color:-webkit-focus-ring-color;">x</p>' + _BODY_LINE),), "color is -webkit-focus-ring-color"),
+    ("WebKit's text colour by its name", ((_BODY_LINE, '<p style="color:-webkit-text;">x</p>' + _BODY_LINE),), "color is -webkit-text"),
+    ("a link whose colour carries a misspelt !important, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:#3C6650 !importnt;">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link whose hex ends in an escape, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:#3C6650\\9;">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
+    ("a link coloured light-dark() with a misspelt second colour, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:light-dark(#3C6650,gren);">x</a>' + _BODY_LINE),), "<a> sets no colour of its own"),
     # Pass.
     ("the shell as it is built", (), None),
     ("a body line in a token's colour", ((_BODY_LINE, '<p style="color:#3C6650;">x</p>' + _BODY_LINE),), None),
@@ -1031,6 +1090,18 @@ COLOURS = [
     ("a property named for the text, in a token's colour", ((_BODY_LINE, '<p style="-webkit-text-fill-color:#3C6650;">x</p>' + _BODY_LINE),), None),
     ("a colour unset, which takes the parent's", ((_BODY_LINE, '<p style="color:unset;">x</p>' + _BODY_LINE),), None),
     ("an empty bgcolor, which sets none", ((_BODY_LINE, '<table><tr><td bgcolor="">x</td></tr></table>' + _BODY_LINE),), None),
+    ("a link coloured currentcolor, which takes its parent's", ((_BODY_LINE, '<a href="https://e.test/" style="color:currentcolor;">x</a>' + _BODY_LINE),), None),
+    ("a link coloured light-dark() of two tokens' colours", ((_BODY_LINE, '<a href="https://e.test/" style="color:light-dark(#1A1A17,#D7DADC);">x</a>' + _BODY_LINE),), None),
+    ("a link whose token colour holds beside a misspelt one, which a browser drops", ((_BODY_LINE, '<a href="https://e.test/" style="color:#3C6650;color:gren;">x</a>' + _BODY_LINE),), None),
+]
+# One page for each system colour a browser paints by its name, written out so narrowing the reader fails a case.
+COLOURS += [
+    (f"the system colour {name} by its name", ((_BODY_LINE, f'<p style="color:{name};">x</p>' + _BODY_LINE),), f"color is {name}")
+    for name in (
+        "Canvas", "CanvasText", "LinkText", "VisitedText", "ActiveText", "ButtonFace", "ButtonText", "ButtonBorder", "Field",
+        "FieldText", "Highlight", "HighlightText", "SelectedItem", "SelectedItemText", "Mark", "MarkText", "GrayText",
+        "AccentColor", "AccentColorText",
+    )
 ]
 
 
@@ -1059,11 +1130,11 @@ def test_the_planted_lists_keep_their_counts():
     assert counts == {
         "TEXT_SIZES": (40, 20),
         "LONG_RUNS": (91, 50),
-        "WIDTHS": (208, 137),
+        "WIDTHS": (230, 156),
         "LENDS": (6, 4),
         "REACHES": (6, 4),
         "VIEWPORTS": (3, 3),
-        "COLOURS": (36, 17),
+        "COLOURS": (71, 20),
     }, "a planted page was added or dropped: keep these counts equal to the lists in the same diff"
     for name, cases in (("TEXT_SIZES", TEXT_SIZES), ("LONG_RUNS", LONG_RUNS), ("WIDTHS", WIDTHS), ("LENDS", LENDS), ("REACHES", REACHES), ("VIEWPORTS", VIEWPORTS), ("COLOURS", COLOURS)):
         labels = [case[0] for case in cases]

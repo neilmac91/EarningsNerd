@@ -37,12 +37,13 @@ It must also be built on ``FRONTEND_URL`` with that slash stripped:
 
 The render list is held to ``email_service``'s public functions, save those that build no mail, each
 named with why (``NOT_MAIL``), and no other module in ``backend/app`` may reach its private names, so a
-new mail fails here until it is rendered. Nor may a module build an HTML page outside the shell,
-``_wrap_html`` (a string that opens a doctype, ``<html>``, ``<head>`` or ``<body>``), save those
-``OWN_PAGES`` lists, or send mail, through the transport (``resend_service``), the delivery queue, which
-sends the pages it is handed, or the provider itself, save those ``SENDERS`` lists with how many sends each
-names and what they send, so a new sender, or a new send in a listed one, fails here until it builds its
-mail through ``email_service`` or is listed. Planted modules score each check. What it cannot see:
+new mail fails here until it is rendered; every mail the module sends must be a page the shell built.
+Nor may a module build an HTML page outside the shell, ``_wrap_html`` (a string that opens a doctype,
+``<html>``, ``<head>`` or ``<body>``), save those ``OWN_PAGES`` lists, or send mail, through the
+transport (``resend_service``), the delivery queue, which sends the pages it is handed, or the provider
+itself, save those ``SENDERS`` lists with how many times each names a send and what it sends, so a new
+sender, or a listed one that names a send once more, fails here until it builds its mail through
+``email_service`` or is listed. Planted modules score each check. What it cannot see:
 - an address in a form it does not read: an attribute outside the list it reads, a script;
 - which way a branch within one line goes (``x if c else y``, ``a or b``, a lookup), so a value no input
   passes may pick an address no render reads;
@@ -50,8 +51,10 @@ mail through ``email_service`` or is listed. Planted modules score each check. W
 - the links a caller hands in, for which the inputs are stand-ins; the code scan reads the callers;
 - what runs before the mail is built, elsewhere, such as a job rebinding a module's name;
 - an origin of the site's that a setting the render leaves alone points at another site's host;
-- a private name, the transport or the queue reached through ``getattr`` or ``importlib``, or ``send_email``
-  through a star import, and a call of the mail provider that names neither its settings nor its address;
+- a private name, the transport or the queue reached through ``getattr`` or ``importlib``, or through a
+  package imported above it (``from app import services``); a send behind a helper or a wrapper module,
+  counted once however often its callers call it; and a call of the mail provider that names neither its
+  settings nor its address;
 - mail built or finished outside ``email_service``, in the modules ``SENDERS`` lists:
   ``routers/contact.py``'s confirmation (E56), the internal admin and team notices, and what a caller adds
   to a page before it sends it (``data_quality_service.run_and_email`` appends the report's text copy, as
@@ -77,7 +80,8 @@ inline styles:
   at 600 px;
 - the page sets the shell's viewport alone, at the phone's own width;
 - every colour a page writes, in a style or an attribute HTML maps to a colour, is a design token's
-  (``DESIGN.md``'s frontmatter), as six-digit hex.
+  (``DESIGN.md``'s frontmatter), as six-digit hex, in its own view and in classic Outlook's, and every
+  link sets a colour of its own that a browser takes, which a client would otherwise paint its link blue.
 """
 import ast
 import html
@@ -407,8 +411,8 @@ def _lines(code: CodeType) -> set[int]:
 
 
 def _render(cases: dict) -> dict:
-    """In the render's own interpreter: every string each function sends or returns, and each line of
-    email_service.py that no render runs, the module's own loading included."""
+    """In the render's own interpreter: every string each function sends or returns, the HTML of each mail it
+    sends, and each line of email_service.py that no render runs, the module's own loading included."""
     import asyncio
     import importlib
 
@@ -422,12 +426,15 @@ def _render(cases: dict) -> dict:
         return trace
 
     sent: list[str] = []
+    sent_html: list[str] = []
 
     async def _record(to, subject, html, *args, **kwargs):
         sent.extend(_strings([to, subject, html, list(args), kwargs]))
+        sent_html.append(html)
         return {"id": "msg_test"}
 
     out: dict[str, list[str]] = {}
+    html_sent: dict[str, list[str]] = {}
     sys.settrace(trace)
     try:
         importlib.reload(email_service)  # the module loads again, traced
@@ -438,7 +445,9 @@ def _render(cases: dict) -> dict:
                 if asyncio.iscoroutine(result):
                     result = asyncio.run(result)
                 out.setdefault(name, []).extend(_strings(result) + sent)
+                html_sent.setdefault(name, []).extend(sent_html)
                 sent.clear()
+                sent_html.clear()
     finally:
         sys.settrace(None)
     source = Path(email_service.__file__).read_text(encoding="utf-8")
@@ -447,6 +456,7 @@ def _render(cases: dict) -> dict:
     unrun = sorted(lines - ran)
     return {
         "mail": out,
+        "html_sent": html_sent,
         "values": values,
         "lines": len(lines),
         "unrun": [f"{line}: {source.splitlines()[line - 1].strip()}" for line in unrun],
@@ -588,7 +598,8 @@ _OPENS_A_PAGE = re.compile(r"<(?:html|head|body)[\s>]|<!doctype\s", re.IGNORECAS
 
 def own_pages(source: str, shell: str | None = None) -> int:
     """How many strings in a module's code open an HTML page (a doctype, ``<html>``, ``<head>`` or ``<body>``),
-    outside the function named ``shell``, an f-string read whole; a docstring is no page."""
+    outside the function named ``shell``: an f-string's literal parts read as one string, and a string in one of
+    its fields, a nested f-string's among them, as a string of its own; a docstring is no page."""
     tree = ast.parse(source)
     skipped = {
         id(node.body[0].value)
@@ -600,7 +611,7 @@ def own_pages(source: str, shell: str | None = None) -> int:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == shell:
             skipped |= {id(inner) for inner in ast.walk(node)}
         elif isinstance(node, ast.JoinedStr):
-            skipped |= {id(part) for part in ast.walk(node) if part is not node}  # its pieces, read with it
+            skipped |= {id(part) for part in node.values if isinstance(part, ast.Constant)}  # its literal parts, read with it
     pages = 0
     for node in ast.walk(tree):
         if id(node) in skipped:
@@ -649,6 +660,11 @@ PAGES = [
     ("a page that opens with its doctype, head and body, and no html tag", 'P = "<!doctype html><head></head><body>x</body>"\n', None, 1),
     ("a page that opens with its body alone", 'P = "<body>x</body>"\n', None, 1),
     ("an f-string's page, counted once whatever its fields part", 'P = f"<html><head><title>{t}</title></head><body>{b}</body></html>"\n', None, 1),
+    ("a page that opens with its doctype alone", 'P = "<!doctype html><p>x</p>"\n', None, 1),
+    ("a page that opens with its head alone", 'P = "<head><title>x</title></head><p>x</p>"\n', None, 1),
+    ("an f-string whose page opens past its first literal piece", 'P = f"<!-- built {when} --><html><body>{b}</body></html>"\n', None, 1),
+    ("a page in a string inside an f-string's field", "P = f\"{'<html><body>' if full else ''}{b}\"\n", None, 1),
+    ("a page in an f-string nested in another's field", "P = f\"{f'<html>{b}</html>' if full else b}\"\n", None, 1),
     ("a fragment with no page around it, which the sender check holds", 'P = "<p>Hi</p>"\n', None, 0),
     ("a tag that only starts like a body's", 'P = "<bodyx>"\n', None, 0),
 ]
@@ -669,15 +685,16 @@ def test_the_page_walk_sets_aside_the_mail_modules_shell_alone(tmp_path):
 
 
 # The modules of backend/app that send mail, each with how many times it names a function that sends (``senders``)
-# and what it sends. email_service builds its mail in the shell that carries the header, and the render list holds
-# each mail it builds, so its sends go uncounted; the queue, the filing scan and the data-quality report send what it
-# builds; contact.py builds two pages of its own, one to the person who wrote in (E56), and the admin and feedback
-# routes send fragments. Equalities (lessons/test-allowlist-caps-are-equalities.md): a new sender, or a new send in a
-# listed one, fails here until it sends through email_service or is listed with what it sends.
+# and what it sends. email_service builds its mail in the shell that carries the header, and the render holds every
+# mail it sends to a page the shell built, so its sends go uncounted; the queue, the filing scan and the data-quality
+# report send what it builds; contact.py builds two pages of its own, one to the person who wrote in (E56), and the
+# admin and feedback routes send fragments. Equalities (lessons/test-allowlist-caps-are-equalities.md): a new sender,
+# or a listed one that names a send once more, fails here until it sends through email_service or is listed with what
+# it sends.
 SENDERS = {
     "app/services/email_service.py": (None, "every mail it builds, in the shell"),
     "app/services/notification_delivery_service.py": (1, "the filing alerts and digests email_service builds, held for delivery"),
-    "app/services/filing_scan_service.py": (7, "the filing alerts and digests email_service builds, queued: three batches, two drains, and the prepared send its transports take"),
+    "app/services/filing_scan_service.py": (5, "the filing alerts and digests email_service builds, queued: three batches and two drains"),
     "app/services/data_quality_service.py": (1, "the data-quality report email_service builds, with its text copy"),
     "app/routers/contact.py": (2, "a notice to the team and a confirmation to the person who wrote in, pages of its own (E56)"),
     "app/routers/admin.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
@@ -685,7 +702,8 @@ SENDERS = {
     "app/routers/feedback.py": (1, "a notice of beta feedback to the team, a fragment"),
 }
 # The functions that send a page or hand one on to be sent, by the module that holds them: the transport's, the mail
-# module's hold of it (email_service imports send_email), and the delivery queue's, which take a page or send one.
+# module's hold of it (email_service imports send_email), and the delivery queue's, which take a page or send one. A
+# module that binds one holds it too (``_holders``).
 _SENDS = {
     "app.services.resend_service": frozenset({"send_email"}),
     "app.services.email_service": frozenset({"send_email"}),
@@ -703,52 +721,99 @@ def _dotted(node: ast.AST) -> str | None:
     return None
 
 
+def _module_name(path: Path, app: Path) -> str:
+    """A module's dotted name, a package's ``__init__`` its package's."""
+    parts = path.relative_to(app.parent).with_suffix("").parts
+    return ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+
+
+def _held(node: ast.AST, modules: dict[str, str], holders: dict[str, frozenset[str]]) -> frozenset[str]:
+    """The functions that send held by the module a node names, through a name bound to it or by its dotted path."""
+    owner = _dotted(node)
+    return holders.get(modules.get(owner, owner), frozenset()) if owner is not None else frozenset()
+
+
+def _bindings(tree: ast.Module, path: Path, app: Path, holders: dict[str, frozenset[str]]) -> tuple[set[str], dict[str, str]]:
+    """The names a module binds to a function that sends, and to a module that holds one, with that module: imported
+    by name or through a star import, and each name a binding hands one on to, a module's attribute among them."""
+    functions: set[str] = set()
+    modules: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update({alias.asname: alias.name for alias in node.names if alias.asname and alias.name in holders})
+        elif isinstance(node, ast.ImportFrom):
+            module = _imported(node, path, app)
+            for alias in node.names:
+                if alias.name == "*":
+                    functions |= holders.get(module, frozenset())
+                elif f"{module}.{alias.name}" in holders:
+                    modules[alias.asname or alias.name] = f"{module}.{alias.name}"
+                elif alias.name in holders.get(module, ()):
+                    functions.add(alias.asname or alias.name)
+    while True:  # a name bound to one of those, or to a module's function that sends, holds what it holds
+        grown = False
+        for node in ast.walk(tree):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) and node.value else []
+            value = _dotted(node.value) if targets else None
+            for target in [t for t in targets if isinstance(t, ast.Name) and t.id not in functions and t.id not in modules]:
+                if value in functions or (isinstance(node.value, ast.Attribute) and node.value.attr in _held(node.value.value, modules, holders)):
+                    functions.add(target.id)
+                    grown = True
+                elif value is not None and modules.get(value, value) in holders:
+                    modules[target.id] = modules.get(value, value)
+                    grown = True
+        if not grown:
+            return functions, modules
+
+
+def _holders(trees: dict[Path, ast.Module], app: Path) -> dict[str, frozenset[str]]:
+    """The modules that hold a function that sends: those ``_SENDS`` names, and each module under ``app`` that binds
+    one, by import or by a binding, which it hands on to its importers, through any chain of them."""
+    holders = dict(_SENDS)
+    while True:
+        grown = False
+        for path, tree in trees.items():
+            name, functions = _module_name(path, app), frozenset(_bindings(tree, path, app, holders)[0])
+            if not functions <= holders.get(name, frozenset()):
+                holders[name] = holders.get(name, frozenset()) | functions
+                grown = True
+        if not grown:
+            return holders
+
+
 def senders(app: Path) -> dict[str, int]:
     """The modules under ``app`` that send mail, each with how many times it names a function that sends a page or
-    hands one on: the transport's ``send_email`` (``email_service`` holds it under that name, and a module may import
-    it from either), the delivery queue's, imported by name or read through the module, or handed on by a name bound
-    to one; and the provider's key or address, which a call of the provider past the transport needs. An import
-    alone sends nothing, nor does a caught ``ResendError``. The transport and the settings that define the provider
-    are not read."""
+    hands one on (the transport's ``send_email``, which ``email_service`` holds under that name, and the delivery
+    queue's), or the provider's key or address, which a call of the provider past the transport needs. A function
+    counts read through a module that holds it, by a name bound to the module or its dotted path; imported from one,
+    by name or through a star import; and through each name a binding hands it on to. A module holds each function
+    it binds so, and hands it on to its importers, so a re-export counts through any chain of them. A setting counts
+    read as an attribute or named in a string, as ``getattr`` takes it. An import alone sends nothing, nor does a
+    caught ``ResendError`` or an annotation. The transport and the settings that define the provider are not read."""
+    trees = {path: ast.parse(path.read_text(encoding="utf-8")) for path in sorted(app.rglob("*.py"))}
+    holders = _holders(trees, app)
     found: dict[str, int] = {}
-    for path in sorted(app.rglob("*.py")):
+    for path, tree in trees.items():
         if path in (app / "services" / "resend_service.py", app / "config.py"):
             continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        functions: set[str] = set()  # the names this module binds to a function that sends
-        modules: dict[str, str] = {}  # the names it binds to a module that holds one, and the module
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                modules.update({alias.asname: alias.name for alias in node.names if alias.asname and alias.name in _SENDS})
-            elif isinstance(node, ast.ImportFrom):
-                module = _imported(node, path, app)
-                for alias in node.names:
-                    if f"{module}.{alias.name}" in _SENDS:
-                        modules[alias.asname or alias.name] = f"{module}.{alias.name}"
-                    elif alias.name in _SENDS.get(module, ()) or alias.name == "send_email":
-                        functions.add(alias.asname or alias.name)
-        while True:  # a name bound to one of those names holds what it holds
-            grown = False
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name):
-                    for target in (target for target in node.targets if isinstance(target, ast.Name)):
-                        if node.value.id in functions and target.id not in functions:
-                            functions.add(target.id)
-                            grown = True
-                        elif node.value.id in modules and target.id not in modules:
-                            modules[target.id] = modules[node.value.id]
-                            grown = True
-            if not grown:
-                break
+        functions, modules = _bindings(tree, path, app, holders)
+        annotations = {
+            id(inner)
+            for node in ast.walk(tree)
+            for annotation in (getattr(node, "annotation", None), getattr(node, "returns", None))
+            if isinstance(annotation, ast.AST)
+            for inner in ast.walk(annotation)
+        }
         sends = 0
         for node in ast.walk(tree):
+            if id(node) in annotations:
+                continue
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in functions:
                 sends += 1
-            elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load) and (owner := _dotted(node.value)) is not None:
-                held = _SENDS.get(modules.get(owner, owner), frozenset())  # a name bound to the module, or its dotted path
-                sends += node.attr in held or node.attr in _PROVIDER
-            elif isinstance(node, ast.Constant) and isinstance(node.value, str) and "api.resend.com" in node.value:
-                sends += 1
+            elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
+                sends += node.attr in _held(node.value, modules, holders) or node.attr in _PROVIDER
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                sends += node.value in _PROVIDER or "api.resend.com" in node.value
         if sends:
             found[path.relative_to(app.parent).as_posix()] = sends
     return found
@@ -757,8 +822,7 @@ def senders(app: Path) -> dict[str, int]:
 def test_only_the_listed_modules_send_mail():
     found = senders(APP)
     held = {module: sends for module, (sends, _) in SENDERS.items()}
-    unlisted = {module: sends for module, sends in found.items() if module not in held}
-    assert not unlisted and set(found) == set(held), (
+    assert set(found) == set(held), (
         f"the modules that send mail changed: {found}. Build mail through email_service's public functions, whose shell "
         "carries the header, or list the module in SENDERS with what it sends"
     )
@@ -779,6 +843,10 @@ SENDS = [
     ("the transport through a relative import of the module", "from . import resend_service\nresend_service.send_email()\n", 1),
     ("the transport imported and called inside a function", "def f():\n    from app.services import resend_service\n    return resend_service.send_email()\n", 1),
     ("the transport's function imported from the mail module under another name", "from app.services.email_service import send_email as deliver\ndeliver()\n", 1),
+    ("the transport's function imported from a package that re-exports it, and called", "from app.services import send_email\nsend_email()\n", 1, {"services/__init__.py": "from .resend_service import send_email\n"}),
+    ("the transport's function read through a module that re-exports it", "from app.services import mailer\nmailer.send_email()\n", 1, {"services/mailer.py": "from app.services.resend_service import send_email\n"}),
+    ("the transport's function through a chain of re-exports, renamed on the way, the later read first", "from app.services.dispatch import send_email\nsend_email()\n", 1, {"services/relay.py": "from app.services.resend_service import send_email as deliver\n", "services/dispatch.py": "from app.services.relay import deliver as send_email\n"}),
+    ("the queue's names read through a module that star-imports them", "from app.services import mailer\nmailer.drain(db)\n", 1, {"services/mailer.py": "from app.services.notification_delivery_service import *\n"}),
     ("the transport's function read through the mail module", "from app.services import email_service\nemail_service.send_email(html='<p>x</p>')\n", 1),
     ("the transport's function read through the mail module's dotted path", "import app.services.email_service\napp.services.email_service.send_email()\n", 1),
     ("the transport's function read through a name bound to the mail module", "from app.services import email_service\nes = email_service\nes.send_email()\n", 1),
@@ -791,6 +859,16 @@ SENDS = [
     ("the queue's prepared send, imported by name", 'from app.services.notification_delivery_service import PreparedSend, send_prepared\nsend_prepared(PreparedSend(html="<p>x</p>"))\n', 2),
     ("the provider's key read past the transport, as a call of the provider needs", "from app.config import settings\nKEY = settings.RESEND_API_KEY\n", 1),
     ("the provider's address written out", 'URL = "https://api.resend.com/emails"\n', 1),
+    ("the provider's host written out alone", 'HOST = "api.resend.com"\n', 1),
+    ("the provider's address read past the transport", "from app.config import settings\nURL = settings.RESEND_BASE_URL\n", 1),
+    ("the provider's key read through getattr", 'from app.config import settings\nKEY = getattr(settings, "RESEND_API_KEY")\n', 1),
+    ("the queue's batch replaced through the module", 'from app.services import notification_delivery_service as delivery\ndelivery.replace_batch(db, html="<p>x</p>")\n', 1),
+    ("the queue's batch imported by name from a package that re-exports it", "from app.services import create_batch\ncreate_batch()\n", 1, {"services/__init__.py": "from .notification_delivery_service import create_batch\n"}),
+    ("the transport's names through a star import", 'from app.services.resend_service import *\nsend_email(html="<p>x</p>")\n', 1),
+    ("the queue's names through a relative star import", "from .notification_delivery_service import *\ndrain(db)\n", 1),
+    ("the transport's function read through its module and handed on under a name", "from app.services import resend_service\nSEND = resend_service.send_email\nSEND()\nSEND()\n", 3),
+    ("the transport's function handed on under an annotated name", "from app.services import resend_service\nSEND: object = resend_service.send_email\nSEND()\n", 2),
+    ("the queue's module handed on by its dotted path", "import app.services.notification_delivery_service\nq = app.services.notification_delivery_service\nq.create_batch()\n", 1),
     ("the transport's error imported by name, which sends nothing", "from app.services.resend_service import ResendError\n", 0),
     ("the transport imported for its error alone", "from app.services import resend_service\ntry:\n    pass\nexcept resend_service.ResendError:\n    pass\n", 0),
     ("the transport's function imported and never named", "from app.services.resend_service import send_email\n", 0),
@@ -799,14 +877,18 @@ SENDS = [
     ("a request's flag named send_email", "class Invite:\n    send_email: bool = False\n\n\ndef f(payload):\n    return payload.send_email\n", 0),
     ("a module named like the transport", "import app.services.resend_service_stub\napp.services.resend_service_stub.send_email()\n", 0),
     ("the queue's click record, which sends nothing, imported by name", 'from app.services.notification_delivery_service import record_first_click\nrecord_first_click(db, "x", now)\n', 0),
+    ("a function of another module's that shares the transport's name, which sends nothing", "from app.services import mailer\nmailer.send_email()\n", 0, {"services/mailer.py": "def send_email(to):\n    return to\n"}),
+    ("the queue's prepared send in annotations alone", "from app.services.notification_delivery_service import PreparedSend\n\n\ndef f(p: PreparedSend) -> PreparedSend:\n    held: PreparedSend = p\n    return held\n", 0),
 ]
 
 
-@pytest.mark.parametrize("source, sends", [case[1:] for case in SENDS], ids=[case[0] for case in SENDS])
-def test_the_sender_check_scores_every_planted_module(tmp_path, source, sends):
+@pytest.mark.parametrize("source, sends, beside", [(*case[1:3], case[3] if len(case) > 3 else {}) for case in SENDS], ids=[case[0] for case in SENDS])
+def test_the_sender_check_scores_every_planted_module(tmp_path, source, sends, beside):
     services = tmp_path / "app" / "services"
     services.mkdir(parents=True)
     (services / "recap_mail.py").write_text(source, encoding="utf-8")
+    for name, text in beside.items():  # a module beside it that re-exports a send, or holds a look-alike, and sends nothing itself
+        (tmp_path / "app" / name).write_text(text, encoding="utf-8")
     assert senders(tmp_path / "app") == ({"app/services/recap_mail.py": sends} if sends else {})
 
 
@@ -892,6 +974,21 @@ def _pages(rendered: dict) -> list[tuple[str, str]]:
     pages = [(name, sent) for name, strings in rendered["mail"].items() for sent in strings if _PAGE.match(sent)]
     assert len({name for name, _ in pages}) == len(RENDERS), "a render sent no page"
     return pages
+
+
+def test_every_mail_the_module_sends_is_a_page_the_shell_built(rendered):
+    # The page check holds every other string of email_service.py from opening a page, so an HTML that opens the
+    # shell's doctype is the shell's, and each page rule below reads it.
+    sending = {name for name, sent in rendered["html_sent"].items() if sent}
+    assert sending == {name for name in RENDERS if name.startswith("send_")}, (
+        f"these renders sent mail: {sorted(sending)}. Each send_ function sends what its render builds, and a render "
+        "or build function returns its mail and sends none"
+    )
+    fragments = [f"{name}: {html[:120]!r}" for name, sent in rendered["html_sent"].items() for html in sent if not _PAGE.match(html)]
+    assert not fragments, (
+        "email_service sends mail that is no page the shell built, which no page rule here reads: build it with "
+        "_wrap_html:\n" + "\n".join(fragments)
+    )
 
 
 def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_view(rendered):
@@ -1118,10 +1215,10 @@ def test_the_planted_lists_keep_their_counts():
     counts = {
         "PAGES": (sum(case[-1] > 0 for case in PAGES), sum(case[-1] == 0 for case in PAGES)),
         "REACHES": (sum(case[-1] is True for case in REACHES), sum(case[-1] is False for case in REACHES)),
-        "SENDS": (sum(case[-1] > 0 for case in SENDS), sum(case[-1] == 0 for case in SENDS)),
+        "SENDS": (sum(case[2] > 0 for case in SENDS), sum(case[2] == 0 for case in SENDS)),
         "ADDRESSES": (sum(isinstance(case[-1], str) for case in ADDRESSES), sum(case[-1] is None for case in ADDRESSES)),
     }
-    assert counts == {"PAGES": (7, 8), "REACHES": (10, 4), "SENDS": (20, 8), "ADDRESSES": (63, 9)}, (
+    assert counts == {"PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (34, 10), "ADDRESSES": (63, 9)}, (
         "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     )
     for name, cases in (("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES)):
