@@ -64,8 +64,8 @@ const MATCHERS: Matcher[] = [
     fn: 'isNonRetryableStreamError',
     // The summary stream's own sources only. Its 401 comes from get_current_user (routers/auth.py),
     // "Could not validate credentials", which summaries-api.ts surfaces as the detail in place of its
-    // "Authentication error occurred." fallback; the matcher never sees a 401, which comes back
-    // retryable: false by status. auth.py's other messages (sign-in configuration, login) never reach
+    // fallback ("Sign in again to generate this summary.", the source of "sign in"); the matcher never sees
+    // a 401, which comes back retryable: false by status. auth.py's other messages (sign-in configuration, login) never reach
     // the stream, and useSummaryGeneration's guest message is set beside the stream, never matched.
     backend: [BACKEND.summaries, BACKEND.admission],
     frontend: ['features/summaries/api/summaries-api.ts'],
@@ -88,8 +88,6 @@ const DASHBOARD_UNSOURCED =
 const UNSOURCED: Record<string, string> = {
   'isCopilotPaywallError monthly cap':
     "no message says it: the Copilot cap's 429 says \"fair-use limit\" (routers/summaries.py), which this matcher does not read; the matcher's owner (brand-copilot, ASK-07) decides",
-  'isNonRetryableStreamError sign in':
-    'no message on the summary stream says it: its 401 is get_current_user\'s "Could not validate credentials" (routers/auth.py), which summaries-api.ts surfaces in place of its fallback, and a 401 comes back retryable: false by status, so this matcher never sees it; the matcher\'s logic is E31\'s (an error code field), never the brand sweep\'s',
   'DashboardError 401': DASHBOARD_UNSOURCED,
   'DashboardError Unauthorized': DASHBOARD_UNSOURCED,
   'DashboardError authentication': DASHBOARD_UNSOURCED,
@@ -97,8 +95,9 @@ const UNSOURCED: Record<string, string> = {
 }
 /** Seeded at 2 when the api modules were scanned; raised to 7 when the scan reached app/dashboard/error.tsx
     and ContactForm.tsx (2026-10-13); lowered to 6 when #1303 read the contact form's rate limit from the status
-    (2026-10-15), so ContactForm.tsx tests no message word. It only falls after. */
-const UNSOURCED_MAX = 6
+    (2026-10-15), so ContactForm.tsx tests no message word; lowered to 5 when #1293's 401 fallback wrote
+    "Sign in again to generate this summary." (2026-10-16), so "sign in" has a source. It only falls after. */
+const UNSOURCED_MAX = 5
 
 /** Literal tests the scan reads that test something other than a message the code writes. */
 const NOT_MESSAGES: Record<string, string> = {

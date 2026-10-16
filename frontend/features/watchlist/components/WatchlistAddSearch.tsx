@@ -134,7 +134,7 @@ export default function WatchlistAddSearch() {
                 <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{formatCompanyName(company.name)}</span>
-                  <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
+                  <span className="font-data text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
                 </span>
               </span>
               <PlusIcon className="h-4 w-4 flex-shrink-0 text-brand-strong group-aria-disabled:opacity-50 dark:text-brand-strong-dark" />

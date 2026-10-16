@@ -98,7 +98,6 @@ const PAGE_ROOTS = routeFiles('app', ['page.tsx'], ROOT)
 const RING_RESIDUE: Record<string, number> = {
   // Each line names the sweep PR that owns the file, or why it waits. A "props spread" finding in a chart
   // or Markdown renderer is the scan's limit (it cannot read what the spread holds), not always a stop.
-  'app/dashboard/page.tsx': 1, // brand-dashboard-watchlist
   'app/delete-account/page.tsx': 4, // auth-adjacent page with no sweep owner yet
   'app/filing/[id]/page-client.tsx': 1, // brand-filing-page
   'app/forgot-password/page.tsx': 1, // brand-auth-pages-presentation
@@ -108,18 +107,15 @@ const RING_RESIDUE: Record<string, number> = {
   'app/security/page.tsx': 5, // legal page: waits on the founder (presentation follow-up)
   'app/terms/page.tsx': 4, // legal page: waits on the founder (presentation follow-up)
   'app/verify-email/page.tsx': 3, // brand-auth-pages-presentation
-  'features/analysis/components/AnalysisPageClient.tsx': 3, // brand-analysis
-  'features/analysis/components/DataNotesLink.tsx': 1, // brand-analysis
-  'features/analysis/components/NarrativePane.tsx': 1, // brand-analysis
+  'features/analysis/components/DataNotesLink.tsx': 1, // its button's class is sourceTraceChipClass, imported from features/filings/lib/sourceTraceChip, which carries the ring; the scan does not read across files (review-checked)
+  'features/analysis/components/NarrativePane.tsx': 1, // Markdown renderer props spread on p, li, strong, em and td, which the scan cannot read (no Tab stop)
   'features/analysis/components/TrendCharts.tsx': 17, // chart props spreads the scan cannot read
-  'features/analysis/lib/periodAxis.tsx': 2, // brand-analysis
+  'features/analysis/lib/periodAxis.tsx': 2, // chart tick props spread on its SVG text, which the scan cannot read (no Tab stop)
   'features/auth/components/OAuthStartControl.tsx': 2, // brand-auth-pages-presentation
   'features/auth/components/RegisterForm.tsx': 5, // brand-auth-pages-presentation
   'features/companies/components/CompanyIdentity.tsx': 2, // its crumb and link take IDENTITY_CRUMB and IDENTITY_LINK, recipes imported from FilingIdentity, which the scan does not read across files (#1292 ringed them there; review-checked)
   'features/filings/components/FilingsHistoryNote.tsx': 1, // its link's class is IDENTITY_LINK, imported from FilingIdentity, which the scan does not read across files (#1292 ringed it through that recipe; review-checked)
-  'features/filings/components/SourceTrace.tsx': 6, // brand-filing-page
-  'features/filings/components/SupersededFilingNotice.tsx': 1, // brand-filing-page
-  'features/filings/components/TickerFilingsView.tsx': 3, // brand-filing-page
+  'features/filings/components/SourceTrace.tsx': 4, // brand-filing-page
   'features/filings/components/copilot/AskCopilotRail.tsx': 3, // brand-copilot
   'features/filings/components/copilot/CitationChip.tsx': 4, // brand-copilot
   'features/filings/components/copilot/CopilotMessage.tsx': 13, // brand-copilot
@@ -133,14 +129,10 @@ const RING_RESIDUE: Record<string, number> = {
   'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
-  'features/subscriptions/components/PeekLocked.tsx': 1, // brand-settings-subscriptions
-  'features/subscriptions/components/TrialBanner.tsx': 1, // brand-settings-subscriptions
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
-  'features/summaries/components/SummaryActionsBar.tsx': 1, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
-  'features/watchlist/components/PopularTickerChips.tsx': 1, // brand-dashboard-watchlist
 }
-const RING_RESIDUE_MAX = { files: 41, stops: 120 }
+const RING_RESIDUE_MAX = { files: 33, stops: 106 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
