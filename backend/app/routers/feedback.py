@@ -35,7 +35,7 @@ _IP_HASH_SALT = settings.IP_HASH_SALT or settings.SECRET_KEY
 # RateLimiter (bounded key cardinality, lazy idle cleanup, Retry-After).
 FEEDBACK_LIMITER = RateLimiter(limit=10, window_seconds=3600)
 FEEDBACK_RATE_LIMIT_DETAIL = (
-    "You've sent a lot of feedback in a short window — please try again shortly."
+    "You've sent a lot of feedback in the last hour. Try again a little later."
 )
 
 

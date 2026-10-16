@@ -20,9 +20,12 @@ ceiling (a z-index bound, a byte budget) is not a list cap and keeps `<=`, with 
 
 **Evidence**: `frontend/tests/unit/allowlistCapsAreEqualities.spec.ts` (the gate: every
 `toBeLessThanOrEqual(NAMED_CONSTANT)` in a tracked unit spec is listed in `CEILINGS` with a reason, the
-totals equal `CEILINGS_MAX`, and E59 converts the listed list caps after the series lands; the backend
-has no residue-list cap on main today, and #1298 lands its `EXEMPT_CAP` as an equality). #1288's
+totals equal `CEILINGS_MAX`, and E59 converts the listed list caps after the series lands), and its
+backend half, `backend/tests/unit/test_allowlist_caps_are_equalities.py` (#1298: every
+`assert len(LIST) <= CAP` in a tracked backend test is listed in its own `CEILINGS` with a reason; the two
+listed are value bounds). #1288's
 `brandVoiceRules.spec.ts` `VOICE_RESIDUE_MAX`, the equality form. #1298's
-`backend/tests/unit/test_frontend_matchers_parity.py:536` (`assert len(UNSOURCED) == UNSOURCED_MAX`)
-beside its own `EXEMPT_CAP` ceiling at `test_user_facing_copy_voice.py:681`. The principal reviews on
-#1298, #1299, #1301 and #1295 (2026-10-15).
+`test_every_phrase_the_frontend_routes_on_is_written` in `backend/tests/unit/test_frontend_matchers_parity.py`
+(`assert len(UNSOURCED) == UNSOURCED_MAX`) beside its own `EXEMPT_CAP`, which `test_exempt_only_shrinks` in
+`test_user_facing_copy_voice.py` held as a ceiling until the principal review and as an equality since. The
+principal reviews on #1298, #1299, #1301 and #1295 (2026-10-15).

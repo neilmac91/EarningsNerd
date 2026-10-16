@@ -38,7 +38,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
-- ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
+- ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout (partly gated by `backend/tests/unit/test_cached_filings_pool_lifetime.py`: a burst over the routes it lists, and an AST ratchet that fails a session call on the loop in an async route's own body above that route's ceiling; a session handed to a service on the loop is review-checked)
 - ops-serial-merge-adjacent-line-prs.md — Serialize merges of PRs that edit the same file within a few lines
 - ops-true-config-descriptions-grep-file-moves.md — Make canonized config descriptions literally true and grep the whole repo when moving files
 - ops-unmergeable-pr-runs-no-pull-request-workflows.md — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
@@ -50,6 +50,8 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 ## Evals, judging, paid runs and the founder's machine (read for that work)
 
 - evals-accept-a-prompt-change-on-two-runs-not-one.md — one generated run sets a direction, never an effect size; report the range across two
+- evals-gate-the-primary-sources-share-not-only-its-scores.md — when an output has a primary source and a degrading fallback, gate the share the primary source serves (provenance, absolute HARD floor), not only quality scores; E28's fallback passed every run on a WARN (partly gated by `backend/evals/regression_gate.py`'s native-section check)
+- evals-measure-a-copilot-change-on-the-source-production-uses.md — accept a Copilot draw only if its sources were prepared as production's are; record each system-message revision and its measured source (partly gated by `backend/tests/unit/test_copilot_prompt_revisions.py`, which requires the row; what a row says, an overwrite made in both the table and the test, the context message, tool schemas and generation options, a copilot-eval draw's source check (E80; eval-baseline has a native-section share floor since #1347) and classifying a red draw's generations are review-checked)
 - evals-test-the-row-shape-the-producer-writes.md — a consumer of another module's records is tested on that producer's real row shape, and its identity rule against the committed data
 - ops-ai-evidence-is-not-human-acceptance.md — Use explicit model/source evidence when the founder cannot supply a human panel
 - ops-capacity-projection-withholds-command-values.md — Withhold command values and execute the real readback projection in a privacy gate
@@ -70,6 +72,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-admit-authored-evidence-before-repair.md — Match the real evidence selector and admit authored evidence before fuzzy repair
 - arch-admit-copilot-answers-before-publication.md — Hold answer prose until citation admission and preserve truthful request completion
 - arch-bind-bare-table-figures-to-the-declared-scale.md — Bind a bare dollar figure copied from a scaled table to the table's declared scale
+- arch-cache-only-reads-that-succeeded.md — Cache only a read that succeeded: a read that degrades to empty on failure tells its caller so, serves that one request and leaves the cache for the next to retry; an off-loop read takes a single-flight lock (partly gated by `backend/tests/unit/test_reporting_this_week_service.py` for reporting-this-week; other caches are review-checked)
 - arch-capital-comparisons-need-source-ownership.md — Own qualified comparisons and source-attributed capital passages in code
 - arch-code-owned-render-eligibility.md — Keep application-owned render eligibility separate from model payloads and generation stamps
 - arch-committed-universe-fail-open.md — Bound discovery surfaces to a committed universe with a fail-open filter
@@ -80,6 +83,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-fk-safe-bulk-deletes.md — Make destructive bulk deletes FK-safe by construction, not by trusting the test DB
 - arch-gate-reference-values-are-themselves-gated.md — A gate that compares against a token or an exemption set must pin those too
 - arch-guard-every-model-facing-surface.md — Suppress a value on EVERY model-facing surface, or the model parrots what the render dropped
+- arch-guard-every-writer-of-the-billing-binding.md — Guard every Stripe handler that writes the account's subscription binding; another subscription's non-entitling event never revokes an entitled one (partly gated by `backend/tests/unit/test_subscription_identity.py`: the late-event cases for the three writers, and a counted inventory of every mention of the binding that fails on a new one; that a newly listed writer carries the guard and asks entitlements.py is review-checked)
 - arch-migrations-no-alembic.md — No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the migration_ledger table
 - arch-moved-code-resolves-seams-through-the-patched-module.md — Code moved out of a patched module keeps resolving its collaborators through that module at call time
 - arch-no-precomputed-deltas-in-grounding.md — Don't pre-chew derived deltas into the grounding without a groundedness guardrail
@@ -102,7 +106,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network
-- sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md — Run our entry point against the failure before ruling that an upstream fix does not reach us (a grep of `app/` misses calls the library makes for us), and never let a `getattr` default or bare `except` hide a failing read (partly gated: `test_edgartools_compat.py`, `test_xbrl_sections_errors.py` pin this instance)
+- sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md — Run our entry point against the failure before ruling that an upstream fix does not reach us (a grep of `app/` misses calls the library makes for us), never let a `getattr` default or bare `except` hide a failing read, and treat a path the change revives as a model-input change, gated on its effect (partly gated: `test_edgartools_compat.py`, the X0.2 cases in `test_xbrl_service_anchors.py`, `test_summary_sections_parity.py`)
 - sec-runtime-facts-carry-no-duration.md — Runtime per-filing facts carry no duration: abstain, never substitute an annual-looking label
 - sec-xbrl-period-selection.md — XBRL facts: select for the filing's OWN reporting period — fy/fp label the filing, not the fact
 

@@ -1,0 +1,108 @@
+# edgartools: Filing.homepage_url (the filing index URL) and the XML-declaration branch of Filing.html(), per version
+# Read from each published wheel's edgar/_filings.py (5.58.0 is the installed pin).
+# PyPI upload times from https://pypi.org/pypi/edgartools/<version>/json, read 2026-10-15.
+
+== 5.58.0 (PyPI upload 2026-09-11T15:40:13Z)
+  2273: return f"{SEC_ARCHIVE_URL}/data/{self.cik}/{self.accession_no}-index.html"   # homepage_url
+  1613:         if html.endswith("</PDF>"):
+  1614:             return None
+  1615:         if html.startswith("<?xml"):
+  1616:             if self.form in ['3', '3/A', '4', '4/A', '5', '5/A']:
+  1617:                 from edgar.ownership import Ownership
+  1618:                 ownership: Ownership = self.obj()
+  1619:                 html = ownership.to_html()
+  1620:             else:
+  1621:                 # Only call self.obj() for XML-native forms (XmlFiling, etc.)
+  1622:                 # that have to_html() rendering. Skip for HTML-based data objects
+  1623:                 # (S-1, S-3, 424B, etc.) whose from_filing() calls html(),
+  1624:                 # which would cause infinite recursion.
+  1625:                 from edgar.xmlfiling import XML_FILING_FORMS
+  1626:                 if self.form in XML_FILING_FORMS:
+  1627:                     xml_obj = self.obj()
+  1628:                     if xml_obj and hasattr(xml_obj, 'to_html'):
+  1629:                         rendered = xml_obj.to_html()
+  1630:                         if rendered:
+  1631:                             return rendered
+  1632:                 html = self.homepage.primary_html_document.download()
+
+== 5.61.0 (PyPI upload 2026-10-06T18:49:25Z)
+  2293: return f"{self.base_dir}/{self.accession_no}-index.html"   # homepage_url
+  1614:         if html.endswith("</PDF>"):
+  1615:             return None
+  1616:         if html.startswith("<?xml"):
+  1617:             if self.form in ['3', '3/A', '4', '4/A', '5', '5/A']:
+  1618:                 from edgar.ownership import Ownership
+  1619:                 ownership: Ownership = self.obj()
+  1620:                 html = ownership.to_html()
+  1621:             else:
+  1622:                 # Only call self.obj() for XML-native forms (XmlFiling, etc.)
+  1623:                 # that have to_html() rendering. Skip for HTML-based data objects
+  1624:                 # (S-1, S-3, 424B, etc.) whose from_filing() calls html(),
+  1625:                 # which would cause infinite recursion.
+  1626:                 from edgar.xmlfiling import XML_FILING_FORMS
+  1627:                 if self.form in XML_FILING_FORMS:
+  1628:                     xml_obj = self.obj()
+  1629:                     if xml_obj and hasattr(xml_obj, 'to_html'):
+  1630:                         rendered = xml_obj.to_html()
+  1631:                         if rendered:
+  1632:                             return rendered
+  1633:                 document = self.homepage.primary_html_document
+  1634:                 if document is None:
+  1635:                     return None
+  1636:                 html = document.download()
+
+== 5.61.1 (PyPI upload 2026-10-06T22:29:25Z)
+  2293: return f"{self.base_dir}/{self.accession_no}-index.html"   # homepage_url
+  1614:         if html.endswith("</PDF>"):
+  1615:             return None
+  1616:         if html.startswith("<?xml"):
+  1617:             if self.form in ['3', '3/A', '4', '4/A', '5', '5/A']:
+  1618:                 from edgar.ownership import Ownership
+  1619:                 ownership: Ownership = self.obj()
+  1620:                 html = ownership.to_html()
+  1621:             else:
+  1622:                 # Only call self.obj() for XML-native forms (XmlFiling, etc.)
+  1623:                 # that have to_html() rendering. Skip for HTML-based data objects
+  1624:                 # (S-1, S-3, 424B, etc.) whose from_filing() calls html(),
+  1625:                 # which would cause infinite recursion.
+  1626:                 from edgar.xmlfiling import XML_FILING_FORMS
+  1627:                 if self.form in XML_FILING_FORMS:
+  1628:                     xml_obj = self.obj()
+  1629:                     if xml_obj and hasattr(xml_obj, 'to_html'):
+  1630:                         rendered = xml_obj.to_html()
+  1631:                         if rendered:
+  1632:                             return rendered
+  1633:                 document = self.homepage.primary_html_document
+  1634:                 if document is None:
+  1635:                     return None
+  1636:                 html = document.download()
+
+== 5.62.0 (PyPI upload 2026-10-11T18:22:22Z)
+  2296: return f"{self.base_dir}/{self.accession_no}-index.html"   # homepage_url
+  1617:         # Inline XBRL is XHTML, often opened with an XML declaration, and is already
+  1618:         # the HTML. Only a primary document that is XML needs rendering (GH #1421).
+  1619:         if html.startswith("<?xml") and not has_html_content(html):
+  1620:             if self.form in ['3', '3/A', '4', '4/A', '5', '5/A']:
+  1621:                 from edgar.ownership import Ownership
+  1622:                 ownership: Ownership = self.obj()
+  1623:                 html = ownership.to_html()
+  1624:             else:
+  1625:                 # Only call self.obj() for XML-native forms (XmlFiling, etc.)
+  1626:                 # that have to_html() rendering. Skip for HTML-based data objects
+  1627:                 # (S-1, S-3, 424B, etc.) whose from_filing() calls html(),
+  1628:                 # which would cause infinite recursion.
+  1629:                 from edgar.xmlfiling import XML_FILING_FORMS
+  1630:                 if self.form in XML_FILING_FORMS:
+  1631:                     xml_obj = self.obj()
+  1632:                     if xml_obj and hasattr(xml_obj, 'to_html'):
+  1633:                         rendered = xml_obj.to_html()
+  1634:                         if rendered:
+  1635:                             return rendered
+  1636:                 document = self.homepage.primary_html_document
+  1637:                 if document is None:
+  1638:                     return None
+  1639:                 html = document.download()
+
+# 5.58.0: folderless index URL; every XML-declared primary document is re-read from the index page.
+# 5.61.0, 5.61.1: the index URL is inside the accession folder (base_dir); the html() branch is unchanged.
+# 5.62.0: the html() branch also skips the index page when the XML-declared document already contains HTML.
