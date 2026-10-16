@@ -1,4 +1,4 @@
-"""Copilot fact guards extracted without changing admission behavior."""
+"""Copilot fact guards: the provenance, value, currency and concept checks a fact marker must pass."""
 from __future__ import annotations
 
 import json
@@ -8,7 +8,7 @@ from datetime import date
 from typing import Any, Optional
 
 from app.services import copilot_tools
-from app.services.copilot.figures import _figure_matches_value, _figure_sign_agrees, _is_year
+from app.services.copilot.figures import _figure_extent, _figure_matches_value, _figure_sign_agrees, _is_year
 
 
 def _reporting_currency(filing: Any) -> Optional[str]:
@@ -111,10 +111,12 @@ def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
     if not figures:
         return True
     for m in figures:
-        # The figure's own clause (see ``_CLAUSE_BOUNDARY``) carries its growth-direction wording.
-        clause = (_CLAUSE_BOUNDARY.split(scrubbed[:m.start()])[-1] + m[0]
-                  + _CLAUSE_BOUNDARY.split(scrubbed[m.end():])[0])
-        if _figure_matches_value(fact, m) and _figure_sign_agrees(fact, scrubbed, m, clause):
+        # The figure's own clause (see ``_CLAUSE_BOUNDARY``), read through parentheses around the
+        # figure alone, carries its growth-direction wording ("revenue declined (15.3%)").
+        start, end = _figure_extent(m)
+        clause = (_CLAUSE_BOUNDARY.split(scrubbed[:start])[-1] + scrubbed[start:end]
+                  + _CLAUSE_BOUNDARY.split(scrubbed[end:])[0])
+        if _figure_matches_value(fact, m) and _figure_sign_agrees(fact, m, clause):
             return True
     return False
 
