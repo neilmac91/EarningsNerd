@@ -173,10 +173,11 @@ export interface AnalysisStreamHandlers {
   onError: (message: string) => void
 }
 
-/** 403/429 gate errors — the UI swaps Retry for an Upgrade CTA (retrying can't help). */
+/** The 403 "Pro feature" gate: the page adds a way to the plans beside it. The fair-use 429 is not one
+ *  (a Pro user's monthly cap, stated once in the narrative card with no plan link). */
 export const isAnalysisPaywallError = (message: string): boolean => {
   const m = (message || '').toLowerCase()
-  return m.includes('pro feature') || m.includes('upgrade to pro') || m.includes('fair-use limit')
+  return m.includes('pro feature') || m.includes('upgrade to pro')
 }
 
 // --- REST calls ---
@@ -352,7 +353,7 @@ export const streamAnalysis = async (
       } else if (response.status >= 500) {
         errorMessage = await parseErrorDetail(response, 'Server error. Please try again.')
       } else {
-        errorMessage = await parseErrorDetail(response, `Request failed with status ${response.status}`)
+        errorMessage = await parseErrorDetail(response, 'The analysis did not start. Run it again.')
       }
       fail(errorMessage)
       return

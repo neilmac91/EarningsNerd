@@ -306,11 +306,6 @@ function bareDarkFindings(source: string, rel: string): Finding[] {
 
 /** Unpaired per file and class, as of main at 5dab7d82. Each entry names who owns the fix, or why the class stays light. */
 const THEME_PAIR_RESIDUE: Record<string, Record<string, number>> = {
-  // The native checkboxes #1289's Checkbox replaces: the admin invite's checked ink alone, and the consent
-  // dialog's three, each with its hairline and that ink alone. The later of #1289 and #1310 to land deletes
-  // these two entries and lowers the cap to { files: 12, classes: 15 }.
-  'app/admin/invites/page.tsx': { 'text-brand-strong': 1 },
-  'components/CookieConsent.tsx': { 'border-border-light': 3, 'text-brand-strong': 3 },
   // The forced-light modes (`mode="light"`) are light on purpose: no dark twin.
   'components/EarningsNerdLogo.tsx': { 'text-text-primary-light': 1, 'text-brand-strong': 1 },
   'components/EarningsNerdLogoIcon.tsx': { 'text-brand-strong': 1 },
@@ -328,7 +323,7 @@ const THEME_PAIR_RESIDUE: Record<string, Record<string, number>> = {
   'features/filings/components/copilot/CopilotTeaser.tsx': { 'ring-brand-border': 1 },
   'features/summaries/components/SummaryDisplay.tsx': { 'hover:border-brand-border': 1 },
 }
-const THEME_PAIR_RESIDUE_MAX = { files: 14, classes: 22 }
+const THEME_PAIR_RESIDUE_MAX = { files: 12, classes: 15 }
 
 /** Bare dark halves per file and class: surfaces dark in both themes on purpose. Each entry says why. */
 const BARE_DARK_RESIDUE: Record<string, Record<string, number>> = {

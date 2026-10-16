@@ -43,7 +43,7 @@ describe('analysis snapshot consistency', () => {
     const method = cached ? 'get' : 'post'
     vi.spyOn(api, method).mockRejectedValue(new ApiError(409, 'Request failed with status code 409'))
     fireEvent.click(screen.getByRole('button', { name: cached ? 'Export PDF' : 'Export Excel' }))
-    expect(await screen.findByText('Source data changed. Run analysis again before exporting.')).toBeInTheDocument()
+    expect(await screen.findByText('This report is out of date. Run analysis again before exporting.')).toBeInTheDocument()
   })
 
   it.each(['changed-snapshot', undefined])('withholds commentary when the completed snapshot is %s', async (snapshot) => {
@@ -63,6 +63,24 @@ describe('analysis snapshot consistency', () => {
     expect(screen.queryByText('Premature commentary')).not.toBeInTheDocument()
     expect(screen.queryByText('Mismatched commentary')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Export PDF' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['the fair-use 429', "You've reached this month's fair-use limit of 30 analyses. It resets at the start of next month.", false],
+    ['the 403 Pro gate', 'Multi-Period Analysis is a Pro feature. Upgrade to Pro to access this feature.', true],
+  ])('answers %s with a plan link only for the Pro gate, and the fair-use sentence once', async (_, message, planLink) => {
+    vi.mocked(getAnalysisDataset).mockResolvedValue(dataset)
+    vi.mocked(streamAnalysis).mockImplementation(async (_ticker, _range, handlers) => handlers.onError(message))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    client.setQueryData(queryKeys.currentUser(), { id: 7 })
+    client.setQueryData(queryKeys.subscription.byUser(7), { is_pro: true })
+    client.setQueryData(queryKeys.analysisCoverage('META'), { ticker: 'META', company_name: 'Meta', supported: true, annual: dataset.periods.map((period) => ({ ...period, has_core: true })), quarterly: [], limits: { annual: 10, quarterly: 12 } })
+    render(<QueryClientProvider client={client}><AnalysisPageClient /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Select Meta' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
+    // The narrative card states the error; the fair-use cap is not repeated beside it.
+    expect(await screen.findAllByText(message)).toHaveLength(planLink ? 2 : 1)
+    expect(screen.queryAllByRole('link', { name: 'See plans' })).toHaveLength(planLink ? 1 : 0)
   })
 
   it('sends the displayed snapshot to both export formats', async () => {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
@@ -7,7 +7,9 @@ import tailwindcss, { type Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { bindingResolver } from './astBindings'
+import { countControlClass, type CountControlKind } from '@/components/ui/countControl'
+import { bindingResolver, type Binding } from './astBindings'
+import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
 
 /**
  * Every control in the site chrome shows the brand focus ring, never the browser's default outline
@@ -22,13 +24,24 @@ import { bindingResolver } from './astBindings'
  * to (a, area, button, embed, input, object, select, summary, textarea, next/link's Link, anything with a
  * tabIndex the scan cannot prove negative: 0 or more, or a dynamic value such as a roving
  * `tabIndex={selected ? 0 : -1}`, and any contentEditable region the scan cannot prove off). Its className
- * must carry the whole triple, or be the DS factory `buttonVariants(…)`, which composes it (pinned below).
- * A className the scan cannot read (a variable, a call to anything but `buttonVariants` and the DS joiner
- * `cx`) fails: the ring has to be visible in the file. Dynamic parts (a template's `${…}`, a conditional
- * or variable argument of `cx(…)`) are ignored, so the triple must sit in the static text. A props spread
- * fails too, on any element, since it may supply a tabIndex or a className; the one spread the scan reads
- * is a component's own rest props passed to the element that takes its className, as the DS primitives
- * write it (see ownRestProps). Three natively tabbable shapes fail whatever their className, since the
+ * must carry the whole triple, or be the DS factory `buttonVariants(…)`, which composes it (pinned below), imported
+ * from `@/components/ui` (the barrel or components/ui/Button.tsx, a namespace member included; a page's own function
+ * of that name is not the factory, and its className is read as any call is).
+ * The scan reads a className as the file writes it: a string, a template's static text, `cx(…)` (the DS
+ * joiner) by its readable arguments, `buttonVariants(…)` as the factory, and two more sources of classes.
+ * `countControlClass(…)` imported from `@/components/ui` (the barrel or components/ui/countControl.ts, under
+ * any local name, a namespace member included) is read as the classes the recipe itself returns for the kind
+ * it names: the spec calls the recipe, so the ring is read off it, not trusted by name, and a kind the scan
+ * cannot read counts as the classes every kind countControl.ts declares shares. A `const` the file declares
+ * (at module level or in the function that renders the control) is read as its initializer, read the same
+ * way: `const RING = '…'` composed into `cx(…, RING)`, or `const LINK = cx('…', countControlClass('link'))`
+ * written as the whole className. Anything else (a `let`, a parameter, an import, a field, a call to any
+ * other function) is unreadable: as the whole className it fails, since the ring has to be visible in the
+ * file or come from a recipe the scan reads; as a part (a template's `${…}`, a conditional, an argument of
+ * `cx(…)` the scan cannot read) it is dynamic and ignored, so the triple must sit in what the scan reads.
+ * A props spread fails too, on any element, since it may supply a tabIndex or a className; the one spread
+ * the scan reads is a component's own rest props passed to the element that takes its className, as the DS
+ * primitives write it (see ownRestProps). Three natively tabbable shapes fail whatever their className, since the
  * browser focuses something no class on them reaches (see unstylableStop): an <iframe> in the Tab order,
  * <audio> or <video> with `controls`, and a <details> with no <summary> of its own.
  *
@@ -50,9 +63,12 @@ import { bindingResolver } from './astBindings'
  * DS primitives they render included (Modal's close ✕ is one of their stops). The page header also
  * renders the controls a page passes into its `actions` slot (the dashboard's "Log out"), so every
  * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
- * page's other controls are not chrome. The named PAGE_CONTROL_ROOTS extend the same gate to check-email,
- * settings, invites, admin feedback and watchlist (their fields already have app-wide coverage). Other pages, including
- * the filing identity strip, remain outside that scope. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
+ * page's other controls are held by the page scan instead: every page.tsx under app/ and the feature modules it
+ * reaches (PAGE_ROOTS), with the ringless stops found when it widened counted in a shrink-only residue
+ * (RING_RESIDUE). The residue counts stops per file, not their identities: a PR that fixes one stop and
+ * adds another in the same file keeps its count and is review-checked (the new ringless control is in its
+ * diff); a key by line would move on every edit of the file, and one by tag and name would pass a
+ * same-shaped swap and triple the list. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
  */
 const ROOT = path.resolve(__dirname, '../..')
 
@@ -66,9 +82,54 @@ const ROOT = path.resolve(__dirname, '../..')
  * widget or primitive the chrome imports is scanned without anyone listing it.
  */
 const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx', 'components/SecondaryHeader.tsx']
-/** The page-control follow-up owns these routes and their feature modules’ raw controls. Field recipes
-    already have app-wide coverage below and in inputClassesNoOverrides; this adds their other Tab stops. */
-const PAGE_CONTROL_ROOTS = ['app/check-email/page.tsx', 'app/dashboard/settings/page.tsx', 'app/admin/invites/page.tsx', 'app/admin/feedback/page.tsx', 'app/dashboard/watchlist/page.tsx']
+/** Every route's page (each page.tsx under app/), discovered: with the feature modules they reach, their raw Tab
+    stops are held to the same ring (field recipes already have app-wide coverage below and in
+    inputClassesNoOverrides). A new page is scanned without anyone listing it. */
+const PAGE_ROOTS = routeFiles('app', ['page.tsx'], ROOT)
+
+/**
+ * The ringless page and feature Tab stops found when the page scan widened from four routes to every route
+ * (2026-10), counted per file. Shrink-only: a surface PR that rings a file's controls lowers its count or
+ * deletes its line; a new ringless stop fails, in a listed file (its count rises) or an unlisted one. The
+ * total of the counts and the number of files equal RING_RESIDUE_MAX, seeded at the scan's count and
+ * lowered in the same commit as each shrink, so no slack is left and the list cannot grow without the cap
+ * being raised in review. A PR that must raise it says why in its body.
+ */
+const RING_RESIDUE: Record<string, number> = {
+  // Each line names the sweep PR that owns the file, or why it waits. A "props spread" finding in a chart
+  // or Markdown renderer is the scan's limit (it cannot read what the spread holds), not always a stop.
+  'app/delete-account/page.tsx': 4, // auth-adjacent page with no sweep owner yet
+  'app/filing/[id]/page-client.tsx': 1, // brand-filing-page
+  'app/privacy/page.tsx': 10, // legal page: waits on the founder (presentation follow-up)
+  'app/security/page.tsx': 5, // legal page: waits on the founder (presentation follow-up)
+  'app/terms/page.tsx': 4, // legal page: waits on the founder (presentation follow-up)
+  'features/analysis/components/DataNotesLink.tsx': 1, // its button's class is sourceTraceChipClass, imported from features/filings/lib/sourceTraceChip, which carries the ring; the scan does not read across files (review-checked)
+  'features/analysis/components/NarrativePane.tsx': 1, // Markdown renderer props spread on p, li, strong, em and td, which the scan cannot read (no Tab stop)
+  'features/analysis/components/TrendCharts.tsx': 17, // chart props spreads the scan cannot read
+  'features/analysis/lib/periodAxis.tsx': 2, // chart tick props spread on its SVG text, which the scan cannot read (no Tab stop)
+  'features/companies/components/CompanyIdentity.tsx': 2, // its crumb and link take IDENTITY_CRUMB and IDENTITY_LINK, recipes imported from FilingIdentity, which the scan does not read across files (#1292 ringed them there; review-checked)
+  'features/filings/components/FilingsHistoryNote.tsx': 1, // its link's class is IDENTITY_LINK, imported from FilingIdentity, which the scan does not read across files (#1292 ringed it through that recipe; review-checked)
+  'features/filings/components/SourceTrace.tsx': 6, // brand-filing-page
+  'features/filings/components/SupersededFilingNotice.tsx': 1, // brand-filing-page
+  'features/filings/components/TickerFilingsView.tsx': 3, // brand-filing-page
+  'features/filings/components/copilot/AskCopilotRail.tsx': 3, // brand-copilot
+  'features/filings/components/copilot/CitationChip.tsx': 4, // brand-copilot
+  'features/filings/components/copilot/CopilotMessage.tsx': 13, // brand-copilot
+  'features/filings/components/copilot/CopilotTeaser.tsx': 1, // brand-copilot
+  'features/filings/components/copilot/FilingViewer.tsx': 3, // brand-copilot
+  'features/filings/components/copilot/PaneResizer.tsx': 1, // brand-copilot
+  'features/filings/components/copilot/ReaderTable.tsx': 2, // brand-copilot (Markdown renderer props spreads)
+  'features/filings/components/copilot/SecondaryPaneTabs.tsx': 1, // brand-copilot
+  'features/fundamentals/components/FundamentalsTrendChart.tsx': 3, // the chart props spreads the scan cannot read; #1292 ringed its controls
+  'features/marketing/components/CatchCard.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
+  'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
+  'features/marketing/components/TraceToSourceDemo.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
+  'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
+  'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
+  'features/summaries/components/SummaryActionsBar.tsx': 1, // brand-filing-page
+  'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
+}
+const RING_RESIDUE_MAX = { files: 30, stops: 98 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
@@ -105,14 +166,6 @@ const THIRD_PARTY: Record<string, string> = {
   '@tanstack/react-query QueryClientProvider': 'a provider: renders no control',
   'sonner Toaster': 'its focusable toasts and their buttons take the ring through toastOptions.classNames (pinned below)',
 }
-
-/** The specifier of an `import('…')` call, the lazy form of an import (`dynamic(() => import('…'))`). */
-const lazyImport = (node: ts.Node): string | undefined =>
-  ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])
-    ? node.arguments[0].text
-    : undefined
-
-const isLocal = (spec: string) => spec.startsWith('@/') || spec.startsWith('.')
 
 /** The third-party components `source` renders, as `module Tag`. */
 function thirdPartyTags(source: string, fileName: string): string[] {
@@ -165,66 +218,7 @@ function thirdPartyTags(source: string, fileName: string): string[] {
  * `export *` passes the names on. Only the .tsx modules are returned; a .ts module renders nothing itself.
  */
 function chromeFiles(roots: string[] = CHROME_ROOTS, root: string = ROOT): string[] {
-  const resolveImport = (from: string, spec: string): string | null => {
-    let base: string
-    if (spec.startsWith('@/')) base = path.join(root, spec.slice(2))
-    else if (spec.startsWith('.')) base = path.resolve(path.dirname(path.join(root, from)), spec)
-    else return null
-    for (const candidate of [`${base}.tsx`, `${base}.ts`, path.join(base, 'index.tsx'), path.join(base, 'index.ts')]) {
-      if (existsSync(candidate)) return path.relative(root, candidate)
-    }
-    return null
-  }
-  // What the chrome takes from each module it reaches: all of it ('*') or the names it imports. A module
-  // reached again for a name it was not taken for is read again, for the re-exports that name leads to.
-  const taken = new Map<string, Set<string> | '*'>()
-  const queue: string[] = []
-  const take = (file: string | null, names: Set<string> | '*') => {
-    if (!file || (names !== '*' && names.size === 0)) return
-    const had = taken.get(file)
-    if (had === '*' || (had && names !== '*' && [...names].every((name) => had.has(name)))) return
-    taken.set(file, names === '*' || !had ? names : new Set([...had, ...names]))
-    queue.push(file)
-  }
-  for (const file of roots) take(file, '*')
-  while (queue.length) {
-    const file = queue.shift()!
-    const names = taken.get(file)!
-    const sf = parse(readFileSync(path.join(root, file), 'utf8'), file)
-    for (const stmt of sf.statements) {
-      if (ts.isImportDeclaration(stmt) && !stmt.importClause?.isTypeOnly && ts.isStringLiteral(stmt.moduleSpecifier)) {
-        take(resolveImport(file, stmt.moduleSpecifier.text), importedNames(stmt.importClause))
-      } else if (ts.isExportDeclaration(stmt) && !stmt.isTypeOnly && stmt.moduleSpecifier && ts.isStringLiteral(stmt.moduleSpecifier)) {
-        const target = resolveImport(file, stmt.moduleSpecifier.text)
-        const clause = stmt.exportClause
-        if (!clause) take(target, names)
-        else if (ts.isNamespaceExport(clause)) take(target, names === '*' || names.has(clause.name.text) ? '*' : new Set())
-        else {
-          const picked = clause.elements.filter((el) => !el.isTypeOnly && (names === '*' || names.has(el.name.text)))
-          take(target, new Set(picked.map((el) => (el.propertyName ?? el.name).text)))
-        }
-      }
-    }
-    // A module loaded lazily, wherever in the file its import() sits, is rendered all the same: taken whole.
-    const lazy = (node: ts.Node): void => {
-      const spec = lazyImport(node)
-      if (spec !== undefined) take(resolveImport(file, spec), '*')
-      ts.forEachChild(node, lazy)
-    }
-    lazy(sf)
-  }
-  return [...taken.keys()].filter((file) => file.endsWith('.tsx')).sort()
-}
-
-/** The names an import takes from its module: '*' for a namespace or side-effect import, 'default' for a default one. */
-function importedNames(clause: ts.ImportClause | undefined): Set<string> | '*' {
-  if (!clause || (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings))) return '*'
-  const names = new Set<string>()
-  if (clause.name) names.add('default')
-  if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
-    for (const el of clause.namedBindings.elements) if (!el.isTypeOnly) names.add((el.propertyName ?? el.name).text)
-  }
-  return names
+  return walkImports(roots, root).filter((file) => file.endsWith('.tsx'))
 }
 
 const RINGS = [
@@ -248,29 +242,90 @@ interface Finding {
   problem: string
 }
 
+/** The DS button factory, under the modules a file can import it from (`moduleKey`'s form). */
+const BUTTON_FACTORY_IMPORTS = { 'components/ui/index': ['buttonVariants'], 'components/ui/Button': ['buttonVariants'] }
+/** Whether a callee is the DS button factory: its import (importedName), or, in the factory's own module, the
+    module-level function that declares it. A page's own function of the name is neither. */
+function buttonFactory(sf: ts.SourceFile): (callee: ts.Expression) => boolean {
+  const imported = importedName(sf, BUTTON_FACTORY_IMPORTS)
+  const resolve = bindingResolver(sf)
+  const own = sf.fileName.replace(/\.(tsx?|js)$/, '') === 'components/ui/Button'
+  return (callee) => {
+    if (imported(callee)) return true
+    if (!own || !ts.isIdentifier(callee) || callee.text !== 'buttonVariants') return false
+    const decl = resolve(callee)?.decl
+    return !!decl && ts.isFunctionDeclaration(decl) && decl.parent === sf
+  }
+}
+/** The count control's recipe, under the modules a file can import it from (`moduleKey`'s form). */
+const COUNT_CONTROL_IMPORTS = { 'components/ui/index': ['countControlClass'], 'components/ui/countControl': ['countControlClass'] }
+/** The count control's kinds, read off the union components/ui/countControl.ts declares (`CountControlKind`), so a
+    kind added there is read here without anyone listing it. */
+const COUNT_KINDS: string[] = (() => {
+  const file = path.join(ROOT, 'components/ui/countControl.ts')
+  const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === 'CountControlKind')
+  const members = alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : alias ? [alias.type] : []
+  const kinds = members.flatMap((m) => (ts.isLiteralTypeNode(m) && ts.isStringLiteral(m.literal) ? [m.literal.text] : []))
+  if (!kinds.length) throw new Error('components/ui/countControl.ts declares no CountControlKind the scan can read')
+  return kinds
+})()
+const splitClasses = (text: string) => text.split(/\s+/).filter(Boolean)
+/** The classes a `countControlClass(…)` call returns: the recipe's own, called with the kind the call names, or,
+    for a kind the scan cannot read (`countControlClass(kind)`), the classes every declared kind shares. */
+function countControlTokens(arg: ts.Expression | undefined): string[] {
+  const named = arg && (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) ? arg.text : undefined
+  if (named !== undefined && COUNT_KINDS.includes(named)) return splitClasses(countControlClass(named as CountControlKind))
+  const lists = COUNT_KINDS.map((kind) => splitClasses(countControlClass(kind as CountControlKind)))
+  return lists[0].filter((token) => lists.every((list) => list.includes(token)))
+}
+
+/** What a file's class expressions are read with: its bindings, to follow a `const` to its initializer, and the
+    count control's recipe under the names the file imports it as. */
+interface ClassContext {
+  resolve: (ref: ts.Identifier) => Binding | undefined
+  isCountControl: (callee: ts.Expression) => boolean
+  isButtonFactory: (callee: ts.Expression) => boolean
+}
+const classContext = (sf: ts.SourceFile): ClassContext => ({
+  resolve: bindingResolver(sf),
+  isCountControl: importedName(sf, COUNT_CONTROL_IMPORTS),
+  isButtonFactory: buttonFactory(sf),
+})
+
 /** The static class tokens of a className attribute, `'factory'` for buttonVariants(…), or null if unreadable. */
-function classTokens(init: ts.JsxAttributeValue | undefined): string[] | 'factory' | null {
+function classTokens(init: ts.JsxAttributeValue | undefined, ctx: ClassContext): string[] | 'factory' | null {
   if (!init) return null
   const expr = ts.isJsxExpression(init) ? init.expression : init
-  return expr ? expressionTokens(expr) : null
+  return expr ? expressionTokens(expr, ctx) : null
 }
 
 /**
  * A class expression's static tokens: a string, a template's static text, `buttonVariants(…)` as
- * 'factory', and `cx(…)`, the DS class joiner (components/ui/cx.ts) the primitives write their classes
- * with, as the tokens of its readable arguments. A conditional or variable argument (`loading && '…'`,
- * the caller's className) is dynamic and ignored, like a template's `${…}`. null: unreadable.
+ * 'factory', `countControlClass(…)` as the classes the recipe returns (countControlTokens), a `const` the
+ * file declares as the tokens of its initializer (a type assertion or parentheses around it read through;
+ * `seen` ends a const that reaches itself), and `cx(…)`, the DS class joiner (components/ui/cx.ts) the
+ * primitives write their classes with, as the tokens of its readable arguments. A conditional, a parameter,
+ * a `let` or any other argument the scan cannot read (`loading && '…'`, the caller's className) is dynamic
+ * and ignored, like a template's `${…}`. null: unreadable.
  */
-function expressionTokens(expr: ts.Expression): string[] | 'factory' | null {
-  if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) return expr.text.split(/\s+/).filter(Boolean)
-  if (ts.isTemplateExpression(expr)) {
-    const text = [expr.head.text, ...expr.templateSpans.map((s) => s.literal.text)].join(' ')
-    return text.split(/\s+/).filter(Boolean)
+function expressionTokens(expr: ts.Expression, ctx: ClassContext, seen: ReadonlySet<ts.Node> = new Set()): string[] | 'factory' | null {
+  if (ts.isParenthesizedExpression(expr) || ts.isAsExpression(expr) || ts.isSatisfiesExpression(expr) || ts.isNonNullExpression(expr)) {
+    return expressionTokens(expr.expression, ctx, seen)
   }
+  if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) return splitClasses(expr.text)
+  if (ts.isTemplateExpression(expr)) return splitClasses([expr.head.text, ...expr.templateSpans.map((s) => s.literal.text)].join(' '))
+  if (ts.isIdentifier(expr)) {
+    const decl = ctx.resolve(expr)?.decl
+    if (!decl || !ts.isVariableDeclaration(decl) || !decl.initializer || seen.has(decl)) return null
+    if (!(ts.getCombinedNodeFlags(decl) & ts.NodeFlags.Const)) return null
+    return expressionTokens(decl.initializer, ctx, new Set([...seen, decl]))
+  }
+  if (ts.isCallExpression(expr) && ctx.isCountControl(expr.expression)) return countControlTokens(expr.arguments[0])
+  if (ts.isCallExpression(expr) && ctx.isButtonFactory(expr.expression)) return 'factory'
   if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
-    if (expr.expression.text === 'buttonVariants') return 'factory'
     if (expr.expression.text === 'cx') {
-      const parts = expr.arguments.map((arg) => expressionTokens(arg))
+      const parts = expr.arguments.map((arg) => expressionTokens(arg, ctx, seen))
       return parts.includes('factory') ? 'factory' : parts.flatMap((part) => (Array.isArray(part) ? part : []))
     }
   }
@@ -487,6 +542,7 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
 function scan(root: ts.Node, sf: ts.SourceFile, fieldsSeparately = false): { stops: number; findings: Finding[] } {
   // next/link's default export under whatever name the file imports it as.
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
+  const ctx = classContext(sf)
   const findings: Finding[] = []
   let stops = 0
   const visit = (node: ts.Node): void => {
@@ -496,7 +552,7 @@ function scan(root: ts.Node, sf: ts.SourceFile, fieldsSeparately = false): { sto
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const className = attr('className')
-        const tokens = classTokens(className?.initializer)
+        const tokens = classTokens(className?.initializer, ctx)
         if (unstylable) findings.push({ line, tag, problem: unstylable })
         else if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
         else if (!className) findings.push({ line, tag, problem: 'no className, so the browser default outline' })
@@ -905,17 +961,34 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     })
   }
 
-  it('check-email, settings, invites, feedback and watchlist controls carry a ring in both themes', () => {
+  it('every page and the feature modules it reaches: each control carries a ring in both themes, but the residue', () => {
     // Page/feature markup is the added scope. Shared composition helpers (Card, CompanyLogo,
     // RetryButton) accept props and are not raw page controls; their existing owning gates remain.
-    const pages = chromeFiles(PAGE_CONTROL_ROOTS).filter((file) => !discovered.includes(file)
+    const pages = chromeFiles(PAGE_ROOTS).filter((file) => !discovered.includes(file)
       && (file.startsWith('app/') || file.startsWith('features/') || file === 'components/ui/Switch.tsx'))
-    for (const file of ['features/settings/components/ConnectedAccounts.tsx', 'features/settings/components/NotificationPreferencesForm.tsx', 'features/admin/components/InviteRow.tsx', 'features/admin/components/CopyLinkButton.tsx', 'features/admin/components/EmailChipsInput.tsx', 'features/admin/components/ShareInvite.tsx', 'features/admin/components/FeedbackRow.tsx', 'features/watchlist/components/WatchlistAddSearch.tsx', 'components/ui/Switch.tsx']) {
-      expect(pages, 'the page-control graph must reach its controls').toContain(file)
+    for (const file of ['app/pricing/page.tsx', 'app/company/[ticker]/page-client.tsx', 'features/settings/components/ConnectedAccounts.tsx', 'features/settings/components/NotificationPreferencesForm.tsx', 'features/admin/components/InviteRow.tsx', 'features/admin/components/CopyLinkButton.tsx', 'features/admin/components/EmailChipsInput.tsx', 'features/admin/components/ShareInvite.tsx', 'features/admin/components/FeedbackRow.tsx', 'features/watchlist/components/WatchlistAddSearch.tsx', 'features/filings/components/copilot/AskCopilotRail.tsx', 'components/ui/Switch.tsx']) {
+      expect(pages, 'the page graph must reach its controls').toContain(file)
     }
-    const findings = pages.flatMap((file) => missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file, true)
-      .findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
-    expect(findings).toEqual([])
+    const found = new Map<string, string[]>()
+    for (const file of pages) {
+      const findings = missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file, true).findings
+      if (findings.length) found.set(file, findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
+    }
+    const problems: string[] = []
+    for (const [file, lines] of found) {
+      const allowed = RING_RESIDUE[file] ?? 0
+      if (lines.length > allowed) problems.push(`${allowed ? `${file} has ${lines.length} ringless stops, ${allowed} listed` : `${file} is not in RING_RESIDUE`}:\n  ${lines.join('\n  ')}`)
+      else if (lines.length < allowed) problems.push(`${file} has ${lines.length} ringless stops, ${allowed} listed: lower its RING_RESIDUE count`)
+    }
+    for (const file of Object.keys(RING_RESIDUE)) if (!found.has(file)) problems.push(`${file} has no ringless stop left: delete its RING_RESIDUE line`)
+    expect(problems).toEqual([])
+  }, 30_000) // it reads every route's page and the modules each reaches; the default 5s times out on a loaded box
+
+  it('the ring residue only shrinks', () => {
+    const stops = Object.values(RING_RESIDUE).reduce((sum, n) => sum + n, 0)
+    // Equality, not a ceiling: a PR that shrinks the list lowers the cap in the same commit.
+    expect(Object.keys(RING_RESIDUE).length, 'RING_RESIDUE changed its files: move RING_RESIDUE_MAX.files with it in the same commit').toBe(RING_RESIDUE_MAX.files)
+    expect(stops, 'RING_RESIDUE changed its stops: move RING_RESIDUE_MAX.stops with it in the same commit').toBe(RING_RESIDUE_MAX.stops)
   })
 
   it('controls a page passes into the page header\'s actions slot', () => {
@@ -935,6 +1008,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
   it('the actions-slot scan reads only the slot, under any import name', () => {
     const src = `
       import PageHeader from '@/components/SecondaryHeader'
+      import { buttonVariants } from '@/components/ui'
       export function P() {
         return (
           <>
@@ -1039,6 +1113,56 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     ])
   })
 
+  // The count control's recipe (components/ui/countControl.ts) and a const the file declares are read by what they
+  // hold: the recipe by calling it, so a ring dropped from its INK flags every count control here and in the app.
+  it('the scan reads the count control recipe and a const by what they hold (a self-check on fixed sources)', () => {
+    const ring = 'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
+    expect(COUNT_KINDS, 'the kinds countControl.ts declares').toEqual(expect.arrayContaining(['button', 'link', 'inline', 'summary']))
+    const src = `
+      import NextLink from 'next/link'
+      import { countControlClass, cx } from '@/components/ui'
+      import { countControlClass as countControl } from '@/components/ui/countControl'
+      import * as UI from '@/components/ui'
+      const RING = '${ring}'
+      const LOCATOR = cx('inline-flex gap-1', countControl('link'))
+      let LOOSE = '${ring}'
+      export function A({ kind, open }: { kind: CountControlKind; open: boolean }) {
+        const own = cx('h-8 px-2', RING) as string
+        return (
+          <nav>
+            <NextLink href="/a" className={cx('rounded', countControlClass('link'))}>See all 4 companies</NextLink>
+            <NextLink href="/b" className={cx('rounded')}>See all 4 companies</NextLink>
+            <button className={cx('h-8 px-2', RING, open ? 'a' : 'b')}>Reviewed</button>
+            <button className={cx('h-8 px-2', open ? 'a' : 'b')}>Reviewed</button>
+            <a href="/c" className={LOCATOR}>Item 7</a>
+            <summary className={UI.countControlClass(kind)}>Show 3 figures</summary>
+            <button className={own}>Follow up</button>
+            <button className={cx('h-8 px-2', LOOSE)}>Reviewed</button>
+          </nav>
+        )
+      }
+      export function B() {
+        const countControlClass = (kind: string) => kind
+        return <a href="/d" className={countControlClass('link')}>See all 4 companies</a>
+      }
+      export function C() {
+        const buttonVariants = () => 'px-2'
+        return <a href="/e" className={buttonVariants()}>Open</a>
+      }`
+    const { stops, findings } = missingRings(src)
+    expect(stops).toBe(10)
+    expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
+      // The recipe removed from the count link, and the const removed from the button.
+      '14 <NextLink> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '16 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      // A let may be reassigned, so its ring is not read.
+      '20 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      // A local function of the recipe's name is not the recipe, and one of the button factory's name is not the factory.
+      '26 <a> a className the scan cannot read',
+      '30 <a> a className the scan cannot read',
+    ])
+  })
+
   // The DS primitives the chrome renders are read as they are written: classes joined by cx(…), and the
   // component's own rest props passed to the element that takes the caller's className. Modal's close ✕
   // (components/ui/Modal.tsx) is the first case's shape.
@@ -1069,7 +1193,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       export function Scrim({ className, ...rest }: Props) { return <button {...rest} tabIndex={-1} className={cx('inset-0', className)} /> }
       export function Page() {
         return <><ModalHeader {...headerProps} /><Body tabIndex={0} className="p-2" /></>
-      }`
+      }
+      import { buttonVariants } from '@/components/ui/Button'`
     const { stops, findings } = missingRings(src)
     expect(stops).toBe(13)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
@@ -1144,7 +1269,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       findings.push(...result.findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
     }
     // A reader that finds nothing must not pass: the app styles a handful of fields itself and builds the rest with inputClasses().
-    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(5)
+    // Four since the four hand-rolled checkboxes became the one components/ui/Checkbox.tsx (ADM-37).
+    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(4)
     expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(15)
     expect(findings).toEqual([])
   })

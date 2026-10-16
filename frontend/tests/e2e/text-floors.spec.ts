@@ -118,6 +118,20 @@ const ROUTES: Route[] = [
       await expect(p.getByRole('heading', { level: 3, name: 'Revenue context', exact: true })).toBeVisible()
     },
   },
+  {
+    // The route error boundary (app/error.tsx) replaces the page, so its card opens the outline with the
+    // page's h1 (UA-50). Forced by a malformed company: a numeric name on the coverage-unavailable state
+    // makes formatCompanyName throw while the page renders.
+    name: 'route error boundary',
+    path: '/company/AAPL',
+    open: async (p, b) => {
+      await answerSiteApi(p, b, false)
+      await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/companies/AAPL', (r) =>
+        r.fulfill({ status: 200, headers: corsFor(b), json: { id: 1, cik: '320193', ticker: 'AAPL', name: 42, exchange: 'NASDAQ', coverage_status: 'unsupported_foreign' } }),
+      )
+    },
+    ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Something went wrong' })).toBeVisible(),
+  },
 ]
 
 /**
@@ -158,7 +172,7 @@ const PUBLIC_ROUTES: Route[] = [
 const NOT_VISITED: Record<string, string> = {
   '/admin/feedback': 'admin only, no admin session in this e2e; admin-feedback-page.spec.tsx pins its outline',
   '/admin/invites': 'admin only, no admin session in this e2e; admin-invites-page.spec.tsx pins its outline',
-  '/analysis': 'Multi-Period Analysis renders from the API; its surface is brand-analysis (#1299), which adds its entry',
+  '/analysis': 'Multi-Period Analysis renders from the API; its entry, the coverage and dataset answered through page.route, waits on #1289 (tasks/todo.md E38)',
   '/calendar': 'the earnings calendar renders from the API; its surface is brand-calendar-search (#1301), which adds its entry',
   '/dashboard/settings': 'signed-in settings; its surface is brand-settings-subscriptions (#1291), which adds its entry',
   '/labs/filing-redlines': 'a labs prototype outside the brand series (tasks/todo.md E26)',

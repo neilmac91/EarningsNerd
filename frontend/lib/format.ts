@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 type NumericInput = number | string | null | undefined
 
@@ -225,6 +225,17 @@ export const fmtPercentPoints = (value: NumericInput, options?: { digits?: numbe
 }
 
 /**
+ * A count with en-US grouping ("12,480"). Every figure in the product reads in one locale whatever the
+ * viewer's browser says, so a bare `toLocaleString()` is banned outside this file
+ * (earningsnerd/locale-pinned-numbers in eslint.designRules.mjs).
+ */
+export const fmtCount = (value: number): string => getFormatter({ maximumFractionDigits: 0 }).format(value)
+
+/** A plain decimal with en-US grouping: at least `minDigits` and at most `maxDigits` fraction digits. */
+export const fmtDecimal = (value: number, options: { minDigits?: number; maxDigits: number }): string =>
+  getFormatter({ minimumFractionDigits: options.minDigits ?? 0, maximumFractionDigits: options.maxDigits }).format(value)
+
+/**
  * Sanitize a string for safe use in download filenames.
  * Removes or replaces characters that could cause XSS or path traversal issues.
  *
@@ -281,4 +292,23 @@ export const formatLocalDate = (
     return fallback
   }
   return format(date, pattern)
+}
+
+/**
+ * Format an INSTANT (a full ISO timestamp with its offset, such as Stripe's `trial_end` or
+ * `current_period_end`) as the day it falls on in the viewer's own time zone: the counterpart of
+ * formatLocalDate, which keeps a calendar-day value's own day. 2026-10-21T01:05:33Z falls on Oct 20 in
+ * New York, so a trial that ends then ends on Oct 20 for a reader there. parseISO rejects a rolled-over
+ * day or month, so an unreadable value renders the fallback, as formatLocalDate's does.
+ */
+export const formatInstant = (
+  value: string | null | undefined,
+  pattern: string,
+  fallback = '',
+): string => {
+  if (!value) return fallback
+  // Bound first: format(parseISO(x)) is the shape the date lint flags, and this helper is the path
+  // that lint's message gives a genuine timestamp.
+  const instant = parseISO(value)
+  return Number.isNaN(instant.getTime()) ? fallback : format(instant, pattern)
 }

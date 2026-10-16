@@ -23,9 +23,9 @@ export default function GlobalError({
             <body>
                 <div className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
                     <div className="mx-auto max-w-md space-y-4">
-                        <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+                        <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Something went wrong
-                        </h2>
+                        </h1>
                         <p className="text-text-secondary-light dark:text-text-secondary-dark">
                             The error has been logged. Try again, or reload the page.
                         </p>
