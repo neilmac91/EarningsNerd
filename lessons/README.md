@@ -21,6 +21,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
 - ops-checkout-never-charges-more-than-the-page-shows.md — Never let checkout charge more than the page shows: lower a price on the backend first, raise it on the page first (a CI job on offer changes and a daily run against the live page check it with the backend's public charge report; a binding change or frontend rollback outside CI is found, not prevented)
+- ops-closing-keywords-close-what-they-name.md — Never put a closing keyword before a reference you do not mean to close; the merge closes it, a pull request included (partly gated by `backend/scripts/review_gate.py`, which fails it in a pull request's title, body and commit messages; a squash message typed at merge is review-checked)
 - ops-continue-approved-engineering.md — Continue the approved queue after verified releases and preserve specific founder holds
 - ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md — Demote a lesson from session reading only when every clause of its rule is machine-gated and proven on the bad case
 - ops-denied-reads-report-unverified.md — A denied optional read-back reports UNVERIFIED with a closed failure class; fail closed only on readable evidence
@@ -33,7 +34,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
-- ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (no gate yet: E63)
+- ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (partly gated by `.claude/hooks/codex_mention_guard.py`; text a command builds as it runs, sessions that load no repository hooks and a person's own write are not)
 - ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers

@@ -483,10 +483,22 @@ Located in `backend/scripts/`:
 ### Review gate (rule 12 for the review-wait lesson)
 
 `.github/workflows/review-gate.yml` publishes a `review-gate` status check on every pull request
-head. While the pull request is a draft the check fails, and marking it ready starts the wait. The
-script reads the draft flag from the pull request as it is now: a job skipped by its condition
-reports success, which a required check counts as passing, and an event can still describe a draft
-after the pull request was marked ready, so the job never skips on a pull-request event. It passes
+head. On every pull-request event while the pull request is a draft the check fails (converting a ready
+pull request back to a draft starts no run), and marking it ready starts the wait; `@codex review` on a
+draft re-runs its newest gate run, which fails again, unless that run is a skip from before #1331, which
+the re-run job refuses (E60 lists the drafts). The script reads the draft flag from the pull
+request as it is now: a job skipped by its condition reports success, which a required check counts as
+passing, and an event can still describe a draft after the pull request was marked ready, so the job
+never skips on a pull-request event. Draft or not and override or not, it fails at once while the
+pull request's title, body or any of its commit messages puts a closing keyword (close, fix or resolve,
+in any form) right before an issue or pull request reference, since the merge into `main` would close
+what it names, a pull request included: on 2026-10-09 the merge of #1136 left #1156 closed, unmerged,
+that way (`lessons/ops-closing-keywords-close-what-they-name.md`). It reads the text as GitHub renders
+it (Markdown escapes dropped, HTML entities decoded) and lists each reference; an edit to the title or
+body re-runs the check, and a commit message is reworded on the branch. Until the edit's run reports, the
+previous result stands on the head, as for drafts below, so merge only after it passes. It also fails a
+pull request that lists 250 commits, the most GitHub's commits endpoint returns, because later commit
+messages would go unread. A squash message typed at merge is outside every pull-request check. It passes
 only when Codex's "Review Summary" comment reports **Completed** for that
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not
