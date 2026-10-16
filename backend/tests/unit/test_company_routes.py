@@ -372,7 +372,6 @@ def test_trending_orders_by_recent_filing_count_and_honours_limit(client, overri
         engine.dispose()
 
 
-
 @pytest.fixture
 def process_clock():
     """Run the test under another process time zone (the TZ variable), and restore it after."""
@@ -390,13 +389,16 @@ def process_clock():
     time.tzset()
 
 
-@pytest.mark.parametrize("zone", ["Etc/UTC", "Etc/GMT+10", "Etc/GMT-10"])  # UTC, UTC-10, UTC+10
+# POSIX TZ strings need no tzdata, so the shift takes on any runner: (zone, seconds west of UTC).
+@pytest.mark.parametrize(("zone", "seconds_west"), [("UTC0", 0), ("<-10>10", 36000), ("<+10>-10", -36000)],
+                         ids=["UTC", "UTC-10", "UTC+10"])
 def test_trending_window_is_thirty_utc_days_whatever_the_process_clock(client, override_db, tmp_path,
-                                                                         process_clock, zone):
+                                                                         process_clock, zone, seconds_west):
     """The window's lower bound is 30 days before the UTC instant, not before the process's local
     wall clock: filing dates are stored as UTC. A filing 3 hours inside the window always counts and
     one 3 hours outside never does, whatever time zone the process runs in."""
     process_clock(zone)
+    assert time.timezone == seconds_west  # the shift took, so the shifted cases cannot pass vacuously
     engine = create_engine(f"sqlite:///{tmp_path / 'trending.db'}", connect_args={"check_same_thread": False})
     Company.__table__.create(engine)
     Filing.__table__.create(engine)

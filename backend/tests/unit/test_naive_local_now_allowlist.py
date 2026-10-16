@@ -1,8 +1,10 @@
 """Rule-7 gate: app code reads the clock as an aware UTC instant, never the process's local wall clock.
 
 ``test_naive_utcnow_allowlist.py`` catches the stdlib naive ``datetime.utcnow()``. It cannot see the
-other naive reads: ``datetime.now()`` with no time zone, ``datetime.today()``, ``date.today()`` and
-``datetime.fromtimestamp(ts)`` with no time zone all return the local wall clock, which equals UTC
+other naive reads: ``datetime.now()`` with no time zone, ``datetime.today()``, ``date.today()``,
+``date.fromtimestamp(ts)`` and ``datetime.fromtimestamp(ts)`` with no time zone all return the local
+wall clock, and so does an uncalled reference such as ``default=datetime.now`` or
+``default_factory=date.today``, which a column or model calls later. That clock equals UTC
 only while the process runs in UTC. Stored timestamps are UTC, so a bound built from local time
 slides by the process's offset: the trending window did exactly that until it moved to
 ``utcnow()`` (``test_company_routes.py::test_trending_window_is_thirty_utc_days_whatever_the_process_clock``).
@@ -12,7 +14,10 @@ existing Eastern-time helpers for a calendar day (``calendar_service``, ``earnin
 
 The walk resolves ``datetime``/``date`` however they are imported (``from datetime import datetime``,
 an alias, or ``import datetime`` then ``datetime.datetime.now()``), counts call nodes only (a
-docstring or comment never matches), and treats an explicit ``None`` time zone as naive. Each
+docstring or comment never matches), and treats an explicit ``None`` time zone as naive. It keeps one
+name map per file, so a function that rebinds ``datetime`` locally (``import datetime`` at the top,
+``from datetime import datetime`` inside one function) is read with the last binding; no file in app/
+mixes the two. Each
 allowed site is a (file, qualified function) pair pinned to its exact count, so a further naive call
 inside an allowed function fails too. ``test_finder_sees_each_shape`` proves the walk's reach on
 synthetic source, so a regression in the finder fails there instead of passing app/ vacuously.
@@ -46,6 +51,7 @@ class _NaiveLocalClockFinder(ast.NodeVisitor):
     def __init__(self, tree: ast.AST) -> None:
         self.sites: list[str] = []
         self._stack: list[str] = []
+        self._called = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
         self._names: dict[str, str] = {}  # local name -> "datetime" (module), "datetime.datetime" or "datetime.date"
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "datetime":
@@ -88,9 +94,23 @@ class _NaiveLocalClockFinder(ast.NodeVisitor):
                 naive = given is None or _is_none(given)
             elif cls in ("datetime.datetime", "datetime.date") and method == "today":
                 naive = True
+            elif cls == "datetime.date" and method == "fromtimestamp":
+                naive = True
             if naive:
-                self.sites.append(".".join(self._stack) or "<module>")
+                self._record()
         self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        """An uncalled ``datetime.now`` / ``datetime.today`` / ``date.today`` (a default factory)."""
+        if id(node) not in self._called:
+            cls = self._receiver(node.value)
+            if (cls == "datetime.datetime" and node.attr in ("now", "today")) or (
+                    cls == "datetime.date" and node.attr == "today"):
+                self._record()
+        self.generic_visit(node)
+
+    def _record(self) -> None:
+        self.sites.append(".".join(self._stack) or "<module>")
 
 
 def _sites(source: str) -> list[str]:
@@ -106,14 +126,18 @@ def test_app_reads_no_naive_local_clock_outside_the_allowlist():
         rel = path.relative_to(APP_DIR).as_posix()
         for qualname in _sites(path.read_text(encoding="utf-8")):
             found[(rel, qualname)] += 1
-    unexpected = {site: n for site, n in found.items() if ALLOWED_NAIVE_LOCAL_NOW.get(site) != n}
-    stale = {site: n for site, n in ALLOWED_NAIVE_LOCAL_NOW.items() if site not in found}
+    unexpected = {site: n for site, n in found.items() if n > ALLOWED_NAIVE_LOCAL_NOW.get(site, 0)}
     assert not unexpected, (
         f"naive local-clock reads (file, function) -> count: {unexpected}. Use "
         "app.utils.datetimes.utcnow() or datetime.now(timezone.utc); stored timestamps are UTC. "
         f"Allowed exactly: {ALLOWED_NAIVE_LOCAL_NOW}"
     )
-    assert not stale, f"allowlist rows with no naive read left; delete them: {stale}"
+    shrunk = {site: (pinned, found.get(site, 0)) for site, pinned in ALLOWED_NAIVE_LOCAL_NOW.items()
+              if found.get(site, 0) < pinned}
+    assert not shrunk, (
+        f"allowed sites with fewer naive reads than pinned, (pinned, found): {shrunk}. Lower the pin, "
+        "or delete the row at 0, in the same diff"
+    )
 
 
 CAUGHT = {
@@ -128,9 +152,18 @@ CAUGHT = {
     "fromtimestamp": "from datetime import datetime\ndef f(ts):\n    return datetime.fromtimestamp(ts)\n",
     "method": "from datetime import datetime\nclass C:\n    def m(self):\n        return datetime.now()\n",
     "module level": "from datetime import datetime\nSTARTED = datetime.now()\n",
+    "date.fromtimestamp": "from datetime import date\ndef f(ts):\n    return date.fromtimestamp(ts)\n",
+    "column default": (
+        "import sqlalchemy as sa\nfrom datetime import datetime\n"
+        "created = sa.Column(sa.DateTime, default=datetime.now)\n"
+    ),
+    "default factory": (
+        "from datetime import date\nclass M:\n    day: date = Field(default_factory=date.today)\n"
+    ),
 }
 EXPECTED_SITES = {
     "explicit None": ["f", "f"], "method": ["C.m"], "module level": ["<module>"],
+    "column default": ["<module>"], "default factory": ["M"],
 }
 IGNORED = {
     "aware now": "from datetime import datetime, timezone\ndef f():\n    return datetime.now(timezone.utc)\n",
