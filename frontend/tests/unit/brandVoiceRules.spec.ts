@@ -966,7 +966,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     // a heading, React's createElement, Children.map over the children a component is given, and a conditional. A name
     // given only something else (line 28) passes. A same-file component that draws an icon puts it in the heading it is
     // placed in, by JSX (the review's case) or createElement, once however it is given the icon (line 35); one that
-    // draws only words (line 33) passes.
+    // draws only words (line 33) passes. A rest element takes the rest, an array's (line 37) and an object's (39), and a
+    // rest parameter the arguments from its place on (40).
     const family = [
       "import { BellIcon } from '@/lib/icons'",
       'let Mark; Mark = BellIcon',
@@ -1003,6 +1004,12 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'export const Q = () => <h2><Words /></h2>',
       'function Shows({ icon: Shown }) { return <Shown /> }',
       'export const R = () => <h2><Shows icon={BellIcon} />Alerts</h2>',
+      'const [, ...Rest] = [null, BellIcon]',
+      'export const S = () => <h2>{createElement(Rest[0])}Alerts</h2>',
+      'const { tone, ...Others } = { tone: 1, icon: BellIcon }',
+      'export const T = () => <h2><Others.icon />Alerts</h2>',
+      'function Head(...marks) { return <h2>{createElement(marks[0])}Alerts</h2> }',
+      'export const U = () => Head(BellIcon)',
     ].join('\n')
     expect(voiceFindings(family, 'features/probe/Family.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '3 headingIcon',
@@ -1021,6 +1028,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '30 headingIcon',
       '31 headingIcon',
       '35 headingIcon',
+      '37 headingIcon',
+      '39 headingIcon',
+      '40 headingIcon',
     ])
     // A namespace is a value like any other, every member of it an icon: assigned after its declaration (the review's
     // case), held by another name, and passed as a prop to a component that renders a member in its heading.

@@ -16,11 +16,12 @@ import ts from 'typescript'
  * A name holds every value it is given, resolved by scope (the nearest enclosing declaration, so a name two functions
  * each declare reads its own function's binding, and a parameter or a function of that name shadows an outer one):
  *  - its declaration's initializer, a destructuring of it (object and array patterns, nested, each element with its
- *    default, which renders when the member is missing) and each later assignment (`=`, `||=`, `&&=`, `??=`, and a
- *    destructuring assignment with its defaults);
+ *    default, which renders when the member is missing, and a rest element the rest: an array's elements from its
+ *    place on, re-indexed, or the properties the pattern does not name) and each later assignment (`=`, `||=`, `&&=`,
+ *    `??=`, and a destructuring assignment with its defaults and its rest);
  *  - as a loop's variable, each element of what it iterates (`for (const Mark of MARKS)`, a pattern or a name assigned);
  *  - as a parameter, its default and what each same-file call passes it: a direct call (`render(QuotesIcon)`, a spread
- *    argument any element), a JSX element of a same-file component (its props object: each attribute, each spread's
+ *    argument any element, a rest parameter the arguments from its place on, by position), a JSX element of a same-file component (its props object: each attribute, each spread's
  *    properties, the children as `children`), React's `createElement` of one, a callback handed to an array's methods
  *    (`MARKS.map((Mark) => …)`: each element; `reduce`'s accumulator its initial value and each return; `sort`'s two
  *    elements), to `Array.from`, to React's `Children.map` and `Children.forEach` (each child), and a function handed on
@@ -136,6 +137,33 @@ function propertyOf<L>(base: Held<L>, key: string | undefined): Held<L> {
 }
 /** An array whose elements the scan cannot place: each may be this. */
 const arrayOf = <L>(element: Held<L>): Held<L> => (vacant(element) ? empty<L>() : withProps([[`${REST}0`, element]]))
+/** What an array rest element takes (`const [first, ...rest] = …`, a rest parameter of the arguments): the elements from
+    `from` on, re-indexed from 0; an element whose index the scan cannot know stays unplaced, and one written under a key
+    the scan cannot read may be any of them. */
+const restOf = <L>(value: Held<L>, from: number): Held<L> => {
+  const props = new Map<string, Held<L>>()
+  for (const [key, prop] of value.props ?? []) {
+    if (!/^\d+$/.test(key)) props.set(key, prop)
+    else if (Number(key) >= from) props.set(String(Number(key) - from), prop)
+  }
+  return { leaves: new Map(), props, fns: null }
+}
+/** What an object rest element takes (`const { a, ...rest } = …`): the properties the pattern does not name, and its
+    leaves, so a leaf with members (a namespace) still names its other members. */
+const othersOf = <L>(value: Held<L>, named: ReadonlySet<string>): Held<L> => ({
+  leaves: value.leaves,
+  props: value.props && new Map([...value.props].filter(([key]) => !named.has(key))),
+  fns: null,
+})
+/** A call's arguments as an array: each at its position, and from a spread argument on, unplaced. */
+const argumentsOf = <L>(passed: Array<Held<L>>, tail?: Held<L>): Held<L> => {
+  const props = new Map<string, Held<L>>()
+  passed.forEach((value, i) => {
+    if (!vacant(value)) props.set(String(i), value)
+  })
+  if (tail && !vacant(tail)) props.set(`${REST}0`, tail)
+  return { leaves: new Map(), props, fns: null }
+}
 
 const size = <L>(value: Held<L>): number =>
   [...value.leaves.values()].reduce(add, 0) +
@@ -491,14 +519,18 @@ export function heldValues<L>(
     holders.set(key, before ? union(before, value) : value)
   }
   /** Gives a declared name its part of a value: a bare name the whole, each element of an object or array pattern its
-      member, nested patterns included, with its default (which renders when the member is missing). A rest element is
-      not followed. */
+      member, nested patterns included, with its default (which renders when the member is missing), and a rest element
+      the rest: an array's elements from its place on (restOf), an object's properties the pattern does not name
+      (othersOf; a key the scan cannot read names none). */
   const bindName = (name: ts.BindingName, value: Held<L>, node: ts.Node, record?: Set<ts.Node>): void => {
     if (ts.isIdentifier(name)) return give(node, value)
+    const named = new Set<string>()
     name.elements.forEach((el, index) => {
-      if (ts.isOmittedExpression(el) || el.dotDotDotToken) return
+      if (ts.isOmittedExpression(el)) return
+      if (el.dotDotDotToken) return bindName(el.name, ts.isArrayBindingPattern(name) ? restOf(value, index) : othersOf(value, named), el, record)
       const key = ts.isArrayBindingPattern(name) ? String(index) : propertyKey(el.propertyName ?? el.name)
       if (key === undefined) return
+      named.add(key)
       const member = memberOf(value, key, el)
       bindName(el.name, el.initializer ? union(member, valueOf(el.initializer, record)) : member, el, record)
     })
@@ -508,7 +540,7 @@ export function heldValues<L>(
     ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.EqualsToken ? [e.left, e.right] : [e, undefined]
   /** Gives an assignment's target a value: a name (its declaration's holder), a member of a same-file binding (what the
       code puts in an object after making it, nested, or under a key the scan cannot read), or each target of a
-      destructuring pattern with its default. */
+      destructuring pattern with its default, its rest taking the rest (restOf, othersOf). */
   const assign = (target: ts.Expression, value: Held<L>, record?: Set<ts.Node>): void => {
     const t = unwrapHeld(target)
     if (ts.isIdentifier(t)) {
@@ -521,14 +553,18 @@ export function heldValues<L>(
       return
     }
     if (ts.isObjectLiteralExpression(t)) {
+      const named = new Set<string>()
       for (const p of t.properties) {
-        if (ts.isPropertyAssignment(p)) {
+        if (ts.isSpreadAssignment(p)) assign(p.expression, othersOf(value, named), record)
+        else if (ts.isPropertyAssignment(p)) {
           const key = propertyKey(p.name)
           if (key === undefined) continue
+          named.add(key)
           const [inner, fallback] = defaulted(p.initializer)
           const member = memberOf(value, key, p)
           assign(inner, fallback ? union(member, valueOf(fallback, record)) : member, record)
         } else if (ts.isShorthandPropertyAssignment(p)) {
+          named.add(p.name.text)
           const member = memberOf(value, p.name.text, p)
           assign(p.name, p.objectAssignmentInitializer ? union(member, valueOf(p.objectAssignmentInitializer, record)) : member, record)
         }
@@ -537,22 +573,21 @@ export function heldValues<L>(
     }
     if (ts.isArrayLiteralExpression(t)) {
       t.elements.forEach((el, index) => {
-        if (ts.isOmittedExpression(el) || ts.isSpreadElement(el)) return
+        if (ts.isOmittedExpression(el)) return
+        if (ts.isSpreadElement(el)) return assign(el.expression, restOf(value, index), record)
         const [inner, fallback] = defaulted(el)
         const member = memberOf(value, String(index), el)
         assign(inner, fallback ? union(member, valueOf(fallback, record)) : member, record)
       })
     }
   }
-  /** Binds each parameter of these functions to what a call passes it, by position: a rest parameter takes the rest, and
-      past a spread argument each parameter may take any of its elements. A parameter's default is bound where it is
-      declared. */
+  /** Binds each parameter of these functions to what a call passes it, by position: a rest parameter takes the arguments
+      from its place on, each at its position (restOf), and past a spread argument each parameter may take any of its
+      elements. A parameter's default is bound where it is declared. */
   const pass = (fns: Set<Fn> | null | undefined, passed: Array<Held<L>>, tail?: Held<L>) => {
+    const args = argumentsOf(passed, tail)
     for (const fn of fns ?? []) {
-      fn.parameters.forEach((p, i) => {
-        const rest = () => [...passed.slice(i), tail ?? empty<L>()].reduce(union, empty<L>())
-        bindName(p.name, p.dotDotDotToken ? arrayOf(rest()) : (passed[i] ?? tail ?? empty<L>()), p)
-      })
+      fn.parameters.forEach((p, i) => bindName(p.name, p.dotDotDotToken ? restOf(args, i) : (passed[i] ?? tail ?? empty<L>()), p))
     }
   }
   /** A call's arguments by position, and from a spread argument on what any later position may take: any of its

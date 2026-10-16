@@ -478,6 +478,35 @@ describe('reserved glyphs keep their one meaning', () => {
     ).toEqual({ SparkleIcon: 2 })
     expect(given(['export function N() { const Mark = useMemo(() => QuotesIcon, []); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })
     expect(given(["import { ArrowRightIcon } from '@/lib/icons'", 'let Mark; Mark = ArrowRightIcon', 'export const O = () => <Mark />'])).toEqual({})
+    // A rest element takes the rest (the review's case: `const [...Marks] = [QuotesIcon]` read twice is two uses): an
+    // array's elements from its place on, re-indexed, so `Others[0]` reads the second glyph alone; an object's
+    // properties the pattern does not name, so `rest.passage` and `o.a` read nothing; a rest in a destructuring
+    // assignment, array and object, and in a component's props; and a rest parameter, each argument at its position, so `marks[1]` reads
+    // the second argument alone and the whole renders each argument.
+    expect(given(['const [...Marks] = [QuotesIcon]', 'export const A = () => <>{createElement(Marks[0])}{createElement(Marks[0])}</>'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['const [, ...Others] = [SparkleIcon, QuotesIcon, BracketsCurlyIcon]', 'const Next = Others[0]', 'export const B = () => <><Next /><Next /></>'])).toEqual({
+      SparkleIcon: 1,
+      QuotesIcon: 2,
+      BracketsCurlyIcon: 1,
+    })
+    expect(given(['const { passage, ...rest } = { passage: SparkleIcon, fact: QuotesIcon }', 'export const C = () => <><rest.fact /><rest.fact /><rest.passage /><rest.passage /></>'])).toEqual({
+      QuotesIcon: 2,
+      SparkleIcon: 1,
+    })
+    expect(given(['let first, more; [first, ...more] = [SparkleIcon, QuotesIcon]', 'export const D = () => <>{createElement(more[0])}{createElement(more[0])}</>'])).toEqual({
+      QuotesIcon: 2,
+      SparkleIcon: 1,
+    })
+    expect(given(['let a, o; ({ a, ...o } = { a: SparkleIcon, mark: QuotesIcon })', 'export const E = () => <><o.mark /><o.mark /><o.a /><o.a /></>'])).toEqual({
+      QuotesIcon: 2,
+      SparkleIcon: 1,
+    })
+    expect(given(['function Chip({ label, ...marks }) { return <><marks.icon /><marks.icon /></> }', "export const F = () => <Chip label='x' icon={QuotesIcon} />"])).toEqual({ QuotesIcon: 2 })
+    expect(given(['function pair(...marks) { const Second = marks[1]; return <><Second /><Second /></> }', 'export const G = () => pair(SparkleIcon, QuotesIcon)'])).toEqual({
+      SparkleIcon: 1,
+      QuotesIcon: 2,
+    })
+    expect(given(['function All(...marks) { return <>{marks}{marks}</> }', 'export const H = () => All(<QuotesIcon />, <QuotesIcon />)'])).toEqual({ QuotesIcon: 4 })
     // A glyph a same-file component draws counts at each place the component is rendered (the review's case: rendered
     // twice is two uses), by JSX or createElement, through a component that renders another, and once where it is drawn
     // when the file never renders the component.
@@ -501,6 +530,11 @@ describe('reserved glyphs keep their one meaning', () => {
         'TwoMarks',
       ),
     ).toEqual({ QuotesIcon: 1, SparkleIcon: 2 })
+    // A namespace's rest keeps its other members: `Rest.SparkleIcon` read twice is two uses.
+    expect(namespaced(['const { QuotesIcon: Q, ...Rest } = Icons', 'export const Z = () => <><Rest.SparkleIcon /><Rest.SparkleIcon /></>'], 'Rest')).toEqual({
+      SparkleIcon: 2,
+      QuotesIcon: 1,
+    })
     // Out of reach, planted as the gaps the header names: a glyph held in React state, a class's field read through
     // `this`, a promise's then and a generator's yield each count once where they are written, though each renders it
     // twice; and a glyph an app module exports is not known for one.
