@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { scopeResolver } from './heldValues'
 
 /**
  * Copy-voice structural guard: no em-dashes in user-facing copy
@@ -28,8 +29,12 @@ import { describe, expect, it } from 'vitest'
  * to the same test, so `const DASH = '—'` rendered as `{DASH} {speaker}` fails
  * at the reference, and a token held in an object's property under such a
  * name (`const BOX = { token: '—' }`, or the shorthand `{ DASH }` of a name
- * holding it) is followed to each `BOX.token` read the same way. References are read by name, so a same-named binding in a nested
- * scope reads as the token's. A reference the scan cannot see (an export read
+ * holding it) is followed to each `BOX.token` read the same way. A reference
+ * is the name's by scope (scopeResolver in heldValues.ts), so a same-named
+ * binding in a nested scope, a parameter of that name, and an object a nested
+ * scope declares under the holder's name are their own values, never the
+ * token's, and a token a nested scope declares is followed to its own reads
+ * only. A reference the scan cannot see (an export read
  * in another file, a destructured read such as `const { token } = BOX`, an
  * object or array passed on whole), an array's element and what a function or
  * an array does with the token afterwards (a formatter's fallback, a `concat`,
@@ -88,15 +93,24 @@ function usageOf(token: ts.Node): { value: ts.Node; use: ts.Node } {
   return { value, use: value.parent }
 }
 
-/** Every reference to `name` in the file that reads its value: an identifier of that name which is not the
-    declaration itself and not the `name` of its parent (a property or attribute of that name, another binding
-    of it, an export of it, which another file reads), except a shorthand property's (`{ DASH }`), which is both
-    the key and a read of the name. */
-function referencesTo(name: string, declared: ts.Identifier, source: ts.SourceFile): ts.Identifier[] {
+type Declared = ts.VariableDeclaration & { name: ts.Identifier }
+type Resolve = (id: ts.Identifier) => ts.Node | undefined
+
+/** Every reference in the file that reads a declaration's value: an identifier that scope resolves to it (so a
+    same-named binding in a nested scope, or a parameter of that name, is its own) and that is not the `name` of its
+    parent (the declaration itself, a property or attribute of that name, another binding of it, an export of it,
+    which another file reads), except a shorthand property's (`{ DASH }`), which is both the key and a read of the
+    name. */
+function referencesTo(declared: Declared, source: ts.SourceFile, resolve: Resolve): ts.Identifier[] {
   const refs: ts.Identifier[] = []
   const visit = (node: ts.Node) => {
     const parent = node.parent as ts.Node & { name?: ts.Node }
-    if (ts.isIdentifier(node) && node.text === name && node !== declared && (parent.name !== node || ts.isShorthandPropertyAssignment(parent))) {
+    if (
+      ts.isIdentifier(node) &&
+      node.text === declared.name.text &&
+      (parent.name !== node || ts.isShorthandPropertyAssignment(parent)) &&
+      resolve(node) === declared
+    ) {
       refs.push(node)
     }
     ts.forEachChild(node, visit)
@@ -106,18 +120,18 @@ function referencesTo(name: string, declared: ts.Identifier, source: ts.SourceFi
 }
 
 /** The `const` or `let` an object literal initializes, through parentheses or `as const`, else null. */
-function holderOf(node: ts.Node): (ts.VariableDeclaration & { name: ts.Identifier }) | null {
+function holderOf(node: ts.Node): Declared | null {
   let value: ts.Node = node
   while (ts.isParenthesizedExpression(value.parent) || ts.isAsExpression(value.parent) || ts.isSatisfiesExpression(value.parent)) value = value.parent
   const decl = value.parent
-  return ts.isVariableDeclaration(decl) && decl.initializer === value && ts.isIdentifier(decl.name) ? (decl as ts.VariableDeclaration & { name: ts.Identifier }) : null
+  return ts.isVariableDeclaration(decl) && decl.initializer === value && ts.isIdentifier(decl.name) ? (decl as Declared) : null
 }
 
 /** The nodes where a bare token, or a name holding one, is joined into copy: none when every use stands alone
-    (see the header). A `const` or `let` holding the token is followed to each reference of its name in the file,
-    one name at a time, and a property of an object such a name holds (`const BOX = { token: '—' }`) to each
-    `BOX.token` read. */
-function joinedUses(token: ts.Node, source: ts.SourceFile, seen = new Set<string>()): ts.Node[] {
+    (see the header). A `const` or `let` holding the token is followed to each reference that scope resolves to it,
+    one declaration at a time, and a property of an object such a declaration holds (`const BOX = { token: '—' }`)
+    to each `BOX.token` read of that declaration. */
+function joinedUses(token: ts.Node, source: ts.SourceFile, resolve: Resolve, seen = new Set<ts.Node | string>()): ts.Node[] {
   const { value, use } = usageOf(token)
   // Joined into copy: an operand of `+`, the right of `+=`, a template's substitution.
   if (ts.isBinaryExpression(use)) {
@@ -128,9 +142,9 @@ function joinedUses(token: ts.Node, source: ts.SourceFile, seen = new Set<string
   // A JSX child: the token only as its element's sole meaningful child, as JSX text is (an attribute's value stands alone).
   if (ts.isJsxExpression(use) && !ts.isJsxAttribute(use.parent)) return soleChild(use) ? [] : [token]
   // Held in a name: each reference of the name is held to the same test.
-  if (ts.isVariableDeclaration(use) && use.initializer === value && ts.isIdentifier(use.name) && !seen.has(use.name.text)) {
-    seen.add(use.name.text)
-    return referencesTo(use.name.text, use.name, source).flatMap((ref) => joinedUses(ref, source, seen))
+  if (ts.isVariableDeclaration(use) && use.initializer === value && ts.isIdentifier(use.name) && !seen.has(use)) {
+    seen.add(use)
+    return referencesTo(use as Declared, source, resolve).flatMap((ref) => joinedUses(ref, source, resolve, seen))
   }
   // Held in an object's property under a name, written out or as the shorthand of a name holding it (`{ DASH }`):
   // each `NAME.prop` read in the file is held to the same test. A destructured read, an element of an array and an
@@ -139,12 +153,13 @@ function joinedUses(token: ts.Node, source: ts.SourceFile, seen = new Set<string
   if (property && ts.isObjectLiteralExpression(property.parent)) {
     const holder = holderOf(property.parent)
     const prop = ts.isIdentifier(property.name) || ts.isStringLiteral(property.name) ? property.name.text : null
-    if (holder && prop !== null && !seen.has(`${holder.name.text}.${prop}`)) {
-      seen.add(`${holder.name.text}.${prop}`)
-      return referencesTo(holder.name.text, holder.name, source)
+    const key = holder && prop !== null ? `${holder.getStart(source)}.${prop}` : null
+    if (holder && key !== null && !seen.has(key)) {
+      seen.add(key)
+      return referencesTo(holder, source, resolve)
         .map((ref) => ref.parent)
         .filter((read): read is ts.PropertyAccessExpression => ts.isPropertyAccessExpression(read) && read.name.text === prop)
-        .flatMap((read) => joinedUses(read, source, seen))
+        .flatMap((read) => joinedUses(read, source, resolve, seen))
     }
   }
   return []
@@ -154,23 +169,24 @@ function joinedUses(token: ts.Node, source: ts.SourceFile, seen = new Set<string
     only child of its element, or a string or no-substitution template literal that is exactly '—' where the
     value it gives stands alone (see the header). Returns the nodes where the literal is copy instead: the
     literal itself, or each reference of a name holding the token that is joined into copy. */
-function tokenViolations(node: ts.Node, literalText: string, source: ts.SourceFile): ts.Node[] {
+function tokenViolations(node: ts.Node, literalText: string, source: ts.SourceFile, resolve: Resolve): ts.Node[] {
   if (ts.isJsxText(node)) return literalText.trim() === EM_DASH && soleChild(node) ? [] : [node]
   // A template's head, middle or tail is joined to what its substitutions render: never the whole value.
   if (!ts.isStringLiteral(node) && !ts.isNoSubstitutionTemplateLiteral(node)) return [node]
   if (literalText !== EM_DASH) return [node]
-  return joinedUses(node, source)
+  return joinedUses(node, source, resolve)
 }
 
 /** Every em-dash in `text` outside the sanctioned token, as `file:line text`. */
 function violationsIn(text: string, file: string): string[] {
   if (!text.includes(EM_DASH)) return []
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const resolve = scopeResolver(source)
   const violations: string[] = []
 
   const record = (node: ts.Node, literalText: string) => {
     if (!literalText.includes(EM_DASH)) return
-    for (const at of tokenViolations(node, literalText, source)) {
+    for (const at of tokenViolations(node, literalText, source, resolve)) {
       const { line } = source.getLineAndCharacterOfPosition(at.getStart())
       violations.push(`${path.relative(FRONTEND_ROOT, file)}:${line + 1} ${literalText.trim().slice(0, 80)}`)
     }
@@ -231,6 +247,17 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       'const SHORT = { DASH } as const',
       'export const M = ({ speaker }: { speaker: string }) => <cite>{SHORT.DASH} {speaker}</cite>',
       'export const N = ({ v }: { v?: string }) => <td>{v ?? SHORT.DASH}</td>',
+      "const TOKEN = '—'",
+      "export function O({ speaker }: { speaker: string }) { const TOKEN = 'none'; return <cite>{TOKEN} {speaker}</cite> }",
+      "export const P = (TOKEN: string) => TOKEN + ' ' + TOKEN",
+      "const CELL = { token: '—' } as const",
+      "export function Q({ speaker }: { speaker: string }) { const CELL = { token: 'none' }; return <cite>{CELL.token} {speaker}</cite> }",
+      "const MARK = 'x'",
+      "export function R({ speaker }: { speaker: string }) { const MARK = '—'; return <cite>{MARK} {speaker}</cite> }",
+      'export const S = ({ speaker }: { speaker: string }) => <cite>{MARK} {speaker}</cite>',
+      "const ROOT = '—'",
+      'export function T({ speaker }: { speaker: string }) { const ALIAS = ROOT; return <cite>{ALIAS} {speaker}</cite> }',
+      'export function U({ speaker }: { speaker: string }) { const ALIAS = ROOT; return <cite>{ALIAS} {speaker}</cite> }',
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
     // attribute's value) and 18 to 19 are read where they are written (a name no line reads, a comparison, a
@@ -241,8 +268,13 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // (25), which holds NONE, is a template's substitution at 26. BOX (27) holds the token in a property: its
     // `BOX.token` read sits beside a sibling at 28 and stands alone as a fallback at 29. SHORT (30) holds DASH by its
     // shorthand: its `SHORT.DASH` read sits beside a sibling at 31 (found while DASH's references are followed, so it
-    // comes after 22) and stands alone as a fallback at 32.
-    expect(violationsIn(src, file)).toEqual([8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 31, 26, 28].map((line) => `features/zzprobe/Probe.tsx:${line} —`))
+    // comes after 22) and stands alone as a fallback at 32. A reference is the name's by scope (the review's case):
+    // TOKEN (33) is read by no line, since O's TOKEN (34) and P's parameter (35) are their own values; CELL (36) is read
+    // by no line, since Q declares its own CELL (37); and R's MARK (39), a token a nested scope declares, is followed to
+    // its own read beside a sibling at 39, not to S's read of the outer MARK (40). Each declaration is followed once, so
+    // T's and U's ALIAS, two declarations of one name that both hold ROOT (41), are each followed to their own read
+    // beside a sibling (42, 43).
+    expect(violationsIn(src, file)).toEqual([8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 31, 26, 28, 39, 42, 43].map((line) => `features/zzprobe/Probe.tsx:${line} —`))
   })
 
   it('finds no em-dash in any string literal, template literal, or JSX text', () => {
