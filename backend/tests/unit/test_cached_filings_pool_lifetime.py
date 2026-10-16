@@ -1,13 +1,14 @@
 """Completed filing reads release slots before asynchronous dependency cleanup."""
 
 import asyncio
+import threading
 import time
 from datetime import date, timedelta
 from typing import Any
 
 import httpx
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
 
@@ -43,13 +44,16 @@ from main import app
 async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch, tmp_path, path, payload_kind
 ):
+    # Readers beyond the four slots queue for one inside their worker thread, so the timeout must
+    # outlast four units of work under a loaded CI host. An on-loop checkout still fails at any
+    # timeout: it blocks the loop for the whole wait, so the four holders' finalizers never run.
     engine = create_engine(
         f"sqlite:///{tmp_path / 'cached-filings.db'}",
         connect_args={"check_same_thread": False},
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=0.05,
+        pool_timeout=1.0,
     )
     Company.__table__.create(engine)
     Filing.__table__.create(engine)
@@ -101,6 +105,10 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         def close(self) -> None:
             self.open_at_close.append(self.in_transaction())
             super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
 
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
@@ -158,6 +166,11 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open.
         assert [session.open_at_close[-1:] for session in request_sessions] == [[False]] * 8
+        # The filings reads run their unit on the loop and release it before yielding; the summaries
+        # routes run theirs in the thread pool, so none of their checkouts happens on the loop.
+        assert len(loop_checkouts) >= 8
+        if path.startswith("/api/summaries/"):
+            assert loop_checkouts == [False] * len(loop_checkouts)
         if payload_kind == "progress_stalled":
             with sessions() as db:
                 assert db.get(SummaryGenerationProgress, 1).stage == "error"
