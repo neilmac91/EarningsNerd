@@ -31,6 +31,7 @@ reset and logout with two clients (separate cookie jars): the stale device gets 
 nothing and the other device's new session still refreshes. Restoring the unconditional sweep fails
 all four. Its last test pins the residual: a copy the owner's own refresh rotated away, replayed
 after a reset, still ends the new login.
-`backend/tests/unit/test_replaced_by_id_writers_allowlist.py` holds the writers of `replaced_by_id`
-to `rotate_refresh_token`. Replaying a rotated-away token still revokes the live chain
+`backend/tests/unit/test_replaced_by_id_writers_allowlist.py` holds every mention of
+`replaced_by_id` in `backend/app` (reads included, so an aliased or by-name write cannot slip past
+it) to rotation's own read and write and the column definition, and scores its scan on planted forms. Replaying a rotated-away token still revokes the live chain
 (`test_refresh_replay.py`, `test_auth_token_flows.py`).
