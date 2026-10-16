@@ -770,6 +770,31 @@ def _cny_payload():
     })
 
 
+def _cny_quarterly(fy_value, q1, q2, q3, ytd9=None):
+    items = [
+        _item(fy_value, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-03-15"),
+        _item(q1, "2024-03-31", start="2024-01-01", accn="Q1-24", fp="Q1", form="10-Q",
+              filed="2024-05-05"),
+        _item(q2, "2024-06-30", start="2024-04-01", accn="Q2-24", fp="Q2", form="10-Q",
+              filed="2024-08-05"),
+        _item(q3, "2024-09-30", start="2024-07-01", accn="Q3-24", fp="Q3", form="10-Q",
+              filed="2024-11-05"),
+    ]
+    if ytd9 is not None:
+        items.append(_item(ytd9, "2024-09-30", start="2024-01-01", accn="Q3-24", fp="Q3",
+                           form="10-Q", filed="2024-11-05"))
+    usd = [_item(round(fy_value / 7.1), "2024-12-31", start="2024-01-01", accn="K24",
+                 filed="2025-03-15")]
+    return {"units": {"CNY": items, "USD": usd}}
+
+
+def _cny_quarterly_payload():
+    return _payload({
+        REV_TAG: _cny_quarterly(1200.0, 280.0, 300.0, 310.0, ytd9=895.0),
+        "NetIncomeLoss": _cny_quarterly(120.0, 28.0, 30.0, 31.0),
+    })
+
+
 class TestNativeReportingCurrency:
     def test_cny_reporter_is_stored_as_reported_not_from_usd_convenience(self):
         facts, meta = svc.normalize_companyfacts(1, _cny_payload())
@@ -787,28 +812,7 @@ class TestNativeReportingCurrency:
     def test_cny_quarters_derive_in_the_series_currency(self):
         # A calendar-year filer whose 10-Qs report in CNY: Q4 = FY − YTD9 (revenue) and
         # FY − ΣQ1–3 (net income, no YTD9) derive exactly as a USD series would.
-        def quarterly(fy_value, q1, q2, q3, ytd9=None):
-            items = [
-                _item(fy_value, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-03-15"),
-                _item(q1, "2024-03-31", start="2024-01-01", accn="Q1-24", fp="Q1", form="10-Q",
-                      filed="2024-05-05"),
-                _item(q2, "2024-06-30", start="2024-04-01", accn="Q2-24", fp="Q2", form="10-Q",
-                      filed="2024-08-05"),
-                _item(q3, "2024-09-30", start="2024-07-01", accn="Q3-24", fp="Q3", form="10-Q",
-                      filed="2024-11-05"),
-            ]
-            if ytd9 is not None:
-                items.append(_item(ytd9, "2024-09-30", start="2024-01-01", accn="Q3-24", fp="Q3",
-                                   form="10-Q", filed="2024-11-05"))
-            usd = [_item(round(fy_value / 7.1), "2024-12-31", start="2024-01-01", accn="K24",
-                         filed="2025-03-15")]
-            return {"units": {"CNY": items, "USD": usd}}
-
-        payload = _payload({
-            REV_TAG: quarterly(1200.0, 280.0, 300.0, 310.0, ytd9=895.0),
-            "NetIncomeLoss": quarterly(120.0, 28.0, 30.0, 31.0),
-        })
-        facts, _ = svc.normalize_companyfacts(1, payload)
+        facts, _ = svc.normalize_companyfacts(1, _cny_quarterly_payload())
         by = _by_key(facts)
         revenue_q4 = by[("revenue", date(2024, 12, 31), "Q4")]
         assert (revenue_q4["unit"], revenue_q4["value"]) == ("CNY", pytest.approx(305.0))
@@ -893,26 +897,32 @@ class TestNativeReportingCurrency:
 
     def test_the_normalizers_read_a_native_filer_without_settings_orm_or_edgar(self, tmp_path):
         # A fresh interpreter with no Settings env (no SECRET_KEY): importing the pure normalizers
-        # and reading the CNY shape, where series_unit runs the currency ranking, must load none of
-        # these, at import time or at call time.
+        # and reading the annual and quarterly CNY shapes, where series_unit runs the currency
+        # ranking and the Q4 derivations match intervals, must load none of these, at import time
+        # or at call time. Only the interpreter's own PATH, HOME and library path are passed.
         child = (
             "import json, sys\n"
             "from app.services.facts import companyfacts, concepts, currency, quarterly\n"
-            "facts, _ = companyfacts.normalize_companyfacts(1, json.load(sys.stdin))\n"
+            "runs = [companyfacts.normalize_companyfacts(1, payload)[0] for payload in json.load(sys.stdin)]\n"
             "heavy = ('app.config', 'app.database', 'app.models', 'app.services.edgar', 'sqlalchemy')\n"
             "print(json.dumps({\n"
-            "    'revenue': sorted([f['unit'], f['value']] for f in facts if f['concept'] == 'revenue'),\n"
+            "    'revenue': sorted([f['unit'], f['value']] for f in runs[0] if f['concept'] == 'revenue'),\n"
+            "    'q4': sorted([f['concept'], f['unit']] for f in runs[1]\n"
+            "                 if f['fiscal_period'] == 'Q4' and f['concept'] in ('revenue', 'net_income')),\n"
             "    'loaded': sorted(m for m in sys.modules for h in heavy if m == h or m.startswith(h + '.')),\n"
             "}))\n"
         )
+        env = {"PATH": os.environ.get("PATH", os.defpath), "HOME": str(tmp_path)}
+        if os.environ.get("LD_LIBRARY_PATH"):  # setup-python's shared libpython on CI runners
+            env["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH"]
         probe = subprocess.run(
-            [sys.executable, "-c", child], input=json.dumps(_cny_payload()), capture_output=True,
-            text=True, timeout=60, cwd=Path(__file__).resolve().parents[2],
-            env={"PATH": os.environ.get("PATH", os.defpath), "HOME": str(tmp_path)},
+            [sys.executable, "-c", child], input=json.dumps([_cny_payload(), _cny_quarterly_payload()]),
+            capture_output=True, text=True, timeout=60, cwd=Path(__file__).resolve().parents[2], env=env,
         )
         assert probe.returncode == 0, probe.stderr[-1500:]
         result = json.loads(probe.stdout)
         assert result["revenue"] == [["CNY", value] for value in _CNY_REVENUE]
+        assert result["q4"] == [["net_income", "CNY"], ["revenue", "CNY"]]
         assert result["loaded"] == []
 
 
