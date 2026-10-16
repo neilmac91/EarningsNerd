@@ -147,25 +147,45 @@ export default function EmailChipsInput({
       </label>
 
       {chips.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2 [container-type:inline-size]">
           {chips.map((chip) => (
+            // The address and its marker are one group that wraps: when they do not fit on one line the marker goes
+            // under the address and the address truncates, so neither squeezes the other out and the remove button
+            // stays inside the chip (at 200% text a marker that could not shrink left the address no room and pushed
+            // the button past the card). The 16px radius is a pill on one line and a rounded box once the chip
+            // wraps, as SourceTrace's chip is.
+            // Below 8em of the row's own text size the group is too narrow for "· already", so it dissolves
+            // (`contents`) and the address takes the first line whole (order-first, basis-full), wrapping anywhere
+            // instead of truncating: beside the button it kept 52px at 320px under 200% text, too little to tell one
+            // chip from another ("al…", "bo…"). The marker, the invalid glyph and the remove button follow under it,
+            // the button on the marker's line wherever "· already" and the button fit side by side (flex-1 lets the
+            // marker wrap "invited" under "· already"), and the marker never paints over the button. The × ends the
+            // chip on whatever line it lands (ml-auto), as it does above 8em. An invited chip needs about 9.6em on one
+            // line, so the narrow state never splits a chip that fits; at the default size it starts at a 128px row,
+            // which no phone reaches. Reading and Tab order stay address, marker, button.
             <span
               key={chip.email}
               aria-invalid={chip.kind === 'invalid' || undefined}
               className={clsx(
-                'inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium',
+                'inline-flex max-w-full items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium [@container(width<8em)]:flex-wrap [@container(width<8em)]:gap-y-0',
                 chipClasses(chip.kind),
               )}
             >
               {chip.kind === 'invalid' && <WarningCircleIcon className="h-3.5 w-3.5 flex-shrink-0" />}
-              <span className="truncate">{chip.email}</span>
-              {chip.kind === 'invited' && <span className="flex-shrink-0">· already invited</span>}
+              <span className="flex min-w-0 flex-wrap gap-x-1.5 [@container(width<8em)]:contents">
+                <span className="truncate [@container(width<8em)]:order-first [@container(width<8em)]:basis-full [@container(width<8em)]:whitespace-normal [@container(width<8em)]:[overflow-wrap:anywhere]">
+                  {chip.email}
+                </span>
+                {chip.kind === 'invited' && (
+                  <span className="[@container(width<8em)]:flex-1">·&nbsp;already invited</span>
+                )}
+              </span>
               <button
                 type="button"
                 onClick={() => removeChip(chip.email)}
                 disabled={disabled}
                 aria-label={`Remove ${chip.email}`}
-                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-1.5 transition-colors hover:bg-white/40 disabled:opacity-50 dark:hover:bg-white/10"
+                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-1.5 transition-colors hover:bg-white/40 disabled:opacity-50 dark:hover:bg-white/10 [@container(width<8em)]:ml-auto"
               >
                 <XIcon className="h-3 w-3" />
               </button>

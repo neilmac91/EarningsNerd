@@ -17,7 +17,7 @@ export interface CopilotCitation {
 }
 
 // A citation backed by an XBRL financial fact (server-assigned "F#" marker + an "XBRL · <tag>"
-// section_ref), not a quoted filing-text excerpt. These read as hard data — figures, not prose —
+// section_ref), not a quoted filing-text excerpt. These read as hard data (figures, not prose),
 // so the UI renders them as dense data rows. Detection mirrors the backend marker/section_ref shape.
 export const isXbrlCitation = (c: CopilotCitation): boolean =>
   (typeof c.n === 'string' && /^f\s*\d+$/i.test(c.n)) ||
@@ -55,15 +55,20 @@ export interface CopilotHandlers {
   onError: (message: string) => void
 }
 
-// The question hit a paywall/permission gate (403 / Pro-only / monthly cap). Used by the UI
-// to swap the inline Retry button for an Upgrade link, since retrying can't help.
+// A Pro account reached this month's question cap: the 429 the Copilot route raises says "fair-use
+// limit" (backend/app/routers/summaries.py). Upgrading cannot help, so the plan card shows no button.
+export const isCopilotFairUseLimit = (message: string): boolean =>
+  (message || '').toLowerCase().includes('fair-use limit')
+
+// The question hit a plan gate (403 Pro-only or a spent free allowance, or the Pro fair-use 429). Used
+// by the UI to show the quiet plan card instead of the Retry button, since retrying can't help.
 export const isCopilotPaywallError = (message: string): boolean => {
   const m = (message || '').toLowerCase()
   return (
+    isCopilotFairUseLimit(m) ||
     m.includes('pro feature') ||
     m.includes('upgrade to pro') ||
     m.includes('monthly limit') ||
-    m.includes('monthly cap') ||
     m.includes('limit reached')
   )
 }
@@ -74,7 +79,7 @@ const parseErrorDetail = async (response: Response, fallback: string): Promise<s
     if (data?.detail) return typeof data.detail === 'string' ? data.detail : fallback
     if (data?.message) return typeof data.message === 'string' ? data.message : fallback
   } catch {
-    // Non-JSON body — fall through to the status-based fallback.
+    // Non-JSON body: fall through to the status-based fallback.
   }
   return fallback
 }
@@ -190,7 +195,7 @@ export const askFilingStream = async (
 
     if (!response.ok) {
       let message: string | null
-      if (response.status === 401) message = 'Sign in to use the Copilot.'
+      if (response.status === 401) message = 'Sign in to ask this filing a question.'
       else if (response.status === 403 || response.status === 429) {
         // Preserve application-owned entitlement/rate-limit details and their existing upgrade UI.
         message = await Promise.race([

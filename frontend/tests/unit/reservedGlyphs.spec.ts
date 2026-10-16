@@ -86,18 +86,13 @@ const MEANING: Record<string, Counts> = {
   'features/marketing/components/HeroExample.tsx': { QuotesIcon: 1 },
   'features/marketing/components/TraceToSourceDemo.tsx': { QuotesIcon: 1 },
   'features/marketing/components/CatchCard.tsx': { BracketsCurlyIcon: 1 },
+  'features/filings/components/copilot/CopilotMessage.tsx': { BracketsCurlyIcon: 1 }, // an answer's XBRL source rows (ASK-09)
 }
 
 const RESIDUE: Record<string, Counts> = {
-  'features/filings/components/copilot/CopilotMessage.tsx': { SparkleIcon: 3 }, // brand-copilot: follow-up chips (FollowupChips, rendered at two places), upgrade button
-  'features/filings/components/copilot/AskCopilotRail.tsx': { SparkleIcon: 2 }, // brand-copilot: launcher and rail header
-  'features/filings/components/copilot/CopilotTeaser.tsx': { SparkleIcon: 1 }, // brand-copilot: upgrade button
-  'features/filings/components/copilot/AskAboutSelection.tsx': { SparkleIcon: 1 }, // brand-copilot: the selection prompt
   'features/marketing/components/ReaderQuoteSlot.tsx': { QuotesIcon: 1 }, // a reader's words, not the filing's (BG-28): the slot renders nothing until a quote lands (READER_QUOTE is null since #1311), and the glyph is decided with that quote
-  'features/marketing/components/AskFilingDemo.tsx': { QuotesIcon: 1 }, // the Ask this Filing mark on the landing demo, decided with brand-copilot's (#1295) AskFilingAnswer entry, the same mark; #1311 left it
-  'features/filings/components/AskFilingAnswer.tsx': { QuotesIcon: 2 }, // brand-copilot: a hand-drawn quotes glyph as the Ask this Filing mark
 }
-const RESIDUE_MAX = { files: 7, uses: 11 }
+const RESIDUE_MAX = { files: 1, uses: 1 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
