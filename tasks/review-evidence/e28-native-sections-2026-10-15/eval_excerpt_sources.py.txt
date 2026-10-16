@@ -1,0 +1,59 @@
+"""Summarise excerpt sources and scores from CI eval-baseline report artifacts.
+
+Usage: python -I eval_excerpt_sources.py RUN_ID=path/to/eval_*.json [RUN_ID=...]
+Each artifact is the run's `eval-report-<run id>` zip (eval_*.json + ci-execution.txt), unpacked.
+Reads only the files; makes no request.
+"""
+import collections
+import json
+import pathlib
+import sys
+
+METRICS = ("mean_citation_fidelity", "mean_citation_checked", "mean_prompt_tokens",
+           "mean_numeric_accuracy", "mean_currency_consistency", "mean_coverage",
+           "mean_financial_depth", "mean_untraceable_dollar_figures", "mean_latency_seconds")
+
+
+def inventories(obj):
+    if isinstance(obj, dict):
+        ci = obj.get("coverage_inventory")
+        if isinstance(ci, dict):
+            yield obj.get("filing_type") or obj.get("form") or "?", obj.get("ticker") or "?", ci
+        for value in obj.values():
+            yield from inventories(value)
+    elif isinstance(obj, list):
+        for value in obj:
+            yield from inventories(value)
+
+
+sixk = collections.defaultdict(lambda: collections.defaultdict(set))
+for arg in sys.argv[1:]:
+    run_id, path = arg.split("=", 1)
+    report = json.loads(pathlib.Path(path).read_text())
+    harness = report["harness"]
+    stamp = pathlib.Path(path).stem.removeprefix("eval_")
+    print(f"## run {run_id} (report {pathlib.Path(path).name}; source_sha {harness['source_sha'][:7]}; "
+          f"use_edgartools_sections={harness['use_edgartools_sections']})\n")
+    counts = collections.Counter()
+    tickers = collections.defaultdict(collections.Counter)
+    for form, ticker, ci in inventories(report["results"]):
+        sections = "sections" if ci.get("supplied_sections") else "no sections"
+        counts[(form, ci.get("source"), sections)] += 1
+        if form != "6-K" and ci.get("source") != "edgartools":
+            tickers[(form, ci.get("source"))][ticker] += 1
+        if form == "6-K":
+            sixk[ticker][stamp].add(ci.get("excerpt_sha256", "")[:12])
+    for (form, source, sections), n in sorted(counts.items()):
+        named = tickers.get((form, source))
+        # Name the filings only where a few fall back; a full switch lists every ticker otherwise.
+        who = "  (" + ", ".join(f"{t} x{c}" for t, c in sorted(named.items())) + ")" if named and len(named) <= 3 else ""
+        print(f"  {n:3d}  {form:5s} {source:16s} {sections}{who}")
+    summary = report["summary"]["baseline"]
+    print()
+    for key in METRICS:
+        print(f"  {key} = {summary.get(key)}")
+    print()
+
+print("## 6-K excerpt sha256 (first 12 hex) per report; one value means both runs in that report produced it: the 6-K path does not use native sections\n")
+for ticker, by_report in sorted(sixk.items()):
+    print(f"  {ticker:5s} " + "  ".join(f"{stamp}:{'/'.join(sorted(shas))}" for stamp, shas in sorted(by_report.items())))
