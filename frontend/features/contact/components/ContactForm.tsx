@@ -24,8 +24,8 @@ const SEND_FAILED = "We couldn't send your message. Try again in a minute."
     reader to check the fields. A 5xx shows the surface's sentence: the route's own 500 detail
     ("Failed to save contact form submission") is developer wording with no next step. Otherwise the
     backend's own detail, or the surface's sentence when the body carried none: `backendDetail` is
-    set only from a string `detail` in the body, never from the client's status fallbacks or axios's
-    "Request failed with status code N". */
+    set only from a readable `detail` in the body (a string, or a validation 422 list's first `msg`),
+    never from the client's status fallbacks or axios's "Request failed with status code N". */
 function sendErrorMessage(err: unknown): string {
   const status = getErrorStatus(err)
   if (status === 429) return RATE_LIMITED

@@ -13,7 +13,11 @@ const DISMISS_KEY = 'verifyBannerDismissed'
 
 /**
  * Slim, session-dismissible banner shown to logged-in users who haven't verified
- * their email yet (email_verified gates AI generation + checkout on the backend).
+ * their email yet. Checkout is the one action that refuses an unverified email, with a 403
+ * (`backend/app/routers/subscriptions.py`); generating and reading summaries never wait on it. A
+ * Google or Apple sign-in links to an existing account only once both sides have verified the email
+ * (`backend/app/services/oauth_account_service.py`), which the login page's conflict sentence says,
+ * so the banner's line names subscribing alone.
  */
 export default function VerificationBanner() {
   const pathname = usePathname()
@@ -58,7 +62,7 @@ export default function VerificationBanner() {
       setFailure((previous) => ({
         message: rateLimited
           ? "We can't send another link right now. Use the newest link in your inbox, or reload this page to try again later."
-          : "Couldn't send a new link. Please try again in a moment.",
+          : "Couldn't send a new link. Try again in a few minutes.",
         n: (previous?.n ?? 0) + 1,
       }))
     } finally {
@@ -73,13 +77,15 @@ export default function VerificationBanner() {
 
   return (
     <div className="border-b border-warning-light/30 bg-warning-light/10 text-warning-light dark:border-warning-dark/20 dark:bg-warning-dark/10 dark:text-warning-dark">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
+      {/* One row while it fits. With enlarged text on a phone, "Resend link" and the dismiss wrap onto
+          a second row, the dismiss at its right end, rather than pushing past the viewport. */}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
         <WarningCircleIcon className="h-4 w-4 shrink-0" />
         <p ref={statusRef} tabIndex={-1} className="flex-1 outline-none">
           {resent ? (
             <>Verification email sent. Check your inbox.</>
           ) : (
-            <>Verify your email to generate summaries and subscribe.</>
+            <>Verify your email to subscribe.</>
           )}
         </p>
         {!resent && (
@@ -102,7 +108,7 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          className="shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          className="ml-auto shrink-0 rounded p-1 transition-colors hover:bg-warning-light/15 dark:hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
           <XIcon className="h-4 w-4" />
         </button>

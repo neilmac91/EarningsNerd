@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, keepPreviousData, onlineManager, useQuery } from '@tanstack/react-query'
 import { useRef, useState, type ReactNode } from 'react'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { useFocusHandoff, useFocusOnArrival } from '@/hooks/useFocusHandoff'
@@ -98,6 +98,31 @@ describe('useRetainedFailure', () => {
     await waitFor(() => expect(result.current.failure.busy).toBe(false))
     expect(result.current.failure.failed).toBe(true)
     expect(fn).toHaveBeenCalledTimes(2)
+  })
+
+  // keepPreviousData (the search) reports a refetch of a failure that has no data as `success` with the
+  // previous key's data and `isPlaceholderData`: read raw, that ends the hold and unmounts a focused Retry.
+  it('a held failure stays failed and pending through a placeholder-backed refetch, until its own data lands', async () => {
+    const fn = vi.fn().mockResolvedValueOnce('a data').mockRejectedValueOnce(new Error('b down'))
+    const client = newClient()
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    const { result, rerender } = renderHook(({ k }: { k: string }) => {
+      const query = useQuery({ queryKey: ['t', k], queryFn: () => fn(k), placeholderData: keepPreviousData })
+      return { query, failure: useRetainedFailure(query, ['t', k]) }
+    }, { wrapper, initialProps: { k: 'a' } })
+    await waitFor(() => expect(result.current.query.data).toBe('a data'))
+    rerender({ k: 'b' })
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    const again = deferred<string>()
+    fn.mockReturnValueOnce(again.promise)
+    act(() => result.current.failure.retry())
+    await settle()
+    expect(result.current.query).toMatchObject({ status: 'success', isPlaceholderData: true, data: 'a data' })
+    expect(result.current.failure).toMatchObject({ failed: true, busy: true })
+    expect((result.current.failure.error as Error).message).toBe('b down')
+    await act(async () => again.resolve('b data'))
+    await waitFor(() => expect(result.current.failure.failed).toBe(false))
+    expect(result.current.query).toMatchObject({ data: 'b data', isPlaceholderData: false })
   })
 
   it("a new key's first load is pending, not the old key's failure", async () => {

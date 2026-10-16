@@ -53,6 +53,12 @@ Dependabot's tracker, as #1034 did.
    3.1.6, tqdm 4.68.2), so no advisory is closed by taking the bump. 5.61.0 fixes
    `Filing.homepage_url` / `Filing.html()` against SEC's new 403 on the short index URL; `app/`
    has no call to either (all SEC fetches go through `app/services/edgar/` and `app/utils/sec_urls.py`).
+   **Correction (2026-10-15):** `app/` reaches both indirectly. `xbrl_sections._extract_sections_sync`
+   reads `obj["Item 1A"]` and `obj.sections`, and edgartools' report objects call `Filing.html()`, which
+   reads an inline-XBRL document through the homepage. So the 403 broke every 10-K/10-Q/20-F section
+   parse from about 2026-10-06, and the summary excerpt and the eval fell back to regex. The fix is
+   backported without the upgrade, so this hold stands:
+   [`../edgartools-homepage-403-2026-10-15/`](../edgartools-homepage-403-2026-10-15/README.md).
 
 ## Why no compatibility adaptation
 

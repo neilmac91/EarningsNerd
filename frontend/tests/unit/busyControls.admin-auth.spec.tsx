@@ -377,10 +377,13 @@ describe('Check email: Resend stays focusable', () => {
     expect(resendVerification).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps Resend natively disabled when the URL carries no email', () => {
+  it('offers no Resend when the URL carries no email, and says where a new link comes from', () => {
     useSearchParams.mockReturnValue(new URLSearchParams(''))
     render(<CheckEmailPage />)
-    expect(screen.getByRole('button', { name: 'Resend email' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /resend/i })).toBeNull()
+    expect(screen.queryByText('We send verification links to')).toBeNull()
+    expect(screen.getByText('Open the newest verification link we sent you.')).toBeInTheDocument()
+    expect(screen.getByText('Need a new one? Sign in, open the account menu and choose Verify your email.')).toBeInTheDocument()
   })
 })
 

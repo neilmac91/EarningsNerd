@@ -225,6 +225,16 @@ handed to. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
 
+**Recurrence (2026-10-14, #1288)**: the voice gate's record promised sentence case on "headings,
+card and dialog titles, button labels and meta titles", while the spec read h1 to h3, four title
+props and two button tags. The founder's probe (a ModalHeader child, a CardTitle, a SecondaryHeader
+title, two links styled by `buttonVariants()`, an h4, an aria-label) stayed green, and the live
+"Cookie Preferences" dialog title was never counted. The fix read the record's words as the gate's
+extent: every heading level, the title components, any element whose className reaches the button
+factory, and the components found to render their children or title into one of those, found by a
+fixed-point pass over the tree instead of a hand list. Write the record's sentence from what the
+gate reads, and name the rest as review-checked.
+
 **Recurrence (2026-10-14, the Copilot's links)**: rule 2 read every component the app renders.
 Fixing the Copilot's links, which had waited on the founder's call, found the prose links' rule in
 `app/globals.css` setting sage at rest by `@apply` on every link in the filing reader, the summary
@@ -235,3 +245,14 @@ next review named a metric row's formatted figures outside it; so rule 2 classif
 API types declare that can hold a string, an array of them included, a figure field or a word field,
 and fails one it has not classified. A gate keyed on a list of names holds only when a test makes
 the list exhaustive over its domain.
+
+**Recurrence (2026-10-15, route metadata)**: `frontend/tests/unit/routeMetadata.spec.ts` (#1312) read
+a title or a description only as a typed literal and walked `page.tsx` and `layout.tsx` alone. The
+literal reader failed #1299's description, a template over the period caps `lib/planLimits.ts`
+mirrors from config, and the literal it asked for would have failed #1299's lockstep gate, so
+whichever PR landed second went red; the walk let a noindex `layout.ts` take every company page out
+of the index with all 132 tests green. The spec now imports each module and checks the metadata it
+exports as Next evaluates it, and walks every page and layout under the extensions Next serves
+(next.config.js's `pageExtensions`, else Next's default), with a `.ts` layout planted in its
+self-check. A gate over a framework's files reads the file names the framework reads, and a gate
+over a value reads the value, not the way one file typed it.
