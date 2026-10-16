@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.models import Base, Company, Filing, NotificationLog, NotificationPreferences, User, Watchlist
 from app.services.edgar.models import Filing as EdgarFiling
 from app.services.edgar.models import FilingType
-from app.services.filing_scan_service import run_daily_digest, run_filing_scan
+from app.services.filing_scan_service import run_daily_digest, run_filing_scan, upsert_filings
 from app.utils.sec_urls import build_sec_archive_url
 
 CIK = "320193"
@@ -141,3 +141,30 @@ async def test_realtime_8k_then_same_date_10q_in_a_later_tick_are_each_alerted_o
 
     assert sent == [(_utc(16, 13), eight_k["accession_number"]), (_utc(16, 21), ten_q["accession_number"])]
     assert _log_rows(engine) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scan_at, alerted", [
+    (_utc(17, 23, 59), True),
+    (_utc(18, 0), False),
+    (datetime(2026, 9, 1, 14, tzinfo=timezone.utc), False),
+], ids=["next-day", "two-days-later", "weeks-later"])
+async def test_realtime_admits_the_watermark_day_only_while_it_is_recent(engine, scan_at, alerted):
+    """A 10-Q dated the watermark's own day that was stored but never alerted (what the strict
+    pre-fix watermark left behind) is new through the end of the next UTC day, the span the digest
+    window covers. Weeks later it is back-catalogue: the first real-time scan after the fix must not
+    mail a months-old filing."""
+    _seed(engine, is_pro=True, realtime=True, notify_8k=True)
+    eight_k = _edgar_row("0000320193-26-000301", "8-K", date(2026, 6, 16))
+    ten_q = _edgar_row("0000320193-26-000302", "10-Q", date(2026, 6, 16))
+    with Session(engine) as db:
+        await run_filing_scan(db, fetch_filings=AsyncMock(return_value=[eight_k]), send_alert=AsyncMock(),
+                              now=_utc(16, 13), cadence_minutes=0)
+        upsert_filings(db, db.get(Company, 1), [ten_q])
+    send = AsyncMock()
+    with Session(engine) as db:
+        await run_filing_scan(db, fetch_filings=AsyncMock(return_value=[ten_q, eight_k]), send_alert=send,
+                              now=scan_at, cadence_minutes=0)
+
+    sent = _accessions(engine, [call.kwargs["filing_id"] for call in send.await_args_list])
+    assert sent == ([ten_q["accession_number"]] if alerted else [])

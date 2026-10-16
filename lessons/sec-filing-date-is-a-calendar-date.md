@@ -15,17 +15,24 @@ midnight UTC or seeded filing dates with an hour, which production never stores.
 
 **Rule**: Treat `Filing.filing_date` as a day. Open a time window at the start of a UTC day
 (`.replace(hour=0, minute=0, second=0, microsecond=0)`), and let a watermark that was copied from a
-filing date admit its own date (`fdate < watermark` skips, equality passes). Day granularity selects
-some filings twice, so exactness comes from per-(user, filing) dedupe (`NotificationLog`, delivery
-ownership), never from a tighter date bound. Where a date cannot be ordered against an instant (a
-filing dated the day a watch began may predate it), keep the conservative side and say so. A test of
-date logic runs the clock at a non-midnight hour, like the production schedule, and stores dates
-through the real writer.
+filing date admit its own date while that date is recent (`fdate < watermark` skips, equality passes
+inside the window). Bound every widening by recency: a pass that re-reads a company's latest filings
+each tick would otherwise mail an un-alerted filing from an old watermark day, months late. Day
+granularity selects some filings twice, so exactness comes from per-(user, filing) dedupe
+(`NotificationLog`, delivery ownership), never from a tighter date bound. Where a date cannot be
+ordered against an instant (a filing dated the day a watch began may predate it), keep the
+conservative side and say so. A test of date logic runs the clock at a non-midnight hour, like the
+production schedule, and stores dates through the real writer.
 
 **Evidence**: `backend/app/services/filing_scan_service.py` (`run_daily_digest` window,
 `_candidate_filings`); `backend/tests/unit/test_filing_alert_calendar_dates.py` runs the digest at
 08:00, 00:00, 13:00 and 23:59 UTC on six consecutive days with filings stored through `upsert_filings` and
-asserts each is digested exactly once, plus an 8-K and a same-date 10-Q in two realtime ticks.
+asserts each is digested exactly once, plus an 8-K and a same-date 10-Q in two realtime ticks, and
+a never-alerted filing on an old watermark day staying unsent.
 `backend/tests/unit/test_digest_window_query.py` fixture 6 keeps the watch-start baseline strict.
-Not yet day-granular: `facts/ingest.py` compares `Filing.filing_date > facts_synced_at` in its TTL
-short-circuit, so a filing dated the day of a sync waits for the TTL.
+Still open: a date does not follow arrival order. An after-hours 8-K dated D+1 moves the watermark
+past a 10-Q dated D that EDGAR lists a tick later, and a filing dated D first stored after the
+window has passed (a scan outage) misses the digest; selecting by `Filing.created_at` since the last
+run would close both. Not yet day-granular: `facts/ingest.py` compares
+`Filing.filing_date > facts_synced_at` in its TTL short-circuit, so a filing dated the day of a sync
+waits for the TTL.
