@@ -330,6 +330,13 @@ unused since generation became account-required in #619; kept because migrations
 - Per-filing discrete-quarter facts retain fiscal labels anchored to the XBRL filing focus and
   their own distance from its report date. Comparative quarters move across fiscal years;
   non-calendar years do not use calendar-quarter labels. Missing/irregular metadata stays unknown.
+  Annual-report (10-K/20-F/40-F) points take the issuer's fiscal year from the same anchor (the DEI
+  focus year less whole years back from the report date) wherever the calendar year of the period
+  end misnames it: a year ending 1 February 2025 is fiscal 2024, a 52-week year ending 1 January 2023
+  is fiscal 2022. The fact identity leaves the year out, so this is what lets the per-filing and
+  companyfacts writers name a period alike whichever stores it first; without a DEI focus the label
+  stays the calendar year (a NULL year would drop the period from Multi-Period Analysis). That
+  dataset also refuses a label that current rows give to two different period ends.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
   deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
   company row and preserve a known newer accession. The per-filing writer also preserves untied
