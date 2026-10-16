@@ -347,7 +347,11 @@ unused since generation became account-required in #619; kept because migrations
   derivation works in any currency. Once the native row arrives, a sync demotes, never deletes,
   any current USD row at the same concept, period end and fiscal period, whatever its source or
   filing. The newer-accession rule above is per unit; across units the pick has already chosen
-  the series currency.
+  the series currency. A derived ratio (`pure`) keeps its unit, so where a known filing date kept
+  one computed from USD operands current, the sync demotes it and promotes the native
+  calculation. One stored under the native calculation's own identity (same filing) keeps its
+  USD operands, because ingestion never rewrites an identity; the journaled repair
+  (`docs/quarterly-data-repair.md`) recomputes it.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

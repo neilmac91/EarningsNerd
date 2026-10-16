@@ -26,7 +26,11 @@ USD rows without a native twin current beside it. Carry the picked unit on every
 calculation built from it, and treat "additive" as "a currency amount" (`is_amount_unit`), not as
 "USD". When a writer stores a native-currency row where a USD row is current at the same concept,
 period end and fiscal period, it demotes that USD row itself (`demote_convenience_rows`) and never
-deletes it. Known gaps: a switcher's years reported in a non-USD currency are not ingested in
+deletes it. A ratio (`pure`) keeps its unit across currencies, so the upsert's filing-date rule can
+keep one computed from USD operands current and store the native calculation behind it; the writer
+then demotes the USD-derived ratio and promotes the native one. It never rewrites an identity: a
+ratio stored under the native calculation's own identity (same filing) is corrected by the
+journaled repair. Known gaps: a switcher's years reported in a non-USD currency are not ingested in
 that currency, and after a switch to USD its earlier years come from the USD convenience
 translations, as before; a USD fact at a period-end the native list lacks (a stray, or a switch to
 USD) puts that concept back on the USD list; and after such a flip, native rows an earlier sync

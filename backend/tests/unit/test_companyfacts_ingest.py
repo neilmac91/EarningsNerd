@@ -955,3 +955,63 @@ class TestNativeReportingCurrencySync:
                        for r in db.query(FinancialFact).filter_by(company_id=fpi.id))
         assert after == before
         db.close()
+
+    def test_sync_promotes_native_ratios_over_usd_ones_a_known_older_filing_kept_current(self):
+        # A pre-fix sync read only the USD lists, so it stored each year's net margin from that
+        # year's USD operands, under that year's 20-F. With 20F-2022 stored locally and 20F-2024
+        # not, the upsert keeps the FY2022 margin current (a known filing date outranks an unknown
+        # one) and stores the native one, from 20F-2024, behind it. A newer native calculation
+        # stored locally (20F-2025) is not USD-derived, so it stays the FY2023 margin. FY2024's
+        # native margin has the stored row's own identity, so the upsert skips it; ingestion never
+        # rewrites an identity, and the journaled repair recomputes that row.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+        from app.services import trend_analysis_service
+        from app.services.quarterly_fact_repair import repair_company
+
+        db = SessionLocal()
+        fpi = _new_company(db)
+        fpi.cik = str(uuid.uuid4().int % 10**10)  # the repair matches the payload's CIK
+        tag = f"-{uuid.uuid4().hex[:8]}"  # accession numbers are unique across companies
+
+        def payload(units=("CNY", "CNY/shares", "USD", "USD/shares")):
+            data = {**_cny_payload(), "cik": int(fpi.cik)}
+            for node in data["facts"]["us-gaap"].values():
+                node["units"] = {unit: items for unit, items in node["units"].items() if unit in units}
+                for item in (item for items in node["units"].values() for item in items):
+                    item["accn"] += tag
+            return data
+
+        db.add_all(Filing(company_id=fpi.id, accession_number=f"20F-{fy}{tag}", filing_type="20-F",
+                          filing_date=datetime(fy, 7, 20, tzinfo=timezone.utc),
+                          document_url="https://example.com/d", sec_url="https://example.com/s")
+                   for fy in (2022, 2023, 2025))
+        db.commit()
+        svc.upsert_facts_bulk(db, svc.normalize_companyfacts(fpi.id, payload(("USD", "USD/shares")))[0])
+        newer = next(f for f in svc.normalize_companyfacts(fpi.id, payload())[0]
+                     if (f["concept"], f["period_end"]) == ("net_margin", date(2023, 3, 31)))
+        svc.upsert_facts_bulk(db, [{**newer, "accession": f"20F-2025{tag}", "value": 8.6}])
+
+        svc._persist_companyfacts_payload(db, fpi, payload())
+        dataset = trend_analysis_service.build_dataset(db, fpi, "annual", "FY2022", "FY2024")
+        margin = next(s for s in dataset["series"] if s["concept"] == "net_margin")
+        assert [(p["value"], {i["unit"] for i in p["provenance"]["inputs"]})
+                for p in margin["points"][:2]] == [(7.5, {"CNY"}), (8.6, {"CNY"})]  # USD-derived: 7.4999999997
+        rows = db.query(FinancialFact).filter_by(company_id=fpi.id, concept="net_margin").all()
+        assert sorted((r.period_end.year, r.accession.removesuffix(tag), r.is_latest) for r in rows) == [
+            (2022, "20F-2022", False), (2022, "20F-2024", True),  # demoted, never deleted
+            (2023, "20F-2023", False), (2023, "20F-2024", False), (2023, "20F-2025", True),
+            (2024, "20F-2024", True),
+        ]
+        same_filing = next(r for r in rows if r.period_end.year == 2024)
+        assert {i["unit"] for i in same_filing.provenance["inputs"]} == {"USD"}  # never rewritten
+
+        plan = repair_company(db, fpi.id, payload(), dry_run=True)
+        fixed = next(c["after"] for c in plan["changes"] if c["fact_id"] == same_filing.id)
+        assert {i["unit"] for i in fixed["provenance"]["inputs"]} == {"CNY"}
+
+        again = svc._persist_companyfacts_payload(db, fpi, payload())
+        assert (again["inserted"], again["demoted"]) == (0, 0)
+        usd_filer = _new_company(db)  # ratios from USD operands are the upsert's alone
+        assert svc._persist_companyfacts_payload(db, usd_filer, payload(("USD", "USD/shares")))["demoted"] == 0
+        db.close()
