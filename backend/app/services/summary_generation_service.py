@@ -466,9 +466,9 @@ def get_or_cache_excerpt(
     filing_text: Optional[str],
     sections: Optional[Dict[str, str]] = None,
 ) -> Optional[str]:
-    # ``sections`` (when provided) is edgartools-parsed section text; it lets us build a
-    # high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit path). We
-    # still need one of the two inputs to produce anything.
+    # ``sections`` (when provided) is section text parsed from the fetched primary document; it
+    # lets us build a high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit
+    # path). We still need one of the two inputs to produce anything.
     if not filing_text and not sections:
         return None
 
@@ -501,8 +501,9 @@ def get_or_cache_excerpt(
 
     filing_type_key = (filing_type or "10-K").upper()
 
-    # Prefer edgartools' native section parser (precise, robust to fragmented HTML); fall back
-    # to the legacy regex + dense-window extractor when sections are unavailable or too thin.
+    # Prefer the sections edgartools' HTML parser found in the fetched document (precise, robust to
+    # fragmented HTML); fall back to the legacy regex + dense-window extractor when sections are
+    # unavailable or too thin.
     excerpt = None
     source = "edgartools"
     if sections and settings.USE_EDGARTOOLS_SECTIONS:
