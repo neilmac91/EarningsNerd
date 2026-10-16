@@ -5,7 +5,8 @@ XBRL values are in the filer's reporting currency, so a hardcoded "$" turned a C
 CNY 941.2B revenue into "$941.2B" (about 7x too large), and the read path then matched the number
 and served it as SEC-verified. The primary path's deterministic filler (``ai/markdown_render.py``)
 already labelled these figures "CNY 941.2B"; both producers now share one rule, and the parity test
-below fails if either drifts from the other.
+below fails if either drifts from the other. The prior-period backfill both paths run before storing
+(``schemas/summary.py`` ``attach_normalized_facts``) writes the same cells and uses the same rule.
 """
 import copy
 import json
@@ -13,9 +14,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.schemas.summary import attach_normalized_facts
 from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import openai_service
 from app.services.provenance_service import build_metric_source
+from app.services.summary_pipeline import _finalize_summary_projection
 
 
 def _metrics(currency=None, **extra):
@@ -47,7 +50,8 @@ def test_a_cny_filer_reads_in_cny_and_never_in_dollars():
         ("Net Income", "CNY 12.5M", "CNY 950,000"),
         ("EPS (Basic)", "CNY 6.42", "CNY -0.50"),
     ]
-    # The persisted v2 table is the same object; no "$" anywhere in what the pipeline stores.
+    # The v2 table is the same object, and no "$" anywhere in the fallback's payload (what the
+    # pipeline then stores is pinned by the projection test below).
     assert out["raw_summary"]["sections"]["results_that_matter"] is out["financial_highlights"]
     assert "$" not in json.dumps(out)
 
@@ -98,6 +102,39 @@ def test_the_fallback_labels_money_by_the_primary_path_rule(currency):
     revenue = fallback["financial_highlights"]["table"][0]
 
     assert (revenue["current_period"], revenue["prior_period"]) == primary["revenue"]
+
+
+@pytest.mark.parametrize("currency,stored_prior", [(None, "$0"), ("EUR", "EUR 0")])
+def test_the_stored_fallback_backfills_a_zero_prior_in_the_filer_currency(currency, stored_prior):
+    """What the pipeline stores is ``_finalize_summary_projection``'s output, not the fallback's: its
+    prior-period backfill refills the fallback's "—" for a zero prior from XBRL. A domestic filer's
+    "$0" is unchanged."""
+    metrics = _metrics(currency)
+    metrics["revenue"]["prior"]["value"] = 0.0
+    payload = generate_xbrl_summary(metrics, "Example SE", filing_type="20-F")
+    assert payload["financial_highlights"]["table"][0]["prior_period"] == "—"
+
+    _, raw_summary, _, _ = _finalize_summary_projection(payload, metrics, payload["status"])
+
+    table = raw_summary["sections"]["results_that_matter"]["table"]
+    assert (table[0]["metric"], table[0]["prior_period"]) == ("Revenue", stored_prior)
+    if currency is not None:
+        assert "$" not in json.dumps(table)
+
+
+def test_the_primary_path_backfill_labels_a_blank_prior_in_the_filer_currency():
+    """The same backfill runs on the primary path when the model leaves a prior cell blank; a CNY
+    filer's prior revenue must not come back as "$868,687,000,000" (about 7x too large)."""
+    metrics = _metrics("CNY", eps_diluted={"current": {"value": 6.40, "period": "2025-03-31"},
+                                           "prior": {"value": -0.5, "period": "2024-03-31"}})
+    section = {"table": [
+        {"metric": "Revenue", "current_period": "CNY 941.2B", "prior_period": "—"},
+        {"metric": "Diluted EPS", "current_period": "CNY 6.40", "prior_period": ""},
+    ]}
+
+    out = attach_normalized_facts(section, metrics)
+
+    assert [r["prior_period"] for r in out["table"]] == ["CNY 868,687,000,000", "CNY -0.50"]
 
 
 def test_the_read_path_verifies_the_relabelled_figure():

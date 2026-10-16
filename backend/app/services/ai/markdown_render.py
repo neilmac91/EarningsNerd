@@ -262,7 +262,8 @@ class _MarkdownRenderMixin:
         # issuers (e.g. "EUR 30.6B", "CNY 30.6B"). Standardized XBRL values are in the filer's
         # reporting currency, so the deterministic figures below must never mislabel a non-USD filer
         # as dollars — a ~7x distortion the numeric scorers can't catch, and a currency-consistency hit.
-        # The rule is shared with the AI-timeout fallback (fallback_summary.py).
+        # The rule is shared with the AI-timeout fallback (fallback_summary.py) and the prior-period
+        # backfill (schemas/summary.py).
         money_prefix = money_prefix_for((xbrl_metrics or {}).get("reporting_currency"))
 
         def format_currency(value: Optional[float]) -> Optional[str]:
