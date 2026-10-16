@@ -502,6 +502,17 @@ describe('reserved glyphs keep their one meaning', () => {
     expect(given(['const memoize = useMemo', 'export function I() { const Mark = memoize(() => SparkleIcon, []); return <><Mark /><Mark /></> }'])).toEqual({
       SparkleIcon: 2,
     })
+    // A name declared again in its scope is one binding (the review's case: `var Mark; var Mark = QuotesIcon` read twice
+    // is two uses), and an alias under either declaration is what it aliases; an overload's signature declares nothing,
+    // so the implementation draws; and a function's parameter shadows the function's own name, which is no read of the
+    // parameter (an expression's, and a declaration's: `function Echo(Echo)` called once draws through its parameter twice).
+    expect(given(['var Mark; var Mark = QuotesIcon', 'export const J = () => <><Mark /><Mark /></>'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['var memoize; var memoize = useMemo', 'export function K() { const Mark = memoize(() => SparkleIcon, []); return <><Mark /><Mark /></> }'])).toEqual({
+      SparkleIcon: 2,
+    })
+    expect(given(['function Drawn(): ReactNode', 'function Drawn() { return <QuotesIcon /> }', 'export const L = () => <><Drawn /><Drawn /></>'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['const show = function Glyph(Glyph) { return <><Glyph /><Glyph /></> }', 'export const M = () => show(SparkleIcon)'])).toEqual({ SparkleIcon: 2 })
+    expect(given(['function Echo(Echo) { return <><Echo /><Echo /></> }', 'export const N = () => Echo(QuotesIcon)'])).toEqual({ QuotesIcon: 2 })
     expect(given(["import { ArrowRightIcon } from '@/lib/icons'", 'let Mark; Mark = ArrowRightIcon', 'export const O = () => <Mark />'])).toEqual({})
     // A rest element takes the rest (the review's case: `const [...Marks] = [QuotesIcon]` read twice is two uses): an
     // array's elements from its place on, re-indexed, so `Others[0]` reads the second glyph alone; an object's

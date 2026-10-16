@@ -14,7 +14,9 @@ import ts from 'typescript'
  * conditional's arms, `||`, `??`, a member read by a key the scan cannot read, the values one name is given in turn).
  *
  * A name holds every value it is given, resolved by scope (the nearest enclosing declaration, so a name two functions
- * each declare reads its own function's binding, and a parameter or a function of that name shadows an outer one):
+ * each declare reads its own function's binding, and a parameter or a function of that name shadows an outer one; a
+ * name declared again in its scope, by `var` or over a parameter, is one binding, and an overload's signature declares
+ * nothing, so a call reads the implementation):
  *  - its declaration's initializer, a destructuring of it (object and array patterns, nested, each element with its
  *    default, which renders when the member is missing, and a rest element the rest: an array's elements from its
  *    place on, re-indexed, or the properties the pattern does not name) and each later assignment (`=`, `||=`, `&&=`,
@@ -224,20 +226,33 @@ export function isWrite(node: ts.Node): boolean {
   return false
 }
 
+/** How scope reads a file's names (scopeResolver). */
+export interface ScopeResolver {
+  /** The declaration a name reads: its binding's first declaration. Undefined for a global. */
+  (id: ts.Identifier): ts.Node | undefined
+  /** Every declaration of the binding a name reads, in source order (none for a global). */
+  all(id: ts.Identifier): ts.Node[]
+}
+
 /**
  * The declaration a name reads where it is written: the nearest enclosing scope that declares it. A block declares
  * its `const`, `let`, functions and classes; a function its parameters and every `var` inside it; the file its
- * imports; a `for` statement and a `catch` clause their own bindings. The node returned is the declaration of a bare
- * name and the element of a destructured one. Undefined for a global.
+ * imports; a `for` statement and a `catch` clause their own bindings; a named function expression its own name, which
+ * its parameters and its `var`s shadow. The node returned is the declaration of a bare name and the element of a
+ * destructured one. A name declared again in its scope is one binding: `var` declared twice (`var Mark; var Mark =
+ * QuotesIcon`), or a parameter's name declared again by `var`, reads its first declaration, and `all` gives every
+ * declaration of it. An overload's signature declares nothing, since only the implementation runs.
  */
-export function scopeResolver(sf: ts.SourceFile): (id: ts.Identifier) => ts.Node | undefined {
-  const declared = new Map<ts.Node, Map<string, ts.Node>>()
+export function scopeResolver(sf: ts.SourceFile): ScopeResolver {
+  const declared = new Map<ts.Node, Map<string, ts.Node[]>>()
   const declare = (scope: ts.Node | undefined, name: string, node: ts.Node) => {
     if (!scope) return
-    const names = declared.get(scope) ?? new Map<string, ts.Node>()
+    const names = declared.get(scope) ?? new Map<string, ts.Node[]>()
     declared.set(scope, names)
-    if (!names.has(name)) names.set(name, node)
+    names.set(name, [...(names.get(name) ?? []), node])
   }
+  // A named function expression's own name, read where nothing in the function declares it.
+  const ownName = new Map<ts.Node, string>()
   const functionScope = (n: ts.Node) => ts.isSourceFile(n) || ts.isFunctionLike(n) || ts.isModuleBlock(n)
   const blockScope = (n: ts.Node) =>
     functionScope(n) || ts.isBlock(n) || ts.isCaseBlock(n) || ts.isCatchClause(n) || ts.isForStatement(n) || ts.isForInStatement(n) || ts.isForOfStatement(n)
@@ -256,20 +271,57 @@ export function scopeResolver(sf: ts.SourceFile): (id: ts.Identifier) => ts.Node
       const blockScoped = ts.isVariableDeclarationList(list) && (list.flags & ts.NodeFlags.BlockScoped) !== 0
       bind(n.name, n, ts.isCatchClause(list) ? list : enclosing(n, blockScoped ? blockScope : functionScope))
     } else if (ts.isParameter(n)) bind(n.name, n, n.parent)
-    else if ((ts.isFunctionDeclaration(n) || ts.isClassDeclaration(n)) && n.name) declare(enclosing(n, blockScope), n.name.text, n)
-    else if (ts.isFunctionExpression(n) && n.name) declare(n, n.name.text, n)
+    else if (ts.isFunctionDeclaration(n) && n.name && n.body) declare(enclosing(n, blockScope), n.name.text, n)
+    else if (ts.isClassDeclaration(n) && n.name) declare(enclosing(n, blockScope), n.name.text, n)
+    else if (ts.isFunctionExpression(n) && n.name) ownName.set(n, n.name.text)
     else if (ts.isImportClause(n) && n.name) declare(sf, n.name.text, n)
     else if (ts.isImportSpecifier(n) || ts.isNamespaceImport(n)) declare(sf, n.name.text, n)
     ts.forEachChild(n, visit)
   }
   visit(sf)
-  return (id) => {
-    for (let n: ts.Node | undefined = id.parent; n; n = n.parent) {
+  const all = (id: ts.Identifier): ts.Node[] => {
+    // A function's own name is read from outside its parameters and body: an expression's is the function, and a
+    // declaration's is found from the scope that declares it.
+    const fn = id.parent
+    if (ts.isFunctionExpression(fn) && fn.name === id) return [fn]
+    const from = ts.isFunctionDeclaration(fn) && fn.name === id ? fn.parent : fn
+    for (let n: ts.Node | undefined = from; n; n = n.parent) {
       const found = declared.get(n)?.get(id.text)
       if (found) return found
+      if (ownName.get(n) === id.text) return [n]
     }
-    return undefined
+    return []
   }
+  return Object.assign((id: ts.Identifier) => all(id)[0], { all })
+}
+
+/**
+ * The name an expression is known by, through what renames it: an import under another name (`Children as Kids`) and a
+ * member destructured under another name (`const { Children: Kids } = React`) by the name they take, a same-file alias
+ * (`const h = createElement`, by any declaration of its binding) by its initializer's, a member by its own name.
+ * `global` is true only for a name nothing in the file declares (`Object`, `Array`).
+ */
+export function knownAsIn(declarationOf: ScopeResolver) {
+  const knownAs = (raw: ts.Expression, seen = new Set<ts.Node>()): { name: string; global: boolean } | undefined => {
+    const e = unwrapHeld(raw)
+    if (ts.isPropertyAccessExpression(e)) return { name: e.name.text, global: false }
+    if (!ts.isIdentifier(e)) return undefined
+    const declaration = declarationOf(e)
+    if (!declaration) return { name: e.text, global: true }
+    if (ts.isImportSpecifier(declaration)) return { name: (declaration.propertyName ?? declaration.name).text, global: false }
+    if (ts.isBindingElement(declaration) && ts.isObjectBindingPattern(declaration.parent)) {
+      const key = declaration.propertyName ?? declaration.name
+      if (ts.isIdentifier(key)) return { name: key.text, global: false }
+    }
+    for (const d of declarationOf.all(e)) {
+      if (!ts.isVariableDeclaration(d) || !d.initializer || seen.has(d)) continue
+      seen.add(d)
+      const aliased = knownAs(d.initializer, seen)
+      if (aliased) return aliased
+    }
+    return { name: e.text, global: false }
+  }
+  return knownAs
 }
 
 /** Array methods whose first argument is called with each element. */
@@ -304,28 +356,7 @@ export function heldValues<L>(
   const declarationOf = scopeResolver(sf)
   const isFn = (n: ts.Node | undefined): n is Fn =>
     !!n && (ts.isFunctionDeclaration(n) || ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isMethodDeclaration(n))
-  /** The name an expression is known by, through what renames it: an import under another name (`Children as Kids`)
-      and a member destructured under another name (`const { Children: Kids } = React`) by the name they take, a
-      same-file alias (`const h = createElement`) by its initializer's, a member by its own name. `global` is true only
-      for a name nothing in the file declares (`Object`, `Array`). */
-  const knownAs = (raw: ts.Expression, seen = new Set<ts.Node>()): { name: string; global: boolean } | undefined => {
-    const e = unwrapHeld(raw)
-    if (ts.isPropertyAccessExpression(e)) return { name: e.name.text, global: false }
-    if (!ts.isIdentifier(e)) return undefined
-    const declaration = declarationOf(e)
-    if (!declaration) return { name: e.text, global: true }
-    if (ts.isImportSpecifier(declaration)) return { name: (declaration.propertyName ?? declaration.name).text, global: false }
-    if (ts.isBindingElement(declaration) && ts.isObjectBindingPattern(declaration.parent)) {
-      const key = declaration.propertyName ?? declaration.name
-      if (ts.isIdentifier(key)) return { name: key.text, global: false }
-    }
-    if (ts.isVariableDeclaration(declaration) && declaration.initializer && !seen.has(declaration)) {
-      seen.add(declaration)
-      const aliased = knownAs(declaration.initializer, seen)
-      if (aliased) return aliased
-    }
-    return { name: e.text, global: false }
-  }
+  const knownAs = knownAsIn(declarationOf)
   /** A call's callee by the name it is known by (knownAs): `render` in `render()`, `map` in `MARKS.map()`,
       `createElement` in `React.createElement()` and in `h()` after `import { createElement as h }`. */
   const calleeName = (call: ts.CallExpression): string => knownAs(call.expression)?.name ?? ''
@@ -553,7 +584,8 @@ export function heldValues<L>(
       the rest: an array's elements from its place on (restOf), an object's properties the pattern does not name
       (othersOf; a key the scan cannot read names none). */
   const bindName = (name: ts.BindingName, value: Held<L>, node: ts.Node, record?: Set<ts.Node>): void => {
-    if (ts.isIdentifier(name)) return give(node, value)
+    // A name declared again in its scope (`var Mark; var Mark = QuotesIcon`) gives the binding its first declaration reads.
+    if (ts.isIdentifier(name)) return give(declarationOf(name) ?? node, value)
     const named = new Set<string>()
     name.elements.forEach((el, index) => {
       if (ts.isOmittedExpression(el)) return

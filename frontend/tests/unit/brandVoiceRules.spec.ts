@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { heldValues, leavesOf, scopeResolver } from './heldValues'
+import { heldValues, leavesOf, scopeResolver, type ScopeResolver } from './heldValues'
 import { isIconModule } from './iconModules'
 
 /**
@@ -358,27 +358,29 @@ const importsOf = (sf: ts.SourceFile) => {
   }
   return found
 }
-const resolvers = new WeakMap<ts.SourceFile, ReturnType<typeof scopeResolver>>()
-const declarationOf = (id: ts.Identifier) => {
+const resolvers = new WeakMap<ts.SourceFile, ScopeResolver>()
+const resolverOf = (id: ts.Identifier) => {
   const sf = id.getSourceFile()
   const resolve = resolvers.get(sf) ?? scopeResolver(sf)
   resolvers.set(sf, resolve)
-  return resolve(id)
+  return resolve
 }
-/** The names an expression naming a component may be: a same-file alias, resolved by scope, is every name its
-    initializer may be (`const Title = CardTitle`, `const Heading = big ? 'h2' : 'h3'`, a fallback's two sides); an
-    import renamed in the file is the name its module exports (`CardTitle as Title`), a namespace's member its member's
-    name (`UI.CardTitle`) and a string its tag. What the scan cannot read names nothing. */
+const declarationOf = (id: ts.Identifier) => resolverOf(id)(id)
+/** The names an expression naming a component may be: a same-file alias, resolved by scope, is every name the
+    initializers of its binding may be (`const Title = CardTitle`, `const Heading = big ? 'h2' : 'h3'`, a fallback's two
+    sides, each declaration of a name declared again: `var Title; var Title = CardTitle`); an import renamed in the file
+    is the name its module exports (`CardTitle as Title`), a namespace's member its member's name (`UI.CardTitle`) and a
+    string its tag. What the scan cannot read names nothing. */
 function namesOf(e: ts.Expression, seen: Set<ts.Node>): string[] {
   const x = unwrapHeld(e)
   if (ts.isIdentifier(x)) {
-    const declaration = declarationOf(x)
-    if (declaration && ts.isVariableDeclaration(declaration) && declaration.initializer && !seen.has(declaration)) {
+    const names: string[] = []
+    for (const declaration of resolverOf(x).all(x)) {
+      if (!ts.isVariableDeclaration(declaration) || !declaration.initializer || seen.has(declaration)) continue
       seen.add(declaration)
-      const names = namesOf(declaration.initializer, seen)
-      if (names.length) return names
+      names.push(...namesOf(declaration.initializer, seen))
     }
-    return [importsOf(x.getSourceFile()).renamed.get(x.text) ?? x.text]
+    return names.length ? names : [importsOf(x.getSourceFile()).renamed.get(x.text) ?? x.text]
   }
   if (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && importsOf(x.getSourceFile()).namespaces.has(x.expression.text)) return [x.name.text]
   if (ts.isStringLiteralLike(x)) return [x.text]
@@ -999,8 +1001,6 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '1 buzzword',
       '3 exclamation',
     ])
-    // Every way a name is given an icon (tests/unit/heldValues.ts; lessons/test-gates-must-be-as-wide-as-their-rule.md),
-    // one heading each: an assignment after the declaration (the review's case), a logical assignment, a destructuring
     // Context is read before a string's shape (the review's case: a string with no letter is copy where its context
     // says so): an emoji or an exclamation alone rendered as a child, given a copy attribute, as a createElement child,
     // as a replacement and as setAttribute's value (lines 1 to 5) is copy, and so is a phrase shaped like a class list
@@ -1026,6 +1026,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '5 exclamation',
       '10 buzzword',
     ])
+    // Every way a name is given an icon (tests/unit/heldValues.ts; lessons/test-gates-must-be-as-wide-as-their-rule.md),
+    // one heading each: an assignment after the declaration (the review's case), a logical assignment, a destructuring
     // assignment, a loop's variable, a parameter at a direct call, a component's prop, a callback handed to an array's
     // method and to a same-file function, a function's return, a property put in after the object is made; and placed in
     // a heading, React's createElement, Children.map over the children a component is given, and a conditional. A name
@@ -1033,7 +1035,11 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     // placed in, by JSX (the review's case) or createElement, once however it is given the icon (line 35); one that
     // draws only words (line 33) passes. A rest element takes the rest, an array's (line 37) and an object's (39), and a
     // rest parameter the arguments from its place on (40). A component wrapped by React's memo (the review's case, line
-    // 43) or forwardRef (45) is the component it wraps, and React's Children under another name is Children (47).
+    // 43) or forwardRef (45) is the component it wraps, and React's Children under another name is Children (47). A name
+    // declared again in its scope is one binding (the review's case): a `var` declared twice holds what either declaration
+    // gives it (50) and is called as what it aliases (52), and a label component held so is read by its alias (59); an
+    // overload's signature declares nothing, so the implementation renders (55); a named function expression's parameter
+    // shadows the function's own name (56).
     const family = [
       "import { BellIcon } from '@/lib/icons'",
       'let Mark; Mark = BellIcon',
@@ -1083,6 +1089,17 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       "import { Children as Kids } from 'react'",
       'function Listed({ children }) { return <h2>{Kids.map(children, (child) => child)}Alerts</h2> }',
       'export const X = () => <Listed><BellIcon /></Listed>',
+      'var Late; var Late = BellIcon',
+      'export const Y = () => <h2><Late />Alerts</h2>',
+      'var make; var make = createElement',
+      'export const Z = () => <h2>{make(BellIcon)}Alerts</h2>',
+      'function Drawn(): ReactNode',
+      'function Drawn() { return <BellIcon /> }',
+      'export const AA = () => <h2><Drawn />Alerts</h2>',
+      'const Own = function Glyph(Glyph) { return <h2><Glyph />Alerts</h2> }',
+      'export const AB = () => Own(BellIcon)',
+      'var Head2; var Head2 = CardTitle',
+      'export const AC = () => <Head2>Recent Filings</Head2>',
     ].join('\n')
     expect(voiceFindings(family, 'features/probe/Family.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '3 headingIcon',
@@ -1107,6 +1124,11 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '43 headingIcon',
       '45 headingIcon',
       '47 headingIcon',
+      '50 headingIcon',
+      '52 headingIcon',
+      '55 headingIcon',
+      '56 headingIcon',
+      '59 sentenceCase',
     ])
     // A namespace is a value like any other, every member of it an icon: assigned after its declaration (the review's
     // case), held by another name, and passed as a prop to a component that renders a member in its heading.
