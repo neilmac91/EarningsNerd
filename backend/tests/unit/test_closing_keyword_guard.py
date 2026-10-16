@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -77,6 +78,7 @@ def _refused(tool: str, tool_input: object, cwd: Path = ROOT, env: dict[str, str
 def bodies(tmp_path: Path) -> Path:
     (tmp_path / "msg.md").write_text("Squash of the series.\n\nFixes #3.\n", encoding="utf-8")
     (tmp_path / "my notes.md").write_text("Closes #3.\n", encoding="utf-8")
+    (tmp_path / "COMMIT_MSG.md").write_text("Fixes #3.\n", encoding="utf-8")  # capitals after an attached -F
     (tmp_path / "clean.md").write_text("Squash of the series; #3 carries the fix.\n", encoding="utf-8")
     (tmp_path / "body.json").write_text('{"merge_method": "squash", "commit_message": "resolves #3"}', encoding="utf-8")
     (tmp_path / "automerge.graphql").write_text(
@@ -86,6 +88,10 @@ def bodies(tmp_path: Path) -> Path:
     (tmp_path / "notes1.md").write_text("#3 carries the fix.\n", encoding="utf-8")  # what the glob matches
     (tmp_path / "odd[2].md").write_text("Fixes #3.\n", encoding="utf-8")  # a glob that matches nothing
     (tmp_path / "curl.cfg").write_text('data = "{\\"commit_message\\": \\"fixes #3\\"}"\n', encoding="utf-8")
+    (tmp_path / "merge.cfg").write_text(
+        'url = "https://api.github.com/repos/o/r/pulls/5/merge"\nrequest = "PUT"\n'
+        'data = "{\\"commit_message\\": \\"fixes #3\\"}"\n', encoding="utf-8")
+    (tmp_path / "urls.txt").write_text("https://api.github.com/repos/o/r/pulls/5/merge\n", encoding="utf-8")
     (tmp_path / "note.md").write_text("Try `gh pr merge 5 -s -b 'fixes #3'`: the hook refuses it.\n", encoding="utf-8")
     (tmp_path / "query.json").write_text(
         '{"query": "mutation { mergePullRequest(input: {pullRequestId: \\"X\\", commitHeadline: \\"fixes #3\\"}) '
@@ -107,6 +113,12 @@ MCP_REFUSED = {
     "a request whose query names a merge mutation": ("mcp__github__api_request", {
         "query": "mutation($input: MergePullRequestInput!) { mergePullRequest(input: $input) { clientMutationId } }",
         "variables": {"input": {"pullRequestId": "X", "commitHeadline": "fixes #3"}}}),
+    "a request tool's REST merge path": ("mcp__github__api_request", {
+        "method": "PUT", "path": "/repos/o/r/pulls/5/merge", "body": {"commit_message": "fixes #3"}}),
+    "a request tool's merges endpoint": ("mcp__github__api_request", {
+        "endpoint": "POST repos/o/r/merges", "body": {"base": "main", "head": "t", "commit_message": "fixes #3"}}),
+    "a request tool's GraphQL field": ("mcp__github__api_request", {
+        "graphql": '# merge\nmutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "fixes #3"}) { clientMutationId } }'}),
     "a GraphQL tool's document": ("mcp__github__graphql", {
         "document": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "fixes #3"}) { clientMutationId } }'}),
 }
@@ -126,6 +138,12 @@ MCP_PASSED = {
         "path": "t.py", "content": "mergePullRequest(commitHeadline: 'fixes #3')", "message": "test", "branch": "t"}),
     "a comment that names a merge mutation": ("mcp__github__add_issue_comment", {
         "issue_number": 5, "body": "A mergePullRequest with commitHeadline 'fixes #3' is refused."}),
+    "a file whose text holds a merge document": ("mcp__github__create_or_update_file", {
+        "path": "t.py", "branch": "t", "message": "test",
+        "content": 'CASE = "mutation { mergePullRequest(input: {commitHeadline: \\"fixes #3\\"}) { clientMutationId } }"'}),
+    "a comment that names a merge endpoint": ("mcp__github__add_issue_comment", {
+        "issue_number": 5, "body": "PUT /repos/o/r/pulls/5/merge with 'fixes #3' is refused."}),
+    "a search whose query names a merge mutation": ("mcp__github__search_code", {"query": "mergePullRequest fixes #3"}),
 }
 BASH_REFUSED = (
     "gh pr merge 5 --squash --body 'Closes #3'",
@@ -156,6 +174,12 @@ BASH_REFUSED = (
     "gh pr merge 5 -s --body-file=msg.md",
     "gh pr merge 5 -s -Fmsg.md",
     "gh pr merge 5 -sF msg.md",
+    "gh pr merge 5 -s -FCOMMIT_MSG.md",  # the option is the first F, T or K, not the last
+    "gh pr merge 5 -sFCOMMIT_MSG.md",
+    "gh pr merge 5 -s '-F' msg.md",  # an option quoted or escaped as a whole word
+    "gh pr merge 5 -s \"--body-file=msg.md\"",
+    "gh pr merge 5 -s -\\F msg.md",
+    "'cat' msg.md | gh pr merge 5 -s -F -",
     "gh pr merge 5 -s -d --body-file msg.md",  # -d is --delete-branch, never the value of the next option
     "gh pr merge 5 -s -d -F msg.md",
     "gh pr merge 5 -s -F - < msg.md",
@@ -186,6 +210,8 @@ BASH_REFUSED = (
     "gh api -X PUT repos/o/r/pulls/5/merge --field commit_message=@msg.md",
     "gh api -X PUT repos/o/r/pulls/5/merge --input body.json",
     "gh api -X PUT repos/o/r/pulls/5/merge --input=body.json",
+    "gh api -X PUT repos/o/r/pulls/5/merge '--input' body.json",
+    "curl -X PUT \"-d@body.json\" https://api.github.com/repos/o/r/pulls/5/merge",
     "gh api -X PUT repos/o/r/pulls/5/merge --input - < body.json",
     "curl -X PUT -d @body.json https://api.github.com/repos/o/r/pulls/5/merge",
     "curl -X PUT -d@body.json https://api.github.com/repos/o/r/pulls/5/merge",
@@ -235,7 +261,8 @@ BASH_PASSED = (
 # The stated gaps, one per form the hook's docstring names: text the shell or a command builds as the line
 # runs (a variable, an ANSI-C escape, any command's output but a plain cat's, a line handed to another shell
 # that way), a file named relative to a directory the line changes into, a script, a gh alias, a server named
-# otherwise. A file over 1 MiB and a glob's files past its first 16 have tests of their own.
+# otherwise, a merge whose URL sits in a file a command reads as its configuration. A file over 1 MiB and a
+# glob's files past its first 16 have tests of their own.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b $'fixes \\x233'"}),
@@ -245,6 +272,8 @@ GAPS = (
     ("Bash", {"command": "cd .. && gh pr merge 5 -s -F {here}/msg.md"}),  # {here}: the body files' directory
     ("Bash", {"command": "./merge.sh 5"}),
     ("Bash", {"command": "gh m 5 -s -b 'fixes #3'"}),  # `gh alias set m 'pr merge'`
+    ("Bash", {"command": "curl -K merge.cfg"}),
+    ("Bash", {"command": "wget -i urls.txt --method=PUT --body-file=body.json"}),
     ("mcp__gh__merge_pull_request", {"commit_message": "fixes #3"}),
 )
 
@@ -296,7 +325,7 @@ def test_a_monitor_runs_its_command_through_the_shell_as_bash_does(bodies: Path)
     assert _decision("Monitor", {**monitor, "command": "gh pr merge 5 -s"}, cwd=bodies) is None
 
 
-def test_a_glob_is_read_to_its_first_16_files_in_the_shells_order(bodies: Path) -> None:
+def test_a_glob_is_read_to_its_first_16_files_in_the_c_locales_order(bodies: Path) -> None:
     for number in range(40):
         (bodies / f"part{number}.md").write_text(f"Fixes #{100 + number}.\n", encoding="utf-8")
     reason = _refused("Bash", {"command": "gh pr merge 5 -s -F part*.md"}, cwd=bodies)
@@ -313,6 +342,13 @@ def test_a_glob_under_a_directory_whose_name_has_glob_characters_is_read(bodies:
 
 def test_a_body_file_under_home_is_read(bodies: Path) -> None:
     _refused("Bash", {"command": "gh pr merge 5 -s --body-file ~/msg.md"}, env={"HOME": str(bodies)})
+
+
+def test_a_file_just_under_the_cap_is_read_to_its_end(bodies: Path) -> None:
+    tail = "\nFixes #3.\n"
+    (bodies / "long.md").write_text("x" * ((1 << 20) - len(tail)) + tail, encoding="utf-8")
+    assert (bodies / "long.md").stat().st_size == 1 << 20
+    _refused("Bash", {"command": "gh pr merge 5 -s -F long.md"}, cwd=bodies)
 
 
 def test_a_file_over_the_cap_and_a_pipe_are_not_read(bodies: Path) -> None:
@@ -345,3 +381,9 @@ def test_a_hook_that_cannot_run_is_a_hook_error_never_a_refusal(tmp_path: Path) 
 
 def test_the_hook_is_registered_before_bash_and_every_github_tool() -> None:
     assert _registered() == [{"matcher": MATCHER, "hooks": [{"type": "command", "command": COMMAND, "timeout": 10}]}]
+    # Claude Code tests a matcher holding regex characters as an unanchored regular expression, as re.search
+    # does: it reaches every tool the cases above send, and no tool that runs nothing.
+    matcher = re.compile(MATCHER)
+    reached = {"Bash", "Monitor", *(tool for tool, _ in [*MCP_REFUSED.values(), *MCP_PASSED.values()])}
+    assert sorted(tool for tool in reached if not matcher.search(tool)) == []
+    assert [tool for tool in ("Edit", "Write", "Read", "BashOutput", "mcp__Claude_Docs__update") if matcher.search(tool)] == []
