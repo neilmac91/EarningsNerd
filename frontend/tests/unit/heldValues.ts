@@ -8,7 +8,8 @@ import ts from 'typescript'
  *
  * A value is the leaves it may be (the gate says what a leaf is: an icon's import, a glyph's root), each with how
  * many times it renders; for an object or an array, what each property or element holds; and the same-file functions
- * it may be. Counts add where a value renders its parts together (an element's tag and children:
+ * it may be. A leaf may have members (a namespace import: the gate's `memberLeaf` names the leaf its member is by key),
+ * so a namespace held by another name, assigned, destructured or passed on is followed like any other value. Counts add where a value renders its parts together (an element's tag and children:
  * `<><QuotesIcon /><QuotesIcon /></>` renders the glyph twice) and take the larger where it renders one or the other (a
  * conditional's arms, `||`, `??`, a member read by a key the scan cannot read, the values one name is given in turn).
  *
@@ -122,10 +123,10 @@ const REST = '…'
 /** The key a property is written under when the scan cannot read the key (`BOX[key] = …`): any read may reach it. */
 const ANY = '*'
 
-/** A member of a value by its key: undefined for a key the scan cannot read, which may be any property; a literal index
+/** A property of a value by its key: undefined for a key the scan cannot read, which may be any property; a literal index
     an array's known elements do not reach may read any element past them; a property written under a key the scan
     cannot read may be any member. */
-function memberOf<L>(base: Held<L>, key: string | undefined): Held<L> {
+function propertyOf<L>(base: Held<L>, key: string | undefined): Held<L> {
   if (!base.props) return empty()
   if (key === undefined) return [...base.props.values()].reduce(union, empty<L>())
   const rest = () => [...base.props!].filter(([k]) => k.startsWith(REST)).map(([, v]) => v).reduce(union, empty<L>())
@@ -133,8 +134,6 @@ function memberOf<L>(base: Held<L>, key: string | undefined): Held<L> {
   const any = base.props.get(ANY)
   return any ? union(named, any) : named
 }
-/** Any element of an array, or any property of an object. */
-const elementOf = <L>(value: Held<L>): Held<L> => memberOf(value, undefined)
 /** An array whose elements the scan cannot place: each may be this. */
 const arrayOf = <L>(element: Held<L>): Held<L> => (vacant(element) ? empty<L>() : withProps([[`${REST}0`, element]]))
 
@@ -249,9 +248,24 @@ const ARRAY_RESULTS = new Set(['filter', 'slice', 'splice', 'toSpliced', 'concat
  * The values of one source. `leafOf` names the leaves an expression is by itself (an import of an icon, a
  * namespace's member), or returns undefined.
  */
-export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L[] | undefined): HeldValues<L> {
+export function heldValues<L>(
+  sf: ts.SourceFile,
+  leafOf: (e: ts.Expression) => L[] | undefined,
+  memberLeaf?: (leaf: L, key: string | undefined, node: ts.Node) => L[] | undefined,
+): HeldValues<L> {
   // Keyed by the declaration (scopeResolver), never by the bare name.
   const holders = new Map<ts.Node, Held<L>>()
+  /** A member of a value by its key: its property, and what a leaf with members is under the key (a namespace's
+      member, by `memberLeaf`, placed at `node`, the read or the binding that takes it). */
+  const memberOf = (base: Held<L>, key: string | undefined, node: ts.Node = sf): Held<L> => {
+    const value = propertyOf(base, key)
+    if (!memberLeaf || base.leaves.size === 0) return value
+    const leaves = new Map<L, number>()
+    for (const leaf of base.leaves.keys()) for (const own of memberLeaf(leaf, key, node) ?? []) leaves.set(own, (leaves.get(own) ?? 0) + 1)
+    return leaves.size ? union(value, { leaves, props: null, fns: null }) : value
+  }
+  /** Any element of an array, any property of an object, or any member of a leaf with members. */
+  const elementOf = (value: Held<L>): Held<L> => memberOf(value, undefined)
   const declarationOf = scopeResolver(sf)
   const isFn = (n: ts.Node | undefined): n is Fn =>
     !!n && (ts.isFunctionDeclaration(n) || ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isMethodDeclaration(n))
@@ -335,9 +349,7 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
     if (ts.isArrowFunction(x) || ts.isFunctionExpression(x)) return fnValue(x)
     if (ts.isAwaitExpression(x)) return valueOf(x.expression, record)
     if (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
-      const base = valueOf(x.expression)
-      if (!base.props) return empty()
-      const value = memberOf(base, memberKey(x))
+      const value = memberOf(valueOf(x.expression), memberKey(x), x)
       if (leavesOf(value).size > 0) record?.add(x)
       return value
     }
@@ -462,7 +474,7 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       if (name === 'get' && args.length === 1) {
         const base = valueOf(recv)
         if (base.props) {
-          const value = memberOf(base, literalKey(args[0]))
+          const value = memberOf(base, literalKey(args[0]), x)
           if (leavesOf(value).size > 0) record?.add(x)
           return value
         }
@@ -487,7 +499,7 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       if (ts.isOmittedExpression(el) || el.dotDotDotToken) return
       const key = ts.isArrayBindingPattern(name) ? String(index) : propertyKey(el.propertyName ?? el.name)
       if (key === undefined) return
-      const member = memberOf(value, key)
+      const member = memberOf(value, key, el)
       bindName(el.name, el.initializer ? union(member, valueOf(el.initializer, record)) : member, el, record)
     })
   }
@@ -514,10 +526,10 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
           const key = propertyKey(p.name)
           if (key === undefined) continue
           const [inner, fallback] = defaulted(p.initializer)
-          const member = memberOf(value, key)
+          const member = memberOf(value, key, p)
           assign(inner, fallback ? union(member, valueOf(fallback, record)) : member, record)
         } else if (ts.isShorthandPropertyAssignment(p)) {
-          const member = memberOf(value, p.name.text)
+          const member = memberOf(value, p.name.text, p)
           assign(p.name, p.objectAssignmentInitializer ? union(member, valueOf(p.objectAssignmentInitializer, record)) : member, record)
         }
       }
@@ -527,7 +539,7 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       t.elements.forEach((el, index) => {
         if (ts.isOmittedExpression(el) || ts.isSpreadElement(el)) return
         const [inner, fallback] = defaulted(el)
-        const member = memberOf(value, String(index))
+        const member = memberOf(value, String(index), el)
         assign(inner, fallback ? union(member, valueOf(fallback, record)) : member, record)
       })
     }

@@ -512,29 +512,18 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
   }
   const isIconName = declaredIn(iconDeclarations)
   const isIconNamespace = declaredIn(namespaceDeclarations)
-  // A member destructured from an icon namespace (`const { Bell: Mark } = Ph`) is an icon by its import too.
-  const destructured = (n: ts.Node): void => {
-    if (ts.isVariableDeclaration(n) && ts.isObjectBindingPattern(n.name) && n.initializer) {
-      const from = unwrapHeld(n.initializer)
-      if (ts.isIdentifier(from) && isIconNamespace(from)) {
-        for (const el of n.name.elements) if (ts.isIdentifier(el.name)) iconDeclarations.add(el)
-      }
-    }
-    ts.forEachChild(n, destructured)
+  // An icon by itself: a name bound to an icon import, or a name ending in Icon (a hand-drawn component named for its
+  // icon), or a namespace's member so named; a namespace import is the namespace, every member of which is an icon, so a
+  // namespace held by another name, assigned, destructured (`const { Bell: Mark } = Ph`) or passed on is followed by the
+  // reading the glyph gate shares (tests/unit/heldValues.ts): an alias, a conditional, an element (`const mark =
+  // <BellIcon />`), an object's property, a spread or a nested member of one, each read by name to a fixed point, and
+  // every other way a name is given a value.
+  const iconLeaf = (x: ts.Expression): Array<'icon' | 'namespace'> | undefined => {
+    if (ts.isIdentifier(x)) return isIconName(x) || /Icon$/.test(x.text) ? ['icon'] : isIconNamespace(x) ? ['namespace'] : undefined
+    return ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && /Icon$/.test(x.name.text) ? ['icon'] : undefined
   }
-  destructured(sf)
-  // An icon by itself: a name bound to an icon import, a namespace's member, or a name ending in Icon (a hand-drawn
-  // component named for its icon).
-  const iconLeaf = (x: ts.Expression): Array<'icon'> | undefined =>
-    (ts.isIdentifier(x) && (isIconName(x) || /Icon$/.test(x.text)))
-    || (ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && (isIconNamespace(x.expression) || /Icon$/.test(x.name.text)))
-      ? ['icon']
-      : undefined
-  // What each same-file binding holds, by the reading the glyph gate shares (tests/unit/heldValues.ts): an alias, a
-  // conditional, an element (`const mark = <BellIcon />`), an object's property, a spread or a nested member of one,
-  // a member destructured from one, each read by name to a fixed point.
-  const values = heldValues(sf, iconLeaf)
-  const holdsIcon = (e: ts.Expression) => leavesOf(values.valueOf(e)).size > 0
+  const values = heldValues(sf, iconLeaf, (leaf) => (leaf === 'namespace' ? ['icon'] : undefined))
+  const holdsIcon = (e: ts.Expression) => leavesOf(values.valueOf(e)).has('icon')
   const isIconTag = (n: ts.JsxOpeningLikeElement): boolean => {
     const name = n.tagName
     if (ts.isIdentifier(name) || ts.isPropertyAccessExpression(name)) return holdsIcon(name)
@@ -566,7 +555,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
           // A same-file component that renders an icon (`<AlertMark />` where AlertMark returns `<BellIcon />`) puts it in
           // the heading: one finding for the element, whatever it is given.
           const element = ts.isJsxElement(n) ? n.openingElement : ts.isJsxSelfClosingElement(n) ? n : undefined
-          if (element && leavesOf(values.renderOf(element)).size > 0) {
+          if (element && leavesOf(values.renderOf(element)).has('icon')) {
             icons.push(element)
             return
           }
@@ -1032,6 +1021,22 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '30 headingIcon',
       '31 headingIcon',
       '35 headingIcon',
+    ])
+    // A namespace is a value like any other, every member of it an icon: assigned after its declaration (the review's
+    // case), held by another name, and passed as a prop to a component that renders a member in its heading.
+    const namespaced = [
+      "import * as Ph from '@phosphor-icons/react'",
+      'let NS; NS = Ph',
+      'export const A = () => <h2><NS.Bell />Alerts</h2>',
+      'const Alias = Ph',
+      'export const B = () => <h2><Alias.Bell />Alerts</h2>',
+      'function Head({ set }) { return <h2><set.Bell />Alerts</h2> }',
+      'export const C = () => <Head set={Ph} />',
+    ].join('\n')
+    expect(voiceFindings(namespaced, 'features/probe/Namespaced.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '3 headingIcon',
+      '5 headingIcon',
+      '6 headingIcon',
     ])
     // Out of reach, planted as the gaps the header names (each passes): an icon held in React state, a class's field
     // read through `this`, a promise's then, a generator's yield, and an imported component that renders its prop in a

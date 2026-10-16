@@ -128,15 +128,12 @@ export function glyphUses(source: string, fileName: string): Counts {
   const bump = (glyph: Glyph, n = 1) => {
     counts[glyph] = (counts[glyph] ?? 0) + n
   }
-  // By declaration (heldValues.ts's scopeResolver): an import or a destructured member to its name and glyph, and the
-  // namespace imports and their aliases.
+  // By declaration (heldValues.ts's scopeResolver): a named import of a glyph to its name and glyph, and the namespace
+  // imports of the icon modules, whose members the shared model follows like any other value (a namespace held by
+  // another name, assigned, destructured or passed on).
   const declarationOf = scopeResolver(sf)
   const local = new Map<ts.Node, [string, Glyph]>()
   const namespaces = new Set<ts.Node>()
-  const isNamespace = (id: ts.Identifier) => {
-    const declaration = declarationOf(id)
-    return !!declaration && namespaces.has(declaration)
-  }
   for (const stmt of sf.statements) {
     if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier) || !isIconModule(stmt.moduleSpecifier.text, fileName)) continue
     const bindings = stmt.importClause?.namedBindings
@@ -149,32 +146,6 @@ export function glyphUses(source: string, fileName: string): Counts {
     // A namespace import (`import * as Icons from '@/lib/icons'`) draws a glyph through its members.
     if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings)
   }
-  const unwrapHeld = (e: ts.Expression): ts.Expression =>
-    ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isNonNullExpression(e) ? unwrapHeld(e.expression) : e
-  // A namespace held by another name (`const Glyphs = Icons`, a chain of them) is that namespace.
-  for (let before = -1; before !== namespaces.size;) {
-    before = namespaces.size
-    const alias = (node: ts.Node): void => {
-      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-        const value = unwrapHeld(node.initializer)
-        if (ts.isIdentifier(value) && isNamespace(value)) namespaces.add(node)
-      }
-      ts.forEachChild(node, alias)
-    }
-    alias(sf)
-  }
-  // A member destructured from a namespace (`const { SparkleIcon: Spark } = Icons`) is a local name for its glyph.
-  const destructure = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && ts.isIdentifier(node.initializer) && isNamespace(node.initializer)) {
-      for (const el of node.name.elements) {
-        const key = el.propertyName ?? el.name
-        const glyph = ts.isIdentifier(key) || ts.isStringLiteral(key) ? GLYPH_NAMES.get(key.text) : undefined
-        if (glyph && ts.isIdentifier(el.name)) local.set(el, [el.name.text, glyph])
-      }
-    }
-    ts.forEachChild(node, destructure)
-  }
-  destructure(sf)
   // Hand-drawn stand-ins: a function or const named for a glyph whose body draws an <svg>.
   const drawn = new Map<ts.Node, [string, Glyph]>()
   const drawsSvg = (node: ts.Node) => {
@@ -205,34 +176,39 @@ export function glyphUses(source: string, fileName: string): Counts {
     if ((ts.isPropertyAccessExpression(p) || ts.isPropertyAssignment(p) || ts.isQualifiedName(p)) && (ts.isQualifiedName(p) ? p.right : p.name) === n) return false
     return true
   }
-  // Where a glyph comes from, its root: a name an import or a destructuring binds (`n:`), a hand-drawn stand-in
-  // (`d:`), or one namespace member in the source (`m:` and its place). A root counts each read that reaches it,
-  // and once when nothing does (a bare import, a holder nobody reads).
+  // Where a glyph comes from, its root, keyed by its declaration or its place so that two bindings of one name stay
+  // apart: an import's (`n:`), a hand-drawn stand-in's (`d:`), or a namespace's member where it is read or destructured
+  // (`m:`). A root counts each read that reaches it, and once when nothing does (a bare import, a holder nobody reads).
   type Root = string
+  const NAMESPACE: Root = 'ns'
   const glyphOf = new Map<Root, Glyph>()
-  for (const [name, glyph] of local.values()) glyphOf.set(`n:${name}`, glyph)
-  for (const [name, glyph] of drawn.values()) glyphOf.set(`d:${name}`, glyph)
-  /** The roots an expression is by itself: an import's or a stand-in's name, or a namespace's member by name or
-      literal key (`Icons.SparkleIcon`, `Icons['QuotesIcon']`). */
+  const rootAt = (prefix: string, node: ts.Node, glyph: Glyph): Root => {
+    const root = `${prefix}:${node.getStart(sf)}`
+    glyphOf.set(root, glyph)
+    return root
+  }
+  for (const [declaration, [, glyph]] of local) rootAt('n', declaration, glyph)
+  for (const [declaration, [, glyph]] of drawn) rootAt('d', declaration, glyph)
+  /** The roots a name is by itself, by its declaration: an import's or a stand-in's; a namespace import is the
+      namespace, a leaf whose members are glyphs (memberRoots). */
   const rootsOf = (x: ts.Expression): Root[] | undefined => {
-    if (ts.isIdentifier(x)) {
-      const declaration = declarationOf(x)
-      const imported = declaration && local.get(declaration)
-      if (imported) return [`n:${imported[0]}`]
-      const stand = declaration && drawn.get(declaration)
-      return stand ? [`d:${stand[0]}`] : undefined
-    }
-    if ((ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) && ts.isIdentifier(x.expression) && isNamespace(x.expression)) {
-      const key = memberKey(x)
-      const glyph = key === undefined ? undefined : GLYPH_NAMES.get(key)
-      if (!glyph) return undefined
-      glyphOf.set(`m:${x.getStart(sf)}`, glyph)
-      return [`m:${x.getStart(sf)}`]
-    }
-    return undefined
+    if (!ts.isIdentifier(x)) return undefined
+    const declaration = declarationOf(x)
+    if (!declaration) return undefined
+    const imported = local.get(declaration)
+    if (imported) return [rootAt('n', declaration, imported[1])]
+    if (namespaces.has(declaration)) return [NAMESPACE]
+    const stand = drawn.get(declaration)
+    return stand ? [rootAt('d', declaration, stand[1])] : undefined
+  }
+  /** A namespace's member by name or literal key (`Icons.SparkleIcon`, `Icons['QuotesIcon']`, `const { QuotesIcon: Q }
+      = Icons`) is its glyph, a root at the read or the binding; one read by a key the scan cannot read is none. */
+  const memberRoots = (leaf: Root, key: string | undefined, node: ts.Node): Root[] | undefined => {
+    const glyph = leaf === NAMESPACE && key !== undefined ? GLYPH_NAMES.get(key) : undefined
+    return glyph ? [rootAt('m', node, glyph)] : undefined
   }
   // What each same-file binding holds, by the reading the heading-icon clause shares (tests/unit/heldValues.ts).
-  const values = heldValues(sf, rootsOf)
+  const values = heldValues(sf, rootsOf, memberRoots)
   // Each read of a root, of a holder or of a holder's member. A hold counts where its holder is read, and a closing
   // tag repeats its opening tag's name: one use.
   const uses = new Map<Root, number>()
@@ -511,6 +487,20 @@ describe('reserved glyphs keep their one meaning', () => {
       given(['function Inner() { return <QuotesIcon /> }', 'function Outer() { return <><Inner /><Inner /></> }', 'export const W = () => <><Outer /><Outer /></>']),
     ).toEqual({ QuotesIcon: 4 })
     expect(given(['export function PassageMark() { return <QuotesIcon /> }'])).toEqual({ QuotesIcon: 1 })
+    // A namespace is a value like any other (the review's case: assigned after its declaration, two reads are two uses),
+    // passed as a prop to a component rendered twice; and each root is its own declaration's, so two functions' `Mark`,
+    // each destructured from the namespace, keep their own glyphs (the review's case).
+    const namespaced = (lines: string[], file: string) => glyphUses(["import * as Icons from '@/lib/icons'", ...lines].join('\n'), `features/zzprobe/${file}.tsx`)
+    expect(namespaced(['let Marks; Marks = Icons', 'export const X = () => <><Marks.QuotesIcon /><Marks.QuotesIcon /></>'], 'Assigned')).toEqual({ QuotesIcon: 2 })
+    expect(namespaced(['function Show({ set }) { return <set.SparkleIcon /> }', 'export const Y = () => <><Show set={Icons} /><Show set={Icons} /></>'], 'Prop')).toEqual({
+      SparkleIcon: 2,
+    })
+    expect(
+      namespaced(
+        ['export function P() { const { QuotesIcon: Mark } = Icons; return <Mark /> }', 'export function Q() { const { SparkleIcon: Mark } = Icons; return <><Mark /><Mark /></> }'],
+        'TwoMarks',
+      ),
+    ).toEqual({ QuotesIcon: 1, SparkleIcon: 2 })
     // Out of reach, planted as the gaps the header names: a glyph held in React state, a class's field read through
     // `this`, a promise's then and a generator's yield each count once where they are written, though each renders it
     // twice; and a glyph an app module exports is not known for one.
