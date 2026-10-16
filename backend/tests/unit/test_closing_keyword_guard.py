@@ -510,8 +510,9 @@ ADVERSARIAL = {
     "multi-line quotes": MERGE_LINE + " '\n" * 300_000,
     "words with spaces": MERGE_LINE + " 'a b'" * 200_000,
     "words that are merge lines": MERGE_LINE + " 'gh pr merge -t x'" * 50_000,
-    # 16 titles by 16 here-documents of nearly 1 MB each: only each title's end and each message's start are joined.
-    "titles and here-documents": MERGE_LINE + "".join(f" -t t{n} <<w{n}\n" for n in range(16)) + "x\n" * 480_000,
+    # 16 titles by 16 here-documents of nearly 1 MB each, in HTML entities review-gate decodes: only each title's
+    # end and each message's start are joined (all of each took over 30 s).
+    "titles and here-documents": MERGE_LINE + "".join(f" -t t{n} <<w{n}\n" for n in range(16)) + "&lt;\n" * 190_000,
     "JSON words": MERGE_LINE + " {x}" * 250_000,
     "commit strings": MERGE_LINE + ' commitBody: "x"' * 60_000,
     "fields": MERGE_LINE + "".join(f" -f commit_title=t{n} -f commit_message=@m{n}" for n in range(30_000)),
