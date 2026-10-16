@@ -569,6 +569,57 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
                  it renders on FeedbackRow's grounds).
 
+Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
+                 TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
+                 containing block of what the rows position absolutely, their `sr-only` labels included, which were
+                 laid out against the page, outside the box's clip (FeedbackRow's took the page to 1090px at 390).
+                 While the table is wider than the box, "Scroll horizontally to read all columns." sits above it and
+                 the box is a named region in the Tab order ("Scrollable table: <the card's title>", the brand ring),
+                 through useOverflowRegion, as in SummaryBlocks' GenericTable. FeedbackRow's message column takes the
+                 width the others leave (`w-full` on its cell; the button's intrinsic width contained, with a 16rem
+                 floor), so the status select keeps its own at 1440. The reporter's address is never cut: it keeps
+                 its own width up to 14rem and wraps inside that past it (`w-max max-w-[14rem]` and
+                 `[overflow-wrap:anywhere]` on a block in the From cell; the message column holds the other columns at
+                 their narrowest, so wrapping the cell itself broke a short address every few letters), and the table
+                 keeps to its box at 1440 with a 50-character address (a nowrap cell took it to 1264px in 1214px).
+                 Gates: tests/unit/admin-invites-page.spec.tsx and tests/unit/admin-feedback-page.spec.tsx (the box,
+                 the cue while the table fits and while it overflows, the message column, the From cell) and
+                 tests/e2e/admin-invite-chip-reflow.spec.ts (at 1440 the table inside its box with a 50-character
+                 address shown whole, a short one and "Anonymous" on one line each). The section nav
+                 (app/admin/layout.tsx) wraps its tabs (`flex-wrap`):
+                 an unwrapped row took the page to 443px at 390 under 200% text. Gate:
+                 tests/unit/admin-layout.spec.tsx. Each card header's filter row is a `min-w-0` flex item that wraps
+                 its fields: a row that could not shrink took /admin/feedback to 336px at 320 under 200% text (its
+                 255px status select in a 158px header). A select capped at the card there clips its closed face, as
+                 the metric pickers' does (E34), and its open list shows every option whole. Gates:
+                 tests/unit/admin-feedback-page.spec.tsx (the class) and tests/e2e/admin-invite-chip-reflow.spec.ts
+                 (the page at 320px, at the default size and under a 200% root). An email chip (EmailChipsInput)
+                 puts its address and the "already invited" marker in one `min-w-0` wrapping group: when they do not
+                 fit on a line the marker goes under the address, which truncates, and the remove button stays the
+                 chip's last child, inside the card (a marker that could not shrink squeezed the address out at 200%
+                 text and pushed the button past the card). Its 16px radius (`rounded-xl`) is a pill on one line and
+                 a rounded box once it wraps, as SourceTrace's chip. The chip row is an inline-size query container,
+                 and below 8em of its own text size (`[@container(width<8em)]:`) that group is too narrow for
+                 "· already" (the dot is held to its word by a no-break space), so the group dissolves (`contents`),
+                 the chip wraps with no row gap and the address takes the first line whole (`order-first
+                 basis-full`), wrapping anywhere (`whitespace-normal [overflow-wrap:anywhere]`) instead of
+                 truncating: beside the remove button it kept 52px at 320px under 200% text ("al…", "bo…", a bare
+                 "n" for an invalid address), too little to tell the chips apart. The marker, the invalid glyph and
+                 the remove button follow on the lines under it. The marker is `flex-1`, so it wraps "invited" under
+                 "· already" to give the button its line wherever both fit (390px under 200% text; at 320px the
+                 button takes the line under the marker), and it never paints over the button (at 320px under 200%
+                 text it once ran across it). The button keeps its 48px and its ring and ends the chip on whatever
+                 line it lands (`ml-auto`), as it does above 8em. An invited chip needs about 9.6em on one line, so
+                 the narrow state never splits a chip that fits; at the default size it starts at a 128px row, so a
+                 chip that fits keeps the one-line pill from 320 up (a short address at 320, whose row is 14.9em, and
+                 alice@example.com at 390 and 1440). Reading and Tab order stay address, marker, button. The em is
+                 the text's actual size however it is enlarged (a media query's rem is only the browser's text
+                 setting), as in the Analysis KPI strip. Gates: tests/unit/admin-invites-page.spec.tsx (the classes)
+                 and tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and 1440px, at the
+                 default size and under a 200% root, in both themes, every address whole and every remove button
+                 ending its chip at 320 and 390px under 200%, a short chip on one line at 320px at the default size,
+                 and at every 10px from 320 to 480px under 200%).
+
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
@@ -1086,6 +1137,10 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
   cards 16 (`rounded-xl`). Config `md` (10px) is legacy off-scale — don't use in new code.
+  Chips are full while they keep to one line (Badge); a chip whose label can wrap takes 16
+  (`rounded-xl`) instead, a pill on one line and a rounded box once it wraps, since a 9999px radius
+  turns a wrapped chip into a capsule whose curve crosses its text (SourceTrace's provenance chip, the
+  admin email chip in EmailChipsInput).
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
