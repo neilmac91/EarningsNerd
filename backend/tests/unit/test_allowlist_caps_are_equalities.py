@@ -11,9 +11,13 @@ The scan reads every Python file git tracks under backend/tests through ``ast`` 
 compares ``len(...)`` with a named constant (CONSTANT_CASE, or one attribute of one) by ``<=``, or the mirrored
 ``CAP >= len(...)``, chained comparisons included. A literal bound, a lower-case name and the strict ``<`` are
 not read as a cap, and neither is a comparison inside ``all(...)`` or any other expression that is not the
-assert's own test; this docstring says so rather than claiming more. CEILINGS names each site that bounds a
-value rather than a list's size, by file with its count and why. Shrink-only: its total equals CEILINGS_MAX,
-lowered in the same commit as a line, and a line whose sites left fails.
+assert's own test. Also out of reach, so review holds them: a bound reached through a lower-case name or an
+expression (``module.CAP``, ``settings.CAP``, ``self.CAP``, ``CAPS["x"]``, ``max(CAP, 0)``); a strict or negated
+form that says the same as a ceiling (``len(x) < CAP + 1``, ``CAP > len(x) - 1``, ``not len(x) > CAP``) or an
+``and`` of comparisons; a count that is not ``len(...)`` (``sum(...)``, a walrus); and a check that is not an
+``assert`` (``pytest.fail``, ``assertLessEqual``). This docstring says so rather than claiming more. CEILINGS
+names each site that bounds a value rather than a list's size, by file with its count and why. Shrink-only: its
+total equals CEILINGS_MAX, lowered in the same commit as a line, and a line whose sites left fails.
 """
 
 from __future__ import annotations
@@ -115,4 +119,8 @@ def test_every_list_cap_in_the_backend_tests_is_an_equality():
     assert found == {path: count for path, (count, _why) in CEILINGS.items()}, (
         f"CEILINGS no longer matches the tree; move each line with its sites: {found}"
     )
-    assert sum(count for count, _why in CEILINGS.values()) == CEILINGS_MAX
+    listed = sum(count for count, _why in CEILINGS.values())
+    assert listed == CEILINGS_MAX, (
+        f"CEILINGS lists {listed} sites and CEILINGS_MAX is {CEILINGS_MAX}: "
+        "move the cap with the line, in the same commit"
+    )
