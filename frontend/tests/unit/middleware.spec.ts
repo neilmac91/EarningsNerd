@@ -95,3 +95,16 @@ describe('waitlist gate (WAITLIST_MODE=true, the rollback state)', () => {
     }
   })
 })
+
+// The referral link the backend writes (/waitlist?ref=CODE, waitlist_service.build_referral_link)
+// must be served with its query in both modes: with WAITLIST_MODE on, /waitlist is in ALLOWED_PATHS;
+// with it off (production), every path passes. A redirect here would send a referred visitor to a
+// page that reads no ?ref=, and the referrer would be credited for nobody.
+describe('the waitlist referral link passes the waitlist gate in both modes', () => {
+  it.each(['false', 'true'])('WAITLIST_MODE=%s serves /waitlist?ref=abc12345 with its query', (mode) => {
+    process.env.WAITLIST_MODE = mode
+    const res = middleware(reqFor('/waitlist?ref=abc12345'))
+    expect(res.headers.get('location')).toBeNull()
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull()
+  })
+})
