@@ -44,6 +44,18 @@ def test_target_and_engine_guards_reject_existing_remote_and_aliases(tmp_path):
     boot.verify_engine(SimpleNamespace(url=make_url("sqlite:///" + str(target))), target)
 
 
+def test_source_preparation_keeps_both_edgartools_directories_beside_its_evidence(tmp_path):
+    """EdgarTools' data and anchor caches go to the output folder, never the home directory (E25)."""
+    script = ("import json, os, sys; from pathlib import Path; from evals import copilot_bootstrap as b; "
+              "b.configure_environment(Path(sys.argv[1]), Path(sys.argv[2])); "
+              "print(json.dumps({k: os.environ[k] for k in ('EDGAR_LOCAL_DATA_DIR', 'EDGAR_CACHE_DIR')}))")
+    out = tmp_path / "evidence"
+    result = subprocess.run([sys.executable, "-c", script, str(tmp_path / "prep.db"), str(out)],
+                            capture_output=True, text=True, check=True, cwd=Path(__file__).resolve().parents[2])
+    assert json.loads(result.stdout) == {"EDGAR_LOCAL_DATA_DIR": str(out / "edgar-cache"),
+                                         "EDGAR_CACHE_DIR": str(out / "edgar-anchor-cache")}
+
+
 def test_existing_database_aborts_before_imports_and_retains_failed_artifact(tmp_path, monkeypatch):
     target = tmp_path / "existing.db"
     target.write_bytes(b"original")

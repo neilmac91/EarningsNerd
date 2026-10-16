@@ -273,6 +273,7 @@ def child_environment(invocation, config, api_key):
                AI_FALLBACK_API_KEY='', AI_FALLBACK_MODEL='', AI_FALLBACK_BASE_URL='',
                INTERNAL_JOB_TOKEN='', SKIP_REDIS_INIT='true',
                EDGAR_LOCAL_DATA_DIR=str(invocation.parent / 'edgar-cache'),
+               EDGAR_CACHE_DIR=str(invocation.parent / 'edgar-anchor-cache'),
                PYTHONPYCACHEPREFIX=str(invocation.parent / 'pycache'))
     return env
 

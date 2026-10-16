@@ -1,0 +1,47 @@
+{
+ "note": "Contiguous slices of the Copilot sources copilot-eval prepared for these accessions (public SEC filing text), cut at the recorded offsets; source_sha256 is the SHA-256 of the whole prepared excerpt (copilot-eval artifacts 12011039068 and 11958638858). tests/unit/test_copilot_table_excerpts.py verifies citations against them as the production source.",
+ "sources": {
+  "baba_fy2025_sections_income_statement": {
+   "accession": "0000950170-25-090161",
+   "source_kind": "sections",
+   "source_sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3",
+   "offset": 71715,
+   "text": "Revenue\n\n\n5, 24\n\n\n \n\n\n \n\n\n868,687\n\n\n \n\n\n \n\n\n \n\n\n941,168\n\n\n \n\n\n \n\n\n \n\n\n996,347\n\n\n \n\n\n \n\n\n \n\n\n137,300\n\n\n \n\n\n\n\n\n\nCost of revenue"
+  },
+  "baba_fy2025_sections_consolidating_schedule": {
+   "accession": "0000950170-25-090161",
+   "source_kind": "sections",
+   "source_sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3",
+   "offset": 17591,
+   "text": "ConsolidatedTotal\n\n     RMB\n\n     RMB\n\n     RMB\n\n     RMB\n\n     RMB\n\n     RMB\n\n     US$\n\n     (in millions)\n\n     Revenue from third parties\n\n     —\n\n     833,583\n\n     98,433\n\n     64,331\n\n     —\n\n     996,347\n\n     137,300\n\n     Revenue from group companies"
+  },
+  "baba_fy2025_regex_consolidating_schedule": {
+   "accession": "0000950170-25-090161",
+   "source_kind": "regex fallback",
+   "source_sha256": "9e4a6a8d7efb983442e5efe17572466733a7fdcbc8633833ad1a3f6fbff9c825",
+   "offset": 41493,
+   "text": "Consolidated\nTotal\n\n\n \n\n\n\n\n\n\n \n\n\n \n\n\nRMB\n\n\n \n\n\n \n\n\nRMB\n\n\n \n\n\n \n\n\nRMB\n\n\n \n\n\n \n\n\nRMB\n\n\n \n\n\n \n\n\nRMB\n\n\n \n\n\n \n\n\nRMB\n\n\n \n\n\n \n\n\nUS$\n\n\n \n\n\n\n\n\n\n \n\n\n \n\n\n(in millions)\n\n\n \n\n\n\n\n\n\nRevenue from third parties\n\n\n \n\n\n \n\n\n—\n\n\n \n\n\n \n\n\n \n\n\n833,583\n\n\n \n\n\n \n\n\n \n\n\n98,433\n\n\n \n\n\n \n\n\n \n\n\n64,331\n\n\n \n\n\n \n\n\n \n\n\n—\n\n\n \n\n\n \n\n\n \n\n\n996,347\n\n\n \n\n\n \n\n\n \n\n\n137,300\n\n\n \n\n\n\n\n\n\nRevenue from group companies"
+  },
+  "asml_fy2025_regex_statement": {
+   "accession": "0001628280-26-011378",
+   "source_kind": "regex fallback",
+   "source_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80",
+   "offset": 22711,
+   "text": "Net system sales\n21,768.7\n77.0\n24,474.3\n74.9\n12.4\nNet service and field option sales\n6,494.2\n23.0\n8,193.0\n25.1\n26.2\nTotal net sales\n28,262.9\n100.0\n32,667.3\n100.0\n15.6\nCost of system sales"
+  },
+  "aapl_fy2025_sections_statement": {
+   "accession": "0000320193-25-000079",
+   "source_kind": "sections",
+   "source_sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c",
+   "offset": 1412,
+   "text": "Net sales:\n\n   Products$307,003 $294,866 $298,085 \n\n   Services109,158 96,169 85,200 \n\nTotal net sales416,161 391,035 383,285 \n\nCost of sales:"
+  },
+  "asml_fy2025_regex_kpi_panel": {
+   "accession": "0001628280-26-011378",
+   "source_kind": "regex fallback",
+   "source_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80",
+   "offset": 16399,
+   "text": "€32.7bn\nTotal net sales\n52.8%\nGross margin\n€8.5bn\nReturned to \nshareholders"
+  }
+ }
+}

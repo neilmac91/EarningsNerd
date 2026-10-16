@@ -10,7 +10,6 @@ from app.services.copilot.quotations import _QUOTE_MARK_RE
 from app.services.provenance_service import (
     _MIN_VERIFIABLE_LEN,
     build_text_fragment_url,
-    normalize_for_match,
     strip_wrapping_quotes,
     verify_whole_excerpt_in_text,
 )
@@ -125,13 +124,14 @@ def _verify_citations(
     Unused valid declarations remain a candidate pool only. A referenced ID must have an
     unambiguous declaration and every declaration for it must pass the whole-excerpt verifier
     (the Sources panel displays the whole excerpt as filing text) with a quote-free section label.
-    The published excerpt is the declared one, never trimmed or substituted.
+    The published excerpt is the declared one, never trimmed or substituted. A failed excerpt of
+    any length or a duplicate referenced ID may buy the one private regeneration; nothing else may.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     by_marker: dict[str, dict] = {}
     declared: dict[str, dict] = {}
     failed = False
-    excerpt_mismatch_only = len(normalized_source) >= _MIN_VERIFIABLE_LEN
+    regenerable = len(normalized_source) >= _MIN_VERIFIABLE_LEN
     for cite in citations:
         excerpt = cite["excerpt"].strip()
         section_ref = cite.get("section") or cite.get("section_ref")
@@ -143,8 +143,7 @@ def _verify_citations(
             not verified or colliding
         ):
             failed = True
-            excerpt_mismatch_only = (excerpt_mismatch_only and not quoted_label and not colliding
-                                    and len(normalize_for_match(strip_wrapping_quotes(excerpt))) >= _MIN_VERIFIABLE_LEN)
+            regenerable = regenerable and not quoted_label
         declared[key] = cite
         fragment_url = (
             build_text_fragment_url(base_url, strip_wrapping_quotes(excerpt), source_span=True)
@@ -157,10 +156,10 @@ def _verify_citations(
             "fragment_url": fragment_url,
         }
     if failed:
-        # Check all referenced declarations before classifying an excerpt-only mismatch. A later
-        # identity collision, quoted label or missing literal must never buy another generation.
+        # Check all referenced declarations before classifying. A quoted label or a missing literal
+        # anywhere, or a source too short to verify anything, must never buy another generation.
         required_text = {key for key in referenced if not key.startswith("F")}
-        excerpt_mismatch_only = excerpt_mismatch_only and required_text <= declared.keys()
-        failure = _RegenerableEvidenceMismatch if excerpt_mismatch_only else _UnpublishableAnswer
+        regenerable = regenerable and required_text <= declared.keys()
+        failure = _RegenerableEvidenceMismatch if regenerable else _UnpublishableAnswer
         raise failure("Unverified or ambiguous referenced citation")
     return by_marker

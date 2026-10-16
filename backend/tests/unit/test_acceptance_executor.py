@@ -152,6 +152,9 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     assert env["STRIPE_SECRET_KEY"] == ""
     assert env["AI_EVIDENCE_SNAP"] == "true"
     assert env["RECOVERY_MAX_CONCURRENCY"] == "3"
+    # Both EdgarTools directories stay beside the invocation, never in the home directory (E25).
+    assert env["EDGAR_LOCAL_DATA_DIR"] == str(invocation.parent / "edgar-cache")
+    assert env["EDGAR_CACHE_DIR"] == str(invocation.parent / "edgar-anchor-cache")
     assert "production.invalid" not in json.dumps(env)
     assert "ambient-key-must-not-cross" not in json.dumps(env)
     assert "ambient-stripe-must-not-cross" not in json.dumps(env)

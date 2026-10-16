@@ -77,7 +77,7 @@ def configure_environment(database: Path, output: Path) -> None:
         "DATABASE_URL": "sqlite:///" + str(database), "ENVIRONMENT": "test",
         "SECRET_KEY": "source-bootstrap-disposable-test-key-not-for-authentication",
         "SKIP_REDIS_INIT": "true", "ENABLE_HISTORY_BACKFILL_ON_VISIT": "false",
-        "EDGAR_LOCAL_DATA_DIR": str(output / "edgar-cache"),
+        "EDGAR_LOCAL_DATA_DIR": str(output / "edgar-cache"), "EDGAR_CACHE_DIR": str(output / "edgar-anchor-cache"),
         "USE_STATEMENT_FINANCIALS": "true", "USE_EDGARTOOLS_SECTIONS": "true",
         "ENABLE_FPI_FILINGS": "true", "AI_FALLBACK_BASE_URL": "", "AI_FALLBACK_MODEL": "",
         # Extraction helpers construct a client on import, but this process never generates.

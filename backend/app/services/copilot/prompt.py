@@ -8,6 +8,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, Optional
 
+from app.services.copilot.exceptions import _RegenerableEvidenceMismatch
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
 
@@ -28,6 +29,25 @@ copy one exact contiguous source span. Citation excerpts must preserve all sourc
 including quotation marks inside the passage; escape them correctly in JSON, never remove them.
 Keep displayed follow-up questions and not-disclosed
 explanations free of quotation marks. Finish the complete citation and follow-up envelopes."""
+# Added after the guidance above only when the first candidate failed citation-excerpt matching.
+_CITATION_EXCERPT_RETRY_GUIDANCE = f"""A filing-text citation did not match. Most such failures are
+table text: a lone figure or short label, a row with cells skipped or replaced by an ellipsis, or one
+citation number declared twice. A figure that carries its [F#] marker needs no text citation. To cite any other figure, copy
+one whole sentence that states it, or its table row exactly as the filing shows it: the row label and
+every following cell in order, nothing skipped or reordered. If no such span exists, leave that
+figure and its citation out. Each excerpt is one unbroken span of at least {_MIN_VERIFIABLE_LEN}
+characters, and each citation number has exactly one declaration."""
+
+
+def _retry_guidance(rejection: Exception, retryable_quotations: frozenset[str]) -> str:
+    """The text added to the private regeneration's system message, or "" when none may run.
+
+    Chosen by the owned exception class or reason code, never from candidate text. A decision-F
+    quotation reason keeps the evidence guidance alone; an excerpt failure adds the table guidance.
+    """
+    if isinstance(rejection, _RegenerableEvidenceMismatch):
+        return _EVIDENCE_RETRY_GUIDANCE + "\n\n" + _CITATION_EXCERPT_RETRY_GUIDANCE
+    return _EVIDENCE_RETRY_GUIDANCE if str(rejection) in retryable_quotations else ""
 
 
 SYSTEM_PROMPT = f"""You are EarningsNerd's "Ask this Filing" assistant. You answer questions about a \
