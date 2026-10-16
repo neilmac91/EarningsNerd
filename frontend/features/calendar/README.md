@@ -47,7 +47,9 @@ Weighed three layouts:
   name, note and EPS full width under it, so no chip runs under the bell); a
   month day lists tickers with their session glyph and follow bell from 42em,
   the tickers alone from 21em, and below that the count of companies
-  reporting, under one-letter weekday heads, with a caption that says so.
+  reporting, under one-letter weekday heads, with a caption that says so; there
+  a holiday drops its "Closed" and its date takes the weekend's muted ink.
+  Today's marker is sized in rem, so it holds its digits at any text size.
   Names wrap, never truncate, and the range label wraps between whole dates.
   `tests/unit/calendarReflow.spec.tsx` and `calendarEventRow.spec.tsx`.
 - **Status ladder:** `Est.` (dashed chip, tentative by design) → `Confirmed`

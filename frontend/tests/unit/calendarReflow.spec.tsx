@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import EarningsCalendarPage from '@/features/calendar/components/EarningsCalendarPage'
 import { MonthView } from '@/features/calendar/components/MonthView'
@@ -86,12 +86,24 @@ describe('the month sheet shows a day only what fits whole', () => {
     expect(bell).toHaveClass(`${MID}:hidden`)
   })
 
-  it('narrow, the weekday heads are one letter and a holiday drops its "Closed"', () => {
+  it('narrow, the weekday heads are one letter and a holiday drops its "Closed", its date in the weekend\'s ink', () => {
     renderMonth()
     expect(screen.getByText('Mon')).toHaveClass(`${NARROW}:hidden`)
     expect(screen.getAllByText('M')[0]).toHaveClass('hidden', `${NARROW}:inline`)
     const holiday = screen.getByRole('button', { name: /^Monday, January 19, market holiday/ })
     expect(within(holiday).getByText('Closed')).toHaveClass(`${NARROW}:hidden`)
+    // With "Closed" gone, a primary-ink date would read as a trading day with no reports (the design review of
+    // #1369): the holiday's date takes the weekend's tertiary ink there, and a trading day keeps the primary ink.
+    expect(within(holiday).getByText('19')).toHaveClass(`${NARROW}:text-text-tertiary-light`, `dark:${NARROW}:text-text-secondary-dark`)
+    const tradingDay = within(screen.getByRole('button', { name: /^Tuesday, January 20,/ })).getByText('20')
+    expect(tradingDay).toHaveClass('text-text-primary-light', 'dark:text-text-primary-dark')
+    expect(tradingDay.className).not.toMatch(/text-text-tertiary/)
+    // On a holiday that is today, the marker keeps its own ink.
+    cleanup()
+    render(<MonthView anchorIso="2026-01-15" todayIso="2026-01-19" eventsByDate={new Map()} alerts={ALERTS} onOpenDay={() => {}} />)
+    const today = within(screen.getByRole('button', { name: /^Monday, January 19, market holiday/ })).getByText('19')
+    expect(today).toHaveClass('text-white')
+    expect(today.className).not.toMatch(/text-text-tertiary/)
   })
 })
 

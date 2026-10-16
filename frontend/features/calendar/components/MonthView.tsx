@@ -111,6 +111,11 @@ export function MonthView({
                         : weekend || !inMonth
                           ? 'text-text-tertiary-light dark:text-text-secondary-dark'
                           : 'text-text-primary-light dark:text-text-primary-dark',
+                      // Below 21em a holiday drops its "Closed", so its date takes the weekend's ink: in the primary
+                      // ink, with no count under it, it would read as a trading day with no reports.
+                      holiday &&
+                        !isToday &&
+                        '[@container(width<21em)]:text-text-tertiary-light dark:[@container(width<21em)]:text-text-secondary-dark',
                     )}
                   >
                     {formatLocalDate(iso, 'd')}
