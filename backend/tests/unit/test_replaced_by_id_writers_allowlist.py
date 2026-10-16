@@ -43,10 +43,19 @@ each delete is a ``delete`` mention: a ``delete`` or ``Delete`` call (``delete(R
 as a value), and SQL, in a string or a migration (a migration's comments aside), that runs ``DELETE FROM
 refresh_tokens`` (a CTE's too), a ``TRUNCATE`` listing the table, or ``MERGE INTO refresh_tokens ...
 THEN DELETE``; a Python string is matched raw, comments included, so a CLI ``--flag`` before the SQL
-hides nothing. A Python delete counts whatever it removes, so the reviewed list carries the OAuth
-deletes of the modules that import ``refresh_token_service``; a decorator's own callee, such as
-``@router.delete(...)``, deletes nothing. A user's whole chain goes with the user (``ON DELETE
-CASCADE``), so SQL that deletes users is not a delete mention.
+hides nothing. ``User.refresh_tokens`` is ``delete-orphan``, so a token dropped from it is deleted at
+flush, and each such drop is a ``delete`` too: a member-dropping method of the collection (``remove``,
+``pop``, ``clear``, ``discard``, ``popitem``, ``__delitem__`` and the like), called or handed on, on
+``x.refresh_tokens``, a name bound to it or ``getattr(x, "refresh_tokens")``; an item stored or deleted
+(``user.refresh_tokens[:] = keep``, ``del user.refresh_tokens[0]``); the collection assigned, augmented
+(an adding ``+=`` too) or deleted; a ``user`` attribute stored or deleted (``t.user = None`` cuts the
+token loose, and so may a user that is None at run time); either name set or deleted by ``setattr`` and
+the like; and a ``merge`` call, since merging a detached user deletes the tokens its copy lacks. A read of
+the collection (``list(user.refresh_tokens)``, ``append``, ``any``) drops nothing. A Python delete
+counts whatever it removes, so the reviewed list carries the OAuth deletes of the modules that import
+``refresh_token_service``; a decorator's own callee, such as ``@router.delete(...)``, deletes nothing. A
+user's whole chain goes with the user (``ON DELETE CASCADE``), so SQL that deletes users is not a delete
+mention.
 
 A name built from anything else (a variable, a loop over the table's columns, a row copied from
 another) cannot be read off the source, so every module in scope, one that names the model, its table,
@@ -84,11 +93,11 @@ execute`` and an ``--execute`` flag are not.
 
 Out of reach, planted as named gaps (``test_the_named_gaps_stay_out_of_reach`` and
 ``test_the_text_scan_gaps_stay_out_of_reach``): a module out of scope that writes an attribute by a
-name it did not build from literals, or deletes a model it was handed (a generic helper); a name
-assembled by code the folder does not evaluate; a whole-row copy or load that moves every column
-without naming one (``insert(...).from_select`` over the table's columns, ``make_transient`` and
+name it did not build from literals, deletes or merges a model it was handed, or cuts a token from its
+user (a generic helper); a name assembled by code the folder does not evaluate; a whole-row copy or
+load that moves every column without naming one (``insert(...).from_select`` over the table's columns, ``make_transient`` and
 re-adding the row, ``INSERT INTO refresh_tokens SELECT *``, a positional ``INSERT ... VALUES``, ``COPY``
-or psql ``\\copy``); dropping a token from the delete-orphan ``User.refresh_tokens`` collection; a write
+or psql ``\\copy``); the delete-orphan collection handed to a helper that drops its members; a write
 through an ORM synonym of the column; a psql variable standing in for the column; and dynamic SQL in
 a file that builds both the table's and the column's names; and SQL quoted in a Markdown runbook,
 which is read, not run (``test_the_scan_reads_every_tree_that_can_reach_the_database``). Swapping one mention for another of the same kind inside one scope keeps the
@@ -202,6 +211,10 @@ class _ColumnMentionFinder(ast.NodeVisitor):
         if (self._in_scope and node.attr in _DELETERS and isinstance(node.ctx, ast.Load)
                 and id(node) not in self._called and id(node) not in self._decorators):
             self._record("delete")
+        # User.refresh_tokens is delete-orphan: a token dropped from it is deleted at flush, and deleting a
+        # successor clears its predecessor's link like any other delete.
+        if self._in_scope and _orphans(node, self._module):
+            self._record("delete")
         self.generic_visit(node)
 
     def visit_Dict(self, node: ast.Dict) -> None:
@@ -273,6 +286,8 @@ class _ColumnMentionFinder(ast.NodeVisitor):
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self._sql_fragment(node.value)
+        if self._in_scope and isinstance(node.target, ast.Name) and node.target.id in self._module.collections:
+            self._record("delete")  # tokens = user.refresh_tokens; tokens -= gone
         self.generic_visit(node)
 
     def _run_time_sql(self, node: ast.expr) -> None:
@@ -313,11 +328,16 @@ class _ColumnMentionFinder(ast.NodeVisitor):
         # ``query.delete()``, ``db.delete(token)``, ``Delete(table)``) is a writer to review.
         if self._in_scope and callee in _DELETERS and id(node) not in self._decorators:
             self._record("delete")
+        if (self._in_scope and callee in _ATTRIBUTE_SETTERS
+                and _spelled_name(node, callee) in (_COLLECTION, _BACK_REFERENCE)):
+            self._record("delete")  # setattr(user, "refresh_tokens", keep), setattr(t, "user", None)
         self.generic_visit(node)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
         if self._in_scope and _keyed_collection(node.value, self._module) and _fold(node.slice) is None:
             self._record("dynamic")
+        if self._in_scope and not isinstance(node.ctx, ast.Load) and _token_collection(node.value, self._module):
+            self._record("delete")  # user.refresh_tokens[:] = keep, del user.refresh_tokens[0]
         self.generic_visit(node)
 
 
@@ -397,8 +417,19 @@ def _fold(node: ast.AST) -> str | None:
 
 
 _SINK_NAMES = set(_NAME_FUNCTIONS) | _SQL_FUNCTIONS
-# Calls that delete rows: ``delete(Model)``, ``query.delete()``, ``db.delete(obj)``, ``Delete(table)``.
-_DELETERS = {"delete", "Delete"}
+# Calls that delete rows: ``delete(Model)``, ``query.delete()``, ``db.delete(obj)``, ``Delete(table)``, and
+# ``db.merge(user)``, which lays a detached user's ``refresh_tokens`` over the stored ones and so deletes
+# the tokens the copy lacks.
+_DELETERS = {"delete", "Delete", "merge"}
+# ``User.refresh_tokens`` is delete-orphan: a token dropped from it, or cut from its user through the
+# ``RefreshToken.user`` back-reference, is deleted at flush. The collection methods that drop members, in
+# the list, set and dict spellings (``append``, ``extend``, ``add``, ``any`` and reads keep them all), and
+# the calls that set or delete an attribute by name.
+_COLLECTION, _BACK_REFERENCE = "refresh_tokens", "user"
+_DROPS_MEMBERS = {"remove", "pop", "popitem", "clear", "discard", "update", "difference_update",
+                  "intersection_update", "symmetric_difference_update", "__delitem__", "__setitem__",
+                  "__isub__", "__iand__", "__ixor__", "__imul__"}
+_ATTRIBUTE_SETTERS = {"setattr", "delattr", "__setattr__", "__delattr__", "set_attribute"}
 # SQL that deletes refresh-token rows, in a string or a migration: ``DELETE FROM refresh_tokens`` (also
 # inside a CTE), a ``TRUNCATE`` statement that lists the table, ``MERGE INTO refresh_tokens ... THEN
 # DELETE``.
@@ -426,12 +457,14 @@ class _Module:
     """What the scan needs from the whole module: the names it imports (a key such as
     ``RefreshToken.revoked_at`` counts as spelled out only on an imported class), local aliases of the
     sink functions (``from sqlalchemy import text as sa_text``, ``put = setattr``), and names bound to
-    a by-name lookup collection (``COLS = RefreshToken.__table__.c``)."""
+    a by-name lookup collection (``COLS = RefreshToken.__table__.c``) or to the delete-orphan collection
+    (``tokens = user.refresh_tokens``)."""
 
     def __init__(self, tree: ast.AST) -> None:
         self.imported: set[str] = set()
         self.aliases: dict[str, str] = {}
         self.keyed: set[str] = set()
+        self.collections: set[str] = set()
         self.extended: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -456,6 +489,8 @@ class _Module:
                 for target in (t for t in targets if isinstance(t, ast.Name)):
                     if isinstance(node.value, ast.Attribute) and node.value.attr in _KEYED_ATTRS:
                         self.keyed.add(target.id)
+                    if isinstance(node.value, ast.Attribute) and node.value.attr == _COLLECTION:
+                        self.collections.add(target.id)
                     if isinstance(node.value, ast.Name) and node.value.id in _SINK_NAMES | _DELETERS:
                         self.aliases[target.id] = node.value.id
                     if isinstance(node.value, ast.Attribute) and node.value.attr in _DELETERS:
@@ -509,10 +544,7 @@ def _dynamic_sink(node: ast.Call, module: _Module) -> bool:
     if callee in _NAME_FUNCTIONS:
         if any(isinstance(arg, ast.Starred) for arg in node.args):
             return True  # setattr(*args): the name is not in the source
-        at = _NAME_FUNCTIONS[callee]
-        bound = isinstance(node.func, ast.Attribute) and callee.startswith("__")
-        if bound and isinstance(node.func.value, ast.Name) and node.func.value.id in ("object", "type"):
-            at = 1  # object.__setattr__(t, name, v): the instance comes first
+        at = _name_position(node, callee)
         if len(node.args) > at and _fold(node.args[at]) is None:
             return True
         if any(_fold(value) is None for name, value in keywords.items() if name in _NAME_KEYWORDS):
@@ -541,6 +573,42 @@ def _dynamic_sink(node: ast.Call, module: _Module) -> bool:
         if any(not _literal_rows(item, module) for item in data):
             return True
     return any(not _mappings_spelled(arg, module) for arg in [*node.args, *keywords.values()])
+
+
+def _name_position(node: ast.Call, callee: str) -> int:
+    """Where a name-taking call carries the attribute name among its positional arguments."""
+    bound = isinstance(node.func, ast.Attribute) and callee.startswith("__")
+    if bound and isinstance(node.func.value, ast.Name) and node.func.value.id in ("object", "type"):
+        return 1  # object.__setattr__(t, name, v): the instance comes first
+    return _NAME_FUNCTIONS[callee]
+
+
+def _spelled_name(node: ast.Call, callee: str) -> str | None:
+    """The attribute name a name-taking call spells out (``setattr(user, "refresh_tokens", [])``), else None."""
+    at = _name_position(node, callee)
+    names = node.args[at:at + 1] + [k.value for k in node.keywords if k.arg in _NAME_KEYWORDS]
+    return _fold(names[0]) if names else None
+
+
+def _token_collection(node: ast.AST, module: _Module) -> bool:
+    """``User.refresh_tokens`` as the source reaches it: ``x.refresh_tokens``, a name bound to one, or
+    ``getattr(x, "refresh_tokens")``."""
+    if isinstance(node, ast.Attribute):
+        return node.attr == _COLLECTION
+    if isinstance(node, ast.Name):
+        return node.id in module.collections
+    return (isinstance(node, ast.Call) and _callee(node, module) == "getattr"
+            and _spelled_name(node, "getattr") == _COLLECTION)
+
+
+def _orphans(node: ast.Attribute, module: _Module) -> bool:
+    """An attribute that drops a token from the delete-orphan collection: the collection or a token's
+    ``user`` stored or deleted (``user.refresh_tokens = keep``, ``-=``, ``t.user = None``, ``del t.user``;
+    a user that may be None at run time cuts the token loose too), or a member-dropping method of the
+    collection, called or handed on (``user.refresh_tokens.remove``)."""
+    if node.attr in (_COLLECTION, _BACK_REFERENCE) and not isinstance(node.ctx, ast.Load):
+        return True
+    return node.attr in _DROPS_MEMBERS and _token_collection(node.value, module)
 
 
 def _sql_built_at_run_time(node: ast.AST) -> bool:
@@ -950,6 +1018,41 @@ PLANTED = [
      "from app.models import RefreshToken\n\n@cache(on_evict=db.delete)\ndef f(t):\n    return t\n", {("f", "delete")}),
     ("delete-after-a-cli-flag",
      "def f():\n    return \"psql --quiet -c 'DELETE FROM refresh_tokens WHERE revoked_at IS NOT NULL'\"\n", {("f", "delete")}),
+    # User.refresh_tokens is delete-orphan: a token dropped from it, or cut from its user, is deleted at
+    # flush, and so is one a merged detached user no longer holds.
+    ("delete-orphan-removal", "def f(user, t):\n    user.refresh_tokens.remove(t)\n", {("f", "delete")}),
+    ("delete-orphan-drops-in-every-spelling",
+     "def by_pop(user):\n    user.refresh_tokens.pop()\n\ndef by_clear(user):\n    user.refresh_tokens.clear()\n\n"
+     "def by_discard(user, t):\n    user.refresh_tokens.discard(t)\n\ndef by_popitem(user):\n    user.refresh_tokens.popitem()\n\n"
+     "def by_dunder(user):\n    user.refresh_tokens.__delitem__(0)\n\n"
+     "def handed_on(user, stale):\n    list(map(user.refresh_tokens.remove, stale))\n\n"
+     "def by_getattr(user):\n    getattr(user, 'refresh_tokens').clear()\n",
+     {(scope, "delete") for scope in ("by_pop", "by_clear", "by_discard", "by_popitem", "by_dunder", "handed_on", "by_getattr")}),
+    ("delete-orphan-collection-replaced",
+     "def by_assign(user):\n    user.refresh_tokens = []\n\ndef by_augmented(user, gone):\n    user.refresh_tokens -= gone\n\n"
+     "def by_del(user):\n    del user.refresh_tokens\n\ndef by_slice(user, keep):\n    user.refresh_tokens[:] = keep\n\n"
+     "def by_del_item(user):\n    del user.refresh_tokens[0]\n\ndef by_setattr(user):\n    setattr(user, 'refresh_tokens', [])\n",
+     {(scope, "delete") for scope in ("by_assign", "by_augmented", "by_del", "by_slice", "by_del_item", "by_setattr")}),
+    ("delete-orphan-through-an-alias",
+     "def by_call(user, t):\n    tokens = user.refresh_tokens\n    tokens.remove(t)\n\n"
+     "def by_item(user, t):\n    tokens = user.refresh_tokens\n    tokens[0] = t\n\n"
+     "def by_augmented(user):\n    tokens = user.refresh_tokens\n    tokens *= 0\n",
+     {("by_call", "delete"), ("by_item", "delete"), ("by_augmented", "delete")}),
+    # A user that may be None at run time cuts the token loose as None does; another user moves it.
+    ("delete-orphan-back-reference",
+     "from app.models import RefreshToken\n\ndef cut(t):\n    t.user = None\n\ndef moved(t, owner):\n    t.user = owner\n\n"
+     "def by_del(t):\n    del t.user\n\ndef by_setattr(t):\n    setattr(t, 'user', None)\n",
+     {("cut", "delete"), ("moved", "delete"), ("by_del", "delete"), ("by_setattr", "delete")}),
+    ("merge-of-a-detached-user",
+     "from app.models import RefreshToken\n\ndef f(db, detached_user):\n    return db.merge(detached_user)\n", {("f", "delete")}),
+    ("delete-orphan-look-alikes",
+     "from app.models import RefreshToken, User\n\ndef f(db, user, t, stale):\n"
+     "    live = [x for x in user.refresh_tokens if x.revoked_at is None]\n    kept = list(user.refresh_tokens)\n"
+     "    kept.remove(t)\n    user.refresh_tokens.append(t)\n    user.searches.remove(stale)\n    first = user.refresh_tokens[0]\n"
+     "    db.query(User).options(selectinload(User.refresh_tokens)).filter(User.refresh_tokens.any(RefreshToken.id == t.id))\n"
+     "    t.user_id = user.id\n"
+     "    return live, len(user.refresh_tokens), t in user.refresh_tokens, first, t.user, getattr(user, 'refresh_tokens')\n",
+     set()),
     ("payload-tuple-in-the-models-module",
      "from app.models import RefreshToken\n\ndef f(events, t):\n"
      "    events.append((str(t.id), 'revoked', {'reason': 'logout'}))\n", set()),
@@ -962,7 +1065,7 @@ PLANTED = [
 ]
 
 # Named gaps: what the scan cannot see. A case that starts being counted moves to PLANTED. Each gap
-# sits in ``f``; the first three are out of scope (the module names neither the model, its table, the
+# sits in ``f``; the first four are out of scope (the module names neither the model, its table, the
 # column nor a refresh-token module), the rest stay unseen inside it.
 GAPS = [
     ("generic-helper-handed-a-token",
@@ -970,6 +1073,7 @@ GAPS = [
      "    stamp(t, field, v)\n", False),
     ("generic-delete-helper-handed-the-model",
      "def f(db, model, cond):\n    db.execute(delete(model).where(cond))\n", False),
+    ("merge-or-cut-in-a-module-out-of-scope", "def f(db, user, t):\n    db.merge(user)\n    t.user = None\n", False),
     ("name-from-code-the-folder-does-not-run",
      "def f(t, v):\n    setattr(t, ''.join(reversed('di_yb_decalper')), v)\n", False),
     # Whole-row copies move every column, the link included, without naming one.
@@ -980,8 +1084,8 @@ GAPS = [
     ("transient-copy",
      "from app.models import RefreshToken\n\ndef f(db, old, h):\n    make_transient(old)\n    old.id = None\n"
      "    old.token_hash = h\n    db.add(old)\n", True),
-    # The User.refresh_tokens relationship is delete-orphan: dropping a token from it deletes the row.
-    ("delete-orphan-removal", "def f(user, t):\n    user.refresh_tokens.remove(t)\n", True),
+    # A helper elsewhere handed the delete-orphan collection drops its members where the scan cannot see.
+    ("delete-orphan-collection-handed-to-a-helper", "def f(user, prune):\n    prune(user.refresh_tokens)\n", True),
     # An ORM synonym is one reviewed mention; writes through it name only the synonym.
     ("write-through-a-synonym",
      "class RefreshToken(Base):\n    link = synonym('replaced_by_id')\n\ndef f(t, v):\n    t.link = v\n", True),
@@ -1109,7 +1213,10 @@ def test_every_mention_of_the_successor_link_is_reviewed():
         "ALLOWED_MENTIONS with its count and reason. Kinds are syntactic, so review the line, not the label: a 'read', 'string', "
         "'keyword' or 'text' can be part of a write, and 'key' is the column as a mapping key, the shape "
         "of a row write. A 'delete' is any delete in a file in scope, whatever it removes (say what in its "
-        "entry): ON DELETE SET NULL clears the link of a refresh token whose successor goes first. A 'dynamic' mention is a place in a file that names "
+        "entry): ON DELETE SET NULL clears the link of a refresh token whose successor goes first. Dropping a "
+        "token from the delete-orphan User.refresh_tokens deletes it too, so a member-dropping call on the "
+        "collection, a store or del of it, of its items or of a .user attribute, and a merge are deletes. "
+        "A 'dynamic' mention is a place in a file that names "
         "RefreshToken, its table, User.refresh_tokens or the column, or imports a refresh-token module, "
         "where a column could be picked at "
         "run time (setattr with a computed name, row data that is not a literal mapping, SQL assembled "

@@ -46,15 +46,18 @@ pieces (`+=`, a list join, psycopg2 composition), `EXECUTE` in a migration), sin
 cannot be read off the source. Because the column is `ON DELETE SET NULL`, a delete writes it too:
 deleting a successor clears its predecessor's link, so every delete in those files (a `delete` or
 `Delete` call, aliased or handed on, or `DELETE FROM refresh_tokens`, `TRUNCATE` or `MERGE ... THEN
-DELETE` in a string or a migration) is counted. The one refresh-token deleter that exists, the
-retention purge, deletes in ascending id order, so a chain's predecessor always goes before its
-successor and keeps its link even if a run stops between batches
+DELETE` in a string or a migration) is counted. `User.refresh_tokens` is `delete-orphan`, so a token
+dropped from it is deleted at flush and strips its predecessor's link the same way: every drop
+(`user.refresh_tokens.remove(t)`, `pop`, `clear`, an item or slice stored or deleted, the collection
+reassigned, augmented or deleted, a token's `user` set or deleted, by name too) and every `merge` (a
+merged detached user deletes the tokens its copy lacks) counts as a delete. The one refresh-token
+deleter that exists, the retention purge, deletes in ascending id order, so a chain's predecessor
+always goes before its successor and keeps its link even if a run stops between batches
 (`test_retention_purge.py::test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link`).
 The gate scores its scan on planted forms and names its gaps: a generic helper elsewhere handed a
-token or a model to delete, a name from code the folder does not run, a whole-row copy or load
-(`INSERT ... SELECT *`, a positional `INSERT ... VALUES`, `COPY`), dropping a token from the
-delete-orphan `User.refresh_tokens` collection, a write through an ORM synonym, a psql variable
-standing in for the column, dynamic SQL that builds both names, and a same-kind swap inside one
-function.
+token or a model to delete or merge, or the collection to drop members from, a name from code the
+folder does not run, a whole-row copy or load (`INSERT ... SELECT *`, a positional
+`INSERT ... VALUES`, `COPY`), a write through an ORM synonym, a psql variable standing in for the
+column, dynamic SQL that builds both names, and a same-kind swap inside one function.
 Replaying a rotated-away token still revokes the live chain (`test_refresh_replay.py`,
 `test_auth_token_flows.py`).
