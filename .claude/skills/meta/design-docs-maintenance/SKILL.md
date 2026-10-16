@@ -1,6 +1,6 @@
 ---
 name: design-docs-maintenance
-description: Which parts of DESIGN.md and frontend/DESIGN_SYSTEM.md each kind of UI change reads (§4's recipes by what the change touches), and how to keep both documents and the .impeccable/design.json sidecar in parity when a change touches documented tokens, typography, reusable component states or visual conventions.
+description: Open for any UI change. Which parts of DESIGN.md and frontend/DESIGN_SYSTEM.md it reads (§4's recipes by what the change touches), and how to keep both documents and the .impeccable/design.json sidecar in parity when a change touches documented tokens, typography, reusable component states or visual conventions.
 version: 1.0.0
 ---
 
@@ -45,27 +45,39 @@ CLAUDE.md rule 11.
 
 - Token, theme or typography change, or a rule that spans components (a brand sweep): both
   documents in full, then this skill.
-- A new or changed reusable component: `frontend/DESIGN_SYSTEM.md` §1–§6 and §12, plus the
-  `DESIGN.md` "Components" and "Do's and Don'ts" sections.
+- A new or changed reusable component: `frontend/DESIGN_SYSTEM.md` §1–§6 and §12, plus `DESIGN.md`
+  from "Overview" on.
 - Route-specific content or layout that uses existing components and tokens: `DESIGN_SYSTEM.md`
-  §1–§3, §5, §6 and §12 and `DESIGN.md` from "Overview" on, as rule 11 requires, and §4 by recipe.
-  §4 is a catalog: rules, then one fenced block of recipes named in its left column, then a short
-  list. Read:
-  - the rules before the block and the list after it;
+  §1–§3, §5, §6 and §12, `DESIGN.md` from "Overview" on, and §4 by recipe; this is rule 11's
+  reading for this kind of change. §4 is a catalog: some rules, then one fenced block of recipes
+  named in its left column, then a short list. Read:
+  - the rules before the recipe block and the list after it;
   - the shared recipes, whose rules a change can break without touching their component: Primary
     button, Secondary button, Wrapping button, Link as button, Accent text/link, Count control,
     Focus ring, Card / panel, Delta text, Data table hover, Solid chip, Status chip, Inline notice,
     Semantic card, Index list, Stacking and Metric cards;
   - the recipe of each component or surface the change adds, changes or composes;
-  - for what the change adds: a keyboard shortcut, Source pane (the filing page binds ⌘K and "/");
-    a "summary ready" label, Company identity; a pressed toggle, Wording changes and Company
-    identity; a horizontal scroll box, Filing reader and Analysis table; a tooltip or explainer,
-    Popover; a state on the filing page, Section ledger; figure tiles outside /analysis, Analysis
-    KPI.
+  - the triggered recipes, for what the change adds:
+    - a keyboard shortcut: Source pane, Wording changes and Search field (the filing page binds
+      ⌘K and "/", its wording review list j, k, 1, 2 and the arrows; company search binds "/"
+      and ⌘K);
+    - a menu, dropdown, tooltip or explainer (anything anchored to a control that closes on
+      Escape or an outside press): Popover;
+    - anything raised on the calendar page (a toast, a menu, a popover): Dialog and Popover;
+    - a pressed toggle, or a set of options of which one is chosen: Segmented ctrl, Wording
+      changes and Company identity;
+    - a "summary ready" label: Company identity;
+    - a filing's period, form-and-date line or verification count outside the filing page:
+      Filing identity;
+    - a change-report figure outside the filing page: Section ledger and Compare periods;
+    - a new state or sticky chrome on the filing page: Section ledger and Source pane;
+    - a horizontal scroll box: Filing reader and Analysis table;
+    - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
+    - figure tiles outside /analysis: Analysis KPI.
 
   The ESLint design rules and the vitest gates catch the mechanical slips; the 700-level and
   surface clauses are checked in review.
 
 A change that adds or edits a §4 recipe checks whether one of its rules can bind a change that
-never touches its component. If one can, move that rule into §4's opening rules, or name the
-recipe in the shared list or the list above, in the same PR.
+never touches its component. If one can, move that rule into the rules before §4's recipe block,
+or name the recipe in the shared recipes or the triggered recipes above, in the same PR.

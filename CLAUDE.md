@@ -26,9 +26,10 @@ prod runs the L1 in-memory cache (ADR-0004).
   `DESIGN_SYSTEM.md` §1–§6 and §12 and in `DESIGN.md` from "Overview" on; `DESIGN.md`'s frontmatter
   is the token snapshot that `frontend/tailwind.config.js` already defines, and `DESIGN_SYSTEM.md`
   §7–§11 cover marketing, theme mechanics, exemptions, charts and motion — read those for such a
-  change. §4 is a recipe catalog: a change built from existing components reads only the parts of
-  it that the `design-docs-maintenance` skill's "Which sections to read" names. Link both files in
-  UI subagent briefs.
+  change. §4 is a recipe catalog: route-specific content or layout built from existing components
+  and tokens reads only the parts of it that "Which sections to read" in
+  `.claude/skills/meta/design-docs-maintenance/SKILL.md` names; other UI changes read all of it.
+  Link both files in UI subagent briefs.
 - Operating model (what pauses for the founder, verification proportionality, review tiers,
   model per agent stage, deploy discipline, handover format): `AGENTS.md` §3–§7. Reference: `docs/CONFIGURATION.md`, `docs/OPERATIONS.md`,
   `docs/TROUBLESHOOTING.md`, `docs/DEPLOYMENT.md`.

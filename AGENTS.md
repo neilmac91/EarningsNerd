@@ -22,9 +22,10 @@ machine gate" section.
   (B1)" and "Judging a pull request's eval artifact" (mandatory), "Gotchas" before any paid run.
 - UI work: rule 11 (read [DESIGN.md](DESIGN.md) and `frontend/DESIGN_SYSTEM.md`):
   `DESIGN_SYSTEM.md` §1–§6 and §12 and `DESIGN.md` from "Overview" on (mandatory; §4 by recipe for
-  a change built from existing components), both in full for a token, theme or typography change,
-  and `DESIGN_SYSTEM.md` §7–§11 for a marketing, theme, exemption, chart or motion change. Include
-  both in UI subagent briefs; follow the `design-docs-maintenance` skill
+  route-specific content or layout built from existing components and tokens), both in full for a
+  token, theme or typography change or a rule that spans components (a brand sweep), and
+  `DESIGN_SYSTEM.md` §7–§11 for a marketing, theme, exemption, chart or motion change. Include both
+  in UI subagent briefs; follow the `design-docs-maintenance` skill
   (`.claude/skills/meta/design-docs-maintenance/SKILL.md`), whose "Which sections to read" names
   the §4 recipes each change reads.
 - Deployment work: `docs/DEPLOYMENT.md`.
