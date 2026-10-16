@@ -408,10 +408,13 @@ export default function AskCopilotRail({
     />
   ) : (
     // At an enlarged text size the composer, its note and the usage line can outgrow the sheet: the
-    // conversation keeps 40vh of it, and past that the column scrolls as one, the composer below.
+    // conversation keeps min(40vh, 12rem) of it, and past that the column scrolls as one, the composer
+    // below. 12rem scales with the text: at a 32px root the floor is 40vh, and at the default size it is
+    // 192px, so a sheet the consent bar and a bottom inset have shortened still fits the composer above
+    // the bar (tests/e2e/consent-bar-yields.spec.ts).
     <div ref={columnRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       {/* Messages / empty state */}
-      <div ref={scrollRef} className="min-h-[40vh] flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="min-h-[min(40vh,12rem)] flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
