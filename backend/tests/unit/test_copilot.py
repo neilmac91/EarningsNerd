@@ -1795,6 +1795,20 @@ _FCF_BURN = {"concept": "free_cash_flow", "value": -300_000_000.0}
     (_FCF_BURN, "Free cash flow was $300 million ", False),
     (_NET_LOSS, "Net loss for 2024, after restructuring charges, was $1.2 billion ", True),
     (_FCF_BURN, "Free cash flow was negative $300 million ", True),
+    # The profit name is read in the figure's own clause and in the label it follows; an earlier
+    # clause names another item.
+    (_NET_LOSS, "Net income: $1.2 billion ", False),
+    (_NET_LOSS, "- **Net income:** $1.2 billion ", False),
+    (_NET_LOSS, "which includes a $250 million income tax charge, was $1.2 billion ", True),
+    (_NET_LOSS, "reflecting lower interest income and impairments, was $1.2 billion ", True),
+    # A figure used attributively has its sign noun after the marker ("a $1.2B [F1] loss").
+    (_NET_LOSS, "Net income swung to a $1.2 billion ", True),
+    (_NET_LOSS, "Net income declined to a $1.2 billion ", True),
+    (_NET_LOSS, "Earnings turned into a $1.2 billion ", True),
+    (_NET_LOSS, "Higher costs and lower other income left a $1.2 billion ", True),
+    ({**_NET_LOSS, "value": -800_000_000.0}, "Net income swung to an $800 million ", True),
+    ({"concept": "operating_cash_flow", "value": -3e8}, "Operating cash flow was a $300 million ", True),
+    (_NET_LOSS, "Net income was a record $1.2 billion ", False),
     # An unsigned comparative, a trend row or cash-flow wording names no profit and keeps its chip.
     (_PRIOR_LOSS, ", compared with $0.8 billion ", True),
     (_PRIOR_LOSS, "; 2023 $0.8B ", True),
@@ -1804,6 +1818,9 @@ _FCF_BURN = {"concept": "free_cash_flow", "value": -300_000_000.0}
     (_NET_LOSS, "Net loss was (1.2) thousand ", False),
     ({"concept": "revenue", "value": 1_200_000.0}, "Revenue was $(1.2) billion ", False),
     (_NET_LOSS, "Net loss was $(1.2) billion ", True),
+    # ... and make a year-shaped figure a figure, not context.
+    ({"concept": "revenue", "value": 2.023e9}, "Revenue was $(2,023) billion ", False),
+    ({**_NET_LOSS, "value": -2.023e9}, "Net income was $(2,023) million ", True),
 ])
 def test_value_guard_sign_rules(fact, window, kept):
     assert copilot_service._fact_matches_adjacent_number(fact, window) is kept
@@ -1816,15 +1833,52 @@ def test_value_guard_sign_rules(fact, window, kept):
     ("Net loss by year: 2024 $1.2B [F1]; 2023 $0.8B [F2].", 2, 0),
     ("The company reported a net loss for fiscal 2024, driven mostly by goodwill impairment and "
      "restructuring charges, of $1.2 billion [F1].", 1, 0),
+    ("Net loss for the year, reflecting lower interest income and goodwill impairment charges, was "
+     "$1.2 billion [F1].", 1, 0),
+    ("The company posted a net loss in fiscal 2024 as it continued investing in growth and "
+     "profitability initiatives, totaling $1.2 billion [F1].", 1, 0),
+    ("Earnings turned into a $1.2 billion [F1] loss.", 1, 0),
+    ("Higher costs and lower other income left a $1.2 billion [F1] net loss.", 1, 0),
     ("Net loss was $1.2 billion [F1], compared with net income of $0.8 billion [F2] in 2023.", 1, 1),
 ])
-def test_resolver_keeps_a_loss_comparison_unless_it_names_a_profit(raw, cited, misplaced):
-    """Each chip's claim span ends at the previous chip, so a comparative figure usually sits
-    apart from the word "loss". It keeps its chip unless its own span calls it a profit."""
+def test_resolver_keeps_a_loss_chip_unless_its_clause_names_a_profit(raw, cited, misplaced):
+    """Each chip's claim span ends at the previous chip and reaches 64 characters back, so the word
+    "loss" often sits outside it, before an earlier clause, or after the marker. A loss chip keeps
+    its chip unless its own clause calls the figure a profit."""
     facts = [{**_NET_LOSS, "_marker": "F1"}, {**_NET_LOSS, "value": -800_000_000.0, "period_end": "2023-12-31",
                                                "fiscal_year": 2023, "_marker": "F2"}]
     _answer, citations, _grounded, stripped = copilot_service._resolve_citations(raw, {}, facts, None)
     assert (len(citations), stripped) == (cited, misplaced)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fact, answer", [
+    # The prompt puts the marker right after the figure, so the sign noun often follows it.
+    (_NET_LOSS, "Net income swung to a $1.2 billion [F1] loss in 2024."),
+    ({**_NET_LOSS, "concept": "operating_income", "value": -500_000_000.0},
+     "Operating income was a $500 million [F1] loss."),
+    (_NET_LOSS, "Net income declined to a $1.2 billion [F1] loss."),
+    # A profit word in an earlier clause names another item, not the figure.
+    (_NET_LOSS, "The net loss for fiscal 2024, which includes a $250 million income tax valuation allowance, "
+                "was $1.2 billion [F1]."),
+])
+async def test_service_keeps_a_loss_chip_whose_sign_word_is_outside_its_clause(monkeypatch, fact, answer):
+    """Main kept each of these correct loss chips. The profit-name contradiction reads only the
+    figure's own clause, and a figure used attributively states its sign after the marker."""
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(fact)
+    )
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools",
+        _tools_stream([fact], f"{answer} ===CITATIONS===\n[]"),
+    )
+
+    events = await _collect(_fake_filing(), "What were the results?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["answer"] == answer.replace("[F1]", "[1]")
+    assert len(complete["citations"]) == 1 and complete["misplaced_fact_markers"] == 0
 
 
 @pytest.mark.unit

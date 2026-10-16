@@ -26,6 +26,11 @@ _LOSS_SUBJECT = re.compile(r"\b(?:loss(?:es)?|deficits?)\b")
 _LEVEL_NAMES = re.compile(
     r"\b(?:income|profit\w*|earn\w*|eps|margins?|cash flows?|equity|working capital|provided|generat\w*|inflows?)\b"
 )
+# The label a figure follows ("Net income: $1.2B", "**Net income:** $1.2B"), which names it although
+# the colon ends a clause; and a figure used attributively ("a $1.2B [F1] loss"), whose noun follows
+# the marker, beyond the claim span.
+_LABEL = re.compile(r"([^;:()—–.,]*):[\s*_]*\Z")
+_ATTRIBUTIVE = re.compile(r"\ban?\s+\$?\s*\Z", re.IGNORECASE)
 # Wording that states a fall, and wording that states a rise.
 _DECLINE_CUES = re.compile(
     r"\b(?:declin\w*|decreas\w*|fell|fall(?:s|ing)?|drop\w*|dipped|down|lower(?:ed)?|contract(?:ed|ing|ion)|"
@@ -43,8 +48,12 @@ def _close(a: float, b: float, *, rel: float = 0.01, absolute: float = 0.011) ->
 
 
 def _is_year(token: re.Match) -> bool:
-    """A bare 4-digit integer that reads as a year (1900-2100, no $, no scale suffix) is context."""
+    """A bare 4-digit integer that reads as a year (1900-2100, with no $ or scale suffix on it or on
+    parentheses around it alone: "$(2,023) million" is a figure) is context."""
     num = float(token.group(2).replace(",", ""))
+    around = _parens(token)
+    if around and (around[0].group(1) or around[1].group(1)):
+        return False
     return not token.group(1) and not token.group(3) and num.is_integer() and 1900 <= num <= 2100
 
 
@@ -99,8 +108,8 @@ def _written_negative(token: re.Match, *, rate: bool = False) -> bool:
 
 
 def _stated_direction(clause: str) -> int:
-    """+1 when the clause states a rise, -1 a fall, and 0 when it states both, neither, or the change
-    of a loss: "the net loss narrowed 15.3%" is a positive growth rate, worded as a fall."""
+    """+1 when the clause states a rise, -1 a fall, and 0 when it states both, neither, or names a
+    loss, whose change reads inverted: "the net loss narrowed 15.3%" is a positive growth rate."""
     low = clause.lower()
     if _LOSS_SUBJECT.search(low):
         return 0
@@ -114,11 +123,12 @@ def _figure_sign_agrees(fact: dict, token: re.Match, clause: str) -> bool:
     certifier sets the rule: a negative filing value never certifies a positively stated amount.
     Only stated wording contradicts:
 
-    * A negative amount or margin, written unsigned, is contradicted when the span names it as a
-      positive level: a profit-type metric name with no sign word anywhere in the span ("net income
-      was $1.2B", or "net income fell to $1.2B": a direction word states a change, not a sign). An
-      unsigned figure that names no metric keeps its marker ("Net loss was $1.2B [F1], compared
-      with $0.8B [F2]").
+    * A negative amount or margin, written unsigned, is contradicted when its own clause, or the
+      label it follows, names it as a positive level: a profit-type metric name, with no sign word
+      anywhere in the span ("net income was $1.2B", "Net income: $1.2B", or "net income fell to
+      $1.2B": a direction word states a change, not a sign). An unsigned figure that names no
+      metric keeps its marker ("Net loss was $1.2B [F1], compared with $0.8B [F2]"), and so does one
+      used attributively, whose noun follows the marker ("a $1.2B [F1] loss").
     * A negative growth rate, written unsigned, is contradicted by a rise stated in its clause
       ("revenue grew 15.3%" on a decline).
     * A positive rate is contradicted by a figure written negative, and a positive growth rate also
@@ -126,8 +136,12 @@ def _figure_sign_agrees(fact: dict, token: re.Match, clause: str) -> bool:
       nothing about its sign ("gross margin fell to 17.9%"). A positive amount is not sign-checked.
 
     Known false keeps: a sign word anywhere in the span vouches even when it names another item
-    ("despite a gross loss, net income was $1.2B"); a negative amount named without a profit-type
-    word ("the bottom line was $1.2B"); and the change of a loss, whose wording is not read.
+    ("despite a gross loss, net income was $1.2B"); a profit name in an earlier clause is not read
+    ("net income, after charges, was $1.2B"); a negative amount named without a profit-type word
+    ("the bottom line was $1.2B") or used attributively before a profit noun ("a $1.2B profit");
+    on a negative rate, "(15.3%)" reads as written negative even after a rise word ("revenue grew
+    strongly (15.3%)"); and a rate's clause that names any loss is not read for direction ("revenue
+    fell 15.3% as losses mounted").
     """
     value, kind = float(fact.get("value")), fact.get("kind")
     if value < 0:
@@ -135,8 +149,11 @@ def _figure_sign_agrees(fact: dict, token: re.Match, clause: str) -> bool:
             return True
         if kind == "yoy_growth":
             return _stated_direction(clause) <= 0
-        span = token.string.lower()
-        return not _LEVEL_NAMES.search(span) or bool(_SIGN_CUES.search(span))
+        if _ATTRIBUTIVE.search(token.string, 0, token.start(2)):
+            return True
+        label = _LABEL.search(token.string, 0, _figure_extent(token)[0])
+        names = (clause + (label.group(1) if label else "")).lower()
+        return not _LEVEL_NAMES.search(names) or bool(_SIGN_CUES.search(token.string.lower()))
     if value == 0 or kind not in ("yoy_growth", "margin"):
         return True
     if _written_negative(token, rate=True):
