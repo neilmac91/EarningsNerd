@@ -243,64 +243,58 @@ const classTokens = (node, keys, binding) => {
 // (`plain ? 'normal-case' : ''`, `cx(plain && 'normal-case')`), so neither ends the reading. An important reset
 // (`!normal-case`) is a reset.
 const RESETS_EYEBROW = /^!?(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
-const intersect = (a, b) => new Set([...a].filter((token) => b.has(token)))
-/** The class tokens a class value sets on every path it can take: a string's, a template's whole static tokens, both
- *  arms' of a conditional, both sides' of `||` and `??`, every argument's of a cx()/clsx() call, and a same-file
- *  binding's by its class-shaped initializer (`init`). `a && b`, and anything else, guarantees nothing; `seen` holds the
- *  bindings on the current path, so it stops a binding that reads itself while a sibling branch reads the same binding
- *  in full. */
-function guaranteedTokens(raw, init, seen = new Set()) {
+/** Whether a class value resets the eyebrow face on every path it can take. Each path needs a reset, not the same one
+ *  (`plain ? 'normal-case' : 'tracking-normal'` cancels one half of the recipe on each path): a string's tokens, a
+ *  template's whole static tokens, both arms of a conditional, both sides of `||` and `??`, any argument of a cx()/clsx()
+ *  call (an object's key only when its value is the literal true), and a same-file binding by its class-shaped
+ *  initializer (`init`). `a && b`, and anything else, resets nothing; `seen` holds the bindings on the current path, so
+ *  it stops a binding that reads itself while a sibling branch reads the same binding in full. */
+function resetsOnEveryPath(raw, init, seen = new Set()) {
   const node = unwrapTs(raw)
+  const resets = (tokens) => tokens.some((token) => RESETS_EYEBROW.test(token))
   const words = (text) => text.split(/\s+/).filter(Boolean)
-  if (!node) return new Set()
-  if (node.type === 'JSXExpressionContainer') return guaranteedTokens(node.expression, init, seen)
-  if (node.type === 'Literal') return new Set(typeof node.value === 'string' ? words(node.value) : [])
+  if (!node) return false
+  if (node.type === 'JSXExpressionContainer') return resetsOnEveryPath(node.expression, init, seen)
+  if (node.type === 'Literal') return typeof node.value === 'string' && resets(words(node.value))
   if (node.type === 'TemplateLiteral') {
-    const out = new Set()
-    node.quasis.forEach((quasi, i) => {
+    return node.quasis.some((quasi, i) => {
       const text = quasi.value.cooked ?? quasi.value.raw
       const parts = words(text)
       // A token that touches a substitution is not whole.
       if (i > 0 && !/^\s/.test(text)) parts.shift()
       if (i < node.quasis.length - 1 && !/\s$/.test(text)) parts.pop()
-      for (const part of parts) out.add(part)
+      return resets(parts)
     })
-    return out
   }
   if (node.type === 'ConditionalExpression') {
-    return intersect(guaranteedTokens(node.consequent, init, seen), guaranteedTokens(node.alternate, init, seen))
+    return resetsOnEveryPath(node.consequent, init, seen) && resetsOnEveryPath(node.alternate, init, seen)
   }
   if (node.type === 'LogicalExpression') {
-    return node.operator === '&&' ? new Set() : intersect(guaranteedTokens(node.left, init, seen), guaranteedTokens(node.right, init, seen))
+    return node.operator !== '&&' && resetsOnEveryPath(node.left, init, seen) && resetsOnEveryPath(node.right, init, seen)
   }
   if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPER.test(node.callee.name)) {
-    const out = new Set()
-    for (const arg of node.arguments) {
+    return node.arguments.some((arg) => {
       const value = unwrapTs(arg)
-      // An object argument sets a key's classes on every path only when the key's value is the literal true.
+      // An object argument resets on every path only by a key whose value is the literal true.
       if (value?.type === 'ObjectExpression') {
-        for (const p of value.properties) {
-          if (p.type !== 'Property' || p.computed || p.value.type !== 'Literal' || p.value.value !== true) continue
-          for (const token of words(p.key.type === 'Identifier' ? p.key.name : String(p.key.value))) out.add(token)
-        }
-        continue
+        return value.properties.some((p) => p.type === 'Property' && !p.computed && p.value.type === 'Literal' && p.value.value === true
+          && resets(words(p.key.type === 'Identifier' ? p.key.name : String(p.key.value))))
       }
-      for (const token of guaranteedTokens(arg, init, seen)) out.add(token)
-    }
-    return out
+      return resetsOnEveryPath(arg, init, seen)
+    })
   }
   if (node.type === 'Identifier') {
     const target = init(node)
-    if (!target || seen.has(target)) return new Set()
+    if (!target || seen.has(target)) return false
     // The bindings on this path alone: a sibling branch that reads the same binding reads it in full.
-    return guaranteedTokens(target, init, new Set([...seen, target]))
+    return resetsOnEveryPath(target, init, new Set([...seen, target]))
   }
-  return new Set()
+  return false
 }
-/** Whether an element's class resets the eyebrow face on every path (RESETS_EYEBROW, guaranteedTokens). */
+/** Whether an element's class resets the eyebrow face on every path (resetsOnEveryPath). */
 const resetsFace = (element, init) => {
   const classAttr = element.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
-  return !!classAttr && [...guaranteedTokens(classAttr.value, init)].some((token) => RESETS_EYEBROW.test(token))
+  return !!classAttr && resetsOnEveryPath(classAttr.value, init)
 }
 /** An expression that renders only whitespace (`{' '}`): passed over in looking for the lead. */
 const isBlank = (expression) => {

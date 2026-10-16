@@ -106,6 +106,10 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // A reset on every path of the class value sets a face of its own: both arms of a conditional, a cx() argument.
     "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case tracking-normal' : 'normal-case'}>{form}</span></span>",
     "<span className=\"uppercase tracking-eyebrow\"><span className={cx('normal-case', size)}>{form}</span></span>",
+    // Each path needs a reset, not the same one: one half of the recipe cancelled on each path.
+    "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case' : 'tracking-normal'}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx(plain ? 'normal-case' : 'tracking-normal', 'font-data')}>{form}</span></span>",
+    "const CASE = 'normal-case'\nexport const C = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={CASE || 'tracking-normal'}>{form}</span></span>",
     // A bracket read of a field that is not a form is copy.
     "<span className=\"uppercase tracking-eyebrow\">{hit['title']}</span>",
     // A conditional whose arms both render a word leads on every path, and so does a fallback to a word.
@@ -170,6 +174,7 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // A reset on one path of the class value leaves the face on in the other; a blank expression is not the lead.
     { code: "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case' : ''}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
     { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx(plain && 'normal-case')}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={size || 'normal-case'}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
     { code: "const PLAIN = cx(plain && 'normal-case')\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
     { code: "<span className=\"uppercase tracking-eyebrow\">{' '}{form}</span>", errors: [{ messageId: 'chip' }] },
     // A class helper's object form names its classes by key, bare or quoted, inline or through a binding; a reset
