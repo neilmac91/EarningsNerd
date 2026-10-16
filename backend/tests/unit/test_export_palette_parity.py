@@ -47,8 +47,9 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    fontTools) matches the style it is declared as, and in each rendered PDF every font WeasyPrint
    embeds for text the stylesheet sets italic (its descriptor's Italic flag) is an italic program.
 
-The planted forms in test_the_checks_read_what_they_claim score each reader on the forms its rule can
-take and on look-alikes that must pass. Out of reach (review): a colour written in an export module
+The planted forms in test_the_checks_read_what_they_claim score each reader of the source (stylesheet,
+attributes, faces, workbook, module literals) on the forms its rule can take and on look-alikes that
+must pass; the render check scores its reader on a planted PDF of its own. Out of reach (review): a colour written in an export module
 other than as a hex, where the fixtures do not render it; a rule that reaches a link only through a
 class or id the fixtures' links do not carry; the colours Excel and WeasyPrint draw where nothing
 sets one (a chart's text); and the embedded brand PNG's pixels.
@@ -620,6 +621,13 @@ def test_every_font_asked_for_italic_embeds_an_italic_program():
         fonts = embedded_fonts(pdf)
         assert [font for font, asked, italic in fonts if asked and not italic] == [], name
         assert any(asked for _, asked, _ in fonts), name  # the fixture prints italic text: the wordmark's "Nerd"
+    # Planted: the same PDF with Inter's roman alone, which printed "Nerd" upright under an italic name.
+    summary = _pdfs()["filing summary"]
+    roman_only = re.sub(r"@font-face \{[^}]*font-style: italic;\s*\}", "", summary, count=1)
+    assert roman_only != summary, "the planted PDF still declares the italic face"
+    upright = [font for font, asked, italic in embedded_fonts(weasyprint.HTML(string=roman_only).write_pdf(uncompressed_pdf=True))
+               if asked and not italic]
+    assert upright and all(font.endswith("Inter-Var-Oblique") for font in upright), upright
 
 
 PLANTED_STYLES = """
