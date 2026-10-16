@@ -132,13 +132,11 @@ const RING_RESIDUE: Record<string, number> = {
   'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
-  'features/subscriptions/components/PeekLocked.tsx': 1, // brand-settings-subscriptions
-  'features/subscriptions/components/TrialBanner.tsx': 1, // brand-settings-subscriptions
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryActionsBar.tsx': 1, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 39, stops: 118 }
+const RING_RESIDUE_MAX = { files: 37, stops: 116 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the

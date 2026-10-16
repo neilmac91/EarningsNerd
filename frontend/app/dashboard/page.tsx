@@ -8,20 +8,21 @@ import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features
 import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircleIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { formatLocalDate } from '@/lib/format'
 import { toast } from 'sonner'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import TrialBanner from '@/features/subscriptions/components/TrialBanner'
+import { takeCarriedReturnNotice, useCarryReturnNotice } from '@/features/subscriptions/lib/returnNotice'
 import CompanySearch from '@/features/companies/components/CompanySearch'
 import FilingFeed from '@/features/dashboard/components/FilingFeed'
 import EarningsCalendar from '@/features/dashboard/components/EarningsCalendar'
 import YourCompanies from '@/features/dashboard/components/YourCompanies'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
-import { Badge, Button, buttonVariants, Card, GuidanceCard, SkeletonStat, SkeletonText } from '@/components/ui'
+import { Badge, Button, buttonVariants, Card, GuidanceCard, Notice, SkeletonStat, SkeletonText } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
@@ -166,6 +167,32 @@ export default function DashboardPage() {
     }
   }, [user])
 
+  // Stripe's success_url (backend routers/subscriptions.py) lands here with ?success=true. Read after
+  // hydration from window.location, not useSearchParams(): that hook outside a Suspense boundary bails
+  // the page out of the server HTML. The notice only reads the subscription query the page already
+  // holds; the webhook can land after the redirect, so a plan still Free is not called Pro. The flag is
+  // read once, then dropped from the address (other params kept), so a reload, a history entry or a
+  // bookmark of the return URL does not announce a checkout again. A remount in the same commit (the
+  // PostHog provider swaps its element when cookie consent arrives) keeps the notice
+  // (features/subscriptions/lib/returnNotice.ts).
+  const [checkoutReturned, setCheckoutReturned] = useState(false)
+  useCarryReturnNotice('dashboard-checkout-success', checkoutReturned)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    // One-shot post-hydration read of the return flag, as the filing page reads its URL flags; reading
+    // window.location during render would mismatch the server HTML. Without the flag, the notice a remount
+    // in this same commit carried, which exists only after the commit that unmounted the page showing it.
+    if (params.get('success') !== 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the post-hydration reads above: the flag, or the carried notice
+      if (takeCarriedReturnNotice('dashboard-checkout-success')) setCheckoutReturned(true)
+      return
+    }
+    setCheckoutReturned(true)
+    params.delete('success')
+    const query = params.toString()
+    router.replace(`${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`, { scroll: false })
+  }, [router])
+
   // One header for the skeleton and the loaded page. Usage and subscription only start once the user
   // resolves, so by the time the grid replaces the bones the header already carries the real name and
   // the Log out action, and the grid lands without a shift. The name arriving on a cold load moves
@@ -264,8 +291,21 @@ export default function DashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
-        {/* Reverse-trial countdown (renders only while a Pro trial is active) */}
-        <TrialBanner status={subscription?.status} trialEnd={subscription?.trial_end} className="mb-6" />
+        {checkoutReturned && subscription && (
+          subscription.is_pro ? (
+            <Notice variant="success" title="Pro is active" className="mb-6" />
+          ) : (
+            <Notice
+              variant="info"
+              title="Checkout finished"
+              description="Your plan updates in a moment. Reload this page if it still shows Free."
+              className="mb-6"
+            />
+          )
+        )}
+
+        {/* The trial's end date (renders only while the resolved plan is a live Pro trial) */}
+        <TrialBanner isPro={subscription?.is_pro} status={subscription?.status} trialEnd={subscription?.trial_end} className="mb-6" />
 
         {/* Usage-warning banner surfaced at the top where it will actually be seen (the plan/usage
             strip lives in the side column). */}
@@ -418,6 +458,7 @@ export default function DashboardPage() {
                   </p>
                   <Button
                     variant="secondary"
+                    wrap
                     className="w-full"
                     onClick={() => portalMutation.mutate()}
                     loading={portalMutation.isPending}
@@ -428,7 +469,9 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="mt-3 space-y-3">
-                  <div className="flex items-center justify-between text-sm">
+                  {/* The two counts share a line while they fit and stack when they do not (200% text on
+                      a phone), with a gap between them either way. */}
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
                     <span className="text-text-secondary-light dark:text-text-secondary-dark">
                       {usage?.summaries_used || 0} / {usage?.summaries_limit ?? FREE_SUMMARY_LIMIT} summaries
                     </span>
@@ -451,7 +494,7 @@ export default function DashboardPage() {
                       style={{ width: `${Math.min(100, usagePercentage)}%` }}
                     />
                   </div>
-                  <Link href="/pricing" className={buttonVariants({ variant: 'primary', className: 'w-full' })}>
+                  <Link href="/pricing" className={buttonVariants({ variant: 'primary', wrap: true, className: 'w-full text-center' })}>
                     Upgrade to Pro
                   </Link>
                 </div>
