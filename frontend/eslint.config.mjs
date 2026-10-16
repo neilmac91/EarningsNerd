@@ -86,7 +86,9 @@ const LOCAL_DATE_MESSAGE =
  *
  *  KNOWN RESIDUAL, and it is a property of the tool rather than a gap to patch: a RENAMED binding
  *  (`const { filing_date: fd } = filing; new Date(fd)`) defeats any selector, because tracking that
- *  rename is data-flow analysis and ESLint selectors are syntactic. No further widening fixes it.
+ *  rename is data-flow analysis and ESLint selectors are syntactic. No further widening fixes it. The
+ *  same holds for a same-file wrapper (`const day = (iso) => formatLocalDate(iso, …)`, as FilingIndex
+ *  and ComparePeriodsCard write): the rules read the call inside it, not the field a caller hands it.
  *  The behavioural spec and review cover what this cannot; do not read the rule as exhaustive. */
 const CALENDAR_DATE_FIELDS =
   'filing_date|filed_date|period_end_date|earnings_date|event_date|transaction_date|last_transaction_date|report_date'
@@ -102,14 +104,54 @@ const CALENDAR_FIELD_MESSAGE =
  *  The Identifier selector covers the first and third together.
  *  formatInstant (lib/format.ts) is a constructor here too: it runs parseISO inside the helper, where
  *  no selector at the call site sees it, so `formatInstant(filing.filing_date, …)` would render the
- *  previous day behind UTC while passing every rule above. Its gate is this list. */
-const CALENDAR_FIELD_RULES = ['Date', 'parseISO', 'formatInstant'].flatMap((ctor) => {
-  const root = ctor === 'Date' ? `NewExpression[callee.name='Date']` : `CallExpression[callee.name='${ctor}']`
-  return [
-    { selector: `${root} Identifier[name=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
-    { selector: `${root} Literal[value=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
-  ]
-})
+ *  previous day behind UTC while passing every rule above. Its gate is this list.
+ *  Each constructor is read by its own name and as a namespace member (`fmt.formatInstant(…)`,
+ *  `new globalThis.Date(…)`); DATE_HELPER_RULES, below, keeps it from going by another name. */
+const callsTo = (name) =>
+  name === 'Date'
+    ? [`NewExpression[callee.name='Date']`, `NewExpression[callee.property.name='Date']`]
+    : [`CallExpression[callee.name='${name}']`, `CallExpression[callee.property.name='${name}']`]
+const CALENDAR_FIELD_RULES = ['Date', 'parseISO', 'formatInstant'].flatMap(callsTo).flatMap((root) => [
+  { selector: `${root} Identifier[name=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
+  { selector: `${root} Literal[value=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
+])
+
+/** The other direction (D-033): a Stripe billing date is an INSTANT with its offset, so the day it
+ *  falls on depends on where the reader is. formatLocalDate reads only its first ten characters, the
+ *  UTC day, which is the wrong day for part of every day anywhere but UTC: the defect BillingPanel
+ *  shipped (`formatLocalDate(sub.current_period_end, …)`) before formatInstant. Every lint block reads
+ *  these, the calendar-sort allow-list's included, since sorting dates gives no reason for either. */
+const BILLING_INSTANT_FIELDS = 'trial_end|current_period_end'
+const BILLING_INSTANT_MESSAGE =
+  'Do not pass a Stripe billing date (trial_end, current_period_end) to formatLocalDate: it is an instant, ' +
+  'and formatLocalDate names its UTC day, not the day it falls on where the reader is. Use formatInstant ' +
+  'from lib/format.ts (D-033).'
+/** The rules read a constructor by its callee's name, so it must keep that name: an import under
+ *  another name (`formatInstant as formatDay`), a re-export or a destructuring that renames it, or a
+ *  const that holds it would hide every call from them. */
+const DATE_HELPERS = ['Date', 'parseISO', 'formatInstant', 'formatLocalDate']
+const DATE_HELPER_ALIAS_MESSAGE =
+  'Call Date, parseISO, formatInstant and formatLocalDate by their own names: the calendar-date and ' +
+  'billing-instant rules (eslint.config.mjs) read a call by its callee, so a renamed or held one hides it.'
+const DATE_HELPER_RULES = [
+  ...callsTo('formatLocalDate').flatMap((root) => [
+    { selector: `${root} Identifier[name=/^(${BILLING_INSTANT_FIELDS})$/]`, message: BILLING_INSTANT_MESSAGE },
+    { selector: `${root} Literal[value=/^(${BILLING_INSTANT_FIELDS})$/]`, message: BILLING_INSTANT_MESSAGE },
+  ]),
+  ...DATE_HELPERS.filter((name) => name !== 'Date').flatMap((name) => [
+    { selector: `ImportSpecifier[imported.name='${name}'][local.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
+    { selector: `ExportSpecifier[local.name='${name}'][exported.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
+    { selector: `ObjectPattern > Property[key.name='${name}'][value.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
+  ]),
+  {
+    selector: `VariableDeclarator[init.type='Identifier'][init.name=/^(${DATE_HELPERS.join('|')})$/]`,
+    message: DATE_HELPER_ALIAS_MESSAGE,
+  },
+  {
+    selector: `VariableDeclarator[init.type='MemberExpression'][init.property.name=/^(${DATE_HELPERS.join('|')})$/]`,
+    message: DATE_HELPER_ALIAS_MESSAGE,
+  },
+]
 
 // MIGRATION-v3 §c — design-token guardrails (CLAUDE.md rule 12: a "never do X again" rule lands as
 // a machine gate in the same PR as the sweep). Tokens only: no raw hex, no raw palette classes, no
@@ -248,6 +290,7 @@ const config = [
         ...RAW_FETCH_RULES,
         ...DATE_RULES,
         ...CALENDAR_FIELD_RULES,
+        ...DATE_HELPER_RULES,
         ...DESIGN_RULES,
       ],
     },
@@ -286,6 +329,7 @@ const config = [
         ...RAW_FETCH_RULES,
         ...DATE_RULES,
         ...CALENDAR_FIELD_RULES,
+        ...DATE_HELPER_RULES,
         ...withTemplates([DESIGN_Z_RULE, ...DESIGN_SHARED_RULES]),
       ],
     },
@@ -300,6 +344,7 @@ const config = [
         ...RAW_FETCH_RULES,
         ...DATE_RULES,
         ...CALENDAR_FIELD_RULES,
+        ...DATE_HELPER_RULES,
         ...withTemplates([DESIGN_PALETTE_RULE, DESIGN_Z_RULE, ...DESIGN_SHARED_RULES]),
       ],
     },
@@ -314,6 +359,7 @@ const config = [
         ...RAW_FETCH_RULES,
         ...DATE_RULES,
         ...CALENDAR_FIELD_RULES,
+        ...DATE_HELPER_RULES,
         ...withTemplates([DESIGN_HEX_RULE, DESIGN_PALETTE_RULE, ...DESIGN_SHARED_RULES]),
       ],
     },
@@ -322,17 +368,17 @@ const config = [
   // reason to build a Date from a calendar-date field. Every other gate still applies here.
   {
     files: CALENDAR_SORT_ALLOWLIST,
-    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...RAW_FETCH_RULES, ...DATE_RULES, ...DESIGN_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...RAW_FETCH_RULES, ...DATE_RULES, ...DATE_HELPER_RULES, ...DESIGN_RULES] },
   },
   // The query-key registry defines keys as literals, so only the fetch gate applies to it.
   {
     files: ['lib/queryKeys.ts'],
-    rules: { 'no-restricted-syntax': ['error', ...RAW_FETCH_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES, ...DESIGN_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...RAW_FETCH_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES, ...DATE_HELPER_RULES, ...DESIGN_RULES] },
   },
   // The sanctioned raw-fetch sites still get the query-key gate.
   {
     files: RAW_FETCH_ALLOWLIST,
-    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES, ...DESIGN_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES, ...DATE_HELPER_RULES, ...DESIGN_RULES] },
   },
 ]
 
