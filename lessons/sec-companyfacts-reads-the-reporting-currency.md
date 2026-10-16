@@ -12,17 +12,24 @@ the full-history path had a second, hard-coded answer. Fixing the read alone was
 `is_latest` is kept per unit, so the new CNY rows left the old USD rows current for the same
 periods. Counting period-ends over the whole history was not enough either. A filer that switched
 from CNY to USD still has more CNY period-ends, so its history was read in CNY, and the newest USD
-year sat in a series labelled CNY.
+year sat in a series labelled CNY. Anchoring at the latest period-end instead failed the other way:
+one stray foreign fact dated after every USD period took a domestic filer's whole series, and a
+filer that switched from USD to CNY was read in CNY while its older USD years stayed current. The
+question is not which currency is newest or widest but whether the USD list is a translation.
 
-**Rule**: Pick a companyfacts concept's unit list with the per-filing rule
-(`edgar/instance/core.py::_reporting_currency`, reached through `facts/currency.py::series_unit`),
-never a hard-coded "USD". Only a currency present at the latest period-end competes; that is the
-full history's analogue of the filing's own period. Carry the picked unit on every row and every
+**Rule**: Read a companyfacts concept's foreign unit list only when its USD list is that list's
+convenience translation: every USD period-end is also a foreign period-end
+(`facts/currency.py::series_unit`). Among such lists, pick with the per-filing rule
+(`edgar/instance/core.py::_reporting_currency`); never hard-code "USD", and never let one later or
+wider list win on its own. Any other shape keeps the USD list, because a native read would leave
+USD rows without a native twin current beside it. Carry the picked unit on every row and every
 calculation built from it, and treat "additive" as "a currency amount" (`is_amount_unit`), not as
 "USD". When a writer stores a native-currency row where a USD row is current at the same concept,
 period end and fiscal period, it demotes that USD row itself (`demote_convenience_rows`) and never
-deletes it. The reverse direction is a known gap: a later pick of USD over current native rows
-leaves both current. Fixing it needs the per-filing pick that a currency switcher would need.
+deletes it. Known gaps: a switcher's years in its later currency are not ingested from
+companyfacts; a USD fact at a period-end the native list lacks (a stray, or a switch to USD) puts
+that concept back on the USD list; and after such a flip, native rows an earlier sync stored stay
+current beside the USD rows. Fixing them needs a per-filing pick and a product decision.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;

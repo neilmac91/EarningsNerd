@@ -831,10 +831,11 @@ class TestNativeReportingCurrency:
         assert excluded["reason"] == "incompatible_vintages"
         assert {operand["unit"] for operand in excluded["inputs"]} == {"CNY"}
 
-    def test_a_filer_that_switched_to_usd_is_read_in_its_current_currency(self):
+    def test_a_filer_that_switched_to_usd_keeps_its_usd_reading(self):
         # CNY 20-Fs for FY2019-23 (each with two comparatives and a USD convenience year), then a
-        # FY2024 20-F that reports in USD with FY2022-23 restated. CNY still covers more
-        # period-ends, but only USD reaches the latest one, so the history stays in USD as before.
+        # FY2024 20-F that reports in USD with FY2022-23 restated. CNY covers more period-ends,
+        # but FY2024 has no CNY twin, so the USD list is no convenience translation and the
+        # history stays in USD as before; a CNY read would leave the stored FY2024 USD row current.
         cny = {year: 500e9 + 50e9 * (year - 2017) for year in range(2017, 2024)}
         cny_items, usd_items = [], []
         for fy in range(2019, 2024):
@@ -853,13 +854,36 @@ class TestNativeReportingCurrency:
         assert {unit for unit, _value in revenue.values()} == {"USD"}
         assert {year: revenue[year][1] for year in restated} == restated
 
-    def test_usd_filer_ignores_a_stray_minority_currency_list(self):
-        # USD covers more period-ends than a stray EUR value, so a domestic filer's history is
-        # read exactly as before.
+    def test_a_filer_that_switched_from_usd_keeps_its_usd_history(self):
+        # 10-Ks for FY2017-22 in USD (each with two comparatives), then FY2023-24 20-Fs in CNY with
+        # FY2021-22 restated and no USD convenience year. Only CNY reaches the latest period-end,
+        # but FY2015-20 have no CNY twin: a CNY read would leave the USD rows an earlier sync
+        # stored for them current beside the CNY years, so the history stays in USD as before.
+        usd = {year: 100e9 + 10e9 * (year - 2015) for year in range(2015, 2023)}
+        cny = {2021: 7 * usd[2021], 2022: 7 * usd[2022], 2023: 1_200e9, 2024: 1_300e9}
+        usd_items = [_item(usd[y], f"{y}-12-31", start=f"{y}-01-01", accn=f"10K-{fy}", fy=fy,
+                           filed=f"{fy + 1}-02-20")
+                     for fy in range(2017, 2023) for y in (fy - 2, fy - 1, fy)]
+        cny_items = [_item(cny[y], f"{y}-12-31", start=f"{y}-01-01", accn=f"20F-{fy}", fy=fy,
+                           form="20-F", filed=f"{fy + 1}-04-20")
+                     for fy in (2023, 2024) for y in (fy - 2, fy - 1, fy)]
+        payload = _payload({REV_TAG: {"units": {"USD": usd_items, "CNY": cny_items}}})
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        revenue = {f["period_end"].year: (f["unit"], f["value"]) for f in facts
+                   if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+        assert revenue == {year: ("USD", value) for year, value in usd.items()}
+
+    @pytest.mark.parametrize("stray", [
+        _item(900.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
+        # Dated after every USD period-end, so it alone reaches the latest one.
+        _item(900.0, "2025-09-30", start="2025-07-01", accn="Q3-25", fy=2025, fp="Q3", form="10-Q",
+              filed="2025-11-05"),
+    ], ids=["inside-the-usd-span", "after-every-usd-period"])
+    def test_usd_filer_ignores_a_stray_minority_currency_list(self, stray):
+        # The USD list translates no stray EUR value (its other period-ends have no EUR twin), so
+        # a domestic filer's history is read exactly as before, whatever the stray's date.
         payload = _calendar_payload()
-        payload["facts"]["us-gaap"][REV_TAG]["units"]["EUR"] = [
-            _item(900.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
-        ]
+        payload["facts"]["us-gaap"][REV_TAG]["units"]["EUR"] = [stray]
         assert svc.normalize_companyfacts(1, payload) == svc.normalize_companyfacts(1, _calendar_payload())
 
 

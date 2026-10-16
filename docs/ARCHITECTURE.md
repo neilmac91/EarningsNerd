@@ -336,14 +336,17 @@ unused since generation became account-required in #619; kept because migrations
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
-- Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`):
-  the per-filing extractor's `_reporting_currency` rule, applied to the currencies present at the
-  latest period-end. A foreign US-GAAP filer's history is therefore stored as reported (CNY, JPY),
-  never from its USD convenience translations, and a filer that switched currency is read in its
-  current one. Quarter derivation works in any currency. Once the native row arrives, a sync
-  demotes, never deletes, any current USD row at the same concept, period end and fiscal period,
-  whatever its source or filing. The newer-accession rule above is per unit; across units the
-  pick has already chosen the series currency.
+- Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
+  A foreign list is read only when the USD list is its convenience translation (every USD
+  period-end is also one of its period-ends); among such lists the per-filing extractor's
+  `_reporting_currency` rule picks. A foreign US-GAAP filer's history is therefore stored as
+  reported (CNY, JPY), never from its USD convenience translations. Any other shape keeps the USD
+  list: a stray foreign fact, whatever its date, and a currency switch in either direction, whose
+  later years in the other currency are not ingested from companyfacts. Quarter derivation works
+  in any currency. Once the native row arrives, a sync demotes, never deletes, any current USD row
+  at the same concept, period end and fiscal period, whatever its source or filing. The
+  newer-accession rule above is per unit; across units the pick has already chosen the series
+  currency.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

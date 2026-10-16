@@ -52,8 +52,9 @@ def _companyfacts_fresh_result(
 def _persist_companyfacts_payload(
     db: Session, company: Company, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Normalize and persist one already-fetched payload in the caller's short transaction; its
-    native-currency rows demote the USD convenience twins an earlier sync stored (never deleted)."""
+    """Normalize and persist one already-fetched payload in the caller's short transaction; each
+    native-currency row demotes the current USD row at its concept, period end and fiscal period,
+    whatever that row's source or filing (never deleted)."""
     facts, meta = normalize_companyfacts(
         company.id, payload, financial_sic=_is_financial_sic(company.sic)
     )

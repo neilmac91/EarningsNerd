@@ -3,8 +3,8 @@
 A foreign US-GAAP filer (the Alibaba shape) tags every period in its reporting currency and, in
 each filing, its own period again as a USD convenience translation at that period's rate.
 Companyfacts therefore holds a CNY list and a USD list for the same line. A history built from
-the USD list mixes exchange-rate moves into growth, so each concept is read from its reporting
-currency, picked by the per-filing extractor's own rule.
+the USD list mixes exchange-rate moves into growth, so a concept whose USD list is such a
+translation is read from its reporting currency instead.
 """
 from __future__ import annotations
 
@@ -24,16 +24,17 @@ def series_unit(usgaap: dict, tags: tuple[str, ...], default_unit: str) -> str:
     """The unit list one concept is read from: its reporting currency across its candidate tags.
 
     ``default_unit`` is the concept's USD unit ("USD" or "USD/shares"); only lists of the same
-    shape compete. Only a currency present at the latest period-end can win: that is a full
-    history's analogue of the filing's own period, so a filer that switched currency is read in
-    its current one. Among those, the pick is ``_reporting_currency``'s: the most distinct
-    period-ends, then a non-USD code. A domestic filer keeps ``default_unit`` unless a foreign
-    list at its latest period-end covers as many period-ends (the per-filing tie rule).
+    shape compete. A foreign list is read only when the USD list is its convenience translation:
+    every USD period-end is also one of its period-ends. Among such lists the per-filing
+    extractor's ``_reporting_currency`` picks (the most distinct period-ends, then the latest).
+    Any other shape keeps ``default_unit``: a stray foreign fact, whatever its date, or a currency
+    switch in either direction. There some USD period-end has no native twin, so a native read
+    would leave the USD row an earlier sync stored there current beside the native series.
     """
     from app.services.edgar.instance.core import _reporting_currency  # lazy: facts imports stay EDGAR-free
 
     suffix = "/shares" if default_unit.endswith("/shares") else ""
-    candidates: list[tuple[str, float, str, float]] = []
+    ends: dict[str, set[str]] = {}
     for tag in tags:
         node = usgaap.get(tag)
         units = node.get("units") if isinstance(node, dict) else None
@@ -41,13 +42,14 @@ def series_unit(usgaap: dict, tags: tuple[str, ...], default_unit: str) -> str:
             currency = key.removesuffix(suffix)
             if key != currency + suffix or not is_amount_unit(currency) or not isinstance(items, list):
                 continue
-            candidates.extend((str(item["end"])[:10], 0.0, currency, 0.0)
-                              for item in items if isinstance(item, dict) and item.get("end"))
-    if not candidates:
+            ends.setdefault(currency, set()).update(
+                str(item["end"])[:10] for item in items if isinstance(item, dict) and item.get("end"))
+    usd = ends.pop("USD", set())
+    native = [(end, 0.0, currency, 0.0) for currency, periods in ends.items() if usd <= periods
+              for end in periods]
+    if not native:
         return default_unit
-    latest = max(end for end, *_ in candidates)
-    current = {currency for end, _value, currency, _decimals in candidates if end == latest}
-    return f"{_reporting_currency([c for c in candidates if c[2] in current], latest)}{suffix}"
+    return f"{_reporting_currency(native, max(native)[0])}{suffix}"
 
 
 def demote_convenience_rows(db: Session, facts: list[dict[str, Any]]) -> int:
