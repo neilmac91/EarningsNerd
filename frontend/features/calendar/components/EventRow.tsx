@@ -13,7 +13,6 @@ import Link from 'next/link'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
-import { FlameIcon } from '@/lib/icons'
 import { fmtCurrency } from '@/lib/format'
 import type { CalendarEvent } from '../api/calendar-api'
 import { habitualSlotNote } from '../lib/lanes'
@@ -67,8 +66,6 @@ export function EpsFigure({ ev, roomy = false }: { ev: CalendarEvent; roomy?: bo
   )
 }
 
-const ANTICIPATION_FLAME_THRESHOLD = 93
-
 export function EventRow({
   ev,
   alerts,
@@ -100,12 +97,6 @@ export function EventRow({
                   {ev.ticker}
                 </span>
                 <StatusChip status={ev.status} />
-                {ev.anticipation_score >= ANTICIPATION_FLAME_THRESHOLD && (
-                  <FlameIcon
-                    aria-label="Highly anticipated"
-                    className="h-3.5 w-3.5 text-warning-light dark:text-warning-dark"
-                  />
-                )}
               </span>
               <span className="mt-0.5 block truncate text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                 {ev.company_name}
@@ -121,9 +112,6 @@ export function EventRow({
               <span className="font-data text-xs font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
                 {ev.ticker}
               </span>
-              {ev.anticipation_score >= ANTICIPATION_FLAME_THRESHOLD && (
-                <FlameIcon aria-label="Highly anticipated" className="h-3 w-3 text-warning-light dark:text-warning-dark" />
-              )}
               <StatusChip status={ev.status} />
             </span>
             <span className="mt-px flex items-baseline gap-1.5 pl-[26px]" title={note ?? undefined}>
