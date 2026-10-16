@@ -101,6 +101,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
+- sec-fact-writers-name-a-period-alike.md — Name a fact's fiscal year from its filing's trusted DEI focus, else the calendar year of its end, never NULL; every fact writer must name a period alike (partly gated by `backend/tests/unit/test_annual_fact_fiscal_labels.py`; a new writer's agreement is review-checked)
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network
 - sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md — Run our entry point against the failure before ruling that an upstream fix does not reach us (a grep of `app/` misses calls the library makes for us), and never let a `getattr` default or bare `except` hide a failing read (partly gated: `test_edgartools_compat.py`, `test_xbrl_sections_errors.py` pin this instance)
 - sec-runtime-facts-carry-no-duration.md — Runtime per-filing facts carry no duration: abstain, never substitute an annual-looking label

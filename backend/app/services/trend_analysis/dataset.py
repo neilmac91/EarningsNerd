@@ -20,8 +20,8 @@ from app.services.trend_analysis.periods import (
 from app.services.trend_analysis.series import _series_map, _valued_points
 from app.utils.datetimes import ensure_utc, iso_z
 
-# Balance-sheet (point-in-time) concepts + their derived metrics: matched by period_end in
-# quarterly mode; everything else is a flow/duration concept matched by (fiscal_year, fiscal_period).
+# Balance-sheet (point-in-time) concepts + their derived metrics: matched by the bucket's period_end
+# in both modes; everything else is a flow/duration concept matched by (fiscal_year, fiscal_period).
 INSTANT_CONCEPTS: frozenset[str] = frozenset(
     {
         "total_assets", "cash_and_equivalents", "shareholders_equity", "long_term_debt",
@@ -91,11 +91,8 @@ def _valued_endpoints(
     return valued[0], valued[-1]
 
 
-def _index_facts(
-    db: Session, company: Company,
-) -> tuple[
-    list[FinancialFact], dict[tuple[int, str, str], FinancialFact],
-    dict[tuple[str, date], FinancialFact],
+def _index_facts(db: Session, company: Company) -> tuple[
+    list[FinancialFact], dict[tuple[int, str, str], FinancialFact], dict[tuple[str, date], FinancialFact],
 ]:
     """Read the company facts once and index flows and balance-sheet instants."""
     rows = (
@@ -109,16 +106,19 @@ def _index_facts(
         .all()
     )
 
-    # Indexes: flows by (fiscal_year, fiscal_period); instants ALSO by period_end (D2c).
+    # Indexes: flows by (fiscal_year, fiscal_period); instants by period_end (D2c). A flow label that
+    # current rows give to different period ends names no single period: refuse it, never let order pick.
     by_fy_fp: dict[tuple[int, str, str], FinancialFact] = {}
     instant_by_end: dict[tuple[str, date], FinancialFact] = {}
+    ends: dict[tuple[int, str, str], set[date]] = {}
     for row in rows:
-        if row.fiscal_year is None:
-            continue
-        by_fy_fp[(row.fiscal_year, row.fiscal_period, row.concept)] = row
-        if row.concept in INSTANT_CONCEPTS:
-            instant_by_end[(row.concept, row.period_end)] = row
-    return rows, by_fy_fp, instant_by_end
+        if row.fiscal_year is not None:
+            key = (row.fiscal_year, row.fiscal_period, row.concept)
+            by_fy_fp[key] = row
+            ends.setdefault(key, set()).add(row.period_end)
+            if row.concept in INSTANT_CONCEPTS:
+                instant_by_end[(row.concept, row.period_end)] = row
+    return rows, {key: row for key, row in by_fy_fp.items() if len(ends[key]) == 1}, instant_by_end
 
 
 def _annual_period_axis(
@@ -289,7 +289,7 @@ def _series_points(
 ) -> list[dict[str, Any]]:
     """Align each concept's points and attach comparisons and window figures."""
     def _row_for(concept: str, bucket: dict[str, Any]) -> Optional[FinancialFact]:
-        if mode == "quarterly" and concept in INSTANT_CONCEPTS:
+        if concept in INSTANT_CONCEPTS:  # A balance is read at the bucket's own end, whatever its label.
             return instant_by_end.get((concept, bucket["period_end"]))
         return by_fy_fp.get((bucket["fiscal_year"], bucket["fiscal_period"], concept))
 

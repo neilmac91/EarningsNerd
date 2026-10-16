@@ -27,12 +27,12 @@ def normalize_standardized_to_facts(
     """Turn standardized metrics into fact dicts — one row per concept *per reported period*.
 
     A 10-K's XBRL carries the current year plus comparative prior years, so each concept's
-    ``series`` (from ``extract_standardized_metrics``) yields several periods. We emit a row for
-    every period point, attributed to this filing's accession; the identity key includes
-    ``period_end`` so they're distinct, and the restatement-safe ``is_latest`` logic in
-    ``upsert_facts`` keeps the newest filing's value current when periods overlap across filings.
-    Falls back to the single ``current`` entry when no ``series`` is present. Tolerant of
-    missing/malformed entries (skipped, never raised).
+    ``series`` (from ``extract_standardized_metrics``) yields several periods, each a row attributed
+    to this filing's accession; ``period_end`` in the identity keeps them distinct, and ``is_latest``
+    in ``upsert_facts`` keeps the newest filing's value current when periods overlap across filings.
+    The fiscal year is the calendar year of ``period_end`` unless the point carries the one its
+    filing's DEI focus names (``edgar/fiscal_periods``). Falls back to the single ``current`` entry
+    when no ``series`` is present. Tolerant of missing/malformed entries (skipped, never raised).
     """
     if not accession or not isinstance(standardized, dict):
         return []
