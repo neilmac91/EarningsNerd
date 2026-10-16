@@ -139,3 +139,15 @@ blocks it writes. Each seam probe matches the marker occurrence adjacent to its 
   replay (6.0) must also land E28's decision first. Until it does,
   `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` fails any edgartools other than
   5.58.0 while the section source holds its `obj()` allow-list entry.
+
+## Addendum, 2026-10-16: E28 landed (PR #1347)
+
+- The summary's section source no longer calls `obj()`. It parses the primary document the pipeline
+  fetched, so neither 5.61.x's index-URL fix nor 5.62.0's `html()` change reaches it; the tripwire
+  and the allow-list entry are deleted.
+- A bump can still change section text through the HTML parser itself.
+  `backend/tests/unit/test_summary_sections_parity.py` now fails such a change in the free
+  `backend-tests` job, and the regression gate's native-section share fails a collapse in
+  `eval-baseline`.
+- The hold decision is unchanged: the Ford affix and seam regressions (decision D, #1063) stand. Any
+  replay must pass the parity test and a dispatched `eval-baseline`.

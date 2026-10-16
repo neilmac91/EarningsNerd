@@ -148,9 +148,9 @@ every newly built eligible excerpt back to native sections inside a dependency c
 
 The hold record now carries an addendum
 ([`../edgartools-5.61.1-hold-2026-10-13/README.md`](../edgartools-5.61.1-hold-2026-10-13/README.md#addendum-2026-10-15-finding-6-corrected-e28)).
-The tripwire `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` keys on the installed
-edgartools version, not on one URL or code path. It holds the version at 5.58.0, the version measured
-dead, for as long as `test_edgartools_obj_allowlist.py` carries the section source's `obj()` entry.
+Until the fix landed (see "Outcome"), the tripwire `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` keyed on the installed
+edgartools version, not on one URL or code path. It held the version at 5.58.0, the version measured
+dead, for as long as `test_edgartools_obj_allowlist.py` carried the section source's `obj()` entry.
 
 ## Reviving native sections without edgartools' HTTP client, measured offline
 
@@ -220,6 +220,39 @@ nothing. A daily count since 2026-10-01 shows the switch and sizes the October c
 The CODE RED chief's `logs-probe` route can read these logs. This record did not, because it has no
 production access.
 
+## Outcome (2026-10-16, PR #1347)
+
+The founder chose option 1. What landed:
+
+- **The section source.** `backend/app/services/edgar/xbrl_sections.py::_sections_from_html` parses
+  the primary document the pipeline fetched: `HTMLParser(ParserConfig(form=base_form)).parse(html)`,
+  the old section keys, and for a 10-K the lookup order of `TenK.__getitem__` (canonical part key,
+  combined-items heading, "Item X" key, friendly name, then the Cross Reference Index). It makes no
+  SEC request and calls no `obj()`. Documents over 16,000,000 characters are not parsed.
+- **The seam.** `xbrl_service.get_filing_sections(accession, filing_type, *, html)`. The pipeline
+  starts the parse once the document is fetched (`summary_stages/enrichment.py::start_section_parse`,
+  request-owned) and resolves it inside the 18 s enrichment join, alongside XBRL. The eval runner,
+  the Copilot bootstrap and the acceptance harness pass the same fetched HTML.
+- **Parity.** All 32 golden 10-K, 10-Q and 20-F excerpts built through the revived seam match the
+  pre-switch CI reports byte for byte ([`revival_parity.txt`](revival_parity.txt), from
+  [`seam_parity_one.py.txt`](seam_parity_one.py.txt) and
+  [`revival_parity_compare.py.txt`](revival_parity_compare.py.txt);
+  [`seam_parity_results.jsonl`](seam_parity_results.jsonl)). 31 are native; ASML's 20-F has no
+  sections, as before. `backend/tests/unit/test_summary_sections_parity.py` pins three of them in CI
+  (FIGS's 10-Q, MercadoLibre's 10-K and Sea's 20-F) from fixtures already in the repository.
+- **The gate.** `backend/evals/regression_gate.py` checks the native-section share: HARD below
+  0.90, WARN below 0.95, absolute, from `results`. No re-pin.
+- **Retired.** The tripwire and the `obj()` allow-list entry are deleted; E25 closes in the same PR.
+- **Cost.** The dead attempt's whole-submission download and refused index-page request are gone.
+  The parse itself took 0.4 to 6.4 s per document, peaking at 196 to 415 MB of process memory with
+  the app imported (about 182 to 205 MB before the parse); ASML's 24.9 MB 20-F is skipped by the cap
+  ([`seam_parity_results.jsonl`](seam_parity_results.jsonl)).
+- **Remaining** (E28 in `tasks/todo.md`): confirm the switch in production from the `Excerpt
+  provenance` logs, and size and regenerate the October cohort on the founder's go.
+
+The PR's own `eval-baseline` run is recorded in the PR body: every push to the PR starts a paid
+run, so recording it here would start another.
+
 ## Files
 
 - [`probe_sections.py.txt`](probe_sections.py.txt), [`probe_sections_output.txt`](probe_sections_output.txt):
@@ -241,3 +274,6 @@ production access.
   [`bump_5620_results.jsonl`](bump_5620_results.jsonl): the app's section call on 5.58.0 and on 5.62.0.
 - [`fetch_docs.py.txt`](fetch_docs.py.txt), [`parse_one.py.txt`](parse_one.py.txt),
   [`parse_results.jsonl`](parse_results.jsonl): the offline revival measurement.
+- [`seam_parity_one.py.txt`](seam_parity_one.py.txt), [`seam_parity_results.jsonl`](seam_parity_results.jsonl),
+  [`revival_parity_compare.py.txt`](revival_parity_compare.py.txt), [`revival_parity.txt`](revival_parity.txt):
+  the revived seam's excerpts against the pre-switch reports, filing by filing.

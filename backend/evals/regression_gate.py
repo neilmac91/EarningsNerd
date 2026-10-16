@@ -15,6 +15,13 @@ CI. The LLM judge is intentionally NOT part of the gate (flaky, costly) — see 
 Tolerances are absolute deltas (not configurable from the report, on purpose: a candidate must
 not be able to relax its own gate). They are sized against the baseline's measured run-to-run
 variance — see the calibration note on HARD_FAIL below.
+
+Besides the pinned deltas and the completeness checks, one absolute check reads the attempts'
+input provenance: the share of 10-K/10-Q/20-F excerpts built from native sections
+(``coverage_inventory.source``). It is deterministic (a local parse, no model call), so it can be
+HARD; it needs no pin; and it is computed from ``results``, never from a candidate's own summary.
+It exists because from early October 2026 the native source returned nothing and every excerpt
+fell back to regex for weeks while only a citation-fidelity WARN printed (E28).
 """
 from __future__ import annotations
 
@@ -70,6 +77,19 @@ _WARN_GATES = (
     # so ordinary evidence-mix shift never trips it while a collapse self-announces.
     ("mean_citation_checked", "decrease", 2.0, "citation evidence volume (emission-collapse guard for the fidelity ratio)"),
 )
+
+
+# --- Native-section provenance (absolute; from `results`, not the pin) -----------------------
+# The excerpt source label production logs and the runner records (summary_generation_service,
+# evals/runner.py) and the forms the pipeline parses sections for (summary_stages/enrichment.py).
+_NATIVE_SECTION_SOURCE = "edgartools"
+_NATIVE_SECTION_FORMS = frozenset({"10-K", "10-Q", "20-F"})
+# Calibration: the pre-switch CI runs (37152414706, 37191767215) and the revived parse read 62 of
+# 64 eligible attempts native (31 of 32 filings, 0.969); ASML's 20-F, which has no parsable item
+# headings, is the one miss. E28's dead state read 0 of 64. One filing is 1/32 of the share, so a
+# WARN means one or two more misses and a HARD a collapse, a broken form or three or more misses.
+_NATIVE_SHARE_HARD_FLOOR = 0.90
+_NATIVE_SHARE_WARN_FLOOR = 0.95
 
 
 @dataclass
@@ -151,6 +171,9 @@ def evaluate_report(
     base_candidates = baseline.get("candidates", {})
     report_summary = report.get("summary") or {}
     findings, notes = _check_completeness(report, only)
+    native_findings, native_notes = _check_native_sections(report, baseline, only)
+    findings.extend(native_findings)
+    notes.extend(native_notes)
     if not isinstance(report_summary, dict):
         return findings, notes
     for candidate, cand_stats in report_summary.items():
@@ -252,6 +275,71 @@ def _check_completeness(report: Dict[str, Any], only: Optional[str]) -> tuple[Li
             if missing or extra or duplicates:
                 fail(candidate, "incomplete_attempts", missing + extra + duplicates,
                      f"requested attempt population differs: missing={missing} extra={extra} duplicates={duplicates}")
+    return findings, notes
+
+
+def _check_native_sections(
+    report: Dict[str, Any], baseline: Dict[str, Any], only: Optional[str],
+) -> tuple[List[Finding], List[str]]:
+    """Share of eligible attempts whose excerpt was built from native sections (absolute floors).
+
+    Rows without a ``coverage_inventory`` (reports from before it existed, grounding failures)
+    are unavailable, never counted as zero; a report with none at all gets a note only.
+    """
+    findings: List[Finding] = []
+    notes: List[str] = []
+    harness = report.get("harness") if isinstance(report.get("harness"), dict) else {}
+    flag = harness.get("use_edgartools_sections")
+    pinned_harness = baseline.get("harness") if isinstance(baseline.get("harness"), dict) else {}
+    rows = [r for r in report.get("results") or [] if isinstance(r, dict)] if isinstance(report.get("results"), list) else []
+    listed = harness.get("candidates")
+    if only:
+        selected = [only]
+    elif isinstance(listed, list) and all(isinstance(c, str) for c in listed):
+        selected = list(listed)
+    else:
+        selected = sorted({r["candidate"] for r in rows if isinstance(r.get("candidate"), str)})
+    for candidate in selected:
+        eligible = [r for r in rows if r.get("candidate") == candidate and isinstance(r.get("filing_type"), str)
+                    and r["filing_type"].upper().split("/")[0] in _NATIVE_SECTION_FORMS]
+        if not eligible:
+            notes.append(f"{candidate}: native sections not applicable (no 10-K/10-Q/20-F attempts)")
+            continue
+        measured = [r for r in eligible if isinstance(r.get("coverage_inventory"), dict)]
+        if not measured:
+            notes.append(f"{candidate}: native-section share unavailable (no coverage_inventory); "
+                         "unavailable is not measured zero")
+            continue
+        native = [r for r in measured if r["coverage_inventory"].get("source") == _NATIVE_SECTION_SOURCE]
+        misses: Dict[str, int] = {}
+        for row in measured:
+            if row not in native:
+                name = f"{row.get('ticker')} {row['filing_type']}"
+                misses[name] = misses.get(name, 0) + 1
+        share = len(native) / len(measured)
+        named = ", ".join(f"{name} x{count}" for name, count in sorted(misses.items())) if len(misses) <= 3 \
+            else f"{len(misses)} filings"
+        notes.append(f"{candidate}: native-section excerpts {len(native)} of {len(measured)} eligible attempts "
+                     f"(unavailable={len(eligible) - len(measured)}); non-native: {named or 'none'}")
+        unmeasured_scored = [r for r in eligible if r not in measured and not r.get("error")]
+        if unmeasured_scored:
+            findings.append(Finding("HARD", candidate, "native_section_evidence", None, len(unmeasured_scored), None,
+                                    "scored 10-K/10-Q/20-F attempts lack coverage_inventory"))
+        if flag is False:
+            if native:
+                findings.append(Finding("HARD", candidate, "native_section_share", None, round(share, 4), None,
+                                        "native-section excerpts reported while the harness says sections are off"))
+            if pinned_harness.get("use_edgartools_sections") is True:
+                findings.append(Finding("WARN", candidate, "use_edgartools_sections", None, 0, None,
+                                        "measured with native sections off; the pinned baseline measured them on"))
+            continue
+        if share < _NATIVE_SHARE_HARD_FLOOR:
+            findings.append(Finding("HARD", candidate, "native_section_share", None, round(share, 4), None,
+                                    f"native-section excerpts {len(native)} of {len(measured)}, below the "
+                                    f"{_NATIVE_SHARE_HARD_FLOOR} floor: the section source is not reaching the excerpt (E28)"))
+        elif share < _NATIVE_SHARE_WARN_FLOOR:
+            findings.append(Finding("WARN", candidate, "native_section_share", None, round(share, 4), None,
+                                    f"native-section excerpts {len(native)} of {len(measured)}, below {_NATIVE_SHARE_WARN_FLOOR}"))
     return findings, notes
 
 

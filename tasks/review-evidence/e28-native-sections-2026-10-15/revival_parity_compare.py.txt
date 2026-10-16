@@ -1,0 +1,38 @@
+"""Compare the revived section source's excerpts with the pre-switch CI eval reports, filing by filing.
+
+Usage: python -I revival_parity_compare.py SEAM_RESULTS.jsonl REPORT.json [REPORT.json ...]
+SEAM_RESULTS is seam_parity_one.py.txt's output, one JSON line per golden 10-K/10-Q/20-F document.
+Reads local files only.
+"""
+import collections
+import json
+import sys
+
+revived = {}
+for line in open(sys.argv[1]):
+    if line.strip():
+        row = json.loads(line)
+        revived[row["acc"]] = row
+
+recorded = collections.defaultdict(set)
+tickers = {}
+for path in sys.argv[2:]:
+    for result in json.load(open(path))["results"]:
+        inventory = result.get("coverage_inventory") or {}
+        if inventory.get("accession"):
+            recorded[inventory["accession"]].add((inventory["source"], inventory["excerpt_sha256"]))
+            tickers[inventory["accession"]] = (result.get("ticker"), result.get("filing_type"))
+
+same = 0
+for acc, row in sorted(revived.items(), key=lambda item: tickers.get(item[0], ("", ""))):
+    ticker, form = tickers.get(acc, ("?", row["form"]))
+    native = {sha for source, sha in recorded[acc] if source == "edgartools"}
+    if row["excerpt_sha256"]:
+        verdict = "identical" if row["excerpt_sha256"] in native else "DIFFERENT"
+    else:
+        verdict = "no sections, as before (regex)" if not native else "DIFFERENT (sections lost)"
+    same += verdict.startswith(("identical", "no sections"))
+    print(f"{ticker:6s} {form:5s} {acc}  revived {str(row['excerpt_sha256'])[:12]:12s}  "
+          f"pre-switch native {','.join(sorted(s[:12] for s in native)) or '-':12s}  {verdict}")
+print(f"\n{same} of {len(revived)} excerpts match the pre-switch reports "
+      f"({sum(1 for r in revived.values() if r['excerpt_sha256'])} native)")

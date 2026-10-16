@@ -1,9 +1,9 @@
 """SEC filing section extraction for OpenAIService (roadmap S2 façade split).
 
 ``_ExtractionMixin`` holds the pure text-processing path that turns raw/HTML filing text into the
-bounded, section-labelled excerpt the summary prompt is grounded on: per-form config, the regex +
-edgartools section extractors, table-of-contents/stub detection, dense-window backfill, and the
-excerpt assembler. No AI call, no DB, no settings — regex + BeautifulSoup only. The per-form
+bounded, section-labelled excerpt the summary prompt is grounded on: per-form config, the regex
+section extractor, table-of-contents/stub detection, dense-window backfill, and the assembler for
+sections parsed from the fetched primary document (``edgar/xbrl_sections.py``). No AI call, no DB, no settings — regex + BeautifulSoup only. The per-form
 display-label/length-cap constants (``_SECTION_LAYOUT`` et al.) travel with it as class attributes.
 Mixed into ``OpenAIService``; methods resolve through ``self``. Extracted verbatim.
 """
@@ -413,7 +413,7 @@ class _ExtractionMixin:
         )
         return recovered[:320000] or filing_text_clean[:120000]
 
-    # Per-form display labels + length caps for sections parsed by edgartools
+    # Per-form display labels + length caps for sections parsed from the fetched primary document
     # (xbrl_service.get_filing_sections). Mirrors the labels/caps the regex path emits so the
     # downstream prompt is byte-for-byte compatible regardless of which extractor produced it.
     _SECTION_LAYOUT = {
@@ -457,7 +457,7 @@ class _ExtractionMixin:
         filing_type: str = "10-K",
         filing_text: Optional[str] = None,
     ) -> str:
-        """Build the critical-sections excerpt from edgartools-parsed section text.
+        """Build the critical-sections excerpt from section text parsed out of the fetched document.
 
         ``sections`` is keyed by canonical name ("financials" / "mda" / "risk") as returned by
         ``xbrl_service.get_filing_sections``. When the financial-statements section is thin/absent

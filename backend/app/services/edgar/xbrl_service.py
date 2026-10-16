@@ -19,7 +19,6 @@ Usage:
     metrics = edgar_xbrl_service.extract_standardized_metrics(data)
 """
 
-import asyncio
 import logging  # noqa: F401 - preserve the facade import surface
 from collections import OrderedDict  # noqa: F401 - preserve the facade import surface
 from datetime import date, datetime, timedelta  # noqa: F401 - preserve the facade import surface
@@ -40,6 +39,7 @@ from .client import resolve_filing_by_accession  # noqa: F401 - preserve the fac
 from app.services.sec_rate_limiter import sec_rate_limiter  # noqa: F401 - preserve the facade import surface
 from app.utils.sec_urls import companyfacts_url  # noqa: F401 - preserve the facade import surface
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
+from .exceptions import EdgarTimeoutError
 from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps  # noqa: F401 - preserve the facade import surface
 from .instance.concepts import (  # noqa: F401 - preserve the facade import surface
     DURATION_CONCEPTS,
@@ -64,7 +64,7 @@ from . import xbrl_companyfacts as _companyfacts
 from . import xbrl_standardized as _standardize
 from .xbrl_companyfacts import CASH_TAG_CANDIDATES
 from .xbrl_instance import _extract_from_filing_instance_sync, _extract_segments, _source_duration
-from .xbrl_sections import _SECTION_MIN_CHARS, _extract_sections_sync
+from .xbrl_sections import _SECTION_MIN_CHARS, _sections_from_html
 from .xbrl_cache import (
     _XBRL_CACHE_VERSION,
     _cache_max_size,
@@ -83,7 +83,7 @@ from .xbrl_cache import (
 __all__ = [
     "CASH_TAG_CANDIDATES", "EdgarXBRLService", "_SECTION_MIN_CHARS",
     "_XBRL_CACHE_VERSION", "_cache_max_size", "_cache_set_sync", "_cache_ttl",
-    "_extract_from_filing_instance_sync", "_extract_sections_sync", "_extract_segments",
+    "_extract_from_filing_instance_sync", "_extract_segments", "_sections_from_html",
     "_get_cache_lock", "_source_duration", "_xbrl_cache", "async_clear_xbrl_cache",
     "clear_xbrl_cache", "edgar_xbrl_service", "get_xbrl_cache_stats", "logger",
 ]
@@ -275,34 +275,34 @@ class EdgarXBRLService:
     async def get_filing_sections(
         self,
         accession_number: str,
-        cik: str,
         filing_type: str,
+        *,
+        html: str,
     ) -> Optional[Dict[str, str]]:
-        """Extract critical sections via edgartools' native document parser.
+        """Parse the critical sections from the primary document the caller already fetched.
 
-        Returns {"financials": str, "mda": str, "risk": str} (only the sections that
-        parsed to real content), or None when the form is unsupported, parsing fails, or
-        the timeout is hit — callers fall back to the legacy regex extractor in that case.
+        Returns {"financials": str, "mda": str, "risk": str} (only the sections that parsed to real
+        content), or None when the form is unsupported, there is no document, parsing fails, or the
+        timeout is hit — callers fall back to the legacy regex extractor in that case. Makes no SEC
+        request: ``html`` is the decoded primary document from the app's own transport.
         """
         base_form = normalize_form(filing_type)
-        if base_form not in {"10-K", "10-Q", "20-F"}:
+        if base_form not in {"10-K", "10-Q", "20-F"} or not html:
             return None
-        cik_padded = str(cik).zfill(10)
-        # The section parse runs CONCURRENT with the document fetch, so extra headroom is largely
-        # hidden. Big financial 10-Ks need it: measured BAC ~21s, GS ~20s, JPM ~26s — all over the
-        # 15s default, so they were timing out into the lower-precision regex excerpt. 20-F annual
-        # reports are larger still (a BABA 20-F parses Item 3/5/18 in ~17.5s). (B3)
+        # Local parse time grows with the document: up to ~7 s for a 13 MB 10-K and ~14 s for a
+        # 25 MB 20-F in the golden set, more when the CPU is shared. The bound is the old section
+        # budget, which covered the network fetch as well.
         section_timeout = max(self.timeout, 40.0) if base_form == "20-F" else max(self.timeout, 30.0)
         try:
             return await run_in_executor_with_timeout(
-                lambda: _extract_sections_sync(cik_padded, accession_number, base_form),
+                lambda: _sections_from_html(html, base_form),
                 timeout=section_timeout,
             )
-        except asyncio.TimeoutError:
-            logger.warning(f"Section extraction timed out for {accession_number}")
+        except EdgarTimeoutError:  # the executor's timeout type; the parse thread runs on, owned by the caller
+            logger.warning(f"Section parse timed out for {accession_number} after {section_timeout:.0f}s")
             return None
         except Exception as e:  # noqa: BLE001 — never let section parsing break generation
-            logger.warning(f"Section extraction failed for {accession_number}: {e}")
+            logger.warning(f"Section parse failed for {accession_number}: {e}")
             return None
 
     async def _fallback_to_company_facts(

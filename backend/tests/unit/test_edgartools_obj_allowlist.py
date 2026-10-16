@@ -11,8 +11,10 @@ then ``loader()``) and the string form: any call that passes ``"obj"`` as an arg
 ``getattr(filing, "obj")`` and getattr wrappers such as ``sixk_extractor._safe(filing, "obj")``.
 Any literal way of reaching the accessor starts with one of those; a name built at runtime (held in a
 variable) is outside an AST walk, and review catches it. The (file, enclosing scope) pairs are
-compared against the three sites that predate the rule. A NEW access anywhere fails with its file:line; a sanctioned site
-that disappears fails too, so the list cannot go stale.
+compared against the two sites that predate the rule. The summary-section path left the list with
+E28: it parses the primary document the pipeline fetched and never calls ``obj()``. A NEW access
+anywhere fails with its file:line; a sanctioned site that disappears fails too, so the list cannot
+go stale.
 """
 import ast
 from pathlib import Path
@@ -22,10 +24,6 @@ APP_DIR = BACKEND_DIR / "app"
 
 # (file relative to backend/, enclosing scope) -> why the call predates the rule.
 ALLOWED_OBJ_CALLS: dict[tuple[str, str], str] = {
-    ("app/services/edgar/xbrl_sections.py", "_extract_sections_sync"): (
-        "the USE_EDGARTOOLS_SECTIONS summary-section path; returns nothing since early October "
-        "(SEC refuses edgartools 5.58.0's index URL), revive-or-retire pending as open item E28"
-    ),
     ("app/services/edgar/sixk_extractor.py", "_extract_sixk_text_sync"): (
         "the 6-K exhibit text for summary grounding, through the _safe getattr wrapper"
     ),

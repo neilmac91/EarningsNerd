@@ -32,12 +32,16 @@ disabling:
   the balance read and reservation that the spend rule requires.
 
 A path that comes back to life is a model-input change. Measure it per `backend/evals/RUNBOOK.md` and
-decide it before the bump, never inside it. When a fix can arrive by more than one route, gate the
-version, not one URL shape or code path.
+decide it before the bump, never inside it. When a fix can arrive by more than one route, gate its
+effect on the model input (an offline test that pins the excerpt real filings produce) or, where
+that cannot be measured offline, the version; never one URL shape or code path.
 
 **Evidence**: `tasks/review-evidence/e28-native-sections-2026-10-15/README.md` and its
 `upstream_fixes.txt`; the 2026-10-15 addendum to
-`tasks/review-evidence/edgartools-5.61.1-hold-2026-10-13/README.md`. The gate
-`backend/tests/unit/test_edgartools_sections_revival_tripwire.py` covers this instance only: it holds
-edgartools at 5.58.0 while the summary's section source keeps its `obj()` allow-list entry. Tracing
-the accessors and dispatching the eval for the next library are review-checked.
+`tasks/review-evidence/edgartools-5.61.1-hold-2026-10-13/README.md`. E28 closed this instance (PR
+#1347): the summary's section source parses the fetched HTML and no longer calls `obj()`, so the
+version-keyed tripwire that held edgartools at 5.58.0 was deleted with its allow-list entry. A
+library bump can still change section text through the parser itself; that is now measured by
+`backend/tests/unit/test_summary_sections_parity.py` (excerpt sha256 on retained filings, in the
+free `backend-tests` job) and the regression gate's native-section share. Tracing the accessors and
+dispatching the eval for the next library stay review-checked.

@@ -49,6 +49,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 ## Evals, judging, paid runs and the founder's machine (read for that work)
 
 - evals-accept-a-prompt-change-on-two-runs-not-one.md — one generated run sets a direction, never an effect size; report the range across two
+- evals-gate-the-primary-sources-share-not-only-its-scores.md — when an output has a primary source and a degrading fallback, gate the share the primary source serves (provenance, absolute HARD floor), not only quality scores; E28's fallback passed every run on a WARN (partly gated by `backend/evals/regression_gate.py`'s native-section check)
 - evals-test-the-row-shape-the-producer-writes.md — a consumer of another module's records is tested on that producer's real row shape, and its identity rule against the committed data
 - ops-ai-evidence-is-not-human-acceptance.md — Use explicit model/source evidence when the founder cannot supply a human panel
 - ops-capacity-projection-withholds-command-values.md — Withhold command values and execute the real readback projection in a privacy gate
@@ -98,7 +99,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## SEC / EDGAR data
 
-- sec-an-upstream-fix-can-revive-a-dormant-path.md — Judge an SEC-library bump by every accessor our code calls, not only the functions its fixes name: a fix can revive a dormant input path, and that is a model-input change to measure and decide before the bump (partly gated by `backend/tests/unit/test_edgartools_sections_revival_tripwire.py`, which holds edgartools at 5.58.0 while the summary's section source keeps its `obj()` entry; a requirements-only bump needs a dispatched `eval-baseline`)
+- sec-an-upstream-fix-can-revive-a-dormant-path.md — Judge an SEC-library bump by every accessor our code calls, not only the functions its fixes name: a fix can revive a dormant input path, and that is a model-input change to measure and decide before the bump (E28's instance is closed: the section source no longer calls `obj()`; section text is pinned by `backend/tests/unit/test_summary_sections_parity.py`, and a requirements-only bump still needs a dispatched `eval-baseline`)
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network

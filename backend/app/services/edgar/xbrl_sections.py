@@ -1,94 +1,136 @@
-"""Local filing-section parsing behind the XBRL service facade.
+"""Summary sections parsed from the primary document the pipeline already fetched (E28).
 
-The service keeps parsing under one plain executor timeout: large local document
-parses are deliberately breaker-exempt and do not measure SEC health.
+The summary pipeline downloads a filing's primary document once, through the app's SEC transport
+(shared limiter and breaker, CLAUDE.md rule 5), and hands its HTML here. Parsing is local CPU work:
+no SEC request, deliberately breaker-exempt, run by the XBRL service facade under one plain executor
+timeout (``lessons/sec-parse-app-fetched-html-not-edgartools-filing-objects.md``).
+
+The text is what edgartools' own report classes return for the same document: ``TenK``, ``TenQ``
+and ``TwentyF``, which ``Filing.obj()`` built until SEC's 403 on edgartools 5.58.0's index URL
+disabled that path in early October 2026. Same parser, same configuration, same section keys and
+the same 10-K lookup order, so the excerpt matches the one the eval baseline was pinned on
+(``tests/unit/test_summary_sections_parity.py``).
 """
 
-from typing import Dict, Optional
+import re
+from typing import Callable, Dict, Optional
 
-from .client import resolve_filing_by_accession
+from edgar.documents import CrossReferenceIndex, HTMLParser, ParserConfig, parse_html
+
 from .xbrl_cache import logger
 
 
-# Minimum length (chars) for an edgartools-parsed section to count as real content
-# rather than an empty/placeholder stub.
+# Minimum length (chars) for a parsed section to count as real content rather than an
+# empty/placeholder stub.
 _SECTION_MIN_CHARS = 200
 
+# Documents above this size are not parsed; the pipeline keeps the regex excerpt. Parse time and
+# peak memory grow with the document. In the golden set the largest document with sections is
+# JPMorgan's 12.9 MB 10-K (5.7 to 6.5 s; 503 MB process peak), and ASML's 24.9 MB 20-F took 11 to
+# 14 s and peaked at 713 MB to yield no sections at all
+# (tasks/review-evidence/e28-native-sections-2026-10-15/parse_results.jsonl).
+_MAX_SECTION_HTML_CHARS = 16_000_000
 
-def _extract_sections_sync(
-    cik_padded: str,
-    accession_number: str,
-    base_form: str,
-) -> Optional[Dict[str, str]]:
-    """Pull the critical narrative/financial sections via edgartools' own document parser.
+# 10-Q and 20-F sections are read by part-qualified key, in order; the first with real content
+# wins (a 20-F files its statements under Item 18 or the older Item 17).
+_PART_KEYS: Dict[str, tuple] = {
+    "10-Q": (
+        ("financials", ("part_i_item_1",)),
+        ("mda", ("part_i_item_2",)),
+        ("risk", ("part_ii_item_1a",)),
+    ),
+    "20-F": (
+        ("risk", ("part_i_item_3",)),
+        ("mda", ("part_i_item_5",)),
+        ("financials", ("part_iii_item_18", "part_iii_item_17", "part_i_item_8")),
+    ),
+}
 
-    edgartools (``filing.obj()``) resolves real section boundaries from the filing's
-    structure/inline-XBRL, which is robust to the element-fragmented HTML that defeats the
-    legacy regex extractor in ``openai_service.extract_critical_sections``.
+# 10-K items are unique across parts, so they are looked up by item number the way
+# ``TenK.__getitem__`` does: canonical part key, combined-items heading, "Item X" key, friendly name,
+# then the Cross Reference Index some filers (GE, Citigroup) use instead of item headings.
+_TEN_K_ITEMS = (
+    ("risk", "1a", "i", "risk_factors"),
+    ("mda", "7", "ii", "mda"),
+    ("financials", "8", "ii", "financial_statements"),
+)
+_PART_LINE = re.compile(r"^\b(PART\s+[IVXLC]+)\b")
 
-    Synchronous on purpose: the whole chain (company lookup -> filing resolution -> document
-    parse) runs as ONE executor call, sharing a single timeout budget and thread-pool slot,
-    mirroring ``_extract_from_filing_instance_sync``.
 
-    Returns a dict keyed by canonical section ("financials" / "mda" / "risk") mapped to clean
-    text, or None when the filing can't be resolved or yields no usable sections (callers then
-    fall back to the legacy regex extractor).
+def _text_of(section) -> Optional[str]:
+    # A Section's ``text`` is a method in current edgartools; tolerate a plain attribute too.
+    text = getattr(section, "text", None) if section is not None else None
+    return text() if callable(text) else text
+
+
+def _ten_k_item(sections, item: str, part: str, friendly: str,
+                cross_reference: Callable[[], Optional[CrossReferenceIndex]]) -> Optional[str]:
+    """``TenK.__getitem__("Item <item>")``: the first lookup that resolves wins, as edgartools has it."""
+    if sections:
+        text = _text_of(sections.get(f"part_{part}_item_{item}"))
+        if text and text.strip():
+            return text
+        combined = re.compile(rf"part_[iv]+_items_(?:{re.escape(item)}_and_\d+|\d+_and_{re.escape(item)})")
+        for key in sections:
+            if combined.match(key):
+                text = _text_of(sections.get(key))
+                if text and text.strip():
+                    return text
+        for key in (f"Item {item.upper()}", friendly):
+            if key in sections:
+                return _text_of(sections.get(key))
+    index = cross_reference()
+    item_html = index.extract_item_content(item.upper()) if index is not None else None
+    if item_html:
+        text = parse_html(item_html).text()
+        if text and text.strip():
+            text = text.rstrip()
+            last_line = text.split("\n")[-1]
+            return text.rstrip(last_line) if _PART_LINE.match(last_line) else text
+    return None
+
+
+def _sections_from_html(html: str, base_form: str) -> Optional[Dict[str, str]]:
+    """Parse ``html`` (the decoded primary document) and return the summary's canonical sections.
+
+    Returns ``{"financials" | "mda" | "risk": text}`` with only the sections that parsed to real
+    content, or None when the form is unsupported, the document is empty or too large, or nothing
+    usable was found (callers then fall back to the regex extractor).
     """
-    _, filings = resolve_filing_by_accession(cik_padded, accession_number)
-    if not filings:
-        logger.info(f"Filing {accession_number} not found by accession for CIK {cik_padded}")
+    if base_form not in ("10-K", "10-Q", "20-F") or not html:
         return None
-
-    obj = filings[0].obj()
-    if obj is None:
-        logger.info(f"Filing {accession_number} has no parsable document object")
+    if len(html) > _MAX_SECTION_HTML_CHARS:
+        logger.info(f"Section parse skipped: {len(html):,}-char {base_form} document is over the size cap")
         return None
+    try:
+        sections = HTMLParser(ParserConfig(form=base_form)).parse(html).sections
+    except Exception as exc:  # noqa: BLE001 - an unparsable document is a missing section, not an error
+        logger.info(f"Section parse failed for a {base_form} document: {type(exc).__name__}: {exc}")
+        if base_form != "10-K":
+            return None
+        sections = {}  # TenK still tries the Cross Reference Index when its parser fails
 
     out: Dict[str, str] = {}
     if base_form == "10-K":
-        # 10-K items are unique across parts, so label lookup via __getitem__ is unambiguous
-        # and returns clean section text (verified: AAPL Item 1A/7/8 -> 68k/18k/61k chars).
-        for canonical, label in (("risk", "Item 1A"), ("mda", "Item 7"), ("financials", "Item 8")):
+        index_cache: list = []
+
+        def cross_reference() -> Optional[CrossReferenceIndex]:
+            if not index_cache:  # built at most once, and only if a lookup gets that far
+                index = CrossReferenceIndex(html)
+                index_cache.append(index if index.has_index() else None)
+            return index_cache[0]
+
+        for canonical, item, part, friendly in _TEN_K_ITEMS:
             try:
-                text = obj[label]
-            except Exception:  # noqa: BLE001 — a single missing/odd section must not abort the rest
+                text = _ten_k_item(sections, item, part, friendly, cross_reference)
+            except Exception:  # noqa: BLE001 - a single missing/odd section must not abort the rest
                 text = None
             if text and len(text.strip()) >= _SECTION_MIN_CHARS:
                 out[canonical] = text.strip()
-    elif base_form == "10-Q":
-        # 10-Q items repeat across parts (e.g. Item 2 is MD&A in Part I but Unregistered Sales
-        # in Part II), so __getitem__ by label is ambiguous — obj['Item 2'] returns the WRONG
-        # Part II section. Use the new parser's part-prefixed section keys to disambiguate.
-        sections = getattr(obj, "sections", None) or {}
-        for canonical, skey in (
-            ("financials", "part_i_item_1"),
-            ("mda", "part_i_item_2"),
-            ("risk", "part_ii_item_1a"),
-        ):
-            # edgartools' Sections is dict-like (.get); Section.text is a method in 5.36.0, but
-            # guard against it being a plain str/property in other versions.
-            section = sections.get(skey) if hasattr(sections, "get") else None
-            text_attr = getattr(section, "text", None) if section is not None else None
-            text = text_attr() if callable(text_attr) else text_attr
-            if text and len(text.strip()) >= _SECTION_MIN_CHARS:
-                out[canonical] = text.strip()
-    elif base_form == "20-F":
-        # 20-F (foreign private issuer annual report) uses Part/Item numbering distinct from a
-        # 10-K: Item 3 (Key Information) carries the Risk Factors, Item 5 (Operating & Financial
-        # Review and Prospects) is the MD&A equivalent, and the audited statements live under
-        # Item 18 (or the older Item 17). Items repeat across parts, so use the part-prefixed
-        # section keys like the 10-Q path. Each canonical maps to ordered candidate keys —
-        # first one that yields real content wins (handles the Item 18-vs-17 filer choice).
-        sections = getattr(obj, "sections", None) or {}
-        for canonical, candidate_keys in (
-            ("risk", ("part_i_item_3",)),
-            ("mda", ("part_i_item_5",)),
-            ("financials", ("part_iii_item_18", "part_iii_item_17", "part_i_item_8")),
-        ):
-            for skey in candidate_keys:
-                section = sections.get(skey) if hasattr(sections, "get") else None
-                text_attr = getattr(section, "text", None) if section is not None else None
-                text = text_attr() if callable(text_attr) else text_attr
+    else:
+        for canonical, keys in _PART_KEYS[base_form]:
+            for key in keys:
+                text = _text_of(sections.get(key)) if hasattr(sections, "get") else None
                 if text and len(text.strip()) >= _SECTION_MIN_CHARS:
                     out[canonical] = text.strip()
                     break

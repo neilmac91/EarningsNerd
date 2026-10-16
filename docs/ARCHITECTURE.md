@@ -76,7 +76,8 @@ Every consumer drains it:
 stream_filing_summary(filing_id, ...)
   a. Fetch filing text from SEC EDGAR   (24h FilingContentCache short-circuit)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
-  c. Extract critical sections from the filing text
+  c. Parse critical sections locally from the fetched primary-document HTML (edgar/xbrl_sections;
+                                         no SEC call; starts once (a) has the text, joined with (b))
   d. Summarize with the AI model; the admission lease is counted as one usage unit when the
                                          request dispatcher signals the first provider request
                                          (in-stage timeout → deterministic XBRL fallback)
@@ -96,8 +97,8 @@ The generator itself is a short stage map (`_stage_sequence()` in `summary_pipel
 |---|---|
 | `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
 | `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
-| `fetch.py` | `fetch_document` (starts the XBRL/section tasks; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
-| `enrichment.py` | `start_enrichment_tasks`, `parse_and_enrich` (progress, excerpt, bounded join) |
+| `fetch.py` | `fetch_document` (starts the XBRL task; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
+| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `parse_and_enrich` (progress, excerpt, bounded join) |
 | `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
 | `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
 | `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
@@ -240,6 +241,8 @@ by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` mo
 
 `client.py` (EdgarTools calls, breaker-wrapped), `xbrl_service.py` (persisted accession snapshot first, then two-tier cached XBRL),
 `xbrl_companyfacts.py` (companyfacts fallback transport and parser, delegated by the service class),
+`xbrl_sections.py` (the summary's sections, parsed locally from the primary document the pipeline
+fetched: no SEC request, breaker-exempt CPU work under the service's executor timeout),
 `compat.py` (ticker cache + document fetch), `circuit_breaker.py`, `async_executor.py`
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting

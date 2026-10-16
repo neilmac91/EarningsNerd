@@ -113,8 +113,10 @@ requests per Form 4 for up to 60 Form 4s, so about 120) answers 404 unless `ENAB
 set (the deploy pins it `false`), and company search answers from the cached SEC ticker file only (its
 edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
 generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
-to companyfacts and its section parsing to the regex excerpt; a mega-filer's filing older than its
-recent submissions window needs about 43 history requests, past every enrichment budget; and a
+to companyfacts (its section parse makes no SEC request: only CPU and the shared four-thread edgar
+executor slow it, and a parse still running at the 18 s enrichment join leaves the regex excerpt); a
+mega-filer's filing older than its recent submissions window needs about 43 history requests, past
+every enrichment budget; and a
 company's first filings list, coverage and full-text search each wait for their request. Breaker-wrapped
 edgartools calls queued behind that work (a company's first filings list, 6-K text, and visit refreshes
 run in-process when durable tasks are off) can time out after 15 s (30 s for 6-K text), and five
@@ -273,7 +275,7 @@ CACHE_OPERATION_TIMEOUT = 2.0  # Increase if Redis is slow
 **Thread Pool Size:**
 ```python
 # In edgar/config.py
-EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls
+EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls and local section parses
 ```
 
 ### Alert-to-return measurement (E11c)

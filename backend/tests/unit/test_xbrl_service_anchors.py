@@ -7,8 +7,9 @@ extractor, X5 the sections extractor. A move or split that changes what these pi
 Every boundary is faked in-process on a SHARED object, so the fakes keep intercepting wherever the
 reading code moves: ``httpx.AsyncClient``, the ``sec_rate_limiter`` singleton, ``settings``,
 ``asyncio.wait_for`` (read by ``edgar/async_executor.py`` at call time) and the edgartools
-``Company`` behind ``edgar/client.py``'s by-accession resolver. No test patches a name on
-xbrl_service's module namespace; X0.5 patches attributes of a throwaway ``EdgarXBRLService()``.
+``Company`` behind ``edgar/client.py``'s by-accession resolver, and the edgartools ``HTMLParser`` and
+``CrossReferenceIndex`` classes the section parse reads. No test patches a name on xbrl_service's
+module namespace; X0.5 patches attributes of a throwaway ``EdgarXBRLService()``.
 """
 
 import asyncio
@@ -20,6 +21,8 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+
+from edgar.documents import CrossReferenceIndex, HTMLParser
 
 from app.config import settings
 from app.utils.datetimes import utcnow
@@ -100,15 +103,12 @@ class _XBRL:
 
 
 class _Filing:
-    def __init__(self, form, period_of_report=POR, xb=None, document=None):
+    def __init__(self, form, period_of_report=POR, xb=None):
         self.form, self.period_of_report = form, period_of_report
-        self._xb, self._document = xb, document
+        self._xb = xb
 
     def xbrl(self):
         return self._xb
-
-    def obj(self):
-        return self._document
 
 
 @pytest.fixture
@@ -218,7 +218,7 @@ async def test_x0_1_companyfacts_transport(monkeypatch, status):
 
 
 # ---------------------------------------------------------------------------
-# X0.2 — sections extraction and get_filing_sections (X5)
+# X0.2 — summary sections parsed from the fetched primary document (X5; E28)
 # ---------------------------------------------------------------------------
 
 class _Section:
@@ -228,42 +228,34 @@ class _Section:
         self.text = (lambda: text) if method else text
 
 
-class _Document:
-    """``filing.obj()``: label lookup via ``__getitem__`` plus part-qualified ``.sections``."""
-
-    def __init__(self, items, sections):
-        self._items, self.sections = items, sections
-
-    def __getitem__(self, label):
-        return self._items[label]  # an absent item raises, like a section edgartools cannot find
+class _RaisingSections(dict):
+    def get(self, key, default=None):  # noqa: ARG002
+        raise RuntimeError("sections exploded")
 
 
-# Long enough to pass the stub filter, so reading the WRONG view (label vs part-key) shows up.
-_WRONG_VIEW = "wrong view " * 30
-_ALL_LABELS = ("Item 1", "Item 1A", "Item 2", "Item 3", "Item 5", "Item 7", "Item 8", "Item 17", "Item 18")
-_ALL_KEYS = ("part_i_item_1", "part_i_item_2", "part_ii_item_1a", "part_ii_item_2", "part_i_item_3",
-             "part_i_item_5", "part_iii_item_18", "part_iii_item_17", "part_i_item_8")
-DOC_10K = _Document(
-    {"Item 1A": "\n  " + "r" * 250 + "  \n", "Item 8": "f" * 200},  # Item 7 absent: its lookup raises
-    {key: _Section(_WRONG_VIEW) for key in _ALL_KEYS},
-)
-DOC_10Q = _Document({label: _WRONG_VIEW for label in _ALL_LABELS}, {
+HTML = "<html><body>the primary document the pipeline fetched</body></html>"
+# Long enough to pass the stub filter, so reading the WRONG key shows up.
+_WRONG_KEY = "wrong key " * 30
+SECTIONS_10K = {
+    "part_i_item_1a": _Section("\n  " + "r" * 250 + "  \n"),
+    "part_i_item_7": _Section(_WRONG_KEY),  # Item 7 belongs to Part II: never read from Part I
+    "part_ii_item_8": _Section("f" * 200),
+}
+SECTIONS_10Q = {
     "part_i_item_1": _Section("F" * 300),
     "part_i_item_2": _Section("M" * 300, method=False),
     "part_ii_item_1a": _Section("  " + "R" * 199 + "  "),  # 203 raw, 199 stripped: a stub
-    "part_ii_item_2": _Section(_WRONG_VIEW),  # Part II Item 2 is not MD&A
-})
-DOC_20F = _Document({label: _WRONG_VIEW for label in _ALL_LABELS}, {
+    "part_ii_item_2": _Section(_WRONG_KEY),  # Part II Item 2 is not MD&A
+}
+SECTIONS_20F = {
     "part_i_item_3": _Section("K" * 300),
     "part_i_item_5": _Section("O" * 300),
     "part_iii_item_18": _Section("S" * 150),  # stub: falls through to the next candidate
     "part_iii_item_17": _Section("E" * 300),
     "part_i_item_8": _Section("G" * 300),  # a later candidate is never read once one wins
-})
-DOC_STUBS = _Document({"Item 1A": "r" * 199, "Item 7": "", "Item 8": "f" * 199}, {})
-SECTIONS_10K = {"risk": "r" * 250, "financials": "f" * 200}
-SECTIONS_10Q = {"financials": "F" * 300, "mda": "M" * 300}
-SECTIONS_20F = {"risk": "K" * 300, "mda": "O" * 300, "financials": "E" * 300}
+}
+SECTIONS_STUBS = {"part_i_item_1a": _Section("r" * 199), "part_ii_item_7": _Section(""),
+                  "part_ii_item_8": _Section("f" * 199)}
 
 
 @pytest.fixture
@@ -280,50 +272,161 @@ def executor_waits(monkeypatch):
     return waits
 
 
+@pytest.fixture
+def parser(monkeypatch):
+    """The shared edgartools parser, ``HTMLParser(ParserConfig(form)).parse(html).sections``, and the
+    Cross Reference Index some 10-K filers use instead of item headings."""
+    state = SimpleNamespace(sections={}, error=None, seen=[], index_items={}, index_built=0)
+    real_parse = HTMLParser.parse
+
+    def parse(self, html):
+        if html != HTML:  # ``parse_html`` converting a Cross Reference Index item: the real parser
+            return real_parse(self, html)
+        state.seen.append((self.config.form, html))
+        if state.error is not None:
+            raise state.error
+        return SimpleNamespace(sections=state.sections)
+
+    def has_index(self):
+        state.index_built += 1
+        return bool(state.index_items)
+
+    monkeypatch.setattr(HTMLParser, "parse", parse)
+    monkeypatch.setattr(CrossReferenceIndex, "has_index", has_index)
+    monkeypatch.setattr(CrossReferenceIndex, "extract_item_content", lambda self, item: state.index_items.get(item))
+    return state
+
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("filing_type", "service_timeout", "wait", "document", "expected"), [
-    ("10-K", 15.0, 30.0, DOC_10K, SECTIONS_10K),
-    ("10-K/A", 45.0, 45.0, DOC_10K, SECTIONS_10K),
-    ("10-Q", 15.0, 30.0, DOC_10Q, SECTIONS_10Q),
-    ("10-Q", 35.0, 35.0, DOC_10Q, SECTIONS_10Q),
-    ("20-F", 15.0, 40.0, DOC_20F, SECTIONS_20F),
-    ("20-F/A", 35.0, 40.0, DOC_20F, SECTIONS_20F),
-    ("20-F", 45.0, 45.0, DOC_20F, SECTIONS_20F),
-    ("10-K", 15.0, 30.0, DOC_STUBS, None),
+@pytest.mark.parametrize(("filing_type", "service_timeout", "wait", "sections", "expected", "parsed_as"), [
+    ("10-K", 15.0, 30.0, SECTIONS_10K, {"risk": "r" * 250, "financials": "f" * 200}, "10-K"),
+    ("10-K/A", 45.0, 45.0, SECTIONS_10K, {"risk": "r" * 250, "financials": "f" * 200}, "10-K"),
+    ("10-Q", 15.0, 30.0, SECTIONS_10Q, {"financials": "F" * 300, "mda": "M" * 300}, "10-Q"),
+    ("10-Q", 35.0, 35.0, SECTIONS_10Q, {"financials": "F" * 300, "mda": "M" * 300}, "10-Q"),
+    ("20-F", 15.0, 40.0, SECTIONS_20F, {"risk": "K" * 300, "mda": "O" * 300, "financials": "E" * 300}, "20-F"),
+    ("20-F/A", 35.0, 40.0, SECTIONS_20F, {"risk": "K" * 300, "mda": "O" * 300, "financials": "E" * 300}, "20-F"),
+    ("20-F", 45.0, 45.0, SECTIONS_20F, {"risk": "K" * 300, "mda": "O" * 300, "financials": "E" * 300}, "20-F"),
+    ("10-K", 15.0, 30.0, SECTIONS_STUBS, None, "10-K"),
 ], ids=["10-K", "10-K/A-long-timeout", "10-Q", "10-Q-mid-timeout", "20-F", "20-F/A-mid-timeout",
         "20-F-long-timeout", "all-stubs"])
 async def test_x0_2_filing_sections_per_form_and_timeout(
-    fake_edgar, executor_waits, filing_type, service_timeout, wait, document, expected,
+    fake_edgar, executor_waits, parser, filing_type, service_timeout, wait, sections, expected, parsed_as,
 ):
-    """X0.2 — backend/app/services/edgar/xbrl_service.py:548-631 and :829-848.
-
-    ``_extract_sections_sync`` per base form: 10-K label lookup with a missing item skipped
-    (:583-592), 10-Q part-qualified keys with ``.text`` as method or str (:593-609), 20-F ordered
-    candidates where the first real one wins (:610-629); text is stripped and kept only at
-    ``>= _SECTION_MIN_CHARS`` (:550); nothing usable is None, not {} (:631). ``get_filing_sections``
-    normalizes the form, pads the CIK (:829, :832) and waits ``max(timeout, 40.0)`` for a 20-F,
-    ``max(timeout, 30.0)`` otherwise (:837), on a plain executor timeout with no breaker (:839-842).
-    """
-    fake_edgar.filings[ACC] = _Filing(filing_type, document=document)
+    """X0.2 — ``get_filing_sections`` parses the HTML it is handed with the form's base config
+    (amendments normalized) and makes no SEC request: no filing resolution and no breaker traffic.
+    10-K items by canonical part key (a Part I Item 7 is never MD&A), 10-Q part-qualified keys with
+    ``.text`` as method or str, 20-F ordered candidates where the first real one wins; text is
+    stripped and kept only at ``>= _SECTION_MIN_CHARS``; nothing usable is None, not {}. The plain
+    executor waits ``max(timeout, 40.0)`` for a 20-F and ``max(timeout, 30.0)`` otherwise."""
+    parser.sections = sections
     breaker_requests = edgar_circuit_breaker.stats.total_requests
 
-    result = await EdgarXBRLService(timeout=service_timeout).get_filing_sections(ACC, CIK, filing_type)
+    result = await EdgarXBRLService(timeout=service_timeout).get_filing_sections(ACC, filing_type, html=HTML)
 
     assert result == expected
+    assert parser.seen == [(parsed_as, HTML)]
     assert executor_waits == [wait]
-    assert fake_edgar.calls == [("company", CIK10), ("filings", ACC)]
+    assert fake_edgar.calls == []
     assert edgar_circuit_breaker.stats.total_requests == breaker_requests
+
+
+def _ten_k_mda(**keys):
+    return {"part_i_item_1a": _Section("r" * 250), "part_ii_item_8": _Section("f" * 250), **keys}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("sections", "index_items", "mda", "index_built"), [
+    (_ten_k_mda(part_ii_item_7=_Section("P" * 250), part_ii_items_6_and_7=_Section("C" * 250)), {}, "P" * 250, 0),
+    (_ten_k_mda(part_ii_item_7=_Section("   "), part_ii_items_6_and_7=_Section("C" * 250)), {}, "C" * 250, 0),
+    (_ten_k_mda(part_ii_items_7_and_8=_Section("C" * 250), **{"Item 7": _Section("I" * 250)}), {}, "C" * 250, 0),
+    (_ten_k_mda(**{"Item 7": _Section("I" * 250)}, mda=_Section("N" * 250)), {}, "I" * 250, 0),
+    (_ten_k_mda(mda=_Section("N" * 250)), {}, "N" * 250, 0),
+    # A present "Item 7" key wins even as a stub, as in TenK; the stub is then dropped, not replaced.
+    (_ten_k_mda(**{"Item 7": _Section("short")}, mda=_Section("N" * 250)), {}, None, 0),
+    (_ten_k_mda(), {"7": "<p>" + "Cross reference MD&amp;A. " * 20 + "</p><p>PART III</p>"},
+     ("Cross reference MD&A. " * 20).strip(), 1),
+    (_ten_k_mda(), {}, None, 1),
+], ids=["part-key", "blank-part-key-then-combined", "combined-before-item-key", "item-key-before-friendly",
+        "friendly-name", "item-key-stub-stops-the-lookup", "cross-reference-index", "nothing"])
+async def test_x0_2_ten_k_lookup_order_is_tenk_getitem(parser, sections, index_items, mda, index_built):
+    """X0.2 — a 10-K item resolves the way ``TenK.__getitem__`` resolves it: the canonical part key
+    with real text, a combined-items heading, the "Item X" key, the friendly name, then the Cross
+    Reference Index, which is built at most once and only when a lookup gets that far."""
+    parser.sections, parser.index_items = sections, index_items
+
+    result = await EdgarXBRLService().get_filing_sections(ACC, "10-K", html=HTML)
+
+    assert result.get("mda") == mda
+    assert result["risk"] == "r" * 250 and result["financials"] == "f" * 250
+    assert parser.index_built == index_built
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("filing_type", "expected"), [
+    ("10-K", {"mda": ("Cross reference MD&A. " * 20).strip()}),  # TenK still reads the index
+    ("10-Q", None),
+    ("20-F", None),
+])
+async def test_x0_2_parser_failure_is_a_missing_section(parser, filing_type, expected):
+    """X0.2 — an unparsable document is not an error: a 10-Q or 20-F has no sections, and a 10-K
+    still tries the Cross Reference Index, as ``TenK.document`` does when its parser fails."""
+    parser.error = RuntimeError("parser failed")
+    parser.index_items = {"7": "<p>" + "Cross reference MD&amp;A. " * 20 + "</p>"}
+
+    assert await EdgarXBRLService().get_filing_sections(ACC, filing_type, html=HTML) == expected
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("filing_type", ["8-K", "6-K", "40-F", "DEF 14A", ""])
-async def test_x0_2_filing_sections_form_gate(fake_edgar, executor_waits, filing_type):
-    """X0.2 — backend/app/services/edgar/xbrl_service.py:829-831: only 10-K/10-Q/20-F (amendments
-    normalized) reach the executor; any other form is None with no resolution and no wait."""
-    fake_edgar.filings[ACC] = _Filing(filing_type, document=DOC_10K)
+async def test_x0_2_filing_sections_form_gate(executor_waits, parser, filing_type):
+    """X0.2 — only 10-K/10-Q/20-F (amendments normalized) reach the executor; any other form is None
+    with no parse and no wait."""
+    parser.sections = SECTIONS_10K
 
-    assert await EdgarXBRLService().get_filing_sections(ACC, CIK, filing_type) is None
-    assert executor_waits == [] and fake_edgar.calls == []
+    assert await EdgarXBRLService().get_filing_sections(ACC, filing_type, html=HTML) is None
+    assert executor_waits == [] and parser.seen == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("html", ["", None])
+async def test_x0_2_no_document_is_none_without_a_parse(executor_waits, parser, html):
+    parser.sections = SECTIONS_10K
+
+    assert await EdgarXBRLService().get_filing_sections(ACC, "10-K", html=html) is None
+    assert executor_waits == [] and parser.seen == []
+
+
+@pytest.mark.asyncio
+async def test_x0_2_document_over_the_size_cap_is_not_parsed(monkeypatch, parser):
+    from app.services.edgar import xbrl_sections
+
+    parser.sections = SECTIONS_10K
+    monkeypatch.setattr(xbrl_sections, "_MAX_SECTION_HTML_CHARS", len(HTML) - 1)
+
+    assert await EdgarXBRLService().get_filing_sections(ACC, "10-K", html=HTML) is None
+    assert parser.seen == []
+
+
+@pytest.mark.asyncio
+async def test_x0_2_timeout_and_failure_are_logged_and_none(monkeypatch, parser, caplog):
+    """X0.2 — the executor's timeout and any other failure are contained: None, with the warning."""
+    real_wait_for = asyncio.wait_for
+
+    async def expire(aw, timeout=None):
+        if getattr(getattr(aw, "cr_code", None), "co_name", None) == "run_in_executor":
+            aw.close()
+            raise asyncio.TimeoutError
+        return await real_wait_for(aw, timeout)
+
+    caplog.set_level("WARNING")
+    with monkeypatch.context() as patch_:
+        patch_.setattr(asyncio, "wait_for", expire)
+        assert await EdgarXBRLService().get_filing_sections(ACC, "10-K", html=HTML) is None
+    parser.sections = _RaisingSections()
+    assert await EdgarXBRLService().get_filing_sections(ACC, "10-Q", html=HTML) is None
+    messages = [record.getMessage() for record in caplog.records]
+    assert f"Section parse timed out for {ACC} after 30s" in messages
+    assert f"Section parse failed for {ACC}: sections exploded" in messages
 
 
 # ---------------------------------------------------------------------------

@@ -1,8 +1,10 @@
 """Pre-refactor characterization anchor for ``stream_filing_summary`` — the enrichment group.
 
-These tests PIN how the orchestrator runs and joins its concurrent enrichment (the XBRL fetch +
-facts upsert, the edgartools section parse, the excerpt build) into the provider call exactly as it
-behaves today, so the upcoming decomposition into stage modules can prove ZERO observable change.
+These tests PIN how the orchestrator runs and joins its enrichment (the XBRL fetch + facts upsert,
+concurrent with the document fetch; the section parse of the fetched document; the excerpt build)
+into the provider call, so the decomposition into stage modules proved ZERO observable change. The
+section parse moved after the document fetch in E28 (it now reads the fetched HTML, with no SEC
+request); B2 and B4 pin the new call.
 Every assertion is on an observable: yielded event dicts, DB rows, mock call lists, the
 ``record_progress`` sequence, the in-flight registry, the generation semaphore and the exact log
 text the code formats.
@@ -119,12 +121,12 @@ async def test_facts_upsert_failure_is_non_fatal_after_the_xbrl_commit(caplog):
 
 @pytest.mark.asyncio
 async def test_section_parse_failure_warns_and_builds_the_excerpt_without_sections(caplog):
-    """A raising ``get_filing_sections`` is contained in ``fetch_sections``: the exact WARNING is
+    """A raising ``get_filing_sections`` is contained in ``parse_sections``: the exact WARNING is
     logged, the excerpt builder runs on the fetched document with ``sections=None`` (the regex
     fallback), and the stream still completes."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
-    accession, cik, _ = _filing_fields(filing_id)
+    accession, _, _ = _filing_fields(filing_id)
     sections = AsyncMock(side_effect=RuntimeError("edgartools down"))
     excerpt = MagicMock(return_value="EXCERPT")
     with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
@@ -136,7 +138,7 @@ async def test_section_parse_failure_warns_and_builds_the_excerpt_without_sectio
 
     _assert_complete(events)
     assert (logging.WARNING, f"[stream:{filing_id}] Section parse failed: edgartools down") in _pipeline_logs(caplog)
-    sections.assert_awaited_once_with(accession, cik, "10-K")
+    sections.assert_awaited_once_with(accession, "10-K", html=DOC_TEXT)
     excerpt.assert_called_once()
     assert isinstance(excerpt.call_args.args[0], Session)
     assert sa_inspect(excerpt.call_args.args[1]).identity == (filing_id,)
@@ -177,10 +179,11 @@ async def test_empty_legacy_section_coverage_skips_the_coverage_progress_write()
 
 @pytest.mark.asyncio
 async def test_edgartools_sections_reach_the_excerpt_builder_inside_extract_excerpt_sync():
-    """Parsed sections are handed to ``get_or_cache_excerpt`` as ``sections=`` from the thread-pool
-    unit named ``extract_excerpt_sync`` (dispatched through ``run_in_threadpool`` exactly once)."""
+    """Sections parsed from the fetched document are handed to ``get_or_cache_excerpt`` as
+    ``sections=`` from the thread-pool unit named ``extract_excerpt_sync`` (dispatched through
+    ``run_in_threadpool`` exactly once)."""
     filing_id = seed_company_filing()
-    accession, cik, _ = _filing_fields(filing_id)
+    accession, _, _ = _filing_fields(filing_id)
     threadpool_names: list[str] = []
     original_run = summary_pipeline.run_in_threadpool
 
@@ -197,13 +200,14 @@ async def test_edgartools_sections_reach_the_excerpt_builder_inside_extract_exce
     get_sections = AsyncMock(return_value=deepcopy(SECTIONS))
     with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
             patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
+            patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
             patch.object(summary_pipeline.xbrl_service, "get_filing_sections", get_sections), \
             patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt), \
             patch.object(summary_pipeline, "run_in_threadpool", recording_run):
         events = await _drain(filing_id)
 
     _assert_complete(events)
-    get_sections.assert_awaited_once_with(accession, cik, "10-K")
+    get_sections.assert_awaited_once_with(accession, "10-K", html=DOC_TEXT)
     assert excerpt_calls == [("extract_excerpt_sync", SECTIONS)]
     assert threadpool_names.count("extract_excerpt_sync") == 1
     assert summarize.await_args.kwargs["filing_excerpt"] == "EXCERPT"

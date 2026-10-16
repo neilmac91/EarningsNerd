@@ -352,10 +352,12 @@ def _get_generation_semaphore() -> asyncio.Semaphore:
 # asyncio waiter cannot kill its thread, and releasing ownership early would abandon that work.
 PIPELINE_TIMEOUT_SECONDS = 120
 
-# Timeout for XBRL/excerpt enrichment. XBRL fetch starts concurrently with the filing
-# document fetch, so this is the *additional* budget we wait at the join point. The XBRL
-# service's own internal timeout is 15s (EDGAR_DEFAULT_TIMEOUT_SECONDS); an 8s ceiling here
-# silently truncated it on large issuers, producing hollow financials.
+# Timeout for the XBRL/excerpt enrichment join. XBRL starts concurrently with the filing
+# document fetch; the section parse needs the fetched document, so it starts after the fetch and
+# resolves inside the excerpt task. This is the *additional* budget both share at the join point
+# (a parse still running at the deadline leaves the excerpt to the AI layer's regex extraction).
+# The XBRL service's own internal timeout is 15s (EDGAR_DEFAULT_TIMEOUT_SECONDS); an 8s ceiling
+# here silently truncated it on large issuers, producing hollow financials.
 CONTEXT_ENRICHMENT_TIMEOUT_SECONDS = 18.0
 
 

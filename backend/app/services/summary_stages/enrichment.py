@@ -1,10 +1,10 @@
-"""Context enrichment: the XBRL and edgartools section tasks, the excerpt, and their bounded join.
+"""Context enrichment: the XBRL and section-parse tasks, the excerpt, and their bounded join.
 
 ``start_enrichment_tasks`` is called by the fetch stage before the document fetch starts, because
-XBRL and the section parse only need the accession number and CIK and run concurrently with the
-(slow) document fetch. ``parse_and_enrich`` is the stage that emits the parsing/analyzing/summarizing
-progress, builds the excerpt and joins the enrichment tasks under
-``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS``.
+XBRL only needs the accession number and CIK and runs concurrently with the (slow) document fetch.
+``parse_and_enrich`` is the stage that starts the section parse (it reads the fetched document, so it
+cannot start earlier), emits the parsing/analyzing/summarizing progress, builds the excerpt once the
+parse resolves and joins the excerpt and XBRL tasks under ``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS``.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(pipeline.__name__)
 
 
 def start_enrichment_tasks(run: GenerationRun) -> None:
-    """Start the XBRL fetch and the edgartools section parse as request-owned tasks."""
+    """Start the XBRL fetch as a request-owned task."""
     filing_id = run.filing_id
 
     # Start XBRL fetching NOW, concurrently with the (slow) filing-document fetch below.
@@ -33,8 +33,8 @@ def start_enrichment_tasks(run: GenerationRun) -> None:
     # text, so serializing it after the fetch wasted the entire fetch window and left it
     # racing an 8s budget. Running it in parallel gives it the realistic time it needs.
     # A 6-K (FPI interim/furnished report) has no Item/XBRL structure — its content lives in
-    # EX-99.x exhibits. It takes a separate grounding path below (the SixK exhibit extractor),
-    # NOT the XBRL fetch or edgartools section parse, both of which are 10-K/10-Q/20-F only.
+    # EX-99.x exhibits. It takes a separate grounding path (the SixK exhibit extractor in the fetch
+    # stage), NOT the XBRL fetch or the section parse, both of which are 10-K/10-Q/20-F only.
     run.is_six_k = bool(run.filing_type and run.filing_type.upper().split("/")[0] == "6-K")
     run.sixk_class, run.sixk_class_audit = None, None
     run.xbrl_task = None
@@ -89,35 +89,44 @@ def start_enrichment_tasks(run: GenerationRun) -> None:
         with run.worker_owner.activate():
             run.xbrl_task = asyncio.create_task(fetch_xbrl())
 
-    # Fetch edgartools-parsed sections in parallel with the document fetch (needs only
-    # accession + CIK). High-precision excerpt source; the regex extractor is the fallback.
-    # Skipped on a cache hit (the cached excerpt is reused, no re-extraction needed).
+
+def start_section_parse(run: GenerationRun) -> None:
+    """Start parsing the summary sections from the fetched primary document, request-owned.
+
+    High-precision excerpt source; the regex extractor is the fallback. The parse is local CPU work
+    on ``run.filing_text`` (no SEC request), so it starts once the document is in hand. Skipped on a
+    cache hit (the cached excerpt is reused, no re-extraction needed) and when there is no document.
+    """
+    filing_id = run.filing_id
     run.sections_task = None
     if (
         not run.cache_is_valid
         and pipeline.settings.USE_EDGARTOOLS_SECTIONS
-        and run.company_cik
+        and run.filing_text
         and run.filing_type
-        # 20-F (foreign annual report) gets edgartools section extraction too. split("/")
-        # so amended forms (10-K/A, 20-F/A) are covered — the lower layers normalize_form
-        # anyway. See tasks/fpi-support-roadmap.md.
+        # 20-F (foreign annual report) gets section extraction too. split("/") so amended forms
+        # (10-K/A, 20-F/A) are covered — the lower layers normalize_form anyway. See
+        # tasks/fpi-support-roadmap.md.
         and run.filing_type.upper().split("/")[0] in {"10-K", "10-Q", "20-F"}
     ):
-        async def fetch_sections():
+        async def parse_sections():
             try:
                 return await pipeline.xbrl_service.get_filing_sections(
-                    run.filing_accession_number, run.company_cik, run.filing_type
+                    run.filing_accession_number, run.filing_type, html=run.filing_text
                 )
             except Exception as sections_error:  # noqa: BLE001
                 logger.warning(f"[stream:{filing_id}] Section parse failed: {sections_error}")
                 return None
         with run.worker_owner.activate():
-            run.sections_task = asyncio.create_task(fetch_sections())
+            run.sections_task = asyncio.create_task(parse_sections())
 
 
 async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
     """Parsing/analyzing/summarizing progress, the excerpt task and the bounded enrichment join."""
     filing_id = run.filing_id
+
+    # Started first so the parse overlaps the progress writes below.
+    start_section_parse(run)
 
     yield {'type': 'progress', 'stage': 'parsing', 'message': 'Starting parsing...', 'percent': 15}
 
@@ -127,16 +136,18 @@ async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
 
     yield {'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...', 'percent': 20}
 
-    # Resolve the parallel section parse (if any) before building the excerpt.
-    sections = None
-    if run.sections_task is not None:
-        sections = await run.sections_task
-
     # Extract excerpt
-    def extract_excerpt_sync():
+    def extract_excerpt_sync(sections):
         with database.SessionLocal() as thread_session:
             thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
             return pipeline.get_or_cache_excerpt(thread_session, thread_filing, run.filing_text, sections=sections)
+
+    async def build_excerpt():
+        # The section parse resolves inside the enrichment join below, concurrently with the XBRL
+        # wait, so it adds no budget of its own. A parse still running at the deadline leaves the
+        # excerpt to the AI layer's own regex extraction, as a slow excerpt build always has.
+        sections = await run.sections_task if run.sections_task is not None else None
+        return await run.run_sync_db(extract_excerpt_sync, sections)
 
     if run.cache_is_valid:
         # Use the cached excerpt directly
@@ -144,7 +155,7 @@ async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
             return run.excerpt_from_cache
         run.excerpt_task = asyncio.create_task(return_cached_excerpt())
     else:
-        run.excerpt_task = asyncio.create_task(run.run_sync_db(extract_excerpt_sync))
+        run.excerpt_task = asyncio.create_task(build_excerpt())
 
     # XBRL fetch was already started concurrently with the document fetch above.
 
