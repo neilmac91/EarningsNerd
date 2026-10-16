@@ -466,6 +466,60 @@ describe('BellPopover placement', () => {
     }
   })
 
+  it('scrolls its own panel, never the page, to the first action once capped, so a keyboard reader sees that focus', () => {
+    // The Free cap's upsell at 200% text, above a low bell: 611px of panel in the 580px above it, so it is capped and
+    // its actions end below the scrollport (Codex's P2 on #1369). jsdom lays nothing out, so the panel's box, its
+    // content and client heights and the first action's box are given; the panel's scrollTop is what the code sets.
+    const LOW = { left: 100, top: 600, bottom: 628, right: 128, width: 28, height: 28 } as DOMRect
+    const stubs: Array<[object, string, PropertyDescriptor | undefined]> = []
+    const stub = (proto: object, prop: string, get: (el: HTMLElement) => number) => {
+      stubs.push([proto, prop, Object.getOwnPropertyDescriptor(proto, prop)])
+      Object.defineProperty(proto, prop, {
+        configurable: true,
+        get(this: HTMLElement) {
+          return get(this)
+        },
+      })
+    }
+    const isPanel = (el: Element) => el.getAttribute('role') === 'group'
+    let actionTop = 566
+    stub(HTMLElement.prototype, 'scrollHeight', (el) => (isPanel(el) ? 609 : 0))
+    stub(HTMLElement.prototype, 'offsetHeight', (el) => (isPanel(el) ? 580 : 0))
+    stub(Element.prototype, 'clientHeight', (el) => (isPanel(el) ? 578 : 0))
+    stub(Element.prototype, 'clientTop', (el) => (isPanel(el) ? 1 : 0))
+    const own = Element.prototype.getBoundingClientRect
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (isPanel(this)) return { top: 12, bottom: 592, height: 580 } as DOMRect
+      // The action's box moves up as the panel scrolls, as a browser's does.
+      const scrolled = this.closest('[role="group"]')?.scrollTop ?? 0
+      if (this.textContent === 'Upgrade to Pro') return { top: actionTop - scrolled, bottom: actionTop - scrolled + 36, height: 36 } as DOMRect
+      return own.call(this)
+    })
+    const bell = document.createElement('button')
+    document.body.appendChild(bell)
+    const upsell = { kind: 'upsell' as const, ticker: 'AAPL', message: 'Free includes earnings alerts for 3 companies.', anchor: LOW, trigger: bell }
+    try {
+      render(<BellPopover blocked={upsell} onClose={() => {}} />)
+      const group = screen.getByRole('group', { name: 'Free includes 3 earnings alerts' })
+      expect(group.style.maxHeight).toBe('580px') // capped on the roomier side, above the bell
+      expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Upgrade to Pro' }))
+      // The scrollport ends at 13 + 578 = 591px and the action at 602px: the panel scrolls the 11px between.
+      expect(group.scrollTop).toBe(11)
+      cleanup()
+      // An action already in view leaves the panel where it is.
+      actionTop = 300
+      render(<BellPopover blocked={{ ...upsell }} onClose={() => {}} />)
+      expect(screen.getByRole('group', { name: 'Free includes 3 earnings alerts' }).scrollTop).toBe(0)
+    } finally {
+      bell.remove()
+      rect.mockRestore()
+      for (const [proto, prop, desc] of stubs.reverse()) {
+        if (desc) Object.defineProperty(proto, prop, desc)
+        else delete (proto as Record<string, unknown>)[prop]
+      }
+    }
+  })
+
   it('reads the visible area from window.visualViewport, not the layout viewport a wide page stretches', () => {
     // The phone shows 390x844 of a layout viewport stretched past it (jsdom's window stands for that one).
     const own = Object.getOwnPropertyDescriptor(window, 'visualViewport')

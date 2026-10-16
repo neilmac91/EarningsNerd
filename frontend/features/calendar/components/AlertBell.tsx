@@ -170,6 +170,21 @@ function popoverWidth(area: VisibleArea) {
   return Math.min(18.75 * rem, area.width - 2 * POPOVER_MARGIN)
 }
 
+/** Scrolls the capped panel, and only it, the least distance that shows its focused action whole inside the
+    panel's scroll padding, so the action and its ring are in view. The page never scrolls: a fixed popover
+    would stay where it is while its bell moved, and a scroll that moves the bell closes the popover. */
+function revealFocusIn(panel: HTMLElement) {
+  const active = document.activeElement
+  if (!(active instanceof HTMLElement) || active === panel || !panel.contains(active)) return
+  const style = getComputedStyle(panel)
+  const box = panel.getBoundingClientRect()
+  const r = active.getBoundingClientRect()
+  const top = box.top + panel.clientTop + (parseFloat(style.scrollPaddingTop) || 0)
+  const bottom = box.top + panel.clientTop + panel.clientHeight - (parseFloat(style.scrollPaddingBottom) || 0)
+  if (r.bottom > bottom) panel.scrollTop += Math.min(r.bottom - bottom, r.top - top)
+  else if (r.top < top) panel.scrollTop -= top - r.top
+}
+
 /** One popover per page, anchored to the bell that raised `blocked`. */
 export function BellPopover({
   blocked,
@@ -205,6 +220,7 @@ export function BellPopover({
     const free = (el: Element | null) => !el || el === document.body || el === trigger || !!popover?.contains(el)
     const actions = () => Array.from(popover?.querySelectorAll<HTMLElement>('a[href], button') ?? [])
     if (free(document.activeElement)) actions()[0]?.focus({ preventScroll: true })
+    if (popover) revealFocusIn(popover)
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -281,6 +297,13 @@ export function BellPopover({
     const height = Math.max(Math.ceil(panel.getBoundingClientRect().height), panel.scrollHeight + panel.offsetHeight - panel.clientHeight)
     setBox({ width, ...placeBellPopover(blocked.anchor, { width, height }, area) })
   }, [blocked])
+  // The open effect focuses the first action with preventScroll, and runs before this cap lands (React flushes
+  // it ahead of the re-render the placement's setBox starts). Capped, the panel scrolls inside, and that action
+  // can sit below its scrollport (the Free cap's upsell at 200% text, above its bell): once placed, the panel's
+  // own scroller brings the focused action into view, ring and all.
+  useLayoutEffect(() => {
+    if (box && ref.current) revealFocusIn(ref.current)
+  }, [box])
   const area = visibleArea()
   const width = box?.width ?? popoverWidth(area)
   const placed = box ?? placeBellPopover(blocked.anchor, { width, height: 0 }, area)
