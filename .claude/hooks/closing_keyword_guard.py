@@ -8,20 +8,21 @@ fails a pull request whose title, body or commit messages carry one, which cover
 message: the title, or the one commit's subject, then every commit message. It cannot see a message typed
 at the merge itself. This hook reads that message where an agent types it, with the gate's own
 `closing_references` (loaded from backend/scripts/review_gate.py, so the two share one pattern):
-- a call to a GitHub MCP server (a name containing "github" in any case): every string argument of a merge
-  tool (a name containing "merge"; merge_pull_request types commit_title and commit_message), at any depth,
-  and any other tool's commit text under REST's or GraphQL's names in either spelling (`commit_title`,
-  `commit_message`, `commitHeadline`, `commitBody`);
+- a call to a GitHub MCP server (a name containing "github" in any case) that merges: a tool whose name
+  contains "merge" (merge_pull_request types commit_title and commit_message), or one handed a merge
+  mutation's name (a GraphQL runner's mergePullRequest, enablePullRequestAutoMerge, mergeBranch). It reads
+  every string the call is handed, at any depth, whatever the server names the field;
 - a shell line (Bash's, or a Monitor's command) that runs `gh pr merge` (gh as a word or a path, -R/--repo
   before the noun or the verb, the words quoted or not), that calls a REST merge endpoint (`/merge` or
   `/merges` with `gh api` or api.github.com), or that calls the GraphQL API (`graphql` with `gh api` or
   api.github.com) with a merge mutation (mergePullRequest, enablePullRequestAutoMerge, mergeBranch) on the
   line or in a file it sends. It reads the whole line, as written and as the shell joins it (quotes,
   backslashes and continuations removed), here-document text included, and every file the line names to
-  send or read: an option's file (gh pr merge's `--body-file`/`-F`, gh api's `--input` and
-  `-F`/`--field key=@file`, curl's `-d`/`--data`/`--json @file` and `-T`, wget's `--body-file`), an
-  `@file` word (httpie's `field=@file`), a `<` redirect's target (`$(<file)` too), and each file a plain
-  `cat` reads, piped or inside `$(...)`, `<(...)` or backticks. A name is read as the shell passes it:
+  send or read: an option whose value is a file (gh pr merge's `--body-file`/`-F`, gh api's `--input`,
+  curl's `-T`/`--upload-file`, wget's `--body-file`), a file an `@` names (gh api's `-F`/`--field
+  key=@file`, curl's `-d`/`--data`/`--json @file`, httpie's `field=@file`; quoted or attached, as in
+  `-d@file`), a `<` redirect's target (`$(<file)` too), and each file a plain `cat` reads, piped or inside
+  `$(...)`, `<(...)` or backticks. A name is read as the shell passes it:
   escapes resolved, `~` expanded, and a glob expanded to its first 16 files.
 A merge with no typed message passes: its message is the default the gate has read. Reading the whole line,
 and every file it names, refuses more than the merge's own message (another command on the line that names
@@ -49,9 +50,6 @@ from glob import iglob
 from itertools import islice
 from pathlib import Path
 
-# The commit text a merge call types: REST's commit_title and commit_message, GraphQL's commitHeadline and
-# commitBody, compared with underscores dropped and case folded so either spelling counts.
-COMMIT_FIELDS = ("committitle", "commitmessage", "commitheadline", "commitbody")
 SHELLS = ("Bash", "Monitor")  # the tools whose `command` a shell runs
 _REPO = r"(?:\s+(?:-R\s*\S+|--repo(?:=|\s+)\S+))*"  # gh takes -R/--repo before the noun and before the verb
 GH_MERGE = re.compile(rf"(?:^|[\s/;&|(`$])gh{_REPO}\s+pr{_REPO}\s+merge\b")
@@ -61,18 +59,16 @@ GRAPHQL = re.compile(r"\bgraphql\b", re.IGNORECASE)
 MERGE_MUTATION = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|mergeBranch)\b", re.IGNORECASE)
 # A shell word: quoted, or unquoted with backslash escapes.
 _WORD = r"""(?:'[^'\n]*'|"[^"\n]*"|(?:[^\s;&|()<>'"`\\]|\\.)+)"""
-# A file name: a word, a lone `-` (standard input), and never a word that starts with `-` (that is the next
-# option, as in `-d --body-file msg.md`, where -d is gh pr merge's --delete-branch).
-_VALUE = r"""('[^'\n]*'|"[^"\n]*"|-(?![^\s;&|()<>])|(?:[^\s;&|()<>'"`\\-]|\\.)(?:[^\s;&|()<>'"`\\]|\\.)*)"""
-# The files a line sends: an option whose value is, or names with `@`, a file (gh pr merge's --body-file
-# and -F, gh api's --input and -F/--field key=@file, curl's -d/--data/--data-binary/--data-ascii/--json
-# @file and -T/--upload-file, wget's --body-file; a short flag may close a run of others, as in -sF), an
-# `@file` word (httpie's field=@file), a `<` redirect's target, and the files a plain `cat` reads. Regular
-# expressions, not shlex: they read a 1 MiB line in milliseconds.
-FILE_ARG = re.compile(
-    r"""(?:^|[\s;&|(])(?:--(?:body-file|input|field|data(?:-binary|-ascii)?|json|upload-file)(?:=|\s+)"""
-    r"""|-[A-Za-z]*[FdT][ \t]*)""" + _VALUE)
-AT_FILE = re.compile(r"(?:^|[\s=])@" + _VALUE)
+_VALUE = "(" + _WORD + ")"  # a file name; a lone `-` is standard input
+# The files a line sends, read by regular expressions, not shlex (they read a 1 MiB line in milliseconds):
+# an option whose value is a file (gh pr merge's --body-file and -F, gh api's --input, curl's
+# -T/--upload-file, wget's --body-file; a short flag may close a run of others, as in -sF); a file an `@`
+# names, which gh api's -F/--field, curl's -d/--data/--json/-F and httpie's fields read (alone, after `=`,
+# attached to a short option as in -d@file, or quoted); a `<` redirect's target; the files a plain `cat`
+# reads. A plain -d or --field value is data, not a file.
+FILE_ARG = re.compile(r"(?:^|[\s;&|(])(?:--(?:body-file|input|upload-file)(?:=|\s+)|-[A-Za-z]*[FT][ \t]*)" + _VALUE)
+AT_FILE = re.compile(r"(?:^|[\s=]|\s-[A-Za-z]+)@" + _VALUE)
+AT_QUOTED = re.compile(r"""(?:^|[\s=]|\s-[A-Za-z]+)(['"])(?:[^'"\n=]*=)?@([^'"\n]*)\1""")
 REDIRECT = re.compile(r"(?<![<&])<(?![<(&>])[ \t]*" + _VALUE)
 CAT = re.compile(r"(?:^|[\s;&|(`])cat((?:[ \t]+" + _WORD + r")+)")
 UNQUOTE = str.maketrans("", "", "'\"\\")
@@ -91,16 +87,15 @@ def _closing_references():
     return module.closing_references
 
 
-def _commit_texts(value: object, field: str | None = None, every: bool = False):
-    """Every commit title or message string in a tool call's arguments, at any depth (`every`: every string)."""
+def _strings(value: object, field: str | None = None):
+    """Every string in a tool call's arguments, at any depth, with the name it sits under."""
     if isinstance(value, dict):
         for key, item in value.items():
-            yield from _commit_texts(item, key, every)
+            yield from _strings(item, key)
     elif isinstance(value, list):
         for item in value:
-            yield from _commit_texts(item, field, every)
-    elif isinstance(value, str) and (every or (
-            isinstance(field, str) and field.replace("_", "").lower() in COMMIT_FIELDS)):
+            yield from _strings(item, field)
+    elif isinstance(value, str):
         yield field or "an argument", value
 
 
@@ -134,12 +129,8 @@ def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
     names (`commit_message=@msg.md`, `-d @body.json`), a `<` redirect's target, and each file a plain `cat`
     reads, wherever it sits on the line."""
     joined = command.replace("\\\n", "")  # a continuation can split an option from its file
-    names = []
-    for match in FILE_ARG.finditer(joined):
-        value = _name(match.group(1))
-        at = value.find("@")
-        names.append(value[at + 1:] if at >= 0 and (at == 0 or value[at - 1] == "=") else value)
-    names += [_name(match.group(1)) for pattern in (AT_FILE, REDIRECT) for match in pattern.finditer(joined)]
+    names = [_name(match.group(1)) for pattern in (FILE_ARG, AT_FILE, REDIRECT) for match in pattern.finditer(joined)]
+    names += [match.group(2) for match in AT_QUOTED.finditer(joined)]
     names += [_name(word) for match in CAT.finditer(joined) for word in re.findall(_WORD, match.group(1))
               if not word.startswith("-")]
     base = cwd if isinstance(cwd, str) and cwd else os.getcwd()
@@ -197,9 +188,9 @@ def refusal(event: object) -> str | None:
         parts = tool.split("__")
         if not (len(parts) >= 3 and parts[0] == "mcp" and "github" in parts[1].lower()):
             return None
-        # A merge tool's every string may carry its commit text, whatever a server names the field.
-        texts = list(_commit_texts(tool_input, every="merge" in "__".join(parts[2:]).lower()))
-        if not texts:
+        texts = list(_strings(tool_input))
+        # A merge tool, or a call handed a merge mutation, may carry its commit text in any string.
+        if not ("merge" in "__".join(parts[2:]).lower() or any(MERGE_MUTATION.search(text) for _, text in texts)):
             return None
     references = list(dict.fromkeys(_closing_references()(texts)))
     return _reason(references) if references else None

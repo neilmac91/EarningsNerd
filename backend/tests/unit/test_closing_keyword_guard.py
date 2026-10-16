@@ -95,7 +95,9 @@ MCP_REFUSED = {
     "a squash title": (MERGE, {"pullNumber": 5, "commit_title": "test: close #1177's open findings (#1243)"}),
     "an escaped number sign": (MERGE, {"pullNumber": 5, "commit_message": "fixed \\#3"}),
     "a GraphQL-named headline": (MERGE, {"pullNumber": 5, "commitHeadline": "resolves #3"}),
-    "a nested GraphQL body": ("mcp__github__run_graphql", {"variables": {"input": {"commitBody": "Closes #3"}}}),
+    "a GraphQL runner handed a merge mutation": ("mcp__github__run_graphql", {
+        "query": "mutation($input: MergePullRequestInput!) { mergePullRequest(input: $input) { clientMutationId } }",
+        "variables": {"input": {"pullRequestId": "X", "commitBody": "Closes #3"}}}),
     "another server named for github": ("mcp__plugin_GitHub-tools__merge_pull_request", {"commit_message": "fix #3"}),
     "a merge tool's field under another name": (MERGE, {"pullNumber": 5, "message": "fixes #3"}),
 }
@@ -106,6 +108,10 @@ MCP_PASSED = {
     "a pull request body, which review-gate reads": ("mcp__github__update_pull_request", {"pullNumber": 5, "body": "Fixes #3"}),
     "a comment": ("mcp__github__add_issue_comment", {"issue_number": 5, "body": "closes #3 once merged"}),
     "a search, not a merge tool": ("mcp__github__search_pull_requests", {"query": "is:merged fixes #3"}),
+    "a GraphQL runner without a merge mutation": ("mcp__github__run_graphql", {
+        "query": 'mutation { addComment(input: {subjectId: "X", body: "closes #3 once merged"}) { clientMutationId } }'}),
+    "a branch commit, which review-gate reads": (
+        "mcp__github__create_or_update_file", {"path": "a.md", "content": "x", "message": "fixes #3", "branch": "t"}),
 }
 BASH_REFUSED = (
     "gh pr merge 5 --squash --body 'Closes #3'",
@@ -155,6 +161,11 @@ BASH_REFUSED = (
     "gh api -X PUT repos/o/r/pulls/5/merge --input=body.json",
     "gh api -X PUT repos/o/r/pulls/5/merge --input - < body.json",
     "curl -X PUT -d @body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT -d@body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT -d '@body.json' https://api.github.com/repos/o/r/pulls/5/merge",
+    "gh api -X PUT repos/o/r/pulls/5/merge -F 'commit_message=@my notes.md'",
+    "gh api -X PUT repos/o/r/pulls/5/merge --field=\"commit_message=@my notes.md\"",
+    "curl -X PUT --upload-file=body.json https://api.github.com/repos/o/r/pulls/5/merge",
     "curl -X PUT --data @body.json https://api.github.com/repos/o/r/pulls/5/merge",
     "curl -X PUT --data-binary @body.json https://api.github.com/repos/o/r/pulls/5/merge",
     "curl -X PUT --json @body.json https://api.github.com/repos/o/r/pulls/5/merge",
@@ -173,6 +184,9 @@ BASH_PASSED = (
     "gh pr merge 5 --squash",
     "gh pr merge 5 --squash --delete-branch",
     "gh pr merge 5 -s -d",
+    # A plain -d or --field value is the data itself, not a file: curl sends "body.json", not its text.
+    "curl -X PUT -d body.json https://api.github.com/repos/o/r/pulls/5/merge",
+    "gh api -X PUT repos/o/r/pulls/5/merge --field commit_message=msg.md",
     "gh pr merge 5 -s -b '#3 carries the fix; addressed in #4'",
     "gh pr merge 5 -s --body-file clean.md",
     "gh pr view 5 --json body | grep -c 'fixes #3'",  # not a merge: review-gate reads the pull request's own text
