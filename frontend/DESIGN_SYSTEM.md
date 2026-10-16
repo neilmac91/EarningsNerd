@@ -55,6 +55,14 @@ colour class on a `-dark` token with no `dark:` variant paints the dark theme's 
 (a stylesheet block whose every selector names `.dark` is the dark theme's), except on a surface dark in
 both themes on purpose, listed in its own residue (the logos' forced-dark mode, the debug payload panel).
 
+- **A state's colour pairs too, and a bare one is not harmless.** The brand tint's states take the dark
+  tokens the §1 table pairs with them: a hover hairline `hover:border-brand-border
+  dark:hover:border-brand-border-dark`, an outline `ring-brand-border dark:ring-brand-border-dark`, the
+  interactive Card's pressed fill `active:bg-brand-weak/60 dark:active:bg-brand-weak-dark`. Tailwind writes a
+  `dark:` class at the same specificity as a `hover:` or `active:` one and later in the sheet, so where the
+  element sets its resting colour under `dark:`, a bare light state colour loses to it and dark shows no hover
+  or pressed change at all; where it sets none, as a ring, the light colour paints on navy (the Copilot's user
+  bubble drew `#CFE0D6` on the panel at 10.7:1, where light's ring sits at 1.3:1).
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
