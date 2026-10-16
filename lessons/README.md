@@ -33,7 +33,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-hand-over-when-the-harness-refuses-the-conversation.md — Hand over to a fresh session when the harness refuses the conversation, not the action
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
-- ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
+- ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit; run the unmutated baseline through the same harness first
 - ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (partly gated by `.claude/hooks/codex_mention_guard.py`; text a command builds as it runs, sessions that load no repository hooks and a person's own write are not)
 - ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
@@ -108,6 +108,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Testing & verification
 
+- test-a-fail-closed-check-needs-a-genuine-accept-case.md — Test every fail-closed check with a genuine input it must accept, for a provider signature the provider's published example; refusals alone pass while it refuses everything (partly gated: `test_resend_webhook_signature.py` pins the Resend webhook)
 - test-absence-claims-come-from-git-grep.md — Make an absence claim only from `git grep` over every tracked file (and never from a suffix allow-list in a test)
 - test-adversarial-lens-verification.md — Verify large mechanical changes with independent adversarial lenses, not one review pass
 - test-allowlist-caps-are-equalities.md — An allowlist cap is an equality, never a ceiling: the shrinking PR lowers the cap in the same commit (gate: allowlistCapsAreEqualities.spec.ts)

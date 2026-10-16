@@ -99,7 +99,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `RESEND_API_KEY` | `""` | Outbound email credential; required for sending. |
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
 | `RESEND_FROM_EMAIL` | `"EarningsNerd <hello@inbound.earningsnerd.io>"` | Sender on a Resend-verified domain; complete surrounding quotes are normalized away. |
-| `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
+| `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signing secret (`whsec_` and base64). While it is empty, production refuses every Resend webhook and development skips the check. |
 | `FRONTEND_URL` | `"https://earningsnerd.io"` | Public frontend origin used in email links. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |
 | `SECRET_KEY` | `required` | Required in every environment; at least 32 characters, known placeholders rejected. Prefer 64+ random characters. |
