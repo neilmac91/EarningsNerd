@@ -449,6 +449,23 @@ describe('BellPopover placement', () => {
     })
   })
 
+  it('measures its painted box rounded up, so placed above, a fractional height is neither a pixel short nor scrolls', () => {
+    // A browser rounds scrollHeight to a whole pixel, while the box it paints can be 400.4px tall.
+    const LOW = { left: 100, top: 600, bottom: 628, right: 128, width: 28, height: 28 } as DOMRect
+    const own = Element.prototype.getBoundingClientRect
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      return this.getAttribute('role') === 'group' ? ({ height: 400.4 } as DOMRect) : own.call(this)
+    })
+    try {
+      renderMeasured(400, LOW, (group) => {
+        expect(group.style.top).toBe(`${600 - 8 - 401}px`)
+        expect(group.style.maxHeight).toBe('401px')
+      })
+    } finally {
+      rect.mockRestore()
+    }
+  })
+
   it('reads the visible area from window.visualViewport, not the layout viewport a wide page stretches', () => {
     // The phone shows 390x844 of a layout viewport stretched past it (jsdom's window stands for that one).
     const own = Object.getOwnPropertyDescriptor(window, 'visualViewport')
