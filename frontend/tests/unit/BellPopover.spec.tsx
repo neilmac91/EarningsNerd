@@ -514,17 +514,27 @@ describe('BellPopover placement', () => {
       })
     }
     const isPanel = (el: Element) => el.getAttribute('role') === 'group'
-    let actionTop = 566
+    // The panel's box follows its inline top and cap: 611px (609 of content and two 1px borders) until the cap lands,
+    // so the open effect, which focuses before the cap, finds the action in view and the cap's effect does not.
+    const panelBox = (el: HTMLElement) => {
+      const top = parseFloat(el.style.top) || 0
+      const height = el.style.maxHeight ? Math.min(611, parseFloat(el.style.maxHeight)) : 611
+      return { top, bottom: top + height, height }
+    }
+    let actionOffset = 554 // the first action's top, from the panel's top edge
     stub(HTMLElement.prototype, 'scrollHeight', (el) => (isPanel(el) ? 609 : 0))
-    stub(HTMLElement.prototype, 'offsetHeight', (el) => (isPanel(el) ? 580 : 0))
-    stub(Element.prototype, 'clientHeight', (el) => (isPanel(el) ? 578 : 0))
+    stub(HTMLElement.prototype, 'offsetHeight', (el) => (isPanel(el) ? panelBox(el).height : 0))
+    stub(Element.prototype, 'clientHeight', (el) => (isPanel(el) ? panelBox(el).height - 2 : 0))
     stub(Element.prototype, 'clientTop', (el) => (isPanel(el) ? 1 : 0))
     const own = Element.prototype.getBoundingClientRect
     const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      if (isPanel(this)) return { top: 12, bottom: 592, height: 580 } as DOMRect
-      // The action's box moves up as the panel scrolls, as a browser's does.
-      const scrolled = this.closest('[role="group"]')?.scrollTop ?? 0
-      if (this.textContent === 'Upgrade to Pro') return { top: actionTop - scrolled, bottom: actionTop - scrolled + 36, height: 36 } as DOMRect
+      if (isPanel(this)) return panelBox(this as HTMLElement) as DOMRect
+      const panel = this.closest<HTMLElement>('[role="group"]')
+      if (panel && this.textContent === 'Upgrade to Pro') {
+        // Its box moves with the panel, and up as the panel scrolls, as a browser's does.
+        const top = panelBox(panel).top + actionOffset - panel.scrollTop
+        return { top, bottom: top + 36, height: 36 } as DOMRect
+      }
       return own.call(this)
     })
     const bell = document.createElement('button')
@@ -539,7 +549,7 @@ describe('BellPopover placement', () => {
       expect(group.scrollTop).toBe(11)
       cleanup()
       // An action already in view leaves the panel where it is.
-      actionTop = 300
+      actionOffset = 288
       render(<BellPopover blocked={{ ...upsell }} onClose={() => {}} />)
       expect(screen.getByRole('group', { name: 'Free includes 3 earnings alerts' }).scrollTop).toBe(0)
     } finally {

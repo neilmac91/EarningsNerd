@@ -233,7 +233,6 @@ export function BellPopover({
     const free = (el: Element | null) => !el || el === document.body || el === trigger || !!popover?.contains(el)
     const actions = () => Array.from(popover?.querySelectorAll<HTMLElement>('a[href], button') ?? [])
     if (free(document.activeElement)) actions()[0]?.focus({ preventScroll: true })
-    if (popover) revealFocusIn(popover)
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -310,10 +309,10 @@ export function BellPopover({
     const height = Math.max(Math.ceil(panel.getBoundingClientRect().height), panel.scrollHeight + panel.offsetHeight - panel.clientHeight)
     setBox({ width, ...placeBellPopover(blocked.anchor, { width, height }, area, POPOVER_MIN_SIDE_REM * rootRem()) })
   }, [blocked])
-  // The open effect focuses the first action with preventScroll, and runs before this cap lands (React flushes
-  // it ahead of the re-render the placement's setBox starts). Capped, the panel scrolls inside, and that action
-  // can sit below its scrollport (the Free cap's upsell at 200% text, above its bell): once placed, the panel's
-  // own scroller brings the focused action into view, ring and all.
+  // The open effect focuses the first action with preventScroll, before this cap lands: React runs a render's
+  // effects before it starts the next render, here the one the placement's setBox starts. Capped, the panel
+  // scrolls inside, and that action can sit below its scrollport (the Free cap's upsell at 200% text, above its
+  // bell): once placed, the panel's own scroller brings the focused action into view, ring and all.
   useLayoutEffect(() => {
     if (box && ref.current) revealFocusIn(ref.current)
   }, [box])
