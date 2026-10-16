@@ -10,12 +10,25 @@ non-ASCII characters, and login refused such a password even against the hash bc
 ``get_password_hash`` and ``verify_password``, exactly what bcrypt 4 hashed, so every stored hash
 keeps verifying and there is no new hash format. Bytes past 72 do not contribute to the hash.
 
+The behaviour tests reach bcrypt only through those two functions, so a structural check holds the
+other paths: in every tracked backend Python file outside ``tests/``, bcrypt and passlib are
+imported only by ``app/services/password_utils.py``, and every use of ``bcrypt`` there is
+``bcrypt.gensalt`` or a ``bcrypt.hashpw``/``bcrypt.checkpw`` call whose first argument is
+``_bcrypt_input(...)``. ``BCRYPT_REACH_FORMS`` scores that walk on each way it can be broken and
+each look-alike that must pass. Out of its reach, each planted as a gap: a module named at run time
+(``import_module(name)``, ``getattr(module, "bcrypt")``, ``sys.modules``), and passlib inside
+``password_utils``, whose verify fallback hands passlib's bcrypt handler the whole password (dead
+under bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup).
+
 Real endpoints against the app's SQLite database, like the rest of the auth suite. SQLite hands
 ``DateTime(timezone=True)`` columns back naive while PostgreSQL hands them back aware; the
 ``_postgres_shaped_expiries`` fixture gives the reset-token expiry the production shape.
 """
+import ast
+import subprocess
 import uuid
 from datetime import timezone
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import bcrypt
@@ -28,6 +41,7 @@ from main import app
 from app.config import settings
 from app.database import SessionLocal
 from app.models import User
+from app.routers.auth import create_access_token
 from app.services import auth_account_service, password_utils
 from app.services.password_utils import get_password_hash, validate_password_strength, verify_password
 from tests.support.summary_stream_harness import reset_rate_limiters
@@ -91,6 +105,11 @@ def _login(client: TestClient, email: str, password: str):
     return resp
 
 
+def _bcrypt4_hash(password: str) -> str:
+    """What bcrypt 4 stored for ``password``: the hash of its first 72 bytes."""
+    return bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt(rounds=4)).decode("utf-8")
+
+
 # ── the hash and verify functions ────────────────────────────────────────────
 
 @pytest.mark.parametrize(
@@ -117,8 +136,7 @@ def test_bytes_past_72_do_not_contribute_and_every_byte_before_does():
 
 @LONG_PASSWORDS
 def test_a_hash_bcrypt4_made_from_a_long_password_still_verifies(password):
-    legacy_hash = bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt(rounds=4)).decode("utf-8")
-    assert verify_password(password, legacy_hash)
+    assert verify_password(password, _bcrypt4_hash(password))
 
 
 # ── the endpoints ────────────────────────────────────────────────────────────
@@ -169,5 +187,154 @@ def test_change_password_accepts_a_long_password_and_login_takes_it(client, pass
 @LONG_PASSWORDS
 def test_login_takes_a_long_password_against_its_bcrypt4_hash(client, password):
     email = _email()
-    _create_user(email, bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt(rounds=4)).decode("utf-8"))
+    _create_user(email, _bcrypt4_hash(password))
     assert _login(client, email, password).status_code == 200
+
+
+@pytest.mark.requires_db
+@LONG_PASSWORDS
+def test_change_password_takes_a_long_current_password_against_its_bcrypt4_hash(client, password):
+    email = _email()
+    _create_user(email, _bcrypt4_hash(password))
+    resp = client.post(
+        "/api/auth/change-password",
+        headers={"Authorization": f"Bearer {create_access_token(data={'sub': email})}"},
+        json={"current_password": password, "new_password": SHORT},
+    )
+    assert resp.status_code == 200, resp.text
+    client.cookies.clear()
+    assert _login(client, email, SHORT).status_code == 200
+
+
+# ── every path to bcrypt goes through _bcrypt_input ─────────────────────────
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+PASSWORD_UTILS = "app/services/password_utils.py"
+# bcrypt itself, and passlib, whose bcrypt handler hands bcrypt whatever password it is given.
+BCRYPT_LIBRARIES = {"bcrypt", "passlib"}
+
+
+def _sanctioned_bcrypt_use(name: ast.Name, parent: dict[ast.AST, ast.AST]) -> str | None:
+    """The bcrypt function a ``bcrypt`` name in ``password_utils`` reaches the sanctioned way, else
+    None: ``bcrypt.gensalt``, or a ``bcrypt.hashpw``/``bcrypt.checkpw`` call whose first argument
+    is ``_bcrypt_input(...)``."""
+    attribute = parent.get(name)
+    if not isinstance(attribute, ast.Attribute):
+        return None
+    if attribute.attr == "gensalt":
+        return "gensalt"
+    call = parent.get(attribute)
+    first = call.args[0] if isinstance(call, ast.Call) and call.func is attribute and call.args else None
+    if (
+        attribute.attr in {"hashpw", "checkpw"}
+        and isinstance(first, ast.Call)
+        and isinstance(first.func, ast.Name)
+        and first.func.id == "_bcrypt_input"
+    ):
+        return attribute.attr
+    return None
+
+
+def _bcrypt_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
+    """One walk of ``source``, the backend file at ``rel``: the lines that can reach bcrypt without
+    ``_bcrypt_input``, and the bcrypt functions it calls the sanctioned way."""
+    tree = ast.parse(source)
+    home = rel == PASSWORD_UTILS
+    parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    bypasses: list[int] = []
+    sanctioned: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                library = alias.name.split(".")[0]
+                # Only a plain ``import bcrypt`` keeps every use spelled ``bcrypt.<fn>`` for the check below.
+                plain_bcrypt = alias.name == "bcrypt" and alias.asname is None
+                if library in BCRYPT_LIBRARIES and not (home and (plain_bcrypt or library == "passlib")):
+                    bypasses.append(node.lineno)
+        elif isinstance(node, ast.ImportFrom):
+            library = (node.module or "").split(".")[0] if node.level == 0 else ""
+            if library in BCRYPT_LIBRARIES:
+                if not (home and library == "passlib"):
+                    bypasses.append(node.lineno)
+            elif any(alias.name in BCRYPT_LIBRARIES for alias in node.names):
+                bypasses.append(node.lineno)  # password_utils' bcrypt picked up as a re-export
+        elif isinstance(node, ast.Call):
+            func = node.func
+            called = getattr(func, "id", None) or getattr(func, "attr", "")  # f(...) or m.f(...)
+            first = node.args[0] if node.args else None
+            if (
+                called in {"__import__", "import_module"}
+                and isinstance(first, ast.Constant)
+                and isinstance(first.value, str)
+                and first.value.split(".")[0] in BCRYPT_LIBRARIES
+            ):
+                bypasses.append(node.lineno)
+        elif isinstance(node, ast.Attribute) and node.attr in BCRYPT_LIBRARIES and not home:
+            bypasses.append(node.lineno)  # ``password_utils.bcrypt``
+        elif home and isinstance(node, ast.Name) and node.id == "bcrypt":
+            use = _sanctioned_bcrypt_use(node, parent)
+            if use is None:
+                bypasses.append(node.lineno)
+            else:
+                sanctioned.add(use)
+    return bypasses, sanctioned
+
+
+OTHER = "app/services/api_keys.py"
+# (case, file, source, "flag" | "clean" | "gap"); a gap is a bypass the walk cannot see, named above.
+BCRYPT_REACH_FORMS = [
+    ("import-elsewhere", OTHER, "import bcrypt", "flag"),
+    ("import-alias-elsewhere", OTHER, "import bcrypt as b", "flag"),
+    ("from-import-elsewhere", OTHER, "from bcrypt import checkpw", "flag"),
+    ("passlib-elsewhere", OTHER, "from passlib.context import CryptContext", "flag"),
+    ("passlib-module-elsewhere", OTHER, "import passlib.hash", "flag"),
+    ("re-export-import", OTHER, "from app.services.password_utils import bcrypt", "flag"),
+    ("re-export-attribute", OTHER, "password_utils.bcrypt.checkpw(secret.encode(), h)", "flag"),
+    ("import-module-constant", OTHER, "importlib.import_module('bcrypt')", "flag"),
+    ("dunder-import-constant", OTHER, "__import__('passlib.hash')", "flag"),
+    ("raw-hash-at-home", PASSWORD_UTILS, "bcrypt.hashpw(password.encode('utf-8'), salt)", "flag"),
+    ("raw-verify-at-home", PASSWORD_UTILS, "def f(s, h):\n    return bcrypt.checkpw(s.encode(), h)", "flag"),
+    ("keyword-at-home", PASSWORD_UTILS, "bcrypt.hashpw(password=_bcrypt_input(p), salt=s)", "flag"),
+    ("extended-after-cut", PASSWORD_UTILS, "bcrypt.hashpw(_bcrypt_input(p) + pepper, s)", "flag"),
+    ("reference-at-home", PASSWORD_UTILS, "check = bcrypt.checkpw", "flag"),
+    ("getattr-at-home", PASSWORD_UTILS, "getattr(bcrypt, 'hashpw')(raw, salt)", "flag"),
+    ("from-import-at-home", PASSWORD_UTILS, "from bcrypt import hashpw", "flag"),
+    ("alias-at-home", PASSWORD_UTILS, "import bcrypt as _b", "flag"),
+    ("hash-at-home", PASSWORD_UTILS, "import bcrypt\nbcrypt.hashpw(_bcrypt_input(p), s)", "clean"),
+    ("verify-at-home", PASSWORD_UTILS, "bcrypt.checkpw(_bcrypt_input(p), h.encode('utf-8'))", "clean"),
+    ("gensalt-at-home", PASSWORD_UTILS, "bcrypt.gensalt(rounds=BCRYPT_ROUNDS)", "clean"),
+    ("passlib-import-at-home", PASSWORD_UTILS, "from passlib.context import CryptContext", "clean"),
+    ("helpers-elsewhere", OTHER, "from app.services.password_utils import get_password_hash", "clean"),
+    ("library-names-as-strings", OTHER, "CryptContext(schemes=['bcrypt'])\nx = ('passlib', 'passlib')", "clean"),
+    ("variable-import", OTHER, "importlib.import_module(name)", "gap"),
+    ("getattr-elsewhere", OTHER, "getattr(password_utils, 'bcrypt')", "gap"),
+    ("sys-modules", OTHER, "sys.modules['bcrypt']", "gap"),
+    ("passlib-at-home", PASSWORD_UTILS, "CryptContext(schemes=['bcrypt']).verify(plain, h)", "gap"),
+]
+
+
+@pytest.mark.parametrize(
+    "rel,source,expected", [form[1:] for form in BCRYPT_REACH_FORMS], ids=[form[0] for form in BCRYPT_REACH_FORMS]
+)
+def test_the_bcrypt_walk_scores_every_planted_form(rel, source, expected):
+    bypasses, _ = _bcrypt_reach(source, rel)
+    assert bool(bypasses) == (expected == "flag")
+
+
+def test_every_path_to_bcrypt_goes_through_bcrypt_input():
+    tracked = subprocess.run(
+        ["git", "ls-files", "*.py"], cwd=BACKEND_DIR, check=True, capture_output=True, text=True
+    ).stdout.splitlines()
+    scanned = [rel for rel in tracked if not rel.startswith("tests/")]
+    assert len(scanned) > 100 and PASSWORD_UTILS in scanned  # a broken walk must not pass as clean
+    offenders: list[str] = []
+    for rel in scanned:
+        bypasses, sanctioned = _bcrypt_reach((BACKEND_DIR / rel).read_text(encoding="utf-8"), rel)
+        offenders.extend(f"{rel}:{line}" for line in bypasses)
+        if rel == PASSWORD_UTILS:
+            assert {"hashpw", "checkpw"} <= sanctioned, "password_utils no longer hashes and verifies"
+    assert not offenders, (
+        f"bcrypt reached without _bcrypt_input: {offenders}. Hash and verify passwords through "
+        "app.services.password_utils (get_password_hash, verify_password); inside it, pass "
+        "_bcrypt_input(...) as the first argument of every bcrypt.hashpw/bcrypt.checkpw call."
+    )
