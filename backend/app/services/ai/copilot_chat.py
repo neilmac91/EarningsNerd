@@ -216,9 +216,10 @@ class _CopilotChatMixin:
 
         A function-calling sibling of :meth:`stream_chat` used by the "Ask this Filing" Copilot's
         numeric path (P5). The model is offered ``tools`` with ``tool_choice="auto"``; when it asks
-        for one, this method runs it via ``run_tool(name, args)`` and feeds the result back, then lets
-        the model continue. Plain answer text is yielded live (token-by-token) exactly like
-        ``stream_chat``, so the caller's sentinel-split prose handling is unchanged.
+        for one, this method runs it via ``run_tool(name, args)`` in a worker thread (one call at a
+        time) and feeds the result back, then lets the model continue. Plain answer text is yielded
+        live (token-by-token) exactly like ``stream_chat``, so the caller's sentinel-split prose
+        handling is unchanged.
 
         The tricky part is **stream-assembling tool calls**: a single tool call's
         ``function.arguments`` arrives as a sequence of string fragments across many chunks, keyed by
@@ -230,7 +231,8 @@ class _CopilotChatMixin:
         Args:
             messages: The conversation so far (mutated in place across rounds with tool turns).
             tools: OpenAI-format tool schemas to offer the model.
-            run_tool: ``Callable[[str, dict], dict]`` executing a tool by name + decoded args.
+            run_tool: ``Callable[[str, dict], dict]`` executing a tool by name + decoded args. It may
+                block on the database, so it is awaited through ``asyncio.to_thread``.
             model: Model id (defaults to ``self.model``).
             max_tokens: Max completion tokens per round.
             temperature: Sampling temperature.
@@ -351,7 +353,10 @@ class _CopilotChatMixin:
                     )
                     if asyncio.get_running_loop().time() >= deadline:
                         raise TimeoutError("Chat deadline exhausted before tool execution")
-                    result = run_tool(call["name"], parsed_args)
+                    # A tool is a blocking DB lookup whose pool checkout can wait. Run it in a
+                    # worker thread so the loop keeps serving the requests that hold the slots;
+                    # calls stay sequential, so the caller's tool state never sees two threads.
+                    result = await asyncio.to_thread(run_tool, call["name"], parsed_args)
                     ok = not (isinstance(result, dict) and "error" in result)
                     yield STREAM_ACTIVITY_SENTINEL + json.dumps(
                         {"name": call["name"], "args": parsed_args, "phase": "done", "ok": ok}

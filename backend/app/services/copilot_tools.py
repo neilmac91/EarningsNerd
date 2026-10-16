@@ -11,7 +11,9 @@ Session lifetime is the subtle part. The Copilot's SSE generator runs *after* th
 may already be gone (the same reason P1 added ``snapshot_filing``), so a tool **must not** touch the
 request ``db``. Every :func:`run_tool` call therefore opens its own short-lived ``SessionLocal()``,
 queries, and closes it in a ``finally``. Callers bind company, accession and native currency
-(captured eagerly from the snapshot) via a closure.
+(captured eagerly from the snapshot) via a closure. Its pool checkout can wait, so async callers
+await it in a worker thread, never on the event loop
+(``lessons/ops-auth-lookups-must-let-request-cleanup-progress.md``).
 
 Everything here is tolerant: ``run_tool`` never raises — unknown/absent data and unexpected errors
 become ``{"error": ...}`` dicts so the streaming loop stays well-formed.

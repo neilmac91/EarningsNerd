@@ -17,7 +17,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on the decision; only without one does it accept your recommendation
 - ops-a-flag-several-processes-read-is-set-in-every-env-map.md — List every process that reads a flag and flip it in every deploy map it is configured from, with its job cadence, in one change (partly gated by `backend/tests/unit/test_section_changes_flag_placement.py` for `ENABLE_SECTION_CHANGES`; the next multi-process flag's gate is review-checked)
 - ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
-- ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
+- ops-auth-lookups-must-let-request-cleanup-progress.md — Keep request-path pool waits (authentication, Copilot lookups) off the event loop while preserving request-owned sessions
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
 - ops-checkout-never-charges-more-than-the-page-shows.md — Never let checkout charge more than the page shows: lower a price on the backend first, raise it on the page first (a CI job on offer changes and a daily run against the live page check it with the backend's public charge report; a binding change or frontend rollback outside CI is found, not prevented)
