@@ -535,6 +535,13 @@ describe('reserved glyphs keep their one meaning', () => {
       SparkleIcon: 2,
       QuotesIcon: 1,
     })
+    // The model's one over-count, named in heldValues.ts's header: a parameter holds what every call passes it, so a
+    // component rendered once with each of two glyphs counts both at each render. It fails closed (no app file passes a
+    // reserved glyph as a prop); telling calls apart would take a context-sensitive model.
+    expect(given(['function Show({ icon: Icon }) { return <Icon /> }', 'export const X = () => <><Show icon={QuotesIcon} /><Show icon={SparkleIcon} /></>'])).toEqual({
+      QuotesIcon: 2,
+      SparkleIcon: 2,
+    })
     // Out of reach, planted as the gaps the header names: a glyph held in React state, a class's field read through
     // `this`, a promise's then and a generator's yield each count once where they are written, though each renders it
     // twice; and a glyph an app module exports is not known for one.

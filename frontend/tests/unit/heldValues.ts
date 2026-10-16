@@ -51,7 +51,9 @@ import ts from 'typescript'
  *  - parentheses, `as`, `satisfies`, `<T>` and `!`.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
  * context's), what React state holds after its setter or a reducer runs, a class's fields and `this`, a promise's
- * `then` and a generator's yields. A value that grows through its own reads (`const a = <>{a}</>`, or a
+ * `then` and a generator's yields. One over-count, which fails closed: a parameter is not told apart by call, so it
+ * holds what every same-file call passes it, and a function called with different values reads all of them at each
+ * call (a component rendered once with each of two glyphs counts both at each render). A value that grows through its own reads (`const a = <>{a}</>`, or a
  * component that passes its own children back to itself with more added) never settles: the scan throws instead of
  * settling on an arbitrary count.
  */
