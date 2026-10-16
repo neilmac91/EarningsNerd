@@ -753,8 +753,10 @@ the owned class, never from candidate text) it also appends `_CITATION_EXCERPT_R
 names the table-text shapes that fail and the two that verify: no text citation for a figure that has
 its `[F#]`, or one whole sentence or the whole row exactly as the filing shows it. A decision-F
 retry's bytes are unchanged, and the first generation never sees either text.
-A second rejection, another admission reason, provider
-failure or exhausted budget remains terminal. Prompt guidance prefers cited paraphrases and exact
+Admission checks run in order (envelope, citations, final numbering, decision F) and the first rejection
+decides: an eligible citation failure regenerates even when a later check would also have rejected that
+candidate, and the replacement passes every check. A second rejection, a first rejection for any other
+reason, provider failure or exhausted budget remains terminal. Prompt guidance prefers cited paraphrases and exact
 contiguous direct quotations, with quote-free displayed followups, refusal reasons and section labels.
 Citation excerpts preserve all source punctuation, including inner quotation marks escaped in JSON.
 
@@ -771,7 +773,8 @@ identity and what it was measured on, and no earlier row can be overwritten. #11
 |---|---|---|---|---|---|
 | `a88b6fb1de5b` | — | — | before #1111 | sections to 2026-10-05, then the regex fallback | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | 2026-10-16 | sections, pre-registered (the PR head's copilot-eval draw, not yet run) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/PREREGISTRATION.md` |
+| `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | 2026-10-16, citation retry | sections: run 38860895429, 17/18 (one BABA row withheld after its retry) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | 2026-10-16, whole-row rule | sections, pre-registered (addendum 1, not yet run) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/PREREGISTRATION.md` |
 
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,
@@ -802,7 +805,12 @@ using only tool markers supplies an explicit empty array. The retained `2dae5338
 violated this format with string `F1`/`F2` declarations and remains a failed attempt. The earlier
 `097b2fdb` MSFT failure lacks its raw candidate and precise rejection reason; it is not assigned
 the same cause. This clarification changes no other financial instruction, model, source
-selection, scorer, baseline or acceptance criterion. It still requires the fresh aggregate
+selection, scorer, baseline or acceptance criterion. Since 2026-10-16 step 3 also makes a table figure's
+excerpt its whole row (row label through last cell; never a lone figure, header or partial row) and asks for
+every excerpt to be copied exactly as the supplied text shows it, never joining or splitting what the text
+separates or joins. Extraction can insert a line break inside a token (`US$1.00=RMB\n7.2567`) or drop a space
+(`Total net sales416,161`), and the matcher collapses whitespace but never deletes or adds it
+([evidence](../../tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md)). It still requires the fresh aggregate
 prompt-change gate below; syntax admission does not establish the semantic truth of an answer
 or a not-disclosed assertion.
 

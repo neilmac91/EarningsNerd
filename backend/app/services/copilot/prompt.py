@@ -100,6 +100,10 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
      excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
+     Exception: a text excerpt for a figure from a table is that figure's WHOLE row, one contiguous span from
+     the row label through its last cell with every cell in between; never a lone figure, header or partial row.
+     Copy every excerpt exactly as the supplied filing text shows it: never join or split words, figures or
+     currency signs that the text separates or joins.
      Each text excerpt must contain at least {_MIN_VERIFIABLE_LEN} characters after whitespace is collapsed.
      When a span is too short, choose a longer contiguous source span; never pad or paraphrase it.
      Never stitch separated table cells or sentences together, or insert an ellipsis into an excerpt.

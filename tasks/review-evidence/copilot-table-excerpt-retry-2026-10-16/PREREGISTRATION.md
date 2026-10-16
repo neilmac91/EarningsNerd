@@ -73,3 +73,39 @@ one further head if outcome 1 above leads to the first-generation candidate.
 The latest balance read was USD 36.55 on 2026-10-15 at 23:32 UTC (`deepseek-balance.yml`, job 116727558184), against
 a floor of USD 5. The CODE RED ledger is the chief's. This file is the reservation record, and the PR body reports the
 actual cost from `ai_call` telemetry.
+
+## Addendum 1 (2026-10-16, after draw 1): the first-generation candidate
+
+Draw 1 ([run 38860895429](https://github.com/neilmac91/EarningsNerd/actions/runs/38860895429)) was valid and red,
+17 of 18, so outcome 1 applied. The README's "Draw 1" and "Addendum 1" sections give the reading and the change.
+This addendum is committed before the new head's draw.
+
+| Composition | SHA-256 prefix | Change from draw 1 |
+| --- | --- | --- |
+| First generation (`SYSTEM_PROMPT`) | `c221b7e3c5c2` | four lines: the whole-row exception and the exact-copy sentence |
+| Retry after a decision-F rejection | `34d01dadbac0` | inherits the new `SYSTEM_PROMPT`; guidance unchanged |
+| Retry after a citation failure | `bf240eb01f4c` | inherits the new `SYSTEM_PROMPT`; guidance unchanged |
+
+**Measurement.** The new head's single copilot-eval draw, after the high-tier review of the new lines. It runs the
+same workflow with the same 18 attempts.
+
+**Validity.** These are the conditions above, with these hashes in place of draw 1's:
+- every first generation is `c221b7e3c5c2`;
+- a decision-F retry is `34d01dadbac0`;
+- a citation retry is `bf240eb01f4c`.
+
+**Acceptance.** The repository's bar: `accepted: true`, 18 of 18.
+
+**Readout.** This adds to draw 1's readout:
+- **Text-citation use per question.** AAPL, TSLA and MSFT cited no filing text in 1,170 first generations, so on
+  them the new lines can only add text citations. That is reported, not gated; any such citation is checked as every
+  citation is.
+- **Generations that are not first generations.** Every retry is reported with its outcome.
+
+**If this draw is red.** No further code head goes into this PR without the founder's decision. The artifact is
+classified and reported, and the ceiling's remainder stays unspent. If a question other than BABA FY2025 regresses,
+the four lines are the cause, since nothing else the first generation sees changed.
+
+**Spend.** For this head: USD 0.53 reserved for `eval-baseline` and USD 0.06 for the draw. Cumulative spend stays under
+the USD 2.00 ceiling. Spent so far: `eval-baseline` on `200bcddd`, USD 0.178346 plus one errored call; on `1ccfa33f`,
+read when it finishes. Draw 1: USD 0.025871.

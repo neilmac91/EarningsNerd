@@ -48,6 +48,14 @@
    "offset": 16399,
    "text": "€32.7bn\nTotal net sales\n52.8%\nGross margin\n€8.5bn\nReturned to \nshareholders",
    "text_sha256": "a046a5b8ec0cf10d403cf519390202db9d5194801f6c7a0eb083744ba642a370"
+  },
+  "baba_fy2025_sections_translation_note": {
+   "accession": "0000950170-25-090161",
+   "source_kind": "sections",
+   "source_sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3",
+   "offset": 115003,
+   "text": "Translations of balances in the consolidated balance sheet, consolidated income statement, consolidated statement of comprehensive income and consolidated statement of cash flows from RMB into the US$ as of and for the year ended March 31, 2025 are solely for the convenience of the readers and are calculated at the rate of US$1.00=RMB\n7.2567\n, representing the exchange rate set forth in the H.10 statistical release of the Federal Reserve Board on March 31, 2025",
+   "text_sha256": "156c5f495531cd44a0dd27841feaf7dab59369956b3ff7d25f0e3683b6d4916b"
   }
  }
 }

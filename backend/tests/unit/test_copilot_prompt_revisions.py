@@ -20,6 +20,7 @@ REVISIONS = [
     ("a88b6fb1de5b", "—", "—"),
     ("d46ef28f000a", "f3b340db1e35", "f3b340db1e35"),
     ("d46ef28f000a", "f3b340db1e35", "ae01453ef90d"),
+    ("c221b7e3c5c2", "34d01dadbac0", "bf240eb01f4c"),
 ]
 REPO = Path(__file__).resolve().parents[3]
 RUNBOOK = REPO / "backend" / "evals" / "RUNBOOK.md"

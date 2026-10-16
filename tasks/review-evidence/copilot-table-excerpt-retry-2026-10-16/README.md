@@ -125,3 +125,39 @@ enough.
   three BABA rows as UNEXPLAINED (exit 3), because it asks for a second generation the run never recorded. Under main
   the same rows reproduce (exit 0). Its `--self-test` passes on both trees. The RUNBOOK's replay paragraph records this.
 - The PR body carries the tests, the gates and the mutation proofs.
+
+## Draw 1 (pre-registered): run 38860895429, valid, 17 of 18
+
+The PR head `1ccfa33f`'s copilot-eval draw met every validity condition in the pre-registration: preparation was
+complete with sections on, the BABA FY2025 source hashed to `be4499769327`, every first generation to `d46ef28f000a`,
+and the one retry to `ae01453ef90d`. The other five questions published 15 of 15 on their first generation.
+
+BABA FY2025:
+- **Run 0.** The first generation cited the whole income-statement row (`Revenue 5, 24 868,687 941,168 996,347
+  137,300`), which verified and published.
+- **Run 2.** The first generation used the XBRL fact alone and published.
+- **Run 1.** The first generation cited the bare cell `996,347` beside its row, both as `[1]`. Main's code makes that
+  terminal; the change gave it the retry. The retry followed the new guidance, dropping the cell and citing one whole
+  sentence, the Note 2 convenience-translation sentence. That failed as a mismatch, for a reason the guidance did not
+  cover. The extracted text breaks the line inside the rate (`US$1.00=RMB\n7.2567`), which normalizes to
+  `RMB 7.2567`, and the model copied the displayed `RMB7.2567`.
+
+The pre-registration's outcome 1 applied ("BABA rows withheld after their citation retry also failed"), so the PR
+returned to draft and the first-generation candidate followed. On the sections source, BABA's first generation under
+#1111's prompt has now failed 4 of 6 (3 of 3 on #1350's head, 1 of 3 here), against 1 of 123 under the prompt before
+#1111.
+
+## Addendum 1: the first-generation candidate
+
+Four lines in `SYSTEM_PROMPT`, step 3's excerpt bullet, after the shortest-span sentence:
+- **The whole-row exception, the panel's first-generation design.** A table figure's excerpt is its whole row, from the
+  row label through the last cell; never a lone figure, a header or a partial row. Run 1's first generation already
+  held the verifying row as a duplicate declaration.
+- **An exact-copy sentence for the draw's own failure.** Copy every excerpt exactly as the supplied text shows it, never
+  joining or splitting words, figures or currency signs that the text separates or joins. That covers both the
+  `RMB\n7.2567` break and AAPL's glued labels (`Total net sales416,161`).
+
+The retry inherits both, because its system message begins with `SYSTEM_PROMPT`. The eligibility change and
+`_CITATION_EXCERPT_RETRY_GUIDANCE` are unchanged. `test_copilot_table_excerpts.py` pins the rule's place in step 3, and
+the Note 2 sentence both ways: as the text shows it, published; with the rate joined, a retry. The measurement is
+addendum 1 in [`PREREGISTRATION.md`](PREREGISTRATION.md).
