@@ -130,7 +130,7 @@ function formPreferences(file: string, text: string) {
     const direct = literal(expression)
     if (direct !== null) return [direct]
     const field = ts.isPropertyAccessExpression(expression) ? expression.name.text : null
-    const root = field ? expression.expression : expression
+    const root = ts.isPropertyAccessExpression(expression) ? expression.expression : expression
     if (!ts.isIdentifier(root)) return null
     for (let node: ts.Node | undefined = expression.parent; node; node = node.parent) {
       if (!(ts.isArrowFunction(node) || ts.isFunctionExpression(node))) continue
