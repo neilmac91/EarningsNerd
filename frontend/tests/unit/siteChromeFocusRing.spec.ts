@@ -115,9 +115,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/auth/components/RegisterForm.tsx': 5, // brand-auth-pages-presentation
   'features/companies/components/CompanyIdentity.tsx': 2, // its crumb and link take IDENTITY_CRUMB and IDENTITY_LINK, recipes imported from FilingIdentity, which the scan does not read across files (#1292 ringed them there; review-checked)
   'features/filings/components/FilingsHistoryNote.tsx': 1, // its link's class is IDENTITY_LINK, imported from FilingIdentity, which the scan does not read across files (#1292 ringed it through that recipe; review-checked)
-  'features/filings/components/SourceTrace.tsx': 6, // brand-filing-page
-  'features/filings/components/SupersededFilingNotice.tsx': 1, // brand-filing-page
-  'features/filings/components/TickerFilingsView.tsx': 3, // brand-filing-page
+  'features/filings/components/SourceTrace.tsx': 4, // brand-filing-page
   'features/filings/components/copilot/AskCopilotRail.tsx': 3, // brand-copilot
   'features/filings/components/copilot/CitationChip.tsx': 4, // brand-copilot
   'features/filings/components/copilot/CopilotMessage.tsx': 13, // brand-copilot
@@ -132,10 +130,9 @@ const RING_RESIDUE: Record<string, number> = {
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
-  'features/summaries/components/SummaryActionsBar.tsx': 1, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 36, stops: 113 }
+const RING_RESIDUE_MAX = { files: 33, stops: 106 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the

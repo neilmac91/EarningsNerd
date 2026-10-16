@@ -132,7 +132,58 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 
 - **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
   the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
-  and what to do. The heading "Generation interrupted" stays.
+  and what to do. The heading "Generation interrupted" stays. The card reads "Generating the summary"
+  and its four steps read "Fetching the 10-K from SEC EDGAR" (the filing's own form), "Reading the
+  statements, risk factors and MD&A", "Checking figures against the company's XBRL" and "Writing the
+  summary", which the live region announces as they start. Neither "Generating the summary" nor "AI-generated
+  summary" carries a glyph beside it: the sparkle is the AI summary chip's alone. A pending step keeps full opacity in the tertiary ink (it
+  sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it.",
+  signed "Still running", without guessing why. A stored summary that failed reads "This summary did
+  not finish" over its own sentence, "The last attempt for this filing did not finish. Retry to
+  generate it again." The pipeline's stream errors are mapped on the client
+  (`frontend/features/summaries/lib/streamErrorCopy.ts`), because the summary_stages strings are the
+  founder's until he opens them; the raw sentence still decides the paywall card and the retry, and
+  `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
+  `services/ai/summary_finalize.py`, whose payload messages two stages stream) so a reworded sentence
+  fails until it is mapped. The client's own fallbacks (`features/summaries/api/summaries-api.ts`,
+  `features/summaries/hooks/useSummaryGeneration.ts`: a status with no detail, a dropped or closed
+  stream, the idle timeout, a failed summary read) are sentences in the voice, never the browser's
+  or the API client's transport text, pinned path by path in `tests/unit/summaryStreamFallbacks.spec.tsx`.
+  At 200% text the progress card's header row wraps, the percent keeping to the right on a line of
+  its own, and the form code in its meta line ("10-K · Processing…") never breaks at its hyphen.
+- **Signup gate** (`frontend/features/summaries/components/GenerateSignupGate.tsx`): it follows the
+  one access decision (`features/marketing/lib/access.ts`) through the registration payload the
+  pricing page reads. In invite-only mode, and until that payload answers or when it cannot, it reads
+  "Summaries need an account" with "Request an invite" and "Log in"; in public mode, "Create a free
+  account to summarize this filing". Its two links sit in a row of their own that wraps, each label
+  wrapping inside its button, so at 200% text they stack inside the card. The card takes
+  GuidanceCard's default glyph, and its trial sentence renders only under `ENABLE_PRO_TRIAL`.
+- **The trial's length** (`frontend/lib/planLimits.ts`): `TRIAL_DAYS` is the one source for the
+  paywall card, the signup gate, `PricingSection.tsx` and the /pricing CTA, note and FAQ, each read
+  under `ENABLE_PRO_TRIAL` (the backend's `PRO_TRIAL_DAYS` defaults to 0).
+  `tests/unit/planLimitsLockstep.spec.ts` follows the constant and the flag through the bindings a
+  file gives them and reads each piece of copy whole, so a length typed anywhere in it fails.
+- **Summary document** (`frontend/features/summaries/components/`): the risks notice says which case
+  it is (no excerpt located, the filing text not available to check against, or a summary from
+  before excerpts were located), each ending "Read the risk factors in the filing." A section's tone
+  is one neutral Badge, "Management tone: positive" or "Management tone: cautious"; the section's
+  index and heading are one group that never wraps, so a long heading wraps beside its index, and
+  only the badge wraps, beneath the heading where the two do not fit (`SummaryBlocks.tsx`;
+  `tests/e2e/text-floors.spec.ts` at 320px and at 390px with 200% text). A verified takeaway's panel
+  says "The passage cited for this takeaway was found in the filing text."; the per-ADS ratio source
+  is a visible "Ratio source:" line (`PerAdsNote.tsx`). The actions bar reads "Save summary", and a
+  stored summary that did not finish offers neither it nor an export, only "Copy filing link"
+  (`SummaryActionsBar.tsx`). SourceTrace's "Open in SEC EDGAR" link and its sheet's close button, and
+  the actions bar's manual-copy link, carry the brand focus ring.
+- **Ticker route** (`frontend/features/filings/components/TickerFilingsView.tsx`, the /filing/AAPL
+  picker): a load failure reads "Filings unavailable" with a Retry held through its refetch; a 404 is
+  "Company not found", read from the held error so a refetch cannot flip it; a first load paused
+  offline is still loading, never not found; none prints the raw error. A filings failure under a
+  loaded company is an inline Notice, "Couldn’t load the filings", with its Retry, inside the "Recent
+  filings" card. Each row's action is an "Open filing" text link on the identity strip's recipe, its
+  hidden tail naming the form and the accession, and a Badge is a label, never a control
+  (`tests/unit/badgeNeverAControl.spec.ts`, which reads a Badge and a control through their
+  bindings and the control's whole face). The amendment link carries the brand focus ring.
 - **Company page** (`frontend/app/company/[ticker]/page-client.tsx`,
   `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
   `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
@@ -186,7 +237,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   header's rung with the account menu.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
-  "$7.5" (a Phase 9 fix; compact figures keep their rounding).
+  "$7.5" (a Phase 9 fix; compact figures keep their rounding). The standalone card (the landing's
+  evidence table) is titled "Financial highlights", in sentence case; the summary's own section
+  heading is the backend's schema title.
 - **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
   `WeekView.tsx`): the coverage chip and the "+N more" and "Show top 5" controls rest in the ink,
   sage only under the pointer (D-030). `tests/unit/calendarCoverageChip.spec.tsx` renders the page

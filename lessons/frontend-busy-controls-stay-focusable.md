@@ -228,7 +228,7 @@ move focus a mouse user did not lose.
 
 (h) The scan cannot see post-success flips outside its names, unmounts, or a busy flag under another
 name. Those stay per-site specs plus a real-browser keyboard pass. Known open cases, same class, not
-yet fixed: the filing page's summary Retry ("Summary temporarily unavailable") and Regenerate Analysis; FeedbackRow's status
+yet fixed: the filing page's summary Retry (the stored-failure card, "This summary did not finish") and Regenerate Analysis; FeedbackRow's status
 select when the list is filtered by status (its own update removes the row); the dashboard header's
 Log out (no in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the
 chip goes live again, and with no row to prune it needs the added ticker remembered); YourCompanies'

@@ -23,7 +23,9 @@ import { Filing } from '@/features/filings/api/filings-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
 import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
-import { SparkleIcon } from '@/lib/icons'
+import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
+import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
+import { TRIAL_DAYS } from '@/lib/planLimits'
 import { useCountUp } from '@/hooks/useCountUp'
 import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { RetryButton } from '@/hooks/useRetainedFailure'
@@ -52,10 +54,10 @@ const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing
 // derived from the actual filing (no more hard-coded "10-Q"), and there is no
 // "vectorizing"/"semantic analysis" step because the summary path does no embedding.
 const buildLoadingSteps = (filingType: string) => [
-  { stage: 'fetching', label: `Retrieving ${filingType || 'SEC'} filing from EDGAR` },
-  { stage: 'parsing', label: 'Extracting financial statements, risk factors & MD&A' },
-  { stage: 'analyzing', label: 'Cross-referencing standardized XBRL financials' },
-  { stage: 'summarizing', label: 'Generating investment analysis' },
+  { stage: 'fetching', label: `Fetching the ${filingType || 'filing'} from SEC EDGAR` },
+  { stage: 'parsing', label: 'Reading the statements, risk factors and MD&A' },
+  { stage: 'analyzing', label: 'Checking figures against the company’s XBRL' },
+  { stage: 'summarizing', label: 'Writing the summary' },
 ]
 
 // Screen-reader announcement for the live region. Derived from the STAGE only (never the
@@ -66,7 +68,7 @@ const stageAnnouncement = (stage: string, filingType: string): string => {
   const step = buildLoadingSteps(filingType).find((s) => s.stage === stage)
   if (step) return `${step.label}.`
   if (stage === 'initializing' || stage === 'queued') return 'Starting summary generation.'
-  return 'Generating your analysis.'
+  return 'Generating the summary.'
 }
 
 const STAGE_PROGRESS_MAP: Record<string, number> = {
@@ -84,8 +86,9 @@ const STAGE_PROGRESS_MAP: Record<string, number> = {
 
 type StepStatus = 'complete' | 'active' | 'pending'
 
-/** Quiet, backend-driven step log — brand check (done) / static dot (active) /
-    dimmed (pending). No connector line, no ping, no bounce. */
+/** Quiet, backend-driven step log — brand check (done) / static dot (active) / empty hairline
+    circle (pending). Every label stays at full opacity: a pending one is tertiary ink (4.9:1 and up),
+    never faded text. No connector line, no ping, no bounce. */
 function StepList({ filingType, stage, displayStageIdx }: { filingType: string; stage: string; displayStageIdx: number }) {
   const steps = buildLoadingSteps(filingType)
   return (
@@ -102,7 +105,7 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
         return (
           <li
             key={step.stage}
-            className={`flex items-center gap-3 transition-opacity duration-base ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}
+            className="flex items-center gap-3"
           >
             <span
               className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border transition-colors duration-base ${
@@ -121,7 +124,15 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
               ) : null}
             </span>
-            <span className={`text-sm ${status === 'active' ? 'font-medium text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
+            <span
+              className={`text-sm ${
+                status === 'active'
+                  ? 'font-medium text-text-primary-light dark:text-text-primary-dark'
+                  : status === 'complete'
+                    ? 'text-text-secondary-light dark:text-text-secondary-dark'
+                    : 'text-text-tertiary-light dark:text-text-secondary-dark'
+              }`}
+            >
               {step.label}
             </span>
           </li>
@@ -151,7 +162,7 @@ export default function StreamingSummaryDisplay({
   error?: string | null
   onRetry?: () => void
   elapsedSeconds?: number
-  /** Whether THIS user would get the 7-day trial at checkout (first-time subscriber, resolved
+  /** Whether THIS user would get the Pro trial at checkout (first-time subscriber, resolved
    * subscription status, not beta). Gates the paywall card's trial promise — a churned ex-Pro
    * user is charged immediately, so promising them "you won't be charged" is a false billing
    * claim (staff review, PR #619). Defaults false: under-promising is the safe direction. */
@@ -295,11 +306,17 @@ export default function StreamingSummaryDisplay({
   // inside the progress card, which is itself hidden on error — so the GuidanceCard is the
   // single failure surface (one error surface, not two).
   const whimsyText = isStalled
-    ? 'Taking longer than usual. A long filing; still reading.'
+    ? 'Taking longer than usual. Still working on it.'
     : showWhimsy && whimsyMessage
       ? whimsyMessage
       : 'Opening the filing…'
-  const whimsyAttribution = isStalled ? 'A long filing' : 'Reading the filing'
+  const whimsyAttribution = isStalled ? 'Still running' : 'Reading the filing'
+  // The trial sentence is true only while the trial ships (ENABLE_PRO_TRIAL, flipped with the backend's
+  // PRO_TRIAL_DAYS) and this user would get it (trialEligible, from the page).
+  const showTrial = ENABLE_PRO_TRIAL && trialEligible
+  // The reason the run stopped, in the product's words: the raw message still decides the card (the
+  // paywall matcher reads it), the reader sees its mapped sentence.
+  const failureReason = streamErrorCopy(error || message) || 'It timed out before the summary finished. Retry to pick it up again.'
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -313,24 +330,25 @@ export default function StreamingSummaryDisplay({
             {stageAnnouncement(stage, filing.filing_type)}
           </p>
 
-          {/* Header: title + live status + count-up percent */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <SparkleIcon className="mt-0.5 h-5 w-5 flex-none text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
-              <div className="min-w-0">
-                <h2
-                  ref={progressHeadingRef}
-                  tabIndex={-1}
-                  className="text-lg font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
-                >
-                  Generating your analysis
-                </h2>
-                <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  {filing.filing_type} • Processing…
-                </p>
-              </div>
+          {/* Header: title + live status + count-up percent. The row wraps: where the heading and the
+              percent do not fit side by side (200% text on a phone) the percent moves beneath, still at
+              the right (ml-auto), instead of printing over the heading. */}
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+            {/* No glyph beside the heading (DESIGN.md › Icons): the heading says what is running in words. */}
+            <div className="min-w-0">
+              <h2
+                ref={progressHeadingRef}
+                tabIndex={-1}
+                className="text-lg font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+              >
+                Generating the summary
+              </h2>
+              {/* The form code wraps whole: "10-K" never breaks at its hyphen. */}
+              <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <span className="whitespace-nowrap">{filing.filing_type}</span> · Processing…
+              </p>
             </div>
-            <div className="flex flex-col items-end flex-none">
+            <div className="ml-auto flex flex-none flex-col items-end">
               <span className="tnum font-data text-2xl font-semibold leading-none text-text-primary-light dark:text-text-primary-dark">
                 {pctLabel}
               </span>
@@ -357,13 +375,13 @@ export default function StreamingSummaryDisplay({
             />
           </div>
 
-          {/* Polished whimsy — Notice nested in the Card (DS-sanctioned).
+          {/* Polished whimsy — Notice nested in the Card (DS-sanctioned), with the Notice's own
+              glyph: the sparkle is reserved for the AI summary chip (DESIGN.md › Icons).
               aria-hidden: it's decorative flavor that rotates; the progressbar + step log
               carry the real, accessible status, so we don't spam SR with rotating quips. */}
           <div aria-hidden="true" className="mt-6">
             <Notice
               variant="info"
-              icon={<SparkleIcon className="h-[18px] w-[18px]" aria-hidden="true" />}
               title={<span key={whimsyText} className="animate-fadeIn">{whimsyText}</span>}
               description={whimsyAttribution}
             />
@@ -386,18 +404,17 @@ export default function StreamingSummaryDisplay({
           Everything else keeps the honest error + retry. */}
       {isError && isPaywallStreamError(error || message || '') ? (
         <GuidanceCard
-          icon={<SparkleIcon className="h-5 w-5" aria-hidden="true" />}
           title="You've hit this month's free limit"
           headingLevel="h2"
           headingRef={failureHeadingRef}
           description={
-            trialEligible
-              ? 'Your free summaries reset next month. Or go unlimited now with a 7-day free trial of Pro: cancel anytime during the trial and you won’t be charged.'
+            showTrial
+              ? `Your free summaries reset next month. Or go unlimited now with a ${TRIAL_DAYS}-day free trial of Pro: cancel anytime during the trial and you won’t be charged.`
               : 'Your free summaries reset next month. Or go unlimited now with Pro.'
           }
           action={
-            <Link href={trialEligible ? pricingHref('monthly') : '/pricing'} className={buttonVariants()}>
-              {trialEligible ? 'Start 7-day free trial' : 'Upgrade to Pro'}
+            <Link href={showTrial ? pricingHref('monthly') : '/pricing'} className={buttonVariants()}>
+              {showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
             </Link>
           }
         />
@@ -407,7 +424,7 @@ export default function StreamingSummaryDisplay({
           title="Generation interrupted"
           headingLevel="h2"
           headingRef={failureHeadingRef}
-          description={error || message || 'It timed out before the summary finished. Retry to pick it up again.'}
+          description={failureReason}
           action={
             onRetry ? (
               // RetryButton (secondary by default: an error retry is never the page's primary action).
@@ -433,7 +450,6 @@ export default function StreamingSummaryDisplay({
       {displayText && (
         <Card as="section" className="p-6 sm:p-8">
           <div className="mb-6 flex items-center gap-3 border-b border-border-light dark:border-border-dark pb-4">
-            <SparkleIcon className="h-5 w-5 flex-none text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">AI-generated summary</h2>
             {isGenerating && <Badge variant="brand">Live</Badge>}
           </div>
