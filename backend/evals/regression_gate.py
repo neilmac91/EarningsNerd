@@ -20,8 +20,8 @@ Besides the pinned deltas and the completeness checks, one absolute check reads 
 input provenance: the share of 10-K/10-Q/20-F excerpts built from native sections
 (``coverage_inventory.source``). It is deterministic (a local parse, no model call), so it can be
 HARD; it needs no pin; and it is computed from ``results``, never from a candidate's own summary.
-It exists because from early October 2026 the native source returned nothing and every excerpt
-fell back to regex for weeks while only a citation-fidelity WARN printed (E28).
+It exists because from about 2026-10-06 the native source returned nothing and every excerpt fell
+back to regex for ten days, until #1350's backport, while only a citation-fidelity WARN printed (E28).
 """
 from __future__ import annotations
 

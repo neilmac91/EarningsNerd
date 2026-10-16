@@ -242,7 +242,7 @@ by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` mo
 `client.py` (EdgarTools calls, breaker-wrapped), `xbrl_service.py` (persisted accession snapshot first, then two-tier cached XBRL),
 `xbrl_companyfacts.py` (companyfacts fallback transport and parser, delegated by the service class),
 `xbrl_sections.py` (the summary's sections, parsed locally from the primary document the pipeline
-fetched: no SEC request, breaker-exempt CPU work under the service's executor timeout),
+fetched: no SEC request, breaker-exempt CPU work on its own single worker, off the SEC pool),
 `compat.py` (ticker cache + document fetch), `circuit_breaker.py`, `async_executor.py`
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting

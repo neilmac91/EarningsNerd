@@ -234,6 +234,13 @@ class _RaisingSections(dict):
         raise RuntimeError("sections exploded")
 
 
+class _UnreadableSection:
+    """A section whose text cannot be read, as every 10-K item was behind SEC's 2026-10 403."""
+
+    def text(self):
+        raise AttributeError("'NoneType' object has no attribute 'download'")
+
+
 HTML = "<html><body>the primary document the pipeline fetched</body></html>"
 # Long enough to pass the stub filter, so reading the WRONG key shows up.
 _WRONG_KEY = "wrong key " * 30
@@ -370,15 +377,37 @@ async def test_x0_2_ten_k_lookup_order_is_tenk_getitem(parser, sections, index_i
     ("10-Q", None),
     ("20-F", None),
 ])
-async def test_x0_2_parser_failure_is_a_missing_section(parser, filing_type, expected):
-    """X0.2 — an unparsable document is not an error: a 10-Q or 20-F has no sections, and a 10-K
-    still tries the Cross Reference Index, as ``TenK.document`` does when its parser fails."""
+async def test_x0_2_parser_failure_is_a_missing_section(parser, caplog, filing_type, expected):
+    """X0.2 — an unparsable document is not an error: a 10-Q or 20-F has no sections and says why,
+    and a 10-K still tries the Cross Reference Index, as ``TenK.document`` does when its parser fails
+    (it found MD&A there, so nothing is logged)."""
     parser.error = RuntimeError("parser failed")
     parser.index_items = {"7": "<p>" + "Cross reference MD&amp;A. " * 20 + "</p>"}
+    caplog.set_level("WARNING")
 
     assert await EdgarXBRLService().get_filing_sections(ACC, filing_type, html=HTML) == expected
     # All three 10-K items reach the index, which is still built only once.
     assert parser.index_built == (1 if filing_type == "10-K" else 0)
+    assert [r.getMessage() for r in caplog.records if r.levelname == "WARNING"] == (
+        [] if expected else [f"Section parse found nothing in a {filing_type} document: RuntimeError('parser failed')"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("sections", "error", "warning"), [
+    ({"part_i_item_1a": _UnreadableSection(), "part_ii_item_7": _UnreadableSection()}, None,
+     "AttributeError(\"'NoneType' object has no attribute 'download'\")"),  # the first error, once
+    ({}, RuntimeError("parser failed"), "RuntimeError('parser failed')"),
+    ({"part_i_item_1a": _Section("short")}, None, None),  # nothing usable, nothing failed: quiet
+], ids=["unreadable-items", "parser-failed-no-index", "empty-parse"])
+async def test_x0_2_a_ten_k_read_error_that_leaves_no_section_is_logged(parser, caplog, sections, error, warning):
+    """X0.2 — the 10-K's per-item and parser errors are contained, but when they leave no section the
+    first one is logged, never swallowed (the silent 2026-10 failure, #1350's rule)."""
+    parser.sections, parser.error = sections, error
+    caplog.set_level("WARNING")
+
+    assert await EdgarXBRLService().get_filing_sections(ACC, "10-K", html=HTML) is None
+    assert [r.getMessage() for r in caplog.records if r.levelname == "WARNING"] == (
+        [f"Section parse found nothing in a 10-K document: {warning}"] if warning else [])
 
 
 @pytest.mark.asyncio

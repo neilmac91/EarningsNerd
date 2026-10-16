@@ -331,9 +331,9 @@ gate). A delta row binds only once the pin records its metric.
 
 **Native-section provenance (E28, 2026-10-16).** Each attempt's `coverage_inventory.source` records
 where its excerpt came from: `edgartools` (sections parsed from the fetched primary document) or
-`regex_fallback`. From about 4–7 October 2026 the section source returned nothing (SEC refused
-edgartools 5.58.0's index URL behind `Filing.obj()`), every 10-K/10-Q/20-F excerpt fell back to
-regex, citation fidelity read 0.818–0.871 against the pinned 0.9648, and every run passed with a
+`regex_fallback`. From about 4–7 October 2026 until #1350's backport on 2026-10-16 the section
+source returned nothing (SEC refused edgartools 5.58.0's index URL behind `Filing.obj()`; #1347 then
+moved the source to the fetched document), every 10-K/10-Q/20-F excerpt fell back to regex, citation fidelity read 0.818–0.871 against the pinned 0.9648, and every run passed with a
 WARN (`tasks/review-evidence/e28-native-sections-2026-10-15/README.md`). The gate now counts the
 eligible attempts (10-K, 10-Q, 20-F, amendments included) whose source is `edgartools`. In the
 native state that is 62 of 64 per two-run report: ASML's 20-F has no parsable item headings, so its

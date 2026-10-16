@@ -457,8 +457,10 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
                  tint chips vanish. <Badge variant="info"> = the info STATE tint
                  (light label ink = info.text), never a form category: a form code (10-K, 10-Q, 6-K …)
-                 is text in the data face, never a Badge (gate: earningsnerd/no-form-code-badge,
-                 eslint.designRules.mjs); <Badge variant="warning"> = warning tint
+                 is text in the data face, never a Badge and never a hand-rolled eyebrow chip (uppercase
+                 tracking-eyebrow around the code, its class written inline or held in a same-file
+                 constant; gate: earningsnerd/no-form-code-badge, eslint.designRules.mjs);
+                 <Badge variant="warning"> = warning tint
                  (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
 
 Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on

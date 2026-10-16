@@ -53,6 +53,12 @@ Dependabot's tracker, as #1034 did.
    3.1.6, tqdm 4.68.2), so no advisory is closed by taking the bump. 5.61.0 fixes
    `Filing.homepage_url` / `Filing.html()` against SEC's new 403 on the short index URL; `app/`
    has no call to either (all SEC fetches go through `app/services/edgar/` and `app/utils/sec_urls.py`).
+   **Correction (2026-10-15):** `app/` reaches both indirectly. `xbrl_sections._extract_sections_sync`
+   reads `obj["Item 1A"]` and `obj.sections`, and edgartools' report objects call `Filing.html()`, which
+   reads an inline-XBRL document through the homepage. So the 403 broke every 10-K/10-Q/20-F section
+   parse from about 2026-10-06, and the summary excerpt and the eval fell back to regex. The fix is
+   backported without the upgrade, so this hold stands:
+   [`../edgartools-homepage-403-2026-10-15/`](../edgartools-homepage-403-2026-10-15/README.md).
 
 ## Why no compatibility adaptation
 
@@ -140,11 +146,15 @@ blocks it writes. Each seam probe matches the marker occurrence adjacent to its 
   `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` fails any edgartools other than
   5.58.0 while the section source holds its `obj()` allow-list entry.
 
-## Addendum, 2026-10-16: E28 landed (PR #1347)
+## Addendum, 2026-10-16: E28 landed (#1350, then PR #1347)
 
-- The summary's section source no longer calls `obj()`. It parses the primary document the pipeline
-  fetched, so neither 5.61.x's index-URL fix nor 5.62.0's `html()` change reaches it; the tripwire
-  and the allow-list entry are deleted.
+- #1350 (merged and deployed 2026-10-16, 04:10Z) backported 5.61.0's in-folder index URL in
+  `app/services/edgar/edgartools_compat.py`, which revived the `obj()` path on 5.58.0; the inline
+  correction to finding 6 above is its record.
+- PR #1347 then moved the summary's section source off `obj()`: it parses the primary document the
+  pipeline fetched, so neither 5.61.x's index-URL fix nor 5.62.0's `html()` change reaches it, and
+  the tripwire and the allow-list entry are deleted. The backport stays for the remaining `obj()`
+  sites; its own test says when an upgrade makes it redundant.
 - A bump can still change section text through the HTML parser itself.
   `backend/tests/unit/test_summary_sections_parity.py` now fails such a change in the free
   `backend-tests` job, and the regression gate's native-section share fails a collapse in

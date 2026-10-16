@@ -220,9 +220,17 @@ nothing. A daily count since 2026-10-01 shows the switch and sizes the October c
 The CODE RED chief's `logs-probe` route can read these logs. This record did not, because it has no
 production access.
 
-## Outcome (2026-10-16, PR #1347)
+## Outcome (2026-10-16, #1350 and PR #1347)
 
-The founder chose option 1. What landed:
+First, #1350 (merged and deployed 2026-10-16, 04:10Z, from another session) backported 5.61.0's
+in-folder index URL in `app/services/edgar/edgartools_compat.py`. That revived the `obj()` path on
+5.58.0; its record is
+[`../edgartools-homepage-403-2026-10-15/`](../edgartools-homepage-403-2026-10-15/README.md). Each
+summary generation then reads its sections through edgartools' own client again, outside the app's
+limiter and breaker. As measured under 5.61.x, whose URL the backport copies, that means the
+submissions file, the whole submission file (7.5 to 65 MB), the foldered index page and the primary
+document a second time ([`revive_probe_output.txt`](revive_probe_output.txt)). The founder chose
+option 1, and PR #1347 moves the source off `obj()`. What it lands:
 
 - **The section source.** `backend/app/services/edgar/xbrl_sections.py::_sections_from_html` parses
   the primary document the pipeline fetched: `HTMLParser(ParserConfig(form=base_form)).parse(html)`,
@@ -242,13 +250,21 @@ The founder chose option 1. What landed:
   (FIGS's 10-Q, MercadoLibre's 10-K and Sea's 20-F) from fixtures already in the repository.
 - **The gate.** `backend/evals/regression_gate.py` checks the native-section share: HARD below
   0.90, WARN below 0.95, absolute, from `results`. No re-pin.
-- **Retired.** The tripwire and the `obj()` allow-list entry are deleted; E25 closes in the same PR.
-- **Cost.** The dead attempt's whole-submission download and refused index-page request are gone.
+- **Retired.** The tripwire and the `obj()` allow-list entry are deleted, and so is #1350's
+  `test_xbrl_sections_errors.py`, which tested the deleted `obj()` reader; its rule, a warning when a
+  read error leaves no section, moved into the parser and its X0.2 cases. E25 closes in the same PR.
+- **Runtime.** Parses run one at a time on their own worker, off the four-thread SEC pool, and a
+  filing with a stored excerpt is not parsed at all (`get_or_cache_excerpt` would return the stored
+  one). Measured on one pinned CPU in [`runtime_limits.md`](runtime_limits.md).
+- **Cost.** The `obj()` requests are gone: before #1350 the whole-submission download and the
+  refused index-page request, and with its backport the index page and a second primary-document
+  fetch as well.
   The parse itself took 0.4 to 6.4 s per document, peaking at 196 to 415 MB of process memory with
   the app imported (about 182 to 205 MB before the parse); ASML's 24.9 MB 20-F is skipped by the cap
   ([`seam_parity_results.jsonl`](seam_parity_results.jsonl)).
-- **Remaining** (E28 in `tasks/todo.md`): confirm the switch in production from the `Excerpt
-  provenance` logs, and size and regenerate the October cohort on the founder's go.
+- **Remaining** (E28 in `tasks/todo.md`): confirm the source in production from the `Excerpt
+  provenance` logs, and size and regenerate the October cohort (excerpts first built between about
+  2026-10-06 and #1350's deploy) on the founder's go.
 
 The PR's own `eval-baseline` run is recorded in the PR body: every push to the PR starts a paid
 run, so recording it here would start another.
@@ -277,3 +293,6 @@ run, so recording it here would start another.
 - [`seam_parity_one.py.txt`](seam_parity_one.py.txt), [`seam_parity_results.jsonl`](seam_parity_results.jsonl),
   [`revival_parity_compare.py.txt`](revival_parity_compare.py.txt), [`revival_parity.txt`](revival_parity.txt):
   the revived seam's excerpts against the pre-switch reports, filing by filing.
+- [`runtime_limits.md`](runtime_limits.md), [`burst_through_seam.py.txt`](burst_through_seam.py.txt),
+  [`burst_results.jsonl`](burst_results.jsonl): the parse's time, memory and SEC-pool effect under a
+  burst, single worker against the shared pool.

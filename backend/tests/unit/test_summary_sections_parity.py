@@ -1,8 +1,8 @@
 """The summary's native sections reproduce the excerpts the eval baseline was built on (E28).
 
-From early October 2026 to E28's fix, the section source returned nothing and every 10-K, 10-Q and
-20-F excerpt was the regex fallback. The fix parses the primary document the pipeline already fetched
-(``app/services/edgar/xbrl_sections.py``). These cases run three real filings, already in the
+From about 2026-10-06 until #1350's backport, the section source (then edgartools' ``Filing.obj()``)
+returned nothing and every 10-K, 10-Q and 20-F excerpt was the regex fallback. E28 then moved it to
+the primary document the pipeline already fetched (``app/services/edgar/xbrl_sections.py``). These cases run three real filings, already in the
 fixtures for other tests, through the production seam and the excerpt assembler. Each excerpt must
 match, by sha256 and per-section length, what CI's ``eval-baseline`` recorded for the same filing
 while the native path still worked (``coverage_inventory`` of runs 37152414706 and 37191767215,

@@ -95,20 +95,23 @@ def _sections_from_html(html: str, base_form: str) -> Optional[Dict[str, str]]:
 
     Returns ``{"financials" | "mda" | "risk": text}`` with only the sections that parsed to real
     content, or None when the form is unsupported, the document is empty or too large, or nothing
-    usable was found (callers then fall back to the regex extractor).
+    usable was found (callers then fall back to the regex extractor). A read error that leaves no
+    section is logged as a warning, never swallowed
+    (``lessons/sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md``).
     """
     if base_form not in ("10-K", "10-Q", "20-F") or not html:
         return None
     if len(html) > _MAX_SECTION_HTML_CHARS:
         logger.info(f"Section parse skipped: {len(html):,}-char {base_form} document is over the size cap")
         return None
+    error: Optional[Exception] = None
     try:
         sections = HTMLParser(ParserConfig(form=base_form)).parse(html).sections
     except Exception as exc:  # noqa: BLE001 - an unparsable document is a missing section, not an error
-        logger.info(f"Section parse failed for a {base_form} document: {type(exc).__name__}: {exc}")
         if base_form != "10-K":
+            logger.warning(f"Section parse found nothing in a {base_form} document: {exc!r}")
             return None
-        sections = {}  # TenK still tries the Cross Reference Index when its parser fails
+        sections, error = {}, exc  # TenK still tries the Cross Reference Index when its parser fails
 
     out: Dict[str, str] = {}
     if base_form == "10-K":
@@ -123,8 +126,8 @@ def _sections_from_html(html: str, base_form: str) -> Optional[Dict[str, str]]:
         for canonical, item, part, friendly in _TEN_K_ITEMS:
             try:
                 text = _ten_k_item(sections, item, part, friendly, cross_reference)
-            except Exception:  # noqa: BLE001 - a single missing/odd section must not abort the rest
-                text = None
+            except Exception as exc:  # noqa: BLE001 - a single missing/odd section must not abort the rest
+                text, error = None, error or exc
             if text and len(text.strip()) >= _SECTION_MIN_CHARS:
                 out[canonical] = text.strip()
     else:
@@ -135,4 +138,6 @@ def _sections_from_html(html: str, base_form: str) -> Optional[Dict[str, str]]:
                     out[canonical] = text.strip()
                     break
 
+    if not out and error is not None:
+        logger.warning(f"Section parse found nothing in a {base_form} document: {error!r}")
     return out or None

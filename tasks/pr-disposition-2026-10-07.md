@@ -285,6 +285,11 @@ balance is a cross-check, not the accounting.
    `mean_citation_fidelity` to 0.818–0.871 (8 runs) against the pinned 0.9648, a gate warning on every run.
    `backend/evals/runner.py::_get_grounding` swallows the exception (`except Exception: sections =
    None`), so the cause is silent. The same call path is used in production. Worth a diagnosis PR.
+   **Answered (2026-10-15):** the silence was in `app/services/edgar/xbrl_sections.py`, not in the
+   runner, which never received an exception. Since about 2026-10-06 SEC answers edgartools 5.58.0's
+   short filing-index URL with 403, and every section read failed through it. The diagnosis and the
+   backported fix are in
+   [`review-evidence/edgartools-homepage-403-2026-10-15/`](review-evidence/edgartools-homepage-403-2026-10-15/README.md).
 4. **Branch deletion (approval by name).** The merged sweep branches need no decision: GitHub's
    delete-on-merge setting already removed them (see Boundaries kept), and it removes this PR's branch
    when it merges. Stage 1's 14 "ask" branches are still there. Each is cited in tasks/ evidence or

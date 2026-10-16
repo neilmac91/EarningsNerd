@@ -113,8 +113,8 @@ requests per Form 4 for up to 60 Form 4s, so about 120) answers 404 unless `ENAB
 set (the deploy pins it `false`), and company search answers from the cached SEC ticker file only (its
 edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
 generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
-to companyfacts (its section parse makes no SEC request: only CPU and the shared four-thread edgar
-executor slow it, and a parse still running at the 18 s enrichment join leaves the regex excerpt); a
+to companyfacts (its section parse makes no SEC request: parses run one at a time on their own
+worker, off the edgar pool, and a parse not done by the 18 s enrichment join leaves the regex excerpt); a
 mega-filer's filing older than its recent submissions window needs about 43 history requests, past
 every enrichment budget; and a
 company's first filings list, coverage and full-text search each wait for their request. Breaker-wrapped
@@ -275,7 +275,7 @@ CACHE_OPERATION_TIMEOUT = 2.0  # Increase if Redis is slow
 **Thread Pool Size:**
 ```python
 # In edgar/config.py
-EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls and local section parses
+EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls
 ```
 
 ### Alert-to-return measurement (E11c)
@@ -491,7 +491,16 @@ draft re-runs its newest gate run, which fails again, unless that run is a skip 
 the re-run job refuses (E60 lists the drafts). The script reads the draft flag from the pull
 request as it is now: a job skipped by its condition reports success, which a required check counts as
 passing, and an event can still describe a draft after the pull request was marked ready, so the job
-never skips on a pull-request event. It passes
+never skips on a pull-request event. Draft or not and override or not, it fails at once while the
+pull request's title, body or any of its commit messages puts a closing keyword (close, fix or resolve,
+in any form) right before an issue or pull request reference, since the merge into `main` would close
+what it names, a pull request included: on 2026-10-09 the merge of #1136 left #1156 closed, unmerged,
+that way (`lessons/ops-closing-keywords-close-what-they-name.md`). It reads the text as GitHub renders
+it (Markdown escapes dropped, HTML entities decoded) and lists each reference; an edit to the title or
+body re-runs the check, and a commit message is reworded on the branch. Until the edit's run reports, the
+previous result stands on the head, as for drafts below, so merge only after it passes. It also fails a
+pull request that lists 250 commits, the most GitHub's commits endpoint returns, because later commit
+messages would go unread. A squash message typed at merge is outside every pull-request check. It passes
 only when Codex's "Review Summary" comment reports **Completed** for that
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not
