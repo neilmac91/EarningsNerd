@@ -157,6 +157,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-check-luminance-vs-background.md — Verify surface luminance against the actual background, not token validity
 - frontend-citation-offset-boundaries.md — Resolve citation starts to the first matched character's text node and pin the actual flash target
 - frontend-client-exports-need-next-build.md — Never call a 'use client' module's export from server code; the gate checks what next build may not render
+- frontend-columns-open-at-a-rem-breakpoint.md — Open columns that hold words or a one-line control at a breakpoint in rem (`[@media(min-width:48rem)]:` for md), so enlarged text keeps one column until they fit; prove it with the text doubled in viewport captures, since a full-page capture drops the setting (partly gated by the tablet pass of `frontend/tests/e2e/reflow-200.spec.ts` on the routes it visits; a px breakpoint elsewhere is review-checked)
 - frontend-count-a-completion-on-the-transition-the-server-names.md — Count a completion event on the transition the server names (`completed_now`), never on the client's optimistic count; `scope` serializes requests, not optimistic writes
 - frontend-design-docs-need-agent-entrypoints.md — Connect new design references to agent entrypoints, authority and maintenance
 - frontend-dialog-opener-outlives-the-dialog.md — Keep a dialog's opener mounted while the dialog is open, so focus has somewhere to return
