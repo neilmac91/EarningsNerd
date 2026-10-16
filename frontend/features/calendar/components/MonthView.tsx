@@ -86,9 +86,11 @@ export function MonthView({
                 aria-label={label}
                 onClick={() => onOpenDay(iso)}
                 className={cx(
-                  'flex min-h-24 flex-col items-start gap-1 px-2.5 py-2 text-left transition-colors duration-fast',
-                  // Narrower, the padding gives way; at the count, none, so a two-digit day and today's marker fit whole.
-                  '[@container(21em<=width<42em)]:px-1 [@container(width<21em)]:items-center [@container(width<21em)]:px-0',
+                  'flex min-h-24 flex-col items-start gap-1 py-2 text-left transition-colors duration-fast',
+                  // The sheet's width sets the padding, so nothing resets it to zero (button-icon-size-gate bans that
+                  // reset app-wide): as before from 42em, less from 21em, none at the count, so a two-digit day and
+                  // today's marker fit whole.
+                  '[@container(width>=42em)]:px-2.5 [@container(21em<=width<42em)]:px-1 [@container(width<21em)]:items-center',
                   i > 0 && 'border-l border-border-light/60 dark:border-white/[0.06]',
                   openable && 'cursor-pointer hover:bg-white dark:hover:bg-white/5',
                   // Inset ring (the outer shadow-ring-brand would clip inside the sheet's

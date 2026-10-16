@@ -51,7 +51,10 @@ describe('the month sheet shows a day only what fits whole', () => {
     const sheet = renderMonth()
     expect(sheet).toHaveClass('[container-type:inline-size]')
     const day = screen.getByRole('button', { name: /^Tuesday, January 13, 5 companies report/ })
-    expect(day).toHaveClass('px-2.5', '[@container(21em<=width<42em)]:px-1', `${NARROW}:px-0`, `${NARROW}:items-center`)
+    expect(day).toHaveClass('[@container(width>=42em)]:px-2.5', '[@container(21em<=width<42em)]:px-1', `${NARROW}:items-center`)
+    // Padding only from 21em up, so below it nothing has to reset the padding to zero (button-icon-size-gate
+    // bans that reset app-wide) and no unconditioned padding is left on the cell.
+    expect(day.className.split(/\s+/).filter((c) => /^p[xlr]?-/.test(c))).toEqual([])
   })
 
   it('narrow, a day shows the count of companies reporting in place of tickers, and the caption says so', () => {
