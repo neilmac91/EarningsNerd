@@ -66,13 +66,13 @@ describe('TickerFilingsView failures', () => {
     let answer!: (company: Company) => void
     api.getCompany.mockImplementation(() => new Promise<Company>((resolve) => { answer = resolve }))
     api.getCompanyFilings.mockResolvedValue([])
-    const retry = screen.getByRole('button', { name: 'Retry' })
+    const retry = screen.getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     // The refetch puts the data-less query back to pending: the card, and its focused Retry, stay up, busy.
     await act(async () => {})
     expect(screen.getByRole('heading', { level: 1, name: 'Filings unavailable' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Retrying/ })).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /Trying again/ })).toHaveAttribute('aria-busy', 'true')
     await act(async () => answer(APPLE))
     const heading = await screen.findByRole('heading', { level: 1, name: 'Apple Inc.' })
     // The Retry left while it held focus: focus goes to the loaded page's h1, never to <body>.
@@ -87,7 +87,7 @@ describe('TickerFilingsView failures', () => {
       'No company with a ticker on SEC EDGAR matches AAPL.',
     )
     expect(screen.getByRole('link', { name: 'Go to the homepage' })).toHaveAttribute('href', '/')
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByText(RAW, { exact: false })).not.toBeInTheDocument()
   })
@@ -160,7 +160,7 @@ describe('TickerFilingsView failures', () => {
     expect(notice.closest('[class*="rounded-3xl"]')).toContainElement(screen.getByRole('heading', { level: 2, name: 'Recent filings' }))
     expect(screen.queryByRole('heading', { name: 'Couldn’t load the filings' })).not.toBeInTheDocument()
     expect(notice.className).not.toMatch(/shadow/)
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.queryByText(RAW, { exact: false })).not.toBeInTheDocument()
   })
 })

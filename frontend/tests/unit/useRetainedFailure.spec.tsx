@@ -576,7 +576,7 @@ describe('useFocusOnArrival', () => {
 })
 
 describe('RetryButton', () => {
-  /** A failed query's Retry over a text field, as CompanySearch's "Try again": it goes when data lands. */
+  /** A failed query's Retry over a text field, as CompanySearch's: it goes when data lands. */
   function FieldRetry({ fn }: { fn: () => Promise<string> }) {
     const query = useQuery({ queryKey: ['field'], queryFn: fn })
     const failure = useRetainedFailure(query, ['field'])
@@ -584,7 +584,7 @@ describe('RetryButton', () => {
     return (
       <div>
         <input ref={field} aria-label="Search" />
-        {failure.failed && <RetryButton failures={[failure]} focusTarget={field} textField>Try again</RetryButton>}
+        {failure.failed && <RetryButton failures={[failure]} focusTarget={field} textField />}
         <button>elsewhere</button>
       </div>
     )

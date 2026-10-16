@@ -254,9 +254,7 @@ export default function CompanySearch({
             </div>
             {/* When the alert goes while "Try again" holds focus (the search lands), focus moves to the field,
                 except after a tap, which would raise the touch keyboard. */}
-            <RetryButton size="sm" className="ml-4" failures={[failure]} focusTarget={inputRef} textField>
-              Try again
-            </RetryButton>
+            <RetryButton size="sm" className="ml-4" failures={[failure]} focusTarget={inputRef} textField />
           </div>
         </div>
       )}

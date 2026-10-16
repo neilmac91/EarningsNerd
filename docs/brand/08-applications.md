@@ -180,8 +180,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   summary" carries a glyph beside it: the sparkle is the AI summary chip's alone. A pending step keeps full opacity in the tertiary ink (it
   sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it.",
   signed "Still running", without guessing why. A stored summary that failed reads "This summary did
-  not finish" over its own sentence, "The last attempt for this filing did not finish. Retry to
-  generate it again." The pipeline's stream errors are mapped on the client
+  not finish" over its own sentence, "The last attempt for this filing did not finish. Try again to
+  generate it." The pipeline's stream errors are mapped on the client
   (`frontend/features/summaries/lib/streamErrorCopy.ts`), because the summary_stages strings are the
   founder's until he opens them; the raw sentence still decides the paywall card and the retry, and
   `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
@@ -217,10 +217,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`SummaryActionsBar.tsx`). SourceTrace's "Open in SEC EDGAR" link and its sheet's close button, and
   the actions bar's manual-copy link, carry the brand focus ring.
 - **Ticker route** (`frontend/features/filings/components/TickerFilingsView.tsx`, the /filing/AAPL
-  picker): a load failure reads "Filings unavailable" with a Retry held through its refetch; a 404 is
+  picker): a load failure reads "Filings unavailable" with a "Try again" held through its refetch; a 404 is
   "Company not found", read from the held error so a refetch cannot flip it; a first load paused
   offline is still loading, never not found; none prints the raw error. A filings failure under a
-  loaded company is an inline Notice, "Couldn’t load the filings", with its Retry, inside the "Recent
+  loaded company is an inline Notice, "Couldn’t load the filings", with its "Try again", inside the "Recent
   filings" card. Each row's action is an "Open filing" text link on the identity strip's recipe, its
   hidden tail naming the form and the accession, and a Badge is a label, never a control
   (`tests/unit/badgeNeverAControl.spec.ts`, which reads a Badge and a control through their
@@ -229,7 +229,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
   `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
   `features/filings/components/FilingIndex.tsx`): a company that fails
-  to load says "Couldn’t load this company" with a Retry and never prints the raw error; only a 404
+  to load says "Couldn’t load this company" with "Try again" and never prints the raw error; only a 404
   reads "Company not found", an answer in the empty card (the error card stays for the load failure),
   with the search's scope ("No company with a ticker on SEC EDGAR matches
   …"). The watched star keeps the button's own ink, its fill and `aria-pressed` carrying the state. The
@@ -255,7 +255,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   watched company's card states its summary from the server's status (ready, being written, none yet,
   unavailable, failed) with a matching badge ("No summary yet", "Unavailable", "Needs regenerating" in
   sentence case), never from the regeneration flag alone; a failed load shows its error card with a
-  Retry and no empty card (a run the server still reports as generating after it died reads as being
+  "Try again" and no empty card (a run the server still reports as generating after it died reads as being
   written until tasks/todo.md E43 lands). The what-changed chips take `lib/financialTone`'s direction chip, the
   700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
   decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
@@ -271,7 +271,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the glyph, on the element whose ink it inherits, or in a map that pairs it with its classes);
   `tests/unit/whatChangedChip.spec.tsx` holds the chip to the direction chip for the server's tone,
   which no lint can see, and `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences and the
-  Retry through its refetch.
+  "Try again" through its refetch.
 - **Notification bell** (`frontend/features/notifications/components/NotificationBell.tsx`): an
   alert reads "New 10-Q from AAPL", the form and ticker in the data face; the unread count rests in
   the ink, not on sage (D-030), while the sage dot still marks an unread row; the menu sits on the
@@ -457,7 +457,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "New invite link ready" otherwise. A link-only row's actions are named "Resend this link-only
   invite" and "Revoke this link-only invite". The empty lists are one plain line in the card ("No
   invites yet. Send your first one above.", "No feedback yet. Reports appear here as people send
-  them."), a failed load is a Notice with a Retry, and the section headings carry no icon. The status
+  them."), a failed load is a Notice with "Try again", and the section headings carry no icon. The status
   chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
   them takes the same quiet ground in dark (no fill, its hairline kept), "New" feedback takes an unread
   envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
@@ -478,7 +478,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
   such as "{form} · Filed {ago}" (the notable-filing card, dormant off `/`, moved to the data face
-  with it). The form toggles, "Clear dates" and Retry (a `RetryButton`) carry the brand ring, the
+  with it). The form toggles, "Clear dates" and "Try again" (a `RetryButton`) carry the brand ring, the
   result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
   on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
   accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an

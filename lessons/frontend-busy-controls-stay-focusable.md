@@ -51,13 +51,14 @@ declaration (`function reload() { … }` is followed like `const reload = () => 
 mutation whose `onSuccess` invalidates (rule (f) requires it) and every submit that refreshes after it
 lands, 20 handlers in 15 files when measured and none a Retry, so a Retry that invalidates through a named
 handler is left to the label clause. By its label: any element but RetryButton whose `loadingText` starts
-"Retrying" or whose label starts "Retry" or "Try again", a same-file string const (`{retryLabel}`)
+"Retrying" or "Trying again" or whose label starts "Retry" or "Try again", a same-file string const (`{retryLabel}`)
 included. RetryButton's own definition is the one exemption from both Retry clauses, by file and function
 name (it is the sanctioned wiring and label); a function of that name anywhere else is just another
-hand-rolled Retry. Each has a shrink-only, capped allowlist with reasons: ALLOW_RETRY pins 3 wiring sites
-in 3 files (the calendar's and full-text search's Retry handlers, open in rule (h), and the `loading` of
-"Show full history", the filings query's fetching flag on a button that is not a Retry), ALLOW_RETRY_LABEL
-10 labels in 10 files (4 error-boundary resets, 3 stream or answer restarts, 3 open rule (h) sites).
+hand-rolled Retry. Each has a shrink-only, capped allowlist with reasons: ALLOW_RETRY pins 1 wiring site
+in 1 file (the `loading` of "Show full history", the filings query's fetching flag on a button that is not a
+Retry; the calendar's and full-text search's Retry handlers became RetryButton in #1301), ALLOW_RETRY_LABEL
+6 labels in 6 files (4 error-boundary resets and 2 stream restarts, the stored summary's and an Ask answer's,
+each pinned as "Try again" since E44).
 Every Retry the retry-hardening follow-up
 converted fails both clauses at its 026d6df version (20 wiring and 10 label offenders in 6 files). A third
 clause (EN-05) checks what RetryButton is given: each element of its `failures` is `useRetainedFailure(…)` (the
@@ -75,7 +76,17 @@ the scan cannot prove counts as built by hand: a `let`, a spread element, an emp
 press retries nothing), any JSX spread on RetryButton (a
 forwarding wrapper) or into such a component. A failure built by hand skips the hold and can carry
 `busy: isFetching`: ALLOW_HAND_BUILT_FAILURE pins it by its text (1 site, the filing page's stream restart),
-capped; converting another stream restart moves its pin there from ALLOW_RETRY_LABEL.
+capped; converting another stream restart moves its pin there from ALLOW_RETRY_LABEL. The one retry verb
+(docs/brand/decisions-log.md D-032; E44) is two more clauses in the same file. On controls: a RetryButton call
+site that passes a label of its own fails (a child, a `children`, `aria-label` or `aria-labelledby` attribute,
+or a JSX spread it cannot read; RetryButtonProps takes none of them, so TypeScript refuses them too), and so does
+any retry control, RetryButton's own definition included with no exemption, whose label is not exactly "Try
+again", whose busy text is not exactly "Trying again…" (U+2026) or whose text starts "Retry"; a part of a retry
+control the scan cannot read (a parameter, a `let`, a call) fails as unread. On copy: every string, template text
+and JSX text in the .ts and .tsx modules under the same roots is read, and "retry", "retrying", "retries" or
+"retried" fails, outside console calls, imports, object keys, string types, code attributes and the header name
+Retry-After; ALLOW_RETRY_WORD pins, with reasons and caps equal to the list, the two backend tokens the app matches
+and never shows (PLACEHOLDER_PATTERNS' "retry" and SUMMARY_FALLBACK_MESSAGE).
 
 (e) A control unavailable after its own activation (`!dirty` after a save, an incomplete form, a
 cooldown, "Link sent") is aria-disabled with an early return too. A primary DS Button in that state
@@ -175,11 +186,14 @@ move focus a mouse user did not lose.
 - One `<RetryButton>` owns the Retry: busy (`loading`) while any of its failures has a fetch in flight
   (`fetchStatus !== 'idle'`, paused offline included), whoever started it; a press retries only the
   failures that failed, since a healthy sibling refetched too could settle first and end the error UI early;
-  the hand-off above. It reads "Retrying…" only while its own press's retry runs. During a refetch nobody
+  the hand-off above. Its label is "Try again", the one retry verb (D-032), and RetryButton's own, so a call
+  site passes none. It reads "Trying again…" only while its own press's retry runs. During a refetch nobody
   pressed it is busy (aria-busy, aria-disabled, the spinner, a refused press) under its own label: a label
-  swap inside the card's `role=alert` would re-announce the failure at every reconnect.
+  swap inside the card's `role=alert` would re-announce the failure at every reconnect. Two failed reads in one
+  Notice share one RetryButton (the dashboard's plan strip, the pricing page's details Notice): its press
+  retries the ones that failed, and two buttons with one label could not say which read each retries.
 - One RetryButton instance never serves two error UIs. React reuses an unkeyed element in the same slot, so
-  when one Notice replaces another in a single render the focused node stays, relabelled, and never
+  when one Notice replaces another in a single render the focused node stays, still pressed or busy, and never
   unmounts: key the wrappers (the pricing page's `key="identity"` and `key="details"` Notices).
 - A Retry that hands focus to a text field skips the hand-off when the last press since it took focus was a
   pointer's, since focusing the field after a tap raises the touch keyboard. The press origin is taken at
@@ -196,7 +210,7 @@ move focus a mouse user did not lose.
   does not focus buttons on click) leaves its mark for the next focus, so one keyboard focus right after it
   skips the hand-off. That errs toward no touch keyboard.
 - A Retry that restarts a stream (SSE), not a query, has no failure to hold, but it is still RetryButton for
-  its hand-off: the filing page's "Retry generation" passes the stream's own failure, `{ failed: true, error,
+  its hand-off: the filing page's generation restart passes the stream's own failure, `{ failed: true, error,
   busy: false, retry }`. Its press clears the error in the render that starts the stream, so the card leaves
   with the press when the run starts (a signed-out press starts none, so the card and its focused Retry stay)
   and focus goes to the progress card's heading (`tabIndex={-1}`), in the branch that replaced it.
@@ -217,7 +231,7 @@ move focus a mouse user did not lose.
   in flight, so `isFetching` alone would release the failure, and the busy state, too early.
 - When a retry fails again with the same message, the alert's text is unchanged, so nothing is announced.
   Keying the message node to `errorUpdateCount` re-inserts it. A card whose Retry sits inside its
-  `role=alert` needs no key for a press: the "Retrying…" swap back to "Retry" is a text change inside the
+  `role=alert` needs no key for a press: the "Trying again…" swap back to "Try again" is a text change inside the
   region, and Chromium exposes `role=alert` as atomic and assertive, so the whole alert is presented again
   (FilingFeed review, refuted 2/3 with the accessibility tree). A refetch nobody pressed that fails again
   says nothing new, by design.
@@ -233,8 +247,7 @@ select when the list is filtered by status (its own update removes the row); the
 Log out (no in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the
 chip goes live again, and with no row to prune it needs the added ticker remembered); YourCompanies'
 remove when the insights refetch after it fails (the error card replaces the list and focus falls to
-`<body>` with no hand-off); EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's
-"Try again" (each pinned in the Retry gate's allowlists, so a conversion must remove its pins). The scan cannot see how a press was made either: the text-field
+`<body>` with no hand-off). The scan cannot see how a press was made either: the text-field
 hand-off's pointer origin (g) is pinned in `useRetainedFailure.spec.tsx` (a tap on a busy Retry, focused or
 not, a tap on the busy Retry's spinner, a tap then Tab away and back, a tap then a keyboard press, a click
 that starts no focus) and needs a touch-device pass. Fixed, all on
@@ -244,10 +257,12 @@ hold through its retry and the hand-off to the "SEC filings" heading; its pins r
 the company page's company Retry (`company-page-lead.spec.tsx`: the card and its busy, focused Retry held through
 the retry instead of the page spinner, then the hand-off to the "SEC filings" heading, the not-found title on a 404,
 or the coverage card's title for an unsupported issuer; a 404 card held through a background refetch, #1292),
-CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when it goes), the pricing
-page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
-`CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,
-`useRetainedFailure.spec.tsx`); the filing page's Retry generation and the arrival of its failure card
+CompanySearch's Retry (a tap on it busy no longer raises the keyboard when it goes), the pricing
+page's two (the account check's, and since E44 one over both detail reads) and BillingPanel's two
+(`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`, `CompanySearch.spec.tsx`,
+`busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`, `useRetainedFailure.spec.tsx`); FilingViewer's
+Retry (#1271, `FilingViewerEmbedded.spec.tsx` and e2e `filing-source-chip.spec.ts`), the calendar's and
+FullTextSearch's (#1301, `full-text-search.spec.tsx`); the filing page's generation restart and the arrival of its failure card
 (`StreamingSummaryDisplay.spec.tsx`, `useRetainedFailure.spec.tsx`, e2e `summary-generation-focus.spec.ts`); the completed-generation arrival in the persistent filing shell (first summary heading, only after a run, preserving held focus and modal ownership; the same e2e); and
 EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
 plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
@@ -272,7 +287,8 @@ formula alone fails 1; an always-on "Retrying…" fails 2 and a never-on one 1; 
 1; the settings page's old spinner gate fails the `/me` bound (11 calls). Real build (React 19 canary), both
 themes, 8/8: a keyboard press reads "Retrying…" and lands on the Dashboard title; a reconnect refetch nobody
 pressed keeps "Retry" busy and focused, then lands on the title; focus the Retry did not hold is not moved;
-the settings page over a `/me` 503 sends 2 calls in ~2 s.
+the settings page over a `/me` 503 sends 2 calls in ~2 s. (Those runs read the labels of their day; since E44
+the words are "Try again" and "Trying again…", and the same page specs assert them.)
 Its review follow-up (same day) killed every surviving mutant, each by at least one case on the fixed code:
 the hold's identity, then the pair of counters, without its failure count (both branches, the release branch,
 the record branch), and without its failure time (also failing CompanySearch's return to an earlier failed

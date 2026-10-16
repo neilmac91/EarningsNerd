@@ -242,7 +242,7 @@ for (const theme of ['light', 'dark'] as const) {
           next = 'hold'
           await page.keyboard.press('Enter')
           await expect.poll(() => release !== undefined).toBe(true)
-          const busy = pane.getByRole('button', { name: 'Retrying…', exact: true })
+          const busy = pane.getByRole('button', { name: 'Trying again…', exact: true })
           await expect(busy).toBeFocused()
           await expect(pane.getByText('Could not load the filing text.')).toBeVisible()
           await page.keyboard.press('Enter')

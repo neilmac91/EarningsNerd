@@ -227,9 +227,7 @@ export default function FullTextSearch() {
           </span>
           {/* When the alert goes while Retry holds focus (the search lands), focus moves to the field,
               except after a tap, which would raise the touch keyboard. */}
-          <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField>
-            Retry
-          </RetryButton>
+          <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField />
         </div>
       )}
 
