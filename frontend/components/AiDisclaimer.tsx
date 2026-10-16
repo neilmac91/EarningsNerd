@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
-/** The copilot per-answer line — one string for the DS reference footer (AskFilingAnswer) and
- *  the wired renderer (CopilotMessage), so the copy can't drift between them. */
+/** The copilot per-answer line: one string for the answer renderer (CopilotMessage) and any
+ *  surface that shows a copilot answer, so the copy can't drift between them. */
 export const SEC_EDGAR_NOT_ADVICE = 'Data sourced from SEC EDGAR. Not investment advice.'
 
 /**

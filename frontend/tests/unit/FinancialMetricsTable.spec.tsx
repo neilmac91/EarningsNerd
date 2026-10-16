@@ -25,6 +25,11 @@ describe('FinancialMetricsTable — per-ADS EPS (item 1.5)', () => {
     expect(container).toHaveTextContent('per ADS')
     // ... alongside the full conversion arithmetic so it's auditable.
     expect(container).toHaveTextContent('CNY 5.7 per ordinary share × 8 = CNY 45.6 per ADS')
+    // The ratio source is a visible line; the registry's em-dash reads as a colon on the page.
+    expect(container).toHaveTextContent(
+      'Ratio source: Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares · as of 2026-06-28',
+    )
+    expect(container.textContent).not.toContain('\u2014')
   })
 
   it('omits the per-ADS note for a domestic / non-ADR row', () => {

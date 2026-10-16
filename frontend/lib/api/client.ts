@@ -11,7 +11,8 @@ export class ApiError extends Error {
   // Internal classification only: an original access 401 after transient refresh failure
   // is not evidence that the refresh session is gone. HTTP status/detail stay unchanged.
   sessionLossConfirmed?: boolean
-  // The backend's own words: set only when the response body carried a readable string `detail`.
+  // The backend's own words: set only when the response body carried a readable `detail`, a string or
+  // a validation 422's `{ loc, msg, type }` list, whose first `msg` it takes (detailMessage).
   // Undefined when `detail` is this client's status fallback or axios's message ("Request failed
   // with status code N"), so a surface that shows backend text verbatim reads this, never `detail`.
   backendDetail?: string
@@ -24,6 +25,24 @@ export class ApiError extends Error {
     // 503 (Service Unavailable), 429 (Rate Limited), and 5xx errors are retryable
     this.isRetryable = status === 503 || status === 429 || (status >= 500 && status < 600)
   }
+}
+
+/**
+ * The message a backend `detail` carries, as one sentence a person can read. A string detail is the
+ * backend's own message. FastAPI's validation 422 sends a list of `{ loc, msg, type }` objects, which
+ * used to reach the UI as "[object Object]": its first `msg` stands for it, without the "Value error, "
+ * or "Assertion failed, " that pydantic puts before a custom validator's own sentence (a msg that is
+ * only the prefix stays as sent). Anything else yields undefined, so the status-based message below
+ * applies.
+ */
+export function detailMessage(detail: unknown): string | undefined {
+  if (typeof detail === 'string') return detail || undefined
+  const first: unknown = Array.isArray(detail) ? detail[0] : detail
+  if (first && typeof first === 'object' && 'msg' in first) {
+    const msg = (first as { msg: unknown }).msg
+    if (typeof msg === 'string' && msg) return msg.replace(/^(?:Value error|Assertion failed), /, '') || msg
+  }
+  return undefined
 }
 
 // Determine API URL: prefer env var, fallback based on environment
@@ -131,7 +150,7 @@ export function ensureRefreshed(): Promise<void> {
 // Response error interceptor: silent token refresh on 401, then backend error extraction.
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<{ detail?: string }>) => {
+  async (error: AxiosError<{ detail?: unknown }>) => {
     // Extract the status code and detail message from the backend
     const status = error.response?.status || 0
     const original = error.config as SessionRequestConfig | undefined
@@ -173,7 +192,7 @@ api.interceptors.response.use(
       if (sessionLossConfirmed && original?._sessionWasActive) notifySessionLost(generation)
     }
 
-    const backendDetail = error.response?.data?.detail
+    const backendDetail = detailMessage(error.response?.data?.detail)
 
     // Surface the email-verification gate as a friendly global prompt (e.g. on checkout).
     if (
@@ -200,7 +219,7 @@ api.interceptors.response.use(
     } else if (status >= 500) {
       errorMessage = 'A server error occurred. Please try again later.'
     } else if (error.message?.includes('Network Error') || error.message?.includes('ECONNREFUSED')) {
-      errorMessage = `Unable to connect to the server. Please ensure the backend API is running on ${getApiUrl()}`
+      errorMessage = 'Could not reach the server. Try again in a moment.'
     } else if (error.message?.includes('timeout')) {
       errorMessage = 'The request timed out. Please try again.'
     } else {

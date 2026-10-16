@@ -22,6 +22,8 @@ class WhatChangedItem(BaseModel):
     pct: Optional[float]
     current: float
     prior: Optional[float]
+    display: Optional[str]   # metric_delta_service's one display string ('+6.4%'); None when incomputable
+    tone: str                # gain | loss | flat: the chip's colour (costs that rose are a loss)
 
 
 class WhatChanged(BaseModel):

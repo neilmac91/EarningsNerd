@@ -1,5 +1,5 @@
 import RegisterForm from '@/features/auth/components/RegisterForm'
-import { resolveAccessMode } from '@/features/marketing/lib/access'
+import { betaPricingActive, resolveAccessMode } from '@/features/marketing/lib/access'
 import { fetchSignupConfig } from '@/lib/serverApi'
 
 /**
@@ -9,6 +9,6 @@ import { fetchSignupConfig } from '@/lib/serverApi'
  * refuses to create an account from a social sign-in without an invite.
  */
 export default async function RegisterPage() {
-  const accessMode = resolveAccessMode(await fetchSignupConfig())
-  return <RegisterForm inviteOnly={accessMode === 'invite'} />
+  const config = await fetchSignupConfig()
+  return <RegisterForm inviteOnly={resolveAccessMode(config) === 'invite'} betaPromoActive={betaPricingActive(config)} />
 }

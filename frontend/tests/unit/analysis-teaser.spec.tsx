@@ -46,7 +46,7 @@ describe('AnalysisTeaser (free-user lock)', () => {
     render(<AnalysisTeaser forTicker="MSFT" />)
 
     // The PeekLocked chrome + upgrade CTA are present…
-    expect(screen.getByRole('button', { name: /upgrade to unlock/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
     // …the sample is honestly labelled and personalized…
     expect(screen.getByText(/Sample: Apple Inc\./)).toBeInTheDocument()
     expect(screen.getByText(/Upgrade to run it for MSFT/)).toBeInTheDocument()

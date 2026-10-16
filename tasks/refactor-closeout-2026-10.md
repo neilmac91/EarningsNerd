@@ -392,8 +392,9 @@ body and authorized in the PR's session; the override line's quota claim is corr
 ([comment](https://github.com/neilmac91/EarningsNerd/pull/1243#issuecomment-6156455978)). Its body keeps the proof's retained boundaries with the evidence that merged moves
 stayed within them: known false OKs (a same-name import retarget, and a class body's namespace written by a
 function it calls or reached under another spelling), cross-file import order, and the reach's fail-closed rules,
-`__set_name__` among them. The open threads on #1177, #1190 and #1243 keep the founder's call on those
-boundaries.
+`__set_name__` among them. On 2026-10-16 the founder left the call on those boundaries to the agent ("proceed
+based on your expert recommendation"), and every boundary stays as the Limits state it: F24 is closed, and each of
+the eight open threads on #1177, #1190 and #1243 records the decision.
 
 ### Follow-up spend (outside the programme ceiling)
 
@@ -420,7 +421,9 @@ USD 0.553850 stays held. T4's summary run [38094895509](https://github.com/neilm
 the AMZN 10-K attempt (accession 0001018724-26-000004) at 2026-10-10T23:27:52.389Z, failed after 119 ms with a null
 model, null usage and no cost; its retry at 23:28:05.502Z succeeded at an estimated USD 0.002544. No per-call
 provider billing record is available, so the failed call's cost cannot be established, and the hold is not
-released. The run's artifact expires around 2026-10-24; these facts are kept here.
+released. The run's artifact expires around 2026-10-24; these facts are kept here. On 2026-10-16 the founder left
+the hold to the agent's recommendation: it is booked as spent for good, at that call's upper bound, so the
+ledger keeps USD 4.369016 and no billing record is sought.
 
 ### Free balance readings for the follow-up work
 
