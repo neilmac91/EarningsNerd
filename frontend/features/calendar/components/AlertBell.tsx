@@ -31,11 +31,15 @@
        rect, it would detach), as CitationChip's popover does;
      - every close returns focus to the bell unless the user moved it on.
    It is placed where it fits, from its measured height (placeBellPopover):
-   18.75rem wide within the visible viewport, below the bell, above it when only
-   that side holds it whole, else on the roomier side with its height capped
-   there, scrolling inside; never past what the reader can see, the bell in view
-   or not. A guessed height ran a tall popover (200% text) off the bottom of the
-   screen.
+   18.75rem wide within the visible viewport, below the bell when it fits there
+   whole, above it when only that side holds it (capped at its own height), else
+   on the roomier side with its height capped there, scrolling inside. When
+   neither side offers 6rem of the reader's text (a landscape phone at large
+   text, or with the keyboard up), it spans the visible height over the bell and
+   scrolls inside: a side that short would show the panel's padding and a line.
+   Never past what the reader can see, the bell in view or not. Capped, the
+   panel scrolls its focused action into view, never the page. A guessed height
+   ran a tall popover (200% text) off the bottom of the screen.
    The transparent click-catcher stays: an outside press closes only the
    popover, so it cannot also close the day dialog through its backdrop or
    re-toggle the bell that raised it.
@@ -117,8 +121,11 @@ export function AlertBell({
 /** The popover's inset from the viewport's edges and its gap from the bell, in px. */
 export const POPOVER_MARGIN = 12
 const POPOVER_GAP = 8
-/** The least height a side must offer before the popover takes it; under it, the popover spans the viewport. */
-const POPOVER_MIN_SIDE = 96
+/** The least height a side must offer before the popover takes it, in rem of the reader's text (96px at the default
+    size, 192px at 200%). The panel's padding is 2rem and a line of its text about 1.4rem, so a shorter side shows
+    little more than its title: when neither side offers it, the popover spans the visible height, over the bell,
+    and scrolls inside, the most of its message a short visible area can show. */
+export const POPOVER_MIN_SIDE_REM = 6
 
 type PopoverBox = { left: number; top: number; maxHeight: number }
 /** The visible part of the viewport, in the coordinates a fixed box and getBoundingClientRect share. */
@@ -128,12 +135,14 @@ export type VisibleArea = { left: number; top: number; width: number; height: nu
  * Where the popover goes, from its measured size and the visible area's: centred on the bell and kept
  * inside the margins; below the bell when it fits there whole, above it when only that side holds it,
  * otherwise on the roomier side with its height capped to that side (the panel scrolls inside). When
- * neither side offers even POPOVER_MIN_SIDE, it spans the area's height. Never past the visible area.
+ * neither side offers `minSide` (POPOVER_MIN_SIDE_REM of the reader's text, in px), it spans the area's
+ * height, over the bell. Never past the visible area.
  */
 export function placeBellPopover(
   anchor: Pick<DOMRect, 'left' | 'top' | 'bottom' | 'width'>,
   size: { width: number; height: number },
   area: VisibleArea,
+  minSide = POPOVER_MIN_SIDE_REM * 16,
 ): PopoverBox {
   const left = Math.max(
     area.left + POPOVER_MARGIN,
@@ -150,7 +159,7 @@ export function placeBellPopover(
   if (size.height <= below) return { left, top: belowStart, maxHeight: below }
   // Above, the cap is its own height: should its text grow, it scrolls rather than reach over the bell.
   if (size.height <= above) return { left, top: aboveEnd - size.height, maxHeight: size.height }
-  if (Math.max(below, above) < POPOVER_MIN_SIDE) return { left, top, maxHeight: bottom - top }
+  if (Math.max(below, above) < minSide) return { left, top, maxHeight: bottom - top }
   return below >= above ? { left, top: belowStart, maxHeight: below } : { left, top, maxHeight: above }
 }
 
@@ -164,10 +173,14 @@ function visibleArea(): VisibleArea {
   return { left: 0, top: 0, width: root.clientWidth || window.innerWidth, height: root.clientHeight || window.innerHeight }
 }
 
+/** The reader's rem in px: the root's font size, which the browser's own text size sets. */
+function rootRem() {
+  return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+}
+
 /** 18.75rem (300px at the default text size): it grows with the text, within the visible area's margins. */
 function popoverWidth(area: VisibleArea) {
-  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-  return Math.min(18.75 * rem, area.width - 2 * POPOVER_MARGIN)
+  return Math.min(18.75 * rootRem(), area.width - 2 * POPOVER_MARGIN)
 }
 
 /** Scrolls the capped panel, and only it, the least distance that shows its focused action whole inside the
@@ -295,7 +308,7 @@ export function BellPopover({
     const area = visibleArea()
     const width = popoverWidth(area)
     const height = Math.max(Math.ceil(panel.getBoundingClientRect().height), panel.scrollHeight + panel.offsetHeight - panel.clientHeight)
-    setBox({ width, ...placeBellPopover(blocked.anchor, { width, height }, area) })
+    setBox({ width, ...placeBellPopover(blocked.anchor, { width, height }, area, POPOVER_MIN_SIDE_REM * rootRem()) })
   }, [blocked])
   // The open effect focuses the first action with preventScroll, and runs before this cap lands (React flushes
   // it ahead of the re-render the placement's setBox starts). Capped, the panel scrolls inside, and that action

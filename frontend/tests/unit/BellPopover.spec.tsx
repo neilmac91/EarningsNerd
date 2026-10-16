@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { BellPopover, POPOVER_MARGIN, placeBellPopover } from '@/features/calendar/components/AlertBell'
+import { BellPopover, POPOVER_MARGIN, POPOVER_MIN_SIDE_REM, placeBellPopover } from '@/features/calendar/components/AlertBell'
 import { Modal } from '@/components/ui/Modal'
 import type { BlockedKind, BlockedState } from '@/features/calendar/hooks/useCalendar'
 import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
@@ -407,6 +407,38 @@ describe('BellPopover placement', () => {
     inside(placeBellPopover({ left: 290, top: -300, bottom: -212, width: 88 }, { width: 366, height: 500 }, PHONE), 366)
   })
 
+  it('too tall for either side with more room below, it goes below, capped there, clear of the bell', () => {
+    // 536px below a high bell and 180px above it; the popover needs 808px.
+    const HIGH = { left: 290, top: 200, bottom: 288, width: 88 }
+    const box = placeBellPopover(HIGH, { width: 366, height: 808 }, PHONE)
+    expect(box.top).toBe(HIGH.bottom + 8)
+    expect(box.maxHeight).toBe(844 - POPOVER_MARGIN - (HIGH.bottom + 8))
+    inside(box, 366)
+  })
+
+  it('when neither side offers 6rem, it spans the visible height over its bell and scrolls inside', () => {
+    // A landscape phone with the keyboard up: 260px of height, an 88px bell in the middle, 66px on either side. A
+    // side that short shows little more than the panel's 2rem of padding, so the popover takes the whole height,
+    // over the bell (the one placement that covers it), and scrolls inside.
+    const SHORT = { left: 0, top: 0, width: 390, height: 260 }
+    const MID = { left: 290, top: 86, bottom: 174, width: 88 }
+    const box = placeBellPopover(MID, { width: 366, height: 400 }, SHORT)
+    expect(box).toMatchObject({ top: POPOVER_MARGIN, maxHeight: 260 - 2 * POPOVER_MARGIN })
+    inside(box, 366, SHORT)
+    expect(box.top < MID.top && box.top + box.maxHeight > MID.bottom).toBe(true)
+  })
+
+  it("the 6rem is the reader's: 136px a side is the roomier side at the default size and the whole height at 200% text", () => {
+    const AREA = { left: 0, top: 0, width: 390, height: 400 }
+    const MID = { left: 290, top: 156, bottom: 244, width: 88 } // 136px on either side
+    // A tie goes below.
+    expect(placeBellPopover(MID, { width: 366, height: 600 }, AREA, POPOVER_MIN_SIDE_REM * 16)).toMatchObject({ top: 252, maxHeight: 136 })
+    expect(placeBellPopover(MID, { width: 366, height: 600 }, AREA, POPOVER_MIN_SIDE_REM * 32)).toMatchObject({
+      top: POPOVER_MARGIN,
+      maxHeight: 400 - 2 * POPOVER_MARGIN,
+    })
+  })
+
   it('places inside the visible area, which on a page wider than the phone is offset in the layout viewport', () => {
     // Chromium widened this page's layout viewport to 552x1195 and shows 390x844 of it from (24, 25).
     const area = { left: 24, top: 25, width: 390, height: 844 }
@@ -534,6 +566,27 @@ describe('BellPopover placement', () => {
         expect(top + parseFloat(group.style.maxHeight)).toBeLessThanOrEqual(25 + 844 - POPOVER_MARGIN)
       })
     } finally {
+      if (own) Object.defineProperty(window, 'visualViewport', own)
+      else delete (window as { visualViewport?: unknown }).visualViewport
+    }
+  })
+
+  it("reads 6rem from the reader's text size: at a 32px root, 136px a side is too short and it spans the visible height", () => {
+    // A 400px visible area with the bell in the middle: 136px above and below it.
+    const own = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: { offsetLeft: 0, offsetTop: 0, width: 390, height: 400 } })
+    const MID = { left: 290, top: 156, bottom: 244, right: 378, width: 88, height: 88 } as DOMRect
+    try {
+      renderMeasured(600, MID, (group) => {
+        expect([group.style.top, group.style.maxHeight]).toEqual(['252px', '136px']) // the default size: the roomier side
+      })
+      cleanup()
+      document.documentElement.style.fontSize = '32px'
+      renderMeasured(600, MID, (group) => {
+        expect([group.style.top, group.style.maxHeight]).toEqual([`${POPOVER_MARGIN}px`, `${400 - 2 * POPOVER_MARGIN}px`])
+      })
+    } finally {
+      document.documentElement.style.fontSize = ''
       if (own) Object.defineProperty(window, 'visualViewport', own)
       else delete (window as { visualViewport?: unknown }).visualViewport
     }

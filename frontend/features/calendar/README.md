@@ -82,7 +82,9 @@ Weighed three layouts:
   Esc, outside-click, Tab-out, bell-moving scroll and resize dismissal and focus return,
   rendered inside the day `<dialog>` while one is open, and placed from its measured
   height inside the visible viewport (below the bell, above it, or capped on the
-  roomier side and scrolling inside);
+  roomier side and scrolling inside; when neither side offers 6rem of the reader's
+  text, over the bell at the visible height), a capped panel scrolling its focused
+  action into view, never the page;
   `aria-live` on the range heading; every numeral/ticker is `font-data tabular-nums`.
 - **Motion:** token-timed only — `animate-content-in` on the skeleton→content
   flip, shimmer at `duration-ambient`, `motion-safe:` guards. No decorative motion.
