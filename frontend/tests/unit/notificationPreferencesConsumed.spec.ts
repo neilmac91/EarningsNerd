@@ -15,6 +15,17 @@ import { describe, expect, it } from 'vitest'
  * reaches), a helper only the write path calls (a `_normalize_digest` sanitizer), a GET serializer and a
  * module constant cannot stand in for a job honouring the field. Comments and docstrings are ignored.
  *
+ * The form's fields are read off the prefs value wherever the form reads it: a member in any attribute, child or
+ * expression of any element or component (`checked={prefs.digest === 'weekly'}`, `selected={prefs.x}`,
+ * `{prefs.x ? … : …}`, `disabled={!prefs.x}`), optional or bracketed (`prefs?.x`, `prefs['x']`), and a key taken out
+ * of it; the value is followed to a const that holds it, a key named prefs taken out of an object, and a same-file
+ * component's prop it is handed under any name (`<Rows source={prefs} />`, read where Rows takes `{ source }` or
+ * `props.source`). So are the fields a save writes: through `save`, any `.mutate`, and any same-file function that
+ * calls one. A field the API fills from the account's entitlements (`_prefs_response` in backend/app/routers/users.py
+ * assigns it from `ent.`, and the update model does not take it) is gating the user cannot set, not a preference, so
+ * a read of it there is not held to the jobs; read directly as a control's state (`checked={prefs.x}`), as main read
+ * it, any field is.
+ *
  * The values the form offers are read where they are written, in each form a choice takes: any element's
  * `value="…"` or `value={'…'}` (an <option>, a radio input, a custom item; `value={prefs.x}` is the control's
  * state, a field, and on an <option>, whose value is what it offers, a value the scan cannot read), each
@@ -95,8 +106,9 @@ function jobCode(sources: string[], entries: string[] = JOB_ENTRIES): string {
   return [...reached].map((name) => all.get(name)).join('\n')
 }
 
-/** The form's preferences: the fields it renders or saves, the option values it offers, and the option values it writes in a form the scan cannot read. */
-function formPreferences(file: string, text: string) {
+/** The form's preferences: the fields it renders or saves, the option values it offers, and the option values it writes in
+    a form the scan cannot read. `derived` names the fields the API fills from entitlements, set aside from the reads. */
+function formPreferences(file: string, text: string, derived: ReadonlySet<string> = new Set()) {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const line = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart()).line + 1
   const fields = new Map<string, number>()
@@ -191,6 +203,87 @@ function formPreferences(file: string, text: string) {
     return []
   }
 
+  // The file's named functions (a declaration, or a const holding an arrow or a function expression), by name.
+  const functions = new Map<string, ts.SignatureDeclaration>()
+  const collect = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node) && node.name) functions.set(node.name.text, node)
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const init = unwrap(node.initializer)
+      if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) functions.set(node.name.text, init)
+    }
+    ts.forEachChild(node, collect)
+  }
+  collect(source)
+  /** Run `step` over the file, type nodes apart, until it finds nothing new. */
+  const toFixedPoint = (step: (node: ts.Node, grew: () => void) => void) => {
+    for (let more = true; more; ) {
+      more = false
+      const walk = (node: ts.Node): void => {
+        if (ts.isTypeNode(node)) return
+        step(node, () => (more = true))
+        ts.forEachChild(node, walk)
+      }
+      walk(source)
+    }
+  }
+
+  // The prefs value, followed by name: `prefs`, a const or let holding it, a key named prefs taken out of an object, and a
+  // same-file component's prop it is handed (`<Rows source={prefs} />`: Rows's `{ source }`, or `props.source`).
+  const holders = new Set(['prefs'])
+  const heldMembers = new Set<string>()
+  const bare = (node: ts.Expression): ts.Expression => (ts.isNonNullExpression(node) ? bare(node.expression) : unwrap(node) !== node ? bare(unwrap(node)) : node)
+  const isHolder = (node: ts.Expression): boolean => {
+    const inner = bare(node)
+    if (ts.isIdentifier(inner)) return holders.has(inner.text)
+    return ts.isPropertyAccessExpression(inner) && ts.isIdentifier(inner.expression) && heldMembers.has(`${inner.expression.text}.${inner.name.text}`)
+  }
+  toFixedPoint((node, grew) => {
+    const add = (set: Set<string>, value: string) => {
+      if (set.has(value)) return
+      set.add(value)
+      grew()
+    }
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isHolder(node.initializer)) add(holders, node.name.text)
+    if (ts.isBindingElement(node) && ts.isIdentifier(node.name) && (node.propertyName ?? node.name).getText(source) === 'prefs') add(holders, node.name.text)
+    if (ts.isJsxAttribute(node) && node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression && isHolder(node.initializer.expression)) {
+      const prop = node.name.getText(source)
+      const param = functions.get(node.parent.parent.tagName.getText(source))?.parameters[0]
+      if (param && ts.isObjectBindingPattern(param.name)) {
+        for (const element of param.name.elements) {
+          if (ts.isIdentifier(element.name) && (element.propertyName ?? element.name).getText(source) === prop) add(holders, element.name.text)
+        }
+      } else if (param && ts.isIdentifier(param.name)) add(heldMembers, `${param.name.text}.${prop}`)
+    }
+  })
+  /** The fields read off the prefs value: a member (`prefs.x`, `prefs?.x`, `prefs['x']`), and each key taken out of it. */
+  const reads = new Map<string, number>()
+  toFixedPoint((node) => {
+    if (ts.isPropertyAccessExpression(node) && isHolder(node.expression)) reads.set(node.name.text, line(node))
+    if (ts.isElementAccessExpression(node) && isHolder(node.expression) && ts.isStringLiteralLike(node.argumentExpression)) reads.set(node.argumentExpression.text, line(node))
+    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isHolder(node.initializer)) {
+      for (const element of node.name.elements) {
+        const key = element.propertyName ?? element.name
+        if (!element.dotDotDotToken && (ts.isIdentifier(key) || ts.isStringLiteral(key))) reads.set(key.text, line(element))
+      }
+    }
+  })
+
+  // The calls that save a preference: `save`, any `.mutate`, and every same-file function that calls one.
+  const savers = new Set(['save'])
+  const savesHere = (call: ts.CallExpression) => {
+    const callee = call.expression.getText(source)
+    return savers.has(callee) || callee.endsWith('.mutate')
+  }
+  const callsASaver = (node: ts.Node): boolean => (ts.isCallExpression(node) && savesHere(node)) || (ts.forEachChild(node, (child) => callsASaver(child) || undefined) ?? false)
+  for (let more = true; more; ) {
+    more = false
+    for (const [name, fn] of functions) {
+      if (savers.has(name) || !callsASaver(fn)) continue
+      savers.add(name)
+      more = true
+    }
+  }
+
   const visit = (node: ts.Node): void => {
     // type BoolPref = 'notify_10k' | … : every member is a field the form can save.
     if (ts.isTypeAliasDeclaration(node) && ts.isUnionTypeNode(node.type)) {
@@ -204,8 +297,8 @@ function formPreferences(file: string, text: string) {
       if (callee === 'setBool') {
         for (const arg of node.arguments) if (ts.isStringLiteral(arg)) fields.set(arg.text, line(arg))
       }
-      // save({ digest: … }) / mutation.mutate({ … }): each field it writes, and each literal it writes into one.
-      if (callee === 'save' || callee.endsWith('.mutate')) {
+      // save({ digest: … }) / mutation.mutate({ … }) / any saver: each field it writes, and each literal it writes into one.
+      if (savesHere(node)) {
         for (const arg of node.arguments) {
           if (!ts.isObjectLiteralExpression(arg)) continue
           for (const prop of arg.properties) {
@@ -242,10 +335,21 @@ function formPreferences(file: string, text: string) {
     ts.forEachChild(node, visit)
   }
   visit(source)
+  // The reads beside main's: a field the API fills from entitlements is gating, not a preference, unless read as a state above.
+  for (const [field, at] of reads) if (!derived.has(field) && !fields.has(field)) fields.set(field, at)
   return { fields, options, unreadable }
 }
 
-const form = formPreferences(FORM, readFileSync(path.join(frontendDir, FORM), 'utf8'))
+/**
+ * The fields the API fills from the account's entitlements (`realtime_available=ent.realtime_alerts` in
+ * backend/app/routers/users.py's `_prefs_response`): gating the form shows, not preferences the user sets.
+ */
+const USERS = readFileSync(path.resolve(frontendDir, '../backend/app/routers/users.py'), 'utf8')
+const DERIVED = new Set([...(blocks(USERS).get('_prefs_response') ?? '').matchAll(/\b(\w+)\s*=\s*ent\.\w+/g)].map((match) => match[1]))
+/** The fields a user can set: the update model's. */
+const SETTABLE = new Set([...(blocks(USERS).get('NotificationPreferencesUpdate') ?? '').matchAll(/^\s+(\w+)\s*:/gm)].map((match) => match[1]))
+
+const form = formPreferences(FORM, readFileSync(path.join(frontendDir, FORM), 'utf8'), DERIVED)
 const consumerCode = jobCode(CONSUMERS.map((rel) => readFileSync(path.resolve(frontendDir, '..', rel), 'utf8')))
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -332,6 +436,55 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       "fixture.tsx:17 <SegmentedControl options={[{ value: v, label: 'V' }]}>",
       'fixture.tsx:18 <option value={prefs.digest}>',
     ])
+  })
+
+  it('reads a field wherever the form reads the prefs value, and a save through any helper, but not gating the API derives (self-check)', () => {
+    // Each form with a field used nowhere else in the fixture (Codex on 8fb22fbe: a comparison or a wrapper prop left the
+    // field unread, and another fixture line could mask the miss).
+    const fixture = [
+      'export function Form() {',
+      '  const { data: prefs } = useQuery(q)',
+      '  const held = prefs',
+      '  const { f_destructured, f_renamed: renamed } = prefs',
+      '  const persist = (update: Update) => mutation.mutate(update)',
+      '  return (',
+      '    <div>',
+      "      <input type=\"radio\" checked={prefs.f_compared === 'biweekly'} readOnly />",
+      '      <Picker selected={prefs.f_wrapper} />',
+      "      <p>{prefs.f_child ? 'On' : 'Off'}</p>",
+      '      <Toggle disabled={!prefs.f_negated} />',
+      "      <Picker selected={prefs.f_fallback ?? 'daily'} />",
+      '      <Row label={`Every ${prefs.f_template}`} />',
+      '      <Toggle checked={prefs?.f_optional} />',
+      "      <Toggle checked={prefs['f_bracket']} />",
+      '      <Toggle checked={prefs!.f_asserted} />',
+      '      <Toggle checked={held.f_alias} />',
+      '      <Rows source={prefs} />',
+      '      <Cells source={prefs} />',
+      '      <Toggle checked={prefs.f_direct} />',
+      '      <select><option value={prefs.f_option}>Current</option></select>',
+      "      <button onClick={() => persist({ f_saved: on ? 'never' : 'hourly' })}>Reset</button>",
+      '      <Toggle disabled={!prefs.f_available} />',
+      '      <Toggle checked={other.f_other} />',
+      '      <Toggle checked={prefsLabel.f_label} />',
+      '    </div>',
+      '  )',
+      '}',
+      'function Rows({ source }: { source: { f_typed: boolean } }) { return <Toggle checked={source.f_prop} /> }',
+      'function Cells(props: Props) { return <Toggle checked={props.source.f_props} /> }',
+    ].join('\n')
+    const { fields, options, unreadable } = formPreferences('fixture.tsx', fixture, new Set(['f_available']))
+    expect([...fields.keys()].sort()).toEqual([
+      'f_alias', 'f_asserted', 'f_bracket', 'f_child', 'f_compared', 'f_destructured', 'f_direct', 'f_fallback', 'f_negated',
+      'f_option', 'f_optional', 'f_prop', 'f_props', 'f_renamed', 'f_saved', 'f_template', 'f_wrapper',
+    ])
+    expect([...options.keys()].sort()).toEqual(['hourly', 'never'])
+    // The current preference as an option's value still offers no literal (0662fdcf).
+    expect(unreadable).toEqual(['fixture.tsx:21 <option value={prefs.f_option}>'])
+    // The gating the response fills from the entitlements is no setting: the update model takes none of it.
+    expect([...DERIVED], 'the response fills the two gates from the entitlements').toEqual(expect.arrayContaining(['eightk_available', 'realtime_available']))
+    expect([...DERIVED].filter((field) => SETTABLE.has(field)), 'a field the user can set is a preference, never gating').toEqual([])
+    expect(SETTABLE.has('digest'), 'the update model is read').toBe(true)
   })
 
   it('every field the form renders or saves is read as prefs.<field> by the jobs', () => {
