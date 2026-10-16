@@ -21,7 +21,9 @@ import {
  * (backend/app/services/entitlements.py). Guest-facing copy cannot read the usage response, so
  * frontend/lib/planLimits.ts mirrors the two numbers — and this spec keeps the mirror honest:
  * (1) the mirrored values equal the backend constants; (2) no source file spells the caps out as
- * bare literals again ("5 summaries", "3 companies"), which is how the copy drifted before.
+ * bare literals again ("5 summaries", "3 companies"), which is how the copy drifted before. That
+ * includes lib/planLimits.ts, the home of the plan lines: only the mirror's own declarations
+ * (MIRROR_DECLARATIONS) type the numbers there.
  *
  * The Pro trial's length is a claim of the same kind, with one difference: the backend's
  * PRO_TRIAL_DAYS defaults to 0 (backend/app/config.py), so the trial exists only while the UI flag
@@ -35,7 +37,8 @@ import {
  * parameter, each of which can be true with the flag off; and (5) TRIAL_DAYS is the value the flag's own
  * documentation and the backend name for the flip. Clauses (3) and (4) read every .ts, .tsx, .js and .jsx
  * file under the cap walk's roots (an .md or .mdx file there is read as copy, line by line), one reader per
- * file (trialReader, below, says what it follows). Out of reach, review-checked: a length said another way
+ * file (trialReader, below, says what it follows), lib/planLimits.ts included: there, beside the plan lines,
+ * the module's own TRIAL_DAYS declaration is TRIAL_DAYS. Out of reach, review-checked: a length said another way
  * ("a week", "a fortnight"), TRIAL_DAYS re-exported under another name by another module, and a guard
  * applied by an early return (`if (!ENABLE_PRO_TRIAL) return null`), which fails closed.
  */
@@ -87,6 +90,29 @@ function walk(dir: string): string[] {
   })
 }
 
+/**
+ * The mirror's own declarations: the one line in lib/planLimits.ts that types each mirrored cap
+ * (`export const FREE_SUMMARY_LIMIT = 5`). Every other line of that file, its plan lines included, is held to
+ * LITERAL_PATTERNS like any other file's.
+ */
+const MIRROR_DECLARATIONS = new Set(
+  Object.entries({ FREE_SUMMARY_LIMIT, FREE_EARNINGS_ALERT_LIMIT, FREE_COPILOT_QUESTIONS, FREE_HISTORY_RETENTION_DAYS }).map(
+    ([name, value]) => `export const ${name} = ${value}`,
+  ),
+)
+
+/** Each line of a source that spells a free-tier cap out, as `file:line (label): text`, the mirror's own declarations apart. */
+function capLiterals(rel: string, source: string): string[] {
+  const offenders: string[] = []
+  source.split('\n').forEach((line, index) => {
+    if (rel === 'lib/planLimits.ts' && MIRROR_DECLARATIONS.has(line.trim())) return
+    for (const { label, pattern } of LITERAL_PATTERNS) {
+      if (pattern.test(line)) offenders.push(`${rel}:${index + 1} (${label}): ${line.trim()}`)
+    }
+  })
+  return offenders
+}
+
 describe('free-tier plan limits move in lockstep with the backend', () => {
   it('mirrors FREE_TIER_SUMMARY_LIMIT', () => {
     expect(FREE_SUMMARY_LIMIT).toBe(backendConst('FREE_TIER_SUMMARY_LIMIT'))
@@ -108,20 +134,36 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     }
   })
 
-  it('no source file spells a free-tier cap out as a bare literal', () => {
+  it("no source file spells a free-tier cap out as a bare literal, lib/planLimits.ts's plan lines included", () => {
     const offenders: string[] = []
+    const read: string[] = []
     for (const root of SOURCE_ROOTS) {
       for (const file of walk(path.join(frontendDir, root))) {
-        if (file.endsWith(path.join('lib', 'planLimits.ts'))) continue
-        const lines = readFileSync(file, 'utf8').split('\n')
-        lines.forEach((line, index) => {
-          for (const { label, pattern } of LITERAL_PATTERNS) {
-            if (pattern.test(line)) offenders.push(`${path.relative(frontendDir, file)}:${index + 1} (${label}): ${line.trim()}`)
-          }
-        })
+        const rel = path.relative(frontendDir, file).split(path.sep).join('/')
+        read.push(rel)
+        offenders.push(...capLiterals(rel, readFileSync(file, 'utf8')))
       }
     }
+    // The plan lines live beside the mirror (ANALYSIS_LINES, FILING_FORMS_LINE, PRO_INCLUDES), so its file is read too.
+    expect(read, 'the scan reads lib/planLimits.ts').toContain('lib/planLimits.ts')
     expect(offenders, 'use FREE_SUMMARY_LIMIT / FREE_EARNINGS_ALERT_LIMIT from lib/planLimits instead').toEqual([])
+  })
+
+  it("reads lib/planLimits.ts like any file but for the mirror's own declarations (self-check)", () => {
+    const planted = [
+      `export const FREE_SUMMARY_LIMIT = ${FREE_SUMMARY_LIMIT}`,
+      `export const FREE_EARNINGS_ALERT_LIMIT = ${FREE_EARNINGS_ALERT_LIMIT}`,
+      "const PRO_INCLUDES = [{ text: '90-day summary history' }, { text: '5 AI summaries a month' }]",
+      'export const FREE_SUMMARY_CAP = 6',
+    ].join('\n')
+    // A plan line typed beside the mirror, and a cap constant that mirrors nothing, fail; the mirror's own two lines pass.
+    expect(capLiterals('lib/planLimits.ts', planted).map((offender) => offender.slice(0, offender.indexOf('): ') + 1))).toEqual([
+      'lib/planLimits.ts:3 (free summary cap spelled out)',
+      'lib/planLimits.ts:3 (free history retention spelled out)',
+      'lib/planLimits.ts:4 (free-tier cap constant assigned a literal)',
+    ])
+    // The exemption is the mirror file's alone: the same declarations anywhere else spell the caps out.
+    expect(capLiterals('features/elsewhere.ts', planted)).toHaveLength(5)
   })
 
   // Pro's Copilot questions are capped (COPILOT_MONTHLY_QUESTION_CAP, a fair-use 429 past it), so no copy
@@ -290,9 +332,13 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
  * not copy): each string, template and `+` chain, and each JSX tree's text as React renders it. A tree's
  * text children lose the whitespace JSX drops and have their entities decoded (`&nbsp;`), and its literal
  * children (`{10}`, `{'10'}`, `{' '}`) and nested elements' text (`<strong>10</strong>`) are joined in
- * order, so a count split across markup reads whole. A part that is not a literal (a name, a call, a
- * condition) reads as a hole no count spans, which is how `{ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years`
- * passes. A typed count is digits, a "+" allowed after them, or a number word up to twelve; then spaces or
+ * order, so a count split across markup reads whole. Where the whitespace JSX drops holds a line break
+ * (between two children on their own lines, or at a text child's edge), the words on either side read apart
+ * (BREAK), so a count that opens a block after a sibling ending in a letter (`<h3>Multi-Period Analysis</h3>`
+ * then `<p>10 fiscal years</p>`, a badge then a number word, a list item then the next) reads as its own
+ * word, while a count and a unit in blocks of their own still read apart. A part that is not a literal (a
+ * name, a call, a condition) reads as a hole no count spans, which is how
+ * `{ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years` passes. A typed count is digits, a "+" allowed after them, or a number word up to twelve; then spaces or
  * hyphens (a no-break space and the Unicode hyphens among them); an optional "fiscal" or "financial"; then
  * year, quarter or an abbreviation (yr, qtr, FY, FQ), singular or plural (TYPED_PERIOD_COUNT).
  *
@@ -373,8 +419,33 @@ function decoded(text: string, from: number): Rendered {
   return out
 }
 
+/**
+ * Where JSX drops whitespace that holds a line break (between two children on their own lines, or at a text
+ * child's edge), the words on either side read apart, as the blocks such children usually are show them. So a
+ * count that opens a block after a sibling ending in a letter (`<h3>Multi-Period Analysis</h3>` then
+ * `<p>10 fiscal years</p>`) starts a word of its own, and a count and a unit in blocks of their own are not
+ * joined. Not a space, a letter, a digit or a hyphen, so no count spans it; settle() drops it beside a space.
+ */
+const BREAK = '\u2063'
+/** A BREAK beside a space, another BREAK or either end of the text separates nothing: drop it. */
+function settle(rendered: Rendered): Rendered {
+  const out: Rendered = { text: '', at: [] }
+  for (let index = 0; index < rendered.text.length; index++) {
+    const char = rendered.text[index]
+    if (char === BREAK) {
+      const before = out.text[out.text.length - 1]
+      const after = rendered.text[index + 1]
+      if (before === undefined || after === undefined || /\s/.test(before) || /\s/.test(after) || before === BREAK || after === BREAK) continue
+    }
+    out.text += char
+    out.at.push(rendered.at[index])
+  }
+  return out
+}
+
 /** A JSX text child as React renders it (Babel's rule): each line trimmed where it meets a line break,
- * blank lines dropped, the rest joined by one space; its entities decoded. */
+ * blank lines dropped, the rest joined by one space; its entities decoded. Whitespace with a line break that
+ * Babel drops at either edge, or a child that is nothing else, reads as a BREAK. */
 function jsxText(node: ts.JsxText, sf: ts.SourceFile): Rendered {
   const lines: Array<{ from: number; text: string }> = []
   let from = node.pos
@@ -382,8 +453,11 @@ function jsxText(node: ts.JsxText, sf: ts.SourceFile): Rendered {
     if (index % 2 === 0) lines.push({ from, text: part })
     from += part.length
   })
+  const blank = (line: { text: string }) => !/[^ \t]/.test(line.text)
+  if (lines.length > 1 && lines.every(blank)) return { text: BREAK, at: [node.pos] }
   const lastWithText = lines.reduce((found, line, index) => (/[^ \t]/.test(line.text) ? index : found), 0)
   const parts: Rendered[] = []
+  if (lines.length > 1 && blank(lines[0])) parts.push({ text: BREAK, at: [node.pos] })
   lines.forEach((line, index) => {
     let start = 0
     let end = line.text.length
@@ -393,6 +467,7 @@ function jsxText(node: ts.JsxText, sf: ts.SourceFile): Rendered {
     parts.push(decoded(line.text.slice(start, end), line.from + start))
     if (index !== lastWithText) parts.push({ text: ' ', at: [line.from + end] })
   })
+  if (lines.length > 1 && blank(lines[lines.length - 1])) parts.push({ text: BREAK, at: [lines[lines.length - 1].from] })
   return join(parts)
 }
 
@@ -435,7 +510,7 @@ function copyTexts(sf: ts.SourceFile): Rendered[] {
   const visit = (node: ts.Node) => {
     if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)
       || isConcat(node) || ts.isJsxElement(node) || ts.isJsxFragment(node)) && !renderedByParent(node)) {
-      out.push(rendered(node, sf))
+      out.push(settle(rendered(node, sf)))
     }
     ts.forEachChild(node, visit)
   }
@@ -466,7 +541,7 @@ function typedPeriodCounts(source: string, rel: string, argued = new Set<number>
       covering.forEach((index) => argued.add(index))
       if (covering.length) continue
       const line = sf.getLineAndCharacterOfPosition(copy.at[start]).line + 1
-      const context = copy.text.slice(Math.max(0, start - 40), end + 40).replaceAll(HOLE, '{…}').replace(/\s+/g, ' ').trim()
+      const context = copy.text.slice(Math.max(0, start - 40), end + 40).replaceAll(HOLE, '{…}').replaceAll(BREAK, ' / ').replace(/\s+/g, ' ').trim()
       found.push(`${rel}:${line}: ${context}`)
     }
   }
@@ -505,6 +580,12 @@ const PLANTED_FORMS: Array<{ kind: 'flag' | 'clean' | 'gap'; form: string; sourc
   { kind: 'flag', form: 'FQs', source: "export const copy = 'the last 12 FQs'" },
   { kind: 'flag', form: "a condition's literal branch", source: "export const copy = <p>{annual ? '10 fiscal years' : null}</p>" },
   { kind: 'flag', form: 'a tree behind &&', source: 'export const copy = <div>{open && <p>Up to 10 years</p>}</div>' },
+  // A count that opens a block after a sibling ending in a letter: JSX drops the line break between them (the review of 52531df8).
+  { kind: 'flag', form: 'a count opening a block after a heading', source: 'export const copy = (\n  <div>\n    <h3>Multi-Period Analysis</h3>\n    <p>10 fiscal years of filings</p>\n  </div>\n)' },
+  { kind: 'flag', form: 'a number word opening a block after a badge', source: 'export const copy = (\n  <div>\n    <Badge>Pro</Badge>\n    <p>ten years of history</p>\n  </div>\n)' },
+  { kind: 'flag', form: 'a count opening a list item after one ending in a letter', source: 'export const copy = (\n  <ul>\n    <li>Annual</li>\n    <li>12 quarters</li>\n  </ul>\n)' },
+  { kind: 'flag', form: 'a count opening a text line after an element', source: 'export const copy = (\n  <p>\n    <strong>Pro</strong>\n    10 fiscal years\n  </p>\n)' },
+  { kind: 'flag', form: "a {' '} child, then the unit in markup on the next line", source: "export const copy = (\n  <p>\n    Up to <b>10</b>{' '}\n    <em>fiscal years</em>\n  </p>\n)" },
   { kind: 'clean', form: 'the mirror in JSX', source: 'export const copy = <p>Up to {ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years</p>' },
   { kind: 'clean', form: 'the mirror in a template', source: 'export const copy = `Unlimited Multi-Period Analysis: ${ANALYSIS_MAX_ANNUAL_PERIODS}-year trends`' },
   { kind: 'clean', form: 'the mirror in markup', source: 'export const copy = <p>Up to <strong>{ANALYSIS_MAX_QUARTERLY_PERIODS}</strong> quarters</p>' },
@@ -659,6 +740,9 @@ const isReference = (id: ts.Identifier): boolean => {
 
 export function trialReader(sf: ts.SourceFile): TrialReader {
   const resolve = bindingResolver(sf)
+  // lib/planLimits.ts declares TRIAL_DAYS, and its plan lines sit beside it: there the module's own declaration is
+  // TRIAL_DAYS, read under the same guard rule as every import of it (it would otherwise read as its number, 7).
+  const declaresTrial = PLAN_LIMITS.test(sf.fileName.replace(/\.[cm]?[jt]sx?$/, ''))
   const trialImports = new Set<string>()
   const flagImports = new Set<string>()
   const planNamespaces = new Set<string>()
@@ -694,6 +778,7 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
     if (!ts.isIdentifier(e)) return false
     const binding = resolve(e)
     if (!binding) return trialImports.has(e.text)
+    if (declaresTrial && binding.scope === sf && ts.isVariableDeclaration(binding.decl) && binding.decl.name.getText(sf) === 'TRIAL_DAYS') return true
     if (seen.has(binding.decl)) return false
     seen.add(binding.decl)
     // `const { TRIAL_DAYS: n } = P`: destructured from the namespace.
@@ -880,9 +965,10 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
   it('no copy types the trial length', () => {
     const offenders: string[] = []
     const allowed = new Set<string>()
+    const read: string[] = []
     for (const file of sourceFiles()) {
       const rel = path.relative(frontendDir, file)
-      if (rel === path.join('lib', 'planLimits.ts')) continue
+      read.push(rel.split(path.sep).join('/'))
       const typed = isCode(file)
         ? readerOf(file).typed
         : readFileSync(file, 'utf8').split('\n').flatMap((text, i) => (typesTrialLength(text) ? [{ line: i + 1, text: aroundLength(text) }] : []))
@@ -895,6 +981,8 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
         offenders.push(`${rel}:${line} ${text}`)
       }
     }
+    // The plan lines live in lib/planLimits.ts beside TRIAL_DAYS, so its file is read too.
+    expect(read, 'the scan reads lib/planLimits.ts').toContain('lib/planLimits.ts')
     expect(offenders, 'write the trial length as {TRIAL_DAYS} from lib/planLimits').toEqual([])
     expect(Object.keys(NOT_THE_TRIAL).filter((key) => !allowed.has(key)), 'no longer in the code: delete it from NOT_THE_TRIAL').toEqual([])
     // Parses every source file (about 2s idle): the default 5s is too tight on a loaded runner.
@@ -903,16 +991,19 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
   it('every read of TRIAL_DAYS renders only under ENABLE_PRO_TRIAL', () => {
     const reads: string[] = []
     const unguarded: string[] = []
+    const files: string[] = []
     for (const file of sourceFiles().filter(isCode)) {
       const rel = path.relative(frontendDir, file)
-      if (rel === path.join('lib', 'planLimits.ts')) continue
+      files.push(rel.split(path.sep).join('/'))
       for (const read of readerOf(file).reads) {
         reads.push(`${rel}:${read.line}`)
         if (!read.guarded) unguarded.push(`${rel}:${read.line}`)
       }
     }
-    // Anti-vacuity: the signup gate, the paywall card and both pricing surfaces state the length.
+    // Anti-vacuity: the signup gate, the paywall card and both pricing surfaces state the length; and the module that
+    // declares TRIAL_DAYS, where the plan lines live, is read as every importer is.
     expect(reads.length, 'TRIAL_DAYS reads found').toBeGreaterThanOrEqual(4)
+    expect(files, 'the scan reads lib/planLimits.ts').toContain('lib/planLimits.ts')
     expect(unguarded, 'state the trial only inside ENABLE_PRO_TRIAL (or a const derived from it)').toEqual([])
   }, 30_000)
 
@@ -993,6 +1084,17 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
     }
     expect(Object.entries(guardedForms).filter(([, code]) => loose(code) !== 0).map(([name]) => name), 'a guarded read the clause called loose').toEqual([])
     expect(Object.entries(looseForms).filter(([, code]) => loose(code) === 0).map(([name]) => name), 'a loose read the clause called guarded').toEqual([])
+
+    // In lib/planLimits.ts, which declares it, TRIAL_DAYS is its own declaration: a plan line typed beside it is a
+    // read held to the guard (line 2 loose, line 3 guarded), never a typed length, and a length typed there fails.
+    const own = (code: string) => trialReader(ts.createSourceFile(path.join(frontendDir, 'lib/planLimits.ts'), code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS))
+    const declared = own([
+      'export const TRIAL_DAYS = 7',
+      'export const LINE = `Start with a ${TRIAL_DAYS}-day free trial`',
+      'export const GUARDED = ENABLE_PRO_TRIAL && `First ${TRIAL_DAYS} days free`',
+    ].join('\n'))
+    expect([declared.reads.map((read) => `${read.line} ${read.guarded ? 'guarded' : 'loose'}`), declared.typed]).toEqual([['2 loose', '3 guarded'], []])
+    expect(own("export const TRIAL_DAYS = 7\nconst PRO = [{ text: 'a 7-day free trial' }]").typed.map(({ line }) => line)).toEqual([2])
   })
 
   it('TRIAL_DAYS is the length the trial flips to, in the flag and in the backend', () => {
