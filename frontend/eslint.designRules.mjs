@@ -48,6 +48,27 @@
 //                       shows at once. The globals.css classes that stop themselves in a
 //                       reduced-motion block (SELF_GUARDED_ANIMATIONS) need no guard; the spec holds
 //                       each of them, and every other animation globals.css declares, to that block.
+//   locale-pinned-numbers  A number or a time reads in one locale (en-US) whatever the viewer's browser
+//                       says, so `x.toLocaleString()`, `x.toLocaleTimeString()` and
+//                       `Intl.NumberFormat()`, with `new` or without it (both return the formatter),
+//                       with no locale, with `undefined` for it or with an empty list (`[]`), each the
+//                       browser's own locale, are banned everywhere, lib/format.ts included: it owns the
+//                       formatters and pins 'en-US' itself (getFormatter), so the rule reads it as it reads
+//                       the app, and a bare call added there fails too.
+//                       `x.toLocaleDateString()` is not read here: eslint.config.mjs's date rule
+//                       (no-restricted-syntax) bans every call of it, pinned or not, and names
+//                       formatLocalDate, so reading it here too would report one call twice. The receiver's type is not read, so a Date's
+//                       toLocaleString() is caught too: the message names lib/format generally (fmtCount
+//                       and fmtDecimal for a number, a date helper for a date), or pass 'en-US'. A
+//                       locale other than the literal 'en-US' (or a list of it) is reported too: another
+//                       locale ('de-DE'), or one the scan cannot read (a variable, which may be the
+//                       browser's), since the product formats numbers and times in en-US alone.
+//                       `Intl.NumberFormat` reached under another name (`const { NumberFormat } = Intl`,
+//                       `globalThis.Intl`) passes, which no file writes today, and so does a computed
+//                       member (`n['toLocaleString']()`, `Intl['NumberFormat']`): no one writes it by
+//                       accident, and a deliberate way round the rule belongs in review (an eslint-disable
+//                       with its reason), not in the rule. `Intl.DateTimeFormat` is not
+//                       read (its one call site, features/calendar/lib/dates.ts, pins 'en-CA').
 //   no-hand-rolled-toggle-group (CO-15, CO-22, CO-25) One single-choice toggle group app-wide: the
 //                       SegmentedControl (components/ui). The rule reads an element whose role is the literal
 //                       "group" (role="group" or role={'group'}) and walks the children written inside it, a
@@ -569,6 +590,71 @@ export const noUnguardedAnimation = {
   },
 }
 
+/** The methods that format in the browser's locale when given none. */
+const LOCALE_METHODS = new Set(['toLocaleString', 'toLocaleTimeString'])
+
+/** Whether a call's locale argument is missing, the literal `undefined` or an empty list (`[]`): each is the browser's
+    own locale. */
+const unpinnedLocale = (args) =>
+  args.length === 0 ||
+  (args[0].type === 'Identifier' && args[0].name === 'undefined') ||
+  (args[0].type === 'ArrayExpression' && args[0].elements.length === 0)
+
+/** The one locale the product formats numbers and times in; lib/format.ts pins it for every helper. */
+const PINNED_LOCALE = 'en-US'
+const isPinnedLiteral = (node) => node.type === 'Literal' && node.value === PINNED_LOCALE
+/** Whether a call's locale argument is present but not 'en-US' (or a list of it): another locale, or one the rule
+    cannot read (a variable, a call), which may be the browser's. */
+const otherLocale = (args) =>
+  !unpinnedLocale(args) &&
+  !isPinnedLiteral(args[0]) &&
+  !(args[0].type === 'ArrayExpression' && args[0].elements.every((element) => element && isPinnedLiteral(element)))
+
+/** Whether a callee is `Intl.NumberFormat`, which returns the same formatter called with `new` or without it. */
+const isIntlNumberFormat = (callee) =>
+  callee.type === 'MemberExpression' &&
+  !callee.computed &&
+  callee.object.type === 'Identifier' &&
+  callee.object.name === 'Intl' &&
+  callee.property.name === 'NumberFormat'
+
+export const localePinnedNumbers = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Numbers are formatted in a pinned locale, through lib/format.' },
+    schema: [],
+    messages: {
+      unpinned:
+        '{{call}} with no locale renders in the viewer\'s browser locale. Format the value through the ' +
+        "lib/format.ts helper made for it (fmtCount or fmtDecimal for a number, a date helper for a date), " +
+        "or pass 'en-US'.",
+      other:
+        "{{call}} pins {{locale}}, not 'en-US', the one locale the product formats numbers and times in " +
+        "(lib/format.ts). Format the value through the lib/format.ts helper made for it, or pass 'en-US'.",
+    },
+  },
+  create(context) {
+    const report = (node, args, call) => {
+      if (unpinnedLocale(args)) context.report({ node, messageId: 'unpinned', data: { call } })
+      else if (otherLocale(args)) context.report({ node, messageId: 'other', data: { call, locale: context.sourceCode.getText(args[0]) } })
+    }
+    return {
+      CallExpression(node) {
+        const callee = node.callee
+        if (isIntlNumberFormat(callee)) {
+          report(node, node.arguments, 'Intl.NumberFormat()')
+          return
+        }
+        if (callee.type !== 'MemberExpression' || callee.computed || !LOCALE_METHODS.has(callee.property.name)) return
+        report(node, node.arguments, `${callee.property.name}()`)
+      },
+      NewExpression(node) {
+        if (isIntlNumberFormat(node.callee)) report(node, node.arguments, 'new Intl.NumberFormat()')
+      },
+    }
+  },
+}
+
 const isGroupRole = (attr) =>
   attr.type === 'JSXAttribute' &&
   attr.name?.name === 'role' &&
@@ -702,6 +788,7 @@ const plugin = {
     'no-side-stripe': noSideStripe,
     'no-form-code-badge': noFormCodeBadge,
     'no-unguarded-animation': noUnguardedAnimation,
+    'locale-pinned-numbers': localePinnedNumbers,
     'no-hand-rolled-toggle-group': noHandRolledToggleGroup,
   },
 }

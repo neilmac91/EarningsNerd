@@ -21,4 +21,4 @@ its retry hides how often the first generation fails.
 **Evidence**: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` (finding 3, and the corpus
 scripts). Gate: `backend/tests/unit/test_copilot_prompt_revisions.py` fails when the current first-generation or
 retry bytes have no row in the table, or a row has no measured source or no existing evidence path. The check of a
-draw's prepared sources is review-checked until E66 in `tasks/todo.md` lands.
+draw's prepared sources is review-checked until E77 in `tasks/todo.md` lands.

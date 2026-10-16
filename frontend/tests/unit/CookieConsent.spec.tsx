@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import CookieConsent, { type CookiePreferences } from '@/components/CookieConsent'
+import { buttonVariants } from '@/components/ui'
 
 // The "Cookie preferences saved" confirmation is a sonner toast (top-centre Toaster in app/providers.tsx)
 // since EN-02: it must not share the bottom-right corner with the "Ask this Filing" launcher.
@@ -43,7 +44,7 @@ describe('CookieConsent settings dialog', () => {
     render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
     const customize = await screen.findByRole('button', { name: 'Customize' })
     await user.click(customize)
-    return { user, onPreferencesChanged, customize, dialog: screen.getByRole('dialog', { name: 'Cookie Preferences' }) }
+    return { user, onPreferencesChanged, customize, dialog: screen.getByRole('dialog', { name: 'Cookie preferences' }) }
   }
 
   it('opens a labelled modal dialog with named category switches, and focus moves inside it', async () => {
@@ -51,15 +52,20 @@ describe('CookieConsent settings dialog', () => {
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(dialog).toContainElement(document.activeElement as HTMLElement)
     expect(screen.getByText('Cookies on this site')).toBeInTheDocument() // the banner stays beneath it
-    expect(screen.getByRole('checkbox', { name: 'Essential Cookies' })).toBeDisabled()
-    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Session Recording' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Session recording' })).not.toBeChecked()
+    // Checkbox lists its props by name, so each category's description reaches the input only through its
+    // aria-describedby forward; a dropped forward would strip these from screen readers.
+    expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toHaveAccessibleDescription(/^Required for the website to function properly\./)
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(/^Help us understand how visitors interact/)
+    expect(screen.getByRole('checkbox', { name: 'Session recording' })).toHaveAccessibleDescription(/^Records your interactions with the site/)
   })
 
-  it('Save Preferences stores the choices, fires cookieConsentChanged and calls onPreferencesChanged', async () => {
+  it('Save preferences stores the choices, fires cookieConsentChanged and calls onPreferencesChanged', async () => {
     const { user, onPreferencesChanged } = await openSettings()
-    await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
-    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Analytics cookies' }))
+    await user.click(screen.getByRole('button', { name: 'Save preferences' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByText('Cookies on this site')).not.toBeInTheDocument() // Save dismisses both
@@ -80,7 +86,7 @@ describe('CookieConsent settings dialog', () => {
     ['the ✕', async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Close' }))],
   ])('%s closes without saving anything and returns focus to Customize on the banner', async (_how, close) => {
     const { user, onPreferencesChanged, customize } = await openSettings()
-    await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Analytics cookies' }))
     await close(user)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -93,23 +99,40 @@ describe('CookieConsent settings dialog', () => {
 
     // The dismissed edit does not come back on the next open, and a Save there stores the saved choices.
     await user.click(customize)
-    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Save preferences' }))
     expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
   })
 
-  it('the banner handlers are unchanged: Accept All opts into analytics only, Reject All into neither', async () => {
+  it('each bar button names what its handler sets: Allow analytics opts into analytics only, Essential only into neither', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<CookieConsent />)
-    await user.click(await screen.findByRole('button', { name: 'Accept All' }))
+    // chrome/F2: "Accept All" promised every category while session recording stayed off. The bar
+    // offers exactly these three, and no label claims "all".
+    const bar = await screen.findByRole('region', { name: 'Cookie consent' })
+    const labels = within(bar).getAllByRole('button').map((b) => b.textContent?.trim())
+    expect(labels).toEqual(['Customize', 'Essential only', 'Allow analytics'])
+    expect(labels.filter((l) => /\ball\b/i.test(l ?? ''))).toEqual([])
+    await user.click(await screen.findByRole('button', { name: 'Allow analytics' }))
     expect(stored()).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
     unmount()
 
     localStorage.clear()
     render(<CookieConsent />)
-    await user.click(await screen.findByRole('button', { name: 'Reject All' }))
+    await user.click(await screen.findByRole('button', { name: 'Essential only' }))
     expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
     expect(consentEvents.map((e) => e.analytics)).toEqual([true, false])
     expect(toast.success).toHaveBeenCalledTimes(2)
+  })
+
+  it('the two choices carry equal weight: Essential only and Allow analytics are both secondary, Customize the ghost', async () => {
+    // Refusing must be as easy and as visible as allowing (the EDPB, CNIL and ICO reading of consent): the
+    // two choices share one recipe, and the third action, Customize, sits a step below both.
+    render(<CookieConsent />)
+    const bar = await screen.findByRole('region', { name: 'Cookie consent' })
+    const cls = (name: string) => within(bar).getByRole('button', { name }).className
+    expect(cls('Essential only')).toBe(buttonVariants({ variant: 'secondary' }))
+    expect(cls('Allow analytics')).toBe(buttonVariants({ variant: 'secondary' }))
+    expect(cls('Customize')).toBe(buttonVariants({ variant: 'ghost' }))
   })
 })
