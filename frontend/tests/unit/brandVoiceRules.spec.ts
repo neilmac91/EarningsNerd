@@ -47,7 +47,9 @@ import { isIconModule } from './iconModules'
  *    backend, an API path, a "reader" or an HTTP status number.
  *
  * Copy is a JSX text node, or a string or template literal outside the places code keeps its own
- * strings (imports, class lists, comparisons, identifiers such as hrefs and keys; see isCodeString). An
+ * strings (imports, class lists, comparisons, identifiers such as hrefs and keys; see isCodeString). A
+ * `createElement` call is read as JSX is: its type is code, a prop is read by the attribute's rule and a
+ * child is copy (the literal clauses; the label clauses read JSX elements only). An
  * attribute that is not code (CODE_ATTRS) is copy, so a placeholder, an aria-label, an alt or a title is
  * read by the exclamation, emoji and buzzword clauses (and by no-em-dash-copy.spec.ts, which reads every
  * literal), whatever its shape, and so is an expression rendered as an element's child; a string with no
@@ -126,7 +128,7 @@ const CONTROLS = new Set(['Button', 'button', 'a', 'Link'])
 /** Attributes that hold code, not copy. */
 const CODE_ATTRS = /^(?:className|class|href|src|srcSet|id|key|type|role|name|rel|target|variant|size|as|method|action|htmlFor|autoComplete|inputMode|enterKeyHint|lang|viewBox|d|fill|stroke|strokeWidth|strokeLinecap|strokeLinejoin|xmlns|mode|side|align|tone|tabIndex|pattern|form|scope|dateTime|sizes|crossOrigin|referrerPolicy|layout|data-[\w-]+|aria-(?:controls|labelledby|describedby|haspopup|live|current|expanded|hidden|selected|pressed|checked|disabled|modal|orientation|sort|atomic|relevant|busy|invalid|required|owns|activedescendant))$/
 /** Calls whose string arguments are class lists or keys. */
-const CODE_CALLS = new Set(['RegExp', 'cx', 'clsx', 'cn', 'buttonVariants', 'inputClasses', 'require', 'querySelector', 'querySelectorAll', 'getItem', 'setItem', 'removeItem', 'addEventListener', 'removeEventListener', 'getElementById', 'matchMedia', 'startsWith', 'endsWith', 'includes', 'replace', 'split', 'test', 'match', 'capture', 'track', 'identify', 'register', 'useQuery', 'setAttribute', 'getAttribute', 'createElement'])
+const CODE_CALLS = new Set(['RegExp', 'cx', 'clsx', 'cn', 'buttonVariants', 'inputClasses', 'require', 'querySelector', 'querySelectorAll', 'getItem', 'setItem', 'removeItem', 'addEventListener', 'removeEventListener', 'getElementById', 'matchMedia', 'startsWith', 'endsWith', 'includes', 'replace', 'split', 'test', 'match', 'capture', 'track', 'identify', 'register', 'useQuery', 'setAttribute', 'getAttribute'])
 
 interface Finding {
   rel: string
@@ -178,9 +180,18 @@ function isCodeString(node: ts.Node, text: string): boolean {
   if ((ts.isPropertyAssignment(parent) || ts.isPropertyDeclaration(parent) || ts.isMethodDeclaration(parent)) && parent.name === node) return true
   if (ts.isElementAccessExpression(parent) || ts.isCaseClause(parent)) return true
   if (ts.isBinaryExpression(parent) && [ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken, ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.InKeyword].includes(parent.operatorToken.kind)) return true
-  for (let n: ts.Node | undefined = parent; n; n = n.parent) {
+  // The outermost property passed on the way up, for a createElement call's props.
+  let prop: string | undefined
+  for (let n: ts.Node | undefined = parent, from: ts.Node = node; n; from = n, n = n.parent) {
     if (ts.isJsxAttribute(n)) return CODE_ATTRS.test(n.name.getText())
     if (ts.isPropertyAssignment(n) && /^(?:className|classNames|href|key|queryKey|id|type|variant)$/.test(n.name.getText())) return true
+    if (ts.isPropertyAssignment(n)) prop = ts.isIdentifier(n.name) || ts.isStringLiteral(n.name) ? n.name.text : n.name.getText()
+    // createElement(type, props, ...children) reads as JSX does: the type is code (a DOM node's tag too, as in
+    // `document.createElement('a')`), a prop is read by the attribute's rule, and a child is copy.
+    if (ts.isCallExpression(n) && callName(n) === 'createElement') {
+      const at = n.arguments.indexOf(from as ts.Expression)
+      return at === 1 ? prop === undefined || CODE_ATTRS.test(prop) : at < 2
+    }
     if (ts.isCallExpression(n) && CODE_CALLS.has(callName(n))) return true
     // The source a RegExp is built from (`new RegExp(\`(?<!x)[.!?]\`)`) is a pattern, not a sentence.
     if (ts.isNewExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'RegExp') return true
@@ -898,6 +909,20 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     expect(voiceFindings("export const P = () => <p>New ✨✨ ideas</p>", 'features/probe/Emoji.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '1 emoji',
       '1 emoji',
+    ])
+    // createElement reads as JSX does: a child is copy (the review's case), a prop is read by the attribute's rule
+    // (a data attribute is code, a title is copy), and the type is code (a custom tag that reads as a buzzword).
+    const created = [
+      "export const A = () => React.createElement('button', null, 'Wow! 🚀 unlock')",
+      "export const B = () => createElement('a', { href: '/pricing', 'data-cta': 'unlock-pro', title: 'Huge savings!' }, busy ? 'Seamless' : 'See plans')",
+      "export const C = () => document.createElement('seamless-frame')",
+    ].join('\n')
+    expect(voiceFindings(created, 'features/probe/Created.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '1 exclamation',
+      '1 emoji',
+      '1 buzzword',
+      '2 exclamation',
+      '2 buzzword',
     ])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
