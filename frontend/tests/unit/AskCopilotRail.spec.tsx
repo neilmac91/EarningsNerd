@@ -268,6 +268,57 @@ describe('AskCopilotRail', () => {
     }
   })
 
+  it('anchors once per question: a progress heartbeat leaves the column and the composer where the reader put them', async () => {
+    let captured!: CopilotHandlers
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => { captured = handlers })
+    // jsdom has no scrollIntoView; count the reveals.
+    const reveals: Element[] = []
+    const jsdomScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+      reveals.push(this)
+    })
+    try {
+      const user = userEvent.setup()
+      renderRail({ open: true })
+      const field = screen.getByLabelText(/ask about this filing/i)
+      // The column that scrolls as one (the composer form's parent): record every write to its scrollTop.
+      const column = field.closest('form')!.parentElement!
+      const writes: number[] = []
+      let top = 0
+      Object.defineProperty(column, 'scrollTop', {
+        configurable: true,
+        get: () => top,
+        set: (value: number) => {
+          top = value
+          writes.push(value)
+        },
+      })
+
+      await user.type(field, 'What changed?{Enter}')
+      expect(writes).toEqual([0])
+      expect(reveals).toHaveLength(1)
+
+      // The reader scrolls back up the column while the answer is read; the server's heartbeats keep coming.
+      top = 120
+      act(() => {
+        captured.onProgress?.('reading')
+        captured.onProgress?.('reading')
+      })
+      expect(writes).toEqual([0])
+      expect(top).toBe(120)
+      expect(reveals).toHaveLength(1)
+
+      // The next question is a new turn, and anchors again.
+      act(() => captured.onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+      await user.type(field, 'And margins?{Enter}')
+      expect(askFilingStream).toHaveBeenCalledTimes(2)
+      expect(writes).toEqual([0, 0])
+      expect(reveals).toHaveLength(2)
+    } finally {
+      Element.prototype.scrollIntoView = jsdomScrollIntoView
+    }
+  })
+
   it('holds intermediate prose and renders the source-check footer + a source row on complete', async () => {
     let captured: CopilotHandlers | null = null
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {

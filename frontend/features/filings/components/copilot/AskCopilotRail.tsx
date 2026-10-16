@@ -166,9 +166,12 @@ export default function AskCopilotRail({
   // that parked the reader at the sources list when the answer completed, forcing a scroll back
   // up to read from the start (field report). The reader scrolls at their own pace. One initial
   // scroll still runs when a restored history hydrates, so reopening shows the latest exchange.
+  // The anchor keys on the reading turn's id: a progress heartbeat (every few seconds while the
+  // model works) patches that turn in place, and must not pull a reader who scrolled away back.
   const didInitialScrollRef = useRef(false)
+  const anchoredTurnRef = useRef<string | null>(null)
   const lastMessage = messages[messages.length - 1]
-  const lastStatus = lastMessage?.role === 'assistant' ? lastMessage.status : undefined
+  const readingTurnId = lastMessage?.role === 'assistant' && lastMessage.status === 'reading' ? lastMessage.id : null
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -178,7 +181,9 @@ export default function AskCopilotRail({
       didInitialScrollRef.current = false
       return
     }
-    if (lastStatus === 'reading' || !didInitialScrollRef.current) {
+    const newTurn = readingTurnId !== null && readingTurnId !== anchoredTurnRef.current
+    if (newTurn || !didInitialScrollRef.current) {
+      if (newTurn) anchoredTurnRef.current = readingTurnId
       el.scrollTop = el.scrollHeight
       didInitialScrollRef.current = true
       // A question asked from a composer scrolled into view brings the conversation back to the top. Keyboard focus
@@ -190,7 +195,7 @@ export default function AskCopilotRail({
         composerRef.current?.revealFocus()
       }
     }
-  }, [messages, lastStatus])
+  }, [messages, readingTurnId])
 
   // In the embedded layout the Copilot shares the pane with the filing view; only focus the composer
   // when the Copilot view is actually active (focusing it while the Filing tab is shown would steal
