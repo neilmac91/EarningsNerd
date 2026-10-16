@@ -342,7 +342,7 @@ export default function DashboardPage() {
                         <div className="min-w-0 flex-1">
                           <Link
                             href={`/filing/${item.summary.filing_id}`}
-                            className="font-semibold text-text-primary-light hover:text-brand-strong transition-colors dark:text-text-primary-dark dark:hover:text-brand-strong-dark"
+                            className="rounded font-semibold text-text-primary-light hover:text-brand-strong transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-primary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
                           >
                             {formatCompanyName(item.company.name)} - {item.filing.filing_type}
                           </Link>
