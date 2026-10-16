@@ -255,4 +255,22 @@ of the index with all 132 tests green. The spec now imports each module and chec
 exports as Next evaluates it, and walks every page and layout under the extensions Next serves
 (next.config.js's `pageExtensions`, else Next's default), with a `.ts` layout planted in its
 self-check. A gate over a framework's files reads the file names the framework reads, and a gate
-over a value reads the value, not the way one file typed it.
+over a value reads the value, not the way one file typed it. An evaluated value is the test
+environment's value, though: the review of `7b330a22` found a flag-conditional title the literal
+reader had refused passing once evaluated, so a gate that evaluates must also refuse a value an
+environment read reaches (`41fa85a2`). The post-merge review of 2026-10-16 found that refusal reading
+only a title member's own initializer; it now follows every way a page sets a text (a spread, a name
+assigned or written into after its declaration, each state a generated page returns) to the binding
+in scope, and the evaluated robots and card are held to the literal's reading.
+
+**Recurrence (2026-10-16, the post-merge review of #1291, #1299, #1310 and #1312)**: reviews cut
+short before the four merged found eight brand gates reading less than their rules or their headers,
+each shown by a probe that left the gate green: a whole file skipped (`lib/planLimits.ts`, for its
+two mirror lines) after the plan lines moved into it; an exemption keyed to a heading's words that
+took every icon on it, inside it or on a second heading with the same words; an option scan keyed to
+`<option>` beside a rule about every choice the form offers; a date lint keyed to one callee
+spelling and one direction of D-033; a JSX reader that joined a count to the word ending the block
+before it; a stylesheet reader that needed the `;` CSS lets a block's last statement drop; a password
+check that took any `autoComplete` as forwarded and followed one component's callers. A skip or an
+exemption is as wide as the thing it exists for and no wider: pin it to that line or that site, let
+each entry take one find, and have the scan assert it read the file it used to skip.
