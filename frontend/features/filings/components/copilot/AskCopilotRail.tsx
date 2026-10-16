@@ -24,6 +24,7 @@ import { analytics } from '@/lib/analytics'
 import { starterQuestions } from './starterQuestions'
 import { queryKeys } from '@/lib/queryKeys'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
+import { fmtCount } from '@/lib/format'
 
 // Below lg the standalone overlay is a modal bottom-sheet; at lg+ it docks as a static side pane.
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
@@ -446,8 +447,8 @@ export default function AskCopilotRail({
           gentle upsell at exhaustion (the conversation above stays put). */}
       {isPro && usage && (
         <p className="px-4 pb-2 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
-          {Math.max(usage.qa_limit - usage.qa_used, 0).toLocaleString()} of{' '}
-          {usage.qa_limit.toLocaleString()} questions left this month
+          {fmtCount(Math.max(usage.qa_limit - usage.qa_used, 0))} of{' '}
+          {fmtCount(usage.qa_limit)} questions left this month
         </p>
       )}
       {!isPro && usage && freeTasteTotal > 0 && (
