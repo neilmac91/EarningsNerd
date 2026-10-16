@@ -26,8 +26,8 @@
   FRONTEND_URL defaults to the apex (backend/app/config.py) and production sets none, so the port
   makes https://www.earningsnerd.io the default in the same PR. The path never moves
   (frontend/public/assets/LOGO_README.md; frontend/tests/unit/publishedAssetUrls.spec.ts). It is a
-  raster under /assets/, not the PWA's /icons/icon-192.png: the waitlist gate does not pass /icons,
-  and the manifest is free to change its icons.
+  raster under /assets/, not the PWA's /icons/icon-192.png: /assets/ lies outside the middleware's
+  matcher, so no branch of it can move the file, and the manifest is free to change its icons.
   The @font-face rule points at the repository's Inter for this preview only (the email uses no
   data face); a sent email falls back through the inline font stacks. The highlight under "shows its work" is two nested spans:
   the outer span's own font box is the lower 38% of the tagline's line box (tint, with the 2px

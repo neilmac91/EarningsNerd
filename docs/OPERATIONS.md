@@ -489,7 +489,16 @@ draft re-runs its newest gate run, which fails again, unless that run is a skip 
 the re-run job refuses (E60 lists the drafts). The script reads the draft flag from the pull
 request as it is now: a job skipped by its condition reports success, which a required check counts as
 passing, and an event can still describe a draft after the pull request was marked ready, so the job
-never skips on a pull-request event. It passes
+never skips on a pull-request event. Draft or not and override or not, it fails at once while the
+pull request's title, body or any of its commit messages puts a closing keyword (close, fix or resolve,
+in any form) right before an issue or pull request reference, since the merge into `main` would close
+what it names, a pull request included: on 2026-10-09 the merge of #1136 left #1156 closed, unmerged,
+that way (`lessons/ops-closing-keywords-close-what-they-name.md`). It reads the text as GitHub renders
+it (Markdown escapes dropped, HTML entities decoded) and lists each reference; an edit to the title or
+body re-runs the check, and a commit message is reworded on the branch. Until the edit's run reports, the
+previous result stands on the head, as for drafts below, so merge only after it passes. It also fails a
+pull request that lists 250 commits, the most GitHub's commits endpoint returns, because later commit
+messages would go unread. A squash message typed at merge is outside every pull-request check. It passes
 only when Codex's "Review Summary" comment reports **Completed** for that
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not
@@ -531,6 +540,21 @@ their own pull requests, and the GitHub default `require_extra_approval_for_unat
 switched off for the same reason (agent commits are authored as `noreply@anthropic.com`). When the
 review service is unavailable, the pull request body's `Review override: <reason>` line is the only
 way through the gate, by design.
+
+Required checks bind a pull request only as far as its workflow files can be trusted. The ruleset pins
+each check to the GitHub Actions app, and that app runs a pull request's `pull_request` workflows from
+the pull request's own tree. So a pull request that edits `.github/workflows/` can make every required
+check pass: it can rewrite the job behind `backend-tests`, or add jobs named `review-gate` and
+`backend-tests` that do nothing. `test_no_job_in_any_other_workflow_publishes_a_check_named_review_gate`
+catches only an accidental second `review-gate` job, since a pull request that adds one on purpose can
+neuter `backend-tests` too. What binds such a pull request is that only the repository's writers can
+merge, and that `AGENTS.md` §5 reviews every change to `.github/workflows/**` at the high tier, so the
+merge rests on reading the workflow diff, not on the checks. A required check that a pull request cannot
+forge needs a source outside its workflows: a dedicated GitHub App that the ruleset names as the check's
+source, with its key held in an environment only `main` can use, or a ruleset-required workflow, which
+GitHub configures in an organization's or an enterprise's rulesets (a personal account owns this
+repository). Neither is in place, and the gap is accepted (the founder left this call to the agent on
+2026-10-16); closing it starts with that App.
 
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 

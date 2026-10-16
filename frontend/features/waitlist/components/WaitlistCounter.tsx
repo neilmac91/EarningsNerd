@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { ApiError } from '@/lib/api/client'
 import { getWaitlistStats } from '@/features/waitlist/api/waitlist-api'
 import { useCountUp } from '@/hooks/useCountUp'
+import { fmtCount } from '@/lib/format'
 
 /** The smallest count worth saying aloud. */
 export const COUNT_FLOOR = 25
@@ -35,7 +36,7 @@ export default function WaitlistCounter() {
   // DS count-up (rAF, --duration-slow, reduced-motion + SSR safe) replacing the prior
   // hand-rolled raw-900ms tween; rendered in the data face so the width never jitters. The tween
   // starts at 0, so the display is clamped to the floor: no frame ever reads "Join 0+ others".
-  const count = useCountUp(target ?? 0, { format: (v) => Math.round(Math.max(v, COUNT_FLOOR)).toLocaleString() })
+  const count = useCountUp(target ?? 0, { format: (v) => fmtCount(Math.round(Math.max(v, COUNT_FLOOR))) })
   // A count is social proof of nothing until it is one (docs/brand/03-strategy.md, S5: never a
   // placeholder, never a counter at zero): below the floor the pill names the list, not the number.
   const showCount = target !== null && target >= COUNT_FLOOR

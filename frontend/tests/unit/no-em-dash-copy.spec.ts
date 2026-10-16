@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { heldValues, knownAsIn, leavesOf, scopeResolver, unwrapHeld } from './heldValues'
 
 /**
  * Copy-voice structural guard: no em-dashes in user-facing copy
@@ -11,7 +12,38 @@ import { describe, expect, it } from 'vitest'
  * this spec keeps them out. Comments are naturally exempt (the AST walk never
  * sees them), and the ONE sanctioned use — the bare '—' missing-value token
  * rendered in tables and detail rows (lib/format.ts MISSING_TOKENS) — is
- * exempted as an exact-match literal.
+ * exempted where it stands alone: JSX text whose trim is '—' as the sole
+ * meaningful child of its element (`<td>—</td>`), and a string or
+ * no-substitution template literal whose text is exactly '—' (the token)
+ * wherever its value is never joined into copy. Any other text with an
+ * em-dash fails where it is written, a template's head, middle or tail
+ * included, since the template joins it to what its substitutions render.
+ *
+ * The token's value is followed by the reading the voice and glyph gates
+ * share (tests/unit/heldValues.ts), resolved by scope: from every place a
+ * name is given it (a declaration, an assignment, a parameter's or a
+ * destructuring's default, a destructuring, a property put on an object
+ * after it is made, an array's element, a same-file function's parameter
+ * at each call, a same-file component's children, JSX text included) to
+ * every place it is read. It is joined into copy, and fails there, as an operand
+ * of `+`, either side of `+=`, a template's substitution, a child beside
+ * sibling children (JSX's, and React's `createElement` and `cloneElement`
+ * under any local name: a child is held to the JSX text's test), an
+ * argument or the receiver of `concat`, an element or the separator of
+ * `join`, the replacement of `replace` and `replaceAll`, and the fill of
+ * `padStart` and `padEnd`. So a spaced dash beside an expression fails in
+ * each spelling: `— {speaker}`, `{'—'} {speaker}`, `'—' + ' ' + speaker`,
+ * and `const DASH = '—'` or `let DASH; DASH = '—'` read as
+ * `{DASH} {speaker}` (BG-02). An element is a value of its own, so a token
+ * that is the sole child of a `<span>` stands alone wherever the span goes.
+ * What a function returns is read where it is written: a formatter's `'—'`
+ * fallback, or a callback's, stands alone at its `return`, and a call's
+ * value never holds it (the app joins nine such fallbacks with copy today,
+ * E76 in tasks/todo.md). Out of reach too, planted as gaps in the
+ * self-check and review-checked: a token that crosses modules (an export
+ * read in another file, an imported formatter's fallback), React state, a
+ * class's field read through `this`, a promise's `then` and a generator's
+ * `yield`.
  *
  * If you're writing copy and want a dash: restructure the sentence (split it,
  * use a colon, or a middot separator for compact labels). En-dashes (–) in
@@ -21,6 +53,8 @@ import { describe, expect, it } from 'vitest'
 const FRONTEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCANNED_DIRS = ['app', 'components', 'features', 'lib', 'hooks']
 const EM_DASH = '—'
+/** React's calls that make an element, children from their third argument on. */
+const ELEMENT_CALLS = new Set(['createElement', 'cloneElement'])
 
 function sourceFiles(dir: string): string[] {
   if (!existsSync(dir)) return []
@@ -36,37 +70,209 @@ function sourceFiles(dir: string): string[] {
   return out
 }
 
-function emDashViolations(file: string): string[] {
-  const text = readFileSync(file, 'utf8')
+/** Whether a JSX child is the only meaningful child of its element (whitespace-only text, and an
+    expression that holds nothing or only a comment, aside). */
+function soleChild(child: ts.JsxText | ts.JsxExpression): boolean {
+  const parent = child.parent
+  if (!ts.isJsxElement(parent) && !ts.isJsxFragment(parent)) return false
+  const meaningful = parent.children.filter(
+    (c) => !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces) && !(ts.isJsxExpression(c) && !c.expression),
+  )
+  return meaningful.length === 1 && meaningful[0] === child
+}
+
+/** What the shared model reads as a leaf here: the token, and an element, a value of its own. */
+type Leaf = 'token' | 'element'
+
+/** Every em-dash in `text` outside the sanctioned token, as `file:line text`. */
+function violationsIn(text: string, file: string): string[] {
   if (!text.includes(EM_DASH)) return []
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const violations: string[] = []
+  const knownAs = knownAsIn(scopeResolver(source))
+  const calleeName = (call: ts.CallExpression) => knownAs(call.expression)?.name ?? ''
+  const isToken = (n: ts.Node) => (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && n.text === EM_DASH
+  const values = heldValues<Leaf>(
+    source,
+    (e) =>
+      isToken(e)
+        ? ['token']
+        : ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e) || (ts.isCallExpression(e) && ELEMENT_CALLS.has(calleeName(e)))
+          ? ['element']
+          : undefined,
+    // A function's return is read where it is written (a formatter's fallback stands alone at its `return`).
+    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined), returns: false },
+  )
+  const holdsToken = (e: ts.Expression | undefined) => !!e && leavesOf(values.valueOf(ts.isSpreadElement(e) ? e.expression : e)).has('token')
 
-  const record = (node: ts.Node, literalText: string) => {
-    // The bare missing-value token ('—' alone) is the one sanctioned literal.
-    if (!literalText.includes(EM_DASH) || literalText.trim() === EM_DASH) return
-    const { line } = source.getLineAndCharacterOfPosition(node.getStart())
-    violations.push(`${path.relative(FRONTEND_ROOT, file)}:${line + 1} ${literalText.trim().slice(0, 80)}`)
+  /** The expressions a node joins into copy (see the header). */
+  const joinedAt = (node: ts.Node): Array<ts.Expression | undefined> => {
+    if (ts.isBinaryExpression(node) && (node.operatorToken.kind === ts.SyntaxKind.PlusToken || node.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken)) {
+      return [node.left, node.right]
+    }
+    if (ts.isTemplateSpan(node)) return [node.expression]
+    if (ts.isJsxExpression(node) && !ts.isJsxAttribute(node.parent)) return soleChild(node) ? [] : [node.expression]
+    if (!ts.isCallExpression(node)) return []
+    const name = calleeName(node)
+    const args = node.arguments
+    const callee = unwrapHeld(node.expression)
+    const receiver = ts.isPropertyAccessExpression(callee) ? callee.expression : undefined
+    if (ELEMENT_CALLS.has(name)) {
+      const children = args.slice(2)
+      return children.length > 1 || children.some(ts.isSpreadElement) ? [...children] : []
+    }
+    if (name === 'concat') return [receiver, ...args]
+    if (name === 'join') return [receiver, args[0]]
+    if (name === 'replace' || name === 'replaceAll' || name === 'padStart' || name === 'padEnd') return [args[1]]
+    return []
   }
 
+  const violations: string[] = []
+  const report = (at: ts.Node, shown: string) => {
+    const { line } = source.getLineAndCharacterOfPosition(at.getStart(source))
+    violations.push(`${path.relative(FRONTEND_ROOT, file)}:${line + 1} ${shown.trim().slice(0, 80)}`)
+  }
   const visit = (node: ts.Node) => {
-    if (
-      ts.isStringLiteral(node) ||
-      ts.isNoSubstitutionTemplateLiteral(node) ||
-      ts.isTemplateHead(node) ||
-      ts.isTemplateMiddle(node) ||
-      ts.isTemplateTail(node) ||
-      ts.isJsxText(node)
-    ) {
-      record(node, node.text)
-    }
+    // Text with an em-dash fails where it is written, unless it is the token: JSX text as its element's sole child, a
+    // literal wherever it is not joined (below). A template's head, middle or tail is never the token.
+    if (ts.isJsxText(node) && node.text.includes(EM_DASH) && !(node.text.trim() === EM_DASH && soleChild(node))) report(node, node.text)
+    if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && node.text.includes(EM_DASH) && node.text !== EM_DASH) report(node, node.text)
+    if ((ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) && node.text.includes(EM_DASH)) report(node, node.text)
+    // The token, wherever its value is joined into copy.
+    for (const joined of joinedAt(node)) if (holdsToken(joined)) report(joined!, EM_DASH)
     ts.forEachChild(node, visit)
   }
   visit(source)
   return violations
 }
 
+const emDashViolations = (file: string): string[] => violationsIn(readFileSync(file, 'utf8'), file)
+
 describe('no em-dashes in user-facing copy (voice guard)', () => {
+  it('reads every form of the missing-value token (a self-check on fixed sources)', () => {
+    const file = path.join(FRONTEND_ROOT, 'features/zzprobe/Probe.tsx')
+    const src = [
+      'export const A = ({ speaker, v }: { speaker: string; v?: string }) => (',
+      '  <>',
+      '    <td>—</td>',
+      "    <td>{'—'}</td>",
+      "    <td>{v ?? '—'}</td>",
+      '    <td>{/* empty */}{`—`}</td>',
+      "    <span title={'—'}>{speaker}</span>",
+      '    <cite>— {speaker}</cite>',
+      "    <cite>{'—'} {speaker}</cite>",
+      "    <cite>{v ? '—' : ''} {speaker}</cite>",
+      "    <cite>{speaker} {v || ('—')}</cite>",
+      '  </>',
+      ')',
+      "export const B = (speaker: string) => '—' + ' ' + speaker",
+      "export const C = (speaker: string) => `${'—'} ${speaker}`",
+      'export const D = (speaker: string) => `—${speaker}`',
+      "export const E = (speaker: string) => { let s = speaker; s += '—'; return s }",
+      "export const MISSING = '—'",
+      "export const F = (x?: string) => (x !== '—' ? x : null) ?? `—`",
+      "const DASH = '—'",
+      'export const G = ({ speaker }: { speaker: string }) => <cite>{DASH} {speaker}</cite>',
+      "export const H = (speaker: string) => DASH + ' ' + speaker",
+      "const NONE = '—'",
+      'export const I = ({ v }: { v?: string }) => <td>{v ?? NONE}</td>',
+      'const HELD = NONE',
+      'export const J = (x: string) => `${HELD}${x}`',
+      "const BOX = { token: '—' } as const",
+      'export const K = ({ speaker }: { speaker: string }) => <cite>{BOX.token} {speaker}</cite>',
+      'export const L = ({ v }: { v?: string }) => <td>{v ?? BOX.token}</td>',
+      'const SHORT = { DASH } as const',
+      'export const M = ({ speaker }: { speaker: string }) => <cite>{SHORT.DASH} {speaker}</cite>',
+      'export const N = ({ v }: { v?: string }) => <td>{v ?? SHORT.DASH}</td>',
+      "const TOKEN = '—'",
+      "export function O({ speaker }: { speaker: string }) { const TOKEN = 'none'; return <cite>{TOKEN} {speaker}</cite> }",
+      "export const P = (TOKEN: string) => TOKEN + ' ' + TOKEN",
+      "const CELL = { token: '—' } as const",
+      "export function Q({ speaker }: { speaker: string }) { const CELL = { token: 'none' }; return <cite>{CELL.token} {speaker}</cite> }",
+      "const MARK = 'x'",
+      "export function R({ speaker }: { speaker: string }) { const MARK = '—'; return <cite>{MARK} {speaker}</cite> }",
+      'export const S = ({ speaker }: { speaker: string }) => <cite>{MARK} {speaker}</cite>',
+      "const ROOT = '—'",
+      'export function T({ speaker }: { speaker: string }) { const ALIAS = ROOT; return <cite>{ALIAS} {speaker}</cite> }',
+      'export function U({ speaker }: { speaker: string }) { const ALIAS = ROOT; return <cite>{ALIAS} {speaker}</cite> }',
+      "let LATE = ''",
+      "LATE = '—'",
+      'export const V = ({ speaker }: { speaker: string }) => <cite>{LATE} {speaker}</cite>',
+      "let OR = '', AND = 'x', NULLISH: string | undefined",
+      "OR ||= '—'",
+      "AND &&= '—'",
+      "NULLISH ??= '—'",
+      'export const W = ({ speaker }: { speaker: string }) => <cite>{OR} {speaker} {AND} {speaker} {NULLISH} {speaker}</cite>',
+      "export function X(speaker: string, dash = '—') { return <cite>{dash} {speaker}</cite> }",
+      "export const Y = ({ speaker, dash = '—' }: { speaker: string; dash?: string }) => <cite>{dash} {speaker}</cite>",
+      'const BAG: { token?: string } = {}',
+      "BAG.token = '—'",
+      'export const Z = ({ speaker }: { speaker: string }) => <cite>{BAG.token} {speaker}</cite>',
+      'const { token: PICKED } = BOX',
+      'export const AA = ({ speaker }: { speaker: string }) => <cite>{PICKED} {speaker}</cite>',
+      "var TWICE: string; var TWICE = '—'",
+      'export const AB = ({ speaker }: { speaker: string }) => <cite>{TWICE} {speaker}</cite>',
+      "const cite = (mark: string, who: string) => mark + ' ' + who",
+      "export const AC = ({ speaker }: { speaker: string }) => <p>{cite('—', speaker)}</p>",
+      'const Lead = ({ children }: { children: ReactNode }) => <cite>{children} said</cite>',
+      'export const AD = () => <Lead>—</Lead>',
+      "const DASHED = <span>{'—'}</span>",
+      'export const AE = ({ speaker }: { speaker: string }) => <cite>{DASHED} {speaker}</cite>',
+      "const BUILT = h('span', null, '—')",
+      'export const AF = ({ speaker }: { speaker: string }) => <cite>{BUILT} {speaker}</cite>',
+      "export const AG = (speaker: string) => createElement('cite', null, '—', ' ', speaker)",
+      "export const AH = () => createElement('td', null, '—')",
+      "export const AI = (speaker: string) => [DASH, speaker].join(' ')",
+      "export const AJ = (parts: string[]) => parts.join('—')",
+      "export const AK = (speaker: string) => speaker.concat(' ', NONE)",
+      "export const AL = (note: string) => note.replace('--', '—').replaceAll('-', '—')",
+      "export const AM = (n: string) => n.padStart(4, '—').padEnd(8, '—')",
+      'export const AN = (speaker: string) => { let s = DASH; s += speaker; return s }',
+      "const fallback = (v?: string) => v ?? '—'",
+      'export const AO = ({ v, speaker }: { v?: string; speaker: string }) => <cite>{fallback(v)} {speaker}</cite>',
+      "export function AP({ speaker }: { speaker: string }) { const [mark] = useState('—'); return <cite>{mark} {speaker}</cite> }",
+      "class Line { mark = '—'; show(speaker: string) { return <cite>{this.mark} {speaker}</cite> } }",
+      "import { createElement as h } from 'react'",
+      "export const AQ = (speaker: string) => h('cite', null, NONE, ' ', speaker)",
+      "export const AR = () => createElement('cite', null, ...[DASH, ' said'])",
+      "export const AS = () => DASH.concat(' said')",
+      "export const AT = (el: ReactElement, speaker: string) => cloneElement(el, null, '—', ' ', speaker)",
+      'const Said = ({ mark, who }: { mark: string; who: string }) => <cite>{mark} {who}</cite>',
+      'export const AU = () => <Said mark="—" who="x" />',
+    ].join('\n')
+    // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
+    // attribute's value) and 18 to 19 are read where they are written (a name no line reads, a comparison, a
+    // fallback returned). Lines 8 to 11 sit beside sibling children (as text, a literal, a conditional's branch,
+    // the right of `||` in parentheses), 14 is a `+` operand, 15 a template's substitution, 16 a template's head
+    // and 17 the right of `+=`. A name holding the token is followed to its reads: DASH (20) is rendered beside a
+    // sibling at 21 and is a `+` operand at 22; NONE (23) stands alone as a fallback at 24, and HELD (25), which holds
+    // NONE, is a template's substitution at 26. BOX (27) holds the token in a property: its `BOX.token` read sits
+    // beside a sibling at 28 and stands alone as a fallback at 29. SHORT (30) holds DASH by its shorthand: its
+    // `SHORT.DASH` read sits beside a sibling at 31 and stands alone as a fallback at 32. A read is the name's by scope:
+    // TOKEN (33) is read by no line, since O's TOKEN (34) and P's parameter (35) are their own values; CELL (36) is read
+    // by no line, since Q declares its own CELL (37); R's MARK (39), a token a nested scope declares, is read beside a
+    // sibling at 39, and S's read is of the outer MARK (40); T's and U's ALIAS, one name in two functions, each hold
+    // ROOT (41) and are each read beside a sibling (42, 43).
+    // A name is given the token in every way the shared model reads (the review's case, 44 to 46): an assignment
+    // (LATE, read at 46), `||=`, `&&=` and `??=` (47 to 50, read at 51), a parameter's default (52), a destructuring's
+    // default (53), a property put on an object after it is made (BAG, read at 56), a destructuring of a holder
+    // (PICKED, read at 58), a `var` declared twice, one binding (TWICE, read at 60), a same-file function's parameter at
+    // a call (cite's `mark` takes the token at 62 and is a `+` operand at 61), a same-file component's children
+    // (Lead's, given JSX text at 64 and read beside text at 63) and its prop, a string attribute included (Said's `mark`,
+    // given at 87 and read beside a sibling at 86). An element is a value of its own: a token that is the
+    // sole child of a span (65) or of a span `createElement` makes under its local name `h` (67) stands alone where the
+    // element goes (66, 68). The other joins: `createElement`'s children beside siblings (69, and under `h` at 82; a sole
+    // child at 70 stands alone, a spread child at 83 may be several) and `cloneElement`'s (85), an element of `join`'s
+    // receiver (71) and its separator (72), an argument of `concat` (73) and its receiver (84), the replacement of
+    // `replace` and `replaceAll` (74, twice), the fill of `padStart` and `padEnd` (75, twice) and the left of `+=` (76).
+    // Planted gaps, read where they are written: a function's return (fallback, 77, read at 78), React state (79) and a
+    // class's field (80).
+    expect(violationsIn(src, file)).toEqual(
+      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 82, 83, 84, 85, 86].map(
+        (line) => `features/zzprobe/Probe.tsx:${line} —`,
+      ),
+    )
+  })
+
   it('finds no em-dash in any string literal, template literal, or JSX text', () => {
     const violations = SCANNED_DIRS.flatMap((dir) => sourceFiles(path.join(FRONTEND_ROOT, dir))).flatMap(
       emDashViolations,

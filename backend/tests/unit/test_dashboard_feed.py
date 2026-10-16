@@ -291,6 +291,53 @@ def test_compose_feed_orders_filters_and_annotates():
         assert items[0]["what_changed"]["items"][0]["direction"] == "up"
 
 
+def _dropped(written, served, path="item"):
+    """Every path of ``written`` that ``served`` lacks or changes: what the response model lost."""
+    if isinstance(written, dict):
+        if not isinstance(served, dict):
+            return [path]
+        return [
+            p for key, value in written.items()
+            for p in ([f"{path}.{key}"] if key not in served else _dropped(value, served[key], f"{path}.{key}"))
+        ]
+    if isinstance(written, list):
+        if not isinstance(served, list) or len(served) != len(written):
+            return [path]
+        return [p for i, (w, s) in enumerate(zip(written, served)) for p in _dropped(w, s, f"{path}[{i}]")]
+    return [] if written == served else [path]
+
+
+@pytest.mark.requires_db
+def test_feed_endpoint_serves_every_field_the_composer_writes():
+    """The route's response model is the feed's contract: FastAPI drops any key it does not declare.
+    The chips read the delta policy's display string and tone (T1.5), which the model left out, so
+    production chips showed no figure and took their colour from the direction (Codex on #1290).
+    Through the real route, each feed item keeps every key compose_feed wrote, at every level."""
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from app.config import settings
+    from app.database import SessionLocal
+    from app.models import User
+    from app.routers.auth import create_access_token
+    from main import app
+
+    with _feed_scenario() as (uid, _cid, newer_id, _ticker):
+        db = SessionLocal()
+        written = json.loads(json.dumps(next(i for i in compose_feed(db, uid, limit=20) if i["filing_id"] == newer_id)))
+        email = db.get(User, uid).email
+        db.close()
+        assert written["what_changed"]["items"][0]["display"] == "+25.0%"
+        assert written["what_changed"]["items"][0]["tone"] == "gain"
+        with TestClient(app) as client:
+            client.cookies.set(settings.COOKIE_NAME, create_access_token(data={"sub": email}))
+            response = client.get("/api/dashboard/feed")
+        assert response.status_code == 200
+        served = next(i for i in response.json()["items"] if i["filing_id"] == newer_id)
+        assert _dropped(written, served) == []
+
+
 @pytest.mark.requires_db
 def test_compose_feed_one_item_per_company():
     # The regression test for the old "newest N filings across the whole watchlist" bug: two

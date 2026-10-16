@@ -1,6 +1,6 @@
-"""The review gate (rule 12 for the review-wait lesson): the decision is pure, pinned offline, and the
-workflow that publishes it runs on every pull-request event without write permissions. It never
-skips that job, because a skipped job counts as passing; a draft fails it instead."""
+"""The review gate (rule 12 for the review-wait lesson and the closing-keyword lesson): the decision is
+pure, pinned offline, and the workflow that publishes it runs on every pull-request event without write
+permissions. It never skips that job, because a skipped job counts as passing; a draft fails it instead."""
 import json
 import os
 import re
@@ -118,6 +118,104 @@ def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_o
         assert "failing closed" in message
 
 
+OVERRIDE_LINE = "Review override: Codex bot out of credits; two independent lenses reviewed the diff.\n"
+
+
+CLOSING_CASES = [
+    # The 2026-10-09 incident: #1136's body named #1156 this way, and its merge left #1156 closed, unmerged.
+    ("the-1136-incident", "", "Wave 0, built, reviewed and fixed: #1156 and #1157-#1162.", (), False, "fixed: #1156"),
+    ("a-conditional-instruction", "", "Close #686 only when this and #695 supersede it.", (), False, "Close #686"),  # #694
+    ("uppercase", "", "FIXES #12", (), False, "FIXES #12"),
+    ("closed", "", "the closed #12", (), False, "closed #12"),  # every keyword form counts
+    ("bare-fix", "", "fix #12", (), False, "fix #12"),
+    ("bare-resolve", "", "resolve #12", (), False, "resolve #12"),
+    ("in-the-title", "test: close #1177's open findings", "", (), False, "title: \"close #1177\""),  # #1243
+    ("in-a-commit-message", "", "", (("b" * 40, "fix: tidy\n\nResolves #12"),), False, "commit bbbbbbb: \"Resolves #12\""),
+    ("cross-repository", "", "resolves neilmac91/EarningsNerd#1156", (), False, "neilmac91/EarningsNerd#1156"),
+    ("a-pull-request-url", "", "fixes https://github.com/neilmac91/EarningsNerd/pull/1156", (), False, "pull/1156"),
+    ("a-gh-reference", "", "resolved GH-12", (), False, "GH-12"),
+    ("no-space", "", "resend-success fixed#1082.", (), False, "fixed#1082"),  # #1255
+    ("bold", "", "**Fixes:** #12", (), False, "Fixes:** #12"),
+    ("a-code-span", "", "`fixes #12`", (), False, "fixes #12"),
+    ("a-line-break", "", "Everything here is fixed:\n#12", (), False, "fixed: #12"),
+    ("a-link-text", "", "fixes [#12](https://github.com/o/r/issues/12)", (), False, "fixes [#12"),
+    ("a-backtick-separator", "", "`fixes` #12", (), False, "fixes` #12"),
+    ("strikethrough", "", "fixes ~~#12~~", (), False, "fixes ~~#12"),
+    ("a-quote-marker", "", "fixes\n> #12", (), False, "fixes > #12"),
+    ("crlf", "", "fixed:\r\n#12", (), False, "fixed: #12"),  # the web editor's line endings
+    ("underscore-emphasis", "", "_Fixes #12_", (), False, "Fixes #12"),  # _ is a word character to \b
+    ("double-underscore", "", "__Fixes:__ #12", (), False, "Fixes:__ #12"),
+    ("underscored-keyword", "", "_Fixes_ #12", (), False, "Fixes_ #12"),  # the trailing edge too
+    # GitHub reads the rendered text, where an escaped number sign or an entity is a plain one.
+    ("a-backslash-escape", "", "reviewed and fixed: \\#1156", (), False, "fixed: #1156"),
+    ("an-escaped-separator", "", "fixed\\: #12", (), False, "fixed: #12"),
+    ("an-html-entity", "", "Fixes &#35;12", (), False, "Fixes #12"),
+    ("a-non-breaking-space", "", "Fixes&nbsp;#12", (), False, "Fixes #12"),
+    ("an-autolink", "", "fixes <https://github.com/o/r/issues/12>", (), False, "issues/12"),
+    ("an-http-issues-url", "", "fixes http://github.com/o/r/issues/12", (), False, "issues/12"),
+    ("a-www-url", "", "fixes https://www.github.com/my-org/my.repo/pull/12", (), False, "my.repo/pull/12"),
+    ("a-dotted-owner-and-repo", "", "resolves my-org/my.repo#12", (), False, "my-org/my.repo#12"),
+    ("lowercase-gh", "", "resolved gh-12", (), False, "gh-12"),
+    ("despite-an-override", "", OVERRIDE_LINE + "Fixes #12", (), False, "Fixes #12"),  # an override excuses only the wait
+    ("on-a-draft", "", "Fixes #12", (), True, "Fixes #12"),  # reported before the draft failure, so it is fixed early
+    ("fixed-in", "", "Fixed in #1156.", (), False, None),  # a word between keyword and reference links nothing
+    ("inside-other-words", "", "unresolved #12, prefixes #3, fixtures #4, closer #5", (), False, None),
+    ("a-parenthesis", "", "the audit fix (#665)", (), False, None),  # #674: closed nothing at the merge
+    ("a-semicolon", "", "the Checkout fix; #1285 held", (), False, None),  # #1306: #1285 stayed open
+    ("no-number-sign", "", "fixes 12 flaky tests", (), False, None),
+    ("the-reference-first", "", "#1156 carries the fix; #1157 resolved it.", (), False, None),
+    ("a-path-that-starts-with-a-keyword", "", "see docs/fix-notes/README.md#1-intro", (), False, None),
+    # Dependabot's release notes put a keyword before an HTML link to an upstream issue (#1283).
+    ("dependabot-release-notes", "", 'Fix <a href="https://redirect.github.com/o/r/issues/233">#233</a>', (), False,
+     None),
+]
+
+
+@pytest.mark.parametrize("case, title, body, messages, draft, expected", CLOSING_CASES,
+                         ids=[row[0] for row in CLOSING_CASES])
+def test_a_closing_keyword_before_a_reference_fails_the_gate_draft_or_not_and_override_or_not(
+        case, title, body, messages, draft, expected):
+    comments = [_summary(COMPLETED, "a834193")]  # the head is reviewed, so only the text decides
+    resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731
+    verdict, message = review_gate.decide(HEAD, comments, body, [HEAD], resolve, pr_draft=draft, pr_title=title,
+                                          pr_commit_messages=messages)
+    if expected is None:
+        assert verdict == "pass", message
+    else:
+        assert verdict == "fail", message
+        assert "closing keyword" in message and expected in message and "after the merge" in message
+
+
+def test_the_failure_lists_every_closing_reference_in_the_title_body_and_commits():
+    verdict, message = review_gate.decide(
+        HEAD, [_summary(COMPLETED, "a834193")], "Fixes #1 and closes #2.", [HEAD], pr_draft=False,
+        pr_title="close #3", pr_commit_messages=(("c" * 40, "resolved #4"),))
+    assert verdict == "fail"
+    for reference in ('title: "close #3"', 'body: "Fixes #1"', 'body: "closes #2"', 'commit ccccccc: "resolved #4"'):
+        assert reference in message
+
+
+def test_every_commit_message_is_read_not_only_the_first_or_the_head():
+    messages = (("1abcdef" + "0" * 33, "chore: first"), ("2abcdef" + "0" * 33, "fix: middle\n\nfixes #12"),
+                ("3abcdef" + "0" * 33, "chore: head"))
+    verdict, message = review_gate.decide(HEAD, [_summary(COMPLETED, "a834193")], "body", [HEAD], pr_draft=False,
+                                          pr_commit_messages=messages)
+    assert verdict == "fail" and 'commit 2abcdef: "fixes #12"' in message
+
+
+@pytest.mark.parametrize("body, draft", [("body", False), (OVERRIDE_LINE, False), ("body", True), (OVERRIDE_LINE, True)],
+                         ids=["ready", "override", "draft", "draft-override"])
+def test_a_commit_list_at_githubs_cap_fails_closed_override_or_not_because_later_messages_are_unread(body, draft):
+    """GitHub's pull-request commits endpoint lists at most 250 commits, so a 251st message is never read."""
+    comments = [_summary(COMPLETED, "a834193")]
+    resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731
+    capped = [f"{n:040x}" for n in range(1, review_gate.COMMIT_LIST_CAP)] + [HEAD]
+    verdict, message = review_gate.decide(HEAD, comments, body, capped, resolve, pr_draft=draft)
+    assert verdict == "fail" and "250 commits" in message
+    if body == "body" and not draft:
+        assert review_gate.decide(HEAD, comments, body, capped[1:], resolve, pr_draft=draft)[0] == "pass"
+
+
 def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatch, capsys):
     monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
     monkeypatch.setenv("REVIEW_GATE_TIMEOUT_MINUTES", "1")
@@ -142,6 +240,14 @@ def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatc
         assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "a834193")], "body", [HEAD], draft),
                                 sleep=sleeps.append, clock=lambda: next(ticks, 70.0)) == 1
         assert sleeps == [] and expected in capsys.readouterr().out
+    # A closing keyword in the title or a commit message fails on the first read too, while the review
+    # still runs: main hands decide the whole state, not only the body.
+    for title, messages in (("close #12", ()), ("", (("d" * 40, "fixes #12"),))):
+        sleeps.clear()
+        ticks = iter([0.0, 0.0, 70.0])
+        state = ([_summary(RUNNING, "a834193")], "body", [HEAD], False, title, messages)
+        assert review_gate.main(fetch=lambda: state, sleep=sleeps.append, clock=lambda: next(ticks, 70.0)) == 1
+        assert sleeps == [] and "closing keyword" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("pull, draft", [
@@ -154,10 +260,19 @@ def test_fetch_state_reads_the_draft_flag_from_the_pull_request_now_and_reports_
         monkeypatch, pull, draft):
     def github(path, token):
         assert path == "repos/o/r/pulls/7"  # the pull request as it is now, not the event that started the run
-        return {**pull, "body": "body"}
+        return {**pull, "body": "body", "title": "title"}
+    commits = [{"sha": "A" * 40, "commit": {"message": "first"}}, {"sha": "b" * 40, "commit": {}}]
+    paged = []
+
+    def paged_read(path, token):
+        paged.append(path)
+        return commits if path.endswith("/commits") else []
     monkeypatch.setattr(review_gate, "_github", github)
-    monkeypatch.setattr(review_gate, "_paged", lambda path, token: [])
-    assert review_gate.fetch_state("o/r", "7", "token") == ([], "body", [], draft)
+    monkeypatch.setattr(review_gate, "_paged", paged_read)
+    assert review_gate.fetch_state("o/r", "7", "token") == (
+        [], "body", ["a" * 40, "b" * 40], draft, "title", (("a" * 40, "first"), ("b" * 40, "")))
+    # The commits come from the pull request's own list, which GitHub caps at 250, not the branch history.
+    assert paged == ["repos/o/r/issues/7/comments", "repos/o/r/pulls/7/commits"]
 
 
 def _may_publish_as_review_gate(name: str) -> bool:

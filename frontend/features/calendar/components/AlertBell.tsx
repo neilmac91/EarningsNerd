@@ -4,7 +4,9 @@
    AlertBell + BellPopover (features/calendar/components/AlertBell.tsx)
    -----------------------------------------------------------------------------
    The per-company earnings-alert toggle. Everyone sees the bell:
-     - signed-out  → popover prompting sign-in
+     - signed-out  → popover prompting sign-in; its second action follows the
+                     access mode (ACCESS_COPY: an invite while registration is
+                     invite-only, the free account when it is public)
      - free at cap → upsell popover (deliberate conversion surface, §3.7)
      - pro at cap  → the API's terse 403 message, verbatim, no upsell
    aria-pressed carries the on/off state.
@@ -43,6 +45,7 @@ import { Button, buttonVariants } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import type { BlockedState, EarningsAlertsApi } from '../hooks/useCalendar'
 import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
+import { ACCESS_COPY, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
 
 export function AlertBell({
   ticker,
@@ -106,7 +109,16 @@ export function AlertBell({
 }
 
 /** One popover per page, anchored to the bell that raised `blocked`. */
-export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClose: () => void }) {
+export function BellPopover({
+  blocked,
+  accessMode = DEFAULT_ACCESS_MODE,
+  onClose,
+}: {
+  blocked: BlockedState
+  /** The registration mode (resolveAccessMode): the signed-out prompt's account action. Fails closed to the invite. */
+  accessMode?: AccessMode
+  onClose: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const bodyId = useId()
@@ -210,7 +222,7 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
   const body = isError
     ? blocked.message // the API's message, verbatim — never rewritten client-side
     : blocked.kind === 'signin'
-      ? 'Day-of email alerts for companies you follow are free once you sign in.'
+      ? `Sign in to get an email the morning a company reports. Free includes ${FREE_EARNINGS_ALERT_LIMIT} companies.`
       : blocked.message
 
   return createPortal(
@@ -270,8 +282,8 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
                   <Link href="/login" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
                     Sign in
                   </Link>
-                  <Link href="/register" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-                    Create account
+                  <Link href={ACCESS_COPY[accessMode].href} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                    {ACCESS_COPY[accessMode].cta}
                   </Link>
                 </>
               )}

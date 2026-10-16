@@ -1,10 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 
 // recharts measures the DOM, which jsdom can't do — stub it (same pattern as analysis-teaser.spec.tsx).
+// `chartFault.on` makes the ComposedChart stub throw, so the chart fallback case can fail a panel.
+const chartFault = vi.hoisted(() => ({ on: false }))
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ComposedChart: ({ children }: { children: React.ReactNode }) => {
+    if (chartFault.on) throw new Error('chart failed to draw')
+    return <div>{children}</div>
+  },
   LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Bar: () => null,
   Line: () => null,
@@ -230,5 +235,30 @@ describe('TrendCharts PNG export wiring', () => {
     const header = clickExport('Balance sheet')
     expect(header?.title).toBe('Balance sheet')
     expect(header?.legend).toEqual([])
+  })
+})
+
+describe('TrendCharts chart fallback', () => {
+  let consoleError: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    chartFault.on = true
+    // React and the boundary's componentDidCatch log the caught error; keep the output quiet.
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    chartFault.on = false
+    consoleError.mockRestore()
+  })
+
+  it('names the grid when more than one panel shows and a panel throws (chrome/F10)', () => {
+    // Revenue and gross margin only: two visible panels (top line, margins), one boundary around both.
+    const two = structuredClone(dataset)
+    two.series = two.series.filter((s) => s.concept === 'revenue' || s.concept === 'gross_margin')
+    render(<TrendCharts dataset={two} />)
+    expect(screen.getByText('These charts could not be drawn.')).toBeInTheDocument()
+    expect(screen.queryByText('This chart could not be drawn.')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Margins' })).toBeNull()
   })
 })
