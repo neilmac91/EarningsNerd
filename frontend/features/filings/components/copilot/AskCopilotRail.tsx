@@ -181,8 +181,14 @@ export default function AskCopilotRail({
     if (lastStatus === 'reading' || !didInitialScrollRef.current) {
       el.scrollTop = el.scrollHeight
       didInitialScrollRef.current = true
-      // A question asked from a composer scrolled into view brings the conversation back to the top.
-      if (columnRef.current) columnRef.current.scrollTop = 0
+      // A question asked from a composer scrolled into view brings the conversation back to the top. Keyboard focus
+      // stays in the composer (its field or Send; runQuestion hands it there from a starter, a follow-up or Retry), so
+      // the composer then comes back to the column's nearest edge, its focus ring whole: an enlarged text size or a
+      // short sheet never leaves the focused control out of view.
+      if (columnRef.current) {
+        columnRef.current.scrollTop = 0
+        composerRef.current?.revealFocus()
+      }
     }
   }, [messages, lastStatus])
 

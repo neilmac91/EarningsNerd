@@ -237,6 +237,37 @@ describe('AskCopilotRail', () => {
     expect(screen.getByRole('button', { name: /what are the top risks/i })).toBeInTheDocument()
   })
 
+  it('brings the composer back into view when a question leaves focus in it, after Send or Enter', async () => {
+    vi.mocked(askFilingStream).mockImplementation(async () => {})
+    // jsdom has no scrollIntoView; record each call's element and options.
+    const calls: { el: Element; arg: unknown }[] = []
+    const jsdomScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+      calls.push({ el: this, arg })
+    })
+    try {
+      const user = userEvent.setup()
+      // The column returns to the top, then the composer's shell (the box that draws its focus ring around the field
+      // and Send, never the whole form: CopilotComposer.spec.tsx) comes to its nearest edge, once per question.
+      for (const via of ['Send', 'Enter'] as const) {
+        calls.length = 0
+        const view = renderRail({ open: true })
+        const field = screen.getByLabelText(/ask about this filing/i)
+        await user.type(field, via === 'Enter' ? 'What changed?{Enter}' : 'What changed?')
+        if (via === 'Send') await user.click(screen.getByRole('button', { name: /^send$/i }))
+        expect(document.activeElement).toBe(via === 'Enter' ? field : screen.getByRole('button', { name: /^send$/i }))
+        expect(calls).toHaveLength(1)
+        expect(calls[0].arg).toEqual({ block: 'nearest' })
+        expect(calls[0].el.contains(field) && calls[0].el.contains(document.activeElement)).toBe(true)
+        expect(calls[0].el.tagName).not.toBe('FORM')
+        view.unmount()
+      }
+      expect(askFilingStream).toHaveBeenCalledTimes(2)
+    } finally {
+      Element.prototype.scrollIntoView = jsdomScrollIntoView
+    }
+  })
+
   it('holds intermediate prose and renders the source-check footer + a source row on complete', async () => {
     let captured: CopilotHandlers | null = null
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
