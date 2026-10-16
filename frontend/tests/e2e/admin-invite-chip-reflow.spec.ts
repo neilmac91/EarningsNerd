@@ -17,9 +17,13 @@ import { test, expect, type Page } from '@playwright/test'
  * The 200% cases set the root element's font size, as catch-card-reflow does. The container query's em is the row's
  * own text size, so the threshold follows the text however it is enlarged.
  *
+ * The feedback list (/admin/feedback) shares the cards and their header rows, so its cases sit here too: at 320px its
+ * page never scrolls sideways, at the default size or under a 200% root (its filter row, a flex item without min-w-0,
+ * grew to the 255px status select inside a 158px header and took the page to 336px).
+ *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
- * browser with page.route fixtures (an admin with one pending invite), and the middleware's session gate is satisfied
- * by its non-credential presence cookie.
+ * browser with page.route fixtures (an admin with one pending invite, and one feedback report), and the middleware's
+ * session gate is satisfied by its non-credential presence cookie.
  */
 
 const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
@@ -37,7 +41,8 @@ type Box = { left: number; right: number; top: number; bottom: number }
  */
 const SCROLLS_BEFORE_ANY_CHIP = new Set(['320px, 200% text'])
 
-async function openInvites(page: Page, baseURL: string, theme: Theme) {
+/** Opens an admin page as an admin, the API answered in the browser. */
+async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string) {
   const origin = new URL(baseURL).origin
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
   await page.addInitScript((theme: Theme) => {
@@ -55,11 +60,17 @@ async function openInvites(page: Page, baseURL: string, theme: Theme) {
         return json(200, { id: 1, email: 'ada@example.com', full_name: 'Ada', is_pro: false, is_beta: false, is_admin: true, email_verified: true })
       case '/api/admin/invites':
         return json(200, { invites: [{ id: 1, email: INVITED, status: 'pending', cohort: 'beta', expires_at: '2026-11-01T00:00:00Z', used_at: null, user_id: null, created_at: '2026-10-14T00:00:00Z' }] })
+      case '/api/admin/feedback':
+        return json(200, { feedback: [{ id: 1, user_id: 42, user_email: INVITED, type: 'bug', message: 'The summary export button does nothing on Safari.', page_url: '/filing/123', status: 'new', created_at: '2026-10-14T00:00:00Z' }] })
       default:
         return json(404, { detail: 'Not found' })
     }
   })
-  await page.goto('/admin/invites')
+  await page.goto(path)
+}
+
+async function openInvites(page: Page, baseURL: string, theme: Theme) {
+  await openAdmin(page, baseURL, theme, '/admin/invites')
   // The field marks an address as invited only once the list has loaded.
   await expect(page.getByRole('table').getByText(INVITED)).toBeVisible()
   const field = page.getByLabel('Email addresses')
@@ -154,6 +165,14 @@ function expectNoSidewaysScroll(m: Measure, label: string) {
   }
 }
 
+/** The document's width and the viewport's once the root font is set (catch-card-reflow's 200% method). */
+async function pageWidth(page: Page, rootFont: string) {
+  return page.evaluate((size) => {
+    document.documentElement.style.fontSize = size
+    return { scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }
+  }, rootFont)
+}
+
 /** The address, the whole marker and the remove button share one line. */
 function expectOneLine(m: Measure, label: string) {
   expect(m.markerLines.every((line) => Math.abs(line.top - m.marker.top) < 1), `${label}: the marker wraps`).toBe(true)
@@ -203,6 +222,20 @@ for (const theme of ['light', 'dark'] as const) {
       expectClear(m, '1440px, default text')
       expectNoSidewaysScroll(m, '1440px, default text')
       expectOneLine(m, '1440px, default text')
+    })
+  })
+
+  test.describe(`the feedback list, ${theme} theme`, () => {
+    test('at 320px the page does not scroll sideways at the default size and under a 200% root font', async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 320, height: 900 })
+      await openAdmin(page, baseURL!, theme, '/admin/feedback')
+      await expect(page.getByRole('table').getByText(INVITED)).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      for (const [rootFont, text] of [['', 'default text'], ['32px', '200% text']] as const) {
+        const { scrollWidth, clientWidth } = await pageWidth(page, rootFont)
+        expect(clientWidth, `320px, ${text}: the viewport`).toBe(320)
+        expect(scrollWidth, `320px, ${text}: /admin/feedback scrolls sideways`).toBe(clientWidth)
+      }
     })
   })
 }

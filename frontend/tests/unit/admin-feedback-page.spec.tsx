@@ -118,6 +118,22 @@ describe('AdminFeedbackPage', () => {
 })
 
 /**
+ * The filter row shrinks with its card (DESIGN_SYSTEM.md §4 "Admin pages"; the chief designer's review of #1344: at
+ * 320px under 200% text the row grew to its 255px status select inside a 158px header and took the page to 336px).
+ * jsdom lays nothing out, so this pins the class; tests/e2e/admin-invite-chip-reflow.spec.ts measures the page.
+ */
+describe('AdminFeedbackPage: the filters stay inside the card', () => {
+  it('lets the filter row shrink below its selects and wrap them, as the invites page does', async () => {
+    vi.mocked(listFeedback).mockResolvedValue([bugReport])
+    renderPage()
+    await screen.findByText(bugReport.message)
+    const row = screen.getByLabelText('Filter by status').parentElement!
+    expect(row).toContainElement(screen.getByLabelText('Filter by type'))
+    expect(row).toHaveClass('min-w-0', 'flex-wrap')
+  })
+})
+
+/**
  * The table scrolls inside its card, never the page (DESIGN_SYSTEM.md §4 "Admin pages"; the #1309 capture review at
  * 390 found the page 1090px wide and, at 1440, the status selects cut off at the card's edge). Classes are what a
  * unit test can pin; the capture harness measures the layout they make in a real browser.

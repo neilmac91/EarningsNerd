@@ -558,8 +558,13 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  and tests/unit/admin-feedback-page.spec.tsx (the box, the cue while the table fits and while it
                  overflows, the message column). The section nav (app/admin/layout.tsx) wraps its tabs (`flex-wrap`):
                  an unwrapped row took the page to 443px at 390 under 200% text. Gate:
-                 tests/unit/admin-layout.spec.tsx. An email chip (EmailChipsInput) puts its address and the "already
-                 invited" marker in one `min-w-0` wrapping group: when they do not fit on a line the marker goes
+                 tests/unit/admin-layout.spec.tsx. Each card header's filter row is a `min-w-0` flex item that wraps
+                 its fields: a row that could not shrink took /admin/feedback to 336px at 320 under 200% text (its
+                 255px status select in a 158px header). A select capped at the card there clips its closed face, as
+                 the metric pickers' does (E34), and its open list shows every option whole. Gates:
+                 tests/unit/admin-feedback-page.spec.tsx (the class) and tests/e2e/admin-invite-chip-reflow.spec.ts
+                 (the page at 320px, at the default size and under a 200% root). An email chip (EmailChipsInput)
+                 puts its address and the "already invited" marker in one `min-w-0` wrapping group: when they do not fit on a line the marker goes
                  under the address, which truncates, and the remove button stays the chip's last child, inside the
                  card (a marker that could not shrink squeezed the address out at 200% text and pushed the button
                  past the card). Its 16px radius (`rounded-xl`) is a pill on one line and a rounded box once it

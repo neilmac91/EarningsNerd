@@ -58,7 +58,9 @@ export default function AdminFeedbackPage() {
             >
               Feedback
             </h2>
-            <div className="flex flex-wrap items-center gap-2">
+            {/* min-w-0: at 200% text the status filter alone is wider than this header on a phone (255px in 158px at
+                320); as a flex item this row would otherwise grow to that width and push the card past the screen. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <label htmlFor="filter-status" className="sr-only">
                 Filter by status
               </label>
