@@ -97,6 +97,33 @@ describe('InsiderActivityPanel', () => {
     expect(await screen.findByText(/pre-scheduled 10b5-1 plans/)).toHaveTextContent('discretionary net \u22121.2M shares')
   })
 
+  // E76: the summary reads share counts the API always sends, so a missing dollar value falls back to them and no
+  // line joins the missing-value token with a unit, a sign or a middot. A trade's missing share count, value or date
+  // is the token alone in its cell, which assistive tech reads as "unavailable".
+  it('never joins the missing-value dash with copy: missing dollar values fall back to shares, a missing cell reads as unavailable', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, buy_value: null, sell_value: null, net_value: null, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: -1_200_000 },
+      transactions: [txn({ shares: null, value: null, transaction_date: null })],
+    })
+    renderPanel()
+
+    expect(await screen.findByText(/Net insider buying/)).toHaveTextContent(/^Net insider buying · 10\.0K shares$/)
+    expect(screen.getByText(/pre-scheduled 10b5-1 plans/)).toHaveTextContent(
+      /^Excludes 50\.0K shares sold under pre-scheduled 10b5-1 plans · discretionary net −1\.2M shares$/,
+    )
+    expect(screen.getByText('15.0K sh')).toBeInTheDocument()
+    expect(screen.getByText('5.0K sh')).toBeInTheDocument()
+    expect(screen.getByText('+10.0K shares')).toBeInTheDocument()
+
+    const [, , sharesCell, valueCell, dateCell] = within(screen.getByRole('row', { name: /Jane Doe/ })).getAllByRole('cell')
+    for (const cell of [sharesCell, valueCell, dateCell]) {
+      expect(cell).toHaveAccessibleName('unavailable')
+      expect(within(cell).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+      expect(cell).toHaveTextContent(/^—unavailable$/)
+    }
+  })
+
   it('marks each trade type with a hidden ▲/▼ beside its label, and names the 10b5-1 badge plainly', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()

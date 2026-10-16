@@ -23,11 +23,19 @@ const WINDOWS: { days: number; label: string }[] = [
 
 const MAX_ROWS = 8
 
-const shares = (n: number | null | undefined, options?: { signed?: boolean }): string =>
-  n === null || n === undefined ? '—' : fmtShares(n, options)
+/** A dollar amount's size, compact ("$1.8M"); the panel states its direction beside it, in words or a sign. */
+const fmtMoney = (n: number): string => fmtCurrency(Math.abs(n), { compact: true })
 
-const fmtMoney = (n: number | null | undefined): string =>
-  n === null || n === undefined ? '—' : fmtCurrency(Math.abs(n), { compact: true })
+/** A trade's missing share count, value or date: the missing-value token alone in its cell, which assistive tech
+ *  reads as "unavailable". The summary never needs it: the API always sends its share counts, so a missing dollar
+ *  value falls back to them. `relative` keeps the sr-only word inside the table's scroll box
+ *  (lessons/frontend-sr-only-needs-a-positioned-clip.md). */
+const UNAVAILABLE = (
+  <span className="relative">
+    <span aria-hidden="true">—</span>
+    <span className="sr-only">unavailable</span>
+  </span>
+)
 
 function roleOf(t: InsiderTransaction): string {
   if (t.insider_title) return t.insider_title
@@ -76,9 +84,9 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
       </>
     ),
   },
-  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => shares(t.shares) },
-  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => fmtMoney(t.value) },
-  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? '—' },
+  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => (t.shares == null ? UNAVAILABLE : fmtShares(t.shares)) },
+  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => (t.value == null ? UNAVAILABLE : fmtMoney(t.value)) },
+  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? UNAVAILABLE },
 ]
 
 export default function InsiderActivityPanel({
@@ -147,7 +155,7 @@ export default function InsiderActivityPanel({
       : direction === 'sell'
         ? 'Net insider selling'
         : 'Balanced insider activity'
-  const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${shares(signalValue)} shares`
+  const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
 
   return (
     <Card as="section" className="mb-8 p-6">
@@ -183,9 +191,9 @@ export default function InsiderActivityPanel({
               </p>
               {planSells > 0 && (
                 <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-                  Excludes {shares(planSells)} shares sold under pre-scheduled 10b5-1 plans
+                  Excludes {fmtShares(planSells)} shares sold under pre-scheduled 10b5-1 plans
                   {summary.discretionary_net_shares !== summary.net_shares && (
-                    <> · discretionary net {shares(summary.discretionary_net_shares, { signed: true })} shares</>
+                    <> · discretionary net {fmtShares(summary.discretionary_net_shares, { signed: true })} shares</>
                   )}
                 </p>
               )}
@@ -199,7 +207,7 @@ export default function InsiderActivityPanel({
                 Buys ({summary.buy_count})
               </p>
               <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {fmtMoney(summary.buy_value) !== '—' ? fmtMoney(summary.buy_value) : `${shares(summary.buy_shares)} sh`}
+                {summary.buy_value != null ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
               </p>
             </div>
             <div className="rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
@@ -207,7 +215,7 @@ export default function InsiderActivityPanel({
                 Sells ({summary.sell_count})
               </p>
               <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {fmtMoney(summary.sell_value) !== '—' ? fmtMoney(summary.sell_value) : `${shares(summary.sell_shares)} sh`}
+                {summary.sell_value != null ? fmtMoney(summary.sell_value) : `${fmtShares(summary.sell_shares)} sh`}
               </p>
             </div>
             <div className="rounded-lg bg-background-light p-3 dark:bg-white/5">

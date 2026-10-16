@@ -36,14 +36,18 @@ import { heldValues, knownAsIn, leavesOf, scopeResolver, unwrapHeld } from './he
  * and `const DASH = '—'` or `let DASH; DASH = '—'` read as
  * `{DASH} {speaker}` (BG-02). An element is a value of its own, so a token
  * that is the sole child of a `<span>` stands alone wherever the span goes.
- * What a function returns is read where it is written: a formatter's `'—'`
- * fallback, or a callback's, stands alone at its `return`, and a call's
- * value never holds it (the app joins nine such fallbacks with copy today,
- * E76 in tasks/todo.md). Out of reach too, planted as gaps in the
- * self-check and review-checked: a token that crosses modules (an export
- * read in another file, an imported formatter's fallback), React state, a
- * class's field read through `this`, a promise's `then` and a generator's
- * `yield`.
+ * What a same-file function returns is its call's value, read where the
+ * call is (E76): a formatter's `'—'` fallback fails wherever its call is
+ * joined into copy (a unit after it, `{shares(n)} shares` or
+ * `${shares(n)} sh`, a sign before it, a middot or an sr-only label beside
+ * it), and a callback's wherever its result goes (`map`'s into `join`,
+ * `useMemo`'s beside a sibling). A formatter whose value sits beside copy
+ * returns no figure for a missing value (`null`), and its caller renders the
+ * token in an element of its own in its place. Out of reach, planted as gaps
+ * in the self-check and review-checked: a token that crosses modules (an
+ * export read in another file, an imported formatter's fallback), React
+ * state, a class's field read through `this`, a promise's `then` and a
+ * generator's `yield`.
  *
  * If you're writing copy and want a dash: restructure the sentence (split it,
  * use a colon, or a middot separator for compact labels). En-dashes (–) in
@@ -99,8 +103,9 @@ function violationsIn(text: string, file: string): string[] {
         : ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e) || (ts.isCallExpression(e) && ELEMENT_CALLS.has(calleeName(e)))
           ? ['element']
           : undefined,
-    // A function's return is read where it is written (a formatter's fallback stands alone at its `return`).
-    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined), returns: false },
+    // A same-file function's return is its call's value (E76): a formatter's fallback fails where its call is joined.
+    // The self-check's E76 plants (88 to 97) fail if this goes back to false.
+    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined), returns: true },
   )
   const holdsToken = (e: ts.Expression | undefined) => !!e && leavesOf(values.valueOf(ts.isSpreadElement(e) ? e.expression : e)).has('token')
 
@@ -238,10 +243,24 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       "export const AT = (el: ReactElement, speaker: string) => cloneElement(el, null, '—', ' ', speaker)",
       'const Said = ({ mark, who }: { mark: string; who: string }) => <cite>{mark} {who}</cite>',
       'export const AU = () => <Said mark="—" who="x" />',
+      "const count = (n?: number) => (n == null ? '—' : String(n))",
+      'export const AV = ({ n }: { n?: number }) => <p>Excludes {count(n)} shares sold</p>',
+      'export const AW = (n?: number) => `${count(n)} sh`',
+      "export const AX = ({ n }: { n: number }) => <p>{n < 0 ? '−' : '+'}{count(n)}</p>",
+      'export const AY = ({ n }: { n?: number }) => <p>Net buying{n !== 0 && <> · {count(n)}</>}</p>',
+      "function figure(v?: number) { if (v == null) return '—'; return String(v) }",
+      'export const AZ = ({ v }: { v?: number }) => <span><span className="sr-only">Prior </span>{figure(v)}<span aria-hidden="true"> → </span></span>',
+      "export const BA = ({ n }: { n?: number }) => { const size = count(n); return <p>{'−'}{size}</p> }",
+      "export const BB = (vs: number[]) => vs.map((v) => (v ? String(v) : '—')).join(' sh, ')",
+      "export function BC({ v }: { v?: number }) { const shown = useMemo(() => v ?? '—', [v]); return <p>{shown} shares</p> }",
+      'const shownOrNull = (v?: number) => (v == null ? null : String(v))',
+      'const GONE = <span className="relative"><span aria-hidden="true">—</span><span className="sr-only">unavailable</span></span>',
+      'export const BD = ({ v }: { v?: number }) => <span><span className="sr-only">Prior </span>{shownOrNull(v) ?? GONE}<span aria-hidden="true"> → </span></span>',
+      'export const BE = ({ v }: { v?: number }) => <td>{count(v)}</td>',
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
-    // attribute's value) and 18 to 19 are read where they are written (a name no line reads, a comparison, a
-    // fallback returned). Lines 8 to 11 sit beside sibling children (as text, a literal, a conditional's branch,
+    // attribute's value) and 18 to 19 hold the token where nothing joins it (a name no line reads, a comparison, a
+    // fallback returned by a function no line calls). Lines 8 to 11 sit beside sibling children (as text, a literal, a conditional's branch,
     // the right of `||` in parentheses), 14 is a `+` operand, 15 a template's substitution, 16 a template's head
     // and 17 the right of `+=`. A name holding the token is followed to its reads: DASH (20) is rendered beside a
     // sibling at 21 and is a `+` operand at 22; NONE (23) stands alone as a fallback at 24, and HELD (25), which holds
@@ -264,10 +283,16 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // child at 70 stands alone, a spread child at 83 may be several) and `cloneElement`'s (85), an element of `join`'s
     // receiver (71) and its separator (72), an argument of `concat` (73) and its receiver (84), the replacement of
     // `replace` and `replaceAll` (74, twice), the fill of `padStart` and `padEnd` (75, twice) and the left of `+=` (76).
-    // Planted gaps, read where they are written: a function's return (fallback, 77, read at 78), React state (79) and a
-    // class's field (80).
+    // A same-file function's return is its call's value (E76): fallback's (77) is read beside a sibling at 78. The
+    // forms E76 found, each a formatter's fallback joined where it is called: a unit after it, in JSX text (count, 88,
+    // at 89) and in a template (90), a sign before it (91), a middot inside a conditional fragment (92), a declared
+    // formatter's early return beside an sr-only label and the arrow (figure, 93, at 94) and a name given a call's
+    // value, read beside a sign (95); and a callback's return, `map`'s into `join` (96) and `useMemo`'s beside text
+    // (97). The forms that replace them pass: a formatter that returns null for a missing value, with the token in
+    // an element of its own in its place (98 to 100), and a fallback that is its cell's sole child (101). Planted
+    // gaps, read where they are written: React state (79) and a class's field (80).
     expect(violationsIn(src, file)).toEqual(
-      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 82, 83, 84, 85, 86].map(
+      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 94, 95, 96, 97].map(
         (line) => `features/zzprobe/Probe.tsx:${line} —`,
       ),
     )

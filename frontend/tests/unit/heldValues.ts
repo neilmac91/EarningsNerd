@@ -47,7 +47,8 @@ import ts from 'typescript'
  *    holds what the component returns, each time it is rendered (`<AlertMark />` where `AlertMark` returns
  *    `<BellIcon />`), so a glyph or an icon a component draws is read where the component is rendered;
  *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions), unless
- *    the gate reads a return where it is written (`returns: false`, the em-dash gate: then no call holds a return); an
+ *    the gate reads a return where it is written (`returns: false`: then no call holds a return; no gate does since
+ *    the em-dash gate began reading returns at the call, E76); an
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
  *    `reduce` (its accumulator); `Object.values`, `Object.entries` (each value at index 1), `Object.assign` (its

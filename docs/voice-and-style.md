@@ -101,8 +101,13 @@ the business card, the footer and the merch; it is the positioning in six words.
 - **En-dashes (–) stay** in genuine numeric or date ranges: Q1–Q4, 30–60s, FY2019–FY2024.
 - **The bare `—` null-value token stays.** Tables and detail rows render `—` for missing
   data (see `MISSING_TOKENS` in `frontend/lib/format.ts`). That is a data convention, not
-  prose. It is the only sanctioned em-dash and the CI gate
-  (`frontend/tests/unit/no-em-dash-copy.spec.ts`) allowlists exactly the bare `'—'` literal.
+  prose. It is the only sanctioned em-dash, and it stands alone, in a cell or an element of
+  its own: never with a unit after it, a sign before it or a middot joining it to a label. A
+  figure that sits in a line of copy and can be missing gets words, or the token in its own
+  element; the insider panel and What changed give that element the word "unavailable" for
+  assistive tech, the word the analysis evidence uses for a missing figure. The CI gate
+  (`frontend/tests/unit/no-em-dash-copy.spec.ts`) exempts the bare `'—'` only where it stands
+  alone, and reads a same-file formatter's fallback where the formatter is called.
 
 ## House conventions
 
