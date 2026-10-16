@@ -18,7 +18,7 @@ import {
  *  - no-side-stripe (P-08): a thick left border on a rounded container is the side-tab stripe card.
  *    Evaluated on whole class strings, so a stripe split across template chunks or cx() arguments
  *    is caught, while a quotation's unrounded 2px bar and the Callout's full hairline pass.
- *  - no-form-code-badge (P-04): a form code is text in the data face, never a <Badge>.
+ *  - no-form-code-badge (P-04): a form code is text in the data face, never a <Badge> or a hand-rolled eyebrow chip.
  *  - no-unguarded-animation (P-09): every animation utility stops under reduced motion, through
  *    motion-safe: or a motion-reduce:animate-none with the same variants that always renders with it.
  *    The globals.css classes it exempts must stop themselves there, and so must every other animation
@@ -90,20 +90,237 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // Descriptive props may name the form: they describe the badge, they are not its content.
     '<Badge variant="warning" title={`Amends the ${filing.filing_type}`}>Superseded</Badge>',
     '<Badge aria-label={`${filing.form_type} superseded`}>Superseded</Badge>',
+    // Props that neither display nor style the badge are not its content (the review's case): React's key and ref, an
+    // event handler, a data attribute and an id, on the badge or on an element inside it.
+    '<Badge key={filing.form}>Current</Badge>',
+    '<Badge ref={refs[filing.form]}>Current</Badge>',
+    '<Badge onClick={() => open(filing.form)}>Current</Badge>',
+    '<Badge data-form={filing.form}>Current</Badge>',
+    '<Badge id={`badge-${filing.form}`}>Current</Badge>',
+    '<Badge><span key={hit.form}>Current</span></Badge>',
+    // The data face is the form code's place; eyebrow type on a label that is not a form passes.
+    '<span className="font-data text-text-primary-light">{hit.form}</span>',
+    '<span className="uppercase tracking-eyebrow text-text-tertiary-light">Revenue</span>',
+    // The form is not the first child: a sentence that names the form is copy, not a chip.
+    '<span className="uppercase tracking-eyebrow">Latest {filing.filing_type}</span>',
+    '<p className="uppercase tracking-eyebrow">Filed {ago} with the {filing.form}</p>',
+    '<span className="uppercase tracking-eyebrow">10-K filings this week</span>',
+    // A nested wrapper that resets the recipe sets the code in a face of its own, and a component inside the
+    // wrapper is judged by its own rule.
+    '<p className="uppercase tracking-eyebrow"><span className="normal-case tracking-normal font-data">{filing.form}</span> · Filed {ago}</p>',
+    '<span className="uppercase tracking-eyebrow"><Eyebrow>{form}</Eyebrow></span>',
+    // Sibling wrappers whose lead is a word, not a form, are copy.
+    '<span className="uppercase tracking-eyebrow"><span>Latest</span> <span>{filing.form}</span></span>',
+    // A reset on every path of the class value sets a face of its own: both arms of a conditional, a cx() argument.
+    "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case tracking-normal' : 'normal-case'}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx('normal-case', size)}>{form}</span></span>",
+    // Each path needs a reset, not the same one: one half of the recipe cancelled on each path.
+    "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case' : 'tracking-normal'}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx(plain ? 'normal-case' : 'tracking-normal', 'font-data')}>{form}</span></span>",
+    "const CASE = 'normal-case'\nexport const C = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={CASE || 'tracking-normal'}>{form}</span></span>",
+    // A bracket read of a field that is not a form is copy.
+    "<span className=\"uppercase tracking-eyebrow\">{hit['title']}</span>",
+    // A conditional whose arms both render a word leads on every path, and so does a fallback to a word.
+    "<span className=\"uppercase tracking-eyebrow\">{label || 'Latest'} {form}</span>",
+    "<span className=\"uppercase tracking-eyebrow\">{isNew ? 'New' : 'Latest'} {form}</span>",
+    // A `??` whose left can only be null or undefined when it is empty falls to its right side, a word.
+    "<span className=\"uppercase tracking-eyebrow\">{(isNew ? 'New' : null) ?? 'Latest'}{form}</span>",
+    // A gap the rule's comment names: a left the scan cannot read is taken to render, as `{label}` is, so a `??` over
+    // it passes though `label` may be '' (the review's case).
+    "<span className=\"uppercase tracking-eyebrow\">{label ?? 'Latest'}{form}</span>",
+    // A class helper's object form resets the face when the key's value is the literal true.
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case tracking-normal': true })}>{form}</span></span>",
+    // A helper's key whose value is falsy whatever runs never emits its class (the review's case, and the rest of the
+    // family: null, 0, undefined, void, a falsy `&&`, a conditional with both arms falsy).
+    "<span className={cx({ uppercase: false, 'tracking-eyebrow': false })}>{form}</span>",
+    "<span className={cx({ uppercase: null, 'tracking-eyebrow': 0 })}>{form}</span>",
+    "<span className={cx({ uppercase: undefined, 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx({ uppercase: void 0, 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx({ uppercase: dense && false, 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx({ uppercase: dense ? false : '', 'tracking-eyebrow': true })}>{form}</span>",
+    // The rest of the family a fixed truthiness decides (staticTruth): a negation of a value whose truthiness is fixed,
+    // and an operand that never renders, the right of `&&` after a falsy left, of `||` and `??` after a truthy one, the
+    // arm a fixed test never takes.
+    "<span className={cx({ uppercase: !!0, 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx({ uppercase: ![], 'tracking-eyebrow': true })}>{form}</span>",
+    "<span className={cx(false && 'uppercase', 'tracking-eyebrow')}>{form}</span>",
+    "<span className={cx('tracking-eyebrow', 'quiet' || 'uppercase')}>{form}</span>",
+    "<span className={cx('tracking-eyebrow', 'quiet' ?? 'uppercase')}>{form}</span>",
+    "<span className={cx('tracking-eyebrow', true ? 'font-medium' : 'uppercase')}>{form}</span>",
+    // A reset a fixed truthiness guarantees is a reset on every path: a helper key truthy whatever runs, the arm a fixed
+    // test takes, the right of `&&` after a truthy left, the side of `||` or `??` a fixed left decides.
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': 1 })}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': !0 })}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={true ? 'normal-case' : ''}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={!0 && 'normal-case'}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={'' || 'normal-case'}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={'normal-case' ?? plain}>{form}</span></span>",
+    // An important reset is a reset.
+    '<span className="uppercase tracking-eyebrow"><span className="!normal-case !tracking-normal">{form}</span></span>',
+    // Either half of the recipe reset is a reset, in any of its forms: another text-transform (the review's case
+    // `lowercase`, and `capitalize`), an arbitrary letter-spacing with a decimal, and the arbitrary properties.
+    '<span className="uppercase tracking-eyebrow"><span className="lowercase">{form}</span></span>',
+    '<span className="uppercase tracking-eyebrow"><span className="capitalize">{form}</span></span>',
+    '<span className="uppercase tracking-eyebrow"><span className="tracking-[0.02em]">{form}</span></span>',
+    '<span className="uppercase tracking-eyebrow"><span className="[text-transform:none]">{form}</span></span>',
+    '<span className="uppercase tracking-eyebrow"><span className="[letter-spacing:0]">{form}</span></span>',
+    // A same-file binding's reset is read by its class-shaped initializer, in every branch that reads it.
+    "const RESET = 'normal-case'\nexport const C = ({ form, dense }) => <span className=\"uppercase tracking-eyebrow\"><span className={dense ? RESET : cx(RESET, 'font-data')}>{form}</span></span>",
+    "const PLAIN = 'normal-case tracking-normal'\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>",
+    // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
+    '<Eyebrow className="uppercase tracking-eyebrow">{form}</Eyebrow>',
+    // A same-file class binding is read as an inline class is: one that is not the eyebrow recipe passes
+    // around a form, and the eyebrow recipe passes on a label that is not a form (FinancialMetricsTable's <dt>).
+    "const DATA = 'font-data text-text-primary-light'\nexport const Code = ({ filing }) => <span className={DATA}>{filing.form}</span>",
+    "const EYEBROW = 'text-xs uppercase tracking-eyebrow'\nexport const Label = () => <dt className={EYEBROW}>Change</dt>",
+    // Prose that opens with an insider form's name is copy, as it is for a numbered code.
+    '<p className="uppercase tracking-eyebrow">Form 4 filings this week</p>',
+    // The letters after a dash are each form family's own: a span of years or a rank is not a form.
+    '<span className="uppercase tracking-eyebrow">10-year</span>',
+    // A hyphen joined to the code is a word, and a possessive is prose, not a separator.
+    '<span className="uppercase tracking-eyebrow">S-1-style disclosures</span>',
+    "<p className=\"uppercase tracking-eyebrow\">10-K's cover page</p>",
+    '<Badge>Top 10</Badge>',
+    // A model name is not a form: F-150 reads past the range.
+    '<Badge>F-150</Badge>',
+    // Each periodic family pairs its own number and letter: 40-K, 20-Q and 11-F are no form EDGAR writes.
+    '<Badge>40-K</Badge>',
+    '<Badge>20-Q</Badge>',
+    '<span className="uppercase tracking-eyebrow">11-F</span>',
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
+    // A prop that displays or styles the badge still counts: its variant, class, style or icon read from the form, and
+    // the children beside a handler and a data attribute.
+    { code: "<Badge variant={filing.form === '10-Q' ? 'info' : 'neutral'}>Current</Badge>", errors: [{ messageId: 'badge' }] },
+    { code: '<Badge className={TONE[filing.form]}>Current</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<Badge style={{ color: COLOR[hit.form] }}>Current</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<Badge icon={<b>{filing.form}</b>}>Current</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<Badge onClick={open} data-x="y">{filing.form}</Badge>', errors: [{ messageId: 'badge' }] },
+    // The insider forms are written as words (the search's "Form 4" chip sends `4`): a code to this rule too.
+    { code: '<Badge>Form 4</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<span className="uppercase tracking-eyebrow">Form 4</span>', errors: [{ messageId: 'chip' }] },
+    // The other families the product renders: the ownership filings the notable-filing card shows, a fund's holdings report.
+    { code: '<span className="uppercase tracking-eyebrow">SC 13D</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<Badge>13F-HR</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{"SC 13D/A · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // The registration families read as ranges: S-6, F-10 and SF-3 are forms EDGAR writes.
+    { code: '<span className="uppercase tracking-eyebrow">S-6</span>', errors: [{ messageId: 'chip' }] },
+    // The lead read through nested HTML wrappers: uppercase and letter-spacing inherit, so the inner span is the chip.
+    { code: '<span className="uppercase tracking-eyebrow"><span>{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow"><span><b>{filing.form}</b></span> · Filed {ago}</p>', errors: [{ messageId: 'chip' }] },
+    // Sibling HTML wrappers are read in place: the face inherits into each of them.
+    { code: '<span className="uppercase tracking-eyebrow"><span>{form}</span><span> · Filed {ago}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow">{filing.form}<span> · Filed {ago}</span></p>', errors: [{ messageId: 'chip' }] },
+    // What follows the lead does not take the chip's face off it: a component, a reset sibling, an empty icon wrapper first.
+    { code: '<div className="uppercase tracking-eyebrow">{filing.form}<Badge>New</Badge></div>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow">{filing.form}<span className="normal-case tracking-normal">filed today</span></p>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow"><i className="h-3 w-3" />{form}</span>', errors: [{ messageId: 'chip' }] },
+    // A reset under a variant leaves the face on in the other branch (a phone, the light theme), and wrappers
+    // are read at any depth.
+    { code: '<span className="uppercase tracking-eyebrow"><span className="sm:normal-case">{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow"><span className="dark:tracking-normal">{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    // An uppercase transform written as an arbitrary property keeps the face, and a lowercase one under a variant does too.
+    { code: '<span className="uppercase tracking-eyebrow"><span className="[text-transform:uppercase]">{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow"><span className="sm:lowercase">{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow"><span><span><span><span>{form}</span></span></span></span></span>', errors: [{ messageId: 'chip' }] },
+    // A fragment renders its children in place.
+    { code: '<span className="uppercase tracking-eyebrow"><>{form}</> · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // A reset on one path of the class value leaves the face on in the other; a blank expression is not the lead.
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case' : ''}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx(plain && 'normal-case')}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={size || 'normal-case'}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    // `??` keeps a left that is blank but not null or undefined (`false` from an `&&`, an empty arm): the form leads then.
+    { code: "<span className=\"uppercase tracking-eyebrow\">{(isNew && 'New') ?? 'Latest'}{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\">{(plain ? '' : 'New') ?? 'Latest'}{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "const PLAIN = cx(plain && 'normal-case')\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\">{' '}{form}</span>", errors: [{ messageId: 'chip' }] },
+    // A class helper's object form names its classes by key, bare or quoted, inline or through a binding; a reset
+    // keyed on a condition leaves the face on in the other branch.
+    { code: "<span className={cx({ uppercase: true, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "const EYEBROW = cx({ uppercase: true, 'tracking-eyebrow': active })\nexport const C = ({ form, active }) => <span className={EYEBROW}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': plain })}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    // A key whose value may be truthy keeps its class: an `||` or `??` with a side that may be truthy, a conditional with
+    // an arm that may be, a negated falsy literal, an `&&` with no side always falsy, a template with an expression.
+    { code: "<span className={cx({ uppercase: dense || false, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: dense ?? null, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: dense ? true : false, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: !0, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: dense && 'on', 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx({ uppercase: `${dense}`, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    // An operand that may render keeps its class: the right of `&&` after a truthy left, of `||` after a falsy left or
+    // one that may be, the arm a fixed test takes.
+    { code: "<span className={cx(true && 'uppercase', 'tracking-eyebrow')}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx('tracking-eyebrow', false || 'uppercase')}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx('tracking-eyebrow', dense || 'uppercase')}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className={cx('tracking-eyebrow', false ? 'font-medium' : 'uppercase')}>{form}</span>", errors: [{ messageId: 'chip' }] },
+    // A reset a fixed truthiness leaves out on a path is no reset: a key falsy whatever runs, the arm a fixed test takes
+    // without one, `??` after a falsy left that is never null or undefined.
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': 0 })}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={false ? 'normal-case' : ''}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={'' ?? 'normal-case'}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    // A form field read by bracket notation is the field.
+    { code: "<span className=\"uppercase tracking-eyebrow\">{hit['form']}</span>", errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{filing?.[`filing_type`]} · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // An expression that renders nothing on one path leaves the form leading there: a fallback to nothing too.
+    { code: '<span className="uppercase tracking-eyebrow">{label || null}{form}</span>', errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\">{note ?? ''}{filing.form} · Filed {ago}</span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\">{isNew && 'New · '}{form}</span>", errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{isNew ? <b>New</b> : null}{filing.form} · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // Tailwind 3's important modifier sets the same face, under a variant or not.
+    { code: '<span className="!uppercase !tracking-eyebrow">{filing.form}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="sm:!uppercase tracking-eyebrow">{form} · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<Badge>F-10</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{"SF-3 · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // A meta line's separator may be a comma, a colon or semicolon, or a dash set off by a space, not only a middot.
+    { code: '<span className="uppercase tracking-eyebrow">10-Q - Filed yesterday</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{"8-K, filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow">DEF 14A: Filed {ago}</p>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow">{`10-K – Filed ${ago}`}</p>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge variant="neutral">{data.filingType}</Badge>', errors: [{ messageId: 'badge' }] },
     {
       code: "<Badge variant={/10-Q|6-K/i.test(filing.filing_type) ? 'info' : 'neutral'}>{form}</Badge>",
       errors: [{ messageId: 'badge' }],
     },
     { code: '<Badge>10-Q</Badge>', errors: [{ messageId: 'badge' }] },
+    // The periodic families EDGAR writes, the transition forms among them.
+    { code: '<Badge>10-QT</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<span className="uppercase tracking-eyebrow">11-KT</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<Badge>40-F</Badge>', errors: [{ messageId: 'badge' }] },
     { code: "<Badge>{'20-F/A'}</Badge>", errors: [{ messageId: 'badge' }] },
     // A form field by its short name, a template literal, and the member-expression spelling.
     { code: '<Badge>{f.form}</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<Badge>{`10-K`}</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<ui.Badge variant="neutral">{filing.filing_type}</ui.Badge>', errors: [{ messageId: 'badge' }] },
+    // A hand-rolled chip: eyebrow type (uppercase, tracking-eyebrow) around a form field or a form code,
+    // as the full-text search rows had it (audit SRCH-02).
+    {
+      code: '<span className="rounded border px-1.5 py-0.5 uppercase tracking-eyebrow">{hit.form}</span>',
+      errors: [{ messageId: 'chip' }],
+    },
+    { code: '<span className={`uppercase ${tone} tracking-eyebrow`}>{filing?.filing_type}</span>', errors: [{ messageId: 'chip' }] },
+    { code: "<div className={cx('uppercase', 'sm:tracking-eyebrow')}>10-K/A</div>", errors: [{ messageId: 'chip' }] },
+    // The form leading a meta line, followed only by text or expressions: the notable-filing card had it.
+    {
+      code: '<div className="mt-1 text-xs uppercase tracking-eyebrow">\n  {filing.form}\n  {ago ? ` • Filed ${ago}` : \'\'}\n</div>',
+      errors: [{ messageId: 'chip' }],
+    },
+    { code: '<span className="uppercase tracking-eyebrow">{/* code */}10-Q · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // The first child is read as a Badge's children are (formNode): a form field anywhere in the expression,
+    // and a string that is a code or opens with one before a separator.
+    { code: '<span className="uppercase tracking-eyebrow">{hit.form ?? "—"}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{filing.form.toUpperCase()}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{"10-Q · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // The eyebrow recipe held in a same-file binding, read through `className={EYEBROW}`, and one built with
+    // cx() and read through a template.
+    {
+      code: "const EYEBROW = 'uppercase tracking-eyebrow'\nexport const Code = ({ filing }) => <span className={EYEBROW}>{filing.form}</span>",
+      errors: [{ messageId: 'chip' }],
+    },
+    {
+      code: "const EYEBROW = cx('text-xs uppercase', 'tracking-eyebrow')\nexport const Meta = ({ form, ago }) => <p className={`${EYEBROW} mt-1`}>{form} · Filed {ago}</p>",
+      errors: [{ messageId: 'chip' }],
+    },
   ],
 })
 
@@ -369,6 +586,29 @@ describe('the repository config', SLOW, () => {
       'earningsnerd/no-unguarded-animation',
     ])
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
+  })
+
+  it('reads the eyebrow recipe behind `as const` or `satisfies` through the app parser (typescript-eslint)', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const [result] = await eslint.lintText(
+      [
+        "const EYEBROW = 'uppercase tracking-eyebrow' as const",
+        "const META = 'text-xs uppercase tracking-eyebrow' satisfies string",
+        "const DATA = 'font-data text-text-primary-light' as const",
+        'export function Probe({ form, ago }: { form: string; ago: string }) {',
+        '  return (',
+        '    <>',
+        '      <span className={EYEBROW}>{form}</span>',
+        '      <p className={`${META} mt-1`}>{form} · Filed {ago}</p>',
+        '      <span className={DATA}>{form}</span>',
+        '    </>',
+        '  )',
+        '}',
+        '',
+      ].join('\n'),
+      { filePath: path.join(frontendRoot, 'app/design-rules-probe.tsx') },
+    )
+    expect(result.messages.map((m) => `${m.line} ${m.ruleId}`)).toEqual(['7 earningsnerd/no-form-code-badge', '8 earningsnerd/no-form-code-badge'])
   })
 
   it('reads a same-file wrapper and the DS Button under another name through the app parser (typescript-eslint)', async () => {
