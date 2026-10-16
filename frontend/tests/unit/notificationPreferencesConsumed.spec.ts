@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { bindingResolver } from './astBindings'
 
 /**
  * No dead preference ships (DSW-01). Every alert preference the settings form renders or saves, and every
@@ -15,16 +16,27 @@ import { describe, expect, it } from 'vitest'
  * reaches), a helper only the write path calls (a `_normalize_digest` sanitizer), a GET serializer and a
  * module constant cannot stand in for a job honouring the field. Comments and docstrings are ignored.
  *
- * The form's fields are read off the prefs value wherever the form reads it: a member in any attribute, child or
- * expression of any element or component (`checked={prefs.digest === 'weekly'}`, `selected={prefs.x}`,
- * `{prefs.x ? … : …}`, `disabled={!prefs.x}`), optional or bracketed (`prefs?.x`, `prefs['x']`), and a key taken out
- * of it; the value is followed to a const that holds it, a key named prefs taken out of an object, and a same-file
- * component's prop it is handed under any name (`<Rows source={prefs} />`, read where Rows takes `{ source }` or
- * `props.source`). So are the fields a save writes: through `save`, any `.mutate`, and any same-file function that
- * calls one. A field the API fills from the account's entitlements (`_prefs_response` in backend/app/routers/users.py
- * assigns it from `ent.`, and the update model does not take it) is gating the user cannot set, not a preference, so
- * a read of it there is not held to the jobs; read directly as a control's state (`checked={prefs.x}`), as main read
- * it, any field is.
+ * The form's fields are read off the prefs value (a binding named prefs, in any scope) wherever the form reads it:
+ * a member in any attribute, child or expression of any element or component (`checked={prefs.digest === 'weekly'}`,
+ * `selected={prefs.x}`, `{prefs.x ? … : …}`, `disabled={!prefs.x}`), written `?.`, `!` or bracketed with a literal key,
+ * and a key taken out of it. The value is followed through the form's own file, a name to the declaration it binds to
+ * (astBindings), to: a const that holds it; a key named prefs taken out of any object; a same-file component's prop
+ * it is handed under any name or spread into (`<Rows source={prefs} />`, `<Rows {...prefs} />`, read as `{ source }`,
+ * `props.source`, a rest, or each key taken out of the spread); a same-file function's parameter it is handed at a
+ * call; what a same-file hook returns; and a context the file provides it through (`<C.Provider value={prefs}>` or
+ * React 19's `<C value={prefs}>`, read with `useContext(C)` or `use(C)`). A component or a function is any the file
+ * declares: a function declaration, an arrow or a function expression, one a call wraps (useCallback, useMemo's
+ * factory, memo, forwardRef or any wrapper, nested), an object's method or arrow property (`actions.persist`,
+ * `<Parts.Row>`), one a same-file hook returns, and one handed on as a prop or an argument. The fields a save writes
+ * are read the same way: a call of `save`, any `.mutate` or any such function that calls one, its update written in
+ * place, held in a const or spread from one; and each name handed to `setBool` or any such function that saves
+ * `{ [name]: … }` keyed by its own parameter. Out of reach, each planted as a gap the self-check asserts unread: a
+ * value or a function from another module, a class component, the value kept in React state or a ref (`useState`,
+ * `useRef`), a field named by a computed key or enumerated (`prefs[key]`, `Object.entries(prefs)`), and a function
+ * called through call, apply or bind or held in an array. A field the API fills from the account's entitlements
+ * (`_prefs_response` in backend/app/routers/users.py assigns it from `ent.`, and the update model does not take it) is
+ * gating the user cannot set, not a preference, so a read of it there is not held to the jobs; read directly as a
+ * control's state (`checked={prefs.x}`), as main read it, any field is.
  *
  * The values the form offers are read where they are written, in each form a choice takes: any element's
  * `value="…"` or `value={'…'}` (an <option>, a radio input, a custom item; `value={prefs.x}` is the control's
@@ -203,86 +215,267 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     return []
   }
 
-  // The file's named functions (a declaration, or a const holding an arrow or a function expression), by name.
-  const functions = new Map<string, ts.SignatureDeclaration>()
-  const collect = (node: ts.Node): void => {
-    if (ts.isFunctionDeclaration(node) && node.name) functions.set(node.name.text, node)
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-      const init = unwrap(node.initializer)
-      if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) functions.set(node.name.text, init)
-    }
-    ts.forEachChild(node, collect)
+  // ── What the form hands where: its functions and the prefs value, followed through the file ─────────────────────────
+  // A name is the declaration an identifier binds to in the file (astBindings, so two components' `props` stay apart; an
+  // unbound name, an import or a global, is its text), or a member path from one (`actions.persist`, `props.source`). A
+  // function is reached by the name its call or its tag spells, and each of its parameters takes what every call and tag
+  // in the file hands it there. Run to a fixed point.
+  const resolve = bindingResolver(source)
+  const ids = new Map<ts.Node, string>()
+  const keyOf = (id: ts.Identifier): string => {
+    const decl = resolve(id)?.decl
+    if (!decl) return id.text
+    let key = ids.get(decl)
+    if (!key) ids.set(decl, (key = `${id.text}#${ids.size}`))
+    return key
   }
-  collect(source)
-  /** Run `step` over the file, type nodes apart, until it finds nothing new. */
-  const toFixedPoint = (step: (node: ts.Node, grew: () => void) => void) => {
-    for (let more = true; more; ) {
-      more = false
-      const walk = (node: ts.Node): void => {
-        if (ts.isTypeNode(node)) return
-        step(node, () => (more = true))
-        ts.forEachChild(node, walk)
-      }
-      walk(source)
-    }
+  const bare = (node: ts.Expression): ts.Expression => {
+    let inner = node
+    while (ts.isParenthesizedExpression(inner) || ts.isAsExpression(inner) || ts.isSatisfiesExpression(inner) ||
+      ts.isNonNullExpression(inner) || ts.isTypeAssertionExpression(inner)) inner = inner.expression
+    return inner
   }
-
-  // The prefs value, followed by name: `prefs`, a const or let holding it, a key named prefs taken out of an object, and a
-  // same-file component's prop it is handed (`<Rows source={prefs} />`: Rows's `{ source }`, or `props.source`).
-  const holders = new Set(['prefs'])
-  const heldMembers = new Set<string>()
-  const bare = (node: ts.Expression): ts.Expression => (ts.isNonNullExpression(node) ? bare(node.expression) : unwrap(node) !== node ? bare(unwrap(node)) : node)
-  const isHolder = (node: ts.Expression): boolean => {
+  const nameOf = (node: ts.Expression): string | undefined => {
     const inner = bare(node)
-    if (ts.isIdentifier(inner)) return holders.has(inner.text)
-    return ts.isPropertyAccessExpression(inner) && ts.isIdentifier(inner.expression) && heldMembers.has(`${inner.expression.text}.${inner.name.text}`)
+    if (ts.isIdentifier(inner)) return keyOf(inner)
+    const key = ts.isPropertyAccessExpression(inner) ? inner.name.text
+      : ts.isElementAccessExpression(inner) && ts.isStringLiteralLike(inner.argumentExpression) ? inner.argumentExpression.text : undefined
+    if (key === undefined) return undefined
+    const head = nameOf((inner as ts.PropertyAccessExpression | ts.ElementAccessExpression).expression)
+    return head === undefined ? undefined : `${head}.${key}`
   }
-  toFixedPoint((node, grew) => {
-    const add = (set: Set<string>, value: string) => {
-      if (set.has(value)) return
-      set.add(value)
-      grew()
+  /** A property's or a key's own name, as written. */
+  const propertyKey = (name: ts.Node | undefined): string | undefined =>
+    name && (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) ? name.text : undefined
+  type Fn = ts.SignatureDeclaration
+  const consts = new Map<string, ts.Expression>()
+  const functions = new Map<string, Set<Fn>>()
+  /** A name and every declaration in the file that binds it (the seeds are names: `prefs`, `save`, `setBool`). */
+  const seeds = (...names: string[]): Set<string> => {
+    const out = new Set(names)
+    const walk = (node: ts.Node): void => {
+      if (ts.isIdentifier(node) && names.includes(node.text)) out.add(keyOf(node))
+      ts.forEachChild(node, walk)
     }
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isHolder(node.initializer)) add(holders, node.name.text)
-    if (ts.isBindingElement(node) && ts.isIdentifier(node.name) && (node.propertyName ?? node.name).getText(source) === 'prefs') add(holders, node.name.text)
-    if (ts.isJsxAttribute(node) && node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression && isHolder(node.initializer.expression)) {
-      const prop = node.name.getText(source)
-      const param = functions.get(node.parent.parent.tagName.getText(source))?.parameters[0]
-      if (param && ts.isObjectBindingPattern(param.name)) {
-        for (const element of param.name.elements) {
-          if (ts.isIdentifier(element.name) && (element.propertyName ?? element.name).getText(source) === prop) add(holders, element.name.text)
-        }
-      } else if (param && ts.isIdentifier(param.name)) add(heldMembers, `${param.name.text}.${prop}`)
-    }
-  })
-  /** The fields read off the prefs value: a member (`prefs.x`, `prefs?.x`, `prefs['x']`), and each key taken out of it. */
+    walk(source)
+    return out
+  }
+  const holders = seeds('prefs')
+  const contexts = new Set<string>()
   const reads = new Map<string, number>()
-  toFixedPoint((node) => {
-    if (ts.isPropertyAccessExpression(node) && isHolder(node.expression)) reads.set(node.name.text, line(node))
-    if (ts.isElementAccessExpression(node) && isHolder(node.expression) && ts.isStringLiteralLike(node.argumentExpression)) reads.set(node.argumentExpression.text, line(node))
-    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isHolder(node.initializer)) {
-      for (const element of node.name.elements) {
-        const key = element.propertyName ?? element.name
-        if (!element.dotDotDotToken && (ts.isIdentifier(key) || ts.isStringLiteral(key))) reads.set(key.text, line(element))
+  let grew = true
+  const addFunction = (name: string, fn: Fn) => {
+    const known = functions.get(name) ?? new Set<Fn>()
+    if (known.has(fn)) return
+    functions.set(name, known.add(fn))
+    grew = true
+  }
+  const addHolder = (name: string) => {
+    if (holders.has(name)) return
+    holders.add(name)
+    grew = true
+  }
+  const read = (field: string, at: ts.Node) => {
+    if (!reads.has(field)) reads.set(field, line(at))
+  }
+  const named = (name: string | undefined): Fn[] => (name === undefined ? [] : [...(functions.get(name) ?? [])])
+
+  /** What a function hands back: its concise body, or each `return` of its own (a nested function's are its own). */
+  const returnsOf = (fn: Fn): ts.Expression[] => {
+    if (ts.isArrowFunction(fn) && !ts.isBlock(fn.body)) return [fn.body]
+    const body = (fn as ts.FunctionLikeDeclarationBase).body
+    const out: ts.Expression[] = []
+    const walk = (node: ts.Node): void => {
+      if (node !== body && ts.isFunctionLike(node)) return
+      if (ts.isReturnStatement(node) && node.expression) out.push(node.expression)
+      ts.forEachChild(node, walk)
+    }
+    if (body) walk(body)
+    return out
+  }
+  /** The functions a value is: an arrow or a function expression; a named one; the one a call wraps as its first argument
+      (useCallback, memo, forwardRef or any wrapper, nested), useMemo's factory's result; what a same-file hook returns. */
+  const functionsIn = (value: ts.Expression | undefined, depth = 0): Fn[] => {
+    if (!value || depth > 8) return []
+    const inner = bare(value)
+    if (ts.isArrowFunction(inner) || ts.isFunctionExpression(inner)) return [inner]
+    const name = nameOf(inner)
+    if (name !== undefined) return named(name)
+    if (!ts.isCallExpression(inner)) return []
+    if (/(?:^|\.)useMemo$/.test(nameOf(inner.expression) ?? '')) {
+      return functionsIn(inner.arguments[0], depth + 1).flatMap((factory) => returnsOf(factory).flatMap((value) => functionsIn(value, depth + 1)))
+    }
+    const wrapped = functionsIn(inner.arguments[0], depth + 1)
+    if (wrapped.length) return wrapped
+    return named(nameOf(inner.expression)).flatMap((hook) => returnsOf(hook).flatMap((value) => functionsIn(value, depth + 1)))
+  }
+  /** The object literals a value is: written in place, held in a const, or what a same-file hook returns. */
+  const objectsIn = (value: ts.Expression | undefined, depth = 0): ts.ObjectLiteralExpression[] => {
+    if (!value || depth > 8) return []
+    const inner = bare(value)
+    if (ts.isObjectLiteralExpression(inner)) return [inner]
+    const name = nameOf(inner)
+    if (name !== undefined) return objectsIn(consts.get(name), depth + 1)
+    if (!ts.isCallExpression(inner)) return []
+    return named(nameOf(inner.expression)).flatMap((hook) => returnsOf(hook).flatMap((value) => objectsIn(value, depth + 1)))
+  }
+  /** A tag that provides a context: `<C.Provider>`, or `<C>` where C is a same-file `createContext(…)` (React 19). */
+  const contextOf = (tag: string | undefined): string | undefined => {
+    if (tag === undefined) return undefined
+    if (tag.endsWith('.Provider')) return tag.slice(0, -'.Provider'.length)
+    const init = consts.get(tag)
+    const call = init && bare(init)
+    return call && ts.isCallExpression(call) && /(?:^|\.)createContext$/.test(nameOf(call.expression) ?? '') ? tag : undefined
+  }
+  /** Whether a value is the prefs value: a name holding it, `useContext(C)` or `use(C)` of a context the file provides it
+      through, or what a same-file function that returns it hands back. */
+  const isHolder = (value: ts.Expression, seen = new Set<Fn>()): boolean => {
+    const inner = bare(value)
+    const name = nameOf(inner)
+    if (name !== undefined) return holders.has(name)
+    if (!ts.isCallExpression(inner)) return false
+    const callee = nameOf(inner.expression) ?? ''
+    if (/^(?:React\.)?(?:useContext|use)$/.test(callee)) {
+      const context = inner.arguments[0] && nameOf(inner.arguments[0])
+      return context !== undefined && contexts.has(context)
+    }
+    return named(callee).some((fn) => {
+      if (seen.has(fn)) return false
+      seen.add(fn)
+      return returnsOf(fn).some((returned) => isHolder(returned, seen))
+    })
+  }
+  /** Hand a value to a name: the prefs value, the functions it is, and an object's functions as `name.key`. */
+  const bindName = (name: string, value: ts.Expression) => {
+    if (isHolder(value)) addHolder(name)
+    for (const fn of functionsIn(value)) addFunction(name, fn)
+    for (const object of objectsIn(value)) {
+      for (const property of object.properties) {
+        const key = propertyKey(property.name)
+        if (key === undefined) continue
+        if (ts.isMethodDeclaration(property)) addFunction(`${name}.${key}`, property)
+        else if (ts.isPropertyAssignment(property)) for (const fn of functionsIn(property.initializer)) addFunction(`${name}.${key}`, fn)
+        else if (ts.isShorthandPropertyAssignment(property)) for (const fn of named(nameOf(property.name))) addFunction(`${name}.${key}`, fn)
       }
     }
-  })
+  }
+  /** Hand a value to a binding: a name, or an object pattern, whose keys taken out of the prefs value are fields read and
+      whose rest holds the rest of it; a key taken out of an object of functions names that function. */
+  const bindPattern = (target: ts.BindingName, value: ts.Expression) => {
+    if (ts.isIdentifier(target)) return bindName(keyOf(target), value)
+    if (!ts.isObjectBindingPattern(target)) return
+    const holder = isHolder(value)
+    for (const element of target.elements) {
+      const key = propertyKey(element.propertyName ?? element.name)
+      if (element.dotDotDotToken) {
+        if (ts.isIdentifier(element.name)) bindName(keyOf(element.name), value)
+        continue
+      }
+      if (key === undefined) continue
+      if (holder) read(key, element)
+      if (!ts.isIdentifier(element.name)) continue
+      for (const object of objectsIn(value)) {
+        for (const property of object.properties) {
+          if (propertyKey(property.name) !== key) continue
+          const local = keyOf(element.name)
+          if (ts.isMethodDeclaration(property)) addFunction(local, property)
+          else if (ts.isPropertyAssignment(property)) bindName(local, property.initializer)
+          else if (ts.isShorthandPropertyAssignment(property)) for (const fn of named(nameOf(property.name))) addFunction(local, fn)
+        }
+      }
+    }
+  }
+  /** Hand a tag's attribute (or a spread of its props, `prop` undefined) to the first parameter of the component it names. */
+  const bindProp = (component: Fn, prop: string | undefined, value: ts.Expression) => {
+    const param = component.parameters[0]?.name
+    if (!param) return
+    if (ts.isIdentifier(param)) return bindName(prop === undefined ? keyOf(param) : `${keyOf(param)}.${prop}`, value)
+    if (!ts.isObjectBindingPattern(param)) return
+    if (prop === undefined) return bindPattern(param, value)
+    const element = param.elements.find((e) => !e.dotDotDotToken && propertyKey(e.propertyName ?? e.name) === prop)
+    if (element) return bindPattern(element.name, value)
+    const rest = param.elements.find((e) => e.dotDotDotToken && ts.isIdentifier(e.name))
+    if (rest && ts.isIdentifier(rest.name)) bindName(`${keyOf(rest.name)}.${prop}`, value)
+  }
 
-  // The calls that save a preference: `save`, any `.mutate`, and every same-file function that calls one.
-  const savers = new Set(['save'])
+  // The calls that save a preference: `save`, any `.mutate`, and each function in the file that calls one; and those that
+  // take the field's name, `setBool('notify_10k')` and any function that saves `{ [name]: … }` keyed by its own parameter.
+  const savers = seeds('save')
+  const keySavers = seeds('setBool')
+  const calleeText = (call: ts.CallExpression) => nameOf(call.expression) ?? call.expression.getText(source)
   const savesHere = (call: ts.CallExpression) => {
-    const callee = call.expression.getText(source)
+    const callee = calleeText(call)
     return savers.has(callee) || callee.endsWith('.mutate')
   }
-  const callsASaver = (node: ts.Node): boolean => (ts.isCallExpression(node) && savesHere(node)) || (ts.forEachChild(node, (child) => callsASaver(child) || undefined) ?? false)
-  for (let more = true; more; ) {
-    more = false
-    for (const [name, fn] of functions) {
-      if (savers.has(name) || !callsASaver(fn)) continue
-      savers.add(name)
-      more = true
+  const within = (node: ts.Node, test: (node: ts.Node) => boolean): boolean =>
+    test(node) || (ts.forEachChild(node, (child) => within(child, test) || undefined) ?? false)
+  const savesByKey = (fn: Fn): boolean => {
+    const params = new Set(fn.parameters.flatMap((p) => (ts.isIdentifier(p.name) ? [p.name.text] : [])))
+    return within(fn, (node) => ts.isCallExpression(node) && savesHere(node) && node.arguments.some((arg) => objectsIn(arg).some((object) =>
+      object.properties.some((p) => !!p.name && ts.isComputedPropertyName(p.name) && ts.isIdentifier(p.name.expression) && params.has(p.name.expression.text)))))
+  }
+
+  const walkFile = (step: (node: ts.Node) => void) => {
+    const walk = (node: ts.Node): void => {
+      if (ts.isTypeNode(node)) return
+      step(node)
+      ts.forEachChild(node, walk)
+    }
+    walk(source)
+  }
+  while (grew) {
+    grew = false
+    walkFile((node) => {
+      if (ts.isFunctionDeclaration(node) && node.name) addFunction(keyOf(node.name), node)
+      // A key named prefs taken out of an object, whatever it is taken out of (`const { prefs: settings } = props`).
+      if (ts.isBindingElement(node) && !node.dotDotDotToken && ts.isIdentifier(node.name) && propertyKey(node.propertyName ?? node.name) === 'prefs') addHolder(keyOf(node.name))
+      if (ts.isVariableDeclaration(node) && node.initializer) {
+        if (ts.isIdentifier(node.name)) consts.set(keyOf(node.name), node.initializer)
+        bindPattern(node.name, node.initializer)
+      }
+      if (ts.isCallExpression(node)) {
+        for (const fn of named(nameOf(node.expression))) {
+          node.arguments.forEach((arg, index) => {
+            const param = fn.parameters[index]
+            if (param && !param.dotDotDotToken && !ts.isSpreadElement(arg)) bindPattern(param.name, arg)
+          })
+        }
+      }
+      if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+        const tag = nameOf(node.tagName as ts.Expression)
+        const context = contextOf(tag)
+        for (const attribute of node.attributes.properties) {
+          const value = ts.isJsxSpreadAttribute(attribute) ? attribute.expression
+            : attribute.initializer && ts.isJsxExpression(attribute.initializer) ? attribute.initializer.expression : undefined
+          if (!value) continue
+          const prop = ts.isJsxAttribute(attribute) ? attribute.name.getText(source) : undefined
+          if (context !== undefined && prop === 'value' && isHolder(value) && !contexts.has(context)) {
+            contexts.add(context)
+            grew = true
+          }
+          for (const component of named(tag)) bindProp(component, prop, value)
+        }
+      }
+    })
+    for (const [name, fns] of functions) {
+      for (const fn of fns) {
+        if (!savers.has(name) && within(fn, (node) => ts.isCallExpression(node) && savesHere(node))) {
+          savers.add(name)
+          grew = true
+        }
+        if (!keySavers.has(name) && savesByKey(fn)) {
+          keySavers.add(name)
+          grew = true
+        }
+      }
     }
   }
+  // Each field read off the prefs value: a member (`prefs.x`, `prefs?.x`, `prefs!.x`, `prefs['x']`); the keys taken out
+  // of it were read on the way.
+  walkFile((node) => {
+    if (ts.isPropertyAccessExpression(node) && isHolder(node.expression)) read(node.name.text, node)
+    if (ts.isElementAccessExpression(node) && isHolder(node.expression) && ts.isStringLiteralLike(node.argumentExpression)) read(node.argumentExpression.text, node)
+  })
 
   const visit = (node: ts.Node): void => {
     // type BoolPref = 'notify_10k' | … : every member is a field the form can save.
@@ -292,20 +485,25 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
       }
     }
     if (ts.isCallExpression(node)) {
-      const callee = node.expression.getText(source)
-      // setBool('notify_10k')
-      if (callee === 'setBool') {
+      // setBool('notify_10k'), and any function that saves `{ [name]: … }` keyed by its parameter: each name handed to it.
+      if (keySavers.has(calleeText(node))) {
         for (const arg of node.arguments) if (ts.isStringLiteral(arg)) fields.set(arg.text, line(arg))
       }
-      // save({ digest: … }) / mutation.mutate({ … }) / any saver: each field it writes, and each literal it writes into one.
+      // save({ digest: … }) / mutation.mutate({ … }) / any saver: each field its update writes (written in place, held in a
+      // const, or spread into it from one), and each literal it writes into one.
       if (savesHere(node)) {
-        for (const arg of node.arguments) {
-          if (!ts.isObjectLiteralExpression(arg)) continue
-          for (const prop of arg.properties) {
-            if (prop.name && (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name))) fields.set(prop.name.text, line(prop))
+        const update = (object: ts.ObjectLiteralExpression, depth = 0): void => {
+          for (const prop of object.properties) {
+            if (ts.isSpreadAssignment(prop)) {
+              if (depth < 8) for (const inner of objectsIn(prop.expression)) update(inner, depth + 1)
+              continue
+            }
+            const key = propertyKey(prop.name)
+            if (key !== undefined) fields.set(key, line(prop))
             if (ts.isPropertyAssignment(prop)) for (const value of literalsOf(prop.initializer)) options.set(value, line(prop))
           }
         }
+        for (const arg of node.arguments) for (const object of objectsIn(arg)) update(object)
       }
     }
     if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node))) {
@@ -322,6 +520,8 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
           if (tag !== 'option') continue
         }
         // value="weekly", value={'weekly'}, a value a .map writes (an <option>, a radio, any item); options={[{ value: … }]}.
+        // A context provider's value is what it provides, not a choice.
+        if (name === 'value' && contextOf(nameOf(node.tagName as ts.Expression)) !== undefined) continue
         const values = name === 'value'
           ? ts.isStringLiteral(init) ? [init.text] : expression ? optionValues(expression) : null
           : name === 'options'
@@ -439,48 +639,122 @@ describe('Notification preferences the form offers are read by the alert jobs', 
   })
 
   it('reads a field wherever the form reads the prefs value, and a save through any helper, but not gating the API derives (self-check)', () => {
-    // Each form with a field used nowhere else in the fixture (Codex on 8fb22fbe: a comparison or a wrapper prop left the
-    // field unread, and another fixture line could mask the miss).
-    const fixture = [
-      'export function Form() {',
-      '  const { data: prefs } = useQuery(q)',
-      '  const held = prefs',
-      '  const { f_destructured, f_renamed: renamed } = prefs',
-      '  const persist = (update: Update) => mutation.mutate(update)',
-      '  return (',
-      '    <div>',
-      "      <input type=\"radio\" checked={prefs.f_compared === 'biweekly'} readOnly />",
-      '      <Picker selected={prefs.f_wrapper} />',
-      "      <p>{prefs.f_child ? 'On' : 'Off'}</p>",
-      '      <Toggle disabled={!prefs.f_negated} />',
-      "      <Picker selected={prefs.f_fallback ?? 'daily'} />",
-      '      <Row label={`Every ${prefs.f_template}`} />',
-      '      <Toggle checked={prefs?.f_optional} />',
-      "      <Toggle checked={prefs['f_bracket']} />",
-      '      <Toggle checked={prefs!.f_asserted} />',
-      '      <Toggle checked={held.f_alias} />',
-      '      <Rows source={prefs} />',
-      '      <Cells source={prefs} />',
-      '      <Toggle checked={prefs.f_direct} />',
-      '      <select><option value={prefs.f_option}>Current</option></select>',
-      "      <button onClick={() => persist({ f_saved: on ? 'never' : 'hourly' })}>Reset</button>",
-      '      <Toggle disabled={!prefs.f_available} />',
-      '      <Toggle checked={other.f_other} />',
-      '      <Toggle checked={prefsLabel.f_label} />',
-      '    </div>',
-      '  )',
-      '}',
-      'function Rows({ source }: { source: { f_typed: boolean } }) { return <Toggle checked={source.f_prop} /> }',
-      'function Cells(props: Props) { return <Toggle checked={props.source.f_props} /> }',
-    ].join('\n')
-    const { fields, options, unreadable } = formPreferences('fixture.tsx', fixture, new Set(['f_available']))
-    expect([...fields.keys()].sort()).toEqual([
-      'f_alias', 'f_asserted', 'f_bracket', 'f_child', 'f_compared', 'f_destructured', 'f_direct', 'f_fallback', 'f_negated',
-      'f_option', 'f_optional', 'f_prop', 'f_props', 'f_renamed', 'f_saved', 'f_template', 'f_wrapper',
-    ])
-    expect([...options.keys()].sort()).toEqual(['hourly', 'never'])
-    // The current preference as an option's value still offers no literal (0662fdcf).
-    expect(unreadable).toEqual(['fixture.tsx:21 <option value={prefs.f_option}>'])
+    // Each form with a field used nowhere else in the fixture (Codex on 8fb22fbe: another line could mask a miss), tagged
+    // with the fields it reads, or with those it breaks the rule with out of the scan's reach (the header's limits).
+    const FORMS: Array<[code: string, read?: string[], gap?: string[]]> = [
+      ['export function Form() {'],
+      ['  const { data: prefs } = useQuery(q)'],
+      ['  const held = prefs'],
+      ['  const { f_destructured, f_renamed: renamed } = prefs', ['f_destructured', 'f_renamed']],
+      ['  const persist = (update: Update) => mutation.mutate(update)'],
+      // A saver in each function form (the re-review of 77b306f6 found one in useCallback unfollowed).
+      ['  const persistCb = useCallback((u: Update) => mutation.mutate(u), [mutation])'],
+      ['  const persistMemo = useMemo(() => (u: Update) => save(u), [])'],
+      ['  const actions = { store(u: Update) { save(u) }, reset: (u: Update) => save(u) }'],
+      ['  const viaHook = usePersist()'],
+      ['  const { keep } = useActions()'],
+      ['  const flip = (field: string) => save({ [field]: true })'],
+      ["  const update = { f_const_update: 'monthly' }", ['f_const_update']],
+      ['  const base = { f_spread_update: true }', ['f_spread_update']],
+      ['  const handlers = [persist]'],
+      ['  const MemoizedRow = useMemo(() => ({ source }: P) => <Toggle checked={source.f_usememo_component} />, [])', ['f_usememo_component']],
+      ['  const { prefs: fromBag } = bag'],
+      ['  const fromHook = usePrefsValue()'],
+      ['  const hookLabel = useLabel(prefs)'],
+      ['  const [local] = useState(prefs)'],
+      ['  const ref = useRef(prefs)'],
+      ['  return ('],
+      ['    <PrefsContext.Provider value={prefs}>'],
+      ['    <Prefs19 value={prefs}>'],
+      // The prefs value read in place.
+      ["      <input type=\"radio\" checked={prefs.f_compared === 'biweekly'} readOnly />", ['f_compared']],
+      ['      <Picker selected={prefs.f_wrapper} />', ['f_wrapper']],
+      ["      <p>{prefs.f_child ? 'On' : 'Off'} {hookLabel}</p>", ['f_child']],
+      ['      <Toggle disabled={!prefs.f_negated} />', ['f_negated']],
+      ["      <Picker selected={prefs.f_fallback ?? 'daily'} />", ['f_fallback']],
+      ['      <Row label={`Every ${prefs.f_template}`} />', ['f_template']],
+      ['      <Toggle checked={prefs?.f_optional} />', ['f_optional']],
+      ["      <Toggle checked={prefs['f_bracket']} />", ['f_bracket']],
+      ['      <Toggle checked={prefs!.f_asserted} />', ['f_asserted']],
+      ['      <Toggle checked={held.f_alias} />', ['f_alias']],
+      ['      <Toggle checked={fromHook.f_hook_value} />', ['f_hook_value']],
+      ['      <Toggle checked={fromBag.f_key_prefs} />', ['f_key_prefs']],
+      ['      <Toggle checked={prefs.f_direct} />', ['f_direct']],
+      ['      <select><option value={prefs.f_option}>Current</option></select>', ['f_option']],
+      ['      <Toggle disabled={!prefs.f_available} />'],
+      ['      <Toggle checked={other.f_other} />'],
+      ['      <Toggle checked={prefsLabel.f_label} />'],
+      // A save through each form of saver.
+      ["      <button onClick={() => persist({ f_saved: on ? 'never' : 'hourly' })}>Reset</button>", ['f_saved']],
+      ["      <button onClick={() => persistCb({ f_cb: 'weekly' })}>Weekly</button>", ['f_cb']],
+      ['      <button onClick={() => persistMemo({ f_memo_saved: true })}>Memo</button>', ['f_memo_saved']],
+      ['      <button onClick={() => actions.store({ f_method: true })}>Store</button>', ['f_method']],
+      ['      <button onClick={() => actions.reset({ f_method_arrow: true })}>Reset</button>', ['f_method_arrow']],
+      ['      <button onClick={() => viaHook({ f_hook_saved: true })}>Hook</button>', ['f_hook_saved']],
+      ['      <button onClick={() => keep({ f_hook_object: true })}>Keep</button>', ['f_hook_object']],
+      ['      <button onClick={() => persistDecl({ f_decl_saved: true })}>Declared</button>', ['f_decl_saved']],
+      ["      <button onClick={() => flip('f_key_saved')}>Flip</button>", ['f_key_saved']],
+      ['      <button onClick={() => persist(update)}>Held</button>'],
+      ['      <button onClick={() => persist({ ...base })}>Spread</button>'],
+      ['      <button onClick={() => run(persist)}>Run</button>'],
+      ['      <Panel onSave={persist} />'],
+      // The prefs value handed on: a prop, a spread, a wrapped or an object's component, a rest, a context, a hook.
+      ['      <Rows source={prefs} />'],
+      ['      <Cells source={prefs} />'],
+      ['      <Spread {...prefs} />'],
+      ['      <SpreadAll {...prefs} />'],
+      ['      <MemoRows source={prefs} />'],
+      ['      <FwdRows source={prefs} />'],
+      ['      <MemoFwd source={prefs} />'],
+      ['      <RestRows other={prefs} />'],
+      ['      <Parts.Row source={prefs} />'],
+      ['      <MemoizedRow source={prefs} />'],
+      ['      <Leaf />'],
+      ['      <Leaf19 />'],
+      // Out of reach, the header's limits: React state or a ref, a computed key, a class, another module, call/apply/bind,
+      // an array of functions.
+      ['      <Toggle checked={local.f_gap_state} />', [], ['f_gap_state']],
+      ['      <Toggle checked={ref.current.f_gap_ref} />', [], ['f_gap_ref']],
+      ['      <Toggle checked={prefs[dynamicKey]} />', [], ['dynamicKey']],
+      ['      {Object.entries(prefs).map(([entryKey, on]) => <Toggle key={entryKey} checked={on} />)}', [], ['entryKey']],
+      ['      <Legacy source={prefs} />'],
+      ['      <ExternalRows source={prefs} />'],
+      ["      <button onClick={() => persistElsewhere({ f_gap_import: 'gap_import' })}>Import</button>", [], ['f_gap_import']],
+      ["      <button onClick={() => persist.call(null, { f_gap_call: 'gap_call' })}>Call</button>", [], ['f_gap_call']],
+      ["      <button onClick={() => handlers[0]({ f_gap_array: 'gap_array' })}>Array</button>", [], ['f_gap_array']],
+      ['    </Prefs19>'],
+      ['    </PrefsContext.Provider>'],
+      ['  )'],
+      ['}'],
+      ['function persistDecl(u: Update) { mutation.mutate(u) }'],
+      ['function usePersist() { return (u: Update) => save(u) }'],
+      ['function useActions() { return { keep: (u: Update) => save(u) } }'],
+      ['function usePrefsValue() { const { data: prefs } = useQuery(q); return prefs }'],
+      ["function useLabel(p: Prefs) { return p.f_hook_arg ? 'On' : 'Off' }", ['f_hook_arg']],
+      ['function run(fn: (u: Update) => void) { fn({ f_arg_saved: true }) }', ['f_arg_saved']],
+      ['function Panel({ onSave }: PanelProps) { return <button onClick={() => onSave({ f_prop_saved: true })}>Save</button> }', ['f_prop_saved']],
+      ['function Rows({ source }: { source: { f_typed: boolean } }) { return <Toggle checked={source.f_prop} /> }', ['f_prop']],
+      ['function Cells(props: Props) { return <Toggle checked={props.source.f_props} /> }', ['f_props']],
+      ['function Spread({ f_spread }: Prefs) { return <Toggle checked={f_spread} /> }', ['f_spread']],
+      ['function SpreadAll(props: Prefs) { return <Toggle checked={props.f_spread_props} /> }', ['f_spread_props']],
+      ['const MemoRows = memo(function MemoRows({ source }: P) { return <Toggle checked={source.f_memo} /> })', ['f_memo']],
+      ['const FwdRows = forwardRef((props: P, ref: R) => <Toggle ref={ref} checked={props.source.f_forward} />)', ['f_forward']],
+      ['const MemoFwd = memo(forwardRef(({ source }: P, ref: R) => <Toggle ref={ref} checked={source.f_memo_forward} />))', ['f_memo_forward']],
+      ['function RestRows({ source, ...rest }: P) { return <Toggle checked={rest.other.f_rest} /> }', ['f_rest']],
+      ['const Parts = { Row: ({ source }: P) => <Toggle checked={source.f_object_component} /> }', ['f_object_component']],
+      ['const PrefsContext = createContext<Prefs | null>(null)'],
+      ['const Prefs19 = createContext<Prefs | null>(null)'],
+      ['function Leaf() { const fromContext = useContext(PrefsContext); return <Toggle checked={fromContext.f_context} /> }', ['f_context']],
+      ['function Leaf19() { const fromUse = use(Prefs19); return <Toggle checked={fromUse.f_context19} /> }', ['f_context19']],
+      ['class Legacy extends Component<P> { render() { return <Toggle checked={this.props.source.f_gap_class} /> } }', [], ['f_gap_class']],
+    ]
+    const { fields, options, unreadable } = formPreferences('fixture.tsx', FORMS.map(([code]) => code).join('\n'), new Set(['f_available']))
+    expect([...fields.keys()].sort()).toEqual(FORMS.flatMap(([, read = []]) => read).sort())
+    expect(FORMS.flatMap(([, , gap = []]) => gap).filter((name) => fields.has(name)), 'a limit the header states is read after all: move it to the read forms').toEqual([])
+    expect([...options.keys()].sort()).toEqual(['hourly', 'monthly', 'never', 'weekly'])
+    // The current preference as an option's value still offers no literal (0662fdcf); a context provider's value is no choice.
+    const optionLine = FORMS.findIndex(([code]) => code.includes('<option value={prefs.f_option}>')) + 1
+    expect(unreadable).toEqual([`fixture.tsx:${optionLine} <option value={prefs.f_option}>`])
     // The gating the response fills from the entitlements is no setting: the update model takes none of it.
     expect([...DERIVED], 'the response fills the two gates from the entitlements').toEqual(expect.arrayContaining(['eightk_available', 'realtime_available']))
     expect([...DERIVED].filter((field) => SETTABLE.has(field)), 'a field the user can set is a preference, never gating').toEqual([])
