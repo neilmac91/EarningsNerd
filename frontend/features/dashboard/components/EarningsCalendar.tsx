@@ -50,7 +50,7 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
             <li key={`${ev.ticker}-${ev.earnings_date}`} className="flex items-center justify-between gap-3 py-2.5">
               <div className="min-w-0">
                 <div>
-                  <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">{ev.ticker}</span>
+                  <span className="font-data font-semibold text-text-primary-light dark:text-text-primary-dark">{ev.ticker}</span>
                   <span className="ml-2 truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     {ev.company_name}
                   </span>
