@@ -119,6 +119,13 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case tracking-normal': true })}>{form}</span></span>",
     // An important reset is a reset.
     '<span className="uppercase tracking-eyebrow"><span className="!normal-case !tracking-normal">{form}</span></span>',
+    // Either half of the recipe reset is a reset, in any of its forms: another text-transform (the review's case
+    // `lowercase`, and `capitalize`), an arbitrary letter-spacing with a decimal, and the arbitrary properties.
+    '<span className="uppercase tracking-eyebrow"><span className="lowercase">{form}</span></span>',
+    '<span className="uppercase tracking-eyebrow"><span className="capitalize">{form}</span></span>',
+    '<span className="uppercase tracking-eyebrow"><span className="tracking-[0.02em]">{form}</span></span>',
+    '<span className="uppercase tracking-eyebrow"><span className="[text-transform:none]">{form}</span></span>',
+    '<span className="uppercase tracking-eyebrow"><span className="[letter-spacing:0]">{form}</span></span>',
     // A same-file binding's reset is read by its class-shaped initializer, in every branch that reads it.
     "const RESET = 'normal-case'\nexport const C = ({ form, dense }) => <span className=\"uppercase tracking-eyebrow\"><span className={dense ? RESET : cx(RESET, 'font-data')}>{form}</span></span>",
     "const PLAIN = 'normal-case tracking-normal'\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>",
@@ -168,6 +175,9 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // are read at any depth.
     { code: '<span className="uppercase tracking-eyebrow"><span className="sm:normal-case">{form}</span></span>', errors: [{ messageId: 'chip' }] },
     { code: '<span className="uppercase tracking-eyebrow"><span className="dark:tracking-normal">{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    // An uppercase transform written as an arbitrary property keeps the face, and a lowercase one under a variant does too.
+    { code: '<span className="uppercase tracking-eyebrow"><span className="[text-transform:uppercase]">{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow"><span className="sm:lowercase">{form}</span></span>', errors: [{ messageId: 'chip' }] },
     { code: '<span className="uppercase tracking-eyebrow"><span><span><span><span>{form}</span></span></span></span></span>', errors: [{ messageId: 'chip' }] },
     // A fragment renders its children in place.
     { code: '<span className="uppercase tracking-eyebrow"><>{form}</> · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },

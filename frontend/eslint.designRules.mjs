@@ -237,12 +237,15 @@ const classTokens = (node, keys, binding) => {
   const classAttr = node.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
   return classAttr ? attributeText(classAttr.value, keys, binding).join(' ').split(/\s+/) : []
 }
-// An inner element that resets the recipe (`normal-case`, or a letter-spacing of its own) is a face of its own, when it
-// resets it unconditionally: a reset under a variant (`sm:normal-case`, `dark:tracking-normal`) leaves the chip's face
-// on in the other branches (a phone, the light theme), and so does one on a single path of its class value
+// An inner element that resets the recipe is a face of its own, when it resets it unconditionally. Either half resets
+// it: a text-transform other than uppercase (`normal-case`, `lowercase`, `capitalize`, `[text-transform:none]`) or a
+// letter-spacing of its own (another tracking utility, an arbitrary one such as `tracking-[0.02em]`,
+// `[letter-spacing:0]`). A reset under a variant (`sm:normal-case`, `dark:tracking-normal`) leaves the chip's face on
+// in the other branches (a phone, the light theme), and so does one on a single path of its class value
 // (`plain ? 'normal-case' : ''`, `cx(plain && 'normal-case')`), so neither ends the reading. An important reset
-// (`!normal-case`) is a reset.
-const RESETS_EYEBROW = /^!?(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
+// (`!normal-case`) is a reset. A face set by an inline style is not read, so a wrapper that resets it that way is
+// reported: the gate fails closed there.
+const RESETS_EYEBROW = /^!?(?:normal-case|lowercase|capitalize|tracking-(?!eyebrow$)\S+|\[text-transform:(?!uppercase\])[^\]]+\]|\[letter-spacing:[^\]]+\])$/
 /** Whether a class value resets the eyebrow face on every path it can take. Each path needs a reset, not the same one
  *  (`plain ? 'normal-case' : 'tracking-normal'` cancels one half of the recipe on each path): a string's tokens, a
  *  template's whole static tokens, both arms of a conditional, both sides of `||` and `??`, any argument of a cx()/clsx()
