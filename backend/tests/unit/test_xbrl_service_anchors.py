@@ -8,8 +8,9 @@ Every boundary is faked in-process on a SHARED object, so the fakes keep interce
 reading code moves: ``httpx.AsyncClient``, the ``sec_rate_limiter`` singleton, ``settings``,
 ``asyncio.wait_for`` (read by ``edgar/async_executor.py`` at call time) and the edgartools
 ``Company`` behind ``edgar/client.py``'s by-accession resolver, and the edgartools ``HTMLParser`` and
-``CrossReferenceIndex`` classes the section parse reads. No test patches a name on xbrl_service's
-module namespace; X0.5 patches attributes of a throwaway ``EdgarXBRLService()``.
+``CrossReferenceIndex`` classes the section parse reads. X0.5 patches attributes of a throwaway
+``EdgarXBRLService()``; the only names patched on xbrl_service's module namespace are the two X0.2
+worker tests' ``_sections_from_html`` binding, which the seam reads at call time.
 """
 
 import asyncio
@@ -393,6 +394,27 @@ async def test_x0_2_parser_failure_is_a_missing_section(parser, caplog, filing_t
     assert parser.index_built == (1 if filing_type == "10-K" else 0)
     assert [r.getMessage() for r in caplog.records if r.levelname == "WARNING"] == (
         [] if expected else [f"Section parse found nothing for {ACC} ({filing_type}): RuntimeError('parser failed')"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("filing_type", "sections", "expected"), [
+    # Item 18 wins over the older Item 17 when both carry real text.
+    ("20-F", {"part_i_item_3": _Section("K" * 300), "part_i_item_5": _Section("O" * 300),
+              "part_iii_item_18": _Section("S" * 300), "part_iii_item_17": _Section("E" * 300)},
+     {"risk": "K" * 300, "mda": "O" * 300, "financials": "S" * 300}),
+    # A section of exactly _SECTION_MIN_CHARS is kept.
+    ("10-Q", {"part_i_item_2": _Section("M" * 200)}, {"mda": "M" * 200}),
+    # One unreadable 10-K item does not abort the others, and nothing is logged when some parsed.
+    ("10-K", {"part_i_item_1a": _UnreadableSection("1A"), "part_ii_item_7": _Section("P" * 250),
+              "part_ii_item_8": _Section("f" * 250)}, {"mda": "P" * 250, "financials": "f" * 250}),
+], ids=["20-F-item-18-over-17", "exact-minimum-kept", "10-K-unreadable-item-contained"])
+async def test_x0_2_selection_rules_carried_from_the_obj_reader(parser, caplog, filing_type, sections, expected):
+    """X0.2 — the selection rules #1350's ``test_xbrl_sections_errors.py`` pinned on the obj() reader."""
+    parser.sections = sections
+    caplog.set_level("WARNING")
+
+    assert await EdgarXBRLService().get_filing_sections(ACC, filing_type, html=HTML) == expected
+    assert [r for r in caplog.records if r.levelname == "WARNING"] == []
 
 
 @pytest.mark.asyncio

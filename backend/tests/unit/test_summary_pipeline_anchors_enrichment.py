@@ -290,7 +290,7 @@ async def test_a_parse_not_done_in_its_share_of_the_join_still_leaves_the_regex_
             patch.object(summary_pipeline.xbrl_service, "get_filing_sections", never_done), \
             patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt):
         summarize.side_effect = lambda *_a, **_k: order.append("provider") or deepcopy(CANONICAL_PAYLOAD)
-        events = await _drain(filing_id)
+        events = await asyncio.wait_for(_drain(filing_id), 10)  # a parse awaited unbounded would hang
 
     _assert_complete(events)
     assert order == ["parse cancelled", "provider"]
@@ -316,7 +316,7 @@ async def test_an_excerpt_the_join_drops_is_logged(caplog):
             patch.object(summary_pipeline, "SECTION_PARSE_WAIT_SECONDS", 10.0), \
             patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=DOC_TEXT)), \
             patch.object(summary_pipeline.xbrl_service, "get_filing_sections", never_done):
-        events = await _drain(filing_id)
+        events = await asyncio.wait_for(_drain(filing_id), 10)  # a parse awaited outside the join would hang
 
     _assert_complete(events)
     assert summarize.await_args.kwargs["filing_excerpt"] is None

@@ -8,8 +8,10 @@ match, by sha256 and per-section length, what CI's ``eval-baseline`` recorded fo
 while the native path still worked (``coverage_inventory`` of runs 37152414706 and 37191767215,
 2026-10-03 and 2026-10-04; ``tasks/review-evidence/e28-native-sections-2026-10-15/``).
 
-This is the gate for an edgartools bump as well: if a new parser changes the section text, the
-model's input changes, and the excerpt hash here fails. Measure that change per
+It is also the free first check on an edgartools bump: a new parser that changes these three
+filings' section text changes the model's input, and the excerpt hash here fails. It reaches only the
+routes these filings take (10-K part keys, 10-Q part keys, a 20-F's Item 8 financials); the golden
+set's check is a dispatched ``eval-baseline`` and its native-section share. Measure a change per
 ``backend/evals/RUNBOOK.md`` before re-pinning these values; never re-pin to make a bump pass.
 
 The fixtures are the SEC documents as served, except that SEC appends a bot-detection script tag

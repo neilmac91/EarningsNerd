@@ -347,9 +347,11 @@ the 2026-09-19 pin measures the same inputs again. With `use_edgartools_sections
 harness, no floor applies: a native excerpt is then HARD (the report contradicts its harness), and
 a pin measured with sections on gives a WARN. A report without any `coverage_inventory`, or with no
 eligible attempt, gets a note, never a finding (unavailable is not measured zero). A scored eligible
-attempt missing its inventory while others carry one is HARD malformed evidence. Section text itself
-is pinned offline by `tests/unit/test_summary_sections_parity.py`, so an edgartools change that moves
-it fails the free `backend-tests` job before any paid run.
+attempt missing its inventory while others carry one is HARD malformed evidence. Section text for
+three golden filings is pinned offline by `tests/unit/test_summary_sections_parity.py`, so an
+edgartools change that moves theirs fails the free `backend-tests` job before any paid run. It reaches
+only the routes those filings take; the golden set's check on a bump is a dispatched `eval-baseline`
+and this share.
 
 **`schema_valid` recognizes both financial_highlights shapes** — the flat canonical
 `[revenue, net_income, eps, key_metrics]` (a bake-off candidate prompted to emit it) **or** the

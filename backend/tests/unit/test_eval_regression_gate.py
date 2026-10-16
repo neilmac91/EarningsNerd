@@ -265,6 +265,19 @@ def test_a_scored_eligible_attempt_without_inventory_is_malformed_evidence():
     assert "native_section_evidence" not in [f.metric for f in evaluate_report(errored, PINNED_ON)[0]]
 
 
+def test_attempts_without_inventory_are_left_out_of_the_share():
+    # Four failed groundings carry no inventory: unavailable, so the share is 58 of 60 (clean), never
+    # 58 of 64 (a WARN).
+    report = _provenance_report(_native_unless("ASML"))
+    for row in [r for r in report["results"] if r["filing_type"] == "10-K"][:4]:
+        del row["coverage_inventory"]
+        row["error"], row["score"] = "grounding failed", None
+    findings, notes = evaluate_report(report, PINNED_ON)
+    assert _native(findings) == []
+    assert ("baseline: native-section excerpts 58 of 60 eligible attempts (unavailable=4); "
+            "non-native: ASML 20-F x2") in notes
+
+
 def test_amended_forms_are_eligible():
     report = _provenance_report(lambda f: "regex_fallback")
     for row in report["results"]:
