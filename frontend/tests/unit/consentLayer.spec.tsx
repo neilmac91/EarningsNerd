@@ -93,7 +93,7 @@ describe('CookieConsent owns the consent layer', () => {
     expect(inset()).toMatch(/^\d+px$/) // jsdom measures 0; the attribute, not the number, is the contract here
     expect(consentEvents).toBe(0) // nothing is accepted by the layout
 
-    await user.click(screen.getByRole('button', { name: 'Accept All' }))
+    await user.click(screen.getByRole('button', { name: 'Allow analytics' }))
     expect(screen.queryByRole('region', { name: 'Cookie consent' })).not.toBeInTheDocument()
     expect(layerVisible()).toBe(false)
     expect(inset()).toBe('')
@@ -105,13 +105,13 @@ describe('CookieConsent owns the consent layer', () => {
     const user = userEvent.setup()
     render(<CookieConsent />)
     await user.click(await screen.findByRole('button', { name: 'Customize' }))
-    expect(screen.getByRole('dialog', { name: 'Cookie Preferences' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Cookie preferences' })).toBeInTheDocument()
     expect(layerVisible()).toBe(true) // inert under the modal, still laid out beneath it
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(layerVisible()).toBe(true)
     expect(screen.getByRole('button', { name: 'Customize' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Customize' }))
-    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
+    await user.click(screen.getByRole('button', { name: 'Save preferences' }))
     expect(layerVisible()).toBe(false)
     expect(inset()).toBe('')
     expect(consentEvents).toBe(1)

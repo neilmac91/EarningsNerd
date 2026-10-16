@@ -26,9 +26,10 @@ export interface GuidanceCardProps {
   /**
    * The title's element, chosen for its place in the page outline (DESIGN_SYSTEM §5): 'h3' (default)
    * for a card inside an h2 section; 'h2' where the card stands in for a page's content directly under
-   * the page h1 (the filing page's signup gate and failure cards, an empty watchlist). Size is unchanged.
+   * the page h1 (the filing page's signup gate and failure cards, an empty watchlist); 'h1' where the
+   * card is the whole page (the route error boundaries). Size is unchanged.
    */
-  headingLevel?: 'h2' | 'h3'
+  headingLevel?: 'h1' | 'h2' | 'h3'
   /**
    * Makes the title a focus target (tabIndex={-1}, no outline), for a card that takes focus when it appears. The
    * description then describes the title (aria-describedby), so a screen reader that cuts the card's live

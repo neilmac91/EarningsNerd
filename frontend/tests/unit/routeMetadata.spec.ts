@@ -69,7 +69,6 @@ const PROPER_NOUNS = [
  * RESIDUE_MAX with it in the same commit.
  */
 const TITLE_RESIDUE: Record<string, { title: string; why: string }> = {
-  'app/search/page.tsx': { title: 'Search Filings | EarningsNerd', why: 'recased by brand-calendar-search' },
   'app/privacy/page.tsx': { title: 'Privacy Policy | EarningsNerd', why: 'legal page, edited only with a legal-date bump' },
   'app/terms/page.tsx': { title: 'Terms of Service | EarningsNerd', why: 'legal page, edited only with a legal-date bump' },
 }
@@ -80,7 +79,7 @@ const DESCRIPTION_RESIDUE: Record<string, { text: string; why: string }> = {
   },
 }
 /** Each residue's size, an equality (lessons/test-allowlist-caps-are-equalities.md, D-040): it moves with its list. */
-const RESIDUE_MAX = { titles: 3, descriptions: 1 }
+const RESIDUE_MAX = { titles: 2, descriptions: 1 }
 
 /** Each route by its directory under app/ ('' is the home page). Private routes stay out of the index. */
 const PRIVATE_ROUTES = [

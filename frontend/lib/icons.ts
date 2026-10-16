@@ -4,6 +4,12 @@
 // context at import time (illegal in Server Components); re-exporting through this
 // 'use client' module keeps that context in the client graph, so Server Components can
 // still render icons. Import icons from '@/lib/icons' app-wide (not the package directly).
+//
+// Three glyphs are reserved, one meaning each (DESIGN.md › Icons; docs/brand/06-system.md §4):
+//   QuotesIcon        a passage from the filing (a located quote's source chip)
+//   BracketsCurlyIcon an XBRL fact (a figure's source chip)
+//   SparkleIcon       the AI summary alone (never an upgrade, a Pro badge or a status)
+// tests/unit/reservedGlyphs.spec.ts holds every use to its meaning sites, with a shrink-only residue.
 export {
   ArrowClockwiseIcon,
   ArrowDownRightIcon,
@@ -48,7 +54,6 @@ export {
   FilePdfIcon,
   FileTextIcon,
   FileXlsIcon,
-  FlameIcon,
   FunnelIcon,
   GearIcon,
   GitDiffIcon,
