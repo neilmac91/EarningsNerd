@@ -484,7 +484,7 @@ export default function AskCopilotRail({
             </p>
             {usage.qa_limit > 0 && (
               <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {`Pro includes ${usage.qa_limit.toLocaleString('en-US')} questions a month.`}
+                {`Pro includes ${fmtCount(usage.qa_limit)} questions a month.`}
               </p>
             )}
             <Button size="sm" className="mt-1" onClick={() => handleUpgrade('copilot_free_taste_exhausted')}>
