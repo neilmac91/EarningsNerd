@@ -99,6 +99,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## SEC / EDGAR data
 
+- sec-bind-a-ticker-by-exact-match-only.md — Bind a requested ticker to a company by exact match only (`resolve_ticker`); never take a search result by position (partly gated by `backend/tests/unit/test_search_company_callers_allowlist.py`: the `search_company` and `_local_search` callers and positional use of a result; another fuzzy source is review-checked)
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network

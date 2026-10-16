@@ -263,6 +263,10 @@ class SECEdgarServiceCompat:
         old EdgarTools fuzzy fallback is gone: it always failed after up to ten submissions
         downloads on the event loop, so it never returned a company — CODE RED record 17.)
 
+        Exact ticker hits come first, then entries whose name or ticker merely contains the query.
+        That suits the typeahead; to bind a requested ticker to its company use
+        :meth:`resolve_ticker`, never this method's first hit.
+
         Returns legacy format:
         [{"ticker": "AAPL", "name": "Apple Inc.", "cik": "0000320193", "exchange": None}]
 
@@ -277,6 +281,24 @@ class SECEdgarServiceCompat:
         except Exception as e:
             logger.error(f"Unexpected error searching company: {e}")
             raise EdgarError(f"Failed to search companies: {e}", cause=e)
+
+    async def resolve_ticker(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """The SEC ticker-file entry whose ticker IS ``ticker``, in :meth:`search_company`'s format,
+        or None when the file does not list it. The match is exact and case-insensitive, the same
+        comparison as the search's exact tier; no other spelling is mapped onto the file's.
+
+        A retired, renamed or mistyped ticker therefore resolves to nothing instead of to the first
+        partial name/ticker match (RTN once bound to Enterprise Products PARTNERS). The search ranks
+        exact ticker hits ahead of partial ones, so its result cap never drops the exact entry.
+
+        Raises:
+            EdgarError: If the ticker file cannot be fetched
+        """
+        wanted = ticker.lower().strip()
+        if not wanted:
+            return None
+        hits = await self.search_company(ticker)
+        return next((hit for hit in hits if hit["ticker"].lower() == wanted), None)
 
     async def get_filings(
         self,
