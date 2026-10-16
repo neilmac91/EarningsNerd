@@ -95,7 +95,13 @@ leaker and the victim in that order in one process (`python -m pytest -n 0 -p no
 - SQLite re-issues a deleted id;
 - a mock is left on the generation singletons, or the guard does not put the real one back;
 - a conftest reset stops holding: the canonical payload, the summary limiter, the delivery and lease
-  rows, or the `ai_metrics` trigger.
+  rows, the `ai_metrics` trigger, or a service method left pinned on its singleton.
+  `monkeypatch.setattr` on an instance saves the old attribute with `getattr`, a bound method, and
+  its undo sets that back on the instance, where it shadows any later class-level patch. Tests reach
+  those singletons through `app.services.edgar.compat` without importing `summary_pipeline`, so the
+  guard finds them where they live;
+- `_offline_stream_enrichment` stubs any file but its listed three, or the temp directory of any
+  process (the xdist controller and each worker included) outlives its run.
 
 It runs the probe pairs in a fixed order in a fresh serial process, because `-n auto` and random
 order can split or reverse a definition-order pair. A `test_probe_*` or `test_isolation_*` function
