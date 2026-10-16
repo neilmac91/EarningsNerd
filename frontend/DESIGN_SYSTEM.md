@@ -302,7 +302,23 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
 
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
-                 lib/financialTone.directionText IS this recipe — route delta text through it.
+                 lib/financialTone.directionText IS this recipe — route delta text through it; a
+                 direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
+                 a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
+                 600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
+                 the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,
+                 its import (any local name, a namespace member, Phosphor's unsuffixed name) or a binding
+                 the file writes one to (an alias, a ternary, a lookup in a map of glyphs, as the
+                 what-changed chip draws its `<Icon />`), on every element above it up to the first that
+                 gives it an ink on every render (a theme text colour with no variant, or a class part the
+                 rule cannot read, such as directionChip[tone]; a layout or type wrapper such as
+                 `flex gap-1` or `text-sm` passes the ink through), or in a map that pairs one with its
+                 classes; a glyph that reaches a binding as a parameter or a call's result, a glyph
+                 returned from a .map callback and a glyph passed as a JSX prop (`icon={…}`) are past it.
+                 A delta or a figure in sage with no glyph fails tests/unit/brandCopyRules.spec.ts rule 2
+                 (D-030), a figure field such as `display` included. tests/unit/whatChangedChip.spec.tsx
+                 renders the what-changed chip and holds its colour to directionChip for the server's
+                 tone, which no lint can see.
 
 Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
                  letter for its grouped data note. The letter is text-data-xs (11px minimum), zero
@@ -468,7 +484,7 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
                  tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
-                 tests/unit/badgeVariants.spec.tsx, shrink-only for the one row still on them). `new` keeps
+                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` keeps
                  its warning tint and pulse for now; the design owner chose the brand tint (bg-brand-weak
                  text-brand-strong, dark pair) with a sage pulse dot, static under reduced motion, which
                  lands as its own token change (D-032), so no other colour goes on it meanwhile.
@@ -680,8 +696,11 @@ Popover          An anchored, light-dismiss surface that explains one control (t
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
                  sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
                  workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
-                 z-header 50 (site header; its menus ride it) · z-overlay 60 (popovers incl. BellPopover, the
-                 selection pill) · z-modal 70 (dialogs + the source and viewer sheets — scrim AND panel) ·
+                 z-header 50 (site header; its menus ride it: the notification menu and the account menu
+                 sit on this one rung inside the header's stacking context, NotificationBell on the token
+                 and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
+                 z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
+                 source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
                  The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]

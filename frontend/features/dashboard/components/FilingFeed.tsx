@@ -71,7 +71,7 @@ export default function FilingFeed({
           </h2>
         </div>
         <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          The latest filing from each company you follow.
+          The latest annual or quarterly report from the companies you follow.
         </p>
       </div>
 

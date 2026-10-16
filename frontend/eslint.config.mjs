@@ -260,12 +260,15 @@ const config = [
   // string walker (eslint.designRules.mjs): no side-tab stripe on a rounded container (P-08), no
   // form code inside a Badge (P-04), no animation utility that keeps moving under reduced motion
   // (P-09), and no hand-rolled single-choice toggle group outside the SegmentedControl (CO-15).
+  // direction-text-tokens holds direction text to the 700-level gain/loss inks, never the 600
+  // level or sage (D-030).
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: TEST_FILES,
     plugins: { earningsnerd: { rules: { ...gridBaseTrackPlugin.rules, ...designRulesPlugin.rules } } },
     rules: {
       'earningsnerd/responsive-grid-base-track': 'error',
+      'earningsnerd/direction-text-tokens': 'error',
       'earningsnerd/no-side-stripe': 'error',
       'earningsnerd/no-form-code-badge': 'error',
       'earningsnerd/no-unguarded-animation': 'error',

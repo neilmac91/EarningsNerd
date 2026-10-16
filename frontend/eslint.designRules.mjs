@@ -37,6 +37,59 @@
 //                       a fixed truthiness rules out never counts (`cx({ uppercase: false })`,
 //                       `cx(false && 'uppercase')`), and one it guarantees always does
 //                       (`cx({ 'normal-case': 1 })`); any other string in the class counts.
+//   direction-text-tokens (D-030, DESIGN.md "Separate Signals") A delta or a direction chip is text, so its ink
+//                       is the 700-level direction token (text-gain-text / text-loss-text, the -dark pair in
+//                       dark: lib/financialTone's directionText and directionChip), never the 600 level and
+//                       never sage. The rule bans text-gain, text-gain-light, text-loss and text-loss-light
+//                       under any variant (the 600s are graphic tones: 3.0:1 and 3.9:1 as text on their tints),
+//                       except where the class is written on a graphic: an icon (any export of the icon
+//                       modules, or a trend glyph as read below) or an SVG element that draws one (never `text`
+//                       or `tspan`, which set type), whose text colour strokes and fills it through
+//                       currentColor, the 600s' own use (3:1 for non-text); held in a binding or a map, the
+//                       class is read as text. It also bans a text-brand-* class where it colours a direction
+//                       glyph: on a TrendUpIcon or TrendDownIcon; on every element above it, reached through
+//                       `{…}` children, ternaries, `&&` and fragments, up to the first whose classes give it an
+//                       ink on every render (the ink the glyph inherits); or anywhere in a value of an object
+//                       that pairs one with its classes (a direction map such as
+//                       { Icon: TrendUpIcon, cls: '…' }, the value a literal, a cx() call or a ternary). An
+//                       element gives the glyph its ink with a text colour that has no variant, in text that
+//                       always renders or in both arms of a ternary, or with a class part the rule cannot read
+//                       (a lookup such as directionChip[tone], a variable, another call), which may hold one. A
+//                       text colour is `text-` and a colour token of tailwind.config.js's resolved theme, never
+//                       a size (text-sm, text-data-xs), an alignment, a wrap or an overflow mode, so a layout
+//                       or type wrapper passes the ink through, as does a colour set only under a variant
+//                       (dark:, hover:, md:) or in one branch.
+//                       A glyph is known by its spelling, its import and its bindings, read through ESLint's
+//                       scopes: a name spelled TrendUpIcon or TrendDownIcon wherever it comes from; a binding
+//                       an import from the icon modules makes (`import { TrendUpIcon as Up }`, Phosphor's
+//                       unsuffixed `TrendUp`, a namespace whose trend members are glyphs: `<Ph.TrendUp />`,
+//                       `{ Icon: icons.TrendUpIcon }`); and a binding of the file, which holds every value
+//                       written to it (its initialiser, a default, a later assignment), read through an alias
+//                       (`const Up = TrendUpIcon`, `const Up = Icons.TrendUpIcon`), a destructured member
+//                       (`const { TrendUp: Up } = Ph`), a ternary's arms, a logical operand (the right of `&&`
+//                       alone) and a lookup in an object or array literal, by its key or, for a key the scan
+//                       cannot read, in every value: the what-changed chip's
+//                       `const Icon = GLYPH[item.direction] ?? GLYPH.flat` then `<Icon />` is read so. The icon
+//                       modules are `@/lib/icons`, by its alias or a path relative to the file, and the
+//                       Phosphor package at any entry, as tests/unit/iconModules.ts reads them for the glyph
+//                       and heading gates. A glyph re-exported through another app module, or a map of glyphs
+//                       imported from one, is out of reach.
+//                       Known limits: a glyph that reaches a binding from outside the file's writes (a
+//                       parameter or a prop past its default, a loop variable, a call's result:
+//                       `{xs.map((Icon) => <Icon />)}`, `const Icon = pick(d)`), a glyph returned from a
+//                       callback (`{xs.map((x) => <TrendUpIcon />)}`: the walk up stops at the arrow function),
+//                       and a glyph passed as a JSX prop (`icon={<TrendUpIcon />}`, valid by design: the
+//                       element that draws it is elsewhere) are data-flow, out of scope as below. A delta or a
+//                       figure in sage with no glyph (`+4.2%`, a chip's `{item.display}`) is not read here:
+//                       tests/unit/brandCopyRules.spec.ts rule 2 (sage never colours a number, D-030) fails it,
+//                       a figure field such as `display` or `change_display` included.
+//                       tests/unit/whatChangedChip.spec.tsx holds what no lint can see on the what-changed
+//                       chip: that its colour is directionChip for the tone the server sent, not for the
+//                       direction.
+//                       On the walk, an unread part that holds no colour (`${size}`) stops it as an ink
+//                       would, while a colour set only by a clsx object key ({ 'text-x': up }) or by a
+//                       variant that styles the glyph from its parent (`[&>svg]:text-x`) does not, so
+//                       sage above either is flagged.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that
@@ -100,7 +153,17 @@
 // the same file only: an imported constant, a class passed in as a prop, an object of recipes
 // (`styles.eyebrow`), a function's return value and a later assignment to the binding stay unread.
 
-import { branchTexts, classUnitVisitors, parseClassToken, splitClassToken } from './eslint.gridBaseTrack.mjs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import {
+  branchTexts,
+  classUnitVisitors,
+  collectStaticText,
+  isHelperCall,
+  isPassThrough,
+  parseClassToken,
+  splitClassToken,
+} from './eslint.gridBaseTrack.mjs'
 
 const STRIPE_WIDTH = /^border-[ls]-(2|4|8|\[[^\]]+\])$/
 const ROUNDED = /^rounded(-|$)/
@@ -531,6 +594,327 @@ export const noFormCodeBadge = {
   },
 }
 
+const DIRECTION_600_TEXT = /^text-(gain|loss)(-light)?(\/\S+)?$/
+const BRAND_TEXT = /^text-brand(-|\/|$)/
+const TREND_ICON = /^Trend(Up|Down)Icon$/
+const CLASS_ATTR = /^(class|className|\w+ClassName)$/
+
+/** The first token of `classText` whose utility matches `pattern`, under any variant, else null. */
+const firstToken = (classText, pattern) =>
+  classText.split(/\s+/).find((raw) => raw && pattern.test(splitClassToken(raw).utility)) ?? null
+
+/** The first 600-level direction colour used as text in `classText`, else null. */
+export const direction600Text = (classText) => firstToken(classText, DIRECTION_600_TEXT)
+/** The first sage text class in `classText`, else null. */
+export const brandText = (classText) => firstToken(classText, BRAND_TEXT)
+
+const cjs = createRequire(import.meta.url)
+/** The colours a `text-` class can name, as Tailwind names them (`brand-strong`, `text-secondary-light`,
+ *  `white`; a DEFAULT is its bare family): tailwind.config.js resolved with Tailwind's own palette. `inherit`
+ *  and `current` are left out, since they hand the element its parent's ink. */
+const flatColours = (colours, prefix = '') =>
+  Object.entries(colours).flatMap(([key, value]) => {
+    const name = key === 'DEFAULT' ? prefix : prefix ? `${prefix}-${key}` : key
+    return value && typeof value === 'object' ? flatColours(value, name) : [name]
+  })
+const TEXT_COLOURS = new Set(
+  flatColours(cjs('tailwindcss/resolveConfig')(cjs('./tailwind.config.js')).theme.textColor).filter(
+    (name) => name !== 'inherit' && name !== 'current',
+  ),
+)
+/** An arbitrary value Tailwind reads as a colour: a `color:` hint, a hex, a colour function or a bare
+ *  `var()` (Tailwind's default for `text-[var(--x)]`); a length or anything else is not one. */
+const ARBITRARY_COLOUR = /^\[(?:color:|#|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(|var\()/
+const OPACITY_MODIFIER = /\/(?:[\w.]+|\[[^\]]*\])$/
+
+/** Whether a utility sets a text colour: `text-` and a colour of the theme, an opacity modifier allowed.
+ *  The colours are read from the theme, not the other utilities denied by name, so no size (text-sm,
+ *  text-data-xs, text-sm/6), alignment, wrap or overflow mode, nor a `text-` utility a later Tailwind adds,
+ *  is ever read as one. */
+export const isTextColour = (utility) => {
+  if (!utility.startsWith('text-')) return false
+  const value = utility.slice('text-'.length)
+  return value.startsWith('[') ? ARBITRARY_COLOUR.test(value) : TEXT_COLOURS.has(value.replace(OPACITY_MODIFIER, ''))
+}
+
+/** Whether `classText` sets a text colour with no variant: the element's ink at rest, in light and at every
+ *  width. */
+const restingColour = (classText) =>
+  classText.split(/\s+/).some((raw) => {
+    if (!raw) return false
+    const { variants, utility } = splitClassToken(raw)
+    return variants.length === 0 && isTextColour(utility)
+  })
+
+/** Whether a class value gives its element an ink of its own on every render, so a glyph inside inherits
+ *  nothing from above: a resting text colour in text that always renders (a string, a template, any class
+ *  helper argument or array element), in both arms of a ternary or both operands of `||`/`??`; or a part
+ *  the rule cannot read (a lookup such as directionChip[tone], a variable, another call), which may hold
+ *  one, as the recipes the messages point to do. An `&&` operand and a clsx object key render only
+ *  sometimes. */
+function ownInk(node) {
+  if (!node) return false
+  switch (node.type) {
+    case 'Literal':
+      return typeof node.value === 'string' && restingColour(node.value)
+    case 'TemplateLiteral':
+      return restingColour(node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(' ')) || node.expressions.some(ownInk)
+    case 'JSXExpressionContainer':
+    case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
+    case 'TSNonNullExpression':
+    case 'ChainExpression':
+      return ownInk(node.expression)
+    case 'JSXEmptyExpression':
+    case 'ObjectExpression':
+      return false
+    case 'Identifier':
+      return node.name !== 'undefined'
+    case 'SpreadElement':
+      return ownInk(node.argument)
+    case 'ConditionalExpression':
+      return ownInk(node.consequent) && ownInk(node.alternate)
+    case 'LogicalExpression':
+      return node.operator !== '&&' && ownInk(node.left) && ownInk(node.right)
+    case 'BinaryExpression':
+      return node.operator === '+' && (ownInk(node.left) || ownInk(node.right))
+    case 'ArrayExpression':
+      return node.elements.some(ownInk)
+    case 'CallExpression':
+      if (isHelperCall(node)) return node.arguments.some(ownInk)
+      if (isPassThrough(node)) return ownInk(node.callee.object)
+      return true
+    default:
+      return true
+  }
+}
+
+/** A trend glyph's exported names: Phosphor exports each glyph with and without the Icon suffix, the barrel the
+ *  suffixed name alone. */
+const TREND_GLYPH = /^Trend(Up|Down)(Icon)?$/
+/** The SVG elements that draw a graphic; `text` and `tspan` set type, so a colour on them is a text colour. */
+const SVG_GRAPHICS = new Set(['svg', 'g', 'path', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'rect', 'use', 'symbol'])
+const PHOSPHOR = '@phosphor-icons/react'
+
+/** Whether an import draws from the icon modules: `@/lib/icons` (by its alias or a path relative to the file) and
+ *  the Phosphor package at any entry, read as tests/unit/iconModules.ts reads them for the glyph and heading gates. */
+const isIconModule = (source, filename, cwd) => {
+  if (source === PHOSPHOR || source.startsWith(`${PHOSPHOR}/`)) return true
+  const target = source.startsWith('@/')
+    ? source.slice(2)
+    : source.startsWith('.')
+      ? path.relative(cwd, path.resolve(path.dirname(filename), source)).split(path.sep).join('/')
+      : source
+  return target.replace(/\.tsx?$/, '').replace(/\/index$/, '') === 'lib/icons'
+}
+
+/** What the glyph reading can tell a value holds: a trend glyph, a namespace import of the icon modules, or (the
+ *  node itself) an object or array literal, whose values a lookup reads. */
+const A_GLYPH = 'glyph'
+const AN_ICON_NAMESPACE = 'icon namespace'
+
+/** A member's or a destructured property's key when it is written out (`GLYPH.up`, `GLYPH['up']`, `GLYPHS[0]`,
+ *  `{ up: Up }`), else null. */
+const writtenKey = (key, computed) =>
+  !computed ? (key.name ?? String(key.value)) : key.type === 'Literal' ? String(key.value) : (staticKey(key) ?? null)
+
+/** The keys a destructuring pattern reads on its way from `source`, the value written, down to `identifier`:
+ *  `const { TrendUp: Up } = Ph` reads ['TrendUp'], `const Up = TrendUpIcon` and a default (`Up = TrendUpIcon`)
+ *  none. A key the scan cannot read is null; a shape the reading does not follow (a rest element, a loop's
+ *  variable) gives undefined. */
+function patternKeys(identifier, source) {
+  const keys = []
+  for (let node = identifier; node.parent; node = node.parent) {
+    const { parent } = node
+    if (parent.type === 'VariableDeclarator') return parent.init === source ? keys : undefined
+    if (parent.type === 'AssignmentExpression') return parent.right === source ? keys : undefined
+    if (parent.type === 'AssignmentPattern' && parent.right === source) return keys
+    if (parent.type === 'Property' && parent.parent?.type === 'ObjectPattern') keys.unshift(writtenKey(parent.key, parent.computed))
+    else if (parent.type === 'ArrayPattern') keys.unshift(String(parent.elements.indexOf(node)))
+    else if (parent.type !== 'AssignmentPattern' && parent.type !== 'ObjectPattern') return undefined
+  }
+  return undefined
+}
+
+/** Reads whether a JSX tag or an expression names a trend glyph. A name spelled TrendUpIcon or TrendDownIcon is one
+ *  wherever it comes from. Any other name is read through ESLint's scopes to its binding: one an import from the
+ *  icon modules makes (`TrendUpIcon as Up`, Phosphor's unsuffixed `TrendUp`, or a namespace, whose trend members are
+ *  glyphs: `Ph.TrendUp`), or one of the file, which holds every value written to it (its initialiser, a default, a
+ *  later assignment). A value is read through an alias, a member of a namespace or of an object or array literal (by
+ *  its key: `GLYPH.up`; by every value for a key the scan cannot read: `GLYPH[d]`), a ternary's arms, a logical
+ *  operator's operands (the right of `&&` alone), a destructuring pattern's keys and TypeScript's wrappers. A binding
+ *  read again on its own path gives nothing more, so a cycle ends. `tag` reads a JSX tag (a lower-case name is an
+ *  HTML element, never a binding), `value` an expression (a direction map's value). */
+function glyphReader(context) {
+  const { sourceCode, filename, cwd } = context
+  const bindingOf = (node) => {
+    for (let scope = sourceCode.getScope(node); scope; scope = scope.upper) {
+      const variable = scope.set.get(node.name)
+      if (variable) return variable
+    }
+    return null
+  }
+  const reading = new Set()
+  const ofBinding = (variable) => {
+    if (reading.has(variable)) return []
+    reading.add(variable)
+    try {
+      const found = []
+      for (const def of variable.defs) {
+        if (def.type !== 'ImportBinding' || !isIconModule(String(def.parent.source.value), filename, cwd)) continue
+        if (def.node.type === 'ImportNamespaceSpecifier') found.push(AN_ICON_NAMESPACE)
+        if (def.node.type === 'ImportSpecifier' && TREND_GLYPH.test(def.node.imported.name ?? def.node.imported.value)) {
+          found.push(A_GLYPH)
+        }
+      }
+      for (const ref of variable.references) {
+        const keys = ref.writeExpr ? patternKeys(ref.identifier, ref.writeExpr) : undefined
+        if (keys) found.push(...keys.reduce((values, key) => values.flatMap((value) => member(value, key)), holds(ref.writeExpr)))
+      }
+      return found
+    } finally {
+      reading.delete(variable)
+    }
+  }
+  // What an expression or a JSX tag may hold: A_GLYPH, AN_ICON_NAMESPACE, or an object or array literal.
+  const holds = (node) => {
+    switch (node?.type) {
+      case 'Identifier':
+      case 'JSXIdentifier': {
+        const variable = bindingOf(node)
+        return [...(TREND_ICON.test(node.name) ? [A_GLYPH] : []), ...(variable ? ofBinding(variable) : [])]
+      }
+      case 'MemberExpression':
+      case 'JSXMemberExpression': {
+        const key = writtenKey(node.property, node.computed)
+        return key !== null && TREND_ICON.test(key) ? [A_GLYPH] : holds(node.object).flatMap((value) => member(value, key))
+      }
+      case 'ConditionalExpression':
+        return [...holds(node.consequent), ...holds(node.alternate)]
+      case 'LogicalExpression':
+        return node.operator === '&&' ? holds(node.right) : [...holds(node.left), ...holds(node.right)]
+      case 'ChainExpression':
+      case 'TSAsExpression':
+      case 'TSSatisfiesExpression':
+      case 'TSNonNullExpression':
+      case 'TSTypeAssertion':
+        return holds(node.expression)
+      case 'ObjectExpression':
+      case 'ArrayExpression':
+        return [node]
+      default:
+        return []
+    }
+  }
+  // What `value[key]` may hold: a namespace's trend member, or a literal's values at that key (every value for a key
+  // the scan cannot read), a spread read at the same key.
+  const member = (value, key) => {
+    if (value === AN_ICON_NAMESPACE) return key !== null && TREND_GLYPH.test(key) ? [A_GLYPH] : []
+    if (value === A_GLYPH) return []
+    const spread = (node, at) => holds(node.argument).flatMap((inner) => member(inner, at))
+    if (value.type === 'ArrayExpression') {
+      const exact = key !== null && !value.elements.some((e) => e?.type === 'SpreadElement')
+      const items = exact ? [value.elements[Number(key)]] : value.elements
+      return items.flatMap((e) => (!e ? [] : e.type === 'SpreadElement' ? spread(e, null) : holds(e)))
+    }
+    return value.properties.flatMap((p) =>
+      p.type === 'SpreadElement'
+        ? spread(p, key)
+        : key === null || [key, null].includes(writtenKey(p.key, p.computed))
+          ? holds(p.value)
+          : [],
+    )
+  }
+  return {
+    tag: (name) => (name.type !== 'JSXIdentifier' || /^[A-Z]/.test(name.name)) && holds(name).includes(A_GLYPH),
+    value: (node) => holds(node).includes(A_GLYPH),
+    // Whether a JSX tag names an icon of the icon modules, any of them: a named import or a namespace's member.
+    icon: (name) => {
+      let root = name
+      while (root.type === 'JSXMemberExpression') root = root.object
+      if (root.type !== 'JSXIdentifier' || !/^[A-Z]/.test(root.name)) return false
+      const variable = bindingOf(root)
+      return !!variable?.defs.some(
+        (def) => def.type === 'ImportBinding' && isIconModule(String(def.parent.source.value), filename, cwd),
+      )
+    },
+  }
+}
+
+/** The nodes a glyph's ink passes through on its way up to the element that sets it: a `{…}` child,
+ *  a ternary or `&&` around it, a fragment, and an element (which the walk reads for sage and passes when
+ *  its classes give it no ink on every render: ownInk). */
+const PASS_THROUGH = new Set(['JSXExpressionContainer', 'ConditionalExpression', 'LogicalExpression', 'JSXFragment', 'JSXElement'])
+
+/** Every class text an expression can render, one per branch (see branchTexts). */
+const textsOf = (node) => branchTexts(collectStaticText(node, new WeakSet()))
+
+export const directionTextTokens = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Direction text uses the 700-level gain/loss tokens, never the 600 level or sage.' },
+    schema: [],
+    messages: {
+      light:
+        '{{token}} is the 600-level direction colour, a graphic tone that fails as text. Use the 700 level ' +
+        '(text-gain-text / text-loss-text, dark:text-gain-dark / dark:text-loss-dark), or directionText / ' +
+        'directionChip from lib/financialTone.',
+      brand:
+        '{{token}} colours a direction in sage, and sage never marks a gain, a loss or a figure (D-030). Use ' +
+        'directionText / directionChip from lib/financialTone, or the neutral ink with the glyph carrying it.',
+    },
+  },
+  create(context) {
+    const reportBrand = (node, texts) => {
+      for (const text of texts) {
+        const token = brandText(text)
+        if (token !== null) return context.report({ node, messageId: 'brand', data: { token } })
+      }
+    }
+    const classAttrs = (opening) =>
+      opening.attributes.filter((a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && CLASS_ATTR.test(a.name.name))
+    const glyph = glyphReader(context)
+    // An icon or an SVG element that draws a graphic takes its stroke and fill from its text colour (currentColor), so a
+    // 600-level class written on one colours a graphic, the 600s' own use, and is not text.
+    const isGraphic = (opening) => {
+      const { name } = opening
+      if (name.type === 'JSXIdentifier' && /^[a-z]/.test(name.name)) return SVG_GRAPHICS.has(name.name)
+      return glyph.tag(name) || glyph.icon(name)
+    }
+    return {
+      ...classUnitVisitors((node, pieces) => {
+        if (node.type === 'JSXAttribute' && isGraphic(node.parent)) return
+        for (const text of branchTexts(pieces)) {
+          const token = direction600Text(text)
+          if (token !== null) return context.report({ node, messageId: 'light', data: { token } })
+        }
+      }),
+      // A glyph and the elements whose ink it may inherit: each one above it, through a `{…}` child, a
+      // ternary or a `&&`, read for sage under any variant and in any branch, up to the first whose
+      // classes give it an ink on every render (ownInk). A wrapper that sets no text colour (`flex
+      // gap-1`, `text-sm`), or sets one only under a variant or in one branch, passes the ink through.
+      JSXElement(node) {
+        if (!glyph.tag(node.openingElement.name)) return
+        for (const attr of classAttrs(node.openingElement)) reportBrand(attr, textsOf(attr.value))
+        for (let up = node.parent; up && PASS_THROUGH.has(up.type); up = up.parent) {
+          if (up.type !== 'JSXElement') continue
+          const attrs = classAttrs(up.openingElement)
+          for (const attr of attrs) reportBrand(attr, textsOf(attr.value))
+          if (attrs.some((attr) => ownInk(attr.value))) break
+        }
+      },
+      // A direction map: an object that holds a trend glyph (read as glyphReader reads one: by its name, its
+      // import or a binding the file writes it to) beside the classes it is drawn with. Every value is read,
+      // whatever builds it (a literal, a template, a cx() call, a ternary).
+      ObjectExpression(node) {
+        const props = node.properties.filter((p) => p.type === 'Property')
+        if (!props.some((p) => glyph.value(p.value))) return
+        for (const p of props) reportBrand(p.value, textsOf(p.value))
+      },
+    }
+  },
+}
+
 /** globals.css classes that stop themselves in a `prefers-reduced-motion: reduce` block, so a use
  *  site needs no guard. tests/unit/designRules.spec.ts reads globals.css to hold each one to it. */
 export const SELF_GUARDED_ANIMATIONS = new Set(['animate-fadeIn', 'animate-check-pop', 'animate-on-scroll'])
@@ -785,6 +1169,7 @@ export const noHandRolledToggleGroup = {
 
 const plugin = {
   rules: {
+    'direction-text-tokens': directionTextTokens,
     'no-side-stripe': noSideStripe,
     'no-form-code-badge': noFormCodeBadge,
     'no-unguarded-animation': noUnguardedAnimation,
