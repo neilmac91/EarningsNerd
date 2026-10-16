@@ -64,14 +64,14 @@ afterEach(() => {
 
 // Each prefix with the needs_regeneration the server sends beside it.
 const CASES: Array<{ status: string; needs: boolean; sentence: string; label: string; variant: string }> = [
-  { status: 'ready', needs: false, sentence: 'Summary is current.', label: 'Ready', variant: 'beat' },
+  { status: 'ready', needs: false, sentence: 'Summary is current.', label: 'Ready', variant: 'success' },
   { status: 'generating:summarizing', needs: false, sentence: 'A summary is being written.', label: 'Generating', variant: 'brand' },
   { status: 'missing', needs: true, sentence: 'No summary yet. Open the filing to generate one.', label: 'No summary yet', variant: 'neutral' },
   {
     status: 'placeholder', needs: true,
     sentence: "This summary isn't available right now. Open the filing and generate it again.", label: 'Unavailable', variant: 'warning',
   },
-  { status: 'error', needs: true, sentence: 'The last attempt failed. Open the filing and generate it again.', label: 'Error', variant: 'miss' },
+  { status: 'error', needs: true, sentence: 'The last attempt failed. Open the filing and generate it again.', label: 'Error', variant: 'error' },
 ]
 
 describe('the watchlist card states each summary status', () => {

@@ -75,7 +75,9 @@ export const queryKeys = {
   // The change report differs by viewer: a Pro reader gets every Item 1A wording change, everyone
   // else the teaser. The key carries the signed-in reader's id (null for anonymous), so anonymous
   // readers share one entry (the one the filing page seeds from its server read) and no signed-in
-  // reader's own read overwrites it. Read through features/summaries/hooks/useWhatChanged.
+  // reader's own read overwrites it. Read through features/summaries/hooks/useWhatChanged. A reader
+  // whose /me failed reads under the anonymous key with their own session, so the family is removed
+  // on logout and login (features/auth/lib/accountQueryState); the seed returns as initial data.
   whatChanged: {
     all: () => ['what-changed'] as const,
     byViewer: (filingId: string | number, viewerId: number | null) => ['what-changed', filingId, viewerId] as const,

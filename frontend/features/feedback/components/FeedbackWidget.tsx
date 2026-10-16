@@ -11,9 +11,9 @@ import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
 const TYPES: { value: FeedbackType; label: string }[] = [
-  { value: 'bug', label: '🐞 Bug' },
-  { value: 'feature', label: '✨ Idea' },
-  { value: 'general', label: '💬 General' },
+  { value: 'bug', label: 'Bug' },
+  { value: 'feature', label: 'Idea' },
+  { value: 'general', label: 'General' },
 ]
 
 // Secondary launcher: pinned bottom-LEFT (Ask is the bottom-right hero) and clear of the iOS home
@@ -96,7 +96,7 @@ export default function FeedbackWidget() {
                   className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${
                     type === t.value
                       ? 'border-brand-strong/40 bg-brand-strong/10 text-brand-strong dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15 dark:text-brand-strong-dark'
-                      : 'border-black/10 text-text-secondary-light hover:bg-black/[0.03] dark:border-white/15 dark:text-text-secondary-dark dark:hover:bg-white/[0.04]'
+                      : 'border-border-light text-text-secondary-light hover:bg-white dark:border-white/15 dark:text-text-secondary-dark dark:hover:bg-white/[0.04]'
                   }`}
                 >
                   {t.label}
@@ -113,7 +113,7 @@ export default function FeedbackWidget() {
               rows={4}
               maxLength={4000}
               placeholder="What's working, what's broken, or what you'd love to see…"
-              className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand focus:shadow-ring-brand focus:outline-none focus:ring-0 focus:ring-offset-0 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
+              className="w-full resize-none rounded-lg border border-border-light bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand focus:shadow-ring-brand focus:outline-none focus:ring-0 focus:ring-offset-0 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
             />
 
             {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button
@@ -143,7 +143,7 @@ export default function FeedbackWidget() {
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
         style={LAUNCHER_OFFSET}
-        className="fixed z-30 inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center gap-2 rounded-full border border-border-light bg-panel-light px-3 py-2.5 text-xs font-medium text-text-secondary-light shadow-e2 transition-colors hover:bg-background-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+        className="fixed z-30 inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center gap-2 rounded-full border border-border-light bg-panel-light px-3 py-2.5 text-xs font-medium text-text-secondary-light shadow-e2 transition-colors hover:bg-white hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
       >
         <ChatCircleDotsIcon className="h-5 w-5" />
         <span className="hidden sm:inline">Feedback</span>

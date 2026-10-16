@@ -157,7 +157,14 @@ move focus a mouse user did not lose.
   `errorUpdateCount > 0` alone is weaker still. The count tells a second failure in the same millisecond
   from the first; the time tells a failure after a reset of the same key (`resetQueries`, which zeroes both
   counters, so its refetch is a first load) from the one before it at the same count. Data ends the hold (a query that is neither `error` nor `pending`),
-  so a later background refetch over loaded data never shows the old error. A first load is never held, nor
+  so a later background refetch over loaded data never shows the old error. Placeholder data is the one
+  exception (#1301): a query with `placeholderData` (the search's `keepPreviousData`) reports a refetch of
+  its held failure as `status: 'success'` with `isPlaceholderData`, carrying the previous key's data while it
+  has none of its own. So while a failure is held, a placeholder-backed result counts as `pending`: the error
+  UI and its focused Retry stay up, busy, and only the query's own data ends the hold. Read raw, the
+  placeholder ended the hold and unmounted the focused Retry for the previous search's hits
+  (`useRetainedFailure.spec.tsx` and `full-text-search.spec.tsx` pin it). A caller without `placeholderData`
+  never sees `isPlaceholderData`, so nothing changes for it. A first load is never held, nor
   a fresh mount over a failure it never rendered. It is derived from the query's state on each render, so no
   second press, paused fetch or batched settle can wedge it. Gated (rule 12): every caller under app/,
   components/, features/, hooks/ and lib/ passes, as `queryKey`, the same expression as its own same-file
@@ -234,6 +241,9 @@ that starts no focus) and needs a touch-device pass. Fixed, all on
 RetryButton: the dashboard's account, plan and Your companies Retry buttons, FilingFeed's Retry, the
 company page's filings Retry (`FilingIndex.spec.tsx` for the control, `busyControls.watchlist.spec.tsx` for the
 hold through its retry and the hand-off to the "SEC filings" heading; its pins removed from the Retry gate in #1147),
+the company page's company Retry (`company-page-lead.spec.tsx`: the card and its busy, focused Retry held through
+the retry instead of the page spinner, then the hand-off to the "SEC filings" heading, the not-found title on a 404,
+or the coverage card's title for an unsupported issuer; a 404 card held through a background refetch, #1292),
 CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when it goes), the pricing
 page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
 `CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,
@@ -242,7 +252,9 @@ page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyCon
 EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
 plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
 billing are fixed too (`busyControls.dashboard.spec.tsx`), and Watchlist insights' Retry keeps its error
-card, busy and focused, through its refetch (`summaryStatusCopy.spec.tsx`).
+card, busy and focused, through its refetch (`summaryStatusCopy.spec.tsx`). The admin invites and
+feedback list Retry buttons hold their Notice through the retry and hand focus to the "Invites" or
+"Feedback" list heading (`busyControls.admin-auth.spec.tsx`).
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,
 `aria-disabled={pending || undefined}` plus an early return). `tests/unit/calendarBellKeepsFocus.spec.tsx`

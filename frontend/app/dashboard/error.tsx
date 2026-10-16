@@ -40,6 +40,7 @@ export default function DashboardError({
         <div className="w-full max-w-md">
           <GuidanceCard
             variant="error"
+            headingLevel="h1"
             icon={<LockSimpleIcon className="h-5 w-5" />}
             title="Authentication required"
             description="Please log in to access your dashboard."
@@ -56,6 +57,7 @@ export default function DashboardError({
       <div className="w-full max-w-md">
         <GuidanceCard
           variant="error"
+          headingLevel="h1"
           icon={<WarningCircleIcon className="h-5 w-5" />}
           title="Something went wrong"
           description="This page didn't load. The error has been logged."

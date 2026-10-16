@@ -9,8 +9,9 @@ import { Badge, type BadgeVariant } from '@/components/ui'
  * not know (it is true for missing, placeholder and error alike, and false while a summary is written).
  * Gate: tests/unit/summaryStatusCopy.spec.tsx.
  *
- * Ready and Error still borrow the beat/miss chips with their glyphs stripped (`icon={null}`); they move
- * to Badge's success and error status variants once those land (brand-chrome-primitives, D-032).
+ * The badge is a status, so it takes Badge's status variants (D-032): Ready on success, Error on error,
+ * Unavailable and Needs regenerating on warning. Never beat or miss: those are the earnings-surprise
+ * direction (tests/unit/badgeVariants.spec.tsx).
  */
 export type SummaryStatusKind = 'ready' | 'generating' | 'missing' | 'placeholder' | 'error'
 
@@ -26,7 +27,7 @@ export function summaryStatusKind(status: string): SummaryStatusKind | null {
 export function summaryStatusBadge(status: string, needsRegeneration: boolean): { label: string; variant: BadgeVariant } {
   switch (summaryStatusKind(status)) {
     case 'ready':
-      return { label: 'Ready', variant: 'beat' }
+      return { label: 'Ready', variant: 'success' }
     case 'generating':
       // One word for every stage: the stage after the colon is the pipeline's key (`summarizing`,
       // `fetching`, even a stale `completed`), and the filing page's step log speaks in long phrases a
@@ -37,7 +38,7 @@ export function summaryStatusBadge(status: string, needsRegeneration: boolean): 
     case 'placeholder':
       return { label: 'Unavailable', variant: 'warning' }
     case 'error':
-      return { label: 'Error', variant: 'miss' }
+      return { label: 'Error', variant: 'error' }
     default:
       return needsRegeneration
         ? { label: 'Needs regenerating', variant: 'warning' }
@@ -72,8 +73,6 @@ export default function SummaryStatusBadge({
 }) {
   const { label, variant } = summaryStatusBadge(status, needsRegeneration)
   return (
-    <Badge variant={variant} icon={null}>
-      {label}
-    </Badge>
+    <Badge variant={variant}>{label}</Badge>
   )
 }

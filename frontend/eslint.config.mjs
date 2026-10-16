@@ -123,9 +123,16 @@ const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
 // with `${…}` is held to the same rules. A class name assembled from fragments at runtime is not.
 // aria-hidden glyphs below the type scale (Badge ▲▼, DataTable ▲▼) and the 40px pricing display
 // figure (its own tracking-[…]) carry an eslint-disable with a reason.
+// The raw-colour rule reads a 6-digit hex (8-digit included) and an rgb(), rgba(), hsl() or hsla()
+// call in either case (`RGB(` is the same colour to a browser), in a string, a template chunk or an
+// arbitrary utility (`shadow-[0_20px_50px_rgba(…)]`), since each is a colour no token governs (BG-19).
+// A 3- or 4-digit hex is read only where it can be nothing but a colour: inside an arbitrary utility or
+// property, at its start or after a colon, an underscore, a parenthesis or a comma (`bg-[#fff]`,
+// `[color:#fff]`, `shadow-[0_0_0_1px_#abc]`), or as the whole literal (`'#000a'`); inside copy
+// ("PR #619") it is not. The mirrors above keep their exemption.
 const DESIGN_HEX_RULE = {
-  selector: 'Literal[value=/#[0-9a-fA-F]{6}/]',
-  message: 'Raw hex — use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
+  selector: 'Literal[value=/#[0-9a-f]{6}|(?:rgba?|hsla?)\\(|\\[(?:[^\\]\\s]*[:_(,])?#[0-9a-f]{3,4}(?![0-9a-f])[^\\]\\s]*\\]|^#[0-9a-f]{3,4}$/i]',
+  message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
 }
 const DESIGN_PALETTE_RULE = {
   selector:
@@ -248,8 +255,9 @@ const config = [
   // branch with that text only) and parses variant prefixes. It is its own rule, so it covers the
   // design-exempt files too. The 2026-10 critique's gates ride the same plugin and the same class-
   // string walker (eslint.designRules.mjs): no side-tab stripe on a rounded container (P-08), no
-  // form code inside a Badge (P-04), and no animation utility that keeps moving under reduced motion
-  // (P-09). direction-text-tokens holds direction text to the 700-level gain/loss inks, never the 600
+  // form code inside a Badge (P-04), no animation utility that keeps moving under reduced motion
+  // (P-09), and no hand-rolled single-choice toggle group outside the SegmentedControl (CO-15).
+  // direction-text-tokens holds direction text to the 700-level gain/loss inks, never the 600
   // level or sage (D-030).
   {
     files: ['**/*.ts', '**/*.tsx'],
@@ -261,6 +269,8 @@ const config = [
       'earningsnerd/no-side-stripe': 'error',
       'earningsnerd/no-form-code-badge': 'error',
       'earningsnerd/no-unguarded-animation': 'error',
+      'earningsnerd/locale-pinned-numbers': 'error',
+      'earningsnerd/no-hand-rolled-toggle-group': 'error',
     },
   },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.
