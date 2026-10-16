@@ -374,7 +374,7 @@ async def join_waitlist(
         return {
             "success": False,
             "error": "already_registered",
-            "message": "This email is already on the waitlist!",
+            "message": "This email is already on the waitlist.",
             "position": calculate_waitlist_position(existing.position, existing.priority_score),
             "referral_code": existing.referral_code,
             "referral_link": build_referral_link(existing.referral_code),
@@ -431,7 +431,7 @@ async def join_waitlist(
 
     return {
         "success": True,
-        "message": "You're on the list!",
+        "message": "You're on the waitlist.",
         "position": position,
         "referral_code": signup.referral_code,
         "referral_link": referral_link,

@@ -8,10 +8,14 @@ Section text is parsed from the primary document the app fetched
 (``filing_section_service.parse_item_1a``). This test encodes the rule the way the os.getenv
 gate does: an AST walk over ``app/**/*.py`` collects every access to an attribute named ``obj``:
 the call (``filing.obj()``), the bare read that aliases the accessor (``loader = filing.obj``,
-then ``loader()``) and the string form (``getattr(filing, "obj")``); any way of reaching the
-accessor starts with one of those. The (file, enclosing scope) pairs are compared against the two
-sites that predate the rule. A NEW access anywhere fails with its file:line; a sanctioned site
-that disappears fails too, so the list cannot go stale.
+then ``loader()``) and the string form: any call that passes ``"obj"`` as an argument, which covers
+``getattr(filing, "obj")`` and getattr wrappers such as ``sixk_extractor._safe(filing, "obj")``.
+Any literal way of reaching the accessor starts with one of those; a name built at runtime (held in a
+variable) is outside an AST walk, and review catches it. The (file, enclosing scope) pairs are
+compared against the two sites that predate the rule. The summary-section path left the list with
+E28: it parses the primary document the pipeline fetched and never calls ``obj()``. A NEW access
+anywhere fails with its file:line; a sanctioned site that disappears fails too, so the list cannot
+go stale.
 """
 import ast
 from pathlib import Path
@@ -21,8 +25,8 @@ APP_DIR = BACKEND_DIR / "app"
 
 # (file relative to backend/, enclosing scope) -> why the call predates the rule.
 ALLOWED_OBJ_CALLS: dict[tuple[str, str], str] = {
-    ("app/services/edgar/xbrl_sections.py", "_extract_sections_sync"): (
-        "the USE_EDGARTOOLS_SECTIONS summary-section path; its production hit rate is open item E28"
+    ("app/services/edgar/sixk_extractor.py", "_extract_sixk_text_sync"): (
+        "the 6-K exhibit text for summary grounding, through the _safe getattr wrapper"
     ),
     ("app/services/insider_service.py", "_collect_insider_data_sync"): (
         "Form 4 objects for the insider feed, behind ENABLE_INSIDER_ACTIVITY (off in the deploy)"
@@ -31,8 +35,8 @@ ALLOWED_OBJ_CALLS: dict[tuple[str, str], str] = {
 
 
 class _ObjAccessFinder(ast.NodeVisitor):
-    """Collect (scope, lineno) for every ``<expr>.obj`` attribute (called or not) and every
-    ``getattr(<expr>, "obj")``."""
+    """Collect (scope, lineno) for every ``<expr>.obj`` attribute (called or not) and every call
+    that passes the string ``"obj"`` as an argument (``getattr`` or a wrapper around it)."""
 
     def __init__(self) -> None:
         self.hits: list[tuple[str, int]] = []
@@ -60,10 +64,8 @@ class _ObjAccessFinder(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        if (
-            isinstance(node.func, ast.Name) and node.func.id == "getattr" and len(node.args) >= 2
-            and isinstance(node.args[1], ast.Constant) and node.args[1].value == "obj"
-        ):
+        arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
+        if any(isinstance(arg, ast.Constant) and arg.value == "obj" for arg in arguments):
             self.hits.append((self._scope(), node.lineno))
         self.generic_visit(node)
 
@@ -85,7 +87,8 @@ def test_edgartools_obj_accesses_match_the_allowlist():
     missing = set(ALLOWED_OBJ_CALLS) - set(found)
 
     assert not unexpected and not missing, (
-        "edgartools .obj accesses (a call, a bare read of the accessor or getattr(x, 'obj')) drifted "
+        "edgartools .obj accesses (a call, a bare read of the accessor, or 'obj' passed by name as in "
+        "getattr(x, 'obj')) drifted "
         "from the allow-list (lessons/sec-parse-app-fetched-html-not-edgartools-filing-objects.md).\n"
         f"  unexpected: {sorted(loc for locs in unexpected.values() for loc in locs)}\n"
         f"  missing (a sanctioned site was removed/moved — prune ALLOWED_OBJ_CALLS): {sorted(missing)}\n"
@@ -94,7 +97,7 @@ def test_edgartools_obj_accesses_match_the_allowlist():
     )
 
 
-def test_finder_sees_a_call_a_bare_read_and_the_getattr_form_and_ignores_other_names():
+def test_finder_sees_a_call_a_bare_read_and_the_string_forms_and_ignores_other_names():
     finder = _ObjAccessFinder()
     finder.visit(ast.parse(
         "def f(filing):\n"
@@ -103,6 +106,7 @@ def test_finder_sees_a_call_a_bare_read_and_the_getattr_form_and_ignores_other_n
         "    y = loader()\n"
         "    z = getattr(filing, 'obj')()\n"
         "    w = filing.object(); v = getattr(filing, 'objects'); u = obj(filing)\n"
-        "    return x, y, z, w, v, u\n"
+        "    s = _safe(filing, 'obj'); t = _safe(filing, name='obj')\n"
+        "    return x, y, z, w, v, u, s, t\n"
     ))
-    assert finder.hits == [("f", 2), ("f", 3), ("f", 5)]
+    assert finder.hits == [("f", 2), ("f", 3), ("f", 5), ("f", 7), ("f", 7)]

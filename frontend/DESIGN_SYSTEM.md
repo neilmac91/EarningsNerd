@@ -70,10 +70,11 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 - **Body & UI:** `-apple-system → Inter` (system-first; Apple hardware renders SF Pro, everyone
   else falls through to Inter — Inter sits BEFORE generic `system-ui` on purpose).
 - **Data:** Geist Mono + `tabular-nums` — money, %, tickers, XBRL anchors, verbatim excerpts,
-  Ask-this-Filing output. `.tabular` = mono evidence register; `.tnum` = tabular figures in the
-  CURRENT (body) face — numerals inside prose/UI copy only. Data tables and KPI tiles are **not**
-  `.tnum` surfaces: their numerics render mono (DataTable numeric cells, StatCard figures — the
-  data-role rule).
+  Ask-this-Filing output, and a code a reader may retype (the waitlist referral link: Inter's
+  contextual alternates draw an x between digits, as in `p4x8n2wd`, as a multiplication sign).
+  `.tabular` = mono evidence register; `.tnum` = tabular figures in the CURRENT (body) face —
+  numerals inside prose/UI copy only. Data tables and KPI tiles are **not** `.tnum` surfaces: their
+  numerics render mono (DataTable numeric cells, StatCard figures — the data-role rule).
 - **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
   (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
   On a public page the serif appears only inside a quoted passage the product located (the hero

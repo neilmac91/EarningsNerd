@@ -56,8 +56,9 @@ def create_verification_token(email: str, referral_code: str) -> str:
 
 
 def build_referral_link(referral_code: str) -> str:
+    """The share link: /waitlist reads ``?ref=`` (WaitlistForm) with WAITLIST_MODE on or off; the homepage does not."""
     base = settings.FRONTEND_URL.rstrip("/")
-    return f"{base}?ref={referral_code}"
+    return f"{base}/waitlist?ref={referral_code}"
 
 
 def build_verification_link(token: str) -> str:

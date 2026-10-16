@@ -13,6 +13,7 @@ import {
   FREE_HISTORY_RETENTION_DAYS,
   TRIAL_DAYS,
 } from '@/lib/planLimits'
+import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
 
 /**
  * Structural gate for free-tier plan copy (CLAUDE.md rules 4 and 12).
@@ -48,6 +49,11 @@ const backendConst = (name: string): number => {
   return Number(match[1])
 }
 
+// The waitlist's referral bonus is held the same way: REFERRAL_BONUS (features/waitlist/lib/referral.ts)
+// equals the backend's, the success card reads it, and no copy types "5 spots" again (the page once said
+// it twice while the referral link credited nobody).
+const waitlistService = readFileSync(path.resolve(frontendDir, '../backend/app/services/waitlist_service.py'), 'utf8')
+
 /** A field of the `_FREE = Entitlements(...)` literal, e.g. `copilot_free_taste=3,`. */
 const freeEntitlementField = (name: string): number => {
   const block = entitlements.match(/_FREE = Entitlements\(([\s\S]*?)\n\)/)
@@ -64,6 +70,7 @@ const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
   { label: 'free Copilot question taste spelled out', pattern: /\b\d+ (?:free )?Ask this Filing questions?\b|\bFree accounts get \d+ questions?\b/i },
   { label: 'free history retention spelled out', pattern: /\b\d+-day (?:summary )?history\b|\bFree keeps \d+ days\b/i },
+  { label: 'waitlist referral bonus spelled out', pattern: /\b\d+ spots?\b/i },
   // Behaviour: a free-tier cap constant assigned a literal, or a count compared against one
   // (the calendar pre-flight and fixture checks drifted this way before the mirror existed).
   { label: 'free-tier cap constant assigned a literal', pattern: /\bFREE_[A-Z0-9_]*(?:LIMIT|CAP)\b\s*=\s*\d+/ },
@@ -101,6 +108,15 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     expect(FREE_HISTORY_RETENTION_DAYS).toBe(freeEntitlementField('history_retention_days'))
   })
 
+  it('mirrors the waitlist REFERRAL_BONUS, which the referral sentence reads', () => {
+    const match = waitlistService.match(/^REFERRAL_BONUS\s*=\s*(\d+)/m)
+    if (!match) throw new Error('REFERRAL_BONUS not found in backend/app/services/waitlist_service.py')
+    expect(REFERRAL_BONUS).toBe(Number(match[1]))
+    const form = readFileSync(path.join(frontendDir, 'features/waitlist/components/WaitlistForm.tsx'), 'utf8')
+    expect(form).toMatch(/import \{ REFERRAL_BONUS \} from '@\/features\/waitlist\/lib\/referral'/)
+    expect(form).toMatch(/\{REFERRAL_BONUS\} spots/)
+  })
+
   it('functional cap sites import the mirrored constants', () => {
     for (const rel of FUNCTIONAL_CAP_SITES) {
       const source = readFileSync(path.join(frontendDir, rel), 'utf8')
@@ -121,7 +137,7 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
         })
       }
     }
-    expect(offenders, 'use FREE_SUMMARY_LIMIT / FREE_EARNINGS_ALERT_LIMIT from lib/planLimits instead').toEqual([])
+    expect(offenders, 'use the mirrored constants (lib/planLimits; REFERRAL_BONUS from features/waitlist/lib/referral) instead').toEqual([])
   })
 
   // Pro's Copilot questions are capped (COPILOT_MONTHLY_QUESTION_CAP, a fair-use 429 past it), so no copy
