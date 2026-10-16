@@ -59,6 +59,12 @@ def _filing_attachment_url(cik: str, accession_number: str, filename: str) -> st
     return build_sec_archive_url(cik, accession_number) + quote(filename, safe="-._~")
 
 
+def _ticker_key(ticker: str) -> str:
+    """A ticker's identity for exact matching: case-insensitive, with '.' and '-' as the same
+    share-class separator (SEC's ticker file spells BRK-B; users and other sources type BRK.B)."""
+    return ticker.strip().upper().replace(".", "-")
+
+
 async def _bounded_identity_response_content(response: httpx.Response) -> bytes:
     """Read an identity-encoded HTTP entity while bounding declared and actual size."""
     content_encoding = response.headers.get("content-encoding")
@@ -190,6 +196,7 @@ class SECEdgarServiceCompat:
         query_lower = query.lower().strip()
         if not query_lower:
             return []
+        query_key = _ticker_key(query)
 
         exact_matches: List[Dict[str, Any]] = []
         partial_matches: List[Dict[str, Any]] = []
@@ -210,7 +217,7 @@ class SECEdgarServiceCompat:
                 "exchange": None,
             }
 
-            if query_lower == ticker.lower():
+            if query_key == _ticker_key(ticker):
                 exact_matches.append(entry)
             elif query_lower in name.lower() or query_lower in ticker.lower():
                 partial_matches.append(entry)
@@ -263,6 +270,10 @@ class SECEdgarServiceCompat:
         old EdgarTools fuzzy fallback is gone: it always failed after up to ten submissions
         downloads on the event loop, so it never returned a company — CODE RED record 17.)
 
+        Exact ticker hits come first, then entries whose name or ticker merely contains the query.
+        That suits the typeahead; to bind a requested ticker to its company use
+        :meth:`resolve_ticker`, never this method's first hit.
+
         Returns legacy format:
         [{"ticker": "AAPL", "name": "Apple Inc.", "cik": "0000320193", "exchange": None}]
 
@@ -277,6 +288,23 @@ class SECEdgarServiceCompat:
         except Exception as e:
             logger.error(f"Unexpected error searching company: {e}")
             raise EdgarError(f"Failed to search companies: {e}", cause=e)
+
+    async def resolve_ticker(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """The SEC ticker-file entry whose ticker IS ``ticker`` (case-insensitive, '.' and '-'
+        alike), in :meth:`search_company`'s format, or None when the file does not list it.
+
+        A retired, renamed or mistyped ticker therefore resolves to nothing instead of to the first
+        partial name/ticker match (RTN once bound to Enterprise Products PARTNERS). The search ranks
+        exact ticker hits ahead of partial ones, so its result cap never drops the exact entry.
+
+        Raises:
+            EdgarError: If the ticker file cannot be fetched
+        """
+        wanted = _ticker_key(ticker)
+        if not wanted:
+            return None
+        hits = await self.search_company(ticker)
+        return next((hit for hit in hits if _ticker_key(hit["ticker"]) == wanted), None)
 
     async def get_filings(
         self,

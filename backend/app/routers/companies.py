@@ -353,9 +353,10 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
         # The lookup released the initial SELECT's transaction before this SEC wait; the Session
         # is reusable for the short persistence unit below.
         try:
-            sec_results = await sec_edgar_service.search_company(ticker)
-            if sec_results:
-                sec_data = sec_results[0]
+            # Exact ticker only: a ticker missing from SEC's file is a 404, never its first partial
+            # name/ticker match (RTN once served Enterprise Products Partners).
+            sec_data = await sec_edgar_service.resolve_ticker(ticker)
+            if sec_data:
                 primary = await sec_edgar_service.primary_ticker_for_cik(sec_data["cik"])
                 company = company_lookup_service.persist_sec_company(db, sec_data, primary)
             else:
