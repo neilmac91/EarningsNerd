@@ -98,14 +98,14 @@ def get_filing_by_accession(company: EdgarCompany, accession_number: str) -> lis
     return filings
 
 
-# Short-lived, per-CIK EdgarCompany cache for the by-accession summary path. A single summary run
-# resolves the SAME filing twice — the XBRL extraction and the section extraction fire as CONCURRENT
-# tasks (summary_pipeline.py), each on its own edgar-thread-pool thread. Without sharing, an
-# accession older than the recent window full-loads the company's history ONCE PER extraction; with
-# it, the second reuses the first's already-loaded entity (edgartools keeps the loaded submissions
-# on the instance). The cache is deliberately small + short-TTL: it only needs to span a run's
-# concurrent extractions, and a fully-loaded mega-filer entity is tens of MB, so we cap memory
-# hard. Staleness is a non-issue here — we fetch a FIXED historical filing by accession, not "latest".
+# Short-lived, per-CIK EdgarCompany cache for the by-accession summary path. A summary run resolves
+# its filing once, for the XBRL instance extraction (a 6-K resolves it for its exhibit text instead);
+# until E28 the section extraction resolved the SAME filing again, concurrently, and this cache
+# kept that second resolution from full-loading the company's history a second time. It still
+# spans resolutions of one company within its TTL (a regeneration, another filing of the same
+# company), reusing the already-loaded entity (edgartools keeps the loaded submissions on the
+# instance). The cache is deliberately small + short-TTL, and a fully-loaded mega-filer entity is
+# tens of MB, so we cap memory hard. Staleness is a non-issue here — we fetch a FIXED historical filing by accession, not "latest".
 # NOTE: only the by-accession path uses this. The filings-LIST path (get_filings_multi) keeps building
 # a fresh entity per load so it always sees the newest recent window.
 _COMPANY_CACHE_TTL = timedelta(seconds=120)
@@ -155,8 +155,8 @@ def _get_or_build_company(cik: str) -> EdgarCompany:
 
 
 def resolve_filing_by_accession(cik: str, accession_number: str) -> Tuple[EdgarCompany, list]:
-    """Resolve a filing by accession, reusing a cached EdgarCompany across a summary's two concurrent
-    extractions so an old filing's full-history load runs once, not per extraction. Thread-safe:
+    """Resolve a filing by accession, reusing a cached EdgarCompany across resolutions of one company
+    within the cache's TTL so an old filing's full-history load runs once, not per call. Thread-safe:
     same-CIK resolutions serialize on a per-CIK lock (edgartools' lazy load mutates the entity).
 
     Callers may read INIT-TIME METADATA (e.g. ``company.sic``, ``is_financial_institution()``) on the

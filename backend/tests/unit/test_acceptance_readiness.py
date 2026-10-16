@@ -644,6 +644,29 @@ def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
     assert "Revenue rose." in projected and "Generated September" in export.read_text()
 
 
+def test_blinding_strips_the_generation_date_from_a_real_filing_export(tmp_path: Path) -> None:
+    """The case above blinds a hand-written header; this one blinds what ExportService.generate_pdf_html
+    writes (acceptance_worker stores that HTML as the export artifact), so a change to the PDF's meta
+    line that loses the "<br>Source: SEC EDGAR" anchor the lookahead reads fails in CI, not in a run."""
+    import re
+
+    import tests.unit.test_export_service as export_fixtures
+    from app.services.export_service import ExportService
+
+    summary, filing = export_fixtures._make_summary_and_filing(export_fixtures._full_sections())
+    export = tmp_path / "export.html"
+    export.write_text(ExportService().generate_pdf_html(summary, filing), encoding="utf-8")
+    row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
+    config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
+              "base_url": "https://provider.invalid/v1"}
+    generated = re.compile(r"Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}")
+    assert generated.search(export.read_text(encoding="utf-8"))  # the export dates itself
+    projected = _reviewer_artifact(export, "export", row, config, "H01").decode()
+    assert not generated.search(projected)
+    assert "Period End: December 31, 2025<br>Source: SEC EDGAR · " in projected
+    assert "we operate in a very competitive and rapidly changing environment" in projected
+
+
 def test_blinding_refuses_unknown_nested_execution_marker_or_canonical_shape(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     row = json.loads(fixture["outputs"].read_text())["records"][0]
