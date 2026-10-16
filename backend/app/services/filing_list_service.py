@@ -29,6 +29,7 @@ from app.database import SessionLocal
 from app.models import Company, Filing
 from app.services.company_resolution import resolve_or_create_company_by_cik
 from app.services.edgar.compat import sec_edgar_service
+from app.services.edgar.config import FilingType
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,6 @@ T = TypeVar("T")
 # Constants for filings endpoint configuration
 SEC_REQUEST_TIMEOUT_SECONDS = 20.0  # Timeout for SEC EDGAR requests (within frontend's 30s limit)
 CACHED_FILINGS_LIMIT = 20  # Rows the default list serves per group: the reports, and 6-Ks apart
-_SIX_K_FORMS = ("6-K", "6-K/A")
 
 # B2: stale-within-TTL cache for the company filings list. The hot path already persists every SEC
 # fetch into the Filing table, so a recently-synced ticker can serve its list straight from the DB
@@ -201,13 +201,14 @@ def cached_filings(
     joinedload(company) so the converter doesn't lazy-load the company per row (this is the primary
     serving path, not just a fallback).
     """
-    # Default serves the recent cap (unchanged behaviour); an explicit ?limit= (P1-6 "show full
-    # history") raises it so the deep-backfilled rows surface. 6-Ks are capped apart from the other
-    # forms, as on the live fetch (edgar/client.py RECENT_FILINGS_MATERIALIZE_CAP): an issuer that
-    # furnishes a 6-K most business days would otherwise fill the cap and hide its 20-F/40-F.
+    # Each group serves its newest `row_cap` rows: the reports, and the 6-Ks (FilingType.is_interim)
+    # apart, as on the live fetch (edgar/client.py RECENT_FILINGS_MATERIALIZE_CAP): an issuer that
+    # furnishes a 6-K most business days would otherwise fill the cap and hide its 20-F/40-F. The
+    # default cap is CACHED_FILINGS_LIMIT; an explicit ?limit= (P1-6 "show full history") raises it
+    # so the deep-backfilled rows surface. With no 6-K type requested, this is the one reports query.
     row_cap = limit or CACHED_FILINGS_LIMIT
-    report_types = [t for t in types_list if t not in _SIX_K_FORMS]
-    six_k_types = [t for t in types_list if t in _SIX_K_FORMS]
+    six_k_types = [t for t in types_list if FilingType.from_string(t, strict=False).is_interim]
+    report_types = [t for t in types_list if t not in six_k_types]
     try:
         newest_per_group = [
             db.query(Filing).options(joinedload(Filing.company)).filter(

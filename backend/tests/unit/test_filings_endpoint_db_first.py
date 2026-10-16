@@ -501,7 +501,7 @@ def test_live_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
 
 def test_cached_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
     """DB-first serving: the default list shows the stored 20-F next to the newest 6-Ks, newest
-    first, and an explicit ?limit= caps the 6-Ks apart from the reports in the same way."""
+    first, and an explicit ?limit= caps the 6-Ks, a 6-K/A among them, apart from the reports."""
     tc, TestingSession = client
     monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
     with TestingSession() as s:
@@ -509,6 +509,7 @@ def test_cached_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
         for f in _daily("6-K", 60, date(2026, 8, 31), "1"):
             _seed_dated(s, company, f.accession_number, "6-K", f.filing_date)
         _seed_dated(s, company, f"{FPI_CIK}-26-900001", "20-F", date(2026, 3, 5))
+        _seed_dated(s, company, f"{FPI_CIK}-26-800001", "6-K/A", date(2026, 9, 1))  # not a default form
         s.commit()
     filing_list_service._mark_filings_synced("BPX", company_list_forms())  # serve from the DB
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
@@ -522,6 +523,8 @@ def test_cached_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
 
     limited = [f["filing_type"] for f in tc.get("/api/filings/company/BPX?limit=5").json()]
     assert limited == ["6-K"] * 5 + ["20-F"]
+    amended = tc.get("/api/filings/company/BPX?filing_types=20-F,6-K,6-K/A&limit=5").json()
+    assert [f["filing_type"] for f in amended] == ["6-K/A"] + ["6-K"] * 4 + ["20-F"]
 
 
 def test_domestic_lists_are_unchanged_by_the_6k_budget(client, monkeypatch):

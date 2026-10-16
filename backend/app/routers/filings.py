@@ -92,7 +92,7 @@ async def get_company_filings(
     ticker: str,
     background: BackgroundTasks,
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
-    limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings to return, with 6-Ks capped apart from the other forms; default serves the recent cap"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings per form group (the 6-Ks, and every other form); default serves the recent cap"),
     db: Session = Depends(get_db, scope="function")
 ):
     """Get filings for a company.

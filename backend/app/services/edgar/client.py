@@ -52,12 +52,16 @@ apply_edgartools_backports()
 # about ten weeks. So on this path 6-Ks fill a budget of their own of the same size (`_take_recent`),
 # and a 20-F or 40-F filed earlier in the window is still listed.
 RECENT_FILINGS_MATERIALIZE_CAP = 50
-_SIX_K_FORMS = frozenset({"6-K", "6-K/A"})
+# The 6-K group as FilingType.is_interim defines it (6-K, 6-K/A); filing_list_service.cached_filings
+# budgets the same group on the DB-first serve, so the cold and warm lists agree.
+_SIX_K_FORMS = frozenset(ft.value for ft in FilingType if ft.is_interim)
 
 
 def _take_recent(filings: Iterable[Any], cap: int, six_k_apart: bool) -> List[Any]:
     """The first ``cap`` filings of a newest-first stream. With ``six_k_apart``, the first ``cap``
-    6-Ks plus the first ``cap`` of the other forms, in stream order; stops once both are full."""
+    6-Ks plus the first ``cap`` of the other forms, in stream order. That walk reads the whole
+    stream: a list rarely fills both budgets (a foreign issuer files a few reports a year, a domestic
+    one no 6-K), SEC bounds the recent window, and only the kept rows are held."""
     if not six_k_apart:
         return list(islice(filings, cap))
     taken: List[Any] = []
@@ -70,8 +74,6 @@ def _take_recent(filings: Iterable[Any], cap: int, six_k_apart: bool) -> List[An
         elif others < cap:
             others += 1
             taken.append(f)
-        if six_ks >= cap and others >= cap:
-            break
     return taken
 
 # Negative cache for the bounded-fallback path: (ticker/cik, base_forms) that returned NOTHING even
@@ -263,7 +265,7 @@ class EdgarClient:
         download *per form type* — the cause of the request timeout. The recent window (SEC's
         "greater of ~1000 filings or ~1 year") always contains the newest 10-K/10-Q/20-F for an
         active filer; older history accrues in our DB across loads (see the DB-first serving in
-        app/routers/filings.py). ``_take_recent`` bounds materialization to keep memory flat.
+        app/routers/filings.py). ``_take_recent`` bounds the rows kept to keep memory flat.
 
         Args:
             ticker: Stock ticker OR CIK (callers on this path pass the CIK).
@@ -320,7 +322,7 @@ class EdgarClient:
         # so a daily 6-K filer's notices cannot push its 20-F/40-F out; a bounded caller keeps the
         # newest `limit` across every form.
         materialize_cap = limit if limit is not None else RECENT_FILINGS_MATERIALIZE_CAP
-        six_k_apart = limit is None and "6-K" in base_forms
+        six_k_apart = limit is None and not _SIX_K_FORMS.isdisjoint(base_forms)
 
         try:
             edgar_company = await run_with_circuit_breaker(
