@@ -50,13 +50,15 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
       <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {COPILOT_CLAIM} Try one:
       </p>
+      {/* rounded-2xl, not a full pill: the radius scales with the text, so a starter that wraps at an enlarged size
+          keeps its words clear of the curve, and one line at the default size still reads as a pill. */}
       <div className="mt-3 flex flex-wrap gap-2">
         {starters.map((q) => (
           <button
             key={q}
             type="button"
             onClick={() => onAsk(q, 'summary_starter')}
-            className="rounded-full border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 px-3 py-1.5 text-left text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+            className="rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 px-3 py-1.5 text-left text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             {q}
           </button>
