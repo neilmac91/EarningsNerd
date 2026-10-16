@@ -90,7 +90,7 @@ def test_status_without_a_row_serves_the_user_mirror(client):
 
 
 def test_status_serves_the_readers_own_row(client):
-    email = _new_user(stripe_customer_id="cus_mirror")
+    email = _new_user(stripe_customer_id="cus_mirror", stripe_subscription_id="sub_mirror")  # the row wins over both
     _add_subscription(
         email, plan="pro", status="active", stripe_customer_id="cus_row", stripe_subscription_id="sub_row",
         current_period_end=PERIOD_END, cancel_at_period_end=True,
