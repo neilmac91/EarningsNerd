@@ -75,3 +75,15 @@ def parse_display_number(value: object) -> tuple[Optional[Decimal], bool]:
     if outer_negative or parenthesized or (sign1 or sign2) in ("-", "−"):
         number = -number
     return number, unit in ("%", "percent")
+
+
+def money_prefix_for(reporting_currency: object) -> str:
+    """The label for a money figure in the filer's reporting currency: a bare "$" for USD (or no
+    currency, the domestic default), else the ISO code and a space ("EUR 30.6B", "CNY 941.2B").
+
+    Standardized XBRL values are in the reporting currency, so every summary writer that formats
+    them (the primary filler in ``ai/markdown_render.py`` and the AI-timeout fallback in
+    ``fallback_summary.py``) labels them with this one rule: a CNY figure shown as "$" reads ~7x too
+    large.
+    """
+    return "$" if str(reporting_currency or "USD").upper() == "USD" else f"{str(reporting_currency).upper()} "

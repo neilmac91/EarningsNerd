@@ -23,6 +23,7 @@ from app.services.ai.xbrl_narrative import (
     return_ratio_period,
     returns_ratio_in_band,
 )
+from app.utils.numbers import money_prefix_for
 
 
 def _append_bullet_group(lines: List[str], label: str, items: Any) -> bool:
@@ -261,11 +262,8 @@ class _MarkdownRenderMixin:
         # issuers (e.g. "EUR 30.6B", "CNY 30.6B"). Standardized XBRL values are in the filer's
         # reporting currency, so the deterministic figures below must never mislabel a non-USD filer
         # as dollars — a ~7x distortion the numeric scorers can't catch, and a currency-consistency hit.
-        reporting_currency = (xbrl_metrics or {}).get("reporting_currency")
-        money_prefix = (
-            "$" if str(reporting_currency or "USD").upper() == "USD"
-            else f"{str(reporting_currency).upper()} "
-        )
+        # The rule is shared with the AI-timeout fallback (fallback_summary.py).
+        money_prefix = money_prefix_for((xbrl_metrics or {}).get("reporting_currency"))
 
         def format_currency(value: Optional[float]) -> Optional[str]:
             if value is None:
