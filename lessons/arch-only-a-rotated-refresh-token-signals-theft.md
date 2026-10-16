@@ -32,18 +32,29 @@ nothing and the other device's new session still refreshes. Restoring the uncond
 all four. Its last test pins the residual: a copy the owner's own refresh rotated away, replayed
 after a reset, still ends the new login.
 `backend/tests/unit/test_replaced_by_id_writers_allowlist.py` holds every mention of
-`replaced_by_id` in `backend/app` to rotation's own read and write and the column definition,
-counted per function, so a second write inside a listed function fails too. It counts reads, so an
-aliased write cannot slip past it; it folds names built from literals
-(`"_".join(("replaced", "by", "id"))`); and in every module that names the model, its table or
-`User.refresh_tokens` it counts each place a column could be picked at run time (`setattr` with a
-computed name, row data that is not a literal mapping such as `.update(carried)`, `{col.name: v}`
-or `set_=data`, `text(sql)`), since such a name cannot be read off the source. It scores its scan
-on planted forms and names its gaps: a generic helper elsewhere handed a token, a name from code the
-folder does not run, and a whole-row copy that moves every column without naming one.
-Because the column is `ON DELETE SET NULL`, the retention purge deletes refresh tokens in ascending
-id order, so a chain's predecessor always goes before its successor and keeps its link even if a
-run stops between batches
+`replaced_by_id` in every Python, SQL, shell and workflow file that can reach the production
+database (the whole repository but the browser app and the test homes: the backend and its
+migrations, `ops/` detection SQL, the root `scripts/`, `tasks/` operator SQL, the workflows) to
+rotation's own read and write, the column definition and its migration, counted per function, so a
+second write inside a listed function fails too. It counts reads, so an aliased write cannot slip
+past it; it folds names built from literals (`"_".join(("replaced", "by", "id"))`) and matches SQL
+in any case; and in every file that names the model, its table, `User.refresh_tokens` or the column,
+or imports a refresh-token module, it counts each place a column could be picked at run time
+(`setattr` with a computed name, row data that is not a literal mapping such as `.update(carried)`,
+`{col.name: v}` or `set_=data`, `text(sql)`, SQL assembled at run time wherever it is built or from
+pieces (`+=`, a list join, psycopg2 composition), `EXECUTE` in a migration), since such a name
+cannot be read off the source. Because the column is `ON DELETE SET NULL`, a delete writes it too:
+deleting a successor clears its predecessor's link, so every delete in those files (a `delete` or
+`Delete` call, aliased or handed on, or `DELETE FROM refresh_tokens`, `TRUNCATE` or `MERGE ... THEN
+DELETE` in a string or a migration) is counted. The one refresh-token deleter that exists, the
+retention purge, deletes in ascending id order, so a chain's predecessor always goes before its
+successor and keeps its link even if a run stops between batches
 (`test_retention_purge.py::test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link`).
+The gate scores its scan on planted forms and names its gaps: a generic helper elsewhere handed a
+token or a model to delete, a name from code the folder does not run, a whole-row copy or load
+(`INSERT ... SELECT *`, a positional `INSERT ... VALUES`, `COPY`), dropping a token from the
+delete-orphan `User.refresh_tokens` collection, a write through an ORM synonym, a psql variable
+standing in for the column, dynamic SQL that builds both names, and a same-kind swap inside one
+function.
 Replaying a rotated-away token still revokes the live chain (`test_refresh_replay.py`,
 `test_auth_token_flows.py`).
