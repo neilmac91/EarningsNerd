@@ -37,8 +37,9 @@ async def run_in_own_session(
 def run_in_own_session_sync(
     job: Callable[Concatenate[Session, P], T], /, *args: P.args, **kwargs: P.kwargs,
 ) -> T:
-    """``run_in_own_session`` for a synchronous job. Call it from a plain-function background task,
-    which FastAPI runs in its threadpool, so the job stays off the event loop."""
+    """``run_in_own_session`` for a synchronous job. Call it from code already off the event loop:
+    a plain-function background task, which FastAPI runs in its threadpool, or a function the
+    route awaits through ``run_in_threadpool``."""
     from app.database import SessionLocal
 
     db = SessionLocal()
