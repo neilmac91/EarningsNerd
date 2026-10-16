@@ -96,9 +96,13 @@ Blink takes. Model the reader's behaviour, such as a box model, rather than the 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
 
-**Gate**: each gate scores its own planted forms in its own suite. Scoring a model of a reader against the
-reader itself has no gate yet: E78 in `tasks/todo.md` would score the mail reader against the pinned
-Chromium in CI.
+**Gate**: each gate scores its own planted forms in its own suite: rule 2's fixture,
+`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, in `brandCopyRules.spec.ts`; the published-asset scan's
+`FORMS`, with equal counts and a header that names each gap a case marks, in
+`backend/tests/unit/test_mail_published_assets.py`; and the mail reader's planted pages (`TEXT_SIZES`,
+`LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`) in `backend/tests/unit/test_mail_header_template.py`.
+Scoring a model of a reader against the reader itself has no gate yet: E78 in `tasks/todo.md` would score
+the mail reader against the pinned Chromium in CI.
 
 **Evidence**: [#850](https://github.com/neilmac91/EarningsNerd/pull/850) —
 `frontend/tests/unit/designSystemDoneGate.spec.ts` and `testHomesAllowlist.spec.ts`;
@@ -277,6 +281,12 @@ the page, a partial of `_wrap_html`, a renderer's plain-text copy parsed as mark
 took. So it now renders every public function of the mail module, with its sends recorded, on inputs a
 line-coverage check holds to every line of the module, and reads each address in what is sent. The
 source scan stays for the code no render reaches, and its header names what it cannot follow.
+Its own name reads were then looser than Python's: a function merely named `dedent` was taken for
+`textwrap.dedent`, `nonlocal` named the function directly around instead of the nearest one that binds
+the name, a walrus in a comprehension was read as the comprehension's own, a `def`, a `class` and a
+`match` capture were no bindings at all, and a parameter's default was read inside the function, so a
+registered path rebound or handed on in each of those forms passed. When a gate resolves names, resolve
+them as the language does, and know a library function by what the module imports, not by its name.
 
 **Recurrence (2026-10-15, the mail's layout rules)**: #1334 holds CSS rules on every page the mail
 module sends: the header keeps `-webkit-text-size-adjust:100%` and every other line is left to the
@@ -298,8 +308,13 @@ short to print the runs the rule is about: every reader was "Ada". The review af
 same two halves again. The width check read the widths an element declares, while a browser lays boxes
 out: an image at its natural size, a block's padding, a list's indent, a margin, and a table a percentage
 `max-width` does not hold in a cell each held a page wider than a phone with every test green; it now
-gives each box the room its parent leaves, as a box model does, short of the room a row's cells share. And every company in the inputs was
+gives each box the room its parent leaves, as a box model does. And every company in the inputs was
 "Acme Corp", while EDGAR names carry runs of 18 to 21 characters, which the alerts printed with no rule.
+The table model was still written from the specification, and each read measured in Chromium corrected
+it: a fixed layout takes its widths from the first row it lays out, its first header group first, shares
+the room its columns leave by their widths, and resolves a percentage against the table less its spacing,
+shrinking it before it overruns; an `<object>`'s fallback is any child but a `<param>`, a comment included;
+and an `<embed>` with a `type` but no `src` makes a box.
 When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
 parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
 `word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine

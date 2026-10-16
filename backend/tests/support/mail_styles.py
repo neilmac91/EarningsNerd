@@ -37,61 +37,81 @@ Two engines enlarge text, and each reads its own names:
 
 So a line's size is read once per engine, and each reading must hold the rule.
 
-A run ends where a line may wrap: at a space, a tab, a line break or one of the Unicode spaces a line may
-break after, where the line wraps; at ``<wbr>`` or a zero-width space there; at ``<br>`` or a line break the
-line keeps; and at the edge of a block, a table's part or an element placed whole, such as an image or a
-button. It goes on across the tags of every other element, an element the reader does not know and one the
-page hides alike, so a link split by markup is read whole, and across a float (a ``float`` in its style, its
-parent's under ``inherit``, or an image's or a table's ``align`` of left or right) or a box positioned absolute
-or fixed, which a browser takes out of the line: the text on either side of one joins, and its own text
-forms runs of its own. A ``<br>`` breaks the line however it is styled. Within a run, a character can break where ``overflow-wrap:anywhere``,
+A run ends where a line may wrap: at a space, a tab, a line break or one of the Unicode spaces a line may break
+after, where the line wraps; at ``<wbr>`` or a zero-width space there; at ``<br>`` or a line break the line keeps;
+and at the edge of a block, a table's part or an element placed whole, such as an image, a button, or an
+``<object>`` that holds no fallback content (any child but a ``<param>`` or whitespace, a comment among them). It
+goes on across the tags of every other element, an element the reader does not know and one the page hides alike,
+so a link split by markup is read whole; across an ``<object>``'s fallback, which a browser lays out in the line
+unless the content its ``data`` or ``type`` asks for loads, which the reader does not know; across an ``<embed>``
+with neither a ``src`` nor a ``type``, which lays out nothing; and across a float (a ``float`` in its style, its
+parent's under ``inherit``, or an ``align`` of left or right, as written, on an image, a table, an object, an
+embed, an iframe or an input drawn as an image, which ``float:revert-layer`` keeps) or a box positioned absolute
+or fixed, which a browser takes out of the line: the text on either side of one joins, and its own text forms runs
+of its own. A ``<br>`` breaks the line whatever its float, position or display, save ``display:contents``, which
+gives it no box (measured in Chromium 141). Within a run, a character can break where ``overflow-wrap:anywhere``,
 ``word-break:break-word`` or ``break-all``, or ``line-break:anywhere`` reaches it: each lets a word break and
 shrinks the narrowest width a table can give its cell, which ``overflow-wrap:break-word`` alone does not. Two
-aliases are read once per engine, since the engines differ on them: ``word-wrap``, read with
-``overflow-wrap``, whose ``anywhere`` Blink takes and WebKit may not, and ``-webkit-line-break``, read with
-``line-break``, whose ``anywhere`` Blink drops (in Chromium 141 ``CSS.supports`` refuses it, and takes the
-alias's other values) and WebKit may take. So a run breaks in every engine only where another of those forms
-reaches it, and a page lends the rule wherever either engine may take it (``lent_runs``, ``reach_problems``).
-That Blink breaks under each form is measured; that WebKit does is inferred from the specifications it
-implements. ``all`` sets every property read here to its keyword, in its place among the declarations.
+aliases are read once per engine, since the engines differ on them: ``word-wrap``, read with ``overflow-wrap``,
+whose ``anywhere`` Blink takes and WebKit may not, and ``-webkit-line-break``, read with ``line-break``, whose
+``anywhere`` Blink drops (in Chromium 141 ``CSS.supports`` refuses it, and takes the alias's other values) and
+WebKit may take. So a run breaks in every engine only where another of those forms reaches it, and a page lends
+the rule wherever either engine may take it (``lent_runs``, ``reach_problems``). That Blink breaks under each form
+is measured; that WebKit does is inferred from the specifications it implements. ``all`` sets every property read
+here to its keyword, in its place among the declarations.
 
-A line wraps where both kinds of engine wrap it: one that predates ``text-wrap-mode`` reads ``white-space``
-alone, in its single keywords (it drops one written in its longhands' words, such as ``collapse wrap``), and one
-that reads it takes the last of ``white-space``, ``text-wrap`` and ``text-wrap-mode``, the first two being
-shorthands that set it. So ``white-space:nowrap`` or ``pre``, ``text-wrap-mode:nowrap`` and a
+A line wraps where both kinds of engine wrap it: one that predates ``text-wrap-mode`` reads ``white-space`` alone,
+in its single keywords (it drops one written in its longhands' words, such as ``collapse wrap`` or a lone
+``wrap``), and one that reads it takes the last of ``white-space``, ``text-wrap`` and ``text-wrap-mode``, the
+first two being shorthands that set it. So ``white-space:nowrap`` or ``pre``, ``text-wrap-mode:nowrap`` and a
 ``text-wrap`` with ``nowrap`` keep a run on one line, spaces and all, as do ``<pre>``, ``<nobr>`` and a cell's
-``nowrap`` attribute, and a ``text-wrap-mode:wrap`` does not undo a ``white-space:nowrap``. A line keeps its
-line breaks where both kinds keep them, and its spaces where either does: one that reads
-``white-space-collapse`` takes the last of it and ``white-space``, the older one ``white-space`` alone, and
-spaces a line keeps count in its runs. A
-value Chromium refuses, such as ``white-space:preserve-spaces`` or ``text-wrap:avoid-orphans``, is dropped, as
-there.
+``nowrap`` attribute, and a ``text-wrap-mode:wrap`` does not undo a ``white-space:nowrap``. A line keeps its line
+breaks where both kinds keep them, and its spaces where either does: one that reads ``white-space-collapse`` takes
+the last of it and ``white-space``, the older one ``white-space`` alone, and spaces a line keeps count in its
+runs. A value Chromium refuses, such as ``white-space:preserve-spaces`` or ``text-wrap:avoid-orphans``, is
+dropped, as there.
 
 Each box is held to the room its parent gives it on the narrowest phone: 320 px for the page, less each box's
-horizontal margins, borders and padding, as its ``style`` sets them, side by side, shorthand and longhand, in
-px or another absolute unit, or a percentage of the room; else as the attributes HTML maps set them: a
-cell's padding from its table's ``cellpadding`` (1 px without one), a table's spacing from its ``cellspacing``
-and its border from its ``border``, an image's margins from its ``hspace`` and its border from its ``border``;
-else as a browser's own style sheet does: a body's 8 px margins, a list's 40 px indent, a blockquote's and a
-figure's 40 px margins, a table's 2 px spacing. ``revert`` drops the attributes' values and ``revert-layer``
-keeps them (measured in Chromium 141). The shell's own boxes leave a body ``WIDEST_FIXED``. A box's width is
-its ``width`` in its ``style``, else its ``width`` attribute where HTML maps one (a table's, a cell's, an
-image's, an object's or an embed's): a number is pixels, a number then ``%`` a percentage of the room. A
-table, a button, a select, a meter, a progress and an input drawn as a button or a box count their border and
-padding in their width, as a browser's own style sheet sets them, and so does a cell set in percent, which
-takes its column's share of the table (measured in Chromium 141; that WebKit's table layout does too is
-inferred); another box, a ``<div>`` set ``display:table`` among them, adds them. A box set wider than its room
-fails, whether a fixed width, a percentage over 100% or a ``min-width`` sets it, and so do margins, borders and
-padding that leave a box's content no room. A ``max-width`` in pixels caps a width; one in percent holds an
-image or another replaced element alone, since in a table's cell it does not hold the box's own content (CSS
-Sizing 3, its cyclic percentages). An image with no width shows at its natural size, which the reader does
-not know, so it fails unless a ``max-width`` holds it, and then it may show as wide as that, with its margins,
-borders and padding added. A
-width set by the font or the screen, such as ``em`` or ``vw``, by the parent (``inherit``), or by the content
-(``max-content``) is refused rather than guessed. An inline element's box takes no width. A cell's room is
-its table's whole room, so a cell set wider than its table fails: Chromium squeezes it, while CSS 2.1's
-automatic table layout reads a cell's width as its minimum, and so does a column (``<col>``); under
-``table-layout:fixed`` a table keeps both, and overflows.
+horizontal margins, borders and padding, as its ``style`` sets them, side by side, shorthand and longhand, in px
+or another absolute unit, or a percentage of the room; else as the attributes HTML maps set them, read as HTML
+parses them: a cell's padding from its table's ``cellpadding`` (1 px without one) and its border from the table's
+``border`` (1 px), a table's spacing from its ``cellspacing`` and its border from its ``border``, an image's or an
+object's border from its ``border``, each a whole number, so ``5%`` is 5 px, and an image's, an object's or an
+embed's margins from its ``hspace``, a length in px or a percentage of the room (an iframe's sets none); else as a
+browser's own style sheet does: a body's 8 px margins, a list's 40 px indent, a blockquote's and a figure's 40 px
+margins, a checkbox's and a radio button's side margins, an iframe's 2 px border, a table's 2 px spacing.
+``revert`` drops the attributes' values and ``revert-layer`` keeps them (measured in Chromium 141). The shell's
+own boxes leave a body ``WIDEST_FIXED``. A box's width is its ``width`` in its ``style``, else its ``width``
+attribute where HTML maps one (a table's, a cell's, a column's, a rule's, an image's or another replaced
+element's): a number is pixels, a number then ``%`` a percentage of the room. A table, a button, a select, a
+meter, a progress and an input drawn as a button, a box, a colour well or a search field count their border and
+padding in their width, as a browser's own style sheet sets them; another box, a ``<div>`` set ``display:table``
+among them, adds them. A box set wider than its room fails, whether a fixed width, a percentage over 100% or a
+``min-width`` sets it, and so do margins, borders and padding that leave a box's content no room. A ``max-width``
+in pixels caps a width; one in percent holds an image or another replaced element alone, since in a table's cell
+it does not hold the box's own content (CSS Sizing 3, its cyclic percentages). An image or another replaced
+element with no width shows at its natural size, which the reader does not know, so it fails unless a
+``max-width`` holds it, and then it may show as wide as that, with its margins, borders and padding added. An
+``<object>`` whose ``data`` or ``type`` asks for content is held as a replaced element even where it holds
+fallback, since the content may load. A width set by the font or the screen, such as ``em`` or ``vw``, by the
+parent (``inherit``), or by the content (``max-content``) is refused rather than guessed, and so is a margin, a
+padding or a table's spacing set that way. An inline element's box takes no width.
+
+A table's cells and columns are read as its layout reads them, without the rows, sections, cells and columns the
+page hides. A cell's room is its table's, less the spacing beside its columns, and a percentage is of that room: a
+cell set in percent takes that share, its padding and borders inside it, and its content is held to the share, and
+a lone column takes the whole table, whatever share its cell asks. In an automatic layout, where a cell set in px
+narrows, each row's cells' padding and borders, with the spacing between them, are held to the table's room, and a
+cell or a column (``<col>``) set wider than its table fails: Chromium squeezes it, while CSS 2.1's automatic table
+layout reads its width as its minimum. Under ``table-layout:fixed``, which needs a width, the columns keep the
+widths their ``<col>`` elements set, their cells' padding inside, else the widths the first row's cells set, their
+padding added where the width does not hold it (in percent or border-box), and the other rows' widths go unread.
+Columns set in percent take what those set in px leave, down to none, so the columns set in px, with the spacing
+between them, are held to the table; the room left goes to the columns that set no width, alike, else to those set
+in px, by their widths, else to those set in percent; and each cell is given its column's width. The first row is
+the first a browser lays out, with a table's first ``<thead>`` before the rest and its first ``<tfoot>`` after it,
+wherever the source puts them. A share over 100% fails in either layout, though Chromium holds it to the table
+(measured in Chromium 141; that WebKit's table layout does the same is inferred).
 
 Outlook's view is the page as classic Outlook reads its conditional comments, as Outlook 2016 and later
 (``mso 16``) take their conditions: ``mso`` and ``vml`` true, a version compared, ``IE`` false, and ``!``,
@@ -100,24 +120,25 @@ take holds does not, in a comment or in a revealed block (``<![if !mso]>``); a c
 parse hides what it holds. A column capped at 600 px is held when the nearest table around it set to a fixed
 width is 600 px wide.
 
-The reader errs toward asking for the rule: it counts no break a browser may take at a hyphen or after a
-question mark, or at a ``<wbr>`` under ``nowrap``, where Chromium breaks, and no width that holds a run in, such
-as a fixed table layout or a clipped box, so it may ask for the rule where a browser would fit the run. It
-does not measure what a box's content sets, and so may pass it: a table of amounts whose columns cannot
-narrow, a widget's own width, a cell's share of its table when the table has more than one column (each cell
-is given the table's whole room), images or other boxes kept on one line by ``nowrap`` or ``<nobr>``, a flex
-row's items side by side, a box shifted by a relative offset or a
-transform, a first line set in by ``text-indent``, the padding an inline box adds to its line, and a run in a
-box narrower than the panel's column, which is measured against the column. ``reach_problems`` allows the
-break rule on a cell of its own, which must hold no amount: on an amount's cell it splits the amount. The header is the table capped at 600 px (its
-``max-width``) that holds the wordmark, the name split by markup into its two styles, and a page carries one.
-What the reader does not resolve, it refuses rather than guesses: a ``<style>`` block, an SVG's or MathML's
-included, or a linked stylesheet, whose selectors it does not match, and a value one of its properties takes
-from a function, such as ``calc()`` or ``var()``. It reads no text the page does not show: what
-``display:none`` or the ``hidden`` attribute hides, what a browser's own style sheet hides (the head, and an
-input of type hidden and an audio without its controls, whatever display a page gives them), nor an image's
-``alt``, which shows only where images are blocked. Text hidden another way, at ``font-size:0`` or in a box
-clipped to nothing, it reads as shown.
+The reader errs toward asking for the rule: it counts no break a browser may take at a hyphen or after a question
+mark, or at a ``<wbr>`` under ``nowrap``, where Chromium breaks, and no width that holds a run in, such as a fixed
+table layout or a clipped box, so it may ask for the rule where a browser would fit the run; it holds a percentage
+cell's content to its share, where Chromium may widen the column at the others' cost; and it reads an object that
+asks for content both ways, its fallback in the line and its box held. It does not measure what a box's content
+sets, and so may pass it: a table of amounts whose columns cannot narrow, a widget's own width, what an automatic
+layout's cells hold side by side in a row (each is held to its own room alone), images or other boxes kept on one
+line by ``nowrap`` or ``<nobr>``, a flex row's items side by side, a box shifted by a relative offset or a
+transform, a first line set in by ``text-indent``, the padding an inline box adds to its line, and a run in a box
+narrower than the panel's column, which is measured against the column. ``reach_problems`` allows the break rule
+on a cell of its own, which must hold no amount: on an amount's cell it splits the amount. The header is the table
+capped at 600 px (its ``max-width``) that holds the wordmark, the name split by markup into its two styles, and a
+page carries one. What the reader does not resolve, it refuses rather than guesses: a ``<style>`` block, an SVG's
+or MathML's included, or a linked stylesheet, whose selectors it does not match, and a value one of its properties
+takes from a function, such as ``calc()`` or ``var()``. It reads no text the page does not show: what
+``display:none`` or the ``hidden`` attribute hides, what a browser's own style sheet hides (the head, and an input
+of type hidden and an audio without its controls, whatever display a page gives them), nor an image's ``alt``,
+which shows only where images are blocked. Text hidden another way, at ``font-size:0`` or in a box clipped to
+nothing, it reads as shown.
 """
 from __future__ import annotations
 
@@ -243,15 +264,17 @@ _WIDGETS = frozenset({"audio", "button", "input", "marquee", "meter", "progress"
 _WIDTH_HINTED = frozenset({"table", "td", "th", "col", "colgroup", "hr", "img", "iframe", "video", "canvas", "object", "embed"})
 # The elements a browser's own style sheet sizes border-box, and the input types it draws as a button or a box.
 _UA_BORDER_BOX = frozenset({"table", "button", "select", "meter", "progress"})
-_BORDER_BOX_INPUTS = frozenset({"button", "submit", "reset", "checkbox", "radio"})
-# The elements whose align of left or right floats them, and whose hspace sets their side margins.
+_BORDER_BOX_INPUTS = frozenset({"button", "submit", "reset", "checkbox", "radio", "color", "search"})
+# The elements whose align of left or right floats them (an input drawn as an image too), and whose hspace sets
+# their side margins (an iframe's sets none in Chromium 141).
 _ALIGN_FLOATS = frozenset({"img", "table", "object", "embed", "iframe"})
-_HSPACED = frozenset({"img", "object", "embed", "iframe"})
+_HSPACED = frozenset({"img", "object", "embed"})
 # The functions that give a colour alone, which a border shorthand may take without setting a width.
 _COLOUR_FUNCTIONS = frozenset({"rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch", "color", "color-mix", "light-dark"})
 _UA_MARGIN = {"body": (8.0, 8.0), "blockquote": (40.0, 40.0), "figure": (40.0, 40.0), "dd": (40.0, 0.0), "fieldset": (2.0, 2.0)}
 _UA_PADDING = {"ul": (40.0, 0.0), "ol": (40.0, 0.0), "menu": (40.0, 0.0), "dir": (40.0, 0.0), "fieldset": (12.0, 12.0), "button": (6.0, 6.0)}
-_UA_BORDER = {"fieldset": 2.0, "button": 2.0, "hr": 1.0}
+_UA_BORDER = {"fieldset": 2.0, "button": 2.0, "hr": 1.0, "iframe": 2.0}
+_INPUT_MARGIN = {"checkbox": (4.0, 3.0), "radio": (5.0, 3.0)}  # an input's own side margins, by its type
 _SPACE = " \t\n\r\f"  # HTML's whitespace, which a line of text is stripped of
 # Where a line may wrap: ASCII spaces and line breaks, and the Unicode spaces a line may break after. A form
 # feed, a no-break space, a figure space and a narrow no-break space are no such place.
@@ -437,7 +460,9 @@ def _declarations(style: str | None) -> tuple[list[tuple[str, bool, str]], list[
         elif item.lower_name == "all":  # a CSS-wide keyword, set on every property read here
             longhands = {longhand for name in _BOX for longhand, _ in _box_values(name, item.value) or ()}
             found += [(name, item.important, value) for name in sorted((_READ - {"all"} - set(_BOX)) | longhands)]
-        elif item.lower_name == "white-space" and len([t for t in item.value if t.type != "whitespace"]) > 1:
+        elif item.lower_name == "white-space" and not (
+            len(words := [t for t in item.value if t.type != "whitespace"]) == 1 and words[0].lower_value in {*_WHITE_SPACE, *_GLOBAL}
+        ):
             found.append(("white-space-words", item.important, value))  # read by an engine that knows the longhands
         else:
             found.append((item.lower_name, item.important, value))
@@ -475,6 +500,22 @@ def _hidden_whatever_its_display(element: ElementTree.Element) -> bool:
     )
 
 
+def _laid_out(element: ElementTree.Element, display: str | None) -> bool:
+    """Whether a browser lays the element out where it lays out its parent, given the display its style gives it
+    (None for its own): not ``display:none``, nor hidden by a browser's own style sheet, nor by the ``hidden``
+    attribute where its style gives it no display."""
+    if display == "none" or _hidden_whatever_its_display(element):
+        return False
+    return display is not None or not (_hidden_by_its_element(element) or element.get("hidden") is not None)
+
+
+def _laid_out_alone(element: ElementTree.Element) -> bool:
+    """``_laid_out`` as the element's own style sets its display, for a table's rows, cells and columns, which a
+    table reads before the walk reaches them."""
+    display = _won(_declarations(element.get("style"))[0], "display")
+    return _laid_out(element, None if display in ("revert", "revert-layer") else display)
+
+
 def _inline(display: str) -> bool:
     """Whether a display keeps an element in the line, as an inline box a run goes on across."""
     words = display.split()
@@ -499,9 +540,66 @@ def _attribute_width(value: str | None) -> str | None:
 
 
 def _attribute_pixels(value: str | None) -> float | None:
-    """A ``cellpadding``, ``cellspacing`` or ``border`` attribute as HTML maps it: a number of pixels."""
-    width = _attribute_width(value)
-    return float(width[:-2]) if width and width.endswith("px") else None
+    """A ``cellpadding``, ``cellspacing``, ``border`` or ``span`` attribute as HTML reads it: the whole number its
+    digits start, by the rules for parsing non-negative integers, so ``5%`` is 5."""
+    text = (value or "").lstrip(_SPACE)
+    text = text[1:] if text.startswith("+") else text
+    digits = len(text) - len(text.lstrip("0123456789"))
+    return float(text[:digits]) if digits else None
+
+
+def _span(value: str | None) -> int:
+    """A ``colspan`` or a column's ``span``: 1 unless the attribute gives a whole number from 1 to 1000."""
+    count = _attribute_pixels(value)
+    return min(max(int(count), 1), 1000) if count else 1
+
+
+def _as_px(width: str | None, room: float) -> float | None:
+    """A width in px or in percent of ``room``, else None."""
+    if width is None:
+        return None
+    if width.endswith("%"):
+        return float(width[:-1]) / 100 * room
+    return _px(width) if width.lstrip("0123456789.") in _ABSOLUTE else None
+
+
+def _children(element: ElementTree.Element) -> list[ElementTree.Element]:
+    return [child for child in element if isinstance(child.tag, str)]
+
+
+def _has_fallback(element: ElementTree.Element) -> bool:
+    """Whether an <object> holds fallback content, as Chromium reads it: any child but a <param> or text of
+    whitespace alone, a comment among them. A browser lays it out in the line in the object's place; an object
+    that holds none is placed whole, 300 px wide where it sets no width (measured in Chromium 141)."""
+    return bool((element.text or "").strip(_SPACE)) or any(
+        not (isinstance(child.tag, str) and _local(child.tag) == "param") or (child.tail or "").strip(_SPACE) for child in element
+    )
+
+
+def _may_load(element: ElementTree.Element) -> bool:
+    """Whether an <object> asks for content, by a ``data`` or a ``type``: a browser places it whole where the
+    content loads, as an image does, and shows its fallback where it does not, as a plugin's does."""
+    return any((element.get(name) or "").strip(_SPACE) for name in ("data", "type"))
+
+
+def _empty_embed(element: ElementTree.Element) -> bool:
+    """Whether an <embed> lays out nothing, as one with neither a ``src`` nor a ``type`` does."""
+    return element.get("src") is None and element.get("type") is None
+
+
+def _image_remedy(shown: float, held: bool, margins: float, padding: float, room: float) -> str:
+    """What would bring an image back inside its room: the width it shows at, whether a max-width already holds
+    it there, its side margins, and the padding and borders its width leaves out. Each remedy that would do it
+    alone, else all of them, so the advice names nothing the image already does."""
+    remedies = []
+    if shown > room + _SLACK:
+        remedies.append(("lower its min-width" if held else "hold it to the room with max-width:100%", margins + room + padding))
+    if margins:
+        remedies.append(("drop its side margins", shown + padding))
+    if padding:
+        remedies.append(("set box-sizing:border-box so its width holds its padding and borders", margins + shown))
+    alone = [remedy for remedy, takes in remedies if takes <= room + _SLACK]
+    return ", or ".join(alone) if alone else ", and ".join(remedy for remedy, _ in remedies)
 
 
 def _capped(element: ElementTree.Element) -> bool:
@@ -623,6 +721,8 @@ class _Page:
         self.box_problems: list[str] = []
         self.reached: list[str] = []
         self.unread: list[str] = []
+        self._cell_rooms: dict[int, float] = {}  # a cell -> the room its column gives its content, where the row sets it
+        self._fixed_cells: set[int] = set()  # the cells of a fixed layout, whose own widths the columns replace
         self.headers = _header_tables(root)
         # A style block or a stylesheet applies wherever it sits, in the head or in what the page hides.
         self.stylesheets = sum(1 for element in root.iter() if isinstance(element.tag, str) and _is_stylesheet(element))
@@ -643,10 +743,7 @@ class _Page:
             display = "inline" if parent.inline else "block"  # the parent's: as far as a run goes, inline or not
         elif display in _GLOBAL:
             display = None  # revert: the element's own, as a browser's style sheet gives it
-        shown = parent.shown and display != "none" and not (display is None and _hidden_by_its_element(element))
-        if element.get("hidden") is not None and display is None:
-            shown = False
-        shown = shown and not _hidden_whatever_its_display(element)
+        shown = parent.shown and _laid_out(element, display)
         # A cell's nowrap attribute: white-space:nowrap below every declaration of its style.
         hints = [("white-space", False, "nowrap")] if tag in _CELLS and element.get("nowrap") is not None else []
         own_space = _OWN_WHITE_SPACE.get(tag)
@@ -678,7 +775,16 @@ class _Page:
             in_header=parent.in_header or any(element is header for header in self.headers),
             shown=shown,
         )
-        crossed = _inline(display) if display is not None else tag not in _RUN_EDGES
+        if tag == "br":
+            crossed = display == "contents"  # a line break whatever its display, unless it makes no box
+        elif display is not None:
+            crossed = _inline(display)
+        elif tag == "object":
+            crossed = _has_fallback(element)  # its fallback in the line, which a browser shows unless its content loads
+        elif tag == "embed":
+            crossed = _empty_embed(element)
+        else:
+            crossed = tag not in _RUN_EDGES
         return replace(state, inline=crossed), crossed, declared, display
 
     def _text(self, text: str | None, state: _State) -> None:
@@ -693,8 +799,10 @@ class _Page:
             return
         tag = _local(element.tag)
         float_set = _won(declared, "float")
-        if float_set in (None, "revert-layer"):  # an image's or a table's align, a hint below every declaration
-            floats = tag in _ALIGN_FLOATS and (element.get("align") or "").strip().lower() in ("left", "right")
+        if float_set in (None, "revert-layer"):  # an align of left or right, a hint below every declaration
+            floats = (
+                tag in _ALIGN_FLOATS or (tag == "input" and (element.get("type") or "").lower() == "image")
+            ) and (element.get("align") or "").lower() in ("left", "right")
         elif float_set == "inherit":
             floats = parent.floating
         else:
@@ -778,6 +886,8 @@ class _Page:
                 else "block" if tag in _RUN_EDGES and tag not in ("br", "col", "colgroup", "math", "caption")
                 else "inline"
             )
+        if display is None and ((tag == "object" and _has_fallback(element) and not _may_load(element)) or (tag == "embed" and _empty_embed(element))):
+            kind = "inline"  # its fallback content lays out in the line, or nothing does; an object that may load is held
         if out_of_line and kind in ("inline", "block"):
             kind = "atomic"  # a float or a positioned box shrinks to its content
         if kind == "inline":
@@ -785,14 +895,15 @@ class _Page:
         if kind == "part":
             return replace(state, room=parent.cell_room if parent.cell_room is not None else parent.room)
         room = parent.cell_room if kind == "cell" and parent.cell_room is not None else parent.room
-        ua_margin = _UA_MARGIN.get(tag, (0.0, 0.0))
+        ua_margin = _INPUT_MARGIN.get((element.get("type") or "").lower(), (0.0, 0.0)) if tag == "input" else _UA_MARGIN.get(tag, (0.0, 0.0))
         ua_padding = (0.0, 0.0) if kind == "cell" else _UA_PADDING.get(tag, (0.0, 0.0))
         # A cell's padding is its table's cellpadding, 1 px without one: a hint, which revert drops.
         padding_hint = (parent.cell_padding if parent.cell_padding is not None else 1.0) if kind == "cell" else None
         border_attr = _attribute_pixels(element.get("border")) if tag in ("table", "img", "object") else None
         border_hint = border_attr if border_attr else (parent.cell_border if kind == "cell" and parent.cell_border else None)
         ua_border = _UA_BORDER.get(tag, 0.0)
-        margin_hint = _attribute_pixels(element.get("hspace")) if tag in _HSPACED else None
+        hspace = _attribute_width(element.get("hspace")) if tag in _HSPACED else None  # a dimension: px or %
+        margin_hint = _as_px(hspace, room)
         margins = 0.0 if kind == "cell" else sum(  # a cell takes no margin
             self._side(declared, f"margin-{side}", room, ua, margin_hint, named) for side, ua in zip(("left", "right"), ua_margin)
         )
@@ -826,8 +937,8 @@ class _Page:
         if width is None and kind == "replaced" and cap is not None and margins + cap + (0 if border_box else extras) > room + _SLACK:
             self.box_problems.append(
                 f"{named} may take {margins + cap + (0 if border_box else extras):g} px across at its max-width, with its "
-                f"borders, padding and margins, where its parent gives it {room:g} px on a {NARROWEST_SCREEN} px phone: drop "
-                "its side margins, or set box-sizing:border-box so its padding and borders sit inside the max-width"
+                f"borders, padding and margins, where its parent gives it {room:g} px on a {NARROWEST_SCREEN} px phone: "
+                + _image_remedy(cap, cap_held, margins, 0.0 if border_box else extras, room)
             )
         if width is None:
             least_box = (least if border_box else least + extras) if least else 0.0
@@ -850,19 +961,28 @@ class _Page:
             set_to = max(min(set_to, cap) if cap is not None else set_to, least)
             # A cell set in percent takes its column's share of the table, which holds its padding and borders.
             share = kind == "cell" and width.endswith("%")
+            over = share and float(width[:-1]) > 100  # a share past the whole table, whatever its layout
             box = max(set_to, extras) if share else set_to if border_box else set_to + extras
-            if kind == "cell" and box > room + _SLACK:
-                why = (
-                    "a fixed table layout keeps a cell's width" if parent.fixed_layout
-                    else "Chromium squeezes the cell, but CSS 2.1's automatic table layout reads a cell's width as its least"
-                )
+            # A fixed layout's columns replace its cells' own widths, and the table holds them together (_rows).
+            if kind == "cell" and (over or box > room + _SLACK and id(element) not in self._fixed_cells):
+                if over:
+                    advice = "Chromium holds the cell to its table, but a share over 100% asks for more than the table has: keep it to 100% or less"
+                elif least and least > (float(width[:-1]) / 100 * room if share else _px(width)):
+                    advice = f"its min-width holds it at {least:g} px: lower the min-width, or set it in %"
+                elif share:
+                    advice = f"its borders and padding alone take {extras:g} px, more than its share: narrow them"
+                else:
+                    advice = (
+                        "Chromium squeezes the cell, but CSS 2.1's automatic table layout reads a cell's width as its least, so "
+                        "give it a percentage, whose share of the table holds its padding"
+                    )
                 self.box_problems.append(
                     f"{named} takes {box:g} px across, with its borders and padding, where its table gives it {room:g} px on a "
-                    f"{NARROWEST_SCREEN} px phone: {why}, so give it a percentage, whose share of the table holds its padding"
+                    f"{NARROWEST_SCREEN} px phone: {advice}"
                 )
             elif kind != "cell" and margins + box > room + _SLACK:
                 if kind == "replaced":
-                    advice = "hold it to the room with max-width:100%" + (", and drop its side margins" if margins else "")
+                    advice = _image_remedy(set_to, cap_held, margins, 0.0 if border_box else extras, room)
                 elif margins + set_to > room + _SLACK:
                     advice = (
                         f"let it take the room up to a cap (width:100%;max-width:{set_to:g}px), with classic Outlook's "
@@ -877,6 +997,8 @@ class _Page:
                     f"{room:g} px on a {NARROWEST_SCREEN} px phone: {advice}"
                 )
             content = max(min(box, room - margins) - extras, 0.0)
+        if kind == "cell" and id(element) in self._cell_rooms:
+            content = self._cell_rooms[id(element)]  # its column's width, which a fixed layout or a lone column sets
         if kind != "table":
             return replace(state, room=content, cell_room=None, fixed_layout=False)
         hinted_spacing = _attribute_pixels(element.get("cellspacing"))
@@ -892,17 +1014,135 @@ class _Page:
         elif declared_spacing in _GLOBAL:  # inherit, unset: inherited from the parent
             self.box_problems.append(f"{named}'s border-spacing {declared_spacing} is set by its parent, which this check does not resolve: write it in px")
             spacing = 2.0
+        elif declared_spacing == "refused":
+            self.box_problems.append(f"{named}'s border-spacing is set by the font or the screen, which this check does not resolve: write it in px")
+            spacing = 2.0
         else:
             spacing = float(declared_spacing[:-2])
+        # A fixed layout needs a width; without one the table lays its columns out automatically.
+        fixed = _won(declared, "table-layout") == "fixed" and width is not None
+        cell_padding, cell_border = _attribute_pixels(element.get("cellpadding")), 1.0 if border_attr and tag == "table" else 0.0
+        columns = self._rows(element, content, spacing, fixed, cell_padding, cell_border, named)
         return replace(
             state,
             room=content,
-            cell_room=max(content - 2 * spacing, 0.0),
-            cell_padding=_attribute_pixels(element.get("cellpadding")),
-            cell_border=1.0 if border_attr and tag == "table" else 0.0,
-            # A fixed layout needs a width; without one the table lays its columns out automatically.
-            fixed_layout=_won(declared, "table-layout") == "fixed" and width is not None,
+            cell_room=max(content - (max(columns, 1) + 1) * spacing, 0.0),  # less the spacing beside its columns
+            cell_padding=cell_padding,
+            cell_border=cell_border,
+            fixed_layout=fixed,
         )
+
+    def _rows(self, table, content: float, spacing: float, fixed: bool, padding: float | None, border: float, named: str) -> int:
+        """A table's rows and columns side by side, against the room it gives them, as a browser lays them out:
+        without the parts the page hides, the first header group first and the first footer group last. Under
+        ``table-layout:fixed`` the columns keep the widths the ``<col>`` elements set, their cells' padding inside
+        them, else the widths the first row's cells set, their padding added, and the other rows' widths go
+        unread; those set in percent take what those set in px leave, the room left is shared out, and each cell
+        is given its column's width. In an automatic layout a cell set in px narrows, so a row is held to its
+        cells' borders and padding and the spacing between them, and a lone column takes the table. Returns the
+        number of columns."""
+        rows, cols = [], []
+        parts = [part for part in _children(table) if _laid_out_alone(part)]
+        # A table lays its first header group out first and its first footer group last, wherever the source puts them.
+        head = next((part for part in parts if _local(part.tag) == "thead"), None)
+        foot = next((part for part in parts if _local(part.tag) == "tfoot"), None)
+        for part in [head] * (head is not None) + [part for part in parts if part is not head and part is not foot] + [foot] * (foot is not None):
+            name = _local(part.tag)
+            if name == "tr":
+                rows.append(part)
+            elif name in ("tbody", "thead", "tfoot"):
+                rows += [row for row in _children(part) if _local(row.tag) == "tr" and _laid_out_alone(row)]
+            elif name == "colgroup":
+                held = [col for col in _children(part) if _local(col.tag) == "col"]
+                cols += [col for col in held if _laid_out_alone(col)] if held else [part]
+            elif name == "col":
+                cols.append(part)
+        saved, self.box_problems = self.box_problems, []  # a cell's refusals are noted where its own box is read
+        try:
+            grid = [[self._cell(cell, content, padding, border, named) for cell in _children(row) if _local(cell.tag) in _CELLS] for row in rows]
+        finally:
+            self.box_problems = saved
+        grid = [[cell for cell in row if cell is not None] for row in grid]
+        count = max([sum(span for _, span, _, _, _ in row) for row in grid] + [sum(_span(col.get("span")) for col in cols)], default=0)
+        if not count:
+            return 0
+        gaps = (count + 1) * spacing
+        room = max(content - gaps, 0.0)  # what the columns share, and what a percentage is of
+        if not fixed:
+            least = max((sum(extras for _, _, extras, _, _ in row) for row in grid if len(row) > 1), default=0.0) + gaps
+            if least > content + _SLACK and any(len(row) > 1 for row in grid):
+                self.box_problems.append(
+                    f"{named}'s cells take {least:g} px across in a row in their borders and padding alone, with the spacing "
+                    f"between them, where it gives them {content:g} px on a {NARROWEST_SCREEN} px phone: narrow their padding"
+                )
+            if count == 1:  # a lone column takes the table, whatever share its cell asks
+                for row in grid:
+                    for cell, _, extras, _, _ in row:
+                        self._cell_rooms[id(cell)] = max(room - extras, 0.0)
+            return count
+        widths: list[float | None] = [None] * count
+        shares: list[bool] = [False] * count  # set in percent, which the table holds to its width together
+        at = 0
+        for col in cols:
+            span, width = _span(col.get("span")), _won(_declarations(col.get("style"))[0], "width")
+            if width in (None, "revert-layer"):
+                width = _attribute_width(col.get("width"))
+            for k in range(at, min(at + span, count)):
+                if (px := _as_px(width, room)) is not None:
+                    widths[k], shares[k] = px, width.endswith("%")
+            at += span
+        at = 0
+        for _, span, extras, width, border_box in grid[0] if grid else ():
+            if (px := _as_px(width, room)) is not None:
+                for k in range(at, min(at + span, count)):
+                    if widths[k] is None:
+                        widths[k] = (px if border_box or width.endswith("%") else px + extras) / span
+                        shares[k] = width.endswith("%")
+            at += span
+        in_px = sum(w for w, share in zip(widths, shares) if w is not None and not share)
+        in_percent = sum(w for w, share in zip(widths, shares) if w is not None and share)
+        if in_percent and in_percent > room - in_px:  # columns set in percent take what those set in px leave, down to none
+            scale = max(room - in_px, 0.0) / in_percent
+            widths = [w * scale if share and w is not None else w for w, share in zip(widths, shares)]
+            in_percent *= scale
+        total = in_px + in_percent + gaps
+        if total > content + _SLACK:
+            self.box_problems.append(
+                f"{named}'s columns take {total:g} px across under table-layout:fixed, with the spacing between them, where it "
+                f"gives them {content:g} px on a {NARROWEST_SCREEN} px phone: a fixed table layout keeps each column's width, "
+                "so set them in percent"
+            )
+        # The room the columns leave goes to those that set no width, alike; else to those set in px, by their
+        # widths; else to those set in percent, by theirs (measured in Chromium 141).
+        left, unset = max(content - total, 0.0), [k for k, w in enumerate(widths) if w is None]
+        if unset:
+            columns = [left / len(unset) if w is None else w for w in widths]
+        else:
+            takers, weight = ([not share for share in shares], in_px) if in_px else (shares, in_percent)
+            columns = [w + left * w / weight if takes and weight else w for w, takes in zip(widths, takers)]
+        for row in grid:
+            at = 0
+            for cell, span, extras, _, _ in row:
+                taken = sum(columns[at : at + span]) + (min(span, count - at) - 1) * spacing
+                self._cell_rooms[id(cell)] = max(taken - extras, 0.0)
+                self._fixed_cells.add(id(cell))
+                at += span
+        return count
+
+    def _cell(self, cell, content: float, padding: float | None, border: float, named: str):
+        """A cell as its row lays it out: the element, its span, its borders and padding, its width and whether its
+        width holds them; None for a cell the page hides."""
+        if not _laid_out_alone(cell):
+            return None
+        declared = _declarations(cell.get("style"))[0]
+        extras = sum(self._side(declared, f"padding-{side}", content, 0.0, padding if padding is not None else 1.0, named) for side in ("left", "right"))
+        extras += sum(self._border(declared, side, 0.0, border or None, named) for side in ("left", "right"))
+        width = _won(declared, "width")
+        if width in (None, "revert-layer"):
+            width = _attribute_width(cell.get("width"))
+        elif width in _GLOBAL:
+            width = None
+        return cell, _span(cell.get("colspan")), extras, width, _won(declared, "box-sizing") == "border-box"
 
     def _column(self, element, declared, parent: _State, named: str) -> None:
         """A column's width against the room its table gives a cell, as a cell's is held."""
@@ -916,14 +1156,17 @@ class _Page:
             self.box_problems.append(f"{named}'s width {width} is set by the font or the screen, which this check does not resolve: write it in px or %")
             return
         set_to = float(width[:-1]) / 100 * room if width.endswith("%") else _px(width)
-        if set_to > room + _SLACK:
-            why = (
-                "a fixed table layout keeps a column's width" if parent.fixed_layout
-                else "Chromium squeezes the column, but CSS 2.1's automatic table layout reads a column's width as its least"
+        if width.endswith("%") and float(width[:-1]) > 100:
+            self.box_problems.append(
+                f"{named} is set to {width} of its table, where its table gives a cell {room:g} px on a {NARROWEST_SCREEN} px "
+                "phone: Chromium holds the column to its table, but a share over 100% asks for more than the table has: keep "
+                "it to 100% or less"
             )
+        elif set_to > room + _SLACK and not parent.fixed_layout:  # a fixed layout's columns are held together, at the table
             self.box_problems.append(
                 f"{named} is set {set_to:g} px wide where its table gives a cell {room:g} px on a {NARROWEST_SCREEN} px phone: "
-                f"{why}, so give it a percentage"
+                "Chromium squeezes the column, but CSS 2.1's automatic table layout reads a column's width as its least, so "
+                "give it a percentage"
             )
 
     def _cap(self, declared, room: float, kind: str, named: str) -> tuple[float | None, bool]:

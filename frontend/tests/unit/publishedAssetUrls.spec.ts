@@ -37,6 +37,29 @@ const REGISTER = JSON.parse(
 const PUBLISHED = REGISTER.paths
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+
+// The URLs a layout's exported metadata object gives metadataBase, read as the compiler reads the file: a line
+// in a comment sets none, nor does another object's metadataBase; one that is no literal URL reads as ''.
+function metadataBases(source: string): string[] {
+  const sf = ts.createSourceFile('layout.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const bases: string[] = []
+  for (const statement of sf.statements) {
+    if (!ts.isVariableStatement(statement) || !statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue
+    for (const declaration of statement.declarationList.declarations) {
+      let value = declaration.initializer
+      while (value && (ts.isSatisfiesExpression(value) || ts.isAsExpression(value) || ts.isParenthesizedExpression(value))) value = value.expression
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== 'metadata' || !value || !ts.isObjectLiteralExpression(value)) continue
+      for (const property of value.properties) {
+        const name = ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) ? property.name.text : ''
+        if (!ts.isPropertyAssignment(property) || name !== 'metadataBase') continue
+        const init = property.initializer
+        const literal = ts.isNewExpression(init) && init.expression.getText(sf) === 'URL' && init.arguments?.length === 1 ? init.arguments[0] : undefined
+        bases.push(literal && ts.isStringLiteralLike(literal) ? literal.text : '')
+      }
+    }
+  }
+  return bases
+}
 const PUBLIC = path.join(FRONTEND, 'public')
 // The origin mail addresses the published paths on (LOGO_README.md › Rules), as the register names it.
 const MAIL_HOST = new URL(REGISTER.origin).host
@@ -299,23 +322,29 @@ describe('the register', () => {
   })
 
   it("names the site's canonical origin, the root layout's metadataBase", () => {
-    // Read as the compiler reads the file, so a line in a comment sets no metadataBase.
-    const file = path.join(FRONTEND, 'app', 'layout.tsx')
-    const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-    const bases: string[] = []
-    const visit = (node: ts.Node): void => {
-      if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'metadataBase') {
-        const value = node.initializer
-        const literal = ts.isNewExpression(value) && value.expression.getText(sf) === 'URL' && value.arguments?.length === 1
-          ? value.arguments[0] : undefined
-        bases.push(literal && ts.isStringLiteralLike(literal) ? literal.text : '')
-      }
-      ts.forEachChild(node, visit)
-    }
-    visit(sf)
+    const bases = metadataBases(readFileSync(path.join(FRONTEND, 'app', 'layout.tsx'), 'utf8'))
     expect(bases.length === 1 && bases[0] !== '', `app/layout.tsx names one metadataBase, as a literal URL: ${JSON.stringify(bases)}`).toBe(true)
     expect(REGISTER.origin, 'mail addresses the published paths on the canonical origin').toBe(new URL(bases[0]).origin)
   })
+
+  // Each way a layout can name its metadataBase, and the look-alikes that name none (as [] or ''), scored on
+  // every run so the reader stays as wide as the check above needs.
+  const LAYOUTS: Array<[string, string, string[]]> = [
+    ['a literal URL in the exported metadata', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a quoted key', "export const metadata: Metadata = {\n  'metadataBase': new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['the metadata under a satisfies clause', "export const metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n} satisfies Metadata", ['https://www.earningsnerd.io']],
+    ['a line in a comment above the literal', "export const metadata: Metadata = {\n  // metadataBase: new URL('https://earningsnerd.io'),\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ["another object's metadataBase", "const preview = { metadataBase: new URL('https://earningsnerd.io') }\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a metadata the module does not export', "const metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", []],
+    ["another exported object's metadataBase", "export const preview = { metadataBase: new URL('https://earningsnerd.io') }\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a URL held in a name, which the check does not resolve', "export const metadata: Metadata = {\n  metadataBase: new URL(SITE),\n}", ['']],
+    ['a metadataBase given as a string', "export const metadata: Metadata = {\n  metadataBase: 'https://www.earningsnerd.io',\n}", ['']],
+  ]
+  for (const [what, source, expected] of LAYOUTS) {
+    it(`reads a planted layout's metadataBase: ${what}`, () => {
+      expect(metadataBases(source)).toEqual(expected)
+    })
+  }
 })
 
 describe('published asset URLs', () => {
