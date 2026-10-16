@@ -60,3 +60,14 @@ M12 acceptance executor drops EDGAR_CACHE_DIR: 1 failed, 101 passed, 17 warnings
 M13 an earlier revision row is overwritten: 1 failed, 101 passed, 17 warnings in 19.19s
     FAILED tests/unit/test_copilot_prompt_revisions.py::test_the_revision_table_is_the_append_only_history
 RESTORED: 102 passed, 17 warnings in 18.04s
+
+# Addendum 1 (whole-row and exact-copy rule), on the committed head b6b6a64d; tests run: test_copilot_table_excerpts,
+# test_copilot_prompt_revisions, test_copilot_live_regressions.
+BASELINE: 32 passed, 9 warnings in 2.95s
+M14 the whole-row exception is dropped: 2 failed, 30 passed, 9 warnings in 10.63s
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_the_first_generation_asks_for_whole_rows_copied_exactly
+    FAILED tests/unit/test_copilot_prompt_revisions.py::test_the_current_prompt_bytes_have_a_revision_row
+M15 the exact-copy sentence is dropped: 2 failed, 30 passed, 9 warnings in 2.82s
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_the_first_generation_asks_for_whole_rows_copied_exactly
+    FAILED tests/unit/test_copilot_prompt_revisions.py::test_the_current_prompt_bytes_have_a_revision_row
+RESTORED: 32 passed, 9 warnings in 2.54s
