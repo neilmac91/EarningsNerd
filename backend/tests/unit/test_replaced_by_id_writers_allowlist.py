@@ -1089,8 +1089,9 @@ PLANTED = [
 ]
 
 # Named gaps: what the scan cannot see. A case that starts being counted moves to PLANTED. Each gap
-# sits in ``f``; the first four are out of scope (the module names neither the model, its table, the
-# column nor a refresh-token module), the rest stay unseen inside it.
+# sits in ``f`` (the same-module hand-off also in its caller, ``cleanup``); the first four are out of
+# scope (the module names neither the model, its table, the column nor a refresh-token module), the rest
+# stay unseen inside it.
 GAPS = [
     ("generic-helper-handed-a-token",
      "def stamp(obj, field, value):\n    setattr(obj, field, value)\n\ndef f(t, field, v):\n"
@@ -1203,7 +1204,7 @@ def test_the_mention_scan_scores_every_planted_form(source, expected):
 def test_the_named_gaps_stay_out_of_reach(source, in_scope):
     tree = ast.parse(source)
     assert _names_the_model(tree, _docstring_ids(tree)) is in_scope
-    assert not {mention for mention in _mentions(source) if mention[0] == "f"}
+    assert not {mention for mention in _mentions(source) if mention[0] in ("f", "cleanup")}
 
 
 @pytest.mark.parametrize("text, expected", [p[1:] for p in TEXT_PLANTED], ids=[p[0] for p in TEXT_PLANTED])
