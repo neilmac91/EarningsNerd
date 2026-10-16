@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 /**
  * No dead preference ships (DSW-01). Every alert preference the settings form renders or saves, and every
- * <option> value it offers, must be read by the code that sends alerts: the three job services below, read as
+ * value it offers for one, must be read by the code that sends alerts: the three job services below, read as
  * text (the planLimitsLockstep pattern) and split into their top-level `def` and `class` blocks (decorators
  * included). A block counts only when the alert jobs reach it: the entry points JOB_ENTRIES and every block one
  * of them names, followed through the three files. A field counts as read when such a block reads
@@ -15,10 +15,14 @@ import { describe, expect, it } from 'vitest'
  * reaches), a helper only the write path calls (a `_normalize_digest` sanitizer), a GET serializer and a
  * module constant cannot stand in for a job honouring the field. Comments and docstrings are ignored.
  *
- * The form's option values are read where they are written: `value="…"`, `value={'…'}`, or the array a `.map`
- * takes when the value is the callback's element or one of its fields (`DIGESTS.map((d) => <option value={d}>)`,
- * `CHOICES.map((c) => <option value={c.value}>)`), the array written in place or as a const in the form. Any
- * other value fails the scan, so an option it cannot read never ships unread.
+ * The values the form offers are read where they are written, in each form a choice takes: any element's
+ * `value="…"` or `value={'…'}` (an <option>, a radio input, a custom item; `value={prefs.x}` is the control's
+ * state, a field), each entry's `value` in an `options` prop (SegmentedControl, the design system's single
+ * choice, or any select wrapper), and a literal a save or mutate call writes into a field (`save({ digest:
+ * 'weekly' })`, each branch of a condition over literals). A value or an `options` entry may also be the element,
+ * or one of its fields, of the array a `.map` takes (`DIGESTS.map((d) => <option value={d}>)`,
+ * `CHOICES.map((c) => ({ value: c.value }))`), the array written in place or as a const in the form. A `value`
+ * or an `options` written any other way fails the scan, so a choice it cannot read never ships unread.
  *
  * Limits: a block is reached by name (a same-named function in another module is not told apart, and a call
  * made through a variable or getattr is not followed, which only narrows), and a reached block counts as a
@@ -121,7 +125,7 @@ function formPreferences(file: string, text: string) {
     find(source)
     return found
   }
-  /** The values an option's `value={…}` takes: a literal, or the elements (or one field of each) of the array a `.map` callback walks. */
+  /** The values a `value={…}` takes: a literal, or the elements (or one field of each) of the array a `.map` callback walks. */
   const optionValues = (expression: ts.Expression): string[] | null => {
     const direct = literal(expression)
     if (direct !== null) return [direct]
@@ -151,6 +155,41 @@ function formPreferences(file: string, text: string) {
     return null
   }
 
+  /** The values an `options` prop offers: each entry's `value`, the array written in place or a const in this file, or a
+      `.map` whose callback returns `{ value: … }` over one. */
+  const optionsValues = (expression: ts.Expression): string[] | null => {
+    const valueOf = (object: ts.Expression) => {
+      const inner = unwrap(object)
+      if (!ts.isObjectLiteralExpression(inner)) return undefined
+      return inner.properties.find(
+        (p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === 'value',
+      )?.initializer
+    }
+    const array = arrayOf(expression)
+    if (array) {
+      const values = array.elements.map((item) => literal(valueOf(item as ts.Expression)))
+      return values.every((value): value is string => value !== null) ? values : null
+    }
+    const call = unwrap(expression)
+    const callback = ts.isCallExpression(call) && ts.isPropertyAccessExpression(call.expression) && call.expression.name.text === 'map' ? call.arguments[0] : undefined
+    if (!callback || !(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) return null
+    const body = ts.isBlock(callback.body)
+      ? callback.body.statements.find((statement): statement is ts.ReturnStatement => ts.isReturnStatement(statement))?.expression
+      : callback.body
+    const value = body && valueOf(body)
+    return value ? optionValues(value) : null
+  }
+  /** The string literals an expression can be: a literal, each branch of a condition, each side of `||` or `??`. */
+  const literalsOf = (expression: ts.Expression): string[] => {
+    const inner = unwrap(expression)
+    const direct = literal(inner)
+    if (direct !== null) return [direct]
+    if (ts.isConditionalExpression(inner)) return [...literalsOf(inner.whenTrue), ...literalsOf(inner.whenFalse)]
+    const op = ts.isBinaryExpression(inner) ? inner.operatorToken.kind : undefined
+    if (ts.isBinaryExpression(inner) && (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken)) return [...literalsOf(inner.left), ...literalsOf(inner.right)]
+    return []
+  }
+
   const visit = (node: ts.Node): void => {
     // type BoolPref = 'notify_10k' | … : every member is a field the form can save.
     if (ts.isTypeAliasDeclaration(node) && ts.isUnionTypeNode(node.type)) {
@@ -164,36 +203,38 @@ function formPreferences(file: string, text: string) {
       if (callee === 'setBool') {
         for (const arg of node.arguments) if (ts.isStringLiteral(arg)) fields.set(arg.text, line(arg))
       }
-      // save({ digest: … }) / mutation.mutate({ … })
+      // save({ digest: … }) / mutation.mutate({ … }): each field it writes, and each literal it writes into one.
       if (callee === 'save' || callee.endsWith('.mutate')) {
         for (const arg of node.arguments) {
           if (!ts.isObjectLiteralExpression(arg)) continue
           for (const prop of arg.properties) {
             if (prop.name && (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name))) fields.set(prop.name.text, line(prop))
+            if (ts.isPropertyAssignment(prop)) for (const value of literalsOf(prop.initializer)) options.set(value, line(prop))
           }
         }
       }
     }
-    // checked={prefs.x} / value={prefs.x}: a preference the form renders as a control's state.
-    if (ts.isJsxAttribute(node) && ['checked', 'value'].includes(node.name.getText(source))) {
-      const init = node.initializer
-      if (init && ts.isJsxExpression(init) && init.expression && ts.isPropertyAccessExpression(init.expression)
-        && init.expression.expression.getText(source) === 'prefs') {
-        fields.set(init.expression.name.text, line(init))
-      }
-    }
-    // <option value="weekly">, <option value={'weekly'}>, or an option a .map writes.
-    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(source) === 'option') {
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node))) {
+      const tag = node.tagName.getText(source)
       for (const attr of node.attributes.properties) {
-        if (!ts.isJsxAttribute(attr) || attr.name.getText(source) !== 'value' || !attr.initializer) continue
+        if (!ts.isJsxAttribute(attr) || !attr.initializer) continue
+        const name = attr.name.getText(source)
         const init = attr.initializer
-        const values = ts.isStringLiteral(init)
-          ? [init.text]
-          : ts.isJsxExpression(init) && init.expression
-            ? optionValues(init.expression)
-            : null
+        const expression = ts.isJsxExpression(init) ? init.expression : undefined
+        // checked={prefs.x} / value={prefs.x}: a preference the form renders as a control's state.
+        if ((name === 'checked' || name === 'value') && expression && ts.isPropertyAccessExpression(expression) && expression.expression.getText(source) === 'prefs') {
+          fields.set(expression.name.text, line(init))
+          continue
+        }
+        // value="weekly", value={'weekly'}, a value a .map writes (an <option>, a radio, any item); options={[{ value: … }]}.
+        const values = name === 'value'
+          ? ts.isStringLiteral(init) ? [init.text] : expression ? optionValues(expression) : null
+          : name === 'options'
+            ? expression ? optionsValues(expression) : null
+            : undefined
+        if (values === undefined) continue
         if (values) for (const value of values) options.set(value, line(attr))
-        else unreadable.push(`${file}:${line(attr)} <option ${attr.getText(source)}>`)
+        else unreadable.push(`${file}:${line(attr)} <${tag} ${attr.getText(source)}>`)
       }
     }
     ts.forEachChild(node, visit)
@@ -254,7 +295,7 @@ describe('Notification preferences the form offers are read by the alert jobs', 
     expect(readsField(jobCode([service, `${job}\n    _normalize_digest(prefs)`]), 'digest')).toBe(true)
   })
 
-  it('reads option values written in place and through a .map, and refuses any other (self-check)', () => {
+  it('reads the values every kind of choice offers, in place and through a .map, and refuses any other (self-check)', () => {
     const fixture = [
       "const DIGESTS = ['daily', 'weekly'] as const",
       "const CHOICES = [{ value: 'immediate', label: 'Now' }]",
@@ -264,10 +305,28 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       "export const D = () => <select>{['quarterly'].map((q) => <option key={q} value={q}>{q}</option>)}</select>",
       'export const E = ({ v }: { v: string }) => <option value={v} />',
       'export const F = () => <select>{load().map((x) => <option key={x} value={x}>{x}</option>)}</select>',
+      // The choices the review of #1291 found unread (DSW-01's "Weekly still mails daily" through another control):
+      // a SegmentedControl's options, in place, as a const and through a .map; a radio input; a literal a save writes.
+      "export const G = () => <SegmentedControl label=\"Digest\" options={[{ value: 'fortnightly', label: 'Fortnightly' }]} value={prefs.digest} onChange={(digest) => save({ digest })} />",
+      "const PERIODS = [{ value: 'yearly', label: 'Yearly' }] as const",
+      'export const H = () => <SegmentedControl label="Period" options={PERIODS} value={prefs.period} onChange={() => {}} />',
+      "const KINDS = ['annual', 'interim'] as const",
+      'export const I = () => <SegmentedControl label="Kind" options={KINDS.map((k) => ({ value: k, label: k }))} value={prefs.kind} onChange={() => {}} />',
+      'export const J = () => <input type="radio" name="digest" value="biweekly" checked={prefs.digest === \'biweekly\'} readOnly />',
+      "export const K = () => <button type=\"button\" onClick={() => save({ digest: on ? 'never' : 'hourly' })}>Never</button>",
+      'export const L = () => <SegmentedControl label="x" options={load()} value={prefs.l} onChange={() => {}} />',
+      "export const M = () => <SegmentedControl label=\"x\" options={[{ value: v, label: 'V' }]} value={prefs.m} onChange={() => {}} />",
     ].join('\n')
     const { options, unreadable } = formPreferences('fixture.tsx', fixture)
-    expect([...options.keys()].sort()).toEqual(['daily', 'hourly', 'immediate', 'monthly', 'quarterly', 'weekly'])
-    expect(unreadable).toEqual(['fixture.tsx:7 <option value={v}>', 'fixture.tsx:8 <option value={x}>'])
+    expect([...options.keys()].sort()).toEqual([
+      'annual', 'biweekly', 'daily', 'fortnightly', 'hourly', 'immediate', 'interim', 'monthly', 'never', 'quarterly', 'weekly', 'yearly',
+    ])
+    expect(unreadable).toEqual([
+      'fixture.tsx:7 <option value={v}>',
+      'fixture.tsx:8 <option value={x}>',
+      'fixture.tsx:16 <SegmentedControl options={load()}>',
+      "fixture.tsx:17 <SegmentedControl options={[{ value: v, label: 'V' }]}>",
+    ])
   })
 
   it('every field the form renders or saves is read as prefs.<field> by the jobs', () => {
@@ -275,7 +334,7 @@ describe('Notification preferences the form offers are read by the alert jobs', 
     expect(unread.map(([field, at]) => `${FORM}:${at} ${field} has no reader the jobs reach in ${CONSUMERS.join(', ')}`)).toEqual([])
   })
 
-  it('every <option> value the form offers is a literal the jobs act on, and the scan reads each one', () => {
+  it('every value the form offers is a literal the jobs act on, and the scan reads each one', () => {
     expect(form.unreadable, 'write the value as a literal or through a .map over a literal array').toEqual([])
     const unread = [...form.options].filter(([value]) => !hasLiteral(consumerCode, value))
     expect(unread.map(([value, at]) => `${FORM}:${at} option "${value}" has no reader the jobs reach in ${CONSUMERS.join(', ')}`)).toEqual([])
