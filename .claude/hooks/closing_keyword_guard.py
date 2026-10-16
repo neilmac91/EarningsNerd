@@ -27,15 +27,23 @@ at the merge itself. This hook reads that message where an agent types it, with 
   curl's `-T`/`--upload-file` and `-K`/`--config`, wget's `--body-file`/`--post-file`), a file an `@` names
   (gh api's `-F`/`--field key=@file`, curl's `-d`/`--data`/`--json @file` and `--variable name@file`,
   httpie's `field=@file`; quoted or attached, as in `-d@file` or `-F=file`), a `<` redirect's target
-  (`$(<file)` too), and each file a plain `cat`, by name or path, quoted or escaped (`\cat`), reads, piped or
-  inside `$(...)`, `<(...)` or backticks; an option quoted or escaped as a whole word ('-F',
+  (`$(<file)` too), and each file a plain `cat`, by name or path, quoted or escaped (`\cat`), reads, piped
+  or inside `$(...)`, `<(...)` or backticks; an option quoted or escaped as a whole word ('-F',
   "--body-file=my notes.md") counts as written plain. A name is read as the shell passes it: its quoted,
   escaped and plain pieces joined, `~` expanded, and an unquoted glob expanded to its first 16 files in the
   C locale's order (to the word itself when nothing matches).
 A merge's commit is its title, a blank line, then its message, so a keyword that ends the title closes a
-reference that starts the message: each title and message a call types are also read joined that way (gh
-pr merge's --subject/-t with its --body/-b or body file; commit_title with commit_message, commitHeadline
-with commitBody, wherever a call or a file it sends names them; on MCP, every string of the call in order too).
+reference that starts the message: each title and message a call types are also read joined that way (a
+title's last and a message's first 1,024 characters), the last 16 of each (gh keeps a flag's last value). On
+a shell line they are gh pr merge's --subject/-t and --body/-b among the line's words as the shell passes
+them (a quoted value may run over lines), and among the words of a word that is itself a merge's line
+(`bash -c 'gh pr merge ...'`), with each file the line reads and each here-document as a message; and
+GitHub's field names, commit_title with commit_message and commitHeadline with commitBody, as a name=value
+word (`-f 'commit_title=lint fix'`, `--field=...`, httpie's field=value; `=@file` read), a quoted value the
+name takes in a text, read whole (a JSON or GraphQL string, its quotes escaped or not; a script's dictionary
+or keyword argument), a JSON text decoded, or a GraphQL variable such a word or a JSON body gives
+(`commitBody: $b` with `-f b=...`). On MCP they are the same fields and variables among the call's strings,
+and every string of the call in order.
 A merge with no typed message passes: its message is the default the gate has read. Reading the whole line,
 and every file it names, refuses more than a merge's own message: another command's text on the same line,
 and a line that only names a merge (a comment that quotes `gh pr merge` with a closing reference). The
@@ -45,17 +53,19 @@ never has read.
 A refusal is a JSON deny on stdout, which Claude Code hands to Claude as the reason; anything else exits 0
 with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call through, as it
 does a hook that outlasts its 10 s timeout; the adversarial 1 MB lines the tests keep read in about a second
-or two. The registered command (`python3 -I -S`: standard library only) maps Python's own exit 2 (a script it cannot
-open) to 1, so a broken install never blocks every Bash command and every GitHub call.
+or two. The registered command (`python3 -I -S`: standard library only) maps Python's own exit 2 (a script
+it cannot open) to 1, so a broken install never blocks every Bash command and every GitHub call.
 
 Not checked: text the shell or a command builds as the line runs (a variable, an ANSI-C `$'...'` escape, a
 brace expansion, the output of any command but a plain `cat`, a line handed to another shell that way; a
 literal `bash -c '...'` is on the line and read); a file over 1 MiB, a glob's files past its first 16, or a
 file named relative to a directory the line changes into first; more than three -R/--repo options in a row
-before `pr` or `merge`; a merge a script or a gh alias runs, or whose URL
-sits in a file a command reads as its configuration (curl's -K, wget's -i); an MCP request tool that spreads
-a merge's target over fields of its own (owner, repository, number, action); a GitHub MCP server registered
-under a name without "github"; a session that loads no repository hooks; and a person's own merge.
+before `pr` or `merge`; a title or message past the last 16 of each a call types, or a title's keyword and
+its message's reference more than 1,024 characters from where the two meet; a merge a script or a gh alias
+runs, or whose URL sits in a file a command reads as its configuration (curl's -K, wget's -i); an MCP
+request tool that spreads a merge's target over fields of its own (owner, repository, number, action); a
+GitHub MCP server registered under a name without "github"; a session that loads no repository hooks; and a
+person's own merge.
 Tests: backend/tests/unit/test_closing_keyword_guard.py.
 """
 from __future__ import annotations
@@ -65,6 +75,7 @@ import json
 import os
 import re
 import sys
+from itertools import islice
 from pathlib import Path
 
 SHELLS = ("Bash", "Monitor")  # the tools whose `command` a shell runs
@@ -89,12 +100,16 @@ REST_MERGE = re.compile(
     re.IGNORECASE)
 # gh pr merge's -b (body) or -t (subject) with its value attached, after any run of other short flags.
 ATTACHED = re.compile(r"(?<!\S)(-[A-Za-z]*?[bt])(?=\S)")
-# A shell word: a run of single-quoted, double-quoted, escaped and plain pieces, and each piece of one.
-_WORD = r"""(?:'[^'\n]*'|"[^"\n]*"|\\.|[^\s;&|()<>'"`\\])+"""
+# A shell word: a run of single-quoted, double-quoted, escaped and plain pieces, a quoted piece running over
+# lines as the shell lets it; and each piece of one, a double-quoted piece resolving the escapes the shell does
+# (each reader joins the line's continuations first).
+_WORD = r"""(?:'[^']*'|"(?:[^"\\]|\\[\s\S])*"|\\[\s\S]|[^\s;&|()<>'"`\\])+"""
 _VALUE = "(" + _WORD + ")"  # a file name; a lone `-` is standard input
-_PIECE = re.compile(r"""'([^'\n]*)'|"([^"\n]*)"|\\(.)|(.)""", re.DOTALL)
+_PIECE = re.compile(r"""'([^']*)'|"((?:[^"\\]|\\[\s\S])*)"|\\([\s\S])|([^'"\\]+|['"])""")
+_DOUBLE_ESCAPE = re.compile(r"""\\([\\"$`])""")
 # A word with a quoted or escaped piece, from the word's start (so a long plain word is scanned once).
-_QUOTED_WORD = re.compile(r"""(?<![^\s;&|()<>`])(?:[^\s;&|()<>'"`\\]*(?:'[^'\n]*'|"[^"\n]*"|\\.))+[^\s;&|()<>'"`\\]*""")
+_QUOTED_WORD = re.compile(
+    r"""(?<![^\s;&|()<>`])(?:[^\s;&|()<>'"`\\]*(?:'[^']*'|"(?:[^"\\]|\\[\s\S])*"|\\[\s\S]))+[^\s;&|()<>'"`\\]*""")
 # The files a line sends, read by regular expressions, not shlex (they read a 1 MiB line in milliseconds):
 # an option whose value is a file (gh pr merge's --body-file and -F, gh api's --input, curl's
 # -T/--upload-file and -K/--config, wget's --body-file and --post-file; a short flag may close a run of
@@ -108,16 +123,30 @@ AT_FILE = re.compile(r"(?:^|[\s=]|\s-[A-Za-z]+|--variable(?:=|\s+)[\w.%-]*)@" + 
 AT_QUOTED = re.compile(r"""(?:^|[\s=]|\s-[A-Za-z]+)(['"])(?:[^'"\n=]*=)?@([^'"\n]*)\1""")
 REDIRECT = re.compile(r"(?<![<&])<(?![<(&>])[ \t]*" + _VALUE)
 CAT = re.compile(r"""(?:^|[\s;&|(`/])\\?(?:cat|'cat'|"cat")((?:[ \t]+""" + _WORD + r")+)")
-# The title and message a call types, joined as GitHub writes its commit: gh pr merge's --subject/-t and
-# --body/-b, and GitHub's own field names (REST's commit_title and commit_message, GraphQL's commitHeadline and
-# commitBody) as a JSON, GraphQL or field value. At most 16 of each, the last ones (gh keeps a flag's last value).
-SUBJECT = re.compile(r"(?:^|[\s;&|(])(?:--subject(?:=|\s+)|-[A-Za-z]*?t=?[ \t]*)" + _VALUE)
-BODY = re.compile(r"(?:^|[\s;&|(])(?:--body(?:=|\s+)|-[A-Za-z]*?b=?[ \t]*)" + _VALUE)
+# The title and message a call types, joined as GitHub writes its commit (the title, a blank line, the message):
+# gh pr merge's --subject/-t and --body/-b among the line's words, with its body files and here-documents as
+# messages; and GitHub's own field names, REST's commit_title and commit_message and GraphQL's commitHeadline and
+# commitBody, as a word's name=value, a JSON field, a quoted value a field name or key takes in a text (JSON,
+# GraphQL, a script's dictionary or keyword argument; read whole, so never from the quote-stripped line), or a
+# GraphQL variable a word or a field gives. At most 16 of each, the last ones (gh keeps a flag's last value).
+SUBJECT_FLAG = re.compile(r"--subject(?:=([\s\S]*))?|-[A-Za-z]*?t=?([\s\S]*)")
+BODY_FLAG = re.compile(r"--body(?:=([\s\S]*))?|-[A-Za-z]*?b=?([\s\S]*)")
+# gh api's -f/-F/--field/--raw-field name=value, the option attached or not (-fname=value), and httpie's field=value.
+NAMED_WORD = re.compile(r"(?:--(?:raw-)?field=|-[A-Za-z]*?[fF]=?)?(\w+)=([\s\S]*)")
 COMMIT_PART = re.compile(r"""\b(commit_title|commitHeadline|commit_message|commitBody)\b["']?\s*[:=]\s*"""
-                         r"""("(?:[^"\\\n]|\\.)*"|'[^'\n]*'|[^\s,}"']+)""")
+                         r"""("(?:[^"\\]|\\[\s\S])*"|'[^']*')""")
+COMMIT_VARIABLE = re.compile(r"\b(commit_title|commitHeadline|commit_message|commitBody)\s*:\s*\$(\w+)")
 TITLE_FIELDS = ("commit_title", "commitHeadline")
+MESSAGE_FIELDS = ("commit_message", "commitBody")
 MAX_PARTS = 16
+# A here-document's opener (not a here-string's `<<<`); its text starts on the next line.
+HEREDOC = re.compile(r"""(?<!<)<<(?!<)-?[ \t]*(?:'[^'\n]+'|"[^"\n]+"|\\?[A-Za-z_][\w.-]*)""")
+MAX_HEREDOCS = 16
+# The join reads a title's end and a message's start: more than any keyword, the marks after it and a reference
+# (a pull request URL is about 240 characters) need, and a bound on each joined text however large its parts.
+JOIN_CHARS = 1024
 UNQUOTE = str.maketrans("", "", "'\"\\")
+SPACE = re.compile(r"\s")
 LIST_PUNCTUATION = re.compile(r"[\[\],]")  # a program's argument list: ["gh", "pr", "merge"]
 MAX_FILE_BYTES = 1 << 20
 MAX_GLOB_FILES = 16
@@ -146,15 +175,32 @@ def _strings(value: object, field: str | None = None):
         yield field or "an argument", value
 
 
+def _piece(match: re.Match, literal=str) -> str:
+    """A piece of a shell word as the shell passes it, a quoted or escaped one through `literal`."""
+    single, double, escaped, plain = match.groups()
+    if plain is not None:
+        return plain
+    if single is not None:
+        return literal(single)
+    if double is not None:  # \\ \" \$ \` stand for their character
+        return literal(_DOUBLE_ESCAPE.sub(r"\1", double) if "\\" in double else double)
+    return literal(escaped)
+
+
+def _quoted(word: str) -> bool:
+    return "'" in word or '"' in word or "\\" in word
+
+
+def _name(word: str) -> str:
+    """A shell word as the shell passes it: its quoted, escaped and plain pieces joined."""
+    return _PIECE.sub(_piece, word) if _quoted(word) else word
+
+
 def _word(word: str) -> tuple[str, str]:
     """A shell word as the shell passes it, and as a glob in which only its unquoted, unescaped part is special."""
-    name, pattern = [], []
-    for match in _PIECE.finditer(word):
-        single, double, escaped, plain = match.groups()
-        literal = next((piece for piece in (single, double, escaped) if piece is not None), None)
-        name.append(plain if literal is None else literal)
-        pattern.append(plain if literal is None else glob.escape(literal))
-    return "".join(name), "".join(pattern)
+    if not _quoted(word):
+        return word, word
+    return _name(word), _PIECE.sub(lambda match: _piece(match, glob.escape), word)
 
 
 def _dequoted(line: str) -> str:
@@ -162,8 +208,8 @@ def _dequoted(line: str) -> str:
     so an option quoted or escaped as a whole word is read like a plain one. A word that holds whitespace stays
     as written unless it is an option, whose whitespace is escaped ("--body-file=my notes.md")."""
     def plain(match: re.Match) -> str:
-        name = _word(match.group(0))[0]
-        if not any(char.isspace() for char in name):
+        name = _name(match.group(0))
+        if not SPACE.search(name):
             return name
         return re.sub(r"(\s)", r"\\\1", name) if name.startswith("-") else match.group(0)
     return _QUOTED_WORD.sub(plain, line)
@@ -191,6 +237,8 @@ def _merge_kind(command: str) -> str | None:
     GraphQL API (a merge only with a merge mutation), else None; read as written and with its quotes removed."""
     kind = None
     plain = _plain(command)
+    if "merge" not in plain and "graphql" not in plain.lower():  # most lines name neither
+        return None
     for text in (command, plain, LIST_PUNCTUATION.sub(" ", plain)):
         api = bool(GH_API.search(text)) or "api.github.com" in text.lower()
         if GH_MERGE.search(text) or (api and MERGE_ENDPOINT.search(text)):
@@ -227,25 +275,84 @@ def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
 
 
 def _part(value: str) -> str:
-    """A commit part's value: a JSON or GraphQL string decoded, a quoted field unquoted, a plain value as is."""
-    if value.startswith('"'):
-        try:
-            return json.loads(value)
-        except ValueError:
-            return value[1:-1]
-    return value[1:-1] if value.startswith("'") else value
+    """A quoted value as written on the line or in a text: a JSON or GraphQL string decoded, a single-quoted one
+    unquoted."""
+    try:
+        return json.loads(value)
+    except ValueError:
+        return value[1:-1]
 
 
-def _commits(texts: list[tuple[str, str]], titles: list[str], messages: list[str]) -> list[tuple[str, str]]:
-    """The commit a merge writes, its title, a blank line, then its message, for each title and message the call
-    types: those given, and those its texts name by GitHub's field names."""
+def _json_strings(text: str) -> list[tuple[str, str]]:
+    """The (name, string) pairs inside a text that is JSON (a request body sent as one string), decoded."""
+    stripped = text.strip()
+    if stripped[:1] + stripped[-1:] not in ("{}", "[]") or len(stripped) > MAX_FILE_BYTES:
+        return []
+    try:
+        return list(_strings(json.loads(stripped)))
+    except (ValueError, RecursionError):
+        return []
+
+
+def _json_strings_of(texts: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """The (name, string) pairs inside each text that is JSON."""
+    return [pair for _, text in texts for pair in _json_strings(text)]
+
+
+def _heredocs(text: str) -> list[str]:
+    """The text of each here-document on the line (the first 16), from the line after its opener. A message is
+    read joined only at its start, so where the document ends does not matter."""
+    starts = (text.find("\n", match.end()) for match in islice(HEREDOC.finditer(text), MAX_HEREDOCS))
+    return [text[start + 1:] for start in starts if start >= 0]
+
+
+def _flag_values(words: list[str], flag: re.Pattern) -> list[str]:
+    """The values a gh flag is given among the line's words: `--subject x`, `--subject=x`, `-t x`, `-tx`, and
+    the last flag of a run of short ones (`-st x`)."""
+    values = []
+    for index, word in enumerate(words):
+        match = flag.fullmatch(word) if word[:1] == "-" else None
+        if match is None:
+            continue
+        attached = match.group(1) if match.group(1) is not None else match.group(2)
+        if attached:
+            values.append(attached)
+        elif index + 1 < len(words):
+            values.append(words[index + 1])
+    return values
+
+
+def _last(values: list[str]) -> list[str]:
+    """The last 16 distinct values, in order: gh keeps a flag's last value."""
+    return list(dict.fromkeys(reversed(values)))[:MAX_PARTS][::-1]
+
+
+def _commits(texts: list[tuple[str, str]], titles: list[str], messages: list[str], named: dict[str, list[str]],
+             resolve=lambda value: value) -> list[tuple[str, str]]:
+    """The commit a merge writes, its title's end, a blank line, then its message's start, for each title and
+    message the call types: those given; GitHub's field names in `named` (a word's name=value, a field) and in its
+    texts as a quoted value; and the `named` values a GraphQL variable takes. `resolve` reads a named value (an
+    @file)."""
     titles, messages = list(titles), list(messages)
+    fields = {field: titles for field in TITLE_FIELDS} | {field: messages for field in MESSAGE_FIELDS}
+    names = [(field, field) for field in fields]  # each field named outright, then each variable a field takes
     for _, text in texts:
         for match in COMMIT_PART.finditer(text):
-            (titles if match.group(1) in TITLE_FIELDS else messages).append(_part(match.group(2)))
-    titles = list(dict.fromkeys(titles))[-MAX_PARTS:]
-    messages = list(dict.fromkeys(messages))[-MAX_PARTS:]
-    return [("the commit, title then message", f"{title}\n\n{message}") for title in titles for message in messages]
+            fields[match.group(1)].append(_part(match.group(2)))
+        names += COMMIT_VARIABLE.findall(text)
+    for field, name in dict.fromkeys(names):
+        fields[field].extend(map(resolve, _last(named.get(name, []))))
+    return [("the commit, title then message", f"{title[-JOIN_CHARS:]}\n\n{message[:JOIN_CHARS]}")
+            for title in _last(titles) for message in _last(messages)]
+
+
+def _at_file(value: str, cwd: object) -> str:
+    """A field's value, or the text of the file an `@` names in it (gh api's -F name=@file)."""
+    if not value.startswith("@") or value == "@-":
+        return value
+    base = cwd if isinstance(cwd, str) and cwd else os.getcwd()
+    text = _read(os.path.join(base, os.path.expanduser(value[1:])))
+    return value if text is None else text
 
 
 def _reason(references: list[str]) -> str:
@@ -272,22 +379,36 @@ def refusal(event: object) -> str | None:
         command = tool_input.get("command")
         if not isinstance(command, str):
             return None
-        plain = _plain(command)
-        if "merge" not in plain and "graphql" not in plain.lower():
-            return None
         kind = _merge_kind(command)
         if kind is None:
             return None
+        plain = _plain(command)
         # As written, and as the shell joins it with gh's -b/-t split from an attached value.
         texts = [("this command", command), ("this command", ATTACHED.sub(r"\1 ", plain))]
-        files = _body_files(command, event.get("cwd"))
-        texts += files
+        cwd = event.get("cwd")
+        files = _body_files(command, cwd)
+        joined = command.replace("\\\n", "")
+        # The line's words as the shell passes them, and the words of each word that is itself a merge's line, one
+        # level down (bash -c 'gh pr merge ...').
+        lines = [[_name(word) for word in re.findall(_WORD, joined)]]
+        lines += [[_name(word) for word in re.findall(_WORD, line)] for line in lines[0]
+                  if SPACE.search(line) and _merge_kind(line)]
+        words = [word for line in lines for word in line]
+        heredocs = _heredocs(joined)
+        decoded = [pair for text in [*words, *(text for _, text in files)] if "{" in text or "[" in text
+                   for pair in _json_strings(text)]
+        texts += files + [("a JSON body", text) for _, text in decoded]
         if kind == "graphql" and not any(MERGE_MUTATION.search(text) for _, text in texts):
             return None
-        joined = command.replace("\\\n", "")
-        subjects = [_word(match.group(1))[0] for match in SUBJECT.finditer(joined)]
-        bodies = [_word(match.group(1))[0] for match in BODY.finditer(joined)] + [text for _, text in files]
-        texts += _commits(texts, subjects, bodies)
+        named: dict[str, list[str]] = {}
+        pairs = (match.groups() for match in (NAMED_WORD.fullmatch(word) for word in words if "=" in word) if match)
+        for name, value in [*pairs, *decoded]:
+            named.setdefault(name, []).append(value)
+        titles = [value for line in lines for value in _flag_values(line, SUBJECT_FLAG)]
+        messages = ([value for line in lines for value in _flag_values(line, BODY_FLAG)] + [text for _, text in files]
+                    + heredocs)
+        sources = [("this command", command), ("the line's words", "\n".join(words)), *texts[2:]]
+        texts += _commits(sources, titles, messages, named, lambda value: _at_file(value, cwd))
     else:
         parts = tool.split("__")
         if not (len(parts) >= 3 and parts[0] == "mcp" and "github" in parts[1].lower()):
@@ -300,10 +421,12 @@ def refusal(event: object) -> str | None:
         if not ("merge" in "__".join(parts[2:]).lower() or graphql_call
                 or any(GRAPHQL_MERGE.match(text) or REST_MERGE.match(text) for _, text in texts)):
             return None
-        titles = [text for field, text in texts if field in TITLE_FIELDS]
-        messages = [text for field, text in texts if field in ("commit_message", "commitBody")]
-        commits = _commits(texts, titles, messages)
-        texts += commits + [("the call's strings, in order", "\n\n".join(text for _, text in texts))]
+        strings = "\n\n".join(text for _, text in texts)
+        texts += _json_strings_of(texts)
+        named: dict[str, list[str]] = {}
+        for field, text in texts:
+            named.setdefault(field, []).append(text)
+        texts += _commits(texts, [], [], named) + [("the call's strings, in order", strings)]
     references = list(dict.fromkeys(_closing_references()(texts)))
     return _reason(references) if references else None
 

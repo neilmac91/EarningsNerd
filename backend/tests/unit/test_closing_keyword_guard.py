@@ -93,6 +93,7 @@ def bodies(tmp_path: Path) -> Path:
     (tmp_path / "my notes.md").write_text("Closes #3.\n", encoding="utf-8")
     (tmp_path / "COMMIT_MSG.md").write_text("Fixes #3.\n", encoding="utf-8")  # capitals after an attached -F
     (tmp_path / "ref-first.md").write_text("#3 carries the rest.\n", encoding="utf-8")  # a message after a title
+    (tmp_path / "title.md").write_text("ci: lint fix\n", encoding="utf-8")  # a title before such a message
     (tmp_path / "clean.md").write_text("Squash of the series; #3 carries the fix.\n", encoding="utf-8")
     (tmp_path / "body.json").write_text('{"merge_method": "squash", "commit_message": "resolves #3"}', encoding="utf-8")
     (tmp_path / "automerge.graphql").write_text(
@@ -134,6 +135,14 @@ MCP_REFUSED = {
     "GraphQL's headline and body in variables": ("mcp__github__run_graphql", {
         "query": "mutation($input: MergePullRequestInput!) { mergePullRequest(input: $input) { clientMutationId } }",
         "variables": {"input": {"pullRequestId": "X", "commitHeadline": "lint fix", "commitBody": "#3 carries the rest"}}}),
+    "GraphQL variables that give the headline and body, the body's first": ("mcp__github__run_graphql", {
+        "query": "mutation($b: String!, $h: String!) { mergePullRequest(input: {pullRequestId: \"X\", commitBody: $b, "
+                 "commitHeadline: $h}) { clientMutationId } }",
+        "variables": {"b": "#3 carries the rest", "h": "lint fix"}}),
+    "a GraphQL body as a JSON string, with a headline and body": ("mcp__github__api_request", {
+        "method": "POST", "path": "/graphql", "body": json.dumps({"query": (
+            'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "lint fix", '
+            'commitBody: "#3 carries the rest"}) { clientMutationId } }')})}),
     "a JSON body's title and message": ("mcp__github__api_request", {
         "method": "PUT", "path": "/repos/o/r/pulls/5/merge",
         "body": '{"commit_title": "lint fix", "commit_message": "#3 carries the rest"}'}),
@@ -228,12 +237,44 @@ BASH_REFUSED = (
     # A title that ends in a keyword before a message that starts with a reference, joined as GitHub joins them.
     "gh pr merge 5 -s --subject 'review-gate fix' --body '#12 carries the rest'",
     "gh pr merge 5 -s --body '#12 carries the rest' --subject 'lint fix'",
+    "gh pr merge 5 -s -t'lint fix' -b'#12 carries the rest'",
+    "bash -c 'gh pr merge 5 -s -t \"lint fix\" -b \"#12 carries the rest\"'",  # a word that is itself a line
     "gh pr merge 5 -s -t 'lint fix' -F ref-first.md",
     "gh api -X PUT repos/o/r/pulls/5/merge -f commit_title='lint fix' -f commit_message='#3 carries the rest'",
     "curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge "
     "-d '{\"commit_title\": \"lint fix\", \"commit_message\": \"#3 carries the rest\"}'",
     "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"X\", commitHeadline: \"lint fix\", "
     "commitBody: \"#3 carries the rest\"}) { clientMutationId } }'",
+    # The message as an agent types one: over several lines, quoted or in a here-document.
+    "gh pr merge 5 -s -t 'lint fix' -b \"$(cat <<'EOF'\n#3 carries the rest.\n\nMore detail.\nEOF\n)\"",
+    "gh pr merge 5 -s -t 'lint fix' --body-file - <<'EOF'\n#3 carries the rest.\nEOF",
+    "gh pr merge 5 -s -t 'lint fix' -F - <<-EOF\n\t#3 carries the rest.\n\tEOF",
+    "gh pr merge 5 -s --subject 'lint fix' --body '#3 carries the rest.\n\nMore detail.'",
+    "gh pr merge 5 -s --subject \"lint fix\" --body \"#3 carries the rest.\n\nMore detail.\"",
+    # A field's name=value read as the shell passes the word, quoted whole or escaped, the option attached or not.
+    "gh api -X PUT repos/o/r/pulls/5/merge -f 'commit_title=lint fix' -f 'commit_message=#3 carries the rest'",
+    "gh api -X PUT repos/o/r/pulls/5/merge --field=\"commit_title=lint fix\" --field=\"commit_message=#3 carries the rest\"",
+    "gh api -X PUT repos/o/r/pulls/5/merge -f commit_title=lint\\ fix -f commit_message=\\#3\\ carries\\ the\\ rest",
+    "gh api -X PUT repos/o/r/pulls/5/merge -F commit_title=@title.md -f commit_message='#3 carries the rest'",
+    "http PUT api.github.com/repos/o/r/pulls/5/merge 'commit_title=lint fix' 'commit_message=#3 carries the rest'",
+    # JSON and GraphQL strings with their quotes escaped, decoded; GraphQL variables a field or a JSON body gives.
+    "curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge "
+    "-d \"{\\\"commit_title\\\": \\\"lint fix\\\", \\\"commit_message\\\": \\\"#3 carries the rest\\\"}\"",
+    "gh api graphql -f query=\"mutation { mergePullRequest(input: {pullRequestId: \\\"X\\\", commitHeadline: \\\"lint fix\\\", "
+    "commitBody: \\\"#3 carries the rest\\\"}) { clientMutationId } }\"",
+    "gh api graphql -f query='mutation($h: String!, $b: String!) { mergePullRequest(input: {pullRequestId: \"X\", "
+    "commitHeadline: $h, commitBody: $b}) { clientMutationId } }' -f h='lint fix' -f b='#3 carries the rest'",
+    "gh api graphql -f query='mutation($h: String!, $b: String!) {\n  mergePullRequest(input: {pullRequestId: \"X\", "
+    "commitHeadline: $h, commitBody: $b}) {\n    clientMutationId\n  }\n}' -f h='lint fix' -f b='#3 carries the rest'",
+    "curl -X POST https://api.github.com/graphql -d '{\"query\": \"mutation($h: String!) { mergePullRequest(input: "
+    "{pullRequestId: \\\"X\\\", commitHeadline: $h, commitBody: \\\"#3 carries the rest\\\"}) { clientMutationId } }\", "
+    "\"variables\": {\"h\": \"lint fix\"}}'",
+    "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
+    "json={'commit_title': 'lint fix', 'commit_message': '#3 carries the rest'})\"",
+    "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
+    "json=dict(commit_title='lint fix', commit_message='#3 carries the rest'))\"",
+    # gh keeps a flag's last value: a title given first and last, with 16 others between.
+    "gh pr merge 5 -s -t 'lint fix' " + " ".join(f"-t t{n}" for n in range(16)) + " -t 'lint fix' -b '#3 carries the rest'",
     "gh pr merge 5 -s -F=msg.md",  # pflag drops an `=` after a short option
     "gh pr merge 5 -sF=msg.md",
     "gh pr merge 5 -sFCOMMIT_MSG.md",
@@ -313,6 +354,13 @@ BASH_PASSED = (
     "gh pr merge 5 -s -b '#3 carries the fix; addressed in #4'",
     "gh pr merge 5 -s --body-file clean.md",
     "gh pr merge 5 -s --subject 'ci: lint' --body '#12 carries the fix'",  # the title does not end in a keyword
+    # A title with a space before its end, read whole: "Fix the parser (#12)" then "#3 ..." closes nothing.
+    "gh api -X PUT repos/o/r/pulls/5/merge -f commit_title='Fix the parser (#12)' -f commit_message='#3 follows up on it'",
+    "curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge "
+    "-d '{\"commit_title\": \"Fix the parser (#12)\", \"commit_message\": \"#3 follows up on it\"}'",
+    "gh pr merge 5 -s -t 'Fix the parser (#12)' -b \"$(cat <<'EOF'\n#3 follows up on it.\nEOF\n)\"",
+    "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
+    "json={'commit_title': 'Fix the parser (#12)', 'commit_message': '#3 follows up on it'})\"",
     "gh pr merge 5 -s -F notes[1].md",  # the glob matches notes1.md, the file the shell passes
     "gh pr comment 5 --body-file note.md",  # text that quotes a merge, sent from a file
     "gh pr view 5 --json body | grep -c 'fixes #3'",  # not a merge: review-gate reads the pull request's own text
@@ -329,8 +377,9 @@ BASH_PASSED = (
 # runs (a variable, an ANSI-C escape, any command's output but a plain cat's, a line handed to another shell
 # that way), a file named relative to a directory the line changes into, a script, a gh alias, a server named
 # otherwise, a merge whose URL sits in a file a command reads as its configuration, an MCP request tool that
-# spreads a merge's target over fields, a brace expansion, more than three -R in a row. A file over 1 MiB and a
-# glob's files past its first 16 have tests of their own.
+# spreads a merge's target over fields, a brace expansion, more than three -R in a row, a title past the last 16
+# a call types, a keyword and a reference more than 1,024 characters from where a title and its message meet. A
+# file over 1 MiB and a glob's files past its first 16 have tests of their own.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b $'fixes \\x233'"}),
@@ -342,6 +391,9 @@ GAPS = (
     ("Bash", {"command": "gh m 5 -s -b 'fixes #3'"}),  # `gh alias set m 'pr merge'`
     ("Bash", {"command": "gh pr merge 5 -s -F {msg,clean}.md"}),  # a brace expansion
     ("Bash", {"command": "gh -R a -R b -R c -R d pr merge 5 -s -b 'fixes #3'"}),  # more than three -R in a row
+    ("Bash", {"command": "gh pr merge 5 -s -t 'lint fix' " + " ".join(f"-t t{n}" for n in range(16))
+              + " -b '#3 carries the rest'"}),  # a title past the last 16; gh writes the last
+    ("Bash", {"command": "gh pr merge 5 -s -t 'lint fix' -b '" + " " * 1100 + "#3 carries the rest'"}),  # past 1,024
     ("Bash", {"command": "curl -K merge.cfg"}),
     ("Bash", {"command": "wget -i urls.txt --method=PUT --body-file=body.json"}),
     ("mcp__github__api_request", {  # a request tool that spreads the merge's target over fields of its own
@@ -454,6 +506,17 @@ ADVERSARIAL = {
     "@ words": MERGE_LINE + " @" * 500_000,
     "one long word": MERGE_LINE + " " + "a" * 1_000_000,
     "distinct titles and bodies": MERGE_LINE + "".join(f" -t t{n} -b b{n}" for n in range(60_000)),
+    "here-documents": MERGE_LINE + " <<a\n" * 200_000,
+    "multi-line quotes": MERGE_LINE + " '\n" * 300_000,
+    "words with spaces": MERGE_LINE + " 'a b'" * 200_000,
+    "words that are merge lines": MERGE_LINE + " 'gh pr merge -t x'" * 50_000,
+    # 16 titles by 16 here-documents of nearly 1 MB each: only each title's end and each message's start are joined.
+    "titles and here-documents": MERGE_LINE + "".join(f" -t t{n} <<w{n}\n" for n in range(16)) + "x\n" * 480_000,
+    "JSON words": MERGE_LINE + " {x}" * 250_000,
+    "commit strings": MERGE_LINE + ' commitBody: "x"' * 60_000,
+    "fields": MERGE_LINE + "".join(f" -f commit_title=t{n} -f commit_message=@m{n}" for n in range(30_000)),
+    "GraphQL variables": "gh api graphql -f query='mutation { mergePullRequest(input: {" + "commitBody: $b " * 60_000
+                         + "}) }'" + " -f b=x" * 20_000,
     "-R words, no merge": "echo merge; gh" + " -R gh" * 170_000,
     "gh api words, no merge": "echo merge; gh api" + " gh api x" * 100_000,
     "graphql words, no mutation": "echo graphql; gh api graphql" + " -f q=graphql" * 80_000,
