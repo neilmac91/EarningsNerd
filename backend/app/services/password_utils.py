@@ -42,24 +42,33 @@ def _bcrypt_input(password: str) -> bytes:
     Exactly bcrypt 4's implicit truncation, so every stored hash keeps verifying and there is no
     new hash format; bytes past 72 do not contribute to the hash. The cut may split a multibyte
     character, as bcrypt 4's did. Breach screening sees the whole password and, when the cut drops
-    anything, :func:`bcrypt_effective_text` as well.
+    anything, :func:`bcrypt_screen_texts` as well.
     """
     return password.encode('utf-8')[:BCRYPT_MAX_PASSWORD_BYTES]
 
 
-def bcrypt_effective_text(password: str) -> str | None:
-    """The whole characters of the part bcrypt keys on, when the 72-byte cut drops anything.
+def bcrypt_screen_texts(password: str) -> tuple[str, ...]:
+    """What breach screening checks besides the whole password, when the 72-byte cut drops anything.
 
-    A password over the limit authenticates with its first 72 bytes alone, so a breached prefix
-    plus any unlisted tail is as weak as the breached prefix; breach screening checks this text as
-    well as the whole password. A character split at byte 72 is dropped: its lead bytes are a few
-    guesses on top of the prefix, so the whole-character prefix is the part worth screening.
-    Returns None when the password fits, since the whole password is then exactly what is hashed.
+    A password over the limit authenticates with its first 72 bytes alone, so any breached text that
+    shares those bytes logs in to the account, whatever tail the user typed after it. The first text
+    is the shortest whole-character prefix that covers all 72 bytes: it shares bcrypt's key exactly.
+    When byte 72 falls inside a multibyte character, that prefix ends with the whole split character
+    (its kept bytes are part of the key), and the whole characters before the split are screened too:
+    a breached prefix there is one partial character (one to three bytes) away from the key. The first
+    text is the whole password when the password ends on the split character, so the caller skips a
+    text equal to the password. Empty when the password fits, since the whole password is then
+    exactly what is hashed. Out of reach: another character that shares the split character's kept
+    bytes (``"À"`` for ``"é"``) also opens the account; exact-match screening checks the user's own.
     """
     encoded = password.encode('utf-8')
     if len(encoded) <= BCRYPT_MAX_PASSWORD_BYTES:
-        return None
-    return encoded[:BCRYPT_MAX_PASSWORD_BYTES].decode('utf-8', errors='ignore')
+        return ()
+    # Valid UTF-8 cut short can only end in part of one character, which 'ignore' drops.
+    before_split = encoded[:BCRYPT_MAX_PASSWORD_BYTES].decode('utf-8', errors='ignore')
+    if len(before_split.encode('utf-8')) == BCRYPT_MAX_PASSWORD_BYTES:  # the cut falls between characters
+        return (before_split,)
+    return (password[: len(before_split) + 1], before_split)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

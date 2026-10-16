@@ -53,6 +53,8 @@ ASCII_87 = "correct horse battery staple " * 3  # 87 chars, 87 bytes  # gitleaks
 CYRILLIC_42 = "пароль" * 7  # 42 chars, 84 bytes  # gitleaks:allow
 ASCII_72 = "a1b2c3d4" * 9  # 72 chars, exactly 72 bytes  # gitleaks:allow
 STRADDLE = "x" * 71 + "é" + "tail"  # "é" is bytes 72-73, so the limit cuts it in half  # gitleaks:allow
+THREE_BYTE_STRADDLE = "x" * 70 + "€tail"  # "€" is bytes 71-73; the limit keeps two  # gitleaks:allow
+FOUR_BYTE_STRADDLE = "x" * 70 + "\U0001F510" + "tail"  # the lock is bytes 71-74; the limit keeps two
 FOUR_BYTE_MAX = "\U0001F510" * password_utils.PASSWORD_MAX_LENGTH  # 128 chars, 512 bytes
 SHORT = "OldStr0ngPassw0rd!"  # under 72 bytes; test fixture, not a credential  # gitleaks:allow
 
@@ -253,14 +255,46 @@ def range_api(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "password, breached",
-    [(BREACHED_72 + " and a tail nobody listed", BREACHED_72), (BREACHED_71 + "é tail", BREACHED_71)],
-    ids=["breached-72-byte-prefix", "breached-prefix-before-a-split-character"],
+    "password, breached, lookups",
+    [
+        (BREACHED_72 + " and a tail nobody listed", BREACHED_72, 2),
+        # Byte 72 splits "é": the breached text that ends with the whole "é" shares bcrypt's key.
+        (BREACHED_71 + "é tail", BREACHED_71 + "é", 2),
+        (BREACHED_71 + "é tail", BREACHED_71, 3),
+    ],
+    ids=["breached-72-byte-prefix", "breached-text-ending-in-the-split-character",
+         "breached-prefix-before-a-split-character"],
 )
-def test_a_breached_bcrypt_prefix_with_an_unlisted_tail_is_screened_as_breached(range_api, password, breached):
+def test_a_breached_bcrypt_prefix_with_an_unlisted_tail_is_screened_as_breached(
+    range_api, password, breached, lookups
+):
     api = range_api({breached})
     assert asyncio.run(pwned_passwords.is_password_pwned(password)) is True
-    assert len(api.asked) == 2  # the whole password, then the part bcrypt keys on
+    assert len(api.asked) == lookups  # the whole password, then bcrypt_screen_texts in order, to the first hit
+
+
+@pytest.mark.parametrize(
+    "password",
+    [ASCII_87, CYRILLIC_42, STRADDLE, THREE_BYTE_STRADDLE, FOUR_BYTE_STRADDLE, FOUR_BYTE_MAX],
+    ids=["ascii87", "cyrillic84b", "straddles-byte-72", "3-byte-char-straddles-byte-72",
+         "4-byte-char-straddles-byte-72", "max-4-byte-chars"],
+)
+def test_the_first_screened_text_logs_in_wherever_the_password_does(password):
+    """The text screened first must share bcrypt's key: if it is breached, it opens the account."""
+    screened = password_utils.bcrypt_screen_texts(password)
+    assert screened and password.startswith(screened[0])
+    assert verify_password(screened[0], get_password_hash(password))
+
+
+@pytest.mark.parametrize(
+    "password, lookups",
+    [(STRADDLE, 3), ("x" * 71 + "é", 2)],  # gitleaks:allow
+    ids=["split-character-mid-password", "split-character-ends-the-password"],
+)
+def test_screening_looks_up_each_distinct_text_once(range_api, password, lookups):
+    api = range_api({"password123"})
+    assert asyncio.run(pwned_passwords.is_password_pwned(password)) is False
+    assert len(api.asked) == lookups
 
 
 def test_a_long_password_with_an_unlisted_prefix_passes_screening(range_api):

@@ -15,7 +15,7 @@ import logging
 import httpx
 
 from app.config import settings
-from app.services.password_utils import bcrypt_effective_text
+from app.services.password_utils import bcrypt_screen_texts
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,8 @@ async def is_password_pwned(password: str) -> bool:
     """Return True only if ``password`` is known to appear in public breach corpora.
 
     A password longer than bcrypt's 72-byte limit authenticates with its first 72 bytes alone,
-    so that prefix is screened too (``password_utils.bcrypt_effective_text``): a breached
-    password plus an unlisted tail must not pass as unbreached.
+    so the text bcrypt keys on is screened too (``password_utils.bcrypt_screen_texts``): a
+    breached password plus an unlisted tail must not pass as unbreached.
 
     Returns False when the check is disabled, the password is empty, or the lookup fails for
     any reason (fail-open).
@@ -37,8 +37,10 @@ async def is_password_pwned(password: str) -> bool:
         return False
     if await _is_listed(password):
         return True
-    effective = bcrypt_effective_text(password)
-    return bool(effective) and await _is_listed(effective)
+    for text in bcrypt_screen_texts(password):
+        if text != password and await _is_listed(text):
+            return True
+    return False
 
 
 async def _is_listed(password: str) -> bool:
