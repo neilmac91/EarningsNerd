@@ -18,8 +18,13 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         {/* The theme toggle and "Back to home" wrap onto their own row at the right when the logo
             leaves them no room (enlarged text, the narrowest phones; tests/e2e/reflow-200.spec.ts). */}
         <div className="flex flex-wrap items-center justify-between gap-y-2 px-6 py-6 sm:px-10">
+          {/* The lockup is about 10rem wide (the 2rem mark, the gap, the text-lg wordmark) and sits 1.5rem in, so with
+              its clear space (one E-bar, 11.6% of the mark; frontend/public/assets/LOGO_README.md) it needs a viewport
+              of about 11.8rem. Below 12rem (384px under a 200% text setting, never at the default size) the wordmark
+              yields to the mark alone, as the site header's does on a phone, and stays the link's name for a screen
+              reader (sr-only): at 360px and 200% text the lockup ran to 369px. */}
           <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
-            <EarningsNerdLogo iconClassName="h-8 w-8" wordmarkClassName="text-lg" />
+            <EarningsNerdLogo iconClassName="h-8 w-8" wordmarkClassName="text-lg [@media(max-width:12rem)]:sr-only" />
           </Link>
           <div className="ml-auto flex min-w-0 items-center gap-2">
             <ThemeToggle />

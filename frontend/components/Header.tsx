@@ -107,12 +107,18 @@ export default function Header({
     }
   }
 
+  // The header is a column no taller than the viewport (max-h-dvh): the bar keeps its own height (shrink-0) and the
+  // open mobile menu below it takes the rest and scrolls inside it. A sticky header taller than the viewport stays
+  // stuck to its top until the page's very end, so before this a menu longer than the screen showed its tail (Log
+  // out, the account CTA) only there: 36,942px down the landing at 200% text on a 390x664 phone. The cap is the
+  // bar's own height, never --site-header-h, which counts the open menu (tests/e2e/reflow-200.spec.ts).
   return (
-    <header ref={headerRef} className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
+    <header ref={headerRef} className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
           frontend/public/assets/LOGO_README.md), when a full bar sets the account link beside the mark: at 390px and
-          200% text the link touched it (tests/e2e/reflow-200.spec.ts). */}
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-1.5 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+          200% text the link touched it (tests/e2e/reflow-200.spec.ts). w-full: a column's child with auto side
+          margins is not stretched, so without it the bar would shrink to its content. */}
+      <div className="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center justify-between gap-x-1.5 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center">
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
@@ -197,14 +203,15 @@ export default function Header({
       </div>
 
       {/* Mobile menu. A column with a gap, not space-y: above 24rem the Theme row is display:none, which a
-          gap skips, while space-y's sibling margin would still push the first link down. */}
+          gap skips, while space-y's sibling margin would still push the first link down. The panel scrolls inside
+          the viewport (the header's cap, above), never the page behind it (overscroll-contain), and its scroll
+          padding equals the nav's inset, so a row that focus scrolls in keeps its ring clear of the edge. */}
       {mobileMenuOpen && (
-        <div className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
+        <div className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
             {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions), as the
-                menu's first row: directly under the bar, so it opens in view. The header is sticky, so a menu
-                taller than the viewport never scrolls, and a row at its end sat below the fold on a phone at
-                200% text (tests/e2e/reflow-200.spec.ts). */}
+                menu's first row: directly under the bar, so it opens in view, before any scrolling of the menu
+                (tests/e2e/reflow-200.spec.ts). */}
             <div className="hidden items-center justify-between border-b border-border-light px-3 pb-3 dark:border-white/[0.06] [@media(max-width:24rem)]:flex">
               <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Theme</span>
               <ThemeToggle className="min-h-11 min-w-11" />
