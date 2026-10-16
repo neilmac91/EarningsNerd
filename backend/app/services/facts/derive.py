@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Optional
 
-from app.services.facts.concepts import _CONCEPT_UNITS
+from app.services.facts.concepts import _unit_for
 from app.services.facts.quarterly import (
     derive_cumulative_quarters, derive_quarter_sum_fallback, same_period_provenance, same_scope,
 )
@@ -47,7 +47,7 @@ def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, An
         provenance = same_period_provenance(concept, inputs)
         return {
             **template, "concept": concept, "raw_tag": None,
-            "unit": _CONCEPT_UNITS.get(concept, "USD"), "value": value, "source": "derived",
+            "unit": _unit_for(concept, template.get("unit")), "value": value, "source": "derived",
             "reconciled": provenance["validation"] == "passed", "provenance": provenance,
         }
 

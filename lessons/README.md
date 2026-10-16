@@ -100,6 +100,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## SEC / EDGAR data
 
+- sec-companyfacts-reads-the-reporting-currency.md — Read a companyfacts concept's foreign list only when its USD list is that list's convenience translation, never a hard-coded USD list and never the latest or widest list alone; a native-currency write demotes the current USD twin it supersedes and promotes a native ratio over a USD-derived one, never rewriting an identity (partly gated by the native-currency tests in `backend/tests/unit/test_companyfacts_ingest.py` for the CNY shape, both switch directions and stray lists; other fact writers are review-checked)
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network
