@@ -85,8 +85,9 @@ const LOCAL_DATE_MESSAGE =
  *  silently missed exactly the shape this rule exists to catch. Measured, not assumed.
  *
  *  KNOWN RESIDUAL, and it is a property of the tool rather than a gap to patch: a RENAMED binding
- *  (`const { filing_date: fd } = filing; new Date(fd)`) defeats any selector, because tracking that
- *  rename is data-flow analysis and ESLint selectors are syntactic. No further widening fixes it. The
+ *  (`const { filing_date: fd } = filing; new Date(fd)`), or a key held in a const (`filing[KEY]`),
+ *  defeats any selector, because tracking that rename is data-flow analysis and ESLint selectors are
+ *  syntactic. No further widening fixes it. The
  *  same holds for a same-file wrapper (`const day = (iso) => formatLocalDate(iso, …)`, as FilingIndex
  *  and ComparePeriodsCard write): the rules read the call inside it, not the field a caller hands it.
  *  So too for a helper reached through something other than its name or a member key: called through
@@ -99,11 +100,13 @@ const CALENDAR_FIELD_MESSAGE =
   'UTC-midnight instant, so any later render shows the previous day for viewers behind UTC. Pass the ' +
   'raw string to formatLocalDate from lib/format.ts instead. (Comparing two of them as instants is fine; ' +
   'features/filings/lib/recommendedFiling.ts is allow-listed for exactly that.)'
-/** Three access shapes, because one selector cannot see all of them:
+/** Four access shapes, because one selector cannot see all of them (fieldSelectors):
  *   - `f.filing_date`      -> the property is an Identifier
  *   - `f['filing_date']`   -> computed, so the name lives on Literal.value, not Identifier.name
+ *   - f[`filing_date`]     -> a template with no substitution, so the name lives on its TemplateElement's
+ *                             cooked value (a template with one names no field the rule can be sure of)
  *   - `const { filing_date } = f` then `new Date(filing_date)` -> a bare Identifier, no member at all
- *  The Identifier selector covers the first and third together.
+ *  The Identifier selector covers the first and fourth together.
  *  formatInstant (lib/format.ts) is a constructor here too: it runs parseISO inside the helper, where
  *  no selector at the call site sees it, so `formatInstant(filing.filing_date, …)` would render the
  *  previous day behind UTC while passing every rule above. Its gate is this list.
@@ -117,10 +120,15 @@ const callsTo = (name) => {
   const call = name === 'Date' ? 'NewExpression' : 'CallExpression'
   return [`${call}[callee.name='${name}']`, ...KEY_NAME_PATHS.map((at) => `${call}[callee.property.${at}='${name}']`)]
 }
-const CALENDAR_FIELD_RULES = ['Date', 'parseISO', 'formatInstant'].flatMap(callsTo).flatMap((root) => [
-  { selector: `${root} Identifier[name=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
-  { selector: `${root} Literal[value=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
-])
+/** A field named anywhere inside a constructor's call, in each access shape above. */
+const fieldSelectors = (root, fields, message) => [
+  { selector: `${root} Identifier[name=/^(${fields})$/]`, message },
+  { selector: `${root} Literal[value=/^(${fields})$/]`, message },
+  { selector: `${root} TemplateLiteral[expressions.length=0] > TemplateElement[value.cooked=/^(${fields})$/]`, message },
+]
+const CALENDAR_FIELD_RULES = ['Date', 'parseISO', 'formatInstant']
+  .flatMap(callsTo)
+  .flatMap((root) => fieldSelectors(root, CALENDAR_DATE_FIELDS, CALENDAR_FIELD_MESSAGE))
 
 /** The other direction (D-033): a Stripe billing date is an INSTANT with its offset, so the day it
  *  falls on depends on where the reader is. formatLocalDate reads only its first ten characters, the
@@ -134,17 +142,15 @@ const BILLING_INSTANT_MESSAGE =
   'from lib/format.ts (D-033).'
 /** The rules read a constructor by its callee's name, so it must keep that name: an import under
  *  another name (`formatInstant as formatDay`), a re-export or a destructuring that renames it (its key
- *  in any spelling, `{ ['formatInstant']: held }`, and Date's from globalThis among them), or a const
- *  that holds it would hide every call from them. */
+ *  in any spelling, with or without a default, `{ ['formatInstant']: held }`, and Date's from globalThis
+ *  among them), or a const that holds it would hide every call from them. A destructuring that keeps the
+ *  name and adds a default (`{ formatInstant = fallback }`) renames nothing: its calls keep the name. */
 const DATE_HELPERS = ['Date', 'parseISO', 'formatInstant', 'formatLocalDate']
 const DATE_HELPER_ALIAS_MESSAGE =
   'Call Date, parseISO, formatInstant and formatLocalDate by their own names: the calendar-date and ' +
   'billing-instant rules (eslint.config.mjs) read a call by its callee, so a renamed or held one hides it.'
 const DATE_HELPER_RULES = [
-  ...callsTo('formatLocalDate').flatMap((root) => [
-    { selector: `${root} Identifier[name=/^(${BILLING_INSTANT_FIELDS})$/]`, message: BILLING_INSTANT_MESSAGE },
-    { selector: `${root} Literal[value=/^(${BILLING_INSTANT_FIELDS})$/]`, message: BILLING_INSTANT_MESSAGE },
-  ]),
+  ...callsTo('formatLocalDate').flatMap((root) => fieldSelectors(root, BILLING_INSTANT_FIELDS, BILLING_INSTANT_MESSAGE)),
   // An import or a re-export under another name, the module's name quoted or not (Date, a global, travels by neither).
   ...DATE_HELPERS.filter((name) => name !== 'Date').flatMap((name) => [
     { selector: `ImportSpecifier[imported.name='${name}'][local.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
@@ -152,13 +158,19 @@ const DATE_HELPER_RULES = [
     { selector: `ExportSpecifier[local.name='${name}'][exported.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
     { selector: `ExportSpecifier[local.value='${name}'][exported.name!='${name}']`, message: DATE_HELPER_ALIAS_MESSAGE },
   ]),
-  // A destructuring that renames it, its key in each spelling: `{ formatInstant: held }`, `{ ['formatInstant']: held }`,
-  // `const { Date: D } = globalThis`.
+  // A destructuring that renames it, its key in each spelling, with or without a default: `{ formatInstant: held }`,
+  // `{ ['formatInstant']: held }`, `{ formatInstant: held = fallback }`, `const { Date: D } = globalThis`.
   ...DATE_HELPERS.flatMap((name) =>
-    KEY_NAME_PATHS.map((at) => ({
-      selector: `ObjectPattern > Property[key.${at}='${name}'][value.name!='${name}']`,
-      message: DATE_HELPER_ALIAS_MESSAGE,
-    })),
+    KEY_NAME_PATHS.flatMap((at) => [
+      {
+        selector: `ObjectPattern > Property[key.${at}='${name}'][value.type='Identifier'][value.name!='${name}']`,
+        message: DATE_HELPER_ALIAS_MESSAGE,
+      },
+      {
+        selector: `ObjectPattern > Property[key.${at}='${name}'][value.type='AssignmentPattern'][value.left.name!='${name}']`,
+        message: DATE_HELPER_ALIAS_MESSAGE,
+      },
+    ]),
   ),
   // A const that holds it, bare or as a member, its key in each spelling.
   {
