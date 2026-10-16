@@ -285,6 +285,22 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
   in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
   longer promises every filing, and the title is in sentence case.
+- **Multi-Period Analysis** (`frontend/features/analysis/*`, `frontend/app/analysis/page.tsx`): the
+  fair-use cap is stated once, in the narrative card, with no plan link; "See plans" stays only beside
+  the 403 "Pro feature" gate, and the page's three inline links (Sign in, See plans, Terms) carry the
+  brand ring. The Cached badge says what it knows in a visible line beside it, in muted ink, never
+  a title tooltip: "Served from an earlier run · regenerates if these figures change". A stale export reads "This report is out of
+  date. Run analysis again before exporting."; a report whose evidence will not decode gives the one
+  recovery sentence ("The analysis evidence could not be read consistently. Run analysis again to
+  reload the report."), and a refused run with no detail says "The analysis did not start. Run it
+  again." The chart axis captions are "Fiscal year" and "Fiscal quarter". The chart PNG's footer is
+  the logo's lockup: the bare mark at 25px tall (about 32px wide, its minimum), then "Earnings"
+  upright and "Nerd" italic 600 in the accent, drawn opaque in the bottom-right corner (D-039). The "up to 10 fiscal years or 12 quarters" caps, and
+  the /pricing Pro card's "10-year trends", are written from `lib/planLimits.ts`, which mirrors
+  `ANALYSIS_MAX_ANNUAL_PERIODS` and `ANALYSIS_MAX_QUARTERLY_PERIODS` in `backend/app/config.py`
+  (`planLimitsLockstep.spec.ts`: no copy types a count of years or quarters, in digits or in words up to
+  twelve, spaced, hyphenated or split across markup, outside the privacy policy's retention periods; its
+  header names the forms it leaves to review, each planted in its fixture).
 
 ## 4. The mark's files and the icons
 

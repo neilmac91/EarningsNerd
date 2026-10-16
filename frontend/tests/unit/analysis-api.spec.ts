@@ -17,7 +17,7 @@ vi.mock('@/features/companies/components/CompanySearch', () => ({
       createElement('button', { onClick: () => onSelect('MSFT') }, 'Select Microsoft')),
 }))
 vi.mock('@/lib/analytics', () => ({ default: { analysisRun: vi.fn() } }))
-import { streamAnalysis } from '@/features/analysis/api/analysis-api'
+import { isAnalysisPaywallError, streamAnalysis } from '@/features/analysis/api/analysis-api'
 
 const originalFetch = global.fetch
 
@@ -363,6 +363,23 @@ describe('streamAnalysis', () => {
     })
     expect(error).toHaveBeenCalledTimes(1)
     expect(String(error.mock.calls[0][0])).toContain('Pro feature')
+  })
+
+  it('says the run did not start when a refused request carries no readable detail', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      json: async () => { throw new SyntaxError('not JSON') },
+    })) as unknown as typeof fetch
+
+    const error = vi.fn()
+    await streamAnalysis('AAPL', RANGE, { onToken: vi.fn(), onComplete: vi.fn(), onError: error })
+    expect(error).toHaveBeenCalledExactlyOnceWith('The analysis did not start. Run it again.')
+  })
+
+  it('classes only the 403 Pro gate as a paywall, never the fair-use 429', () => {
+    expect(isAnalysisPaywallError('Multi-Period Analysis is a Pro feature. Upgrade to Pro to access this feature.')).toBe(true)
+    expect(isAnalysisPaywallError("You've reached this month's fair-use limit of 30 analyses. It resets at the start of next month.")).toBe(false)
   })
 
   it('maps not_enough_data completions through', async () => {
