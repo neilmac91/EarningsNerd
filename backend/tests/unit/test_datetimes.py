@@ -51,6 +51,13 @@ def _is_isoformat_call(node: ast.AST) -> bool:
     return isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "isoformat"
 
 
+def _ends_with_isoformat_call(node: ast.AST) -> bool:
+    """``x.isoformat()``, or a ``+`` chain whose last operand is one (``"at " + x.isoformat()``)."""
+    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        node = node.right
+    return _is_isoformat_call(node)
+
+
 def _starts_with_z(node: ast.AST) -> bool:
     return isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value.startswith("Z")
 
@@ -62,7 +69,7 @@ def _hand_appended_z(source: str) -> list[int]:
     lines = []
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            if _is_isoformat_call(node.left) and _starts_with_z(node.right):
+            if _ends_with_isoformat_call(node.left) and _starts_with_z(node.right):
                 lines.append(node.lineno)
         elif isinstance(node, ast.JoinedStr):
             lines.extend(node.lineno for part, after in zip(node.values, node.values[1:])
@@ -84,6 +91,7 @@ def test_app_never_hand_appends_z():
 @pytest.mark.parametrize(("source", "expected"), [
     ('def f(dt):\n    return dt.isoformat() + "Z"\n', [2]),
     ('def f():\n    return utcnow().isoformat(timespec="seconds") + "Z"\n', [2]),
+    ('def f(dt):\n    return "at " + dt.isoformat() + "Z"\n', [2]),
     ('def f(dt):\n    return f"{dt.isoformat()}Z"\n', [2]),
     ('def f(dt):\n    return f"at {dt.isoformat()}Z, done"\n', [2]),
     ("def f(dt):\n    return iso_z(dt)\n", []),
@@ -91,7 +99,7 @@ def test_app_never_hand_appends_z():
     ('def f(s):\n    return s.replace("Z", "+00:00")\n', []),
     ('def f(dt):\n    return f"{dt.isoformat()} UTC"\n', []),
     ('def f():\n    """Never dt.isoformat() + "Z"."""\n', []),
-], ids=["plus", "plus with timespec", "f-string", "f-string mid-text", "iso_z", "bare isoformat",
+], ids=["plus", "plus with timespec", "plus chain", "f-string", "f-string mid-text", "iso_z", "bare isoformat",
         "parsing a Z", "other suffix", "docstring"])
 def test_hand_appended_z_finder(source, expected):
     assert _hand_appended_z(source) == expected
