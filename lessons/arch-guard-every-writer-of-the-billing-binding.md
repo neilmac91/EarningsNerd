@@ -20,10 +20,16 @@ deletion included) and an entitling event for another subscription still apply, 
 with nothing entitled to protect still takes the new binding. Ask `entitlements.py` whether a
 state grants Pro (`subscription_state_grants_pro`, `is_pro_user`), never a status list of your
 own: an elapsed-trial "trialing" state is not entitling, a future one is. When you add a guard to
-one writer, add the same late-event case for each sibling writer. A handler returns None for an
-event it ignores, and the worker queues a handler's analytics only from a result that is not None
-(`subscription_activated` from checkout, `trial_started` from the upsert), so an ignored event
-records nothing on the account it was kept from changing.
+one writer, add the same late-event case for each sibling writer. Each of the three handlers
+returns None for an unknown user and for an event its identity check refuses (checkout's
+`customer_mismatch`, `identity_owned_by_another_user` and `different_entitled_subscription`; the
+upsert's and the deletion's `not_current_subscription`), and the worker queues a handler's
+analytics only from a result that is not None (`subscription_activated` from checkout,
+`trial_started` from the upsert; deletion queues none), so a refused event records nothing on the
+account it was kept from changing. Checkout's `already_synchronized` ignore is not a refusal: for
+the subscription already bound it writes nothing, yet returns the user while the account is Pro
+(`test_checkout_after_subscription_event_preserves_authoritative_state` pins that return), so the
+worker still queues `subscription_activated` for it.
 
 **Still open**: an *entitling* event for another subscription still rebinds (pinned in
 `test_subscription_reconciliation.py`), and that strands a payer even with one live subscription.
