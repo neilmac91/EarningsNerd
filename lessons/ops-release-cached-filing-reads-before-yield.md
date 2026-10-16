@@ -19,11 +19,12 @@ route's own body makes no call on its session.
 **Evidence**: `backend/app/routers/filings.py` company, specific, recent, content and fundamentals
 read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed
 handlers (2026-10: the summary read and its polled progress had been missed and answered 4x500 in
-the same burst; each is now one unit in the thread pool); the shared parameterized full-app eight-request, four-slot regression is `backend/tests/unit/test_cached_filings_pool_lifetime.py`,
-which also checks that the dependency's finalizer never finds a transaction still open and that
-the summaries routes make no checkout on the loop; it covers only the routes it lists.
-`backend/tests/unit/test_async_route_session_allowlist.py` reads every async router function and
-fails a session call on the loop in its own body above that function's ceiling (on main before
-the fix it named both routes). Neither sees a session handed to a service that runs on the loop
-(the peers and waitlist reads in 2026-10), which stays a review check. Local PostgreSQL
+the same burst; each is now one unit in the thread pool). The gate is
+`backend/tests/unit/test_cached_filings_pool_lifetime.py`, in two halves. Its parameterized
+full-app eight-request, four-slot burst also checks that the dependency's finalizer never finds a
+transaction still open and that the summaries routes make no checkout on the loop; it covers only
+the routes it lists. Its AST ratchet reads every async router function and fails a session call on
+the loop in its own body above that function's ceiling (on main before the fix it named both
+routes). Neither half sees a session handed to a service that runs on the loop (the peers and
+waitlist reads in 2026-10), which stays a review check. Local PostgreSQL
 measurement is separate from production headroom and safe-cohort evidence.
