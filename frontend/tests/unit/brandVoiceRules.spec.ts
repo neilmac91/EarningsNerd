@@ -16,7 +16,8 @@ import { isIconModule } from './iconModules'
  *    (PROPER_NOUNS), and a label of two or more words is never all capitals, whatever punctuation closes a
  *    word (`START FREE TRIAL`, `START FREE TRIAL…`, `SIGN-UP NOW:`; an acronym beside lowercase words, `Export CSV`, passes). The labels read: the text of a heading (h1 to h6), of a
  *    dialog or card title (ModalHeader, CardTitle, CardHeader), of a button (<Button>, <button>, and any
- *    element whose className reaches buttonVariants(), such as a <Link> or <a> styled as a button) and
+ *    element whose className reaches buttonVariants() under any local name, an import renamed, a namespace's
+ *    member or a same-file alias, such as a <Link> or <a> styled as a button) and
  *    of every component found to render its children into one of those (see discoverReach), a component read by the name
  *    its module exports (an import under another name, `CardTitle as Title`, or a namespace's member); the title
  *    prop of a GuidanceCard, Notice, Modal, ModalHeader, SecondaryHeader or UpgradeModal and of every
@@ -175,6 +176,10 @@ const looksLikeClasses = (text: string) => {
 
 const callName = (call: ts.CallExpression) =>
   ts.isIdentifier(call.expression) ? call.expression.text : ts.isPropertyAccessExpression(call.expression) ? call.expression.name.text : ''
+/** Every name a call's callee may be: its own spelling (a member's name, `startsWith`), and what namesOf resolves it to,
+    an import renamed in the file, a namespace's member or a same-file alias, so `import { buttonVariants as styles }`
+    called as `styles()` is the DS button factory and a renamed `createElement` or `cx` is what it is. */
+const calleeNames = (call: ts.CallExpression): string[] => [callName(call), ...namesOf(call.expression, new Set())]
 
 /** Whether a string literal is code's own string, not copy: an import, a key, a comparison, a code attribute or
     argument, or, with no context that says either, a class list by its shape. Context is read first, so a copy
@@ -199,11 +204,11 @@ function isCodeString(node: ts.Node, text: string): boolean {
     if (ts.isPropertyAssignment(n)) prop = ts.isIdentifier(n.name) || ts.isStringLiteral(n.name) ? n.name.text : n.name.getText()
     // createElement(type, props, ...children) reads as JSX does: the type is code (a DOM node's tag too, as in
     // `document.createElement('a')`), a prop is read by the attribute's rule, and a child is copy.
-    if (ts.isCallExpression(n) && callName(n) === 'createElement') {
+    if (ts.isCallExpression(n) && calleeNames(n).includes('createElement')) {
       const at = n.arguments.indexOf(from as ts.Expression)
       return at === 1 ? prop === undefined || CODE_ATTRS.test(prop) : at < 2
     }
-    if (ts.isCallExpression(n) && CODE_CALLS.has(callName(n))) {
+    if (ts.isCallExpression(n) && calleeNames(n).some((name) => CODE_CALLS.has(name))) {
       // A replacement is read by its context (`<p>{note.replace('x', 'Wow!')}</p>` renders it), and so is an attribute's
       // value when the attribute is not code (`el.setAttribute('aria-label', …)`).
       const at = n.arguments.indexOf(from as ts.Expression)
@@ -397,7 +402,7 @@ const attributeValue = (attr: ts.JsxAttribute | undefined) => {
 function reachesButtonVariants(node: ts.JsxOpeningLikeElement): boolean {
   let hit = false
   const find = (n: ts.Node) => {
-    if (ts.isCallExpression(n) && callName(n) === 'buttonVariants') hit = true
+    if (ts.isCallExpression(n) && calleeNames(n).includes('buttonVariants')) hit = true
     else ts.forEachChild(n, find)
   }
   const value = attributeValue(attribute(node, 'className'))
@@ -943,6 +948,28 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '1 buzzword',
       '2 exclamation',
       '2 buzzword',
+    ])
+    // A call is read by what its callee is under any local name (calleeNames): the DS button factory renamed on import,
+    // read through a namespace or held in a same-file alias styles a link as a button, so its label is read (lines 5 to
+    // 7, the review's case); a renamed createElement and cx are what they are, so a data attribute's value (8) and a
+    // class list (9) stay code; a page's own function (11) is not the factory.
+    const renamedCalls = [
+      "import { buttonVariants as styles, cx as join } from '@/components/ui'",
+      "import * as UI from '@/components/ui'",
+      "import { createElement as h } from 'react'",
+      'const button = styles',
+      'export const A = () => <a href="/p" className={styles()}>Start Free Trial</a>',
+      "export const B = () => <a href=\"/p\" className={UI.buttonVariants({ variant: 'ghost' })}>Start Free Trial</a>",
+      'export const C = () => <a href="/p" className={button()}>Start Free Trial</a>',
+      "export const D = () => h('a', { href: '/p', 'data-cta': 'Unlock Pro' }, 'See plans')",
+      "export const E = () => join('Unlock')",
+      "const plain = () => 'underline'",
+      'export const F = () => <a href="/p" className={plain()}>Start Free Trial</a>',
+    ].join('\n')
+    expect(voiceFindings(renamedCalls, 'features/probe/RenamedCalls.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '5 sentenceCase',
+      '6 sentenceCase',
+      '7 sentenceCase',
     ])
     // A replacement is copy where it renders (the review's case), and so is the value setAttribute gives an attribute
     // that is not code; the pattern, an empty replacement and a code attribute's value stay code (a data attribute's
