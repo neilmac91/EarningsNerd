@@ -274,3 +274,15 @@ before it; a stylesheet reader that needed the `;` CSS lets a block's last state
 check that took any `autoComplete` as forwarded and followed one component's callers. A skip or an
 exemption is as wide as the thing it exists for and no wider: pin it to that line or that site, let
 each entry take one find, and have the scan assert it read the file it used to skip.
+The review of that PR (#1370) then found a widening passing a form main failed: the reader that keeps
+the words apart where JSX drops a line break no longer joined a count whose hyphen ends one element to
+the unit opening the next (`<b>10-</b>` then `<b>year window</b>`), which main's joined reading
+failed. Probing every widening in the PR for the same found seven more: a module named planLimits.ts
+outside lib/ taken as TRIAL_DAYS's own, an `<option value={prefs.x}>` taken as a control's state, a
+serverApi call in static metadata taken as a generated page's data, a template read only in its
+expanded readings and no longer with each substitution a name, a PasswordField read only through the
+forwarders a caller hands in, copy composed so a slot's text ran into the count, and a reasons reader
+keyed to HTTPException beside main's scan of every `detail="…"`; and a cap on a template's readings
+dropped the rest silently. A widening adds a reading and keeps the old one beside it (both scanned, a
+find in either reported once), the old gate's failing form is planted beside the new ones so the spec
+fails if the old reading goes, and a reader that caps what it expands fails loudly at the cap.
