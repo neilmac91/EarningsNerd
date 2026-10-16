@@ -14,9 +14,9 @@ them in an interpreter of their own, with these settings, which a check holds th
   module loads is built on the sentinel too;
 - the site's other origins (``CORS_ORIGINS_STR``) are set to hosts of their own.
 
-It reads every string a function sends or returns. A page, as ``_wrap_html`` builds it, is read as its
-markup; any other string (a plain-text copy, a subject) as markup and as the text it is, as
-``_hidden_text`` sends it. In them it reads:
+It reads every string a function sends, through the module's name for the transport or the transport itself, or
+returns. A page, as ``_wrap_html`` builds it, is read as its markup; any other string (a plain-text copy, a
+subject) as markup and as the text it is, as ``_hidden_text`` sends it. In them it reads:
 - each attribute that holds an address: ``srcset`` candidate by candidate, as HTML parses it; a
   ``<meta>`` tag's content; a relative address, resolved against a ``<base href>``;
 - each URL in CSS, in a ``style`` attribute or a ``<style>`` block, with its escapes decoded: a ``url()``,
@@ -37,7 +37,8 @@ It must also be built on ``FRONTEND_URL`` with that slash stripped:
 
 The render list is held to ``email_service``'s public functions, save those that build no mail, each
 named with why (``NOT_MAIL``), and no other module in ``backend/app`` may reach its private names, so a
-new mail fails here until it is rendered; every mail the module sends must be a page the shell built.
+new mail fails here until it is rendered; every mail the module sends must be a page the shell built, each
+``send_`` function sending one and no render or build function any (planted as stub modules the same render runs).
 Nor may a module build an HTML page outside the shell, ``_wrap_html`` (a string that opens a doctype,
 ``<html>``, ``<head>`` or ``<body>``), save those ``OWN_PAGES`` lists, or send mail, through the
 transport (``resend_service``), the delivery queue, which sends the pages it is handed, or the provider
@@ -410,16 +411,19 @@ def _lines(code: CodeType) -> set[int]:
     return lines.union(*(_lines(const) for const in code.co_consts if isinstance(const, CodeType)))
 
 
-def _render(cases: dict) -> dict:
-    """In the render's own interpreter: every string each function sends or returns, the HTML of each mail it
-    sends, and each line of email_service.py that no render runs, the module's own loading included."""
+def _render(cases: dict, module=email_service) -> dict:
+    """In the render's own interpreter: every string each function of the mail module sends or returns, the HTML
+    of each mail it sends, through its own name for the transport or the transport itself, and each line of the
+    module that no render runs, its own loading included."""
     import asyncio
     import importlib
+
+    from app.services import resend_service
 
     ran: set[int] = set()
 
     def trace(frame, event, arg):
-        if frame.f_code.co_filename != email_service.__file__:
+        if frame.f_code.co_filename != module.__file__:
             return None
         if event == "line":
             ran.add(frame.f_lineno)
@@ -435,13 +439,15 @@ def _render(cases: dict) -> dict:
 
     out: dict[str, list[str]] = {}
     html_sent: dict[str, list[str]] = {}
+    transport = resend_service.send_email
     sys.settrace(trace)
     try:
-        importlib.reload(email_service)  # the module loads again, traced
-        email_service.send_email = _record
+        resend_service.send_email = _record  # a send through the transport is recorded, however the module reaches it
+        importlib.reload(module)  # the module loads again, traced, and binds the transport as recorded
+        module.send_email = _record
         for name, inputs in cases.items():
             for kwargs in inputs:
-                result = getattr(email_service, name)(**kwargs)
+                result = getattr(module, name)(**kwargs)
                 if asyncio.iscoroutine(result):
                     result = asyncio.run(result)
                 out.setdefault(name, []).extend(_strings(result) + sent)
@@ -450,9 +456,10 @@ def _render(cases: dict) -> dict:
                 sent_html.clear()
     finally:
         sys.settrace(None)
-    source = Path(email_service.__file__).read_text(encoding="utf-8")
-    values = _public_values(email_service, source)
-    lines = _lines(compile(source, email_service.__file__, "exec"))
+        resend_service.send_email = transport
+    source = Path(module.__file__).read_text(encoding="utf-8")
+    values = _public_values(module, source)
+    lines = _lines(compile(source, module.__file__, "exec"))
     unrun = sorted(lines - ran)
     return {
         "mail": out,
@@ -686,13 +693,13 @@ def test_the_page_walk_sets_aside_the_mail_modules_shell_alone(tmp_path):
 
 # The modules of backend/app that send mail, each with how many times it names a function that sends (``senders``)
 # and what it sends. email_service builds its mail in the shell that carries the header, and the render holds every
-# mail it sends to a page the shell built, so its sends go uncounted; the queue, the filing scan and the data-quality
-# report send what it builds; contact.py builds two pages of its own, one to the person who wrote in (E56), and the
-# admin and feedback routes send fragments. Equalities (lessons/test-allowlist-caps-are-equalities.md): a new sender,
-# or a listed one that names a send once more, fails here until it sends through email_service or is listed with what
-# it sends.
+# mail it sends through the transport to a page the shell built; its count holds a send the render does not record,
+# through the queue or to the provider, to a look as well. The queue, the filing scan and the data-quality report send
+# what it builds; contact.py builds two pages of its own, one to the person who wrote in (E56), and the admin and
+# feedback routes send fragments. Equalities (lessons/test-allowlist-caps-are-equalities.md): a new sender, or a listed
+# one that names a send once more, fails here until it sends through email_service or is listed with what it sends.
 SENDERS = {
-    "app/services/email_service.py": (None, "every mail it builds, in the shell"),
+    "app/services/email_service.py": (10, "every mail it builds, in the shell, through the transport"),
     "app/services/notification_delivery_service.py": (1, "the filing alerts and digests email_service builds, held for delivery"),
     "app/services/filing_scan_service.py": (5, "the filing alerts and digests email_service builds, queued: three batches and two drains"),
     "app/services/data_quality_service.py": (1, "the data-quality report email_service builds, with its text copy"),
@@ -703,7 +710,7 @@ SENDERS = {
 }
 # The functions that send a page or hand one on to be sent, by the module that holds them: the transport's, the mail
 # module's hold of it (email_service imports send_email), and the delivery queue's, which take a page or send one. A
-# module that binds one holds it too (``_holders``).
+# module that binds one, or a module that holds one, holds it too (``_holders``).
 _SENDS = {
     "app.services.resend_service": frozenset({"send_email"}),
     "app.services.email_service": frozenset({"send_email"}),
@@ -727,10 +734,20 @@ def _module_name(path: Path, app: Path) -> str:
     return ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
 
 
+def _module_named(owner: str, modules: dict[str, str]) -> str:
+    """A dotted name as the module it names: through a name bound to it, or through another module's name for it
+    (``mailer.delivery``, ``app.services.mailer.delivery``), else as written, its dotted path."""
+    head, _, rest = owner.partition(".")
+    if owner in modules:
+        return modules[owner]
+    return f"{modules[head]}.{rest}" if rest and head in modules else owner
+
+
 def _held(node: ast.AST, modules: dict[str, str], holders: dict[str, frozenset[str]]) -> frozenset[str]:
-    """The functions that send held by the module a node names, through a name bound to it or by its dotted path."""
+    """The functions that send held by the module a node names: through a name bound to it, by its dotted path, or
+    through another module's name for it (``mailer.delivery``)."""
     owner = _dotted(node)
-    return holders.get(modules.get(owner, owner), frozenset()) if owner is not None else frozenset()
+    return frozenset() if owner is None else holders.get(_module_named(owner, modules), frozenset())
 
 
 def _bindings(tree: ast.Module, path: Path, app: Path, holders: dict[str, frozenset[str]]) -> tuple[set[str], dict[str, str]]:
@@ -746,6 +763,7 @@ def _bindings(tree: ast.Module, path: Path, app: Path, holders: dict[str, frozen
             for alias in node.names:
                 if alias.name == "*":
                     functions |= holders.get(module, frozenset())
+                    modules.update({key.rpartition(".")[2]: key for key in holders if key.rpartition(".")[0] == module})
                 elif f"{module}.{alias.name}" in holders:
                     modules[alias.asname or alias.name] = f"{module}.{alias.name}"
                 elif alias.name in holders.get(module, ()):
@@ -759,8 +777,8 @@ def _bindings(tree: ast.Module, path: Path, app: Path, holders: dict[str, frozen
                 if value in functions or (isinstance(node.value, ast.Attribute) and node.value.attr in _held(node.value.value, modules, holders)):
                     functions.add(target.id)
                     grown = True
-                elif value is not None and modules.get(value, value) in holders:
-                    modules[target.id] = modules.get(value, value)
+                elif value is not None and _module_named(value, modules) in holders:
+                    modules[target.id] = _module_named(value, modules)
                     grown = True
         if not grown:
             return functions, modules
@@ -768,15 +786,21 @@ def _bindings(tree: ast.Module, path: Path, app: Path, holders: dict[str, frozen
 
 def _holders(trees: dict[Path, ast.Module], app: Path) -> dict[str, frozenset[str]]:
     """The modules that hold a function that sends: those ``_SENDS`` names, and each module under ``app`` that binds
-    one, by import or by a binding, which it hands on to its importers, through any chain of them."""
+    one, or a module that holds one, by import or by a binding, which it hands on to its importers, through any chain
+    of them. A module's name for such a module (``app.services.mailer.delivery``) holds what that module holds."""
     holders = dict(_SENDS)
     while True:
         grown = False
         for path, tree in trees.items():
-            name, functions = _module_name(path, app), frozenset(_bindings(tree, path, app, holders)[0])
-            if not functions <= holders.get(name, frozenset()):
-                holders[name] = holders.get(name, frozenset()) | functions
-                grown = True
+            name = _module_name(path, app)
+            functions, modules = _bindings(tree, path, app, holders)
+            held = {f"{name}.{local}": holders[module] for local, module in modules.items()}
+            if functions or held:
+                held[name] = frozenset(functions)
+            for key, sends in held.items():
+                if key not in holders or not sends <= holders[key]:
+                    holders[key] = holders.get(key, frozenset()) | sends
+                    grown = True
         if not grown:
             return holders
 
@@ -787,9 +811,11 @@ def senders(app: Path) -> dict[str, int]:
     queue's), or the provider's key or address, which a call of the provider past the transport needs. A function
     counts read through a module that holds it, by a name bound to the module or its dotted path; imported from one,
     by name or through a star import; and through each name a binding hands it on to. A module holds each function
-    it binds so, and hands it on to its importers, so a re-export counts through any chain of them. A setting counts
-    read as an attribute or named in a string, as ``getattr`` takes it. An import alone sends nothing, nor does a
-    caught ``ResendError`` or an annotation. The transport and the settings that define the provider are not read."""
+    it binds so, and each module that holds one, and hands them on to its importers, so a re-export, of a function or
+    of a module (``mailer.delivery``), counts through any chain of them. A setting counts read as an attribute or
+    named in a string, as ``getattr`` takes it. An import alone sends nothing, nor does a caught ``ResendError`` or an
+    annotation; a name in a type alias or an ``isinstance`` check counts as a send would (asking). The transport and
+    the settings that define the provider are not read."""
     trees = {path: ast.parse(path.read_text(encoding="utf-8")) for path in sorted(app.rglob("*.py"))}
     holders = _holders(trees, app)
     found: dict[str, int] = {}
@@ -826,9 +852,8 @@ def test_only_the_listed_modules_send_mail():
         f"the modules that send mail changed: {found}. Build mail through email_service's public functions, whose shell "
         "carries the header, or list the module in SENDERS with what it sends"
     )
-    counted = {module: found[module] for module, sends in held.items() if sends is not None}
-    assert counted == {module: sends for module, sends in held.items() if sends is not None}, (
-        f"a listed module names a function that sends a different number of times: {counted}. Say in SENDERS what the "
+    assert found == held, (
+        f"a listed module names a function that sends a different number of times: {found}. Say in SENDERS what the "
         "new send sends, and hold its count to it"
     )
 
@@ -869,6 +894,16 @@ SENDS = [
     ("the transport's function read through its module and handed on under a name", "from app.services import resend_service\nSEND = resend_service.send_email\nSEND()\nSEND()\n", 3),
     ("the transport's function handed on under an annotated name", "from app.services import resend_service\nSEND: object = resend_service.send_email\nSEND()\n", 2),
     ("the queue's module handed on by its dotted path", "import app.services.notification_delivery_service\nq = app.services.notification_delivery_service\nq.create_batch()\n", 1),
+    ("the transport's module read through a module that re-exports it", "from app.services.mailer import resend_service\nresend_service.send_email()\n", 1, {"services/mailer.py": "from app.services import resend_service\n"}),
+    ("the queue's module read through a module that re-exports it under another name", "from app.services.mailer import delivery\ndelivery.create_batch()\n", 1, {"services/mailer.py": "from app.services import notification_delivery_service as delivery\n"}),
+    ("the queue's module read through the re-exporting module's name for it", "from app.services import mailer\nmailer.delivery.create_batch()\n", 1, {"services/mailer.py": "from app.services import notification_delivery_service as delivery\n"}),
+    ("the queue's module through the re-exporting module's dotted path", "import app.services.mailer\napp.services.mailer.delivery.drain(db)\n", 1, {"services/mailer.py": "from app.services import notification_delivery_service as delivery\n"}),
+    ("the transport's module through a chain of two re-exports, renamed on the way", "from app.services.dispatch import transport\ntransport.send_email()\n", 1, {"services/relay.py": "from app.services import resend_service as transport\n", "services/dispatch.py": "from app.services.relay import transport\n"}),
+    ("the transport's function read through a module that re-exports it, imported under another name", "import app.services.mailer as m\nm.send_email()\n", 1, {"services/mailer.py": "from app.services.resend_service import send_email\n"}),
+    ("the transport's function through a star import of a module that re-exports it", "from app.services.mailer import *\nsend_email()\n", 1, {"services/mailer.py": "from app.services.resend_service import send_email\n"}),
+    ("the transport's module through a star import of a module that re-exports it", "from app.services.mailer import *\nresend_service.send_email()\n", 1, {"services/mailer.py": "from app.services import resend_service\n"}),
+    ("the transport's module bound to a name from the re-exporting module's name for it", "from app.services import mailer\ntransport = mailer.resend_service\ntransport.send_email()\n", 1, {"services/mailer.py": "from app.services import resend_service\n"}),
+    ("the queue's module through a chain whose second module binds the first's name for it", "from app.services.dispatch import delivery\ndelivery.drain(db)\n", 1, {"services/relay.py": "from app.services import notification_delivery_service as q\n", "services/dispatch.py": "from app.services import relay\ndelivery = relay.q\n"}),
     ("the transport's error imported by name, which sends nothing", "from app.services.resend_service import ResendError\n", 0),
     ("the transport imported for its error alone", "from app.services import resend_service\ntry:\n    pass\nexcept resend_service.ResendError:\n    pass\n", 0),
     ("the transport's function imported and never named", "from app.services.resend_service import send_email\n", 0),
@@ -879,6 +914,10 @@ SENDS = [
     ("the queue's click record, which sends nothing, imported by name", 'from app.services.notification_delivery_service import record_first_click\nrecord_first_click(db, "x", now)\n', 0),
     ("a function of another module's that shares the transport's name, which sends nothing", "from app.services import mailer\nmailer.send_email()\n", 0, {"services/mailer.py": "def send_email(to):\n    return to\n"}),
     ("the queue's prepared send in annotations alone", "from app.services.notification_delivery_service import PreparedSend\n\n\ndef f(p: PreparedSend) -> PreparedSend:\n    held: PreparedSend = p\n    return held\n", 0),
+    ("the queue's prepared send in subscripted annotations alone", "from typing import Optional\n\nfrom app.services.notification_delivery_service import PreparedSend\n\n\ndef f(p: Optional[PreparedSend]) -> list[PreparedSend]:\n    return [p]\n", 0),
+    ("the transport's error read through a module that re-exports the transport, which sends nothing", "from app.services.mailer import resend_service\ntry:\n    pass\nexcept resend_service.ResendError:\n    pass\n", 0, {"services/mailer.py": "from app.services import resend_service\n"}),
+    ("the transport's error through a star import of a module that re-exports the transport, which sends nothing", "from app.services.mailer import *\ntry:\n    pass\nexcept resend_service.ResendError:\n    pass\n", 0, {"services/mailer.py": "from app.services import resend_service\n"}),
+    ("the transport's error through a name bound to the re-exporting module's name for it, which sends nothing", "from app.services import mailer\ntransport = mailer.resend_service\nError = transport.ResendError\n", 0, {"services/mailer.py": "from app.services import resend_service\n"}),
 ]
 
 
@@ -976,19 +1015,85 @@ def _pages(rendered: dict) -> list[tuple[str, str]]:
     return pages
 
 
+def send_problems(html_sent: dict[str, list[str]], renders) -> list[str]:
+    """Where a mail module's renders break the rule that each ``send_`` function sends mail and every mail it sends
+    is a page the shell built, while a render or build function sends none."""
+    problems = []
+    sending = {name for name, sent in html_sent.items() if sent}
+    if sending != {name for name in renders if name.startswith("send_")}:
+        problems.append(
+            f"these renders sent mail: {sorted(sending)}. Each send_ function sends what its render builds, and a "
+            "render or build function returns its mail and sends none"
+        )
+    problems += [
+        f"{name} sends mail that is no page the shell built, which no page rule here reads: build it with _wrap_html: "
+        f"{html[:120]!r}"
+        for name, sent in html_sent.items()
+        for html in sent
+        if not _PAGE.match(html)
+    ]
+    return problems
+
+
 def test_every_mail_the_module_sends_is_a_page_the_shell_built(rendered):
     # The page check holds every other string of email_service.py from opening a page, so an HTML that opens the
     # shell's doctype is the shell's, and each page rule below reads it.
-    sending = {name for name, sent in rendered["html_sent"].items() if sent}
-    assert sending == {name for name in RENDERS if name.startswith("send_")}, (
-        f"these renders sent mail: {sorted(sending)}. Each send_ function sends what its render builds, and a render "
-        "or build function returns its mail and sends none"
+    problems = send_problems(rendered["html_sent"], RENDERS)
+    assert not problems, "\n".join(problems)
+
+
+# Each way a mail module's sends can break that rule, as stub modules the same render runs, and the stub that keeps
+# it. Each binds the transport's send_email as email_service does; one reaches the transport itself.
+_STUB = (
+    "from app.services import resend_service\nfrom app.services.resend_service import send_email\n\n"
+    "PAGE = '<!doctype html><html><body>x</body></html>'\n\n\n"
+)
+_RENDER_NOTE = "\n\ndef render_note():\n    return PAGE\n"
+SENT = [
+    # Broken.
+    ("a send_ function that sends a fragment", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html='<p>x</p>')\n", {"send_note": [{"to": TO}]}, "no page the shell built"),
+    ("a send_ function that sends a fragment holding a doctype past its start", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html='<p>x</p>' + PAGE)\n", {"send_note": [{"to": TO}]}, "no page the shell built"),
+    ("a send_ function whose second send is a fragment", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE)\n    await send_email(to=[to], subject='s', html='<p>x</p>')\n", {"send_note": [{"to": TO}]}, "no page the shell built"),
+    ("a send_ function whose second input sends a fragment", _STUB + "async def send_note(to, page):\n    await send_email(to=[to], subject='s', html=PAGE if page else '<p>x</p>')\n", {"send_note": [{"to": TO, "page": True}, {"to": TO, "page": False}]}, "no page the shell built"),
+    ("a send_ function that sends a fragment through the transport itself, its error caught", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE)\n    try:\n        await resend_service.send_email(to=[to], subject='s', html='<p>x</p>')\n    except resend_service.ResendError:\n        pass\n", {"send_note": [{"to": TO}]}, "no page the shell built"),
+    ("a render function that sends its page", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE)\n\n\nasync def render_note():\n    await send_email(to=[TO], subject='s', html=PAGE)\n    return PAGE\n\n\nTO = 'a@e.test'\n", {"send_note": [{"to": TO}], "render_note": [{}]}, "these renders sent mail"),
+    ("a send_ function that sends nothing", _STUB + "async def send_note(to):\n    return PAGE\n" + _RENDER_NOTE, {"send_note": [{"to": TO}], "render_note": [{}]}, "these renders sent mail"),
+    # Kept.
+    ("a send_ function that sends the page its render builds", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=render_note())\n" + _RENDER_NOTE, {"send_note": [{"to": TO}], "render_note": [{}]}, None),
+]
+
+
+@pytest.fixture(scope="module")
+def planted_sends() -> dict:
+    run = subprocess.run(  # nosec B603: this file, run by this interpreter
+        [sys.executable, __file__, "planted"], env={**os.environ, "PYTHONPATH": str(BACKEND)}, cwd=BACKEND,
+        capture_output=True, text=True, timeout=300,
     )
-    fragments = [f"{name}: {html[:120]!r}" for name, sent in rendered["html_sent"].items() for html in sent if not _PAGE.match(html)]
-    assert not fragments, (
-        "email_service sends mail that is no page the shell built, which no page rule here reads: build it with "
-        "_wrap_html:\n" + "\n".join(fragments)
-    )
+    assert run.returncode == 0, f"the planted renders failed:\n{run.stderr[-3000:]}"
+    return json.loads(run.stdout.splitlines()[-1])
+
+
+def _planted_sends() -> dict[str, dict[str, list[str]]]:
+    """In the render's own interpreter: the HTML each planted stub module sends, as the render records it."""
+    import importlib
+    import tempfile
+
+    sent = {}
+    with tempfile.TemporaryDirectory() as folder:
+        sys.path.insert(0, folder)
+        for index, (label, source, cases, _) in enumerate(SENT):
+            (Path(folder) / f"planted_mail_{index}.py").write_text(source, encoding="utf-8")
+            sent[label] = _render(cases, importlib.import_module(f"planted_mail_{index}"))["html_sent"]
+    return sent
+
+
+@pytest.mark.parametrize("label, cases, expected", [(case[0], *case[2:]) for case in SENT], ids=[case[0] for case in SENT])
+def test_the_send_check_scores_every_planted_module(planted_sends, label, cases, expected):
+    problems = send_problems(planted_sends[label], cases)
+    if expected is None:
+        assert not problems, problems
+    else:
+        assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
 
 
 def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_view(rendered):
@@ -1217,14 +1322,15 @@ def test_the_planted_lists_keep_their_counts():
         "REACHES": (sum(case[-1] is True for case in REACHES), sum(case[-1] is False for case in REACHES)),
         "SENDS": (sum(case[2] > 0 for case in SENDS), sum(case[2] == 0 for case in SENDS)),
         "ADDRESSES": (sum(isinstance(case[-1], str) for case in ADDRESSES), sum(case[-1] is None for case in ADDRESSES)),
+        "SENT": (sum(isinstance(case[-1], str) for case in SENT), sum(case[-1] is None for case in SENT)),
     }
-    assert counts == {"PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (34, 10), "ADDRESSES": (63, 9)}, (
+    assert counts == {"PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (44, 14), "ADDRESSES": (63, 9), "SENT": (7, 1)}, (
         "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     )
-    for name, cases in (("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES)):
+    for name, cases in (("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT)):
         labels = [case[0] for case in cases]
         assert len(set(labels)) == len(labels), f"each case {name} plants has a name of its own"
 
 
-if __name__ == "__main__":  # the render, in an interpreter of its own (the mail fixture)
-    print(json.dumps(_render(RENDERS)))
+if __name__ == "__main__":  # the renders, in an interpreter of their own (the mail fixture and the planted stubs')
+    print(json.dumps(_planted_sends() if sys.argv[1:] == ["planted"] else _render(RENDERS)))
