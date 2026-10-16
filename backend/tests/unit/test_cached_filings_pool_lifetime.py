@@ -37,13 +37,16 @@ from main import app
 async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch, tmp_path, path, payload_kind
 ):
+    # Readers beyond the four slots queue for one inside their worker thread, so the timeout must
+    # outlast four units of work under a loaded CI host. An on-loop checkout still fails at any
+    # timeout: it blocks the loop for the whole wait, so the four holders' finalizers never run.
     engine = create_engine(
         f"sqlite:///{tmp_path / 'cached-filings.db'}",
         connect_args={"check_same_thread": False},
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=0.05,
+        pool_timeout=1.0,
     )
     Company.__table__.create(engine)
     Filing.__table__.create(engine)
