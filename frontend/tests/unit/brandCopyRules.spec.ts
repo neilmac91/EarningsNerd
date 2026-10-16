@@ -1918,6 +1918,38 @@ describe('brand rule 1b: the nine-part outline keeps its scope', () => {
   })
 })
 
+describe('brand rule 1d: the calendar claims only what its data holds', () => {
+  // The earnings calendar's dates come from two places (backend/app/services/earnings_calendar_service.py):
+  // a reported date from the company's 8-K results filing, an estimated one from the market-data
+  // provider. No path writes a confirmed date and no estimator reads a company's reporting pattern;
+  // the day's order is a curated large-cap list plus EarningsNerd follow counts, not a market measure
+  // of anticipation; an alert is one email the morning a company reports (audit CAL-05, CAL-06,
+  // CAL-08, CAL-09, CAL-10). Each phrase below claimed otherwise on the page, its metadata or a row.
+  const SCOPE = ['app/calendar/', 'features/calendar/']
+  const CLAIMS: [RegExp, string][] = [
+    [/\bmost[- ]anticipated\b|\banticipat(?:ed|ion)\b/i, 'the order is by report time, then large caps and most followed first, not anticipation'],
+    [/\bconfirmed\b[^.;]*\bdates?\b/i, 'no date is ever confirmed: estimated or reported'],
+    [/\bday-of\b/i, 'an alert is an email the morning a company reports'],
+    [/\breporting patterns?\b/i, 'estimated dates come from a market-data provider'],
+  ]
+
+  it('no string or JSX text under the calendar route or feature makes a claim its data does not hold', () => {
+    const offenders: string[] = []
+    const scanned = SOURCES.filter((s) => SCOPE.some((prefix) => s.rel.startsWith(prefix)))
+    expect(scanned.map((s) => s.rel)).toEqual(
+      expect.arrayContaining(['app/calendar/page.tsx', 'features/calendar/components/EarningsCalendarPage.tsx', 'features/calendar/components/AlertBell.tsx']),
+    )
+    for (const { rel, sf } of scanned) {
+      visit(sf, (n) => {
+        const text = literalText(n)
+        if (text === null || ts.isNumericLiteral(n)) return
+        for (const [claim, say] of CLAIMS) if (claim.test(text)) offenders.push(`${where(rel, sf, n, text)}: ${say}`)
+      })
+    }
+    expect(offenders, 'say what the calendar data holds').toEqual([])
+  })
+})
+
 describe('brand rule 1c: the withholding promise names risk excerpts', () => {
   // Of a summary's quotes, only risk excerpts are withheld when the filing's text does not match:
   // the server projects a risk only from a whitespace-exact span and counts the rest

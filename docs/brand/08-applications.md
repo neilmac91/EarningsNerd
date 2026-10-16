@@ -190,6 +190,28 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
   and the remaining admin controls carry the brand ring (`statusChipContrast.spec.ts`,
   `inviteOutcomeEmailed.spec.tsx`, `siteChromeFocusRing.spec.ts`).
+- **Earnings calendar** (`frontend/app/calendar/page.tsx`, `features/calendar/components/*`): the
+  page, its metadata and its footer say where each date comes from: a reported date from the
+  company's 8-K results filing on SEC EDGAR, an estimated date and EPS estimate from a market-data
+  provider, and "usually" for a time the company has not confirmed. Nothing claims a confirmed
+  date, a reporting pattern or "the most-anticipated" reports; the day dialog groups the day by report
+  time (before open, after close, then the rest) and orders each group "large caps and most followed
+  first". The anticipation flame is gone: the order already ranks the rows, and the
+  warning colour is for status. A signed-out bell offers an email the morning a company reports, and
+  its second action follows the registration mode ("Request an invite" while invite-only). The error
+  card's "Try again" is a `RetryButton`. `brandCopyRules.spec.ts` rule 1d bans the old claims under
+  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker.
+- **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
+  the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
+  flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
+  such as "{form} · Filed {ago}" (the notable-filing card, dormant off `/`, moved to the data face
+  with it). The form toggles, "Clear dates" and Retry (a `RetryButton`) carry the brand ring, the
+  result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
+  on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
+  accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an
+  error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
+  in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
+  longer promises every filing, and the title is in sentence case.
 
 ## 4. The mark's files and the icons
 
