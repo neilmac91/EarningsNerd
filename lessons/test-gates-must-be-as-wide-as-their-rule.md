@@ -237,10 +237,11 @@ and fails one it has not classified. A gate keyed on a list of names holds only 
 the list exhaustive over its domain.
 
 **Recurrence (2026-10-15, the wall-clock gate)**: `backend/tests/unit/test_wall_clock_bounds.py`
-reads Python, so it follows values by heuristics, and four review rounds on #1349 each found the
+reads Python, so it follows values by heuristics, and five review rounds on #1349 each found the
 previous round's fixes had dropped shapes an earlier revision caught: a stored deadline built from a
 duration-named budget, a floor on `abs(remaining)`, plural and numbered elapsed names, a reused name
-appended to a list, a deviation floor. Each fix had been scored on its own new samples and the
+appended to a list, a deviation floor from a constant, then from a stored target. The round after the
+last fix (a helper that told a plain span apart under `abs`, removed for a both-ways rule) came back clean. Each fix had been scored on its own new samples and the
 existing ones, while the shapes earlier reviewers had probed lived only in their reports. Every
 probed shape, racing or safe, now sits in the gate's self-test, and a fix to a heuristic gate is
 scored against every earlier revision's samples (a harness that loads each revision's file by path

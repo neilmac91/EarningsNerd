@@ -21,12 +21,14 @@ function is out of reach unless its name says it is elapsed time: ``elapsed``, `
 keep a value's direction; dividing by elapsed time reverses it (a rate falls). ``abs`` of anything that
 moves (time remaining, a deviation from a target such as ``abs(elapsed - 1.0)``, or elapsed time
 itself) and the ratio of two moving values race on both sides of a comparison, so a lower bound on
-``abs`` of a plain span (``abs(time.monotonic() - s) >= 0.4``) is flagged too: drop the ``abs``. A value stored in a name, or added to a list with ``append``/``extend``/``+=``,
-keeps its direction, unless it is a clock reading or an earlier reading plus an offset, which is a
-fixed point in time. Names are not flow-sensitive: a name used for both a reading and elapsed time
-(``t = perf_counter()``, then ``t = perf_counter() - t``) is read as elapsed time throughout the
-function, and so is a value derived from it. A site that remains must be a guard whose bound is many
-times the time it measures; ``ALLOWED`` names why, and an entry whose site is gone fails too.
+``abs`` of a plain span (``abs(time.monotonic() - s) >= 0.4``, stored, scaled, or as a rate cap) is
+flagged too: drop the ``abs``. A value stored in a name, or added to a list with
+``append``/``extend``/``+=``, keeps its direction, unless it is a clock reading or an earlier reading
+plus an offset, which is a fixed point in time. Names are not flow-sensitive: a name used for both a
+reading and elapsed time (``t = perf_counter()``, then ``t = perf_counter() - t``) is read as elapsed
+time throughout the function, and so is a value derived from it. A site that remains must be a guard
+whose bound is many times the time it measures; ``ALLOWED`` names why, and an entry whose site is gone
+fails too.
 
 Out of reach entirely: a real budget patched short enough to race the setup work it also covers
 (a 0.6 s pipeline deadline that expired during a 0.53 s fetch). The fix is the same, arm or expire
@@ -77,7 +79,7 @@ _CAMEL_HUMP = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _PASS_THROUGH = {"min", "max", "abs", "round", "sum", "int", "float"}
 _LOOP_GETTERS = {"get_running_loop", "get_event_loop"}
 _NOT_A_CLOCK = re.compile(r"(?:^|_)(?:at|on|dt|ts|now|when)$|date|stamp|fake|frozen")  # owners of .time()
-_BOTH = "both"  # races on either side of a comparison: a deviation (abs), or the ratio of two moving values
+_BOTH = "both"  # races on either side of a comparison: abs() of a moving value, or the ratio of two
 _OPPOSITE = {"up": "down", "down": "up", _BOTH: _BOTH}
 _LIST_ADDERS = {"append", "extend", "insert", "add"}
 
@@ -117,10 +119,9 @@ def _mentions(node: ast.AST, names: set[str]) -> bool:
     return any(_is_clock_call(n) or (isinstance(n, ast.Name) and n.id in names) for n in ast.walk(node))
 
 
-
 def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> str | None:
     """How a value moves when the loop runs late: "up" (a clock read now, or elapsed time), "down" (a
-    fixed point minus a clock read now: time remaining), "both" (a deviation or a ratio, which can
+    fixed point minus a clock read now: time remaining), "both" (abs() of a moving value or a ratio, which can
     break either bound), or None (no clock, or an earlier reading, which is a fixed point in time)."""
     if _is_clock_call(node):
         return "up"
@@ -200,7 +201,7 @@ def _stored(node: ast.AST) -> tuple[list[str], ast.AST | None]:
 
 
 def _kinds(value: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> list[set[str]]:
-    """The sets a stored value belongs in (a deviation in both spans and remains), or none without a clock."""
+    """The sets a stored value belongs in (a "both" value in spans and remains), or none without a clock."""
     def moving_sub(n: ast.AST) -> bool:
         return isinstance(n, ast.BinOp) and isinstance(n.op, ast.Sub) and _trend(n, readings, spans, remains) is not None
     trend = _trend(value, readings, spans, remains)
