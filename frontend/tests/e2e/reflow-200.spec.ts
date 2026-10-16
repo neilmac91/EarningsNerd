@@ -341,7 +341,7 @@ test('home (/) moves the theme toggle into the mobile menu at 200% text', async 
 /** Below 24rem the menu's Theme row is its first row, directly under the bar, so it opens in view before the
     menu is scrolled. With the row at the menu's end, a guest's toggle sat at 713-801px and a signed-in reader's
     at 979-1067px, below the fold of a phone whose toolbars leave 664px, and the menu did not scroll then (its
-    own case is the last in this file). Opened there at 200% text, the menu's toggle lies wholly inside the
+    own case is further down this file). Opened there at 200% text, the menu's toggle lies wholly inside the
     viewport and switches the theme, for a guest and for a signed-in reader. */
 test.describe('a 390x664 phone at 200% text', () => {
   test.use({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })

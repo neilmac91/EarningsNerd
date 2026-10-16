@@ -196,7 +196,7 @@ export default function PricingSection({
                 className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('annual'))}
               >
                 {/* No-break spaces hold the middot to "Annual" and "save" to its figure, so a label too long for its
-                    row breaks only after the middot: "Annual ·" over "save 20%", never a line that starts "·". */}
+                    row breaks only after the middot: "Annual ·" over "save N%", never a line that starts "·". */}
                 Annual&nbsp;<span className="font-medium">· save&nbsp;{PRO_PRICING.annualSavingsPercent}%</span>
               </button>
             </div>
