@@ -26,10 +26,12 @@ USD rows without a native twin current beside it. Carry the picked unit on every
 calculation built from it, and treat "additive" as "a currency amount" (`is_amount_unit`), not as
 "USD". When a writer stores a native-currency row where a USD row is current at the same concept,
 period end and fiscal period, it demotes that USD row itself (`demote_convenience_rows`) and never
-deletes it. Known gaps: a switcher's years in its later currency are not ingested from
-companyfacts; a USD fact at a period-end the native list lacks (a stray, or a switch to USD) puts
-that concept back on the USD list; and after such a flip, native rows an earlier sync stored stay
-current beside the USD rows. Fixing them needs a per-filing pick and a product decision.
+deletes it. Known gaps: a switcher's years reported in a non-USD currency are not ingested in
+that currency, and after a switch to USD its earlier years come from the USD convenience
+translations, as before; a USD fact at a period-end the native list lacks (a stray, or a switch to
+USD) puts that concept back on the USD list; and after such a flip, native rows an earlier sync
+stored stay current beside the USD rows. Fixing them needs a per-filing pick and a product
+decision.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;

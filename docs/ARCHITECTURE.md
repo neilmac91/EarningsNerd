@@ -341,12 +341,13 @@ unused since generation became account-required in #619; kept because migrations
   period-end is also one of its period-ends); among such lists the per-filing extractor's
   `_reporting_currency` rule picks. A foreign US-GAAP filer's history is therefore stored as
   reported (CNY, JPY), never from its USD convenience translations. Any other shape keeps the USD
-  list: a stray foreign fact, whatever its date, and a currency switch in either direction, whose
-  later years in the other currency are not ingested from companyfacts. Quarter derivation works
-  in any currency. Once the native row arrives, a sync demotes, never deletes, any current USD row
-  at the same concept, period end and fiscal period, whatever its source or filing. The
-  newer-accession rule above is per unit; across units the pick has already chosen the series
-  currency.
+  list: a stray foreign fact, whatever its date, and a currency switch in either direction. A
+  switcher's years reported in a non-USD currency are not ingested in that currency; after a
+  switch to USD, its earlier years come from the USD convenience translations, as before. Quarter
+  derivation works in any currency. Once the native row arrives, a sync demotes, never deletes,
+  any current USD row at the same concept, period end and fiscal period, whatever its source or
+  filing. The newer-accession rule above is per unit; across units the pick has already chosen
+  the series currency.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional
