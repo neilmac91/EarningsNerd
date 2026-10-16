@@ -50,9 +50,10 @@ call in order. A decoded value is also read on its own, so a keyword after an es
 counts.
 A merge with no typed message passes: its message is the default the gate has read. Reading the whole line,
 and every file it names, refuses more than a merge's own message: another command's text on the same line,
-and a line that only names a merge (a comment that quotes `gh pr merge` with a closing reference). The
-remedy is cheap: reword, or send such text from a file (`--body-file`), which a line that names no merge
-never has read.
+and a line that only names a merge (a comment that quotes `gh pr merge` with a closing reference); and a
+field's single-quoted value is decoded as a script's string is, so `-f commit_message='...\n#3'` is refused
+though gh sends its `\n` as written. The remedy is cheap: reword, or send such text from a file
+(`--body-file`), which a line that names no merge never has read.
 
 A refusal is a JSON deny on stdout, which Claude Code hands to Claude as the reason; anything else exits 0
 with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call through, as it
@@ -153,9 +154,10 @@ MAX_PARTS = 16
 HEREDOC = re.compile(r"""(?<!<)<<(?!<)-?[ \t]*(?:'[^'\n]+'|"[^"\n]+"|\\?[A-Za-z_][\w.-]*)""")
 MAX_HEREDOCS = 16
 HERESTRING = re.compile(r"<<<[ \t]*" + _VALUE)  # a here-string's word, the text it sends on standard input
-# A value the shell fills from one file: a plain cat's or a `<` redirect's in a command substitution.
-SUBSTITUTED = re.compile(r"""(?:\$\(|`)\s*(?:<|(?:\\|\S*/)?(?:cat|'cat'|"cat")\s)\s*"""
-                         r"""((?:'[^']*'|"[^"]*"|\\[\s\S]|[^\s()`'"\\])+)\s*(?:\)|`)""")
+# A value the shell fills from one file: a plain cat's (after any options, before any redirect of its output) or a `<`
+# redirect's, in a command substitution.
+SUBSTITUTED = re.compile(r"""(?:\$\(|`)\s*(?:<|(?:\\|\S*/)?(?:cat|'cat'|"cat")\s)\s*(?:-\S*\s+)*"""
+                         r"""((?:'[^']*'|"[^"]*"|\\[\s\S]|[^\s()`'"\\])+)(?:\s+\d*>{1,2}&?\S*)*\s*(?:\)|`)""")
 # The join reads a title's end and a message's start: more than any keyword, the marks after it and a reference
 # (a pull request URL is about 240 characters) need, and a bound on each joined text however large its parts.
 JOIN_CHARS = 1024

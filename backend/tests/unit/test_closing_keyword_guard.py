@@ -152,6 +152,13 @@ MCP_REFUSED = {
     "mergeBranch's message, an escaped line break before a keyword": ("mcp__github__run_graphql", {
         "query": 'mutation { mergeBranch(input: {repositoryId: "R", base: "main", head: "dev", '
                  'commitMessage: "Sync.\\nFixes #3"}) { clientMutationId } }'}),
+    "auto-merge's body, an escaped line break before a keyword": ("mcp__github__run_graphql", {
+        "query": 'mutation { enablePullRequestAutoMerge(input: {pullRequestId: "X", mergeMethod: SQUASH, '
+                 'commitBody: "Squash.\\nFixes #3"}) { clientMutationId } }'}),
+    "auto-merge's headline and body, joined": ("mcp__github__api_request", {
+        "method": "POST", "path": "/graphql", "body": json.dumps({"query": (
+            'mutation { enablePullRequestAutoMerge(input: {pullRequestId: "X", mergeMethod: SQUASH, '
+            'commitHeadline: "lint fix", commitBody: "#3 carries the rest"}) { clientMutationId } }')})}),
     "a GraphQL block string after a headline": ("mcp__github__run_graphql", {
         "query": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "lint fix", '
                  'commitBody: """#3 carries the rest"""}) { clientMutationId } }'}),
@@ -264,6 +271,8 @@ BASH_REFUSED = (
     "gh pr merge 5 -s --subject 'review-gate fix' --body '#12 carries the rest'",
     "gh pr merge 5 -s --body '#12 carries the rest' --subject 'lint fix'",
     "gh pr merge 5 -s -t'lint fix' -b'#12 carries the rest'",
+    "gh pr merge 5 -s --subject='lint fix' --body '#12 carries the rest'",  # a long flag's value after `=`
+    "gh pr merge 5 -s -t 'lint fix' --body='#12 carries the rest'",
     "bash -c 'gh pr merge 5 -s -t \"lint fix\" -b \"#12 carries the rest\"'",  # a word that is itself a line
     "gh pr merge 5 -s -t 'lint fix' -F ref-first.md",
     "gh api -X PUT repos/o/r/pulls/5/merge -f commit_title='lint fix' -f commit_message='#3 carries the rest'",
@@ -324,6 +333,11 @@ BASH_REFUSED = (
     "commitBody: \"\"\"#3 carries the rest\"\"\"}) { clientMutationId } }'",
     "gh pr merge 5 -s -t \"$(cat 'my title.md')\" -b '#3 carries the rest'",
     "gh pr merge 5 -s -t \"$(cat my\\ title.md)\" -b '#3 carries the rest'",
+    "gh pr merge 5 -s -t \"$(cat -- title.md)\" -b '#3 carries the rest'",  # a plain cat's options and redirects
+    "gh pr merge 5 -s -t \"$(cat title.md 2>/dev/null)\" -b '#3 carries the rest'",
+    # The stated over-refusal: a field's single-quoted value is decoded as a script's string is, though gh sends the
+    # backslash as written.
+    "gh api -X PUT repos/o/r/pulls/5/merge -f commit_message='Parser fix\\n#3 stays open'",
     # Each documented bound, from below: 1,000 marks on each side of where a title and its message meet, the 16th
     # distinct title, a line's 16th here-document, and three -R options in a row.
     "gh pr merge 5 -s -t 'lint fixes" + " " * 1000 + "' -b '" + " " * 1000 + "#3 carries the rest'",

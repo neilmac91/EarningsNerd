@@ -45,8 +45,8 @@ message typed at merge, which no pull-request check can see, is read by
 Bash command, every Monitor and every GitHub MCP call, and it refuses a merge call (any string handed to a
 GitHub MCP merge tool, or to a call handed a merge request as a whole string: a GraphQL document or JSON
 request calling a merge mutation, or a REST merge path, URL or route; or a shell line that runs or names `gh
-pr merge`, a REST merge endpoint or a GraphQL merge mutation, with every file the line names to send or
-read) whose text carries such a reference, with the gate's own pattern
+pr merge`, or a REST merge endpoint or GraphQL merge mutation with `gh api` or api.github.com, with every
+file the line names to send or read) whose text carries such a reference, with the gate's own pattern
 (`backend/tests/unit/test_closing_keyword_guard.py`). It also reads each typed title and message joined as
 GitHub writes the commit, the title, a blank line, then the message, so a title that ends in a keyword
 before a message that starts with a reference counts. A line that only names a merge, such as a comment
