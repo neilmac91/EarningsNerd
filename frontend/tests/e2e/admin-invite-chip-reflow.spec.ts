@@ -51,14 +51,6 @@ const REPORTER_50 = 'maximilian.featherstonehaugh@exampleenterprise.com'
 type Theme = 'light' | 'dark'
 type Box = { left: number; right: number; top: number; bottom: number }
 
-/**
- * At 320px under a 200% root the page is wider than the viewport before any chip is added: "Send invites" (a Button's
- * padding, icon and one-line label, 278px against the card's 158px) widens it, an overflow the founder's recheck sets
- * apart from this finding. There the chips are held to adding nothing, and the case fails once the page fits, so the
- * exception is dropped with the overflow.
- */
-const SCROLLS_BEFORE_ANY_CHIP = new Set(['320px, 200% text'])
-
 /** Opens an admin page as an admin, the API answered in the browser. */
 async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string) {
   const origin = new URL(baseURL).origin
@@ -184,13 +176,13 @@ function expectClear(m: Measure, label: string) {
   expect(m.page.withChips, `${label}: the chips widen the page`).toBe(m.page.withoutChips)
 }
 
-/** The page does not scroll sideways (see SCROLLS_BEFORE_ANY_CHIP for the one case where it does without the chips). */
+/**
+ * The page does not scroll sideways, at every width and text size here. At 320px under a 200% root "Send invites" once
+ * widened it before any chip was added (278px in the card's 158px); since #1278 a Button's label wraps below a 24rem
+ * viewport, and the page fits there too.
+ */
 function expectNoSidewaysScroll(m: Measure, label: string) {
-  if (SCROLLS_BEFORE_ANY_CHIP.has(label)) {
-    expect(m.page.withoutChips, `${label}: the page now fits before any chip is added; drop it from SCROLLS_BEFORE_ANY_CHIP`).toBeGreaterThan(m.page.clientWidth)
-  } else {
-    expect(m.page.withChips, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
-  }
+  expect(m.page.withChips, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
 }
 
 /** The document's width and the viewport's once the root font is set (catch-card-reflow's 200% method). */
