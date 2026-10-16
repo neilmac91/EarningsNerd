@@ -1,6 +1,6 @@
 ---
 name: design-docs-maintenance
-description: Keep DESIGN.md, frontend/DESIGN_SYSTEM.md and the .impeccable/design.json sidecar in parity when a change touches documented tokens, typography, reusable component states or visual conventions. Load only for such a change; routine UI work does not need it.
+description: Which parts of DESIGN.md and frontend/DESIGN_SYSTEM.md each kind of UI change reads (§4's recipes by what the change touches), and how to keep both documents and the .impeccable/design.json sidecar in parity when a change touches documented tokens, typography, reusable component states or visual conventions.
 version: 1.0.0
 ---
 
@@ -43,10 +43,29 @@ CLAUDE.md rule 11.
 
 ## Which sections to read for which UI change
 
-- Token, theme or typography change: both documents in full, then this skill.
+- Token, theme or typography change, or a rule that spans components (a brand sweep): both
+  documents in full, then this skill.
 - A new or changed reusable component: `frontend/DESIGN_SYSTEM.md` §1–§6 and §12, plus the
   `DESIGN.md` "Components" and "Do's and Don'ts" sections.
 - Route-specific content or layout that uses existing components and tokens: `DESIGN_SYSTEM.md`
-  §1–§6 and §12 and `DESIGN.md` from "Overview" on, as rule 11 requires. The ESLint design rules
-  and the vitest gates catch the mechanical slips; the 700-level and surface clauses are checked
-  in review.
+  §1–§3, §5, §6 and §12 and `DESIGN.md` from "Overview" on, as rule 11 requires, and §4 by recipe.
+  §4 is a catalog: rules, then one fenced block of recipes named in its left column, then a short
+  list. Read:
+  - the rules before the block and the list after it;
+  - the shared recipes, whose rules a change can break without touching their component: Primary
+    button, Secondary button, Wrapping button, Link as button, Accent text/link, Count control,
+    Focus ring, Card / panel, Delta text, Data table hover, Solid chip, Status chip, Inline notice,
+    Semantic card, Index list, Stacking and Metric cards;
+  - the recipe of each component or surface the change adds, changes or composes;
+  - for what the change adds: a keyboard shortcut, Source pane (the filing page binds ⌘K and "/");
+    a "summary ready" label, Company identity; a pressed toggle, Wording changes and Company
+    identity; a horizontal scroll box, Filing reader and Analysis table; a tooltip or explainer,
+    Popover; a state on the filing page, Section ledger; figure tiles outside /analysis, Analysis
+    KPI.
+
+  The ESLint design rules and the vitest gates catch the mechanical slips; the 700-level and
+  surface clauses are checked in review.
+
+A change that adds or edits a §4 recipe checks whether one of its rules can bind a change that
+never touches its component. If one can, move that rule into §4's opening rules, or name the
+recipe in the shared list or the list above, in the same PR.

@@ -8,7 +8,7 @@ This directory contains Claude Code skills that provide specialized knowledge an
 |----------|-------|-------------|
 | **Meta** | [llm-council](./meta/llm-council/) | Run a decision through 5 AI advisors who peer-review each other, then a chairman synthesizes a verdict |
 | **Meta** | [judge-readout](./meta/judge-readout/) | Produce the weekly strong-judge readout (W3-7) from a Monday generation artifact through the founder's Claude subscription; manual only |
-| **Meta** | [design-docs-maintenance](./meta/design-docs-maintenance/) | Keep DESIGN.md, frontend/DESIGN_SYSTEM.md and the .impeccable sidecar in parity when documented tokens, typography or component states change (moved out of CLAUDE.md) |
+| **Meta** | [design-docs-maintenance](./meta/design-docs-maintenance/) | Which design-doc parts each UI change reads (`DESIGN_SYSTEM.md` §4 by recipe), and keeping DESIGN.md, frontend/DESIGN_SYSTEM.md and the .impeccable sidecar in parity when documented tokens, typography or component states change (moved out of CLAUDE.md) |
 | **Meta** | [karpathy-guidelines](./meta/karpathy-guidelines/) | Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution |
 | **Payments** | [stripe-best-practices](./payments/stripe-best-practices/) | Stripe API integration patterns and best practices |
 | **Infrastructure** | [cloudflare-agents-sdk](./infrastructure/cloudflare-agents-sdk/) | Building AI agents on Cloudflare Workers |
