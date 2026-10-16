@@ -38,7 +38,7 @@ import {
  * documentation and the backend name for the flip. Clauses (3) and (4) read every .ts, .tsx, .js and .jsx
  * file under the cap walk's roots (an .md or .mdx file there is read as copy, line by line), one reader per
  * file (trialReader, below, says what it follows), lib/planLimits.ts included: there, beside the plan lines,
- * the module's own TRIAL_DAYS declaration is TRIAL_DAYS. Out of reach, review-checked: a length said another way
+ * and in no other module, the module's own TRIAL_DAYS declaration is TRIAL_DAYS. Out of reach, review-checked: a length said another way
  * ("a week", "a fortnight"), TRIAL_DAYS re-exported under another name by another module, and a guard
  * applied by an early return (`if (!ENABLE_PRO_TRIAL) return null`), which fails closed.
  */
@@ -333,10 +333,13 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
  * text children lose the whitespace JSX drops and have their entities decoded (`&nbsp;`), and its literal
  * children (`{10}`, `{'10'}`, `{' '}`) and nested elements' text (`<strong>10</strong>`) are joined in
  * order, so a count split across markup reads whole. Where the whitespace JSX drops holds a line break
- * (between two children on their own lines, or at a text child's edge), the words on either side read apart
- * (BREAK), so a count that opens a block after a sibling ending in a letter (`<h3>Multi-Period Analysis</h3>`
- * then `<p>10 fiscal years</p>`, a badge then a number word, a list item then the next) reads as its own
- * word, while a count and a unit in blocks of their own still read apart. A part that is not a literal (a
+ * (between two children on their own lines, or at a text child's edge), the tree is read twice, and a count
+ * either reading holds fails: once with the words on either side apart (BREAK), so a count that opens a block
+ * after a sibling ending in a letter (`<h3>Multi-Period Analysis</h3>` then `<p>10 fiscal years</p>`, a badge
+ * then a number word, a list item then the next) reads as its own word, and once joined as React renders them,
+ * so a count whose hyphen ends one element and whose unit opens the next (`<b>10-</b>` then `<b>year
+ * window</b>`) reads whole. A count and a unit in blocks of their own (`<li>10</li>` then `<li>years</li>`)
+ * have no separator between them in either reading, so they pass. A part that is not a literal (a
  * name, a call, a condition) reads as a hole no count spans, which is how
  * `{ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years` passes. A typed count is digits, a "+" allowed after them, or a number word up to twelve; then spaces or
  * hyphens (a no-break space and the Unicode hyphens among them); an optional "fiscal" or "financial"; then
@@ -423,8 +426,9 @@ function decoded(text: string, from: number): Rendered {
  * Where JSX drops whitespace that holds a line break (between two children on their own lines, or at a text
  * child's edge), the words on either side read apart, as the blocks such children usually are show them. So a
  * count that opens a block after a sibling ending in a letter (`<h3>Multi-Period Analysis</h3>` then
- * `<p>10 fiscal years</p>`) starts a word of its own, and a count and a unit in blocks of their own are not
- * joined. Not a space, a letter, a digit or a hyphen, so no count spans it; settle() drops it beside a space.
+ * `<p>10 fiscal years</p>`) starts a word of its own. Not a space, a letter, a digit or a hyphen, so no count
+ * spans it; settle() drops it beside a space. The scan reads the copy joined as well (readingsOf), so a count
+ * a break splits still reads whole there.
  */
 const BREAK = '\u2063'
 /** A BREAK beside a space, another BREAK or either end of the text separates nothing: drop it. */
@@ -526,23 +530,44 @@ function covers(text: string, phrase: string, start: number, end: number): boole
   return false
 }
 
+/** A piece of copy's two readings: its words apart where a line break was dropped (BREAK), and joined as React
+ * renders them, every BREAK left out. A count whose hyphen ends one element and whose unit opens the next on a
+ * line of its own (`<b>10-</b>` then `<b>year window</b>`) reads whole only joined, so both are scanned. */
+function readingsOf(copy: Rendered): Rendered[] {
+  if (!copy.text.includes(BREAK)) return [copy]
+  const joined: Rendered = { text: '', at: [] }
+  for (let index = 0; index < copy.text.length; index++) {
+    if (copy.text[index] === BREAK) continue
+    joined.text += copy.text[index]
+    joined.at.push(copy.at[index])
+  }
+  return [copy, joined]
+}
+
 /** Each typed count in one source's copy, as `file:line: context`, less those inside a phrase that
- * PERIOD_COUNT_OTHER_FACTS argues for the file; `argued` collects every entry that covers one. */
+ * PERIOD_COUNT_OTHER_FACTS argues for the file; `argued` collects every entry that covers one. A count either
+ * reading holds is read, once: a second reading's count over the same source as one already reported is that one. */
 function typedPeriodCounts(source: string, rel: string, argued = new Set<number>()): string[] {
   if (!MENTIONS_A_PERIOD.test(source)) return []
   const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, rel.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
   const found: string[] = []
   for (const copy of copyTexts(sf)) {
-    for (const match of copy.text.matchAll(new RegExp(TYPED_PERIOD_COUNT_SOURCE, 'gi'))) {
-      const start = match.index
-      const end = start + match[0].length
-      const covering = PERIOD_COUNT_OTHER_FACTS.flatMap((entry, index) =>
-        (entry.file === rel && covers(copy.text, entry.phrase, start, end) ? [index] : []))
-      covering.forEach((index) => argued.add(index))
-      if (covering.length) continue
-      const line = sf.getLineAndCharacterOfPosition(copy.at[start]).line + 1
-      const context = copy.text.slice(Math.max(0, start - 40), end + 40).replaceAll(HOLE, '{…}').replaceAll(BREAK, ' / ').replace(/\s+/g, ' ').trim()
-      found.push(`${rel}:${line}: ${context}`)
+    const reported: Array<{ from: number; to: number }> = []
+    for (const reading of readingsOf(copy)) {
+      for (const match of reading.text.matchAll(new RegExp(TYPED_PERIOD_COUNT_SOURCE, 'gi'))) {
+        const start = match.index
+        const end = start + match[0].length
+        const covering = PERIOD_COUNT_OTHER_FACTS.flatMap((entry, index) =>
+          (entry.file === rel && covers(reading.text, entry.phrase, start, end) ? [index] : []))
+        covering.forEach((index) => argued.add(index))
+        if (covering.length) continue
+        const [from, to] = [reading.at[start], reading.at[end - 1]]
+        if (reported.some((span) => from <= span.to && span.from <= to)) continue
+        reported.push({ from, to })
+        const line = sf.getLineAndCharacterOfPosition(from).line + 1
+        const context = reading.text.slice(Math.max(0, start - 40), end + 40).replaceAll(HOLE, '{…}').replaceAll(BREAK, ' / ').replace(/\s+/g, ' ').trim()
+        found.push(`${rel}:${line}: ${context}`)
+      }
     }
   }
   return found
@@ -586,6 +611,9 @@ const PLANTED_FORMS: Array<{ kind: 'flag' | 'clean' | 'gap'; form: string; sourc
   { kind: 'flag', form: 'a count opening a list item after one ending in a letter', source: 'export const copy = (\n  <ul>\n    <li>Annual</li>\n    <li>12 quarters</li>\n  </ul>\n)' },
   { kind: 'flag', form: 'a count opening a text line after an element', source: 'export const copy = (\n  <p>\n    <strong>Pro</strong>\n    10 fiscal years\n  </p>\n)' },
   { kind: 'flag', form: "a {' '} child, then the unit in markup on the next line", source: "export const copy = (\n  <p>\n    Up to <b>10</b>{' '}\n    <em>fiscal years</em>\n  </p>\n)" },
+  // A count whose hyphen ends one element and whose unit opens the next on its own line: React joins them (the review of 3a1368ec).
+  { kind: 'flag', form: 'a hyphen ending one element, the unit opening the next on its own line', source: 'export const copy = (\n  <p>\n    Trends over a <b>10-</b>\n    <b>year window</b>\n  </p>\n)' },
+  { kind: 'flag', form: 'a count both readings hold, read once', source: 'export const copy = (\n  <div>\n    <h3>Multi-Period Analysis</h3>\n    <p>Up to 10 fiscal years</p>\n  </div>\n)' },
   { kind: 'clean', form: 'the mirror in JSX', source: 'export const copy = <p>Up to {ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years</p>' },
   { kind: 'clean', form: 'the mirror in a template', source: 'export const copy = `Unlimited Multi-Period Analysis: ${ANALYSIS_MAX_ANNUAL_PERIODS}-year trends`' },
   { kind: 'clean', form: 'the mirror in markup', source: 'export const copy = <p>Up to <strong>{ANALYSIS_MAX_QUARTERLY_PERIODS}</strong> quarters</p>' },
@@ -742,7 +770,8 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
   const resolve = bindingResolver(sf)
   // lib/planLimits.ts declares TRIAL_DAYS, and its plan lines sit beside it: there the module's own declaration is
   // TRIAL_DAYS, read under the same guard rule as every import of it (it would otherwise read as its number, 7).
-  const declaresTrial = PLAN_LIMITS.test(sf.fileName.replace(/\.[cm]?[jt]sx?$/, ''))
+  // That file alone: a TRIAL_DAYS declared in any other module, one named planLimits.ts included, is its number.
+  const declaresTrial = path.resolve(frontendDir, sf.fileName) === path.join(frontendDir, 'lib', 'planLimits.ts')
   const trialImports = new Set<string>()
   const flagImports = new Set<string>()
   const planNamespaces = new Set<string>()
@@ -1095,6 +1124,10 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
     ].join('\n'))
     expect([declared.reads.map((read) => `${read.line} ${read.guarded ? 'guarded' : 'loose'}`), declared.typed]).toEqual([['2 loose', '3 guarded'], []])
     expect(own("export const TRIAL_DAYS = 7\nconst PRO = [{ text: 'a 7-day free trial' }]").typed.map(({ line }) => line)).toEqual([2])
+    // That file alone: another module named planLimits.ts that declares its own TRIAL_DAYS types the length it holds.
+    const other = trialReader(ts.createSourceFile(path.join(frontendDir, 'features/plans/planLimits.ts'),
+      'export const TRIAL_DAYS = 7\nexport const LINE = `Start with a ${TRIAL_DAYS}-day free trial`', ts.ScriptTarget.Latest, true, ts.ScriptKind.TS))
+    expect([other.reads, other.typed.map(({ line }) => line)]).toEqual([[], [2]])
   })
 
   it('TRIAL_DAYS is the length the trial flips to, in the flag and in the backend', () => {
