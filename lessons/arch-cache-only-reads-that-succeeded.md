@@ -27,5 +27,5 @@ empty week fetched once. `::test_waiting_fetch_lets_another_request_release_its_
 two ASGI requests through a one-slot QueuePool. `::test_concurrent_misses_share_one_read` sends
 eight cold-cache requests at a blocked read and expects one read;
 `::test_failed_read_lets_the_next_waiter_retry` sends three, fails the first read, and expects the
-second request to read again and the third to hit the cache. `notable_filings_service.py` still has the old shape; its
-homepage section is not mounted.
+second request to read again and the third to hit the cache. `notable_filings_service.py` still has
+the old shape; its homepage section is not mounted.
