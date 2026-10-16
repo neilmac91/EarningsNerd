@@ -38,9 +38,10 @@ const RESEND_LIMITED = "We can't send another link right now. Use the newest lin
 
 /**
  * Global, graceful intercept of the backend's "verify your email" 403. The axios
- * interceptor dispatches EMAIL_VERIFICATION_REQUIRED_EVENT when an unverified user
- * hits a gated action (generate / checkout); this modal turns that into a friendly
- * resend prompt instead of a raw error toast.
+ * interceptor dispatches EMAIL_VERIFICATION_REQUIRED_EVENT on that 403, which only checkout sends
+ * (`backend/app/routers/subscriptions.py`; `tests/unit/authPagesCopy.spec.tsx` holds it to that
+ * route); this modal turns it into a friendly resend prompt instead of a raw error toast. It names
+ * subscribing alone, and it sends nothing on opening, so it says where links go, not that one was sent.
  *
  * v3 (DS-04): composed on ui/Modal — the focus trap, Escape, focus return, scroll lock
  * and the overlay / z-modal tokens come from the primitive; actions are <Button>s.
@@ -149,7 +150,7 @@ export default function EmailVerificationModal() {
       </ModalHeader>
       <ModalBody>
         <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          Generating summaries and subscribing require a verified email. We sent a link to{' '}
+          Subscribing requires a verified email. We send verification links to{' '}
           <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
             {user?.email ?? 'your email address'}
           </span>

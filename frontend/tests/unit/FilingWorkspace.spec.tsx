@@ -161,7 +161,7 @@ describe('FilingWorkspace', () => {
 
   it('shows the resize separator when open and persists a keyboard resize', () => {
     renderWorkspace()
-    const sep = screen.getByRole('separator', { name: /resize copilot/i })
+    const sep = screen.getByRole('separator', { name: /resize source pane/i })
     const before = Number(sep.getAttribute('aria-valuenow'))
     fireEvent.keyDown(sep, { key: 'ArrowLeft' })
     const after = Number(screen.getByRole('separator').getAttribute('aria-valuenow'))

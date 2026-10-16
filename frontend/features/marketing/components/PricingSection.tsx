@@ -66,9 +66,11 @@ const PRICE_CLASS =
   // eslint-disable-next-line no-restricted-syntax -- the 40px display figure sets its own tracking; the ramp has no 40
   'font-data tnum text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary-light dark:text-text-primary-dark'
 const MUTED_CLASS = 'text-text-secondary-light dark:text-text-secondary-dark'
-// Design: 44px tall, full card width. buttonVariants' md size sets h-10; h-11 is emitted later in
-// the height scale, so it wins (verified against the built stylesheet, not assumed).
-const CTA_CLASS = 'mt-5 h-11 w-full'
+// Design: 44px tall, full card width. buttonVariants' md size sets h-10, and min-h-11 lifts the box to
+// 44px whatever the stylesheet order. min-h, not h: below a 24rem viewport the Button's narrow state sets
+// h-auto so a label can wrap, and a caller's own min-h is the one height it keeps
+// (tests/unit/buttonHeightIsAMinimum.spec.ts).
+const CTA_CLASS = 'mt-5 min-h-11 w-full'
 
 function FeatureList({ items }: { items: readonly string[] }) {
   return (
