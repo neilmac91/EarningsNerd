@@ -82,19 +82,20 @@ capped; converting another stream restart moves its pin there from ALLOW_RETRY_L
 site that passes a label of its own fails (a child, a `children`, `aria-label` or `aria-labelledby` attribute,
 or a JSX spread it cannot read), and so does a use of RetryButton the scan cannot follow (its name anywhere but
 a JSX tag, an import or a type, such as an alias or a createElement argument; an `export *` or `import()` of
-its module). That clause is one of three holds on the label. TypeScript refuses each of the three at a call site
-because RetryButtonProps declares it `never`, which the gate checks: leaving a name out of the props would not
-do, since JSX never checks an undeclared hyphenated attribute such as aria-label. RetryButton drops all three at
-run time, for one a spread or a cast brings in (useRetainedFailure.spec.tsx renders each and finds the name "Try
-again"). Any other retry control fails, RetryButton's own definition included with no exemption, when its label
-(its text, or a `children` attribute) is not exactly "Try again", its busy text (shown or reserved) is not
-exactly "Trying again…" (U+2026) or its text starts "Retry"; a part of a retry control the scan cannot read (a
-parameter, a `let`, a call, an aria-labelledby, whose name is another element's text) fails as unread, and
-RetryButton's definition must reserve the busy text it shows. On copy: every string, template text and JSX text in the .ts
-and .tsx modules under the same roots is read, and "retry", "retrying", "retries" or "retried" fails, outside
-console calls, imports, object keys, string types, code attributes and the header name Retry-After;
-ALLOW_RETRY_WORD pins, with reasons and caps equal to the list, the two backend tokens the app matches and never
-shows (PLACEHOLDER_PATTERNS' "retry" and SUMMARY_FALLBACK_MESSAGE).
+its module). That clause is one of three holds on the label. TypeScript refuses each label prop (children,
+aria-label, aria-labelledby) at a call site because RetryButtonProps declares it `never`, which the gate checks:
+leaving a name out of the props would not do, since JSX never checks an undeclared hyphenated attribute such as
+aria-label. RetryButton drops all three at run time, for one a spread or a cast brings in
+(useRetainedFailure.spec.tsx renders each and finds the name "Try again"). Any other retry control fails,
+RetryButton's own definition included with no exemption, when its label (its text, or a `children` attribute) is
+not exactly "Try again", its busy text (shown or reserved) is not exactly "Trying again…" (U+2026) or its text
+starts "Retry"; a part of a retry control the scan cannot read (a parameter, a `let`, a call, an aria-labelledby,
+whose name is another element's text) fails as unread, and RetryButton's definition must reserve the busy text it
+shows. On copy: every string, template text and JSX text in the .ts and .tsx modules under the same roots is read,
+and "retry", "retrying", "retries" or "retried" fails, outside console calls, imports, object keys, string types,
+code attributes and the header name Retry-After; ALLOW_RETRY_WORD pins, with reasons and caps equal to the list,
+the two backend tokens the app matches and never shows (PLACEHOLDER_PATTERNS' "retry" and
+SUMMARY_FALLBACK_MESSAGE).
 
 (e) A control unavailable after its own activation (`!dirty` after a save, an incomplete form, a
 cooldown, "Link sent") is aria-disabled with an early return too. A primary DS Button in that state
