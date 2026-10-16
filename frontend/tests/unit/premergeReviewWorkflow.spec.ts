@@ -12,10 +12,10 @@
  *   - the high tier's group refuters vote on every report of their group on its own claim: each verdict lands
  *     on the report it names, each refuter's vote counts once, a report missing from a refuter's verdicts or
  *     given two is unverified, one report can stand while another is refuted, and the dedupe, the group
- *     refuters and the lone refuters each get their own schema, the group one down to each verdict's fields;
+ *     refuters and the lone refuters each get their own schema, pinned exactly (types and enums included);
  *     a blocker is never grouped, and the dedupe runs only on should-fixes from two or more lenses;
- *   - a refuter's corrected severity reaches the result on both paths: a should-fix raised to blocker,
- *     grouped or alone, is a confirmed blocker and blocks the merge;
+ *   - one refuter's corrected severity reaches the result on both paths: a should-fix raised to blocker,
+ *     grouped or alone, by one refuter or both, is a confirmed blocker and blocks the merge;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -64,6 +64,29 @@ const lensFindings = (label: string): Findings => {
 }
 
 const schemaKeys = (schema: unknown) => Object.keys((schema as { properties?: object } | undefined)?.properties ?? {}).sort()
+
+// The refuters' schemas, exactly: a type or an enum that drifts would let a real refuter refute every
+// blocker or never raise one, which the stubbed agents below cannot show.
+const CORRECTED = { type: 'string', enum: ['blocker', 'should-fix', 'nit'] }
+const LONE_VERDICT_SCHEMA = {
+  type: 'object',
+  properties: { refuted: { type: 'boolean' }, reason: { type: 'string' }, corrected_severity: CORRECTED },
+  required: ['refuted', 'reason'],
+}
+const GROUP_VERDICT_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { report: { type: 'integer' }, refuted: { type: 'boolean' }, reason: { type: 'string' }, corrected_severity: CORRECTED },
+        required: ['report', 'refuted', 'reason'],
+      },
+    },
+  },
+  required: ['verdicts'],
+}
 
 function load(): (args: unknown, agent: unknown) => Promise<unknown> {
   const source = readFileSync(SCRIPT, 'utf8').replace(/^export const meta/m, 'const meta')
@@ -254,12 +277,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     for (const call of verify) expect([call.model, call.effort]).toEqual(['opus', undefined])
     // A group refuter answers per report; a lone finding keeps the one-verdict schema; the dedupe returns groups.
     for (const call of verify) {
-      expect(schemaKeys(call.schema), call.label).toEqual(call.label.includes(':group') ? ['verdicts'] : ['corrected_severity', 'reason', 'refuted'])
-      if (!call.label.includes(':group')) continue
-      // Each verdict names its report and may correct its severity.
-      const item = (call.schema as { properties: { verdicts: { items: { properties: object; required: string[] } } } }).properties.verdicts.items
-      expect(Object.keys(item.properties).sort(), call.label).toEqual(['corrected_severity', 'reason', 'refuted', 'report'])
-      expect([...item.required].sort(), call.label).toEqual(['reason', 'refuted', 'report'])
+      expect(call.schema, call.label).toEqual(call.label.includes(':group') ? GROUP_VERDICT_SCHEMA : LONE_VERDICT_SCHEMA)
     }
     const dedupe = calls.filter((c) => c.label.startsWith('dedupe:'))
     expect(dedupe).toHaveLength(1)
@@ -302,6 +320,15 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const [fromGroup] = (await load()({ prs: [pr('high')] }, grouped.agent)) as Result[]
     expect(severities(fromGroup)).toEqual({ 'should-correctness': 'blocker', 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': 'should-fix' })
     expect(fromGroup.mergeable).toBe(false)
+    // One refuter's correction is enough on either path: group refuter #1 only, lone refuter #2 only.
+    const firstOfGroup: Verdicts = (label) => [
+      { report: 0, refuted: false, reason: 'r', ...(label.endsWith('#1') ? { corrected_severity: 'blocker' } : {}) },
+      { report: 1, refuted: false, reason: 'r' },
+    ]
+    const one = stub(undefined, { findings: shouldOnly, groups: [[0, 1], [2]], verdicts: firstOfGroup, corrected: (label) => (label.endsWith('tests-and-gates.py#2') ? 'blocker' : undefined) })
+    const [single] = (await load()({ prs: [pr('high')] }, one.agent)) as Result[]
+    expect(severities(single)).toEqual({ 'should-correctness': 'blocker', 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': 'blocker' })
+    expect(single.mergeable).toBe(false)
     // Without corrections the same reports stay should-fixes, and the PR is mergeable.
     const plain = stub(undefined, { findings: shouldOnly, groups: [[0, 1], [2]] })
     const [kept] = (await load()({ prs: [pr('high')] }, plain.agent)) as Result[]
