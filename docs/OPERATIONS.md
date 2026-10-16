@@ -541,14 +541,20 @@ switched off for the same reason (agent commits are authored as `noreply@anthrop
 review service is unavailable, the pull request body's `Review override: <reason>` line is the only
 way through the gate, by design.
 
-The pin to the GitHub Actions app cannot tell the gate's job from another Actions job of the same name,
-and a pull request's `pull_request` workflows run as its branch has them, so a branch could add a job
-named `review-gate`. `test_no_job_in_any_other_workflow_publishes_a_check_named_review_gate` fails such a
-branch in the required `backend-tests`, so the same pull request would also have to edit that test,
-where review sees it. Closing the gap outright needs a ruleset-required workflow, which GitHub configures
-in an organization's or an enterprise's rulesets (a personal account owns this repository), or a check
-published by a dedicated GitHub App that the ruleset names as the check's source. Neither is in place,
-and the gap is accepted (the founder left this call to the agent on 2026-10-16).
+Required checks bind a pull request only as far as its workflow files can be trusted. The ruleset pins
+each check to the GitHub Actions app, and that app runs a pull request's `pull_request` workflows from
+the pull request's own tree. So a pull request that edits `.github/workflows/` can make every required
+check pass: it can rewrite the job behind `backend-tests`, or add jobs named `review-gate` and
+`backend-tests` that do nothing. `test_no_job_in_any_other_workflow_publishes_a_check_named_review_gate`
+catches only an accidental second `review-gate` job, since a pull request that adds one on purpose can
+neuter `backend-tests` too. What binds such a pull request is that only the repository's writers can
+merge, and that `AGENTS.md` §5 reviews every change to `.github/workflows/**` at the high tier, so the
+merge rests on reading the workflow diff, not on the checks. A required check that a pull request cannot
+forge needs a source outside its workflows: a dedicated GitHub App that the ruleset names as the check's
+source, with its key held in an environment only `main` can use, or a ruleset-required workflow, which
+GitHub configures in an organization's or an enterprise's rulesets (a personal account owns this
+repository). Neither is in place, and the gap is accepted (the founder left this call to the agent on
+2026-10-16); closing it starts with that App.
 
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 
