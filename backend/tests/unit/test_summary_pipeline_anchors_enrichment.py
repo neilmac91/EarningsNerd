@@ -355,7 +355,7 @@ async def test_a_long_parse_wait_takes_from_the_join_not_beyond_it():
         events = await real_wait_for(_drain(filing_id), 10)
 
     _assert_complete(events)
-    assert len(joins) == 1 and 1.2 < joins[0] <= 1.5
+    assert len(joins) == 1 and 0.5 <= joins[0] <= 1.5  # a fresh join would be 2.0; slow progress writes only shrink it
 
 
 @pytest.mark.asyncio
