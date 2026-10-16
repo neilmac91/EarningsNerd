@@ -46,9 +46,7 @@ import ts from 'typescript'
  *    element, by JSX or `createElement`, also
  *    holds what the component returns, each time it is rendered (`<AlertMark />` where `AlertMark` returns
  *    `<BellIcon />`), so a glyph or an icon a component draws is read where the component is rendered;
- *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions), unless
- *    the gate reads a return where it is written (`returns: false`: then no call holds a return; no gate does since
- *    the em-dash gate began reading returns at the call, E76); an
+ *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions); an
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
  *    `reduce` (its accumulator); `Object.values`, `Object.entries` (each value at index 1), `Object.assign` (its
@@ -341,9 +339,6 @@ export interface HeldOptions<L> {
   memberLeaf?: (leaf: L, key: string | undefined, node: ts.Node) => L[] | undefined
   /** The leaves a JSX text child is, for a gate that reads text (the em-dash gate's token). */
   textLeaf?: (text: ts.JsxText) => L[] | undefined
-  /** False for a gate that reads a function's return where it is written: a call then holds nothing a same-file function
-      or a callback returns. */
-  returns?: boolean
 }
 
 /**
@@ -353,7 +348,7 @@ export interface HeldOptions<L> {
 export function heldValues<L>(
   sf: ts.SourceFile,
   leafOf: (e: ts.Expression) => L[] | undefined,
-  { memberLeaf, textLeaf, returns = true }: HeldOptions<L> = {},
+  { memberLeaf, textLeaf }: HeldOptions<L> = {},
 ): HeldValues<L> {
   // Keyed by the declaration (scopeResolver), never by the bare name.
   const holders = new Map<ts.Node, Held<L>>()
@@ -415,7 +410,6 @@ export function heldValues<L>(
   }
   const returned = (fns: Iterable<Fn> | null | undefined, record?: Set<ts.Node>): Held<L> => {
     let value = empty<L>()
-    if (!returns) return value
     for (const fn of fns ?? []) {
       if (evaluating.has(fn)) continue
       evaluating.add(fn)

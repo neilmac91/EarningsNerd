@@ -103,9 +103,9 @@ function violationsIn(text: string, file: string): string[] {
         : ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e) || (ts.isCallExpression(e) && ELEMENT_CALLS.has(calleeName(e)))
           ? ['element']
           : undefined,
-    // A same-file function's return is its call's value (E76): a formatter's fallback fails where its call is joined.
-    // The self-check's E76 plants (88 to 97) fail if this goes back to false.
-    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined), returns: true },
+    // The shared reading follows each same-file call into what the function returns (E76), so a formatter's fallback
+    // fails where its call is joined into copy; the self-check's E76 plants (88 to 97) fail if it stops.
+    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined) },
   )
   const holdsToken = (e: ts.Expression | undefined) => !!e && leavesOf(values.valueOf(ts.isSpreadElement(e) ? e.expression : e)).has('token')
 
