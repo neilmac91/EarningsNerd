@@ -47,7 +47,8 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
  * On a 768px and an 834px tablet at 200% every route passes the same checks too: the footer's columns and
  * the final CTA card's open at md at the reader's text size (48rem), where at md's 768px they took pages to
- * 812-886px.
+ * 812-886px. At 1440x900 at the default size the site header's bar spans its container and the logo keeps
+ * its top-left place, which the bar's w-full holds.
  *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
@@ -487,9 +488,11 @@ test.describe('a 360px phone at 200% text', () => {
 
 /** The pricing section's billing toggle (a radio group of two segments) at 200% text: one control whose segments wrap
     whole onto a second row inside its shell when they do not fit side by side, each label inside its segment, broken
-    only between words and never on a line that starts with its middot ("Annual ·" over "save 20%"). Before, at 360
-    and at 390px, the group was 336px wide and its Annual label ran onto three lines, "Annual", "· save" and "20%",
-    the last painted below its 72px segment. Each label's lines are read as painted, a character at a time. */
+    only between words and only after its middot, every line but the last ending with it, so never on a line that
+    starts with it ("Annual ·" over "save 20%"; the no-break spaces in PricingSection.tsx hold that, and with plain
+    spaces the label paints "Annual · save" over "20%" at 360px). Before, at 360 and at 390px, the group was 336px wide
+    and its Annual label ran onto three lines, "Annual", "· save" and "20%", the last painted below its 72px segment.
+    Each label's lines are read as painted, a character at a time. */
 const segments = (group: Locator) =>
   group.evaluate((root) => {
     const shell = root.getBoundingClientRect()
@@ -546,6 +549,7 @@ for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }
         expect(segment.inSegment, `${at}: the label stays inside its segment`).toBe(true)
         expect(segment.lines.some((line) => line.startsWith('·')), `${at}: no line starts with the middot`).toBe(false)
         expect(segment.lines.every((line) => line.split(/\s+/).every((token) => words.includes(token))), `${at}: the label breaks only between words`).toBe(true)
+        expect(segment.lines.slice(0, -1).every((line) => line.endsWith('·')), `${at}: the label breaks only after its middot`).toBe(true)
       }
     })
   })
@@ -719,3 +723,42 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 834, height: 1194
     }
   })
 }
+
+/** The site header's bar is a column's child with auto side margins (components/Header.tsx), which a column does not
+    stretch: without its w-full the bar shrank to its content at 1440px, from 80-1360px to 291-1149px, and the logo left
+    its top-left place (x=112 to x=323). At 1440x900 at the default size the bar spans its container (its max-width,
+    centred in the header) and the logo starts at the container's left padding, both read against the header's own box,
+    not the bar's, which a shrunken bar would carry with it. */
+test.describe('a 1440px desktop at the default text size', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false })
+  test('home (/) keeps the site header bar across its container and the logo in its top-left place', async ({ page, baseURL }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+      } catch {}
+    })
+    await answerGuest(page, baseURL!)
+    await page.goto('/')
+    await h1(page)
+    const logo = page.getByRole('banner').getByRole('link', { name: 'EarningsNerd home' })
+    await expect(logo).toBeVisible()
+    await page.evaluate(() => document.fonts.ready)
+    const place = await logo.evaluate((link) => {
+      const header = link.closest('header')!
+      const bar = header.firstElementChild!
+      const style = getComputedStyle(bar)
+      const width = Math.min(header.clientWidth, parseFloat(style.maxWidth))
+      const left = header.getBoundingClientRect().left + header.clientLeft + (header.clientWidth - width) / 2
+      const box = bar.getBoundingClientRect()
+      return {
+        bar: `${Math.round(box.left)}-${Math.round(box.right)}px`,
+        container: `${Math.round(left)}-${Math.round(left + width)}px`,
+        logo: Math.round(link.getBoundingClientRect().left),
+        place: Math.round(left + parseFloat(style.paddingLeft)),
+      }
+    })
+    expect(place.bar, `the header's bar spans its container, centred in the header (the bar at ${place.bar}, its container at ${place.container})`).toBe(place.container)
+    expect(place.logo, `the logo starts at the container's left padding (the logo at x=${place.logo}, its place at x=${place.place})`).toBe(place.place)
+  })
+})

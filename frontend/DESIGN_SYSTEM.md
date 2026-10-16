@@ -807,7 +807,8 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
                  menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
                  the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
-                 nothing to the page's).
+                 nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
+                 top-left place, which `w-full` holds.
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1234,7 +1235,8 @@ The final CTA card and the site footer open their columns at md at the reader's 
 their columns hold a one-line button and words that cannot break, and at md's 768px under 200% text
 the footer took every route to 812px and the card took / to 886px. The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
-at 360 and 390px; a 768px and an 834px tablet over its route loop).
+at 360 and 390px, every line but the last ending at the middot; a 768px and an 834px tablet over its route
+loop).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
