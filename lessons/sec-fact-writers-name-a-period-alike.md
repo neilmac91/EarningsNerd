@@ -27,12 +27,13 @@ an FY focus, the end year or the year before, and the year before only where mos
 in it. The labeller sees no filing date, so it cannot apply that writer's 180-day timeliness bound
 (see the known limits). Without a trusted focus, or for a point that is not a whole number of
 years from the report date, keep the calendar year of its end; never write a NULL year, which drops
-the period from Multi-Period Analysis and the filing chart's axis. When two writers can store the same identity, they must
-compute the same label from the same evidence; prove it by running both orders over a
-non-calendar issuer and over a calendar issuer whose one filing carries an outlier focus, not only
-a calendar-aligned one. A reader that indexes flows by label must refuse a label that current rows
-give to two different period ends, not let query order pick one, and must read a balance at its
-period's own end. Rows already stored under the old label need a separate, founder-run repair.
+the period from Multi-Period Analysis and the filing chart's axis. When two writers can store the
+same identity, they must compute the same label from the same evidence; prove it by running both
+orders over a non-calendar issuer and over a calendar issuer whose one filing carries an outlier
+focus, not only a calendar-aligned one. A reader that indexes flows by label must refuse a label
+that current rows give to two different period ends, not let query order pick one, and must read
+a balance at its period's own end. Rows already stored under the old label need a separate,
+founder-run repair.
 
 **Evidence**: `backend/app/services/edgar/fiscal_periods.py`, `edgar/xbrl_instance._finish_instance`,
 `edgar/xbrl_companyfacts.append_items`, `trend_analysis/dataset._index_facts` and `_series_points`;
@@ -47,12 +48,21 @@ refusal and balance read).
 - A year chain with no timely annual report. The companyfacts writer names a year only from an
   annual report filed within 180 days of the year's end (`facts/calendar.reported_fiscal_year`);
   where a contiguous chain holds none, it falls back to calendar years
-  (`facts/calendar._consistent_year_chain`). The per-filing labeller still names a non-calendar
-  year from the late report's focus. So for such a delinquent filer, per-filing-only concepts
-  (`return_on_assets`) and companyfacts-only concepts sit under different labels for one period end,
-  the Multi-Period Analysis axis gets two buckets ending on one date, and a colliding identity keeps
-  whichever writer stored it first. Before the annual labeller, both writers named that issuer by
-  calendar year: one year off, but unmixed. Abstaining on a late filing is not the fix: it moves the
-  clash onto a late report, or a late amendment, that follows a timely one, which both writers now
-  name alike. The open follow-up is for the companyfacts writer to name an all-late chain from a late
-  annual report's own-period `fy`, under the same FY, year-bound and midpoint trust.
+  (`facts/calendar._consistent_year_chain`), and `_label_quarters` names the chain's quarters from
+  the same years. The per-filing labellers still name the fiscal year from each report's focus.
+  The two differ only for an issuer whose fiscal year is named for the calendar year before its
+  end: in practice a year ending in January or February, a 52-week year ending in early January,
+  or a March 20-F named by its start. For such a delinquent filer, per-filing-only concepts
+  (`return_on_assets`) and companyfacts-only concepts sit under different labels for one period
+  end, and a colliding identity keeps whichever writer stored it first. Companyfacts first, the
+  Multi-Period Analysis axis gets two buckets ending on one date. Filing first, the year just
+  older than the filing's comparatives keeps a calendar label equal to the next year's fiscal one,
+  so one label lands on two period ends: the dataset refuses that flow and coverage loses a year
+  (the oldest, in a short history). Main already mixed this issuer's quarter rows (the 10-Q
+  labeller names the fiscal year), but named its annual rows by calendar year on both sides: one
+  year off, but unmixed. So the annual labeller extends an existing quarterly mix to the annual
+  rows. Abstaining on a late filing is not the fix: it moves the clash onto a late report, or a
+  late amendment, that follows a timely one, which both writers now name alike. The open
+  follow-up is for the companyfacts writer to name an all-late chain from a late annual report's
+  own-period `fy`, under the same FY, year-bound and midpoint trust; that fixes the chain's
+  quarter labels too.
