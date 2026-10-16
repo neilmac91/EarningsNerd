@@ -541,6 +541,12 @@ def test_cold_list_caps_each_group_at_the_requested_limit(client, monkeypatch, q
         for i in range(70)
     ]
     monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    # The error fallbacks also cap each group in SQL, so a live path that raised after its commit
+    # would still serve these rows from them; refusing the fallback proves the live path served it.
+    def _no_fallback(*_args, **_kwargs):
+        raise AssertionError("the cold list was served by an error fallback, not the live fetch")
+
+    monkeypatch.setattr(filing_list_service, "cached_filings_after_rollback", _no_fallback)
     with TestingSession() as s:
         _seed_stamped_company(s, "BPX")
 
