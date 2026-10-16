@@ -91,16 +91,14 @@ GH_MERGE = re.compile(rf"(?:^|[\s/;&|(`$])gh{_REPO}\s+pr{_REPO}\s+merge\b")
 MERGE_ENDPOINT = re.compile(r"/merges?\b")
 GH_API = re.compile(r"(?:^|[\s/;&|(`$])gh\s+api\b")
 GRAPHQL = re.compile(r"\bgraphql\b", re.IGNORECASE)
-MERGE_MUTATION = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|mergeBranch)\b", re.IGNORECASE)
 # An MCP string that is, as a whole, a merge request: a GraphQL document (after any comments, any operation or
 # fragment first, its keyword a whole word) or a JSON request (an object with a "query" key) that calls a merge
 # mutation; the GraphQL endpoint, whose call then sits in another string; or a REST merge target (a method, then
 # a URL, a path or a route, templated or with a query string, ending at a pull request's /merge or a
 # repository's /merges).
 MUTATION_CALL = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|mergeBranch)\s*\(", re.IGNORECASE)
-GRAPHQL_MERGE = re.compile(
-    r"\A\s*(?:#[^\n]*\n\s*)*(?:(?:query|mutation|subscription|fragment)\b|\{(?=[\s\S]*?\"query\"\s*:))[\s\S]*?"
-    + MUTATION_CALL.pattern, re.IGNORECASE)
+GRAPHQL_START = re.compile(
+    r"\A\s*(?:#[^\n]*\n\s*)*(?:(?:query|mutation|subscription|fragment)\b|\{(?=[\s\S]*?\"query\"\s*:))", re.IGNORECASE)
 _TARGET = r"\A\s*(?:[A-Za-z]+\s+)?(?:(?:https?://)?api\.github\.com)?/?"
 GRAPHQL_ENDPOINT = re.compile(_TARGET + r"graphql/?(?:\?\S*)?\s*\Z", re.IGNORECASE)
 REST_MERGE = re.compile(
@@ -112,25 +110,24 @@ ATTACHED = re.compile(r"(?<!\S)(-[A-Za-z]*?[bt])(?=\S)")
 # lines as the shell lets it; and each piece of one, a double-quoted piece resolving the escapes the shell does
 # (each reader joins the line's continuations first).
 _WORD = r"""(?:'[^']*'|"(?:[^"\\]|\\[\s\S])*"|\\[\s\S]|[^\s;&|()<>'"`\\])+"""
-_VALUE = "(" + _WORD + ")"  # a file name; a lone `-` is standard input
-_PIECE = re.compile(r"""'([^']*)'|"((?:[^"\\]|\\[\s\S])*)"|\\([\s\S])|([^'"\\]+|['"])""")
+WORD = re.compile(_WORD)
+_PIECE = re.compile(r"""'([^']*)'|"((?:[^"\\]|\\[\s\S])*)"|\\([\s\S])""")  # the text between them is plain
 _DOUBLE_ESCAPE = re.compile(r"""\\([\\"$`])""")
-# A word with a quoted or escaped piece, from the word's start (so a long plain word is scanned once).
-_QUOTED_WORD = re.compile(
-    r"""(?<![^\s;&|()<>`])(?:[^\s;&|()<>'"`\\]*(?:'[^']*'|"(?:[^"\\]|\\[\s\S])*"|\\[\s\S]))+[^\s;&|()<>'"`\\]*""")
-# The files a line sends, read by regular expressions, not shlex (they read a 1 MiB line in milliseconds):
-# an option whose value is a file (gh pr merge's --body-file and -F, gh api's --input, curl's
-# -T/--upload-file and -K/--config, wget's --body-file and --post-file; a short flag may close a run of
-# others, as in -sF); a file an `@` names, which gh api's -F/--field, curl's -d/--data/--json/-F and
-# --variable, and httpie's fields read (alone, after `=` or a variable's name, attached to a short option as
-# in -d@file, or quoted); a `<` redirect's target; the files a plain `cat` reads. A plain -d or --field value
-# is data, not a file.
-FILE_ARG = re.compile(
-    r"(?:^|[\s;&|(])(?:--(?:body-file|post-file|input|upload-file|config)(?:=|\s+)|-[A-Za-z]*?[FTK]=?[ \t]*)" + _VALUE)
-AT_FILE = re.compile(r"(?:^|[\s=]|\s-[A-Za-z]+|--variable(?:=|\s+)[\w.%-]*)@" + _VALUE)
-AT_QUOTED = re.compile(r"""(?:^|[\s=]|\s-[A-Za-z]+)(['"])(?:[^'"\n=]*=)?@([^'"\n]*)\1""")
-REDIRECT = re.compile(r"(?<![<&])<(?![<(&>])[ \t]*" + _VALUE)
-CAT = re.compile(r"""(?:^|[\s;&|(`/])\\?(?:cat|'cat'|"cat")((?:[ \t]+""" + _WORD + r")+)")
+BLANKS = re.compile(r"[ \t]+")
+# Where a line names the files it sends, each read as the WORD that follows, by regular expressions, not shlex
+# (they read a 1 MiB line in milliseconds): an option whose value is a file (gh pr merge's --body-file and -F,
+# gh api's --input, curl's -T/--upload-file and -K/--config, wget's --body-file and --post-file; a short flag may
+# close a run of others, as in -sF); a file an `@` names, which gh api's -F/--field, curl's -d/--data/--json/-F
+# and --variable, and httpie's fields read (alone, after `=` or a variable's name, attached to a short option as
+# in -d@file, or quoted whole); a `<` redirect's target; and the run of words a plain `cat` reads. A plain -d or
+# --field value is data, not a file.
+FILE_ARG = re.compile(r"[\s;&|(](?:--(?:body-file|post-file|input|upload-file|config)(?:=|\s+)"
+                      r"|-[A-Za-z]*?[FTK]=?[ \t]*)")
+AT_FILE = re.compile(r"(?:[\s=]|\s-[A-Za-z]+|--variable(?:=|\s+)[\w.%-]*)@")
+# A quoted `@` word after a blank or `=`; one attached to an option is read from the dequoted view.
+AT_QUOTED = re.compile(r"""[\s=](['"])(?:[^'"\n=]*=)?@([^'"\n]*)\1""")
+REDIRECT = re.compile(r"(?<![<&])<(?![<(&>])[ \t]*")
+CAT = re.compile(r"""(?:^|[\s;&|(`/])\\?(?:cat|'cat')[ \t]+""")  # "cat" is dequoted; 'cat' in "$(...)" is not
 # The title and message a call types, joined as GitHub writes its commit (the title, a blank line, the message):
 # gh pr merge's --subject/-t and --body/-b among the line's words, with its body files and here-documents as
 # messages; and GitHub's own field names, REST's commit_title and commit_message and GraphQL's commitHeadline and
@@ -148,12 +145,13 @@ _FIELD = "(" + "|".join(TITLE_FIELDS + MESSAGE_FIELDS) + ")"
 # A field's quoted value: a GraphQL block string, a JSON or GraphQL string, or a script's single-quoted string.
 COMMIT_PART = re.compile(r"\b" + _FIELD + r"\b[\"']?\s*[:=]\s*"
                          r"(\"\"\"(?:[^\"\\]|\\[\s\S]|\"(?!\"\"))*\"\"\"|\"(?:[^\"\\]|\\[\s\S])*\"|'[^']*')")
-COMMIT_VARIABLE = re.compile(r"\b" + _FIELD + r"\s*:\s*\$(\w+)")
+# A GraphQL variable the joined pair takes; any other field's value is read where the call types it.
+COMMIT_VARIABLE = re.compile(r"\b(commitHeadline|commitBody)\s*:\s*\$(\w+)")
 MAX_PARTS = 16
 # A here-document's opener (not a here-string's `<<<`); its text starts on the next line.
 HEREDOC = re.compile(r"""(?<!<)<<(?!<)-?[ \t]*(?:'[^'\n]+'|"[^"\n]+"|\\?[A-Za-z_][\w.-]*)""")
 MAX_HEREDOCS = 16
-HERESTRING = re.compile(r"<<<[ \t]*" + _VALUE)  # a here-string's word, the text it sends on standard input
+HERESTRING = re.compile(r"<<<[ \t]*")  # then the here-string's word, the text it sends on standard input
 # A value the shell fills from one file: a plain cat's (after any options, before any redirect of its output) or a `<`
 # redirect's, in a command substitution.
 SUBSTITUTED = re.compile(r"""(?:\$\(|`)\s*(?:<|(?:\\|\S*/)?(?:cat|'cat'|"cat")\s)\s*(?:-\S*\s+)*"""
@@ -194,9 +192,7 @@ def _strings(value: object, field: str | None = None):
 
 def _piece(match: re.Match, literal=str) -> str:
     """A piece of a shell word as the shell passes it, a quoted or escaped one through `literal`."""
-    single, double, escaped, plain = match.groups()
-    if plain is not None:
-        return plain
+    single, double, escaped = match.groups()
     if single is not None:
         return literal(single)
     if double is not None:  # \\ \" \$ \` stand for their character
@@ -225,11 +221,12 @@ def _dequoted(line: str) -> str:
     so an option quoted or escaped as a whole word is read like a plain one. A word that holds whitespace stays
     as written unless it is an option, whose whitespace is escaped ("--body-file=my notes.md")."""
     def plain(match: re.Match) -> str:
-        name = _name(match.group(0))
-        if not SPACE.search(name):
+        word = match.group(0)
+        name = _name(word)
+        if word == name or not SPACE.search(name):
             return name
-        return re.sub(r"(\s)", r"\\\1", name) if name.startswith("-") else match.group(0)
-    return _QUOTED_WORD.sub(plain, line)
+        return re.sub(r"(\s)", r"\\\1", name) if name.startswith("-") else word
+    return WORD.sub(plain, line) if _quoted(line) else line
 
 
 def _read(path: str) -> str | None:
@@ -265,6 +262,21 @@ def _merge_kind(command: str) -> str | None:
     return kind
 
 
+def _words_after(line: str, pattern: re.Pattern, run: bool = False):
+    """The shell word right after each place `pattern` finds, or with `run` each word of the blank-separated run
+    there; the search goes on after the words it read, so the line is read once."""
+    position = 0
+    while (found := pattern.search(line, position)) is not None:
+        position = found.end()
+        while (word := WORD.match(line, position)) is not None:
+            yield word.group(0)
+            position = word.end()
+            gap = BLANKS.match(line, position) if run else None
+            if gap is None:
+                break
+            position = gap.end()
+
+
 def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
     """The text of each regular file, up to 1 MiB, that the line sends or reads: an option's file, one an `@`
     names (`commit_message=@msg.md`, `-d @body.json`), a `<` redirect's target, and each file a plain `cat`
@@ -272,10 +284,9 @@ def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
     joined = command.replace("\\\n", "")  # a continuation can split an option from its file
     dequoted = _dequoted(joined)
     views = (joined,) if dequoted == joined else (joined, dequoted)
-    words = [match.group(1) for view in views for pattern in (FILE_ARG, AT_FILE, REDIRECT)
-             for match in pattern.finditer(view)]
-    words += [word for view in views for match in CAT.finditer(view) for word in re.findall(_WORD, match.group(1))
-              if not word.startswith("-")]
+    words = [word for view in views for pattern in (FILE_ARG, AT_FILE, REDIRECT)
+             for word in _words_after(view, pattern)]
+    words += [word for view in views for word in _words_after(view, CAT, run=True) if not word.startswith("-")]
     names = [_word(word) for word in dict.fromkeys(words)]
     names += [(match.group(2), glob.escape(match.group(2))) for match in AT_QUOTED.finditer(joined)]
     base = cwd if isinstance(cwd, str) and cwd else os.getcwd()
@@ -386,6 +397,12 @@ def _filled(value: str, cwd: object) -> str:
     return value if text is None else text.rstrip("\n") if substituted else text
 
 
+def _graphql_merge(text: str) -> bool:
+    """Whether a string is, as a whole, a GraphQL document or JSON request that calls a merge mutation."""
+    start = GRAPHQL_START.match(text)
+    return start is not None and MUTATION_CALL.search(text, start.end()) is not None
+
+
 def _reason(references: list[str]) -> str:
     return (
         "Refused by .claude/hooks/closing_keyword_guard.py: this call merges or names a merge, and its text or "
@@ -421,15 +438,15 @@ def refusal(event: object) -> str | None:
         joined = command.replace("\\\n", "")
         # The line's words as the shell passes them, and the words of each word that is itself a merge's line, one
         # level down (bash -c 'gh pr merge ...').
-        lines = [[_name(word) for word in re.findall(_WORD, joined)]]
-        lines += [[_name(word) for word in re.findall(_WORD, line)] for line in lines[0]
+        lines = [[_name(word) for word in WORD.findall(joined)]]
+        lines += [[_name(word) for word in WORD.findall(line)] for line in lines[0]
                   if SPACE.search(line) and _merge_kind(line)]
         words = [word for line in lines for word in line]
         heredocs = _heredocs(joined)
         decoded = [pair for text in [*words, *(text for _, text in files)] if "{" in text or "[" in text
                    for pair in _json_strings(text)] + [pair for text in heredocs for pair in _json_strings(text, True)]
         texts += files + [("a JSON body", text) for _, text in decoded]
-        if kind == "graphql" and not any(MERGE_MUTATION.search(text) for _, text in texts):
+        if kind == "graphql" and not any(MUTATION_CALL.search(text) for _, text in texts):
             return None
         named: dict[str, list[str]] = {}
         pairs = (match.groups() for match in (NAMED_WORD.fullmatch(word) for word in words if "=" in word) if match)
@@ -437,7 +454,7 @@ def refusal(event: object) -> str | None:
             named.setdefault(name, []).append(value)
         titles = [value for line in lines for value in _flag_values(line, SUBJECT_FLAG)]
         messages = ([value for line in lines for value in _flag_values(line, BODY_FLAG)] + [text for _, text in files]
-                    + heredocs + [_name(match.group(1)) for match in HERESTRING.finditer(joined)])
+                    + heredocs + [_name(word) for word in _words_after(joined, HERESTRING)])
         sources = [("this command", command), ("the line's words", "\n".join(words)), *texts[2:]]
         texts += _commits(sources, titles, messages, named, lambda value: _filled(value, cwd))
     else:
@@ -450,7 +467,7 @@ def refusal(event: object) -> str | None:
         graphql_call = any(GRAPHQL_ENDPOINT.match(text) for _, text in texts) and any(
             MUTATION_CALL.search(text) for _, text in texts)
         if not ("merge" in "__".join(parts[2:]).lower() or graphql_call
-                or any(GRAPHQL_MERGE.match(text) or REST_MERGE.match(text) for _, text in texts)):
+                or any(_graphql_merge(text) or REST_MERGE.match(text) for _, text in texts)):
             return None
         strings = "\n\n".join(text for _, text in texts)
         texts += _json_strings_of(texts)

@@ -159,6 +159,15 @@ MCP_REFUSED = {
         "method": "POST", "path": "/graphql", "body": json.dumps({"query": (
             'mutation { enablePullRequestAutoMerge(input: {pullRequestId: "X", mergeMethod: SQUASH, '
             'commitHeadline: "lint fix", commitBody: "#3 carries the rest"}) { clientMutationId } }')})}),
+    "a GraphQL document that opens with a query": ("mcp__github__run_graphql", {
+        "query": 'query Q { viewer { login } }\nmutation M { mergePullRequest(input: {pullRequestId: "X", '
+                 'commitHeadline: "fixes #3"}) { clientMutationId } }'}),
+    "a GraphQL document that opens with a subscription": ("mcp__github__run_graphql", {
+        "query": 'subscription S { x }\nmutation M { mergePullRequest(input: {pullRequestId: "X", '
+                 'commitHeadline: "fixes #3"}) { clientMutationId } }'}),
+    "a GraphQL block string with a quote and an escaped triple quote": ("mcp__github__run_graphql", {
+        "query": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "lint fix", '
+                 'commitBody: """#3 carries "the" rest \\""" in quotes"""}) { clientMutationId } }'}),
     "a GraphQL block string after a headline": ("mcp__github__run_graphql", {
         "query": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "lint fix", '
                  'commitBody: """#3 carries the rest"""}) { clientMutationId } }'}),
@@ -244,6 +253,11 @@ BASH_REFUSED = (
     "gh pr merge 5 --squash -t 'resolves #3'",
     "gh -R neilmac91/EarningsNerd pr merge 5 --squash --body 'fix #3'",
     "gh pr --repo=o/r merge 5 --squash --body 'fixes o/r#3'",
+    "gh --repo=o/r pr merge 5 -s -b 'fixes #3'",  # -R/--repo in each form before the noun and before the verb
+    "gh --repo o/r pr merge 5 -s -b 'fixes #3'",
+    "gh pr --repo o/r merge 5 -s -b 'fixes #3'",
+    "gh pr -R o/r merge 5 -s -b 'fixes #3'",
+    "cd /tmp && gh api -X PUT repos/o/r/pulls/5/merge -f commit_message='fixes #3'",  # gh api after a separator
     "/usr/local/bin/gh pr merge 5 -s -b 'fixes #3'",
     "sudo gh pr merge 5 -s -b 'fixes #3'",
     "echo 5 | xargs gh pr merge -s -b 'fixes #3'",
@@ -271,6 +285,8 @@ BASH_REFUSED = (
     "gh pr merge 5 -s --subject 'review-gate fix' --body '#12 carries the rest'",
     "gh pr merge 5 -s --body '#12 carries the rest' --subject 'lint fix'",
     "gh pr merge 5 -s -t'lint fix' -b'#12 carries the rest'",
+    "gh api -X PUT repos/o/r/pulls/5/merge -f'commit_title=lint fix' -f'commit_message=#3 carries the rest'",
+    "gh pr merge 5 -s -t 'lint fix' --body-file - <<\"EOF\"\n#3 carries the rest.\nEOF",
     "gh pr merge 5 -s --subject='lint fix' --body '#12 carries the rest'",  # a long flag's value after `=`
     "gh pr merge 5 -s -t 'lint fix' --body='#12 carries the rest'",
     "bash -c 'gh pr merge 5 -s -t \"lint fix\" -b \"#12 carries the rest\"'",  # a word that is itself a line
@@ -334,6 +350,12 @@ BASH_REFUSED = (
     "gh pr merge 5 -s -t \"$(cat 'my title.md')\" -b '#3 carries the rest'",
     "gh pr merge 5 -s -t \"$(cat my\\ title.md)\" -b '#3 carries the rest'",
     "gh pr merge 5 -s -t \"$(cat -- title.md)\" -b '#3 carries the rest'",  # a plain cat's options and redirects
+    "gh pr merge 5 -s -t \"`cat title.md`\" -b '#3 carries the rest'",  # each way to write the substitution's cat
+    "gh pr merge 5 -s -t \"$(\\cat title.md)\" -b '#3 carries the rest'",
+    "gh pr merge 5 -s -t \"$(/bin/cat title.md)\" -b '#3 carries the rest'",
+    "gh pr merge 5 -s -t \"$('cat' title.md)\" -b '#3 carries the rest'",
+    "gh pr merge 5 -s -t \"$(\\\"cat\\\" title.md)\" -b '#3 carries the rest'",
+    "gh pr merge 5 -s -t \"$(cat \\\"my title.md\\\")\" -b '#3 carries the rest'",
     "gh pr merge 5 -s -t \"$(cat title.md 2>/dev/null)\" -b '#3 carries the rest'",
     # The stated over-refusal: a field's single-quoted value is decoded as a script's string is, though gh sends the
     # backslash as written.
@@ -355,6 +377,7 @@ BASH_REFUSED = (
     "gh pr merge 5 -s \"--body-file=my notes.md\"",
     "gh pr merge 5 -s -\\F msg.md",
     "'cat' msg.md | gh pr merge 5 -s -F -",
+    "\"cat\" msg.md | gh pr merge 5 -s -F -",
     "gh pr merge 5 -s -b \"$(\\cat msg.md)\"",  # a cat that skips an alias, inside a quoted substitution
     "gh pr merge 5 -s -b \"$('cat' msg.md)\"",
     "gh pr merge 5 -s -d --body-file msg.md",  # -d is --delete-branch, never the value of the next option
@@ -412,6 +435,8 @@ BASH_REFUSED = (
     "curl -X PUT -K curl.cfg https://api.github.com/repos/o/r/pulls/5/merge",
     "curl -X PUT --config curl.cfg https://api.github.com/repos/o/r/pulls/5/merge",
     "curl -X PUT --variable msg@msg.md --expand-data '{{msg}}' https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT --variable=msg@msg.md --expand-data '{{msg}}' https://api.github.com/repos/o/r/pulls/5/merge",
+    "curl -X PUT -d'@my notes.md' https://api.github.com/repos/o/r/pulls/5/merge",  # quoted, after a short option
     "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
     "json={'commit_message': 'fixes #3'})\"",
     "python3 -c 'import subprocess; subprocess.run([\"gh\", \"pr\", \"merge\", \"5\", \"-b\", \"fixes #3\"])'",
