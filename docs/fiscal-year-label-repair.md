@@ -11,31 +11,45 @@ the filing page's annual chart draws two bars for one year. P5 fixes new writes 
 
 ## What it changes
 
-It copies the companyfacts fiscal year onto `financial_fact` rows with `source = 'edgar_xbrl'`,
-`fiscal_period = 'FY'` and a filing owner. It changes `fiscal_year` and nothing else: never
-`period_end`, `value`, `unit`, `accession` or `is_latest`, never a quarter row, never a
-companyfacts, derived or reported-EPS row, never a delete. Durations and balance-sheet instants are
-both relabelled, because an annual balance closes the year that ends on its date.
+It targets `financial_fact` rows with `fiscal_period = 'FY'` and a filing owner, whatever their
+source (a headline value the cross-check corrected is stored as `companyfacts` but keeps its
+owner). It changes `fiscal_year` and nothing else: never `period_end`, `value`, `unit`,
+`accession` or `is_latest`, never a quarter row, never a companyfacts, derived or reported-EPS row
+without a filing owner, never a delete. Durations and balance-sheet instants are both relabelled,
+because an annual balance closes the year that ends on its date. It only rewrites the defect's own
+signature, a label equal to the calendar year of the period end; any other label (P5's annual
+label, for example) is left alone.
 
-The year comes from the stored companyfacts FY rows at the same company and period end
-(source `companyfacts`, an XBRL tag, no filing owner, current or not, excluding rows a quarterly
-repair retired as `validation: unavailable`). It is used only when it can be trusted. Each scanned
-row is counted once:
+The year comes from the stored companyfacts FY rows at the same company and period end (source
+`companyfacts`, an XBRL tag, no filing owner, current or not, excluding rows a quarterly repair
+retired as `validation: unavailable`) that the fiscal-year-window writer stored or a repair
+corrected: `provenance.version = 1`. That writer and versioned provenance arrived together in
+#1191 (10 October 2026). A row stored before it has NULL provenance and names every FY period by
+the calendar year of its end, so it is not evidence. Each scanned row is counted once:
 
 | Count | Meaning |
 | --- | --- |
 | `relabel_rows` / `relabels` | The rows that change, grouped by period end with the `from` and `to` years |
 | `already_agrees` | The row already carries the trusted companyfacts year; left alone |
 | `no_companyfacts_fy` | No companyfacts FY row at that period end; left alone |
-| `companyfacts_disagree` | Companyfacts rows at that period end name more than one year; left alone, never one picked |
-| `untrusted_instant_only` | Companyfacts holds only balance-sheet rows there. The companyfacts writer names its oldest opening balance (older than every fiscal year it knows) by calendar year, which for a January year is the next year's label, so an instant-only label is never copied |
+| `legacy_companyfacts_only` | Only rows stored before #1191 (calendar labels) at that period end; left alone, never read as agreement |
+| `companyfacts_disagree` | Current-writer rows at that period end name more than one year; left alone, never one picked |
+| `untrusted_instant_only` | Only balance-sheet rows there. The companyfacts writer names its oldest opening balance by one report's fy or, failing that, by calendar year (for a January year, the next year's label), with no fiscal-year window behind it, so an instant-only label is never copied |
+| `not_calendar_default` | The row's label is not the calendar year of its end, so a labeller set it (P5, or a NULL); a stored source never overwrites it |
+| `label_collision` | The new label is one that another period end of the same filing and concept, or another current row of the concept, would carry; left alone so the chart and the annual datasets never get two period ends for one year |
 
-`held` lists the period ends behind each non-agreeing skip, for spot checks.
+`held` lists the period ends behind each non-agreeing skip, for spot checks. `partial_filings`
+lists, on every run, the accessions of filings that keep calendar-default rows beside fiscal years
+the run relabels or finds already agreeing (for example the newest year held as
+`no_companyfacts_fy`): their annual chart may skip a year until the held rows are repaired. The
+summary line totals every count, and `partial_filings` as a number.
 
 **Where the writer that ran first owns the identity.** When the per-filing writer stored a period
 before the company's first companyfacts sync under the same accession, the sync skipped that
-identity and no companyfacts row exists there; those rows count as `no_companyfacts_fy`. A high
-share of that count is a signal for a follow-up repair source, not a reason to widen the trust rule.
+identity and no companyfacts row exists there; those rows count as `no_companyfacts_fy`, and their
+neighbours often as `label_collision`. A high share of these counts, or of
+`legacy_companyfacts_only`, is a signal for a follow-up repair source, not a reason to widen the
+trust rule.
 
 ## Run it
 
@@ -50,15 +64,18 @@ gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args=scripts/relabel_filing_fy_facts.py --wait
 ```
 
-Each company scanned prints one JSON line, then one summary line (`"summary": true`) with the
-totals. Cloud Logging stores them as `jsonPayload`:
+Each company prints one JSON line, then one summary line (`"summary": true`) with the totals. A
+company that fails prints `{"company_id", "ticker", "error"}` instead, and a refused run (an
+unknown ticker) prints `{"failed": 1, "error"}`. Cloud Logging stores every line as
+`jsonPayload`; read one execution's lines, errors included, by the execution name `--wait` prints:
 
 ```bash
-gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="earningsnerd-backfill-facts" AND jsonPayload.relabel_rows:*' \
-  --freshness=3h --format=json
+gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="<execution name>" AND jsonPayload:*' \
+  --order=asc --format='value(jsonPayload)'
 ```
 
-`--tickers TGT,JNJ` limits the run to a cohort and `--limit N` to the first N companies by id.
+`--tickers TGT,JNJ` limits the run to a cohort (each named company gets a line, even with nothing
+to scan) and `--limit N` to the first N companies by id.
 
 ## Apply (founder sign-off required)
 
@@ -70,14 +87,22 @@ gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args=scripts/relabel_filing_fy_facts.py,--apply --wait
 ```
 
-Each company is its own transaction, taken under the same company lock the fact writers use. A
-failed company rolls back alone, prints an `error` line and makes the exit code non-zero. Every
-changed row is journaled in `financial_fact_revision` (action `apply`, version `fy-relabel-v1`)
-under the printed `run_id`. To revert one company, preview and then apply the audited rollback:
+The apply re-plans each company from the live rows, so the apply execution's own lines, not the
+dry run's, are the record of what changed; compare them with the dry run before closing the
+change. Each company is its own transaction, taken under the same company lock the fact writers
+use. A failed company rolls back alone, prints an `error` line and makes the exit code non-zero.
+A non-zero exit makes Cloud Run retry the task (no create command sets `--max-retries`, so the
+default of three retries applies, `docs/OPERATIONS.md`): each attempt prints a new `run_id`, and
+companies an earlier attempt committed then read as `already_agrees`. Every changed row is
+journaled in `financial_fact_revision` (action `apply`, version `fy-relabel-v1`) under the `run_id`
+on the company line that shows `revisions` above zero. To revert one company, preview and then
+apply the audited rollback with that `run_id`:
 
 ```bash
-python scripts/repair_quarterly_facts.py --tickers TGT --rollback-run RUN_ID
-python scripts/repair_quarterly_facts.py --tickers TGT --rollback-run RUN_ID --apply
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args=scripts/repair_quarterly_facts.py,--tickers,TGT,--rollback-run,RUN_ID --wait
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args=scripts/repair_quarterly_facts.py,--tickers,TGT,--rollback-run,RUN_ID,--apply --wait
 ```
 
 ## Re-running
@@ -91,6 +116,9 @@ annual labels and still write calendar years.
 
 Readers that select annual facts by `fiscal_year` move with the repair: the filing page's annual
 chart (`get_filing_fundamentals`), Multi-Period Analysis coverage and datasets, the peer panel's
-year, Copilot `get_financial_fact` lookups and the data-quality coverage spans. A changed
-Multi-Period dataset gets a new fingerprint, so its narrative is regenerated when next requested.
-Readers that select by `period_end`, such as quarterly balance reads, are unchanged.
+year, Copilot `get_financial_fact` lookups and the data-quality coverage spans. A relabelled
+row's value does not change, but the fiscal-year column it appears under does, now naming the
+year that ends on its date; a filing listed in `partial_filings` keeps its held rows under their
+calendar years, so its chart may skip a year. A changed Multi-Period dataset gets a new
+fingerprint, so its narrative is regenerated when next requested. Readers that select by
+`period_end`, such as quarterly balance reads, are unchanged.
