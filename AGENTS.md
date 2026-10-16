@@ -21,10 +21,13 @@ machine gate" section.
 - Prompt, model, eval or AI flag changes: `backend/evals/RUNBOOK.md`, sections "Regression gate
   (B1)" and "Judging a pull request's eval artifact" (mandatory), "Gotchas" before any paid run.
 - UI work: rule 11 (read [DESIGN.md](DESIGN.md) and `frontend/DESIGN_SYSTEM.md`):
-  `DESIGN_SYSTEM.md` §1–§6 and §12 and `DESIGN.md` from "Overview" on (mandatory), both in full
-  for a token, theme or typography change, and `DESIGN_SYSTEM.md` §7–§11 for a marketing, theme,
-  exemption, chart or motion change. Include both in UI subagent briefs; follow the
-  `design-docs-maintenance` skill (`.claude/skills/meta/design-docs-maintenance/SKILL.md`).
+  `DESIGN_SYSTEM.md` §1–§6 and §12 and `DESIGN.md` from "Overview" on (mandatory; §4 by recipe for
+  route-specific content or layout built from existing components and tokens), both in full for a
+  token, theme or typography change or a rule that spans components (a brand sweep), and
+  `DESIGN_SYSTEM.md` §7–§11 for a marketing, theme, exemption, chart or motion change. Include both
+  in UI subagent briefs; follow the `design-docs-maintenance` skill
+  (`.claude/skills/meta/design-docs-maintenance/SKILL.md`), whose "Which sections to read" names
+  the §4 recipes each change reads.
 - Deployment work: `docs/DEPLOYMENT.md`.
 
 Routine isolated edits need none of the handovers, the ledger or the repository map.
@@ -89,8 +92,8 @@ file instead.
   `frontend/tests/unit/nodeVersionLockstep.spec.ts`; for `copilot-eval.yml` also
   `test_copilot_gate.py`, `test_copilot_live_regressions.py` and `test_retired_model_ids.py`, which
   pin its event set, step names and flags, run its steps and check its model ids, and
-  `test_copilot_eval_paths.py` once #1123 merges: it refuses any key, env, action input or run
-  command it does not know, so a new step fails it locally before it fails `backend-tests`).
+  `test_copilot_eval_paths.py`, which refuses any key, env, action input or run command it does
+  not know, so a new step fails it locally before it fails `backend-tests`).
 - Do not add a second test for a rule that is already gated. Do not write tests for reversible,
   low-impact changes that merely mirror the implementation.
 
@@ -103,7 +106,7 @@ unclear or unset is reviewed as **high**.
 |---|---|---|---|
 | **records** | only `tasks/`, `lessons/`, `docs/`, `.claude/agents/`, `.claude/skills/`, `.impeccable/`, root Markdown other than `CLAUDE.md` and `AGENTS.md` (`.claude/council-transcripts/` holds six files from before §7's rule; a new file there is forbidden, and `test_agent_workflow_rules.py` fails on it) | 1 combined lens on Sonnet, no refuters, findings reported unverified (the one independent read-only reviewer context of `tasks/code-red-20261004/runtime/control/DECISIONS-09.md`); author also runs the §4 link check | one read-only pass (links, anchors, hashes, policy greps) |
 | **routine** | everything not listed in the other two tiers: application code and tests outside the high-risk paths, dependency bumps, `CLAUDE.md`, `AGENTS.md`, `README.md` | 1 combined lens on Opus (correctness + rules + gates in one pass); 1 refuter on Sonnet per *blocker* only; should-fix and nits reported unverified | one pass over `git diff main...HEAD` covering the three lenses below; refute each blocker once |
-| **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/summary_stages/**`, `backend/app/services/summary_generation_service.py`, `backend/app/services/openai_service.py`, `backend/app/services/ai/**`, `backend/app/services/copilot_*.py`, `backend/app/routers/summaries.py`, `backend/prompts/**`, `backend/evals/**`, `backend/app/services/entitlements.py`, `backend/app/dependencies.py`, `backend/app/routers/{auth,subscriptions,webhooks,users,internal,admin}.py`, `backend/app/services/{subscription_*,stripe_*,billing_*,oauth_*}.py`, `backend/app/services/{password_utils,pwned_passwords,refresh_token_service,login_lockout,auth_account_service,user_account_service,user_data_export_service,invite_service}.py`, `backend/app/services/admin_*_service.py` (where Lane B moved the high-tier routers' logic), `backend/migrations/**`, `backend/app/database.py`, `backend/app/models/**`, `backend/main.py`, `backend/app/config.py`, `backend/app/services/edgar/**`, `backend/app/services/sec_rate_limiter.py`, `backend/app/services/facts_service.py`, `backend/app/services/facts/**`, `backend/app/integrations/sec_api.py`, `backend/app/utils/sec_urls.py`, the locked contract tests (rule 6), `.github/workflows/**`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile`, `frontend/vercel.json`, `frontend/next.config.js`, `.claude/settings*.json`, `.claude/hooks/**`, `.claude/workflows/**` | full review, the same lens and refuter count as before: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker or should-fix; agents that return nothing make the result `incomplete`, never clearance | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
+| **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/summary_stages/**`, `backend/app/services/summary_generation_service.py`, `backend/app/services/openai_service.py`, `backend/app/services/ai/**`, `backend/app/services/copilot_*.py`, `backend/app/routers/summaries.py`, `backend/prompts/**`, `backend/evals/**`, `backend/app/services/entitlements.py`, `backend/app/dependencies.py`, `backend/app/routers/{auth,subscriptions,webhooks,users,internal,admin}.py`, `backend/app/services/{subscription_*,stripe_*,billing_*,oauth_*}.py`, `backend/app/services/{password_utils,pwned_passwords,refresh_token_service,login_lockout,auth_account_service,user_account_service,user_data_export_service,invite_service}.py`, `backend/app/services/admin_*_service.py` (where Lane B moved the high-tier routers' logic), `backend/migrations/**`, `backend/app/database.py`, `backend/app/models/**`, `backend/main.py`, `backend/app/config.py`, `backend/app/services/edgar/**`, `backend/app/services/sec_rate_limiter.py`, `backend/app/services/facts_service.py`, `backend/app/services/facts/**`, `backend/app/integrations/sec_api.py`, `backend/app/utils/sec_urls.py`, the locked contract tests (rule 6), `.github/workflows/**`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile`, `frontend/vercel.json`, `frontend/next.config.js`, `.claude/settings*.json`, `.claude/hooks/**`, `.claude/workflows/**` | full review: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker; once should-fix reports come from two or more lenses, a Sonnet dedupe groups the reports of one defect (two from one lens included), and each group shares its 2 Opus refuters, who vote on each report (without a valid grouping each report gets its own 2); agents that return nothing make the result `incomplete`, never clearance | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
 
 Lenses, for the by-hand version: *correctness* reads the merge-base diff file by file and applies
 the §4 and §8 gates for the changed area; *rules-and-brief* checks each `CLAUDE.md` rule and the
@@ -133,6 +136,7 @@ default; the review workflow's agents run on the models below whatever the sessi
 | Records lens | Sonnet | `medium` |
 | Review lenses (routine / high) | Opus | `high` / inherit |
 | Refuters (routine / high) | Sonnet / Opus | `medium` / inherit |
+| Dedupe of should-fix reports (high) | Sonnet | `medium` |
 | `llm-council` advisors and the single peer reviewer | Opus; the chairman is the main session | inherit |
 | `judge-readout` | unchanged (its own procedure) | — |
 
@@ -162,7 +166,7 @@ PR touching deployable backend files only after the previous
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Read the head SHA from the PR before merging; never type one from memory.
 Marking a PR ready for review triggers the paid `copilot-eval` run when it touches that
-workflow's `paths:` filter (`backend/**` before #1123, the eval's own inputs after it): reserve the spend first
+workflow's `paths:` filter (the eval's own inputs): reserve the spend first
 (`tasks/code-red-20261004/runtime/control/DECISIONS-09.md`, reservation rule).
 
 ## 7. PR body, handover and open-items formats
@@ -174,8 +178,10 @@ idea. State the action directly; no filler phrases. Messages and PR bodies are r
 Handover: one page, written as the top block of `tasks/todo.md`, never a new file. It holds, in
 this order: the date and author; where things stand (at most five lines: production revision,
 balance, open PRs, holds by pointer); the open items, one line each with owner and next step; and
-what to doubt first. Anything longer belongs in the PR that produced it. Closed items leave
-`tasks/todo.md` in the PR that closes them; the file never grows into a ledger again.
+what to doubt first. No line holds more than 500 characters of visible text (link targets not
+counted; `test_agent_workflow_rules.py` checks it): anything longer belongs in the PR that produced
+it. Closed items leave `tasks/todo.md` in the PR that closes them; the file never grows into a
+ledger again.
 
 Founder deliberations (pricing, fundraising, strategy, council transcripts) never enter this
 repository. The repository API reported public visibility on 2026-10-11; do not assume that

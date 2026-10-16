@@ -3,7 +3,10 @@
 Five prose rules from AGENTS.md §5 and §7 would otherwise rot:
 
 - ``tasks/todo.md`` is one page of open items, never a dated ledger again (§7). The old file grew
-  to 6,406 lines because every session prepended a ``## <date> — …`` section.
+  to 6,406 lines because every session prepended a ``## <date> — …`` section. Each item stays one
+  line in substance too: the line cap alone let rows grow into paragraphs (the file went from
+  11.7 KB to 34 KB in five days with its line count flat), so every line has a visible-text cap
+  and no item continues onto a second line.
 - Every ``agent(`` call in ``.claude/workflows/*.js`` names its ``model`` in its options object
   with one of the aliases ``sonnet``, ``opus`` or ``haiku`` or a tier key the script defines (§5),
   and every tier of the review script names a lens model and, when it refutes, a refuter model, so
@@ -38,6 +41,13 @@ LESSONS = ROOT / "lessons"
 TRANSCRIPTS = ".claude/council-transcripts/"
 
 TODO_MAX_LINES = 120
+# Visible characters per line, link targets not counted: room for owner, disposition, next step
+# and a pointer; the evidence goes in the PR that produced the row (AGENTS.md §7).
+TODO_MAX_LINE_CHARS = 500
+# A link destination holds no whitespace (CommonMark), so prose in parentheses stays counted.
+LINK_TARGET = re.compile(r"\]\([^)\s]*\)")
+# Below the intro, a line is a heading, an item or a one-word section label ("Founder:").
+TODO_ITEM_LINE = re.compile(r"^(?:#{2,6} |- |[A-Z][A-Za-z]*:$)")
 TODO_TITLE = "# Open items — EarningsNerd"
 # The only sections the open-items file may carry, each exactly once (AGENTS.md §7). The first
 # one carries the date of the last refresh; a second copy is a ledger entry, not a refresh.
@@ -130,6 +140,36 @@ def test_todo_is_one_page_of_open_items():
     assert not stray, f"tasks/todo.md carries sections outside the open-items format: {stray}"
     dated = [h for h in headings if DATE.search(h) and not h.startswith("## " + TODO_SECTIONS[0])]
     assert not dated, f"tasks/todo.md has ledger-style dated headings: {dated}"
+
+
+def test_todo_lines_stay_one_line():
+    assert len(LINK_TARGET.sub("]", "- [x](https://example.com/" + "a" * 500 + ")")) == 5
+    assert len(LINK_TARGET.sub("]", "- [x](" + "a b " * 200 + ")")) > TODO_MAX_LINE_CHARS
+    assert all(TODO_ITEM_LINE.match(line) for line in ("## Open items", "- [ ] E1 — x", "Founder:"))
+    assert not any(TODO_ITEM_LINE.match(line) for line in (
+        "  continued onto an indented second line", "continued onto a second line", "Then the rest of the item",
+        "Founder: wrapped text"))
+    lines = TODO.read_text(encoding="utf-8").splitlines()
+    long = [
+        f"line {number} ({length} characters): {line[:60]}…"
+        for number, line in enumerate(lines, 1)
+        if (length := len(LINK_TARGET.sub("]", line))) > TODO_MAX_LINE_CHARS
+    ]
+    assert not long, (
+        f"tasks/todo.md lines over {TODO_MAX_LINE_CHARS} visible characters: {long}. Keep the row to "
+        "its owner, disposition, next step and a pointer; the evidence belongs in the PR that "
+        "produced it (AGENTS.md §7)"
+    )
+    first_section = next(i for i, line in enumerate(lines) if line.startswith("## "))
+    wrapped = [
+        f"line {number}: {line[:60]}…"
+        for number, line in enumerate(lines[first_section:], first_section + 1)
+        if line.strip() and not TODO_ITEM_LINE.match(line)
+    ]
+    assert not wrapped, (
+        f"tasks/todo.md continues an item onto another line: {wrapped}. Each item is one line, "
+        "a heading or a one-word label such as 'Founder:' (AGENTS.md §7)"
+    )
 
 
 def _strip_comments(source: str) -> str:
