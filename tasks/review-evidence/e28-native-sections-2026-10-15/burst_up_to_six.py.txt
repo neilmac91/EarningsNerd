@@ -9,7 +9,8 @@ V3_SHARED=1 sends the parse through the shared four-thread SEC pool instead, emu
 scheduling. The slower-CPU series pinned a duty-cycled busy loop to the same CPU beside the run (busy
 30 or 60 ms of every 100 ms). The driver added a "label" to each run; burst_up_to_six.jsonl keeps
 each run's rows, parses and excerpt builds. The first 32 runs used an earlier revision of this file
-that did not record excerpt builds or join starts (null there).
+that did not record excerpt builds or join starts (null there). The last six ("critic_" labels) are
+the final review's completeness critic's, at 3 and 4 at once under both schedulings.
 """
 import asyncio
 import json

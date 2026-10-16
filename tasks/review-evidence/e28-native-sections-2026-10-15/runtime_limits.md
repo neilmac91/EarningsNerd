@@ -95,7 +95,11 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
   20 s, main's run delivered it and this branch's did not.
 - **Size cap.** Documents over 16,000,000 characters are not parsed. The largest golden document with
   sections is JPMorgan's 12.9M (6.2 s above). ASML's 24.9M-character 20-F yields no sections and is
-  skipped.
+  skipped. Main had no cap, so a larger 10-K, 10-Q or 20-F that `obj()` parsed now gets the regex
+  excerpt, stored for good. How many production filings that is has not been measured. The
+  `Section parse skipped` line names no accession, but each such filing's
+  `[stream:<id>] SEC fetch completed. Text length: N` line reads N over 16,000,000; E28 (a) in
+  `tasks/todo.md` counts them.
 - **Other callers.** The eval runner and the Copilot bootstrap call the same seam, so they share the
   single worker. CI's evaluation runs two filings at a time (`EVAL_CONCURRENCY=2`), so a parse there
   waits behind at most one other, well inside the seam's 30 s (40 s for a 20-F) bound.
@@ -130,6 +134,13 @@ as before E28 costs latency under a burst instead, and with the XBRL load some n
 become regex excerpts, stored for good. In an earlier series, one single-document run
 stalled for 31 s with nothing else on the machine using the CPU, and its excerpt was dropped
 (superseded design, `burst_end_to_end.jsonl`); it did not reproduce in five more runs.
+
+Against origin/main's scheduling (the parse on the shared SEC pool), the final review's critic ran the
+six-at-once harness below at 3 and 4 at once, with the XBRL load and `DURABLE_TASKS_ENABLED` on. At 3
+at once both were all native (slowest 29.6 s against main's 30.1 s). At 4 at once both gave 3 of 4
+native in each of two runs, and the PR's slowest generation took 35.6 and 36.4 s against main's 44.5
+and 45.2 s. So the regex excerpt at four at once is not new with this PR. The emulation leaves out
+main's own `obj()` downloads, which favours main.
 
 ## Six at once
 
@@ -172,6 +183,11 @@ a slower CPU predates this PR, and the single worker does no worse. It is open i
 
 - Production memory and RSS.
 - Memory that the allocator keeps after a large parse.
-- Behaviour on documents larger than the golden set's.
+- Behaviour on documents larger than the golden set's, and how many production filings exceed the
+  size cap.
+- A real 10-K that reads its items through the Cross Reference Index (GE, Citigroup). No golden
+  document, Copilot source or parity fixture takes that route; fakes in the X0.2 tests cover its
+  lookup order and its parser-failure fallback, and the code follows edgartools 5.58.0's
+  `TenK.__getitem__`.
 
 Raising a job's memory is a founder capacity decision.

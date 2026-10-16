@@ -256,10 +256,15 @@ option 1, and PR #1347 moves the source off `obj()`. What it lands:
   `copilot-eval` run of the backported `obj()` path byte for byte ([`copilot_sources_parity.txt`](copilot_sources_parity.txt), from
   [`compare_copilot_sources.py.txt`](compare_copilot_sources.py.txt)).
   `backend/tests/unit/test_summary_sections_parity.py` pins three golden filings in CI (FIGS's 10-Q,
-  MercadoLibre's 10-K and Sea's 20-F) from fixtures already in the repository.
+  MercadoLibre's 10-K and Sea's 20-F) from fixtures already in the repository. All of these read
+  their items from headings: none takes the 10-K Cross Reference Index route (GE, Citigroup), which
+  only the X0.2 tests' fakes exercise. Its parity with `obj()` rests on reading the code against
+  edgartools 5.58.0's `TenK.__getitem__`.
 - **Size cap.** Documents over 16,000,000 characters are not parsed, an input change against the
   `obj()` path, which parsed any size within 30 s (40 s for a 20-F). The only golden document over
-  the cap, ASML's, has no sections either way; production's others log `Section parse skipped`.
+  the cap, ASML's, has no sections either way; production's others log `Section parse skipped`. How
+  many production filings exceed the cap is not measured; E28 (a) counts them from the fetch's
+  `Text length` line.
 - **The gate.** `backend/evals/regression_gate.py` checks the native-section share: HARD below
   0.90, WARN below 0.95, absolute, from `results`. No re-pin.
 - **Retired.** The tripwire and the `obj()` allow-list entry are deleted, and so is #1350's
