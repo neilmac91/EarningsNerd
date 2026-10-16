@@ -210,7 +210,9 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
 }}
 .meta .data {{ font-family: 'Geist Mono', monospace; }}
 
-table {{ border-collapse: collapse; width: 100%; border: 0; }}
+/* With no outer frame, a table's last hairline would sit on the next block ("Profitability" under
+   Financial Highlights): it keeps a list's spacing below it. */
+table {{ border-collapse: collapse; width: 100%; border: 0; margin: 0 0 10px; }}
 thead {{ display: table-header-group; }}
 tr {{ break-inside: avoid; }}
 th {{

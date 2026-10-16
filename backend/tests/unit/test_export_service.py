@@ -781,6 +781,33 @@ class TestBrandedShell:
         assert "size: A4 landscape" in html
         assert "break-before: page" in html
 
+    def test_a_table_leaves_room_before_the_block_after_it(self, service):
+        """Reader tables have no outer frame, so with no space below it a table's last hairline sat on
+        the block after it ("Profitability" under Financial Highlights, the analysis grid's footnote).
+        A real WeasyPrint layout: below every table in both PDFs, at least a paragraph's spacing (the
+        9px under a p) separates its border box from the next block's."""
+        weasyprint = pytest.importorskip("weasyprint")
+        from weasyprint.formatting_structure import boxes
+
+        gaps = {}
+        for name, html in (("summary", self._summary_html(service)), ("analysis", self._analysis_html())):
+            try:
+                document = weasyprint.HTML(string=html).render()
+            except Exception as exc:  # missing system libs in odd envs: not what this test reads
+                pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+            for page in document.pages:
+                for parent in page._page_box.descendants():
+                    blocks = [child for child in getattr(parent, "children", []) if isinstance(child, boxes.BlockLevelBox)]
+                    for table, after in zip(blocks, blocks[1:]):
+                        if table.is_table_wrapper:
+                            bottom = table.position_y + table.margin_top + table.border_height()
+                            text = "".join(after.element.itertext()) if after.element is not None else ""
+                            gaps[f"{name}: table, then {text[:24]!r}"] = (
+                                after.position_y + after.margin_top - bottom
+                            )
+        assert {where: gap for where, gap in gaps.items() if gap < 9} == {}
+        assert sum(where.startswith("summary") for where in gaps) >= 2 and any(where.startswith("analysis") for where in gaps), gaps
+
     @pytest.mark.asyncio
     async def test_rendered_pdf_has_portrait_first_page_and_landscape_metrics(self, service):
         """End-to-end WeasyPrint render: the metrics section must actually land on a landscape
