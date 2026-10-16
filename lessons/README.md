@@ -15,6 +15,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 ## Operations & workflow (every task)
 
 - ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on the decision; only without one does it accept your recommendation
+- ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md — Scan your commits with the pinned gitleaks before pushing a secret-shaped literal (mark it `# gitleaks:allow`); once pushed, it fails every pull request's `secret-scan` until it leaves the branch history (partly gated: CI's `secret-scan`, after the push)
 - ops-a-flag-several-processes-read-is-set-in-every-env-map.md — List every process that reads a flag and flip it in every deploy map it is configured from, with its job cadence, in one change (partly gated by `backend/tests/unit/test_section_changes_flag_placement.py` for `ENABLE_SECTION_CHANGES`; the next multi-process flag's gate is review-checked)
 - ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
