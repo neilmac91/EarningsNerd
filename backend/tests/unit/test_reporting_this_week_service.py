@@ -2,6 +2,7 @@
 anticipation_score (the curated intersect is retired — the score carries the mega-cap floor).
 Never raises."""
 import asyncio
+import threading
 from datetime import date, timedelta
 
 import httpx
@@ -15,6 +16,7 @@ from app import database
 from app.models import EarningsEvent
 from app.routers import reporting_this_week as reporting_this_week_router
 from app.services.reporting_this_week_service import (
+    ReportingCompany,
     ReportingThisWeekService,
     current_market_week,
 )
@@ -286,6 +288,58 @@ async def test_successful_empty_week_is_cached():
     db.close()
     assert first["status"] == second["status"] == "empty"
     assert calls["n"] == 1
+
+
+_WEEK_TICKERS = ["AAPL", "JPM", "MSFT", "GOOGL"]
+
+
+async def _cold_burst(n, reads_return):
+    """`n` concurrent requests on a cold cache. The first read is held until every request has
+    checked the cache; each read returns the next item of `reads_return` (None = a failed read).
+    Returns the responses and the number of reads."""
+    monday, _ = current_market_week()
+    loop = asyncio.get_running_loop()
+    read_started = asyncio.Event()
+    release_reads = threading.Event()
+    reads: list[int] = []
+
+    def fetch(db, mon, fri, today):
+        result = reads_return[min(len(reads), len(reads_return) - 1)]
+        reads.append(1)
+        loop.call_soon_threadsafe(read_started.set)
+        release_reads.wait(timeout=2)
+        return result
+
+    svc = ReportingThisWeekService()
+    svc._fetch = fetch
+    requests = [asyncio.create_task(svc.get_reporting_this_week(None, today=monday)) for _ in range(n)]
+    # The tasks were all queued before the first read could start, so all have missed by now.
+    await asyncio.wait_for(read_started.wait(), timeout=2)
+    release_reads.set()
+    return await asyncio.wait_for(asyncio.gather(*requests), timeout=3), len(reads)
+
+
+def _week():
+    monday, _ = current_market_week()
+    return [ReportingCompany(t, f"{t} Inc", monday, "amc") for t in _WEEK_TICKERS]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_misses_share_one_read():
+    """A burst on a cold or expired cache (a fresh instance, ET midnight) waits for one read and is
+    served from it. A read per request would check out a pooled connection each."""
+    responses, reads = await _cold_burst(8, [_week()])
+    assert reads == 1
+    assert all([c["ticker"] for c in r["companies"]] == _WEEK_TICKERS for r in responses)
+
+
+@pytest.mark.asyncio
+async def test_failed_read_lets_the_next_waiter_retry():
+    """A failed read is still neither cached nor shared: it serves its own request, the next waiter
+    reads again, and the rest are served from that success."""
+    responses, reads = await _cold_burst(3, [None, _week()])
+    assert reads == 2
+    assert [r["status"] for r in responses] == ["empty", "ok", "ok"]
 
 
 @pytest.mark.asyncio

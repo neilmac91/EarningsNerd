@@ -70,7 +70,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-admit-authored-evidence-before-repair.md — Match the real evidence selector and admit authored evidence before fuzzy repair
 - arch-admit-copilot-answers-before-publication.md — Hold answer prose until citation admission and preserve truthful request completion
 - arch-bind-bare-table-figures-to-the-declared-scale.md — Bind a bare dollar figure copied from a scaled table to the table's declared scale
-- arch-cache-only-reads-that-succeeded.md — Cache only a read that succeeded: a read that degrades to empty on failure tells its caller so, serves that one request and leaves the cache for the next to retry (partly gated by `backend/tests/unit/test_reporting_this_week_service.py` for reporting-this-week; other caches are review-checked)
+- arch-cache-only-reads-that-succeeded.md — Cache only a read that succeeded: a read that degrades to empty on failure tells its caller so, serves that one request and leaves the cache for the next to retry; an off-loop read takes a single-flight lock (partly gated by `backend/tests/unit/test_reporting_this_week_service.py` for reporting-this-week; other caches are review-checked)
 - arch-capital-comparisons-need-source-ownership.md — Own qualified comparisons and source-attributed capital passages in code
 - arch-code-owned-render-eligibility.md — Keep application-owned render eligibility separate from model payloads and generation stamps
 - arch-committed-universe-fail-open.md — Bound discovery surfaces to a committed universe with a fail-open filter

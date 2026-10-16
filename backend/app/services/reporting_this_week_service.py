@@ -6,9 +6,11 @@ FMP ∩ hardcoded-allowlist intersect. Caching is in-memory only (L1) — Redis 
 (SKIP_REDIS_INIT=true) — since this is a cheap, idempotent DB read. Never raises; degrades to an
 empty result on any failure, so the homepage section can simply omit itself. A failed read is not
 cached, so the next request retries it instead of serving the blank strip for the whole TTL.
+Concurrent cache misses wait on one read rather than each checking out a pooled connection.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -102,6 +104,30 @@ class ReportingThisWeekService:
         self._cache_companies: Optional[List[ReportingCompany]] = None
         self._cache_timestamp: Optional[datetime] = None
         self._cache_week: Optional[tuple[date, date, date]] = None
+        self._fill_lock: Optional[asyncio.Lock] = None
+        self._fill_lock_loop: Optional[asyncio.AbstractEventLoop] = None
+
+    def _get_fill_lock(self) -> asyncio.Lock:
+        """The cache-miss lock, built lazily and keyed to the running loop: an asyncio primitive
+        binds to a loop on its first contended await, and pytest runs a loop per test."""
+        loop = asyncio.get_running_loop()
+        if self._fill_lock is None or self._fill_lock_loop is not loop:
+            self._fill_lock = asyncio.Lock()
+            self._fill_lock_loop = loop
+        return self._fill_lock
+
+    def _cached(
+        self, key: tuple[date, date, date], now: datetime
+    ) -> Optional[tuple[List[ReportingCompany], datetime]]:
+        """The cached week and its timestamp, if they are for `key` and inside the TTL."""
+        if (
+            self._cache_companies is not None
+            and self._cache_timestamp is not None
+            and self._cache_week == key
+            and now - self._cache_timestamp < self._cache_ttl
+        ):
+            return self._cache_companies, self._cache_timestamp
+        return None
 
     async def get_reporting_this_week(
         self, db: Session, *, limit: int = 16, force_refresh: bool = False,
@@ -118,28 +144,27 @@ class ReportingThisWeekService:
 
         # today_ny is part of the cache key so the past-day filter rolls at ET midnight rather
         # than whenever the 6h TTL happens to lapse.
-        if (
-            not force_refresh
-            and self._cache_companies is not None
-            and self._cache_timestamp is not None
-            and self._cache_week == (monday, friday, today_ny)
-            and now - self._cache_timestamp < self._cache_ttl
-        ):
-            companies = self._cache_companies
-            timestamp = self._cache_timestamp
-        else:
-            # Off the event loop: this public route has no auth dependency that checks the session
-            # out first, and a checkout waiting on a full pool must not stop the request holding
-            # the last connection from finishing and releasing it.
-            fetched = await run_in_threadpool(self._fetch, db, monday, friday, today_ny)
-            timestamp = now
-            if fetched is None:  # a failed read serves this request only; the next one retries
-                companies = []
-            else:
-                companies = fetched
-                self._cache_companies = companies
-                self._cache_timestamp = now
-                self._cache_week = (monday, friday, today_ny)
+        key = (monday, friday, today_ny)
+        hit = None if force_refresh else self._cached(key, now)
+        if hit is None:
+            # Single flight: concurrent misses (a fresh instance, ET midnight, a lapsed TTL) queue
+            # here and recheck, so one read fills the cache instead of one pooled connection each.
+            async with self._get_fill_lock():
+                now = datetime.now(timezone.utc)
+                hit = None if force_refresh else self._cached(key, now)
+                if hit is None:
+                    # Off the event loop: this public route has no auth dependency that checks the
+                    # session out first, and a checkout waiting on a full pool must not stop the
+                    # request holding the last connection from finishing and releasing it.
+                    fetched = await run_in_threadpool(self._fetch, db, monday, friday, today_ny)
+                    if fetched is None:  # a failed read serves this request only; the next retries
+                        hit = ([], now)
+                    else:
+                        self._cache_companies = fetched
+                        self._cache_timestamp = now
+                        self._cache_week = key
+                        hit = (fetched, now)
+        companies, timestamp = hit
 
         status = "ok" if len(companies) >= MIN_COMPANIES else "empty"
         sliced = companies[:limit] if status == "ok" else []
