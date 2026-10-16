@@ -40,7 +40,7 @@ export default function PaneResizer({ width, min, max, onResize, className = '' 
   // `stop` removes its own 'pointerup' listener, so it needs a stable reference to itself. Hold it in
   // a ref so the self-removal reads the same identity that was registered, without referencing the
   // binding before it's declared. `onPointerMove` is stable (empty deps), so `stop` is stable too and
-  // the listener identities match across the drag — behavior is unchanged.
+  // the listener identities match across the drag: behavior is unchanged.
   const stopRef = useRef<() => void>(() => {})
   const stop = useCallback(() => {
     if (!dragging.current) return
@@ -93,7 +93,7 @@ export default function PaneResizer({ width, min, max, onResize, className = '' 
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize Copilot panel"
+      aria-label="Resize source pane"
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={Math.round(width)}

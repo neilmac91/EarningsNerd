@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { CheckCircleIcon, LockSimpleIcon, SparkleIcon } from '@/lib/icons'
+import { CheckCircleIcon, LightningIcon, LockSimpleIcon } from '@/lib/icons'
 import { analytics } from '@/lib/analytics'
 import { Button } from '@/components/ui'
 
@@ -16,15 +16,18 @@ interface CopilotTeaserProps {
   onUpgrade: () => void
 }
 
+// Each claim says only what the answer card shows: cited passages a reader can open, and an XBRL citation's row
+// that names its tag. Not every answer or figure is cited (brandCopyRules rule 1), so the XBRL line speaks of
+// citations, never of figures (CopilotTeaser.spec.tsx).
 const VALUE_PROPS = [
   'Ask anything about this filing in plain English',
-  'Every answer cited to the exact filing text, verifiable in one click',
-  'Exact figures pulled from XBRL, never guessed',
+  'Cited passages you can check against the filing',
+  'XBRL citations name the tag they came from',
 ]
 
 /**
  * FREE locked teaser for the Copilot rail: a blurred sample Q&A (to show the value), the value
- * props, and the upsell CTA. Fires `paywall_prompt_shown` once when shown — the client-confirmed
+ * props, and the upsell CTA. Fires `paywall_prompt_shown` once when shown: the client-confirmed
  * paywall moment (mirrors the summary paywall instrumentation), distinct from the server `paywall_hit`.
  */
 export default function CopilotTeaser({
@@ -48,19 +51,23 @@ export default function CopilotTeaser({
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4">
-      {/* Blurred sample answer — conveys the value without giving it away. Decorative (aria-hidden). */}
+      {/* Blurred sample answer: conveys the value without giving it away. Decorative (aria-hidden). Its
+          figures are Apple's verified FY2025 10-K set (docs/brand/00-audit.md §4), and its markers are
+          sequential [n], as the server renumbers every live answer's markers. It cites passages, never an
+          XBRL chip: Services is a dimensioned fact the tool cannot fetch (landingSamplesVerified.spec.ts). */}
       <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-3">
         <div aria-hidden="true" className="pointer-events-none select-none space-y-2 blur-[3px]">
+          <p className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">AAPL · 10-K · FY2025</p>
           <div className="flex justify-end">
             <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-panel-light dark:bg-white/5 px-3 py-1.5 text-xs text-text-primary-light dark:text-text-primary-dark">
-              How did revenue and margins trend?
+              How much did Services revenue grow, and what drove it?
             </div>
           </div>
           <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/[0.07] px-3 py-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            Revenue rose 8% to $94.0B [1], with gross margin expanding to 46.2% [F1] on a richer
-            product mix [2].
+            Services net sales were $109.2B, up 13.5% from $96.2B [1]. Management attributes the
+            increase to advertising, the App Store and cloud services [2].
             <div className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              <CheckCircleIcon className="h-3 w-3 text-brand-strong/70 dark:text-brand-strong-dark/70" /> Grounded in 3 excerpts
+              <CheckCircleIcon className="h-3 w-3 text-brand-strong/70 dark:text-brand-strong-dark/70" /> 2 matched sources
             </div>
           </div>
         </div>
@@ -82,14 +89,15 @@ export default function CopilotTeaser({
         ))}
       </ul>
 
-      {/* Upsell CTA — opens the contextual upgrade modal and records the click. */}
-      <Button className="mt-4 w-full" onClick={onUpgrade} leftIcon={<SparkleIcon className="h-4 w-4" />}>
+      {/* Upsell CTA: opens the contextual upgrade modal and records the click. The sparkle is the AI
+          summary chip's alone; an upgrade takes the lightning. */}
+      <Button className="mt-4 w-full" onClick={onUpgrade} leftIcon={<LightningIcon className="h-4 w-4" />}>
         Upgrade to Pro
       </Button>
       {!isAuthenticated && (
         <p className="mt-3 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
           Already Pro?{' '}
-          <Link href="/login" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+          <Link href="/login" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Sign in
           </Link>
         </p>

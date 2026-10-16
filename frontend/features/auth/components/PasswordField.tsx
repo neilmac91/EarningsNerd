@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { EyeIcon, EyeSlashIcon } from '@/lib/icons'
 import { inputClasses } from '@/components/ui/Input'
+import { PASSWORD_MIN_LENGTH } from '@/lib/passwordRules'
 
 type PasswordFieldProps = {
   id: string
@@ -22,21 +23,27 @@ type PasswordFieldProps = {
 
 const STRENGTH_LABELS = ['Too short', 'Weak', 'Fair', 'Good', 'Strong']
 const STRENGTH_COLORS = [
-  'bg-error-light',
-  'bg-warning-light',
-  'bg-warning-light',
-  'bg-success-light',
-  'bg-success-light',
+  'bg-error-light dark:bg-error-dark',
+  'bg-warning-light dark:bg-warning-dark',
+  'bg-warning-light dark:bg-warning-dark',
+  'bg-success-light dark:bg-success-dark',
+  'bg-success-light dark:bg-success-dark',
 ]
 
-function scorePassword(pw: string): number {
-  if (!pw) return 0
-  let score = 0
-  if (pw.length >= 8) score++
-  if (pw.length >= 12) score++
+/** Length beyond the floor that earns the meter's second bar. */
+const LENGTH_STEP = 4
+
+/**
+ * A password under the floor is "Too short" whatever else it holds: the server rejects it. Clearing the
+ * floor is one bar ("Weak"); length past it by LENGTH_STEP, letters with digits, and a symbol add one each.
+ */
+function scorePassword(pw: string, floor: number): number {
+  if (!pw || pw.length < floor) return 0
+  let score = 1
+  if (pw.length >= floor + LENGTH_STEP) score++
   if (/\d/.test(pw) && /[a-zA-Z]/.test(pw)) score++
   if (/[^a-zA-Z0-9]/.test(pw)) score++
-  return Math.min(score, 4)
+  return score
 }
 
 export default function PasswordField({
@@ -53,7 +60,8 @@ export default function PasswordField({
   autoFocus,
 }: PasswordFieldProps) {
   const [show, setShow] = useState(false)
-  const score = showStrength ? scorePassword(value) : 0
+  // The meter scores against the server's floor unless the field is told otherwise.
+  const score = showStrength ? scorePassword(value, minLength ?? PASSWORD_MIN_LENGTH) : 0
 
   return (
     <div>
@@ -69,7 +77,7 @@ export default function PasswordField({
 
       <div className="relative">
         {/* Raw input + inputClasses(): the field itself takes the trailing inset so
-            typed text clears the eye toggle — the v2 <Input> shell owns className.
+            typed text clears the eye toggle: the v2 <Input> shell owns className.
             `trailingIcon`, not pr-10 on top: that would resolve by stylesheet order. */}
         <input
           type={show ? 'text' : 'password'}

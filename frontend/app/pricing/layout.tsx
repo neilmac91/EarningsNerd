@@ -4,11 +4,12 @@ import { PRO_PRICING } from './prices'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
-// The pricing page itself is a client component, so its metadata lives here.
+// The pricing page itself is a client component, so its metadata lives here. Pro's questions have a monthly cap, so
+// "unlimited" never heads a list that names filing Q&A: Q&A has a sentence of its own (planLimitsLockstep.spec.ts).
 export const metadata: Metadata = {
   title: 'Pricing | EarningsNerd',
   description:
-    'EarningsNerd plans: free AI summaries of SEC filings every month, or go Pro for unlimited 10-K and 10-Q analysis, exports, and filing Q&A.',
+    'EarningsNerd plans: free AI summaries of SEC filings every month, or go Pro for unlimited 10-K and 10-Q analysis and exports. Pro also includes filing Q&A.',
   alternates: { canonical: '/pricing' },
 }
 
@@ -24,9 +25,8 @@ const pricingJsonLd = () => ({
   description: `${shipped([
     { text: 'Unlimited AI summaries of SEC 10-K and 10-Q filings' },
     ANALYSIS_LINES.productJsonLd,
-    { text: 'filing Q&A' },
     { text: 'alerts' },
-  ]).join(', ')}, and exports.`,
+  ]).join(', ')}, and exports. Pro also includes filing Q&A.`,
   brand: { '@type': 'Brand', name: 'EarningsNerd' },
   url: `${SITE_URL}/pricing`,
   offers: [
