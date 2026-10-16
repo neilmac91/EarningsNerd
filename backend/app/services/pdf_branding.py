@@ -4,9 +4,9 @@ Both `export_service.generate_pdf_html` (filing summary) and `generate_analysis_
 (Multi-Period Analysis) delegate their document chrome here so the two exports can never drift
 apart (owner decision D4, export-overhaul plan). The shell owns:
 
-- ``@font-face`` for the vendored brand fonts (Inter variable + Geist Mono, OFL — files under
-  ``app/assets/fonts/`` with absolute ``file://`` URLs, never cwd-relative: agent/CI/Cloud Run
-  working directories differ).
+- ``@font-face`` for the vendored brand fonts (Inter variable, its roman and its italic, and Geist
+  Mono, all OFL: files under ``app/assets/fonts/`` with absolute ``file://`` URLs, never
+  cwd-relative, since agent/CI/Cloud Run working directories differ).
 - ``@page`` chrome: A4 portrait default with the running document title, the
   "EarningsNerd · earningsnerd.io" footer and "Page X of Y" counters, plus the
   ``metrics-landscape`` NAMED PAGE — a section carrying ``class="metrics-landscape"`` starts on
@@ -79,6 +79,9 @@ def mark_svg(height_px: int = 34, fill: str = PALETTE["brand_strong"]) -> str:
 
 def font_face_css() -> str:
     inter = (_ASSETS / "fonts" / "Inter-Variable-latin.woff2").as_uri()
+    # WeasyPrint never slants a face it lacks, so the wordmark's "Nerd" and a quote print italic only
+    # from Inter's own italic (the same 4.001 build, latin subset, as the roman).
+    inter_italic = (_ASSETS / "fonts" / "Inter-Variable-Italic-latin.woff2").as_uri()
     geist_mono = (_ASSETS / "fonts" / "GeistMono-latin.woff2").as_uri()
     return f"""
 @font-face {{
@@ -86,6 +89,12 @@ def font_face_css() -> str:
   src: url('{inter}') format('woff2');
   font-weight: 100 900;
   font-style: normal;
+}}
+@font-face {{
+  font-family: 'Inter Var';
+  src: url('{inter_italic}') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
 }}
 @font-face {{
   font-family: 'Geist Mono';

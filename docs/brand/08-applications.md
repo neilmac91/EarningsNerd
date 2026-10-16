@@ -329,7 +329,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   FinancialMetricsTable does, and any other table's by the page's numeric-column rule; quotes sit on
   a neutral hairline. A PDF link rests in its line's ink with an underline, as the page's prose
   links rest, because print has no pointer to turn it sage, so the wordmark's "Nerd" is the only
-  sage text in the exports. The workbook's header rows rest in the ink on the neutral ground and its
+  sage text in the exports. The PDFs carry Inter's italic beside its roman
+  (`backend/app/assets/fonts/Inter-Variable-Italic-latin.woff2`, the same 4.001 build and latin
+  subset), since WeasyPrint never slants a face it lacks: without it the wordmark's "Nerd" and every
+  quote printed upright. The workbook's header rows rest in the ink on the neutral ground and its
   labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
   "Sources & methods" is in sentence case wherever it is named; the data notes print a clause for
   each count that is not zero, singular at one, and the passed count only when no figure needs
@@ -338,8 +341,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   outlines, with no transform anywhere in either PDF's stylesheet, by
   `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour value to a token in its role
   (no colour function, colour keyword or indirection), the grounds to the page and the masthead's
-  tint, every text colour to 4.5:1 on each, sage to the wordmark's "Nerd" and every rule that can
-  style a PDF link to the ink with an underline by `test_export_palette_parity.py`, which reads a
+  tint, every text colour to 4.5:1 on each, sage to the wordmark's "Nerd", every rule that can
+  style a PDF link to the ink with an underline, and the italic to an italic face (the family
+  declares one, each face's file is the style it is declared as, and every font a rendered PDF
+  embeds for italic text is an italic program) by `test_export_palette_parity.py`, which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case) by
   `test_export_voice.py`; the eval's blinding of the generation date by a case in

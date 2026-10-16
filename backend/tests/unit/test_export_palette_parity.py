@@ -40,7 +40,12 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    `:where()` holding one, or a subject with no type, class, id or other attribute (`*`,
    `:first-child`, `:not(p)`), with a pseudo-element or without; and when it selects an `<a>` in
    either rendered PDF, whatever its form. In the workbook no text takes sage (the sheet tabs keep it).
-5. The wordmark (the PDF rendition of BG-27): "Earnings" in the ink, "Nerd" italic in brand-strong.
+5. The wordmark (the PDF rendition of BG-27): "Earnings" in the ink, "Nerd" italic in brand-strong,
+   from a real italic. WeasyPrint never slants a face it lacks, and with only Inter's roman declared
+   "Nerd" and every quote printed upright. So the wordmark's family declares an italic face, every
+   @font-face names a file that exists and whose italic bit (OS/2 fsSelection bit 0, read with
+   fontTools) matches the style it is declared as, and in each rendered PDF every font WeasyPrint
+   embeds for text the stylesheet sets italic (its descriptor's Italic flag) is an italic program.
 
 The planted forms in test_the_checks_read_what_they_claim score each reader on the forms its rule can
 take and on look-alikes that must pass. Out of reach (review): a colour written in an export module
@@ -55,13 +60,16 @@ import io
 import re
 import zipfile
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 import cssselect2
+import pytest
 import tinycss2
 import tinycss2.color4
 import tinyhtml5
 import yaml
 from cssselect2 import parser as selectors
+from fontTools.ttLib import TTFont
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Border, Color, Font, PatternFill, Side
 
@@ -385,6 +393,58 @@ def link_problems(html: str) -> list[str]:
     return found
 
 
+def font_faces(html: str) -> list[dict]:
+    """Each @font-face of a PDF's stylesheet: its family, its declared style and the file its src names."""
+    faces = []
+    for rule, block in css_rules(stylesheet(html)):
+        if rule == "@font-face":
+            declared = dict(block)
+            source = re.search(r"url\(\s*[\"']?([^\"')]+)", declared.get("src", ""))
+            faces.append({
+                "family": declared.get("font-family", "").strip("\"' "),
+                "style": declared.get("font-style", "normal").lower(),
+                "file": Path(unquote(urlparse(source.group(1)).path)) if source else None,
+            })
+    return faces
+
+
+def is_italic_program(font: str | Path | bytes) -> bool:
+    """A font program's own italic bit: OS/2 fsSelection bit 0."""
+    return bool(TTFont(io.BytesIO(font) if isinstance(font, bytes) else font)["OS/2"].fsSelection & 1)
+
+
+def font_face_problems(html: str, italic_family: str) -> list[str]:
+    """Each way a PDF's faces fail an italic: the family declares no italic face, a face's file is missing,
+    or a file's italic bit disagrees with the style it is declared as."""
+    faces = font_faces(html)
+    found = [] if any(f["family"] == italic_family and f["style"] == "italic" for f in faces) else [
+        f"'{italic_family}' declares no italic face"]
+    for face in faces:
+        name = f"'{face['family']}' {face['style']} ({face['file'].name if face['file'] else 'no src'})"
+        if face["file"] is None or not face["file"].is_file():
+            found.append(f"{name} names no file")
+        elif is_italic_program(face["file"]) != (face["style"] in ("italic", "oblique")):
+            found.append(f"{name} is declared {face['style']} but its file's italic bit says otherwise")
+    return found
+
+
+def embedded_fonts(pdf: bytes) -> list[tuple[str, bool, bool]]:
+    """(name, asked for italic, italic program) for each font an uncompressed WeasyPrint PDF embeds: its
+    descriptor's Italic flag (bit 7, set from the style the text asked for) and the embedded program's
+    own italic bit."""
+    objects = dict(re.findall(rb"\n(\d+) 0 obj\n(.*?)\nendobj", pdf, re.DOTALL))
+    found = []
+    for body in objects.values():
+        descriptor = re.search(rb"/Type /FontDescriptor/FontName /([^\s/]+).*?/Flags (\d+).*?/FontFile2 (\d+) 0 R",
+                               body, re.DOTALL)
+        if descriptor:
+            name, flags, program = descriptor.groups()
+            stream = objects[program]
+            data = stream[stream.index(b"stream\n") + len(b"stream\n"):stream.rindex(b"\nendstream")]
+            found.append((name.decode(), bool(int(flags) & 64), is_italic_program(data)))
+    return found
+
+
 def _pdfs() -> dict[str, str]:
     analysis = export_fixtures.TestAnalysisPdfHtml()
     summary, filing = export_fixtures._make_summary_and_filing(export_fixtures._full_sections())
@@ -531,6 +591,10 @@ def test_every_pdf_link_rests_in_the_ink_with_an_underline():
     assert '<a href="' in _pdfs()["analysis"]  # the fixture renders links (its data-note letters)
 
 
+def _wordmark_family(html: str) -> str:
+    return last(css_rules(stylesheet(html)), ".masthead .wordmark")["font-family"].split(",")[0].strip("\"' ")
+
+
 def test_the_wordmark_reads_earnings_in_the_ink_and_nerd_italic_in_brand_strong():
     for name, html in _pdfs().items():
         assert '<span class="wordmark">Earnings<em>Nerd</em></span>' in html, name
@@ -538,6 +602,24 @@ def test_the_wordmark_reads_earnings_in_the_ink_and_nerd_italic_in_brand_strong(
         assert normal(last(rules, ".masthead .wordmark")["color"]) == TOKENS["text-primary-light"], name
         nerd = last(rules, ".masthead .wordmark em")
         assert normal(nerd["color"]) == TOKENS["brand-strong"] and nerd["font-style"] == "italic", name
+        # The italic is a real one: the family declares an italic face, and each face's file is what it says.
+        assert _wordmark_family(html) == "Inter Var", name
+        assert font_face_problems(html, _wordmark_family(html)) == [], name
+        assert len(font_faces(html)) >= 3, name  # the reader found the faces (Inter's two, Geist Mono)
+
+
+def test_every_font_asked_for_italic_embeds_an_italic_program():
+    """The PDF a reader gets: every font WeasyPrint embeds for text the stylesheet sets italic (the wordmark's
+    "Nerd", a quote) is an italic program, never the roman under an italic name."""
+    weasyprint = pytest.importorskip("weasyprint")
+    try:
+        pdfs = {name: weasyprint.HTML(string=html).write_pdf(uncompressed_pdf=True) for name, html in _pdfs().items()}
+    except Exception as exc:  # missing system libs in odd envs: not what this test reads
+        pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+    for name, pdf in pdfs.items():
+        fonts = embedded_fonts(pdf)
+        assert [font for font, asked, italic in fonts if asked and not italic] == [], name
+        assert any(asked for _, asked, _ in fonts), name  # the fixture prints italic text: the wordmark's "Nerd"
 
 
 PLANTED_STYLES = """
@@ -613,6 +695,20 @@ def test_the_checks_read_what_they_claim():
     assert workbook_off_token(workbook_colours(buffer.getvalue())) == [
         ("Planted!A2 text", "theme 4"), ("Planted!A3 fill", "indexed 10"), ("Planted!A4 bottom border", "automatic"),
     ]
+
+    # 5. Faces: a family with no italic face, a face whose file is the roman and a missing file each fail.
+    fonts = ROOT / "backend" / "app" / "assets" / "fonts"
+    roman, italic = (fonts / "Inter-Variable-latin.woff2").as_uri(), (fonts / "Inter-Variable-Italic-latin.woff2").as_uri()
+    face = "@font-face {{ font-family: 'Inter Var'; src: url('{}') format('woff2'); font-style: {}; }}"
+    assert font_face_problems(f"<style>{face.format(roman, 'normal')}</style>", "Inter Var") == [
+        "'Inter Var' declares no italic face"]
+    assert font_face_problems(f"<style>{face.format(roman, 'normal')} {face.format(roman, 'italic')}</style>", "Inter Var") == [
+        "'Inter Var' italic (Inter-Variable-latin.woff2) is declared italic but its file's italic bit says otherwise"]
+    assert font_face_problems(f"<style>{face.format(italic, 'normal')} {face.format(italic, 'italic')}</style>", "Inter Var") == [
+        "'Inter Var' normal (Inter-Variable-Italic-latin.woff2) is declared normal but its file's italic bit says otherwise"]
+    assert font_face_problems(f"<style>{face.format(fonts.as_uri() + '/missing.woff2', 'italic')}</style>", "Inter Var") == [
+        "'Inter Var' italic (missing.woff2) names no file"]
+    assert font_face_problems(f"<style>{face.format(roman, 'normal')} {face.format(italic, 'italic')}</style>", "Inter Var") == []
 
     # 3. Grounds: a rule painting behind text joins the grounds, and every text colour is held to each.
     tinted = f"<style>{PLANTED_STYLES} .methods {{ background: #E5E7EB; }} .footnote {{ color: #636A77; }}</style>"
