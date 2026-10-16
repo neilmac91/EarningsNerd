@@ -148,3 +148,53 @@ def test_click_on_unknown_or_blank_email_id_is_a_clean_miss(monkeypatch, caplog)
     asyncio.run(webhooks.handle_email_clicked({"email_id": "  ", "to": [RAW_ADDRESS]}))
     assert events == []
     assert "Could not record" not in caplog.text
+
+
+@pytest.mark.parametrize("outcome", ["recorded", "raised"])
+def test_a_click_record_runs_in_a_session_of_its_own_and_always_closes_it(monkeypatch, caplog, outcome):
+    """The webhook route takes no request session, so the click record opens its own, hands it to
+    ``record_first_click`` and closes it once, whether the record succeeds or raises. A failure is a
+    WARNING with its traceback on the router's logger; the provider's webhook never fails for it."""
+    import app.database
+    from app.services import notification_delivery_service
+
+    caplog.set_level(logging.DEBUG, logger="app.routers.webhooks")
+    real_factory = app.database.SessionLocal
+    sessions: list = []
+    closes: list = []
+
+    def factory():
+        session = real_factory()
+        real_close = session.close
+
+        def close():
+            closes.append(session)
+            real_close()
+
+        session.close = close
+        sessions.append(session)
+        return session
+
+    calls: list[tuple] = []
+    error = RuntimeError("ledger unavailable")
+
+    def record_first_click(db, provider_email_id, now):
+        calls.append((db, provider_email_id, len(closes)))
+        if outcome == "raised":
+            raise error
+        return None  # a miss: transactional mail, a repeat click
+
+    monkeypatch.setattr(app.database, "SessionLocal", factory)
+    monkeypatch.setattr(notification_delivery_service, "record_first_click", record_first_click)
+
+    asyncio.run(webhooks.handle_email_clicked({"email_id": "em_own_session", "click": {"link": "https://x/y"}}))
+
+    assert len(sessions) == 1
+    assert calls == [(sessions[0], "em_own_session", 0)]  # the record ran on the open session
+    assert closes == sessions  # and closed it exactly once
+    warnings = [r for r in caplog.records if r.name == "app.routers.webhooks" and r.levelno == logging.WARNING]
+    if outcome == "raised":
+        assert [r.getMessage() for r in warnings] == ["Could not record the alert click for em_own_session"]
+        assert warnings[0].exc_info[1] is error
+    else:
+        assert warnings == []
