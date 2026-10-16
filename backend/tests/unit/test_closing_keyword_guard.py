@@ -107,6 +107,8 @@ BASH_REFUSED = (
     "/usr/local/bin/gh pr merge 5 -s -b 'fixes #3'",
     "sudo gh pr merge 5 -s -b 'fixes #3'",
     "gh 'pr' 'mer''ge' 5 -s -b 'fixes #3'",
+    "gh pr merge 5 -s -b 'clo''ses #3'",  # the keyword is whole only once the shell removes the quotes
+    "gh pr merge 5 -s -b fi\"x\"ed\\ \\#3",
     "gh pr merge 5 -s --body-file msg.md",
     "gh pr merge 5 -s -F msg.md",
     "gh pr merge 5 -s --body-file=msg.md",
