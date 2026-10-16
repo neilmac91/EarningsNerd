@@ -43,8 +43,9 @@
     color: #1A1A17;
     max-width: 1040px;
   }
-  /* The mark: the brand's highlight. A phrase, never a figure. */
-  .mark { background: linear-gradient(transparent 64%, #ECF2EE 64%); box-shadow: inset 0 -3px 0 #CFE0D6; }
+  /* The mark: the brand's highlight. A phrase, never a figure, never across a line break (the
+     headline breaks before it). The hairline is 2px at any type size (docs/brand/06-system.md §6). */
+  .mark { background: linear-gradient(transparent 64%, #ECF2EE 64%); box-shadow: inset 0 -2px 0 #CFE0D6; }
   /* The margin: a bracketed citation beside the line it belongs to. */
   .marked { display: grid; grid-template-columns: 72px 1fr; align-items: center; }
   .margin { border-right: 2px solid #CFE0D6; height: 100%; display: flex; align-items: flex-start; padding-top: 6px; }
@@ -67,7 +68,7 @@
     </svg>
     <div class="wordmark">Earnings<em>Nerd</em></div>
   </div>
-  <div class="headline">The summary that <span class="mark">shows its work</span>.</div>
+  <div class="headline">The summary that<br><span class="mark">shows its work</span>.</div>
   <div class="marked">
     <div class="margin"><span>[F1]</span></div>
     <div class="line">

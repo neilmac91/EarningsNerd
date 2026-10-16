@@ -63,12 +63,21 @@ interface Shown {
  * count over, so its refetch is a first load, and a failure after it may repeat the old count. A fresh mount over a failure it never rendered (a child
  * observer whose mount refetches it) shows the ordinary pending state.
  *
+ * Placeholder data: a query with `placeholderData` (the search's `keepPreviousData`) reports a refetch of
+ * its failure as `success` with `isPlaceholderData`, carrying the previous query's data: the query itself
+ * is still `pending` with no data. So while a failure is held, a placeholder-backed result counts as
+ * pending, never as success: the error UI and its Retry stay mounted, busy and focused through the
+ * refetch, and only the query's own data ends the hold. A caller without `placeholderData` never sees
+ * `isPlaceholderData`, so nothing changes for it (at this commit the search is the only caller with one).
+ *
  * Derived from the query's state on each render, with no record of presses or of fetches seen: a second
  * press, a paused fetch, or a fetch that settles inside one notify batch cannot wedge it.
  */
 export function useRetainedFailure(query: UseQueryResult<unknown>, queryKey: QueryKey): RetainedFailure {
-  const { isError, error, status, fetchStatus, errorUpdatedAt, errorUpdateCount, refetch } = query
+  const { isError, error, status, isPlaceholderData, fetchStatus, errorUpdatedAt, errorUpdateCount, refetch } = query
   const key = hashKey(queryKey)
+  // A placeholder stands in for data the query does not have yet: the query is still pending.
+  const pending = status === 'pending' || isPlaceholderData
   const busy = fetchStatus !== 'idle'
   const [shown, setShown] = useState<Shown | null>(null)
   // The query state is still the failure `shown` recorded: the same query, at the same failure.
@@ -80,10 +89,10 @@ export function useRetainedFailure(query: UseQueryResult<unknown>, queryKey: Que
   if (isError) {
     // A new failure (a failure of the same query moves its count, or after a reset its time), or another query's.
     if (!same) next = { error, key, at: errorUpdatedAt, count: errorUpdateCount }
-  } else if (shown !== null && status === 'pending' && failedAgain) {
+  } else if (shown !== null && pending && failedAgain) {
     // Held through it: keep the error that was shown (a pending refetch has cleared the newer one), at the new count.
     next = { ...shown, at: errorUpdatedAt, count: errorUpdateCount }
-  } else if (shown !== null && (status !== 'pending' || !same)) {
+  } else if (shown !== null && (!pending || !same)) {
     // Data replaced it, or this is another query's state (the key changed, or the query started over).
     next = null
   }

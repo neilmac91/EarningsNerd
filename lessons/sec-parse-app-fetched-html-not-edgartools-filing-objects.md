@@ -12,6 +12,16 @@ primary documents, and `edgar.documents.HTMLParser(ParserConfig(form=form)).pars
 .sections.get_item("1A", part)` located Item 1A in 56 of 56 10-K/10-Q documents (14 companies,
 2024 to 2026) in under 8 s each, the 13 MB JPMorgan 10-K included.
 
+**Root cause, found 2026-10-15**: this was not specific to the build environment. Since about
+2026-10-06, SEC answers the short index URL that edgartools 5.58.0 builds
+(`/Archives/edgar/data/<cik>/<accession>-index.html`) with 403 "Access Denied". The 403 was
+captured from an agent container, the same AttributeError appeared in PR #1286's, every eval job since
+2026-10-07 shows the symptom, and production very likely shares it. edgartools 5.61.0 fixed it upstream
+(GH #1421). `backend/app/services/edgar/edgartools_compat.py` backports that fix while #1063 holds the
+pin, which restores `xbrl_sections.py` (see
+`tasks/review-evidence/edgartools-homepage-403-2026-10-15/`). The rule below still holds for new code,
+for its limiter and breaker reason.
+
 **Rule**: For section text, fetch the primary document once through the app's SEC transport
 (limiter + breaker, CLAUDE.md rule 5) and parse it locally with edgartools' HTML parser
 (breaker-exempt CPU work, off the event loop). Do not add a `Filing`, `CompanyReport` or `obj()`

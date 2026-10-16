@@ -12,7 +12,10 @@ portal routing and existing checkout/analytics behavior.
 
 **Evidence**: `frontend/tests/unit/PricingPage.spec.tsx` gates the expired-trial upgrade against
 a resolved subscription snapshot; `frontend/tests/unit/BillingPanel.spec.tsx` gates the Free
-label/countdown and both customer-ID routing cases. Existing entitled-trial cases remain.
+label, the dated trial line (no countdown, nothing for an unreadable date) and both customer-ID
+routing cases; `TrialBanner.spec.tsx` gates the banner and `dashboardCheckoutReturn.spec.tsx` its
+dashboard wiring to the resolved `subscription.is_pro`, never the `/me` mirror. Existing
+entitled-trial cases remain.
 `backend/tests/unit/test_checkout_session.py::test_expired_trial_remnant_can_resubscribe_without_trial`
 locks the unchanged backend behavior. Both frontend predicates are exercised by one coordinated
 original-predicate mutation proof.

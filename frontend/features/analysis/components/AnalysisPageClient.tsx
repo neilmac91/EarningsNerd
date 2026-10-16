@@ -40,6 +40,7 @@ import TrendCharts from './TrendCharts'
 import DataNotes from './DataNotes'
 import { DataNotesProvider } from './DataNotesContext'
 import { ANALYSIS_DISCLOSURE } from '@/features/analysis/lib/provenance'
+import { ANALYSIS_MAX_ANNUAL_PERIODS, ANALYSIS_MAX_QUARTERLY_PERIODS } from '@/lib/planLimits'
 
 /**
  * Multi-Period Analysis — the Pro flagship page.
@@ -72,7 +73,7 @@ function LinkedTicker({ onChange }: { onChange: (ticker: string | null) => void 
 function exportErrorMessage(error: unknown, format: 'PDF' | 'Excel'): string {
   // Blob responses do not preserve JSON detail in the shared axios interceptor. Status 409
   // still identifies an out-of-date source snapshot and must give a useful recovery action.
-  if (error instanceof ApiError && error.status === 409) return 'Source data changed. Run analysis again before exporting.'
+  if (error instanceof ApiError && error.status === 409) return 'This report is out of date. Run analysis again before exporting.'
   return error instanceof ApiError ? error.detail : `${format} export failed. Please try again.`
 }
 
@@ -306,7 +307,9 @@ export default function AnalysisPageClient() {
   }, [dataset, exportingXlsx])
 
   const unsupported = coverage && !coverage.supported
-  const paywalled = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
+  // The narrative card already states the error once. Only the 403 "Pro feature" case adds a way to
+  // the plans; the fair-use 429 is a Pro user's monthly cap, so it gets no "See plans" and no repeat.
+  const proRequired = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
 
   return (
     // The page's one <main> landmark (the root layout's #main is a non-landmark skip-link target).
@@ -322,7 +325,7 @@ export default function AnalysisPageClient() {
           <Badge variant="pro">Pro</Badge>
         </div>
         <p className="max-w-2xl text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Pick a company and up to 10 fiscal years or 12 quarters. Growth, margins, cash, and
+          Pick a company and up to {ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years or {ANALYSIS_MAX_QUARTERLY_PERIODS} quarters. Growth, margins, cash, and
           balance sheet, plus AI-assisted commentary with sources and calculation methods.
         </p>
       </header>
@@ -349,7 +352,7 @@ export default function AnalysisPageClient() {
             className="mt-4"
             title={
               <>
-                <Link href="/login" className="font-semibold underline">
+                <Link href="/login" className="font-semibold rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                   Sign in
                 </Link>{' '}
                 to see which periods are available for {ticker}.
@@ -422,12 +425,12 @@ export default function AnalysisPageClient() {
       {authResolved && (!user || (subscription && !isPro)) && <AnalysisTeaser forTicker={ticker || undefined} />}
 
       {isPro && datasetError && <Notice variant="error" title={datasetError} />}
-      {isPro && paywalled && (
+      {isPro && proRequired && (
         <Notice
           variant="info"
           title={narrative.error}
           description={
-            <Link href="/pricing" className="font-semibold underline">
+            <Link href="/pricing" className="font-semibold rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
               See plans
             </Link>
           }
@@ -455,7 +458,7 @@ export default function AnalysisPageClient() {
           and Pro users all see it (drafted in the audit's legal review; pending counsel polish). */}
       <AiDisclaimer lead={false}>
         {ANALYSIS_DISCLOSURE} See our{' '}
-        <Link href="/terms" className="underline">
+        <Link href="/terms" className="rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
           Terms
         </Link>
         .

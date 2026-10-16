@@ -19,7 +19,7 @@ import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
 import { useSummaryExports } from '../hooks/useSummaryExports'
 import { useWhatChanged } from '../hooks/useWhatChanged'
-import { SUMMARY_FALLBACK_MESSAGE, cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
+import { cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
 // a company-wide trend (it would "refresh" on every new filing rather than reflect this document).
@@ -108,7 +108,6 @@ export function SummaryDisplay({
     [wordingIdentity, changeReportProvisional],
   )
 
-  const fallbackMessage = SUMMARY_FALLBACK_MESSAGE
   const writerFallback = rawSummary?.writer?.fallback_used === true
   // A stored summary that failed (placeholder filler, a writer error, the fallback body, nothing left
   // once the notices are stripped) shows the error card, not its body. The company page's "summary
@@ -148,6 +147,7 @@ export function SummaryDisplay({
         isSaved={isSaved}
         saveMutation={saveMutation}
         isPro={isPro}
+        summaryFinished={!isError}
         onExportPdf={exportPdf}
         onExportCsv={exportCsv}
       />
@@ -156,9 +156,12 @@ export function SummaryDisplay({
         <>
           <GuidanceCard
             variant="error"
-            title="Summary temporarily unavailable"
+            title="This summary did not finish"
             headingLevel="h2"
-            description={fallbackMessage}
+            // The card's own sentence: SUMMARY_FALLBACK_MESSAGE is the backend's stored body (the
+            // failure detector's token), and the failure stays until a retry, so "temporarily" promised
+            // a timing the code does not keep.
+            description="The last attempt for this filing did not finish. Retry to generate it again."
             action={
               onRetry ? (
                 <Button variant="secondary" onClick={onRetry}>
@@ -260,7 +263,7 @@ export function SummaryDisplay({
         <Card as="section" className="p-6">
           {/* h2, like the summary's sections: it follows them as a sibling, not inside the last one. */}
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h2>
-          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask the Copilot.</p>
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask this filing.</p>
           <ul className="space-y-2">
             {metadata.action_items.map((item: string, index: number) => (
               <li key={index}>
