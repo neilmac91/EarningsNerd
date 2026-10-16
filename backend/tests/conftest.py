@@ -271,7 +271,8 @@ def _no_mock_left_on_generation_singletons():
     the harness mock back after the harness restored production, for the rest of the process
     (``test_sec_rate_limiter`` then read the mock's canned text). Undo such overrides first, with
     ``monkeypatch.context()`` inside the block. A leak fails the leaking test's teardown and is
-    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it.
+    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it. A method that
+    monkeypatch's undo left pinned on a singleton is cleared too, covered by an ordered probe pair there.
     """
     before = [(target, dict(vars(target))) for target in _generation_singletons()]
     seen = {id(target) for target, _ in before}
@@ -287,6 +288,7 @@ def _no_mock_left_on_generation_singletons():
                     setattr(target, name, snapshot[name])
                 else:
                     delattr(target, name)
+    _clear_pinned_methods()
     if leaked:
         pytest.fail(f"mock left on a shared generation singleton after the test: {', '.join(leaked)}", pytrace=False)
 
@@ -296,6 +298,28 @@ def _generation_singletons():
     if pipeline is None:
         return []
     return [pipeline, pipeline.sec_edgar_service, pipeline.xbrl_service, pipeline.openai_service]
+
+
+def _service_singletons():
+    """The shared service instances, looked up where they live: a test that imports them from
+    ``app.services.edgar.compat`` never imports ``summary_pipeline``."""
+    compat = sys.modules.get("app.services.edgar.compat")
+    ai = sys.modules.get("app.services.openai_service")
+    found = (getattr(compat, "sec_edgar_service", None), getattr(compat, "xbrl_service", None),
+             getattr(ai, "openai_service", None))
+    return [target for target in found if target is not None and not isinstance(target, NonCallableMock)]
+
+
+def _clear_pinned_methods():
+    # monkeypatch.setattr on an instance saves the old attribute with getattr, which returns a bound
+    # method, and its undo sets that back on the instance: the class's own method, pinned there, where
+    # it would shadow a later class-level patch in whichever tests ran after it (test files call
+    # monkeypatch.setattr on these singletons 93 times). A pin behaves exactly like the class's
+    # method, so it is cleared silently rather than failing the test.
+    for target in _service_singletons():
+        for name, value in list(vars(target).items()):
+            if getattr(value, "__self__", None) is target and getattr(value, "__func__", None) is getattr(type(target), name, None):
+                delattr(target, name)
 
 
 # Stream tests that drive the real ``stream_filing_summary`` with a mocked 10-K (CIK 1234567890)

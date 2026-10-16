@@ -61,6 +61,8 @@ _ORDERED_PROBES = [
     f"{_THIS}::test_probe_next_test_starts_with_an_empty_summary_limiter",
     f"{_THIS}::test_probe_leaves_delivery_and_lease_rows_behind",
     f"{_THIS}::test_probe_next_test_finds_no_delivery_or_lease_rows",
+    f"{_THIS}::test_probe_pins_a_singleton_method_like_monkeypatch",
+    f"{_THIS}::test_probe_next_test_finds_no_pinned_singleton_method",
     f"{_AI_METRICS}::test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint",
     f"{_AI_METRICS}::test_isolation_next_test_starts_from_the_default_trigger",
 ]
@@ -157,6 +159,45 @@ def _fresh_pytest(*args, environ=None, extra_env=None):
         [sys.executable, "-m", "pytest", "-q", "-n", "0", "-p", "no:cacheprovider", "-p", "no:randomly", *args],
         cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=120,
     )
+
+
+def _pinned_methods():
+    """Instance attributes on the generation singletons that are their own class's method, bound."""
+    from app.services import summary_pipeline
+
+    targets = (summary_pipeline.sec_edgar_service, summary_pipeline.xbrl_service, summary_pipeline.openai_service)
+    return sorted(
+        f"{type(target).__name__}.{name}" for target in targets for name, value in vars(target).items()
+        if getattr(value, "__self__", None) is target and getattr(value, "__func__", None) is getattr(type(target), name, None)
+    )
+
+
+def test_probe_pins_a_singleton_method_like_monkeypatch(monkeypatch):
+    # Test files call monkeypatch.setattr on these singletons 93 times (25 files), and undoing a method
+    # sets the bound method monkeypatch saved back on the instance.
+    from app.services import summary_pipeline
+
+    assert _pinned_methods() == []
+    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.undo()
+    assert _pinned_methods() == ["XBRLServiceCompat.get_xbrl_data"]  # the leftover conftest must clear
+
+
+def test_probe_next_test_finds_no_pinned_singleton_method():
+    assert _pinned_methods() == []
+
+
+def test_pinned_methods_are_found_without_the_pipeline(request, monkeypatch):
+    # test_eval_measurement reaches xbrl_service through app.services.edgar.compat and never imports
+    # summary_pipeline, so conftest finds the singletons where they live, not through the pipeline.
+    from app.services import openai_service as ai
+    from app.services.edgar import compat
+
+    conftest = request.config.pluginmanager.get_plugin(str(BACKEND_DIR / "tests" / "conftest.py"))
+    monkeypatch.delitem(sys.modules, "app.services.summary_pipeline", raising=False)
+    found = conftest._service_singletons()
+    expected = [compat.sec_edgar_service, compat.xbrl_service, ai.openai_service]
+    assert len(found) == 3 and all(a is b for a, b in zip(found, expected)), found
 
 
 def test_ordered_probes_hold_in_a_fresh_serial_process():
