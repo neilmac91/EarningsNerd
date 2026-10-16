@@ -1004,7 +1004,7 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     // placed in, by JSX (the review's case) or createElement, once however it is given the icon (line 35); one that
     // draws only words (line 33) passes. A rest element takes the rest, an array's (line 37) and an object's (39), and a
     // rest parameter the arguments from its place on (40). A component wrapped by React's memo (the review's case, line
-    // 43) or forwardRef (45) is the component it wraps.
+    // 43) or forwardRef (45) is the component it wraps, and React's Children under another name is Children (47).
     const family = [
       "import { BellIcon } from '@/lib/icons'",
       'let Mark; Mark = BellIcon',
@@ -1051,6 +1051,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'export const V = () => <h2><Memo />Alerts</h2>',
       'const Fwd = React.forwardRef((props, ref) => <BellIcon />)',
       'export const W = () => <h2><Fwd />Alerts</h2>',
+      "import { Children as Kids } from 'react'",
+      'function Listed({ children }) { return <h2>{Kids.map(children, (child) => child)}Alerts</h2> }',
+      'export const X = () => <Listed><BellIcon /></Listed>',
     ].join('\n')
     expect(voiceFindings(family, 'features/probe/Family.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '3 headingIcon',
@@ -1074,6 +1077,7 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '40 headingIcon',
       '43 headingIcon',
       '45 headingIcon',
+      '47 headingIcon',
     ])
     // A namespace is a value like any other, every member of it an icon: assigned after its declaration (the review's
     // case), held by another name, and passed as a prop to a component that renders a member in its heading.

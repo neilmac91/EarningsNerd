@@ -51,6 +51,9 @@ import ts from 'typescript'
  *    `Children.only`, `useMemo` (what its callback returns), `useCallback` (its callback), and `memo` and
  *    `forwardRef` (the component they wrap);
  *  - parentheses, `as`, `satisfies`, `<T>` and `!`.
+ * A call is known by the name its callee is known by (knownAs), so React's utilities and the globals are read under
+ * any local name: an import renamed (`Children as Kids`), a member destructured under another name, a same-file
+ * alias (`const h = createElement`).
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
  * context's), what React state holds after its setter or a reducer runs, a class's fields and `this`, a promise's
  * `then` and a generator's yields. One over-count, which fails closed: a parameter is not told apart by call, so it
@@ -301,25 +304,42 @@ export function heldValues<L>(
   const declarationOf = scopeResolver(sf)
   const isFn = (n: ts.Node | undefined): n is Fn =>
     !!n && (ts.isFunctionDeclaration(n) || ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isMethodDeclaration(n))
-  /** A call's callee by its last name: `render` in `render()`, `map` in `MARKS.map()`, `createElement` in
-      `React.createElement()`. */
-  const calleeName = (call: ts.CallExpression): string => {
-    const callee = unwrapHeld(call.expression)
-    return ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : ''
+  /** The name an expression is known by, through what renames it: an import under another name (`Children as Kids`)
+      and a member destructured under another name (`const { Children: Kids } = React`) by the name they take, a
+      same-file alias (`const h = createElement`) by its initializer's, a member by its own name. `global` is true only
+      for a name nothing in the file declares (`Object`, `Array`). */
+  const knownAs = (raw: ts.Expression, seen = new Set<ts.Node>()): { name: string; global: boolean } | undefined => {
+    const e = unwrapHeld(raw)
+    if (ts.isPropertyAccessExpression(e)) return { name: e.name.text, global: false }
+    if (!ts.isIdentifier(e)) return undefined
+    const declaration = declarationOf(e)
+    if (!declaration) return { name: e.text, global: true }
+    if (ts.isImportSpecifier(declaration)) return { name: (declaration.propertyName ?? declaration.name).text, global: false }
+    if (ts.isBindingElement(declaration) && ts.isObjectBindingPattern(declaration.parent)) {
+      const key = declaration.propertyName ?? declaration.name
+      if (ts.isIdentifier(key)) return { name: key.text, global: false }
+    }
+    if (ts.isVariableDeclaration(declaration) && declaration.initializer && !seen.has(declaration)) {
+      seen.add(declaration)
+      const aliased = knownAs(declaration.initializer, seen)
+      if (aliased) return aliased
+    }
+    return { name: e.text, global: false }
   }
+  /** A call's callee by the name it is known by (knownAs): `render` in `render()`, `map` in `MARKS.map()`,
+      `createElement` in `React.createElement()` and in `h()` after `import { createElement as h }`. */
+  const calleeName = (call: ts.CallExpression): string => knownAs(call.expression)?.name ?? ''
   /** What a call's callee is read from: `MARKS` in `MARKS.map()`, `React.Children` in `React.Children.map()`. */
   const receiverOf = (call: ts.CallExpression): ts.Expression | undefined => {
     const callee = unwrapHeld(call.expression)
     return ts.isPropertyAccessExpression(callee) ? callee.expression : undefined
   }
-  /** Whether a call's receiver is this global (`Object`, `Array`: no declaration in the file) or React's `Children`
-      (imported, or read as `React.Children`). */
+  /** Whether a call's receiver is this global (`Object`, `Array`: no declaration in the file, under any alias) or
+      React's `Children` (imported, renamed, destructured or read as `React.Children`), by the name it is known by. */
   const receiverNamed = (call: ts.CallExpression, name: string): boolean => {
     const recv = receiverOf(call)
-    const r = recv && unwrapHeld(recv)
-    if (!r) return false
-    if (ts.isPropertyAccessExpression(r)) return r.name.text === name
-    return ts.isIdentifier(r) && r.text === name && (name === 'Children' || !declarationOf(r))
+    const known = recv && knownAs(recv)
+    return !!known && known.name === name && (name === 'Children' || known.global)
   }
   /** Whether an assignment's target, or the object a member is put in, is a same-file binding the scan holds: a name
       declared in the file (not an import or a function), read through any members. */

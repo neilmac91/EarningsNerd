@@ -488,6 +488,20 @@ describe('reserved glyphs keep their one meaning', () => {
     expect(given(['const MARKS = Object.freeze({ passage: BracketsCurlyIcon })', 'export const D = () => <><MARKS.passage /><MARKS.passage /></>'])).toEqual({
       BracketsCurlyIcon: 2,
     })
+    // React's utilities under another name are what they are (the review's case: `Children as Kids` then
+    // `Kids.only(<QuotesIcon />)` placed twice is two uses): Children destructured under another name, a renamed
+    // createElement and memo, and a same-file alias of useMemo.
+    expect(given(["import { Children as Kids } from 'react'", 'const mark = Kids.only(<QuotesIcon />)', 'export const E = () => <>{mark}{mark}</>'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['const { Children: Kin } = React', 'const marks = Kin.toArray(<SparkleIcon />)', 'export const F = () => <>{marks}{marks}</>'])).toEqual({ SparkleIcon: 2 })
+    expect(given(["import { createElement as h } from 'react'", 'function PassageMark() { return <QuotesIcon /> }', 'export const G = () => [h(PassageMark), h(PassageMark)]'])).toEqual({
+      QuotesIcon: 2,
+    })
+    expect(given(["import { memo as keep } from 'react'", 'const Mark = keep(() => <BracketsCurlyIcon />)', 'export const H = () => <><Mark /><Mark /></>'])).toEqual({
+      BracketsCurlyIcon: 2,
+    })
+    expect(given(['const memoize = useMemo', 'export function I() { const Mark = memoize(() => SparkleIcon, []); return <><Mark /><Mark /></> }'])).toEqual({
+      SparkleIcon: 2,
+    })
     expect(given(["import { ArrowRightIcon } from '@/lib/icons'", 'let Mark; Mark = ArrowRightIcon', 'export const O = () => <Mark />'])).toEqual({})
     // A rest element takes the rest (the review's case: `const [...Marks] = [QuotesIcon]` read twice is two uses): an
     // array's elements from its place on, re-indexed, so `Others[0]` reads the second glyph alone; an object's
