@@ -18,7 +18,8 @@ import threading
 import weakref
 from datetime import datetime, timedelta
 from itertools import islice
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from operator import attrgetter
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urljoin
 
 from edgar import Company as EdgarCompany, set_identity
@@ -57,17 +58,20 @@ RECENT_FILINGS_MATERIALIZE_CAP = 50
 _SIX_K_FORMS = frozenset(ft.value for ft in FilingType if ft.is_interim)
 
 
-def _take_recent(filings: Iterable[Any], cap: int, six_k_apart: bool) -> List[Any]:
+def _take_recent(
+    filings: Iterable[Any], cap: int, six_k_apart: bool, form: Callable[[Any], str] = attrgetter("form")
+) -> List[Any]:
     """The first ``cap`` filings of a newest-first stream. With ``six_k_apart``, the first ``cap``
     6-Ks plus the first ``cap`` of the other forms, in stream order. That walk reads the whole
     stream: a list rarely fills both budgets (a foreign issuer files a few reports a year, a domestic
-    one no 6-K), SEC bounds the recent window, and only the kept rows are held."""
+    one no 6-K), SEC bounds the recent window, and only the kept rows are held. ``form`` reads a
+    row's form type; the cold filings list passes a stored row's, to cap its response by ``?limit=``."""
     if not six_k_apart:
         return list(islice(filings, cap))
     taken: List[Any] = []
     six_ks = others = 0
     for f in filings:
-        if f.form in _SIX_K_FORMS:
+        if form(f) in _SIX_K_FORMS:
             if six_ks < cap:
                 six_ks += 1
                 taken.append(f)

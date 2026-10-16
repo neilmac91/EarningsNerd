@@ -21,6 +21,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from itertools import chain
+from operator import attrgetter
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 from sqlalchemy.orm import Session, joinedload
@@ -28,6 +29,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal
 from app.models import Company, Filing
 from app.services.company_resolution import resolve_or_create_company_by_cik
+from app.services.edgar.client import _take_recent
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.config import FilingType
 from app.utils.datetimes import utcnow
@@ -245,14 +247,17 @@ def persist_live_filings(
     types_list: List[str],
     company_id: int,
     sec_filings: List[Dict[str, Any]],
+    limit: Optional[int],
     convert: Callable[[Filing], T],
 ) -> List[T]:
     """Persist a live SEC listing and return it converted, in SEC order.
 
     New rows are inserted, existing rows on the old ``cgi-bin/viewer`` URL are rewritten, superseded
     filings are marked and everything commits in one transaction; the (ticker, types) is then
-    stamped fresh. The DTOs are built last, after the commit, while the session is still open: the
-    router's ``finally`` releases it. Any exception propagates to the router's fallbacks.
+    stamped fresh. Every listed row is persisted; an explicit ``limit`` caps each group of the
+    response (the 6-Ks, and every other form), as :func:`cached_filings` does. The DTOs are built
+    last, after the commit, while the session is still open: the router's ``finally`` releases it.
+    Any exception propagates to the router's fallbacks.
     """
     filings = []
     new_filings = []  # Track newly added filings for batch refresh
@@ -336,5 +341,8 @@ def persist_live_filings(
     # Mark this (ticker, types) freshly synced so subsequent loads take the B2 fast path.
     _mark_filings_synced(ticker_upper, types_list)
 
-    # Convert to response models after commit
+    # Convert to response models after commit; ?limit= keeps the newest `limit` of each group with
+    # the live fetch's own per-group rule.
+    if limit is not None:
+        filings = _take_recent(filings, limit, six_k_apart=True, form=attrgetter("filing_type"))
     return [convert(f) for f in filings]

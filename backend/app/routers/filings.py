@@ -199,7 +199,7 @@ async def get_company_filings(
         # Persist and commit the listing, then convert it to response models (still inside this
         # try, so the finally below releases the session only after the DTOs exist).
         return filing_list_service.persist_live_filings(
-            db, ticker_upper, types_list, company_id, sec_filings, FilingResponse.from_orm
+            db, ticker_upper, types_list, company_id, sec_filings, limit, FilingResponse.from_orm
         )
 
     except asyncio.TimeoutError:

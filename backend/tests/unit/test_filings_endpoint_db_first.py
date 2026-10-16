@@ -527,6 +527,33 @@ def test_cached_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
     assert [f["filing_type"] for f in amended] == ["6-K/A"] + ["6-K"] * 4 + ["20-F"]
 
 
+@pytest.mark.parametrize("query, kept_6ks, kept_20fs", [("", 50, 10), ("?limit=5", 5, 5)])
+def test_cold_list_caps_each_group_at_the_requested_limit(client, monkeypatch, query, kept_6ks, kept_20fs):
+    """Cold view (empty DB): the live fetch persists every row it lists, the newest 50 6-Ks and all
+    ten 20-Fs. The default response is all of them; an explicit ?limit=5 serves the newest five of
+    each group, in SEC order, as the DB-first list does."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    # Synthetic: a 20-F every week among daily 6-Ks, so the groups interleave and each holds more than 5.
+    window = [
+        _WindowFiling("20-F" if i % 7 == 3 else "6-K", date(2026, 8, 31) - timedelta(days=i),
+                      f"{FPI_CIK}-26-{i:06d}")
+        for i in range(70)
+    ]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    with TestingSession() as s:
+        _seed_stamped_company(s, "BPX")
+
+    cold = [f["accession_number"] for f in tc.get(f"/api/filings/company/BPX{query}").json()]
+
+    six_ks = [f.accession_number for f in window if f.form == "6-K"]
+    twenty_fs = [f.accession_number for f in window if f.form == "20-F"]
+    newest = set(six_ks[:kept_6ks] + twenty_fs[:kept_20fs])
+    assert cold == [f.accession_number for f in window if f.accession_number in newest]
+    with TestingSession() as s:
+        assert s.query(Filing).count() == 60
+
+
 def test_domestic_lists_are_unchanged_by_the_6k_budget(client, monkeypatch):
     """With the foreign forms on (production), a 10-K/10-Q filer's live list is still the newest 50
     rows and its cached default the newest 20, each in filing-date order."""
