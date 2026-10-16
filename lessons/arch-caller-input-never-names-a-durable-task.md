@@ -11,7 +11,7 @@ forms in another order or spelling: 40 GETs queued 40 tasks. Each task costs a w
 process and an SEC fetch on the 0.2 dispatch/s queue that companyfacts syncs, history backfills
 and operator jobs share.
 
-**Rule**: A background or durable task started by a public request carries only server-owned
+**Rule**: A durable (queued) task started by a public request carries only server-owned
 identity: ids the server resolved and fixed vocabularies, never the caller's string. When the
 caller's choice must shape the work, first validate it where it enters (CLAUDE.md rule 9) into a
 bounded canonical set, and count how many distinct payloads one company can produce per dedupe
@@ -25,4 +25,7 @@ reads each entry as its SEC form and drops unknown ones. Gate:
 `backend/tests/unit/test_filings_routes.py::test_filing_types_values_cannot_mint_durable_refresh_tasks`
 (before the fix: 40 junk values queued 40 tasks, and 5 known-form variants queued 4). The other
 enqueue sites carry a resolved company id (`routers/analysis.py`) or sit behind operator auth
-(`services/internal_task_runner.py`); new sites are review-checked.
+(`services/internal_task_runner.py`); new sites are review-checked. The same route's in-process
+refresh (`DURABLE_TASKS_ENABLED=false`, not the production path) still takes the caller's
+canonical forms in the caller's order: it queues nothing on the shared queue, is deduped per
+process while in flight, and stamps the per-filter freshness key that the fast path reads.

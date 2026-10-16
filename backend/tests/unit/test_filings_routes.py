@@ -411,6 +411,7 @@ def test_live_persistence_skips_incomplete_rows_and_rewrites_viewer_urls(client,
     ({"filing_types": " 10-K, 8-K"}, False, ["10-K", "8-K", "10-K/A"]),
     # Validated where it enters: spellings read as the SEC form, unknown forms and blanks dropped.
     ({"filing_types": "10k, 10-q/a,JUNK,"}, False, ["10-K", "10-Q/A", "10-K/A"]),
+    ({"filing_types": "JUNK,"}, False, []),  # names no known form: lists nothing
     ({}, True, ["10-K", "10-Q", "20-F", "6-K", "40-F", "10-K/A", "10-Q/A"]),
     ({}, False, DEFAULT_TYPES),
 ])
@@ -527,7 +528,8 @@ def test_durable_handoff_outage_serves_cached_rows_and_warns_from_the_router(
 def _fake_cloud_tasks(monkeypatch):
     """Configure durable tasks and run the real ``enqueue_task`` with only the Cloud Tasks HTTP call
     faked. The fake queue keeps one task per name and answers 409 for a name it already holds, as
-    Cloud Tasks does. The bucket clock is pinned so a run cannot straddle a dedupe bucket."""
+    Cloud Tasks does. Both bucket clocks, the task name's and the router guard's, are pinned so a
+    run cannot straddle a dedupe bucket."""
     for key, value in {
         "DURABLE_TASKS_ENABLED": True, "TASKS_PROJECT_ID": "test-project",
         "TASKS_LOCATION": "us-west1", "TASKS_QUEUE": "background",
@@ -555,6 +557,7 @@ def _fake_cloud_tasks(monkeypatch):
     monkeypatch.setattr(
         transport, "time", SimpleNamespace(time=lambda: 1_800_000_000.0, monotonic=time.monotonic),
     )
+    monkeypatch.setattr(filings_mod, "utcnow", lambda: datetime.fromtimestamp(1_800_000_000, timezone.utc))
     monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
     return queue, creates
 
