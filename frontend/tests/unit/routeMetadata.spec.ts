@@ -10,6 +10,7 @@ import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { HEADLINES, pageTitleFor, type HeadlineVariant } from '@/features/marketing/lib/headline'
 import { SOCIAL_CARD } from '@/lib/socialCard'
+import { bindingResolver, type Binding } from './astBindings'
 
 /**
  * Route metadata (D-038; docs/brand/08-applications.md §1). Every route names itself in the tab and in
@@ -20,7 +21,9 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
  *      cannot export metadata, so its directory carries a layout that does (as app/login/layout.tsx does).
  *   2. Every title reads '<Page name> | EarningsNerd' in sentence case (proper nouns, acronyms and the
  *      company's own name allowed), each headline variant the home page's experiment serves included. A
- *      generated page holds every title template it can return in that form, and titles every state.
+ *      generated page holds every title template it can return in that form, in each reading of it (each
+ *      branch of a condition, `||` or `??` and each same-file const a substitution names read as its text,
+ *      any other substitution as a name), and titles every state (a title of undefined or null titles none).
  *   3. Every private route resolves robots to index: false. No public route resolves it to noindex
  *      from its page's static metadata or from any layout above the page, the root included: Next takes
  *      robots from the deepest segment that sets it, the page over its layouts. The two generated pages
@@ -40,14 +43,23 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
  * pageExtensions, else Next's default). Titles and descriptions are checked as Next reads them: each module
  * that exports metadata is imported and its metadata evaluated, so a string built from an imported constant
  * (a plan cap that lib/planLimits mirrors from config) is checked as it renders. The test runs in one
- * environment, so each must be one text in every environment: no process, window, document or globalThis
- * read reaches it, in its own file or through a declaration it names, followed into every project module
- * it imports (lib/featureFlags.ts reads each flag from process.env). Robots and the card are read from each
- * file's TypeScript AST, and what that reading cannot see fails loudly.
+ * environment, so each must be one text in every environment. No process, window, document, global, self
+ * or globalThis read reaches it, in its own file or through a name it reads: a name is followed to the
+ * binding in scope (a key, a member or a parameter named window is not the global, and a type holds no
+ * value), to its module's declarations and into every project module it imports, a namespace import's
+ * member by its name (lib/featureFlags.ts reads each flag from process.env). And no name it reads changes
+ * after its declaration: assigned again, written into, or, an object or array the file makes, handed whole
+ * to a call or to another name (changeOf). That holds for the static metadata's title and description, its
+ * openGraph's and its twitter's, every spread and computed key in those, and each state a generateMetadata
+ * returns, where a call to lib/serverApi is the page's data (part 7 runs it), read for its arguments alone.
+ * A route file names its metadata only in its declaration, so nothing writes it after. Robots and the card
+ * are read from each file's TypeScript AST, and what that reading cannot see fails loudly; each static
+ * module's evaluated robots and card are held to that reading too, so a write its literal does not show
+ * fails in this environment as well.
  *
- * Limits, left to review and to part 7's runs: a spread of another object hides its openGraph or twitter
- * from the card reading; a package's code is not followed; a generated title built without a string or a
- * template that ends with the brand is read only in the states part 7 runs.
+ * Limits, left to review and to part 7's runs: a value another module changes, or one held inside another
+ * object or array before it changes; a package's code; a generated title built without a string or a
+ * template that ends with the brand, read only in the states part 7 runs.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -180,6 +192,53 @@ const parse = (file: string, text: string) =>
 const bindsName = (binding: ts.BindingName, name: string): boolean =>
   ts.isIdentifier(binding) ? binding.text === name : binding.elements.some((e) => !ts.isOmittedExpression(e) && bindsName(e.name, name))
 
+// ── Names and their bindings ──────────────────────────────────────────────────────────────────────
+
+/** A name that refers to nothing by itself: a member's, a key's, an attribute's or an import's own name. */
+function isOwnName(n: ts.Identifier): boolean {
+  const p = n.parent
+  return (
+    ((ts.isPropertyAccessExpression(p) || ts.isPropertyAssignment(p) || ts.isMethodDeclaration(p) || ts.isPropertySignature(p) ||
+      ts.isPropertyDeclaration(p) || ts.isGetAccessorDeclaration(p) || ts.isSetAccessorDeclaration(p) || ts.isEnumMember(p) ||
+      ts.isJsxAttribute(p)) && p.name === n) ||
+    ((ts.isBindingElement(p) || ts.isImportSpecifier(p) || ts.isExportSpecifier(p)) && p.propertyName === n)
+  )
+}
+
+/** A type holds no value: an annotation, an `as` or `satisfies` target, a type argument. An instantiation expression's value is read. */
+function isTypeOnly(n: ts.Node): boolean {
+  return ts.isTypeNode(n) && !ts.isExpressionWithTypeArguments(n)
+}
+
+/** Each file's lexical name resolution (astBindings.ts), built once. */
+const RESOLVERS = new Map<ts.SourceFile, (ref: ts.Identifier) => Binding | undefined>()
+function resolverOf(source: ts.SourceFile): (ref: ts.Identifier) => Binding | undefined {
+  let resolve = RESOLVERS.get(source)
+  if (!resolve) RESOLVERS.set(source, (resolve = bindingResolver(source)))
+  return resolve
+}
+
+/** Each declaration's uses in its file (a name that resolves to it, other than its own name), found once per file. */
+const USES = new Map<ts.SourceFile, Map<ts.Node, ts.Identifier[]>>()
+function usesOf(decl: ts.Node, source: ts.SourceFile): ts.Identifier[] {
+  let index = USES.get(source)
+  if (!index) {
+    const found = new Map<ts.Node, ts.Identifier[]>()
+    const resolve = resolverOf(source)
+    const visit = (n: ts.Node): void => {
+      if (isTypeOnly(n)) return
+      if (ts.isIdentifier(n) && !isOwnName(n)) {
+        const binding = resolve(n)
+        if (binding && n !== (binding.decl as { name?: ts.Node }).name) found.set(binding.decl, [...(found.get(binding.decl) ?? []), n])
+      }
+      n.forEachChild(visit)
+    }
+    visit(source)
+    USES.set(source, (index = found))
+  }
+  return index.get(decl) ?? []
+}
+
 function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFile {
   const source = parse(file, text)
   const first = source.statements[0]
@@ -188,6 +247,7 @@ function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFi
   let metadata: ts.ObjectLiteralExpression | undefined
   let unreadable: string | undefined
   let generates = false
+  let metadataDecl: ts.VariableDeclaration | undefined
   for (const stmt of source.statements) {
     // `export { metadata }` and `export * from` hand Next metadata this reading cannot see.
     if (ts.isExportDeclaration(stmt)) {
@@ -203,6 +263,7 @@ function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFi
       for (const decl of stmt.declarationList.declarations) {
         if (ts.isIdentifier(decl.name) && decl.name.text === 'metadata') {
           exportsMetadata = true
+          metadataDecl = decl
           const value = decl.initializer && unwrap(decl.initializer)
           if (value && ts.isObjectLiteralExpression(value)) metadata = value
           else unreadable = `metadata is ${decl.initializer?.getText() ?? 'declared with no value'}, not an object literal the spec can read`
@@ -217,6 +278,17 @@ function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFi
       }
     }
     if (ts.isFunctionDeclaration(stmt) && stmt.name?.text === 'generateMetadata') generates = true
+  }
+  // Next reads the export as the module leaves it: a write after the literal (`metadata.robots = …`,
+  // `Object.assign(metadata, …)`, a name that holds it) is one this reading cannot see, so the file names its
+  // metadata only in its declaration.
+  const again = metadataDecl && !unreadable ? usesOf(metadataDecl, source)[0] : undefined
+  if (again) {
+    let statement: ts.Node = again
+    while (!ts.isSourceFile(statement.parent) && !ts.isBlock(statement.parent)) statement = statement.parent
+    const at = source.getLineAndCharacterOfPosition(again.getStart(source)).line + 1
+    const text = statement.getText(source).replace(/\s+/g, ' ')
+    unreadable = `metadata is named again after its declaration (line ${at}: ${text.length > 100 ? `${text.slice(0, 99)}…` : text}), so what Next reads may not be its literal`
   }
   return { file, isClient, exportsMetadata, metadata, unreadable, generates, source }
 }
@@ -274,8 +346,14 @@ function textsIn(meta: Metadata | undefined) {
 
 // ── One text in every environment ─────────────────────────────────────────────────────────────────
 
-/** The globals a value reads the environment through; each flag in lib/featureFlags.ts reads process.env. */
-const ENV_GLOBALS = new Set(['process', 'window', 'document', 'globalThis'])
+/**
+ * The globals a value reads the environment through: process (each flag in lib/featureFlags.ts reads
+ * process.env), the browser's window and document, and the global object under each of its names.
+ */
+const ENV_GLOBALS = new Set(['process', 'window', 'document', 'globalThis', 'global', 'self'])
+
+/** The module whose calls fetch a generated page's data: part 7 runs each state with it mocked. */
+const DATA_SOURCE = /^@\/lib\/serverApi$/
 
 /** Project modules, parsed once; undefined where the path is not a file. */
 const MODULES = new Map<string, ts.SourceFile | undefined>()
@@ -301,13 +379,16 @@ function importedModule(from: ts.SourceFile, specifier: string): ts.SourceFile |
 
 type Reached = Array<[ts.Node, ts.SourceFile]>
 
-/** What a name stands for at a module's top level: its declaration, or what it imports, followed to the module that declares it. */
+/**
+ * What a name stands for at a module's top level: its declaration (a variable's whole declaration, so the name's
+ * own binding is read with its value), or what it imports, followed to the module that declares it.
+ */
 function declarationsOf(name: string, source: ts.SourceFile, visiting = new Set<string>()): Reached {
   const out: Reached = []
   for (const stmt of source.statements) {
     if (ts.isVariableStatement(stmt)) {
-      for (const decl of stmt.declarationList.declarations) if (bindsName(decl.name, name) && decl.initializer) out.push([decl.initializer, source])
-    } else if ((ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt)) && stmt.name?.text === name) {
+      for (const decl of stmt.declarationList.declarations) if (bindsName(decl.name, name)) out.push([decl, source])
+    } else if ((ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt) || ts.isEnumDeclaration(stmt)) && stmt.name?.text === name) {
       out.push([stmt, source])
     } else if (ts.isImportDeclaration(stmt) && ts.isStringLiteral(stmt.moduleSpecifier) && stmt.importClause && !stmt.importClause.isTypeOnly) {
       const { name: local, namedBindings } = stmt.importClause
@@ -325,7 +406,14 @@ function declarationsOf(name: string, source: ts.SourceFile, visiting = new Set<
   return out
 }
 
-/** What a module exports under a name, followed through a local it renames and a re-export; a name it cannot place reads the whole module. */
+/** Whether a module declares a name as a type alone (an interface or a type alias), which holds no value. */
+const declaresType = (name: string, source: ts.SourceFile) =>
+  source.statements.some((s) => (ts.isInterfaceDeclaration(s) || ts.isTypeAliasDeclaration(s)) && s.name.text === name)
+
+/**
+ * What a module exports under a name, followed through a local it renames and a re-export; a type exports no
+ * value, and a name it cannot place otherwise reads the whole module.
+ */
 function exportsOf(name: string, source: ts.SourceFile, visiting = new Set<string>()): Reached {
   const key = `${source.fileName}#${name}`
   if (visiting.has(key)) return []
@@ -346,60 +434,203 @@ function exportsOf(name: string, source: ts.SourceFile, visiting = new Set<strin
     } else if (!stmt.exportClause && from) out.push(...exportsOf(name, from, visiting))
   }
   if (name !== 'default') out.push(...declarationsOf(name, source, visiting))
-  return out.length ? out : [[source, source]]
+  return out.length || declaresType(name, source) ? out : [[source, source]]
 }
 
-/** A name that refers to nothing by itself: a member's or a key's own name. */
-const isOwnName = (n: ts.Identifier) => {
-  const p = n.parent
-  return (
-    ((ts.isPropertyAccessExpression(p) || ts.isPropertyAssignment(p) || ts.isMethodDeclaration(p) || ts.isPropertySignature(p)) && p.name === n) ||
-    (ts.isBindingElement(p) && p.propertyName === n)
+/** The module a namespace import's member reads, and the member's name: `limits.FREE_SUMMARY_LIMIT`, `limits['X']`. */
+function namespaceMember(n: ts.Node, source: ts.SourceFile): { target: ts.SourceFile; name: string } | undefined {
+  if (!ts.isPropertyAccessExpression(n) && !(ts.isElementAccessExpression(n) && ts.isStringLiteralLike(n.argumentExpression))) return undefined
+  const holder = n.expression
+  if (!ts.isIdentifier(holder) || resolverOf(source)(holder)) return undefined
+  for (const stmt of source.statements) {
+    if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier) || stmt.importClause?.isTypeOnly) continue
+    const bindings = stmt.importClause?.namedBindings
+    if (!bindings || !ts.isNamespaceImport(bindings) || bindings.name.text !== holder.text) continue
+    const target = importedModule(source, stmt.moduleSpecifier.text)
+    const name = ts.isPropertyAccessExpression(n) ? n.name.text : (n.argumentExpression as ts.StringLiteralLike).text
+    return target && { target, name }
+  }
+  return undefined
+}
+
+/** Whether a call fetches a generated page's data: its callee is imported from DATA_SOURCE. */
+function dataCall(call: ts.CallExpression, source: ts.SourceFile): boolean {
+  const callee = unwrap(call.expression)
+  if (!ts.isIdentifier(callee) || resolverOf(source)(callee)) return false
+  return source.statements.some(
+    (s) =>
+      ts.isImportDeclaration(s) && ts.isStringLiteral(s.moduleSpecifier) && DATA_SOURCE.test(s.moduleSpecifier.text) &&
+      !!s.importClause?.namedBindings && ts.isNamedImports(s.importClause.namedBindings) &&
+      s.importClause.namedBindings.elements.some((e) => e.name.text === callee.text),
   )
 }
 
+/** What a binding holds: a variable's value (destructured: the value its pattern takes apart, and each default on the way;
+ *  a loop's: what it iterates), a parameter's default (a parameter is an input otherwise), a function's whole declaration. */
+function valuesOf(binding: Binding): ts.Node[] {
+  if (ts.isFunctionDeclaration(binding.decl)) return [binding.decl]
+  const out: ts.Node[] = []
+  let n: ts.Node = binding.decl
+  for (; ts.isBindingElement(n) || ts.isObjectBindingPattern(n) || ts.isArrayBindingPattern(n); n = n.parent) {
+    if (ts.isBindingElement(n) && n.initializer) out.push(n.initializer)
+  }
+  if ((ts.isVariableDeclaration(n) || ts.isParameter(n)) && n.initializer) out.push(n.initializer)
+  const loop = ts.isVariableDeclaration(n) && ts.isVariableDeclarationList(n.parent) ? n.parent.parent : undefined
+  if (loop && (ts.isForOfStatement(loop) || ts.isForInStatement(loop))) out.push(loop.expression)
+  return out
+}
+
+const MUTATORS = new Set(['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'fill', 'copyWithin', 'set', 'add', 'delete', 'clear'])
+const WRITERS = new Set(['Object.assign', 'Object.defineProperty', 'Object.defineProperties', 'Object.setPrototypeOf', 'Reflect.set', 'Reflect.defineProperty', 'Reflect.deleteProperty'])
+/** Calls that read their argument and never change it. */
+const READERS = new Set(['Object.keys', 'Object.values', 'Object.entries', 'Object.freeze', 'Object.isFrozen', 'Object.getOwnPropertyNames', 'JSON.stringify', 'Array.isArray', 'Array.from', 'structuredClone', 'String', 'Number', 'Boolean'])
+const isAssignment = (kind: ts.SyntaxKind) => kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment
+const isGenerateMetadata = (fn: ts.Node) =>
+  (ts.isFunctionDeclaration(fn) && fn.name?.text === 'generateMetadata') ||
+  ((ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && ts.isVariableDeclaration(fn.parent) && ts.isIdentifier(fn.parent.name) && fn.parent.name.text === 'generateMetadata')
+
+/** Whether a node is a target its parent assigns to: the left side of `=`, or a slot of a destructuring that is. */
+function assignedTo(node: ts.Node): boolean {
+  let n = node
+  while (ts.isArrayLiteralExpression(n.parent) || ts.isObjectLiteralExpression(n.parent) || ts.isSpreadElement(n.parent) || ts.isSpreadAssignment(n.parent) ||
+    ts.isShorthandPropertyAssignment(n.parent) || (ts.isPropertyAssignment(n.parent) && n.parent.initializer === n) || ts.isParenthesizedExpression(n.parent)) n = n.parent
+  const p = n.parent
+  return (ts.isBinaryExpression(p) && p.left === n && isAssignment(p.operatorToken.kind)) || ((ts.isForOfStatement(p) || ts.isForInStatement(p)) && p.initializer === n)
+}
+
+/** How one use changes the binding it names, if it does (see changeOf). */
+function changeAt(use: ts.Identifier, madeHere: boolean): string | undefined {
+  // The access path the use roots: `x`, `x.a`, `x['a'].b`, through parentheses and casts.
+  let top: ts.Node = use
+  for (let p = top.parent; ; p = top.parent) {
+    if ((ts.isPropertyAccessExpression(p) || ts.isElementAccessExpression(p)) && p.expression === top) top = p
+    else if (ts.isParenthesizedExpression(p) || ts.isNonNullExpression(p) || ts.isAsExpression(p) || ts.isSatisfiesExpression(p) || ts.isTypeAssertionExpression(p)) top = p
+    else break
+  }
+  const p = top.parent
+  if (assignedTo(top)) return top === use ? 'is assigned' : 'is written into'
+  if ((ts.isPrefixUnaryExpression(p) || ts.isPostfixUnaryExpression(p)) && (p.operator === ts.SyntaxKind.PlusPlusToken || p.operator === ts.SyntaxKind.MinusMinusToken)) return 'is assigned'
+  if (ts.isDeleteExpression(p)) return 'is deleted from'
+  if (ts.isCallExpression(p) && p.expression === top && top !== use) {
+    const method = ts.isPropertyAccessExpression(top) ? top.name.text : ts.isElementAccessExpression(top) && ts.isStringLiteralLike(top.argumentExpression) ? top.argumentExpression.text : ''
+    if (MUTATORS.has(method)) return `is changed by ${method}()`
+  }
+  if (ts.isCallExpression(p) && p.arguments.some((a) => a === top)) {
+    const callee = p.expression.getText()
+    if (WRITERS.has(callee) && p.arguments[0] === top) return `is written into by ${callee}()`
+    if (madeHere && top === use && !READERS.has(callee)) return 'is handed to a call that may change it'
+  }
+  const heldAgain = (ts.isVariableDeclaration(p) && p.initializer === top) || (ts.isBinaryExpression(p) && p.right === top && isAssignment(p.operatorToken.kind))
+  if (madeHere && top === use && heldAgain) return 'is held under another name that may change it'
+  return undefined
+}
+
 /**
- * Where a value can read the environment: an ENV_GLOBALS name in it, or in what a name in it stands for, followed
- * through its module and every project module it imports. Returns the read as 'file:line', or undefined.
+ * How a file changes a name after declaring it, if it does: a variable assigned again (`=`, `+=`, `++`, a
+ * destructuring or a loop that assigns it) or written into (a member assigned or deleted, a mutating method such
+ * as `push`, `Object.assign` and its kin), or, when it holds an object or an array the file makes, handed whole
+ * to a call (one that only reads it, such as `Object.keys`, apart) or to another name, where it may change
+ * unseen. Read for a module's names and for generateMetadata's own locals; a helper's locals are read with the
+ * whole helper, its writes and their conditions included, and a parameter is an input. The use being read is
+ * not a change.
+ */
+function changeOf(binding: Binding, reading: ts.Identifier, source: ts.SourceFile): { node: ts.Node; what: string } | undefined {
+  let root: ts.Node = binding.decl
+  while (ts.isBindingElement(root) || ts.isObjectBindingPattern(root) || ts.isArrayBindingPattern(root)) root = root.parent
+  if (!ts.isVariableDeclaration(root)) return undefined
+  for (let p: ts.Node | undefined = root.parent; p; p = p.parent) {
+    if (ts.isFunctionLike(p)) {
+      if (!isGenerateMetadata(p)) return undefined
+      break
+    }
+  }
+  const init = root.initializer && unwrap(root.initializer)
+  const madeHere = root === binding.decl && !!init && (ts.isObjectLiteralExpression(init) || ts.isArrayLiteralExpression(init))
+  for (const use of usesOf(binding.decl, source)) {
+    if (use === reading) continue
+    const what = changeAt(use, madeHere)
+    if (what) return { node: use, what: `${use.text} ${what} after its declaration` }
+  }
+  return undefined
+}
+
+/**
+ * Where a value can take another form in another environment, as 'file:line, what': an ENV_GLOBALS read in it, or
+ * in what a name in it stands for, followed to the binding in scope (so a key, a member or a parameter named window
+ * is never the global), its module's declarations and every project module it imports, a namespace import's member
+ * by its name; or a name in it that its file changes after declaring it (changeOf). A type holds no value and is not
+ * read; a call to DATA_SOURCE is a generated page's data, read for its arguments alone.
  */
 function envRead(node: ts.Node, source: ts.SourceFile, seen = new Set<ts.Node>()): string | undefined {
   if (seen.has(node)) return undefined
   seen.add(node)
+  const resolve = resolverOf(source)
+  const at = (n: ts.Node, what: string) => `${rel(source.fileName)}:${source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1}, ${what}`
   let found: string | undefined
+  const follow = (n: ts.Node, file = source) => {
+    found ??= envRead(n, file, seen)
+  }
   const visit = (n: ts.Node): void => {
-    if (found) return
+    if (found || isTypeOnly(n)) return
+    if (ts.isCallExpression(n) && dataCall(n, source)) return n.arguments.forEach(visit)
+    const member = namespaceMember(n, source)
+    if (member) return exportsOf(member.name, member.target).forEach(([decl, file]) => follow(decl, file))
     if (!ts.isIdentifier(n)) return n.forEachChild(visit)
-    if (ENV_GLOBALS.has(n.text)) found = `${rel(source.fileName)}:${source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1}`
-    else if (!isOwnName(n)) for (const [decl, file] of declarationsOf(n.text, source)) found ??= envRead(decl, file, seen)
+    if (isOwnName(n)) return
+    const binding = resolve(n)
+    if (binding) {
+      const change = changeOf(binding, n, source)
+      if (change) found = at(change.node, change.what)
+      else valuesOf(binding).forEach((value) => follow(value))
+      return
+    }
+    if (ENV_GLOBALS.has(n.text)) found = at(n, `reads ${n.text}`)
+    else declarationsOf(n.text, source).forEach(([decl, file]) => follow(decl, file))
   }
   visit(node)
   return found
 }
 
-/** Each title and description member of a static metadata literal, its own, its openGraph's and its twitter's, with the node that gives its value. */
+/**
+ * Each node a metadata object takes a title or a description from, its own, its openGraph's and its twitter's:
+ * each scope's `title` and `description` members, every spread and computed key in a scope (either may hold
+ * one), and an openGraph or a twitter that is not an object literal, whole.
+ */
 function textMembers(metadata: ts.ObjectLiteralExpression): Array<[string, ts.Node]> {
   const scopes: Array<[string, ts.ObjectLiteralExpression]> = [['', metadata]]
+  const out: Array<[string, ts.Node]> = []
   for (const key of ['openGraph', 'twitter']) {
-    const value = prop(metadata, key)?.initializer
+    const set = member(metadata, key)
+    if (!set) continue
+    const value = ts.isPropertyAssignment(set) ? unwrap(set.initializer) : undefined
     if (value && ts.isObjectLiteralExpression(value)) scopes.push([`${key}.`, value])
+    else out.push([key, ts.isShorthandPropertyAssignment(set) ? set.name : (value ?? set)])
   }
-  return scopes.flatMap(([prefix, scope]) =>
-    ['title', 'description'].flatMap((key): Array<[string, ts.Node]> => {
+  for (const [prefix, scope] of scopes) {
+    for (const key of ['title', 'description']) {
       const m = member(scope, key)
-      if (!m) return []
-      return [[`${prefix}${key}`, ts.isPropertyAssignment(m) ? m.initializer : ts.isShorthandPropertyAssignment(m) ? m.name : m]]
-    }),
-  )
+      if (m) out.push([`${prefix}${key}`, ts.isPropertyAssignment(m) ? m.initializer : ts.isShorthandPropertyAssignment(m) ? m.name : m])
+    }
+    for (const p of scope.properties) {
+      const scopeName = prefix ? `${prefix.slice(0, -1)}'s` : 'its'
+      if (ts.isSpreadAssignment(p)) out.push([`${scopeName} spread of ${p.expression.getText()}`, p.expression])
+      else if (p.name && ts.isComputedPropertyName(p.name)) out.push([`${scopeName} computed key [${p.name.expression.getText()}]`, p])
+    }
+  }
+  return out
 }
 
-/** Each title or description in a file's static metadata that can read the environment: the test sees only one branch of it. */
+/**
+ * Each title or description a route file sets that can take another form in another environment, where the test
+ * sees one: its static metadata's, and each state its generateMetadata returns.
+ */
 const envProblems = (rf: RouteFile): string[] =>
-  rf.metadata
-    ? textMembers(rf.metadata).flatMap(([key, node]) => {
-        const at = envRead(node, rf.source)
-        return at ? [`${rel(rf.file)}: ${key} reads the environment (${at}), so this test checks one branch of it`] : []
-      })
-    : []
+  [...(rf.metadata ? [rf.metadata] : []), ...(rf.generates ? returnedStates(rf).states : [])].flatMap((literal) =>
+    textMembers(literal).flatMap(([key, node]) => {
+      const at = envRead(node, rf.source)
+      return at ? [`${rel(rf.file)}: ${key} can differ by environment (${at}), so this test checks one form of it`] : []
+    }),
+  )
 
 // ── The AST reading: robots and the card ──────────────────────────────────────────────────────────
 
@@ -481,21 +712,77 @@ function socialLiterals(source: ts.SourceFile): ts.ObjectLiteralExpression[] {
   return out
 }
 
-/** Every title template in a file: a string or a template literal that ends with the brand, each substitution read as a name. */
+/** The most readings one title template is expanded into (each condition doubles them). */
+const MAX_TEMPLATE_READINGS = 64
+const readings = (parts: string[][]): string[] =>
+  parts.reduce<string[]>((heads, options) => heads.flatMap((head) => options.map((option) => head + option)).slice(0, MAX_TEMPLATE_READINGS), [''])
+
+/**
+ * The texts a template substitution can render: a literal's own, each branch of a condition, `||` or `??`, a `+`
+ * chain's and a nested template's readings, and what a same-file const holds; anything else (a name the file
+ * does not hold as a const, a call, a member) reads as a name, Ⓝ.
+ */
+function substitutionTexts(expression: ts.Expression, source: ts.SourceFile, seen = new Set<ts.Node>()): string[] {
+  const e = unwrap(expression)
+  if (ts.isStringLiteralLike(e)) return [e.text]
+  if (ts.isTemplateExpression(e)) return templateTexts(e, source, seen)
+  if (ts.isConditionalExpression(e)) return [...substitutionTexts(e.whenTrue, source, seen), ...substitutionTexts(e.whenFalse, source, seen)]
+  if (ts.isBinaryExpression(e)) {
+    const op = e.operatorToken.kind
+    if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) {
+      return [...substitutionTexts(e.left, source, seen), ...substitutionTexts(e.right, source, seen)]
+    }
+    if (op === ts.SyntaxKind.PlusToken) return readings([substitutionTexts(e.left, source, seen), substitutionTexts(e.right, source, seen)])
+  }
+  if (ts.isIdentifier(e)) {
+    const binding = resolverOf(source)(e)
+    const decl = binding?.decl
+    if (decl && ts.isVariableDeclaration(decl) && decl.initializer && decl.parent.flags & ts.NodeFlags.Const && !seen.has(decl)) {
+      return substitutionTexts(decl.initializer, source, new Set([...seen, decl]))
+    }
+  }
+  return ['Ⓝ']
+}
+const templateTexts = (t: ts.TemplateExpression, source: ts.SourceFile, seen = new Set<ts.Node>()): string[] =>
+  readings([[t.head.text], ...t.templateSpans.flatMap((span) => [substitutionTexts(span.expression, source, seen), [span.literal.text]])])
+
+/** Every title template in a file: a string or a template literal that ends with the brand, each reading of it (substitutionTexts). */
 function titleTemplates(source: ts.SourceFile): string[] {
   const out: string[] = []
   const visit = (n: ts.Node): void => {
-    const text =
-      ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)
-        ? n.text
-        : ts.isTemplateExpression(n)
-          ? n.head.text + n.templateSpans.map((span) => `Ⓝ${span.literal.text}`).join('')
-          : undefined
-    if (text?.endsWith(BRAND)) out.push(text)
+    const texts = ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) ? [n.text] : ts.isTemplateExpression(n) ? templateTexts(n, source) : []
+    out.push(...texts.filter((text) => text.endsWith(BRAND)))
     n.forEachChild(visit)
   }
   visit(source)
-  return out
+  return [...new Set(out)]
+}
+
+/** Whether a returned state titles nothing: no title, or one written as undefined, null or void, which Next renders as none. */
+function untitled(state: ts.ObjectLiteralExpression): boolean {
+  const title = member(state, 'title')
+  if (!title) return true
+  if (!ts.isPropertyAssignment(title)) return false
+  const value = unwrap(title.initializer)
+  return value.kind === ts.SyntaxKind.NullKeyword || ts.isVoidExpression(value) || (ts.isIdentifier(value) && value.text === 'undefined')
+}
+
+/** Whether an evaluated robots keeps its page out of an index, as robotsNoindex reads a literal: undefined when unset. */
+function evaluatedNoindex(robots: unknown): boolean | undefined {
+  if (robots === undefined || robots === null) return undefined
+  if (typeof robots === 'string') return robots.split(/[\s,]+/).some((d) => /^(noindex|none|unavailable_after(:.*)?)$/i.test(d))
+  if (typeof robots !== 'object') return true
+  const { index, unavailable_after: until, googleBot } = robots as Record<string, unknown>
+  return (index !== undefined && index !== true) || until !== undefined || (googleBot !== undefined && evaluatedNoindex(googleBot) === true)
+}
+
+/** What a static metadata literal alone says of robots, as setsNoindex reads it: undefined when it sets none, null where a
+    spread, a computed key or a robots that is not a plain property leaves the literal silent on it. */
+function literalNoindex(rf: RouteFile): boolean | undefined | null {
+  if (!rf.metadata || rf.metadata.properties.some((p) => ts.isSpreadAssignment(p) || (p.name && ts.isComputedPropertyName(p.name)))) return null
+  const robots = member(rf.metadata, 'robots')
+  if (!robots) return undefined
+  return ts.isPropertyAssignment(robots) ? robotsNoindex(robots.initializer) : null
 }
 
 /** The states a file's generateMetadata returns, each an object literal; a return of anything else is reported. */
@@ -590,9 +877,11 @@ describe('route metadata: every route names itself, page first and brand last', 
       // Part 7 runs the states it lists; these read every state the code returns and every title it can build.
       const { states, unreadable } = returnedStates(rf)
       const line = (n: ts.Node) => rf.source.getLineAndCharacterOfPosition(n.getStart(rf.source)).line + 1
-      const untitled = states.filter((obj) => !member(obj, 'title')).map((obj) => `${name}:${line(obj)} returns a state with no title, so its tab reads the root default`)
+      const untitledStates = states
+        .filter(untitled)
+        .map((obj) => `${name}:${line(obj)} returns a state with no title (or one of undefined or null), so its tab reads the root default`)
       expect(states.length, `${name} returns no state the spec can read`).toBeGreaterThan(0)
-      expect([...unreadable, ...untitled, ...titleTemplates(rf.source).flatMap((t) => titleProblems(t))]).toEqual([])
+      expect([...unreadable, ...untitledStates, ...titleTemplates(rf.source).flatMap((t) => titleProblems(t))]).toEqual([])
     },
   )
 
@@ -691,6 +980,26 @@ describe('route metadata: every route names itself, page first and brand last', 
     expect(file('export const { generateMetadata } = SHARED').unreadable).toBe('generateMetadata is bound by { generateMetadata }, which the spec cannot read')
     expect(file('export const metadata = NOINDEX').unreadable).toBe('metadata is NOINDEX, not an object literal the spec can read')
     expect(file("export * as shared from './shared'").unreadable, 'a namespace export hands Next no metadata').toBeUndefined()
+    // A write after the literal is one the AST reading cannot see (the review of #1312's forms), so the file names its
+    // metadata only in its declaration; a parameter or a local of the same name is not the export.
+    for (const after of [
+      "if (FLAG) metadata.title = 'Other | EarningsNerd'",
+      'metadata.robots = { index: false }',
+      "metadata['robots'] = 'noindex'",
+      "metadata.openGraph = { title: 'Probe | EarningsNerd', images: [] }",
+      'Object.assign(metadata, EXTRA)',
+      "const shared = metadata\nshared.robots = 'noindex'",
+      'delete metadata.alternates',
+    ]) expect(setsNoindex(file(`export const metadata = { title: 'Probe | EarningsNerd' }\n${after}`)), `${after} counts as noindex`).toBe(true)
+    expect(file("export const metadata = { title: 'Probe | EarningsNerd' }\nif (FLAG) metadata.title = 'Other | EarningsNerd'").unreadable).toBe(
+      "metadata is named again after its declaration (line 2: if (FLAG) metadata.title = 'Other | EarningsNerd'), so what Next reads may not be its literal",
+    )
+    expect(file("export const metadata = { title: 'Probe | EarningsNerd' }\nconst pick = (metadata: object) => metadata\nfunction f() { const metadata = 1; return metadata }").unreadable).toBeUndefined()
+    // The evaluated robots read as robotsNoindex reads a literal: unset, the forms that keep a page in, the forms that keep it out.
+    expect([undefined, null, { index: true, follow: false }, { follow: false }, 'index, follow', { index: true, googleBot: 'index, follow' }].map(evaluatedNoindex))
+      .toEqual([undefined, undefined, false, false, false, false])
+    expect([{ index: false }, 'noindex', 'NoIndex, follow', 'none', 'unavailable_after: 2026-01-01', { unavailable_after: '2026-01-01' }, { index: true, googleBot: { index: false } }, { googleBot: 'noindex' }].map(evaluatedNoindex))
+      .toEqual([true, true, true, true, true, true, true, true])
     const card = (body: string) => {
       const metadata = probe(body).metadata!
       return [...cardProblems(metadata, 'openGraph'), ...cardProblems(metadata, 'twitter')]
@@ -728,12 +1037,47 @@ export const metadata = {
   description: ENABLE_ANALYSIS ? 'AI-powered plans, with multi-period analysis.' : 'Plans for every investor.',
 }`),
     ).toHaveLength(2)
+    const flag = "import { ENABLE_ANALYSIS } from '@/lib/featureFlags'\n"
     for (const text of [
       "const TITLE = process.env.NEXT_PUBLIC_X === 'true' ? 'A | EarningsNerd' : 'B | EarningsNerd'\nexport const metadata = { title: TITLE }",
       "import { ENABLE_ANALYSIS as on } from '@/lib/featureFlags'\nconst title = `Pricing${on ? ' and analysis' : ''} | EarningsNerd`\nexport const metadata = { openGraph: { title, images: [SOCIAL_CARD] } }",
       "import * as flags from '@/lib/featureFlags'\nexport const metadata = { description: `Plans${flags.ENABLE_ANALYSIS ? ', with analysis' : ''}.` }",
       "export const metadata = { title: typeof window === 'undefined' ? 'A | EarningsNerd' : 'B | EarningsNerd' }",
+      // The review of #1312's forms: a spread before the images in openGraph and in twitter, a reassigned let, a
+      // spread source written after, and the global object under its other names.
+      `${flag}const SHARE = { title: ENABLE_ANALYSIS ? 'A | EarningsNerd' : 'B | EarningsNerd' }\nexport const metadata = { openGraph: { ...SHARE, images: [SOCIAL_CARD] } }`,
+      `${flag}const SHARE = { description: ENABLE_ANALYSIS ? 'A.' : 'B.' }\nexport const metadata = { twitter: { card: 'summary_large_image', ...SHARE, images: [SOCIAL_CARD.url] } }`,
+      `${flag}let title = 'A | EarningsNerd'\nif (ENABLE_ANALYSIS) title = 'B | EarningsNerd'\nexport const metadata = { title }`,
+      `${flag}const SHARE = { title: 'A | EarningsNerd' }\nif (ENABLE_ANALYSIS) SHARE.title = 'B | EarningsNerd'\nexport const metadata = { openGraph: { ...SHARE, images: [SOCIAL_CARD] } }`,
+      "export const metadata = { title: global.process.env.X ? 'A | EarningsNerd' : 'B | EarningsNerd' }",
+      "export const metadata = { description: self.location ? 'A.' : 'B.' }",
+      // The rest of the family, ahead of a review: the other ways a file changes a value after making it, a computed
+      // key, a destructured environment value, an openGraph that is not a literal, a generated page's flag.
+      "const SHARE = { title: 'A | EarningsNerd' }\nObject.assign(SHARE, EXTRA)\nexport const metadata = { openGraph: { ...SHARE, images: [SOCIAL_CARD] } }",
+      "const TITLES = ['A | EarningsNerd']\nif (on) TITLES.push('B | EarningsNerd')\nexport const metadata = { title: TITLES[TITLES.length - 1] }",
+      "const SHARE = { title: 'A | EarningsNerd' }\nflagged(SHARE)\nexport const metadata = { openGraph: { ...SHARE, images: [SOCIAL_CARD] } }",
+      "const SHARE = { title: 'A | EarningsNerd' }\nconst ALIAS = SHARE\nALIAS.title = 'B | EarningsNerd'\nexport const metadata = { openGraph: { ...SHARE, images: [SOCIAL_CARD] } }",
+      "let count = 3\ncount++\nexport const metadata = { description: `${count} plans.` }",
+      "const KEY = 'title'\nexport const metadata = { openGraph: { [KEY]: process.env.X, images: [SOCIAL_CARD] } }",
+      "const { X } = process.env\nexport const metadata = { title: X }",
+      `${flag}const OG = { title: ENABLE_ANALYSIS ? 'A | EarningsNerd' : 'B | EarningsNerd', images: [SOCIAL_CARD] }\nexport const metadata = { openGraph: OG }`,
     ]) expect(env(text), text).toHaveLength(1)
+    // Texts that read no environment, whatever names they hold: a key, a member or a parameter named window,
+    // document or process, a value-imported type, a namespace import's constant, a spread source read twice or
+    // handed to a call that only reads it.
+    for (const text of [
+      "const ALERT = { window: 'day-of' }\nexport const metadata = { description: `With ${ALERT.window} alerts.` }",
+      "const LABELS = { document: 'Security', process: 'How we work' }\nexport const metadata = { title: `${LABELS.document} | EarningsNerd` }",
+      "const named = (process: string) => process\nexport const metadata = { title: `${named('Probe')} | EarningsNerd` }",
+      "import { Company } from '@/features/companies/api/companies-api'\nconst nameOf = (c: Pick<Company, 'name'>) => c.name\nexport const metadata = { title: `Probe${nameOf({ name: '' })} | EarningsNerd` }",
+      "import * as limits from '@/lib/planLimits'\nexport const metadata = { description: `Up to ${limits.FREE_EARNINGS_ALERT_LIMIT} companies.` }",
+      "const SHARE = { title: 'A | EarningsNerd' }\nexport const metadata = { openGraph: { ...SHARE, images: [SOCIAL_CARD] }, twitter: { ...SHARE, images: [SOCIAL_CARD.url] } }",
+      "const SHARE = { title: 'A | EarningsNerd' }\nconst KEYS = Object.keys(SHARE)\nexport const metadata = { description: `${KEYS.length} keys.`, openGraph: { ...SHARE, images: [SOCIAL_CARD] } }",
+      // A type holds no value: a class named in an annotation is not read for its body, and an interface a class
+      // implements exports no value, so its module is not read whole.
+      "class Store { read() { return typeof window } }\nconst label = (store: Store | null) => (store ? 'Store' : 'Probe')\nexport const metadata = { title: `${label(null)} | EarningsNerd` }",
+      "import { Company } from '@/features/companies/api/companies-api'\nclass Named implements Company { name = 'Probe' }\nexport const metadata = { title: `${new Named().name} | EarningsNerd` }",
+    ]) expect(env(text), text).toEqual([])
     // Constants, imported or not, and a helper that reads none: one text in every environment.
     expect(
       env(`import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
@@ -755,12 +1099,55 @@ export const metadata = { title: pageTitleFor(DEFAULT_HEADLINE), description: DE
       `export async function generateMetadata() {
   if (otc) return { title: \`\${label} OTC Filings | EarningsNerd\`, openGraph: { title, images: [SOCIAL_CARD] }, twitter: { title, images: [SOCIAL_CARD.url] } }
   if (delisted) return { description, openGraph: { images: [SOCIAL_CARD] }, twitter: { images: [SOCIAL_CARD.url] } }
+  if (gone) return { title: undefined, openGraph: { images: [SOCIAL_CARD] }, twitter: { images: [SOCIAL_CARD.url] } }
   return { title: \`\${label} SEC filings | EarningsNerd\` }
 }`,
     )
     expect(titleTemplates(generated.source).flatMap((t) => titleProblems(t))).toEqual(['"Ⓝ OTC Filings | EarningsNerd": "Filings" is capitalised mid-title (sentence case)'])
     const { states, unreadable } = returnedStates(generated)
-    expect([states.length, states.filter((obj) => !member(obj, 'title')).length, unreadable]).toEqual([3, 1, []])
+    expect([states.length, states.filter(untitled).length, unreadable]).toEqual([4, 2, []])
+    // The review of #1312's forms: words a condition, `||` or a const holds inside a brand-ending template are its
+    // title's words too, whichever branch the state takes; a substitution the file holds no text for reads as a name.
+    const readingsOf = (body: string) =>
+      titleTemplates(readRouteFile(path.join(APP, 'zzprobe/page.tsx'), `import { ENABLE_ANALYSIS } from '@/lib/featureFlags'\n${body}`).source).flatMap((t) => titleProblems(t))
+    expect(readingsOf("export const title = (label: string) => `${label} SEC filings${ENABLE_ANALYSIS ? ' With Multi-Year Trends' : ''} | EarningsNerd`")).toEqual([
+      '"Ⓝ SEC filings With Multi-Year Trends | EarningsNerd": "With" is capitalised mid-title (sentence case)',
+      '"Ⓝ SEC filings With Multi-Year Trends | EarningsNerd": "Multi-Year" is capitalised mid-title (sentence case)',
+      '"Ⓝ SEC filings With Multi-Year Trends | EarningsNerd": "Trends" is capitalised mid-title (sentence case)',
+    ])
+    expect(readingsOf("export const title = (label: string, otc: boolean) => `${label} ${otc ? 'OTC Filings' : 'SEC filings'} | EarningsNerd`")).toEqual([
+      '"Ⓝ OTC Filings | EarningsNerd": "Filings" is capitalised mid-title (sentence case)',
+    ])
+    expect(readingsOf("const suffix = amended ? ': Amended Filing' : ''\nexport const title = (label: string) => `${label}${suffix || ''} | EarningsNerd`")).toEqual([
+      '"Ⓝ: Amended Filing | EarningsNerd": "Amended" is capitalised mid-title (sentence case)',
+      '"Ⓝ: Amended Filing | EarningsNerd": "Filing" is capitalised mid-title (sentence case)',
+    ])
+    expect(readingsOf("export const title = (subject: string, filed: string, hasContent: boolean) => `${subject}${filed}${hasContent ? ': AI summary' : ''} | EarningsNerd`")).toEqual([])
+    // A generated state's texts are held to one environment too, its locals followed to their values; a call to
+    // lib/serverApi is the page's data, read for its arguments alone.
+    const generatedEnv = (body: string) => envProblems(readRouteFile(path.join(APP, 'zzprobe/page.tsx'), body))
+    expect(
+      generatedEnv(`${flag}export async function generateMetadata() {
+  const title = ENABLE_ANALYSIS ? 'A | EarningsNerd' : 'B | EarningsNerd'
+  return { title, openGraph: { title, images: [SOCIAL_CARD] } }
+}`),
+    ).toHaveLength(2)
+    expect(
+      generatedEnv(`export async function generateMetadata() {
+  let title = 'A | EarningsNerd'
+  if (process.env.X) title = 'B | EarningsNerd'
+  return { title }
+}`),
+    ).toHaveLength(1)
+    expect(
+      generatedEnv(`import { fetchCompanyServer } from '@/lib/serverApi'
+export async function generateMetadata({ params }: { params: Promise<{ ticker: string }> }) {
+  const { ticker } = await params
+  const result = await fetchCompanyServer(ticker.toUpperCase())
+  const title = \`\${result.status === 'ok' ? result.data.name : ticker} SEC filings | EarningsNerd\`
+  return { title, openGraph: { title, images: [SOCIAL_CARD] } }
+}`),
+    ).toEqual([])
   })
 
   it('self-check: the walk reads a page or a layout under every extension Next serves, a planted .ts layout included', () => {
@@ -788,6 +1175,24 @@ export const metadata = { title: pageTitleFor(DEFAULT_HEADLINE), description: DE
   it('sets no robots in the root layout, so no public page is noindexed site-wide', () => {
     const robots = robotsOf(ROOT_LAYOUT)
     expect(robots === UNREADABLE ? UNREADABLE.description : robots?.getText(), 'the root layout sets robots').toBeUndefined()
+  })
+
+  it('reads robots and the card as each static module evaluates them, so a write its literal does not show fails here too', () => {
+    const problems = [...EVALUATED].flatMap(([rf, meta]) => {
+      if (!meta) return []
+      const name = rel(rf.file)
+      const out: string[] = []
+      const literal = literalNoindex(rf)
+      const value = evaluatedNoindex(meta.robots)
+      if (literal !== null && literal !== value) {
+        out.push(`${name}: its literal reads robots as ${literal === undefined ? 'unset' : literal ? 'noindex' : 'indexed'}, its evaluated metadata as ${value === undefined ? 'unset' : value ? 'noindex' : 'indexed'}`)
+      }
+      const images = (scope: unknown) => JSON.stringify((scope as { images?: unknown }).images)
+      if (meta.openGraph && images(meta.openGraph) !== JSON.stringify([SOCIAL_CARD])) out.push(`${name}: its evaluated openGraph.images is ${images(meta.openGraph)}, not [SOCIAL_CARD]`)
+      if (meta.twitter && images(meta.twitter) !== JSON.stringify([SOCIAL_CARD.url])) out.push(`${name}: its evaluated twitter.images is ${images(meta.twitter)}, not [SOCIAL_CARD.url]`)
+      return out
+    })
+    expect(problems).toEqual([])
   })
 
   it.each(ROUTE_FILES.map((rf) => [rel(rf.file), socialLiterals(rf.source)] as const).filter(([, literals]) => literals.length))(
