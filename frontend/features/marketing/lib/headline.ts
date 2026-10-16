@@ -52,4 +52,4 @@ export const resolveHeadlineVariant = (flag: unknown): HeadlineVariant => {
 }
 
 export const pageTitleFor = (variant: HeadlineVariant): string =>
-  `EarningsNerd | ${HEADLINES[variant].title}`
+  `${HEADLINES[variant].title} | EarningsNerd`

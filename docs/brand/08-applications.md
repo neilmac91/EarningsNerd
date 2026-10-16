@@ -27,7 +27,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). The Ask demo answers "How much did net sales grow, and what drove Services?" as a live run would: total net sales of $416.2B [1] and its 6.4% growth [2], two XBRL chips written as `copilot_tools.fact_to_citation` writes them (a fact the tool can fetch, and the growth `compute_metric` derives from it), then the Item 7 sentence on Services [3]. The markers are numbered as the server numbers them, never [F1]. `tests/unit/landingSamplesVerified.spec.ts` holds every figure, chip label and marker on the page's samples and the hero fallback to the verified set, ties each XBRL chip's label and figure to the concept its section ref names, and ties the answer's figure before each marker to that chip. The Copilot teaser's blurred sample (`CopilotTeaser.tsx`, #1295) answers a Services question instead: its Services figures are a dimensioned fact the tool cannot fetch, so its citations are passages from the filing, not XBRL facts; the two answers differ for that reason, and the spec clause over the teaser asserts that citation kind once both PRs are on main. |
 | Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | Unmounted (see §7). |
 | Footer | `components/Footer.tsx` | The tagline, "The summary that shows its work." |
-| Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). |
+| Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts`, `lib/socialCard.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). Titles put the page first and the brand last ("Read the filing faster. Keep the source in view \| EarningsNerd"); the root default is "AI summaries of SEC filings \| EarningsNerd", and the root's social preview carries no title or description of its own, so Next fills both from each page (D-038). |
 
 ## 2. The other public surfaces
 
@@ -106,6 +106,27 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   The prose links on /contact are underlined and carry the brand focus ring. The /security links
   are unchanged, because /security is a legal page under the founder's boundary; the ring triple
   on its five links rides the founder-gated security-claims PR.
+
+- **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
+  `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
+  "<Page name> | EarningsNerd", from its own page or from a `layout.tsx` beside a client page
+  (dashboard, settings, watchlist, the account pages, the admin pages), in sentence case on every
+  route but the two pinned in `routeMetadata.spec.ts`'s `TITLE_RESIDUE` (/privacy and /terms, recased
+  only with a legal-date bump). Every private route
+  stays out of the index. No layout above a public page sets noindex, the root layout included, and
+  no public page does either, but for two states kept out by design, each with
+  `robots: { index: false, follow: true }` so crawlers still follow its links: a company page for an
+  issuer whose coverage status is `unsupported_foreign`, which has no filings and never will, and a
+  filing page with no summary to show yet, a stub that would read as one of thousands of
+  near-duplicates and joins the index once its summary exists. Company and filing
+  pages carry the site card, since a page-level `openGraph` replaces the root one; their titles and
+  descriptions say what the page holds in each state (a foreign issuer with no SEC reports is told as
+  such, a filing with no summary yet claims none), and a filing's title names its filed date. The
+  card's URL is typed once (`?v=5`); its headline breaks before "shows its work." so the highlight
+  never crosses a line, and the highlight's hairline is 2px. Under `WAITLIST_MODE=true` (the rollback
+  state) the card, the icons, the manifest and /terms stay reachable. The founder declined a
+  company-specific or filing-specific card (D8, D-040). Gates: `routeMetadata.spec.ts`,
+  `markSingleSource.spec.ts`, `middleware.spec.ts`.
 
 ## 3. Inside the product
 
