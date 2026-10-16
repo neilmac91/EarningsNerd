@@ -4,7 +4,7 @@ Refresh tokens are opaque random strings. Only their SHA-256 hash is stored, so 
 database never holds a usable credential. Every refresh rotates the token (the old one is
 revoked and points at its replacement); presenting a token that was already rotated away is
 treated as a reuse/theft signal and revokes the user's entire active chain. A token revoked any
-other way (logout, logout-all, a password change or reset) is simply refused.
+other way (logout, logout-all, a password change or reset, or that theft sweep) is simply refused.
 """
 from __future__ import annotations
 
@@ -103,13 +103,15 @@ def rotate_refresh_token(
 
     if token.revoked_at is not None:
         if token.replaced_by_id is None:
-            # Revoked without rotation (logout, logout-all, a password change or reset): its holder
-            # was signed out, nobody holds a successor, and the token grants nothing. Refusing it
-            # is enough; the theft sweep below would revoke the session the user was just given
-            # and let anyone holding an evicted token sign the owner out at will.
+            # Revoked without rotation (logout, logout-all, a password change or reset, or the
+            # theft sweep below): its holder was signed out, nobody holds a successor, and the
+            # token grants nothing. Refusing it is enough; sweeping would only revoke the sessions
+            # the user signed in to since.
             raise RefreshTokenError("Refresh token has been revoked")
         # A rotated-away token is being replayed — the legitimate holder already rotated it, so
-        # this is a stolen/leaked copy. Revoke every active token for the user.
+        # this is a stolen/leaked copy. Revoke every active token for the user. The sweep is
+        # user-wide, so it also ends sessions minted after a later reset or logout-all
+        # (lessons/arch-only-a-rotated-refresh-token-signals-theft.md).
         revoked = revoke_all_for_user(db, token.user_id)
         logger.warning(
             "Refresh token reuse detected for user_id=%s; revoked %s active token(s)",

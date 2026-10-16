@@ -7,13 +7,13 @@ logout-all, a password change and a password reset also revoke tokens, but they 
 (``replaced_by_id`` stays NULL). A device signed out that way keeps its cookie and presents it on
 its next silent refresh. Treating that as theft revoked the session the user had just been given:
 the acting device's re-issued one after a password change, or the new login after logout-all or a
-reset. After a reset it also let whoever held an evicted token sign the owner out again on every
-request.
+reset. After a reset it also let whoever still held a token the reset revoked sign the owner out
+again on every request.
 
 Each case runs over HTTP with two clients, so the two devices keep separate cookie jars. The
-signed-out device's refresh is refused with a 401, writes nothing and logs no reuse warning, and
-the other device's new session still refreshes. The last test pins the other half: replaying a
-rotated-away token still revokes the user's live chain.
+signed-out device's refresh is refused with a 401 that revokes nothing, and the other device's new
+session still refreshes. Replaying a rotated-away token still takes the theft path; that half is
+gated by ``test_refresh_replay.py`` and ``test_auth_token_flows.py``.
 """
 import uuid
 from datetime import timezone
@@ -36,7 +36,6 @@ from tests.support.summary_stream_harness import reset_rate_limiters
 PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 NEW_PASSWORD = PASSWORD + "9z"  # gitleaks:allow
 REFUSED = {"detail": "Invalid or expired refresh token"}
-REUSE_WARNING = "Refresh token reuse detected"
 
 
 @pytest.fixture(scope="module")
@@ -118,11 +117,10 @@ def _assert_stale_refused_and_new_session_refreshes(
     stale: TestClient,
     new: TestClient,
     user_id: int,
-    caplog: pytest.LogCaptureFixture,
     body: Optional[dict] = None,
 ) -> None:
     """The signed-out device's refresh is a plain 401, twice (it retries on every app open), that
-    revokes nothing and logs no reuse warning; the other device's new session then still refreshes."""
+    revokes nothing; the other device's new session then still refreshes."""
     live = _live_tokens(user_id)
     assert live == 1, "the other device's new session must be the user's one live token"
     for _ in range(2):
@@ -130,11 +128,10 @@ def _assert_stale_refused_and_new_session_refreshes(
         assert resp.status_code == 401 and resp.json() == REFUSED, resp.text
     assert new.post("/api/auth/refresh").status_code == 200
     assert _live_tokens(user_id) == live  # the rotation replaced the one live token, nothing else
-    assert REUSE_WARNING not in caplog.text
 
 
 @pytest.mark.requires_db
-def test_a_password_change_keeps_the_acting_devices_reissued_session(laptop, phone, mail, caplog):
+def test_a_password_change_keeps_the_acting_devices_reissued_session(laptop, phone, mail):
     email, user_id = _register(laptop)
     _login(phone, email)
     _login(laptop, email)
@@ -144,11 +141,11 @@ def test_a_password_change_keeps_the_acting_devices_reissued_session(laptop, pho
     )
     assert changed.status_code == 200, changed.text
 
-    _assert_stale_refused_and_new_session_refreshes(phone, laptop, user_id, caplog)
+    _assert_stale_refused_and_new_session_refreshes(phone, laptop, user_id)
 
 
 @pytest.mark.requires_db
-def test_logout_all_then_a_new_login_keeps_the_new_session(laptop, phone, mail, caplog):
+def test_logout_all_then_a_new_login_keeps_the_new_session(laptop, phone, mail):
     email, user_id = _register(laptop)
     _login(phone, email)
     _login(laptop, email)
@@ -157,15 +154,18 @@ def test_logout_all_then_a_new_login_keeps_the_new_session(laptop, phone, mail, 
     assert everywhere.status_code == 200 and everywhere.json()["sessions_revoked"] == 2
     _login(laptop, email)
 
-    _assert_stale_refused_and_new_session_refreshes(phone, laptop, user_id, caplog)
+    _assert_stale_refused_and_new_session_refreshes(phone, laptop, user_id)
 
 
 @pytest.mark.requires_db
 def test_a_password_reset_then_a_new_login_keeps_the_new_session(
-    laptop, phone, mail, caplog, postgres_shaped_reset_expiry
+    laptop, phone, mail, postgres_shaped_reset_expiry
 ):
-    """The reset evicts every session. The evicted holder (a forgotten device, or the attacker the
-    reset was for) presenting its token again must not sign the owner out of the new login."""
+    """The reset evicts every session. A holder of a token the reset itself revoked (a forgotten
+    device, or an attacker who copied a token and never used it) presenting it again must not sign
+    the owner out of the new login. An attacker who did use a copy holds a rotated-away original,
+    which still takes the user-wide theft sweep; the lesson
+    arch-only-a-rotated-refresh-token-signals-theft.md records that residual."""
     email, user_id = _register(laptop)
     _login(phone, email)
 
@@ -175,11 +175,11 @@ def test_a_password_reset_then_a_new_login_keeps_the_new_session(
     assert reset.status_code == 200, reset.text
     _login(laptop, email, NEW_PASSWORD)
 
-    _assert_stale_refused_and_new_session_refreshes(phone, laptop, user_id, caplog)
+    _assert_stale_refused_and_new_session_refreshes(phone, laptop, user_id)
 
 
 @pytest.mark.requires_db
-def test_a_logout_on_one_device_leaves_the_other_session_alone(laptop, phone, mail, caplog):
+def test_a_logout_on_one_device_leaves_the_other_session_alone(laptop, phone, mail):
     email, user_id = _register(laptop)
     signed_out = _login(phone, email)
     _login(laptop, email)
@@ -189,26 +189,6 @@ def test_a_logout_on_one_device_leaves_the_other_session_alone(laptop, phone, ma
     # carries the token (here in the body).
     phone.cookies.clear()
     _assert_stale_refused_and_new_session_refreshes(
-        phone, laptop, user_id, caplog, body={"refresh_token": signed_out}
+        phone, laptop, user_id, body={"refresh_token": signed_out}
     )
 
-
-@pytest.mark.requires_db
-def test_replaying_a_rotated_away_token_still_revokes_the_live_chain(laptop, phone, mail, caplog):
-    email, user_id = _register(laptop)
-    stolen = _login(phone, email)
-    assert phone.post("/api/auth/refresh").status_code == 200  # the holder rotates it away
-    _login(laptop, email)
-    assert _live_tokens(user_id) == 2
-
-    thief = TestClient(app)  # its own empty jar; no ``with``, as for ``phone``
-    try:
-        replay = thief.post("/api/auth/refresh", json={"refresh_token": stolen})
-    finally:
-        thief.close()
-    assert replay.status_code == 401 and replay.json() == REFUSED, replay.text
-    assert REUSE_WARNING in caplog.text
-
-    assert _live_tokens(user_id) == 0
-    assert phone.post("/api/auth/refresh").status_code == 401
-    assert laptop.post("/api/auth/refresh").status_code == 401
