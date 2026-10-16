@@ -43,17 +43,19 @@ lists. It reads text as GitHub renders it, so an escaped number sign or an HTML 
 message typed at merge, which no pull-request check can see, is read by
 `.claude/hooks/closing_keyword_guard.py` in an agent's session: `.claude/settings.json` runs it before every
 Bash command, every Monitor and every GitHub MCP call, and it refuses a merge call (any string handed to a
-GitHub MCP merge tool, or to a call handed a GraphQL merge document or a REST merge endpoint, or a shell
-line that runs or names `gh pr merge`, a REST merge endpoint or a GraphQL merge mutation, with every file
-the line names to send or read) whose text carries such a reference, with the gate's own pattern
+GitHub MCP merge tool, or to a call handed a merge request as a whole string: a GraphQL document or JSON
+request calling a merge mutation, or a REST merge path, URL or route; or a shell line that runs or names `gh
+pr merge`, a REST merge endpoint or a GraphQL merge mutation, with every file the line names to send or
+read) whose text carries such a reference, with the gate's own pattern
 (`backend/tests/unit/test_closing_keyword_guard.py`). A line that only names a merge, such as a comment
 quoting one, is refused too; such text goes in a body file. Not gated: a merge whose message the shell or a
 command builds as the line runs (a variable, a `$'...'` escape, or the output of any command but a plain
-`cat`) or that reads a file over 1 MiB, a glob's files past its first 16 or its first 4,096 matches, or a
-file named relative to a directory the line changes into first, a merge a script or a gh alias runs or whose
-URL sits in a file a command reads as its configuration (curl's `-K`, wget's `-i`), a merge through a GitHub
-MCP server registered under a name without "github", a merge made in a session that loads no repository
-hooks or by a person, and a merge made after an edit but before its new gate run's check appears.
+`cat`) or that reads a file over 1 MiB, a glob's files past its first 16, or a file named relative to a
+directory the line changes into first, a merge a script or a gh alias runs or whose URL sits in a file a
+command reads as its configuration (curl's `-K`, wget's `-i`), a merge through an MCP request tool that
+spreads its target over fields of its own or through a GitHub MCP server registered under a name without
+"github", a merge made in a session that loads no repository hooks or by a person, and a merge made after an
+edit but before its new gate run's check appears.
 
 **Evidence**: #1136 (its body's closing note) and #1156 (closed 17:19:34 UTC with no commit, reopened at
 17:29:44, comment 6085958257); #653 with #629 and #694 with #686 (each close one second after the merge,

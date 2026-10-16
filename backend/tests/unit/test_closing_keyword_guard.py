@@ -14,7 +14,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
+import uuid
 from pathlib import Path
 
 import pytest
@@ -37,12 +39,23 @@ def _registered() -> list[dict]:
     ]
 
 
-def _run(stdin: str, project_dir: Path = ROOT, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    """Run the command .claude/settings.json registers, as Claude Code does (`/bin/sh -c`), within its timeout."""
+def _run(stdin: str, project_dir: Path = ROOT, env: dict[str, str] | None = None,
+         command: str | None = None, timeout: float | None = None) -> subprocess.CompletedProcess[str]:
+    """Run the command .claude/settings.json registers, as Claude Code does (`/bin/sh -c`), within its timeout.
+
+    The shell starts a session of its own, and a timeout kills that whole process group: killing only the shell
+    would leave the hook it started running, holding a CPU, after the test has failed."""
     [hook] = [hook for entry in _registered() for hook in entry["hooks"]]
     env = {**os.environ, **(env or {}), "CLAUDE_PROJECT_DIR": str(project_dir)}
-    return subprocess.run(["sh", "-c", hook["command"]], input=stdin, capture_output=True, text=True, env=env,
-                          timeout=hook["timeout"])
+    with subprocess.Popen(["sh", "-c", command or hook["command"]], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True, env=env, start_new_session=True) as proc:
+        try:
+            stdout, stderr = proc.communicate(stdin, timeout=timeout or hook["timeout"])
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.communicate()
+            raise
+    return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
 
 def _event(tool: str, tool_input: object, cwd: Path = ROOT) -> str:
@@ -119,6 +132,23 @@ MCP_REFUSED = {
         "endpoint": "POST repos/o/r/merges", "body": {"base": "main", "head": "t", "commit_message": "fixes #3"}}),
     "a request tool's GraphQL field": ("mcp__github__api_request", {
         "graphql": '# merge\nmutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "fixes #3"}) { clientMutationId } }'}),
+    # A request tool's merge in the shapes GitHub's docs and clients write it.
+    "a request tool's templated route": ("mcp__github__api_request", {
+        "route": "PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", "owner": "o", "repo": "r", "pull_number": 5,
+        "commit_message": "fixes #3"}),
+    "a request tool's URL with a query string": ("mcp__github__api_request", {
+        "method": "PUT", "url": "https://api.github.com/repos/o/r/pulls/5/merge?x=1", "body": {"commit_message": "fixes #3"}}),
+    "a request tool's path below its repository": ("mcp__github__api_request", {
+        "owner": "o", "repo": "r", "method": "PUT", "path": "pulls/5/merge", "body": {"commit_message": "fixes #3"}}),
+    "a request tool's GraphQL body as a JSON string": ("mcp__github__api_request", {
+        "method": "POST", "path": "/graphql", "body": '{"query": "mutation { mergePullRequest(input: {pullRequestId: \\"X\\", commitHeadline: \\"fixes #3\\"}) { clientMutationId } }"}'}),
+    "a JSON request with no endpoint": ("mcp__github__api_request", {
+        "method": "POST", "body": '{"query": "mutation { mergePullRequest(input: {pullRequestId: \\"X\\", commitHeadline: \\"fixes #3\\"}) { clientMutationId } }"}'}),
+    "a batched GraphQL request beside the endpoint": ("mcp__github__api_request", {
+        "url": "https://api.github.com/graphql", "data": '[{"query": "mutation { mergePullRequest(input: {pullRequestId: \\"X\\", commitHeadline: \\"fixes #3\\"}) { clientMutationId } }"}]'}),
+    "a GraphQL document with a fragment first": ("mcp__github__run_graphql", {
+        "query": 'fragment F on PullRequest { id }\nmutation { mergePullRequest(input: {pullRequestId: "X", '
+                 'commitHeadline: "fixes #3"}) { clientMutationId } }'}),
     "a GraphQL tool's document": ("mcp__github__graphql", {
         "document": 'mutation { mergePullRequest(input: {pullRequestId: "X", commitHeadline: "fixes #3"}) { clientMutationId } }'}),
 }
@@ -144,6 +174,10 @@ MCP_PASSED = {
     "a comment that names a merge endpoint": ("mcp__github__add_issue_comment", {
         "issue_number": 5, "body": "PUT /repos/o/r/pulls/5/merge with 'fixes #3' is refused."}),
     "a search whose query names a merge mutation": ("mcp__github__search_code", {"query": "mergePullRequest fixes #3"}),
+    "a search that starts with a GraphQL keyword but calls nothing": (
+        "mcp__github__search_code", {"query": "query mergePullRequest closes #3"}),
+    "a comment that names the GraphQL endpoint and a merge call": ("mcp__github__add_issue_comment", {
+        "issue_number": 5, "body": "POST /graphql with mergePullRequest(commitHeadline: 'fixes #3') is refused."}),
 }
 BASH_REFUSED = (
     "gh pr merge 5 --squash --body 'Closes #3'",
@@ -175,11 +209,16 @@ BASH_REFUSED = (
     "gh pr merge 5 -s -Fmsg.md",
     "gh pr merge 5 -sF msg.md",
     "gh pr merge 5 -s -FCOMMIT_MSG.md",  # the option is the first F, T or K, not the last
+    "gh pr merge 5 -s -F=msg.md",  # pflag drops an `=` after a short option
+    "gh pr merge 5 -sF=msg.md",
     "gh pr merge 5 -sFCOMMIT_MSG.md",
     "gh pr merge 5 -s '-F' msg.md",  # an option quoted or escaped as a whole word
     "gh pr merge 5 -s \"--body-file=msg.md\"",
+    "gh pr merge 5 -s \"--body-file=my notes.md\"",
     "gh pr merge 5 -s -\\F msg.md",
     "'cat' msg.md | gh pr merge 5 -s -F -",
+    "gh pr merge 5 -s -b \"$(\\cat msg.md)\"",  # a cat that skips an alias, inside a quoted substitution
+    "gh pr merge 5 -s -b \"$('cat' msg.md)\"",
     "gh pr merge 5 -s -d --body-file msg.md",  # -d is --delete-branch, never the value of the next option
     "gh pr merge 5 -s -d -F msg.md",
     "gh pr merge 5 -s -F - < msg.md",
@@ -229,6 +268,7 @@ BASH_REFUSED = (
     "gh api graphql -F query=@automerge.graphql",
     "curl -X POST -d @query.json https://api.github.com/graphql",
     "http PUT api.github.com/repos/o/r/pulls/5/merge commit_message=@msg.md",
+    "http PUT api.github.com/repos/o/r/pulls/5/merge commit_message=\"@my notes.md\"",  # quoted after `=`
     "wget --method=PUT --body-file=body.json https://api.github.com/repos/o/r/pulls/5/merge",
     "wget --post-file=query.json https://api.github.com/graphql",
     "curl -X PUT -K curl.cfg https://api.github.com/repos/o/r/pulls/5/merge",
@@ -236,6 +276,7 @@ BASH_REFUSED = (
     "curl -X PUT --variable msg@msg.md --expand-data '{{msg}}' https://api.github.com/repos/o/r/pulls/5/merge",
     "python3 -c \"import requests; requests.put('https://api.github.com/repos/o/r/pulls/5/merge', "
     "json={'commit_message': 'fixes #3'})\"",
+    "python3 -c 'import subprocess; subprocess.run([\"gh\", \"pr\", \"merge\", \"5\", \"-b\", \"fixes #3\"])'",
 )
 BASH_PASSED = (
     "gh pr merge 5 --squash",
@@ -261,8 +302,9 @@ BASH_PASSED = (
 # The stated gaps, one per form the hook's docstring names: text the shell or a command builds as the line
 # runs (a variable, an ANSI-C escape, any command's output but a plain cat's, a line handed to another shell
 # that way), a file named relative to a directory the line changes into, a script, a gh alias, a server named
-# otherwise, a merge whose URL sits in a file a command reads as its configuration. A file over 1 MiB and a
-# glob's files past its first 16 have tests of their own.
+# otherwise, a merge whose URL sits in a file a command reads as its configuration, an MCP request tool that
+# spreads a merge's target over fields. A file over 1 MiB and a glob's files past its first 16 have tests of
+# their own.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b $'fixes \\x233'"}),
@@ -274,6 +316,8 @@ GAPS = (
     ("Bash", {"command": "gh m 5 -s -b 'fixes #3'"}),  # `gh alias set m 'pr merge'`
     ("Bash", {"command": "curl -K merge.cfg"}),
     ("Bash", {"command": "wget -i urls.txt --method=PUT --body-file=body.json"}),
+    ("mcp__github__api_request", {  # a request tool that spreads the merge's target over fields of its own
+        "method": "PUT", "owner": "o", "repo": "r", "pull_number": 5, "action": "merge", "commit_message": "fixes #3"}),
     ("mcp__gh__merge_pull_request", {"commit_message": "fixes #3"}),
 )
 
@@ -358,9 +402,30 @@ def test_a_file_over_the_cap_and_a_pipe_are_not_read(bodies: Path) -> None:
     assert _decision("Bash", {"command": "gh pr merge 5 -s -F pipe.md"}, cwd=bodies) is None
 
 
-def test_a_large_command_is_read_inside_the_hooks_timeout() -> None:
-    # _run gives the hook the timeout .claude/settings.json registers; a slower read fails with TimeoutExpired.
-    command = "gh pr merge 5 -s -b 'ok' && echo " + "fix-" * 250_000
+# Lines of about 1 MB built to make a reader backtrack, each read inside the hook's registered timeout (_run's
+# subprocess timeout), or the call would go through as a hook error. A merge line runs every file reader; a
+# line that names "merge" but no merge makes each detector search all of it.
+MERGE_LINE = "gh pr merge 5 -s -b ok"
+ADVERSARIAL = {
+    "fix-": MERGE_LINE + " && echo " + "fix-" * 250_000,
+    "options": MERGE_LINE + " -" * 500_000,
+    "redirects": MERGE_LINE + " <" * 500_000,
+    "quotes": MERGE_LINE + " 'a'" * 250_000,
+    "quoted options": MERGE_LINE + " '-F' x" * 150_000,
+    "cat words": MERGE_LINE + " cat x" * 200_000,
+    "attached values": MERGE_LINE + " -sbx" * 250_000,
+    "quoted @ fields": MERGE_LINE + " 'k=@" * 250_000,
+    "backslashes": MERGE_LINE + " \\" * 500_000,
+    "@ words": MERGE_LINE + " @" * 500_000,
+    "one long word": MERGE_LINE + " " + "a" * 1_000_000,
+    "-R words, no merge": "echo merge; gh" + " -R gh" * 170_000,
+    "gh api words, no merge": "echo merge; gh api" + " gh api x" * 100_000,
+    "graphql words, no mutation": "echo graphql; gh api graphql" + " -f q=graphql" * 80_000,
+}
+
+
+@pytest.mark.parametrize("command", ADVERSARIAL.values(), ids=list(ADVERSARIAL))
+def test_a_large_command_is_read_inside_the_hooks_timeout(command: str) -> None:
     assert _decision("Bash", {"command": command}) is None
 
 
@@ -370,6 +435,16 @@ def test_an_event_of_another_shape_goes_through(event: str) -> None:
     proc = _run(event)
     assert proc.stdout == ""
     assert proc.returncode in (0, 1)  # a hook error (1) lets the call through; 2 would refuse it
+
+
+def test_a_timed_out_hook_is_stopped_with_its_shell() -> None:
+    # A hook past its timeout is killed with the shell that started it, so a slow mutant or regression fails
+    # its test without leaving a process behind to starve the rest of the run.
+    marker = f"closing-guard-timeout-{uuid.uuid4().hex}"
+    with pytest.raises(subprocess.TimeoutExpired):
+        _run("", command=f"python3 -c 'import time; time.sleep(60)' {marker} || exit 1", timeout=1)
+    processes = subprocess.run(["ps", "-eww", "-o", "args"], capture_output=True, text=True, check=True).stdout
+    assert marker not in processes
 
 
 def test_a_hook_that_cannot_run_is_a_hook_error_never_a_refusal(tmp_path: Path) -> None:
