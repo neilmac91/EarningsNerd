@@ -85,9 +85,11 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
     >
       {/* DS "Chat composer" pattern: the shell carries the field recipe, its focus
           border and ring keyed to focus-within (`shell: true`); the composer-variant
-          Textarea inside stays chrome-free. scroll-my-1 keeps the 3px ring in view when
-          revealFocus brings the shell to an edge. */}
-      <div ref={shellRef} className={inputClasses({ shell: true, className: 'flex items-end gap-2 scroll-my-1' })}>
+          Textarea inside stays chrome-free. scroll-mb-1 keeps the 3px ring in view when
+          revealFocus brings the shell to the bottom edge, where the rail's reveal lands (its
+          column has just returned to the top); a top scroll margin here would read as a
+          site-header offset, which is what this codebase's top scroll margins are. */}
+      <div ref={shellRef} className={inputClasses({ shell: true, className: 'flex items-end gap-2 scroll-mb-1' })}>
         <Textarea
           variant="composer"
           ref={textareaRef}

@@ -54,7 +54,7 @@ describe('CopilotComposer revealFocus handle', () => {
       expect(calls).toEqual([])
 
       // Focus in the field, then on Send: each time the shell around both comes to the nearest edge. Not the form,
-      // whose privacy note would push the conversation off a short sheet; scroll-my-1 leaves room for the 3px ring.
+      // whose privacy note would push the conversation off a short sheet; scroll-mb-1 leaves room below it for the 3px ring.
       for (const control of [field, send]) {
         control.focus()
         ref.current?.revealFocus()
@@ -64,7 +64,7 @@ describe('CopilotComposer revealFocus handle', () => {
         expect(arg).toEqual({ block: 'nearest' })
         expect(el.contains(field) && el.contains(send)).toBe(true)
         expect(el.tagName).not.toBe('FORM')
-        expect(el.classList.contains('scroll-my-1')).toBe(true)
+        expect(el.classList.contains('scroll-mb-1')).toBe(true)
       }
     } finally {
       Element.prototype.scrollIntoView = jsdomScrollIntoView
