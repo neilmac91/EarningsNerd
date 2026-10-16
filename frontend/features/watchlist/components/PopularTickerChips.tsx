@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { cx } from '@/components/ui'
 import { CircleNotchIcon, PlusIcon } from '@/lib/icons'
 import { addToWatchlist } from '@/features/watchlist/api/watchlist-api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -15,7 +16,8 @@ const POPULAR_TICKERS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'TSLA'] as con
 // While an add is in flight every chip fades its label and hairline, never the element: an element
 // opacity would fade the focus ring the focusable chip still shows (DESIGN_SYSTEM §4). The plus has an
 // ink of its own, so it fades through `group`. Dark's hairline is white/10, so its half is white/5.
-const CHIP_CLASSES = [
+// Joined with cx, which the ring scan reads (siteChromeFocusRing.spec.ts), so the ring is held there.
+const CHIP_CLASSES = cx(
   'group inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-semibold',
   'border-border-light bg-panel-light text-text-primary-light shadow-e1',
   'transition-colors duration-fast hover:bg-brand-weak hover:border-brand-border',
@@ -24,7 +26,7 @@ const CHIP_CLASSES = [
   'dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none',
   'dark:hover:bg-white/5 dark:hover:border-brand-border-dark dark:focus-visible:shadow-ring-brand-dark',
   'dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50',
-].join(' ')
+)
 
 export default function PopularTickerChips() {
   const queryClient = useQueryClient()

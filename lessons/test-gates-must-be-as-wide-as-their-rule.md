@@ -97,10 +97,12 @@ Corollary for the anti-vacuity floor: assert the scanner actually found things (
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
 
 **Gate**: each gate scores its own planted forms in its own suite: rule 2's fixture,
-`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, in `brandCopyRules.spec.ts`; the published-asset scan's
-`FORMS`, with equal counts and a header that names each gap a case marks, in
-`backend/tests/unit/test_mail_published_assets.py`; and the mail reader's planted pages (`TEXT_SIZES`,
-`LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`) in `backend/tests/unit/test_mail_header_template.py`.
+`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, in `brandCopyRules.spec.ts`; the route-metadata readers'
+self-checks in `routeMetadata.spec.ts`; the register's planted layouts (`LAYOUTS`) in
+`publishedAssetUrls.spec.ts`; the published-asset scan's `FORMS`, with equal counts and a header that names
+each gap a case marks, in `backend/tests/unit/test_mail_published_assets.py`; and the mail reader's planted
+pages (`TEXT_SIZES`, `LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`) in
+`backend/tests/unit/test_mail_header_template.py`.
 Scoring a model of a reader against the reader itself has no gate yet: E78 in `tasks/todo.md` would score
 the mail reader against the pinned Chromium in CI.
 
@@ -320,3 +322,14 @@ parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists 
 `word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine
 where the engines disagree, on the side each check needs; and hold every value an input hands in to the
 lengths callers send, not only the lines they run.
+
+**Recurrence (2026-10-15, route metadata)**: `frontend/tests/unit/routeMetadata.spec.ts` (#1312) read
+a title or a description only as a typed literal and walked `page.tsx` and `layout.tsx` alone. The
+literal reader failed #1299's description, a template over the period caps `lib/planLimits.ts`
+mirrors from config, and the literal it asked for would have failed #1299's lockstep gate, so
+whichever PR landed second went red; the walk let a noindex `layout.ts` take every company page out
+of the index with all 132 tests green. The spec now imports each module and checks the metadata it
+exports as Next evaluates it, and walks every page and layout under the extensions Next serves
+(next.config.js's `pageExtensions`, else Next's default), with a `.ts` layout planted in its
+self-check. A gate over a framework's files reads the file names the framework reads, and a gate
+over a value reads the value, not the way one file typed it.

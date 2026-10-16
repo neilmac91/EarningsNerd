@@ -38,11 +38,12 @@ const RISKS_SECTION_ID = 'investment-risks-concerns'
 const isRisksSection = (section: RenderedSection): boolean =>
   section.role === 'risks' || section.id === RISKS_SECTION_ID
 
-// tone -> Badge variant (T1.2 treatment). neutral/unknown render nothing: tone is a schema field
-// name, not user copy.
-const TONE_VARIANT: Record<string, 'brand' | 'warning'> = {
-  positive: 'brand',
-  cautious: 'warning',
+// tone -> the header Badge's label. One neutral Badge for both: a tone is the model's reading of
+// management's language, not a status, so it takes neither the brand nor a warning colour, and the
+// label names what it is. neutral/unknown render nothing: tone is a schema field name, not user copy.
+const TONE_LABEL: Record<string, string> = {
+  positive: 'Management tone: positive',
+  cautious: 'Management tone: cautious',
 }
 
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
@@ -171,7 +172,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
         <MobileSectionNav sections={pageSections} />
         <div className="space-y-11">
           {pageSections.map((section, i) => {
-            const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
+            const toneLabel = section.tone ? TONE_LABEL[section.tone.toLowerCase()] : undefined
             return (
               <section
                 key={section.id}
@@ -179,21 +180,29 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
                 aria-labelledby={`${section.id}-heading`}
                 className="scroll-mt-32 lg:scroll-mt-24"
               >
-                <div className="flex items-baseline gap-3">
-                  <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
-                    {sectionIndex(i)}
-                  </span>
-                  <h2
-                    ref={i === 0 ? firstHeadingRef : undefined}
-                    tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
-                    id={`${section.id}-heading`}
-                    className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
-                  >
-                    {section.title}
-                  </h2>
-                  {toneVariant && (
-                    <Badge variant={toneVariant} className="shrink-0 self-center capitalize">
-                      {section.tone}
+                {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
+                    so a long heading wraps its own words beside its index, never drops beneath it. When
+                    the group and the badge do not fit on one line (a 320px phone, or 200% text) the badge
+                    moves beneath the heading instead of squeezing it or pushing the page wider, and its
+                    label wraps inside the badge if even a line of its own is too narrow (the label's span
+                    overrides the Badge's nowrap). */}
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <div className="flex min-w-0 items-baseline gap-3">
+                    <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
+                      {sectionIndex(i)}
+                    </span>
+                    <h2
+                      ref={i === 0 ? firstHeadingRef : undefined}
+                      tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
+                      id={`${section.id}-heading`}
+                      className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
+                    >
+                      {section.title}
+                    </h2>
+                  </div>
+                  {toneLabel && (
+                    <Badge variant="neutral" className="max-w-full self-center">
+                      <span className="min-w-0 whitespace-normal">{toneLabel}</span>
                     </Badge>
                   )}
                 </div>

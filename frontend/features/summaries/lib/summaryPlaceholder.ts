@@ -41,9 +41,9 @@ export const cleanSummaryMarkdown = (markdown: string): string =>
 type StoredSummary = { business_overview?: string | null; raw_summary?: unknown } | null | undefined
 
 /**
- * A stored summary the filing page shows as its "Summary temporarily unavailable" card, with Retry,
- * instead of the body: failure filler (the fallback body among it), a writer error, or nothing left
- * once the notices are stripped. SummaryDisplay decides its error card with it.
+ * A stored summary the filing page shows as its stored-failure card ("This summary did not finish"),
+ * with Retry, instead of the body: failure filler (the fallback body among it), a writer error, or
+ * nothing left once the notices are stripped. SummaryDisplay decides its error card with it.
  */
 export const isSummaryFailure = (summary: StoredSummary): boolean => {
   const raw = summary?.raw_summary

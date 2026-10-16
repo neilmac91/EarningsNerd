@@ -4,14 +4,13 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
 import Link from 'next/link'
-import { BellIcon, CircleNotchIcon, LockSimpleIcon } from '@/lib/icons'
+import { CircleNotchIcon, LockSimpleIcon } from '@/lib/icons'
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
   NotificationPreferences,
   NotificationPreferencesUpdate,
 } from '@/features/notifications/api/notifications-api'
-import { fieldUnavailableClass, inputClasses } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { Switch } from '@/components/ui/Switch'
@@ -38,8 +37,11 @@ function Toggle({
   locked?: boolean
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <div className="flex-1">
+    // The label column keeps 10rem beside the switch or the switch takes the next line, so at 200% text
+    // on a phone it sits under the label instead of hanging past the card (and the column is not
+    // crushed to a word a line). At the default size the row is unchanged.
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
+      <div className="grow basis-40">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">{label}</span>
           {locked && (
@@ -100,10 +102,7 @@ export default function NotificationPreferencesForm() {
   return (
     <Card className="p-6 mb-6">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          <BellIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-          Filing Alerts
-        </h2>
+        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Filing alerts</h2>
         {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-secondary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
@@ -117,7 +116,7 @@ export default function NotificationPreferencesForm() {
           Couldn&apos;t load your alert preferences. Please refresh.
         </p>
       ) : (
-        <PreferenceRows prefs={prefs} setBool={setBool} save={save} busy={mutation.isPending} />
+        <PreferenceRows prefs={prefs} setBool={setBool} busy={mutation.isPending} />
       )}
 
       {mutation.isError && (
@@ -132,12 +131,10 @@ export default function NotificationPreferencesForm() {
 function PreferenceRows({
   prefs,
   setBool,
-  save,
   busy,
 }: {
   prefs: NotificationPreferences
   setBool: (field: BoolPref) => (next: boolean) => void
-  save: (update: NotificationPreferencesUpdate) => void
   busy: boolean
 }) {
   return (
@@ -158,7 +155,7 @@ function PreferenceRows({
       />
       <Toggle
         label="Material events (8-K)"
-        description="Breaking corporate events as they're filed."
+        description="Current reports on material events."
         checked={prefs.notify_8k}
         busy={busy}
         disabled={!prefs.eightk_available}
@@ -181,7 +178,7 @@ function PreferenceRows({
       />
       <Toggle
         label="Real-time alerts"
-        description="Get alerted the moment a filing lands, instead of in the daily digest."
+        description="An email from the hourly filing check, instead of the daily digest."
         checked={prefs.realtime}
         busy={busy}
         disabled={!prefs.realtime_available}
@@ -189,31 +186,20 @@ function PreferenceRows({
         onChange={setBool('realtime')}
       />
 
-      <div className="flex items-center justify-between gap-4 py-3">
-        <div className="flex-1">
-          <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest frequency</span>
+      {/* The daily digest job sends once a day for everyone and reads no frequency setting, so this row
+          states the cadence instead of offering a choice no job honours. A choice comes back only with
+          a reader in the backend (tests/unit/notificationPreferencesConsumed.spec.ts). The cadence is the
+          row's value, set in the data face as the filing identity sets its facts, so it reads as a stated
+          fact rather than a label that lost its control. Its row is the switches' row, so at 200% text the
+          value sits under the description as a switch does. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
+        <div className="grow basis-40">
+          <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest</span>
           <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-            How often to batch non-real-time alerts.
+            Alerts that aren&apos;t real-time arrive in one email a day.
           </p>
         </div>
-        {/* aria-disabled while saving, not `disabled`: the select that just changed holds focus. A
-            controlled select whose handler returns early keeps its value. Named like the switches
-            above, by aria-label: the row's text is a span, not a <label>. */}
-        <select
-          aria-label="Digest frequency"
-          value={prefs.digest}
-          aria-disabled={busy || undefined}
-          aria-busy={busy || undefined}
-          onChange={(e) => {
-            if (busy) return
-            save({ digest: e.target.value })
-          }}
-          className={clsx(inputClasses({ select: true, autoWidth: true }), fieldUnavailableClass)}
-        >
-          <option value="immediate">Immediate</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-        </select>
+        <span className="font-data text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Daily</span>
       </div>
     </div>
   )
