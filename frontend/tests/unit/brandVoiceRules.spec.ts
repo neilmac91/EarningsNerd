@@ -61,10 +61,11 @@ import { isIconModule } from './iconModules'
  * pattern's place, and the value `setAttribute` gives an attribute that is not code, are read by their context. An
  * attribute that is not code (CODE_ATTRS) is copy, so a placeholder, an aria-label, an alt or a title is
  * read by the exclamation, emoji and buzzword clauses (and by no-em-dash-copy.spec.ts, which reads every
- * literal), whatever its shape, and so is an expression rendered as an element's child; a string with no
- * context that says copy or code is read as a class list when it is shaped like one (lowercase tokens, one
- * with a hyphen, a colon or a bracket), so a lowercase phrase held in a variable or an object property of
- * another name (`const SUBHEAD = 'decision-ready insights'`) is the scan's limit and review-checked. A JSON module the app imports is data this scan does not read, so the copy it holds
+ * literal), whatever its shape (a lone `'!'` or `'🚀'` included), and so is an expression rendered as an
+ * element's child; a string with no context that says copy or code is code when it has no letter (a
+ * separator, a symbol) and is read as a class list when it is shaped like one (lowercase tokens, one with a
+ * hyphen, a colon or a bracket), so a lowercase phrase or a lone symbol held in a variable or an object
+ * property of another name (`const SUBHEAD = 'decision-ready insights'`) is the scan's limit and review-checked. A JSON module the app imports is data this scan does not read, so the copy it holds
  * (features/analysis/demo/demo-analysis.json, the landing's samples) is review-checked
  * (tests/unit/importWalk.ts).
  *
@@ -183,12 +184,12 @@ const callName = (call: ts.CallExpression) =>
 const calleeNames = (call: ts.CallExpression): string[] => [callName(call), ...namesOf(call.expression, new Set())]
 
 /** Whether a string literal is code's own string, not copy: an import, a key, a comparison, a code attribute or
-    argument, or, with no context that says either, a class list by its shape. Context is read first, so a copy
-    attribute (a title, an aria-label) and an expression rendered as an element's child are copy whatever their
-    shape ("decision-ready insights" reads as a class list by shape alone). */
+    argument, or, with no context that says either, a string with no letter (a separator, a symbol) or a class list by
+    its shape. Context is read first, so a copy attribute (a title, an aria-label, the one setAttribute names) and an
+    expression rendered as an element's child are copy whatever their shape ("decision-ready insights" reads as a class
+    list by shape alone, and `'🚀'` or `'!'` has no letter). */
 function isCodeString(node: ts.Node, text: string): boolean {
   if (ts.isJsxText(node)) return false
-  if (!/\p{L}/u.test(text)) return true
   // Markup a module builds (an SVG for an export) is code.
   if (/<\/?[a-z][\w-]*[\s>/]/.test(text)) return true
   const parent = node.parent
@@ -215,7 +216,10 @@ function isCodeString(node: ts.Node, text: string): boolean {
       const at = n.arguments.indexOf(from as ts.Expression)
       const attribute = n.arguments[0]
       if (/^replace(?:All)?$/.test(callName(n)) && at > 0) continue
-      if (callName(n) === 'setAttribute' && at === 1 && !(ts.isStringLiteralLike(attribute) && CODE_ATTRS_ANY_CASE.test(attribute.text))) continue
+      if (callName(n) === 'setAttribute' && at === 1) {
+        if (ts.isStringLiteralLike(attribute)) return CODE_ATTRS_ANY_CASE.test(attribute.text)
+        continue
+      }
       return true
     }
     // The source a RegExp is built from (`new RegExp(\`(?<!x)[.!?]\`)`) is a pattern, not a sentence.
@@ -224,7 +228,7 @@ function isCodeString(node: ts.Node, text: string): boolean {
     if (ts.isJsxExpression(n) && (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))) return false
     if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isBlock(n) || ts.isSourceFile(n)) break
   }
-  return looksLikeClasses(text)
+  return !/\p{L}/u.test(text) || looksLikeClasses(text)
 }
 
 /** A word as it is spelled: the punctuation that opens or closes it (`More…`, `Again!`, `(Beta)`) is not its spelling. */
@@ -997,6 +1001,31 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     ])
     // Every way a name is given an icon (tests/unit/heldValues.ts; lessons/test-gates-must-be-as-wide-as-their-rule.md),
     // one heading each: an assignment after the declaration (the review's case), a logical assignment, a destructuring
+    // Context is read before a string's shape (the review's case: a string with no letter is copy where its context
+    // says so): an emoji or an exclamation alone rendered as a child, given a copy attribute, as a createElement child,
+    // as a replacement and as setAttribute's value (lines 1 to 5) is copy, and so is a phrase shaped like a class list
+    // that setAttribute gives a copy attribute (10); a separator rendered as a child is copy with nothing to find (6); a
+    // code attribute's value (7), setAttribute's code attribute (8) and a string no context claims (9) are code.
+    const symbols = [
+      "export const A = () => <p>{'🚀'}</p>",
+      "export const B = () => <button aria-label={'!'} />",
+      "export const C = () => createElement('p', null, '🚀')",
+      "export const D = ({ note }) => <p>{note.replace('x', '🚀')}</p>",
+      "export const E = (el) => el.setAttribute('aria-label', '!')",
+      "export const F = () => <p>{' · '}</p>",
+      "export const G = () => <div className={'!'} key={'🚀'} />",
+      "export const H = (el) => el.setAttribute('data-mark', '🚀')",
+      "const SEP = '!'",
+      "export const I = (el) => el.setAttribute('title', 'decision-ready insights')",
+    ].join('\n')
+    expect(voiceFindings(symbols, 'features/probe/Symbols.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '1 emoji',
+      '2 exclamation',
+      '3 emoji',
+      '4 emoji',
+      '5 exclamation',
+      '10 buzzword',
+    ])
     // assignment, a loop's variable, a parameter at a direct call, a component's prop, a callback handed to an array's
     // method and to a same-file function, a function's return, a property put in after the object is made; and placed in
     // a heading, React's createElement, Children.map over the children a component is given, and a conditional. A name
