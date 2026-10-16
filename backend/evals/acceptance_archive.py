@@ -2,9 +2,12 @@
 
 The caller supplies a hash-bound complete SEC submission, raw SEC submissions JSON,
 and raw SEC companyfacts JSON. The application's section, instance-XBRL, and
-companyfacts parsers still run unchanged. This module only substitutes their source
-resolution and refuses uncatalogued source access. It is process-global patching and
-must run in one isolated invocation child, never in the parent process.
+companyfacts parsers still run unchanged. The section parser reads the primary document
+the pipeline's bound fetch returned, so this module checks that input is the archived
+primary and that populated sections came from the production parse of it; for the
+instance-XBRL, companyfacts and 6-K channels it substitutes source resolution. It refuses
+uncatalogued source access. It is process-global patching and must run in one isolated
+invocation child, never in the parent process.
 """
 
 from __future__ import annotations
@@ -242,6 +245,7 @@ class FrozenArchiveBinding:
     _grounding_complete: bool = False
     _allowed_text_sha256: set[str] = field(default_factory=set)
     _allowed_sections_sha256: set[str] = field(default_factory=set)
+    _parsed_sections_sha256: set[str] = field(default_factory=set)
 
     def _event(self, path: str, outcome: str, **detail: Any) -> None:
         self.trace.append({"path": path, "outcome": outcome, **detail})
@@ -360,7 +364,7 @@ class FrozenArchiveBinding:
         from edgar.entity import submissions as edgar_submissions
         from edgar.sgml import sgml_common
         from app.services import summary_pipeline
-        from app.services.edgar import sixk_extractor, xbrl_instance, xbrl_sections, xbrl_service
+        from app.services.edgar import sixk_extractor, xbrl_instance, xbrl_service
 
         accession = str(self.spec["accession_number"])
         original_sgml = EdgarFiling.sgml
@@ -368,11 +372,17 @@ class FrozenArchiveBinding:
         extractor = xbrl_service.edgar_xbrl_service
         original_xbrl = service.get_xbrl_data
         original_sections = service.get_filing_sections
+        original_parse = xbrl_service._sections_from_html
+        primary_sha = self.evidence["primary"]["sha256"]
         original_sixk = summary_pipeline.get_sixk_text
         original_statement = summary_pipeline.acquire_statement_context
         original_excerpt = summary_pipeline.get_or_cache_excerpt
         self._allowed_text_sha256 = {self.evidence["primary"]["sha256"]}
         self._allowed_sections_sha256 = set()
+        self._parsed_sections_sha256 = set()
+
+        def _sections_digest(result: Any) -> str:
+            return hashlib.sha256(json.dumps(result, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
 
         def resolve_frozen(requested_cik: str, requested_accession: str) -> tuple[Any, list[Any]]:
             frame = sys._getframe(1)
@@ -381,9 +391,9 @@ class FrozenArchiveBinding:
                 if frame.f_code.co_name == "_extract_from_filing_instance_sync":
                     channel = "xbrl"
                     break
-                if frame.f_code.co_name == "_extract_sections_sync":
-                    channel = "sections"
-                    break
+                if frame.f_code.co_name == "_sections_from_html":
+                    self._violate("edgar.resolve_filing_by_accession",
+                                  "section parse must read the bound primary, not resolve a filing")
                 if frame.f_code.co_name == "_extract_sixk_text_sync":
                     channel = "sixk"
                     break
@@ -456,22 +466,31 @@ class FrozenArchiveBinding:
                         genuine_source_absence=not populated)
             return result
 
-        async def measured_sections(requested_accession: str, requested_cik: str, form: str) -> Any:
+        def measured_parse(html: Any, base_form: str) -> Any:
+            # Runs in the executor thread. Records only what parsed the archived primary; a late
+            # completion after the seam's timeout is harmless (the seam already returned None).
+            result = original_parse(html, base_form)
+            if (isinstance(html, str) and isinstance(result, dict) and
+                    hashlib.sha256(html.encode("utf-8")).hexdigest() == primary_sha):
+                self._parsed_sections_sha256.add(_sections_digest(result))
+            return result
+
+        async def measured_sections(requested_accession: str, form: str, *, html: Any) -> Any:
+            encoded = html.encode("utf-8") if isinstance(html, str) else b""
+            input_sha = hashlib.sha256(encoded).hexdigest()
             self._event("edgar.get_filing_sections", "attempted", accession=str(requested_accession),
-                        cik=str(requested_cik), form=str(form))
-            self._selected("edgar.get_filing_sections", requested_cik, requested_accession)
-            prior = len(self.trace)
-            result = await original_sections(requested_accession, requested_cik, form)
-            if result and not any(
-                row["path"] == "edgar.resolve_filing_by_accession" and row["outcome"] == "bound"
-                and row.get("channel") == "sections" for row in self.trace[prior:]
-            ):
-                self._violate("edgar.get_filing_sections", "nonempty sections without frozen filing resolution")
+                        form=str(form), input_sha256=input_sha, input_bytes=len(encoded))
+            if requested_accession != accession or form != self.spec["filing_type"]:
+                self._violate("edgar.get_filing_sections", "different selected filing")
+            if not isinstance(html, str) or input_sha != primary_sha:
+                self._violate("edgar.get_filing_sections", "section input was not the archived primary")
+            result = await original_sections(requested_accession, form, html=html)
+            if result and _sections_digest(result) not in self._parsed_sections_sha256:
+                self._violate("edgar.get_filing_sections",
+                              "nonempty sections without a parse of the archived primary")
             if isinstance(result, dict):
-                self._allowed_sections_sha256.add(hashlib.sha256(
-                    json.dumps(result, sort_keys=True, ensure_ascii=False).encode("utf-8")
-                ).hexdigest())
-            self._event("edgar.get_filing_sections", "returned",
+                self._allowed_sections_sha256.add(_sections_digest(result))
+            self._event("edgar.get_filing_sections", "returned", input_sha256=input_sha,
                         sections=sorted(result) if isinstance(result, dict) else [])
             return result
 
@@ -525,7 +544,7 @@ class FrozenArchiveBinding:
                     json.dumps(sections, sort_keys=True, ensure_ascii=False).encode("utf-8")
                 ).hexdigest()
                 if section_sha not in self._allowed_sections_sha256:
-                    self._violate("filing_excerpt", "sections were not returned by frozen Edgar parser")
+                    self._violate("filing_excerpt", "sections were not returned by the archived-primary section parse")
             result = original_excerpt(db, filing, filing_text, sections=sections)
             self._event("filing_excerpt", "returned", input_sha256=sha,
                         populated=bool(result), section_keys=sorted(sections) if isinstance(sections, dict) else [])
@@ -603,7 +622,6 @@ class FrozenArchiveBinding:
         with ExitStack() as stack:
             stack.enter_context(patch.object(xbrl_service, "resolve_filing_by_accession", resolve_frozen))
             stack.enter_context(patch.object(xbrl_instance, "resolve_filing_by_accession", resolve_frozen))
-            stack.enter_context(patch.object(xbrl_sections, "resolve_filing_by_accession", resolve_frozen))
             stack.enter_context(patch.object(sixk_extractor, "resolve_filing_by_accession", resolve_frozen))
             stack.enter_context(patch.object(EdgarFiling, "sgml", frozen_sgml))
             stack.enter_context(patch.object(edgar_attachments, "download_file", frozen_download))
@@ -632,6 +650,7 @@ class FrozenArchiveBinding:
             stack.enter_context(patch.object(extractor, "_fallback_to_company_facts", frozen_companyfacts))
             stack.enter_context(patch.object(service, "get_xbrl_data", measured_xbrl))
             stack.enter_context(patch.object(service, "get_filing_sections", measured_sections))
+            stack.enter_context(patch.object(xbrl_service, "_sections_from_html", measured_parse))
             stack.enter_context(patch.object(summary_pipeline, "get_sixk_text", measured_sixk))
             stack.enter_context(patch.object(summary_pipeline, "acquire_statement_context", measured_statement))
             stack.enter_context(patch.object(summary_pipeline, "get_or_cache_excerpt", measured_excerpt))

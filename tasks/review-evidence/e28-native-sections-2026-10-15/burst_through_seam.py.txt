@@ -1,0 +1,74 @@
+"""Four large documents parsed at once through the app's section seam, on one pinned CPU.
+
+Usage: taskset -c 0 python -I burst_through_seam.py MODE DOC:FORM [DOC:FORM ...]
+MODE "single" is the code as committed (one local-parse worker); "shared" re-routes the parse to the
+four-thread SEC pool, as before this change. While the parses run, a trivial job is submitted to the
+SEC pool every 0.5 s with the 15 s timeout the XBRL instance extraction uses, and the event loop's
+lag is sampled. Local files only; no network. Prints one JSON line.
+"""
+import asyncio, json, os, resource, sys, time
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+for k in ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"): os.environ.setdefault(k, "x")
+sys.path.insert(0, os.environ.get("BACKEND", "/home/user/EarningsNerd/backend"))
+mode, specs = sys.argv[1], [s.rsplit(":", 1) for s in sys.argv[2:]]
+from app.services.edgar import xbrl_service as module
+from app.services.edgar.async_executor import run_in_executor_with_timeout
+from app.services.edgar.compat import xbrl_service
+
+if mode == "shared":
+    module.run_parse_with_timeout = run_in_executor_with_timeout
+docs = []
+for path, form in specs:
+    with open(path, encoding="utf-8", newline="") as fh:
+        docs.append((os.path.basename(path).split("_")[0], fh.read(), form))
+
+
+def rss_mb():
+    with open("/proc/self/status") as f:
+        return next(int(line.split()[1]) // 1024 for line in f if line.startswith("VmRSS:"))
+
+
+async def main():
+    base = rss_mb()
+    t0 = time.perf_counter()
+    done = asyncio.Event()
+
+    async def parse(name, html, form):
+        sections = await xbrl_service.get_filing_sections("0000000000-00-000000", form, html=html)
+        return {"doc": name, "chars": len(html), "done_s": round(time.perf_counter() - t0, 2),
+                "sections": sorted(sections or {})}
+
+    async def probe():
+        waits = []
+        while not done.is_set():
+            start = time.perf_counter()
+            try:
+                await run_in_executor_with_timeout(lambda: None, timeout=15.0)
+                waits.append(round(time.perf_counter() - start, 2))
+            except Exception as exc:  # noqa: BLE001
+                waits.append(type(exc).__name__)
+            await asyncio.sleep(0.5)
+        return waits
+
+    async def lag():
+        worst = 0.0
+        while not done.is_set():
+            start = time.perf_counter()
+            await asyncio.sleep(0.05)
+            worst = max(worst, time.perf_counter() - start - 0.05)
+        return round(worst * 1000)
+
+    probe_task, lag_task = asyncio.create_task(probe()), asyncio.create_task(lag())
+    results = await asyncio.gather(*(parse(*d) for d in docs))
+    done.set()
+    waits, worst_lag = await probe_task, await lag_task
+    numeric = [w for w in waits if isinstance(w, float)]
+    print(json.dumps({"mode": mode, "results": results,
+                      "sec_pool_probe": {"n": len(waits), "max_wait_s": max(numeric) if numeric else None,
+                                         "timeouts": sum(not isinstance(w, float) for w in waits)},
+                      "loop_lag_max_ms": worst_lag, "rss_docs_loaded_mb": base,
+                      "peak_rss_mb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024,
+                      "peak_over_loaded_mb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024 - base}))
+
+
+asyncio.run(main())
