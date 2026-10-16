@@ -541,6 +541,15 @@ switched off for the same reason (agent commits are authored as `noreply@anthrop
 review service is unavailable, the pull request body's `Review override: <reason>` line is the only
 way through the gate, by design.
 
+The pin to the GitHub Actions app cannot tell the gate's job from another Actions job of the same name,
+and a pull request's `pull_request` workflows run as its branch has them, so a branch could add a job
+named `review-gate`. `test_no_job_in_any_other_workflow_publishes_a_check_named_review_gate` fails such a
+branch in the required `backend-tests`, so the same pull request would also have to edit that test, in
+plain sight. Closing the gap outright needs a ruleset-required workflow, which GitHub offers for an
+organization or enterprise and not for this personal-account repository, or a check published by a
+dedicated GitHub App that the ruleset names as the check's source. Neither is in place, and the gap is
+accepted (the founder left this call to the agent on 2026-10-16).
+
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 
 The data-quality report keeps two populations separate. Persisted audit counters describe the
