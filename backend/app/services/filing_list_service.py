@@ -20,6 +20,7 @@ a connection out again (``lessons/ops-release-cached-filing-reads-before-yield.m
 import asyncio
 import logging
 from datetime import datetime, timedelta
+from itertools import chain
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 from sqlalchemy.orm import Session, joinedload
@@ -36,7 +37,8 @@ T = TypeVar("T")
 
 # Constants for filings endpoint configuration
 SEC_REQUEST_TIMEOUT_SECONDS = 20.0  # Timeout for SEC EDGAR requests (within frontend's 30s limit)
-CACHED_FILINGS_LIMIT = 20  # Maximum number of cached filings to return as fallback
+CACHED_FILINGS_LIMIT = 20  # Rows the default list serves per group: the reports, and 6-Ks apart
+_SIX_K_FORMS = ("6-K", "6-K/A")
 
 # B2: stale-within-TTL cache for the company filings list. The hot path already persists every SEC
 # fetch into the Filing table, so a recently-synced ticker can serve its list straight from the DB
@@ -200,13 +202,22 @@ def cached_filings(
     serving path, not just a fallback).
     """
     # Default serves the recent cap (unchanged behaviour); an explicit ?limit= (P1-6 "show full
-    # history") raises it so the deep-backfilled rows surface.
+    # history") raises it so the deep-backfilled rows surface. 6-Ks are capped apart from the other
+    # forms, as on the live fetch (edgar/client.py RECENT_FILINGS_MATERIALIZE_CAP): an issuer that
+    # furnishes a 6-K most business days would otherwise fill the cap and hide its 20-F/40-F.
     row_cap = limit or CACHED_FILINGS_LIMIT
+    report_types = [t for t in types_list if t not in _SIX_K_FORMS]
+    six_k_types = [t for t in types_list if t in _SIX_K_FORMS]
     try:
-        cached = db.query(Filing).options(joinedload(Filing.company)).filter(
-            Filing.company_id == company_id,
-            Filing.filing_type.in_(types_list)
-        ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
+        newest_per_group = [
+            db.query(Filing).options(joinedload(Filing.company)).filter(
+                Filing.company_id == company_id,
+                Filing.filing_type.in_(types)
+            ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
+            for types in (report_types, six_k_types)
+            if types
+        ]
+        cached = sorted(chain.from_iterable(newest_per_group), key=lambda f: f.filing_date, reverse=True)
         return [convert(f) for f in cached]
     finally:
         # A sync dependency's finalizer runs in the thread pool after this async route yields.
