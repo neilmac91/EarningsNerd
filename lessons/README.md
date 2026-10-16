@@ -37,7 +37,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (partly gated by `.claude/hooks/codex_mention_guard.py`; text a command builds as it runs, sessions that load no repository hooks and a person's own write are not)
 - ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
-- ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
+- ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers; assert on deadlines, never on elapsed time against a bound (gated by `backend/tests/unit/test_wall_clock_bounds.py`)
 - ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
 - ops-serial-merge-adjacent-line-prs.md — Serialize merges of PRs that edit the same file within a few lines
 - ops-true-config-descriptions-grep-file-moves.md — Make canonized config descriptions literally true and grep the whole repo when moving files
@@ -114,6 +114,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - test-audit-every-judge-channel-for-truncation.md — Audit every grounding channel the judge sees for its own truncation cap
 - test-audit-file-relative-shims-on-move.md — Audit __file__-relative shims whenever relocating a test or script
 - test-bakeoff-hold-knobs-constant.md — Bake off model swaps with every knob held constant, verified by one raw-inspected call
+- test-child-scripts-wait-for-signals.md — A test's child script takes a signal with sigwait, never a Python handler around a blocking call (string-constant scripts gated by `backend/tests/unit/test_child_script_signals.py`)
 - test-conftest-hermetic-env.md — The backend suite is hermetic: conftest sets mock env (incl. SKIP_REDIS_INIT) before app import
 - test-contract-tests-are-locked.md — Contract anchors are locked: never edit them in the same PR as the code they guard
 - test-deselected-markers-need-ci-paths.md — Give every deselected pytest marker an explicit CI execution path
