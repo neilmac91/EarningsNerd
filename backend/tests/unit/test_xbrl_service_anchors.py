@@ -237,8 +237,11 @@ class _RaisingSections(dict):
 class _UnreadableSection:
     """A section whose text cannot be read, as every 10-K item was behind SEC's 2026-10 403."""
 
+    def __init__(self, item):
+        self.item = item
+
     def text(self):
-        raise AttributeError("'NoneType' object has no attribute 'download'")
+        raise AttributeError(f"{self.item}: 'NoneType' object has no attribute 'download'")
 
 
 HTML = "<html><body>the primary document the pipeline fetched</body></html>"
@@ -394,8 +397,8 @@ async def test_x0_2_parser_failure_is_a_missing_section(parser, caplog, filing_t
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("sections", "error", "warning"), [
-    ({"part_i_item_1a": _UnreadableSection(), "part_ii_item_7": _UnreadableSection()}, None,
-     "AttributeError(\"'NoneType' object has no attribute 'download'\")"),  # the first error, once
+    ({"part_i_item_1a": _UnreadableSection("1A"), "part_ii_item_7": _UnreadableSection("7")}, None,
+     "AttributeError(\"1A: 'NoneType' object has no attribute 'download'\")"),  # the first error, once
     ({}, RuntimeError("parser failed"), "RuntimeError('parser failed')"),
     ({"part_i_item_1a": _Section("short")}, None, None),  # nothing usable, nothing failed: quiet
 ], ids=["unreadable-items", "parser-failed-no-index", "empty-parse"])
@@ -491,6 +494,23 @@ async def test_x0_2_parses_run_one_at_a_time_and_a_cancelled_queued_parse_never_
         assert started == ["first", "second"], "a cancelled queued parse still ran"
     finally:
         release.set()
+
+
+@pytest.mark.asyncio
+async def test_x0_2_shutdown_stops_the_parse_worker_and_the_next_parse_restarts_it(monkeypatch):
+    """X0.2 — app shutdown stops the parse worker with the SEC pool; a later parse gets a new one."""
+    from app.services.edgar import async_executor
+
+    monkeypatch.setattr(xbrl_service, "_sections_from_html", lambda html, base_form: {"mda": html})
+    service = EdgarXBRLService()
+    assert await service.get_filing_sections(ACC, "10-K", html="before") == {"mda": "before"}
+    worker = async_executor._parse_executor
+
+    async_executor.shutdown_executor(wait=True)
+
+    assert worker._shutdown and async_executor._parse_executor is None
+    assert await service.get_filing_sections(ACC, "10-K", html="after") == {"mda": "after"}
+    assert async_executor._parse_executor not in (None, worker)
 
 
 # ---------------------------------------------------------------------------
