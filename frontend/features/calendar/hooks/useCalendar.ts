@@ -3,7 +3,6 @@
 /* =============================================================================
    Earnings calendar — hooks (features/calendar/hooks/useCalendar.ts)
    -----------------------------------------------------------------------------
-   - useCalendarRange: the range query (react-query), keyed on from/to.
    - useViewer: session + plan + current alert subscriptions. The FREE cap is a
      visible product surface (strategy §3.7) so the count is loaded eagerly;
      nothing about the PRO cap exists client-side, by design.
@@ -19,26 +18,15 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { queryKeys } from '@/lib/queryKeys'
 import {
-  getCalendar,
   getEarningsAlertTickers,
   enableEarningsAlert,
   disableEarningsAlert,
   EarningsAlertError,
   EARNINGS_ALERT_LIMIT_CODE,
-  type CalendarRangeResult,
 } from '../api/calendar-api'
 import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
 
 export const FREE_ALERT_LIMIT = FREE_EARNINGS_ALERT_LIMIT
-
-export function useCalendarRange(from: string, to: string) {
-  return useQuery<CalendarRangeResult>({
-    queryKey: queryKeys.calendar(from, to),
-    queryFn: () => getCalendar(from, to),
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  })
-}
 
 export interface CalendarViewer {
   /** The canonical identity query has not resolved yet: neither signed in nor a guest. */

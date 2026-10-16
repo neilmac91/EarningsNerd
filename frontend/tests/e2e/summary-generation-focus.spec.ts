@@ -27,7 +27,7 @@ interface Stream { next: Outcome | 'hold'; release?: (outcome: Outcome) => void 
 const FAILED = 'The filing could not be summarized right now.'
 const ERROR_HEADING = 'Generation interrupted'
 const LIMIT_HEADING = "You've hit this month's free limit"
-const PROGRESS_HEADING = 'Generating your analysis'
+const PROGRESS_HEADING = 'Generating the summary'
 
 async function openFiling(
   page: Page,
@@ -151,7 +151,7 @@ for (const theme of ['light', 'dark'] as const) {
         const stream: Stream = { next: 'hold' }
         await openFiling(page, baseURL!, stream, 'pro', { theme, consent: false })
         await page.getByRole('button', { name: 'Customize', exact: true }).click()
-        const dialog = page.getByRole('dialog', { name: 'Cookie Preferences' })
+        const dialog = page.getByRole('dialog', { name: 'Cookie preferences' })
         await expect(dialog).toBeVisible()
         await expect.poll(() => stream.release !== undefined).toBe(true)
         // A dialog control can leave between commits; body focus does not release its modal owner.

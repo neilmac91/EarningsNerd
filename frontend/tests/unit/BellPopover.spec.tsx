@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BellPopover } from '@/features/calendar/components/AlertBell'
 import { Modal } from '@/components/ui/Modal'
 import type { BlockedKind, BlockedState } from '@/features/calendar/hooks/useCalendar'
+import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
 
 /**
  * BellPopover is a NON-MODAL popover (DESIGN_SYSTEM §4: z-overlay, no dialog role; the reasons are
@@ -53,13 +54,35 @@ describe('BellPopover', () => {
   it('is a labelled, described group on the overlay layer — never a dialog', async () => {
     await openFromBell('signin')
     const group = screen.getByRole('group', { name: 'Sign in to set earnings alerts' })
-    expect(group).toHaveAccessibleDescription(/free once you sign in/i)
+    expect(group).toHaveAccessibleDescription(
+      `Sign in to get an email the morning a company reports. Free includes ${FREE_EARNINGS_ALERT_LIMIT} companies.`,
+    )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(group.parentElement).toHaveClass('z-overlay')
     expect(group).toHaveClass('dark:shadow-none')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Sign in' }))
+  })
+
+  // The account action follows the one access decision (features/marketing/lib/access.ts): while
+  // registration is invite-only (the default, and the fail-closed answer), /register would refuse the
+  // sign-up, so the prompt offers the invite; only a public mode offers the free account (audit CAL-07).
+  it.each([
+    ['invite (the default)', 'Request an invite', '/waitlist', undefined],
+    ['invite', 'Request an invite', '/waitlist', 'invite'],
+    ['public', 'Create a free account', '/register', 'public'],
+  ] as const)('under %s mode the signed-out prompt offers "%s" to %s', (_mode, label, href, accessMode) => {
+    const bell = document.createElement('button')
+    document.body.appendChild(bell)
+    try {
+      render(<BellPopover blocked={blockedFor('signin', bell)} accessMode={accessMode} onClose={() => {}} />)
+      expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+      expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', href)
+      expect(screen.queryByRole('link', { name: /create account/i })).not.toBeInTheDocument()
+    } finally {
+      bell.remove()
+    }
   })
 
   it('announces the async error as an alert with the API message verbatim — no alertdialog role', async () => {
@@ -145,7 +168,7 @@ describe('BellPopover', () => {
 
   it('an outside click closes it and returns focus to the bell; a click on its own text does not', async () => {
     const { user, bell } = await openFromBell('signin')
-    await user.click(screen.getByText(/free once you sign in/i))
+    await user.click(screen.getByText(/the morning a company reports/i))
     const group = screen.getByRole('group')
     await user.click(group.parentElement as HTMLElement)
     expect(screen.queryByRole('group')).not.toBeInTheDocument()
@@ -225,7 +248,7 @@ describe('BellPopover', () => {
 
   it('Tab past the last action resumes at the bell (the browser moves on); Shift+Tab before the first lands on it', async () => {
     const { user, bell } = await openFromBell('signin')
-    const last = screen.getByRole('link', { name: 'Create account' })
+    const last = screen.getByRole('link', { name: 'Request an invite' })
     last.focus()
     // Not prevented: with focus on the bell, the browser's own Tab moves to what follows it.
     expect(fireEvent.keyDown(last, { key: 'Tab' })).toBe(true)
@@ -304,7 +327,7 @@ describe('BellPopover', () => {
 
   it('keeps one host for its life: a parent re-render after a dialog opened does not re-mount it', async () => {
     const { rerender } = await openFromBell('signin')
-    const create = screen.getByRole('link', { name: 'Create account' })
+    const create = screen.getByRole('link', { name: 'Request an invite' })
     create.focus()
     const dialog = document.createElement('dialog')
     dialog.setAttribute('open', '')

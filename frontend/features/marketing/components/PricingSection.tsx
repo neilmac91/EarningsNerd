@@ -9,14 +9,19 @@ import { cx } from '@/components/ui/cx'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
 import analytics from '@/lib/analytics'
-import { ENABLE_ANALYSIS, ENABLE_FPI_FILINGS, ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
+import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { CheckIcon, SealCheckIcon } from '@/lib/icons'
 import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 import {
+  ANALYSIS_LINES,
+  FILING_FORMS_LINE,
   FREE_COPILOT_QUESTIONS,
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_HISTORY_RETENTION_DAYS,
   FREE_SUMMARY_LIMIT,
+  TRIAL_DAYS,
+  shipped,
+  type PlanLine,
 } from '@/lib/planLimits'
 
 /**
@@ -28,36 +33,27 @@ import {
  * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
  */
 
-// A plan line keyed to a flag lists only while that flag ships its feature; `off` is what it reads
-// while the flag is off, if anything. Multi-Period Analysis and its Excel workbook ship behind
-// ENABLE_ANALYSIS (the route 404s while the flag is off; tests/unit/analysis-route-hidden.spec.tsx);
-// 20-F filings behind ENABLE_FPI_FILINGS, the mirror of the API's flag (tasks/todo.md F39).
-type Flag = 'analysis' | 'fpi'
-type PlanLine = { text: string; flag?: Flag; off?: string }
-// Read at render, so the flag's value is the one the page ships with.
-const isOn = (flag: Flag): boolean => ({ analysis: ENABLE_ANALYSIS, fpi: ENABLE_FPI_FILINGS })[flag]
-const shipped = (items: readonly PlanLine[]): string[] =>
-  items.flatMap((item) => (!item.flag || isOn(item.flag) ? [item.text] : item.off ? [item.off] : []))
-
-// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts).
+// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts). A line a flag decides
+// (Multi-Period Analysis and its Excel workbook, 20-F filings) is typed once in lib/planLimits.ts, in the
+// `{ text, flag, off }` shape, and both lists go through its one reader, shipped(), at render (D-033, D-040).
 const FREE_FEATURES: readonly PlanLine[] = [
   { text: `${FREE_SUMMARY_LIMIT} AI summaries a month` },
-  { text: '10-K, 10-Q and 20-F filings from SEC EDGAR', flag: 'fpi', off: '10-K and 10-Q filings from SEC EDGAR' },
+  FILING_FORMS_LINE,
   { text: 'Company search and historical filings' },
   { text: `${FREE_COPILOT_QUESTIONS} Ask this Filing questions` },
   { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` },
-  { text: 'Multi-Period Analysis demo (locked)', flag: 'analysis' },
+  ANALYSIS_LINES.landingFree,
   { text: `${FREE_HISTORY_RETENTION_DAYS}-day summary history` },
   { text: 'Unlimited watchlist' },
 ]
 
 const PRO_FEATURES: readonly PlanLine[] = [
   { text: 'Unlimited summaries' },
-  { text: 'Unlimited Multi-Period Analysis', flag: 'analysis' },
+  ANALYSIS_LINES.landingPro,
   { text: 'Ask this Filing' },
   { text: 'Change Report' },
   { text: 'Hourly filing alerts and 8-K alerts' },
-  { text: 'PDF, CSV and Excel exports', flag: 'analysis', off: 'PDF and CSV exports' },
+  ANALYSIS_LINES.exports,
   { text: 'Full summary history' },
   { text: 'Priority support' },
 ]
@@ -70,9 +66,11 @@ const PRICE_CLASS =
   // eslint-disable-next-line no-restricted-syntax -- the 40px display figure sets its own tracking; the ramp has no 40
   'font-data tnum text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary-light dark:text-text-primary-dark'
 const MUTED_CLASS = 'text-text-secondary-light dark:text-text-secondary-dark'
-// Design: 44px tall, full card width. buttonVariants' md size sets h-10; h-11 is emitted later in
-// the height scale, so it wins (verified against the built stylesheet, not assumed).
-const CTA_CLASS = 'mt-5 h-11 w-full'
+// Design: 44px tall, full card width. buttonVariants' md size sets h-10, and min-h-11 lifts the box to
+// 44px whatever the stylesheet order. min-h, not h: below a 24rem viewport the Button's narrow state sets
+// h-auto so a label can wrap, and a caller's own min-h is the one height it keeps
+// (tests/unit/buttonHeightIsAMinimum.spec.ts).
+const CTA_CLASS = 'mt-5 min-h-11 w-full'
 
 function FeatureList({ items }: { items: readonly string[] }) {
   return (
@@ -240,11 +238,11 @@ export default function PricingSection({
                 href={showBeta ? '/pricing' : pricingHref(cycleName(billing))}
                 className={buttonVariants({ variant: 'primary', size: 'md', className: CTA_CLASS })}
               >
-                {showTrial ? 'Start 7-day free trial' : 'Upgrade to Pro'}
+                {showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
               </Link>
               {showTrial && (
                 <p className={`mt-2 text-xs ${MUTED_CLASS}`}>
-                  Card required. One trial per account. Cancel any time in the 7 days at no charge.
+                  Card required. One trial per account. Cancel any time in the {TRIAL_DAYS} days at no charge.
                 </p>
               )}
               <FeatureList items={shipped(PRO_FEATURES)} />
