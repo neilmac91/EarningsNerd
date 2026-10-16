@@ -1,0 +1,127 @@
+# Copilot table-text citations: why BABA withholds, and the one-retry fix (2026-10-16)
+
+copilot-eval withheld BABA `viewed-native-revenue-2025` 3 of 3 times on #1350's head (run 38817393205).
+The record of that run is [the attribution comment on #1350](https://github.com/neilmac91/EarningsNerd/pull/1350#issuecomment-6203868292).
+Decision D's follow-up 1 ([`../../decisions-2026-10-09-design-followups.md`](../../decisions-2026-10-09-design-followups.md))
+had left the root cause open: the model cites table text as a lone figure, a short label or an elided row. This
+record measures that behaviour across every retained copilot-eval generation and gives the evidence for the change.
+
+## The corpus
+
+Every copilot-eval artifact from 2026-10-02 (after #1052's whole-excerpt check) to 2026-10-16 was read:
+205 artifacts ([`corpus-artifacts.txt`](corpus-artifacts.txt)). One held no report, because its preparation failed
+before any draw. Two were credential-less stubs. That leaves 192 distinct reports, 3,456 rows and 3,544 generations.
+
+[`classify_corpus.py`](classify_corpus.py) feeds each generation's raw candidate through production's own scanner,
+`_parse_citations` and `_verify_citations` (main `03fbf23e`). It records the verdict:
+- published at this check;
+- `regenerable`;
+- `terminal`.
+
+For each referenced citation that fails, it also records the reason:
+- `missing`;
+- `collision`, a number declared twice;
+- `quoted_label`;
+- `short`, under 24 normalized characters;
+- `elided`;
+- `mismatch`.
+
+Its verdicts agree with the reason each run recorded on all 3,544 generations:
+- every recorded "Unverified or ambiguous referenced citation" is regenerable (117) or terminal (12);
+- every published generation passes;
+- the 6 decision-F withholds pass this check and fail later, at the quotation check.
+
+[`summarize_corpus.py`](summarize_corpus.py) produced [`corpus-summary.json`](corpus-summary.json), which holds every
+number below. Prompt revisions are named by the SHA-256 prefix of the first generation's system message:
+`a88b6fb1de5b` before #1111, `d46ef28f000a` after. Source kinds come from the prepared excerpt's hash: "sections"
+(production's source while edgartools works) or the regex fallback (2026-10-06 to #1350).
+
+## Findings
+
+**1. Every citation failure is table text, on two questions.** 129 generations failed `_verify_citations`, all
+BABA FY2025 or ASML:
+
+| Reason | First generation | Retry generation | Example |
+| --- | --- | --- | --- |
+| elided (regenerable today) | 94 | 20 | `Revenue from third parties ... 996,347 ... 137,300` |
+| short (terminal today) | 9 | 1 | `996,347`; `Consolidated\nTotal`; ASML `€32.7bn\nTotal net sales` (23) |
+| collision + short (terminal today) | 2 | 0 | `996,347` and its row, both declared as `[1]` (2026-10-15, sections) |
+| mismatch (regenerable) | 3 | 0 | a table header copied with its blank cells |
+
+**2. When the model cites a table and succeeds, it cites the whole row.** After #1111 the verified text excerpts
+were:
+- **ASML:** 184 times the statement row `Total net sales 28,262.9 100.0 32,667.3 100.0 15.6` (with or without line
+  breaks).
+- **BABA:** 85 times the label `Revenue from third parties` (26 characters), and the full consolidating-schedule row
+  about 30 times.
+
+[`../../../backend/tests/unit/test_copilot_table_excerpts.py`](../../../backend/tests/unit/test_copilot_table_excerpts.py)
+pins every one of these shapes against real slices of the prepared sources.
+
+**3. #1111's prompt raised text-citation use, and on BABA's sections source every such citation failed.** The table
+shows first generations that carry a text marker:
+
+| Question, source | Before #1111 (`a88b6fb1de5b`) | After #1111 (`d46ef28f000a`) |
+| --- | --- | --- |
+| ASML (always the regex fallback) | 7/123 and 3/33 (6–9%) | 289/390 (74%), still 387/390 verified |
+| BABA FY2025, regex fallback | 12/33 (36%) | 157/387 (41%) |
+| BABA FY2025, sections | 12/123 (10%), 1 terminal | 3/3, all 3 terminal |
+| BABA FY2026, regex fallback | 0/33 | 0/387 |
+| BABA FY2026, sections | 2/123, all verified | 2/3, all verified |
+
+#1111 was measured only on the regex fallback, so this did not show. The RUNBOOK's new "Copilot prompt revisions"
+table and its gate (`tests/unit/test_copilot_prompt_revisions.py`) now record the source each revision was measured
+on.
+
+**4. The retry recovers about three in four, and a failed retry repeats the failure.** After #1111, a first
+generation that failed with a regenerable mismatch got its one retry:
+- **BABA:** 63 elided→published, 3 mismatch→published, 20 elided→elided, 1 elided→short. That is 66 of 87 recovered,
+  or 67 of 88 with ASML's one recovery.
+- **The 21 failed BABA retries:** 11 repeated the identical excerpt, 9 a shorter elided one, and 1 fell to a bare
+  cell.
+- **Comparison:** the retry fails about as often as a fresh first generation fails on that source (21/87 against
+  92/387), so today's generic guidance ("failed source matching") adds little beyond a resample.
+
+**5. On the production source the failures never reach the retry.** After #1111, rows were withheld at this check
+as follows:
+- **BABA regex fallback:** 21 failed twice, and 5 short rows had no retry.
+- **ASML:** 2 short rows had no retry.
+- **BABA sections:** 3 had no retry (2 collision+short, 1 short).
+
+So every sections withhold was in a class #1111 made terminal.
+
+## The change and its design
+
+A judge panel ran three independent Opus designs (retry path only, first-generation prompt, unconstrained) and three
+Opus judges (safety and rules, evidence, minimality and measurability). All three judges chose the retry-path design,
+with the unconstrained design's cause-specific guidance grafted on:
+- **Eligibility** (`copilot/envelope.py::_verify_citations`). A referenced excerpt that fails the matcher, whatever its
+  length, or a referenced number declared twice may buy the one private regeneration. These stay terminal: a quoted
+  section label, an undeclared referenced literal, and a source too short to verify anything. Publication is
+  unchanged: the verifier, the 24-character floor, the payload, the two-generation cap, the shared deadline and
+  charging quota once.
+- **Guidance** (`copilot/prompt.py`). After a citation failure only, chosen by the owned exception class and never
+  from candidate text, the retry's system message also carries `_CITATION_EXCERPT_RETRY_GUIDANCE`. It names the shapes
+  in finding 1 and the two that verify (finding 2): no text citation for a figure that carries its `[F#]`, or one whole
+  sentence or the whole row exactly as the filing shows it, or leave the figure out. The first generation's bytes
+  (`d46ef28f000a`) and a decision-F retry's bytes (`f3b340db1e35`) are unchanged.
+
+The first-generation design (a whole-row rule in `SYSTEM_PROMPT`) was not chosen, for three reasons:
+- it changes what all six questions see on their first generation;
+- #1111 shows such a change can move text-citation use several-fold;
+- its residual failures on the sections source would still be terminal.
+
+It stays the next candidate if the measurement in [`PREREGISTRATION.md`](PREREGISTRATION.md) shows the retry is not
+enough.
+
+## Verification (offline, no provider call)
+
+- **Corpus re-verdict** ([`reverdict.py`](reverdict.py), output [`reverdict.txt`](reverdict.txt), exit 0). Main's and
+  the change's `_verify_citations` were run over all 3,544 generations. Exactly 12 verdicts change, all terminal to
+  regenerable: 11 first generations (8 BABA short, 2 ASML short, and the 2 collision+short sections draws of
+  2026-10-15) and 1 retry generation. A retry generation's verdict cannot change what the service does, since there
+  is never a third generation. No generation moves between published and withheld, and no published payload changes.
+- **Triage transition.** Under the change, `copilot-eval-triage-2026-10-09/f_attribution.py` replays run 38817393205's
+  three BABA rows as UNEXPLAINED (exit 3), because it asks for a second generation the run never recorded. Under main
+  the same rows reproduce (exit 0). Its `--self-test` passes on both trees. The RUNBOOK's replay paragraph records this.
+- The PR body carries the tests, the gates and the mutation proofs.
