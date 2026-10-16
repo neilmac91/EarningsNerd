@@ -106,7 +106,7 @@ mail reader's planted pages (`TEXT_SIZES`, `LONG_RUNS`, `LENDS`, `WIDTHS`, `REAC
 `COLOURS`), each list's counts held equal, in `backend/tests/unit/test_mail_header_template.py`; and the
 rendered gate's planted cases (`PAGES`, `REACHES`, `SENDS`, `ADDRESSES`), their counts held equal, in
 `backend/tests/unit/test_mail_rendered_addresses.py`.
-Scoring a model of a reader against the reader itself has no gate yet: E78 in `tasks/todo.md` would score
+Scoring a model of a reader against the reader itself has no gate yet: E81 in `tasks/todo.md` would score
 the mail reader against the pinned Chromium in CI.
 
 **Evidence**: [#850](https://github.com/neilmac91/EarningsNerd/pull/850) —
