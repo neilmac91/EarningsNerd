@@ -204,8 +204,9 @@ export default function Header({
 
       {/* Mobile menu. A column with a gap, not space-y: above 24rem the Theme row is display:none, which a
           gap skips, while space-y's sibling margin would still push the first link down. The panel scrolls inside
-          the viewport (the header's cap, above), never the page behind it (overscroll-contain), and its scroll
-          padding equals the nav's inset, so a row that focus scrolls in keeps its ring clear of the edge. */}
+          the viewport (the header's cap, above) and never chains to the page behind it (overscroll-contain). Its
+          scroll padding equals the nav's inset, as the Modal panel's does, for a browser that scrolls a focused row
+          to the nearest edge; Chromium centres it, and the nav's own padding ends the range. */}
       {mobileMenuOpen && (
         <div className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">

@@ -555,9 +555,9 @@ for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }
     the viewport stayed stuck to its top until the page's very end, so the menu's last item (the account CTA for a
     guest, Log out for a signed-in reader) came into view only there: under the fold at 713-801px and 987-1067px on a
     390x664 phone. At 390x664 and 360x640 at 200% text, for a guest and for a signed-in reader, a wheel over the menu
-    brings its last item wholly into view inside it with the page unmoved; scrolled back to its top, the menu brings
-    the item into view again as focus lands on it, the item's 3px ring clear of the menu's edge; and the page does
-    not scroll sideways. */
+    brings its last item wholly into view inside it with the page unmoved, and a second wheel at the menu's end leaves
+    the page behind it unmoved too; scrolled back to its top, the menu brings the item into view again as focus lands
+    on it, the item's 3px ring clear of the menu's edge; and the page does not scroll sideways. */
 const MENU_ENDS = [
   {
     who: 'a guest',
@@ -611,13 +611,18 @@ for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 640 }
         await expect(last).toBeVisible()
         const at = `${reader.path} at ${viewport.width}x${viewport.height}, the menu's last item "${(await last.textContent())?.trim()}"`
 
-        // A pointer: a wheel over the part of the menu in view, far past its end. The menu scrolls, not the page.
+        // A pointer: a wheel over the part of the menu in view, far past its end. The menu scrolls, not the page, and
+        // at its end it holds: a second wheel after a pause, a new sequence that could chain, moves nothing behind it
+        // (without overscroll-contain it scrolled the page 1000px under the open menu).
         const scrollY = await page.evaluate(() => window.scrollY)
         const panel = (await menu.locator('xpath=..').boundingBox())!
         await page.mouse.move(panel.x + panel.width / 2, (Math.max(panel.y, 0) + Math.min(panel.y + panel.height, viewport.height)) / 2)
         await page.mouse.wheel(0, 4000)
         await expect.poll(() => inMenuView(last), { message: `${at}, after a wheel over the menu` }).toBe('in view')
-        expect(await page.evaluate(() => window.scrollY), `${at}: the menu scrolled, not the page`).toBe(scrollY)
+        await page.waitForTimeout(700)
+        await page.mouse.wheel(0, 1000)
+        await page.waitForTimeout(700)
+        expect(await page.evaluate(() => window.scrollY), `${at}: the menu scrolled and holds its end, the page behind it unmoved`).toBe(scrollY)
 
         // A keyboard: the menu back at its top, focus on the item scrolls it into view with its ring.
         await menu.locator('xpath=..').evaluate((el) => el.scrollTo({ top: 0 }))
