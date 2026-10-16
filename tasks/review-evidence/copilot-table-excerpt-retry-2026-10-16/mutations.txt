@@ -1,0 +1,66 @@
+# Mutation proofs on the committed head 66c3d339 (scratch worktree, serial -n 0; each mutation restored with git checkout).
+# Tests run: test_copilot_table_excerpts, test_copilot_quotation_retry, test_copilot_prompt_revisions, test_copilot_generation_trace, test_copilot_bootstrap, test_acceptance_executor.
+BASELINE: 101 passed, 17 warnings in 17.12s
+M1 short excerpts terminal again: 8 failed, 93 passed, 17 warnings in 24.71s
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_table_citation_publishes_retries_or_stays_terminal[bare figure (2026-10-15 draws)]
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_table_citation_publishes_retries_or_stays_terminal[figure declared twice beside its row]
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_table_citation_publishes_retries_or_stays_terminal[header fragment]
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_table_citation_publishes_retries_or_stays_terminal[ASML KPI cells]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[short_excerpt-recovered]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[short_excerpt-exhausted]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[bare_figure-recovered]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[bare_figure-exhausted]
+M2 a twice-declared ID terminal again: 3 failed, 98 passed, 17 warnings in 16.85s
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_table_citation_publishes_retries_or_stays_terminal[figure declared twice beside its row]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[duplicate_id-recovered]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[duplicate_id-exhausted]
+M3 a quoted label may retry: 4 failed, 97 passed, 17 warnings in 16.64s
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_table_citation_publishes_retries_or_stays_terminal[quoted section label]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_other_rejections_do_not_buy_another_generation[quoted_section]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_other_rejections_do_not_buy_another_generation[late_quoted_label]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_other_rejections_do_not_buy_another_generation[short_excerpt_with_quoted_label]
+M4 an undeclared literal may retry: 4 failed, 97 passed, 17 warnings in 16.06s
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_table_citation_publishes_retries_or_stays_terminal[undeclared literal]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_other_rejections_do_not_buy_another_generation[missing_id]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_other_rejections_do_not_buy_another_generation[leading_zero_missing]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_other_rejections_do_not_buy_another_generation[duplicate_id_with_missing_id]
+M5 a too-short source may retry: 3 failed, 98 passed, 17 warnings in 17.13s
+    FAILED tests/unit/test_copilot_table_excerpts.py::test_table_citation_publishes_retries_or_stays_terminal[source too short to verify]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_other_rejections_do_not_buy_another_generation[missing_source_excerpt]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_other_rejections_do_not_buy_another_generation[short_source]
+M6 F retries get the table guidance: 9 failed, 92 passed, 17 warnings in 16.48s
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[answer]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[followup]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[not_disclosed]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[elided_quote]
+    FAILED tests/unit/test_copilot_prompt_revisions.py::test_the_current_prompt_bytes_have_a_revision_row
+    FAILED tests/unit/test_copilot_prompt_revisions.py::test_a_quotation_retry_never_sees_the_citation_guidance
+    FAILED tests/unit/test_copilot_generation_trace.py::test_private_generations_keep_separate_evidence_boundaries[rescued]
+    FAILED tests/unit/test_copilot_generation_trace.py::test_private_generations_keep_separate_evidence_boundaries[rejected]
+M7 citation retries lose the table guidance: 8 failed, 93 passed, 17 warnings in 16.94s
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[citation_excerpt]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[short_excerpt-recovered]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[short_excerpt-exhausted]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[duplicate_id-recovered]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[duplicate_id-exhausted]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[bare_figure-recovered]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[bare_figure-exhausted]
+    FAILED tests/unit/test_copilot_prompt_revisions.py::test_a_quotation_retry_never_sees_the_citation_guidance
+M8 the citation guidance changes by one word: 1 failed, 100 passed, 17 warnings in 17.03s
+    FAILED tests/unit/test_copilot_prompt_revisions.py::test_the_current_prompt_bytes_have_a_revision_row
+M9 a revision row's evidence path is wrong: 1 failed, 100 passed, 17 warnings in 16.40s
+    FAILED tests/unit/test_copilot_prompt_revisions.py::test_every_revision_row_names_its_measurement_and_existing_evidence
+M10 the first generation carries retry text: 14 failed, 87 passed, 17 warnings in 17.22s
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[answer]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[followup]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[not_disclosed]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[citation_excerpt]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_quotation_retry_safety_gate[elided_quote]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[short_excerpt-recovered]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[short_excerpt-exhausted]
+    FAILED tests/unit/test_copilot_quotation_retry.py::test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance[duplicate_id-recovered]
+M11 copilot bootstrap drops EDGAR_CACHE_DIR: 1 failed, 100 passed, 17 warnings in 16.95s
+    FAILED tests/unit/test_copilot_bootstrap.py::test_source_preparation_keeps_both_edgartools_directories_beside_its_evidence
+M12 acceptance executor drops EDGAR_CACHE_DIR: 1 failed, 100 passed, 17 warnings in 16.68s
+    FAILED tests/unit/test_acceptance_executor.py::test_child_environment_uses_only_isolated_database_and_explicit_key
+RESTORED: 101 passed, 17 warnings in 16.42s
