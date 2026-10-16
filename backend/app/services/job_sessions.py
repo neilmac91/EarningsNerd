@@ -1,10 +1,11 @@
-"""Run one job in a database session of its own, for work that outlives its request.
+"""Run one job in a database session of its own, for work outside a request's ``get_db`` session.
 
-A FastAPI background task runs after the response, when the request's ``get_db`` session is
-already closed, so a detached job opens its own session and closes it however the job ends. The
-``/internal/jobs/*`` triggers' flag-off runs use these (``app/routers/internal.py``). The router
-passes the service function by its own module attribute, so a test that patches that function
-still reaches the call, and it keeps the log lines around the call.
+A FastAPI background task runs after the response, when the request's session is already closed,
+and a route that declares no session has none to lend. Such a job opens its own session and closes
+it however the job ends. The ``/internal/jobs/*`` triggers' flag-off runs use these
+(``app/routers/internal.py``), as does the Resend click record (``app/routers/webhooks.py``). The
+caller passes the service function by an attribute it resolves at call time, so a test that
+patches that function still reaches the call, and it keeps the log lines around the call.
 
 ``SessionLocal`` is imported at call time, as the router's runners did, so a test that patches
 ``app.database.SessionLocal`` reaches these helpers too.
