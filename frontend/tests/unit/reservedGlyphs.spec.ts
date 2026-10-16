@@ -477,6 +477,17 @@ describe('reserved glyphs keep their one meaning', () => {
       given(['function List({ children }) { return <ul>{Children.map(children, (child) => <li>{child}{child}</li>)}</ul> }', 'export const M = () => <List><SparkleIcon /></List>']),
     ).toEqual({ SparkleIcon: 2 })
     expect(given(['export function N() { const Mark = useMemo(() => QuotesIcon, []); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })
+    // A call that gives back what it is given holds it (the review's case: `memo(() => <QuotesIcon />)` rendered three
+    // times is three uses): React's memo and forwardRef, nested and read through React, Object.assign's target (a
+    // compound component, rendered as itself and as its part) and Object.freeze.
+    expect(given(['const Mark = memo(() => <QuotesIcon />)', 'export const A = () => <><Mark /><Mark /><Mark /></>'])).toEqual({ QuotesIcon: 3 })
+    expect(given(['const Both = React.memo(forwardRef((props, ref) => <SparkleIcon />))', 'export const B = () => <><Both /><Both /></>'])).toEqual({ SparkleIcon: 2 })
+    expect(given(['function Root() { return <QuotesIcon /> }', 'const Card = Object.assign(Root, { Part: Root })', 'export const C = () => <><Card /><Card.Part /></>'])).toEqual({
+      QuotesIcon: 2,
+    })
+    expect(given(['const MARKS = Object.freeze({ passage: BracketsCurlyIcon })', 'export const D = () => <><MARKS.passage /><MARKS.passage /></>'])).toEqual({
+      BracketsCurlyIcon: 2,
+    })
     expect(given(["import { ArrowRightIcon } from '@/lib/icons'", 'let Mark; Mark = ArrowRightIcon', 'export const O = () => <Mark />'])).toEqual({})
     // A rest element takes the rest (the review's case: `const [...Marks] = [QuotesIcon]` read twice is two uses): an
     // array's elements from its place on, re-indexed, so `Others[0]` reads the second glyph alone; an object's

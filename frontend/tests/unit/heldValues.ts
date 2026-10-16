@@ -45,9 +45,11 @@ import ts from 'typescript'
  *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions); an
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
- *    `reduce` (its accumulator); `Object.values`, `Object.entries` (each value at index 1), `Object.assign`,
- *    `Array.from`; React's `Children.map` (what the callback returns), `Children.toArray` and `Children.only`,
- *    `useMemo` (what its callback returns) and `useCallback` (its callback);
+ *    `reduce` (its accumulator); `Object.values`, `Object.entries` (each value at index 1), `Object.assign` (its
+ *    target, with every source's properties), `Object.freeze`, `Object.seal` and `Object.preventExtensions` (what
+ *    they are given), `Array.from`; React's `Children.map` (what the callback returns), `Children.toArray` and
+ *    `Children.only`, `useMemo` (what its callback returns), `useCallback` (its callback), and `memo` and
+ *    `forwardRef` (the component they wrap);
  *  - parentheses, `as`, `satisfies`, `<T>` and `!`.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
  * context's), what React state holds after its setter or a reducer runs, a class's fields and `this`, a promise's
@@ -476,16 +478,22 @@ export function heldValues<L>(
     if (receiverNamed(x, 'Object')) {
       if (name === 'values') return arrayOf(elementOf(arg(0)))
       if (name === 'entries') return arrayOf(withProps([['1', elementOf(arg(0))]]))
+      // Object.assign gives back its target with every source's properties on it, so a compound component
+      // (`Object.assign(Root, { Part })`) is still Root; freeze, seal and preventExtensions give back what they are given.
       if (name === 'assign') {
-        const props = new Map<string, Held<L>>()
-        for (let i = 0; i < args.length; i++) for (const [key, value] of arg(i).props ?? []) props.set(key, value)
-        return { leaves: new Map(), props, fns: null }
+        const target = arg(0)
+        const props = new Map<string, Held<L>>(target.props ?? [])
+        for (let i = 1; i < args.length; i++) for (const [key, value] of arg(i).props ?? []) props.set(key, value)
+        return { leaves: target.leaves, props, fns: target.fns }
       }
+      if (name === 'freeze' || name === 'seal' || name === 'preventExtensions') return arg(0)
       return empty()
     }
     if (receiverNamed(x, 'Array') && name === 'from') return args[1] ? arrayOf(returned(fnsOf(1), record)) : arrayOf(elementOf(arg(0)))
     if (name === 'useMemo') return returned(fnsOf(0), record)
     if (name === 'useCallback') return arg(0)
+    // React's component wrappers give back the component they wrap: `memo(Mark)`, `forwardRef((props, ref) => …)`.
+    if (name === 'memo' || name === 'forwardRef') return arg(0)
     const recv = receiverOf(x)
     if (recv) {
       if (ELEMENT_RESULTS.has(name)) return elementOf(valueOf(recv, record))
