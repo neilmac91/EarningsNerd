@@ -24,7 +24,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Pro section | `ProDepth.tsx`, `ChangeReportDemo.tsx` | "More ways to read one filing." with the Ask, Multi-Period and Change Report demos; the Change Report sample is FY2025 against FY2024. The Multi-Period row, its call to action, the Excel tile and the lead's "read its periods side by side" render only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships the route, which 404s otherwise (`tests/unit/analysis-route-hidden.spec.tsx`). |
 | Pricing section | `PricingSection.tsx` | No "Most popular" badge: the beta has no popularity figure behind one, and the Pro card's brand ring carries the emphasis. The two Multi-Period lines list only while the flag ships it, and the exports line reads "PDF, CSV and Excel exports" only then ("PDF and CSV exports" otherwise), since the Excel export is the analysis workbook. Each line keyed to a flag names it in a field (`flag: 'analysis'`), not by its wording. The Free card reads "10-K, 10-Q and 20-F filings from SEC EDGAR", with no "Supported" hedge, 20-F only while `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's flag (`flag: 'fpi'`; "10-K and 10-Q filings from SEC EDGAR" otherwise). The billing radios carry the brand ring on their own className. |
 | Reader quote | `ReaderQuoteSlot.tsx`, `lib/readerQuote.ts` (new) | Mounted under the pricing section; renders nothing while `READER_QUOTE` is `null`, so no placeholder testimonial ships and the reader-quote slot stays unrendered (§6; 01-interview.md §2; `tests/unit/readerQuoteSlot.spec.tsx`). It fills only with a real reader's words and the naming they approved in writing; the voice rules of #1288 (`brandVoiceRules.spec.ts`) gate the shipped value once that PR merges. The placeholder strings are gone. |
-| Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). The Ask demo answers "How much did net sales grow, and what drove Services?" as a live run would: total net sales of $416.2B [1] and its 6.4% growth [2], two XBRL chips written as `copilot_tools.fact_to_citation` writes them (a fact the tool can fetch, and the growth `compute_metric` derives from it), then the Item 7 sentence on Services [3]. The markers are numbered as the server numbers them, never [F1]. `tests/unit/landingSamplesVerified.spec.ts` holds every figure, chip label and marker on the page's samples and the hero fallback to the verified set, ties each XBRL chip's label and figure to the concept its section ref names, and ties the answer's figure before each marker to that chip. The Copilot teaser's blurred sample (`CopilotTeaser.tsx`, #1295) answers a Services question instead: its Services figures are a dimensioned fact the tool cannot fetch, so its citations are passages from the filing, not XBRL facts; the two answers differ for that reason, and the spec clause over the teaser asserts that citation kind once both PRs are on main. |
+| Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). The Ask demo answers "How much did net sales grow, and what drove Services?" as a live run would: total net sales of $416.2B [1] and its 6.4% growth [2], two XBRL chips written as `copilot_tools.fact_to_citation` writes them (a fact the tool can fetch, and the growth `compute_metric` derives from it), then the Item 7 sentence on Services [3]. The markers are numbered as the server numbers them, never [F1]. `tests/unit/landingSamplesVerified.spec.ts` holds every figure, chip label and marker on the page's samples and the hero fallback to the verified set, ties each XBRL chip's label and figure to the concept its section ref names, and ties the answer's figure before each marker to that chip. The Copilot teaser's blurred sample (`CopilotTeaser.tsx`, #1295) answers a Services question instead: its Services figures are a dimensioned fact the tool cannot fetch, so its citations are passages from the filing, not XBRL facts; the two answers differ for that reason, and the spec's teaser clause holds that citation kind: the sample states only the verified Services pair, names the drivers the Item 7 sentence names, and runs markers [1] and [2] with one matched source each and no XBRL marker, locator, tag or braces glyph. |
 | Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | Unmounted (see §7). |
 | Footer | `components/Footer.tsx` | The tagline, "The summary that shows its work." |
 | Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts`, `lib/socialCard.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). Titles put the page first and the brand last ("Read the filing faster. Keep the source in view \| EarningsNerd"); the root default is "AI summaries of SEC filings \| EarningsNerd", and the root's social preview carries no title or description of its own, so Next fills both from each page (D-038). |
@@ -89,7 +89,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   EDGAR" in place of "Access to all filings": no "Supported" hedge, and 20-F only while
   `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's `ENABLE_FPI_FILINGS` ("10-K and 10-Q filings from SEC
   EDGAR" otherwise; the deploy sets the API's flag on, its code default is off; tasks/todo.md F39). The Pro list reads "Ask
-  this Filing, with cited answers", and names Multi-Period Analysis and "PDF, CSV and Excel exports"
+  this Filing, with cited passages you can check" (it read "with cited answers" until the Ask this Filing
+  PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
   export is the analysis workbook). The check marks are in the brand ink and hidden from
   assistive tech. The history and "Unlimited" lines wait on the founder (pub/F03, pub/F05).
@@ -362,6 +363,58 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   its return flag from the address once read. On /pricing a signed-in Pro account's Free card names
   the plan, "Free plan", disabled, where it read the guest's "Request an invite" (gate:
   `PricingPage.spec.tsx`).
+- **Ask this Filing** (`frontend/features/filings/components/copilot/*`, `features/filings/api/copilot-api.ts`,
+  D-034): the teaser, the end-of-summary callout, the coachmark and the rail's empty state claim only
+  what the answer card shows ("Cited passages you can check against the filing", "XBRL citations name
+  the tag they came from", which had said figures show their tag though an answer can carry an uncited one, and "Answers come from this filing, with cited passages you can check.",
+  the one sentence the rail, the callout and the coachmark import as `COPILOT_CLAIM` from
+  `copilotClaim.ts`), and so does the Pro section's Ask row ("The answer comes from that filing, with cited
+  passages you can check", in `ProDepth.tsx`, which had said the answer cites the figures and passages
+  it used), and so does the pricing page's Pro line ("Ask this Filing, with cited passages you can check",
+  which #1311 had set as "with cited answers"), and the summary's suggested follow-ups say "Tap a question to ask this filing."; the teaser's blurred
+  sample is Apple's FY2025 Services answer with sequential [1] and [2] markers and "2 matched
+  sources", cited to passages because the Services figure is a dimensioned fact the Copilot tool cannot
+  fetch, while the landing's Ask demo (#1311) answers total net sales with XBRL chips; §1's Sample data
+  row says which is which (`landingSamplesVerified.spec.ts` holds the teaser to its kind). The product has one name: "Ask this Filing" on the launcher, the rail and the upgrade
+  dialog, "ask this filing" in a sentence, and the usage lines say "free questions" and "Upgrade to
+  Pro", with Pro's monthly cap read from the usage response, never "unlimited". A spent allowance,
+  a Pro-only gate and the Pro fair-use cap are a quiet answer card with role="status" and the
+  server's sentence (a lightning "Upgrade to Pro" except at the fair-use cap), announced because the
+  reading card it replaces is already that status region; the error tint stays for real failures. XBRL source rows carry the braces, Ask controls the chat glyph (the landing's Ask demo
+  header too, which drew the quotes, a passage's mark) and an upgrade button that carries a glyph the lightning; the in-text marker and every source-check label are 12px; the callout is an inset well
+  without an icon tile; the answer counts its matched sources once. Every control in the rail, the
+  answer and the reader carries the brand ring. The unused reference renderer `AskFilingAnswer.tsx`
+  is gone; DESIGN_SYSTEM.md's "Ask answer" now describes `CopilotMessage`. Gates:
+  `oneProductName.spec.ts` (no copy literal says the name in any case: "Copilot" and "co-pilot" in any
+  literal, and "copilot" in JSX text, a string of more than one word or a template part open at a
+  substitution edge, joined to punctuation or not, so "free copilot questions" and "Ask the copilot: what
+  changed" fail while a one-word identifier such as `copilot_question_asked` or `copilot:paneWidth` and a
+  class list do not; a one-word copy literal such as `title="copilot"` is its known limit; the /security
+  line is its one named residue, counted by mention),
+  `brandCopyRules.spec.ts` rule 1 (on every surface under app, components, features, hooks and lib, in
+  one sentence of one literal with its whitespace collapsed, or of one element's inline children read
+  together (`<p>Every answer is <strong>cited</strong> to the filing.</p>`), whatever scope phrase follows:
+  no answer, response or reply called cited, citable, grounded, exact, verified, verifiable, sourced or
+  backed, under each, every or all, through a copula with any adverb between ("Answers are now cited"),
+  set off after its noun ("answers, each cited") or before it ("Grounded answers"); none said to cite; no
+  citation or source promised for them ("Sources for every answer", "Answers with citations", "No answer
+  without a citation"); no "each" or "every" before "exact", no "never guessed", no "verifiable in one
+  click"; another word for the same promise ("Every answer comes with receipts"), a claim past a pattern's
+  reach (40 characters, 20 between an answer and the citation it comes "with") and one split across
+  separate literals stay review-checked, its self-check pinning them passing, and a negated quantifier
+  ("Not every answer is cited.") or an adverb that hedges ("Answers are rarely cited") fails closed while
+  "not" and "only" pass ("Answers are only cited where a passage matched."), `copilotClaim.spec.tsx` (the rail, the callout
+  and the coachmark render the one sentence, and no other literal types it), `planLimitsLockstep.spec.ts`
+  (no "unlimited" in the Copilot's directory and, anywhere under app, components, features, hooks and
+  lib, in one literal or one element's inline children read together, a wrapped line included, no list
+  "unlimited" heads, read to the sentence end, with an item that names a question, answer, Ask this Filing,
+  Copilot or Q&A noun and no count of its own, and no such noun up to 30 characters before it; the pricing
+  metadata, which #1311 shipped as "unlimited 10-K and 10-Q analysis, exports, and filing Q&A" and
+  "Unlimited AI summaries …, filing Q&A, …", now gives filing Q&A a sentence of its own, "Pro also
+  includes filing Q&A."), `dataXsAllowlist.spec.ts` (data-xs
+  sites listed with counts, their totals an equality cap lowered in the same commit as each shrink; the
+  marker and the source-check labels are 12px) and
+  `CopilotMessage.spec.tsx` (the plan card is quiet, a real failure keeps the tint).
 - **Admin invites and feedback** (`frontend/app/admin/`, `frontend/features/admin/components/`): an
   invite is "created", and "emailed" only when Email invites was on and the backend's best-effort send
   went through (the API's `emailed` flag). A batch reads "3 invites created · 3 emailed", "3 invite

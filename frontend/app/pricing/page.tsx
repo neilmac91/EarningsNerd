@@ -293,7 +293,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
       features: shipped([
         { text: 'Unlimited summaries' },
         ANALYSIS_LINES.pricingPro,
-        { text: 'Ask this Filing, with cited answers' },
+        { text: 'Ask this Filing, with cited passages you can check' },
         { text: 'Hourly filing alerts' },
         { text: '8-K filing alerts' },
         ANALYSIS_LINES.exports,

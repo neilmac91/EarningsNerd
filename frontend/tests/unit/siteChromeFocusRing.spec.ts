@@ -99,7 +99,6 @@ const RING_RESIDUE: Record<string, number> = {
   // Each line names the sweep PR that owns the file, or why it waits. A "props spread" finding in a chart
   // or Markdown renderer is the scan's limit (it cannot read what the spread holds), not always a stop.
   'app/delete-account/page.tsx': 4, // auth-adjacent page with no sweep owner yet
-  'app/filing/[id]/page-client.tsx': 1, // brand-filing-page
   'app/privacy/page.tsx': 10, // legal page: waits on the founder (presentation follow-up)
   'app/security/page.tsx': 5, // legal page: waits on the founder (presentation follow-up)
   'app/terms/page.tsx': 4, // legal page: waits on the founder (presentation follow-up)
@@ -110,11 +109,8 @@ const RING_RESIDUE: Record<string, number> = {
   'features/companies/components/CompanyIdentity.tsx': 2, // its crumb and link take IDENTITY_CRUMB and IDENTITY_LINK, recipes imported from FilingIdentity, which the scan does not read across files (#1292 ringed them there; review-checked)
   'features/filings/components/FilingsHistoryNote.tsx': 1, // its link's class is IDENTITY_LINK, imported from FilingIdentity, which the scan does not read across files (#1292 ringed it through that recipe; review-checked)
   'features/filings/components/SourceTrace.tsx': 4, // brand-filing-page
-  'features/filings/components/copilot/AskCopilotRail.tsx': 3, // brand-copilot
-  'features/filings/components/copilot/CitationChip.tsx': 4, // brand-copilot
-  'features/filings/components/copilot/CopilotMessage.tsx': 13, // brand-copilot
-  'features/filings/components/copilot/CopilotTeaser.tsx': 1, // brand-copilot
-  'features/filings/components/copilot/FilingViewer.tsx': 3, // brand-copilot
+  'features/filings/components/copilot/CitationChip.tsx': 3, // brand-copilot
+  'features/filings/components/copilot/CopilotMessage.tsx': 11, // brand-copilot
   'features/filings/components/copilot/PaneResizer.tsx': 1, // brand-copilot
   'features/filings/components/copilot/ReaderTable.tsx': 2, // brand-copilot (Markdown renderer props spreads)
   'features/filings/components/copilot/SecondaryPaneTabs.tsx': 1, // brand-copilot
@@ -126,7 +122,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 27, stops: 91 }
+const RING_RESIDUE_MAX = { files: 23, stops: 80 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the

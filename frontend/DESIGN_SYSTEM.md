@@ -110,7 +110,10 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
   headings take their tracking from the fontSize ramp.
 - 12px UI-type floor for running copy; `text-data-xs` (11px) for dense numeric annotations and in-card
   captions / uppercase micro-labels (v3 b8 maps every former `text-[10–11px]` text site to it). The
-  provenance chip that carries a verification claim is never one of them: it is 12px (P-10, §4). UPPERCASE
+  provenance chip that carries a verification claim is never one of them: it is 12px (P-10, §4), as are
+  the in-text citation marker (CitationChip, the analysis narrative's chip) and every source-check label
+  (gate: `tests/unit/dataXsAllowlist.spec.ts`, a shrink-only list of the files that use data-xs, its file and
+  site totals an equality cap that the PR shrinking the list lowers in the same commit). UPPERCASE
   tracked eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,
   14px/600 heading ink; it shipped as an eyebrow in v2 and was fixed in v2.1) and never document headings.
 - **Section title** (2026-10 critique P-05): the filing summary is a document, so its section headings are
@@ -124,8 +127,8 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
-the SHIPPED copilot data model — see below). Controls expose their applicable interaction and
+DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + the copilot answer renderer
+`features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
 
@@ -1023,21 +1026,22 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
                  in real layout, the page unmoved).
 
-Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|done|error (this reference
-                 also draws a `streaming` caret state; the production renderer has none);
+Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
                  verified, fragment_url } — `verified` drives source attribution: checked sources show
                  “Source match found” with its scope (not whole-answer verification); unmatched sources
-                 stay “Cited” in legacy/reference rendering. New Ask-this-Filing responses wait for
+                 stay “Cited”. XBRL source rows carry the braces glyph and their tag. The done answer
+                 counts “{n} matched source(s)” once. A plan gate (a spent free allowance, a Pro-only
+                 403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
+                 sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
+                 is that status region already, so the sentence is announced when it lands. The error tint
+                 and role="alert" stay for real failures. New Ask-this-Filing responses wait for
                  an admitted completion; failed referenced citations and draft answer text are
                  withheld before reaching this renderer. Numeric/text grouping is not a separate
                  attestation. Never conflate source matching with support for every answer claim.
-                 REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
-                 The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
-                 which implements the same contract plus viewer deep-linking, popovers and follow-ups —
-                 change copilot rendering THERE, styled to this design. Its answers arrive whole: the
+                 It also carries viewer deep-linking, popovers and follow-ups. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
                  done or error; there is no streaming status, token text or caret.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
@@ -1051,9 +1055,12 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
-- **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph, as does a
-  provenance chip that cites a filing passage (braces for an XBRL figure); the Ask tab, the Ask callout and
-  the follow-up prompts use `chat-circle-text`, the Filing tab and the Source launcher `file-text`.
+- **Evidence identity:** a provenance chip that cites a filing passage uses the Phosphor `quotes` glyph
+  (braces for an XBRL figure, and on the Ask answer's XBRL source rows); the Ask tab, the Ask callout, the
+  standalone Ask launcher and header (and the landing's Ask demo, which draws that header), "Ask about this"
+  and the follow-up prompts use `chat-circle-text`,
+  the Filing tab and the Source launcher `file-text`; an upgrade button that carries a glyph uses `lightning`
+  (the rail's exhausted-state Upgrade and the taste line's text button carry none).
   `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
   to the enclosing header cell (`th`).
@@ -1241,7 +1248,7 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 - **Count-up is `hooks/useCountUp`** (rAF, slow/standard, `format` per content fundamentals —
   `"$391.0B"` — render in `tnum font-data`) — the `animate-count-up` keyframe is retired; it was a fade.
 - **Skeleton→content**: `hooks/useContentIn(loading)` returns `animate-content-in motion-reduce:animate-none`
-  from the render where `loading` turns false (DataTable, AskFilingAnswer, the account settings and
+  from the render where `loading` turns false (DataTable, the account settings and
   watchlist pages) — never on first paint of never-loading views. It catches the flip during render, so
   the class lands on the same commit as the content it reveals.
 - **Loading**: a page never swaps itself for a full-page spinner. It renders its own frame and header, and
