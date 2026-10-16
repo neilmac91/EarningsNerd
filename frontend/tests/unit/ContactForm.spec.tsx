@@ -13,8 +13,8 @@ import { ApiError } from '@/lib/api/client'
  * client's own 503 sentence ("Service temporarily unavailable…") stops there too. On any other
  * status the backend's own detail is shown when the body carried a non-blank one
  * (`ApiError.backendDetail`; a whitespace-only detail counts as none), and the surface's sentence when
- * it did not: lib/api/client's connection fallback ("Unable to connect
- * to the server…") and axios's "Request failed with status code N" sit in `detail` and never reach
+ * it did not: lib/api/client's connection fallback ("Could not reach the
+ * server…") and axios's "Request failed with status code N" sit in `detail` and never reach
  * the reader. The failure is a Notice: role="alert", title "Message not sent". The success heading
  * is an h2 under the page's h1.
  */
@@ -87,7 +87,7 @@ describe('ContactForm send errors', () => {
   })
 
   it.each([
-    ['a failed connection', new ApiError(0, 'Unable to connect to the server. Please ensure the backend API is running on https://api.earningsnerd.io')],
+    ['a failed connection', new ApiError(0, 'Could not reach the server. Try again in a moment.')],
     ["axios's message for a bodiless 413", new ApiError(413, 'Request failed with status code 413')],
     ["the client's own 503 sentence, through the 5xx branch", new ApiError(503, 'Service temporarily unavailable. Please try again in a moment.')],
     ['an empty backend detail on a 4xx', backendError(400, '  ')],

@@ -2,10 +2,10 @@ import ts from 'typescript'
 
 /**
  * What a same-file value holds, followed from where it is written to where it is used, for the gates that read a
- * value rather than its syntax: brandVoiceRules.spec.ts's heading icons, reservedGlyphs.spec.ts's glyph counts and
- * no-em-dash-copy.spec.ts's missing-value token. One reading for all three, so a shape one gate follows the others follow
- * too (lessons/test-gates-must-be-as-wide-as-their-rule.md: the family is taken from the language, not from the forms a
- * review names).
+ * value rather than its syntax: brandVoiceRules.spec.ts's heading icons, reservedGlyphs.spec.ts's glyph counts,
+ * no-em-dash-copy.spec.ts's missing-value token and checkboxRecipe.spec.tsx's input type. One reading for all four, so
+ * a shape one gate follows the others follow too (lessons/test-gates-must-be-as-wide-as-their-rule.md: the family is
+ * taken from the language, not from the forms a review names).
  *
  * A value is the leaves it may be (the gate says what a leaf is: an icon's import, a glyph's root), each with how
  * many times it renders; for an object or an array, what each property or element holds; and the same-file functions
@@ -139,7 +139,7 @@ const ANY = '*'
 /** A property of a value by its key: undefined for a key the scan cannot read, which may be any property; a literal index
     an array's known elements do not reach may read any element past them; a property written under a key the scan
     cannot read may be any member. */
-function propertyOf<L>(base: Held<L>, key: string | undefined): Held<L> {
+export function propertyOf<L>(base: Held<L>, key: string | undefined): Held<L> {
   if (!base.props) return empty()
   if (key === undefined) return [...base.props.values()].reduce(union, empty<L>())
   const rest = () => [...base.props!].filter(([k]) => k.startsWith(REST)).map(([, v]) => v).reduce(union, empty<L>())
