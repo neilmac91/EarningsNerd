@@ -279,11 +279,15 @@ def test_attempts_without_inventory_are_left_out_of_the_share():
 
 
 def test_amended_forms_are_eligible():
-    report = _provenance_report(lambda f: "regex_fallback")
+    """Only the amended 10-Ks miss here, so the share is 34 of 64, a HARD failure. A gate that left
+    amendments out would read 34 of 36, a WARN."""
+    report = _provenance_report(lambda f: "regex_fallback" if f["filing_type"] == "10-K" else _native_unless("ASML")(f))
     for row in report["results"]:
         if row["filing_type"] == "10-K":
             row["filing_type"] = "10-K/A"
-    assert "native_section_share" in [f.metric for f in _native(evaluate_report(report, PINNED_ON)[0])]
+    findings, notes = evaluate_report(report, PINNED_ON)
+    assert "native_section_share" in [f.metric for f in _hard(_native(findings))]
+    assert any("native-section excerpts 34 of 64 eligible attempts" in note for note in notes)
 
 
 def test_the_gate_reads_the_label_and_forms_the_producers_write():

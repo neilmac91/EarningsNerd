@@ -436,6 +436,22 @@ async def test_x0_2_a_ten_k_read_error_that_leaves_no_section_is_logged(parser, 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(("filing_type", "sections"), [
+    ("10-Q", {"part_i_item_2": _Section("short")}),
+    ("20-F", {"part_i_item_3": _Section("short")}),
+    ("20-F", {}),  # ASML's 20-F: the parser finds no item at all
+], ids=["10-Q-short", "20-F-short", "20-F-no-items"])
+async def test_x0_2_an_empty_ten_q_or_twenty_f_parse_stays_quiet(parser, caplog, filing_type, sections):
+    """X0.2 — a 10-Q or 20-F with nothing usable and no error is None with no warning, so a filing
+    that never has sections does not bury #1350's read-error warning on every generation."""
+    parser.sections = sections
+    caplog.set_level("WARNING")
+
+    assert await EdgarXBRLService().get_filing_sections(ACC, filing_type, html=HTML) is None
+    assert [r for r in caplog.records if r.levelname == "WARNING"] == []
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("filing_type", ["8-K", "6-K", "40-F", "DEF 14A", ""])
 async def test_x0_2_filing_sections_form_gate(executor_waits, parser, filing_type):
     """X0.2 — only 10-K/10-Q/20-F (amendments normalized) reach the executor; any other form is None
@@ -464,6 +480,15 @@ async def test_x0_2_document_over_the_size_cap_is_not_parsed(monkeypatch, parser
 
     assert await EdgarXBRLService().get_filing_sections(ACC, "10-K", html=HTML) is None
     assert parser.seen == []
+
+
+def test_x0_2_the_size_cap_sits_between_the_golden_documents_measured():
+    """The cap clears JPMorgan's 10-K (12,927,443 characters, the largest golden document with
+    sections; it parses in about 6 s) and stops ASML's 20-F (24,864,733 characters, no sections,
+    10.9 s and 713 MB to parse): tasks/review-evidence/e28-native-sections-2026-10-15/."""
+    from app.services.edgar import xbrl_sections
+
+    assert 12_927_443 < xbrl_sections._MAX_SECTION_HTML_CHARS < 24_864_733
 
 
 @pytest.mark.asyncio

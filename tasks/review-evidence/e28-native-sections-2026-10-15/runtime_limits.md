@@ -64,9 +64,13 @@ vCPU, and `USE_EDGARTOOLS_SECTIONS` is already the kill switch.
   [`excerpt_build_times.py.txt`](excerpt_build_times.py.txt)).
 - **What changed against the `obj()` path.** The `obj()` path started with the fetch, so its 30 s
   (40 s) ran from the fetch's start; the local parse needs the fetched document, so its bound runs
-  from the fetch's end. One large filing alone parses in 3 to 6.4 s. The fetch's 15 s is per attempt
-  (up to three, with backoff), so with every step at its bound together the 120 s backstop can
-  pre-empt the AI fallback, as it could before E28 (the `PIPELINE_TIMEOUT_SECONDS` comment).
+  from the fetch's end. One large filing alone parses in 3 to 6.4 s. The `obj()` read also downloaded
+  the submission file (7.5 to 65 MB) before it parsed, so main's join usually started later; XBRL,
+  which starts before the fetch, had that time too. XBRL running more than 18 s past the fetch and
+  the parse loses that slack. With equal parse times the final review found XBRL arriving in every
+  case where it did on main. The fetch's 15 s is per attempt (up to three, with backoff), so with
+  every step at its bound together the 120 s backstop can pre-empt the AI fallback, as it could
+  before E28 (the `PIPELINE_TIMEOUT_SECONDS` comment).
 - **Cancellation.** A parse still queued when its waiter is cancelled, by its own bound or by a
   disconnect, never runs. A parse whose bound runs out while it is running is not stopped: its result
   is discarded, and it holds the only worker until it ends, so the parses queued behind it can run
