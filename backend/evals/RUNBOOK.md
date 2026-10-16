@@ -761,16 +761,17 @@ Citation excerpts preserve all source punctuation, including inner quotation mar
 **Copilot prompt revisions.** Each model-facing composition is listed by the first 12 hex digits of
 its SHA-256 (UTF-8), with the source its live measurement used: the first generation's system message
 (`SYSTEM_PROMPT`), and the regeneration's system message after a decision-F rejection and after a
-citation failure. `tests/unit/test_copilot_prompt_revisions.py` fails when the current bytes have no
-row, and a row's evidence path must exist. So the PR that edits any of them records the new identity
-and what it was measured on. #1111's revision was measured only on the regex fallback, because SEC's
+citation failure. `tests/unit/test_copilot_prompt_revisions.py` keeps the same rows as an append-only
+list: it fails when the current bytes are not the newest entry, when the table differs from the list,
+or when a row's evidence path does not exist. So the PR that edits any of them records the new
+identity and what it was measured on, and no earlier row can be overwritten. #1111's revision was measured only on the regex fallback, because SEC's
 403 had silently removed sections from every eval source, and nothing showed it.
 
 | First generation | Decision-F retry | Citation retry | Introduced | Measured on | Evidence |
 |---|---|---|---|---|---|
 | `a88b6fb1de5b` | — | — | before #1111 | sections to 2026-10-05, then the regex fallback | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | 2026-10-16 | sections (the PR head's copilot-eval draw) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/PREREGISTRATION.md` |
+| `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | 2026-10-16 | sections, pre-registered (the PR head's copilot-eval draw, not yet run) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/PREREGISTRATION.md` |
 
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,

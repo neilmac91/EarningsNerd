@@ -14,6 +14,13 @@ from app.services import copilot_service
 from app.services.copilot import prompt
 from app.services.copilot.exceptions import _RegenerableEvidenceMismatch, _UnpublishableAnswer
 
+# Every revision ever recorded, oldest first: (first generation, decision-F retry, citation retry). Append the
+# new triple and its RUNBOOK row together; an edited or dropped entry rewrites history and fails below.
+REVISIONS = [
+    ("a88b6fb1de5b", "—", "—"),
+    ("d46ef28f000a", "f3b340db1e35", "f3b340db1e35"),
+    ("d46ef28f000a", "f3b340db1e35", "ae01453ef90d"),
+]
 REPO = Path(__file__).resolve().parents[3]
 RUNBOOK = REPO / "backend" / "evals" / "RUNBOOK.md"
 HEADING = "**Copilot prompt revisions.**"
@@ -42,10 +49,14 @@ def revision_rows() -> list[list[str]]:
 
 def test_the_current_prompt_bytes_have_a_revision_row():
     current = current_compositions()
+    assert current == REVISIONS[-1], (
+        f"Copilot prompt bytes {current} are not the newest revision: append them to REVISIONS here and add "
+        "their row to the RUNBOOK's 'Copilot prompt revisions' table, saying what the live measurement ran on")
+
+
+def test_the_revision_table_is_the_append_only_history():
     recorded = [tuple(cell.strip("`") for cell in row[:3]) for row in revision_rows()]
-    assert current in recorded, (
-        f"Copilot prompt bytes {current} have no row in the RUNBOOK's 'Copilot prompt revisions' table: "
-        "add one that says what the live measurement ran on (sections or the regex fallback)")
+    assert recorded == REVISIONS, "the RUNBOOK's revision rows must list REVISIONS, in order, one row each"
 
 
 def test_every_revision_row_names_its_measurement_and_existing_evidence():

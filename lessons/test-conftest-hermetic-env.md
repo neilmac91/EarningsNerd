@@ -47,5 +47,6 @@ or empty; a harness or script that runs the app outside pytest must still set bo
 empty `HOME`, and checks that EdgarTools writes only inside each process's own temp directory, that
 the directory is gone when the process ends, and that values set beforehand are kept. The two
 evaluation harnesses (`evals/acceptance_executor.py::child_environment`
-and `evals/copilot_bootstrap.py::configure_environment`) set only `EDGAR_LOCAL_DATA_DIR`, so their
-anchor cache still goes to the home directory: E25 in `tasks/todo.md`.
+and `evals/copilot_bootstrap.py::configure_environment`) set both directories beside their own
+evidence since #1360 (`tests/unit/test_acceptance_executor.py` and `tests/unit/test_copilot_bootstrap.py`
+check each).

@@ -118,8 +118,8 @@ enough.
 
 - **Corpus re-verdict** ([`reverdict.py`](reverdict.py), output [`reverdict.txt`](reverdict.txt), exit 0). Main's and
   the change's `_verify_citations` were run over all 3,544 generations. Exactly 12 verdicts change, all terminal to
-  regenerable: 11 first generations (8 BABA short, 2 ASML short, and the 2 collision+short sections draws of
-  2026-10-15) and 1 retry generation. A retry generation's verdict cannot change what the service does, since there
+  regenerable: 11 first generations (7 BABA short, 5 of them on the regex fallback and 2 on sections; 2 ASML short; and
+  the 2 collision+short sections draws of 2026-10-15) and 1 retry generation. A retry generation's verdict cannot change what the service does, since there
   is never a third generation. No generation moves between published and withheld, and no published payload changes.
 - **Triage transition.** Under the change, `copilot-eval-triage-2026-10-09/f_attribution.py` replays run 38817393205's
   three BABA rows as UNEXPLAINED (exit 3), because it asks for a second generation the run never recorded. Under main

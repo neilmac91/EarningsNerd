@@ -50,7 +50,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 ## Evals, judging, paid runs and the founder's machine (read for that work)
 
 - evals-accept-a-prompt-change-on-two-runs-not-one.md — one generated run sets a direction, never an effect size; report the range across two
-- evals-measure-a-copilot-change-on-the-source-production-uses.md — accept a Copilot draw only if its sources were prepared as production's are; record each model-facing revision and its measured source (partly gated by `backend/tests/unit/test_copilot_prompt_revisions.py`; a draw's source check is review-checked)
+- evals-measure-a-copilot-change-on-the-source-production-uses.md — accept a Copilot draw only if its sources were prepared as production's are; record each model-facing revision and its measured source (partly gated by `backend/tests/unit/test_copilot_prompt_revisions.py`, which requires the row but cannot check what it says; a draw's source check, open as E66, and classifying a red draw's generations are review-checked)
 - evals-test-the-row-shape-the-producer-writes.md — a consumer of another module's records is tested on that producer's real row shape, and its identity rule against the committed data
 - ops-ai-evidence-is-not-human-acceptance.md — Use explicit model/source evidence when the founder cannot supply a human panel
 - ops-capacity-projection-withholds-command-values.md — Withhold command values and execute the real readback projection in a privacy gate

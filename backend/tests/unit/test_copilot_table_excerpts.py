@@ -7,6 +7,7 @@ filing shows it publishes. A lone figure, a short label, a partial or elided row
 different spacing and a twice-declared number never publish, but may buy the one private regeneration.
 A quoted label, an undeclared literal and a source too short to verify anything stay terminal.
 """
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -81,11 +82,13 @@ def test_table_citation_publishes_retries_or_stays_terminal(case):
     assert verdict(source_key, citations, REFERENCED.get(case, frozenset({"1"}))) == expected
 
 
-def test_fixture_slices_are_cut_from_the_recorded_sources():
-    """Each slice keeps its provenance, so a future regeneration of the fixture can be checked."""
+def test_fixture_slices_keep_their_provenance_and_are_unedited():
+    """Each slice names the prepared source and offset it was cut from (the full sources are in the
+    copilot-eval artifacts, not the repository) and the hash of its own text, which catches a later edit."""
     sources = json.loads(FIXTURE.read_text())["sources"]
     assert set(sources) == {BABA_INCOME, BABA_SCHEDULE, BABA_REGEX, ASML, ASML_KPI, AAPL}
     for value in sources.values():
         assert len(value["source_sha256"]) == 64 and value["offset"] >= 0 and value["text"]
+        assert hashlib.sha256(value["text"].encode("utf-8")).hexdigest() == value["text_sha256"]
     assert {sources[k]["source_sha256"][:12] for k in (BABA_INCOME, BABA_SCHEDULE)} == {"be4499769327"}
     assert sources[BABA_REGEX]["source_sha256"][:12] == "9e4a6a8d7efb"

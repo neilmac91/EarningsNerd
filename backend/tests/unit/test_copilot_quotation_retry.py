@@ -260,12 +260,12 @@ async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_tabl
     error, and the rejected candidate never reaches the client or the replacement prompt.
     """
     first = {
-        "short_excerpt": envelope(f'Management said "{KNOWN}" [1].', excerpt='"Changed demand"'),
-        "duplicate_id": envelope("The filing supports this claim [1].", declarations=[
+        "short_excerpt": envelope(f'{POISON}: management said "{KNOWN}" [1].', excerpt='"Changed demand"'),
+        "duplicate_id": envelope(f"{POISON}: the filing supports this claim [1].", declarations=[
             {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
             {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
         ]),
-        "bare_figure": envelope("Demand remained robust [1].", excerpt="robust"),
+        "bare_figure": envelope(f"{POISON}: demand remained robust [1].", excerpt="robust"),
     }[case]
     calls = []
 
@@ -282,7 +282,7 @@ async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_tabl
     assert calls[0][0]["content"] == copilot_prompt.SYSTEM_PROMPT
     assert calls[1][0]["content"] == (copilot_prompt.SYSTEM_PROMPT + "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
                                       + "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE)
-    assert INVENTED not in json.dumps(calls[1]) and INVENTED not in json.dumps(rows)
+    assert POISON not in json.dumps(calls[1]) and POISON not in json.dumps(rows)
     terminal = [row for row in rows if row["type"] in {"complete", "error"}]
     if outcome == "recovered":
         assert len(terminal) == 1 and terminal[0]["type"] == "complete"

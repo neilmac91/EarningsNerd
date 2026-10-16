@@ -156,8 +156,8 @@ def _verify_citations(
             "fragment_url": fragment_url,
         }
     if failed:
-        # Check all referenced declarations before classifying. A quoted label or a missing literal
-        # anywhere, or a source too short to verify anything, must never buy another generation.
+        # Check all referenced declarations before classifying. A failing referenced declaration with a
+        # quoted label, an undeclared literal or a too-short source must never buy another generation.
         required_text = {key for key in referenced if not key.startswith("F")}
         regenerable = regenerable and required_text <= declared.keys()
         failure = _RegenerableEvidenceMismatch if regenerable else _UnpublishableAnswer
