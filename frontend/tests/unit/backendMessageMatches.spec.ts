@@ -70,6 +70,7 @@ const MATCHERS: Matcher[] = [
     backend: [BACKEND.summaries, BACKEND.admission],
     frontend: ['features/summaries/api/summaries-api.ts'],
   },
+  { file: 'features/filings/api/copilot-api.ts', fn: 'isCopilotFairUseLimit', backend: [BACKEND.summaries], frontend: ['features/filings/api/copilot-api.ts'] },
   { file: 'features/filings/api/copilot-api.ts', fn: 'isCopilotPaywallError', backend: [BACKEND.dependencies, BACKEND.summaries], frontend: ['features/filings/api/copilot-api.ts'] },
   { file: 'features/analysis/api/analysis-api.ts', fn: 'isAnalysisPaywallError', backend: [BACKEND.dependencies, BACKEND.analysis], frontend: ['features/analysis/api/analysis-api.ts'] },
   { file: 'lib/api/client.ts', backend: [BACKEND.subscriptions], frontend: [] },
@@ -86,8 +87,6 @@ const MATCHERS: Matcher[] = [
 const DASHBOARD_UNSOURCED =
   "no message that reaches the dashboard's error boundary says it (see MATCHERS); the redirect's logic is E31's (a status or an error code), never the brand sweep's"
 const UNSOURCED: Record<string, string> = {
-  'isCopilotPaywallError monthly cap':
-    "no message says it: the Copilot cap's 429 says \"fair-use limit\" (routers/summaries.py), which this matcher does not read; the matcher's owner (brand-copilot, ASK-07) decides",
   'DashboardError 401': DASHBOARD_UNSOURCED,
   'DashboardError Unauthorized': DASHBOARD_UNSOURCED,
   'DashboardError authentication': DASHBOARD_UNSOURCED,
@@ -97,7 +96,7 @@ const UNSOURCED: Record<string, string> = {
     and ContactForm.tsx (2026-10-13); lowered to 6 when #1303 read the contact form's rate limit from the status
     (2026-10-15), so ContactForm.tsx tests no message word; lowered to 5 when #1293's 401 fallback wrote
     "Sign in again to generate this summary." (2026-10-16), so "sign in" has a source. It only falls after. */
-const UNSOURCED_MAX = 5
+const UNSOURCED_MAX = 4
 
 /** Literal tests the scan reads that test something other than a message the code writes. */
 const NOT_MESSAGES: Record<string, string> = {

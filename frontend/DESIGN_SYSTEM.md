@@ -110,7 +110,10 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
   headings take their tracking from the fontSize ramp.
 - 12px UI-type floor for running copy; `text-data-xs` (11px) for dense numeric annotations and in-card
   captions / uppercase micro-labels (v3 b8 maps every former `text-[10–11px]` text site to it). The
-  provenance chip that carries a verification claim is never one of them: it is 12px (P-10, §4). UPPERCASE
+  provenance chip that carries a verification claim is never one of them: it is 12px (P-10, §4), as are
+  the in-text citation marker (CitationChip, the analysis narrative's chip) and every source-check label
+  (gate: `tests/unit/dataXsAllowlist.spec.ts`, a shrink-only list of the files that use data-xs, its file and
+  site totals an equality cap that the PR shrinking the list lowers in the same commit). UPPERCASE
   tracked eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,
   14px/600 heading ink; it shipped as an eyebrow in v2 and was fixed in v2.1) and never document headings.
 - **Section title** (2026-10 critique P-05): the filing summary is a document, so its section headings are
@@ -124,8 +127,8 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
-the SHIPPED copilot data model — see below). Controls expose their applicable interaction and
+DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + the copilot answer renderer
+`features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
 
@@ -205,10 +208,30 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
 Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
                  its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
                  Constrain width at the call site; never override its height or whitespace.
-                 Default buttons keep their fixed height; icon-sm stays a 32px square.
+                 Default buttons keep their fixed height above a 24rem viewport (below it, the Button
+                 size row); icon-sm stays a 32px square.
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
+
+Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 and 48px) and one line
+                 (whitespace-nowrap) unless `wrap` is set (the row above); icon-sm is a fixed 32px square.
+                 Below a 24rem viewport every labelled size takes the wrap state on its own: h-auto, the
+                 size's min-h and vertical padding, whitespace-normal, centred on tight leading. A media
+                 query's rem is the browser's text size, so that is 384px at the default size (a 390px
+                 phone keeps one line) and 768px under a 200% text setting, where a 390px phone would
+                 otherwise scroll sideways. The variant is `[@media(max-width:24rem)]:`, since Tailwind
+                 drops `max-[24rem]:` while the screens are in px. In that state a caller's own min-h or
+                 vertical padding wins over the size's (the header's account link keeps its 44px target
+                 from min-h-11 on a 360px phone), through <Button className> and buttonVariants alike. A
+                 taller target is set with min-h, never a fixed h-, which h-auto would beat there, and a
+                 min-h or py goes through the factory's className option (<Button>, RetryButton and
+                 MarketingCta pass theirs through it), never beside its output in cx() or a template,
+                 where the narrow state cannot see it (tests/unit/buttonHeightIsAMinimum.spec.ts holds
+                 both). A `whitespace-normal` className still loses to the base `whitespace-nowrap`
+                 above 24rem (stylesheet order): use `wrap`.
+                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at the default),
+                 tests/unit/button-wrap.spec.tsx (the narrow state keeps a caller's min-h and py).
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
@@ -766,6 +789,12 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
                  sticky-cell layering is the one documented exemption.
+                 The header offset: the site header publishes its rendered height on <html> as
+                 `--site-header-h` (components/Header.tsx), the one offset under it. Sticky and fixed chrome
+                 below the header and every section's scroll margin read it, `top-[var(--site-header-h,4rem)]`
+                 or `scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)]`, never a fixed `top-16`, so a bar that
+                 wraps under enlarged text covers nothing. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts
+                 and tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1074,21 +1103,22 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
                  in real layout, the page unmoved).
 
-Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|done|error (this reference
-                 also draws a `streaming` caret state; the production renderer has none);
+Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
                  verified, fragment_url } — `verified` drives source attribution: checked sources show
                  “Source match found” with its scope (not whole-answer verification); unmatched sources
-                 stay “Cited” in legacy/reference rendering. New Ask-this-Filing responses wait for
+                 stay “Cited”. XBRL source rows carry the braces glyph and their tag. The done answer
+                 counts “{n} matched source(s)” once. A plan gate (a spent free allowance, a Pro-only
+                 403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
+                 sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
+                 is that status region already, so the sentence is announced when it lands. The error tint
+                 and role="alert" stay for real failures. New Ask-this-Filing responses wait for
                  an admitted completion; failed referenced citations and draft answer text are
                  withheld before reaching this renderer. Numeric/text grouping is not a separate
                  attestation. Never conflate source matching with support for every answer claim.
-                 REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
-                 The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
-                 which implements the same contract plus viewer deep-linking, popovers and follow-ups —
-                 change copilot rendering THERE, styled to this design. Its answers arrive whole: the
+                 It also carries viewer deep-linking, popovers and follow-ups. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
                  done or error; there is no streaming status, token text or caret.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
@@ -1106,9 +1136,12 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
-- **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph, as does a
-  provenance chip that cites a filing passage (braces for an XBRL figure); the Ask tab, the Ask callout and
-  the follow-up prompts use `chat-circle-text`, the Filing tab and the Source launcher `file-text`.
+- **Evidence identity:** a provenance chip that cites a filing passage uses the Phosphor `quotes` glyph
+  (braces for an XBRL figure, and on the Ask answer's XBRL source rows); the Ask tab, the Ask callout, the
+  standalone Ask launcher and header (and the landing's Ask demo, which draws that header), "Ask about this"
+  and the follow-up prompts use `chat-circle-text`,
+  the Filing tab and the Source launcher `file-text`; an upgrade button that carries a glyph uses `lightning`
+  (the rail's exhausted-state Upgrade and the taste line's text button carry none).
   `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
   to the enclosing header cell (`th`).
@@ -1195,7 +1228,7 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 
 ## 8. Theme mechanics
 
-- **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile). No page-level toggles.
+- **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile; below a 24rem viewport it sits in the mobile menu's first row, not the bar, so the bar keeps one row under enlarged text and the toggle opens in view directly under it: tests/e2e/reflow-200.spec.ts). No page-level toggles.
 - `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme`, else
   light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
   the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
@@ -1296,7 +1329,7 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 - **Count-up is `hooks/useCountUp`** (rAF, slow/standard, `format` per content fundamentals —
   `"$391.0B"` — render in `tnum font-data`) — the `animate-count-up` keyframe is retired; it was a fade.
 - **Skeleton→content**: `hooks/useContentIn(loading)` returns `animate-content-in motion-reduce:animate-none`
-  from the render where `loading` turns false (DataTable, AskFilingAnswer, the account settings and
+  from the render where `loading` turns false (DataTable, the account settings and
   watchlist pages) — never on first paint of never-loading views. It catches the flip during render, so
   the class lands on the same commit as the content it reveals.
 - **Loading**: a page never swaps itself for a full-page spinner. It renders its own frame and header, and

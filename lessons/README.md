@@ -180,8 +180,10 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-sitemap-cache-ownership.md — Cache the rendered sitemap hourly while bypassing Next's fetch Data Cache
 - frontend-snapped-scrollers-reveal-the-focused-cell.md — A snap-scrolled table picks the snap stop that reveals a focused cell; the browser's focus scroll plus the mandatory snap can hide it
 - frontend-spinner-gate-on-shared-errored-query.md — Gate a page's spinner on the retained failure when its children observe the same query
+- frontend-sr-only-needs-a-positioned-clip.md — Give a clip that holds an sr-only box a position (`relative`); an unpositioned clip lets the absolutely positioned box out and the page scrolls sideways (partly gated: the page-width check of `frontend/tests/e2e/reflow-200.spec.ts` on the routes it visits, whose report names an escaped box, and #1344's admin spec once it lands; no static scan reads it, since the clip and the box can sit in different components)
 - frontend-status-colors-for-status-only.md — Reserve loud status colors for genuine status messages
 - frontend-sweep-replaces-need-per-site-asserts.md — Assert every targeted replace in a sweep script and grep all token variants first
+- frontend-tailwind-classes-are-written-whole.md — Write every Tailwind class whole, variant prefix included; never assemble one from an interpolated prefix or suffix (gate: `frontend/tests/unit/tailwindClassesWrittenWhole.spec.ts`; the emitted CSS is proven in a browser or by the done gate)
 - frontend-tailwind-content-scans-class-maps.md — Put every module that composes Tailwind classes under a content glob
 - frontend-top-dialog-owns-the-keyboard.md — The top dialog owns the keyboard: listen in window capture and stop the keys it handles
 - frontend-trial-labels-use-entitlements.md — Derive current-trial presentation from the resolved entitlement

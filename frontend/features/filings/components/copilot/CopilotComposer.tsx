@@ -16,6 +16,9 @@ export interface CopilotComposerHandle {
   focus: () => void
   /** Replace the input with `text`, focus, grow to fit, and put the caret at the end. */
   prefill: (text: string) => void
+  /** When focus is in the composer (its field or Send), scroll the shell that draws the focus ring around both to
+   *  the nearest edge of whatever scrolls it. Nothing moves when focus is elsewhere or the shell is already in view. */
+  revealFocus: () => void
 }
 
 /**
@@ -28,6 +31,7 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   function CopilotComposer({ onSubmit, locked }, ref) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const shellRef = useRef<HTMLDivElement>(null)
 
   useImperativeHandle(
     ref,
@@ -43,6 +47,10 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         el.value = text
         el.focus()
         el.setSelectionRange(text.length, text.length)
+      },
+      revealFocus: () => {
+        const shell = shellRef.current
+        if (shell?.contains(document.activeElement)) shell.scrollIntoView?.({ block: 'nearest' })
       },
     }),
     [],
@@ -77,8 +85,11 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
     >
       {/* DS "Chat composer" pattern: the shell carries the field recipe, its focus
           border and ring keyed to focus-within (`shell: true`); the composer-variant
-          Textarea inside stays chrome-free. */}
-      <div className={inputClasses({ shell: true, className: 'flex items-end gap-2' })}>
+          Textarea inside stays chrome-free. scroll-mb-1 keeps the 3px ring in view when
+          revealFocus brings the shell to the bottom edge, where the rail's reveal lands (its
+          column has just returned to the top); a top scroll margin here would read as a
+          site-header offset, which is what this codebase's top scroll margins are. */}
+      <div ref={shellRef} className={inputClasses({ shell: true, className: 'flex items-end gap-2 scroll-mb-1' })}>
         <Textarea
           variant="composer"
           ref={textareaRef}
