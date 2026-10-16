@@ -41,13 +41,16 @@ HTML comments and ``!important`` excepted); an emoji or dingbat; an <h1>/<h2> in
 colours (RETIRED_HEX) are checked in every literal of the scanned files except docstrings and log
 arguments, since a hex string is only ever a colour.
 
-EXEMPT lists what breaks today, each entry with the PR or decision that owns its fix: a file, or
-``file::function`` for half of one. It only shrinks: an entry that no longer covers a break fails as
-stale, and EXEMPT_CAP equals the count of entries (an equality, never a ceiling: D-040), so an addition
-fails and so does a deletion that leaves the cap where it was. Delete an entry when its owner lands and
-lower EXEMPT_CAP in the same diff; never raise it for new copy (a walk that learns a new shape lists what
-the shape finds and moves the cap in that commit). Keep the blank line between owner groups so two PRs
-shrinking different groups merge cleanly.
+EXEMPT lists what breaks today, each entry with the number of breaks it covers and the PR or decision
+that owns their fix: a file, or ``file::function`` for half of one. The number is an equality, as
+brandVoiceRules.spec.ts holds its VOICE_RESIDUE, so a new break inside an exempt file or function fails as
+it would anywhere else, and a fix that clears some of an entry's breaks lowers its number in the same diff
+(a break swapped for another inside one entry in one commit keeps the number: review holds that). It only
+shrinks: an entry that no longer covers a break fails as stale, and EXEMPT_CAP equals the count of entries
+(an equality, never a ceiling: D-040), so an addition fails and so does a deletion that leaves the cap
+where it was. Delete an entry when its owner lands and lower EXEMPT_CAP in the same diff; never raise
+either for new copy (a walk that learns a new shape lists what the shape finds and moves the cap in that
+commit). Keep the blank line between owner groups so two PRs shrinking different groups merge cleanly.
 
 Limits (review, not this walk): copy assembled outside these eight shapes in a module that is not a
 document module, such as a positional argument of a class defined elsewhere, a list element outside a
@@ -121,33 +124,36 @@ ANY_TAG = re.compile(r"<[^>]+>")
 # Proper names keep their capitals inside a sentence-case heading.
 PROPER_NAMES = ("EarningsNerd", "Multi-Period Analysis", "Ask this Filing", "Change Report", "SEC EDGAR", "Pro")
 
-# What breaks today, grouped by the PR or decision that owns the fix. Shrink-only (module docstring).
-EXEMPT: dict[str, str] = {
-    "app/services/ai/markdown_render.py": "founder: eval-pinned summary fallback text",
-    "app/services/ai/summary_finalize.py": "founder: the pipeline's 'Unable to retrieve' sentence (failure.py routes on it)",
-    "app/services/summary_stages/admission.py": "founder: summary pipeline sentences",
-    "app/services/summary_stages/failure.py": "founder: summary pipeline sentences",
-    "app/services/summary_stages/fetch.py": "founder: summary pipeline sentences",
+# What breaks today, grouped by the PR or decision that owns the fix: (breaks covered, owner). Both only shrink
+# (module docstring).
+EXEMPT: dict[str, tuple[int, str]] = {
+    "app/services/ai/markdown_render.py": (3, "founder: eval-pinned summary fallback text"),
+    "app/services/ai/summary_finalize.py": (1, "founder: the pipeline's 'Unable to retrieve' sentence (failure.py routes on it)"),
+    "app/services/summary_stages/admission.py": (1, "founder: summary pipeline sentences"),
+    "app/services/summary_stages/failure.py": (1, "founder: summary pipeline sentences"),
+    "app/services/summary_stages/fetch.py": (2, "founder: summary pipeline sentences"),
 
-    "app/routers/contact.py::send_contact_notifications": "backend-mail-templates",
-    "app/routers/feedback.py::_notify_admin": "backend-mail-templates",
+    "app/routers/contact.py::send_contact_notifications": (12, "backend-mail-templates"),
+    "app/routers/feedback.py::_notify_admin": (5, "backend-mail-templates"),
     "app/services/email_service.py": (
+        26,
         "backend-mail-templates; also the verification mail's 'Verify your email address and you can start "
-        "reading', which promises a gate the code does not have (only checkout checks email_verified)"
+        "reading', which promises a gate the code does not have (only checkout checks email_verified)",
     ),
 
-    "app/services/ai/issuer_cash_disclosure.py": "backend-copy-high: the issuer cash-flow table's column heading",
-    "app/services/fallback_summary.py": "backend-copy-high",
-    "app/services/summary_sections.py": "backend-copy-high",
+    "app/services/ai/issuer_cash_disclosure.py": (1, "backend-copy-high: the issuer cash-flow table's column heading"),
+    "app/services/fallback_summary.py": (1, "backend-copy-high"),
+    "app/services/summary_sections.py": (1, "backend-copy-high"),
 
     "app/routers/auth.py": (
+        1,
         "backend-copy-low (tasks/todo.md E45): the auth router's details, in the voice pass on the five routers "
-        "the founder approved (D-040)"
+        "the founder approved (D-040)",
     ),
-    "app/routers/email.py::send_test_email": "backend-copy-low (tasks/todo.md E45): the admin-only Resend test mail",
-    "app/services/edgar/ads_ratios.py": "backend-copy-low (tasks/todo.md E45): the ADS-ratio sources PerAdsNote shows",
-    "app/services/trend_analysis/citations.py": "backend-copy-low (tasks/todo.md E45): the analysis citation's derived-Q4 label",
-    "app/services/trend_analysis/detectors.py": "backend-copy-low (tasks/todo.md E45): the cash-conversion red flag",
+    "app/routers/email.py::send_test_email": (1, "backend-copy-low (tasks/todo.md E45): the admin-only Resend test mail"),
+    "app/services/edgar/ads_ratios.py": (4, "backend-copy-low (tasks/todo.md E45): the ADS-ratio sources PerAdsNote shows"),
+    "app/services/trend_analysis/citations.py": (1, "backend-copy-low (tasks/todo.md E45): the analysis citation's derived-Q4 label"),
+    "app/services/trend_analysis/detectors.py": (1, "backend-copy-low (tasks/todo.md E45): the cash-conversion red flag"),
 }
 # The entry count, held as an equality (D-040): 18 when the gate landed, 20 when the walk learned shapes 7
 # and 8 and listed the two files they found in the same commit, 16 when the backend-exports PR (#1345) landed
@@ -680,6 +686,22 @@ def test_every_exempt_entry_still_covers_a_break():
     _, covered = _breaks_by_entry()
     stale = [entry for entry, items in covered.items() if not items]
     assert not stale, f"These entries no longer break anything: delete them and lower EXEMPT_CAP: {stale}"
+
+
+def test_each_exempt_entry_covers_exactly_its_breaks():
+    # An entry exempts the breaks it counts, not its file: a new break in an exempt file fails here as it
+    # would in any other, and a fix lowers the count in the same diff (an equality, as D-040 holds every cap).
+    _, covered = _breaks_by_entry()
+    moved = [
+        f"{entry}: {len(covered[entry])} breaks, EXEMPT counts {count}"
+        + "".join(f"\n  {item}" for item in covered[entry] if len(covered[entry]) > count)
+        for entry, (count, _owner) in EXEMPT.items()
+        if len(covered[entry]) != count
+    ]
+    assert not moved, (
+        "An exempt entry's breaks changed: fix a new break as you would outside EXEMPT, and lower the count "
+        "with each fix in the same diff (EXEMPT only shrinks).\n" + "\n".join(moved)
+    )
 
 
 def test_exempt_only_shrinks():
