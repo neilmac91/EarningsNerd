@@ -4,7 +4,8 @@ Now served from the owned `earnings_events` table (strategy §3.7): the week's e
 `anticipation_score` (which carries a mega-cap floor from `CURATED_TICKERS`), replacing the old
 FMP ∩ hardcoded-allowlist intersect. Caching is in-memory only (L1) — Redis is off in production
 (SKIP_REDIS_INIT=true) — since this is a cheap, idempotent DB read. Never raises; degrades to an
-empty result on any failure, so the homepage section can simply omit itself.
+empty result on any failure, so the homepage section can simply omit itself. A failed read is not
+cached, so the next request retries it instead of serving the blank strip for the whole TTL.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -124,11 +126,20 @@ class ReportingThisWeekService:
             and now - self._cache_timestamp < self._cache_ttl
         ):
             companies = self._cache_companies
+            timestamp = self._cache_timestamp
         else:
-            companies = self._fetch(db, monday, friday, today_ny)
-            self._cache_companies = companies
-            self._cache_timestamp = now
-            self._cache_week = (monday, friday, today_ny)
+            # Off the event loop: this public route has no auth dependency that checks the session
+            # out first, and a checkout waiting on a full pool must not stop the request holding
+            # the last connection from finishing and releasing it.
+            fetched = await run_in_threadpool(self._fetch, db, monday, friday, today_ny)
+            timestamp = now
+            if fetched is None:  # a failed read serves this request only; the next one retries
+                companies = []
+            else:
+                companies = fetched
+                self._cache_companies = companies
+                self._cache_timestamp = now
+                self._cache_week = (monday, friday, today_ny)
 
         status = "ok" if len(companies) >= MIN_COMPANIES else "empty"
         sliced = companies[:limit] if status == "ok" else []
@@ -139,13 +150,16 @@ class ReportingThisWeekService:
             "status": status,
             # isoformat() already carries the +00:00 offset (now that the timestamp is tz-aware);
             # appending "Z" too would malform it.
-            "timestamp": self._cache_timestamp.isoformat(),
+            "timestamp": timestamp.isoformat(),
         }
 
-    def _fetch(self, db: Session, monday: date, friday: date, today: date) -> List[ReportingCompany]:
+    def _fetch(
+        self, db: Session, monday: date, friday: date, today: date
+    ) -> Optional[List[ReportingCompany]]:
         """The week's events, most-anticipated first (the anticipation score already carries the
         CURATED_TICKERS mega-cap floor, so no allowlist intersect is needed). Days already behind
-        us serve facts only — a past-dated estimate is either already reported or was wrong."""
+        us serve facts only — a past-dated estimate is either already reported or was wrong.
+        ``None`` when the read failed, so the caller can tell it from an empty week."""
         try:
             query = db.query(EarningsEvent).filter(
                 EarningsEvent.event_date >= monday,
@@ -162,7 +176,7 @@ class ReportingThisWeekService:
             ).all()
         except Exception as exc:  # never let a query hiccup break the homepage
             logger.warning("Reporting-this-week fetch failed: %s", exc)
-            return []
+            return None
 
         matches: List[ReportingCompany] = []
         for ev in events:

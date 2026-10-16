@@ -1,10 +1,19 @@
 """Reporting-this-week: the current market week's events from earnings_events, ranked by
 anticipation_score (the curated intersect is retired — the score carries the mega-cap floor).
 Never raises."""
+import asyncio
 from datetime import date, timedelta
 
+import httpx
 import pytest
+from fastapi import Depends, FastAPI
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
 
+from app import database
+from app.models import EarningsEvent
+from app.routers import reporting_this_week as reporting_this_week_router
 from app.services.reporting_this_week_service import (
     ReportingThisWeekService,
     current_market_week,
@@ -218,3 +227,94 @@ async def test_cache_hit_avoids_refetch():
         assert calls["n"] == 3
     finally:
         _clear_week()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_failed_fetch_is_not_cached():
+    """A failed read serves empty to that request only. Caching it would keep the homepage strip
+    blank for the 6h TTL after the database recovers."""
+    _clear_week()
+    monday, _ = current_market_week()
+    for t, s in (("AAPL", 1000), ("JPM", 900), ("MSFT", 800), ("GOOGL", 700)):
+        _seed(t, monday, score=s)
+
+    class _BrokenDB:
+        def query(self, *a, **k):
+            raise RuntimeError("QueuePool limit reached")
+
+    try:
+        svc = ReportingThisWeekService()
+        failed = await svc.get_reporting_this_week(_BrokenDB(), today=monday)
+        assert failed["companies"] == []
+        assert failed["status"] == "empty"
+
+        db = _new_db()
+        recovered = await svc.get_reporting_this_week(db, today=monday)
+        db.close()
+        assert recovered["status"] == "ok"
+        assert [c["ticker"] for c in recovered["companies"]] == ["AAPL", "JPM", "MSFT", "GOOGL"]
+    finally:
+        _clear_week()
+
+
+@pytest.mark.asyncio
+async def test_waiting_fetch_lets_another_request_release_its_connection(monkeypatch, tmp_path):
+    """The route is public, so no auth dependency checks the session out off the event loop first.
+    A cache miss that waits on the pool must not block the loop that the holder of the last
+    connection needs in order to finish and release it."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'rtw-pool.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=0.25,
+    )
+    EarningsEvent.__table__.create(engine)
+    monday, _ = current_market_week()
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    for t, s in (("AAPL", 1000), ("JPM", 900), ("MSFT", 800), ("GOOGL", 700)):
+        _seed(t, monday, score=s, status="reported")  # reported: visible whatever today is
+
+    loop = asyncio.get_running_loop()
+    holder_entered = asyncio.Event()
+    release_holder = asyncio.Event()
+
+    class ObservedSession(Session):
+        def query(self, *args, **kwargs):
+            # The strip's read is about to wait on the only connection. Its owner can finish as
+            # soon as the event loop is free to run this callback.
+            loop.call_soon_threadsafe(release_holder.set)
+            return super().query(*args, **kwargs)
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=ObservedSession))
+    monkeypatch.setattr(
+        reporting_this_week_router, "reporting_this_week_service", ReportingThisWeekService()
+    )
+    app = FastAPI()
+    app.include_router(reporting_this_week_router.router, prefix="/api")
+
+    @app.get("/hold")
+    async def hold(db: Session = Depends(database.get_db)):
+        db.connection()  # takes the pool's only connection until the request cleans up
+        holder_entered.set()
+        await asyncio.wait_for(release_holder.wait(), timeout=2)
+        return {"ok": True}
+
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as client:
+            holder = asyncio.create_task(client.get("/hold"))
+            await asyncio.wait_for(holder_entered.wait(), timeout=2)
+            strip = await asyncio.wait_for(client.get("/api/reporting_this_week"), timeout=3)
+            assert (await asyncio.wait_for(holder, timeout=3)).status_code == 200
+        assert strip.status_code == 200
+        assert strip.json()["status"] == "ok"
+        assert [c["ticker"] for c in strip.json()["companies"]] == ["AAPL", "JPM", "MSFT", "GOOGL"]
+        assert engine.pool.checkedout() == 0
+    finally:
+        release_holder.set()
+        engine.dispose()
