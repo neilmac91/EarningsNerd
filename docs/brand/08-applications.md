@@ -328,10 +328,43 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   figure into (a formatted figure, a date or a period, the text written about the filing, a table's
   rows and a list's items among it), and fails a field they declare that can hold a string and that
   it has not classified; its stylesheet check fails a rule that sets sage at rest.
-- **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
-  `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
-  summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
-  verification mail ends "Verify your email address and you can start reading."
+- **Exports** (`backend/app/services/export_service.py`, `pdf_branding.py`,
+  `excel_export_service.py`, `analysis_export_metadata.py`): mastheads read "EarningsNerd · AI
+  summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
+  "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
+  ("Source: SEC EDGAR · {url}") and the CSV, which now carries that source row under its generated
+  date; the PDF's closing note is two sentences, and a quote's attribution sits on its own line in
+  the PDF and follows a middot in the CSV, never a dash. Tables read as the page's reader tables do
+  (D-041, applying D-030): headers in the tertiary ink on no fill, hairline rows and no grid, and a
+  column of figures right-aligned in the data face, each figure on one line, where the page sets
+  one: the Financial Highlights table's Current Period, Prior Period and Change by name, as
+  FinancialMetricsTable does, and any other table's by the page's numeric-column rule; quotes sit on
+  a neutral hairline. A PDF link rests in its line's ink with an underline, as the page's prose
+  links rest, because print has no pointer to turn it sage, so the wordmark's "Nerd" is the only
+  sage text in the exports. The PDFs carry Inter's italic beside its roman
+  (`backend/app/assets/fonts/Inter-Variable-Italic-latin.woff2`, the same 4.001 build and latin
+  subset), since WeasyPrint never slants a face it lacks: without it the wordmark's "Nerd" and every
+  quote printed upright. The workbook's header rows rest in the ink on the neutral ground and its
+  labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
+  "Sources & methods" is in sentence case wherever it is named; the data notes print a clause for
+  each count that is not zero, singular at one, and the passed count only when no figure needs
+  review; a window reads "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
+  tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
+  outlines, with no transform anywhere in either PDF's stylesheet, by
+  `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour value to a token in its role
+  (no colour function, colour keyword or indirection), the grounds to the page and the masthead's
+  tint, every text colour to 4.5:1 on each, sage to the wordmark's "Nerd", every rule that can
+  style a PDF link to the ink with an underline, and the italic to an italic face (the family
+  declares one, each face's file is the style it is declared as, and every font a rendered PDF
+  embeds for italic text is an italic program) by `test_export_palette_parity.py`, which reads a
+  stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
+  the null token, no exclamation mark or emoji, the headings the exports own in sentence case) by
+  `test_export_voice.py`; the eval's blinding of the generation date by a case in
+  `test_acceptance_readiness.py` that runs it on a real export; and the backend's hand-composed
+  wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`.
+- **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
+  of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
+  mail ends "Verify your email address and you can start reading."
 - **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, on the
   overlay step of the elevation ladder (`e4`), in the theme the reader chose on the site rather than
   the OS setting; a status toast (success, error, warning, info) keeps the panel

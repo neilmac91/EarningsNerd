@@ -1,0 +1,21 @@
+generations compared: 3544
+  first ok           -> ok            3346
+  retry ok           -> ok              67
+  first parse        -> parse            2
+  first regenerable  -> regenerable     97
+  retry regenerable  -> regenerable     20
+  first terminal     -> regenerable     11
+  retry terminal     -> regenerable      1
+first generations that newly earn the one regeneration: 11
+    BABA 2026-10-03 0 short
+    ASML 2026-10-09 1 short
+    ASML 2026-10-09 1 short
+    BABA 2026-10-10 2 short
+    BABA 2026-10-11 2 short
+    BABA 2026-10-11 2 short
+    BABA 2026-10-11 2 short
+    BABA 2026-10-11 2 short
+    BABA 2026-10-15 0 collision+short
+    BABA 2026-10-15 1 collision+short
+    BABA 2026-10-15 2 short
+forbidden transitions: 0

@@ -4,9 +4,9 @@ Both `export_service.generate_pdf_html` (filing summary) and `generate_analysis_
 (Multi-Period Analysis) delegate their document chrome here so the two exports can never drift
 apart (owner decision D4, export-overhaul plan). The shell owns:
 
-- ``@font-face`` for the vendored brand fonts (Inter variable + Geist Mono, OFL — files under
-  ``app/assets/fonts/`` with absolute ``file://`` URLs, never cwd-relative: agent/CI/Cloud Run
-  working directories differ).
+- ``@font-face`` for the vendored brand fonts (Inter variable, its roman and its italic, and Geist
+  Mono, all OFL: files under ``app/assets/fonts/`` with absolute ``file://`` URLs, never
+  cwd-relative, since agent/CI/Cloud Run working directories differ).
 - ``@page`` chrome: A4 portrait default with the running document title, the
   "EarningsNerd · earningsnerd.io" footer and "Page X of Y" counters, plus the
   ``metrics-landscape`` NAMED PAGE — a section carrying ``class="metrics-landscape"`` starts on
@@ -15,24 +15,32 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
   Inter resolution inside the SVG and must NOT be inlined) + HTML wordmark + document kind.
 - The design-token PALETTE (DESIGN_SYSTEM.md) — PDFs must never use off-token grays or the
   banned legacy blue.
+- Reader-table manners (D-041, applying D-030): headers in the tertiary ink on no fill, hairline
+  rows, no cell grid; quotes on a neutral hairline. A link rests in its line's ink with a quiet
+  underline, as the page's prose links do at rest: print has no pointer to turn it sage, and its
+  text can carry an index ("Source filing 1"). Sage colours only the wordmark's "Nerd".
 
 The visual contract is pinned by tests/unit/test_export_service.py (shell assertions + a real
-WeasyPrint render checking page orientation).
+WeasyPrint render checking page orientation), the mark by tests/unit/test_pdf_mark_geometry.py
+and every colour, its token and its contrast by tests/unit/test_export_palette_parity.py.
 """
 from pathlib import Path
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
-# Design tokens (frontend/tailwind.config.js / DESIGN_SYSTEM.md) — single source for PDF color.
+# Design tokens (DESIGN.md's frontmatter, which designSnapshotParity holds equal to
+# frontend/tailwind.config.js) — single source for PDF and workbook colour. Each key is one token's
+# role: test_export_palette_parity.py maps it to that token by name.
 PALETTE = {
     "brand": "#4F7A63",
     "brand_strong": "#3C6650",
     "brand_weak": "#ECF2EE",
     "brand_border": "#CFE0D6",
+    "background": "#F4F3EE",
     "panel": "#FBFAF6",
     "ink": "#1A1A17",
     "ink_secondary": "#374151",
-    "ink_tertiary": "#6B7280",
+    "ink_tertiary": "#636A77",
     "border": "#E5E7EB",
 }
 
@@ -71,6 +79,9 @@ def mark_svg(height_px: int = 34, fill: str = PALETTE["brand_strong"]) -> str:
 
 def font_face_css() -> str:
     inter = (_ASSETS / "fonts" / "Inter-Variable-latin.woff2").as_uri()
+    # WeasyPrint never slants a face it lacks, so the wordmark's "Nerd" and a quote print italic only
+    # from Inter's own italic (the same 4.001 build, latin subset, as the roman).
+    inter_italic = (_ASSETS / "fonts" / "Inter-Variable-Italic-latin.woff2").as_uri()
     geist_mono = (_ASSETS / "fonts" / "GeistMono-latin.woff2").as_uri()
     return f"""
 @font-face {{
@@ -78,6 +89,12 @@ def font_face_css() -> str:
   src: url('{inter}') format('woff2');
   font-weight: 100 900;
   font-style: normal;
+}}
+@font-face {{
+  font-family: 'Inter Var';
+  src: url('{inter_italic}') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
 }}
 @font-face {{
   font-family: 'Geist Mono';
@@ -193,44 +210,62 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
 }}
 .meta .data {{ font-family: 'Geist Mono', monospace; }}
 
-table {{ border-collapse: collapse; width: 100%; }}
+/* With no outer frame, a table's last hairline would sit on the next block ("Profitability" under
+   Financial Highlights): it keeps a list's spacing below it. */
+table {{ border-collapse: collapse; width: 100%; border: 0; margin: 0 0 10px; }}
 thead {{ display: table-header-group; }}
 tr {{ break-inside: avoid; }}
 th {{
-  background: {p["brand_weak"]};
-  color: {p["brand_strong"]};
+  color: {p["ink_tertiary"]};
   font-weight: 600;
   font-size: 8pt;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-align: left;
   padding: 5px 7px;
-  border: 1px solid {p["border"]};
+  border: 0;
+  border-bottom: 1px solid {p["border"]};
 }}
 td {{
   padding: 4px 7px;
-  border: 1px solid {p["border"]};
+  border: 0;
+  border-bottom: 1px solid {p["border"]};
   font-size: 9pt;
   color: {p["ink_secondary"]};
 }}
-table {{ border: 1px solid {p["brand_border"]}; }}
 td.num, .data {{
   font-family: 'Geist Mono', monospace;
   font-variant-numeric: tabular-nums;
 }}
 td.num, th.num {{ text-align: right; }}
+/* A figure keeps to one line, as the page's figure cells do ("+14.4 ppts" beside a long takeaway). */
+td.num {{ white-space: nowrap; }}
 
 blockquote {{
   margin: 10px 0;
   padding-left: 14px;
-  border-left: 3px solid {p["brand_border"]};
+  border-left: 2px solid {p["border"]};
   color: {p["ink_secondary"]};
   font-style: italic;
+}}
+blockquote cite {{
+  display: block;
+  margin-top: 2px;
+  font-size: 9pt;
+  font-style: normal;
+  color: {p["ink_tertiary"]};
 }}
 ul, ol {{ margin: 0 0 10px 0; padding-left: 20px; color: {p["ink_secondary"]}; }}
 li {{ margin: 3px 0; }}
 .footnote {{ color: {p["ink_tertiary"]}; font-size: 8.5pt; }}
 .ref {{ color: {p["ink_tertiary"]}; }}
+/* Every link rests in its line's ink with a quiet underline in the tertiary ink (D-041): print has
+   no pointer to turn it sage. The rule also keeps WeasyPrint's default link blue off the page. */
+a {{
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: {p["ink_tertiary"]};
+}}
 """
 
 

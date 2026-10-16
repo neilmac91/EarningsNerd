@@ -136,11 +136,6 @@ EXEMPT: dict[str, str] = {
         "reading', which promises a gate the code does not have (only checkout checks email_verified)"
     ),
 
-    "app/services/analysis_export_metadata.py": "backend-exports",
-    "app/services/excel_export_service.py": "backend-exports",
-    "app/services/export_service.py": "backend-exports",
-    "app/services/pdf_branding.py": "backend-exports",
-
     "app/services/ai/issuer_cash_disclosure.py": "backend-copy-high: the issuer cash-flow table's column heading",
     "app/services/fallback_summary.py": "backend-copy-high",
     "app/services/summary_sections.py": "backend-copy-high",
@@ -155,10 +150,11 @@ EXEMPT: dict[str, str] = {
     "app/services/trend_analysis/detectors.py": "backend-copy-low (tasks/todo.md E45): the cash-conversion red flag",
 }
 # The entry count, held as an equality (D-040): 18 when the gate landed, 20 when the walk learned shapes 7
-# and 8 and listed the two files they found in the same commit. Lower it with every deletion, in the same
+# and 8 and listed the two files they found in the same commit, 16 when the backend-exports PR (#1345) landed
+# and its four entries went. Lower it with every deletion, in the same
 # diff; when two shrinking PRs meet, the later merge sets it to the merged list's count, which the equality
 # holds it to. Raising it for new copy is the one change this gate exists to refuse.
-EXEMPT_CAP = 20
+EXEMPT_CAP = 16
 
 
 @dataclass(frozen=True)
