@@ -24,11 +24,13 @@ import { test, expect, type Page } from '@playwright/test'
  *
  * The feedback list (/admin/feedback) shares the cards and their header rows, so its cases sit here too: at 320px its
  * page never scrolls sideways, at the default size or under a 200% root (its filter row, a flex item without min-w-0,
- * grew to the 255px status select inside a 158px header and took the page to 336px).
+ * grew to the 255px status select inside a 158px header and took the page to 336px); at 1440px a 50-character reporter
+ * address shows whole, wrapped inside its cell, and the table fits its box (with the cell nowrap it was 1264px in
+ * 1214px), while a short address and "Anonymous" keep one line each.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
- * browser with page.route fixtures (an admin with one pending invite, and one feedback report), and the middleware's
- * session gate is satisfied by its non-credential presence cookie.
+ * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
+ * middleware's session gate is satisfied by its non-credential presence cookie.
  */
 
 const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
@@ -37,6 +39,8 @@ const INVITED = 'alice@example.com'
 const SHORT = 'bo@ex.io'
 const LONG = 'maximilian.featherstonehaugh@example-enterprise.com'
 const INVALID = 'not-an-email'
+/** A reporter's address of 50 characters. */
+const REPORTER_50 = 'maximilian.featherstonehaugh@exampleenterprise.com'
 
 type Theme = 'light' | 'dark'
 type Box = { left: number; right: number; top: number; bottom: number }
@@ -71,7 +75,14 @@ async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string
           invites: [INVITED, SHORT].map((email, i) => ({ id: i + 1, email, status: 'pending', cohort: 'beta', expires_at: '2026-11-01T00:00:00Z', used_at: null, user_id: null, created_at: '2026-10-14T00:00:00Z' })),
         })
       case '/api/admin/feedback':
-        return json(200, { feedback: [{ id: 1, user_id: 42, user_email: INVITED, type: 'bug', message: 'The summary export button does nothing on Safari.', page_url: '/filing/123', status: 'new', created_at: '2026-10-14T00:00:00Z' }] })
+        // One report of each type and status, so the badge columns take their widest.
+        return json(200, {
+          feedback: [
+            [REPORTER_50, 'feature', 'triaged'],
+            [INVITED, 'bug', 'new'],
+            [null, 'general', 'resolved'],
+          ].map(([user_email, type, status], i) => ({ id: i + 1, user_id: user_email ? 42 + i : null, user_email, type, message: 'The summary export button does nothing on Safari.', page_url: '/filing/123', status, created_at: '2026-10-14T00:00:00Z' })),
+        })
       default:
         return json(404, { detail: 'Not found' })
     }
@@ -319,6 +330,56 @@ for (const theme of ['light', 'dark'] as const) {
         const { scrollWidth, clientWidth } = await pageWidth(page, rootFont)
         expect(clientWidth, `320px, ${text}: the viewport`).toBe(320)
         expect(scrollWidth, `320px, ${text}: /admin/feedback scrolls sideways`).toBe(clientWidth)
+      }
+    })
+
+    test('at 1440px a 50-character reporter address shows whole inside its cell, and the table fits its box', async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await openAdmin(page, baseURL!, theme, '/admin/feedback')
+      await expect(page.getByRole('table').getByText(REPORTER_50)).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      const m = await page.getByRole('table').evaluate((table, reporters) => {
+        const box = table.parentElement!
+        const right = (el: Element) => el.getBoundingClientRect().right
+        const cells = reporters.map((reporter) => {
+          const cell = [...table.querySelectorAll('td')].find((td) => td.textContent === reporter)!
+          const style = getComputedStyle(cell)
+          const outer = cell.getBoundingClientRect()
+          const text = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT).nextNode() as Text
+          const range = document.createRange()
+          // Where each character is painted, and on how many lines.
+          const glyphs = Array.from({ length: text.data.length }, (_, i) => {
+            range.setStart(text, i)
+            range.setEnd(text, i + 1)
+            const r = range.getBoundingClientRect()
+            return { left: r.left, right: r.right }
+          })
+          range.selectNodeContents(text)
+          return {
+            reporter,
+            glyphs,
+            lines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size,
+            content: { left: outer.left + parseFloat(style.paddingLeft), right: outer.right - parseFloat(style.paddingRight) },
+          }
+        })
+        return {
+          table: table.getBoundingClientRect().width,
+          box: { clientWidth: box.clientWidth, scrollWidth: box.scrollWidth, right: right(box) },
+          selects: [...table.querySelectorAll('select')].map(right),
+          cells,
+        }
+      }, [REPORTER_50, INVITED, 'Anonymous'])
+      const label = `1440px, ${theme}`
+      expect(m.table, `${label}: the table is wider than its box`).toBeLessThanOrEqual(m.box.clientWidth + 0.5)
+      expect(m.box.scrollWidth, `${label}: the table's box scrolls`).toBe(m.box.clientWidth)
+      for (const select of m.selects) expect(select, `${label}: a status select ends past the box`).toBeLessThanOrEqual(m.box.right + 0.5)
+      for (const { reporter, glyphs, lines, content } of m.cells) {
+        glyphs.forEach((glyph, i) => {
+          const inside = glyph.left >= content.left - 0.5 && glyph.right <= content.right + 0.5
+          expect(inside, `${label}: "${reporter[i]}" (character ${i + 1} of ${reporter}) is painted outside its cell`).toBe(true)
+        })
+        if (reporter === REPORTER_50) expect(lines, `${label}: ${reporter} does not wrap inside its cell`).toBeGreaterThan(1)
+        else expect(lines, `${label}: ${reporter} wraps, its column squeezed`).toBe(1)
       }
     })
   })

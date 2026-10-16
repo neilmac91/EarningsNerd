@@ -79,10 +79,16 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
           <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {feedback.user_email ?? (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">Anonymous</span>
-        )}
+      {/* The reporter's address is never cut: it keeps its own width up to 14rem and wraps inside that beyond it, so
+          a 50-character address no longer takes the table past its box at 1440 (it was nowrap: 1264px in 1214px).
+          The width lives on a block inside the cell, w-max under the cap: the message column's w-full holds every
+          other column at its narrowest, so wrapping the cell itself broke even alice@example.com over four lines. */}
+      <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        <span className="block w-max max-w-[14rem] [overflow-wrap:anywhere]">
+          {feedback.user_email ?? (
+            <span className="text-text-tertiary-light dark:text-text-secondary-dark">Anonymous</span>
+          )}
+        </span>
       </td>
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {fmtDate(feedback.created_at)}

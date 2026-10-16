@@ -168,6 +168,22 @@ describe('AdminFeedbackPage: the table scrolls inside its card', () => {
     expect(message).toHaveClass('[contain:inline-size]', 'min-w-64', 'truncate')
   })
 
+  it("never cuts a reporter's address: a long one wraps inside its cell within 14rem", async () => {
+    const longAddress = { ...bugReport, user_email: 'maximilian.featherstonehaugh@exampleenterprise.com' }
+    vi.mocked(listFeedback).mockResolvedValue([longAddress, featureRequest])
+    renderPage()
+    const address = await screen.findByText(longAddress.user_email)
+    // A nowrap cell sized the column by the whole address: at 1440, 50 characters took the table to 1264px in its
+    // 1214px box (the chief designer's review of #1344, which ruled out truncating it).
+    expect(address.closest('td')!.className).not.toMatch(/(^|\s)(whitespace-nowrap|truncate)(\s|$)/)
+    // Its own width up to the cap, wrapping anywhere past it. The cap is on a block inside the cell: the message
+    // column's w-full holds this one at its narrowest, where wrapping on the cell broke a short address every few
+    // letters.
+    expect(address).toHaveClass('block', 'w-max', 'max-w-[14rem]', '[overflow-wrap:anywhere]')
+    expect(address).not.toHaveClass('truncate')
+    expect(screen.getByText('Anonymous').parentElement).toHaveClass('block', 'w-max', 'max-w-[14rem]')
+  })
+
   it('says the table scrolls, and makes it a named keyboard region, while it is wider than its box', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => 356)
     vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(() => 1177)

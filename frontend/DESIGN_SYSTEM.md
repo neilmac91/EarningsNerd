@@ -554,9 +554,16 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  the box is a named region in the Tab order ("Scrollable table: <the card's title>", the brand ring),
                  through useOverflowRegion, as in SummaryBlocks' GenericTable. FeedbackRow's message column takes the
                  width the others leave (`w-full` on its cell; the button's intrinsic width contained, with a 16rem
-                 floor), so the status select keeps its own at 1440. Gates: tests/unit/admin-invites-page.spec.tsx
-                 and tests/unit/admin-feedback-page.spec.tsx (the box, the cue while the table fits and while it
-                 overflows, the message column). The section nav (app/admin/layout.tsx) wraps its tabs (`flex-wrap`):
+                 floor), so the status select keeps its own at 1440. The reporter's address is never cut: it keeps
+                 its own width up to 14rem and wraps inside that past it (`w-max max-w-[14rem]` and
+                 `[overflow-wrap:anywhere]` on a block in the From cell; the message column holds the other columns at
+                 their narrowest, so wrapping the cell itself broke a short address every few letters), and the table
+                 keeps to its box at 1440 with a 50-character address (a nowrap cell took it to 1264px in 1214px).
+                 Gates: tests/unit/admin-invites-page.spec.tsx and tests/unit/admin-feedback-page.spec.tsx (the box,
+                 the cue while the table fits and while it overflows, the message column, the From cell) and
+                 tests/e2e/admin-invite-chip-reflow.spec.ts (at 1440 the table inside its box with a 50-character
+                 address shown whole, a short one and "Anonymous" on one line each). The section nav
+                 (app/admin/layout.tsx) wraps its tabs (`flex-wrap`):
                  an unwrapped row took the page to 443px at 390 under 200% text. Gate:
                  tests/unit/admin-layout.spec.tsx. Each card header's filter row is a `min-w-0` flex item that wraps
                  its fields: a row that could not shrink took /admin/feedback to 336px at 320 under 200% text (its
