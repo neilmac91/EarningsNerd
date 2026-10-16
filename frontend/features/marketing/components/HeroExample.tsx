@@ -83,7 +83,11 @@ function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boo
   const concept = isFallback ? FALLBACK_CONCEPTS[metric.label] : undefined
   return (
     <div className="min-w-0 py-3 pl-3 first:pl-0" title={concept}>
-      <dt className={cx('truncate text-xs', MUTED)}>
+      {/* relative: the receipt's sr-only span is absolutely positioned, and an overflow clip holds such a box
+          only when the box's containing block is inside it. Without it the span sits at its static place past
+          the truncated label, outside the clip, and at 390px and 200% text the third term's receipt widened
+          the page by 5px (tests/e2e/reflow-200.spec.ts). */}
+      <dt className={cx('relative truncate text-xs', MUTED)}>
         {metric.label}
         {concept && <span className="sr-only">, XBRL concept {concept}</span>}
       </dt>

@@ -85,7 +85,7 @@ afterEach(() => {
 describe('the change report on a filing with no summary', () => {
   it('shows under the signup gate for a signed-out visitor, and the link lands on it', async () => {
     mount(REPORT)
-    await screen.findByRole('heading', { name: 'Create a free account to analyze this filing' })
+    await screen.findByRole('heading', { name: 'Summaries need an account' })
     expect(screen.getByRole('region', { name: 'What changed' })).toHaveAttribute('id', 'what-changed')
     expect(scrolledTo()).toEqual(['what-changed'])
   })
@@ -121,7 +121,7 @@ describe('the change report on a filing with no summary', () => {
 
   it('shows nothing under the gate when the report has nothing to say', async () => {
     mount({ ...REPORT, has_changes: false })
-    await screen.findByRole('heading', { name: 'Create a free account to analyze this filing' })
+    await screen.findByRole('heading', { name: 'Summaries need an account' })
     expect(screen.queryByRole('region', { name: 'What changed' })).toBeNull()
   })
 })

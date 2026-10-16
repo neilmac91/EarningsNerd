@@ -38,10 +38,24 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
     ? ` ${plural(withheld, 'item', 'items')} withheld because the evidence could not be matched.`
     : ''
 
-  if (!sourceFirst || verified === 0) {
+  // No excerpt to show: say which case it is (a summary from before excerpts were located, a projection
+  // with no filing text to check against, or a run that located none) and send the reader to the
+  // filing's own risk factors.
+  if (!sourceFirst) {
+    return <p className={`text-sm ${MUTED}`}>Risk excerpts are not available for this summary. Read the risk factors in the filing.</p>
+  }
+  if (verified === 0 && projection.source_available === false) {
+    const unchecked = withheld > 0 ? ` ${plural(withheld, 'item', 'items')} withheld until they can be checked.` : ''
     return (
       <p className={`text-sm ${MUTED}`}>
-        {`Source-verified risk excerpts are unavailable. Review the filing.${withheldNote} Selected excerpts are not a complete risk inventory.`}
+        {`The filing text was not available to check risk excerpts against.${unchecked} Read the risk factors in the filing.`}
+      </p>
+    )
+  }
+  if (verified === 0) {
+    return (
+      <p className={`text-sm ${MUTED}`}>
+        {`No risk excerpt was located in the filing text.${withheldNote} Read the risk factors in the filing.`}
       </p>
     )
   }

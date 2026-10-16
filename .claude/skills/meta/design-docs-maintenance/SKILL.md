@@ -48,5 +48,5 @@ CLAUDE.md rule 11.
   `DESIGN.md` "Components" and "Do's and Don'ts" sections.
 - Route-specific content or layout that uses existing components and tokens: `DESIGN_SYSTEM.md`
   §1–§6 and §12 and `DESIGN.md` from "Overview" on, as rule 11 requires. The ESLint design rules
-  and the vitest gates catch the mechanical slips; the 700-level and surface clauses are checked
-  in review.
+  and the vitest gates catch the mechanical slips (`earningsnerd/direction-text-tokens` holds the
+  700-level clause for the direction text it reaches); the surface clause is checked in review.

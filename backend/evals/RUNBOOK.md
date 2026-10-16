@@ -7,7 +7,8 @@ pytest under pytest-xdist): `pytest tests/unit/test_eval_*`.
 
 The original adoption steps below remain a procedure for future comparisons. Current code
 defaults and deployment overrides are documented in `docs/CONFIGURATION.md`: the quality gate
-and native edgartools sections are already on, structured-output mode remains off, and CI's
+and native edgartools sections (parsed locally from the fetched primary document since E28) are
+already on, structured-output mode remains off, and CI's
 service deployment enables FPI filings and progressive section reveal. Do not infer live state
 from an old rollout example.
 
@@ -246,8 +247,8 @@ Three pieces:
 | Piece | What it is |
 |---|---|
 | `baseline_scores.json` | The pinned bar to protect — the `baseline` candidate's summary stats from a full verified-set run, committed to git. |
-| `regression_gate.py` | Deterministic per-dimension diff of a fresh `reports/eval_*.json` against the pinned baseline. Exits non-zero on a HARD regression. |
-| `eval-baseline` CI job | Advisory workflow job in `.github/workflows/ci.yml` that runs the live pipeline over the full verified golden set twice per AI-relevant PR, then checks completeness and quality against the pin. |
+| `regression_gate.py` | Deterministic per-dimension diff of a fresh `reports/eval_*.json` against the pinned baseline, plus an absolute check of the attempts' native-section provenance. Exits non-zero on a HARD regression. |
+| `eval-baseline` CI job | Advisory workflow job in `.github/workflows/ci.yml` that runs the live pipeline over the full verified golden set twice per AI-relevant PR, then checks completeness, native-section provenance and quality against the pin. |
 
 ### Running the gate locally
 ```bash
@@ -265,7 +266,8 @@ errors, missing scores, missing/duplicate/unrequested attempts and malformed cou
 gate even when the scored subset has perfect means. Quality means and their thresholds remain
 scored-output measurements; errors are not fabricated zero-quality scores. Historical reports
 without a declared plan cannot establish completeness through this CLI; the statistics-only
-`compare_candidate` API remains available for historical metric comparisons.
+`compare_candidate` API remains available for historical metric comparisons. Operational evidence
+also includes the excerpts' provenance: see "Native-section provenance" below.
 
 **Transient provider faults get one retry (2026-09-08).** An attempt whose failure the production
 client itself classifies as transient (`_is_transient` in `runner.py`: a timeout, connection
@@ -301,10 +303,11 @@ arm any feature. The gate
 **logic** is unit-tested offline (`tests/unit/test_eval_regression_gate.py`) — no network/AI — so it
 runs for free in `backend-tests` on every PR.
 
-### Thresholds (absolute deltas, in `regression_gate.py`)
-Hard tolerances sit comfortably above the baseline's measured run-to-run `aggregate_stdev` so
-ordinary model jitter never trips the gate, while a real drop does. Tuned deliberately
-non-configurable from the report (a candidate must not relax its own gate).
+### Thresholds (in `regression_gate.py`)
+The deltas are absolute against the pin. Hard tolerances sit comfortably above the baseline's
+measured run-to-run `aggregate_stdev` so ordinary model jitter never trips the gate, while a real
+drop does. Tuned deliberately non-configurable from the report (a candidate must not relax its own
+gate). A delta row binds only once the pin records its metric.
 
 | Dimension | Severity | Trips when |
 |---|---|---|
@@ -312,10 +315,43 @@ non-configurable from the report (a candidate must not relax its own gate).
 | `mean_numeric_precision` (labeled-field fidelity) | **HARD** | drops > 0.05 |
 | `mean_coverage` | **HARD** | drops > 0.05 |
 | `mean_numeric_accuracy` (recall) | **HARD** | drops > 0.10 (looser — noisiest on small subsets) |
+| `native_section_share` (10-K/10-Q/20-F attempts whose excerpt came from native sections) | **HARD** / warn | below 0.90 / below 0.95, absolute, read from `results`, not the pin |
 | `pass_rate` | warn | drops > 0.05 |
 | `aggregate_stdev` (consistency) | warn | increases > 0.05 |
 | `schema_valid_rate` | warn | drops > 0.05 |
 | `mean_financial_depth` | warn | drops > 0.10 |
+| `mean_specificity` | warn | drops > 0.10 |
+| `mean_currency_consistency` | warn | drops > 0.05 |
+| `mean_redundancy` | warn | drops > 0.05 |
+| `mean_delta_consistency` | warn | drops > 0.05 |
+| `mean_forward_quote_fidelity` | warn | drops > 0.05 |
+| `mean_citation_fidelity` | warn | drops > 0.05 |
+| `mean_citation_checked` (evidence volume) | warn | drops > 2.0 |
+| `mean_untraceable_dollar_figures` | warn | above 0, absolute advisory |
+
+**Native-section provenance (E28, 2026-10-16).** Each attempt's `coverage_inventory.source` records
+where its excerpt came from: `edgartools` (sections parsed from the fetched primary document) or
+`regex_fallback`. From about 4–7 October 2026 until #1350's backport on 2026-10-16 the section
+source returned nothing (SEC refused edgartools 5.58.0's index URL behind `Filing.obj()`; #1347 then
+moved the source to the fetched document), every 10-K/10-Q/20-F excerpt fell back to regex, citation fidelity read 0.818–0.871 against the pinned 0.9648, and every run passed with a
+WARN (`tasks/review-evidence/e28-native-sections-2026-10-15/README.md`). The gate now counts the
+eligible attempts (10-K, 10-Q, 20-F, amendments included) whose source is `edgartools`. In the
+native state that is 62 of 64 per two-run report: ASML's 20-F has no parsable item headings, so its
+two attempts are expected misses. Below 0.90 is HARD (a collapse, a broken form or three more
+filings), below 0.95 is WARN (one or two more). The floors are calibrated on the full set: a subset
+report (`--forms 20-F`, `--tickers`) that includes ASML can cross them on ASML alone (a healthy
+20-F-only run reads 12 of 14), so judge a subset by its note's non-native list. The check is deterministic, a local parse with no
+model call, which is why it can be HARD. It reads `results`, needs no pinned value and authorized no
+re-pin: the revival restored byte-identical excerpts (sha256 against the 3–4 October reports), so
+the 2026-09-19 pin measures the same inputs again. With `use_edgartools_sections` false in the
+harness, no floor applies: a native excerpt is then HARD (the report contradicts its harness), and
+a pin measured with sections on gives a WARN. A report without any `coverage_inventory`, or with no
+eligible attempt, gets a note, never a finding (unavailable is not measured zero). A scored eligible
+attempt missing its inventory while others carry one is HARD malformed evidence. Section text for
+three golden filings is pinned offline by `tests/unit/test_summary_sections_parity.py`, so an
+edgartools change that moves theirs fails the free `backend-tests` job before any paid run. It reaches
+only the routes those filings take; the golden set's check on a bump is a dispatched `eval-baseline`
+and this share.
 
 **`schema_valid` recognizes both financial_highlights shapes** — the flat canonical
 `[revenue, net_income, eps, key_metrics]` (a bake-off candidate prompted to emit it) **or** the
@@ -367,7 +403,9 @@ A malformed/empty object still fails.
 - **Unchanged hard tolerances.** A `gate_fail_rate` increase greater than **0.005** fails;
   precision/coverage drops greater than **0.05** and recall drops greater than **0.10** fail.
   Two repeats improve measurement granularity, but one hard veto in 52 outputs still exceeds
-  the veto tolerance. WARN-level pass rate and variance remain distinct from hard vetoes.
+  the veto tolerance. WARN-level pass rate and variance remain distinct from hard vetoes. The
+  native-section floor (E28) is the one HARD check added since: it is deterministic, so it cannot
+  fire as model noise.
 - **Judge is off in routine regression CI.** These runs use deterministic scorers. The weekly
   strong-judge workflow and any required authoritative judged comparison have separate evidence
   requirements; their credential/readout prerequisite remains held. A judge-off pass, unavailable
@@ -639,7 +677,10 @@ prompt selection, and the `FilingType` enum.
 ```bash
 python scripts/verify_fpi_extraction.py BABA TSM ASML
 ```
-Each must show its 20-F + 6-K, a non-None `Financials`, and `TwentyF` sections. Then confirm the
+Each must show its 20-F + 6-K and a non-None `Financials`. The script's `20-F.obj()` section line is
+informational and does not reach the summary's section source, which parses the fetched primary
+document (E28); a 20-F's sections are covered offline by `tests/unit/test_summary_sections_parity.py`.
+Then confirm the
 currency-aware path returns the **native** figure (not the USD convenience):
 ```bash
 SKIP_REDIS_INIT=true python -c "import asyncio; from app.services.edgar.xbrl_service import edgar_xbrl_service as s; \
@@ -779,7 +820,7 @@ to them is review-checked. #1111's revision was measured only on the regex fallb
 | `a88b6fb1de5b` | — | — | before #1111 | sections to 2026-10-05, then the regex fallback | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | 2026-10-16, citation retry | sections: run 38860895429, 17/18 (one BABA row withheld after its retry) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | 2026-10-16, whole-row rule | sections: the pre-registered addendum-1 draw on #1360's merged head (it merges only at 18/18) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/PREREGISTRATION.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | 2026-10-16, whole-row rule | sections: run 38878772611, 18/18 with no retry (pre-registered); the merged head's own draw also had to pass 18/18 | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,
@@ -1061,7 +1102,7 @@ A future `trends_golden_set.json` + scorer (validating selected IDs, rendered ob
 | Wrong ground truth | Spot-check against the filing — it silently corrupts every score |
 | FPI figure renders as `$` | Reporting currency not captured — re-check `reporting_currency` (Step B); the value must be native (RMB/EUR/TWD) |
 | FPI metric missing (double-tagged) | Filer tags the same line twice (statement + rounded) → dropped as ambiguous; hand-fill ground truth from the statement value |
-| Huge 20-F section parse very slow (e.g. ASML >120s) | `get_filing_sections` caps at 40s and returns None → pipeline falls back to the fast dense-window extractor (lower precision, still usable). Expected, not a failure; don't raise the cap (it would block generation for minutes). |
+| Huge document section parse slow or skipped (e.g. ASML's 24.9 MB 20-F) | The section parse is local CPU work on the fetched document: documents over 16,000,000 characters are skipped, and `get_filing_sections` bounds the parse at 30 s (40 s for a 20-F, counting time queued behind another parse; the pipeline and the eval runner both await that bound). Either returns None and the excerpt falls back to the dense-window extractor (lower precision, still usable). ASML's 20-F yields no sections even when parsed, so its two attempts are the expected misses in the native-section share. Don't raise the bounds: the parse runs on the API process. |
 
 ### September parity measurement: component omission
 
@@ -1349,7 +1390,8 @@ version-2 count without re-judging its retained `report.json`.
 
 Acceptance bar for a grounding candidate (from the assessment): the negative controls move from a
 false explanation to abstention (no G4/G5 failure), no new G2/G3 failure, and the deterministic
-regression gate unchanged. A better mean dimension score is not the bar. Before the first use as a
+regression gate unchanged. Judge only an artifact whose gate note reads 62 of 64 native-section
+excerpts on the full set (no `native_section_share` finding); one built on regex excerpts measures a different model input. A better mean dimension score is not the bar. Before the first use as a
 gate, hand-check about five verdicts: the judge's own accuracy on causal claims is unmeasured.
 
 ## Attribution-verifier claim context candidate — September 19, 2026

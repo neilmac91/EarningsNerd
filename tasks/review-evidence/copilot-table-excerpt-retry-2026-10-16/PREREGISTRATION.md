@@ -115,3 +115,40 @@ the four lines are the cause, since nothing else the first generation sees chang
 under the USD 2.00 ceiling. Spent before it: `eval-baseline` on `200bcddd`, USD 0.178346 plus one errored call; on
 `1ccfa33f`, USD 0.356388; on `1d885415`, USD 0.353111. Draw 1: USD 0.025871. That is USD 0.913716, so USD 1.50 with
 the drawn head's reservations.
+
+## Addendum 2 (2026-10-16, after draw 2): the merge with main
+
+Draw 2 ([run 38878772611](https://github.com/neilmac91/EarningsNerd/actions/runs/38878772611)) was valid and green,
+18 of 18 with no retry (README, "Draw 2"). Before the PR could merge, main merged #1347 (E28 option 1), which conflicts
+with this branch. The conflict is resolved by a merge commit. Once a PR is ready, every new head draws, so the merge head
+gets its own draw. This addendum is committed in the same push, before that draw.
+
+**What the merge head's draw is.** It is the same code measured again: the prompt bytes are unchanged, and #1347's
+draw prepared byte-identical sources for all six questions (README, "Main's #1347 and the merge"). It is a requirement
+for merging, not a replacement for draw 2. Draw 2 stays the pre-registered measurement, and this draw is reported beside
+it.
+
+**Validity.** These are addendum 1's conditions:
+- every first generation is `c221b7e3c5c2`;
+- a decision-F retry is `34d01dadbac0`;
+- a citation retry is `bf240eb01f4c`;
+- the six sources hash as in the README's table.
+
+A changed source hash means #1347 or a later main change moved a source. The draw is then reported with the change named.
+
+**Acceptance.** The repository's bar on the head that merges: `accepted: true`, 18 of 18.
+
+**If it is red.** The PR does not merge. There is no further draw: no re-run and no push made only to draw again. The
+artifact is classified and reported to the founder with draw 2 beside it, and the founder decides.
+
+**Spend.** The reservation rule, with the dearest measured runs:
+- `eval-baseline`: USD 0.362652 (on `ff6836cf`) × 1.5 = USD 0.54;
+- the draw: USD 0.065977 (draw 2) × 2 = USD 0.13.
+
+Spent so far is USD 1.342345, plus one errored call:
+- `eval-baseline`: USD 0.178346, 0.356388, 0.353111 and 0.362652;
+- the draws: USD 0.025871 and 0.065977.
+
+With these reservations the total is USD 2.02, over the USD 2.00 ceiling, so the ceiling for the whole measurement
+becomes **USD 2.25**. Both runs fall in off-peak hours, so the expected cost is about USD 0.25. The balance was
+USD 27.53 at 16:59 UTC on 2026-10-16 (`deepseek-balance.yml`, job 117092209369), against the USD 5 floor.

@@ -402,7 +402,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
   it('composes with bare and with the self-contained Card: notes once, title once, both layouts inside', () => {
     const bare = render(<FinancialMetricsTable metrics={FULL} notes="Figures in millions." bare />)
     expect(bare.getAllByText('Figures in millions.')).toHaveLength(1)
-    expect(bare.queryByText('Financial Highlights')).toBeNull()
+    expect(bare.queryByText(/^Financial highlights$/i)).toBeNull()
     expect(tokens(layout(bare.container, 'cards'))).not.toContain('px-5')
     expect(cardList(bare.container)).toHaveLength(3)
     expect(bodyRows(bare.container)).toHaveLength(3)
@@ -410,7 +410,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
 
     const card = render(<FinancialMetricsTable metrics={FULL} notes="Figures in millions." />)
     expect(card.getAllByText('Figures in millions.')).toHaveLength(1)
-    expect(card.getByText('Financial Highlights')).toBeInTheDocument()
+    expect(card.getByText('Financial highlights')).toBeInTheDocument()
     expect(tokens(layout(card.container, 'cards'))).toEqual(expect.arrayContaining(['px-5', 'py-4']))
     expect(factsOf(layout(card.container, 'cards'))).toEqual(factsOf(layout(card.container, 'table')))
   })

@@ -44,18 +44,6 @@ def test_target_and_engine_guards_reject_existing_remote_and_aliases(tmp_path):
     boot.verify_engine(SimpleNamespace(url=make_url("sqlite:///" + str(target))), target)
 
 
-def test_source_preparation_keeps_both_edgartools_directories_beside_its_evidence(tmp_path):
-    """EdgarTools' data and anchor caches go to the output folder, never the home directory (E25)."""
-    script = ("import json, os, sys; from pathlib import Path; from evals import copilot_bootstrap as b; "
-              "b.configure_environment(Path(sys.argv[1]), Path(sys.argv[2])); "
-              "print(json.dumps({k: os.environ[k] for k in ('EDGAR_LOCAL_DATA_DIR', 'EDGAR_CACHE_DIR')}))")
-    out = tmp_path / "evidence"
-    result = subprocess.run([sys.executable, "-c", script, str(tmp_path / "prep.db"), str(out)],
-                            capture_output=True, text=True, check=True, cwd=Path(__file__).resolve().parents[2])
-    assert json.loads(result.stdout) == {"EDGAR_LOCAL_DATA_DIR": str(out / "edgar-cache"),
-                                         "EDGAR_CACHE_DIR": str(out / "edgar-anchor-cache")}
-
-
 def test_existing_database_aborts_before_imports_and_retains_failed_artifact(tmp_path, monkeypatch):
     target = tmp_path / "existing.db"
     target.write_bytes(b"original")
@@ -104,6 +92,8 @@ def runtime():
     assert rt.settings.ENVIRONMENT=='test' and not rt.settings.ENABLE_HISTORY_BACKFILL_ON_VISIT
     assert rt.settings.USE_STATEMENT_FINANCIALS and rt.settings.USE_EDGARTOOLS_SECTIONS and rt.settings.ENABLE_FPI_FILINGS
     assert Path(rt.engine.url.database).resolve()==root/'facts.db'
+    data_dir,cache_dir=Path(os.environ['EDGAR_LOCAL_DATA_DIR']),Path(os.environ['EDGAR_CACHE_DIR'])
+    assert data_dir!=cache_dir and data_dir.parent==cache_dir.parent==root/'evidence'
     async def metadata(cik, forms, limit):
         assert limit==40
         return [{**s,'company_name':'SEC source issuer','filing_date':'2026-07-01',
@@ -116,7 +106,9 @@ def runtime():
         if os.environ.get('FAIL_PREPARATION') and accession==sources[-1]['accession_number']: return None
         return {'revenue':[{'period':'2025-03-31','value':321000000,'currency':'CNY',
                 'form':'20-F','accn':accession,'raw_tag':'us-gaap:Revenues'}],'reporting_currency':'CNY'}
-    async def sections(*args):
+    async def sections(accession,filing_type,*,html):
+        # Sections are parsed from the document just fetched (E28), never resolved from SEC.
+        assert html.startswith('<html><body>Revenue was CNY 321 million.') and filing_type in ('10-K','10-Q','20-F')
         return {'financials':'Revenue CNY 321 million. '+('source table '*1000),
                 'mda':'Selected source management discussion. '+('source prose '*1000)}
     rt.sec=SimpleNamespace(get_filings=metadata,get_filing_document=document)

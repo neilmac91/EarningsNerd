@@ -161,3 +161,56 @@ The retry inherits both, because its system message begins with `SYSTEM_PROMPT`.
 `_CITATION_EXCERPT_RETRY_GUIDANCE` are unchanged. `test_copilot_table_excerpts.py` pins the rule's place in step 3, and
 the Note 2 sentence both ways: as the text shows it, published; with the rate joined, a retry. The measurement is
 addendum 1 in [`PREREGISTRATION.md`](PREREGISTRATION.md).
+
+## Draw 2 (pre-registered, addendum 1): run 38878772611, valid, 18 of 18
+
+[Run 38878772611](https://github.com/neilmac91/EarningsNerd/actions/runs/38878772611) drew on `ff6836cf`, merged with
+main at `0b52b86b`. The draw gate logged "No earlier draw on ff6836cfdd15: this run draws." Every validity condition
+held:
+- `preparation.json`: status `complete`, `USE_EDGARTOOLS_SECTIONS` true, edgartools `5.58.0`;
+- BABA FY2025's source hashed to `be4499769327`, and the other five sources to their sections hashes;
+- all 18 first generations hashed to `c221b7e3c5c2`;
+- no row took a retry, so neither retry hash occurred.
+
+`accepted: true`: 18 of 18 scored and passed, zero errors. Each question passed on its first generation. Classified with
+`classify_corpus.py`:
+
+| Question | First generations citing filing text | Excerpts (all verified) |
+| --- | --- | --- |
+| AAPL, TSLA, MSFT | 0 of 3 each | none; the new lines added no text citation |
+| BABA FY2025 | 0 of 3 | none; each answer used the XBRL fact alone |
+| BABA FY2026 | 2 of 3 | one whole sentence; the whole `Consolidated revenue` row |
+| ASML | 2 of 3 | the whole `Total net sales` statement row, both times |
+
+On BABA FY2025's sections source, the first generation under #1111's prompt (`d46ef28f000a`) failed 7 of 9 across
+three draws on the identical source text:
+- 3 of 3 on #1350's head (run 38817393205);
+- 1 of 3 in draw 1;
+- 3 of 3 in #1347's draw [38932983694](https://github.com/neilmac91/EarningsNerd/actions/runs/38932983694): two
+  withheld, one recovered by its retry.
+
+Under addendum 1 it failed 0 of 3. Where this draw cited a table, it cited the whole row. On BABA FY2025 it cited no
+text at all. As the pre-registration's power statement says, one draw of three attempts sets a direction, not an
+effect size.
+
+Cost: USD 0.065977 across 34 calls, at peak hours. That is USD 0.006 over the USD 0.06 reserved. 184,933 of its
+1,072,997 prompt tokens missed the provider's cache, which fits a system prompt the cache had not seen before.
+
+## Main's #1347 and the merge (addendum 2)
+
+#1347 (E28 option 1) merged after draw 2. It parses the summary's sections from the fetched primary document instead of
+`Filing.obj()`, and it conflicted with this branch. Its last copilot-eval draw (run 38932983694, on `6546f9f8`)
+prepared byte-identical sources for all six questions:
+
+| Question | Source hash, #1347's draw | Source hash, draw 2 |
+| --- | --- | --- |
+| AAPL sales-gross-profit-2025 | `dfa1fbf6509b` | `dfa1fbf6509b` |
+| TSLA sales-operating-income-2024 | `c672b174e4fc` | `c672b174e4fc` |
+| MSFT sales-diluted-eps-2025 | `1a68ae488350` | `1a68ae488350` |
+| BABA native-revenue-2026 | `5387d3a77820` | `5387d3a77820` |
+| BABA viewed-native-revenue-2025 | `be4499769327` | `be4499769327` |
+| ASML us-gaap-sales-net-income-2025 | `3d5c91eb152d` | `3d5c91eb152d` |
+
+So draw 2 measured the change on the sources production prepares after #1347. #1347 also landed E25 (the eval
+harnesses' `EDGAR_CACHE_DIR`), identically, so the merge takes main's copy and this PR no longer carries it.
+`PREREGISTRATION.md`'s addendum 2 says how the merge head's own draw counts.

@@ -38,11 +38,12 @@ const RISKS_SECTION_ID = 'investment-risks-concerns'
 const isRisksSection = (section: RenderedSection): boolean =>
   section.role === 'risks' || section.id === RISKS_SECTION_ID
 
-// tone -> Badge variant (T1.2 treatment). neutral/unknown render nothing: tone is a schema field
-// name, not user copy.
-const TONE_VARIANT: Record<string, 'brand' | 'warning'> = {
-  positive: 'brand',
-  cautious: 'warning',
+// tone -> the header Badge's label. One neutral Badge for both: a tone is the model's reading of
+// management's language, not a status, so it takes neither the brand nor a warning colour, and the
+// label names what it is. neutral/unknown render nothing: tone is a schema field name, not user copy.
+const TONE_LABEL: Record<string, string> = {
+  positive: 'Management tone: positive',
+  cautious: 'Management tone: cautious',
 }
 
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
@@ -144,7 +145,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
       {/* Sticky table of contents, widescreen only (it would crowd a reflowed reading column), on the
           reading side of the page: each entry carries its section's index. */}
       <aside className="hidden lg:block">
-        <nav aria-label="Summary sections" className="sticky top-24">
+        <nav aria-label="Summary sections" className="sticky top-[calc(var(--site-header-h,4rem)_+_2rem)]">
           <p className={`mb-3 text-xs font-medium ${MUTED}`}>On this page</p>
           <ol role="list" className="space-y-1">
             {pageSections.map((section, i) => (
@@ -171,29 +172,37 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
         <MobileSectionNav sections={pageSections} />
         <div className="space-y-11">
           {pageSections.map((section, i) => {
-            const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
+            const toneLabel = section.tone ? TONE_LABEL[section.tone.toLowerCase()] : undefined
             return (
               <section
                 key={section.id}
                 id={section.id}
                 aria-labelledby={`${section.id}-heading`}
-                className="scroll-mt-32 lg:scroll-mt-24"
+                className="scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)] lg:scroll-mt-[calc(var(--site-header-h,4rem)_+_2rem)]"
               >
-                <div className="flex items-baseline gap-3">
-                  <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
-                    {sectionIndex(i)}
-                  </span>
-                  <h2
-                    ref={i === 0 ? firstHeadingRef : undefined}
-                    tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
-                    id={`${section.id}-heading`}
-                    className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
-                  >
-                    {section.title}
-                  </h2>
-                  {toneVariant && (
-                    <Badge variant={toneVariant} className="shrink-0 self-center capitalize">
-                      {section.tone}
+                {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
+                    so a long heading wraps its own words beside its index, never drops beneath it. When
+                    the group and the badge do not fit on one line (a 320px phone, or 200% text) the badge
+                    moves beneath the heading instead of squeezing it or pushing the page wider, and its
+                    label wraps inside the badge if even a line of its own is too narrow (the label's span
+                    overrides the Badge's nowrap). */}
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <div className="flex min-w-0 items-baseline gap-3">
+                    <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
+                      {sectionIndex(i)}
+                    </span>
+                    <h2
+                      ref={i === 0 ? firstHeadingRef : undefined}
+                      tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
+                      id={`${section.id}-heading`}
+                      className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
+                    >
+                      {section.title}
+                    </h2>
+                  </div>
+                  {toneLabel && (
+                    <Badge variant="neutral" className="max-w-full self-center">
+                      <span className="min-w-0 whitespace-normal">{toneLabel}</span>
                     </Badge>
                   )}
                 </div>
@@ -218,7 +227,7 @@ function MobileSectionNav({ sections }: { sections: PageSection[] }) {
   return (
     <nav
       aria-label="Jump to section"
-      className="sticky top-16 z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
+      className="sticky top-[var(--site-header-h,4rem)] z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
     >
       <ul className="flex gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {sections.map((section, i) => (

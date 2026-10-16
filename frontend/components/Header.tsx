@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -27,6 +27,16 @@ const NAV_LINKS = [
   { href: '/contact', label: 'Contact' },
 ]
 
+/** The site header's rendered height, published on <html> as a CSS length. Every sticky offset and
+ *  scroll margin under the header reads `var(--site-header-h,4rem)` (4rem, the one-row bar, before
+ *  the first measurement and on routes without the header), so a bar that wraps under enlarged text
+ *  never covers what sits below it (tests/e2e/reflow-200.spec.ts; DESIGN_SYSTEM.md §4 Stacking). */
+export const SITE_HEADER_HEIGHT_PROPERTY = '--site-header-h'
+
+// Isomorphic layout effect (the repo's SSR-safe alias, as in CookieConsent): the header renders on
+// the server too, where useLayoutEffect warns.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 const MOBILE_USER_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/dashboard/watchlist', label: 'Watchlist' },
@@ -45,6 +55,25 @@ export default function Header({
   const router = useRouter()
   const queryClient = useQueryClient()
   const account = ACCESS_COPY[accessMode]
+  const headerRef = useRef<HTMLElement>(null)
+
+  // Publish the header's height (SITE_HEADER_HEIGHT_PROPERTY) before the first paint and on every
+  // reflow (a wrapped bar, an open menu, a theme or text-size change); cleared when the header leaves.
+  useIsoLayoutEffect(() => {
+    const header = headerRef.current
+    if (!header) return
+    const root = document.documentElement
+    const measure = () => {
+      root.style.setProperty(SITE_HEADER_HEIGHT_PROPERTY, `${Math.ceil(header.getBoundingClientRect().height)}px`)
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(header)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty(SITE_HEADER_HEIGHT_PROPERTY)
+    }
+  }, [])
 
   // `user` is tri-state: a user object (logged in), `null` (definitive 401 → logged out), or
   // `undefined` (still resolving, or errored with no data). getCurrentUserSafe returns `null`
@@ -79,12 +108,15 @@ export default function Header({
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <header ref={headerRef} className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
+      {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
+          frontend/public/assets/LOGO_README.md), when a full bar sets the account link beside the mark: at 390px and
+          200% text the link touched it (tests/e2e/reflow-200.spec.ts). */}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-1.5 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center">
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
-              toggle, the short account CTA and the menu button at 44px each, so the wordmark
+              toggle (above 24rem), the short account CTA and the menu button at 44px each, so the wordmark
               yields to the mark alone (the footer's rendition) rather than overflow the viewport. */}
           <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" aria-label="EarningsNerd home">
             <EarningsNerdLogo variant="icon-only" iconClassName="h-9 w-9" mode="auto" />
@@ -138,11 +170,17 @@ export default function Header({
         </div>
 
         {/* Mobile actions: 44px touch targets on the icon controls; the short account CTA sits in
-            the bar (not only inside the menu) so a logged-out visitor always has the next step. */}
-        <div className="flex items-center gap-1 lg:hidden">
-          <ThemeToggle className="min-h-11 min-w-11" />
+            the bar (not only inside the menu) so a logged-out visitor always has the next step.
+            Below a 24rem viewport (a phone with enlarged text) the bar keeps one row: the theme
+            toggle, a preference rather than a next step, moves into the menu, the account link
+            narrows its padding, and the group lines up from its min-content width (basis-0,
+            min-w-min) rather than its one-line width, so the link's label wraps before the group
+            leaves the logo's row. Only when even that cannot sit beside the logo does the bar wrap
+            and this group take its own row at the right (tests/e2e/reflow-200.spec.ts). */}
+        <div className="flex min-w-min grow basis-0 items-center justify-end gap-1 lg:hidden">
+          <ThemeToggle className="min-h-11 min-w-11 [@media(max-width:24rem)]:hidden" />
           {(user === null || isError) && (
-            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11' })}>
+            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
               {account.ctaShort}
             </Link>
           )}
@@ -158,10 +196,19 @@ export default function Header({
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu. A column with a gap, not space-y: above 24rem the Theme row is display:none, which a
+          gap skips, while space-y's sibling margin would still push the first link down. */}
       {mobileMenuOpen && (
         <div className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
-          <nav className="mx-auto max-w-7xl space-y-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
+          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
+            {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions), as the
+                menu's first row: directly under the bar, so it opens in view. The header is sticky, so a menu
+                taller than the viewport never scrolls, and a row at its end sat below the fold on a phone at
+                200% text (tests/e2e/reflow-200.spec.ts). */}
+            <div className="hidden items-center justify-between border-b border-border-light px-3 pb-3 dark:border-white/[0.06] [@media(max-width:24rem)]:flex">
+              <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Theme</span>
+              <ThemeToggle className="min-h-11 min-w-11" />
+            </div>
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -172,7 +219,7 @@ export default function Header({
                 {link.label}
               </Link>
             ))}
-            <div className="mt-3 flex flex-col gap-2 border-t border-border-light pt-3 dark:border-white/[0.06]">
+            <div className="flex flex-col gap-2 border-t border-border-light pt-3 dark:border-white/[0.06]">
               {user ? (
                 <>
                   <div className="px-3 pb-1">

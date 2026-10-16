@@ -17,13 +17,18 @@ export interface SummaryActionsBarProps {
   isSaved: boolean
   saveMutation: SaveMutation
   isPro: boolean
+  /** Whether the summary finished. Saving and exporting act on a summary, so a stored one that did not
+   *  finish offers neither; the filing link is the filing's, and stays. */
+  summaryFinished: boolean
   onExportPdf: () => void
   onExportCsv: () => void
 }
 
 /**
  * Filing actions above the summary. Clipboard feedback is local; the export handlers
- * come from useSummaryExports; the save mutation is owned by the filing view.
+ * come from useSummaryExports; the save mutation is owned by the filing view. Each action's label
+ * wraps inside its button (`wrap`, max-w-full), so at 200% text on a 320px phone no button runs
+ * past the reading column.
  */
 export function SummaryActionsBar({
   filingId,
@@ -32,6 +37,7 @@ export function SummaryActionsBar({
   isSaved,
   saveMutation,
   isPro,
+  summaryFinished,
   onExportPdf,
   onExportCsv,
 }: SummaryActionsBarProps) {
@@ -42,7 +48,7 @@ export function SummaryActionsBar({
   const savedRef = useRef<HTMLSpanElement>(null)
   const savePressed = useRef(false)
 
-  // A successful save swaps the focused Save Summary button for the Saved chip, dropping focus to
+  // A successful save swaps the focused Save summary button for the Saved chip, dropping focus to
   // <body>; hand it to the chip instead (unless focus has already moved elsewhere). Only after
   // Save's own press, so an already-saved summary never takes focus on load.
   useEffect(() => {
@@ -68,7 +74,7 @@ export function SummaryActionsBar({
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-      {isAuthenticated && (
+      {isAuthenticated && summaryFinished && (
         <div>
           {summaryId != null && (
             isSaved ? (
@@ -92,6 +98,8 @@ export function SummaryActionsBar({
               // icon rides leftIcon so the spinner replaces it instead of widening the button.
               <Button
                 variant="primary"
+                wrap
+                className="max-w-full"
                 onClick={() => {
                   savePressed.current = true
                   saveMutation.mutate(summaryId)
@@ -99,14 +107,14 @@ export function SummaryActionsBar({
                 loading={saveMutation.isPending}
                 leftIcon={<BookmarkSimpleIcon className="h-4 w-4" />}
               >
-                Save Summary
+                Save summary
               </Button>
             )
           )}
         </div>
       )}
       <div className="min-w-0 space-y-2">
-        <Button type="button" variant="secondary" loading={copyState === 'pending'} onClick={copyFilingLink}>
+        <Button type="button" variant="secondary" wrap className="max-w-full" loading={copyState === 'pending'} onClick={copyFilingLink}>
           <CopyIcon className="h-4 w-4" aria-hidden="true" />
           Copy filing link
         </Button>
@@ -116,20 +124,23 @@ export function SummaryActionsBar({
         {copyState === 'failed' && (
           <p role="alert" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Could not copy the link. Try again, or copy this link manually:{' '}
-            <a href={filingUrl} className="break-all text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark">
+            <a
+              href={filingUrl}
+              className="break-all rounded-sm text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+            >
               {filingUrl}
             </a>
           </p>
         )}
       </div>
-      {/* Export buttons - only show for Pro users */}
-      {isPro && (
+      {/* Export buttons: Pro only, and only for a summary that finished */}
+      {isPro && summaryFinished && (
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="secondary" onClick={onExportPdf}>
+          <Button variant="secondary" wrap className="max-w-full" onClick={onExportPdf}>
             <DownloadSimpleIcon className="h-4 w-4" />
             Export PDF
           </Button>
-          <Button variant="secondary" onClick={onExportCsv}>
+          <Button variant="secondary" wrap className="max-w-full" onClick={onExportCsv}>
             <FileArrowDownIcon className="h-4 w-4" />
             Export CSV
           </Button>

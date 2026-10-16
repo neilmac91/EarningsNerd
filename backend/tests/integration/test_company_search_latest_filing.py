@@ -155,7 +155,7 @@ def test_a_placeholder_summary_is_not_ready(client, db, body, ready):
 
 @pytest.mark.parametrize(("raw_summary", "ready"), [({"writer_error": "timeout"}, False), ({"status": "complete"}, True)])
 def test_a_stored_failure_is_not_ready(client, db, raw_summary, ready):
-    """A writer error is the filing page's "Summary temporarily unavailable" card whatever the body says,
+    """A writer error is the filing page's "This summary did not finish" card whatever the body says,
     so the search does not call it ready, as the company page's isSummaryReady does not."""
     _seed(
         db,
