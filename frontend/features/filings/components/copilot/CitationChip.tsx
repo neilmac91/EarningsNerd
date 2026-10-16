@@ -235,7 +235,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 href={fragment_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex shrink-0 items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                className="mt-2 flex shrink-0 items-center gap-1 rounded-lg text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Open original
