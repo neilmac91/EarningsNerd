@@ -153,8 +153,9 @@ def test_click_on_unknown_or_blank_email_id_is_a_clean_miss(monkeypatch, caplog)
 @pytest.mark.parametrize("outcome", ["recorded", "raised"])
 def test_a_click_record_runs_in_a_session_of_its_own_and_always_closes_it(monkeypatch, caplog, outcome):
     """The webhook route takes no request session, so the click record opens its own, hands it to
-    ``record_first_click`` and closes it once, whether the record succeeds or raises. A failure is a
-    WARNING with its traceback on the router's logger; the provider's webhook never fails for it."""
+    ``record_first_click`` and closes it once, whether the record succeeds or raises. The record runs
+    in the threadpool the handler awaits, off the event loop. A failure is a WARNING with its
+    traceback on the router's logger; the provider's webhook never fails for it."""
     import app.database
     from app.services import notification_delivery_service
 
@@ -179,6 +180,8 @@ def test_a_click_record_runs_in_a_session_of_its_own_and_always_closes_it(monkey
     error = RuntimeError("ledger unavailable")
 
     def record_first_click(db, provider_email_id, now):
+        with pytest.raises(RuntimeError):  # a worker thread has no running loop
+            asyncio.get_running_loop()
         calls.append((db, provider_email_id, len(closes)))
         if outcome == "raised":
             raise error
