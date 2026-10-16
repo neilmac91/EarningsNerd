@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { PHOSPHOR, isIconModule } from './iconModules'
-import { heldValues, leavesOf, memberKey, scopeResolver } from './heldValues'
+import { heldValues, isWrite, leavesOf, memberKey, scopeResolver } from './heldValues'
 
 /**
  * Three glyphs carry one meaning each (DESIGN.md › Icons; docs/brand/06-system.md §4): the quotes glyph
@@ -27,7 +27,11 @@ import { heldValues, leavesOf, memberKey, scopeResolver } from './heldValues'
  * }`, an object that spreads one, `{ ...GLYPH }`, a later property overriding the spread's, a nested object and a
  * member destructured from one) at each read of it by name or literal key, and every glyph the object holds at a
  * read by a key the scan cannot read (`GLYPH[kind]`) or of the object whole; a holder
- * nobody reads counts once, as a bare import does. It counts every hand-drawn stand-in (a local component
+ * nobody reads counts once, as a bare import does. The reading follows every other way a name is given a glyph too:
+ * each assignment, a loop's variable, a parameter at each same-file call (a component's props and children included),
+ * a callback however it is handed over, a function's return, what is put in an object or an array after it is made,
+ * and React's createElement, cloneElement, Children and useMemo; a glyph handed to a same-file function or component
+ * counts where it is read there, not where it is passed. It counts every hand-drawn stand-in (a local component
  * named for one of them that draws its own <svg>), and the ✨ emoji, against two lists:
  *
  *  - MEANING lists the sites that use a glyph for its meaning. A new one is a design decision, made in
@@ -36,11 +40,10 @@ import { heldValues, leavesOf, memberKey, scopeResolver } from './heldValues'
  *    Shrink-only: a fixed use fails until its count is lowered, a new one fails, and the list's size
  *    equals RESIDUE_MAX, seeded at the audit's count and lowered in the same commit as each shrink.
  *
- * Review-checked, out of the scan's reach: a namespace member read by a key it cannot read
- * (`Icons[name]`), a glyph re-exported through a module of the app's own other than lib/icons.ts, a
- * binding assigned a glyph after its declaration, an object built by a call (`Object.assign`, a function's
- * return), and a glyph drawn inside a local component or function,
- * which counts where it is drawn however often the component renders.
+ * Review-checked, out of the scan's reach and planted as gaps in the self-check: a namespace member read by a key it
+ * cannot read (`Icons[name]`), a glyph re-exported through a module of the app's own other than lib/icons.ts, a
+ * glyph held in React state, a class's field read through `this`, a promise's `then` and a generator's `yield`.
+ * A glyph drawn inside a local component or function counts where it is drawn however often the component renders.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -235,7 +238,8 @@ export function glyphUses(source: string, fileName: string): Counts {
   const tally = (roots: Root[] | Map<Root, number>) => {
     for (const [root, n] of Array.isArray(roots) ? roots.map((root): [Root, number] => [root, 1]) : roots) uses.set(root, (uses.get(root) ?? 0) + n)
   }
-  const declares = (n: ts.Identifier) => ts.isVariableDeclaration(n.parent) && n.parent.name === n
+  // A variable's or a parameter's own name declares it: not a read.
+  const declares = (n: ts.Identifier) => (ts.isVariableDeclaration(n.parent) || ts.isParameter(n.parent)) && n.parent.name === n
   const ownsMember = (n: ts.Identifier) => (ts.isPropertyAccessExpression(n.parent) || ts.isElementAccessExpression(n.parent)) && n.parent.expression === n
   const visit = (node: ts.Node): void => {
     // Every ✨ in a literal is a use, so a second one in an already-listed literal counts.
@@ -244,7 +248,8 @@ export function glyphUses(source: string, fileName: string): Counts {
       if (sparkles > 0) bump('SparkleIcon', sparkles)
     }
     if (values.held.has(node) || ts.isJsxClosingElement(node)) return
-    if (ts.isIdentifier(node) && isReference(node)) {
+    // An assignment's target is written, not read.
+    if (ts.isIdentifier(node) && isReference(node) && !isWrite(node)) {
       const own = rootsOf(node)
       if (own) tally(own)
       // A holder read whole (rendered, passed on, spread, iterated) reads every glyph it holds, as often as it renders it.
@@ -253,7 +258,7 @@ export function glyphUses(source: string, fileName: string): Counts {
         if (holder) tally(leavesOf(holder))
       }
     }
-    if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+    if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && !isWrite(node)) {
       const own = rootsOf(node)
       if (own) {
         tally(own)
@@ -453,6 +458,51 @@ describe('reserved glyphs keep their one meaning', () => {
       'export function Q() { return <><SparkleIcon /><SparkleIcon /></> }',
     ].join('\n')
     expect(glyphUses(shadowedImport, 'features/zzprobe/ShadowedImport.tsx')).toEqual({ QuotesIcon: 1, SparkleIcon: 2 })
+    // Every way a name is given a glyph (tests/unit/heldValues.ts; lessons/test-gates-must-be-as-wide-as-their-rule.md),
+    // each counted where the name is read, never where it is given: an assignment after the declaration read twice (the
+    // review's case), a logical assignment, a destructuring assignment and its default, a loop's variable, a parameter at
+    // a direct call, a component's prop and its children, a callback handed to an array's method and to a same-file
+    // function, a function's return, what is put in an object and an array after they are made, Object.values, React's
+    // createElement of a same-file component and Children.map, and useMemo. Each is read twice where it renders, so the
+    // count tells the reading from the one bare reference a glyph has where it is given. A name given another icon holds
+    // no glyph.
+    const given = (lines: string[]) =>
+      glyphUses(
+        [`import { ${GLYPHS.filter((g) => lines.some((l) => l.includes(g))).join(', ')} } from '@/lib/icons'`, ...lines].join('\n'),
+        'features/zzprobe/Given.tsx',
+      )
+    expect(given(['let Mark; Mark = QuotesIcon', 'export const A = () => <><Mark /><Mark /></>'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['let Mark = null; Mark ??= SparkleIcon', 'export const B = () => <><Mark /><Mark /></>'])).toEqual({ SparkleIcon: 2 })
+    expect(given(['let A, B; ({ passage: A, fact: B = BracketsCurlyIcon } = { passage: QuotesIcon })', 'export const C = () => <><A /><A /><B /><B /></>'])).toEqual({
+      QuotesIcon: 2,
+      BracketsCurlyIcon: 2,
+    })
+    expect(given(['export function D() { for (const Mark of [QuotesIcon, SparkleIcon]) return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2, SparkleIcon: 2 })
+    expect(given(['function render(Mark) { return <><Mark /><Mark /></> }', 'export const E = () => render(QuotesIcon)'])).toEqual({ QuotesIcon: 2 })
+    expect(
+      given(['function Chip({ icon: Icon, children }) { return <span><Icon /><Icon />{children}{children}</span> }', 'export const F = () => <Chip icon={SparkleIcon}><QuotesIcon /></Chip>']),
+    ).toEqual({ SparkleIcon: 2, QuotesIcon: 2 })
+    expect(given(['export const G = () => <>{[QuotesIcon, SparkleIcon].map((Mark) => <span key="m"><Mark /><Mark /></span>)}</>'])).toEqual({ QuotesIcon: 2, SparkleIcon: 2 })
+    expect(given(['function each(cb) { return cb(BracketsCurlyIcon) }', 'export const H = () => each((Mark) => <><Mark /><Mark /></>)'])).toEqual({ BracketsCurlyIcon: 2 })
+    expect(given(['const pick = () => QuotesIcon', 'const Picked = pick()', 'export const I = () => <><Picked /><Picked /></>'])).toEqual({ QuotesIcon: 2 })
+    expect(
+      given(['const BOX = {}', 'BOX.mark = SparkleIcon', 'const LIST = []', 'LIST.push(QuotesIcon)', 'export const J = () => <><BOX.mark /><BOX.mark />{LIST.map((M) => <span key="m"><M /><M /></span>)}</>']),
+    ).toEqual({ SparkleIcon: 2, QuotesIcon: 2 })
+    expect(given(['const GLYPHS = { passage: QuotesIcon }', 'export const K = () => <>{Object.values(GLYPHS).map((G) => <span key="g"><G /><G /></span>)}</>'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['function Badge({ icon: Icon }) { return <><Icon /><Icon /></> }', 'export const L = () => createElement(Badge, { icon: QuotesIcon })'])).toEqual({ QuotesIcon: 2 })
+    expect(
+      given(['function List({ children }) { return <ul>{Children.map(children, (child) => <li>{child}{child}</li>)}</ul> }', 'export const M = () => <List><SparkleIcon /></List>']),
+    ).toEqual({ SparkleIcon: 2 })
+    expect(given(['export function N() { const Mark = useMemo(() => QuotesIcon, []); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })
+    expect(given(["import { ArrowRightIcon } from '@/lib/icons'", 'let Mark; Mark = ArrowRightIcon', 'export const O = () => <Mark />'])).toEqual({})
+    // Out of reach, planted as the gaps the header names: a glyph held in React state, a class's field read through
+    // `this`, a promise's then and a generator's yield each count once where they are written, though each renders it
+    // twice; and a glyph an app module exports is not known for one.
+    expect(given(['export function P() { const [Mark] = useState(() => QuotesIcon); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 1 })
+    expect(given(['export class Q { mark = QuotesIcon; render() { return <><this.mark /><this.mark /></> } }'])).toEqual({ QuotesIcon: 1 })
+    expect(given(['export const R = () => Promise.resolve(QuotesIcon).then((Mark) => <><Mark /><Mark /></>)'])).toEqual({ QuotesIcon: 1 })
+    expect(given(['function* marks() { yield QuotesIcon }', 'export function S() { for (const Mark of marks()) return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 1 })
+    expect(glyphUses(["import { EvidenceMark } from './marks'", 'export const T = () => <><EvidenceMark /><EvidenceMark /></>'].join('\n'), 'features/zzprobe/Imported.tsx')).toEqual({})
     // A declaration that reads itself would count without end: the scan throws.
     const cycle = [
       "import { QuotesIcon } from '@/lib/icons'",

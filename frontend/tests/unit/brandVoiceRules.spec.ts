@@ -40,16 +40,22 @@ import { isIconModule } from './iconModules'
  *    name to a fixed point (`const AlertMark = BellIcon`, `const Mark = Ph.Bell`, a conditional or a chain of
  *    them, a member destructured from an icon namespace), or an object's property that holds one (`<MARK.alert />`,
  *    `MARK[kind]` held by a binding, a spread of the object, a nested member); and an icon element a binding holds,
- *    placed in the heading (`const mark = <BellIcon />` read as `{mark}`). Bindings are read by the reading the glyph
- *    gate shares (tests/unit/heldValues.ts). An icon re-exported through another app module,
- *    and a binding assigned an icon after its declaration, are review-checked.
+ *    placed in the heading (`const mark = <BellIcon />` read as `{mark}`). A value is followed by the reading the glyph
+ *    gate shares (tests/unit/heldValues.ts) from every place a name is given one: its declaration, each assignment, a
+ *    destructuring, a loop, a parameter at each same-file call (a component's props included), a callback however it is
+ *    handed over, a function's return, what is put in an object after it is made, and React's createElement,
+ *    cloneElement and Children; any other expression placed in the heading is read by its value (`{ok && mark}`,
+ *    `{createElement(BellIcon)}`). Out of reach, planted as gaps in the self-check and review-checked: an icon that
+ *    crosses modules (an app module's export), React state, a class's field read through `this`, a promise's
+ *    `then` and a generator's `yield`.
  *  - developerWording: copy in lib/ and hooks/ (the fallback errors a user reads) never names the
  *    backend, an API path, a "reader" or an HTTP status number.
  *
  * Copy is a JSX text node, or a string or template literal outside the places code keeps its own
  * strings (imports, class lists, comparisons, identifiers such as hrefs and keys; see isCodeString). A
  * `createElement` call is read as JSX is: its type is code, a prop is read by the attribute's rule and a
- * child is copy (the literal clauses; the label clauses read JSX elements only). An
+ * child is copy (the literal clauses; the label clauses read JSX elements only). What `replace` puts in a
+ * pattern's place, and the value `setAttribute` gives an attribute that is not code, are read by their context. An
  * attribute that is not code (CODE_ATTRS) is copy, so a placeholder, an aria-label, an alt or a title is
  * read by the exclamation, emoji and buzzword clauses (and by no-em-dash-copy.spec.ts, which reads every
  * literal), whatever its shape, and so is an expression rendered as an element's child; a string with no
@@ -127,8 +133,12 @@ const BUTTONS = new Set(['Button', 'button'])
 const CONTROLS = new Set(['Button', 'button', 'a', 'Link'])
 /** Attributes that hold code, not copy. */
 const CODE_ATTRS = /^(?:className|class|href|src|srcSet|id|key|type|role|name|rel|target|variant|size|as|method|action|htmlFor|autoComplete|inputMode|enterKeyHint|lang|viewBox|d|fill|stroke|strokeWidth|strokeLinecap|strokeLinejoin|xmlns|mode|side|align|tone|tabIndex|pattern|form|scope|dateTime|sizes|crossOrigin|referrerPolicy|layout|data-[\w-]+|aria-(?:controls|labelledby|describedby|haspopup|live|current|expanded|hidden|selected|pressed|checked|disabled|modal|orientation|sort|atomic|relevant|busy|invalid|required|owns|activedescendant))$/
-/** Calls whose string arguments are class lists or keys. */
-const CODE_CALLS = new Set(['RegExp', 'cx', 'clsx', 'cn', 'buttonVariants', 'inputClasses', 'require', 'querySelector', 'querySelectorAll', 'getItem', 'setItem', 'removeItem', 'addEventListener', 'removeEventListener', 'getElementById', 'matchMedia', 'startsWith', 'endsWith', 'includes', 'replace', 'split', 'test', 'match', 'capture', 'track', 'identify', 'register', 'useQuery', 'setAttribute', 'getAttribute'])
+/** CODE_ATTRS for a DOM attribute's name, which is lowercase (`tabindex`, `for`). */
+const CODE_ATTRS_ANY_CASE = new RegExp(CODE_ATTRS.source.replace('htmlFor|', 'htmlFor|for|'), 'i')
+/** Calls whose string arguments are code: class lists, keys, selectors, patterns, event names. Two positions are read
+    by their context instead (isCodeString): what `replace` and `replaceAll` put in a pattern's place, and the value
+    `setAttribute` gives an attribute that is not code; `createElement` is read as JSX is. */
+const CODE_CALLS = new Set(['RegExp', 'cx', 'clsx', 'cn', 'buttonVariants', 'inputClasses', 'require', 'querySelector', 'querySelectorAll', 'getItem', 'setItem', 'removeItem', 'addEventListener', 'removeEventListener', 'getElementById', 'matchMedia', 'startsWith', 'endsWith', 'includes', 'replace', 'replaceAll', 'split', 'test', 'match', 'capture', 'track', 'identify', 'register', 'useQuery', 'setAttribute', 'getAttribute'])
 
 interface Finding {
   rel: string
@@ -192,7 +202,15 @@ function isCodeString(node: ts.Node, text: string): boolean {
       const at = n.arguments.indexOf(from as ts.Expression)
       return at === 1 ? prop === undefined || CODE_ATTRS.test(prop) : at < 2
     }
-    if (ts.isCallExpression(n) && CODE_CALLS.has(callName(n))) return true
+    if (ts.isCallExpression(n) && CODE_CALLS.has(callName(n))) {
+      // A replacement is read by its context (`<p>{note.replace('x', 'Wow!')}</p>` renders it), and so is an attribute's
+      // value when the attribute is not code (`el.setAttribute('aria-label', …)`).
+      const at = n.arguments.indexOf(from as ts.Expression)
+      const attribute = n.arguments[0]
+      if (/^replace(?:All)?$/.test(callName(n)) && at > 0) continue
+      if (callName(n) === 'setAttribute' && at === 1 && !(ts.isStringLiteralLike(attribute) && CODE_ATTRS_ANY_CASE.test(attribute.text))) continue
+      return true
+    }
     // The source a RegExp is built from (`new RegExp(\`(?<!x)[.!?]\`)`) is a pattern, not a sentence.
     if (ts.isNewExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'RegExp') return true
     // An expression rendered as an element's child is copy, whatever its shape.
@@ -548,8 +566,13 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
           // An icon a binding or a member holds, placed in the heading (`{mark}`, `{MARK.alert}`); an inline element
           // is read by its tag above.
           const placed = ts.isJsxExpression(n) && n.expression ? unwrapHeld(n.expression) : undefined
-          if (placed && (ts.isIdentifier(placed) || ts.isPropertyAccessExpression(placed) || ts.isElementAccessExpression(placed)) && holdsIcon(placed)) icons.push(n)
+          const named = !!placed && (ts.isIdentifier(placed) || ts.isPropertyAccessExpression(placed) || ts.isElementAccessExpression(placed))
+          if (named && holdsIcon(placed)) icons.push(n)
+          const before = icons.length
           ts.forEachChild(n, find)
+          // Any other placed expression holds what it may render (`{ok && mark}`, `{createElement(BellIcon)}`, a
+          // helper's return, `Children.map`'s), unless the walk found the icon's own tag inside it.
+          if (placed && !named && !ts.isJsxElement(placed) && !ts.isJsxSelfClosingElement(placed) && !ts.isJsxFragment(placed) && icons.length === before && holdsIcon(placed)) icons.push(n)
         }
         node.children.forEach(find)
         for (const icon of icons) {
@@ -924,6 +947,86 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '2 exclamation',
       '2 buzzword',
     ])
+    // A replacement is copy where it renders (the review's case), and so is the value setAttribute gives an attribute
+    // that is not code; the pattern, an empty replacement and a code attribute's value stay code (a data attribute's
+    // label, shaped like copy).
+    const replaced = [
+      "export const A = ({ note }) => <p>{note.replace('x', 'Wow! unlock 🚀')}</p>",
+      "export const B = ({ note }) => <p>{note.replaceAll('Wow!', '')}</p>",
+      "export const C = (el) => el.setAttribute('aria-label', 'Close now!')",
+      "export const D = (el) => el.setAttribute('data-cta', 'Unlock Pro')",
+    ].join('\n')
+    expect(voiceFindings(replaced, 'features/probe/Replaced.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '1 exclamation',
+      '1 emoji',
+      '1 buzzword',
+      '3 exclamation',
+    ])
+    // Every way a name is given an icon (tests/unit/heldValues.ts; lessons/test-gates-must-be-as-wide-as-their-rule.md),
+    // one heading each: an assignment after the declaration (the review's case), a logical assignment, a destructuring
+    // assignment, a loop's variable, a parameter at a direct call, a component's prop, a callback handed to an array's
+    // method and to a same-file function, a function's return, a property put in after the object is made; and placed in
+    // a heading, React's createElement, Children.map over the children a component is given, and a conditional. A name
+    // given only something else (line 28) passes.
+    const family = [
+      "import { BellIcon } from '@/lib/icons'",
+      'let Mark; Mark = BellIcon',
+      'export const A = () => <h2><Mark />Alerts</h2>',
+      'let Later = null; Later ??= BellIcon',
+      'export const B = () => <h2><Later />Alerts</h2>',
+      'let Picked; ({ icon: Picked } = { icon: BellIcon })',
+      'export const C = () => <h2><Picked />Alerts</h2>',
+      'export function D() { for (const Each of [BellIcon]) return <h2><Each />Alerts</h2> }',
+      'function heading(Passed) { return <h2><Passed />Alerts</h2> }',
+      'export const E = () => heading(BellIcon)',
+      'function Section({ icon: Prop }) { return <h2><Prop />Alerts</h2> }',
+      'export const F = () => <Section icon={BellIcon} />',
+      'export const G = () => [BellIcon].map((Item) => <h2 key="g"><Item />Alerts</h2>)',
+      'function withMark(cb) { return cb(BellIcon) }',
+      'export const H = () => withMark((Handed) => <h2><Handed />Alerts</h2>)',
+      'const pick = () => BellIcon',
+      'const Returned = pick()',
+      'export const I = () => <h2><Returned />Alerts</h2>',
+      'const SLOT = {}',
+      'SLOT.icon = BellIcon',
+      'export const J = () => <h2><SLOT.icon />Alerts</h2>',
+      'export const K = () => <h2>{createElement(BellIcon)}Alerts</h2>',
+      'function Titled({ children }) { return <h2>{Children.map(children, (child) => child)}Alerts</h2> }',
+      'export const L = () => <Titled><BellIcon /></Titled>',
+      'const mark = <BellIcon />',
+      'export const M = ({ ok }) => <h2>{ok && mark}Alerts</h2>',
+      'let Plain; Plain = Chip',
+      'export const N = () => <h2><Plain />Alerts</h2>',
+    ].join('\n')
+    expect(voiceFindings(family, 'features/probe/Family.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '3 headingIcon',
+      '5 headingIcon',
+      '7 headingIcon',
+      '8 headingIcon',
+      '9 headingIcon',
+      '11 headingIcon',
+      '13 headingIcon',
+      '15 headingIcon',
+      '18 headingIcon',
+      '21 headingIcon',
+      '22 headingIcon',
+      '23 headingIcon',
+      '26 headingIcon',
+    ])
+    // Out of reach, planted as the gaps the header names (each passes): an icon held in React state, a class's field
+    // read through `this`, a promise's then, a generator's yield, and an imported component that renders its prop in a
+    // heading.
+    const gaps = [
+      "import { BellIcon } from '@/lib/icons'",
+      "import { Section } from './Section'",
+      'export function A() { const [State] = useState(() => BellIcon); return <h2><State />Alerts</h2> }',
+      'export class B { icon = BellIcon; render() { return <h2><this.icon />Alerts</h2> } }',
+      'export const C = () => load().then((Later) => <h2><Later />Alerts</h2>)',
+      'function* marks() { yield BellIcon }',
+      'export function D() { for (const Yielded of marks()) return <h2><Yielded />Alerts</h2> }',
+      'export const E = () => <Section icon={BellIcon} />',
+    ].join('\n')
+    expect(voiceFindings(gaps, 'features/probe/Gaps.tsx')).toEqual([])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
     expect(() => voiceFindings(sixConditionals, 'features/probe/Six.tsx')).toThrow(
