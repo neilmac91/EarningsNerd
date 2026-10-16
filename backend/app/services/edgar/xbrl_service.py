@@ -33,7 +33,7 @@ from app.utils.datetimes import utcnow
 # filings open the circuit and fail-fast unrelated endpoints while SEC is perfectly healthy — the
 # detector reporting the opposite of the truth. The fetch-shaped calls in edgar/client.py +
 # edgar/compat.py give the breaker its clean SEC-health signal (S4 review, finding #2).
-from .async_executor import run_in_executor_with_timeout
+from .async_executor import run_in_executor_with_timeout, run_parse_with_timeout
 from app.services.request_work import run_owned_sync
 from .client import resolve_filing_by_accession  # noqa: F401 - preserve the facade import surface
 from app.services.sec_rate_limiter import sec_rate_limiter  # noqa: F401 - preserve the facade import surface
@@ -289,16 +289,16 @@ class EdgarXBRLService:
         base_form = normalize_form(filing_type)
         if base_form not in {"10-K", "10-Q", "20-F"} or not html:
             return None
-        # Local parse time grows with the document: up to ~7 s for a 13 MB 10-K and ~14 s for a
-        # 25 MB 20-F in the golden set, more when the CPU is shared. The bound is the old section
-        # budget, which covered the network fetch as well.
+        # Parse time grows with the document (up to ~7 s for a 13 MB 10-K in the golden set), and
+        # parses share one worker, so this bound counts queue time. It is the old section budget; on
+        # the request path the shorter enrichment join is the effective bound.
         section_timeout = max(self.timeout, 40.0) if base_form == "20-F" else max(self.timeout, 30.0)
         try:
-            return await run_in_executor_with_timeout(
+            return await run_parse_with_timeout(
                 lambda: _sections_from_html(html, base_form),
                 timeout=section_timeout,
             )
-        except EdgarTimeoutError:  # the executor's timeout type; the parse thread runs on, owned by the caller
+        except EdgarTimeoutError:  # a running parse runs on, owned by the caller; a queued one never starts
             logger.warning(f"Section parse timed out for {accession_number} after {section_timeout:.0f}s")
             return None
         except Exception as e:  # noqa: BLE001 — never let section parsing break generation

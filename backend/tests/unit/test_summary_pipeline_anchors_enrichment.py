@@ -12,6 +12,7 @@ text the code formats.
 import inspect
 import logging
 from copy import deepcopy
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,8 +20,9 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, engine
-from app.models import Base, Filing, Summary
-from app.services import facts_service, summary_pipeline
+from app.models import Base, Filing, FilingContentCache, Summary
+from app.services import facts_service, summary_generation_service, summary_pipeline
+from app.utils.datetimes import utcnow
 from tests.support.summary_stream_harness import (
     CANONICAL_PAYLOAD,
     reset_inflight,
@@ -234,6 +236,32 @@ async def test_sections_flag_off_skips_the_parse_and_builds_the_regex_excerpt():
     assert excerpt.call_args.args[2] == DOC_TEXT
     assert excerpt.call_args.kwargs == {"sections": None}
     assert summarize.await_args.kwargs["filing_excerpt"] == "EXCERPT"
+
+
+@pytest.mark.asyncio
+async def test_a_stale_stored_excerpt_is_reused_without_a_section_parse():
+    """A stored excerpt past its 24-hour window still sends generation through the document fetch,
+    but the real ``get_or_cache_excerpt`` returns the stored excerpt as it is, so no section parse is
+    started for it."""
+    filing_id = seed_company_filing()
+    stale = utcnow() - timedelta(days=2)
+    with SessionLocal() as db:
+        db.add(FilingContentCache(filing_id=filing_id, critical_excerpt="STORED EXCERPT",
+                                  created_at=stale, updated_at=stale))
+        db.commit()
+    get_sections = AsyncMock(return_value=deepcopy(SECTIONS))
+    fetch_document = AsyncMock(return_value=DOC_TEXT)
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize, \
+            patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True), \
+            patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", fetch_document), \
+            patch.object(summary_pipeline.xbrl_service, "get_filing_sections", get_sections), \
+            patch.object(summary_pipeline, "get_or_cache_excerpt", summary_generation_service.get_or_cache_excerpt):
+        events = await _drain(filing_id)
+
+    _assert_complete(events)
+    fetch_document.assert_awaited_once()
+    get_sections.assert_not_awaited()
+    assert summarize.await_args.kwargs["filing_excerpt"] == "STORED EXCERPT"
 
 
 # ------------------------------------------------------------ B5: a non-XBRL form (8-K) skips enrichment

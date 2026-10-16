@@ -94,13 +94,15 @@ def start_section_parse(run: GenerationRun) -> None:
     """Start parsing the summary sections from the fetched primary document, request-owned.
 
     High-precision excerpt source; the regex extractor is the fallback. The parse is local CPU work
-    on ``run.filing_text`` (no SEC request), so it starts once the document is in hand. Skipped on a
-    cache hit (the cached excerpt is reused, no re-extraction needed) and when there is no document.
+    on ``run.filing_text`` (no SEC request), so it starts once the document is in hand. Skipped when
+    there is no document and when the filing has a stored excerpt, fresh or past its 24-hour window:
+    ``get_or_cache_excerpt`` returns a stored excerpt as it is, so sections parsed for it would be
+    thrown away (regenerations keep it; a forced precompute and the admin filing reset clear it).
     """
     filing_id = run.filing_id
     run.sections_task = None
     if (
-        not run.cache_is_valid
+        not run.filing_fields["cache_excerpt"]
         and pipeline.settings.USE_EDGARTOOLS_SECTIONS
         and run.filing_text
         and run.filing_type

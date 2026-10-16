@@ -14,6 +14,7 @@ module namespace; X0.5 patches attributes of a throwaway ``EdgarXBRLService()``.
 
 import asyncio
 import json
+import threading
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -260,11 +261,11 @@ SECTIONS_STUBS = {"part_i_item_1a": _Section("r" * 199), "part_ii_item_7": _Sect
 
 @pytest.fixture
 def executor_waits(monkeypatch):
-    """Timeouts handed to ``asyncio.wait_for`` for edgar-executor work (async_executor.py:115-119)."""
+    """Timeouts handed to ``asyncio.wait_for`` for local-parse work (``run_parse_with_timeout``)."""
     real_wait_for, waits = asyncio.wait_for, []
 
     async def spy(aw, timeout=None):
-        if getattr(getattr(aw, "cr_code", None), "co_name", None) == "run_in_executor":
+        if getattr(getattr(aw, "cr_code", None), "co_name", None) == "run_executor_work":
             waits.append(timeout)
         return await real_wait_for(aw, timeout)
 
@@ -276,13 +277,14 @@ def executor_waits(monkeypatch):
 def parser(monkeypatch):
     """The shared edgartools parser, ``HTMLParser(ParserConfig(form)).parse(html).sections``, and the
     Cross Reference Index some 10-K filers use instead of item headings."""
-    state = SimpleNamespace(sections={}, error=None, seen=[], index_items={}, index_built=0)
+    state = SimpleNamespace(sections={}, error=None, seen=[], threads=[], index_items={}, index_built=0)
     real_parse = HTMLParser.parse
 
     def parse(self, html):
         if html != HTML:  # ``parse_html`` converting a Cross Reference Index item: the real parser
             return real_parse(self, html)
         state.seen.append((self.config.form, html))
+        state.threads.append(threading.current_thread().name)
         if state.error is not None:
             raise state.error
         return SimpleNamespace(sections=state.sections)
@@ -325,6 +327,7 @@ async def test_x0_2_filing_sections_per_form_and_timeout(
 
     assert result == expected
     assert parser.seen == [(parsed_as, HTML)]
+    assert [name.rsplit("_", 1)[0] for name in parser.threads] == ["edgar_parse"]  # not the SEC pool
     assert executor_waits == [wait]
     assert fake_edgar.calls == []
     assert edgar_circuit_breaker.stats.total_requests == breaker_requests
@@ -415,7 +418,7 @@ async def test_x0_2_timeout_and_failure_are_logged_and_none(monkeypatch, parser,
     real_wait_for = asyncio.wait_for
 
     async def expire(aw, timeout=None):
-        if getattr(getattr(aw, "cr_code", None), "co_name", None) == "run_in_executor":
+        if getattr(getattr(aw, "cr_code", None), "co_name", None) == "run_executor_work":
             aw.close()
             raise asyncio.TimeoutError
         return await real_wait_for(aw, timeout)
@@ -429,6 +432,36 @@ async def test_x0_2_timeout_and_failure_are_logged_and_none(monkeypatch, parser,
     messages = [record.getMessage() for record in caplog.records]
     assert f"Section parse timed out for {ACC} after 30s" in messages
     assert f"Section parse failed for {ACC}: sections exploded" in messages
+
+
+@pytest.mark.asyncio
+async def test_x0_2_parses_run_one_at_a_time_and_a_cancelled_queued_parse_never_runs(monkeypatch):
+    """X0.2 — parses share one worker, off the SEC pool: a second parse waits for the first, and a
+    parse whose waiter is cancelled while it is still queued never runs."""
+    started, release, first_running = [], threading.Event(), threading.Event()
+
+    def parse(html, base_form):
+        started.append(html)
+        first_running.set()
+        assert release.wait(5), "test did not release its controlled parse"
+        return {"mda": html}
+
+    monkeypatch.setattr(xbrl_service, "_sections_from_html", parse)
+    service = EdgarXBRLService()
+    first = asyncio.create_task(service.get_filing_sections(ACC, "10-K", html="first"))
+    try:
+        assert await asyncio.to_thread(first_running.wait, 2)
+        second = asyncio.create_task(service.get_filing_sections(ACC, "10-K", html="second"))
+        third = asyncio.create_task(service.get_filing_sections(ACC, "10-K", html="third"))
+        await asyncio.sleep(0.2)
+        assert started == ["first"], "a second parse ran beside the first"
+        third.cancel()
+        await asyncio.gather(third, return_exceptions=True)
+        release.set()
+        assert (await first, await second) == ({"mda": "first"}, {"mda": "second"})
+        assert started == ["first", "second"], "a cancelled queued parse still ran"
+    finally:
+        release.set()
 
 
 # ---------------------------------------------------------------------------
