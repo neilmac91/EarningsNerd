@@ -90,6 +90,14 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // Descriptive props may name the form: they describe the badge, they are not its content.
     '<Badge variant="warning" title={`Amends the ${filing.filing_type}`}>Superseded</Badge>',
     '<Badge aria-label={`${filing.form_type} superseded`}>Superseded</Badge>',
+    // Props that neither display nor style the badge are not its content (the review's case): React's key and ref, an
+    // event handler, a data attribute and an id, on the badge or on an element inside it.
+    '<Badge key={filing.form}>Current</Badge>',
+    '<Badge ref={refs[filing.form]}>Current</Badge>',
+    '<Badge onClick={() => open(filing.form)}>Current</Badge>',
+    '<Badge data-form={filing.form}>Current</Badge>',
+    '<Badge id={`badge-${filing.form}`}>Current</Badge>',
+    '<Badge><span key={hit.form}>Current</span></Badge>',
     // The data face is the form code's place; eyebrow type on a label that is not a form passes.
     '<span className="font-data text-text-primary-light">{hit.form}</span>',
     '<span className="uppercase tracking-eyebrow text-text-tertiary-light">Revenue</span>',
@@ -182,6 +190,13 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
+    // A prop that displays or styles the badge still counts: its variant, class, style or icon read from the form, and
+    // the children beside a handler and a data attribute.
+    { code: "<Badge variant={filing.form === '10-Q' ? 'info' : 'neutral'}>Current</Badge>", errors: [{ messageId: 'badge' }] },
+    { code: '<Badge className={TONE[filing.form]}>Current</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<Badge style={{ color: COLOR[hit.form] }}>Current</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<Badge icon={<b>{filing.form}</b>}>Current</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<Badge onClick={open} data-x="y">{filing.form}</Badge>', errors: [{ messageId: 'badge' }] },
     // The insider forms are written as words (the search's "Form 4" chip sends `4`): a code to this rule too.
     { code: '<Badge>Form 4</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">Form 4</span>', errors: [{ messageId: 'chip' }] },

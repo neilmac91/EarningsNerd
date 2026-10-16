@@ -17,7 +17,9 @@
 //                       neutral one still reads as a status. The rule flags a <Badge> (or ui.Badge)
 //                       that reads a filing-type field, or holds a literal form code (string,
 //                       template or text), in its children or in a prop that styles it. Descriptive
-//                       props (title, alt, aria-*) may name the form: they describe, not display.
+//                       props (title, alt, aria-*) may name the form: they describe, not display; and
+//                       a prop that neither displays nor styles (key, ref, an event handler, data-*,
+//                       id) is not read.
 //                       It flags a hand-rolled chip by the same reading: an HTML element whose class
 //                       text sets uppercase and tracking-eyebrow, written inline or held in a binding
 //                       declared in the same file (`const EYEBROW = 'uppercase tracking-eyebrow'`
@@ -130,7 +132,12 @@ export const noSideStripe = {
 }
 
 const FORM_FIELD = /^(filing_type|filingType|form_type|formType|form)$/
+// Props that describe an element rather than display it: a tooltip, alt text, an accessible name. They may name the form.
 const DESCRIPTIVE_PROP = /^(title|alt|aria-[a-z]+)$/
+// Props that neither display nor style anything: React's key and ref, an event handler, a data attribute, an id. A form
+// field read there puts no form on the badge (`<Badge key={filing.form}>Current</Badge>`); every other prop is read,
+// so a prop the Badge renders or styles by (children, icon, variant, className, style) counts and the gate fails closed.
+const UNRENDERED_PROP = /^(key|ref|id|on[A-Z]\w*|data-[\w-]+)$/
 const isBadge = (name) =>
   (name?.type === 'JSXIdentifier' && name.name === 'Badge') ||
   (name?.type === 'JSXMemberExpression' && name.property.name === 'Badge')
@@ -260,7 +267,8 @@ function resolvedVariable(sourceCode, identifier) {
 
 /** The first node in `node` that names or spells a form, else null: a form field wherever it sits (`form`,
  *  `hit.form ?? fallback`, `filing.form.toUpperCase()`, `hit['form']`), or text (JSX text, a string, a template chunk) that
- *  `code` matches. A descriptive prop is skipped, and a nested Badge is checked on its own visit. */
+ *  `code` matches. A descriptive prop and one that neither displays nor styles are skipped, and a nested Badge is
+ *  checked on its own visit. */
 /** A computed member key's text when it is written out: a string, or a template with no substitution. */
 const staticKey = (key) =>
   key?.type === 'Literal' && typeof key.value === 'string'
@@ -271,7 +279,7 @@ const staticKey = (key) =>
 
 function formNode(node, keys, code = FORM_CODE) {
   if (!node || typeof node.type !== 'string') return null
-  if (node.type === 'JSXAttribute' && DESCRIPTIVE_PROP.test(node.name?.name ?? '')) return null
+  if (node.type === 'JSXAttribute' && (DESCRIPTIVE_PROP.test(node.name?.name ?? '') || UNRENDERED_PROP.test(node.name?.name ?? ''))) return null
   if (node.type === 'JSXElement' && isBadge(node.openingElement.name)) return null
   if (node.type === 'Identifier' && FORM_FIELD.test(node.name)) return node
   // A form field read by bracket notation (`hit['form']`, `filing?.[\`filing_type\`]`) is the field too.
