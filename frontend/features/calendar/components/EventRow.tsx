@@ -13,8 +13,8 @@
    explains "usually" (a hover title alone showed it to nobody). A roomy row is
    an inline-size container: narrower than 16em of its own text (a phone at
    200% text), it drops the decorative logo and stacks, the bell beside the
-   ticker line and the name, note and EPS full width under it, so no column
-   squeezes another into it.
+   ticker alone and the chip, name, note and EPS full width under it, so no
+   column squeezes another into it and no chip runs under the bell.
 ============================================================================= */
 
 import Link from 'next/link'
@@ -121,9 +121,11 @@ export function EventRow({
             <CompanyLogo decorative ticker={ev.ticker} name={ev.company_name} size={30} className="[@container(width<16em)]:hidden" />
             {/* 8rem at least beside the EPS, which wraps under it (to the right) on a narrow phone. */}
             <span className="min-w-0 flex-[1_1_8rem] [@container(width<16em)]:basis-full">
-              {/* Stacked, this line keeps the bell's column and height, so the lines under it run full width. */}
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 [@container(width<16em)]:min-h-11 [@container(width<16em)]:pr-12">
-                <span className="font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+              {/* Stacked, the ticker alone keeps the bell's column and height (a line of its own, centred on the
+                  bell), so the chip and the lines under it run full width: a chip beside the ticker would run
+                  under the bell once the row is narrower than the ticker, the chip and that column. */}
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="flex items-center font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark [@container(width<16em)]:min-h-11 [@container(width<16em)]:basis-full [@container(width<16em)]:pr-12">
                   {ev.ticker}
                 </span>
                 <StatusChip status={ev.status} />

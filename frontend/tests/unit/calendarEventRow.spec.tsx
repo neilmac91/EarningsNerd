@@ -95,16 +95,23 @@ describe('the calendar event row wraps and shows what it carries', () => {
     expect(within(row).queryByText(/usually/)).toBeNull()
   })
 
-  it('a roomy row stacks below 16em of its text: no logo, the bell beside the ticker line, the rest full width', () => {
+  it('a roomy row stacks below 16em of its text: no logo, the bell beside the ticker alone, the chip and the rest full width', () => {
     const row = renderRow(true)
     expect(row).toHaveClass('[container-type:inline-size]')
     const link = within(row).getByRole('link')
     // Wide, the EPS wraps under the name (to the right) before it squeezes it; stacked, it starts the line.
     expect(link).toHaveClass('flex-wrap', 'justify-end', '[@container(width<16em)]:justify-start', '[@container(width<16em)]:pr-2')
     expect(link.firstElementChild).toHaveClass('[@container(width<16em)]:hidden') // the decorative logo
-    const ticker = within(row).getByText('TSM').parentElement as HTMLElement
-    expect(ticker).toHaveClass('flex-wrap', '[@container(width<16em)]:min-h-11', '[@container(width<16em)]:pr-12')
-    expect(ticker.parentElement).toHaveClass('[@container(width<16em)]:basis-full')
+    // Stacked, the ticker alone keeps the bell's column and height, on a line of its own; the chip wraps under it
+    // at full width. Kept on the whole line, that column ran a 167px "Confirmed" under the bell in the day dialog
+    // at 390px and 200% text (the chip wider than the 142px the column left).
+    const ticker = within(row).getByText('TSM')
+    expect(ticker).toHaveClass('flex', 'items-center', '[@container(width<16em)]:min-h-11', '[@container(width<16em)]:basis-full', '[@container(width<16em)]:pr-12')
+    const line = ticker.parentElement as HTMLElement
+    expect(line).toHaveClass('flex-wrap')
+    expect(line.className).not.toMatch(/\[@container\(width<16em\)\]:(min-h|pr)-/)
+    expect(within(line).getByText('Est.')).toBeInTheDocument()
+    expect(line.parentElement).toHaveClass('[@container(width<16em)]:basis-full')
     // The bell is the link's sibling, never inside it; stacked, it sits at the ticker line's height.
     const bell = within(row).getByRole('button')
     expect(link).not.toContainElement(bell)
