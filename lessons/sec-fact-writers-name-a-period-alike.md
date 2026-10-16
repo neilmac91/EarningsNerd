@@ -1,4 +1,4 @@
-# Name a fact's fiscal year from its filing's DEI focus, never the calendar year of its end; every fact writer must name a period alike
+# Name a fact's fiscal year from its filing's trusted DEI focus, else the calendar year of its end, never NULL; every fact writer must name a period alike
 
 Date: 2026-10-16   Area: sec / facts
 
@@ -13,19 +13,30 @@ Depot, Lowe's) and for a 52-week year ending 1 January (Johnson & Johnson), the 
 Multi-Period Analysis axis lost a year and spread YoY and CAGR over the wrong spans, the filing
 chart drew two FY2023 bars, and a later companyfacts sync could not repair the rows because it
 skipped the occupied identities. The one test of the fallback used Apple, whose September year
-names the same year either way.
+names the same year either way. The first fix trusted any focus naming the end year or the year
+before, which is only the companyfacts writer's year bound: that writer also outvotes one filing's
+outlier `fy` across the year chain (`facts/calendar._consistent_year_chain`). So a December 10-K
+with a lagging focus moved that filer's years on the per-filing side only, and the two writers
+disagreed again, now for calendar-year filers.
 
 **Rule**: Derive every per-filing fiscal label from the filing's own DEI focus and the point's
 whole-period distance from the report date (`edgar/fiscal_periods.filing_point_label`, shared by
-the instance extractor and the companyfacts fallback), bounded the way the companyfacts writer
-bounds it. When two writers can store the same identity, they must compute the same label from the
-same evidence; prove it by running both orders over a non-calendar issuer, not a calendar-aligned
-one. A reader that indexes by label must refuse a label that current rows give to two different
-period ends, not let query order pick one. Rows already stored under the old label need a
-separate, founder-run repair.
+the instance extractor and the companyfacts fallback). Trust an annual focus no more widely than
+the companyfacts writer does: an annual form (`facts/calendar.ANNUAL_FORMS`), an FY focus, the end
+year or the year before, and the year before only where most of the year lies in it. Without a
+trusted focus, or for a point that is not a whole number of years from the report date, keep the
+calendar year of its end; never write a NULL year, which drops the period from Multi-Period
+Analysis and the filing chart's axis. When two writers can store the same identity, they must
+compute the same label from the same evidence; prove it by running both orders over a
+non-calendar issuer and over a calendar issuer whose one filing carries an outlier focus, not only
+a calendar-aligned one. A reader that indexes flows by label must refuse a label that current rows
+give to two different period ends, not let query order pick one, and must read a balance at its
+period's own end. Rows already stored under the old label need a separate, founder-run repair.
 
 **Evidence**: `backend/app/services/edgar/fiscal_periods.py`, `edgar/xbrl_instance._finish_instance`,
-`edgar/xbrl_companyfacts.append_items`, `trend_analysis/dataset._index_facts`; gate
-`backend/tests/unit/test_annual_fact_fiscal_labels.py` (both writers in three orders for Target,
-Home Depot, Johnson & Johnson and Apple calendars, the filing chart, the fallback, and the dataset
-refusal).
+`edgar/xbrl_companyfacts.append_items`, `trend_analysis/dataset._index_facts` and `_series_points`;
+gate `backend/tests/unit/test_annual_fact_fiscal_labels.py` (both writers in three orders for
+Target, Home Depot, Johnson & Johnson, Apple, a December filer with a lagging focus and two March
+20-F filers; every annual form and amendment; the filing chart; the fallback; the dataset's flow
+refusal and balance read). Known limit: one filing cannot outvote a lagging focus on a year ending
+January to early July, which the companyfacts writer's year chain can.
