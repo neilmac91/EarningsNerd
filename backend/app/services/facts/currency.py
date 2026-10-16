@@ -5,6 +5,11 @@ each filing, its own period again as a USD convenience translation at that perio
 Companyfacts therefore holds a CNY list and a USD list for the same line. A history built from
 the USD list mixes exchange-rate moves into growth, so a concept whose USD list is such a
 translation is read from its reporting currency instead.
+
+The currency ranking (``_reporting_currency``) is defined here, not in the per-filing extractor
+that shares it (``edgar/instance/core.py`` re-exports it), so the pure normalizers that import
+this module load no Settings, ORM or EDGAR code, at import or at call time. Only
+``demote_convenience_rows``, which the session-owning ingest calls, imports the ORM.
 """
 from __future__ import annotations
 
@@ -20,19 +25,50 @@ def is_amount_unit(unit: Any) -> bool:
     return isinstance(unit, str) and len(unit) == 3 and unit.isalpha() and unit.isupper()
 
 
+def _reporting_currency(
+    candidates: list[tuple[str, float, str | None, float]],
+    period_of_report: str,
+) -> str | None:
+    """Pick the issuer's reporting currency from candidate facts for one concept.
+
+    Foreign filers (e.g. Alibaba) tag the SAME line in BOTH their reporting currency (all periods)
+    AND a USD convenience translation (usually only the latest period). The reporting currency is
+    the one covering the most distinct period-ends; ties prefer the currency present at the filing's
+    own period_of_report, then alphabetical for determinism. Returns None when no fact carries a
+    currency (unit tests, per-share concepts), which disables currency filtering.
+    """
+    ends_by_ccy: dict[str | None, set] = {}
+    for cand in candidates:  # candidates carry (end, value, ccy[, decimals]); only end + ccy are used
+        ends_by_ccy.setdefault(cand[2], set()).add(cand[0])
+    real = {c: ends for c, ends in ends_by_ccy.items() if c}
+    if not real:
+        return None
+    # Rank by: most distinct period-ends (the native currency spans all presented years; a USD
+    # convenience translation is usually only the latest year), then presence at the filing's own
+    # period, then prefer a NON-USD code (USD is the convenience-translation convention, so on a tie
+    # the native currency wins), then alphabetical for determinism.
+    return max(
+        real.items(),
+        key=lambda item: (
+            len(item[1]),
+            period_of_report in item[1],
+            item[0] != "USD",
+            item[0],
+        ),
+    )[0]
+
+
 def series_unit(usgaap: dict, tags: tuple[str, ...], default_unit: str) -> str:
     """The unit list one concept is read from: its reporting currency across its candidate tags.
 
     ``default_unit`` is the concept's USD unit ("USD" or "USD/shares"); only lists of the same
     shape compete. A foreign list is read only when the USD list is its convenience translation:
-    every USD period-end is also one of its period-ends. Among such lists the per-filing
-    extractor's ``_reporting_currency`` picks (the most distinct period-ends, then the latest).
+    every USD period-end is also one of its period-ends. Among such lists ``_reporting_currency``,
+    the per-filing extractor's rule, picks (the most distinct period-ends, then the latest).
     Any other shape keeps ``default_unit``: a stray foreign fact, whatever its date, or a currency
     switch in either direction. There some USD period-end has no native twin, so a native read
     would leave the USD row an earlier sync stored there current beside the native series.
     """
-    from app.services.edgar.instance.core import _reporting_currency  # lazy: facts imports stay EDGAR-free
-
     suffix = "/shares" if default_unit.endswith("/shares") else ""
     ends: dict[str, set[str]] = {}
     for tag in tags:

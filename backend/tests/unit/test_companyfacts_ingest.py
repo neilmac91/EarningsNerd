@@ -9,8 +9,13 @@ Payloads are built programmatically — companyfacts items are small dicts, and 
 keep each scenario's trap visible in the test itself.
 """
 
+import json
+import os
+import subprocess
+import sys
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -724,7 +729,7 @@ class TestIngestCompanyfacts:
 
 # --- Native reporting currency (P13): a US-GAAP filer that reports in CNY ----------------------
 #
-# The shape `edgar/instance/core.py::_reporting_currency` documents: every 20-F tags this year and
+# The shape `facts/currency.py::_reporting_currency` documents: every 20-F tags this year and
 # its comparatives in the reporting currency, and this year again as a USD convenience translation
 # at that year's rate, so companyfacts holds a CNY list and a USD list for the same line. CNY fell
 # against the dollar over these years, so the convenience history shrinks while CNY revenue grows.
@@ -885,6 +890,30 @@ class TestNativeReportingCurrency:
         payload = _calendar_payload()
         payload["facts"]["us-gaap"][REV_TAG]["units"]["EUR"] = [stray]
         assert svc.normalize_companyfacts(1, payload) == svc.normalize_companyfacts(1, _calendar_payload())
+
+    def test_the_normalizers_read_a_native_filer_without_settings_orm_or_edgar(self, tmp_path):
+        # A fresh interpreter with no Settings env (no SECRET_KEY): importing the pure normalizers
+        # and reading the CNY shape, where series_unit runs the currency ranking, must load none of
+        # these, at import time or at call time.
+        child = (
+            "import json, sys\n"
+            "from app.services.facts import companyfacts, concepts, currency, quarterly\n"
+            "facts, _ = companyfacts.normalize_companyfacts(1, json.load(sys.stdin))\n"
+            "heavy = ('app.config', 'app.database', 'app.models', 'app.services.edgar', 'sqlalchemy')\n"
+            "print(json.dumps({\n"
+            "    'revenue': sorted([f['unit'], f['value']] for f in facts if f['concept'] == 'revenue'),\n"
+            "    'loaded': sorted(m for m in sys.modules for h in heavy if m == h or m.startswith(h + '.')),\n"
+            "}))\n"
+        )
+        probe = subprocess.run(
+            [sys.executable, "-c", child], input=json.dumps(_cny_payload()), capture_output=True,
+            text=True, timeout=60, cwd=Path(__file__).resolve().parents[2],
+            env={"PATH": os.environ.get("PATH", os.defpath), "HOME": str(tmp_path)},
+        )
+        assert probe.returncode == 0, probe.stderr[-1500:]
+        result = json.loads(probe.stdout)
+        assert result["revenue"] == [["CNY", value] for value in _CNY_REVENUE]
+        assert result["loaded"] == []
 
 
 @pytest.mark.requires_db

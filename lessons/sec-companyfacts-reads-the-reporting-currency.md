@@ -20,9 +20,11 @@ question is not which currency is newest or widest but whether the USD list is a
 **Rule**: Read a companyfacts concept's foreign unit list only when its USD list is that list's
 convenience translation: every USD period-end is also a foreign period-end
 (`facts/currency.py::series_unit`). Among such lists, pick with the per-filing rule
-(`edgar/instance/core.py::_reporting_currency`); never hard-code "USD", and never let one later or
-wider list win on its own. Any other shape keeps the USD list, because a native read would leave
-USD rows without a native twin current beside it. Carry the picked unit on every row and every
+(`_reporting_currency`), which lives in that dependency-free module and which
+`edgar/instance/core.py` re-exports, so the normalizer loads no Settings, ORM or EDGAR code when
+it runs; never hard-code "USD", and never let one later or wider list win on its own. Any other
+shape keeps the USD list, because a native read would leave USD rows without a native twin
+current beside it. Carry the picked unit on every row and every
 calculation built from it, and treat "additive" as "a currency amount" (`is_amount_unit`), not as
 "USD". When a writer stores a native-currency row where a USD row is current at the same concept,
 period end and fiscal period, it demotes that USD row itself (`demote_convenience_rows`) and never
