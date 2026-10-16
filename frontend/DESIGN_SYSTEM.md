@@ -305,12 +305,13 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  lib/financialTone.directionText IS this recipe — route delta text through it; a
                  direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
                  a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
-                 600-level gain/loss as text anywhere, and sage on a TrendUp/TrendDown glyph, known by its
-                 spelling, its import (any local name, a namespace member, Phosphor's unsuffixed name) or
-                 a binding the file writes one to (an alias, a ternary, a lookup in a map of glyphs, as
-                 the what-changed chip draws its `<Icon />`), on every element above it up to the first
-                 that gives it an ink on every render (a theme text colour with no variant, or a class
-                 part the rule cannot read, such as directionChip[tone]; a layout or type wrapper such as
+                 600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
+                 the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,
+                 its import (any local name, a namespace member, Phosphor's unsuffixed name) or a binding
+                 the file writes one to (an alias, a ternary, a lookup in a map of glyphs, as the
+                 what-changed chip draws its `<Icon />`), on every element above it up to the first that
+                 gives it an ink on every render (a theme text colour with no variant, or a class part the
+                 rule cannot read, such as directionChip[tone]; a layout or type wrapper such as
                  `flex gap-1` or `text-sm` passes the ink through), or in a map that pairs one with its
                  classes; a glyph that reaches a binding as a parameter or a call's result, a glyph
                  returned from a .map callback and a glyph passed as a JSX prop (`icon={…}`) are past it.

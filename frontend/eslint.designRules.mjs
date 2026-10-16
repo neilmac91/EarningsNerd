@@ -37,24 +37,27 @@
 //                       a fixed truthiness rules out never counts (`cx({ uppercase: false })`,
 //                       `cx(false && 'uppercase')`), and one it guarantees always does
 //                       (`cx({ 'normal-case': 1 })`); any other string in the class counts.
-//   direction-text-tokens (D-030, DESIGN.md "Separate Signals") A delta or a direction chip is text, so
-//                       its ink is the 700-level direction token (text-gain-text / text-loss-text, the
-//                       -dark pair in dark: lib/financialTone's directionText and directionChip), never
-//                       the 600 level and never sage. The rule bans text-gain, text-gain-light, text-loss
-//                       and text-loss-light under any variant (the 600s are graphic tones: 3.0:1 and
-//                       3.9:1 as text on their tints), and a text-brand-* class where it colours a
-//                       direction glyph: on a TrendUpIcon or TrendDownIcon; on every element above it,
-//                       reached through `{…}` children, ternaries, `&&` and fragments, up to the first
-//                       whose classes give it an ink on every render (the ink the glyph inherits); or
-//                       anywhere in a value of an object that pairs one with its classes (a direction
-//                       map such as { Icon: TrendUpIcon, cls: '…' }, the value a literal, a cx() call or
-//                       a ternary). An element gives the glyph its ink with a text colour that has no
-//                       variant, in text that always renders or in both arms of a ternary, or with a
-//                       class part the rule cannot read (a lookup such as directionChip[tone], a
-//                       variable, another call), which may hold one. A text colour is `text-` and a
-//                       colour token of tailwind.config.js's resolved theme, never a size (text-sm,
-//                       text-data-xs), an alignment, a wrap or an overflow mode, so a layout or type
-//                       wrapper passes the ink through, as does a colour set only under a variant
+//   direction-text-tokens (D-030, DESIGN.md "Separate Signals") A delta or a direction chip is text, so its ink
+//                       is the 700-level direction token (text-gain-text / text-loss-text, the -dark pair in
+//                       dark: lib/financialTone's directionText and directionChip), never the 600 level and
+//                       never sage. The rule bans text-gain, text-gain-light, text-loss and text-loss-light
+//                       under any variant (the 600s are graphic tones: 3.0:1 and 3.9:1 as text on their tints),
+//                       except where the class is written on a graphic: an icon (any export of the icon
+//                       modules, or a trend glyph as read below) or an SVG element that draws one (never `text`
+//                       or `tspan`, which set type), whose text colour strokes and fills it through
+//                       currentColor, the 600s' own use (3:1 for non-text); held in a binding or a map, the
+//                       class is read as text. It also bans a text-brand-* class where it colours a direction
+//                       glyph: on a TrendUpIcon or TrendDownIcon; on every element above it, reached through
+//                       `{…}` children, ternaries, `&&` and fragments, up to the first whose classes give it an
+//                       ink on every render (the ink the glyph inherits); or anywhere in a value of an object
+//                       that pairs one with its classes (a direction map such as
+//                       { Icon: TrendUpIcon, cls: '…' }, the value a literal, a cx() call or a ternary). An
+//                       element gives the glyph its ink with a text colour that has no variant, in text that
+//                       always renders or in both arms of a ternary, or with a class part the rule cannot read
+//                       (a lookup such as directionChip[tone], a variable, another call), which may hold one. A
+//                       text colour is `text-` and a colour token of tailwind.config.js's resolved theme, never
+//                       a size (text-sm, text-data-xs), an alignment, a wrap or an overflow mode, so a layout
+//                       or type wrapper passes the ink through, as does a colour set only under a variant
 //                       (dark:, hover:, md:) or in one branch.
 //                       A glyph is known by its spelling, its import and its bindings, read through ESLint's
 //                       scopes: a name spelled TrendUpIcon or TrendDownIcon wherever it comes from; a binding
@@ -689,6 +692,8 @@ function ownInk(node) {
 /** A trend glyph's exported names: Phosphor exports each glyph with and without the Icon suffix, the barrel the
  *  suffixed name alone. */
 const TREND_GLYPH = /^Trend(Up|Down)(Icon)?$/
+/** The SVG elements that draw a graphic; `text` and `tspan` set type, so a colour on them is a text colour. */
+const SVG_GRAPHICS = new Set(['svg', 'g', 'path', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'rect', 'use', 'symbol'])
 const PHOSPHOR = '@phosphor-icons/react'
 
 /** Whether an import draws from the icon modules: `@/lib/icons` (by its alias or a path relative to the file) and
@@ -823,6 +828,16 @@ function glyphReader(context) {
   return {
     tag: (name) => (name.type !== 'JSXIdentifier' || /^[A-Z]/.test(name.name)) && holds(name).includes(A_GLYPH),
     value: (node) => holds(node).includes(A_GLYPH),
+    // Whether a JSX tag names an icon of the icon modules, any of them: a named import or a namespace's member.
+    icon: (name) => {
+      let root = name
+      while (root.type === 'JSXMemberExpression') root = root.object
+      if (root.type !== 'JSXIdentifier' || !/^[A-Z]/.test(root.name)) return false
+      const variable = bindingOf(root)
+      return !!variable?.defs.some(
+        (def) => def.type === 'ImportBinding' && isIconModule(String(def.parent.source.value), filename, cwd),
+      )
+    },
   }
 }
 
@@ -859,8 +874,16 @@ export const directionTextTokens = {
     const classAttrs = (opening) =>
       opening.attributes.filter((a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && CLASS_ATTR.test(a.name.name))
     const glyph = glyphReader(context)
+    // An icon or an SVG element that draws a graphic takes its stroke and fill from its text colour (currentColor), so a
+    // 600-level class written on one colours a graphic, the 600s' own use, and is not text.
+    const isGraphic = (opening) => {
+      const { name } = opening
+      if (name.type === 'JSXIdentifier' && /^[a-z]/.test(name.name)) return SVG_GRAPHICS.has(name.name)
+      return glyph.tag(name) || glyph.icon(name)
+    }
     return {
       ...classUnitVisitors((node, pieces) => {
+        if (node.type === 'JSXAttribute' && isGraphic(node.parent)) return
         for (const text of branchTexts(pieces)) {
           const token = direction600Text(text)
           if (token !== null) return context.report({ node, messageId: 'light', data: { token } })

@@ -76,6 +76,12 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
     '<span className={`inline-flex border ${directionChip[tone]}`}><TrendUpIcon aria-hidden="true" />Revenue</span>',
     // The 600 levels stay graphic: a border, a fill, a chart stroke.
     '<span className="border-gain-light/20 bg-gain-soft fill-loss-light" />',
+    // And on a graphic itself (Codex on 8d64edc6): an icon of the icon modules or a trend glyph, whose text colour strokes
+    // it through currentColor, and an SVG element that draws one.
+    '<TrendUpIcon className="h-4 w-4 text-gain-light" />',
+    "import { ArrowUpIcon } from '@/lib/icons';\n<ArrowUpIcon className=\"text-loss-light\" />",
+    "import * as Ph from '@phosphor-icons/react';\n<Ph.ArrowDown className=\"dark:text-loss-light\" />",
+    '<svg className="text-gain"><path className="text-gain-light" d="M0 0h4" /></svg>',
     // Sage away from a direction glyph is the accent, not a direction.
     '<a className="text-brand-strong">See all companies</a>',
     '<span className="text-brand-strong"><ArrowRightIcon /></span>',
@@ -99,6 +105,12 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
     { code: '<span className="text-gain-light">+4.2%</span>', errors: [{ messageId: 'light' }] },
     { code: "<span className={cx('text-xs', up ? 'text-gain' : 'text-loss-text')} />", errors: [{ messageId: 'light' }] },
     { code: "const TONE = { down: 'dark:text-loss-light' }", errors: [{ messageId: 'light' }] },
+    // A graphic's own class only: an element around the icon sets text, as do SVG type, a component imported from
+    // elsewhere and a class held in a binding.
+    { code: '<span className="text-gain-light"><TrendUpIcon /></span>', errors: [{ messageId: 'light' }] },
+    { code: '<svg><text className="text-loss-light">+4.2%</text></svg>', errors: [{ messageId: 'light' }] },
+    { code: "import { ArrowUpIcon } from './local';\n<ArrowUpIcon className=\"text-gain-light\" />", errors: [{ messageId: 'light' }] },
+    { code: "const ICON = 'h-4 w-4 text-gain-light';\n<TrendUpIcon className={ICON} />", errors: [{ messageId: 'light' }] },
     // Sage on the glyph, on the element that renders it, or in a direction map that pairs them.
     { code: '<TrendUpIcon className="h-4 w-4 text-brand-strong" />', errors: [{ messageId: 'brand' }] },
     {
