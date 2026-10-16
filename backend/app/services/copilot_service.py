@@ -40,7 +40,7 @@ from markdown_it import MarkdownIt  # noqa: F401 - preserve the facade import su
 
 from app.config import settings
 from app.services import citation_markers, copilot_tools
-from app.services.ai.copilot_chat import chat_deadline
+from app.services.ai.copilot_chat import chat_deadline, run_in_lookup_thread
 from app.services.openai_service import (
     STREAM_ACTIVITY_SENTINEL,
     STREAM_ERROR_SENTINEL,
@@ -297,7 +297,7 @@ class _FactRegistry:
 
     def __init__(self, filing: Any) -> None:
         # P5/P6b numeric tool-use: bind tools to this filing's company, accession and native currency. ``run_tool`` opens its own
-        # DB session per call, in a worker thread (the request session is gone by now). Each distinct successful fact is
+        # DB session per call, in a Copilot lookup thread (the request session is gone by now). Each distinct successful fact is
         # assigned a stable ``F#`` citation marker (deduped by exact provenance and expression operands) that
         # is fed back to the model via the tool result's ``cite`` field, so the model can cite the
         # figure inline as ``[F1]`` — rendering an inline chip, not just a Sources row.
@@ -505,8 +505,8 @@ async def _admit_answer(
     # an unrelated original [1]. Leading-zero markers keep their original identity.
     unresolved_literals = {key for key in referenced if not key.startswith("F")
                            and key not in text_citations_by_marker}
-    # Claim-repair lookups can wait for a pool slot, so resolve in a worker thread, not on the loop.
-    full_answer, verified_citations, grounded, misplaced = await asyncio.to_thread(
+    # Claim-repair lookups can wait for a pool slot, so resolve in a Copilot lookup thread, off the loop.
+    full_answer, verified_citations, grounded, misplaced = await run_in_lookup_thread(
         _resolve_answer, full_answer, filing, text_citations_by_marker, facts.accession,
         facts.currency, facts.used_facts, facts.register)
     if not full_answer:

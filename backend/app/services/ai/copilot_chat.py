@@ -9,9 +9,12 @@ raising, so the SSE contract stays intact. Mixed into ``OpenAIService``; methods
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import functools
 import json
 import logging
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, TypeVar
 
 from app.config import settings
 from app.services.ai import provider_admission
@@ -22,6 +25,7 @@ from app.services.ai.provider_requests import (
 from app.services.ai_metrics import record_ai_call
 
 logger = logging.getLogger(__name__)
+_T = TypeVar("_T")
 
 
 # Distinct failure signal for the transport-agnostic streaming wrappers (``stream_chat`` /
@@ -44,6 +48,20 @@ STREAM_ACTIVITY_SENTINEL = "\x00\x00__OPENAI_STREAM_ACTIVITY__\x00\x00"
 # inter-tool narration is short ("Let me compute the margins…"); real answers blow past it.
 _TOOL_ROUND_HOLDBACK_CHARS = 240
 _CHAT_SECONDS = 75.0
+
+# The Copilot's blocking DB lookups (its tool calls here and the claim repair in
+# ``copilot_service._admit_answer``) wait for a pool slot in threads of their own, never on the loop
+# or in its default executor. A slot holder can need a default-executor thread for its next step
+# (login keeps its connection checked out while it awaits bcrypt through ``asyncio.to_thread``), so
+# lookups waiting there could leave neither side able to move until the pool timed out. A lookup
+# holds no slot while it waits and holds one only for its own query, so a few threads keep up.
+_LOOKUP_THREADS = ThreadPoolExecutor(max_workers=4, thread_name_prefix="copilot_lookup")
+
+
+async def run_in_lookup_thread(func: Callable[..., _T], *args: Any) -> _T:
+    """``asyncio.to_thread`` on the Copilot's own lookup threads: same context copy and cancellation."""
+    call = functools.partial(contextvars.copy_context().run, func, *args)
+    return await asyncio.get_running_loop().run_in_executor(_LOOKUP_THREADS, call)
 
 
 def chat_deadline() -> float:
@@ -216,8 +234,8 @@ class _CopilotChatMixin:
 
         A function-calling sibling of :meth:`stream_chat` used by the "Ask this Filing" Copilot's
         numeric path (P5). The model is offered ``tools`` with ``tool_choice="auto"``; when it asks
-        for one, this method runs it via ``run_tool(name, args)`` in a worker thread (one call at a
-        time) and feeds the result back, then lets the model continue. Plain answer text is yielded
+        for one, this method runs it via ``run_tool(name, args)`` in a Copilot lookup thread (one call
+        at a time) and feeds the result back, then lets the model continue. Plain answer text is yielded
         live (token-by-token) exactly like ``stream_chat``, so the caller's sentinel-split prose
         handling is unchanged.
 
@@ -232,7 +250,7 @@ class _CopilotChatMixin:
             messages: The conversation so far (mutated in place across rounds with tool turns).
             tools: OpenAI-format tool schemas to offer the model.
             run_tool: ``Callable[[str, dict], dict]`` executing a tool by name + decoded args. It may
-                block on the database, so it is awaited through ``asyncio.to_thread``.
+                block on the database, so it is awaited through :func:`run_in_lookup_thread`.
             model: Model id (defaults to ``self.model``).
             max_tokens: Max completion tokens per round.
             temperature: Sampling temperature.
@@ -354,9 +372,10 @@ class _CopilotChatMixin:
                     if asyncio.get_running_loop().time() >= deadline:
                         raise TimeoutError("Chat deadline exhausted before tool execution")
                     # A tool is a blocking DB lookup whose pool checkout can wait. Run it in a
-                    # worker thread so the loop keeps serving the requests that hold the slots;
-                    # calls stay sequential, so the caller's tool state never sees two threads.
-                    result = await asyncio.to_thread(run_tool, call["name"], parsed_args)
+                    # Copilot lookup thread so the loop keeps serving the requests that hold the
+                    # slots; calls stay sequential, so the caller's tool state is never touched
+                    # by two threads at once.
+                    result = await run_in_lookup_thread(run_tool, call["name"], parsed_args)
                     ok = not (isinstance(result, dict) and "error" in result)
                     yield STREAM_ACTIVITY_SENTINEL + json.dumps(
                         {"name": call["name"], "args": parsed_args, "phase": "done", "ok": ok}

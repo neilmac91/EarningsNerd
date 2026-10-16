@@ -7,8 +7,12 @@ loop. When every slot is held, a checkout made on the loop thread blocks the who
 timeout, so the request holding the slot cannot run the step that gives it back: the lookup times
 out, the tool reports ``tool_failed`` and the figure ships uncited.
 
-Here a one-slot ``QueuePool`` is held by another "request" that returns its connection as soon as
-the event loop runs one callback (the ``test_auth_pool_progress.py`` shape). The real
+Here a one-slot ``QueuePool`` is held by another "request". One holder returns its connection as
+soon as the event loop runs one callback (the ``test_auth_pool_progress.py`` shape). The other is
+shaped like login: it keeps its connection checked out while it awaits bcrypt through
+``asyncio.to_thread``, so it needs a default-executor thread before it can give the slot back. The
+loop's default executor has one thread here, so a lookup waiting for the slot in that executor would
+hold the only thread the holder needs, and neither could move until the pool timed out. The real
 ``answer_filing_question`` -> ``OpenAIService.stream_chat_with_tools`` -> ``_FactRegistry`` ->
 ``copilot_tools.run_tool`` path runs; only the SDK client and the engine behind
 ``copilot_tools.SessionLocal`` are replaced. The assertions are about outcome and ordering, never
@@ -18,6 +22,7 @@ and every lookup ran in a worker thread in its own session, which it closed.
 import asyncio
 import json
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from types import SimpleNamespace
 
@@ -46,6 +51,15 @@ TOOL_ROUNDS = [
 REPAIR_ROUNDS = [
     [{"content": "Revenue for the fiscal year ended December 31, 2024 was $100.0 million." + FOLLOWUPS}],
 ]
+
+
+async def _release_on_the_next_loop_turn() -> None:
+    """The holder needs only the event loop to finish."""
+
+
+async def _release_after_a_default_executor_step() -> None:
+    """Login's shape: ``await asyncio.to_thread(verify_password, ...)`` while its session holds the slot."""
+    await asyncio.to_thread(lambda: None)
 
 
 def _chunk(spec: dict) -> SimpleNamespace:
@@ -87,7 +101,9 @@ def _viewed_filing() -> SimpleNamespace:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("rounds", [TOOL_ROUNDS, REPAIR_ROUNDS], ids=["model_tool_call", "claim_repair"])
-async def test_waiting_copilot_lookup_lets_the_slot_holder_finish(monkeypatch, tmp_path, rounds):
+@pytest.mark.parametrize("holder_step", [_release_on_the_next_loop_turn, _release_after_a_default_executor_step],
+                         ids=["loop_turn", "default_executor_step"])
+async def test_waiting_copilot_lookup_lets_the_slot_holder_finish(monkeypatch, tmp_path, rounds, holder_step):
     engine = create_engine(
         f"sqlite:///{tmp_path / 'copilot-pool.db'}",
         connect_args={"check_same_thread": False},
@@ -107,6 +123,10 @@ async def test_waiting_copilot_lookup_lets_the_slot_holder_finish(monkeypatch, t
         db.commit()
 
     loop = asyncio.get_running_loop()
+    # One default-executor thread stands in for a default executor whose threads are all taken: a
+    # lookup waiting there would hold the thread a login-shaped holder needs. The test's loop closes
+    # this executor at teardown.
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
     loop_thread = threading.get_ident()
     release_holder = asyncio.Event()
     order: list[str] = []
@@ -137,6 +157,7 @@ async def test_waiting_copilot_lookup_lets_the_slot_holder_finish(monkeypatch, t
 
     async def holder():
         await release_holder.wait()
+        await holder_step()
         order.append("holder releasing")  # before close(): the waiting lookup may run at once
         holder_db.close()
 
