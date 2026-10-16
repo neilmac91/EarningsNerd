@@ -457,9 +457,46 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
                  tint chips vanish. <Badge variant="info"> = the info STATE tint
                  (light label ink = info.text), never a form category: a form code (10-K, 10-Q, 6-K …)
-                 is text in the data face, never a Badge (gate: earningsnerd/no-form-code-badge,
-                 eslint.designRules.mjs); <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
+                 is text in the data face, never a Badge and never a hand-rolled eyebrow chip (uppercase
+                 tracking-eyebrow around the code, its class written inline or held in a same-file
+                 constant; gate: earningsnerd/no-form-code-badge, eslint.designRules.mjs);
+                 <Badge variant="warning"> = warning tint
+                 (replaces raw-amber hand-rolls; "Superseded"). <Badge variant="success|error"> = a STATUS
+                 chip (a summary is ready, a run failed): the status ink on the quiet ground, since the
+                 success ink inside any tint of itself falls under 4.5:1 at 12px. In dark the chip
+                 carries no fill, its hairline only, so a hovered row's white/5 is the one layer under
+                 it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
+                 tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
+                 earnings-surprise direction with their ▲/▼ and never tell a status (gate:
+                 tests/unit/badgeVariants.spec.tsx, shrink-only for the one row still on them). `new` keeps
+                 its warning tint and pulse for now; the design owner chose the brand tint (bg-brand-weak
+                 text-brand-strong, dark pair) with a sage pulse dot, static under reduced motion, which
+                 lands as its own token change (D-032), so no other colour goes on it meanwhile.
+
+Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
+                 <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
+                 check (6.6:1); dark the Primary's recipe, brand-dark (6.1:1 on panel-dark) under a navy
+                 check (7.8:1), drawn by `dark:checked:[background-image:var(--check-navy)]`, the
+                 plugin's check path in #0B1120 declared in app/globals.css (white on brand-dark would be
+                 2.4:1). Each fill is stated as `checked:bg-*` because a `dark:bg-*` ground outranks the
+                 plugin's checked fill; the unchecked edge is the flat ink (4.6:1 / 5.8:1 on panel).
+                 Gate: tests/unit/checkboxRecipe.spec.tsx (the check read from the stylesheet; the dark
+                 state equal to the Primary's dark fill and label ink).
+
+Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx) with the theme from
+                 ThemeProvider (never "system", which reads the OS setting, not the site's toggle) and no
+                 richColors, for good: status shows in the icon only, the Separate Signals Rule applied
+                 to a toast. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e4
+                 light (the ladder's overlay step, as the popovers) and none in dark, each with `!` because
+                 Sonner's two-attribute surface rules outrank a utility; the description is secondary ink;
+                 a status toast (success, error, warning, info) keeps the panel and colours only its
+                 icon, in its status ink. The close button
+                 rests on the panel in secondary ink, and its hover takes `!` as its rest does (Sonner's
+                 own hover loses to a forced rest): the quiet controls' tint (hover:!bg-brand-weak) with
+                 the primary ink in light; in dark the primary ink over the panel it keeps, since the
+                 button overhangs the card's corner and a translucent tint (brand-weak-dark) would show
+                 the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
+                 card's e4 and dark none; the close button's hover, forced, on opaque fills).
 
 Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on
                  STATUS_CHIP + STATUS_CHIP_INK[tone] from features/admin/lib/statusChip.ts, the one home
@@ -471,8 +508,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
                  FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
                  same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
-                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). When
-                 #1289's Badge status variants land, the recipe moves onto them.
+                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). Badge's
+                 success and error status variants carry this dark recipe, no fill; E47 moves the admin
+                 chips onto Badge after the series, with info, warning and neutral status variants of
+                 their own (Badge's info, warning and neutral are the tints and the quiet chip).
                  Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
                  hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
                  pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
@@ -1010,11 +1049,14 @@ plans, the analysis chart panels). `GuidanceCard` titles itself h3 by default, f
 h2 section; where the card stands in for the page's content directly under the h1, pass
 `headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
 summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
+A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
+error boundary, the providers' GlobalErrorBoundary; global-error.tsx writes its own h1; gate:
+tests/unit/errorBoundaryHeadings.spec.tsx).
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
-the 404, /waitlist (its problem cards are h2, since the example beside the form has no heading),
+the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
 /login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
 which has no site footer; the two token pages are opened without their emailed token), /contact,
 /privacy, /terms, /security, /delete-account, /search while its flag is off (the 404), and four
