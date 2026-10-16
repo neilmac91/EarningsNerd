@@ -17,7 +17,10 @@ pool with no earlier off-loop checkout, run the read in the thread pool
 
 **Evidence.** `backend/app/services/reporting_this_week_service.py` (`get_reporting_this_week`,
 `_fetch`). `backend/tests/unit/test_reporting_this_week_service.py::test_failed_fetch_is_not_cached`
-runs a failed read and then a healthy one, which must return the week.
-`::test_waiting_fetch_lets_another_request_release_its_connection` sends two ASGI requests through
-a one-slot QueuePool. `notable_filings_service.py` still has the old shape; its homepage section is
-not mounted.
+fails a read on a cold instance and again on a warm one, where ET midnight changes the key while
+Monday's success is still inside the TTL; the healthy retry after each must return the week. Test
+the warm case: a cold cache has no timestamp, so code that writes the failed entry but not its
+timestamp still passes there. `::test_successful_empty_week_is_cached` pins the other half, an
+empty week fetched once. `::test_waiting_fetch_lets_another_request_release_its_connection` sends
+two ASGI requests through a one-slot QueuePool. `notable_filings_service.py` still has the old
+shape; its homepage section is not mounted.

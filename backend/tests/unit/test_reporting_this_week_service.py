@@ -236,8 +236,9 @@ async def test_failed_fetch_is_not_cached():
     blank for the 6h TTL after the database recovers."""
     _clear_week()
     monday, _ = current_market_week()
+    tuesday = monday + timedelta(days=1)
     for t, s in (("AAPL", 1000), ("JPM", 900), ("MSFT", 800), ("GOOGL", 700)):
-        _seed(t, monday, score=s)
+        _seed(t, tuesday, score=s)  # still ahead on Tuesday, so visible on both days
 
     class _BrokenDB:
         def query(self, *a, **k):
@@ -245,17 +246,46 @@ async def test_failed_fetch_is_not_cached():
 
     try:
         svc = ReportingThisWeekService()
+        # A cold instance: the first-ever read fails, then a healthy one returns the week.
         failed = await svc.get_reporting_this_week(_BrokenDB(), today=monday)
         assert failed["companies"] == []
         assert failed["status"] == "empty"
-
         db = _new_db()
-        recovered = await svc.get_reporting_this_week(db, today=monday)
+        assert (await svc.get_reporting_this_week(db, today=monday))["status"] == "ok"
+
+        # A warm instance: ET midnight changes the key while Monday's success is still inside
+        # the TTL, and the new day's first read fails. The retry on that key must not hit it.
+        failed = await svc.get_reporting_this_week(_BrokenDB(), today=tuesday)
+        assert failed["status"] == "empty"
+        recovered = await svc.get_reporting_this_week(db, today=tuesday)
         db.close()
         assert recovered["status"] == "ok"
         assert [c["ticker"] for c in recovered["companies"]] == ["AAPL", "JPM", "MSFT", "GOOGL"]
     finally:
         _clear_week()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_successful_empty_week_is_cached():
+    """Only a failure skips the cache: a week that really has no events is cached like any other."""
+    _clear_week()
+    monday, _ = current_market_week()
+    svc = ReportingThisWeekService()
+    calls = {"n": 0}
+    original = svc._fetch
+
+    def counting(db, mon, fri, today):
+        calls["n"] += 1
+        return original(db, mon, fri, today)
+
+    svc._fetch = counting
+    db = _new_db()
+    first = await svc.get_reporting_this_week(db, today=monday)
+    second = await svc.get_reporting_this_week(db, today=monday)
+    db.close()
+    assert first["status"] == second["status"] == "empty"
+    assert calls["n"] == 1
 
 
 @pytest.mark.asyncio
@@ -273,10 +303,6 @@ async def test_waiting_fetch_lets_another_request_release_its_connection(monkeyp
     )
     EarningsEvent.__table__.create(engine)
     monday, _ = current_market_week()
-    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
-    for t, s in (("AAPL", 1000), ("JPM", 900), ("MSFT", 800), ("GOOGL", 700)):
-        _seed(t, monday, score=s, status="reported")  # reported: visible whatever today is
-
     loop = asyncio.get_running_loop()
     holder_entered = asyncio.Event()
     release_holder = asyncio.Event()
@@ -289,6 +315,9 @@ async def test_waiting_fetch_lets_another_request_release_its_connection(monkeyp
             return super().query(*args, **kwargs)
 
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=ObservedSession))
+    for t, s in (("AAPL", 1000), ("JPM", 900), ("MSFT", 800), ("GOOGL", 700)):
+        # _seed only adds and commits, so seeding never fires the query() release above.
+        _seed(t, monday, score=s, status="reported")  # reported: visible whatever today is
     monkeypatch.setattr(
         reporting_this_week_router, "reporting_this_week_service", ReportingThisWeekService()
     )
