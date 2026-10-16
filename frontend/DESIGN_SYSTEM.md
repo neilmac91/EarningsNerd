@@ -1255,8 +1255,8 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 - `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme`, else
   light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
   the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
-- Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`. The auth
-  shell's lockup (the 2rem mark and the text-lg wordmark, about 10rem, 1.5rem in) yields to the mark alone
+- Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`.
+  The auth shell's lockup (the 2rem mark and the text-lg wordmark, about 10rem, 1.5rem in) yields to the mark alone
   below a 12rem viewport (384px under a 200% text setting, never at the default size), where it and its
   clear space no longer fit; its link keeps the site header logo's name, `aria-label="EarningsNerd home"`,
   with the wordmark `display: none` (sr-only text still lays out past the link, which the bar's checks
