@@ -107,7 +107,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    `today()`). The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced by
    `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity) and
    the SEC tickers-cache TTL pinned by `backend/tests/unit/test_naive_local_now_allowlist.py`.
-   Serialized timestamps use `iso_z()`; never hand-append `"Z"` (gate: `tests/unit/test_datetimes.py`).
+   Serialized timestamps use `iso_z()`; never hand-append `"Z"` (gate:
+   `backend/tests/unit/test_datetimes.py`).
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
    Sole sanctioned exception: pre-Settings infra-bootstrap constants in `database.py`,
    `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity) plus `Settings.__init__`

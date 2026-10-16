@@ -13,8 +13,9 @@ This test encodes it structurally (the same move as the components allowlist + t
 so the exception can't silently grow: a NEW naive call anywhere fails here and points the author at
 the aware helper, and "fixing" the token-expiry cluster to aware (which reintroduces the crash) also
 trips it. It matches on (file, enclosing function) — not line numbers — and is AST-based, so it
-counts real call nodes and ignores docstrings and the aware `utcnow()` helper (a bare-name call,
-not an attribute access). `datetime.utcfromtimestamp(ts)` is the same naive UTC value built from a
+counts attribute nodes (a call, or an uncalled reference such as `default=datetime.utcnow` that a
+column or model calls later) and ignores docstrings and the aware `utcnow()` helper (a bare-name
+call, not an attribute access). `datetime.utcfromtimestamp(ts)` is the same naive UTC value built from a
 timestamp, so it counts as a naive site too; no app/ code calls it (`datetime.fromtimestamp(ts,
 timezone.utc)` is the aware form). Local-clock reads (`datetime.now()`, `today()`) are the other
 half of rule 7, gated by `test_naive_local_now_allowlist.py`.
@@ -43,7 +44,7 @@ NAIVE_UTC_METHODS = ("utcnow", "utcfromtimestamp")
 
 
 class _NaiveUtcnowFinder(ast.NodeVisitor):
-    """Collect the enclosing-function name of every `<x>.utcnow()` / `<x>.utcfromtimestamp()` call.
+    """Collect the enclosing-function name of every `<x>.utcnow` / `<x>.utcfromtimestamp` reference.
 
     The aware helper is a bare-name `utcnow()` (ast.Name), never an attribute, so it is not matched.
     """
@@ -59,8 +60,8 @@ class _NaiveUtcnowFinder(ast.NodeVisitor):
 
     visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
 
-    def visit_Call(self, node: ast.Call) -> None:
-        if isinstance(node.func, ast.Attribute) and node.func.attr in NAIVE_UTC_METHODS:
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if node.attr in NAIVE_UTC_METHODS:  # called, or passed uncalled as a default factory
             self.functions.append(self._stack[-1] if self._stack else "<module>")
         self.generic_visit(node)
 
@@ -105,8 +106,11 @@ def test_naive_utcnow_calls_match_the_allowlist():
     ("from datetime import datetime\ndef f():\n    return datetime.utcnow()\n", ["f"]),
     ("from datetime import datetime\ndef f(ts):\n    return datetime.utcfromtimestamp(ts)\n", ["f"]),
     ("import datetime\nSTARTED = datetime.datetime.utcfromtimestamp(0)\n", ["<module>"]),
+    ("from datetime import datetime\ncreated = Column(DateTime, default=datetime.utcnow)\n", ["<module>"]),
+    ("from datetime import datetime\ndef f():\n    return Field(default_factory=datetime.utcnow)\n", ["f"]),
     ("from app.utils.datetimes import utcnow\ndef f():\n    return utcnow()\n", []),
     ("from datetime import datetime, timezone\ndef f(ts):\n    return datetime.fromtimestamp(ts, timezone.utc)\n", []),
-], ids=["utcnow", "utcfromtimestamp", "module-level utcfromtimestamp", "aware helper", "aware fromtimestamp"])
+], ids=["utcnow", "utcfromtimestamp", "module-level utcfromtimestamp", "column default", "default factory",
+        "aware helper", "aware fromtimestamp"])
 def test_finder_sees_each_naive_utc_call(source, expected):
     assert _naive_utcnow_sites(source) == expected

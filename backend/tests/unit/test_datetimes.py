@@ -84,7 +84,8 @@ def test_app_never_hand_appends_z():
              for line in _hand_appended_z(path.read_text(encoding="utf-8"))]
     assert not found, (
         f"a literal Z glued onto isoformat() at {found}. An aware datetime already renders +00:00, so "
-        "this writes a malformed ...+00:00Z. Serialize with app.utils.datetimes.iso_z(dt)."
+        "this writes a malformed ...+00:00Z. Serialize with app.utils.datetimes.iso_z(dt), or "
+        "iso_z(ensure_utc(dt)) for a value loaded from the database (SQLite returns it naive)."
     )
 
 
@@ -98,8 +99,9 @@ def test_app_never_hand_appends_z():
     ("def f(dt):\n    return dt.isoformat()\n", []),
     ('def f(s):\n    return s.replace("Z", "+00:00")\n', []),
     ('def f(dt):\n    return f"{dt.isoformat()} UTC"\n', []),
+    ('def f(dt):\n    return dt.strftime("%Y-%m-%dT%H:%M:%S") + "Z"\n', []),
     ('def f():\n    """Never dt.isoformat() + "Z"."""\n', []),
 ], ids=["plus", "plus with timespec", "plus chain", "f-string", "f-string mid-text", "iso_z", "bare isoformat",
-        "parsing a Z", "other suffix", "docstring"])
+        "parsing a Z", "other suffix", "other method", "docstring"])
 def test_hand_appended_z_finder(source, expected):
     assert _hand_appended_z(source) == expected
