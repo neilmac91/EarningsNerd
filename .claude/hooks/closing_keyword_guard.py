@@ -32,6 +32,10 @@ at the merge itself. This hook reads that message where an agent types it, with 
   "--body-file=my notes.md") counts as written plain. A name is read as the shell passes it: its quoted,
   escaped and plain pieces joined, `~` expanded, and an unquoted glob expanded to its first 16 files in the
   C locale's order (to the word itself when nothing matches).
+A merge's commit is its title, a blank line, then its message, so a keyword that ends the title closes a
+reference that starts the message: each title and message a call types are also read joined that way (gh
+pr merge's --subject/-t with its --body/-b or body file; commit_title with commit_message, commitHeadline
+with commitBody, wherever a call or a file it sends names them; on MCP, every string of the call in order too).
 A merge with no typed message passes: its message is the default the gate has read. Reading the whole line,
 and every file it names, refuses more than a merge's own message: another command's text on the same line,
 and a line that only names a merge (a comment that quotes `gh pr merge` with a closing reference). The
@@ -44,10 +48,11 @@ does a hook that outlasts its 10 s timeout; the adversarial 1 MB lines the tests
 or two. The registered command (`python3 -I -S`: standard library only) maps Python's own exit 2 (a script it cannot
 open) to 1, so a broken install never blocks every Bash command and every GitHub call.
 
-Not checked: text the shell or a command builds as the line runs (a variable, an ANSI-C `$'...'` escape,
-the output of any command but a plain `cat`, a line handed to another shell that way; a literal
-`bash -c '...'` is on the line and read); a file over 1 MiB, a glob's files past its first 16, or a file
-named relative to a directory the line changes into first; a merge a script or a gh alias runs, or whose URL
+Not checked: text the shell or a command builds as the line runs (a variable, an ANSI-C `$'...'` escape, a
+brace expansion, the output of any command but a plain `cat`, a line handed to another shell that way; a
+literal `bash -c '...'` is on the line and read); a file over 1 MiB, a glob's files past its first 16, or a
+file named relative to a directory the line changes into first; more than three -R/--repo options in a row
+before `pr` or `merge`; a merge a script or a gh alias runs, or whose URL
 sits in a file a command reads as its configuration (curl's -K, wget's -i); an MCP request tool that spreads
 a merge's target over fields of its own (owner, repository, number, action); a GitHub MCP server registered
 under a name without "github"; a session that loads no repository hooks; and a person's own merge.
@@ -77,7 +82,7 @@ MERGE_MUTATION = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|m
 MUTATION_CALL = re.compile(r"\b(?:mergePullRequest|enablePullRequestAutoMerge|mergeBranch)\s*\(", re.IGNORECASE)
 GRAPHQL_MERGE = re.compile(
     r"\A\s*(?:#[^\n]*\n\s*)*(?:query|mutation|subscription|fragment|\{)[\s\S]*?" + MUTATION_CALL.pattern, re.IGNORECASE)
-_TARGET = r"\A\s*(?:[A-Za-z]+\s+)?(?:https?://api\.github\.com)?/?"
+_TARGET = r"\A\s*(?:[A-Za-z]+\s+)?(?:(?:https?://)?api\.github\.com)?/?"
 GRAPHQL_ENDPOINT = re.compile(_TARGET + r"graphql/?(?:\?\S*)?\s*\Z", re.IGNORECASE)
 REST_MERGE = re.compile(
     _TARGET + r"(?:repos/[^/\s]+/[^/\s]+/(?:pulls/[^/\s]+/merge|merges)|pulls/[^/\s]+/merge)/?(?:\?\S*)?\s*\Z",
@@ -103,6 +108,15 @@ AT_FILE = re.compile(r"(?:^|[\s=]|\s-[A-Za-z]+|--variable(?:=|\s+)[\w.%-]*)@" + 
 AT_QUOTED = re.compile(r"""(?:^|[\s=]|\s-[A-Za-z]+)(['"])(?:[^'"\n=]*=)?@([^'"\n]*)\1""")
 REDIRECT = re.compile(r"(?<![<&])<(?![<(&>])[ \t]*" + _VALUE)
 CAT = re.compile(r"""(?:^|[\s;&|(`/])\\?(?:cat|'cat'|"cat")((?:[ \t]+""" + _WORD + r")+)")
+# The title and message a call types, joined as GitHub writes its commit: gh pr merge's --subject/-t and
+# --body/-b, and GitHub's own field names (REST's commit_title and commit_message, GraphQL's commitHeadline and
+# commitBody) as a JSON, GraphQL or field value. At most 16 of each, the last ones (gh keeps a flag's last value).
+SUBJECT = re.compile(r"(?:^|[\s;&|(])(?:--subject(?:=|\s+)|-[A-Za-z]*?t=?[ \t]*)" + _VALUE)
+BODY = re.compile(r"(?:^|[\s;&|(])(?:--body(?:=|\s+)|-[A-Za-z]*?b=?[ \t]*)" + _VALUE)
+COMMIT_PART = re.compile(r"""\b(commit_title|commitHeadline|commit_message|commitBody)\b["']?\s*[:=]\s*"""
+                         r"""("(?:[^"\\\n]|\\.)*"|'[^'\n]*'|[^\s,}"']+)""")
+TITLE_FIELDS = ("commit_title", "commitHeadline")
+MAX_PARTS = 16
 UNQUOTE = str.maketrans("", "", "'\"\\")
 LIST_PUNCTUATION = re.compile(r"[\[\],]")  # a program's argument list: ["gh", "pr", "merge"]
 MAX_FILE_BYTES = 1 << 20
@@ -207,9 +221,31 @@ def _body_files(command: str, cwd: object) -> list[tuple[str, str]]:
         paths = [os.path.join(base, os.path.expanduser(name))]
         if any(char in pattern for char in "*?["):  # bash passes the word itself when nothing matches
             found = glob.iglob(os.path.join(glob.escape(base), os.path.expanduser(pattern)))
-            paths = sorted(found)[:MAX_GLOB_FILES] or paths  # code-point order, as the C locale sorts
+            paths = sorted(path for path in found if os.path.isfile(path))[:MAX_GLOB_FILES] or paths  # C order
         texts += [(f"the file {name}", text) for text in map(_read, paths) if text is not None]
     return texts
+
+
+def _part(value: str) -> str:
+    """A commit part's value: a JSON or GraphQL string decoded, a quoted field unquoted, a plain value as is."""
+    if value.startswith('"'):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value[1:-1]
+    return value[1:-1] if value.startswith("'") else value
+
+
+def _commits(texts: list[tuple[str, str]], titles: list[str], messages: list[str]) -> list[tuple[str, str]]:
+    """The commit a merge writes, its title, a blank line, then its message, for each title and message the call
+    types: those given, and those its texts name by GitHub's field names."""
+    titles, messages = list(titles), list(messages)
+    for _, text in texts:
+        for match in COMMIT_PART.finditer(text):
+            (titles if match.group(1) in TITLE_FIELDS else messages).append(_part(match.group(2)))
+    titles = list(dict.fromkeys(titles))[-MAX_PARTS:]
+    messages = list(dict.fromkeys(messages))[-MAX_PARTS:]
+    return [("the commit, title then message", f"{title}\n\n{message}") for title in titles for message in messages]
 
 
 def _reason(references: list[str]) -> str:
@@ -244,9 +280,14 @@ def refusal(event: object) -> str | None:
             return None
         # As written, and as the shell joins it with gh's -b/-t split from an attached value.
         texts = [("this command", command), ("this command", ATTACHED.sub(r"\1 ", plain))]
-        texts += _body_files(command, event.get("cwd"))
+        files = _body_files(command, event.get("cwd"))
+        texts += files
         if kind == "graphql" and not any(MERGE_MUTATION.search(text) for _, text in texts):
             return None
+        joined = command.replace("\\\n", "")
+        subjects = [_word(match.group(1))[0] for match in SUBJECT.finditer(joined)]
+        bodies = [_word(match.group(1))[0] for match in BODY.finditer(joined)] + [text for _, text in files]
+        texts += _commits(texts, subjects, bodies)
     else:
         parts = tool.split("__")
         if not (len(parts) >= 3 and parts[0] == "mcp" and "github" in parts[1].lower()):
@@ -259,6 +300,10 @@ def refusal(event: object) -> str | None:
         if not ("merge" in "__".join(parts[2:]).lower() or graphql_call
                 or any(GRAPHQL_MERGE.match(text) or REST_MERGE.match(text) for _, text in texts)):
             return None
+        titles = [text for field, text in texts if field in TITLE_FIELDS]
+        messages = [text for field, text in texts if field in ("commit_message", "commitBody")]
+        commits = _commits(texts, titles, messages)
+        texts += commits + [("the call's strings, in order", "\n\n".join(text for _, text in texts))]
     references = list(dict.fromkeys(_closing_references()(texts)))
     return _reason(references) if references else None
 

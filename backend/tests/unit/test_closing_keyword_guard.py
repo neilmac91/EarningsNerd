@@ -92,6 +92,7 @@ def bodies(tmp_path: Path) -> Path:
     (tmp_path / "msg.md").write_text("Squash of the series.\n\nFixes #3.\n", encoding="utf-8")
     (tmp_path / "my notes.md").write_text("Closes #3.\n", encoding="utf-8")
     (tmp_path / "COMMIT_MSG.md").write_text("Fixes #3.\n", encoding="utf-8")  # capitals after an attached -F
+    (tmp_path / "ref-first.md").write_text("#3 carries the rest.\n", encoding="utf-8")  # a message after a title
     (tmp_path / "clean.md").write_text("Squash of the series; #3 carries the fix.\n", encoding="utf-8")
     (tmp_path / "body.json").write_text('{"merge_method": "squash", "commit_message": "resolves #3"}', encoding="utf-8")
     (tmp_path / "automerge.graphql").write_text(
@@ -123,6 +124,21 @@ MCP_REFUSED = {
         "variables": {"input": {"pullRequestId": "X", "commitBody": "Closes #3"}}}),
     "another server named for github": ("mcp__plugin_GitHub-tools__merge_pull_request", {"commit_message": "fix #3"}),
     "a merge tool's field under another name": (MERGE, {"pullNumber": 5, "message": "fixes #3"}),
+    # GitHub writes the commit as its title, a blank line, then its message.
+    "a title that ends in a keyword before a message that starts with a reference": (
+        MERGE, {"pullNumber": 5, "commit_title": "ci: lint fix", "commit_message": "#12 carries the rest"}),
+    "the message typed before the title": (
+        MERGE, {"pullNumber": 5, "commit_message": "#12 carries the rest", "commit_title": "ci: lint fix"}),
+    "a server's own names for title and message, in order": (
+        MERGE, {"pullNumber": 5, "title": "ci: lint fix", "message": "#12 carries the rest"}),
+    "GraphQL's headline and body in variables": ("mcp__github__run_graphql", {
+        "query": "mutation($input: MergePullRequestInput!) { mergePullRequest(input: $input) { clientMutationId } }",
+        "variables": {"input": {"pullRequestId": "X", "commitHeadline": "lint fix", "commitBody": "#3 carries the rest"}}}),
+    "a JSON body's title and message": ("mcp__github__api_request", {
+        "method": "PUT", "path": "/repos/o/r/pulls/5/merge",
+        "body": '{"commit_title": "lint fix", "commit_message": "#3 carries the rest"}'}),
+    "a REST URL without its scheme": ("mcp__github__api_request", {
+        "method": "PUT", "url": "api.github.com/repos/o/r/pulls/5/merge", "body": {"commit_message": "fixes #3"}}),
     "a request whose query names a merge mutation": ("mcp__github__api_request", {
         "query": "mutation($input: MergePullRequestInput!) { mergePullRequest(input: $input) { clientMutationId } }",
         "variables": {"input": {"pullRequestId": "X", "commitHeadline": "fixes #3"}}}),
@@ -209,6 +225,15 @@ BASH_REFUSED = (
     "gh pr merge 5 -s -Fmsg.md",
     "gh pr merge 5 -sF msg.md",
     "gh pr merge 5 -s -FCOMMIT_MSG.md",  # the option is the first F, T or K, not the last
+    # A title that ends in a keyword before a message that starts with a reference, joined as GitHub joins them.
+    "gh pr merge 5 -s --subject 'review-gate fix' --body '#12 carries the rest'",
+    "gh pr merge 5 -s --body '#12 carries the rest' --subject 'lint fix'",
+    "gh pr merge 5 -s -t 'lint fix' -F ref-first.md",
+    "gh api -X PUT repos/o/r/pulls/5/merge -f commit_title='lint fix' -f commit_message='#3 carries the rest'",
+    "curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge "
+    "-d '{\"commit_title\": \"lint fix\", \"commit_message\": \"#3 carries the rest\"}'",
+    "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"X\", commitHeadline: \"lint fix\", "
+    "commitBody: \"#3 carries the rest\"}) { clientMutationId } }'",
     "gh pr merge 5 -s -F=msg.md",  # pflag drops an `=` after a short option
     "gh pr merge 5 -sF=msg.md",
     "gh pr merge 5 -sFCOMMIT_MSG.md",
@@ -287,6 +312,7 @@ BASH_PASSED = (
     "gh api -X PUT repos/o/r/pulls/5/merge --field commit_message=msg.md",
     "gh pr merge 5 -s -b '#3 carries the fix; addressed in #4'",
     "gh pr merge 5 -s --body-file clean.md",
+    "gh pr merge 5 -s --subject 'ci: lint' --body '#12 carries the fix'",  # the title does not end in a keyword
     "gh pr merge 5 -s -F notes[1].md",  # the glob matches notes1.md, the file the shell passes
     "gh pr comment 5 --body-file note.md",  # text that quotes a merge, sent from a file
     "gh pr view 5 --json body | grep -c 'fixes #3'",  # not a merge: review-gate reads the pull request's own text
@@ -303,8 +329,8 @@ BASH_PASSED = (
 # runs (a variable, an ANSI-C escape, any command's output but a plain cat's, a line handed to another shell
 # that way), a file named relative to a directory the line changes into, a script, a gh alias, a server named
 # otherwise, a merge whose URL sits in a file a command reads as its configuration, an MCP request tool that
-# spreads a merge's target over fields. A file over 1 MiB and a glob's files past its first 16 have tests of
-# their own.
+# spreads a merge's target over fields, a brace expansion, more than three -R in a row. A file over 1 MiB and a
+# glob's files past its first 16 have tests of their own.
 GAPS = (
     ("Bash", {"command": "gh pr merge 5 -s -b \"$MSG\""}),
     ("Bash", {"command": "gh pr merge 5 -s -b $'fixes \\x233'"}),
@@ -314,6 +340,8 @@ GAPS = (
     ("Bash", {"command": "cd .. && gh pr merge 5 -s -F {here}/msg.md"}),  # {here}: the body files' directory
     ("Bash", {"command": "./merge.sh 5"}),
     ("Bash", {"command": "gh m 5 -s -b 'fixes #3'"}),  # `gh alias set m 'pr merge'`
+    ("Bash", {"command": "gh pr merge 5 -s -F {msg,clean}.md"}),  # a brace expansion
+    ("Bash", {"command": "gh -R a -R b -R c -R d pr merge 5 -s -b 'fixes #3'"}),  # more than three -R in a row
     ("Bash", {"command": "curl -K merge.cfg"}),
     ("Bash", {"command": "wget -i urls.txt --method=PUT --body-file=body.json"}),
     ("mcp__github__api_request", {  # a request tool that spreads the merge's target over fields of its own
@@ -377,6 +405,13 @@ def test_a_glob_is_read_to_its_first_16_files_in_the_c_locales_order(bodies: Pat
     assert {number for number in range(40) if f"#{100 + number}" in reason} == first
 
 
+def test_a_glob_counts_only_files_toward_its_first_16(bodies: Path) -> None:
+    for number in range(20):
+        (bodies / f"d{number:02}.md").mkdir()  # directories that sort before the one file
+    (bodies / "z.md").write_text("Fixes #3.\n", encoding="utf-8")
+    _refused("Bash", {"command": "gh pr merge 5 -s -F [dz]*.md"}, cwd=bodies)
+
+
 def test_a_glob_under_a_directory_whose_name_has_glob_characters_is_read(bodies: Path) -> None:
     here = bodies / "dir[x]"
     here.mkdir()
@@ -418,6 +453,7 @@ ADVERSARIAL = {
     "backslashes": MERGE_LINE + " \\" * 500_000,
     "@ words": MERGE_LINE + " @" * 500_000,
     "one long word": MERGE_LINE + " " + "a" * 1_000_000,
+    "distinct titles and bodies": MERGE_LINE + "".join(f" -t t{n} -b b{n}" for n in range(60_000)),
     "-R words, no merge": "echo merge; gh" + " -R gh" * 170_000,
     "gh api words, no merge": "echo merge; gh api" + " gh api x" * 100_000,
     "graphql words, no mutation": "echo graphql; gh api graphql" + " -f q=graphql" * 80_000,
