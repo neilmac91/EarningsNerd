@@ -50,7 +50,10 @@ DELETE` in a string or a migration) is counted. `User.refresh_tokens` is `delete
 dropped from it is deleted at flush and strips its predecessor's link the same way: every drop
 (`user.refresh_tokens.remove(t)`, `pop`, `clear`, an item or slice stored or deleted, the collection
 reassigned, augmented or deleted, a token's `user` set or deleted, by name too) and every `merge` (a
-merged detached user deletes the tokens its copy lacks) counts as a delete. The one refresh-token
+merged detached user deletes the tokens its copy lacks) counts as a delete. Those checks know the
+relationships by name, so a test holds the mappers to them: `User.refresh_tokens` is the only
+relationship into the model and `user` its only one, and a second delete-orphan collection, a rename
+or a relationship over the link (`t.replaced_by = None` writes it) fails it. The one refresh-token
 deleter that exists, the retention purge, deletes in ascending id order, so a chain's predecessor
 always goes before its successor and keeps its link even if a run stops between batches
 (`test_retention_purge.py::test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link`).

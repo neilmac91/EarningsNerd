@@ -51,7 +51,11 @@ flush, and each such drop is a ``delete`` too: a member-dropping method of the c
 (an adding ``+=`` too) or deleted; a ``user`` attribute stored or deleted (``t.user = None`` cuts the
 token loose, and so may a user that is None at run time); either name set or deleted by ``setattr`` and
 the like; and a ``merge`` call, since merging a detached user deletes the tokens its copy lacks. A read of
-the collection (``list(user.refresh_tokens)``, ``append``, ``any``) drops nothing. A Python delete
+the collection (``list(user.refresh_tokens)``, ``append``, ``any``) drops nothing. The two names are held
+to the mappers (``test_the_delete_orphan_names_are_the_models_only_relationships``): ``User.refresh_tokens``
+is the only relationship into the model and ``user`` its only one, so a second delete-orphan collection,
+a rename or a relationship over the link (``t.replaced_by = None`` writes it) fails until these checks
+learn its name. A Python delete
 counts whatever it removes, so the reviewed list carries the OAuth deletes of the modules that import
 ``refresh_token_service``; a decorator's own callee, such as ``@router.delete(...)``, deletes nothing. A
 user's whole chain goes with the user (``ON DELETE CASCADE``), so SQL that deletes users is not a delete
@@ -424,7 +428,8 @@ _DELETERS = {"delete", "Delete", "merge"}
 # ``User.refresh_tokens`` is delete-orphan: a token dropped from it, or cut from its user through the
 # ``RefreshToken.user`` back-reference, is deleted at flush. The collection methods that drop members, in
 # the list, set and dict spellings (``append``, ``extend``, ``add``, ``any`` and reads keep them all), and
-# the calls that set or delete an attribute by name.
+# the calls that set or delete an attribute by name. The two names are held to the mappers
+# (``test_the_delete_orphan_names_are_the_models_only_relationships``).
 _COLLECTION, _BACK_REFERENCE = "refresh_tokens", "user"
 _DROPS_MEMBERS = {"remove", "pop", "popitem", "clear", "discard", "update", "difference_update",
                   "intersection_update", "symmetric_difference_update", "__delitem__", "__setitem__",
@@ -1194,6 +1199,27 @@ def test_the_scan_reads_every_tree_that_can_reach_the_database(tmp_path):
     for checkout in (".claude/worktrees/agent", ".worktrees/other"):  # another tree, not this one
         (tmp_path / checkout / ".git").write_text("gitdir: elsewhere\n")
     assert {path.relative_to(tmp_path).as_posix() for path in _scanned_files(tmp_path)} == scanned_paths
+
+
+def test_the_delete_orphan_names_are_the_models_only_relationships():
+    """The drop checks know the relationships by name, so the mappers must have no other: a second
+    delete-orphan collection, a renamed one, or a relationship over the link (``t.replaced_by = None``
+    writes it) would drop or write tokens under a name the scan does not see."""
+    from sqlalchemy.orm import configure_mappers
+
+    from app.database import Base
+    from app.models import RefreshToken
+
+    configure_mappers()
+    into = {(mapper.class_.__name__, rel.key, rel.cascade.delete_orphan)
+            for mapper in Base.registry.mappers for rel in mapper.relationships if rel.mapper.class_ is RefreshToken}
+    own = {(rel.key, rel.mapper.class_.__name__) for rel in RefreshToken.__mapper__.relationships}
+    assert into == {("User", _COLLECTION, True)} and own == {(_BACK_REFERENCE, "User")}, (
+        f"Relationships into RefreshToken: {sorted(into)}; on it: {sorted(own)}. The delete-orphan checks "
+        f"count drops from User.{_COLLECTION} and cuts through RefreshToken.{_BACK_REFERENCE} only, so a new "
+        "or renamed relationship escapes them: teach the checks its name, with planted cases, then update "
+        "this pin (lessons/arch-only-a-rotated-refresh-token-signals-theft.md)."
+    )
 
 
 def test_every_mention_of_the_successor_link_is_reviewed():
