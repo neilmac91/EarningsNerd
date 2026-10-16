@@ -145,7 +145,7 @@ def test_only_summarized_filings_are_listed(client):
     ],
 )
 def test_a_stored_failure_is_excluded_as_the_page_noindexes_it(client, body, raw_summary):
-    """The filing page shows a stored failure as its "Summary temporarily unavailable" card and noindexes it
+    """The filing page shows a stored failure as its "This summary did not finish" card and noindexes it
     (summary_placeholders.is_summary_ready), so the sitemap does not advertise it; a real summary stays."""
     test_client, TestingSession = client
     with TestingSession() as session:

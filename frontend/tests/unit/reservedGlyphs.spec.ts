@@ -81,11 +81,6 @@ const HAND_DRAWN: Array<[Glyph, RegExp]> = [
 type Counts = Partial<Record<Glyph, number>>
 
 const MEANING: Record<string, Counts> = {
-  // The two heading sparkles (the generating header and the summary card's head). The design owner's
-  // call on #1288: they come off in brand-filing-page (#1293), which edits this file, and this entry is
-  // dropped in that merge; the sparkle then has no sanctioned site until an AI-summary chip exists
-  // (DESIGN.md › Icons: the AI summary chip alone; section headings carry no icon).
-  'app/filing/[id]/StreamingSummaryDisplay.tsx': { SparkleIcon: 2 },
   // Source chips: a located passage (quotes) or an XBRL fact (braces).
   'features/filings/components/SourceTrace.tsx': { QuotesIcon: 1, BracketsCurlyIcon: 1 },
   'features/marketing/components/HeroExample.tsx': { QuotesIcon: 1 },
@@ -94,21 +89,15 @@ const MEANING: Record<string, Counts> = {
 }
 
 const RESIDUE: Record<string, Counts> = {
-  'app/filing/[id]/StreamingSummaryDisplay.tsx': { SparkleIcon: 2 }, // brand-filing-page: the waiting notice and the free-limit card
-  'app/dashboard/watchlist/page.tsx': { SparkleIcon: 1 }, // brand-dashboard-watchlist: "Analyze trends" (DSW-18)
   'features/filings/components/copilot/CopilotMessage.tsx': { SparkleIcon: 3 }, // brand-copilot: follow-up chips (FollowupChips, rendered at two places), upgrade button
   'features/filings/components/copilot/AskCopilotRail.tsx': { SparkleIcon: 2 }, // brand-copilot: launcher and rail header
   'features/filings/components/copilot/CopilotTeaser.tsx': { SparkleIcon: 1 }, // brand-copilot: upgrade button
   'features/filings/components/copilot/AskAboutSelection.tsx': { SparkleIcon: 1 }, // brand-copilot: the selection prompt
-  'features/settings/components/BillingPanel.tsx': { SparkleIcon: 1 }, // brand-settings-subscriptions: the Pro badge
-  'features/subscriptions/components/TrialBanner.tsx': { SparkleIcon: 1 }, // brand-settings-subscriptions: the trial banner
-  'features/subscriptions/components/SubscriptionGate.tsx': { SparkleIcon: 1 }, // brand-settings-subscriptions (DSW-35 deletes it)
-  'features/summaries/components/GenerateSignupGate.tsx': { SparkleIcon: 1 }, // brand-filing-page: the sign-up gate
   'features/marketing/components/ReaderQuoteSlot.tsx': { QuotesIcon: 1 }, // a reader's words, not the filing's (BG-28): the slot renders nothing until a quote lands (READER_QUOTE is null since #1311), and the glyph is decided with that quote
   'features/marketing/components/AskFilingDemo.tsx': { QuotesIcon: 1 }, // the Ask this Filing mark on the landing demo, decided with brand-copilot's (#1295) AskFilingAnswer entry, the same mark; #1311 left it
   'features/filings/components/AskFilingAnswer.tsx': { QuotesIcon: 2 }, // brand-copilot: a hand-drawn quotes glyph as the Ask this Filing mark
 }
-const RESIDUE_MAX = { files: 13, uses: 18 }
+const RESIDUE_MAX = { files: 7, uses: 11 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

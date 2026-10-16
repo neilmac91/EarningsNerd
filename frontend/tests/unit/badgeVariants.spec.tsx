@@ -21,8 +21,7 @@ import { Badge } from '@/components/ui'
  *  - Badge.tsx no longer documents beat/miss/new as tonal recipes;
  *  - no `<Badge icon={null}>` in app/, components/ or features/ takes `beat` or `miss` (a literal, or a
  *    variable in a file that names either): a direction without its glyph is a status in data colours.
- *    STATUS_ON_DATA_COLOURS is shrink-only; the dashboard and watchlist PR remaps SummaryStatusBadge and
- *    deletes its line.
+ *    No file is exempt: the watchlist and dashboard rows say "Ready" and "Error" on success and error.
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -30,11 +29,6 @@ const config = createRequire(import.meta.url)('../../tailwind.config.js') as {
   theme: { extend: { colors: Record<string, Record<string, string>> } }
 }
 const C = config.theme.extend.colors
-
-const STATUS_ON_DATA_COLOURS: Record<string, string> = {
-  'features/watchlist/components/SummaryStatusBadge.tsx':
-    'Ready/Error/Needs attention on beat/miss: brand-dashboard-watchlist maps them to success/error/warning',
-}
 
 type Rgb = [number, number, number]
 const hex = (h: string): Rgb => [0, 2, 4].map((i) => parseInt(h.replace('#', '').slice(i, i + 2), 16)) as Rgb
@@ -105,7 +99,7 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
     expect(source).not.toMatch(/tonal\s+recipe/i)
   })
 
-  it('no <Badge icon={null}> tells a status with beat or miss (shrink-only STATUS_ON_DATA_COLOURS)', () => {
+  it('no <Badge icon={null}> tells a status with beat or miss', () => {
     const files: string[] = []
     const walk = (dir: string) => {
       for (const entry of readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
@@ -143,9 +137,6 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
       visit(sf)
     }
 
-    const fileOf = (hit: string) => hit.slice(0, hit.lastIndexOf(':'))
-    const offending = new Set(found.map(fileOf))
-    expect(found.filter((hit) => !(fileOf(hit) in STATUS_ON_DATA_COLOURS)), 'use the success, error or warning variant').toEqual([])
-    expect(Object.keys(STATUS_ON_DATA_COLOURS).filter((file) => !offending.has(file)), 'fixed: delete its STATUS_ON_DATA_COLOURS line').toEqual([])
+    expect(found, 'use the success, error or warning variant').toEqual([])
   })
 })

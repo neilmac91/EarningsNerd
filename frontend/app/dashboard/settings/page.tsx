@@ -145,7 +145,7 @@ export default function SettingsPage() {
           {/* Profile — email (read-only) + editable display name */}
           <ProfileForm />
 
-          {/* Billing — plan, usage, trial countdown, renew/cancel, manage portal */}
+          {/* Billing: plan, usage, the trial end date, renewal or access-until date, manage portal */}
           <BillingPanel />
 
           {/* Connected accounts & sessions */}
@@ -175,10 +175,12 @@ export default function SettingsPage() {
             </div>
 
             <Button
+              wrap
+              className="max-w-full"
               onClick={handleExportData}
               loading={exportMutation.isPending}
               loadingText="Exporting..."
-              leftIcon={<DownloadSimpleIcon className="h-4 w-4" />}
+              leftIcon={<DownloadSimpleIcon className="h-4 w-4 shrink-0" />}
             >
               Download my data
             </Button>
@@ -212,7 +214,7 @@ export default function SettingsPage() {
             </div>
 
             {!showDeleteConfirm ? (
-              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} leftIcon={<TrashIcon className="h-4 w-4" />}>
+              <Button variant="destructive" wrap className="max-w-full" onClick={() => setShowDeleteConfirm(true)} leftIcon={<TrashIcon className="h-4 w-4 shrink-0" />}>
                 Delete my account
               </Button>
             ) : (
@@ -261,18 +263,20 @@ export default function SettingsPage() {
                   />
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   {/* `loading` (not disabled) while pending — loading keeps the resting
                       fill and refuses activation; disabled is only for the unmet confirm text. */}
                   <Button
                     variant="destructive"
+                    wrap
+                    className="max-w-full"
                     onClick={handleDeleteAccount}
                     disabled={deleteConfirmText.toLowerCase() !== 'delete my account'}
                     loading={deleteMutation.isPending}
                     loadingText="Deleting..."
-                    leftIcon={<TrashIcon className="h-4 w-4" />}
+                    leftIcon={<TrashIcon className="h-4 w-4 shrink-0" />}
                   >
-                    Confirm Deletion
+                    Delete my account
                   </Button>
 
                   <Button

@@ -99,7 +99,7 @@ for (const width of [320, 375, 390, 1440]) {
     const name = page.getByText('Taiwan Semiconductor Manufacturing Company Limited').last()
     const box = await name.boundingBox()
     expect(box!.x + box!.width).toBeLessThanOrEqual(clientWidth)
-    // Beside a long "Generating (<stage>)" badge a name column keeps a few characters (the row
+    // Beside a status badge such as "No summary yet" a name column keeps a few characters (the row
     // wraps its status cluster instead) rather than collapsing under the badge.
     const nameWidths = await page
       .locator('a[href^="/company/"]:has(+ div button[aria-label^="Remove "]) .truncate.font-semibold')

@@ -88,8 +88,9 @@ A change of more than one kind below takes the widest reading. Any of them adds
     - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
     - figure tiles outside /analysis: Analysis KPI.
 
-  The ESLint design rules and the vitest gates catch the mechanical slips; the 700-level and
-  surface clauses are checked in review.
+  The ESLint design rules and the vitest gates catch the mechanical slips
+  (`earningsnerd/direction-text-tokens` holds the 700-level clause for the direction text it
+  reaches); the surface clause is checked in review.
 
 A change that adds or edits a §4 recipe checks whether one of its rules can bind a change that
 never touches its component. If one can, move that rule into the rules before §4's recipe block,
