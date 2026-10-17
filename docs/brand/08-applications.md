@@ -539,7 +539,8 @@ carries no printed bracket marks, because a cover has no text for them to twin (
 email footer uses the app's own sentence form of the disclaimer (D-017). The mail's line now names
 filing data alone, "Filing data sourced from SEC EDGAR. Not investment advice.", since an
 earnings-day alert carries a provider's report dates (D-043), and its page is fluid up to 600 px
-(D-042).
+(D-042). Each mail opens with a hidden preheader of its own, the line most inboxes list beside the
+subject, so none is listed by the header's words (D-044).
 
 ## 6. The founder slot
 

@@ -10,9 +10,11 @@ the module pins the shape:
 - no f-string, ``+``/``%`` concatenation or ``.format(...)`` call anywhere in the module uses a
   bare ``name`` / ``full_name``;
 - every ``greeting = ...`` assignment is a call to ``_greeting``;
-- the hidden-text literal (``display:none``) appears only inside the two helpers that hide text, each of
-  which escapes its text as a unit: ``_hidden_text`` (the plain-text copy) and ``_preheader`` (the line an
-  inbox lists beside the subject).
+- the hidden-text literal (``display:none``) appears only inside the two helpers that hide text:
+  ``_hidden_text`` (the plain-text copy) and ``_preheader`` (the line an inbox lists beside the subject).
+  This walk checks where the literal sits, not what a helper escapes: that each escapes its text as a unit
+  is held by the renders (``test_email_name_escaping.py``, and ``test_mail_rendered_addresses.py``'s escape
+  test for the preheader).
 
 The result must equal the allow-list EXACTLY (today: empty). A new template that bypasses a
 helper fails with a pointer to the fix; a site that is ever sanctioned must carry a written reason.

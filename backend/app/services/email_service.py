@@ -38,11 +38,11 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
     """The page of every mail this module builds: the brand header, the panel that holds ``body``
     and ``footer``, and the footer line, after the mail's ``preheader``.
 
-    An inbox lists a mail by its subject and the first text its page holds, text the page hides
-    included, and the first this page shows is the header's ("EarningsNerd The summary that shows its
-    work."). So each mail hands in a line of its own, plain text, which ``_preheader`` sets first in
-    ``<body>``, hidden and followed by invisible characters, and the inbox lists the mail by its own
-    words.
+    Most inboxes list a mail by its subject and the first text its page holds, hidden text included,
+    and the first this page shows is the header's ("EarningsNerd The summary that shows its work.").
+    So each mail hands in a line of its own, plain text, which ``_preheader`` sets first in ``<body>``,
+    hidden and followed by characters that print as a blank or as nothing, and such an inbox lists the
+    mail by its own words.
 
     The header (the lockup, a hairline, the marked tagline) and the footer line are
     ``docs/brand/templates/email-header.html``, ported; tests/unit/test_mail_header_template.py
@@ -181,32 +181,44 @@ def _hidden_text(text: str) -> str:
     return f'<pre style="display:none">{html.escape(text)}</pre>'
 
 
-# What follows a preheader's line: a zero-width non-joiner and a no-break space, taken in turn, which a preview
-# shows as blank where it would collapse a run of plain spaces, so the header's words do not follow the line into it.
-_PREHEADER_FILL = "&zwnj;&nbsp;" * 120
+# What follows a preheader's line: the set React Email's preview component (Resend's, 6.11.3) repeats after its
+# line, a no-break space, a zero-width non-joiner, a zero-width space, a zero-width joiner and a zero-width no-break
+# space, one set for each character the line falls short of its _PREVIEW_LENGTH. Each prints as a blank or as
+# nothing. Clients differ in which of them a preview keeps, so the set mixes them, and in most previews the line is
+# followed by blanks, not the header's words; F26 checks the inboxes this mail reaches. React Email 6.11.2 left the
+# two direction marks out of the set, since spam filters such as rspamd score them as hidden text.
+_PREHEADER_FILL = "&nbsp;&zwnj;&#8203;&zwj;&#65279;"
+_PREVIEW_LENGTH = 200
 
 
 def _preheader(text: str) -> str:
     """A mail's preheader, the line an inbox lists beside its subject, as ``_wrap_html`` opens ``<body>``.
 
     The line is the mail's own, written per mail: it says what the mail is for, beside the subject, and
-    carries no link, address or name, since an inbox shows it before the mail is opened, a phone's lock
-    screen among them. It is hidden from the view (``display:none``, and classic Outlook's
-    ``mso-hide:all``) and followed by ``_PREHEADER_FILL``. Like ``_hidden_text``, it escapes the whole
-    text as a unit: user-supplied text never becomes markup. Gate:
-    tests/unit/test_mail_rendered_addresses.py.
+    carries no link, no address and not the reader's name, since an inbox shows it before the mail is
+    opened, a phone's lock screen among them. It is hidden from the view (``display:none``, with React
+    Email's other hiding properties, and classic Outlook's ``mso-hide:all``) and followed by
+    ``_PREHEADER_FILL``. Like ``_hidden_text``, it escapes the whole text as a unit: user-supplied text
+    never becomes markup. Gate: tests/unit/test_mail_rendered_addresses.py.
     """
+    fill = _PREHEADER_FILL * max(0, _PREVIEW_LENGTH - len(text))
     return (
-        '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
-        f"{html.escape(text)}{_PREHEADER_FILL}</div>"
+        '<div style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0;mso-hide:all;">'
+        f"{html.escape(text)}{fill}</div>"
     )
 
 
-def _listed(names: list[str]) -> str:
-    """Names as a preheader lists them: "A", "A and B", "A, B and C", up to four, and past four the first
-    three and how many more ("A, B, C and 2 more"), so the line stays short enough for an inbox to show."""
-    shown = [*names[:3], f"{len(names) - 3} more"] if len(names) > 4 else names
-    return " and ".join(part for part in (", ".join(shown[:-1]), *shown[-1:]) if part)
+def _listed(names: list[str], room: int = 89) -> str:
+    """Names as a preheader lists them: "A", "A and B", "A, B and C", as many as ``room`` holds, then how
+    many more ("A, B, C and 2 more"); the first is always named. The room is a line's 90 characters, the
+    gate's PREHEADER_LIMIT, less the full stop the callers end it with."""
+
+    def joined(shown: int) -> str:
+        rest = len(names) - shown
+        parts = [*names[:shown], f"{rest} more"] if rest > 0 else names[:shown]
+        return " and ".join(part for part in (", ".join(parts[:-1]), *parts[-1:]) if part)
+
+    return joined(next((shown for shown in range(len(names), 1, -1) if len(joined(shown)) <= room), 1))
 
 
 def render_welcome_email(
@@ -242,7 +254,7 @@ def render_welcome_email(
         f"Verify your email to secure your place: {verification_link}\n\n"
         "We'll keep you posted as we open up access."
     )
-    preheader = f"You're number {position} on the list. Verify your email to secure your spot."
+    preheader = f"You're number {position} on the list. Share your referral link to move up."
     return _wrap_html(html_body, preheader=preheader), text_body
 
 
@@ -335,7 +347,7 @@ async def send_verification_email(
         f"{greeting}\n\nVerify your email address and you can start reading.\n\n"
         f"{verification_link}\n\nThis link expires in 24 hours."
     )
-    preheader = "Confirm your address to start reading. The link works for 24 hours."
+    preheader = "Confirm your email address. The link works for 24 hours."
     await send_email(
         to=[to_email],
         subject="Verify your EarningsNerd email",
@@ -365,7 +377,7 @@ async def send_invite_email(
         f"{greeting}\n\nYou're invited to the EarningsNerd private beta. Full Pro access, on us.\n\n"
         f"{magic_link}\n\nThis is a single-use invite link. No credit card required."
     )
-    preheader = "Full Pro access to the private beta, with no card needed. The link works once."
+    preheader = "The private beta, with full Pro access and no card needed. The link works once."
     await send_email(
         to=[to_email],
         subject="Your EarningsNerd beta invite",
@@ -393,7 +405,7 @@ async def send_password_reset_email(
         f"{greeting}\n\nReset your EarningsNerd password:\n\n"
         f"{reset_link}\n\nThis link expires in 1 hour and can only be used once."
     )
-    preheader = "The link works once, for one hour. If you didn't ask for it, ignore this email."
+    preheader = "Set a new password. The link works once, for one hour."
     await send_email(
         to=[to_email],
         subject="Reset your EarningsNerd password",
@@ -454,7 +466,7 @@ async def send_account_exists_email(
         f"{greeting}\n\nSomeone tried to sign up with your email, but you already have an account.\n\n"
         f"Log in: {login_link}\nReset password: {reset_link}\n\nIf this wasn't you, no action is needed."
     )
-    preheader = "You already have an account with this address. Log in, or reset your password."
+    preheader = "You already have an account. Log in, or ignore this if it wasn't you."
     await send_email(
         to=[to_email],
         subject="Someone tried to sign up with your EarningsNerd email",
@@ -534,7 +546,7 @@ def render_new_filing_alert(
         + (f"{wording} Review the changes: {url}#what-changed\n\n" if wording else "")
         + f"Read the AI summary: {url}"
     )
-    preheader = f"{company_name} filed it with the SEC on {filing_date}."
+    preheader = f"{company_name} filed with the SEC on {filing_date}."
     return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
 
 
@@ -578,8 +590,9 @@ def render_daily_digest(
         for it in items
     )
     text_body = f"{greeting}\n\nNew filings from companies you track:\n{text_lines}"
-    preheader = _listed([f"{it['ticker']} {it['filing_type']}" for it in items])
-    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=f"{preheader}."), text_body
+    listed = [f"{it['ticker']} {it['filing_type']}" for it in items]
+    preheader = f"{_listed(listed)}."
+    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
 
 
 _DQ_FOOTER = (
@@ -761,12 +774,19 @@ def render_earnings_day_alert(
         for it in items
     )
     text_body = f"{greeting}\n\nCompanies you follow report earnings today:\n{text_lines}"
-    preheader = _listed([
-        f"{it.get('ticker')}"
-        + (f" {_TIME_LABEL[(it.get('time') or '').lower()]}" if (it.get('time') or '').lower() in _TIME_LABEL else "")
-        for it in items
-    ])
-    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=f"{preheader}."), text_body
+    if len(items) == 1:
+        # The subject names one company's ticker, so the line names the company in full, and its slot where the
+        # calendar gives one.
+        slot = _TIME_LABEL.get((items[0].get("time") or "").lower(), "today")
+        preheader = f"{items[0].get('company_name') or items[0].get('ticker')} reports {slot}."
+    else:
+        listed = [
+            f"{it.get('ticker')}"
+            + (f" {_TIME_LABEL[(it.get('time') or '').lower()]}" if (it.get('time') or '').lower() in _TIME_LABEL else "")
+            for it in items
+        ]
+        preheader = f"{_listed(listed)}."
+    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
 
 
 async def send_earnings_day_alert(

@@ -89,9 +89,12 @@ inline styles:
 And it holds every page to open ``<body>`` with the mail's preheader, the line an inbox lists beside the
 subject (``preheader_problems``, planted in ``PREHEADERS``): one, hidden from the view and from classic
 Outlook's, plain text of ``PREHEADER_LIMIT`` characters at most with no link or address, since an inbox shows
-it before the mail is opened, and the fill after it, so the header's words do not follow it into the preview.
-What it cannot see: whether a line says what its mail says, which review reads, and a line longer than the
-limit for a company whose name is longer than the inputs' (the alert's line prints the name as EDGAR spells it).
+it before the mail is opened, and the fill after it, so in most previews the header's words do not follow it.
+A list keeps to the limit however long it runs (``_listed``, pinned with fifty filings and four slots). What it
+cannot see: whether a line says what its mail says, which review reads; a bare host with no path, which passes
+because a company's name can be shaped like one; and a line longer than the limit for a company whose name is
+longer than the inputs' (the alert's line, and the earnings alert's for one company, print the name as the
+caller hands it in, first, so a preview that cuts the line cuts what follows it).
 """
 import ast
 import html
@@ -107,6 +110,7 @@ from types import CodeType
 from urllib.parse import unquote, urljoin, urlsplit
 
 import pytest
+import tinycss2
 
 from app.services import email_service
 from tests.support.mail_styles import (
@@ -1262,41 +1266,71 @@ def test_every_page_sent_takes_its_colours_from_the_tokens(rendered):
 # The preheader, as email_service._preheader opens <body> with it: the line an inbox lists beside the subject.
 _OPENS_BODY = re.compile(r'<body\b[^>]*>\s*<div style="([^"]*)">(.*?)</div>', re.IGNORECASE | re.DOTALL)
 _HIDDEN_DIV = re.compile(r'<div\b[^>]*\bstyle="[^"]*display\s*:\s*none', re.IGNORECASE)
-_LINK_OR_ADDRESS = re.compile(r"://|\bwww\.|@", re.IGNORECASE)
-# A bound this gate sets on a line, so that it fits a phone's preview: about what Apple Mail's two lines hold.
+# A scheme, a www. host, a host with a path, or an address. A bare host with no path passes: a company's name can
+# be shaped like one ("Amazon.com, Inc.").
+_LINK_OR_ADDRESS = re.compile(r"://|\bwww\.|\b[a-z0-9-]+\.[a-z]{2,}/|@", re.IGNORECASE)
+# A bound this gate sets on a line, so that most phones' previews show it whole (F26 checks the inboxes it reaches).
 PREHEADER_LIMIT = 90
-# The fill: a zero-width non-joiner and a no-break space, taken in turn, at least this many pairs (200 characters),
-# more than a preview shows past the line.
-FILL_PAIRS = 100
-_FILL_RUN = re.compile(f"(?:&zwnj;&nbsp;){{{FILL_PAIRS},}}$")
+# The fill, as React Email's preview component (6.11.3) repeats it after its line: one set of these characters,
+# each a blank or nothing, for each character the line falls short of PREVIEW_LENGTH, so that in most previews the
+# line is followed by blanks and not by the header's words. The set holds no direction mark, which spam filters
+# such as rspamd score as hidden text (React Email 6.11.2's note).
+FILL_SET = "&nbsp;&zwnj;&#8203;&zwj;&#65279;"
+PREVIEW_LENGTH = 200
+_FILL_RUN = re.compile(f"(?:{re.escape(FILL_SET)})+$")
+# How React Email's preview component hides the line besides display:none, for a client that drops it.
+REACT_EMAIL_HIDING = {"overflow": "hidden", "line-height": "1px", "opacity": "0", "max-height": "0", "max-width": "0"}
+
+
+def _declared(style: str) -> dict[str, str]:
+    """The value each property takes in an inline style, as a browser reads one: an important declaration over a
+    normal one, among equals the last, and a comment is no declaration."""
+    won: dict[str, tuple[bool, str]] = {}
+    for item in tinycss2.parse_blocks_contents(style, skip_comments=True, skip_whitespace=True):
+        if item.type == "declaration" and (item.lower_name not in won or item.important or not won[item.lower_name][0]):
+            won[item.lower_name] = (item.important, tinycss2.serialize(item.value).strip().lower())
+    return {name: value for name, (_, value) in won.items()}
 
 
 def preheader_problems(page: str) -> list[str]:
     """Where a page breaks the preheader's rules (email_service._preheader). It opens <body> with one hidden line of
     the mail's own, so an inbox lists the mail by its own words and not by the header's. The line is plain text,
-    PREHEADER_LIMIT characters at most, with no link or address, since an inbox shows it before the mail is opened,
-    a phone's lock screen among them. The fill comes after it, so the header's words do not follow the line into
-    the preview."""
+    PREHEADER_LIMIT characters at most, with no link or address (_LINK_OR_ADDRESS), since an inbox shows it before
+    the mail is opened, a phone's lock screen among them. It is hidden as React Email hides it, with classic
+    Outlook's mso-hide:all, each property read as a browser reads the style (_declared). The fill comes after it, a
+    set of React Email's characters for each character the line falls short of PREVIEW_LENGTH, so in most previews
+    the header's words do not follow the line."""
     opening = _OPENS_BODY.search(page)
     if not opening:
         return ["the page opens <body> with no preheader, so an inbox lists the mail by the header's words: hand "
                 "_wrap_html the mail's own line"]
     style, inner = opening.groups()
-    declared = re.sub(r"\s", "", style).lower()
+    declared = _declared(html.unescape(style))
     problems = []
-    if "display:none" not in declared:
+    if declared.get("display") != "none":
         problems.append("the preheader is not display:none, so the view shows it above the header")
-    if "mso-hide:all" not in declared:
+    if declared.get("mso-hide") != "all":
         problems.append("the preheader is not mso-hide:all, so classic Outlook shows it above the header")
-    fill = _FILL_RUN.search(inner)
-    if not fill:
+    if missing := [f"{name}:{value}" for name, value in REACT_EMAIL_HIDING.items() if declared.get(name) != value]:
         problems.append(
-            f"the fill no longer follows the preheader's line ({FILL_PAIRS} pairs of a zero-width non-joiner and a no-break "
-            "space at least), so the header's words follow it into the preview"
+            f"the preheader is not hidden as React Email hides it ({'; '.join(missing)} missing), so a client that drops "
+            "display:none shows it"
         )
+    fill = _FILL_RUN.search(inner)
     if "<" in inner:
         problems.append("the preheader holds markup: its line is plain text, escaped as a unit")
     line = html.unescape(inner[: fill.start()] if fill else inner).strip()
+    sets = (fill.end() - fill.start()) // len(FILL_SET) if fill else 0
+    if not fill:
+        problems.append(
+            "the fill no longer follows the preheader's line: React Email's set, repeated, ends the preheader, so the "
+            "header's words do not follow the line into the preview"
+        )
+    elif sets + len(line) < PREVIEW_LENGTH:
+        problems.append(
+            f"the fill no longer follows the preheader's line in full ({sets} sets after {len(line)} characters, short "
+            f"of {PREVIEW_LENGTH}), so the header's words follow it into a preview that long"
+        )
     if not re.search(r"\w", line):
         problems.append("the preheader's line is empty, so an inbox lists the mail by the header's words")
     if len(line) > PREHEADER_LIMIT:
@@ -1323,12 +1357,13 @@ def test_a_preheader_escapes_what_a_caller_hands_in():
     pages = [
         email_service.render_new_filing_alert(name=None, company_name=company, ticker=ticker, filing_type=form, filing_date="2026-01-01", filing_id=1)[0],
         email_service.render_daily_digest(name=None, items=[dict(company_name=company, ticker=ticker, filing_type=form, filing_date="2026-01-01", filing_id=1)])[0],
+        email_service.render_earnings_day_alert(name=None, items=[dict(ticker=ticker, company_name=company, time="bmo"), dict(ticker="B", time="amc")])[0],
         email_service.render_earnings_day_alert(name=None, items=[dict(ticker=ticker, company_name=company, time="bmo")])[0],
     ]
     problems = [problem for page in pages for problem in preheader_problems(page)]
     assert not problems, "a preheader carries what a caller hands in as text, escaped as a unit:\n" + "\n".join(problems)
     lines = [_preheader_line(page) for page in pages]
-    assert company in lines[0] and ticker in lines[1] and form in lines[1] and ticker in lines[2], (
+    assert company in lines[0] and ticker in lines[1] and form in lines[1] and ticker in lines[2] and company in lines[3], (
         f"each line reads what the caller handed in, escaped once and no more: {lines}"
     )
 
@@ -1343,16 +1378,16 @@ def _preheader_line(page: str) -> str:
 # Each mail's line, as the render's inputs give it: the words an inbox lists the mail by. A change to a line is
 # a change to this list, read in review.
 PREHEADER_LINES = {
-    "render_welcome_email": ["You're number 3 on the list. Verify your email to secure your spot."],
+    "render_welcome_email": ["You're number 3 on the list. Share your referral link to move up."],
     "render_referral_success_email": ["Someone joined with your referral link. You're now number 2."],
-    "send_verification_email": ["Confirm your address to start reading. The link works for 24 hours."],
-    "send_invite_email": ["Full Pro access to the private beta, with no card needed. The link works once."] * 2,
-    "send_password_reset_email": ["The link works once, for one hour. If you didn't ask for it, ignore this email."],
+    "send_verification_email": ["Confirm your email address. The link works for 24 hours."],
+    "send_invite_email": ["The private beta, with full Pro access and no card needed. The link works once."] * 2,
+    "send_password_reset_email": ["Set a new password. The link works once, for one hour."],
     "send_oauth_linked_email": ["If this was you, there's nothing to do. If it wasn't, reset your password now."],
-    "send_account_exists_email": ["You already have an account with this address. Log in, or reset your password."],
-    "render_new_filing_alert": [f"{COMPANY} filed it with the SEC on 2026-01-01."] * 5,
+    "send_account_exists_email": ["You already have an account. Log in, or ignore this if it wasn't you."],
+    "render_new_filing_alert": [f"{COMPANY} filed with the SEC on 2026-01-01."] * 5,
     "render_daily_digest": ["PVCT 10-K, PVCT 10-K and PVCT 10-K."],
-    "render_earnings_day_alert": ["PVCT before open and BETA during market hours.", "PVCT after close."],
+    "render_earnings_day_alert": ["PVCT before open and BETA during market hours.", f"{COMPANY} reports after close."],
     "render_data_quality_report": ["This week's scan, each section with its count."] * 2,
 }
 # The eleven mails the module builds, each once: its render, or the send_ function that builds its page.
@@ -1382,44 +1417,83 @@ def test_each_mail_lists_by_its_own_line(rendered):
     )
     firsts = {mail: PREHEADER_LINES[mail][0] for mail in MAILS}
     assert len(set(firsts.values())) == len(MAILS), f"each mail lists by a line of its own: {firsts}"
+    # The renders pass NAME as the reader's name, shaped like an address; no line prints any part of it.
+    named = [line for found in lines.values() for line in found if NAME.split("@")[0] in line]
+    assert not named, f"a preheader names no one, since a phone's lock screen shows it: {named}"
 
 
-def test_a_preheader_lists_four_names_and_past_four_the_first_three_and_how_many_more():
-    assert [email_service._listed(list("ABCDEFG")[:n]) for n in range(8)] == [
-        "", "A", "A and B", "A, B and C", "A, B, C and D", "A, B, C and 2 more", "A, B, C and 3 more", "A, B, C and 4 more",
+def test_a_preheader_lists_as_many_names_as_its_line_holds_then_how_many_more():
+    listed = email_service._listed
+    assert [listed(list("ABCDE")[:n]) for n in range(6)] == ["", "A", "A and B", "A, B and C", "A, B, C and D", "A, B, C, D and E"]
+    tickers = [f"T{n:03d} 10-K" for n in range(50)]
+    assert listed(tickers) == ", ".join(tickers[:6]) + ", T006 10-K and 43 more", "as many as 89 characters hold, then how many more"
+    assert listed(["X" * 120, "B"]) == "X" * 120 + " and 1 more", "the first is named, however long"
+    assert listed(list("ABCDE"), room=15) == "A, B and 3 more"
+
+
+def test_a_long_list_keeps_its_line_and_a_company_alone_is_named():
+    # Four companies reporting during market hours, as the calendar names them, and a digest of fifty filings.
+    hours = [dict(ticker=ticker, company_name=COMPANY, time="dmh") for ticker in ("GOOGL", "AMZN", "MSFT", "AAPL")]
+    digest = [dict(DIGEST_ITEM, ticker=f"T{n:03d}", filing_id=n) for n in range(50)]
+    pages = [
+        email_service.render_earnings_day_alert(name=None, items=hours)[0],
+        email_service.render_daily_digest(name=None, items=digest)[0],
     ]
+    problems = [problem for page in pages for problem in preheader_problems(page)]
+    assert not problems, "\n".join(problems)
+    assert _preheader_line(pages[0]) == "GOOGL during market hours, AMZN during market hours, MSFT during market hours and 1 more."
+    assert _preheader_line(pages[1]).endswith("T006 10-K and 43 more.")
+    # A company alone is named in full, since the subject names its ticker; with no slot, it reports today.
+    alone = email_service.render_earnings_day_alert(name=None, items=[dict(ticker="PVCT", company_name=COMPANY)])[0]
+    assert _preheader_line(alone) == f"{COMPANY} reports today."
 
 
 def _opening(div: str) -> str:
     return f'<!doctype html><html><body style="margin:0;">{div}<table><tr><td>EarningsNerd</td></tr></table></body></html>'
 
 
-_FILL = "&zwnj;&nbsp;" * 100
-_HIDES = "display:none;max-height:0;overflow:hidden;mso-hide:all;"
+_HIDES = "display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0;mso-hide:all;"
+
+
+def _hidden(line: str, fill: str | None = None, style: str = _HIDES) -> str:
+    """A preheader as _preheader writes one: hidden, the line as markup, then its fill (by default, a set for each
+    character the line falls short of PREVIEW_LENGTH)."""
+    sets = PREVIEW_LENGTH - len(html.unescape(line))
+    return f'<div style="{style}">{line}{FILL_SET * sets if fill is None else fill}</div>'
+
+
 # Each way a page can break the preheader's rules, and the look-alikes that keep them.
 PREHEADERS = [
     # Broken.
     ("no preheader", '<!doctype html><html><body style="margin:0;"><table><tr><td>EarningsNerd</td></tr></table></body></html>', "with no preheader"),
-    ("the preheader after the header", f'<!doctype html><html><body><table><tr><td>EarningsNerd</td></tr></table><div style="{_HIDES}">A line.{_FILL}</div></body></html>', "with no preheader"),
-    ("a preheader the view shows", _opening(f'<div style="max-height:0;overflow:hidden;mso-hide:all;">A line.{_FILL}</div>'), "not display:none"),
-    ("a preheader classic Outlook shows", _opening(f'<div style="display:none;max-height:0;overflow:hidden;">A line.{_FILL}</div>'), "not mso-hide:all"),
-    ("a line without its fill", _opening(f'<div style="{_HIDES}">A line.</div>'), "the fill no longer follows"),
-    ("a line with a fill too short", _opening(f'<div style="{_HIDES}">A line.{"&zwnj;&nbsp;" * 99}</div>'), "the fill no longer follows"),
-    ("a line whose fill comes before it", _opening(f'<div style="{_HIDES}">{_FILL}A line.</div>'), "the fill no longer follows"),
-    ("a line that holds markup", _opening(f'<div style="{_HIDES}"><b>Acme</b> filed it.{_FILL}</div>'), "holds markup"),
-    ("an empty line", _opening(f'<div style="{_HIDES}">{_FILL}</div>'), "line is empty"),
-    ("a line of punctuation", _opening(f'<div style="{_HIDES}">. {_FILL}</div>'), "line is empty"),
-    ("a line past the limit", _opening(f'<div style="{_HIDES}">{"x" * 91}{_FILL}</div>'), "runs to 91 characters"),
-    ("a line with a link", _opening(f'<div style="{_HIDES}">Reset it at https://e.test/r?t=abc{_FILL}</div>'), "carries a link or an address"),
-    ("a line with a bare host", _opening(f'<div style="{_HIDES}">Read it at www.earningsnerd.io{_FILL}</div>'), "carries a link or an address"),
-    ("a line with an address", _opening(f'<div style="{_HIDES}">Sent to a@e.test{_FILL}</div>'), "carries a link or an address"),
-    ("a second preheader", _opening(f'<div style="{_HIDES}">A line.{_FILL}</div><div style="{_HIDES}">Another.{_FILL}</div>'), "2 hidden lines"),
+    ("the preheader after the header", f'<!doctype html><html><body><table><tr><td>EarningsNerd</td></tr></table>{_hidden("A line.")}</body></html>', "with no preheader"),
+    ("a preheader the view shows", _opening(_hidden("A line.", style=_HIDES.replace("display:none;", ""))), "not display:none"),
+    ("a preheader classic Outlook shows", _opening(_hidden("A line.", style=_HIDES.replace("mso-hide:all;", ""))), "not mso-hide:all"),
+    ("a preheader a later display shows", _opening(_hidden("A line.", style=_HIDES + "display:block;")), "not display:none"),
+    ("a preheader a later mso-hide shows", _opening(_hidden("A line.", style=_HIDES + "mso-hide:none;")), "not mso-hide:all"),
+    ("a preheader hidden only by display:none", _opening(_hidden("A line.", style="display:none;mso-hide:all;")), "not hidden as React Email hides it"),
+    ("a line without its fill", _opening(_hidden("A line.", fill="")), "the fill no longer follows"),
+    ("a line with a fill one set short", _opening(_hidden("A line.", fill=FILL_SET * 192)), "the fill no longer follows"),
+    ("a line whose fill comes before it", _opening(f'<div style="{_HIDES}">{FILL_SET * 193}A line.</div>'), "the fill no longer follows"),
+    ("a line with the old fill", _opening(_hidden("A line.", fill="&zwnj;&nbsp;" * 120)), "the fill no longer follows"),
+    ("a fill with the direction marks", _opening(_hidden("A line.", fill="&nbsp;&zwnj;&#8203;&zwj;&lrm;&rlm;&#65279;" * 193)), "the fill no longer follows"),
+    ("a line that holds markup", _opening(_hidden("<b>Acme</b> filed it.")), "holds markup"),
+    ("an empty line", _opening(_hidden("")), "line is empty"),
+    ("a line of punctuation", _opening(_hidden(". ")), "line is empty"),
+    ("a line past the limit", _opening(_hidden("x" * 91)), "runs to 91 characters"),
+    ("a line with a link", _opening(_hidden("Reset it at https://e.test/r?t=abc")), "carries a link or an address"),
+    ("a line with a www host", _opening(_hidden("Read it at www.earningsnerd.io")), "carries a link or an address"),
+    ("a line with a bare host and a path", _opening(_hidden("Reset it at earningsnerd.io/r?t=abc")), "carries a link or an address"),
+    ("a line with an address", _opening(_hidden("Sent to a@e.test")), "carries a link or an address"),
+    ("a second preheader", _opening(_hidden("A line.") + _hidden("Another.")), "2 hidden lines"),
     # Kept.
     ("the shell's own preheader", email_service._wrap_html("<p>Body</p>", preheader="The mail's own line."), None),
-    ("a line with markup's characters, escaped", _opening(f'<div style="{_HIDES}">Tom &amp; Jerry &lt;TJ&gt; filed it.{_FILL}</div>'), None),
-    ("a line at the limit", _opening(f'<div style="{_HIDES}">{"x" * 90}{_FILL}</div>'), None),
-    ("a line with a longer fill", _opening(f'<div style="{_HIDES}">A line.{_FILL}&zwnj;&nbsp;&zwnj;&nbsp;</div>'), None),
-    ("a line whose style is spaced as written", _opening(f'<div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">A line.{_FILL}</div>'), None),
+    ("a line with markup's characters, escaped", _opening(_hidden("Tom &amp; Jerry &lt;TJ&gt; filed it.")), None),
+    ("a line at the limit", _opening(_hidden("x" * 90)), None),
+    ("a company's name shaped like a host", _opening(_hidden("Amazon.com, Inc. filed with the SEC on 2026-01-01.")), None),
+    ("a line with a longer fill", _opening(_hidden("A line.", fill=FILL_SET * 195)), None),
+    ("a line whose style is spaced as written", _opening(_hidden("A line.", style="display: none; overflow: hidden; line-height: 1px; opacity: 0; max-height: 0; max-width: 0; mso-hide: all;")), None),
+    ("a display:none that an important declaration keeps", _opening(_hidden("A line.", style=_HIDES.replace("display:none;", "display:none !important;") + "display:block;")), None),
 ]
 
 
@@ -1538,7 +1612,7 @@ def test_the_planted_lists_keep_their_counts():
         "PREHEADERS": (sum(isinstance(case[-1], str) for case in PREHEADERS), sum(case[-1] is None for case in PREHEADERS)),
     }
     assert counts == {
-        "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (7, 1), "PREHEADERS": (15, 5),
+        "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (7, 1), "PREHEADERS": (21, 7),
     }, "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     for name, cases in (
         ("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT), ("PREHEADERS", PREHEADERS),

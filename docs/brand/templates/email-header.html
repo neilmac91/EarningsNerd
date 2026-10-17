@@ -11,8 +11,9 @@
   file. The page around them is _wrap_html's own. Its head sets the charset, this file's viewport and
   the light-only colour scheme. Its body opens with the mail's preheader, the line an inbox lists
   beside the subject, hidden from the view and from classic Outlook's (display:none; mso-hide:all)
-  and followed by invisible characters, so the inbox lists each mail by its own words and not by this
-  header's. The header, the panel and the footer line each take the screen's
+  and followed by React Email's fill, characters that print as a blank or as nothing, so most inboxes
+  list each mail by its own words and not by this header's. The header, the panel and the footer line
+  each take the screen's
   width up to 600px (width:100%;max-width:600px), so a phone lays the page out at its own width and
   shows the text at its set size, in portrait at least. Classic Outlook reads no max-width, so each
   sits in a 600px table that only Outlook's conditional comments show. The header sets

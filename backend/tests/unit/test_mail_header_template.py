@@ -208,7 +208,7 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
         "the page opens <body> with the mail's preheader, hidden from the view and from classic Outlook's, so an inbox "
         "lists the mail by its own line and not by the header's words"
     )
-    assert page.count(html.escape(_LINE)) == 1, "the preheader sits once, first in <body>"
+    assert html.unescape(page).count(_LINE) == 1, "the preheader sits once, first in <body>"
     tokens = _tokens(page)
     panel = _table(tokens, next(t for t in tokens if t.startswith("<table") and "border:1px solid #E5E7EB" in t))
     assert page.count(body) == 1 and body in "".join(panel), "the body sits once, in the panel"
