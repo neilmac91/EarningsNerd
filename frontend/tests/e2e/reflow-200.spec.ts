@@ -382,28 +382,51 @@ test.describe('a 390x664 phone at 200% text', () => {
     two apart, that left the message too little width and pushed the Retry past the screen: at 390px the page
     scrolled to 445px, the Retry's right edge 87px past the alert's, its label cut to "Try aga". The Retry takes its
     own row under the message, as a Notice's action does. A failed search at 360 and 390px, at rest and with the
-    press's request held open (busy, "Trying again…"): the page does not scroll sideways, the Retry lies inside the
-    alert, no control's text paints past its own box, and neither the Retry's box nor the alert's moves through the
-    swap. CI has no backend: the search answers 503 with the backend's own detail, through the client's own retries,
-    and the press's request is held open. */
+    press's request held open (busy, "Trying again…"): nothing in the alert reaches past the screen, so the alert
+    adds nothing to the page's width (measured against the page's own width before the search: at 360px the
+    homepage's billing toggle still widens it on this branch, #1371's to fix, and that is not this alert's), the
+    Retry lies inside the alert, no control's text paints past its own box, and neither the Retry's box nor the
+    alert's moves through the swap (in page coordinates, since focusing the Retry scrolls it into view). CI has no
+    backend: the search answers 503 with the backend's own detail, through the client's own retries, and the
+    press's request is held open. */
 test.describe('the homepage search alert at 200% text', () => {
   const SEARCH_DOWN = 'SEC EDGAR is temporarily unavailable. Please retry shortly.'
-  /** The alert's box and its Retry's, rounded, and whether the Retry lies inside the alert. */
+  /** The alert's box and its Retry's in page coordinates, and whether the Retry lies inside the alert. */
   const boxes = (alert: Locator) =>
     alert.evaluate((el) => {
       const a = el.getBoundingClientRect()
       const b = el.querySelector('button')!.getBoundingClientRect()
-      const px = (r: DOMRect) => `${Math.round(r.left)}-${Math.round(r.right)} x ${Math.round(r.top)}-${Math.round(r.bottom)}px`
+      const px = (r: DOMRect) =>
+        `${Math.round(r.left + scrollX)}-${Math.round(r.right + scrollX)} x ${Math.round(r.top + scrollY)}-${Math.round(r.bottom + scrollY)}px`
       return {
         alert: px(a),
         retry: px(b),
         inside: b.left >= a.left - 0.5 && b.right <= a.right + 0.5 && b.top >= a.top - 0.5 && b.bottom <= a.bottom + 0.5,
       }
     })
+  /** The right-most edge of the alert, of any box in it and of any text run in it, against the viewport's width. */
+  const reach = (alert: Locator) =>
+    alert.evaluate((el) => {
+      let right = el.getBoundingClientRect().right
+      let what = 'the alert'
+      for (const box of el.querySelectorAll('*')) {
+        const r = box.getBoundingClientRect().right
+        if (r > right) [right, what] = [r, `${box.tagName.toLowerCase()} "${(box.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)}"`]
+      }
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        const r = range.getBoundingClientRect().right
+        if (r > right) [right, what] = [r, `text "${node.textContent.replace(/\s+/g, ' ').trim().slice(0, 30)}"`]
+      }
+      return { right: Math.round(right * 10) / 10, what, viewport: document.documentElement.clientWidth }
+    })
   for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }]) {
     test.describe(`a ${viewport.width}px phone`, () => {
       test.use({ viewport, isMobile: true, hasTouch: true })
-      test(`home (/) keeps a failed search's Try again inside its alert at ${viewport.width}px, at rest and busy, and does not scroll sideways`, async ({ page, baseURL }) => {
+      test(`home (/) keeps a failed search's Try again inside its alert at ${viewport.width}px, at rest and busy, and the alert never widens the page`, async ({ page, baseURL }) => {
         await page.addInitScript(() => {
           try {
             localStorage.setItem('theme', 'light')
@@ -422,6 +445,8 @@ test.describe('the homepage search alert at 200% text', () => {
         await h1(page)
         await page.evaluate(() => document.fonts.ready)
         await doubleText(page)
+        const without = await measure(page)
+        const pageWidth = Math.max(without.clientWidth, without.scrollWidth)
 
         await page.getByRole('combobox', { name: 'Or start with a company' }).fill('apple')
         const alert = page.getByRole('alert').filter({ hasText: 'Error searching companies' })
@@ -431,11 +456,17 @@ test.describe('the homepage search alert at 200% text', () => {
         await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
 
         const at = `the search alert at ${viewport.width}px and 200% text`
-        const rest = await boxes(alert)
-        const atRest = await measure(page)
-        expect(atRest.scrollWidth, `${at}, at rest: ${why(atRest)}`).toBeLessThanOrEqual(atRest.clientWidth)
-        expect(rest.inside, `${at}, at rest: the Retry (${rest.retry}) lies inside the alert (${rest.alert})`).toBe(true)
-        expect(await collisions(alert), `${at}, at rest: its controls`).toEqual([])
+        const check = async (state: string) => {
+          const r = await reach(alert)
+          expect(r.right, `${at}, ${state}: nothing in it reaches past the ${r.viewport}px viewport; the furthest is ${r.what} at ${r.right}px`).toBeLessThanOrEqual(r.viewport + 0.5)
+          const m = await measure(page)
+          expect(m.scrollWidth, `${at}, ${state}: the alert widens the page past its own ${pageWidth}px; ${why(m)}`).toBeLessThanOrEqual(pageWidth)
+          const b = await boxes(alert)
+          expect(b.inside, `${at}, ${state}: the Retry (${b.retry}) lies inside the alert (${b.alert})`).toBe(true)
+          expect(await collisions(alert), `${at}, ${state}: its controls`).toEqual([])
+          return b
+        }
+        const rest = await check('at rest')
 
         holdNext = true
         await alert.getByRole('button', { name: 'Try again', exact: true }).focus()
@@ -443,11 +474,7 @@ test.describe('the homepage search alert at 200% text', () => {
         await expect(alert.getByRole('button', { name: 'Trying again…', exact: true })).toBeVisible()
         await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
 
-        const busy = await boxes(alert)
-        const whileBusy = await measure(page)
-        expect(whileBusy.scrollWidth, `${at}, busy: ${why(whileBusy)}`).toBeLessThanOrEqual(whileBusy.clientWidth)
-        expect(busy.inside, `${at}, busy: the Retry (${busy.retry}) lies inside the alert (${busy.alert})`).toBe(true)
-        expect(await collisions(alert), `${at}, busy: its controls`).toEqual([])
+        const busy = await check('busy')
         expect(busy, `${at}: the press moves neither the Retry nor the alert`).toEqual(rest)
       })
     })
