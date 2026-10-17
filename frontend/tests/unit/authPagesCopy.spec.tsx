@@ -279,10 +279,10 @@ describe('login: the way in for a visitor without an account (D-046, F44)', () =
   // notice and the header do: while registration is by invite, and until the registration payload answers or when
   // it cannot, it asks for an invite on /waitlist; open registration offers the free account on /register.
   it.each([
-    ['no answer', null, 'Request an invite', '/waitlist'],
-    ['invite_only', { mode: 'invite_only', beta_promo_enabled: false }, 'Request an invite', '/waitlist'],
-    ['public', { mode: 'public', beta_promo_enabled: false }, 'Create a free account', '/register'],
-  ] as const)('under %s it reads "%s" and goes to %s', async (_mode, config, label, href) => {
+    ['no answer', 'Request an invite', '/waitlist', null],
+    ['invite_only', 'Request an invite', '/waitlist', { mode: 'invite_only', beta_promo_enabled: false }],
+    ['public', 'Create a free account', '/register', { mode: 'public', beta_promo_enabled: false }],
+  ] as const)('under %s it reads "%s" and goes to %s', async (_mode, label, href, config) => {
     useSearchParams.mockReturnValue(new URLSearchParams())
     getRegistrationConfig.mockClear()
     getRegistrationConfig.mockResolvedValueOnce(config)
