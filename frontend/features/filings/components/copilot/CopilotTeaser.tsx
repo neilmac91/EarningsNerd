@@ -72,7 +72,7 @@ export default function CopilotTeaser({
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-panel-light dark:bg-panel-dark ring-1 ring-brand-border">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-panel-light dark:bg-panel-dark ring-1 ring-brand-border dark:ring-brand-border-dark">
             <LockSimpleIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
           </span>
         </div>

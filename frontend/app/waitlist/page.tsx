@@ -115,10 +115,12 @@ export default function WaitlistPage() {
               </p>
             </div>
             {/* Server component — buttonVariants() can't be called here (it's a client export),
-                so this CTA stays a token-clean hand-rolled secondary pill. */}
+                so this CTA stays a token-clean hand-rolled secondary pill. It has no hover colour: the
+                hover hairline it carried equalled its resting one in light and lost to the resting dark
+                border in dark, so it painted nothing in either theme. */}
             <a
               href="#waitlist"
-              className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-border focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               Join the waitlist
             </a>
