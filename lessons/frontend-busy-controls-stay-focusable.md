@@ -203,12 +203,22 @@ move focus a mouse user did not lose.
   site passes none. It reads "Trying again…" only while its own press's retry runs, and keeps that label's room
   (with the spinner's) at rest, Button's `reserveLoadingText`, so the swap never resizes it or moves what sits
   beside it (e2e `filing-source-chip.spec.ts` holds the box; chief design kept the reserve on 2026-10-17, D-032).
-  That room must never cost reflow: the Retry takes its own row under its message, as a Notice's action does,
-  never a place beside a `flex-1` message in a row that cannot wrap. The homepage search alert had it there; at
-  390px under 200% text the reserve's narrow minimum (the spinner, the gap and "again…", 178px) left the message
-  too little of the row, and at rest the Retry ran 87px past the alert and the page scrolled to 445px
-  (`tests/e2e/reflow-200.spec.ts` holds the alert at 360 and 390px under 200% text, at rest and busy). During a
-  refetch nobody
+  That room must never cost reflow, and a reserved Retry is wider than its label, so its family is every place a
+  retry control sits, each checked at 320, 360 and 390px under 200% text, at rest and busy. The Retry takes its own
+  row under its message, as a Notice's action does, never a place beside its message or another control in a row
+  that cannot wrap; a card's two actions wrap (GuidanceCard's action row, global-error's); a message carrying the
+  backend's words breaks a long token; and the reserve's rows wrap, the label based at its longest word, so a
+  cramped Retry sets its spinner above its label instead of growing past "again…" beside the spinner. Found that
+  way on #1380: the homepage search alert (the reserve's narrow minimum, the spinner, the gap and "again…", 178px,
+  left its message too little of the row: at rest the Retry ran 87px past the alert, the page 445px at 390px), the
+  full-text search alert (Codex: the page 472px, 848px with a long token), the dashboard's account card (Try again
+  beside Go to login, the Retry's left edge off the screen at 320px), the route, dashboard and root error fallbacks
+  (two actions past the card or the screen at 320px), and the company page's comparison card (a Notice in a card:
+  the page 326px at 320px). Gates: `tests/e2e/reflow-200.spec.ts` ("a failure's controls stay inside their card"),
+  `full-text-search.spec.tsx` (its browser case waits on E39), `twoActionsWrap.spec.tsx` and `button-wrap.spec.tsx`.
+  Its limit: inside a card, a Notice's text column after its icon and both paddings is narrower at 320px under
+  200% text than any Try again, reserved or not, so the Retry still runs past the Notice's border there, inside the
+  card. During a refetch nobody
   pressed it is busy (aria-busy, aria-disabled, the spinner, a refused press) under its own label: a label
   swap inside the card's `role=alert` would re-announce the failure at every reconnect. Two failed reads in one
   Notice share one RetryButton (the dashboard's plan strip, the pricing page's details Notice): its press

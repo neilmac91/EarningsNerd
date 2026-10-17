@@ -377,107 +377,227 @@ test.describe('a 390x664 phone at 200% text', () => {
   }
 })
 
-/** The homepage search's failure alert (CompanySearch). Its Try again keeps the room of "Trying again…" at rest
-    (RetryButton), so at 200% text on a phone it is wider than its label. Beside the message, in a row that held the
-    two apart, that left the message too little width and pushed the Retry past the screen: at 390px the page
-    scrolled to 445px, the Retry's right edge 87px past the alert's, its label cut to "Try aga". The Retry takes its
-    own row under the message, as a Notice's action does. A failed search at 360 and 390px, at rest and with the
-    press's request held open (busy, "Trying again…"): nothing in the alert reaches past the screen, so the alert
-    adds nothing to the page's width (measured against the page's own width before the search: at 360px the
-    homepage's billing toggle still widens it on this branch, #1371's to fix, and that is not this alert's), the
-    Retry lies inside the alert, no control's text paints past its own box, and neither the Retry's box nor the
-    alert's moves through the swap (in page coordinates, since focusing the Retry scrolls it into view). CI has no
-    backend: the search answers 503 with the backend's own detail, through the client's own retries, and the
-    press's request is held open. */
-test.describe('the homepage search alert at 200% text', () => {
-  const SEARCH_DOWN = 'SEC EDGAR is temporarily unavailable. Please retry shortly.'
-  /** The alert's box and its Retry's in page coordinates, and whether the Retry lies inside the alert. */
-  const boxes = (alert: Locator) =>
-    alert.evaluate((el) => {
-      const a = el.getBoundingClientRect()
-      const b = el.querySelector('button')!.getBoundingClientRect()
-      const px = (r: DOMRect) =>
-        `${Math.round(r.left + scrollX)}-${Math.round(r.right + scrollX)} x ${Math.round(r.top + scrollY)}-${Math.round(r.bottom + scrollY)}px`
-      return {
-        alert: px(a),
-        retry: px(b),
-        inside: b.left >= a.left - 0.5 && b.right <= a.right + 0.5 && b.top >= a.top - 0.5 && b.bottom <= a.bottom + 0.5,
-      }
-    })
-  /** The right-most edge of the alert, of any box in it and of any text run in it, against the viewport's width. */
-  const reach = (alert: Locator) =>
-    alert.evaluate((el) => {
-      let right = el.getBoundingClientRect().right
-      let what = 'the alert'
-      for (const box of el.querySelectorAll('*')) {
-        const r = box.getBoundingClientRect().right
-        if (r > right) [right, what] = [r, `${box.tagName.toLowerCase()} "${(box.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)}"`]
-      }
-      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        if (!node.textContent?.trim()) continue
-        const range = document.createRange()
-        range.selectNodeContents(node)
-        const r = range.getBoundingClientRect().right
-        if (r > right) [right, what] = [r, `text "${node.textContent.replace(/\s+/g, ' ').trim().slice(0, 30)}"`]
-      }
-      return { right: Math.round(right * 10) / 10, what, viewport: document.documentElement.clientWidth }
-    })
-  for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }]) {
-    test.describe(`a ${viewport.width}px phone`, () => {
-      test.use({ viewport, isMobile: true, hasTouch: true })
-      test(`home (/) keeps a failed search's Try again inside its alert at ${viewport.width}px, at rest and busy, and the alert never widens the page`, async ({ page, baseURL }) => {
-        await page.addInitScript(() => {
-          try {
-            localStorage.setItem('theme', 'light')
-            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
-          } catch {}
+/** A failure's controls stay inside their card at 200% text on a phone (the reserve's condition, D-032: the room of
+    "Trying again…" that RetryButton keeps at rest must never cost reflow). That room makes a Retry wider than its
+    label; where it shared a row it could not leave, it pushed itself or its neighbour past the card and the screen:
+    the homepage search alert's Retry beside its message (at 390px the page scrolled to 445px, the Retry 87px past the
+    alert, cut to "Try aga"), the dashboard's account card with Try again beside Go to login (the Retry's left edge
+    off the screen at 320px), the route error boundaries' two actions at 320px, and a long token in the search
+    alert's message (the page 598px wide). Now a Retry takes its own row under its message, a card's two actions
+    wrap, a message breaks a long token, and a cramped Retry sets its spinner above its label (Button's reserve), so
+    in the company page's comparison card, a Notice inside a card, the Retry stays inside the card at 320px (it ran
+    to 326px). Each case, at rest and, for a RetryButton, with the press's request held open (busy): nothing in the
+    card reaches past the screen, the card adds nothing to the page's own width (measured before the failure: at
+    320 and 360px the homepage's billing toggle still widens it on this branch, #1371's to fix), every control lies
+    inside the card, no control's text paints past its box or onto another's, and the press neither resizes the
+    card nor moves a control in it (read from the card's own corner: focusing the Retry scrolls it into view, and on
+    the dashboard the header changes while the account read is in flight). The full-text search alert, fixed the same way, is
+    behind a flag CI's build leaves off, so its browser case waits on E39 and full-text-search.spec.tsx pins its
+    layout. CI has no backend: the API is answered in the browser. */
+const SEARCH_DOWN = 'SEC EDGAR is temporarily unavailable. Please retry shortly.'
+/** A backend detail with a long token in it, which no line break may split. */
+const SEARCH_DOWN_TOKEN = 'SEC EDGAR is unavailable: EDGAR_COMPANY_TICKERS_UPSTREAM_TIMEOUT'
+const COMPANY = { id: 1, cik: '320193', ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' }
+const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
+const companyFiling = (id: number, filing_type: string, filing_date: string, report_date: string) => ({
+  id, filing_type, filing_date: `${filing_date}T00:00:00+00:00`, report_date,
+  accession_number: `0000320193-25-0000${id}`, document_url: `${FOLDER}doc-${id}.htm`, sec_url: FOLDER,
+})
+/** The company page and the signed-in dashboard, as text-floors.spec.ts answers them, with one path answered as a
+    failure (or a malformed body), and the next request on it held open once `hold` says so. */
+async function answerSite(page: Page, baseURL: string, signedIn: boolean, answer: { path: string; status: number; body: unknown }, hold = () => false) {
+  const origin = new URL(baseURL).origin
+  const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
+  if (signedIn) await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
+  await page.route((url) => url.origin === API_ORIGIN, (route) => {
+    const { pathname } = new URL(route.request().url())
+    const json = (status: number, body: unknown) => route.fulfill({ status, headers: cors, json: body })
+    if (pathname === answer.path) return hold() ? undefined : json(answer.status, answer.body)
+    switch (pathname) {
+      case '/api/companies/AAPL':
+        return json(200, COMPANY)
+      case '/api/filings/company/AAPL':
+        return json(200, [companyFiling(11, '10-K', '2025-10-31', '2025-09-27'), companyFiling(12, '10-Q', '2025-08-01', '2025-06-28'), companyFiling(14, '10-K', '2024-11-01', '2024-09-28')])
+      case '/api/auth/me':
+        return signedIn
+          ? json(200, { id: 1, email: 'jordan@example.com', full_name: 'Jordan Whitaker', is_pro: false, is_beta: false, is_admin: false, email_verified: true })
+          : json(401, { detail: 'Not authenticated' })
+      case '/api/subscriptions/usage':
+        return json(200, { summaries_used: 2, summaries_limit: 5, is_pro: false, month: '2026-10', qa_used: 0, qa_limit: 0, copilot_free_taste_used: 0, copilot_free_taste_total: 3, analysis_used: 0, analysis_limit: 0 })
+      case '/api/subscriptions/subscription':
+        return json(200, { is_pro: false, stripe_customer_id: null, stripe_subscription_id: null, subscription_status: null, plan: 'free', status: null, trial_end: null, current_period_end: null, cancel_at_period_end: false })
+      case '/api/watchlist/insights':
+        return json(200, [])
+      case '/api/dashboard/feed':
+        return json(200, { items: [] })
+      case '/api/saved-summaries/':
+      case '/api/watchlist/':
+        return json(200, [])
+      default:
+        return json(404, { detail: 'Not found' })
+    }
+  })
+}
+/** The card's box and each visible control's, in page coordinates, the card's footprint (its size, and each control's
+    box from its corner), and the controls not wholly inside the card. */
+const controlBoxes = (card: Locator) =>
+  card.evaluate((el) => {
+    const px = (r: DOMRect) => `${Math.round(r.left + scrollX)}-${Math.round(r.right + scrollX)} x ${Math.round(r.top + scrollY)}-${Math.round(r.bottom + scrollY)}px`
+    const c = el.getBoundingClientRect()
+    const name = (n: Element) => (n.textContent?.trim() || n.getAttribute('aria-label') || '').replace(/\s+/g, ' ').slice(0, 30)
+    const controls = [...el.querySelectorAll('a, button')].filter((n) => n.checkVisibility())
+    // Each control's box from the card's own corner, and the card's size: what the press must not change, wherever
+    // the page above it moves (the dashboard's header changes while the account read is in flight).
+    const own = (r: DOMRect) => `${Math.round(r.left - c.left)},${Math.round(r.top - c.top)} ${Math.round(r.width)}x${Math.round(r.height)}`
+    return {
+      card: px(c),
+      footprint: [`${Math.round(c.width)}x${Math.round(c.height)}`, ...controls.map((n) => own(n.getBoundingClientRect()))],
+      controls: controls.map((n) => `"${name(n)}" ${px(n.getBoundingClientRect())}`),
+      outside: controls
+        .filter((n) => {
+          const b = n.getBoundingClientRect()
+          return b.left < c.left - 0.5 || b.right > c.right + 0.5 || b.top < c.top - 0.5 || b.bottom > c.bottom + 0.5
         })
-        await answerGuest(page, baseURL!)
-        const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
-        let holdNext = false
-        // Registered last, so it answers the search before answerGuest's catch-all; a held request stays open.
-        await page.route(
-          (url) => url.origin === API_ORIGIN && url.pathname === '/api/companies/search',
-          (route) => (holdNext ? undefined : route.fulfill({ status: 503, headers: cors, json: { detail: SEARCH_DOWN } })),
-        )
-        await page.goto('/')
-        await h1(page)
-        await page.evaluate(() => document.fonts.ready)
-        await doubleText(page)
-        const without = await measure(page)
-        const pageWidth = Math.max(without.clientWidth, without.scrollWidth)
+        .map(name),
+    }
+  })
+/** The right-most edge of the card, of any box in it and of any text run in it, against the viewport's width. */
+const reach = (card: Locator) =>
+  card.evaluate((el) => {
+    let right = el.getBoundingClientRect().right
+    let what = 'the card'
+    for (const box of el.querySelectorAll('*')) {
+      const r = box.getBoundingClientRect().right
+      if (r > right) [right, what] = [r, `${box.tagName.toLowerCase()} "${(box.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)}"`]
+    }
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const r = range.getBoundingClientRect().right
+      if (r > right) [right, what] = [r, `text "${node.textContent.replace(/\s+/g, ' ').trim().slice(0, 30)}"`]
+    }
+    return { right: Math.round(right * 10) / 10, what, viewport: document.documentElement.clientWidth }
+  })
+const settle = (page: Page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
 
-        await page.getByRole('combobox', { name: 'Or start with a company' }).fill('apple')
-        const alert = page.getByRole('alert').filter({ hasText: 'Error searching companies' })
-        // The client retries a 503 three times (1, 2 and 4 seconds apart) before the alert shows.
-        await expect(alert).toBeVisible({ timeout: 20_000 })
-        await expect(alert).toContainText(SEARCH_DOWN)
-        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+type Failure = {
+  /** The surface, as a case names it. */
+  name: string
+  path: string
+  /** Routes the API; `hold` says when the press's request stays open. */
+  open: (page: Page, baseURL: string, hold: () => boolean) => Promise<void>
+  /** What the visitor does to bring the failure up, after the text is doubled. */
+  act?: (page: Page) => Promise<void>
+  /** The card the controls must stay inside. */
+  card: (page: Page) => Locator
+  /** The first control's name; a RetryButton is pressed and its request held open for the busy state. */
+  retry: 'RetryButton' | 'reset'
+  widths: number[]
+}
+const guestSearch = (detail: string) => async (page: Page, baseURL: string, hold: () => boolean) => {
+  await answerGuest(page, baseURL)
+  const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
+  // Registered last, so it answers the search before answerGuest's catch-all.
+  await page.route(
+    (url) => url.origin === API_ORIGIN && url.pathname === '/api/companies/search',
+    (route) => (hold() ? undefined : route.fulfill({ status: 503, headers: cors, json: { detail } })),
+  )
+}
+const searchFor = (page: Page) => page.getByRole('combobox', { name: 'Or start with a company' }).fill('apple')
+const searchAlert = (page: Page) => page.getByRole('alert').filter({ hasText: 'Error searching companies' })
+const FAILURES: Failure[] = [
+  { name: 'the homepage search alert', path: '/', open: guestSearch(SEARCH_DOWN), act: searchFor, card: searchAlert, retry: 'RetryButton', widths: [320, 360, 390] },
+  { name: 'the homepage search alert, a long token in its message', path: '/', open: guestSearch(SEARCH_DOWN_TOKEN), act: searchFor, card: searchAlert, retry: 'RetryButton', widths: [320] },
+  {
+    name: "the dashboard's account card (Try again beside Go to login)",
+    path: '/dashboard',
+    open: (p, b, hold) => answerSite(p, b, true, { path: '/api/auth/me', status: 503, body: { detail: 'The account service is temporarily unavailable.' } }, hold),
+    card: (p) => p.getByRole('alert').filter({ hasText: 'Unable to load your dashboard' }),
+    retry: 'RetryButton',
+    widths: [320, 360, 390],
+  },
+  {
+    // app/error.tsx, forced as text-floors.spec.ts forces it: a numeric name on the coverage-unavailable state makes
+    // formatCompanyName throw while the page renders.
+    name: 'the route error boundary (Try again beside Go home)',
+    path: '/company/AAPL',
+    open: (p, b) => answerSite(p, b, false, { path: '/api/companies/AAPL', status: 200, body: { ...COMPANY, name: 42, coverage_status: 'unsupported_foreign' } }),
+    card: (p) => p.getByRole('alert').filter({ hasText: 'Something went wrong' }),
+    retry: 'reset',
+    widths: [320],
+  },
+  {
+    // app/dashboard/error.tsx: the same numeric name, in Your companies.
+    name: 'the dashboard error boundary (Try again beside Go home)',
+    path: '/dashboard',
+    open: (p, b) => answerSite(p, b, true, { path: '/api/watchlist/insights', status: 200, body: [{ company: { id: 1, ticker: 'AAPL', name: 42 }, latest_filing: null, total_filings: 0 }] }),
+    card: (p) => p.getByRole('alert').filter({ hasText: 'Something went wrong' }),
+    retry: 'reset',
+    widths: [320],
+  },
+  {
+    // A Notice inside a card: its text column is narrow, and a cramped Retry sets its spinner above its label.
+    name: "the company page's comparison card (a Notice inside a card)",
+    path: '/company/AAPL',
+    open: (p, b, hold) => answerSite(p, b, false, { path: '/api/summaries/filing/11/what-changed', status: 503, body: { detail: 'Service temporarily unavailable.' } }, hold),
+    card: (p) => p.getByRole('alert').filter({ hasText: 'Couldn’t load the comparison' }).locator('xpath=../..'),
+    retry: 'RetryButton',
+    widths: [320],
+  },
+]
 
-        const at = `the search alert at ${viewport.width}px and 200% text`
-        const check = async (state: string) => {
-          const r = await reach(alert)
-          expect(r.right, `${at}, ${state}: nothing in it reaches past the ${r.viewport}px viewport; the furthest is ${r.what} at ${r.right}px`).toBeLessThanOrEqual(r.viewport + 0.5)
-          const m = await measure(page)
-          expect(m.scrollWidth, `${at}, ${state}: the alert widens the page past its own ${pageWidth}px; ${why(m)}`).toBeLessThanOrEqual(pageWidth)
-          const b = await boxes(alert)
-          expect(b.inside, `${at}, ${state}: the Retry (${b.retry}) lies inside the alert (${b.alert})`).toBe(true)
-          expect(await collisions(alert), `${at}, ${state}: its controls`).toEqual([])
-          return b
-        }
-        const rest = await check('at rest')
+test.describe("a failure's controls stay inside their card at 200% text", () => {
+  for (const failure of FAILURES) {
+    for (const width of failure.widths) {
+      test.describe(`a ${width}px phone`, () => {
+        test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
+        test(`${failure.name} at ${width}px`, async ({ page, baseURL }) => {
+          await page.addInitScript(() => {
+            try {
+              localStorage.setItem('theme', 'light')
+              localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+            } catch {}
+          })
+          let holding = false
+          await failure.open(page, baseURL!, () => holding)
+          await page.goto(failure.path)
+          await page.evaluate(() => document.fonts.ready)
+          await doubleText(page)
+          // Its own width before the failure shows; an error boundary replaces the page, so it has none apart.
+          const without = await measure(page)
+          const pageWidth = Math.max(without.clientWidth, without.scrollWidth)
+          await failure.act?.(page)
+          const card = failure.card(page)
+          // The client retries a 503 three times (1, 2 and 4 seconds apart) before a query's failure shows.
+          await expect(card).toBeVisible({ timeout: 20_000 })
+          await settle(page)
 
-        holdNext = true
-        await alert.getByRole('button', { name: 'Try again', exact: true }).focus()
-        await page.keyboard.press('Enter')
-        await expect(alert.getByRole('button', { name: 'Trying again…', exact: true })).toBeVisible()
-        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+          const at = `${failure.name} at ${width}px and 200% text`
+          const check = async (state: string) => {
+            const r = await reach(card)
+            expect(r.right, `${at}, ${state}: nothing in it reaches past the ${r.viewport}px viewport; the furthest is ${r.what} at ${r.right}px`).toBeLessThanOrEqual(r.viewport + 0.5)
+            const m = await measure(page)
+            expect(m.scrollWidth, `${at}, ${state}: it widens the page past its own ${pageWidth}px; ${why(m)}`).toBeLessThanOrEqual(pageWidth)
+            const b = await controlBoxes(card)
+            expect(b.outside, `${at}, ${state}: every control lies inside the card (${b.card}): ${b.controls.join('; ')}`).toEqual([])
+            expect(await collisions(card), `${at}, ${state}: its controls`).toEqual([])
+            return b
+          }
+          const rest = await check('at rest')
+          if (failure.retry === 'reset') return
 
-        const busy = await check('busy')
-        expect(busy, `${at}: the press moves neither the Retry nor the alert`).toEqual(rest)
+          holding = true
+          await card.getByRole('button', { name: 'Try again', exact: true }).focus()
+          await page.keyboard.press('Enter')
+          await expect(card.getByRole('button', { name: 'Trying again…', exact: true })).toBeVisible()
+          await settle(page)
+          const busy = await check('busy')
+          expect(busy.footprint, `${at}: the press resizes nothing in the card and moves nothing in it`).toEqual(rest.footprint)
+        })
       })
-    })
+    }
   }
 })
 

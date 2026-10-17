@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios'
 
@@ -213,6 +213,27 @@ describe('FullTextSearch controls and errors', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(/No filings match/)).toBeInTheDocument()
     expect(vi.mocked(searchFullText)).toHaveBeenCalledTimes(2)
+  })
+
+  // At 200% text on a phone the Retry beside the message ran past the alert and the screen (Codex on #1380: 472px at
+  // 390px, 848px with a long token). The fix is the Notice's layout; its browser case waits on E39, since CI's e2e
+  // build leaves /search off, so this pins the layout (tests/e2e/reflow-200.spec.ts holds the homepage alert's twin).
+  it("stacks the Retry under the message, in the message's column, and breaks a long token in the message", async () => {
+    vi.mocked(searchFullText).mockRejectedValueOnce(fromBackend(502, 'SEC full-text search failed: EFTS_UPSTREAM_TIMEOUT_EXCEEDED'))
+    renderSearch()
+    search('going concern')
+    const alert = await screen.findByRole('alert')
+    const message = within(alert).getByText(/EFTS_UPSTREAM_TIMEOUT_EXCEEDED/)
+    const row = within(alert).getByRole('button', { name: 'Try again' }).parentElement as HTMLElement
+    expect(alert).toHaveClass('flex', 'items-start')
+    expect(alert.className).not.toMatch(/\b(justify-between|items-center)\b/)
+    expect(message).toHaveClass('break-words')
+    // The message's column holds the message, then the Retry's own row.
+    const column = message.parentElement as HTMLElement
+    expect(column).toHaveClass('min-w-0', 'flex-1')
+    expect([...column.children]).toEqual([message, row])
+    expect(row.className).toBe('mt-2.5 flex')
+    expect(row.children).toHaveLength(1)
   })
 
   it.each([

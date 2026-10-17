@@ -173,6 +173,12 @@ export const secondaryUnavailableClass = cx(
   'dark:aria-disabled:bg-transparent dark:aria-disabled:border-brand-weak-dark dark:aria-disabled:text-brand-strong-dark/50',
 )
 
+/** A row of reserveLoadingText's cell, and its label: the row wraps, and the label's flex basis is its longest word
+    (it grows into any room left), so the row breaks above the label only when that word cannot sit beside the
+    spinner. tests/unit/button-wrap.spec.tsx pins both. */
+export const RESERVE_ROW = 'col-start-1 row-start-1 inline-flex flex-wrap items-center justify-center [gap:inherit]'
+export const RESERVE_LABEL = 'grow basis-[min-content]'
+
 function Spinner({ className }: { className?: string }) {
   return (
     <svg
@@ -245,11 +251,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         // One grid cell: what shows, over the loading state laid out invisibly (hidden from assistive tech, its
         // spinner a still box of the spinner's size). Both rows take the button's own gap and centring, and the
         // narrow state's wrapping reaches them as inherited text styles, so each state fills the same cell.
+        // Each row may wrap, its label based at its longest word: the spinner keeps its place beside the label
+        // while that word fits there, and goes above it only where it does not, so the room kept at rest is never
+        // wider than the busy label's longest word with the button's padding (a cramped card at 200% text).
         <span className="grid place-items-center [gap:inherit]">
-          <span className="col-start-1 row-start-1 inline-flex items-center [gap:inherit]">{content}</span>
-          <span aria-hidden="true" className="invisible col-start-1 row-start-1 inline-flex items-center [gap:inherit]">
+          <span className={RESERVE_ROW}>
+            {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}
+            <span className={RESERVE_LABEL}>{loading && loadingText ? loadingText : children}</span>
+            {!loading && rightIcon}
+          </span>
+          <span aria-hidden="true" className={cx('invisible', RESERVE_ROW)}>
             <span className={cx('inline-block shrink-0', SPINNER_SIZE[size])} />
-            {reserveLoadingText}
+            <span className={RESERVE_LABEL}>{reserveLoadingText}</span>
           </span>
         </span>
       )}

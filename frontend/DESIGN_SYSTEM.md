@@ -178,10 +178,21 @@ site that passes one, under any name an import gives RetryButton. It keeps the r
 again…" at rest (Button's `reserveLoadingText`, below; D-032), so the swap never resizes it or moves what sits
 beside it: without it, at 390px under 200% text the label wrapped and the card grew 22 to 24px (e2e
 `filing-source-chip.spec.ts` holds the box through the swap, in both themes at 390 and 1440px). That room must
-never cost reflow, so the Retry takes its own row under its message, as a Notice's action does, never a place
-beside a `flex-1` message in a row that cannot wrap: the homepage search alert's Retry sat there, and at 390px
-under 200% text it ran past the screen at rest (e2e `reflow-200.spec.ts` holds the alert at 360 and 390px, at
-rest and busy). Where one Notice holds two failed reads, one
+never cost reflow. So the Retry takes its own row under its message, as a Notice's action does, never a place
+beside its message or another control in a row that cannot wrap (GuidanceCard's action row wraps and centres
+two actions); a message carrying the backend's words breaks a long token (`break-words`); and where even its own
+row is narrower than the spinner beside "again…" (a Notice inside a card at 200% text), the spinner goes above
+the label (Button's reserve, below). Before, at 390px under 200% text, the homepage and full-text search alerts
+pushed their Retry past the screen (the page 445 and 472px wide), the dashboard's account card put its Retry's
+left edge off the screen at 320px, and the comparison card's Retry widened the page at 320px. Gates: e2e
+`reflow-200.spec.ts`, "a failure's controls stay inside their card" (the homepage search alert at 320, 360 and
+390px and with a long token, the dashboard's account card at 320, 360 and 390px, the route and dashboard error
+boundaries and the company page's comparison card at 320px, at rest and busy); `full-text-search.spec.tsx` for
+the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
+`twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
+reserve's rows. Its limit: a Notice's text column inside a card, after its icon and both paddings, is narrower at
+320px under 200% text than any Try again, reserved or not, so there the Retry still runs past the Notice's
+border, inside the card. Where one Notice holds two failed reads, one
 RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
 the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
 not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and
@@ -232,9 +243,12 @@ Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text l
 Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> keeps a loading label's room at
                  rest when it is longer than the resting one: what shows is laid over an invisible, aria-hidden
                  copy of the loading state (the spinner's box and that label) in one grid cell, so the swap
-                 never resizes the button or moves what sits beside it. RetryButton's "Trying again…" is its
-                 one use (tests/unit/button-wrap.spec.tsx holds the cell; busyControlsStayFocusable.spec.ts
-                 holds RetryButton to reserving the busy text it shows).
+                 never resizes the button or moves what sits beside it. Each row wraps, its label based at its
+                 longest word, so where the button is narrower than the spinner beside that word the spinner
+                 goes above the label, and the room is never wider than that word with the padding.
+                 RetryButton's "Trying again…" is its one use (tests/unit/button-wrap.spec.tsx holds the cell
+                 and the rows; busyControlsStayFocusable.spec.ts holds RetryButton to reserving the busy text
+                 it shows).
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
@@ -648,7 +662,10 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
-                 Card; inside a Card, Notice is the right scale.
+                 Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
+                 centres two actions and sets the second under the first when they do not fit side by
+                 side, and its description, like a Notice's, breaks a long word
+                 (tests/unit/twoActionsWrap.spec.tsx).
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +

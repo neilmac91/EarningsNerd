@@ -241,8 +241,9 @@ export default function CompanySearch({
         >
           <div className="mb-1 font-semibold text-error-light dark:text-error-dark">Error searching companies</div>
           {/* Keyed to the failure count, so a retry that fails again with the same message
-              re-inserts it and the live region announces it again. */}
-          <div key={companiesQuery.errorUpdateCount} className="text-sm text-error-light dark:text-error-dark">
+              re-inserts it and the live region announces it again. The backend's own words can hold a long
+              token, so it breaks inside the alert. */}
+          <div key={companiesQuery.errorUpdateCount} className="break-words text-sm text-error-light dark:text-error-dark">
             {error instanceof ApiError
               ? error.detail
               : error instanceof Error

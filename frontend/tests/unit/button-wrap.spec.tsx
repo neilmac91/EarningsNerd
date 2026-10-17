@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { Button, buttonVariants, type ButtonSize } from '@/components/ui/Button'
+import { Button, RESERVE_LABEL, RESERVE_ROW, buttonVariants, type ButtonSize } from '@/components/ui/Button'
 
 describe('Button label wrapping', () => {
   it('makes wrapping an opt-in state shared by buttons and links without conflicting sizing classes', () => {
@@ -62,5 +62,28 @@ describe('Button label wrapping', () => {
     rerender(<Button>Try again</Button>)
     expect(button.querySelector('[aria-hidden="true"]')).toBeNull()
     expect(button.firstElementChild).toBeNull()
+  })
+
+  // At 200% text a Retry in a cramped card (a Notice inside a card) is narrower than the spinner, the gap and
+  // "again…": each row wraps, its label based at its longest word, so the spinner goes above the label only there,
+  // and the room kept at rest is never wider than that word with the button's padding (#1380; the rendered case is
+  // the company page's comparison card in tests/e2e/reflow-200.spec.ts).
+  it('reserveLoadingText rows wrap, each label based at its longest word, so the spinner goes above it only where that word cannot sit beside it', () => {
+    const { rerender } = render(<Button reserveLoadingText="Trying again…">Try again</Button>)
+    const button = screen.getByRole('button', { name: 'Try again' })
+    const [shown, room] = [...(button.firstElementChild as HTMLElement).children] as HTMLElement[]
+    expect(shown.className).toBe(RESERVE_ROW)
+    expect(room.className).toBe(`invisible ${RESERVE_ROW}`)
+    for (const row of [shown, room]) expect(row).toHaveClass('inline-flex', 'flex-wrap', 'items-center', 'justify-center')
+    const label = (row: HTMLElement) => [...row.children].find((child) => child.textContent?.trim()) as HTMLElement
+    expect(label(shown)).toHaveTextContent('Try again')
+    expect(label(room)).toHaveTextContent('Trying again…')
+    for (const row of [shown, room]) expect(label(row).className).toBe(RESERVE_LABEL)
+    expect(RESERVE_LABEL.split(' ')).toEqual(['grow', 'basis-[min-content]'])
+    // Busy, the spinner and the loading label sit in the shown row as the room lays them out.
+    rerender(<Button loading loadingText="Trying again…" reserveLoadingText="Trying again…">Try again</Button>)
+    expect(shown.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+    expect(label(shown)).toHaveTextContent('Trying again…')
+    expect(label(shown).className).toBe(RESERVE_LABEL)
   })
 })
