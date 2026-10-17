@@ -74,7 +74,18 @@ describe('the month sheet shows a day only what fits whole', () => {
     const count = within(day).getByText('5')
     expect(count).toHaveClass('hidden', `${NARROW}:block`)
     // The caption shows exactly when the count does: the same container condition.
-    expect(screen.getByText('Each day shows how many companies report. Open a day to see them.')).toHaveClass('hidden', `${NARROW}:block`)
+    expect(screen.getByText('Each trading day shows how many companies report. Open a day to see them.')).toHaveClass('hidden', `${NARROW}:block`)
+  })
+
+  it('narrow, every trading day shows its count, 0 included, and a weekend or a holiday shows none', () => {
+    // Codex on #1369's c92aa26a, chief design's call: the caption promises a count, so a trading day with no reports
+    // shows 0, as the week sheet's day header does; a closed day keeps its muted date alone.
+    renderMonth()
+    const quiet = screen.getByRole('button', { name: /^Tuesday, January 20, 0 companies report/ })
+    expect(within(quiet).getByText('0')).toHaveClass('hidden', `${NARROW}:block`)
+    for (const closed of [/^Saturday, January 17,/, /^Sunday, January 18,/, /^Monday, January 19, market holiday/]) {
+      expect(within(screen.getByRole('button', { name: closed })).queryByText('0')).toBeNull()
+    }
   })
 
   it('below six em a day, the tickers drop their session glyph and follow bell before anything clips', () => {

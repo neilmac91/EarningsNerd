@@ -11,9 +11,9 @@
    A cell shows only what fits whole, never a clipped glyph: the sheet is an
    inline-size container, and its width in em (its own text size) picks what a
    day shows. From 42em (six em a day), as above; from 21em, the tickers and
-   "+N more" alone; below that (a phone at 200% text, or a 360px one), the
-   count of companies reporting under one-letter weekday heads, which a
-   caption at the foot of the sheet says.
+   "+N more" alone; below that (a phone at 200% text, or a 360px one), each
+   trading day's count of companies reporting, 0 included, under one-letter
+   weekday heads, which a caption at the foot of the sheet says.
 ============================================================================= */
 
 import { cx } from '@/components/ui/cx'
@@ -156,7 +156,9 @@ export function MonthView({
                     +{ranked.length - 3} more
                   </span>
                 )}
-                {inMonth && ranked.length > 0 && (
+                {/* A trading day shows its count, 0 included, as the week sheet's day header does; a weekend or a
+                    holiday keeps its date alone, so in this density a muted date always means the market is closed. */}
+                {inMonth && (ranked.length > 0 || (!weekend && !holiday)) && (
                   <span className="hidden font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-secondary-dark [@container(width<21em)]:block">
                     {ranked.length}
                   </span>
@@ -167,7 +169,7 @@ export function MonthView({
         </div>
       ))}
       <p className="hidden border-t border-border-light/60 px-3 py-2 text-xs text-text-tertiary-light dark:border-white/[0.06] dark:text-text-secondary-dark [@container(width<21em)]:block">
-        Each day shows how many companies report. Open a day to see them.
+        Each trading day shows how many companies report. Open a day to see them.
       </p>
     </div>
   )
