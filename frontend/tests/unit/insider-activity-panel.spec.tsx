@@ -124,18 +124,20 @@ describe('InsiderActivityPanel', () => {
     }
   })
 
-  // At 200% text on a 390px phone, three equal tracks left each tile about 13px for its figure; the tiles share a
-  // line while their figures fit and stack when they do not (lessons/frontend-check-brand-layouts-at-200-percent-text.md).
-  it('lays the buy, sell and net tiles in a wrapping row of content-sized tiles, never three equal tracks', async () => {
+  // Three fixed tracks left each tile about 13px for its figure at 200% text on a 390px phone, and content-sized tiles
+  // made the tinted row change shape with the data. The tiles take equal tracks of at least 5.5rem, as many as fit, so
+  // they stay one width and stack when enlarged text leaves no room; the figures are in the data face (DESIGN_SYSTEM.md §3).
+  it('lays the buy, sell and net tiles in equal tracks with a rem minimum, figures in the data face', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()
     const row = (await screen.findByText(/^Buys \(2\)$/)).parentElement!.parentElement!
-    expect(row).toHaveClass('flex', 'flex-wrap')
-    expect(row.className).not.toMatch(/\bgrid\b|grid-cols/)
+    expect(row).toHaveClass('grid', 'grid-cols-[repeat(auto-fit,minmax(min(5.5rem,100%),1fr))]')
+    expect(row.className).not.toMatch(/\bflex\b|flex-wrap|grid-cols-3/)
     expect(row.children).toHaveLength(3)
     for (const tile of Array.from(row.children)) {
-      expect(tile).toHaveClass('min-w-0', 'flex-auto')
-      expect(tile.lastElementChild).toHaveClass('break-words')
+      expect(tile).toHaveClass('min-w-0')
+      expect(tile.className).not.toMatch(/flex-auto|flex-1/)
+      expect(tile.lastElementChild).toHaveClass('break-words', 'font-data', 'tabular-nums')
     }
   })
 
