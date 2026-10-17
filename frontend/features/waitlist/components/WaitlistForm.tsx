@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { CheckIcon, CopyIcon } from '@/lib/icons'
 import { ApiError } from '@/lib/api/client'
@@ -26,9 +27,12 @@ const twitterCopy =
 const linkedInCopy =
   'Excited to get early access to EarningsNerd, a tool that uses AI to summarize SEC filings. Join the waitlist:'
 // The router's invalid_referral (a 400 carrying its code): no signup holds the ?ref= this page was opened with.
-const unknownReferralCopy = "We can't find this referral code on the waitlist. Check the link with whoever shared it."
-// Wrapping pills (DESIGN_SYSTEM.md, Wrapping button): at 200% text "Share on WhatsApp" is wider than the card.
-const shareLinkClass = buttonVariants({ variant: 'secondary', size: 'sm', wrap: true, className: 'max-w-full' })
+// One phrase for the Notice's title, the second sentence its description (lessons/frontend-a-notice-title-is-one-phrase.md).
+const unknownReferralTitle = "We can't find this referral code on the waitlist"
+const unknownReferralDescription = 'Check the link with whoever shared it.'
+// Wrapping pills (DESIGN_SYSTEM.md, Wrapping button): at 200% text "Share on WhatsApp" is wider than the card, and
+// "Join without the code" than its Notice.
+const pillLinkClass = buttonVariants({ variant: 'secondary', size: 'sm', wrap: true, className: 'max-w-full' })
 
 export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps) {
   const searchParams = useSearchParams()
@@ -38,6 +42,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   const [turnstileToken, setTurnstileToken] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [referralRefused, setReferralRefused] = useState(false)
   const [success, setSuccess] = useState<WaitlistSuccess | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -46,6 +51,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   // Guard on the raw param (like the prior effect) so a blank ref stays null.
   const refParam = searchParams.get('ref')
   const referralCode = refParam ? refParam.trim().toLowerCase() : null
+  const emailRef = useRef<HTMLInputElement>(null)
 
   const referralLink = success?.referral_link
 
@@ -68,6 +74,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
     // fill, so Enter in a field can still fire this while a request is in flight — guard explicitly.
     if (isSubmitting) return
     setError(null)
+    setReferralRefused(false)
     setCopied(false)
 
     if (!email.trim()) {
@@ -99,7 +106,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
       }
 
       if (data?.success === false && data?.error === 'invalid_referral') {
-        setError(unknownReferralCopy)
+        setReferralRefused(true)
         return
       }
 
@@ -124,6 +131,14 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // "Join without the code" navigates to /waitlist, with no ?ref=. Search params do not remount a page in the App
+  // Router, so the form keeps what was typed and reads no code from the URL from then on. The refusal clears, and
+  // the focused link with it, so focus goes to the email field, where Enter submits.
+  const joinWithoutCode = () => {
+    setReferralRefused(false)
+    emailRef.current?.focus()
   }
 
   const handleCopy = async () => {
@@ -180,13 +195,13 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
         {shareLinks && (
           <div className="mt-4 flex flex-wrap gap-3">
-            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className={shareLinkClass}>
+            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on Twitter
             </a>
-            <a href={shareLinks.linkedIn} target="_blank" rel="noreferrer" className={shareLinkClass}>
+            <a href={shareLinks.linkedIn} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on LinkedIn
             </a>
-            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className={shareLinkClass}>
+            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on WhatsApp
             </a>
           </div>
@@ -206,6 +221,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             Email address
           </label>
           <Input
+            ref={emailRef}
             id="waitlist-email"
             type="email"
             required
@@ -242,6 +258,20 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           value={honeypot}
           onChange={(event) => setHoneypot(event.target.value)}
         />
+
+        {referralRefused && (
+          <Notice
+            variant="error"
+            title={unknownReferralTitle}
+            description={unknownReferralDescription}
+            action={
+              // scroll={false}: the reader stays at the form, where focus goes.
+              <Link href="/waitlist" scroll={false} onClick={joinWithoutCode} className={pillLinkClass}>
+                Join without the code
+              </Link>
+            }
+          />
+        )}
 
         {error && <Notice variant="error" title={error} />}
 
