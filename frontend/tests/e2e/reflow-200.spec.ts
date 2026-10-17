@@ -37,6 +37,19 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * two controls do not fit beside the logo, so the bar wraps there, the fallback, and this check is not
  * made at that width. The open menu's toggle is in view on a 390x664 phone at 200%, guest or signed in.
  *
+ * At 360x780 with the text doubled every route passes the same width, bar and clear-space checks, all but
+ * the one-row check. There / reached 368px, the pricing section's billing toggle, and /login and /register
+ * 369px, the auth shell's lockup. The toggle's segments now wrap whole inside its one shell, and each label
+ * stays inside its segment with no line starting at its middot (at 360 and 390px; at both, the Annual label
+ * ran onto three lines below its segment). Below a 12rem viewport the auth shell's wordmark yields to the
+ * mark. The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
+ * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
+ * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
+ * On a 768px and an 834px tablet at 200% every route passes the same checks too: the footer's columns and
+ * the final CTA card's open at md at the reader's text size (48rem), where at md's 768px they took pages to
+ * 812-886px. At 1440x900 at the default size the site header's bar spans its container and the logo keeps
+ * its top-left place, which the bar's w-full holds.
+ *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
  * geometry. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
@@ -168,7 +181,8 @@ const collisions = (bar: Locator): Promise<string[]> =>
 
 /** The logo's clear space (frontend/public/assets/LOGO_README.md): one E-bar, 11.6% of the mark's width, on every
     side of the logo (the bare mark, or the lockup), which no other control in the bar enters. A bar that squeezes
-    its controls against the logo to keep one row would break it with nothing overlapping. */
+    its controls against the logo to keep one row would break it with nothing overlapping. Nor does the bar's own edge
+    enter it ("no edge of a panel"): a lockup that runs to the viewport's edge has no clear space there. */
 const logoClearSpace = (bar: Locator): Promise<string[]> =>
   bar.evaluate((root) => {
     const home = root.querySelector('a[href="/"]')
@@ -177,6 +191,10 @@ const logoClearSpace = (bar: Locator): Promise<string[]> =>
     const logo = home.getBoundingClientRect()
     const space = mark.getBoundingClientRect().width * 0.116
     const found: string[] = []
+    const edge = root.getBoundingClientRect()
+    if (logo.left - space < edge.left - 0.5 || logo.right + space > edge.right + 0.5 || logo.top - space < edge.top - 0.5 || logo.bottom + space > edge.bottom + 0.5) {
+      found.push(`the logo (${Math.round(logo.left)}-${Math.round(logo.right)}px) with its ${space.toFixed(1)}px clear space passes the bar's edge (${Math.round(edge.left)}-${Math.round(edge.right)}px)`)
+    }
     for (const el of root.querySelectorAll('a, button')) {
       if (el === home || !el.checkVisibility()) continue
       const b = el.getBoundingClientRect()
@@ -322,11 +340,11 @@ test('home (/) moves the theme toggle into the mobile menu at 200% text', async 
   await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
 })
 
-/** Below 24rem the menu's Theme row is its first row, directly under the bar. The header is sticky, so an
-    open menu taller than the viewport never scrolls: with the row at the menu's end, a guest's toggle sat at
-    713-801px and a signed-in reader's at 979-1067px, below the fold of a phone whose toolbars leave 664px,
-    and neither scrolling nor focus brought it into view. Opened there at 200% text, the menu's toggle lies
-    wholly inside the viewport and switches the theme, for a guest and for a signed-in reader. */
+/** Below 24rem the menu's Theme row is its first row, directly under the bar, so it opens in view before the
+    menu is scrolled. With the row at the menu's end, a guest's toggle sat at 713-801px and a signed-in reader's
+    at 979-1067px, below the fold of a phone whose toolbars leave 664px, and the menu did not scroll then (its
+    own case is further down this file). Opened there at 200% text, the menu's toggle lies wholly inside the
+    viewport and switches the theme, for a guest and for a signed-in reader. */
 test.describe('a 390x664 phone at 200% text', () => {
   test.use({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })
   const READERS = [
@@ -437,4 +455,310 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
   const focused = await read()
   expect(focused.linkTop, `focused, the first section link (${focused.linkTop}-${focused.linkBottom}px) lies below the header's bottom edge (${focused.headerBottom}px)`).toBeGreaterThanOrEqual(focused.headerBottom)
   expect(focused.hitsLink, `focused, a hit at the first section link's centre reaches it, not ${focused.hit}`).toBe(true)
+})
+
+/** At 360x780 with the browser's text doubled, every route in the loop passes the width, bar and clear-space checks
+    too. The header's wrap at 360px is its named fallback, so the one-row check stays at 390px. */
+test.describe('a 360px phone at 200% text', () => {
+  test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true })
+  for (const route of ROUTES) {
+    test(`${route.name} (${route.path}) does not scroll sideways at 360px and 200% text`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('en:copilot-coachmark-v1', '1')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await route.open(page, baseURL!)
+      const response = await page.goto(route.path)
+      if (route.status) expect(response?.status()).toBe(route.status)
+      await route.ready(page)
+      await expect(route.chrome(page)).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      await doubleText(page)
+
+      const enlarged = await measure(page)
+      expect(enlarged.scrollWidth, `${route.path} at 360px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
+      expect(await collisions(route.bar(page)), `${route.path} at 360px and 200% text: the bar's controls`).toEqual([])
+      expect(await logoClearSpace(route.bar(page)), `${route.path} at 360px and 200% text: the logo's clear space`).toEqual([])
+    })
+  }
+})
+
+/** The pricing section's billing toggle (a radio group of two segments) at 200% text: one control whose segments wrap
+    whole onto a second row inside its shell when they do not fit side by side, each label inside its segment, broken
+    only between words and only after its middot, every line but the last ending with it, so never on a line that
+    starts with it ("Annual ·" over "save 20%"; the no-break spaces in PricingSection.tsx hold that, and with plain
+    spaces the label paints "Annual · save" over "20%" at 360px). Before, at 360 and at 390px, the group was 336px wide
+    and its Annual label ran onto three lines, "Annual", "· save" and "20%", the last painted below its 72px segment.
+    Each label's lines are read as painted, a character at a time. */
+const segments = (group: Locator) =>
+  group.evaluate((root) => {
+    const shell = root.getBoundingClientRect()
+    const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
+    return [...root.querySelectorAll('[role="radio"]')].map((radio) => {
+      const box = radio.getBoundingClientRect()
+      const all = document.createRange()
+      all.selectNodeContents(radio)
+      const text = all.getBoundingClientRect()
+      const lines = new Map<number, string>()
+      const walker = document.createTreeWalker(radio, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+        for (let i = 0; i < node.length; i++) {
+          const char = document.createRange()
+          char.setStart(node, i)
+          char.setEnd(node, i + 1)
+          const r = char.getBoundingClientRect()
+          if (!r.width && !r.height) continue
+          lines.set(Math.round(r.top), (lines.get(Math.round(r.top)) ?? '') + node.data[i])
+        }
+      }
+      return {
+        name: (radio.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        lines: [...lines.entries()].sort((a, b) => a[0] - b[0]).map(([, line]) => line.trim()),
+        inShell: box.left >= shell.left - 0.5 && box.right <= shell.right + 0.5 && box.top >= shell.top - 0.5 && box.bottom <= shell.bottom + 0.5,
+        inSegment: text.left >= box.left - 0.5 && text.right <= box.right + 0.5 && text.top >= box.top - 0.5 && text.bottom <= box.bottom + 0.5,
+        where: `segment ${px(box.left, box.right)} by ${px(box.top, box.bottom)}, label ${px(text.left, text.right)} by ${px(text.top, text.bottom)}, shell ${px(shell.left, shell.right)}`,
+      }
+    })
+  })
+
+for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }]) {
+  test.describe(`a ${viewport.width}px phone at 200% text, the billing toggle`, () => {
+    test.use({ viewport, isMobile: true, hasTouch: true })
+    test(`home (/) keeps both billing segments in one control at ${viewport.width}px, each label whole inside its segment`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerGuest(page, baseURL!)
+      await page.goto('/')
+      await h1(page)
+      const group = page.getByRole('radiogroup', { name: 'Billing period' })
+      await expect(group.getByRole('radio')).toHaveCount(2)
+      await page.evaluate(() => document.fonts.ready)
+      await doubleText(page)
+
+      for (const segment of await segments(group)) {
+        const at = `"${segment.name}" at ${viewport.width}px and 200% text (lines ${JSON.stringify(segment.lines)}; ${segment.where})`
+        const words = segment.name.split(/\s+/)
+        expect(segment.inShell, `${at}: the segment sits inside the one control`).toBe(true)
+        expect(segment.inSegment, `${at}: the label stays inside its segment`).toBe(true)
+        expect(segment.lines.some((line) => line.startsWith('·')), `${at}: no line starts with the middot`).toBe(false)
+        expect(segment.lines.every((line) => line.split(/\s+/).every((token) => words.includes(token))), `${at}: the label breaks only between words`).toBe(true)
+        expect(segment.lines.slice(0, -1).every((line) => line.endsWith('·')), `${at}: the label breaks only after its middot`).toBe(true)
+      }
+    })
+  })
+}
+
+/** The open menu scrolls inside the viewport. The header is a column no taller than the viewport, its bar keeps its own
+    height and the menu panel takes the rest and scrolls (components/Header.tsx). Before, a sticky header taller than
+    the viewport stayed stuck to its top until the page's very end, so the menu's last item (the account CTA for a
+    guest, Log out for a signed-in reader) came into view only there: under the fold at 713-801px and 987-1067px on a
+    390x664 phone. At 390x664 and 360x640 at 200% text, for a guest and for a signed-in reader, a wheel over the menu
+    brings its last item wholly into view inside it with the page unmoved, and a second wheel at the menu's end leaves
+    the page behind it unmoved too; scrolled back to its top, the menu brings the item into view again as focus lands
+    on it, the item's 3px ring clear of the menu's edge; and neither the page nor the menu scrolls sideways, the menu
+    read on its own, since what it clips adds nothing to the page's width. */
+const MENU_ENDS = [
+  {
+    who: 'a guest',
+    path: '/',
+    open: answerGuest,
+    ready: (p: Page) => h1(p),
+    last: (menu: Locator) => menu.getByRole('link', { name: /^(Create a free account|Request an invite)$/ }),
+  },
+  {
+    who: 'a signed-in reader',
+    path: '/filing/3',
+    open: (p: Page, b: string) => answerApi(p, b, 'pro'),
+    ready: (p: Page) => expect(p.getByRole('navigation', { name: 'Jump to section' })).toBeVisible(),
+    last: (menu: Locator) => menu.getByRole('button', { name: 'Log out' }),
+  },
+]
+
+/** The item against the part of the menu the reader sees (the menu panel's box within the viewport), with `ring`
+    pixels around it, and whether a hit at its centre reaches it. 'in view' when it lies wholly inside. */
+const inMenuView = (item: Locator, ring = 0) =>
+  item.evaluate((el, ring) => {
+    const panel = el.closest('nav')!.parentElement!.getBoundingClientRect()
+    const box = el.getBoundingClientRect()
+    const top = Math.max(panel.top, 0)
+    const bottom = Math.min(panel.bottom, window.innerHeight)
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+    const inside = box.top - ring >= top - 0.5 && box.bottom + ring <= bottom + 0.5 && !!hit && el.contains(hit)
+    return inside ? 'in view' : `the item at ${Math.round(box.top)}-${Math.round(box.bottom)}px, the menu seen at ${Math.round(top)}-${Math.round(bottom)}px, a hit at its centre reaching ${hit ? hit.tagName.toLowerCase() : 'nothing'}`
+  }, ring)
+
+/** The menu panel's own widths and, for a failure message, what reaches past its inner right edge outside any clipping
+    box inside it, read from its start. The panel scrolls, and a non-visible overflow-y makes overflow-x auto too, so a
+    row wider than the menu scrolls sideways inside it and adds nothing to the page's scroll width: `measure` cannot see
+    it, since it skips what a clipping box holds. */
+const menuWidths = (panel: Locator): Promise<Overflow> =>
+  panel.evaluate((root) => {
+    root.scrollTo({ left: 0 })
+    const edge = root.getBoundingClientRect().left + root.clientLeft + root.clientWidth
+    const clipped = (el: Element, own: boolean) => {
+      for (let n: Element | null = el; n && n !== root; n = n.parentElement) {
+        if ((own || n !== el) && getComputedStyle(n).overflowX !== 'visible') return true
+      }
+      return false
+    }
+    const label = (el: Element, text: string) => `${el.tagName.toLowerCase()} "${text.replace(/\s+/g, ' ').trim().slice(0, 40)}"`
+    const past: { right: number; what: string }[] = []
+    for (const el of root.querySelectorAll('*')) {
+      const right = el.getBoundingClientRect().right
+      if (right > edge + 0.5 && !clipped(el, false)) past.push({ right, what: label(el, el.textContent ?? '') })
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const el = node.parentElement
+      if (!el || !node.textContent?.trim() || clipped(el, true)) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const right = range.getBoundingClientRect().right
+      if (right > edge + 0.5) past.push({ right, what: `text in ${label(el, node.textContent)}` })
+    }
+    past.sort((a, b) => b.right - a.right)
+    return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, widest: past.slice(0, 6).map((p) => `${Math.round(p.right)}px ${p.what}`) }
+  })
+
+for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 640 }]) {
+  test.describe(`a ${viewport.width}x${viewport.height} phone at 200% text, the menu open`, () => {
+    test.use({ viewport, isMobile: true, hasTouch: true })
+    for (const reader of MENU_ENDS) {
+      test(`${reader.path} for ${reader.who}: the menu scrolls inside the viewport to its last item, and neither the page nor the menu scrolls sideways`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('en:copilot-coachmark-v1', '1')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await reader.open(page, baseURL!)
+        await page.goto(reader.path)
+        await reader.ready(page)
+        await page.evaluate(() => document.fonts.ready)
+        await doubleText(page)
+        await page.getByRole('button', { name: 'Open menu' }).click()
+        const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+        const last = reader.last(menu)
+        await expect(last).toBeVisible()
+        const at = `${reader.path} at ${viewport.width}x${viewport.height}, the menu's last item "${(await last.textContent())?.trim()}"`
+
+        // A pointer: a wheel over the part of the menu in view, far past its end. The menu scrolls, not the page, and
+        // at its end it holds: a second wheel after a pause, a new sequence that could chain, moves nothing behind it
+        // (without overscroll-contain it scrolled the page 1000px under the open menu).
+        const scrollY = await page.evaluate(() => window.scrollY)
+        const panel = (await menu.locator('xpath=..').boundingBox())!
+        await page.mouse.move(panel.x + panel.width / 2, (Math.max(panel.y, 0) + Math.min(panel.y + panel.height, viewport.height)) / 2)
+        await page.mouse.wheel(0, 4000)
+        await expect.poll(() => inMenuView(last), { message: `${at}, after a wheel over the menu` }).toBe('in view')
+        await page.waitForTimeout(700)
+        await page.mouse.wheel(0, 1000)
+        await page.waitForTimeout(700)
+        expect(await page.evaluate(() => window.scrollY), `${at}: the menu scrolled and holds its end, the page behind it unmoved`).toBe(scrollY)
+
+        // A keyboard: the menu back at its top, focus on the item scrolls it into view with its ring.
+        await menu.locator('xpath=..').evaluate((el) => el.scrollTo({ top: 0 }))
+        await last.focus()
+        await expect.poll(() => inMenuView(last, 3), { message: `${at}, focused, with its 3px ring` }).toBe('in view')
+
+        const widths = await measure(page)
+        expect(widths.scrollWidth, `${reader.path} at ${viewport.width}x${viewport.height} with the menu open: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
+        const inside = await menuWidths(menu.locator('xpath=..'))
+        expect(inside.scrollWidth, `${reader.path} at ${viewport.width}x${viewport.height}, inside the open menu: ${why(inside)}`).toBeLessThanOrEqual(inside.clientWidth)
+      })
+    }
+  })
+}
+
+/** A tablet at 200% text. At 768px with the text doubled, the footer's four columns took every route with the footer to
+    812px (an fr column never shrinks below its longest word, here the Legal column's), and from 780 to 880px the final
+    CTA card's two columns ran its one-line "See a live example" past its half, taking / to 886px. Both now open their
+    columns at md at the reader's text size, 48rem: 768px at the default size, 1536px with the text doubled. At 768 and
+    834px every route in the loop passes the width, bar and clear-space checks; the 200% setting is confirmed by the
+    root's 32px and by the 48rem query not matching. */
+async function doubleTextOnATablet(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  await expect
+    .poll(() => page.evaluate(() => ({ root: getComputedStyle(document.documentElement).fontSize, md: matchMedia('(min-width: 48rem)').matches })), {
+      message: 'the 200% text setting took: the root computes to 32px and the 48rem query does not match',
+    })
+    .toEqual({ root: '32px', md: false })
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  await page.evaluate(() => document.fonts.ready)
+}
+
+for (const viewport of [{ width: 768, height: 1024 }, { width: 834, height: 1194 }]) {
+  test.describe(`a ${viewport.width}px tablet at 200% text`, () => {
+    test.use({ viewport, isMobile: true, hasTouch: true })
+    for (const route of ROUTES) {
+      test(`${route.name} (${route.path}) does not scroll sideways at ${viewport.width}px and 200% text`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('en:copilot-coachmark-v1', '1')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await route.open(page, baseURL!)
+        const response = await page.goto(route.path)
+        if (route.status) expect(response?.status()).toBe(route.status)
+        await route.ready(page)
+        await expect(route.chrome(page)).toBeVisible()
+        await page.evaluate(() => document.fonts.ready)
+        await doubleTextOnATablet(page)
+
+        const enlarged = await measure(page)
+        expect(enlarged.scrollWidth, `${route.path} at ${viewport.width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
+        expect(await collisions(route.bar(page)), `${route.path} at ${viewport.width}px and 200% text: the bar's controls`).toEqual([])
+        expect(await logoClearSpace(route.bar(page)), `${route.path} at ${viewport.width}px and 200% text: the logo's clear space`).toEqual([])
+      })
+    }
+  })
+}
+
+/** The site header's bar is a column's child with auto side margins (components/Header.tsx), which a column does not
+    stretch: without its w-full the bar shrank to its content at 1440px, from 80-1360px to 291-1149px, and the logo left
+    its top-left place (x=112 to x=323). At 1440x900 at the default size the bar spans its container (its max-width,
+    centred in the header) and the logo starts at the container's left padding, both read against the header's own box,
+    not the bar's, which a shrunken bar would carry with it. */
+test.describe('a 1440px desktop at the default text size', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false })
+  test('home (/) keeps the site header bar across its container and the logo in its top-left place', async ({ page, baseURL }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+      } catch {}
+    })
+    await answerGuest(page, baseURL!)
+    await page.goto('/')
+    await h1(page)
+    const logo = page.getByRole('banner').getByRole('link', { name: 'EarningsNerd home' })
+    await expect(logo).toBeVisible()
+    await page.evaluate(() => document.fonts.ready)
+    const place = await logo.evaluate((link) => {
+      const header = link.closest('header')!
+      const bar = header.firstElementChild!
+      const style = getComputedStyle(bar)
+      const width = Math.min(header.clientWidth, parseFloat(style.maxWidth))
+      const left = header.getBoundingClientRect().left + header.clientLeft + (header.clientWidth - width) / 2
+      const box = bar.getBoundingClientRect()
+      return {
+        bar: `${Math.round(box.left)}-${Math.round(box.right)}px`,
+        container: `${Math.round(left)}-${Math.round(left + width)}px`,
+        logo: Math.round(link.getBoundingClientRect().left),
+        place: Math.round(left + parseFloat(style.paddingLeft)),
+      }
+    })
+    expect(place.bar, `the header's bar spans its container, centred in the header (the bar at ${place.bar}, its container at ${place.container})`).toBe(place.container)
+    expect(place.logo, `the logo starts at the container's left padding (the logo at x=${place.logo}, its place at x=${place.place})`).toBe(place.place)
+  })
 })

@@ -32,8 +32,10 @@ Never inline the mark by hand — compose the components:
   (`mode="auto"` = `text-brand-strong dark:text-brand-dark`). Single source of
   the geometry, kept in sync with `earningsnerd-mark-mono.svg`.
 - `components/EarningsNerdLogo.tsx` — the ONE source of the two-tone wordmark:
-  `variant="full"` (mark + wordmark; AuthShell), `"icon-only"` (Footer; Header
-  below `sm`) or `"wordmark"` (Header at `sm`+, beside its icon-only mark).
+  `variant="full"` (mark + wordmark; AuthShell, whose wordmark yields to the
+  mark below a 12rem viewport, `frontend/DESIGN_SYSTEM.md` §8), `"icon-only"`
+  (Footer; Header below `sm`) or `"wordmark"` (Header at `sm`+, beside its
+  icon-only mark).
   "Earnings" in the primary ink + italic "Nerd" in `text-brand-strong
   dark:text-brand-strong-dark`; size it with scale classes via
   `wordmarkClassName`. Never hand-compose the wordmark at a call site
