@@ -34,5 +34,5 @@ the body streams. Its AST ratchet reads every async router function and fails a 
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
 not assert the route's checkouts (the filings reads, E94) or does not list the route (the rest of the
-watchlist and analysis routers, E112 and E113), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
+watchlist and analysis routers, E118 and E119), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
