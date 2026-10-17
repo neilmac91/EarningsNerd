@@ -4,9 +4,10 @@ goes back to the pool before its async route yields to the dependency's finalize
 One rule, two halves in this one module:
 
 - Behaviour: an eight-request burst against a four-slot pool, per listed route, must answer every
-  request without a pool timeout, with no transaction left for the finalizer and, for the summaries
-  routes, no checkout on the event-loop thread; and a six-reader what-changed burst with a slow
-  wording diff must wait for its slots in the thread pool, not on the loop.
+  request without a pool timeout, with no transaction left for the finalizer and, for the summaries,
+  peers and waitlist routes, no checkout on the event-loop thread; a six-reader what-changed burst
+  with a slow wording diff must wait for its slots in the thread pool, not on the loop; and the
+  analysis stream must release its connection before its body streams, alone and in a burst.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails a session call on the loop in the route's own body above that route's ceiling, so a route
   the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
@@ -28,10 +29,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from app import database
-from app.models import Company, Filing, FilingContentCache, FinancialFact, Summary, SummaryGenerationProgress
-from app.routers import filings
+from app.models import (
+    Company, Filing, FilingContentCache, FinancialFact, Summary, SummaryGenerationProgress, WaitlistSignup,
+)
+from app.routers import filings, watchlist
 from app.services import filing_list_service
 from app.services.filing_amendment_service import expand_amendment_forms
+from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
 from main import app
 
@@ -55,6 +59,11 @@ from main import app
     ("/api/summaries/filing/1/progress", "progress_completed"),
     ("/api/summaries/filing/1/progress", "progress_stalled"),
     ("/api/summaries/filing/999/progress", "progress_pending"),
+    ("/api/companies/CACHED/peers", "peers"),
+    ("/api/companies/NOSUCH/peers", "missing_company"),
+    ("/api/waitlist/stats", "waitlist_stats"),
+    ("/api/waitlist/status/reader@example.com", "waitlist_status"),
+    ("/api/waitlist/status/nobody@example.com", "waitlist_missing"),
 ])
 async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch, tmp_path, path, payload_kind
@@ -76,6 +85,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     FinancialFact.__table__.create(engine)
     Summary.__table__.create(engine)
     SummaryGenerationProgress.__table__.create(engine)
+    WaitlistSignup.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     accession = "0000000001-26-000001"
     with sessions() as db:
@@ -90,7 +100,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         db.flush()
         if payload_kind == "content":
             db.add(FilingContentCache(filing_id=filing.id, markdown_content="# Synthetic filing"))
-        if payload_kind == "facts":
+        if payload_kind in ("facts", "peers"):
             db.add(FinancialFact(
                 company_id=company.id, filing_id=filing.id, concept="revenue", unit="USD",
                 period_end=date(2025, 12, 31), fiscal_year=2025, fiscal_period="FY", value=123,
@@ -102,6 +112,12 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
             stalled_at = utcnow() - timedelta(hours=1)
             db.add(SummaryGenerationProgress(filing_id=filing.id, stage="analyzing",
                                              started_at=stalled_at, updated_at=stalled_at))
+        if payload_kind.startswith("waitlist"):
+            # A reader one referral up the list, and the friend that referral brought in.
+            db.add(WaitlistSignup(email="reader@example.com", referral_code="READER01",
+                                  position=7, priority_score=1))
+            db.add(WaitlistSignup(email="friend@example.com", referral_code="FRIEND01",
+                                  referred_by="READER01", position=8))
         db.commit()
 
     async def unexpected_upstream(*_args, **_kwargs):
@@ -129,13 +145,16 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
     monkeypatch.setattr(filings.sec_edgar_service, "get_filings", unexpected_upstream)
+    # The status read's per-IP limiter is process-wide; each burst starts with a fresh window.
+    monkeypatch.setattr(watchlist, "WAITLIST_STATUS_LIMITER", RateLimiter(limit=100, window_seconds=60))
     filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]))
     try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
         ) as client:
             responses = await asyncio.gather(*[client.get(path) for _ in range(8)])
-        assert [response.status_code for response in responses] == [404 if payload_kind == "missing" else 200] * 8
+        not_found = payload_kind in ("missing", "missing_company", "waitlist_missing")
+        assert [response.status_code for response in responses] == [404 if not_found else 200] * 8
         for response in responses:
             payload = response.json()
             if payload_kind == "list":
@@ -176,15 +195,28 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                     "error", "Generation stalled and was abandoned. Please retry.")
             elif payload_kind == "progress_pending":
                 assert payload == {"stage": "pending", "elapsedSeconds": 0}
+            elif payload_kind == "peers":
+                # The peer ranking: one read and the release in one unit off the event loop.
+                assert (payload["ticker"], payload["concept"], payload["peer_count"]) == ("CACHED", "revenue", 1)
+                assert (payload["subject"]["value"], payload["subject"]["rank"]) == (123.0, 1)
+            elif payload_kind == "missing_company":
+                assert payload == {"detail": "Company not found"}
+            elif payload_kind == "waitlist_stats":
+                assert payload == {"total_signups": 2}
+            elif payload_kind == "waitlist_status":
+                assert payload == {"position": 2, "referrals_count": 1, "positions_gained": 5}
+            elif payload_kind == "waitlist_missing":
+                assert payload == {"detail": "Email not found on the waitlist."}
             else:
                 assert payload == {"detail": "Filing not found"}
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open.
         assert [session.open_at_close[-1:] for session in request_sessions] == [[False]] * 8
-        # The filings reads run their unit on the loop and release it before yielding; the summaries
-        # routes run theirs in the thread pool, so none of their checkouts happens on the loop.
+        # The filings reads run their unit on the loop and release it before yielding; the summaries,
+        # peers and waitlist routes run theirs in the thread pool, so none of their checkouts happens
+        # on the loop.
         assert len(loop_checkouts) >= 8
-        if path.startswith("/api/summaries/"):
+        if path.startswith(("/api/summaries/", "/api/companies/", "/api/waitlist/")):
             assert loop_checkouts == [False] * len(loop_checkouts)
         if payload_kind == "progress_stalled":
             with sessions() as db:
@@ -239,6 +271,96 @@ async def test_what_changed_burst_beyond_the_pool_waits_in_the_threadpool_not_on
         engine.dispose()
 
 
+@pytest.mark.asyncio
+async def test_analysis_stream_releases_its_connection_before_the_body_streams(monkeypatch, tmp_path):
+    """The analysis stream's admission (the company lookup, the cap check and, at the cap, the
+    cached-range read) runs in the thread pool and releases the request session before the response
+    streams. The dependency's finalizer runs only once the stream ends, so a transaction left open
+    there held a pooled connection for the whole narrative: at the cap the cached-range read opened
+    one after the cap check, a single stream streamed with its slot still out, and the fifth of
+    eight concurrent streams on four slots blocked the loop for the pool timeout."""
+    from types import SimpleNamespace
+
+    from app import dependencies
+    from app.routers import analysis as analysis_router
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'analysis-stream.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Company.__table__.create(engine)
+    with sessionmaker(bind=engine)() as db:
+        db.add(Company(cik="0000000003", ticker="STREAM", name="Stream fixture"))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+
+    def at_cap(user, db):
+        db.query(Company.id).first()  # the cap check reads, as the real one does
+        return False, 100, 100
+
+    def cached_range(db, company_id, mode, start_period, end_period):
+        # The read that left its transaction open for the stream: at the cap, after the cap check.
+        db.query(Company.id).filter(Company.id == company_id).first()
+        return True
+
+    out_while_streaming: list[int] = []
+
+    async def narrative(**kwargs):
+        out_while_streaming.append(engine.pool.checkedout())
+        await asyncio.sleep(0.2)  # the other streams arrive while this one is writing
+        yield {"type": "complete", "kind": "analysis", "cached": True, "usage": {}}
+
+    pro = SimpleNamespace(id=42, is_pro=True, subscription=None)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {dependencies._resolve_current_user: lambda: pro})
+    monkeypatch.setattr(analysis_router, "STREAM_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(analysis_router, "check_analysis_limit", at_cap)
+    monkeypatch.setattr(analysis_router.trend_analysis_service, "has_cached_analysis", cached_range)
+    monkeypatch.setattr(analysis_router.trend_analysis_service, "stream_trend_narrative", narrative)
+    monkeypatch.setattr(analysis_router, "_emit_analysis_cost_best_effort", lambda *_a, **_k: None)
+    body = {"mode": "annual", "start_period": "FY2021", "end_period": "FY2023"}
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            alone = await client.post("/api/analysis/STREAM/stream", json=body)
+            assert alone.status_code == 200 and "data: " in alone.text
+            # No connection was out while the one stream wrote; its finalizer found nothing open.
+            assert out_while_streaming == [0]
+            assert [session.open_at_close[-1:] for session in request_sessions] == [[False]]
+
+            burst = await asyncio.gather(*[client.post("/api/analysis/STREAM/stream", json=body) for _ in range(8)])
+        assert [response.status_code for response in burst] == [200] * 8
+        assert all("data: " in response.text for response in burst)
+        assert engine.pool.checkedout() == 0
+        assert [session.open_at_close[-1:] for session in request_sessions] == [[False]] * 9
+        # The admission waited for its slot in the thread pool, never on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+    finally:
+        engine.dispose()
+
+
 # ── Structure: every async route keeps its request session off the loop ──────────────
 #
 # The ratchet: an async route never works its request session on the event loop.
@@ -271,7 +393,7 @@ async def test_what_changed_burst_beyond_the_pool_waits_in_the_threadpool_not_on
 # explains. Lowering is therefore each fixing PR's job, checked in review.
 #
 # Out of reach, and left to the burst test above for the routes it lists and to review elsewhere: a
-# session handed to a service or helper that runs on the loop (``peers_service.get_peers(db, ...)``),
+# session handed to a service or helper that runs on the loop (``filing_read_service.filing_by_id(db, ...)``, E94),
 # a nested sync function or lambda called directly on the loop
 # instead of through the thread pool, a session reached through an attribute or a container, a
 # session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
