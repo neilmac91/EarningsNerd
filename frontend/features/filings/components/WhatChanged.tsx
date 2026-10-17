@@ -78,13 +78,24 @@ const HAIRLINE = 'border-border-light dark:border-white/10'
 /** Formatting only (no client math), in the filer's own reporting currency: "$394.3B", "¥37.2T";
  *  per-share figures keep cents ("$6.11"). The amounts are raw XBRL values in that currency (a
  *  foreign filer reports in its own), so an unknown currency shows them unlabelled ("394.3B"),
- *  never as dollars. */
-function figure(item: WhatChangedMetricItem, value: number | null, currency: string | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return '—'
+ *  never as dollars. A missing value has no figure: the caller shows UNAVAILABLE in its place. */
+function figure(item: WhatChangedMetricItem, value: number | null, currency: string | null | undefined): string | null {
+  if (value == null || !Number.isFinite(value)) return null
   const perShare = PER_SHARE.test(item.metric)
   if (currency) return perShare ? fmtCurrency(value, { currency, digits: 2, compact: false }) : fmtCurrency(value, { currency })
   return perShare ? fmtScale(value, { digits: 2 }) : fmtScale(value)
 }
+
+/** A missing prior or current figure, in either layout: the missing-value token in an element of its own (in the
+ *  phone rows it sits beside the sr-only "Prior" and "current" and the arrow), which assistive tech reads as
+ *  "unavailable". `relative` keeps the sr-only word inside the table's scroll box
+ *  (lessons/frontend-sr-only-needs-a-positioned-clip.md). */
+const UNAVAILABLE = (
+  <span className="relative">
+    <span aria-hidden="true">—</span>
+    <span className="sr-only">unavailable</span>
+  </span>
+)
 
 /** The served change: its direction glyph, then the display string, both in the tone's ink. Shared
  *  with the company page's Compare periods card, so a change reads the same in both places. A zero
@@ -181,8 +192,8 @@ export function WhatChanged({
                 {metrics.items.map((item) => (
                   <tr key={item.metric} className={cx('border-t', HAIRLINE)}>
                     <th scope="row" className={cx('py-2.5 pr-4 text-left font-medium', INK)}>{item.label}</th>
-                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', MUTED)}>{figure(item, item.prior, currency)}</td>
-                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', INK)}>{figure(item, item.current, currency)}</td>
+                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', MUTED)}>{figure(item, item.prior, currency) ?? UNAVAILABLE}</td>
+                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', INK)}>{figure(item, item.current, currency) ?? UNAVAILABLE}</td>
                     <td className="whitespace-nowrap py-2.5 pl-4 text-right font-data font-semibold tabular-nums">
                       <Change item={item} />
                     </td>
@@ -205,10 +216,10 @@ export function WhatChanged({
                 <div className={cx('flex flex-wrap items-baseline justify-between gap-x-3 text-xs', MUTED)}>
                   <span className="font-data tabular-nums">
                     <span className="sr-only">Prior </span>
-                    {figure(item, item.prior, currency)}
+                    {figure(item, item.prior, currency) ?? UNAVAILABLE}
                     <span aria-hidden="true"> → </span>
                     <span className="sr-only">, current </span>
-                    {figure(item, item.current, currency)}
+                    {figure(item, item.current, currency) ?? UNAVAILABLE}
                   </span>
                   <span>{READ_AS[item.tone] ?? READ_AS.flat}</span>
                 </div>
