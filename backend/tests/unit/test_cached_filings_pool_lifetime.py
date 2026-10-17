@@ -6,8 +6,10 @@ One rule, two halves in this one module:
 - Behaviour: an eight-request burst against a four-slot pool, per listed route, must answer every
   request without a pool timeout, with no transaction left for the finalizer and, for the summaries,
   peers and waitlist routes, no checkout on the event-loop thread; a six-reader what-changed burst
-  with a slow wording diff must wait for its slots in the thread pool, not on the loop; and the
-  analysis stream must release its connection before its body streams, alone and in a burst.
+  with a slow wording diff must wait for its slots in the thread pool, not on the loop; the
+  analysis stream must release its connection before its body streams, alone and in a burst; and
+  the generate stream's Pro force branch must read nothing its commit expired, so its one checkout
+  is in the thread pool.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails a session call on the loop in the route's own body above that route's ceiling, so a route
   the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
@@ -361,6 +363,86 @@ async def test_analysis_stream_releases_its_connection_before_the_body_streams(m
         engine.dispose()
 
 
+@pytest.mark.asyncio
+async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypatch, tmp_path):
+    """The Pro force branch of the generate stream commits (it clears the XBRL and the progress
+    row), and the commit expires the request's user and filing. The route read the user's id and
+    the filing's type and ticker after that commit, so each refreshed its row with a fresh checkout
+    on the event loop, which freezes the loop for the pool timeout once the pool is full. The route
+    now reads them before the commit, so the force path checks out once, for the auth lookup, in the
+    thread pool: the route's queries and the Pro gate's subscription read reuse that connection, and
+    the generation snapshot finds the subscription already loaded."""
+    from app.models import Subscription, User
+    from app.routers import auth
+    from app.routers import summaries as summaries_router
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'force-regeneration.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, Subscription, Company, Filing, FilingContentCache, Summary, SummaryGenerationProgress):
+        model.__table__.create(engine)
+    with sessionmaker(bind=engine)() as db:
+        user = User(email="force-pro@example.com", is_active=True, is_pro=True)
+        company = Company(cik="0000000004", ticker="FORCE", name="Force fixture")
+        db.add_all([user, company])
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000004-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), xbrl_data={"revenue": 1},
+                        sec_url="https://example.test/force/", document_url="https://example.test/force.htm")
+        db.add(filing)
+        db.flush()
+        db.add(Summary(filing_id=filing.id, business_overview="# Summary\n\nStored analysis the filing page shows.",
+                       raw_summary={}))
+        db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed",
+                                         started_at=utcnow(), updated_at=utcnow()))
+        db.commit()
+        user_id, filing_id = user.id, filing.id
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+
+    pipeline_calls: list[dict[str, Any]] = []
+
+    async def pipeline(**kwargs):
+        pipeline_calls.append(kwargs)
+        yield {"type": "complete", "summary": "# Summary\n\nRegenerated."}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
+    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    token = auth.create_access_token({"sub": "force-pro@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.post(f"/api/summaries/filing/{filing_id}/generate-stream?force=true")
+        # The request's own checkouts, before this test reads the database on the loop below.
+        request_checkouts = list(loop_checkouts)
+        assert response.status_code == 200 and "Regenerated." in response.text
+        assert engine.pool.checkedout() == 0
+        # One checkout, the auth lookup's, in the thread pool.
+        assert request_checkouts == [False]
+        # The force branch ran: its commit cleared the progress row and the XBRL.
+        with sessionmaker(bind=engine)() as db:
+            assert db.query(SummaryGenerationProgress).count() == 0
+            assert db.get(Filing, filing_id).xbrl_data is None
+        # The pipeline was handed the snapshots taken before that commit.
+        [call] = pipeline_calls
+        assert (call["user_id"], call["force_regenerate"], call["current_user"].is_pro) == (user_id, True, True)
+        assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "FORCE")
+    finally:
+        engine.dispose()
+
+
 # ── Structure: every async route keeps its request session off the loop ──────────────
 #
 # The ratchet: an async route never works its request session on the event loop.
@@ -398,9 +480,10 @@ async def test_analysis_stream_releases_its_connection_before_the_body_streams(m
 # a nested sync function or lambda called directly on the loop
 # instead of through the thread pool, a session reached through an attribute or a container, a
 # session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
-# finalizer), and an ORM instance's lazy load. ``test_walk_sees_each_form`` scores the walk on planted
-# forms, the gaps among them, so a regression in the walk fails there instead of passing every router
-# vacuously.
+# finalizer), and an ORM instance's lazy load, or its refresh once a commit has expired it (the
+# generate stream's force branch, E104, has its own case above). ``test_walk_sees_each_form``
+# scores the walk on planted forms, the gaps among them, so a regression in the walk fails there
+# instead of passing every router vacuously.
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
