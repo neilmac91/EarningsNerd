@@ -15,6 +15,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 ## Operations & workflow (every task)
 
 - ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on the decision; only without one does it accept your recommendation
+- ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md — Scan your commits with the pinned gitleaks before pushing a secret-shaped literal (mark it `# gitleaks:allow`); once pushed, it fails every pull request's `secret-scan` until it leaves the branch history (partly gated: CI's `secret-scan`, after the push)
 - ops-a-flag-several-processes-read-is-set-in-every-env-map.md — List every process that reads a flag and flip it in every deploy map it is configured from, with its job cadence, in one change (partly gated by `backend/tests/unit/test_section_changes_flag_placement.py` for `ENABLE_SECTION_CHANGES`; the next multi-process flag's gate is review-checked)
 - ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
@@ -33,7 +34,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-hand-over-when-the-harness-refuses-the-conversation.md — Hand over to a fresh session when the harness refuses the conversation, not the action
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
-- ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
+- ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit; run the unmutated baseline through the same harness first
 - ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (partly gated by `.claude/hooks/codex_mention_guard.py`; text a command builds as it runs, sessions that load no repository hooks and a person's own write are not)
 - ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
@@ -117,6 +118,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Testing & verification
 
+- test-a-fail-closed-check-needs-a-genuine-accept-case.md — Test every fail-closed check with a genuine input it must accept, for a provider signature the provider's published example; refusals alone pass while it refuses everything (partly gated: `test_resend_webhook_signature.py` pins the Resend webhook)
 - test-absence-claims-come-from-git-grep.md — Make an absence claim only from `git grep` over every tracked file (and never from a suffix allow-list in a test)
 - test-adversarial-lens-verification.md — Verify large mechanical changes with independent adversarial lenses, not one review pass
 - test-allowlist-caps-are-equalities.md — An allowlist cap is an equality, never a ceiling: the shrinking PR lowers the cap in the same commit (gate: allowlistCapsAreEqualities.spec.ts)
@@ -157,6 +159,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 - brand-a-colour-rule-recolours-a-value-and-never-deletes-it.md — When a colour, type or device rule forbids a value's styling, restyle and keep the value: a control that carries a count rests in the secondary ink as one text run and turns sage only under the pointer, composing `countControlClass` when it does (the count control, frontend/DESIGN_SYSTEM.md); remove a value only as a named copy decision, never to turn a gate green (partly gated: frontend/tests/unit/filingFeedOverflowCount.spec.tsx and narrative-pane.spec.tsx keep the two counts the founder sent back, brandCopyRules.spec.ts rule 2 keeps a count out of sage, out of a span of its own ink inside a sage control and out of a copy of the recipe written in its file; the general rule is review-checked)
 - brand-a-promise-names-what-the-code-enforces.md — Before a public sentence promises a behaviour, trace each surface it covers to the code that enforces it, flag defaults included, and scope the sentence to those; an "only" or "never" claim in a comment or record is traced the same way, and a remedy names the reader's next action (partly gated by `frontend/tests/unit/brandCopyRules.spec.ts`, rules 1, 1b and 1c, and `authPagesCopy.spec.tsx` for the verification and account-conflict lines; a new kind of promise is review-checked)
+- brand-hand-a-console-the-source-resolution-logo.md — Hand a console or provider the full-resolution source logo within its file limit and let it scale; never shrink a brand raster to a recommended pixel size
 - brand-the-mark-is-protected.md — Never change the EN monogram or the wordmark; brand work composes around them (arrangements, clear space and minimum sizes only) (partly gated by `frontend/tests/unit/markSingleSource.spec.ts`, which holds the outlines and their placement, and `wordmarkSingleSource.spec.ts`; the colours, the wordmark's composition and the small-size rule are review-checked)
 - frontend-a-notice-title-is-one-phrase.md — Give a Notice or GuidanceCard title one phrase; the second clause goes in the description (partly gated by `frontend/tests/unit/noticeTitlesAreOnePhrase.spec.ts`; a title passed in as a variable is review-checked)
 - frontend-a-return-notice-claims-only-what-the-return-shows.md — After a redirect back from checkout, say only what the return URL and the page's own reads show, never a charge outcome (partly gated by `frontend/tests/unit/PricingPage.spec.tsx` and `dashboardCheckoutReturn.spec.tsx` for the two return notices; a new one is review-checked)
@@ -166,6 +169,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-check-luminance-vs-background.md — Verify surface luminance against the actual background, not token validity
 - frontend-citation-offset-boundaries.md — Resolve citation starts to the first matched character's text node and pin the actual flash target
 - frontend-client-exports-need-next-build.md — Never call a 'use client' module's export from server code; the gate checks what next build may not render
+- frontend-columns-open-at-a-rem-breakpoint.md — Open columns that hold words or a one-line control at a breakpoint in rem (`[@media(min-width:48rem)]:` for md), so enlarged text keeps one column until they fit; prove it with the text doubled in viewport captures, since a full-page capture drops the setting (partly gated by the tablet pass of `frontend/tests/e2e/reflow-200.spec.ts` on the routes it visits; a px breakpoint elsewhere is review-checked)
 - frontend-count-a-completion-on-the-transition-the-server-names.md — Count a completion event on the transition the server names (`completed_now`), never on the client's optimistic count; `scope` serializes requests, not optimistic writes
 - frontend-design-docs-need-agent-entrypoints.md — Connect new design references to agent entrypoints, authority and maintenance
 - frontend-dialog-opener-outlives-the-dialog.md — Keep a dialog's opener mounted while the dialog is open, so focus has somewhere to return
