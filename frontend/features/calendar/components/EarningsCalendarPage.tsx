@@ -93,10 +93,17 @@ export default function EarningsCalendarPage() {
     })
   }, [anchor, eventsByDate, todayIso])
 
+  // Each date is one unbreakable run, and the dash keeps to the first, so a label too long for its line
+  // wraps after the dash, never inside a date or before the dash.
   const rangeLabel =
-    view === 'month'
-      ? formatLocalDate(firstOfMonth(anchor), 'MMMM yyyy')
-      : `${formatLocalDate(range.from, 'MMM d')} – ${formatLocalDate(addDaysIso(range.from, 4), 'MMM d, yyyy')}`
+    view === 'month' ? (
+      <span className="whitespace-nowrap">{formatLocalDate(firstOfMonth(anchor), 'MMMM yyyy')}</span>
+    ) : (
+      <>
+        <span className="whitespace-nowrap">{formatLocalDate(range.from, 'MMM d')}&nbsp;–</span>{' '}
+        <span className="whitespace-nowrap">{formatLocalDate(addDaysIso(range.from, 4), 'MMM d, yyyy')}</span>
+      </>
+    )
 
   const navigate = (dir: 1 | -1) => {
     setOpenDay(null)
@@ -141,7 +148,8 @@ export default function EarningsCalendarPage() {
 
       {/* Toolbar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+        {/* The range label takes a line of its own when it does not fit beside the controls; it never truncates. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => { setOpenDay(null); setAnchor(todayIso) }}>
             Today
           </Button>
@@ -163,7 +171,7 @@ export default function EarningsCalendarPage() {
               <CaretRightIcon className="h-4 w-4" />
             </button>
           </div>
-          <h2 aria-live="polite" className="truncate text-base font-semibold sm:text-lg">
+          <h2 aria-live="polite" className="min-w-0 text-base font-semibold sm:text-lg">
             {rangeLabel}
           </h2>
         </div>
@@ -232,40 +240,53 @@ export default function EarningsCalendarPage() {
   )
 }
 
-/** Five-column bone sheet mirroring the week layout (single-column on mobile).
+/** Five-column bone sheet mirroring the week layout, one column below it.
+    It switches where WeekView does, at 42.5em of the same width (a wrapper with
+    no border of its own, as WeekView's), so nothing jumps when the week lands:
+    not at 200% text on a desktop, and not between a 680px view and the md
+    viewport at the default size.
     Raw bones are aria-hidden, so the wrapper carries role="status" + sr-only
     label per the skeleton a11y rule (DESIGN_SYSTEM §4). */
 function CalendarSkeleton() {
   return (
-    <div
-      role="status"
-      aria-label="Loading calendar"
-      className="overflow-hidden rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
-    >
-      <div className="grid grid-cols-1 md:grid-cols-5">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className={cx('p-3.5', i > 0 && 'md:border-l md:border-border-light/60 dark:md:border-white/[0.06]', i > 0 && 'hidden md:block')}>
-            <Skeleton className="h-3 w-14" />
-            <div className="mt-4 flex flex-col gap-3.5">
-              <Skeleton className="h-2.5 w-2/5" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
-              </div>
-              <Skeleton className="h-2.5 w-2/5" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
+    <div className="[container-type:inline-size]">
+      <div
+        role="status"
+        aria-label="Loading calendar"
+        className="overflow-hidden rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+      >
+        <div className="grid grid-cols-1 [@container(width>=42.5em)]:grid-cols-5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div
+              key={i}
+              className={cx(
+                'p-3.5',
+                i > 0 &&
+                  'hidden [@container(width>=42.5em)]:block [@container(width>=42.5em)]:border-l [@container(width>=42.5em)]:border-border-light/60 dark:[@container(width>=42.5em)]:border-white/[0.06]',
+              )}
+            >
+              <Skeleton className="h-3 w-14" />
+              <div className="mt-4 flex flex-col gap-3.5">
+                <Skeleton className="h-2.5 w-2/5" />
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
+                <Skeleton className="h-2.5 w-2/5" />
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <span className="sr-only">Loading calendar…</span>
       </div>
-      <span className="sr-only">Loading calendar…</span>
     </div>
   )
 }

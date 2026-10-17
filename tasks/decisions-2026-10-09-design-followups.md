@@ -308,7 +308,8 @@ the merged stack had not been looked at in production.
    BABA withheld 3 of 3, each in a class that never retried. #1360 takes the first and third candidates (the
    regeneration names the failure; a short excerpt or a twice-declared number buys the retry). Its first draw went
    17/18, so under its pre-registration it adds the second as well (a whole-row rule in the first generation,
-   addendum 1). Evidence and the measurements: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/`.
+   addendum 1). #1360 merged on 2026-10-16 as `dd31aa1b`, after two valid 18/18 draws. Evidence and the
+   measurements: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/`.
 2. **Change report EPS:** label the figure "EPS (basic)", or prefer diluted EPS
    (`facts_service` keys `earnings_per_share` to `EarningsPerShareBasic` first).
 3. **Dark-mode logos:** give a loaded logo a light chip in dark mode.

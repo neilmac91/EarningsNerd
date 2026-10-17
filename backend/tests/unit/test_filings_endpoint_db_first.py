@@ -6,7 +6,7 @@ from SEC in the BACKGROUND — the request never blocks on a SEC round-trip. Onl
 DB (so the actual queries execute) with SEC faked at the compat boundary.
 """
 import asyncio
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,6 +22,8 @@ import app.models  # noqa: F401 — register models on Base.metadata
 from app.models import Company, Filing
 from app.routers import filings as filings_mod
 from app.services import filing_history_service, filing_list_service
+from app.services.edgar import client as edgar_client_mod
+from app.services.latest_filing_service import company_list_forms
 
 
 @pytest.fixture
@@ -409,3 +411,172 @@ def test_filings_limit_param_default_unchanged(client, monkeypatch):
     # Newest-first ordering preserved.
     dates = [f["filing_date"] for f in full_resp.json()]
     assert dates == sorted(dates, reverse=True)
+
+
+# ---- 6-K budget: a daily 6-K filer still lists its 20-F ----
+# Foreign issuers such as BP, Shell and HSBC furnish a 6-K most business days (buyback notices). A
+# single row cap across every form let those 6-Ks push the 20-F annual report out of the list, on the
+# live SEC path (the recent-window materialize cap) and on the DB-first path (the cached row cap).
+
+FPI_CIK = "0000313807"
+
+
+class _WindowFiling:
+    """An edgartools EntityFiling as the recent submissions window lists it (cheap fields only)."""
+
+    def __init__(self, form, filing_date, accession):
+        self.form = form
+        self.filing_date = filing_date
+        self.report_date = "2025-12-31" if form in ("10-K", "20-F") else None
+        self.accession_number = accession
+        self.primary_document = "doc.htm"
+        self.company = "Test Co"
+
+
+def _fake_edgar_company(window):
+    """An EdgarCompany whose recent window is ``window`` (newest first), filtered like edgartools."""
+
+    class _FakeEdgarCompany:
+        cik = int(FPI_CIK)
+
+        def __init__(self, ident):
+            pass
+
+        def get_filings(self, form=None, amendments=None, trigger_full_load=None, sort_by=None):
+            assert trigger_full_load is False  # the list path never loads the full history
+            return [f for f in window if f.form.replace("/A", "") in form]
+
+    return _FakeEdgarCompany
+
+
+def _daily(form, n, newest, prefix):
+    """``n`` filings of ``form``, one a day back from ``newest``, newest first."""
+    return [
+        _WindowFiling(form, newest - timedelta(days=i), f"{FPI_CIK}-26-{prefix}{i:05d}")
+        for i in range(n)
+    ]
+
+
+def _seed_dated(session, company, accession, filing_type, filed):
+    cik_clean = company.cik.lstrip("0") or "0"
+    sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession.replace('-', '')}/"
+    session.add(Filing(
+        company_id=company.id,
+        accession_number=accession,
+        filing_type=filing_type,
+        filing_date=datetime(filed.year, filed.month, filed.day, tzinfo=timezone.utc),
+        document_url=sec_url + "doc.htm",
+        sec_url=sec_url,
+    ))
+
+
+def _seed_stamped_company(session, ticker):
+    company = _seed_company(session, ticker=ticker, cik=FPI_CIK)
+    company.history_backfilled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)  # no on-visit walk
+    session.commit()
+    return company
+
+
+def test_live_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
+    """Cold view (empty DB): the route's own SEC fetch lists and persists the 20-F although 60 6-Ks
+    are newer; the 6-Ks keep a budget of their own, so they stay bounded too."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    window = _daily("6-K", 60, date(2026, 8, 31), "1") + [
+        _WindowFiling("20-F", date(2026, 3, 5), f"{FPI_CIK}-26-900001")
+    ]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    with TestingSession() as s:
+        _seed_stamped_company(s, "BPX")
+
+    resp = tc.get("/api/filings/company/BPX")
+
+    assert resp.status_code == 200
+    types = [f["filing_type"] for f in resp.json()]
+    assert "20-F" in types
+    assert types.count("6-K") == edgar_client_mod.RECENT_FILINGS_MATERIALIZE_CAP
+    with TestingSession() as s:
+        assert s.query(Filing).filter(Filing.filing_type == "20-F").count() == 1
+
+
+def test_cached_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
+    """DB-first serving: the default list shows the stored 20-F next to the newest 6-Ks, newest
+    first, and an explicit ?limit= caps the 6-Ks, a 6-K/A among them, apart from the reports."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    with TestingSession() as s:
+        company = _seed_stamped_company(s, "BPX")
+        for f in _daily("6-K", 60, date(2026, 8, 31), "1"):
+            _seed_dated(s, company, f.accession_number, "6-K", f.filing_date)
+        _seed_dated(s, company, f"{FPI_CIK}-26-900001", "20-F", date(2026, 3, 5))
+        _seed_dated(s, company, f"{FPI_CIK}-26-800001", "6-K/A", date(2026, 9, 1))  # not a default form
+        s.commit()
+    filing_list_service._mark_filings_synced("BPX", company_list_forms())  # serve from the DB
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
+
+    default = tc.get("/api/filings/company/BPX").json()
+
+    types = [f["filing_type"] for f in default]
+    assert types == ["6-K"] * filing_list_service.CACHED_FILINGS_LIMIT + ["20-F"]
+    dates = [f["filing_date"] for f in default]
+    assert dates == sorted(dates, reverse=True)
+
+    limited = [f["filing_type"] for f in tc.get("/api/filings/company/BPX?limit=5").json()]
+    assert limited == ["6-K"] * 5 + ["20-F"]
+    amended = tc.get("/api/filings/company/BPX?filing_types=20-F,6-K,6-K/A&limit=5").json()
+    assert [f["filing_type"] for f in amended] == ["6-K/A"] + ["6-K"] * 4 + ["20-F"]
+
+
+@pytest.mark.parametrize("query, kept_6ks, kept_20fs", [("", 50, 10), ("?limit=5", 5, 5)])
+def test_cold_list_caps_each_group_at_the_requested_limit(client, monkeypatch, query, kept_6ks, kept_20fs):
+    """Cold view (empty DB): the live fetch persists every row it lists, the newest 50 6-Ks and all
+    ten 20-Fs. The default response is all of them; an explicit ?limit=5 serves the newest five of
+    each group, in SEC order, as the DB-first list does."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    # Synthetic: a 20-F every week among daily 6-Ks, so the groups interleave and each holds more than 5.
+    window = [
+        _WindowFiling("20-F" if i % 7 == 3 else "6-K", date(2026, 8, 31) - timedelta(days=i),
+                      f"{FPI_CIK}-26-{i:06d}")
+        for i in range(70)
+    ]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    # The error fallbacks also cap each group in SQL, so a live path that raised after its commit
+    # would still serve these rows from them; refusing the fallback proves the live path served it.
+    def _no_fallback(*_args, **_kwargs):
+        raise AssertionError("the cold list was served by an error fallback, not the live fetch")
+
+    monkeypatch.setattr(filing_list_service, "cached_filings_after_rollback", _no_fallback)
+    with TestingSession() as s:
+        _seed_stamped_company(s, "BPX")
+
+    cold = [f["accession_number"] for f in tc.get(f"/api/filings/company/BPX{query}").json()]
+
+    six_ks = [f.accession_number for f in window if f.form == "6-K"]
+    twenty_fs = [f.accession_number for f in window if f.form == "20-F"]
+    newest = set(six_ks[:kept_6ks] + twenty_fs[:kept_20fs])
+    assert cold == [f.accession_number for f in window if f.accession_number in newest]
+    with TestingSession() as s:
+        assert s.query(Filing).count() == 60
+
+
+def test_domestic_lists_are_unchanged_by_the_6k_budget(client, monkeypatch):
+    """With the foreign forms on (production), a 10-K/10-Q filer's live list is still the newest 50
+    rows and its cached default the newest 20, each in filing-date order."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    window = [
+        _WindowFiling("10-K" if i % 4 == 0 else "10-Q", date(2026, 8, 31) - timedelta(days=30 * i),
+                      f"{FPI_CIK}-26-{i:06d}")
+        for i in range(60)
+    ]
+    newest_first = [f.accession_number for f in window]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    with TestingSession() as s:
+        _seed_stamped_company(s, "DOMX")
+
+    live = tc.get("/api/filings/company/DOMX").json()  # cold: the live SEC path persists the rows
+    cached = tc.get("/api/filings/company/DOMX").json()  # stamped fresh: the DB-first path
+
+    assert [f["accession_number"] for f in live] == newest_first[:50]
+    assert [f["accession_number"] for f in cached] == newest_first[:filing_list_service.CACHED_FILINGS_LIMIT]

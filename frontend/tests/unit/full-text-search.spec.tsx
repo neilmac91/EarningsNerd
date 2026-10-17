@@ -99,6 +99,43 @@ describe('FullTextSearchResults', () => {
     render(<FullTextSearchResults hits={[hit, { ...hit, accession_no: '0000320193-23-000077', document: 'aapl2.htm' }]} />)
     expect(screen.getAllByRole('link')).toHaveLength(2)
   })
+
+  // At 200% text (the 2026-10-14 capture review of #1301) the name cut to "Apple …", an ISO date broke at
+  // its hyphen ("2024-11-" / "01") and a wrapped meta line began with a middot.
+  it('wraps the company name in full under its ticker, in the primary ink in both themes', () => {
+    render(<FullTextSearchResults hits={[hit]} />)
+    const name = screen.getByText('Apple Inc.')
+    expect(name).not.toHaveClass('truncate')
+    expect(name).toHaveClass('break-words', 'text-text-primary-light', 'dark:text-text-primary-dark')
+    expect(name.parentElement).toHaveClass('flex-wrap')
+  })
+
+  it('keeps each date and the form code whole, and a middot only ever ends a line', () => {
+    render(<FullTextSearchResults hits={[hit]} />)
+    for (const fact of ['10-K', '2024-11-01', '2024-09-28']) expect(screen.getByText(fact)).toHaveClass('whitespace-nowrap')
+    const meta = screen.getByText('2024-11-01').closest('p') as HTMLElement
+    // A no-break space glues each middot to the fact before it; the space after it is where a line may break.
+    // Assistive tech hears a comma (the sr-only span), not the middot.
+    expect(meta.textContent).toBe('10-K\u00a0·, Filed 2024-11-01\u00a0·, Period 2024-09-28')
+    for (const dot of within(meta).getAllByText('·')) expect(dot).toHaveAttribute('aria-hidden', 'true')
+    // The commas are sr-only (absolutely positioned) inside the list's clip, so the clip is positioned and holds
+    // them (lessons/frontend-sr-only-needs-a-positioned-clip.md).
+    expect(within(meta).getAllByText(',')[0]).toHaveClass('sr-only')
+    expect(meta.closest('ul')).toHaveClass('relative', 'overflow-hidden')
+  })
+
+  it('makes each fact one run, its label, its value and its middot, so the line breaks only between two facts', () => {
+    // The design review of #1369: only the values were runs, so at 320px the line broke between "Period" and its
+    // date. A run wider than the whole line still wraps inside, after its label (each value stays whole).
+    render(<FullTextSearchResults hits={[hit]} />)
+    const meta = screen.getByText('2024-11-01').closest('p') as HTMLElement
+    const runs = Array.from(meta.children)
+    expect(runs.map((run) => run.textContent)).toEqual(['10-K\u00a0·,', 'Filed 2024-11-01\u00a0·,', 'Period 2024-09-28'])
+    for (const run of runs) expect(run).toHaveClass('inline-block')
+    // Between two runs, a plain space and nothing else: the one place the line breaks.
+    const between = Array.from(meta.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE)
+    expect(between.map((node) => node.textContent)).toEqual([' ', ' '])
+  })
 })
 
 describe('FullTextSearch date filters', () => {
@@ -265,6 +302,22 @@ describe('FullTextSearch controls and errors', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Search did not load. Try again in a minute.')
     expect(alert).not.toHaveTextContent(clientText)
+  })
+
+  // At 200% text the glyph shrank to a speck, the message thinned to a word a line and the busy Retry ran past
+  // the viewport (#1369). The alert now stacks (#1380, the case above): the glyph keeps its size, the message takes
+  // its column's whole width, and the Retry sits on its own row under it, never beside the message.
+  it('keeps the glyph its size and gives the message its whole column, the Retry under it', async () => {
+    vi.mocked(searchFullText).mockRejectedValueOnce(fromBackend(502, 'SEC full-text search is temporarily unavailable.'))
+    renderSearch()
+    search('going concern')
+    const alert = await screen.findByRole('alert')
+    const message = within(alert).getByText('SEC full-text search is temporarily unavailable.')
+    expect(message.parentElement).toHaveClass('min-w-0', 'flex-1')
+    expect(alert.querySelector('svg')).toHaveClass('flex-none', 'h-4', 'w-4')
+    const row = within(alert).getByRole('button', { name: 'Try again' }).parentElement as HTMLElement
+    expect(message.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(message.parentElement?.contains(row)).toBe(true)
   })
 
   it("shows the backend's own detail word for word (the 502)", async () => {

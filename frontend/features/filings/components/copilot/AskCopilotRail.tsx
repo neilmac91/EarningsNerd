@@ -440,7 +440,7 @@ export default function AskCopilotRail({
                   key={q}
                   type="button"
                   onClick={() => handleSubmit(q)}
-                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
                   {q}
                 </button>

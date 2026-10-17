@@ -103,9 +103,12 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    to symbols deleted in the same PR, or under a pre-approved, PR-body-documented contract change.
    Anything else: stop and surface it first.
 7. **datetime:** timezone-aware UTC via `app/utils/datetimes.py` (`utcnow()`, `iso_z()`); never
-   `datetime.utcnow()`. The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced
-   by `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity).
-   Serialized timestamps use `iso_z()`; never hand-append `"Z"`.
+   `datetime.utcnow()`/`utcfromtimestamp()`, nor a local-clock read (`datetime.now()` without a zone,
+   `today()`). The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced by
+   `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity) and
+   the SEC tickers-cache TTL pinned by `backend/tests/unit/test_naive_local_now_allowlist.py`.
+   Serialized timestamps use `iso_z()`; never hand-append `"Z"` (gate:
+   `backend/tests/unit/test_datetimes.py`).
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
    Sole sanctioned exception: pre-Settings infra-bootstrap constants in `database.py`,
    `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity) plus `Settings.__init__`

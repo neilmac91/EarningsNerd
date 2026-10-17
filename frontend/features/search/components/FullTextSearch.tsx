@@ -1,13 +1,13 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { ApiError } from '@/lib/api/client'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { ArrowSquareOutIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
-import { FieldSpinner, inputClasses } from '@/components/ui'
+import { FieldSpinner, cx, inputClasses } from '@/components/ui'
 import { fmtCount } from '@/lib/format'
 import { SEARCH_QUERY_MAX, clampQuery } from '@/features/search/lib/queryLimit'
 
@@ -24,31 +24,65 @@ const FORM_FILTERS = [
   { form: '4', label: 'Form 4' },
 ] as const
 
+/** A value in a hit's meta line, a form code or a date: one unbreakable run, so it never splits at its hyphen. */
+const Value = ({ children, className }: { children: ReactNode; className?: string }) => (
+  <span className={cx('whitespace-nowrap', className)}>{children}</span>
+)
+
+/** The middot after a fact, kept to it by a no-break space, so a wrapped line never starts with one.
+ *  Assistive tech hears a comma (FilingIdentity's Sep). */
+const Sep = () => (
+  <>
+    {'\u00a0'}
+    <span aria-hidden="true">·</span>
+    <span className="sr-only">,</span>
+  </>
+)
+
 /**
  * Pure presentational list of full-text search hits. Each row links out to the matched document on
  * SEC EDGAR (the authoritative source). Exported separately so it can be unit-tested without hooks.
+ * Nothing in a row truncates: the company name wraps under its ticker, and the meta line wraps between
+ * its facts, each value whole.
  */
 export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
   return (
-    <ul className="divide-y divide-border-light dark:divide-white/[0.06] overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none">
+    // The list clips its rows, and a row's meta line holds sr-only commas, which are absolutely positioned:
+    // `relative` makes the list their containing block, so the clip holds them
+    // (lessons/frontend-sr-only-needs-a-positioned-clip.md).
+    <ul className="relative divide-y divide-border-light dark:divide-white/[0.06] overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none">
       {hits.map((hit) => {
         const href = hit.document_url || hit.sec_url || undefined
         const rowClass = 'flex items-start justify-between gap-4 px-4 py-3'
+        // The meta line's facts. Each is one run (inline-block) holding its label, its value and the middot after
+        // it, so the line breaks only at the space between two facts; a fact wider than the whole line wraps inside,
+        // after its label, the value whole.
+        const facts = [
+          // A form code is text in the data face, never a chip (DESIGN.md › Chips).
+          hit.form && <Value key="form" className="font-data text-text-primary-light dark:text-text-primary-dark">{hit.form}</Value>,
+          hit.filed_date && <Fragment key="filed">Filed <Value>{hit.filed_date}</Value></Fragment>,
+          hit.period_ending && <Fragment key="period">Period <Value>{hit.period_ending}</Value></Fragment>,
+        ].filter(Boolean)
         const inner = (
           <>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-baseline gap-x-2">
                 {hit.ticker && (
                   <span className="font-mono text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{hit.ticker}</span>
                 )}
-                <span className="truncate text-sm text-text-primary-light dark:text-text-secondary-dark">{hit.company ?? 'Unknown filer'}</span>
+                <span className="min-w-0 break-words text-sm text-text-primary-light dark:text-text-primary-dark">{hit.company ?? 'Unknown filer'}</span>
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {/* A form code is text in the data face, never a chip (DESIGN.md › Chips). */}
-                {hit.form && <span className="font-data text-text-primary-light dark:text-text-primary-dark">{hit.form}</span>}
-                {hit.filed_date && <span>{hit.form && '· '}Filed {hit.filed_date}</span>}
-                {hit.period_ending && <span>{(hit.form || hit.filed_date) && '· '}Period {hit.period_ending}</span>}
-              </div>
+              <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {facts.map((fact, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && ' '}
+                    <span className="inline-block">
+                      {fact}
+                      {i < facts.length - 1 && <Sep />}
+                    </span>
+                  </Fragment>
+                ))}
+              </p>
             </div>
             {/* Only the linkable rows get the external-link affordance. */}
             {href && <ArrowSquareOutIcon className="mt-1 h-4 w-4 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" aria-hidden />}
@@ -217,6 +251,8 @@ export default function FullTextSearch() {
       </div>
 
       {failure.failed && (
+        // The message takes the line it needs (12rem at least, so it never thins to a word a line) and
+        // Retry wraps under it when the two do not fit; the glyph keeps its size.
         <div
           role="alert"
           className="flex items-start gap-2 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"

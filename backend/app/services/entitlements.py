@@ -130,6 +130,18 @@ def _is_in_future(dt: Optional[datetime]) -> bool:
     return dt > datetime.now(timezone.utc)
 
 
+def subscription_state_grants_pro(status: Optional[str], trial_end: Optional[datetime]) -> bool:
+    """True if a subscription in this status/trial state grants Pro (an elapsed trial does not)."""
+    status = (status or "").lower()
+    if status not in _ACTIVE_STATUSES:
+        return False
+    # A trialing row whose trial has elapsed is no longer entitled (the webhook normally flips this,
+    # but never trust a stale clock for access decisions).
+    if status == "trialing" and trial_end is not None:
+        return _is_in_future(trial_end)
+    return True
+
+
 def _subscription_grants_pro(user: User) -> Optional[bool]:
     """Return True/False from the user's Subscription row, or None if no usable row is present.
 
@@ -142,14 +154,7 @@ def _subscription_grants_pro(user: User) -> Optional[bool]:
         return None
     if sub is None:
         return None
-    status = (getattr(sub, "status", None) or "").lower()
-    if status not in _ACTIVE_STATUSES:
-        return False
-    # A trialing row whose trial has elapsed is no longer entitled (the webhook normally flips this,
-    # but never trust a stale clock for access decisions).
-    if status == "trialing" and getattr(sub, "trial_end", None) is not None:
-        return _is_in_future(sub.trial_end)
-    return True
+    return subscription_state_grants_pro(getattr(sub, "status", None), getattr(sub, "trial_end", None))
 
 
 def get_plan(user: User) -> Plan:
