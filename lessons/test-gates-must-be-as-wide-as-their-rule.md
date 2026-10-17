@@ -304,3 +304,13 @@ module, a class component, React state or a ref, a computed key, call/apply/bind
 functions) is named in the spec's header and planted as a gap the self-check asserts unread, so the
 limit is pinned rather than silent. And the round-three rule went to every negated selector attribute
 at once, five of them, not the one a reviewer named.
+Round five's review (Codex on 77b306f6) found a reader that searched a value instead of evaluating it:
+`autoComplete={reset ? 'new-password' : 'off'}` passed the password scan because one literal in it named
+a valid kind, so the field was judged by its best branch. A value is judged by every alternative it can
+render (each branch of a condition, `&&`, `||` and `??` as the language takes them, a template's every
+part, a const, an object's entry, a same-file function's returns), every alternative must pass, and a
+form the evaluator cannot read fails loudly with the form. The round closed that reader's family, then
+probed the spec's other readers with the same forms and found both short: the forwarding follower knew a
+component by its declared name alone (an alias, a wrapper, a loader, an import under another name, a
+call and `createElement` went unread), and the length reader read a ternary in a slot as a gap. A family
+closed in one reader is probed in its neighbours in the same round.
