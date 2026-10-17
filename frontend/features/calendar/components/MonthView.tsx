@@ -105,9 +105,11 @@ export function MonthView({
                       'font-data text-xs font-semibold tabular-nums',
                       // Today's marker is sized in rem, as the week header's is, so it grows with the digits it holds
                       // (22px at the default size, 44px at 200% text, where a 22px pill cut their lower half). Its
-                      // least width is capped at its day's, so in the narrowest days it shrinks to the cell.
+                      // least width is capped at its day's, so in the narrowest days it shrinks to the cell, and it
+                      // needs no padding: two digits are 0.9rem wide, 29px of the 35px a day has on a 320px phone at
+                      // 200% text.
                       isToday
-                        ? 'grid h-[1.375rem] min-w-[min(1.375rem,100%)] place-items-center rounded-full bg-brand px-0.5 text-white dark:bg-brand-dark dark:text-background-dark'
+                        ? 'grid h-[1.375rem] min-w-[min(1.375rem,100%)] place-items-center rounded-full bg-brand text-white dark:bg-brand-dark dark:text-background-dark'
                         : weekend || !inMonth
                           ? 'text-text-tertiary-light dark:text-text-secondary-dark'
                           : 'text-text-primary-light dark:text-text-primary-dark',
