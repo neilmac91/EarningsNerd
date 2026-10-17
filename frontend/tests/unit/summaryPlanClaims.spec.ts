@@ -35,7 +35,7 @@ const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 
 const HISTORY_CLAIMS: Array<[string, RegExp]> = [
   ['a summary history', /\bsummary history\b/i],
-  ['a history length', /\b(?:\d+|\{x\})-day (?:summary )?history\b/i],
+  ['a history length', /(?:\b\d+|\{x\})-day (?:summary )?history\b/i],
   ['days kept', /\bkeeps? (?:\d+|\{x\}) days\b/i],
   ['summaries kept', /\bsummar(?:y|ies)\b[^.]{0,60}\bkept\b/i],
   ['a history of summaries', /\bhistory of (?:your |the )?summaries\b/i],
@@ -106,6 +106,7 @@ describe('no summary-history claim while no retention is enforced (D-046)', () =
     const planted: Array<[string, boolean | 'gap']> = [
       ["export const A = '90-day summary history'", true],
       ['export const B = `${N}-day summary history`', true],
+      ['export const B2 = `Free: ${N}-day history`', true],
       ['export const C = () => <p>Free keeps 90 days.</p>', true],
       ['export const D = `Free keeps ${N} days.`', true],
       ["export const E = { title: 'Full history', tags: ['Unlimited'] }", true],
