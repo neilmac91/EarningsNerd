@@ -140,7 +140,7 @@ NAME = "firstname.lastname@companyname.com"
 COMPANY = "PROVECTUS BIOPHARMACEUTICALS, INC."
 # A link as a caller builds one: a token as secrets.token_urlsafe(32) draws it, 43 characters, here with no
 # hyphen to break at.
-LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"
+LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"  # gitleaks:allow
 WAITLIST = dict(name=NAME, position=3, referral_link=LINK, verification_link=LINK)
 REFERRAL = dict(name=NAME, new_position=2, referral_link=LINK)
 FILING = dict(name=NAME, company_name=COMPANY, ticker="PVCT", filing_type="10-K", filing_date="2026-01-01")

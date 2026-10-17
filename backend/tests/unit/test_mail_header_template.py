@@ -337,7 +337,7 @@ def test_the_text_size_check_scores_every_planted_page(edits, expected):
 
 # A link as the reset, verify and invite mails print it: a token as secrets.token_urlsafe(32) draws one,
 # 43 characters, here with no hyphen to break at.
-_TOKEN = "Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"
+_TOKEN = "Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"  # a made-up token, not a credential  # gitleaks:allow
 _LONG_LINK = f"https://www.earningsnerd.io/reset-password?token={_TOKEN}"
 _BREAK = email_service._BREAK_ANYWHERE
 _LINE_STYLE = f"margin:0;font-size:12px;color:#6B7280;{_BREAK}"
