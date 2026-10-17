@@ -768,13 +768,27 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  role="group" named by its title and described by its message (an async failure is also
                  announced with role="alert") — on z-overlay, behind a transparent catcher so
                  an outside press closes only the popover; the panel is the Card recipe (dark:shadow-none).
-                 Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
-                 once per open, callbacks through a ref); Escape closes in window capture with preventDefault
-                 (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /
-                 Shift+Tab before the first close it and resume the page's order at the trigger; a scroll that
-                 moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
-                 scrolling behind a fixed dialog does not move it); every close returns focus to
-                 the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
+                 Placed where it fits, from its measured height, never an assumed one: 18.75rem wide (300px
+                 at the default text size) within 12px of the visible viewport (window.visualViewport: on a
+                 phone whose page is wider than the screen, Chromium widens the layout viewport and
+                 window.inner* to the page), below its trigger, above it when only that side holds it
+                 whole (capped at its own height, so text that grows scrolls rather than reach over the
+                 trigger), otherwise on the roomier side with its height capped there, scrolling inside
+                 (overflow-y-auto, scroll-py-4); a trigger out of view leaves it inside the area too. When
+                 neither side offers 6rem of the reader's text (96px at the default size; a landscape phone
+                 at large text, or with the keyboard up), it spans the visible height over its trigger and
+                 scrolls inside, the one placement that covers the trigger: a side that short would show
+                 little more than the panel's padding. Gate: placeBellPopover's cases and the rendered
+                 placement and width cases in BellPopover.spec.tsx (the width read at a 16px and a 32px root).
+                 Keyboard: focus moves to the first action, without scrolling the page (a capped panel
+                 scrolls itself to show that action and its ring), unless the user already moved it
+                 elsewhere (armed once per open, callbacks through a ref); Escape closes in window capture
+                 with preventDefault (stopPropagation alone still closes a native <dialog> beneath); Tab
+                 past the last action / Shift+Tab before the first close it and resume the page's order at
+                 the trigger; a scroll that moves the trigger, or a resize, closes it (fixed at its rect,
+                 it would detach; the page scrolling behind a fixed dialog does not move it); every close
+                 returns focus to the trigger unless the user moved on. While a native <dialog> is open, it
+                 portals into it.
                  The evidence popovers (SourceTrace's "Source detail", CitationChip's citation card) are the
                  hover/focus variant of this contract: they open on hover or focus, so focus stays on the chip
                  until the user asks for more, and the same hand-off applies from there — Tab on the open chip

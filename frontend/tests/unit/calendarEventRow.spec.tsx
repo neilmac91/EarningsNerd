@@ -61,3 +61,69 @@ describe('the calendar event row (CAL-10)', () => {
     expect(Object.keys(icons)).not.toContain('FlameIcon')
   })
 })
+
+/**
+ * The row at enlarged text (the 2026-10-14 capture review of #1301, at 390px under a 32px root): a roomy
+ * row's status chip ran under its EPS figure and the figure under the bell, the name and the "usually"
+ * note truncated, and the week sheet's compact rows showed the note only as a hover title while the
+ * page's footer explains "usually". jsdom has no layout, so these hold the row's contract; the capture
+ * harness measures the layout itself.
+ */
+describe('the calendar event row wraps and shows what it carries', () => {
+  const ESTIMATED: CalendarEvent = { ...EVENT, ticker: 'TSM', company_name: 'Taiwan Semiconductor', event_time: 'bmo' }
+  const renderRow = (roomy: boolean, ev: CalendarEvent = ESTIMATED) =>
+    render(
+      <ul>
+        <EventRow ev={ev} alerts={ALERTS} signedIn={false} roomy={roomy} />
+      </ul>,
+    ).container.querySelector('li') as HTMLElement
+
+  it.each([true, false])('an estimated row shows its "usually" note on a line of its own after the lane glyph (roomy: %s)', (roomy) => {
+    const row = renderRow(roomy)
+    const line = within(row).getByText('usually before open').parentElement as HTMLElement
+    expect(line.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+    expect(line.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+    expect(line).toHaveTextContent(/^usually before open$/)
+    // Shown, not a hover title (the bell's own title names its action), and nothing truncates.
+    expect(within(row).getByRole('link').querySelector('[title]')).toBeNull()
+    expect(row.querySelector('.truncate')).toBeNull()
+    expect(within(row).getByText('Taiwan Semiconductor')).toHaveClass('break-words')
+  })
+
+  it('a row with no note shows none', () => {
+    const row = renderRow(true, { ...ESTIMATED, status: 'confirmed' })
+    expect(within(row).queryByText(/usually/)).toBeNull()
+  })
+
+  it('a roomy row stacks below 16em of its text: no logo, the bell beside the ticker alone, the chip and the rest full width', () => {
+    const row = renderRow(true)
+    expect(row).toHaveClass('[container-type:inline-size]')
+    const link = within(row).getByRole('link')
+    // Wide, the EPS wraps under the name (to the right) before it squeezes it; stacked, it starts the line.
+    expect(link).toHaveClass('flex-wrap', 'justify-end', '[@container(width<16em)]:justify-start', '[@container(width<16em)]:pr-2')
+    expect(link.firstElementChild).toHaveClass('[@container(width<16em)]:hidden') // the decorative logo
+    // Stacked, the ticker alone keeps the bell's column and height, on a line of its own; the chip wraps under it
+    // at full width. Kept on the whole line, that column ran a 167px "Confirmed" under the bell in the day dialog
+    // at 390px and 200% text (the chip wider than the 142px the column left).
+    const ticker = within(row).getByText('TSM')
+    expect(ticker).toHaveClass('flex', 'items-center', '[@container(width<16em)]:min-h-11', '[@container(width<16em)]:basis-full', '[@container(width<16em)]:pr-12')
+    const line = ticker.parentElement as HTMLElement
+    expect(line).toHaveClass('flex-wrap')
+    expect(line.className).not.toMatch(/\[@container\(width<16em\)\]:(min-h|pr)-/)
+    expect(within(line).getByText('Est.')).toBeInTheDocument()
+    expect(line.parentElement).toHaveClass('[@container(width<16em)]:basis-full')
+    // The bell is the link's sibling, never inside it; stacked, it sits at the ticker line's height.
+    const bell = within(row).getByRole('button')
+    expect(link).not.toContainElement(bell)
+    expect(bell).toHaveClass('[@container(width<16em)]:top-2', '[@container(width<16em)]:translate-y-0')
+  })
+
+  it("a compact row's name keeps its longest word whole while the line allows (the EPS wraps first)", () => {
+    const row = renderRow(false)
+    const name = within(row).getByText('Taiwan Semiconductor')
+    // No min-w-0: a flex item's floor is its longest word, and max-w-full caps that floor at the line.
+    expect(name).toHaveClass('max-w-full', 'break-words')
+    expect(name).not.toHaveClass('min-w-0')
+    expect(name.parentElement).toHaveClass('flex-wrap')
+  })
+})
