@@ -1,0 +1,1392 @@
+[
+  {
+    "route": "/",
+    "theme": "light",
+    "interaction": "header/layout shift observation, fresh navigation, no input",
+    "shifts": [
+      {
+        "value": 0.14539414735644934,
+        "time": 1028.1000000000931,
+        "sources": [
+          {
+            "tag": "DIV",
+            "text": "{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https://www.earn",
+            "previous": {
+              "x": 0,
+              "y": 57,
+              "width": 1440,
+              "height": 843,
+              "top": 57,
+              "right": 1440,
+              "bottom": 900,
+              "left": 0
+            },
+            "current": {
+              "x": 0,
+              "y": 61,
+              "width": 1440,
+              "height": 839,
+              "top": 61,
+              "right": 1440,
+              "bottom": 900,
+              "left": 0
+            }
+          },
+          {
+            "tag": "DIV",
+            "text": "Log inRequest an invite",
+            "previous": {
+              "x": 1244,
+              "y": 12,
+              "width": 84,
+              "height": 36,
+              "top": 12,
+              "right": 1328,
+              "bottom": 48,
+              "left": 1244
+            },
+            "current": {
+              "x": 1024.953125,
+              "y": 10,
+              "width": 306.046875,
+              "height": 46,
+              "top": 10,
+              "right": 1331,
+              "bottom": 56,
+              "left": 1024.953125
+            }
+          },
+          {
+            "tag": "NAV",
+            "text": "Multi-period analysisCalendarPricingContact",
+            "previous": {
+              "x": 565.625,
+              "y": 20,
+              "width": 398.25,
+              "height": 20,
+              "top": 20,
+              "right": 963.875,
+              "bottom": 40,
+              "left": 565.625
+            },
+            "current": {
+              "x": 456.109375,
+              "y": 22,
+              "width": 398.25,
+              "height": 20,
+              "top": 22,
+              "right": 854.359375,
+              "bottom": 42,
+              "left": 456.109375
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "route": "/login",
+    "theme": "light",
+    "interaction": "auth glass-card hover",
+    "before": {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(16, 24, 40, 0.1) 0px 1px 3px 0px, rgba(16, 24, 40, 0.1) 0px 1px 2px -1px",
+      "bg": "rgba(255, 255, 255, 0.85)"
+    },
+    "after": {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(16, 24, 40, 0.1) 0px 1px 3px 0px, rgba(16, 24, 40, 0.1) 0px 1px 2px -1px",
+      "bg": "rgba(255, 255, 255, 0.85)"
+    }
+  },
+  {
+    "route": "/login",
+    "theme": "light",
+    "interaction": "Tab trail, no activations",
+    "trail": [
+      {
+        "tag": "A",
+        "name": "EarningsNerd",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 40,
+          "y": 26,
+          "width": 159.078125,
+          "height": 32
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Switch to dark mode",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 522.859375,
+          "y": 24,
+          "width": 36,
+          "height": 36
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Back to home",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 566.859375,
+          "y": 32,
+          "width": 113.140625,
+          "height": 20
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Continue with Apple",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 377,
+          "width": 400,
+          "height": 44
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Continue with Google",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 433,
+          "width": 400,
+          "height": 46
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Continue with email",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 543,
+          "width": 400,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign up",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": false,
+        "rect": {
+          "x": 414.59375,
+          "y": 616,
+          "width": 50.484375,
+          "height": 17
+        }
+      },
+      {
+        "tag": "BODY",
+        "name": "EarningsNerdBack to homeWelcome backSign in to continue to EarningsNerd.Continue with AppleContinue with GoogleorContinu",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(26, 26, 23) none 3px",
+        "inDialog": false,
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 900
+        }
+      },
+      {
+        "tag": "A",
+        "name": "EarningsNerd",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 40,
+          "y": 26,
+          "width": 159.078125,
+          "height": 32
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Switch to dark mode",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 522.859375,
+          "y": 24,
+          "width": 36,
+          "height": 36
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Back to home",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 566.859375,
+          "y": 32,
+          "width": 113.140625,
+          "height": 20
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Continue with Apple",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 377,
+          "width": 400,
+          "height": 44
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Continue with Google",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 433,
+          "width": 400,
+          "height": 46
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Continue with email",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 543,
+          "width": 400,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign up",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": false,
+        "rect": {
+          "x": 414.59375,
+          "y": 616,
+          "width": 50.484375,
+          "height": 17
+        }
+      }
+    ]
+  },
+  {
+    "route": "/",
+    "theme": "light",
+    "interaction": "menu",
+    "nav": "Multi-period analysis\nCalendar\nPricing\nContact\nLog in\nRequest an invite"
+  },
+  {
+    "route": "/filing/3",
+    "theme": "light",
+    "interaction": "Source sheet",
+    "onOpen": {
+      "tag": "BUTTON",
+      "name": "Close",
+      "id": "",
+      "role": null,
+      "type": "button",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+      "outline": "rgba(0, 0, 0, 0) solid 2px",
+      "inDialog": true,
+      "rect": {
+        "x": 337,
+        "y": 379,
+        "width": 44,
+        "height": 44
+      }
+    },
+    "headerHits": [
+      {
+        "name": "EarningsNerd home",
+        "visible": true,
+        "x": 16,
+        "y": 16,
+        "w": 36,
+        "h": 36,
+        "hitSelf": true,
+        "hitTag": "path",
+        "hitClass": null,
+        "inert": false
+      },
+      {
+        "name": "Switch to dark mode",
+        "visible": true,
+        "x": 150.046875,
+        "y": 12,
+        "w": 44,
+        "h": 44,
+        "hitSelf": true,
+        "hitTag": "path",
+        "hitClass": null,
+        "inert": false
+      },
+      {
+        "name": "Request invite",
+        "visible": true,
+        "x": 198.046875,
+        "y": 12,
+        "w": 127.953125,
+        "h": 44,
+        "hitSelf": true,
+        "hitTag": "A",
+        "hitClass": "inline-flex select-none items-center justify-center gap-2 font-semibold transition-colors duration-fast focus-visible:outline-none rounded-lg px-4 text-sm h-10 whitespace-nowrap bg-brand text-white shadow-e1 hover:bg-brand-strong active:bg-brand-emphasis active:shadow-none focus-visible:shadow-ring-brand disabled:cursor-not-allowed disabled:bg-brand/45 disabled:text-white/80 disabled:shadow-none dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark dark:active:bg-brand-fill-dark dark:focus-visible:shadow-ring-brand-dark dark:disabled:bg-brand-dark/35 dark:disabled:text-background-dark/60 min-h-11",
+        "inert": false
+      },
+      {
+        "name": "Open menu",
+        "visible": true,
+        "x": 330,
+        "y": 12,
+        "w": 44,
+        "h": 44,
+        "hitSelf": true,
+        "hitTag": "path",
+        "hitClass": null,
+        "inert": false
+      },
+      {
+        "name": "Apple Inc.",
+        "visible": true,
+        "x": 16,
+        "y": 90,
+        "w": 66.359375,
+        "h": 17,
+        "hitSelf": false,
+        "hitTag": "BUTTON",
+        "hitClass": "lg:hidden fixed inset-0 z-scrim bg-overlay",
+        "inert": false
+      },
+      {
+        "name": "Original on SEC EDGAR",
+        "visible": true,
+        "x": 175.09375,
+        "y": 189,
+        "w": 171.734375,
+        "h": 16,
+        "hitSelf": false,
+        "hitTag": "BUTTON",
+        "hitClass": "lg:hidden fixed inset-0 z-scrim bg-overlay",
+        "inert": false
+      }
+    ],
+    "trail": [
+      {
+        "tag": "BUTTON",
+        "name": "Ask",
+        "id": "copilot-pane-tab",
+        "role": "tab",
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 94.9375,
+          "y": 427,
+          "width": 47.75,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Upgrade to Pro",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 17,
+          "y": 759,
+          "width": 356,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign in",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": true,
+        "rect": {
+          "x": 213.921875,
+          "y": 811,
+          "width": 39.28125,
+          "height": 15
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Close",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 337,
+          "y": 379,
+          "width": 44,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Ask",
+        "id": "copilot-pane-tab",
+        "role": "tab",
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 94.9375,
+          "y": 427,
+          "width": 47.75,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Upgrade to Pro",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 17,
+          "y": 759,
+          "width": 356,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign in",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": true,
+        "rect": {
+          "x": 213.921875,
+          "y": 811,
+          "width": 39.28125,
+          "height": 15
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Close",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 337,
+          "y": 379,
+          "width": 44,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Ask",
+        "id": "copilot-pane-tab",
+        "role": "tab",
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 94.9375,
+          "y": 427,
+          "width": 47.75,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Upgrade to Pro",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 17,
+          "y": 759,
+          "width": 356,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign in",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": true,
+        "rect": {
+          "x": 213.921875,
+          "y": 811,
+          "width": 39.28125,
+          "height": 15
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Close",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 337,
+          "y": 379,
+          "width": 44,
+          "height": 44
+        }
+      }
+    ],
+    "onClose": {
+      "tag": "BUTTON",
+      "name": "Source",
+      "id": "",
+      "role": null,
+      "type": "button",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+      "outline": "rgba(0, 0, 0, 0) solid 2px",
+      "inDialog": false,
+      "rect": {
+        "x": 264.109375,
+        "y": 778,
+        "width": 105.890625,
+        "height": 46
+      }
+    }
+  },
+  {
+    "route": "/filing/3",
+    "theme": "light",
+    "interaction": "launcher line coverage",
+    "occlusion": {
+      "paragraph": "Apple's FY2025 total net sales rose 6.4% to $416.2B with net income of $112.0B and diluted EPS of $7.46, while operating cash flow declined to $111.5B from $118.3B.",
+      "launcher": {
+        "x": 264.109375,
+        "y": 778,
+        "w": 105.890625,
+        "h": 46
+      },
+      "coveredLines": []
+    },
+    "capture": "production-filing-3-light-390-launcher-occlusion"
+  },
+  {
+    "route": "/company/AAPL",
+    "theme": "light",
+    "interaction": "logo ground",
+    "images": [
+      {
+        "alt": "",
+        "src": "https://img.logo.dev/ticker/AAPL",
+        "bg": "rgba(60, 102, 80, 0.15)",
+        "filter": "none",
+        "x": 112,
+        "y": 125,
+        "w": 36,
+        "h": 36
+      }
+    ],
+    "api": [
+      {
+        "url": "https://api.earningsnerd.io/api/companies/AAPL/peers",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/",
+    "theme": "dark",
+    "interaction": "header/layout shift observation, fresh navigation, no input",
+    "shifts": [
+      {
+        "value": 0.14539414735644934,
+        "time": 914.6000000000931,
+        "sources": [
+          {
+            "tag": "DIV",
+            "text": "{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https://www.earn",
+            "previous": {
+              "x": 0,
+              "y": 57,
+              "width": 1440,
+              "height": 843,
+              "top": 57,
+              "right": 1440,
+              "bottom": 900,
+              "left": 0
+            },
+            "current": {
+              "x": 0,
+              "y": 61,
+              "width": 1440,
+              "height": 839,
+              "top": 61,
+              "right": 1440,
+              "bottom": 900,
+              "left": 0
+            }
+          },
+          {
+            "tag": "DIV",
+            "text": "Log inRequest an invite",
+            "previous": {
+              "x": 1244,
+              "y": 12,
+              "width": 84,
+              "height": 36,
+              "top": 12,
+              "right": 1328,
+              "bottom": 48,
+              "left": 1244
+            },
+            "current": {
+              "x": 1024.953125,
+              "y": 10,
+              "width": 306.046875,
+              "height": 46,
+              "top": 10,
+              "right": 1331,
+              "bottom": 56,
+              "left": 1024.953125
+            }
+          },
+          {
+            "tag": "NAV",
+            "text": "Multi-period analysisCalendarPricingContact",
+            "previous": {
+              "x": 565.625,
+              "y": 20,
+              "width": 398.25,
+              "height": 20,
+              "top": 20,
+              "right": 963.875,
+              "bottom": 40,
+              "left": 565.625
+            },
+            "current": {
+              "x": 456.109375,
+              "y": 22,
+              "width": 398.25,
+              "height": 20,
+              "top": 22,
+              "right": 854.359375,
+              "bottom": 42,
+              "left": 456.109375
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "interaction": "auth glass-card hover",
+    "before": {
+      "shadow": "none",
+      "bg": "rgba(15, 23, 42, 0.6)"
+    },
+    "after": {
+      "shadow": "rgba(127, 178, 149, 0.18) 0px 0px 30px -10px",
+      "bg": "rgba(15, 23, 42, 0.6)"
+    }
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "interaction": "Tab trail, no activations",
+    "trail": [
+      {
+        "tag": "A",
+        "name": "EarningsNerd",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 40,
+          "y": 26,
+          "width": 159.078125,
+          "height": 32
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Switch to light mode",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 522.859375,
+          "y": 24,
+          "width": 36,
+          "height": 36
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Back to home",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 566.859375,
+          "y": 32,
+          "width": 113.140625,
+          "height": 20
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Continue with Apple",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 377,
+          "width": 400,
+          "height": 44
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Continue with Google",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 433,
+          "width": 400,
+          "height": 46
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Continue with email",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 543,
+          "width": 400,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign up",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": false,
+        "rect": {
+          "x": 414.59375,
+          "y": 616,
+          "width": 50.484375,
+          "height": 17
+        }
+      },
+      {
+        "tag": "BODY",
+        "name": "EarningsNerdBack to homeWelcome backSign in to continue to EarningsNerd.Continue with AppleContinue with GoogleorContinu",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(215, 218, 220) none 3px",
+        "inDialog": false,
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 900
+        }
+      },
+      {
+        "tag": "A",
+        "name": "EarningsNerd",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 40,
+          "y": 26,
+          "width": 159.078125,
+          "height": 32
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Switch to light mode",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 522.859375,
+          "y": 24,
+          "width": 36,
+          "height": 36
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Back to home",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 566.859375,
+          "y": 32,
+          "width": 113.140625,
+          "height": 20
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Continue with Apple",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 377,
+          "width": 400,
+          "height": 44
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Continue with Google",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 433,
+          "width": 400,
+          "height": 46
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Continue with email",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": false,
+        "rect": {
+          "x": 160,
+          "y": 543,
+          "width": 400,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign up",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": false,
+        "rect": {
+          "x": 414.59375,
+          "y": 616,
+          "width": 50.484375,
+          "height": 17
+        }
+      }
+    ]
+  },
+  {
+    "route": "/",
+    "theme": "dark",
+    "interaction": "menu",
+    "nav": "Multi-period analysis\nCalendar\nPricing\nContact\nLog in\nRequest an invite"
+  },
+  {
+    "route": "/filing/3",
+    "theme": "dark",
+    "interaction": "Source sheet",
+    "onOpen": {
+      "tag": "BUTTON",
+      "name": "Close",
+      "id": "",
+      "role": null,
+      "type": "button",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+      "outline": "rgba(0, 0, 0, 0) solid 2px",
+      "inDialog": true,
+      "rect": {
+        "x": 337,
+        "y": 379,
+        "width": 44,
+        "height": 44
+      }
+    },
+    "headerHits": [
+      {
+        "name": "EarningsNerd home",
+        "visible": true,
+        "x": 16,
+        "y": 16,
+        "w": 36,
+        "h": 36,
+        "hitSelf": true,
+        "hitTag": "path",
+        "hitClass": null,
+        "inert": false
+      },
+      {
+        "name": "Switch to light mode",
+        "visible": true,
+        "x": 150.046875,
+        "y": 12,
+        "w": 44,
+        "h": 44,
+        "hitSelf": true,
+        "hitTag": "svg",
+        "hitClass": "h-5 w-5",
+        "inert": false
+      },
+      {
+        "name": "Request invite",
+        "visible": true,
+        "x": 198.046875,
+        "y": 12,
+        "w": 127.953125,
+        "h": 44,
+        "hitSelf": true,
+        "hitTag": "A",
+        "hitClass": "inline-flex select-none items-center justify-center gap-2 font-semibold transition-colors duration-fast focus-visible:outline-none rounded-lg px-4 text-sm h-10 whitespace-nowrap bg-brand text-white shadow-e1 hover:bg-brand-strong active:bg-brand-emphasis active:shadow-none focus-visible:shadow-ring-brand disabled:cursor-not-allowed disabled:bg-brand/45 disabled:text-white/80 disabled:shadow-none dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark dark:active:bg-brand-fill-dark dark:focus-visible:shadow-ring-brand-dark dark:disabled:bg-brand-dark/35 dark:disabled:text-background-dark/60 min-h-11",
+        "inert": false
+      },
+      {
+        "name": "Open menu",
+        "visible": true,
+        "x": 330,
+        "y": 12,
+        "w": 44,
+        "h": 44,
+        "hitSelf": true,
+        "hitTag": "path",
+        "hitClass": null,
+        "inert": false
+      },
+      {
+        "name": "Apple Inc.",
+        "visible": true,
+        "x": 16,
+        "y": 90,
+        "w": 66.359375,
+        "h": 17,
+        "hitSelf": false,
+        "hitTag": "BUTTON",
+        "hitClass": "lg:hidden fixed inset-0 z-scrim bg-overlay",
+        "inert": false
+      },
+      {
+        "name": "Original on SEC EDGAR",
+        "visible": true,
+        "x": 175.09375,
+        "y": 189,
+        "w": 171.734375,
+        "h": 16,
+        "hitSelf": false,
+        "hitTag": "BUTTON",
+        "hitClass": "lg:hidden fixed inset-0 z-scrim bg-overlay",
+        "inert": false
+      }
+    ],
+    "trail": [
+      {
+        "tag": "BUTTON",
+        "name": "Ask",
+        "id": "copilot-pane-tab",
+        "role": "tab",
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 94.9375,
+          "y": 427,
+          "width": 47.75,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Upgrade to Pro",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 17,
+          "y": 759,
+          "width": 356,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign in",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": true,
+        "rect": {
+          "x": 213.921875,
+          "y": 811,
+          "width": 39.28125,
+          "height": 15
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Close",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 337,
+          "y": 379,
+          "width": 44,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Ask",
+        "id": "copilot-pane-tab",
+        "role": "tab",
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 94.9375,
+          "y": 427,
+          "width": 47.75,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Upgrade to Pro",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 17,
+          "y": 759,
+          "width": 356,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign in",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": true,
+        "rect": {
+          "x": 213.921875,
+          "y": 811,
+          "width": 39.28125,
+          "height": 15
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Close",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 337,
+          "y": 379,
+          "width": 44,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Ask",
+        "id": "copilot-pane-tab",
+        "role": "tab",
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 94.9375,
+          "y": 427,
+          "width": 47.75,
+          "height": 44
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Upgrade to Pro",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 17,
+          "y": 759,
+          "width": 356,
+          "height": 40
+        }
+      },
+      {
+        "tag": "A",
+        "name": "Sign in",
+        "id": "",
+        "role": null,
+        "type": null,
+        "shadow": "none",
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "inDialog": true,
+        "rect": {
+          "x": 213.921875,
+          "y": 811,
+          "width": 39.28125,
+          "height": 15
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "name": "Close",
+        "id": "",
+        "role": null,
+        "type": "button",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+        "outline": "rgba(0, 0, 0, 0) solid 2px",
+        "inDialog": true,
+        "rect": {
+          "x": 337,
+          "y": 379,
+          "width": 44,
+          "height": 44
+        }
+      }
+    ],
+    "onClose": {
+      "tag": "BUTTON",
+      "name": "Source",
+      "id": "",
+      "role": null,
+      "type": "button",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+      "outline": "rgba(0, 0, 0, 0) solid 2px",
+      "inDialog": false,
+      "rect": {
+        "x": 264.109375,
+        "y": 778,
+        "width": 105.890625,
+        "height": 46
+      }
+    }
+  },
+  {
+    "route": "/filing/3",
+    "theme": "dark",
+    "interaction": "launcher line coverage",
+    "occlusion": {
+      "paragraph": "Apple's FY2025 total net sales rose 6.4% to $416.2B with net income of $112.0B and diluted EPS of $7.46, while operating cash flow declined to $111.5B from $118.3B.",
+      "launcher": {
+        "x": 264.109375,
+        "y": 778,
+        "w": 105.890625,
+        "h": 46
+      },
+      "coveredLines": []
+    },
+    "capture": "production-filing-3-dark-390-launcher-occlusion"
+  },
+  {
+    "route": "/company/AAPL",
+    "theme": "dark",
+    "interaction": "logo ground",
+    "images": [
+      {
+        "alt": "",
+        "src": "https://img.logo.dev/ticker/AAPL",
+        "bg": "rgba(127, 178, 149, 0.15)",
+        "filter": "none",
+        "x": 112,
+        "y": 125,
+        "w": 36,
+        "h": 36
+      }
+    ],
+    "api": [
+      {
+        "url": "https://api.earningsnerd.io/api/companies/AAPL/peers",
+        "status": 200
+      }
+    ]
+  }
+]
