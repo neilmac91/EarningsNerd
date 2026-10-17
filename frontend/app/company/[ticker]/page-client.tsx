@@ -73,8 +73,9 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     get current() { return filingsHeadingRef.current ?? companyCardHeadingRef.current },
   }), [])
 
-  // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale, so the client refetches
-  // on mount and live fields (stock quote) catch up — the seed only guarantees the first paint.
+  // initialDataUpdatedAt: 0 marks the ISR-cached seed (up to 30 minutes old, page.tsx's revalidate) as already
+  // stale, so the client refetches the company on mount: the seed only guarantees the first paint. The lead shows
+  // no live field since D-046 dropped its market quote.
   const companyKey = queryKeys.company(normalizedTicker)
   const companyQuery = useQuery<Company>({
     queryKey: companyKey,

@@ -14,8 +14,7 @@ import {
   TickerPill,
   periodPhrase,
 } from '@/features/filings/components/FilingIdentity'
-import { directionOf, directionText } from '@/lib/financialTone'
-import { fmtCurrency, fmtPercent, formatLocalDate } from '@/lib/format'
+import { formatLocalDate } from '@/lib/format'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
@@ -49,15 +48,15 @@ function Facts({ children }: { children: ReactNode[] }) {
 /**
  * The company page's lead (2026-10 critique, 1b): the filing page's identity vocabulary (P-04)
  * reused. A breadcrumb, the company as the page's h1 with its ticker in the data face, one line of
- * facts (exchange, quote, CIK, the company's filings on SEC EDGAR) and one line naming the latest
- * filing by form, period of report and filed date, then the page's actions: one primary, the
- * watchlist beside it as a secondary. Sector and the fiscal-year convention wait for the company
- * payload to carry them, so the lead states only what the API returns.
+ * facts (exchange, CIK, the company's filings on SEC EDGAR) and one line naming the latest filing by
+ * form, period of report and filed date, then the page's actions: one primary, the watchlist beside
+ * it as a secondary. Sector and the fiscal-year convention wait for the company payload to carry
+ * them, so the lead states only what the API returns. It carries no market quote, though the
+ * payload has one: a live price is the one figure there no filing sources (D-046). The search
+ * dropdown keeps its quote.
  */
 export function CompanyIdentity({ company, latest, summaryReady = false, actions }: CompanyIdentityProps) {
   const name = formatCompanyName(company.name) || company.ticker
-  const price = company.stock_quote?.price
-  const change = company.stock_quote?.change_percent
   const latestFiled = latest ? formatLocalDate(latest.filing_date, 'MMM d, yyyy') : ''
   const latestPeriod = latest ? periodPhrase(latest) : null
 
@@ -89,19 +88,6 @@ export function CompanyIdentity({ company, latest, summaryReady = false, actions
         <Facts>
           {[
             company.exchange && <span key="exchange">{company.exchange}</span>,
-            price != null && (
-              <span key="quote">
-                <span className={cx('font-semibold', INK)}>{fmtCurrency(price, { digits: 2, compact: false })}</span>
-                {change != null && (
-                  <>
-                    {' '}
-                    <span className={cx('font-medium', directionText[directionOf(change)])}>
-                      {fmtPercent(change, { digits: 2, signed: true })}
-                    </span>
-                  </>
-                )}
-              </span>
-            ),
             company.cik && <span key="cik">CIK {displayCik(company.cik)}</span>,
             company.cik && (
               <a
