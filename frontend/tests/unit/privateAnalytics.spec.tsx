@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
+import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import type { ComponentProps } from 'react'
 import { beforeSendVercel, PrivateAnalytics } from '@/app/private-analytics'
@@ -51,11 +52,20 @@ afterEach(() => {
 })
 
 describe('Vercel Web Analytics waits for analytics consent', () => {
-  it('renders nothing before the consent state is read: the server render is empty even with analytics allowed', () => {
-    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '' }))
-    expect(renderToString(<PrivateAnalytics />)).toBe('')
-    expect(mounts.total).toBe(0)
-    expect(vercelScripts()).toHaveLength(0)
+  it('renders nothing before the stored choice is read: the server HTML is empty and hydrating it mounts nothing', async () => {
+    const container = document.body.appendChild(document.createElement('div'))
+    container.innerHTML = renderToString(<PrivateAnalytics />)
+    expect(container).toBeEmptyDOMElement()
+    // The hydration render must not mount the library before the choice is read: its mount appends a script
+    // that nothing removes, so a render that mounts it and then reads "no choice" has already loaded it.
+    const root = await act(async () => hydrateRoot(container, <PrivateAnalytics />))
+    try {
+      expect(mounts.total).toBe(0)
+      expect(vercelScripts()).toHaveLength(0)
+    } finally {
+      act(() => root.unmount())
+      container.remove()
+    }
   })
 
   it.each([
