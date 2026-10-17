@@ -30,7 +30,12 @@ page's holds three, the header's, the panel's and the footer line's. Around them
 - carries no inline SVG, which Gmail and Outlook drop;
 - keeps the header at its set size in a view that enlarges small text, such as one that fits a wider page
   to a phone's screen (``-webkit-text-size-adjust:100%`` on its table), and leaves every other line to the
-  view, the panel's and the footer line's (a text zoom scales every line, the header's too, unmeasured on a phone);
+  view, the panel's and the footer line's (a text zoom scales every line, the header's too, so the wordmark may wrap
+  between its two words and the tagline's mark inside itself, and ``frontend/tests/e2e/mail-header-reflow.spec.ts``
+  holds the template to 320 and 390 px at 200% in Chromium; no real phone has been checked);
+- holds the header in the template's frame, which that spec measures: the same doctype, one ``<html>`` and one
+  ``<body>`` tag, the same in both, and the outer table alone in ``<body>``, after the mail's preheader, one hidden
+  ``<div>``, with a bare row around each of its cells;
 - breaks no run of a body's for it: a line that prints a run with nowhere to break, such as a link with
   its token or the reader's name, carries the rule that lets it break anywhere, since on the panel the
   rule would reach a body's own table and split a column of amounts; nor does a body lend it to a table;
@@ -70,7 +75,8 @@ from tests.support.mail_styles import (
 )
 
 TEMPLATE = Path(__file__).resolve().parents[3] / "docs" / "brand" / "templates" / "email-header.html"
-_PLAIN_COMMENT = re.compile(r"<!--\s(?:(?!-->).)*-->", re.DOTALL)  # an Outlook conditional has no space after <!--
+# A comment ends at its first --> or --!>, as a browser ends it; an Outlook conditional has no space after <!--.
+_PLAIN_COMMENT = re.compile(r"<!--\s(?:(?!--!?>).)*--!?>", re.DOTALL)
 _TILE_IN_NOTE = re.compile(r'<img src="\{base\}[^>]*>', re.DOTALL)
 _TABLE_TAG = re.compile(r"</?(?:table|tbody|tr|td)\b")
 # Text collapses spaces, tabs and line breaks alone: a form feed, a no-break or an em space renders as
@@ -183,6 +189,80 @@ def test_the_header_and_footer_line_are_the_templates(monkeypatch):
     assert any(token.startswith("<table") and "border:1px solid #E5E7EB" in token for token in cells[1]), (
         "the panel sits between the header and the footer line"
     )
+
+
+_CELL = "<td>…</td>"  # a cell of a page's outer table, as _outer_rows lists it
+
+
+def _outer_rows(tokens: list[str]) -> list[str]:
+    """The page's outermost table outside its cells, each cell standing as ``_CELL``: its row tags, and anything else
+    set between its cells."""
+    start = next(i for i, token in enumerate(tokens) if token.startswith("<table"))
+    rows, depth, in_cell = [], 1, False
+    for token in tokens[start + 1 :]:
+        if depth == 1 and not in_cell and (token == "<td>" or token.startswith("<td ")):
+            in_cell = True
+            rows.append(_CELL)
+        elif depth == 1 and in_cell and token == "</td>":
+            in_cell = False
+        elif depth == 1 and not in_cell and token != "</table>":
+            rows.append(token)
+        if token.startswith("<table"):
+            depth += 1
+        elif token == "</table>":
+            depth -= 1
+            if depth == 0:
+                return rows
+    raise AssertionError("the page's outer table never closes")
+
+
+def _frame(markup: str) -> dict:
+    """What holds a page's outer table: its doctype (None without one), its ``<html>`` and ``<body>`` tags, every one,
+    what stands between ``<body>`` and the table, the table's own tag, its rows outside its cells, and what follows the
+    table in ``<body>``."""
+    tokens = [token for token in _tokens(markup) if token.strip()]
+    tags = {name: [token for token in tokens if re.match(rf"<{name}\b", token, re.IGNORECASE)] for name in ("html", "body")}
+    body = next(i for i, token in enumerate(tokens) if re.match(r"<body\b", token, re.IGNORECASE))
+    table = next(i for i, token in enumerate(tokens) if token.startswith("<table"))
+    end = table + len(_table(tokens[table:], tokens[table]))
+    close = next(i for i, token in enumerate(tokens) if re.match(r"</body\b", token, re.IGNORECASE))
+    return {
+        "doctype": tokens[0] if tokens[0].lower().startswith("<!doctype") else None,
+        "<html>": tags["html"],
+        "<body>": tags["body"],
+        "before": tokens[body + 1 : table],
+        "outer table's": tokens[table],
+        "rows": _outer_rows(tokens[table:]),
+        "after": tokens[end:close],
+    }
+
+
+def test_the_header_sits_in_the_templates_frame():
+    """``frontend/tests/e2e/mail-header-reflow.spec.ts`` measures the template's page, so what holds the header there
+    holds it in the mail: the same doctype, which sets the mode a browser lays the page out in; one ``<html>`` tag and
+    one ``<body>`` tag, the same in both, since a browser merges a second tag's attributes into the first; and the outer
+    table alone in ``<body>``, after the mail's preheader, one hidden ``<div>`` holding its line, with a bare row around
+    each of its cells. A style on either page's ``<body>`` or on a row of its outer table, or a box around that table
+    or beside it, would lay the mail's page out other than the spec measures it."""
+    template = _frame(TEMPLATE.read_text(encoding="utf-8"))
+    mail = _frame(email_service._wrap_html("<p>Body</p>", preheader=_LINE))
+    for name, page in (("the template's", template), ("the mail's", mail)):
+        for tag in ("<html>", "<body>"):
+            assert len(page[tag]) == 1, f"{name} page holds {len(page[tag])} {tag} tags: a browser merges a second one's attributes into the first"
+    for name in ("doctype", "<html>", "<body>", "outer table's"):
+        assert template[name] == mail[name], f"the template's {name} is not the mail's: {template[name]!r} against {mail[name]!r}"
+    assert template["doctype"], "the template has no doctype, so a browser lays it out in quirks mode, as no mail is"
+    assert template["before"] == [], f"something stands between the template's <body> and its outer table: {template['before']}"
+    before = mail["before"]
+    shape = [token.split(" ")[0] if token.startswith("<") else "its line" for token in before]
+    assert shape == ["<div", "its line", "</div>"] and "display:none" in re.sub(r"\s", "", before[0].lower()), (
+        f"between the mail's <body> and its outer table stands more than its preheader, one hidden <div> holding its line: {before}"
+    )
+    for name, page, cells in (("the template's", template, 2), ("the mail's", mail, 3)):
+        assert page["rows"] == ["<tr>", _CELL, "</tr>"] * cells, (
+            f"{name} outer table holds more than a bare row around each of its cells: {page['rows']}"
+        )
+        assert page["after"] == [], f"something follows {name} outer table in <body>: {page['after']}"
 
 
 def test_the_footer_line_names_filing_data_alone():

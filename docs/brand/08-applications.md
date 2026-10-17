@@ -540,7 +540,9 @@ email footer uses the app's own sentence form of the disclaimer (D-017). The mai
 filing data alone, "Filing data sourced from SEC EDGAR. Not investment advice.", since an
 earnings-day alert carries a provider's report dates (D-043), and its page is fluid up to 600 px
 (D-042). Each mail opens with a hidden preheader of its own, the line most inboxes list beside the
-subject, so none is listed by the header's words (D-047).
+subject, so none is listed by the header's words (D-047). Under a phone's text zoom the header's wordmark
+wraps between its two words and the tagline's mark inside itself, so the header fits a 320 px screen at
+200% (D-048).
 
 ## 6. The founder slot
 

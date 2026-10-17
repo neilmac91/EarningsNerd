@@ -104,8 +104,10 @@ Excel export).
   set only in the Vercel dashboard (a variable a rule reads, or a redirect) are review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
   OG card, the PDF masthead, the email shell, the business card front); the email shell carries it
-  as the app tile, which brings its own ground into mail apps that darken a message; the stacked
-  lockup is for square placements; never centre the horizontal lockup as a hero.
+  as the app tile, which brings its own ground into mail apps that darken a message, and under a
+  phone's text zoom its wordmark wraps between its two words, Nerd under Earnings beside the tile,
+  and nowhere else (D-048); the stacked lockup is for square placements; never centre the horizontal
+  lockup as a hero.
 - **Misuse.** Never on a photograph, never recoloured outside this table, never with a drop shadow,
   outline or gradient, never rotated, never with the arrow pointing anywhere but up-right, never
   beside a competitor's mark at a different size.

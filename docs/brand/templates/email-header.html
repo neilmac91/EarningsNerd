@@ -23,7 +23,15 @@
   which an Android WebView sets from the phone's font size unless its app sets its own, scales every
   line, the header's too. The panel pads its cells, not its table, since classic Outlook ignores a
   table's padding. The footer line names filing data, since an earnings-day alert carries a
-  provider's report dates (D-043).
+  provider's report dates (D-043). Under a text zoom the wordmark may wrap between its two words, at
+  the zero-width space (&#8203;) between Earnings and its italic Nerd, and nowhere else, and the
+  tagline's mark, an inline-block, wraps inside itself only where its words do not fit (D-048): the
+  lockup then shows Nerd under Earnings, beside the tile, and this page fits a 320px screen at
+  Android's largest font size, 200%. frontend/tests/e2e/mail-header-reflow.spec.ts holds this file to
+  320 and 390px at 200%, in Inter's text cut, with the raster below in the svg's place, as the mail
+  draws it; this file styles nothing but its font faces, the repository's Inter as it is, and its
+  frame is the mail's, which the parity test holds. The mail's panel, and the body it holds, are not
+  in this file: a long word in a body would widen the mail's page, which no gate holds yet (E112).
 
   Client notes. The header's mark is the app tile (earningsnerd-appicon.svg, the cream mark on a
   sage squircle), not the bare mark (D-035). Gmail's and Outlook's apps darken a light-only message,
@@ -47,12 +55,17 @@
   with publishedAssetUrls.spec.ts and the backend gates it names). It is a
   raster under /assets/, not the PWA's /icons/icon-192.png: /assets/ lies outside the middleware's
   matcher, so no branch of it can move the file, and the manifest is free to change its icons.
-  The @font-face rule points at the repository's Inter for this preview only (the email uses no
-  data face); a sent email falls back through the inline font stacks. The highlight under "shows its work" is two nested spans:
+  The @font-face rules point at the repository's Inter, upright and italic, for this preview and
+  its reflow check only (the email loads no font); a sent email falls back through the inline font
+  stacks. The highlight under "shows its work" is two nested spans:
   the outer span's own font box is the lower 38% of the tagline's line box (tint, with the 2px
   hairline as its bottom border), lowered onto it; the inner span restores the ink. At 18px:
     tint 5.187px = (0.45978 × 18 - 2) / 1.20996, lowered 1.091px = 0.24121 × 18 - 2 - 0.24121 × 5.187
-  Outlook gets the plain phrase through the conditional comment.
+  A view with a minimum font size draws the tint taller: an Android WebView's is 8px unless its app
+  sets another, which lifts the tint from 8 to about 12px tall at the set size; the ink keeps its place.
+  An inline-block holds the two spans and the full stop, so the phrase moves to the next line whole
+  where it does not fit after "The summary that", and breaks inside itself only where it does not fit
+  a line at all. Outlook gets the plain phrase and its full stop through the conditional comment.
 -->
 <html lang="en">
 <head>
@@ -68,9 +81,15 @@
     font-weight: 100 900;
     src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-latin.woff2') format('woff2');
   }
+  @font-face {
+    font-family: 'Inter';
+    font-style: italic;
+    font-weight: 100 900;
+    src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-Italic-latin.woff2') format('woff2');
+  }
 </style>
 </head>
-<body style="margin:0;padding:0;background-color:#F4F3EE;">
+<body style="margin:0;padding:0;background-color:#F4F3EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <!-- Preheader: _wrap_html opens <body> with the mail's own line here, hidden, before the header. -->
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="background-color:#F4F3EE;">
     <tr>
@@ -95,7 +114,7 @@
                     </svg>
                   </td>
                   <!--<![endif]-->
-                  <td style="vertical-align:middle;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.44px;color:#1A1A17;">Earnings<em style="font-style:italic;color:#3C6650;">Nerd</em></td>
+                  <td style="vertical-align:middle;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.44px;color:#1A1A17;">Earnings&#8203;<em style="font-style:italic;color:#3C6650;">Nerd</em></td>
                 </tr>
               </table>
             </td>
@@ -108,7 +127,7 @@
             </td>
           </tr>
           <tr>
-            <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work<![endif]--><!--[if !mso]><!--><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;white-space:nowrap;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span><!--<![endif]-->.</td>
+            <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span style="display:inline-block;"><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span>.</span><!--<![endif]--></td>
           </tr>
         </table>
         <!--[if mso]></td></tr></table><![endif]-->

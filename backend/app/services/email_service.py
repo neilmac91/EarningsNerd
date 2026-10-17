@@ -67,10 +67,17 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
     view that ignores the viewport and fits a wider page to its screen, which no mail client is known to
     do, shows a short mail at a fraction of its size and may enlarge a long one's body past twice the
     wordmark's size. A text zoom scales every line, the header's too (the property multiplies it by one),
-    and an Android WebView sets one from the phone's font size unless its app sets its own: from about 133%
-    on a 320 px screen, 181% at 390 px and 197% at 414 px, the lockup (the tile beside a one-word wordmark)
-    then holds the page wider than the screen (measured in Chromium, in Inter; in Arial's metrics each holds
-    2 to 4 points longer, and a phone draws the wordmark in its own sans-serif, unmeasured).
+    and an Android WebView sets one from the phone's font size unless its app sets its own. So the wordmark
+    may wrap between its two words, at a zero-width space, and nowhere else, and the tagline's mark is an
+    inline-block, which keeps its three words and full stop on one line where they fit and wraps inside
+    itself where they do not (D-048): under a large zoom the lockup shows Nerd under Earnings, beside the
+    tile, and the header fits a 320 px screen at Android's largest font size, 200%, the width a phone at its
+    largest display size lays the page out at, and a 360 px screen to 230%, as every page sent did when
+    measured (in Chromium, in Inter's text cut; a phone draws the text in its own sans-serif, unmeasured). A
+    long word in a body would widen the page, and the header with it, which no gate holds yet (E112). At the
+    set size the header is pixel for pixel what it was without either.
+    ``frontend/tests/e2e/mail-header-reflow.spec.ts`` holds the template's header, and through
+    ``test_mail_header_template.py`` this one, to 320 and 390 px at 200%.
     The panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the body
     lines up under the header there too.
     """
@@ -99,7 +106,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
                         <td style="vertical-align:middle;padding:0 10px 0 0;line-height:0;">
                           <img src="{tile_url}" width="32" height="32" alt="" style="display:block;border:0;">
                         </td>
-                        <td style="vertical-align:middle;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.44px;color:#1A1A17;">Earnings<em style="font-style:italic;color:#3C6650;">Nerd</em></td>
+                        <td style="vertical-align:middle;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.44px;color:#1A1A17;">Earnings&#8203;<em style="font-style:italic;color:#3C6650;">Nerd</em></td>
                       </tr>
                     </table>
                   </td>
@@ -112,7 +119,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work<![endif]--><!--[if !mso]><!--><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;white-space:nowrap;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span><!--<![endif]-->.</td>
+                  <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span style="display:inline-block;"><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span>.</span><!--<![endif]--></td>
                 </tr>
               </table>
               <!--[if mso]></td></tr></table><![endif]-->
