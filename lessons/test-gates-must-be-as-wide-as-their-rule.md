@@ -344,14 +344,19 @@ span holds fewer spacings than its columns; a fixed layout ignores a `<col>`'s m
 a percent by a percent; a link's colour counts only where a browser takes it (it drops `#fffff`); and the
 mail module's own sends went unread as pages where one was not the shell's. And the review after that: a
 `<colgroup>`'s width keeps the columns of the `<col>`s that set none, a merged column's min-width adds to
-the column it merges into, `light-dark()` takes no CSS-wide keyword, CSS's deprecated system colours still
-paint, and a send through the transport itself, or a module handed on under another module's name, went
-unread. The merge itself had made a cell whose columns it lays out as one count as that column's own cell,
-which a cell across columns that Chromium widens before it then used (Chromium takes the cells across
-columns after the others, the fewest columns first, then from the left), so the reader passed tables
-Chromium lays out wider, where the reader before the merge counted them in full. A bound rewritten tighter
-is scored again on every shape the old one held, by the width it counts: a verdict at the phone's width
-cannot report short a table wider than the phone.
+the table's least width save past every column kept, `light-dark()` takes no CSS-wide keyword, CSS's
+deprecated system colours still paint, and a send through the transport itself, or a module handed on under
+another module's name, went unread. The merge itself had made a cell whose columns it lays out as one count
+as that column's own cell, which a cell across columns that Chromium widens before it then used (Chromium
+takes the cells across columns after the others, the fewest columns first, then from the left), so the
+reader passed tables Chromium lays out wider, where the reader before the merge counted them in full. A
+bound rewritten tighter is scored again on every shape the old one held, by the width it counts: a verdict
+at the phone's width cannot report short a table wider than the phone. And the review after that: a
+`<colgroup>`'s `inherit` takes its table's width, a module's name for a module read through a module that
+another re-exports went unread, and a voice rule's exception for a conditional comment's condition excused
+a "!" in any bracket that opens `[if `. Those `<colgroup>` shapes had been left out of the scoring as an
+artifact of the least pass, which forces the table's width; they hid pages that pass where Chromium
+overflows. A shape a measure distorts is measured another way, at the width the page sets, not left out.
 When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
 parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
 `word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine

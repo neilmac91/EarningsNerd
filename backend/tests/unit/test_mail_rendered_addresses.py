@@ -52,10 +52,12 @@ sender, or a listed one that names a send once more, fails here until it builds 
 - the links a caller hands in, for which the inputs are stand-ins; the code scan reads the callers;
 - what runs before the mail is built, elsewhere, such as a job rebinding a module's name;
 - an origin of the site's that a setting the render leaves alone points at another site's host;
-- a private name, the transport or the queue reached through ``getattr`` or ``importlib``, or through a
-  package imported above it (``from app import services``); a send behind a helper or a wrapper module,
-  counted once however often its callers call it; and a call of the mail provider that names neither its
-  settings nor its address;
+- a private name, the transport or the queue reached through ``getattr`` or ``importlib``; a private name
+  read through another name for the mail module than an import of it binds (a re-exporting module's,
+  ``mailer.es``, or a package's attribute bound to a name, ``es = services.email_service``); the transport
+  or the queue bound by unpacking (``q, t = a, b``) or held as a class's attribute; a send
+  behind a helper or a wrapper module, counted once however often its callers call it; and a call of the
+  mail provider that names neither its settings nor its address;
 - mail built or finished outside ``email_service``, in the modules ``SENDERS`` lists:
   ``routers/contact.py``'s confirmation (E56), the internal admin and team notices, and what a caller adds
   to a page before it sends it (``data_quality_service.run_and_email`` appends the report's text copy, as
@@ -444,7 +446,6 @@ def _render(cases: dict, module=email_service) -> dict:
     try:
         resend_service.send_email = _record  # a send through the transport is recorded, however the module reaches it
         importlib.reload(module)  # the module loads again, traced, and binds the transport as recorded
-        module.send_email = _record
         for name, inputs in cases.items():
             for kwargs in inputs:
                 result = getattr(module, name)(**kwargs)
@@ -734,38 +735,51 @@ def _module_name(path: Path, app: Path) -> str:
     return ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
 
 
-def _module_named(owner: str, modules: dict[str, str]) -> str:
-    """A dotted name as the module it names: through a name bound to it, or through another module's name for it
-    (``mailer.delivery``, ``app.services.mailer.delivery``), else as written, its dotted path."""
-    head, _, rest = owner.partition(".")
-    if owner in modules:
-        return modules[owner]
-    return f"{modules[head]}.{rest}" if rest and head in modules else owner
+def _module_named(owner: str, modules: dict[str, str], aliases: dict[str, str]) -> str:
+    """A dotted name as the module it names, read as Python reads its attributes: its first name as the module binds
+    it, else as a top-level package, then each attribute in turn, the module's own name for a module
+    (``mailer.delivery``) else the module of that name below it, through any chain of them."""
+    head, *rest = owner.split(".")
+    named = modules.get(head, head)
+    for part in rest:
+        named = aliases.get(f"{named}.{part}", f"{named}.{part}")
+    return named
 
 
-def _held(node: ast.AST, modules: dict[str, str], holders: dict[str, frozenset[str]]) -> frozenset[str]:
+def _holds(named: str, holders: dict[str, frozenset[str]]) -> bool:
+    """Whether a module holds a function that sends, or is a package with one below it (``app.services``), whose
+    name for that module, once it is imported, reads it."""
+    return named in holders or any(key.startswith(f"{named}.") for key in holders)
+
+
+def _held(node: ast.AST, modules: dict[str, str], holders: dict[str, frozenset[str]], aliases: dict[str, str]) -> frozenset[str]:
     """The functions that send held by the module a node names: through a name bound to it, by its dotted path, or
     through another module's name for it (``mailer.delivery``)."""
     owner = _dotted(node)
-    return frozenset() if owner is None else holders.get(_module_named(owner, modules), frozenset())
+    return frozenset() if owner is None else holders.get(_module_named(owner, modules, aliases), frozenset())
 
 
-def _bindings(tree: ast.Module, path: Path, app: Path, holders: dict[str, frozenset[str]]) -> tuple[set[str], dict[str, str]]:
+def _bindings(
+    tree: ast.Module, path: Path, app: Path, holders: dict[str, frozenset[str]], aliases: dict[str, str]
+) -> tuple[set[str], dict[str, str]]:
     """The names a module binds to a function that sends, and to a module that holds one, with that module: imported
     by name or through a star import, and each name a binding hands one on to, a module's attribute among them."""
     functions: set[str] = set()
     modules: dict[str, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            modules.update({alias.asname: alias.name for alias in node.names if alias.asname and alias.name in holders})
+            modules.update({alias.asname: alias.name for alias in node.names if alias.asname and _holds(alias.name, holders)})
         elif isinstance(node, ast.ImportFrom):
             module = _imported(node, path, app)
             for alias in node.names:
+                # An import finds its module by its path, not its attributes, then the name in it: that module's own
+                # name for a module, else the module of that name below it.
                 if alias.name == "*":
                     functions |= holders.get(module, frozenset())
-                    modules.update({key.rpartition(".")[2]: key for key in holders if key.rpartition(".")[0] == module})
-                elif f"{module}.{alias.name}" in holders:
-                    modules[alias.asname or alias.name] = f"{module}.{alias.name}"
+                    below = {key for key in [*holders, *aliases] if key.rpartition(".")[0] == module}
+                    modules.update({key.rpartition(".")[2]: named for key in below if _holds(named := aliases.get(key, key), holders)})
+                elif _holds(named := aliases.get(f"{module}.{alias.name}", f"{module}.{alias.name}"), holders):
+                    modules[alias.asname or alias.name] = named
                 elif alias.name in holders.get(module, ()):
                     functions.add(alias.asname or alias.name)
     while True:  # a name bound to one of those, or to a module's function that sends, holds what it holds
@@ -774,35 +788,41 @@ def _bindings(tree: ast.Module, path: Path, app: Path, holders: dict[str, frozen
             targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) and node.value else []
             value = _dotted(node.value) if targets else None
             for target in [t for t in targets if isinstance(t, ast.Name) and t.id not in functions and t.id not in modules]:
-                if value in functions or (isinstance(node.value, ast.Attribute) and node.value.attr in _held(node.value.value, modules, holders)):
+                if value in functions or (
+                    isinstance(node.value, ast.Attribute) and node.value.attr in _held(node.value.value, modules, holders, aliases)
+                ):
                     functions.add(target.id)
                     grown = True
-                elif value is not None and _module_named(value, modules) in holders:
-                    modules[target.id] = _module_named(value, modules)
+                elif value is not None and _holds(_module_named(value, modules, aliases), holders):
+                    modules[target.id] = _module_named(value, modules, aliases)
                     grown = True
         if not grown:
             return functions, modules
 
 
-def _holders(trees: dict[Path, ast.Module], app: Path) -> dict[str, frozenset[str]]:
-    """The modules that hold a function that sends: those ``_SENDS`` names, and each module under ``app`` that binds
-    one, or a module that holds one, by import or by a binding, which it hands on to its importers, through any chain
-    of them. A module's name for such a module (``app.services.mailer.delivery``) holds what that module holds."""
-    holders = dict(_SENDS)
+def _holders(trees: dict[Path, ast.Module], app: Path) -> tuple[dict[str, frozenset[str]], dict[str, str]]:
+    """The modules that hold a function that sends, and each module's names for one. A module holds those ``_SENDS``
+    names, and each under ``app`` holds each function that sends it binds, by import or by a binding, which it hands
+    on to its importers, through any chain of them; one that binds a module that holds one holds it too. A module's
+    name for a module (``app.services.mailer.delivery``) is that module, as Python binds it, so what it names
+    is read through every module that holds it, however deep; each is recorded once, as it is first read, so a
+    package that rebinds a name a module has read as the subpackage of that name keeps the subpackage."""
+    holders: dict[str, frozenset[str]] = dict(_SENDS)
+    aliases: dict[str, str] = {}
     while True:
         grown = False
         for path, tree in trees.items():
             name = _module_name(path, app)
-            functions, modules = _bindings(tree, path, app, holders)
-            held = {f"{name}.{local}": holders[module] for local, module in modules.items()}
-            if functions or held:
-                held[name] = frozenset(functions)
-            for key, sends in held.items():
-                if key not in holders or not sends <= holders[key]:
-                    holders[key] = holders.get(key, frozenset()) | sends
+            functions, modules = _bindings(tree, path, app, holders, aliases)
+            for local, module in modules.items():
+                if f"{name}.{local}" not in aliases:
+                    aliases[f"{name}.{local}"] = module
                     grown = True
+            if (functions or modules) and not (name in holders and functions <= holders[name]):
+                holders[name] = holders.get(name, frozenset()) | frozenset(functions)
+                grown = True
         if not grown:
-            return holders
+            return holders, aliases
 
 
 def senders(app: Path) -> dict[str, int]:
@@ -811,18 +831,20 @@ def senders(app: Path) -> dict[str, int]:
     queue's), or the provider's key or address, which a call of the provider past the transport needs. A function
     counts read through a module that holds it, by a name bound to the module or its dotted path; imported from one,
     by name or through a star import; and through each name a binding hands it on to. A module holds each function
-    it binds so, and each module that holds one, and hands them on to its importers, so a re-export, of a function or
-    of a module (``mailer.delivery``), counts through any chain of them. A setting counts read as an attribute or
+    it binds so, and each module that holds one, and hands them on to its importers; its name for a module is that
+    module, and a package holds the modules below it, so a re-export, of a function or of a module
+    (``mailer.delivery``, or ``relay.q`` through a module that binds ``relay``), counts through any chain of them, and
+    so does a package imported above it (``from app import services``). A setting counts read as an attribute or
     named in a string, as ``getattr`` takes it. An import alone sends nothing, nor does a caught ``ResendError`` or an
     annotation; a name in a type alias or an ``isinstance`` check counts as a send would (asking). The transport and
     the settings that define the provider are not read."""
     trees = {path: ast.parse(path.read_text(encoding="utf-8")) for path in sorted(app.rglob("*.py"))}
-    holders = _holders(trees, app)
+    holders, aliases = _holders(trees, app)
     found: dict[str, int] = {}
     for path, tree in trees.items():
         if path in (app / "services" / "resend_service.py", app / "config.py"):
             continue
-        functions, modules = _bindings(tree, path, app, holders)
+        functions, modules = _bindings(tree, path, app, holders, aliases)
         annotations = {
             id(inner)
             for node in ast.walk(tree)
@@ -837,7 +859,7 @@ def senders(app: Path) -> dict[str, int]:
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in functions:
                 sends += 1
             elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
-                sends += node.attr in _held(node.value, modules, holders) or node.attr in _PROVIDER
+                sends += node.attr in _held(node.value, modules, holders, aliases) or node.attr in _PROVIDER
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                 sends += node.value in _PROVIDER or "api.resend.com" in node.value
         if sends:
@@ -904,6 +926,12 @@ SENDS = [
     ("the transport's module through a star import of a module that re-exports it", "from app.services.mailer import *\nresend_service.send_email()\n", 1, {"services/mailer.py": "from app.services import resend_service\n"}),
     ("the transport's module bound to a name from the re-exporting module's name for it", "from app.services import mailer\ntransport = mailer.resend_service\ntransport.send_email()\n", 1, {"services/mailer.py": "from app.services import resend_service\n"}),
     ("the queue's module through a chain whose second module binds the first's name for it", "from app.services.dispatch import delivery\ndelivery.drain(db)\n", 1, {"services/relay.py": "from app.services import notification_delivery_service as q\n", "services/dispatch.py": "from app.services import relay\ndelivery = relay.q\n"}),
+    ("the queue's module read through a module that another module re-exports, by that module's own name for it", "from app.services.dispatch import relay\nrelay.q.drain(db)\n", 1, {"services/relay.py": "from app.services import notification_delivery_service as q\n", "services/dispatch.py": "from app.services import relay\n"}),
+    ("the transport read through its package, imported above it", "from app import services\nservices.resend_service.send_email()\n", 1),
+    ("the transport read through its package imported under another name", "import app.services as s\ns.resend_service.send_email()\n", 1),
+    ("the transport read through a name bound to its package", "import app.services\nsvc = app.services\nsvc.resend_service.send_email()\n", 1),
+    ("the queue's module read two names past the module the reader binds, through a module that another re-exports", "from app.services import dispatch\ndispatch.relay.q.drain(db)\n", 1, {"services/relay.py": "from app.services import notification_delivery_service as q\n", "services/dispatch.py": "from app.services import relay\n"}),
+    ("the queue's module read around a cycle of two modules that import each other", "from app.services.dispatch import relay\nrelay.dispatch.relay.q.drain(db)\n", 1, {"services/relay.py": "from app.services import dispatch\nfrom app.services import notification_delivery_service as q\n", "services/dispatch.py": "from app.services import relay\n"}),
     ("the transport's error imported by name, which sends nothing", "from app.services.resend_service import ResendError\n", 0),
     ("the transport imported for its error alone", "from app.services import resend_service\ntry:\n    pass\nexcept resend_service.ResendError:\n    pass\n", 0),
     ("the transport's function imported and never named", "from app.services.resend_service import send_email\n", 0),
@@ -918,6 +946,10 @@ SENDS = [
     ("the transport's error read through a module that re-exports the transport, which sends nothing", "from app.services.mailer import resend_service\ntry:\n    pass\nexcept resend_service.ResendError:\n    pass\n", 0, {"services/mailer.py": "from app.services import resend_service\n"}),
     ("the transport's error through a star import of a module that re-exports the transport, which sends nothing", "from app.services.mailer import *\ntry:\n    pass\nexcept resend_service.ResendError:\n    pass\n", 0, {"services/mailer.py": "from app.services import resend_service\n"}),
     ("the transport's error through a name bound to the re-exporting module's name for it, which sends nothing", "from app.services import mailer\ntransport = mailer.resend_service\nError = transport.ResendError\n", 0, {"services/mailer.py": "from app.services import resend_service\n"}),
+    ("the queue's click record read through a module that another module re-exports, which sends nothing", "from app.services.dispatch import relay\nrelay.q.record_first_click(db, \"x\", now)\n", 0, {"services/relay.py": "from app.services import notification_delivery_service as q\n", "services/dispatch.py": "from app.services import relay\n"}),
+    ("the queue's click record through a chain whose second module binds the first's name for it, which sends nothing", "from app.services.dispatch import delivery\ndelivery.record_first_click(db, \"x\", now)\n", 0, {"services/relay.py": "from app.services import notification_delivery_service as q\n", "services/dispatch.py": "from app.services import relay\ndelivery = relay.q\n"}),
+    ("a public mail function read through its package, imported above it, which sends nothing", "from app import services\nservices.email_service.send_daily_digest()\n", 0),
+    ("the transport's error read through its package, imported above it, which sends nothing", "from app import services\nE = services.resend_service.ResendError\n", 0),
 ]
 
 
@@ -1324,7 +1356,7 @@ def test_the_planted_lists_keep_their_counts():
         "ADDRESSES": (sum(isinstance(case[-1], str) for case in ADDRESSES), sum(case[-1] is None for case in ADDRESSES)),
         "SENT": (sum(isinstance(case[-1], str) for case in SENT), sum(case[-1] is None for case in SENT)),
     }
-    assert counts == {"PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (44, 14), "ADDRESSES": (63, 9), "SENT": (7, 1)}, (
+    assert counts == {"PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (7, 1)}, (
         "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     )
     for name, cases in (("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT)):
