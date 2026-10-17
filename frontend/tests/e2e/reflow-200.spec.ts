@@ -377,6 +377,83 @@ test.describe('a 390x664 phone at 200% text', () => {
   }
 })
 
+/** The homepage search's failure alert (CompanySearch). Its Try again keeps the room of "Trying again…" at rest
+    (RetryButton), so at 200% text on a phone it is wider than its label. Beside the message, in a row that held the
+    two apart, that left the message too little width and pushed the Retry past the screen: at 390px the page
+    scrolled to 445px, the Retry's right edge 87px past the alert's, its label cut to "Try aga". The Retry takes its
+    own row under the message, as a Notice's action does. A failed search at 360 and 390px, at rest and with the
+    press's request held open (busy, "Trying again…"): the page does not scroll sideways, the Retry lies inside the
+    alert, no control's text paints past its own box, and neither the Retry's box nor the alert's moves through the
+    swap. CI has no backend: the search answers 503 with the backend's own detail, through the client's own retries,
+    and the press's request is held open. */
+test.describe('the homepage search alert at 200% text', () => {
+  const SEARCH_DOWN = 'SEC EDGAR is temporarily unavailable. Please retry shortly.'
+  /** The alert's box and its Retry's, rounded, and whether the Retry lies inside the alert. */
+  const boxes = (alert: Locator) =>
+    alert.evaluate((el) => {
+      const a = el.getBoundingClientRect()
+      const b = el.querySelector('button')!.getBoundingClientRect()
+      const px = (r: DOMRect) => `${Math.round(r.left)}-${Math.round(r.right)} x ${Math.round(r.top)}-${Math.round(r.bottom)}px`
+      return {
+        alert: px(a),
+        retry: px(b),
+        inside: b.left >= a.left - 0.5 && b.right <= a.right + 0.5 && b.top >= a.top - 0.5 && b.bottom <= a.bottom + 0.5,
+      }
+    })
+  for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }]) {
+    test.describe(`a ${viewport.width}px phone`, () => {
+      test.use({ viewport, isMobile: true, hasTouch: true })
+      test(`home (/) keeps a failed search's Try again inside its alert at ${viewport.width}px, at rest and busy, and does not scroll sideways`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await answerGuest(page, baseURL!)
+        const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
+        let holdNext = false
+        // Registered last, so it answers the search before answerGuest's catch-all; a held request stays open.
+        await page.route(
+          (url) => url.origin === API_ORIGIN && url.pathname === '/api/companies/search',
+          (route) => (holdNext ? undefined : route.fulfill({ status: 503, headers: cors, json: { detail: SEARCH_DOWN } })),
+        )
+        await page.goto('/')
+        await h1(page)
+        await page.evaluate(() => document.fonts.ready)
+        await doubleText(page)
+
+        await page.getByRole('combobox', { name: 'Or start with a company' }).fill('apple')
+        const alert = page.getByRole('alert').filter({ hasText: 'Error searching companies' })
+        // The client retries a 503 three times (1, 2 and 4 seconds apart) before the alert shows.
+        await expect(alert).toBeVisible({ timeout: 20_000 })
+        await expect(alert).toContainText(SEARCH_DOWN)
+        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+
+        const at = `the search alert at ${viewport.width}px and 200% text`
+        const rest = await boxes(alert)
+        const atRest = await measure(page)
+        expect(atRest.scrollWidth, `${at}, at rest: ${why(atRest)}`).toBeLessThanOrEqual(atRest.clientWidth)
+        expect(rest.inside, `${at}, at rest: the Retry (${rest.retry}) lies inside the alert (${rest.alert})`).toBe(true)
+        expect(await collisions(alert), `${at}, at rest: its controls`).toEqual([])
+
+        holdNext = true
+        await alert.getByRole('button', { name: 'Try again', exact: true }).focus()
+        await page.keyboard.press('Enter')
+        await expect(alert.getByRole('button', { name: 'Trying again…', exact: true })).toBeVisible()
+        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+
+        const busy = await boxes(alert)
+        const whileBusy = await measure(page)
+        expect(whileBusy.scrollWidth, `${at}, busy: ${why(whileBusy)}`).toBeLessThanOrEqual(whileBusy.clientWidth)
+        expect(busy.inside, `${at}, busy: the Retry (${busy.retry}) lies inside the alert (${busy.alert})`).toBe(true)
+        expect(await collisions(alert), `${at}, busy: its controls`).toEqual([])
+        expect(busy, `${at}: the press moves neither the Retry nor the alert`).toEqual(rest)
+      })
+    })
+  }
+})
+
 /** The header must not cover what is pinned under it. At 200% text the site header is about 151px
     (one row; 239px when it wrapped to two); the filing page's section nav, once stuck, sits below the
     header's measured height (`--site-header-h`, components/Header.tsx), not below a fixed 4rem (128px

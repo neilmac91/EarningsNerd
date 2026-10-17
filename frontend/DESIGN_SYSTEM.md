@@ -175,15 +175,18 @@ Its label is the product's one retry verb (D-032): "Try again", busy "Trying aga
 call site passes none: TypeScript refuses a child, an aria-label and an aria-labelledby (RetryButtonProps declares
 each `never`), RetryButton drops each at run time (one a spread or a cast brings in), and the gate fails a call
 site that passes one, under any name an import gives RetryButton. It keeps the room of the spinner and "Trying
-again…" at rest (Button's `reserveLoadingText`, below), so the swap never widens it, wraps its label or moves its
-card: without it, at 390px under 200% text the label wrapped and the card grew 22 to 24px, and the search alert's
-message re-wrapped beside the wider button (e2e `filing-source-chip.spec.ts` holds the box through the swap,
-in both themes at 390 and 1440px). Where one Notice holds two failed reads, one
+again…" at rest (Button's `reserveLoadingText`, below; D-032), so the swap never resizes it or moves what sits
+beside it: without it, at 390px under 200% text the label wrapped and the card grew 22 to 24px (e2e
+`filing-source-chip.spec.ts` holds the box through the swap, in both themes at 390 and 1440px). That room must
+never cost reflow, so the Retry takes its own row under its message, as a Notice's action does, never a place
+beside a `flex-1` message in a row that cannot wrap: the homepage search alert's Retry sat there, and at 390px
+under 200% text it ran past the screen at rest (e2e `reflow-200.spec.ts` holds the alert at 360 and 390px, at
+rest and busy). Where one Notice holds two failed reads, one
 RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
 the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
 not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and
-so does the copy beside a Retry ("Try again in a moment.", the stream's own "Connection interrupted. Trying
-again…"): the gate's one-verb clauses fail any other label, busy text or "retry" in copy, naming the file and line.
+so does the copy beside a Retry ("Try again in a moment."): the gate's one-verb clauses fail any other label, busy
+text or "retry" in copy, naming the file and line.
 A Retry that restarts a stream, not a query (the filing page's generation restart), is RetryButton too, given the
 stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no query to hold, and the press
 clears the error in the render that starts the stream, so the card leaves with the press when the run starts

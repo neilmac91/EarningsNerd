@@ -52,7 +52,8 @@ mutation whose `onSuccess` invalidates (rule (f) requires it) and every submit t
 lands, 20 handlers in 15 files when measured and none a Retry, so a Retry that invalidates through a named
 handler is left to the label clause. By its label: any element but RetryButton whose `loadingText` (or
 `reserveLoadingText`, the busy text whose room a button keeps at rest) starts "Retrying" or "Trying again" or
-whose label starts "Retry" or "Try again", a same-file string const (`{retryLabel}`) included. RetryButton's own
+whose label (its text, or a `children` attribute) starts "Retry" or "Try again", a same-file string const
+(`{retryLabel}`) included. RetryButton's own
 definition is the one exemption from both Retry clauses, by file and function name (it is the sanctioned wiring
 and label); a function of that name anywhere else is just another hand-rolled Retry. Each has a shrink-only, capped allowlist with reasons: ALLOW_RETRY pins 1 wiring site
 in 1 file (the `loading` of "Show full history", the filings query's fetching flag on a button that is not a
@@ -89,13 +90,16 @@ aria-label. RetryButton drops all three at run time, for one a spread or a cast 
 (useRetainedFailure.spec.tsx renders each and finds the name "Try again"). Any other retry control fails,
 RetryButton's own definition included with no exemption, when its label (its text, or a `children` attribute) is
 not exactly "Try again", its busy text (shown or reserved) is not exactly "Trying again…" (U+2026) or its text
-starts "Retry"; a part of a retry control the scan cannot read (a parameter, a `let`, a call, an aria-labelledby,
-whose name is another element's text) fails as unread, and RetryButton's definition must reserve the busy text it
-shows. On copy: every string, template text and JSX text in the .ts and .tsx modules under the same roots is read,
-and "retry", "retrying", "retries" or "retried" fails, outside console calls, imports, object keys, string types,
-code attributes and the header name Retry-After; ALLOW_RETRY_WORD pins, with reasons and caps equal to the list,
-the two backend tokens the app matches and never shows (PLACEHOLDER_PATTERNS' "retry" and
-SUMMARY_FALLBACK_MESSAGE).
+starts "Retry"; a part of a retry control the scan cannot read (a parameter, a `let`, a call, a template with a
+substitution, an aria-labelledby, whose name is another element's text) fails as unread, a template's text before
+its first substitution still marking its control a retry (an icon-only Button's ``aria-label={`Try again for
+${name}`}``), and RetryButton's definition must reserve the busy text it shows. On copy: every string, template
+text and JSX text in the .ts and .tsx modules under the same roots is read, and "retry", "retrying", "retries" or
+"retried" fails, outside console calls, imports, object keys, string types, code attributes and the header name
+Retry-After; ALLOW_RETRY_WORD pins, with reasons and caps equal to the list, the two backend tokens the app
+matches and never shows (PLACEHOLDER_PATTERNS' "retry" and SUMMARY_FALLBACK_MESSAGE). Its limit, planted as a gap:
+a word split across JSX text and an expression (`Please re{''}try`) is read a part at a time, so neither clause
+sees it.
 
 (e) A control unavailable after its own activation (`!dirty` after a save, an incomplete form, a
 cooldown, "Link sent") is aria-disabled with an early return too. A primary DS Button in that state
@@ -197,8 +201,14 @@ move focus a mouse user did not lose.
   failures that failed, since a healthy sibling refetched too could settle first and end the error UI early;
   the hand-off above. Its label is "Try again", the one retry verb (D-032), and RetryButton's own, so a call
   site passes none. It reads "Trying again…" only while its own press's retry runs, and keeps that label's room
-  (with the spinner's) at rest, Button's `reserveLoadingText`, so the swap never resizes it or moves its card
-  (e2e `filing-source-chip.spec.ts` holds the box). During a refetch nobody
+  (with the spinner's) at rest, Button's `reserveLoadingText`, so the swap never resizes it or moves what sits
+  beside it (e2e `filing-source-chip.spec.ts` holds the box; chief design kept the reserve on 2026-10-17, D-032).
+  That room must never cost reflow: the Retry takes its own row under its message, as a Notice's action does,
+  never a place beside a `flex-1` message in a row that cannot wrap. The homepage search alert had it there; at
+  390px under 200% text the reserve's narrow minimum (the spinner, the gap and "again…", 178px) left the message
+  too little of the row, and at rest the Retry ran 87px past the alert and the page scrolled to 445px
+  (`tests/e2e/reflow-200.spec.ts` holds the alert at 360 and 390px under 200% text, at rest and busy). During a
+  refetch nobody
   pressed it is busy (aria-busy, aria-disabled, the spinner, a refused press) under its own label: a label
   swap inside the card's `role=alert` would re-announce the failure at every reconnect. Two failed reads in one
   Notice share one RetryButton (the dashboard's plan strip, the pricing page's details Notice): its press

@@ -228,8 +228,9 @@ function outsideRetryButton(source: string, fileName: string, sites: Site[]): Si
  * The same rule by what the user reads, so a Retry wired through other names is still seen: any JSX element
  * other than `<RetryButton>` whose `loadingText` starts with "Retrying" or "Trying again", or whose own label
  * starts with "Retry" or "Try again". The label is the element's text children and string-literal children (each
- * branch of a `cond ? 'a' : 'b'` child counts on its own), whitespace collapsed; a nested element's text is
- * that element's own label. `expr` is `Tag "label"`, which ALLOW_RETRY_LABEL pins.
+ * branch of a `cond ? 'a' : 'b'` child counts on its own), whitespace collapsed, or a `children` attribute read
+ * the same way; a nested element's text is that element's own label. `expr` is `Tag "label"`, which
+ * ALLOW_RETRY_LABEL pins.
  */
 const RETRY_LABEL = /^(retry|try again)\b/i
 const RETRY_LOADING_TEXT = /^(Retrying|Trying again)/
@@ -262,11 +263,14 @@ function retryLabelSites(source: string, fileName: string): Site[] {
       const tag = opening.tagName.getText(sf)
       const labels: string[] = []
       for (const attr of opening.attributes.properties) {
-        if (!ts.isJsxAttribute(attr) || !BUSY_TEXT_ATTRS.has(attr.name.getText(sf)) || !attr.initializer) continue
+        if (!ts.isJsxAttribute(attr) || !attr.initializer) continue
+        const name = attr.name.getText(sf)
+        // A `children` attribute is the element's label, as its text children are.
+        if (!BUSY_TEXT_ATTRS.has(name) && name !== 'children') continue
         const value = ts.isStringLiteral(attr.initializer)
           ? [attr.initializer.text]
           : attr.initializer.expression ? literals(attr.initializer.expression) : []
-        labels.push(...value.map(collapse).filter((text) => RETRY_LOADING_TEXT.test(text)))
+        labels.push(...value.map(collapse).filter((text) => (name === 'children' ? RETRY_LABEL : RETRY_LOADING_TEXT).test(text)))
       }
       if (ts.isJsxElement(node)) {
         let text = ''
@@ -295,34 +299,37 @@ function retryLabelSites(source: string, fileName: string): Site[] {
  * The one retry verb (docs/brand/decisions-log.md D-032): the product says "Try again" for the act and
  * "Trying again…" (U+2026) while it runs. Two clauses hold it.
  *
- * oneVerbSites, on controls. A RetryButton call site passes no label of its own: the label is RetryButton's,
- * so the verb has one source. Any child (text, an expression, an element; whitespace and a `{/* comment *\/}`
- * aside), a `children`, `aria-label` or `aria-labelledby` attribute, or a JSX spread (whose props the scan cannot
- * read) fails. RetryButton is matched by its own name and by every name an import of its module gives it (`{
- * RetryButton as Again }`, a default import, `H.RetryButton` under `import * as H`); any other use of it fails as
- * a form whose label the scan cannot read: the name anywhere but a JSX tag, an import or a type (an alias, a
- * prop, a createElement argument, an export of it), an `export *` of its module or an `import()` of it. This
- * clause is the third of three holds on the label: RetryButtonProps declares the three label props `never`, so
- * TypeScript refuses each at a call site, and RetryButton drops each at run time, for one a spread or a cast
- * brings in. Every other element is a retry control when its label (its text, or a `children` attribute), its
- * aria-label or its busy text reads as one (RETRY_LABEL, any text that starts "Retry", or a busy text that starts
- * "Retrying" or "Trying again"), RetryButton's own definition included: each label it can show is exactly "Try
- * again" (or "Trying again…", a busy branch), its busy text exactly "Trying again…", its aria-label exactly "Try
- * again", and any of them that starts "Retry" fails whatever follows. The label is read as the label scan reads
- * it (text children, string children, each branch of a conditional apart), plus `&&`'s rendered side alone, a
- * `||` or `??` both sides and a same-file `const`; a part of a retry control it cannot read (a parameter, a
- * `let`, a call, a member, a template with a substitution, an aria-labelledby, whose name is another element's
- * text) fails as unread instead of passing. Its limit: a label split across elements (`Try <b>again</b>`) is
- * read per element; a control no text marks as a retry (a "Reload" wired to a refetch) is the wiring clause's
- * and the label pins' to see; and the text an aria-labelledby points to is read only by the copy clause, which
- * fails a "retry" in it.
+ * oneVerbSites, on controls. A RetryButton call site passes no label of its own: the label is RetryButton's, so the
+ * verb has one source. Any child (text, an expression, an element; whitespace and a `{/* comment *\/}` aside), a
+ * `children`, `aria-label` or `aria-labelledby` attribute, or a JSX spread (whose props the scan cannot read) fails.
+ * RetryButton is matched by its own name and by every name an import of its module gives it (`{ RetryButton as Again
+ * }`, a default import, `H.RetryButton` under `import * as H`); any other use of it fails as a form whose label the
+ * scan cannot read: the name anywhere but a JSX tag, an import or a type (an alias, a prop, a createElement
+ * argument, an export of it), an `export *` of its module or an `import()` of it. This clause is the third of three
+ * holds on the label: RetryButtonProps declares the three label props `never`, so TypeScript refuses each at a call
+ * site, and RetryButton drops each at run time, for one a spread or a cast brings in. Every other element is a retry
+ * control when its label (its text, or a `children` attribute), its aria-label or its busy text reads as one
+ * (RETRY_LABEL, any text that starts "Retry", or a busy text that starts "Retrying" or "Trying again"), a template's
+ * text before its first substitution included (an icon-only Button's ``aria-label={`Try again for ${name}`}``),
+ * RetryButton's own definition included: each label it can show is exactly "Try again" (or "Trying again…", a busy
+ * branch), its busy text exactly "Trying again…", its aria-label exactly "Try again", and any of them that starts
+ * "Retry" fails whatever follows. The label is read as the label scan reads it (text children, string children, each
+ * branch of a conditional apart), plus `&&`'s rendered side alone, a `||` or `??` both sides and a same-file
+ * `const`; a part of a retry control it cannot read (a parameter, a `let`, a call, a member, a template with a
+ * substitution, an aria-labelledby, whose name is another element's text) fails as unread instead of passing. Its
+ * limit: a label split across elements (`Try <b>again</b>`) is read per element; a control no text marks as a retry
+ * (a "Reload" wired to a refetch) is the wiring clause's and the label pins' to see; and the text an aria-labelledby
+ * points to is read only by the copy clause, which fails a "retry" in it.
  *
- * retryWordSites, on copy: no string literal, template text or JSX text in any .ts or .tsx under the scanned
- * roots says "retry", "retrying", "retries" or "retried", in any case: a description beside the control says
- * "try again" too, and a status line "Trying again…". Code is not copy: a console call's arguments, an import or
- * export specifier, an object key, a string type, a code attribute (CODE_ATTRS) and the header name Retry-After
- * are skipped. ALLOW_RETRY_WORD pins, with a reason, the code strings that carry the word (backend tokens the app
- * matches and never shows). Text the server sends at run time (a 503's detail) is outside any source scan.
+ * retryWordSites, on copy: no string literal, template text or JSX text in any .ts or .tsx under the scanned roots
+ * says "retry", "retrying", "retries" or "retried", in any case: a description beside the control says "try again"
+ * too, and a status line "Trying again…". Code is not copy: a console call's arguments, an import or export
+ * specifier, an object key, a string type, a code attribute (CODE_ATTRS) and the header name Retry-After are
+ * skipped. ALLOW_RETRY_WORD pins, with a reason, the code strings that carry the word (backend tokens the app
+ * matches and never shows). Text the server sends at run time (a 503's detail) is outside any source scan. Its
+ * limit, planted as a gap in the self-check: a word split across JSX text and an expression (`Please re{''}try`) is
+ * read a part at a time, so neither clause sees it (the one-verb clause joins the parts, but prose like this does
+ * not start with the verb); review catches it.
  */
 const ONE_VERB = 'Try again'
 const ONE_BUSY_TEXT = 'Trying again…'
@@ -330,18 +337,22 @@ const STARTS_RETRY = /^retry/i
 const RETRY_BUSY_TEXT = /^(retrying|trying again)/i
 const LABEL_ATTRS = new Set(['children', 'aria-label', 'aria-labelledby'])
 
-/** The texts an expression can render, a same-file const followed, and the parts the scan cannot read. */
-function readTexts(e: ts.Expression, visible: (ref: ts.Identifier) => Binding | undefined, seen = new Set<Binding>()): { texts: string[]; unread: string[] } {
-  if (ts.isStringLiteralLike(e)) return { texts: [e.text], unread: [] }
-  if (ts.isNumericLiteral(e)) return { texts: [e.text], unread: [] }
-  if (e.kind === ts.SyntaxKind.NullKeyword || e.kind === ts.SyntaxKind.TrueKeyword || e.kind === ts.SyntaxKind.FalseKeyword) {
-    return { texts: [], unread: [] }
-  }
+/**
+ * The texts an expression can render, a same-file const followed, and the parts the scan cannot read; for a template
+ * with a substitution, which it cannot read, also the text before the first substitution (its head), so a label
+ * such as `Try again for ${name}` still marks its control a retry.
+ */
+type Read = { texts: string[]; unread: string[]; heads: string[] }
+function readTexts(e: ts.Expression, visible: (ref: ts.Identifier) => Binding | undefined, seen = new Set<Binding>()): Read {
+  const none: Read = { texts: [], unread: [], heads: [] }
+  if (ts.isStringLiteralLike(e)) return { ...none, texts: [e.text] }
+  if (ts.isNumericLiteral(e)) return { ...none, texts: [e.text] }
+  if (e.kind === ts.SyntaxKind.NullKeyword || e.kind === ts.SyntaxKind.TrueKeyword || e.kind === ts.SyntaxKind.FalseKeyword) return none
   if (ts.isParenthesizedExpression(e)) return readTexts(e.expression, visible, seen)
-  const both = (a: ts.Expression, b: ts.Expression) => {
+  const both = (a: ts.Expression, b: ts.Expression): Read => {
     const left = readTexts(a, visible, seen)
     const right = readTexts(b, visible, seen)
-    return { texts: [...left.texts, ...right.texts], unread: [...left.unread, ...right.unread] }
+    return { texts: [...left.texts, ...right.texts], unread: [...left.unread, ...right.unread], heads: [...left.heads, ...right.heads] }
   }
   if (ts.isConditionalExpression(e)) return both(e.whenTrue, e.whenFalse)
   if (ts.isBinaryExpression(e)) {
@@ -351,13 +362,14 @@ function readTexts(e: ts.Expression, visible: (ref: ts.Identifier) => Binding | 
     if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return both(e.left, e.right)
   }
   if (ts.isIdentifier(e)) {
-    if (e.text === 'undefined') return { texts: [], unread: [] }
+    if (e.text === 'undefined') return none
     const binding = visible(e)
     const isConst =
       !!binding && ts.isVariableDeclaration(binding.decl) && (ts.getCombinedNodeFlags(binding.decl) & ts.NodeFlags.Const) !== 0
     if (binding?.init && isConst && !seen.has(binding)) return readTexts(binding.init, visible, new Set([...seen, binding]))
   }
-  return { texts: [], unread: [e.getText().replace(/\s+/g, ' ')] }
+  const unread = [e.getText().replace(/\s+/g, ' ')]
+  return ts.isTemplateExpression(e) ? { ...none, unread, heads: [e.head.text] } : { ...none, unread }
 }
 
 function oneVerbSites(source: string, fileName: string): Site[] {
@@ -413,12 +425,16 @@ function oneVerbSites(source: string, fileName: string): Site[] {
         const busy: string[] = []
         const aria: string[] = []
         const unread: string[] = []
+        // The heads of templates it cannot read: they tell a retry control, never pass as its words.
+        const heads: string[] = []
+        const busyHeads: string[] = []
         let text = ''
         for (const child of children) {
           if (ts.isJsxText(child)) text += child.text
           else if (ts.isJsxExpression(child) && child.expression) {
             const read = readTexts(child.expression, visible)
             unread.push(...read.unread.map((part) => `{${part}}`))
+            heads.push(...read.heads.map(collapse))
             if (read.texts.length === 1 && !read.unread.length) text += read.texts[0]
             else labels.push(...read.texts.map(collapse))
           }
@@ -433,13 +449,16 @@ function oneVerbSites(source: string, fileName: string): Site[] {
             continue
           }
           if (!BUSY_TEXT_ATTRS.has(name) && name !== 'aria-label' && name !== 'children') continue
-          const read = ts.isStringLiteral(attr.initializer)
-            ? { texts: [attr.initializer.text], unread: [] }
-            : attr.initializer.expression ? readTexts(attr.initializer.expression, visible) : { texts: [], unread: [] }
+          const read: Read = ts.isStringLiteral(attr.initializer)
+            ? { texts: [attr.initializer.text], unread: [], heads: [] }
+            : attr.initializer.expression ? readTexts(attr.initializer.expression, visible) : { texts: [], unread: [], heads: [] }
           ;(BUSY_TEXT_ATTRS.has(name) ? busy : name === 'children' ? labels : aria).push(...read.texts.map(collapse))
+          ;(BUSY_TEXT_ATTRS.has(name) ? busyHeads : heads).push(...read.heads.map(collapse))
           unread.push(...read.unread.map((part) => `${name}={${part}}`))
         }
-        const isRetry = [...labels, ...aria].some((t) => RETRY_LABEL.test(t) || STARTS_RETRY.test(t)) || busy.some((t) => RETRY_BUSY_TEXT.test(t))
+        const isRetry =
+          [...labels, ...aria, ...heads].some((t) => RETRY_LABEL.test(t) || STARTS_RETRY.test(t)) ||
+          [...busy, ...busyHeads].some((t) => RETRY_BUSY_TEXT.test(t))
         if (isRetry) {
           for (const label of labels) {
             // A label branch shown while busy is held to the busy form, any other to the verb.
@@ -1283,6 +1302,7 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '    <Button onClick={go}>{label}</Button>', // a parameter: not resolved
       '    <Button loading={busy} loadingText="Trying again…" onClick={go}>Load</Button>', // the one busy form, a Retry's too
       '    <Button loading={busy} reserveLoadingText="Trying again…" onClick={go}>Load</Button>', // its room kept at rest
+      '    <Button onClick={go} children="Try again" />', // a children attribute is a label
       '  </>)',
       '}',
       "const retryLabel = 'Try again'",
@@ -1304,6 +1324,7 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '17: Button "Retrying…"',
       '19: Button "Trying again…"',
       '20: Button "Trying again…"',
+      '21: Button "Try again"',
     ])
   })
 
@@ -1730,6 +1751,26 @@ describe('the one retry verb, "Try again" (D-032; rule-12 gate)', () => {
     ])
   })
 
+  it("reads a template's head to tell a retry control, and fails the template it cannot read", () => {
+    const fixture = [
+      'export function X({ name, n }: { name: string; n: number }) {',
+      '  return (<>',
+      '    <Button onClick={go} aria-label={`Try again for ${name}`}><Icon /></Button>', // an icon-only retry control
+      '    <Button onClick={go}>{`Retry ${n} more`}</Button>',
+      '    <Button loading={b} loadingText={`Retrying ${name}…`} onClick={go}>Load</Button>', // busy text marks it
+      '    <Button onClick={go} aria-label={`Open ${name}`}><Icon /></Button>', // a head that is no retry
+      '    <Button onClick={go} aria-label={`${name}: try again`}><Icon /></Button>', // not at the start: as in prose
+      '  </>)',
+      '}',
+    ].join('\n')
+    expect(oneVerbSites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '3: Button text it cannot read: aria-label={`Try again for ${name}`}',
+      '4: Button text it cannot read: {`Retry ${n} more`}',
+      '5: Button label "Load" is not "Try again"',
+      '5: Button text it cannot read: loadingText={`Retrying ${name}…`}',
+    ])
+  })
+
   it('RetryButtonProps declares each label prop `never`, so TypeScript refuses one at a call site', () => {
     const real = readFileSync(path.join(frontendRoot, RETRY_BUTTON.file), 'utf8')
     expect(neverProps(real).sort()).toEqual([...LABEL_ATTRS].sort())
@@ -1780,6 +1821,11 @@ describe('the one retry verb, "Try again" (D-032; rule-12 gate)', () => {
       '20: "Please retry."',
       '23: "Connection interrupted. Retrying..."',
     ])
+    // Out of reach, planted as the gap the header names: a word split across JSX text and an expression is read a
+    // part at a time, so neither clause sees it.
+    const gap = "export const P = () => <p>Please re{''}try in a moment.</p>"
+    expect(retryWordSites(gap, 'features/probe/Gap.tsx'), 'the gap is out of reach of the copy clause, as the header says').toEqual([])
+    expect(oneVerbSites(gap, 'features/probe/Gap.tsx'), 'the gap is out of reach of the one-verb clause, as the header says').toEqual([])
   })
 
   it('reads every .ts and .tsx module under the roots for copy, a status line in an api module included', () => {

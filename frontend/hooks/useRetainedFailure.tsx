@@ -159,10 +159,12 @@ export interface RetryButtonProps
  * call site that passes one (useRetainedFailure.spec.tsx renders each and finds the name "Try again").
  *
  * Its size never changes with its state: the room of the spinner and "Trying again…" is kept at rest (Button's
- * reserveLoadingText), so neither a press nor a refetch nobody pressed widens it, wraps its label or moves the
- * card around it (without it, at 390px under 200% text the swap wrapped the label and grew the card 22 to 24px,
- * and the search alert's message re-wrapped beside a wider button; e2e filing-source-chip.spec.ts holds the box
- * through the swap in a real browser).
+ * reserveLoadingText), so neither a press nor a refetch nobody pressed resizes it or moves what sits beside it
+ * (without it, at 390px under 200% text the swap wrapped the label and grew the card 22 to 24px; e2e
+ * filing-source-chip.spec.ts holds the box through the swap in a real browser). That room is wider than "Try
+ * again", so a caller gives it its own row under its message, as a Notice gives its action: beside a `flex-1`
+ * message in a row that cannot wrap, it ran past the screen in the homepage search alert at 200% text (e2e
+ * reflow-200.spec.ts holds that alert).
  *
  * The Retry usually sits inside its card's role=alert, which Chromium presents again, whole, on any text change
  * inside it: a label swap on every refetch nobody pressed (a reconnect, window focus) would re-announce the
@@ -196,7 +198,7 @@ export function RetryButton({
       loading={busy}
       loadingText={pressed ? BUSY_LABEL : undefined}
       // Its room is kept at rest: "Trying again…" with the spinner is wider than "Try again", and the swap
-      // would otherwise widen the button, wrap its label at 200% text on a phone, and move the card around it.
+      // would otherwise resize the button and move what sits beside it.
       reserveLoadingText={BUSY_LABEL}
       onFocus={onFocus}
       // A busy Button refuses the click before onClick runs; pointerdown still reaches us, so a tap on a
