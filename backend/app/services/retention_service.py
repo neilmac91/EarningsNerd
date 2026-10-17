@@ -80,7 +80,18 @@ def _purge(db: Session, target: PurgeTarget, *, dry_run: bool, batch_size: int) 
         return int(db.execute(select(func.count()).select_from(target.model).where(target.predicate)).scalar() or 0)
     total = 0
     while True:
-        keys = [row[0] for row in db.execute(select(target.key).where(target.predicate).limit(batch_size)).all()]
+        # Ascending key order, never the table's physical order. A refresh token's successor has a
+        # higher id than its predecessor and qualifies no earlier, so the predecessor goes first and
+        # never loses its replaced_by_id link to ON DELETE SET NULL, even if a run stops between
+        # batches: the theft check reads that link (refresh_token_service.rotate_refresh_token).
+        # Rotation rewrites the predecessor after inserting the successor, so PostgreSQL's heap
+        # order would return the successor first.
+        keys = [
+            row[0]
+            for row in db.execute(
+                select(target.key).where(target.predicate).order_by(target.key).limit(batch_size)
+            ).all()
+        ]
         if not keys:
             return total
         # Re-apply the predicate: a row refreshed between the select and the delete (a login
