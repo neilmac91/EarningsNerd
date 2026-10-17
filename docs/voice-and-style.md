@@ -107,7 +107,10 @@ the business card, the footer and the merch; it is the positioning in six words.
   element; the insider panel and What changed give that element the word "unavailable" for
   assistive tech, the word the analysis evidence uses for a missing figure. The CI gate
   (`frontend/tests/unit/no-em-dash-copy.spec.ts`) exempts the bare `'—'` only where it stands
-  alone, and reads a same-file formatter's fallback where the formatter is called.
+  alone, reads a same-file formatter's fallback where the formatter is called, and reads a
+  fragment as its contents. An element is one value to it, so the token inside an element set
+  beside a unit (`{count ?? <Missing />} sh`, which still reads "— sh") passes the gate and is
+  review-checked, as are the other forms the gate's header lists out of reach.
 
 ## House conventions
 
