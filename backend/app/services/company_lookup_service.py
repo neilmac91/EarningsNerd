@@ -13,7 +13,7 @@ path relies on.
 Outcomes the router turns into a log line or an HTTP error are signalled with
 ``SearchUpsertConflict`` or a ``None`` return.
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import desc, func
@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.models import Company, Filing
 from app.services.company_resolution import resolve_or_create_company_by_cik
 from app.services.latest_filing_service import LatestFilingRef, latest_filings
+from app.utils.datetimes import utcnow
 
 
 class SearchUpsertConflict(Exception):
@@ -179,8 +180,9 @@ def resolve_search_conflict(
 
 def trending_company_rows(db: Session, limit: int) -> List[dict]:
     """Companies with the most filings in the last 30 days, as response rows; releases the session."""
-    # Get companies with most recent filings in the last 30 days
-    thirty_days_ago = datetime.now() - timedelta(days=30)
+    # Get companies with most recent filings in the last 30 days. Filing dates are stored as UTC, so
+    # the bound is the UTC instant, never the process's local wall clock.
+    thirty_days_ago = utcnow() - timedelta(days=30)
 
     # Get companies with most filings in recent period
     trending_query = db.query(
