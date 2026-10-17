@@ -314,3 +314,11 @@ probed the spec's other readers with the same forms and found both short: the fo
 component by its declared name alone (an alias, a wrapper, a loader, an import under another name, a
 call and `createElement` went unread), and the length reader read a ternary in a slot as a gap. A family
 closed in one reader is probed in its neighbours in the same round.
+Round six's reviews found the round-five readers closed for a value written as a name and open for one taken out of
+a pattern or handed on through an operator: Codex's forwarder destructured out of an object
+(`const { Secret } = Fields`), an object of components imported under an alias, and the preference scan's prefs
+value handed on through `??`, a ternary, a spread copy or useMemo and saved through mutateAsync. A binding pattern is
+a path from its root (each key, index, rest and default), and one path model serves every reader at once, names and
+values alike; a value that may be the one a gate follows (either side of `??`, `||` or `&&`, either branch, a copy of
+it) is followed as it. And a test of where a body can end reads the language's statements, not its last one: an
+if/else that returns in both branches ends in neither.
