@@ -19,8 +19,10 @@ import { bindingResolver } from './astBindings'
  * The form's fields are read off the prefs value (a binding named prefs, in any scope) wherever the form reads it:
  * a member in any attribute, child or expression of any element or component (`checked={prefs.digest === 'weekly'}`,
  * `selected={prefs.x}`, `{prefs.x ? … : …}`, `disabled={!prefs.x}`), written `?.`, `!` or bracketed with a literal key,
- * and a key taken out of it. The value is followed through the form's own file, a name to the declaration it binds to
- * (astBindings), to: a const that holds it; a key named prefs taken out of any object; a same-file component's prop
+ * and a key taken out of it at any depth (a nested pattern, an array's element). The value is followed through the
+ * form's own file, a name to the declaration it binds to (astBindings), to: a const that holds it, or one that may (either
+ * side of `??`, `||` or `&&`, either branch of a condition) or holds a copy of it (an object that spreads it in,
+ * `Object.assign`, `structuredClone`, useMemo's value); a key named prefs taken out of any object; a same-file component's prop
  * it is handed under any name or spread into (`<Rows source={prefs} />`, `<Rows {...prefs} />`, read as `{ source }`,
  * `props.source`, a rest, or each key taken out of the spread); a same-file function's parameter it is handed at a
  * call; what a same-file hook returns; and a context the file provides it through (`<C.Provider value={prefs}>` or
@@ -28,12 +30,14 @@ import { bindingResolver } from './astBindings'
  * declares: a function declaration, an arrow or a function expression, one a call wraps (useCallback, useMemo's
  * factory, memo, forwardRef or any wrapper, nested), an object's method or arrow property (`actions.persist`,
  * `<Parts.Row>`), one a same-file hook returns, and one handed on as a prop or an argument. The fields a save writes
- * are read the same way: a call of `save`, any `.mutate` or any such function that calls one, its update written in
- * place, held in a const or spread from one; and each name handed to `setBool` or any such function that saves
- * `{ [name]: … }` keyed by its own parameter. Out of reach, each planted as a gap the self-check asserts unread: a
- * value or a function from another module, a class component, the value kept in React state or a ref (`useState`,
- * `useRef`), a field named by a computed key or enumerated (`prefs[key]`, `Object.entries(prefs)`), and a function
- * called through call, apply or bind or held in an array. A field the API fills from the account's entitlements
+ * are read the same way: a call of `save`, any `.mutate` or `.mutateAsync`, the function a mutation runs (its
+ * `mutationFn`) called directly, or any such function that calls one, its update written in place, held in a const or
+ * spread from one; and each name handed to `setBool` or any such function that saves `{ [name]: … }` keyed by its own
+ * parameter. Out of reach, each planted as a gap the self-check asserts unread: a value or a function from another
+ * module, a class component, the value kept in React state or a ref (`useState`, `useRef`), a copy made another way (a
+ * JSON round trip), an array's rest, a field named by a computed key or enumerated (`prefs[key]`,
+ * `Object.entries(prefs)`), a function called through call, apply or bind or held in an array, and a save sent by hand
+ * (`fetch`). A field the API fills from the account's entitlements
  * (`_prefs_response` in backend/app/routers/users.py assigns it from `ent.`, and the update model does not take it) is
  * gating the user cannot set, not a preference, so a read of it there is not held to the jobs; read directly as a
  * control's state (`checked={prefs.x}`), as main read it, any field is.
@@ -244,6 +248,7 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     const head = nameOf((inner as ts.PropertyAccessExpression | ts.ElementAccessExpression).expression)
     return head === undefined ? undefined : `${head}.${key}`
   }
+  const LOGICAL = new Set([ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken])
   /** A property's or a key's own name, as written. */
   const propertyKey = (name: ts.Node | undefined): string | undefined =>
     name && (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) ? name.text : undefined
@@ -327,14 +332,23 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     const call = init && bare(init)
     return call && ts.isCallExpression(call) && /(?:^|\.)createContext$/.test(nameOf(call.expression) ?? '') ? tag : undefined
   }
-  /** Whether a value is the prefs value: a name holding it, `useContext(C)` or `use(C)` of a context the file provides it
-      through, or what a same-file function that returns it hands back. */
+  /** Whether a value is the prefs value, or may be: a name holding it; either side of `??`, `||` or `&&` and either branch of a
+      condition; a copy of it (an object that spreads it in, `Object.assign` or `structuredClone` of it); useMemo's value;
+      `useContext(C)` or `use(C)` of a context the file provides it through; or what a same-file function that returns it
+      hands back. */
   const isHolder = (value: ts.Expression, seen = new Set<Fn>()): boolean => {
     const inner = bare(value)
     const name = nameOf(inner)
     if (name !== undefined) return holders.has(name)
+    if (ts.isBinaryExpression(inner) && LOGICAL.has(inner.operatorToken.kind)) return isHolder(inner.left, seen) || isHolder(inner.right, seen)
+    if (ts.isConditionalExpression(inner)) return isHolder(inner.whenTrue, seen) || isHolder(inner.whenFalse, seen)
+    if (ts.isObjectLiteralExpression(inner)) return inner.properties.some((p) => ts.isSpreadAssignment(p) && isHolder(p.expression, seen))
     if (!ts.isCallExpression(inner)) return false
     const callee = nameOf(inner.expression) ?? ''
+    if (/^(?:Object\.assign|structuredClone)$/.test(callee)) return inner.arguments.some((arg) => !ts.isSpreadElement(arg) && isHolder(arg, seen))
+    if (/(?:^|\.)useMemo$/.test(callee)) {
+      return functionsIn(inner.arguments[0]).some((factory) => !seen.has(factory) && (seen.add(factory), returnsOf(factory).some((returned) => isHolder(returned, seen))))
+    }
     if (/^(?:React\.)?(?:useContext|use)$/.test(callee)) {
       const context = inner.arguments[0] && nameOf(inner.arguments[0])
       return context !== undefined && contexts.has(context)
@@ -359,11 +373,30 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
       }
     }
   }
-  /** Hand a value to a binding: a name, or an object pattern, whose keys taken out of the prefs value are fields read and
-      whose rest holds the rest of it; a key taken out of an object of functions names that function. */
+  /** The array literals a value is: written in place, or held in a const. */
+  const arraysIn = (value: ts.Expression | undefined, depth = 0): ts.ArrayLiteralExpression[] => {
+    if (!value || depth > 8) return []
+    const inner = bare(value)
+    if (ts.isArrayLiteralExpression(inner)) return [inner]
+    const name = nameOf(inner)
+    return name !== undefined ? arraysIn(consts.get(name), depth + 1) : []
+  }
+  /** Hand a value to a binding: a name; an array pattern, each element the array's element at its index; or an object
+      pattern, whose keys taken out of the prefs value are fields read, whose rest holds the rest of it, and each of whose
+      nested patterns takes apart the value at its key (an object's entry, or a member of a name: `props.prefs`); a key
+      taken out of an object of functions names that function. */
   const bindPattern = (target: ts.BindingName, value: ts.Expression) => {
     if (ts.isIdentifier(target)) return bindName(keyOf(target), value)
-    if (!ts.isObjectBindingPattern(target)) return
+    if (ts.isArrayBindingPattern(target)) {
+      target.elements.forEach((element, index) => {
+        if (ts.isOmittedExpression(element) || element.dotDotDotToken) return
+        for (const array of arraysIn(value)) {
+          const item = array.elements[index]
+          if (item && !ts.isOmittedExpression(item) && !array.elements.slice(0, index + 1).some(ts.isSpreadElement)) bindPattern(element.name, item)
+        }
+      })
+      return
+    }
     const holder = isHolder(value)
     for (const element of target.elements) {
       const key = propertyKey(element.propertyName ?? element.name)
@@ -373,7 +406,18 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
       }
       if (key === undefined) continue
       if (holder) read(key, element)
-      if (!ts.isIdentifier(element.name)) continue
+      if (!ts.isIdentifier(element.name)) {
+        for (const object of objectsIn(value)) {
+          for (const property of object.properties) {
+            if (propertyKey(property.name) !== key) continue
+            if (ts.isPropertyAssignment(property)) bindPattern(element.name, property.initializer)
+            else if (ts.isShorthandPropertyAssignment(property)) bindPattern(element.name, property.name)
+          }
+        }
+        const inner = bare(value)
+        if (nameOf(inner) !== undefined) bindPattern(element.name, ts.factory.createPropertyAccessExpression(inner as ts.LeftHandSideExpression, key))
+        continue
+      }
       for (const object of objectsIn(value)) {
         for (const property of object.properties) {
           if (propertyKey(property.name) !== key) continue
@@ -405,7 +449,7 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
   const calleeText = (call: ts.CallExpression) => nameOf(call.expression) ?? call.expression.getText(source)
   const savesHere = (call: ts.CallExpression) => {
     const callee = calleeText(call)
-    return savers.has(callee) || callee.endsWith('.mutate')
+    return savers.has(callee) || /\.(?:mutate|mutateAsync)$/.test(callee)
   }
   const within = (node: ts.Node, test: (node: ts.Node) => boolean): boolean =>
     test(node) || (ts.forEachChild(node, (child) => within(child, test) || undefined) ?? false)
@@ -427,8 +471,24 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     grew = false
     walkFile((node) => {
       if (ts.isFunctionDeclaration(node) && node.name) addFunction(keyOf(node.name), node)
+      // The function a mutation runs (`useMutation({ mutationFn: updatePrefs })`) saves when it is called directly too.
+      if ((ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) && propertyKey(node.name) === 'mutationFn') {
+        const fn = nameOf(ts.isPropertyAssignment(node) ? node.initializer : node.name)
+        if (fn !== undefined && !savers.has(fn)) {
+          savers.add(fn)
+          grew = true
+        }
+      }
       // A key named prefs taken out of an object, whatever it is taken out of (`const { prefs: settings } = props`).
-      if (ts.isBindingElement(node) && !node.dotDotDotToken && ts.isIdentifier(node.name) && propertyKey(node.propertyName ?? node.name) === 'prefs') addHolder(keyOf(node.name))
+      if (ts.isBindingElement(node) && !node.dotDotDotToken && propertyKey(node.propertyName ?? node.name) === 'prefs') {
+        if (ts.isIdentifier(node.name)) addHolder(keyOf(node.name))
+        else if (ts.isObjectBindingPattern(node.name)) {
+          for (const element of node.name.elements) {
+            const key = element.dotDotDotToken ? undefined : propertyKey(element.propertyName ?? element.name)
+            if (key !== undefined) read(key, element)
+          }
+        }
+      }
       if (ts.isVariableDeclaration(node) && node.initializer) {
         if (ts.isIdentifier(node.name)) consts.set(keyOf(node.name), node.initializer)
         bindPattern(node.name, node.initializer)
@@ -663,6 +723,25 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['  const hookLabel = useLabel(prefs)'],
       ['  const [local] = useState(prefs)'],
       ['  const ref = useRef(prefs)'],
+      // The prefs value or a copy of it through any operator or call that hands it on (the re-review of 6a39e259 found
+      // `??`, a ternary, a spread copy and useMemo unread), and taken apart by a nested or an array pattern.
+      ['  const viaNullish = prefs ?? DEFAULTS'],
+      ['  const viaTernary = ok ? prefs : DEFAULTS'],
+      ['  const viaSpread = { ...prefs }'],
+      ['  const viaMemo = useMemo(() => prefs, [prefs])'],
+      ['  const viaAssign = Object.assign({}, prefs)'],
+      ['  const viaClone = structuredClone(prefs)'],
+      ['  const viaJson = JSON.parse(JSON.stringify(prefs))'],
+      ['  const bag2 = { prefs }'],
+      ['  const { prefs: { f_nested_prefs } } = bag2', ['f_nested_prefs']],
+      ['  const { settings: { f_nested_object } } = { settings: prefs }', ['f_nested_object']],
+      ['  const { f_with_default = false } = prefs', ['f_with_default']],
+      ['  const [first] = [prefs]'],
+      ['  const PAIR = [other, prefs]'],
+      ['  const [, second] = PAIR'],
+      ['  const [, ...restPair] = [other, prefs]'],
+      // A save through any trigger a mutation offers, and the function it runs called directly (the re-review: mutateAsync).
+      ['  const mutation2 = useMutation({ mutationFn: updatePrefs })'],
       ['  return ('],
       ['    <PrefsContext.Provider value={prefs}>'],
       ['    <Prefs19 value={prefs}>'],
@@ -680,6 +759,16 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['      <Toggle checked={fromHook.f_hook_value} />', ['f_hook_value']],
       ['      <Toggle checked={fromBag.f_key_prefs} />', ['f_key_prefs']],
       ['      <Toggle checked={prefs.f_direct} />', ['f_direct']],
+      ['      <Toggle checked={viaNullish.f_nullish} />', ['f_nullish']],
+      ['      <Toggle checked={viaTernary.f_ternary} />', ['f_ternary']],
+      ['      <Toggle checked={viaSpread.f_spread_copy} />', ['f_spread_copy']],
+      ['      <Toggle checked={viaMemo.f_memo_value} />', ['f_memo_value']],
+      ['      <Toggle checked={viaAssign.f_assign} />', ['f_assign']],
+      ['      <Toggle checked={viaClone.f_clone} />', ['f_clone']],
+      ['      <Toggle checked={(prefs || DEFAULTS).f_or_inline} />', ['f_or_inline']],
+      ['      <Toggle checked={first.f_array_pattern} />', ['f_array_pattern']],
+      ['      <Toggle checked={second.f_array_const} />', ['f_array_const']],
+      ['      <Deep settings={prefs} />'],
       ['      <select><option value={prefs.f_option}>Current</option></select>', ['f_option']],
       ['      <Toggle disabled={!prefs.f_available} />'],
       ['      <Toggle checked={other.f_other} />'],
@@ -694,6 +783,8 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['      <button onClick={() => keep({ f_hook_object: true })}>Keep</button>', ['f_hook_object']],
       ['      <button onClick={() => persistDecl({ f_decl_saved: true })}>Declared</button>', ['f_decl_saved']],
       ["      <button onClick={() => flip('f_key_saved')}>Flip</button>", ['f_key_saved']],
+      ['      <button onClick={() => mutation.mutateAsync({ f_mutate_async: true })}>Async</button>', ['f_mutate_async']],
+      ['      <button onClick={() => updatePrefs({ f_mutation_fn: true })}>Direct</button>', ['f_mutation_fn']],
       ['      <button onClick={() => persist(update)}>Held</button>'],
       ['      <button onClick={() => persist({ ...base })}>Spread</button>'],
       ['      <button onClick={() => run(persist)}>Run</button>'],
@@ -722,6 +813,10 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ["      <button onClick={() => persistElsewhere({ f_gap_import: 'gap_import' })}>Import</button>", [], ['f_gap_import']],
       ["      <button onClick={() => persist.call(null, { f_gap_call: 'gap_call' })}>Call</button>", [], ['f_gap_call']],
       ["      <button onClick={() => handlers[0]({ f_gap_array: 'gap_array' })}>Array</button>", [], ['f_gap_array']],
+      // Out of reach too: a copy made another way (a JSON round trip), an array's rest, and a save sent by hand (`fetch`).
+      ['      <Toggle checked={viaJson.f_gap_json} />', [], ['f_gap_json']],
+      ['      <Toggle checked={restPair[0].f_gap_array_rest} />', [], ['f_gap_array_rest']],
+      ["      <button onClick={() => fetch('/api/prefs', { method: 'PUT', body: JSON.stringify({ f_gap_fetch: true }) })}>Fetch</button>", [], ['f_gap_fetch']],
       ['    </Prefs19>'],
       ['    </PrefsContext.Provider>'],
       ['  )'],
@@ -734,6 +829,8 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['function run(fn: (u: Update) => void) { fn({ f_arg_saved: true }) }', ['f_arg_saved']],
       ['function Panel({ onSave }: PanelProps) { return <button onClick={() => onSave({ f_prop_saved: true })}>Save</button> }', ['f_prop_saved']],
       ['function Rows({ source }: { source: { f_typed: boolean } }) { return <Toggle checked={source.f_prop} /> }', ['f_prop']],
+      ['function Deep({ settings: { f_prop_nested } }: P) { return <Toggle checked={f_prop_nested} /> }', ['f_prop_nested']],
+      ['function KeyedRows(props: P) { const { prefs: { f_keyed_nested } } = props; return <Toggle checked={!!f_keyed_nested} /> }', ['f_keyed_nested']],
       ['function Cells(props: Props) { return <Toggle checked={props.source.f_props} /> }', ['f_props']],
       ['function Spread({ f_spread }: Prefs) { return <Toggle checked={f_spread} /> }', ['f_spread']],
       ['function SpreadAll(props: Prefs) { return <Toggle checked={props.f_spread_props} /> }', ['f_spread_props']],
