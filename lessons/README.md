@@ -107,6 +107,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
+- sec-filing-date-is-a-calendar-date.md — `Filing.filing_date` is a calendar date stored as UTC midnight, never an instant: open a window at the start of a UTC day, let a watermark copied from a filing date admit its own date while it is recent, and leave exactness to per-filing dedupe (partly gated by `backend/tests/unit/test_filing_alert_calendar_dates.py` for the alert engine; other comparisons are review-checked)
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network
 - sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md — Run our entry point against the failure before ruling that an upstream fix does not reach us (a grep of `app/` misses calls the library makes for us), never let a `getattr` default or bare `except` hide a failing read, and treat a path the change revives as a model-input change, gated on its effect (partly gated: `test_edgartools_compat.py`, the X0.2 cases in `test_xbrl_service_anchors.py`, `test_summary_sections_parity.py`)
 - sec-runtime-facts-carry-no-duration.md — Runtime per-filing facts carry no duration: abstain, never substitute an annual-looking label
