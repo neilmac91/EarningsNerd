@@ -38,7 +38,13 @@ import { heldValues, knownAsIn, leavesOf, scopeResolver, unwrapHeld } from './he
  * that is the sole child of a `<span>` stands alone wherever the span goes.
  * A fragment is not: it renders its children into its parent, so it is read
  * as its children, held (`const F = <>—</>` read as `{F} shares`) or written
- * among siblings (`<p><>—</> shares</p>`).
+ * among siblings (`<p><>—</> shares</p>`). So is React's Fragment under every
+ * name the file gives it: `Fragment` imported from 'react', renamed or not and
+ * keyed or not; `React.Fragment` or `R.Fragment` under a default or namespace
+ * import of 'react'; a same-file alias or destructuring of one; and
+ * `createElement(Fragment, …)`, `React.createElement(React.Fragment, …)` or
+ * `createElement(React['Fragment'], …)`. A component named Fragment that the file declares, or imports from
+ * anywhere but 'react', is not React's and stays an element.
  * What a same-file function returns is its call's value, read where the
  * call is (E76): a formatter's `'—'` fallback fails wherever its call is
  * joined into copy (a unit after it, `{shares(n)} shares` or
@@ -50,7 +56,11 @@ import { heldValues, knownAsIn, leavesOf, scopeResolver, unwrapHeld } from './he
  * as a gap in the self-check and review-checked: an element that holds the
  * token, set beside a unit (`{v ?? <Missing />} sh`: an element is one value
  * to this reading, which cannot tell it from What changed's dash beside its
- * arrow and sr-only labels); a call's value wrapped in another call or a
+ * arrow and sr-only labels, and a component named Fragment that is not
+ * React's is one); React's `jsx` and `jsxs` from 'react/jsx-runtime', which
+ * this reading does not follow, a fragment written as their call included;
+ * React's Fragment handed in through a prop or a parameter (`<As>—</As>`
+ * given `As={Fragment}`); a call's value wrapped in another call or a
  * method (`String(f(n))`, `f(n).trim()`); a token that crosses modules (an
  * export read in another file, an imported formatter's fallback); React
  * state; a class's field read through `this`; a promise's `then`; and a
@@ -83,36 +93,81 @@ function sourceFiles(dir: string): string[] {
 
 /** Whether a JSX child is the only meaningful child of its element (whitespace-only text, and an
     expression that holds nothing or only a comment, aside). A fragment is no element: it renders its
-    children into its own parent, so a child alone in a fragment written among siblings is not alone. */
-function soleChild(child: ts.JsxChild): boolean {
+    children into its own parent, so a child alone in a fragment written among siblings is not alone.
+    `fragment` says which parents are fragments: `<>`, and React's Fragment under any name. */
+function soleChild(child: ts.JsxChild, fragment: (parent: ts.JsxElement | ts.JsxFragment) => boolean): boolean {
   const parent = child.parent
   if (!ts.isJsxElement(parent) && !ts.isJsxFragment(parent)) return false
   const meaningful = parent.children.filter(
     (c) => !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces) && !(ts.isJsxExpression(c) && !c.expression),
   )
   if (meaningful.length !== 1 || meaningful[0] !== child) return false
-  return ts.isJsxFragment(parent) && (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent)) ? soleChild(parent) : true
+  return fragment(parent) && (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent)) ? soleChild(parent, fragment) : true
 }
 
-/** What the shared model reads as a leaf here: the token, and an element, a value of its own (a fragment is no
-    element: the shared reading holds its children). */
+/** Whether an import binding (default, namespace or named) is one of 'react''s. */
+function importedFromReact(binding: ts.Node): boolean {
+  let n: ts.Node | undefined = binding
+  while (n && !ts.isImportDeclaration(n)) n = n.parent
+  return !!n && ts.isStringLiteral(n.moduleSpecifier) && n.moduleSpecifier.text === 'react'
+}
+
+/** What the shared model reads as a leaf here: the token, and an element, a value of its own (a fragment, `<>` or
+    React's Fragment under any name, is no element: the shared reading holds its children). */
 type Leaf = 'token' | 'element'
 
 /** Every em-dash in `text` outside the sanctioned token, as `file:line text`. */
 function violationsIn(text: string, file: string): string[] {
   if (!text.includes(EM_DASH)) return []
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const knownAs = knownAsIn(scopeResolver(source))
+  const declarationOf = scopeResolver(source)
+  const knownAs = knownAsIn(declarationOf)
   const calleeName = (call: ts.CallExpression) => knownAs(call.expression)?.name ?? ''
   const isToken = (n: ts.Node) => (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && n.text === EM_DASH
+  /** Whether a name is React: a default or namespace import of 'react', or a same-file alias of one (React's UMD
+      global does not compile in a module here: TS2686). */
+  const isReact = (raw: ts.Expression, seen = new Set<ts.Node>()): boolean => {
+    const e = unwrapHeld(raw)
+    if (!ts.isIdentifier(e)) return false
+    const declaration = declarationOf(e)
+    if (!declaration) return false
+    if (seen.has(declaration)) return false
+    seen.add(declaration)
+    if (ts.isImportClause(declaration) || ts.isNamespaceImport(declaration)) return importedFromReact(declaration)
+    return ts.isVariableDeclaration(declaration) && !!declaration.initializer && isReact(declaration.initializer, seen)
+  }
+  /** Whether an expression or a tag names React's Fragment: `Fragment` imported from 'react' under any local name,
+      React's `.Fragment` (`React.Fragment`, `R.Fragment`, `React['Fragment']`), or a same-file alias or destructuring of
+      one. A component named Fragment that the file declares, or imports from anywhere else, is not React's. */
+  const isReactFragment = (raw: ts.Expression | ts.JsxTagNameExpression, seen = new Set<ts.Node>()): boolean => {
+    const e = ts.isJsxNamespacedName(raw) ? raw : unwrapHeld(raw)
+    if (ts.isPropertyAccessExpression(e)) return e.name.text === 'Fragment' && isReact(e.expression)
+    if (ts.isElementAccessExpression(e)) return ts.isStringLiteralLike(e.argumentExpression) && e.argumentExpression.text === 'Fragment' && isReact(e.expression)
+    if (!ts.isIdentifier(e)) return false
+    const declaration = declarationOf(e)
+    if (!declaration || seen.has(declaration)) return false
+    seen.add(declaration)
+    if (ts.isImportSpecifier(declaration)) return (declaration.propertyName ?? declaration.name).text === 'Fragment' && importedFromReact(declaration)
+    if (ts.isVariableDeclaration(declaration)) return !!declaration.initializer && isReactFragment(declaration.initializer, seen)
+    if (ts.isBindingElement(declaration) && ts.isObjectBindingPattern(declaration.parent) && ts.isVariableDeclaration(declaration.parent.parent)) {
+      const key = declaration.propertyName ?? declaration.name
+      const from = declaration.parent.parent.initializer
+      return ts.isIdentifier(key) && key.text === 'Fragment' && !!from && isReact(from)
+    }
+    return false
+  }
+  /** The parents that render their children into their own parent: `<>`, and React's Fragment under any name. */
+  const fragment = (parent: ts.JsxElement | ts.JsxFragment) => ts.isJsxFragment(parent) || isReactFragment(parent.openingElement.tagName)
+  /** An element is a value of its own; a fragment, a JSX one or React's `createElement(Fragment, …)`, is its children. */
+  const isElement = (e: ts.Expression) =>
+    (ts.isJsxElement(e) && !fragment(e)) ||
+    (ts.isJsxSelfClosingElement(e) && !isReactFragment(e.tagName)) ||
+    (ts.isCallExpression(e) &&
+      ELEMENT_CALLS.has(calleeName(e)) &&
+      !(calleeName(e) === 'createElement' && !!e.arguments[0] && isReactFragment(e.arguments[0])))
   const values = heldValues<Leaf>(
     source,
-    (e) =>
-      isToken(e)
-        ? ['token']
-        : ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || (ts.isCallExpression(e) && ELEMENT_CALLS.has(calleeName(e)))
-          ? ['element']
-          : undefined,
+    (e) => (isToken(e) ? ['token'] : isElement(e) ? ['element'] : undefined),
     // The shared reading follows each same-file call into what the function returns (E76), so a formatter's fallback
     // fails where its call is joined into copy; the self-check's E76 plants (88 to 97) fail if it stops.
     { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined) },
@@ -125,7 +180,7 @@ function violationsIn(text: string, file: string): string[] {
       return [node.left, node.right]
     }
     if (ts.isTemplateSpan(node)) return [node.expression]
-    if (ts.isJsxExpression(node) && !ts.isJsxAttribute(node.parent)) return soleChild(node) ? [] : [node.expression]
+    if (ts.isJsxExpression(node) && !ts.isJsxAttribute(node.parent)) return soleChild(node, fragment) ? [] : [node.expression]
     if (!ts.isCallExpression(node)) return []
     const name = calleeName(node)
     const args = node.arguments
@@ -149,7 +204,7 @@ function violationsIn(text: string, file: string): string[] {
   const visit = (node: ts.Node) => {
     // Text with an em-dash fails where it is written, unless it is the token: JSX text as its element's sole child, a
     // literal wherever it is not joined (below). A template's head, middle or tail is never the token.
-    if (ts.isJsxText(node) && node.text.includes(EM_DASH) && !(node.text.trim() === EM_DASH && soleChild(node))) report(node, node.text)
+    if (ts.isJsxText(node) && node.text.includes(EM_DASH) && !(node.text.trim() === EM_DASH && soleChild(node, fragment))) report(node, node.text)
     if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && node.text.includes(EM_DASH) && node.text !== EM_DASH) report(node, node.text)
     if ((ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) && node.text.includes(EM_DASH)) report(node, node.text)
     // The token, wherever its value is joined into copy.
@@ -282,6 +337,36 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       "export async function BP(p: Promise<number | undefined>) { const v = await p.then((n) => n ?? '—'); return <p>{v} sh</p> }",
       "function* marks() { yield '—' }",
       "export const BQ = () => <p>{[...marks()].join('')} sh</p>",
+      "import { Fragment, Fragment as Frag } from 'react'",
+      "import React from 'react'",
+      "import * as ReactNs from 'react'",
+      "import { Fragment as Piece } from './pieces'",
+      "import { jsx } from 'react/jsx-runtime'",
+      'export const CA = () => <p><Fragment>—</Fragment> shares</p>',
+      'export const CB = () => <p><Frag>—</Frag> shares</p>',
+      'export const CC = () => <p><React.Fragment>—</React.Fragment> shares</p>',
+      'export const CD = () => <p><ReactNs.Fragment>—</ReactNs.Fragment> shares</p>',
+      'export const CE = () => <p><Fragment key="k">—</Fragment> shares</p>',
+      'const HELD_FRAGMENT = <Fragment>—</Fragment>',
+      'export const CF = () => <p>{HELD_FRAGMENT} shares</p>',
+      'const ALIASED = React.Fragment',
+      'const { Fragment: PICKED_FRAGMENT } = React',
+      'export const CG = () => <p><ALIASED>—</ALIASED> shares</p>',
+      'export const CH = () => <p><PICKED_FRAGMENT>—</PICKED_FRAGMENT> shares</p>',
+      "export const CI = () => <p>{createElement(Fragment, null, '—')} shares</p>",
+      "export const CJ = () => createElement('p', null, createElement(Fragment, null, '—'), ' shares')",
+      "export const CK = () => <p>{React.createElement(React.Fragment, null, '—')} shares</p>",
+      'export const CL = () => <td><Fragment>—</Fragment></td>',
+      'export const CM = () => <td><React.Fragment key="k">—</React.Fragment></td>',
+      'export const CN = () => <td>{HELD_FRAGMENT}</td>',
+      "export const CO = () => <td>{createElement(Fragment, null, '—')}</td>",
+      "export const CP = () => createElement('td', null, React.createElement(ReactNs.Fragment, null, '—'))",
+      'export function CQ() { const Fragment = ({ children }: { children: ReactNode }) => <b>{children}</b>; return <p><Fragment>—</Fragment> shares</p> }',
+      'export const CR = () => <p><Piece>—</Piece> shares</p>',
+      "export const CS = () => <p>{jsx(Fragment, { children: '—' })} shares</p>",
+      'const Wrap = ({ As }: { As: ElementType }) => <p><As>—</As> shares</p>',
+      'export const CT = () => <Wrap As={Fragment} />',
+      "export const CU = () => <p>{createElement(React['Fragment'], null, '—')} shares</p>",
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
     // attribute's value) and 18 to 19 hold the token where nothing joins it (a name no line reads, a comparison, a
@@ -321,9 +406,17 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // of reach and read where it is written: React state (79), a class's field (80), an element that holds the token
     // beside a unit (108), a call's value wrapped in `String` (109) or a method (110), an export read from another file
     // (111, read at 112), an imported formatter's fallback (113), a promise's `then` (114) and a generator's `yield`
-    // (115, read at 116).
+    // (115, read at 116). React's Fragment under any name is a fragment too (117 to 121 import it, React, a namespace,
+    // a component named Fragment from elsewhere and the jsx runtime): beside a unit the named import (122), a renamed
+    // one (123), `React.Fragment` (124), a namespace's `.Fragment` (125), a keyed one (126), one held (127, read at
+    // 128), an alias (129, at 131), a destructuring of React (130, at 132), `createElement(Fragment, …)` in an
+    // expression (133) and as a child beside a sibling (134), `React.createElement(React.Fragment, …)` (135) and
+    // `createElement(React['Fragment'], …)` (146) fail; alone in a cell (136 to 140) they pass. A component named
+    // Fragment that the file declares (141) or imports from elsewhere (142) stays an element and passes beside a unit,
+    // as the element gap does. Planted gaps: a fragment written as a jsx-runtime call (143) and React's Fragment handed
+    // in through a prop (144, given at 145).
     expect(violationsIn(src, file)).toEqual(
-      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105].map(
+      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 146].map(
         (line) => `features/zzprobe/Probe.tsx:${line} —`,
       ),
     )
