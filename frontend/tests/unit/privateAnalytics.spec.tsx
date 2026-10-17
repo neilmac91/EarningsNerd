@@ -80,7 +80,7 @@ describe('Vercel Web Analytics waits for analytics consent', () => {
     expect((window as VercelWindow).va).toBeUndefined()
   })
 
-  it('renders it once analytics are allowed, stored or chosen on the bar', () => {
+  it('renders it once the visitor allows analytics on the bar', () => {
     render(<PrivateAnalytics />)
     expect(vercelScripts()).toHaveLength(0)
     choose(true)
