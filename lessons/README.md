@@ -88,9 +88,12 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-moved-code-resolves-seams-through-the-patched-module.md — Code moved out of a patched module keeps resolving its collaborators through that module at call time
 - arch-no-precomputed-deltas-in-grounding.md — Don't pre-chew derived deltas into the grounding without a groundedness guardrail
 - arch-one-summary-orchestrator.md — There is ONE summary orchestrator — never add a second generation path
+- arch-only-a-rotated-refresh-token-signals-theft.md — Key the refresh-token theft sweep on a rotated-away token (`replaced_by_id` set), never on any revoked one; before reading a column's state as evidence of an event, list every writer of that column (gated for refresh tokens by `backend/tests/unit/test_refresh_token_revocation_kinds.py` and, for every mention of `replaced_by_id`, so rotation stays its only writer, `test_replaced_by_id_writers_allowlist.py`; the general clause is review-checked)
 - arch-operand-matches-do-not-authorize-financial-assertions.md — Use tagged operands for bounded withholding without promoting them to assertion authority
+- arch-own-a-librarys-silent-input-limit.md — Apply a library's input limit in our own code and test past it when stored records depend on it; a major bump can turn its silent truncation into an error (partly gated by `backend/tests/unit/test_password_byte_limit.py` for bcrypt's 72 bytes: hash, verify, breach screening of the text bcrypt keys on, and an AST walk of every bcrypt import and call in backend code, its gaps named in its header; other libraries' limits are review-checked)
 - arch-payments-need-allocation-evidence.md — Measure canonical allocations with explicit attribution, coverage and deletion limits
 - arch-per-process-state-on-cloud-run.md — In-memory state is per-process — count every Cloud Run instance and job before trusting it
+- arch-plan-caps-hold-where-the-effect-fires.md — Apply a plan cap where its effect fires, not only where the setting is written; a downgrade rewrites no settings (partly gated by `backend/tests/unit/test_earnings_alerts.py` for the earnings-day alert send; the next capped setting is review-checked)
 - arch-qualified-income-deltas-need-source-ownership.md — Withhold qualified income arithmetic when attribution and entity ownership are unsupported
 - arch-reconciliation-follows-values-and-growth.md — Carry reconciliation quality through values, growth, citations and exports
 - arch-redis-off-in-prod.md — Production runs with Redis OFF — the two-tier cache is L1-only in prod
@@ -103,8 +106,10 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## SEC / EDGAR data
 
+- sec-cap-6-ks-apart-from-reports.md — Cap a mixed-form filings list per form group, 6-Ks apart, so a daily 6-K filer never hides its 20-F/40-F (partly gated by `backend/tests/unit/test_filings_endpoint_db_first.py` for the company filings list; a new mixed-form list is review-checked)
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
+- sec-filing-date-is-a-calendar-date.md — `Filing.filing_date` is a calendar date stored as UTC midnight, never an instant: open a window at the start of a UTC day, let a watermark copied from a filing date admit its own date while it is recent, and leave exactness to per-filing dedupe (partly gated by `backend/tests/unit/test_filing_alert_calendar_dates.py` for the alert engine; other comparisons are review-checked)
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network
 - sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md — Run our entry point against the failure before ruling that an upstream fix does not reach us (a grep of `app/` misses calls the library makes for us), never let a `getattr` default or bare `except` hide a failing read, and treat a path the change revives as a model-input change, gated on its effect (partly gated: `test_edgartools_compat.py`, the X0.2 cases in `test_xbrl_service_anchors.py`, `test_summary_sections_parity.py`)
 - sec-runtime-facts-carry-no-duration.md — Runtime per-filing facts carry no duration: abstain, never substitute an annual-looking label
