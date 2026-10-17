@@ -324,7 +324,7 @@ function bareDarkFindings(source: string, rel: string): Finding[] {
   return findings
 }
 
-/** Unpaired per file and class, as of main at 5dab7d82. Each entry names who owns the fix, or why the class stays light. */
+/** Unpaired per file and class. Each entry says why the class stays light; a new one names who owns its fix. */
 const THEME_PAIR_RESIDUE: Record<string, Record<string, number>> = {
   // The forced-light modes (`mode="light"`) are light on purpose: no dark twin.
   'components/EarningsNerdLogo.tsx': { 'text-text-primary-light': 1, 'text-brand-strong': 1 },
@@ -333,17 +333,8 @@ const THEME_PAIR_RESIDUE: Record<string, Record<string, number>> = {
   // The destructive fill and its disabled tint are red-700 under a white label in both themes.
   'components/ui/Button.tsx': { 'bg-error-light': 1, 'disabled:bg-error-light/40': 1 },
   'features/auth/components/GoogleSignInButton.tsx': { 'border-border-light': 1 }, // Google's button stays white in both themes, with its light hairline
-  // tasks/todo.md E66: brand-border hairlines and the interactive card's pressed fill with no dark twin,
-  // so dark mode draws the light theme's pale sage on navy.
-  'app/waitlist/page.tsx': { 'hover:border-brand-border': 1 },
-  'components/ui/Card.tsx': { 'active:bg-brand-weak/60': 1 },
-  'features/filings/components/copilot/AskCopilotRail.tsx': { 'hover:border-brand-border': 1 },
-  'features/filings/components/copilot/AskFilingCallout.tsx': { 'hover:border-brand-border': 1 },
-  'features/filings/components/copilot/CopilotMessage.tsx': { 'hover:border-brand-border': 1, 'ring-brand-border': 1 },
-  'features/filings/components/copilot/CopilotTeaser.tsx': { 'ring-brand-border': 1 },
-  'features/summaries/components/SummaryDisplay.tsx': { 'hover:border-brand-border': 1 },
 }
-const THEME_PAIR_RESIDUE_MAX = { files: 12, classes: 15 }
+const THEME_PAIR_RESIDUE_MAX = { files: 5, classes: 7 }
 
 /** Bare dark halves per file and class: surfaces dark in both themes on purpose. Each entry says why. */
 const BARE_DARK_RESIDUE: Record<string, Record<string, number>> = {

@@ -193,7 +193,8 @@ class Watchlist(Base):
     last_alerted_at = Column(DateTime(timezone=True), nullable=True)
     # Per-company earnings-day alert opt-in (strategy §3.7). Distinct from the filing-alert prefs:
     # watchlists stay unlimited, but the per-plan cap on how many companies may have this ON is
-    # enforced at toggle time (entitlements.earnings_alert_limit — Free 3 / Pro 100).
+    # enforced at toggle time and again at send time, where a downgrade's surplus is skipped
+    # (entitlements.earnings_alert_limit — Free 3 / Pro 100; earnings_alert_service).
     earnings_alert = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

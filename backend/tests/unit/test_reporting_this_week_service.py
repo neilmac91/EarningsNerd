@@ -1,11 +1,22 @@
 """Reporting-this-week: the current market week's events from earnings_events, ranked by
 anticipation_score (the curated intersect is retired — the score carries the mega-cap floor).
 Never raises."""
+import asyncio
+import threading
 from datetime import date, timedelta
 
+import httpx
 import pytest
+from fastapi import Depends, FastAPI
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
 
+from app import database
+from app.models import EarningsEvent
+from app.routers import reporting_this_week as reporting_this_week_router
 from app.services.reporting_this_week_service import (
+    ReportingCompany,
     ReportingThisWeekService,
     current_market_week,
 )
@@ -218,3 +229,175 @@ async def test_cache_hit_avoids_refetch():
         assert calls["n"] == 3
     finally:
         _clear_week()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_failed_fetch_is_not_cached():
+    """A failed read serves empty to that request only. Caching it would keep the homepage strip
+    blank for the 6h TTL after the database recovers."""
+    _clear_week()
+    monday, _ = current_market_week()
+    tuesday = monday + timedelta(days=1)
+    for t, s in (("AAPL", 1000), ("JPM", 900), ("MSFT", 800), ("GOOGL", 700)):
+        _seed(t, tuesday, score=s)  # still ahead on Tuesday, so visible on both days
+
+    class _BrokenDB:
+        def query(self, *a, **k):
+            raise RuntimeError("QueuePool limit reached")
+
+    try:
+        svc = ReportingThisWeekService()
+        # A cold instance: the first-ever read fails, then a healthy one returns the week.
+        failed = await svc.get_reporting_this_week(_BrokenDB(), today=monday)
+        assert failed["companies"] == []
+        assert failed["status"] == "empty"
+        db = _new_db()
+        assert (await svc.get_reporting_this_week(db, today=monday))["status"] == "ok"
+
+        # A warm instance: ET midnight changes the key while Monday's success is still inside
+        # the TTL, and the new day's first read fails. The retry on that key must not hit it.
+        failed = await svc.get_reporting_this_week(_BrokenDB(), today=tuesday)
+        assert failed["status"] == "empty"
+        recovered = await svc.get_reporting_this_week(db, today=tuesday)
+        db.close()
+        assert recovered["status"] == "ok"
+        assert [c["ticker"] for c in recovered["companies"]] == ["AAPL", "JPM", "MSFT", "GOOGL"]
+    finally:
+        _clear_week()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_successful_empty_week_is_cached():
+    """Only a failure skips the cache: a week that really has no events is cached like any other."""
+    _clear_week()
+    monday, _ = current_market_week()
+    svc = ReportingThisWeekService()
+    calls = {"n": 0}
+    original = svc._fetch
+
+    def counting(db, mon, fri, today):
+        calls["n"] += 1
+        return original(db, mon, fri, today)
+
+    svc._fetch = counting
+    db = _new_db()
+    first = await svc.get_reporting_this_week(db, today=monday)
+    second = await svc.get_reporting_this_week(db, today=monday)
+    db.close()
+    assert first["status"] == second["status"] == "empty"
+    assert calls["n"] == 1
+
+
+_WEEK_TICKERS = ["AAPL", "JPM", "MSFT", "GOOGL"]
+
+
+async def _cold_burst(n, reads_return):
+    """`n` concurrent requests on a cold cache. The first read is held until every request has
+    checked the cache; each read returns the next item of `reads_return` (None = a failed read).
+    Returns the responses and the number of reads."""
+    monday, _ = current_market_week()
+    loop = asyncio.get_running_loop()
+    read_started = asyncio.Event()
+    release_reads = threading.Event()
+    reads: list[int] = []
+
+    def fetch(db, mon, fri, today):
+        result = reads_return[min(len(reads), len(reads_return) - 1)]
+        reads.append(1)
+        loop.call_soon_threadsafe(read_started.set)
+        release_reads.wait(timeout=2)
+        return result
+
+    svc = ReportingThisWeekService()
+    svc._fetch = fetch
+    requests = [asyncio.create_task(svc.get_reporting_this_week(None, today=monday)) for _ in range(n)]
+    # The tasks were all queued before the first read could start, so all have missed by now.
+    await asyncio.wait_for(read_started.wait(), timeout=2)
+    release_reads.set()
+    return await asyncio.wait_for(asyncio.gather(*requests), timeout=3), len(reads)
+
+
+def _week():
+    monday, _ = current_market_week()
+    return [ReportingCompany(t, f"{t} Inc", monday, "amc") for t in _WEEK_TICKERS]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_misses_share_one_read():
+    """A burst on a cold or expired cache (a fresh instance, ET midnight) waits for one read and is
+    served from it. A read per request would check out a pooled connection each."""
+    responses, reads = await _cold_burst(8, [_week()])
+    assert reads == 1
+    assert all([c["ticker"] for c in r["companies"]] == _WEEK_TICKERS for r in responses)
+
+
+@pytest.mark.asyncio
+async def test_failed_read_lets_the_next_waiter_retry():
+    """A failed read is still neither cached nor shared: it serves its own request, the next waiter
+    reads again, and the rest are served from that success."""
+    responses, reads = await _cold_burst(3, [None, _week()])
+    assert reads == 2
+    assert [r["status"] for r in responses] == ["empty", "ok", "ok"]
+
+
+@pytest.mark.asyncio
+async def test_waiting_fetch_lets_another_request_release_its_connection(monkeypatch, tmp_path):
+    """The route is public, so no auth dependency checks the session out off the event loop first.
+    A cache miss that waits on the pool must not block the loop that the holder of the last
+    connection needs in order to finish and release it."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'rtw-pool.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=0.25,
+    )
+    EarningsEvent.__table__.create(engine)
+    monday, _ = current_market_week()
+    loop = asyncio.get_running_loop()
+    holder_entered = asyncio.Event()
+    release_holder = asyncio.Event()
+
+    class ObservedSession(Session):
+        def query(self, *args, **kwargs):
+            # The strip's read is about to wait on the only connection. Its owner can finish as
+            # soon as the event loop is free to run this callback.
+            loop.call_soon_threadsafe(release_holder.set)
+            return super().query(*args, **kwargs)
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=ObservedSession))
+    for t, s in (("AAPL", 1000), ("JPM", 900), ("MSFT", 800), ("GOOGL", 700)):
+        # _seed only adds and commits, so seeding never fires the query() release above.
+        _seed(t, monday, score=s, status="reported")  # reported: visible whatever today is
+    monkeypatch.setattr(
+        reporting_this_week_router, "reporting_this_week_service", ReportingThisWeekService()
+    )
+    app = FastAPI()
+    app.include_router(reporting_this_week_router.router, prefix="/api")
+
+    @app.get("/hold")
+    async def hold(db: Session = Depends(database.get_db)):
+        db.connection()  # takes the pool's only connection until the request cleans up
+        holder_entered.set()
+        await asyncio.wait_for(release_holder.wait(), timeout=2)
+        return {"ok": True}
+
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as client:
+            holder = asyncio.create_task(client.get("/hold"))
+            await asyncio.wait_for(holder_entered.wait(), timeout=2)
+            strip = await asyncio.wait_for(client.get("/api/reporting_this_week"), timeout=3)
+            assert (await asyncio.wait_for(holder, timeout=3)).status_code == 200
+        assert strip.status_code == 200
+        assert strip.json()["status"] == "ok"
+        assert [c["ticker"] for c in strip.json()["companies"]] == ["AAPL", "JPM", "MSFT", "GOOGL"]
+        assert engine.pool.checkedout() == 0
+    finally:
+        release_holder.set()
+        engine.dispose()
