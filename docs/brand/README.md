@@ -158,7 +158,8 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
    the consent bar's promise true in code. What `/privacy` says of analytics and Do Not Track, in
    draft #1265, stays with the founder (F4).
 
-Of the sweep's choices, only the founder sentence's words (D6) still wait on the founder.
+Of the sweep's choices, only the founder sentence waits on the founder: the site carries none (A5)
+unless the founder writes one (D6, F48).
 
 ## Closing
 
