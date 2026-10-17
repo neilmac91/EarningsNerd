@@ -106,6 +106,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## SEC / EDGAR data
 
+- sec-cap-6-ks-apart-from-reports.md — Cap a mixed-form filings list per form group, 6-Ks apart, so a daily 6-K filer never hides its 20-F/40-F (partly gated by `backend/tests/unit/test_filings_endpoint_db_first.py` for the company filings list; a new mixed-form list is review-checked)
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-filing-date-is-a-calendar-date.md — `Filing.filing_date` is a calendar date stored as UTC midnight, never an instant: open a window at the start of a UTC day, let a watermark copied from a filing date admit its own date while it is recent, and leave exactness to per-filing dedupe (partly gated by `backend/tests/unit/test_filing_alert_calendar_dates.py` for the alert engine; other comparisons are review-checked)
