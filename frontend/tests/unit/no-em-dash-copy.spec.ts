@@ -668,6 +668,8 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     )
   })
 
+  // Every source file under SCANNED_DIRS through the shared reader, React's types and kinds read as values: about
+  // four seconds alone, past vitest's five under a loaded runner, so the scan carries its own time limit.
   it('finds no em-dash in any string literal, template literal, or JSX text', () => {
     const violations = SCANNED_DIRS.flatMap((dir) => sourceFiles(path.join(FRONTEND_ROOT, dir))).flatMap(
       emDashViolations,
@@ -677,5 +679,5 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       `Em-dash found in copy. Restructure the sentence instead (docs/voice-and-style.md): ` +
         `split it, use a colon, or a middot for compact labels.\n${violations.join('\n')}`,
     ).toEqual([])
-  })
+  }, 30_000)
 })
