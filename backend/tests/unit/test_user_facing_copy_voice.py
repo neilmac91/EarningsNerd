@@ -37,9 +37,10 @@ A literal reaches a user when it is:
 Never read as copy: docstrings, the arguments of logging calls and ``print``, and patterns handed to ``re``.
 
 Checks on that copy: an em-dash (the bare null token ``"—"`` excepted); an exclamation mark (``!=``,
-HTML comments and ``!important`` excepted); an emoji or dingbat; an <h1>/<h2> in Title Case. The retired
-colours (RETIRED_HEX) are checked in every literal of the scanned files except docstrings and log
-arguments, since a hex string is only ever a colour.
+``!important`` and a comment's markup excepted: ``<!--``, ``<![endif]`` and a conditional comment's
+condition after its opener, ``<!--[if !mso]>`` or ``<![if !mso]>``; what a comment holds is read as copy);
+an emoji or dingbat; an <h1>/<h2> in Title Case. The retired colours (RETIRED_HEX) are checked in every
+literal of the scanned files except docstrings and log arguments, since a hex string is only ever a colour.
 
 EXEMPT lists what breaks today, each entry with the number of breaks it covers and the PR or decision
 that owns their fix: a file, or ``file::function`` for half of one. The number is an equality, as
@@ -106,7 +107,8 @@ PROMPT_MODULES = frozenset({"prompt.py", "prompts.py"})
 LOG_METHODS = frozenset({"debug", "info", "warning", "warn", "error", "exception", "critical", "log"})
 
 EM_DASH = "\u2014"
-NOT_A_BANG = re.compile(r"!=|<!--|<!\[(?:if|endif|CDATA)|<!doctype|!important", re.IGNORECASE)
+# A conditional comment's condition is markup only after the comment's own opener (<!--[if !mso]>, <![if !mso]>).
+NOT_A_BANG = re.compile(r"!=|<!--\[if\s[^\]]*\]|<!\[if\s[^\]]*\]|<!--|<!\[(?:endif|CDATA)|<!doctype|!important", re.IGNORECASE)
 EMOJI = re.compile("[\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff]")  # pictographs, dingbats, symbols, variation selector
 RETIRED_HEX = re.compile(r"#(?:10b981|6b7280|e5e1d8|f9f9f9|333|666|ddd)(?![0-9a-f])", re.IGNORECASE)
 _ELEMENT = (
@@ -136,7 +138,7 @@ EXEMPT: dict[str, tuple[int, str]] = {
     "app/routers/contact.py::send_contact_notifications": (12, "backend-mail-templates"),
     "app/routers/feedback.py::_notify_admin": (5, "backend-mail-templates"),
     "app/services/email_service.py": (
-        26,
+        22,
         "backend-mail-templates; also the verification mail's 'Verify your email address and you can start "
         "reading', which promises a gate the code does not have (only checkout checks email_verified)",
     ),
@@ -493,11 +495,17 @@ def route(n, run):
     enforce_rate_limit(error_detail=SLOW_DOWN)
     if n:
         raise HTTPException(404, "Gone!")
+    if n > 2:
+        raise HTTPException(400, "Try again [if you can!]")
     if n > 1:
         raise HTTPException(status_code=409, detail="This report is out of date — run it again.")
     run.message = "Hold on — joining."
     page = '<p style="color:#6B7280">Hi there</p><h2>Thank You for Writing</h2><h2>Welcome to EarningsNerd</h2>'
-    fine = '<!-- note --><style>p {color: red !important}</style><p>a != b</p>'
+    fine = '<!-- note --><style>p {color: red !important}</style><p>a != b</p><!--[if !mso]><!-->x<!--<![endif]--><![if !mso]>y<![endif]>'
+    bracket = "Your link expires soon [if unused, request another one!]"
+    held = '<!--[if mso]><p>Welcome aboard!</p><![endif]-->'
+    revealed = '<![if !mso]><p>Welcome back!</p><![endif]>'
+    shown = '<!--[if !mso]><!--><p>Welcome aboard!</p><!--<![endif]-->'
     return JSONResponse(content={"success": False, "reason": "Oops — no", "message": "Saved ✨", "empty": "—"})
 
 
@@ -600,6 +608,10 @@ _PROBE_BREAKS = {
     ("retired colour #333", "#333"),
     ("em-dash", "{} items — retry"),
     ("exclamation mark", "Gone!"),
+    ("exclamation mark", "Try again [if you can!]"),
+    ("exclamation mark", "<!--[if mso]><p>Welcome aboard!</p><![endif]-->"),
+    ("exclamation mark", "<![if !mso]><p>Welcome back!</p><![endif]>"),
+    ("exclamation mark", "<!--[if !mso]><!--><p>Welcome aboard!</p><!--<![endif]-->"),
     ("em-dash", "This report is out of date — run it again."),
     ("em-dash", "Hold on — joining."),
     ("retired colour #6B7280", _PAGE),
@@ -644,6 +656,7 @@ def test_the_reader_sees_each_shape_and_lets_the_rest_through():
         ("em-dash", "Inherited fields — not mapped"),
         ("em-dash", "Cash — net"),
         ("em-dash", "a header — not copy"),
+        ("exclamation mark", "Your link expires soon [if unused, request another one!]"),
     }
 
     # A role-named return in prompt.py or prompts.py is not read; in any other module it is.

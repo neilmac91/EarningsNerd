@@ -1,7 +1,8 @@
 /**
  * Python source as tokens, for the specs that read backend Python: streamErrorCopy.spec.ts reads the error
- * strings the pipeline streams, and authPagesCopy.spec.tsx reads where the backend reads an account's
- * email_verified, so a comment, a docstring or another string never counts as code.
+ * strings the pipeline streams, authPagesCopy.spec.tsx reads where the backend reads an account's
+ * email_verified, and wordmarkSingleSource.spec.ts reads the strings that compose the wordmark, so a comment,
+ * a docstring or another string never counts as code.
  */
 export type Token = { kind: 'str' | 'name' | 'op'; text: string; line: number }
 
@@ -11,6 +12,10 @@ const UNICODE_NAMES: Record<string, string> = {
   'EM DASH': '\u2014', 'EN DASH': '\u2013', 'HORIZONTAL ELLIPSIS': '\u2026', 'NO-BREAK SPACE': '\u00a0', 'MIDDLE DOT': '\u00b7',
   BULLET: '\u2022', 'LEFT SINGLE QUOTATION MARK': '\u2018', 'RIGHT SINGLE QUOTATION MARK': '\u2019',
   'LEFT DOUBLE QUOTATION MARK': '\u201c', 'RIGHT DOUBLE QUOTATION MARK': '\u201d', 'HYPHEN-MINUS': '-', 'MINUS SIGN': '\u2212',
+  // The characters that render as nothing, by their names and Python's aliases for them.
+  'SOFT HYPHEN': '\u00ad', SHY: '\u00ad', 'ZERO WIDTH SPACE': '\u200b', ZWSP: '\u200b', 'ZERO WIDTH NON-JOINER': '\u200c',
+  ZWNJ: '\u200c', 'ZERO WIDTH JOINER': '\u200d', ZWJ: '\u200d', 'WORD JOINER': '\u2060', WJ: '\u2060',
+  'ZERO WIDTH NO-BREAK SPACE': '\ufeff', 'BYTE ORDER MARK': '\ufeff', BOM: '\ufeff', ZWNBSP: '\ufeff',
 }
 
 /** Python source as tokens: string literals (prefix and quotes dropped; escapes decoded as Python decodes

@@ -10,7 +10,11 @@ the module pins the shape:
 - no f-string, ``+``/``%`` concatenation or ``.format(...)`` call anywhere in the module uses a
   bare ``name`` / ``full_name``;
 - every ``greeting = ...`` assignment is a call to ``_greeting``;
-- the hidden-copy literal (``display:none``) appears only inside ``_hidden_text``.
+- the hidden-text literal (``display:none``) appears only inside the two helpers that hide text:
+  ``_hidden_text`` (the plain-text copy) and ``_preheader`` (the line an inbox lists beside the subject).
+  This walk checks where the literal sits, not what a helper escapes: that each escapes its text as a unit
+  is held by the renders (``test_email_name_escaping.py``, and ``test_mail_rendered_addresses.py``'s escape
+  test for the preheader).
 
 The result must equal the allow-list EXACTLY (today: empty). A new template that bypasses a
 helper fails with a pointer to the fix; a site that is ever sanctioned must carry a written reason.
@@ -26,6 +30,8 @@ ALLOWED_SITES: set[tuple[str, str]] = set()
 NAME_IDS = {"name", "full_name"}
 GREETING_HELPER = "_greeting"
 HIDDEN_TEXT_HELPER = "_hidden_text"
+PREHEADER_HELPER = "_preheader"
+HIDDEN_TEXT_HELPERS = frozenset({HIDDEN_TEXT_HELPER, PREHEADER_HELPER})
 HIDDEN_COPY_MARKER = "display:none"
 
 
@@ -84,8 +90,8 @@ class _Finder(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Constant(self, node: ast.Constant) -> None:
-        if isinstance(node.value, str) and HIDDEN_COPY_MARKER in node.value and self._where() != HIDDEN_TEXT_HELPER:
-            self.hits.append((self._where(), f"hidden text copy built without {HIDDEN_TEXT_HELPER}()"))
+        if isinstance(node.value, str) and HIDDEN_COPY_MARKER in node.value and self._where() not in HIDDEN_TEXT_HELPERS:
+            self.hits.append((self._where(), f"hidden text built without {HIDDEN_TEXT_HELPER}() or {PREHEADER_HELPER}()"))
 
 
 def _raw_name_sites(source: str) -> list[tuple[str, str]]:
@@ -103,6 +109,9 @@ def _greeting(name):
 
 def _hidden_text(text):
     return f'<pre style="display:none">{html.escape(text)}</pre>'
+
+def _preheader(text):
+    return f'<div style="display:none;mso-hide:all;">{html.escape(text)}</div>'
 
 def raw_fstring(name):
     greeting = f"Hi {name}," if name else "Hi there,"
@@ -124,9 +133,12 @@ def str_format(name):
 def raw_hidden_copy(text):
     return f"<pre style=\\"display:none\\">{text}</pre>"
 
+def raw_preheader(text):
+    return f'<div style="display:none;mso-hide:all;">{text}</div>'
+
 async def uses_helpers(name, text):
     greeting = _greeting(name)
-    return f"<p>{greeting}</p>{_hidden_text(text)}"
+    return f"{_preheader(text)}<p>{greeting}</p>{_hidden_text(text)}"
 
 def other_names_are_fine(company_name, ticker):
     return f"{company_name} ({ticker})" + ticker
@@ -141,7 +153,8 @@ def test_finder_catches_every_bypass_shape_and_accepts_the_helpers():
         ("concatenation", "string arithmetic on full_name"),
         ("percent_format", "string arithmetic on name"),
         ("str_format", ".format() receives name"),
-        ("raw_hidden_copy", "hidden text copy built without _hidden_text()"),
+        ("raw_hidden_copy", "hidden text built without _hidden_text() or _preheader()"),
+        ("raw_preheader", "hidden text built without _hidden_text() or _preheader()"),
     ]
 
 
@@ -151,8 +164,9 @@ def test_email_service_routes_every_name_through_the_helpers():
     assert not unexpected, (
         "app/services/email_service.py interpolates a recipient's name outside the escaping helpers:\n"
         + "\n".join(f"  {function}(): {offence}" for function, offence in sorted(unexpected))
-        + "\nUse `greeting = _greeting(name)` for the salutation and `_hidden_text(text)` for the "
-        "plain-text copy. Extending ALLOWED_SITES needs a written reason next to the entry."
+        + "\nUse `greeting = _greeting(name)` for the salutation, `_hidden_text(text)` for the plain-text copy "
+        "and `_wrap_html(..., preheader=line)` for the preheader. Extending ALLOWED_SITES needs a written reason "
+        "next to the entry."
     )
     stale = ALLOWED_SITES - found
     assert not stale, f"Sanctioned sites no longer bypass the helpers — delete them: {sorted(stale)}"
@@ -161,4 +175,4 @@ def test_email_service_routes_every_name_through_the_helpers():
 def test_helpers_are_defined_in_the_module():
     tree = ast.parse(MODULE.read_text(encoding="utf-8"))
     defined = {node.name for node in tree.body if isinstance(node, ast.FunctionDef)}
-    assert {GREETING_HELPER, HIDDEN_TEXT_HELPER} <= defined
+    assert {GREETING_HELPER, *HIDDEN_TEXT_HELPERS} <= defined
