@@ -270,9 +270,12 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           onChange={(event) => setHoneypot(event.target.value)}
         />
 
+        {/* Each Notice sets its own text to the start: the page centres this column below lg, and a Notice's action row
+            does not follow the text it inherits. */}
         {referralRefused && (
           <Notice
             variant="error"
+            className="text-left"
             title={unknownReferralTitle}
             description={unknownReferralDescription}
             action={
@@ -284,7 +287,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           />
         )}
 
-        {error && <Notice variant="error" title={error} />}
+        {error && <Notice variant="error" className="text-left" title={error} />}
 
         <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
 

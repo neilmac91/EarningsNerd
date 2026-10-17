@@ -187,6 +187,20 @@ describe('waitlist join refused', () => {
     expect(alert).not.toHaveTextContent(/status code|not recognized/i)
   })
 
+  // The waitlist page centres this column below lg (`app/waitlist/page.tsx`). A Notice's title and description would
+  // inherit it while its action row stays at the start, so each Notice in the form sets its own text to the start.
+  it('sets the refusal to the start, inside a column the page centres below lg', async () => {
+    expect(await joinRefused()).toHaveClass('text-left')
+  })
+
+  it('sets the error Notice to the start too', async () => {
+    api.joinWaitlist.mockRejectedValueOnce(new ApiError(0, 'Network Error'))
+    render(<WaitlistForm source="waitlist" />)
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ada@example.test' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
+    expect(await screen.findByRole('alert')).toHaveClass('text-left')
+  })
+
   it('offers "Join without the code" under the message, a link to /waitlist with no ?ref= (F47, D-046)', async () => {
     const alert = await joinRefused()
     const joinWithout = within(alert).getByRole('link', { name: 'Join without the code' })
