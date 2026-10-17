@@ -154,7 +154,7 @@ export function useSummaryGeneration({
       // Generation requires an account (the backend 401s guests). The page renders a signup gate
       // for unauthenticated visitors, so this is a defensive backstop, not the primary UX.
       if (!isAuthenticated) {
-        setGenerationError('Sign in to generate this summary.')
+        setGenerationError('Log in to generate this summary.')
         return
       }
       setHasStartedGeneration(true)

@@ -67,7 +67,7 @@ export function AlertBell({
   const label = checking
     ? `Checking your account before managing alerts for ${ticker}`
     : !signedIn
-    ? `Sign in to get earnings alerts for ${ticker}`
+    ? `Log in to get earnings alerts for ${ticker}`
     : on
       ? `Turn off earnings alerts for ${ticker}`
       : `Get an email the morning ${ticker} reports`
@@ -217,12 +217,12 @@ export function BellPopover({
   const title = isError
     ? 'Alert not enabled'
     : blocked.kind === 'signin'
-      ? 'Sign in to set earnings alerts'
+      ? 'Log in to set earnings alerts'
       : `Free includes ${FREE_EARNINGS_ALERT_LIMIT} earnings alerts`
   const body = isError
     ? blocked.message // the API's message, verbatim — never rewritten client-side
     : blocked.kind === 'signin'
-      ? `Sign in to get an email the morning a company reports. Free includes ${FREE_EARNINGS_ALERT_LIMIT} companies.`
+      ? `Log in to get an email the morning a company reports. Free includes ${FREE_EARNINGS_ALERT_LIMIT} companies.`
       : blocked.message
 
   return createPortal(
@@ -280,7 +280,7 @@ export function BellPopover({
               {blocked.kind === 'signin' && (
                 <>
                   <Link href="/login" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
-                    Sign in
+                    Log in
                   </Link>
                   <Link href={ACCESS_COPY[accessMode].href} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
                     {ACCESS_COPY[accessMode].cta}

@@ -42,9 +42,9 @@ export default function DashboardError({
             variant="error"
             headingLevel="h1"
             icon={<LockSimpleIcon className="h-5 w-5" />}
-            title="Authentication required"
-            description="Please log in to access your dashboard."
-            action={<Button onClick={() => router.push('/login')}>Go to login</Button>}
+            title="Log in to see your dashboard"
+            description="You need to be logged in to open it."
+            action={<Button onClick={() => router.push('/login')}>Log in</Button>}
           />
         </div>
       </div>

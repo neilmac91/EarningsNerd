@@ -383,7 +383,7 @@ describe('Check email: Resend stays focusable', () => {
     expect(screen.queryByRole('button', { name: /resend/i })).toBeNull()
     expect(screen.queryByText('We send verification links to')).toBeNull()
     expect(screen.getByText('Open the newest verification link we sent you.')).toBeInTheDocument()
-    expect(screen.getByText('Need a new one? Sign in, open the account menu and choose Verify your email.')).toBeInTheDocument()
+    expect(screen.getByText('Need a new one? Log in, open the account menu and choose Verify your email.')).toBeInTheDocument()
   })
 })
 

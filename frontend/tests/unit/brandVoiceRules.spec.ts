@@ -53,6 +53,16 @@ import { isIconModule } from './iconModules'
  *    `then` and a generator's `yield`.
  *  - developerWording: copy in lib/ and hooks/ (the fallback errors a user reads) never names the
  *    backend, an API path, a "reader" or an HTTP status number.
+ *  - signInVerb: the product's verb is "Log in" (docs/brand/decisions-log.md D-046, F44), so copy never says "sign in"
+ *    or "sign out": no inflection of either (signs, signed, signing, "sign into"), no hyphenated or closed-up noun
+ *    ("sign-in", "sign-ins", "signin", "sign-out"), in any case, its two words parted by spaces, a line break, a hyphen
+ *    or a no-break space written as a character or an entity (`Sign&nbsp;in`). "Sign up" is registering, not this verb,
+ *    and passes, as do "log in", "logged in", "logging in", "log out" and "login" as a noun ("the login page"). The
+ *    clause reads copy as the exclamation clause does (below): JSX text, a string or template literal that is not code's
+ *    own, and an attribute that is not code (an aria-label, a title, a placeholder, a component's label or
+ *    loadingText), so an identifier (`signedIn`, `ENABLE_APPLE_SIGNIN`), a comment, an href, a class list and a
+ *    comparison are never read. Out of reach, planted as gaps in its self-check: the two words split across two
+ *    literals or around an expression (`Sign{' '}in`, `'Sign ' + 'in'`), each part read alone.
  *
  * Copy is a JSX text node, or a string or template literal outside the places code keeps its own
  * strings (imports, class lists, comparisons, identifiers such as hrefs and keys; see isCodeString). A
@@ -84,7 +94,7 @@ import { isIconModule } from './iconModules'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 
-type Clause = 'sentenceCase' | 'exclamation' | 'emoji' | 'buzzword' | 'headingIcon' | 'developerWording'
+type Clause = 'sentenceCase' | 'exclamation' | 'emoji' | 'buzzword' | 'headingIcon' | 'developerWording' | 'signInVerb'
 
 /** Names that keep their capitals mid-phrase: the product's names, the regulator and its systems, the
     nine parts of the summary outline (backend/app/services/summary_schema.py SECTION_META), months and
@@ -126,6 +136,9 @@ const EMOJI = /\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F/u
 const EMOJI_ALL = new RegExp(EMOJI.source, 'gu')
 const EXCLAMATION = /!/u
 const DEVELOPER_WORDING = /\bbackend\b|\/api\/|\breader\b|\b[45]\d\d\b/i
+/** The other verb (D-046): "sign" in any inflection, then "in", "ins", "into", "out" or "outs", the words parted by
+    nothing, whitespace, a hyphen (a non-breaking one included) or a no-break space as a character or an entity. */
+const SIGN_IN_VERB = /\bsign(?:s|ed|ing)?(?:[\s ‐‑-]|&nbsp;|&#0*160;|&#x0*a0;)*(?:in(?:s|to)?|outs?)\b/iu
 const HEADINGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
 /** Components whose title prop is a visible title. UpgradeModal is named because its title reaches its
     ModalHeader through a local (`const heading = title ?? …`), which discoverReach does not follow. */
@@ -553,6 +566,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
       for (const _ of text.matchAll(EMOJI_ALL)) add(node, 'emoji', text)
       for (const [word, re] of BUZZWORDS) if (re.test(text)) add(node, 'buzzword', `${word}: ${text}`)
       if (devScope && /\s/.test(text.trim()) && DEVELOPER_WORDING.test(text)) add(node, 'developerWording', text)
+      if (SIGN_IN_VERB.test(text)) add(node, 'signInVerb', text)
     }
     // Headings, titles, buttons: their rendered text; headings: no icon inside.
     if (ts.isJsxElement(node)) {
@@ -630,10 +644,11 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'app/security/page.tsx': { sentenceCase: 12 }, // founder-gated, legal page: the /security recase lands with its claims (UA ids)
   'app/terms/page.tsx': { sentenceCase: 4 }, // founder-gated, legal page: its headings wait on the founder (legalDates bump)
   'features/admin/components/ShareInvite.tsx': { sentenceCase: 1 }, // a known false positive, no PR: the aria-label "Share invite via Messages" names Apple's app; the entry leaves when the label changes
+  'features/calendar/hooks/useCalendar.ts': { signInVerb: 1 }, // a known false positive, no PR (D-046): the blocked state's kind tag `{ kind: 'signin' }` (BlockedKind), code read as copy for want of a context; the entry leaves when the tag is renamed
   'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // the Copilot rail's next change (no open PR edits the flagged line; #1278 edits another line of this file; the aria-label "Filing source and Ask")
   'features/marketing/components/ProDepth.tsx': { sentenceCase: 1 }, // the FeatureRow title "Change Report": a product screen's name beside Ask this Filing and Multi-Period Analysis, which PROPER_NOUNS lists and this does not, while the product also writes "change report" in prose (ComparePeriodsCard); the name's case is the records PR's call (07-voice.md); #1311 left it
 }
-const VOICE_RESIDUE_MAX = { entries: 6, violations: 35 }
+const VOICE_RESIDUE_MAX = { entries: 7, violations: 36 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
   // An element past MAX_VARIANTS throws; the residue test reports it rather than the whole file failing to load.
@@ -1160,5 +1175,58 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     ).toEqual(['sentenceCase Filing Summary'])
     expect(voiceFindings("export const msg = 'The backend returned 503. Try again.'", 'lib/api/probe.ts').map((f) => f.clause)).toEqual(['developerWording'])
     expect(voiceFindings("export const msg = 'The backend returned 503. Try again.'", 'features/probe/msg.ts')).toEqual([])
+  })
+
+  it('finds the other verb in every form copy takes, and never in code (D-046; a self-check on a fixed source)', () => {
+    // Each plant is marked: true, a form of the verb in copy the clause must flag; false, a look-alike or code it must
+    // pass; 'gap', a form the header names as out of reach, which passes until the clause reads it.
+    const planted: Array<[string, boolean | 'gap']> = [
+      ['export const A = () => <Button>Sign in</Button>', true],
+      ['export const B = ({ name }: { name: string }) => <p>You are signed in as {name}.</p>', true],
+      ['export const C = () => <Button loading loadingText="Signing in…">Go</Button>', true],
+      ['export const D = () => <button aria-label="Sign out of every device" />', true],
+      ['export const E = () => <a href="/help" title="Sign-in help">Help</a>', true],
+      ['export const F = () => <Notice title="Sign-in failed" />', true],
+      ["const NOTICE = 'Please sign in again.'", true],
+      ['export const G = ({ t }: { t: string }) => <p>{`Sign in to follow ${t}`}</p>', true],
+      ['export const H = () => <p>SIGN OUT</p>', true],
+      ['export const I = () => <p>Signs out of every device</p>', true],
+      ['export const J = () => <p>Readers who are signed-out see the teaser</p>', true],
+      ['export const K = () => <p>Sign into your account</p>', true],
+      ['export const L = () => <p>Signin failed</p>', true],
+      ['export const M = () => <p>Sign&nbsp;in to continue</p>', true],
+      ['export const N = () => <input placeholder="Sign in email" />', true],
+      ['export const O = () => <p>Sign‑out</p>', true],
+      ['export const P = () => <p>No social sign-ins linked.</p>', true],
+      ['export const Q = () => <p>Already have an account? Sign\n  in</p>', true],
+      ["export const R = () => createElement('button', null, 'Sign in')", true],
+      ["export const S = (el: HTMLElement) => el.setAttribute('aria-label', 'Sign out')", true],
+      ["export const metadata = { title: 'Sign in | EarningsNerd' }", true],
+      // A tag with no context that says code is read as copy: why useCalendar.ts's `kind: 'signin'` is in the residue.
+      ["export const T = (set: (b: { kind: string }) => void) => set({ kind: 'signin' })", true],
+      ['export const U = () => <Button>Sign up with email</Button>', false],
+      ['export const V = () => <p>Design in progress, assigned out of band, a signal in the noise, a sign on the door</p>', false],
+      ['export const W = ({ signedIn }: { signedIn: boolean }) => (signedIn ? <p>Log out</p> : <p>Log in</p>)', false],
+      ['// Sign in: a comment says it, and a comment is not copy', false],
+      ['export const X = () => <a href="/signin" className="sign-in-link" data-cta="sign-in">Log in</a>', false],
+      ["const Y = (kind: string) => kind === 'signin'", false],
+      ["type Z = 'signin' | 'upsell'", false],
+      ['export const AA = () => <p>Logged in, logging in, logged out: the login page and its logins</p>', false],
+      ["export const ENABLE_APPLE_SIGNIN = process.env.NEXT_PUBLIC_ENABLE_APPLE_SIGNIN === 'true'", false],
+      ["export const AB = (m: string) => m.includes('sign in')", false],
+      ['export const AC = () => <AppleSignInButton apiBase="" />', false],
+      ["export const AD = () => <p>Sign{' '}in</p>", 'gap'],
+      ["export const AE = () => <p>{'Sign ' + 'in'}</p>", 'gap'],
+    ]
+    let line = 1
+    const expected: number[] = []
+    for (const [code, flag] of planted) {
+      if (flag === true) expected.push(line)
+      line += code.split('\n').length
+    }
+    const src = planted.map(([code]) => code).join('\n')
+    const found = voiceFindings(src, 'features/probe/Verb.tsx').filter((f) => f.clause === 'signInVerb')
+    expect(found.map((f) => f.line)).toEqual(expected)
+    expect(expected).toHaveLength(22)
   })
 })

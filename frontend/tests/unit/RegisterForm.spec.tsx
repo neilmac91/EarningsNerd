@@ -42,7 +42,7 @@ vi.mock('@/lib/serverApi', async (importOriginal) => ({
 }))
 
 const socialLink = (provider: 'Google' | 'Apple') =>
-  screen.queryByRole('link', { name: `Sign up with ${provider}` })
+  screen.queryByRole('link', { name: `Continue with ${provider}` })
 
 describe('RegisterForm social sign-up follows the invite gate', () => {
   beforeEach(() => {
@@ -75,9 +75,9 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
     for (const anchor of Array.from(document.querySelectorAll('a'))) {
       expect(anchor.getAttribute('href') ?? '').not.toMatch(/invite/)
     }
-    fireEvent.click(screen.getByRole('button', { name: 'Sign up with Google' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
     expect(startOAuthWithInvite).toHaveBeenCalledWith('google', invite)
-    fireEvent.click(screen.getByRole('button', { name: 'Sign up with Apple' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with Apple' }))
     expect(startOAuthWithInvite).toHaveBeenCalledWith('apple', invite)
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Request an invite' })).toBeNull()

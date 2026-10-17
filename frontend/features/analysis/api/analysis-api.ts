@@ -345,7 +345,7 @@ export const streamAnalysis = async (
     if (!response.ok) {
       let errorMessage: string
       if (response.status === 401) {
-        errorMessage = 'Sign in to run an analysis.'
+        errorMessage = 'Log in to run an analysis.'
       } else if (response.status === 403) {
         errorMessage = await parseErrorDetail(response, 'Multi-Period Analysis is a Pro feature.')
       } else if (response.status === 429) {

@@ -70,7 +70,7 @@ describe('the summary stream client prints its own fallbacks in the voice', () =
   })
 
   it.each([
-    [401, 'Sign in again to generate this summary.', 1],
+    [401, 'Log in again to generate this summary.', 1],
     [400, 'The summary could not start. Try again.', 1],
     [403, 'Your account does not have permission to generate this summary.', 1],
     [429, 'Too many summary requests just now. Try again shortly.', 1],

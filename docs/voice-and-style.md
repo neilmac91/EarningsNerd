@@ -117,7 +117,7 @@ the business card, the footer and the merch; it is the positioning in six words.
   "The Print", "Results That Matter", "Forward Signals", "Notable Footnotes" …) and keep their
   casing everywhere they are named, including on the sales page.
 - "AI-powered", lowercase p, except at the start of a sentence or in title-case page titles.
-- Ellipsis character `…` on loading states ("Signing in…") is fine.
+- Ellipsis character `…` on loading states ("Logging in…") is fine.
 - Buzzwords to avoid: unlock, seamless(ly), empower, effortless(ly), supercharge, transform,
   actionable insights, decision-ready, game-changing, "in today's fast-paced world". Say what
   the thing does instead. Add: "signal" as a noun for the product's output, "edge", "clarity"
@@ -125,6 +125,10 @@ the business card, the footer and the merch; it is the positioning in six words.
 - Vocabulary the product owns, use it as the product does: "located in the filing",
   "matched the company's XBRL", "withheld", "checkable", "cited", "the filing's own words",
   "Full summary". Never "verified" without a match behind it.
+- The account verb is "Log in": "Log out", "logged in", "logging in" (D-046). "Login" is the noun
+  ("the login page", "Login failed"), and "sign up" is registering, so it stays. Never "sign in" or
+  "sign out" in any form; `frontend/tests/unit/brandVoiceRules.spec.ts` fails it in copy. The
+  backend's own messages follow in their voice pass (E45).
 
 ## Claims
 

@@ -145,7 +145,7 @@ const isNonRetryableStreamError = (message: string): boolean => {
   return (
     isPaywallStreamError(message) ||
     m.includes('permission') ||
-    m.includes('sign in') ||
+    m.includes('log in') ||
     m.includes('authentication')
   )
 }
@@ -351,7 +351,7 @@ const runStreamAttempt = async (
       // The reader's sentence when the response carries no detail of its own. A 401 is never retried
       // whatever its text (retryable is set only for a 5xx below); its sentence says what to do.
       let errorMessage = response.status === 401
-        ? 'Sign in again to generate this summary.'
+        ? 'Log in again to generate this summary.'
         : 'The summary could not start. Try again.'
       try {
         const errorData = await untilAborted(response.json())

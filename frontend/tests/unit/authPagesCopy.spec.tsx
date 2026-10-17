@@ -29,6 +29,11 @@ vi.mock('@/features/auth/components/AuthShell', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 vi.mock('@/features/auth/components/TurnstileWidget', () => ({ default: () => null }))
+// The login page's registration read, answered here: no answer (the default) fails closed to the invite.
+const { getRegistrationConfig } = vi.hoisted(() => ({
+  getRegistrationConfig: vi.fn<() => Promise<{ mode: 'public' | 'invite_only'; beta_promo_enabled: boolean } | null>>(async () => null),
+}))
+vi.mock('@/features/marketing/api/access-api', () => ({ getRegistrationConfig }))
 
 import CheckEmailPage from '@/app/check-email/page'
 import VerifyEmailPage from '@/app/verify-email/page'
@@ -261,11 +266,30 @@ describe('login: an OAuth account conflict', () => {
     withQueryClient(<LoginPage />)
     expect(
       screen.getByText(
-        `This email already has an EarningsNerd account, and the two could not be linked. Sign in the way you created that account and verify your email. Once the email is verified on EarningsNerd and ${provider}, try ${provider} again.`,
+        `This email already has an EarningsNerd account, and the two could not be linked. Log in the way you created that account and verify your email. Once the email is verified on EarningsNerd and ${provider}, try ${provider} again.`,
       ),
     ).toBeInTheDocument()
     expect(screen.queryByText(/password instead/i)).toBeNull()
     expect(screen.queryByText(/will link/i)).toBeNull()
+  })
+})
+
+describe('login: the way in for a visitor without an account (D-046, F44)', () => {
+  // The link under the form follows the one access decision (features/marketing/lib/access.ts), as RegisterForm's
+  // notice and the header do: while registration is by invite, and until the registration payload answers or when
+  // it cannot, it asks for an invite on /waitlist; open registration offers the free account on /register.
+  it.each([
+    ['no answer', null, 'Request an invite', '/waitlist'],
+    ['invite_only', { mode: 'invite_only', beta_promo_enabled: false }, 'Request an invite', '/waitlist'],
+    ['public', { mode: 'public', beta_promo_enabled: false }, 'Create a free account', '/register'],
+  ] as const)('under %s it reads "%s" and goes to %s', async (_mode, config, label, href) => {
+    useSearchParams.mockReturnValue(new URLSearchParams())
+    getRegistrationConfig.mockClear()
+    getRegistrationConfig.mockResolvedValueOnce(config)
+    withQueryClient(<LoginPage />)
+    await waitFor(() => expect(getRegistrationConfig).toHaveBeenCalledTimes(1))
+    expect(await screen.findByRole('link', { name: label })).toHaveAttribute('href', href)
+    expect(screen.queryByRole('link', { name: /^sign up$/i })).toBeNull()
   })
 })
 

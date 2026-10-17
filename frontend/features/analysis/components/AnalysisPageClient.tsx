@@ -353,7 +353,7 @@ export default function AnalysisPageClient() {
             title={
               <>
                 <Link href="/login" className="font-semibold rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
-                  Sign in
+                  Log in
                 </Link>{' '}
                 to see which periods are available for {ticker}.
               </>

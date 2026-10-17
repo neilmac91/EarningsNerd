@@ -64,8 +64,8 @@ const MATCHERS: Matcher[] = [
     fn: 'isNonRetryableStreamError',
     // The summary stream's own sources only. Its 401 comes from get_current_user (routers/auth.py),
     // "Could not validate credentials", which summaries-api.ts surfaces as the detail in place of its
-    // fallback ("Sign in again to generate this summary.", the source of "sign in"); the matcher never sees
-    // a 401, which comes back retryable: false by status. auth.py's other messages (sign-in configuration, login) never reach
+    // fallback ("Log in again to generate this summary.", the source of "log in": D-046 moved the fallback and the
+    // phrase together from "sign in"); the matcher never sees a 401, which comes back retryable: false by status. auth.py's other messages (sign-in configuration, login) never reach
     // the stream, and useSummaryGeneration's guest message is set beside the stream, never matched.
     backend: [BACKEND.summaries, BACKEND.admission],
     frontend: ['features/summaries/api/summaries-api.ts'],

@@ -98,7 +98,7 @@ export default function CopilotTeaser({
         <p className="mt-3 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
           Already Pro?{' '}
           <Link href="/login" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
-            Sign in
+            Log in
           </Link>
         </p>
       )}

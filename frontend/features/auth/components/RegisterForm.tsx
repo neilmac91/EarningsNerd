@@ -144,7 +144,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
                 >
                   Request an invite
                 </Link>
-                , or sign in if you already have an account.
+                , or log in if you already have an account.
               </>
             }
           />
@@ -163,8 +163,6 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
             <SocialAuthButtons
               apiBase={apiBase}
               invite={inviteToken || undefined}
-              appleLabel="Sign up with Apple"
-              googleLabel="Sign up with Google"
             />
             <AuthDivider />
           </>
@@ -261,7 +259,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
           href={loginHrefWithRedirect(redirect)}
           className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong hover:underline dark:text-brand-strong-dark"
         >
-          Sign in
+          Log in
         </Link>
       </p>
     </AuthShell>
