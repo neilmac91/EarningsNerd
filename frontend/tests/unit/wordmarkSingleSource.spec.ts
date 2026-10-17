@@ -13,13 +13,22 @@
    its reason, and a removed one fails until its entry goes. The PDF rendition's
    colours ("Earnings" in the ink, "Nerd" italic in brand-strong) are read from
    its rendered stylesheet by backend/tests/unit/test_export_palette_parity.py;
-   the mail's are review-checked until its header port (E54). The brand
-   templates (docs/brand/templates, scripts/brand/og-template.html) are artwork,
-   outside this scan, as before.
+   the mail's are the brand template's (docs/brand/templates/email-header.html),
+   to which backend/tests/unit/test_mail_header_template.py holds the mail's
+   header tag for tag (E54). The brand templates (docs/brand/templates,
+   scripts/brand/og-template.html) are artwork, outside this scan, as before.
 
    What counts as the italic half: "Nerd" alone in an element that sets it
    italic, or any element that sets italic opened right after "Earnings",
-   whatever it holds (`f"Earnings<em>{half()}</em>"`). An element sets italic
+   whatever it holds (`f"Earnings<em>{half()}</em>"`), with nothing between them
+   that renders a character: spaces; a `<wbr>`, a comment or an empty element;
+   and the characters the backend's reader drops as invisible (a soft hyphen,
+   the zero-width space, non-joiner and joiner, the word joiner, the zero-width
+   no-break space), as the character (which a Python escape decodes to, by code
+   or by name), as a numeric reference in either base (with leading zeros or
+   without its semicolon), by any of HTML's names for it, or in a JSX string or
+   comment: the mail's wordmark wraps at such a joint, a zero-width space
+   (D-048). A no-break space counts as a space, however HTML spells it. An element sets italic
    when it is one the browser's and WeasyPrint's own stylesheets slant (`em`,
    `i`, `cite`, `var`, `dfn`, `address`), when its style or an attribute sets
    font-style italic or oblique (`style="font-style: italic"`, SVG's
@@ -51,7 +60,16 @@ const ITALIC = [
   String.raw`<(?:em|i|cite|var|dfn|address)\b[^>]*>`,
   String.raw`<[\w.:-]+\b[^>]*?(?:font-?style\s*[:=]\s*[{"'\s]*(?:italic|oblique)|\bclass(?:Name)?=[^>]*?(?<![\w-])italic(?![\w-]))[^>]*>`,
 ].join('|')
-const HAND_ROLLED = new RegExp(String.raw`Earnings\s*(?:${ITALIC})|(?:${ITALIC})\s*Nerd\s*<\/`, 'i')
+/** A character that renders nothing between "Earnings" and its italic half: a space (a no-break space among them),
+ * or one the backend's reader drops as invisible (test_mail_header_template.py's `_INVISIBLE`: a soft hyphen, the
+ * zero-width space, non-joiner and joiner, the word joiner, the zero-width no-break space), as the character, which is
+ * what a Python escape decodes to, as a numeric reference in either base (leading zeros, the semicolon optional), or
+ * by any of HTML's names for it. */
+const UNSEEN = String.raw`\s|[\u00ad\u200b-\u200d\u2060\ufeff]|&#0*(?:160|173|820[3-5]|8288|65279);?|&#x0*(?:a0|ad|200[b-d]|2060|feff);?|&(?:nbsp|shy|zwnj|zwj|NoBreak|ZeroWidthSpace|Negative(?:VeryThin|Thin|Medium|Thick)Space);?`
+/** What may stand between "Earnings" and its italic half: such characters, a `<wbr>`, a comment, an element that holds
+ * nothing else, and JSX's forms, a comment or a string of them (`{' '}`, `{'\u200b'}`). */
+const JOINT = String.raw`(?:${UNSEEN}|<wbr\b[^>]*>|<!--[\s\S]*?-->|<(?<empty>[\w.:-]+)\b[^>]*>(?:${UNSEEN})*<\/\k<empty>\s*>|\{\s*\/\*[\s\S]*?\*\/\s*\}|\{\s*(?<quote>['"\`])(?:${UNSEEN}|\\u(?:00a0|00ad|200[b-d]|2060|feff)|\\u\{0*(?:a0|ad|200[b-d]|2060|feff)\}|\\x(?:a0|ad))*\k<quote>\s*\})*`
+const HAND_ROLLED = new RegExp(String.raw`Earnings${JOINT}(?:${ITALIC})|(?:${ITALIC})\s*Nerd\s*<\/`, 'i')
 const BACKEND = path.join(REPO, 'backend/app')
 /** The renditions no React component can render, each with its reason. */
 const SANCTIONED_BACKEND = [
@@ -163,7 +181,40 @@ describe('the wordmark has one source: EarningsNerdLogo', () => {
   it('the readers find the forms Python and TSX write, and pass the look-alikes (planted probe)', () => {
     const flagged = [
       `w = '<span class="wordmark">Earnings<em>Nerd</em></span>'`, // the PDF masthead's markup
-      `w = '<td style="color:#1A1A17;">Earnings<em style="color:#3C6650;font-style:italic;">Nerd</em></td>'`, // the mail's
+      `w = '<td style="color:#1A1A17;">Earnings<em style="color:#3C6650;font-style:italic;">Nerd</em></td>'`, // the mail's, before D-048
+      `w = '<td style="color:#1A1A17;">Earnings&#8203;<em style="color:#3C6650;font-style:italic;">Nerd</em></td>'`, // the mail's, with its break
+      `w = f"Earnings&#8203;<em>{half()}</em>"`, // the break, before a half the reader cannot read
+      `w = f"Earnings&#x200B;<em>{half()}</em>"`, // the break spelt in hex
+      `w = f"Earnings&ZeroWidthSpace;<em>{half()}</em>"`, // the break by its entity's name
+      `w = f"Earnings\\u200b<em>{half()}</em>"`, // the break as Python's escape
+      `w = f"Earnings\\U0000200b<em>{half()}</em>"`, // Python's long escape
+      `w = f"Earnings\\N{ZERO WIDTH SPACE}<em>{half()}</em>"`, // Python's escape by the character's name
+      `w = f"Earnings&#08203;<em>{half()}</em>"`, // a decimal reference with a leading zero
+      `w = f"Earnings&#x0200B;<em>{half()}</em>"`, // a hex reference with a leading zero
+      `w = f"Earnings&#8203<em>{half()}</em>"`, // a reference without its semicolon, which HTML still reads
+      `w = f"Earnings&NegativeThinSpace;<em>{half()}</em>"`, // HTML's other names for the character
+      `w = f"Earnings&NegativeVeryThinSpace;<em>{half()}</em>"`,
+      `w = f"Earnings&NegativeMediumSpace;<em>{half()}</em>"`,
+      `w = f"Earnings&NegativeThickSpace;<em>{half()}</em>"`,
+      `w = f"Earnings<wbr><em>{half()}</em>"`, // a <wbr> for the break
+      `w = f"Earnings <em>{half()}</em>"`, // a space
+      `w = f"Earnings&nbsp;<em>{half()}</em>"`, // a no-break space by its name
+      `w = f"Earnings&shy;<em>{half()}</em>"`, // the other characters the backend's reader drops as invisible, by name
+      `w = f"Earnings&shy<em>{half()}</em>"`, // the name HTML still reads without its semicolon
+      `w = f"Earnings&zwnj;<em>{half()}</em>"`,
+      `w = f"Earnings&zwj;<em>{half()}</em>"`,
+      `w = f"Earnings&NoBreak;<em>{half()}</em>"`,
+      `w = f"Earnings&#65279;<em>{half()}</em>"`, // the zero-width no-break space, which has no name, by number
+      `w = f"Earnings&#x2060;<em>{half()}</em>"`, // the word joiner in hex
+      `w = f"Earnings&#173;<em>{half()}</em>"`, // the soft hyphen in decimal
+      `w = f"Earnings\\xad<em>{half()}</em>"`, // Python's escapes for them, by code and by name
+      `w = f"Earnings\\u2060<em>{half()}</em>"`,
+      `w = f"Earnings\\N{WORD JOINER}<em>{half()}</em>"`,
+      `w = f"Earnings\\N{zwsp}<em>{half()}</em>"`, // an alias, in lower case, as Python reads it
+      `w = f"Earnings<wbr class=\\"break\\"><em>{half()}</em>"`, // a <wbr> with an attribute
+      `w = f"Earnings<!-- the break -->&#8203;<em>{half()}</em>"`, // a comment
+      `w = f"Earnings<span></span><em>{half()}</em>"`, // an element that holds nothing
+      `w = f"Earnings<span>&#8203;</span><em>{half()}</em>"`, // an element that holds the break alone
       `w = f"<td>Earnings<em class=\\"accent\\">Nerd</em></td>"`, // a quoted attribute escaped in a Python string
       `w = "Earnings<em>\\n  Nerd\\n</em>"`, // the half split across lines by escapes
       `w = "Earnings<i style='color: #3C6650'>Nerd</i>"`, // the review's probe: an <i>
@@ -188,6 +239,10 @@ describe('the wordmark has one source: EarningsNerdLogo', () => {
       `w = "Earnings" if x == "<em>" else "Nerd"`, // a condition, not a join
       `w = "Earnings" + other("<em>Nerd")`, // a call's argument, not joined
       `w = '<span class="not-italic">Nerd</span>'`, // the utility that sets it upright
+      `w = "Earnings&#8203;Nerd"`, // the plain name with a break, no italic half
+      `w = f"Earnings<span>&amp;</span><em>{half()}</em>"`, // a character between the two, which renders
+      `w = f"Earnings&middot;<em>{half()}</em>"`, // a visible character by its name
+      `w = f"Earnings&#8204x<em>{half()}</em>"`, // a reference without its semicolon, then a letter, which renders
     ]
     expect(passing.filter((src) => handRolledPython(src))).toEqual([])
     const tsx = [
@@ -195,8 +250,14 @@ describe('the wordmark has one source: EarningsNerdLogo', () => {
       '<span>Earnings</span><span className="italic text-brand">Nerd</span>',
       "<em style={{ fontStyle: 'italic' }}>Nerd</em>",
       '<>Earnings\n  <em className="accent">Nerd</em></>',
+      "<>Earnings{' '}<em className=\"italic\">{half}</em></>", // JSX's string of a space, before a half held in a variable
+      "<>Earnings{'\\u200b'}<em className=\"italic\">{half}</em></>", // JSX's string of the break
+      '<>Earnings{"\\u{200B}"}<em className="italic">{half}</em></>', // its code-point escape
+      '<>Earnings{/* the break */}&#8203;<em className="italic">{half}</em></>', // a JSX comment
+      '<>Earnings&shy;<em className="italic">{half}</em></>', // an invisible character by its name
     ]
     expect(tsx.filter((text) => !HAND_ROLLED.test(text))).toEqual([])
     expect(HAND_ROLLED.test('<span>EarningsNerd</span>')).toBe(false)
+    expect(HAND_ROLLED.test("<>Earnings{'x'}<em className=\"italic\">{half}</em></>"), 'a JSX string that renders a letter').toBe(false)
   })
 })
