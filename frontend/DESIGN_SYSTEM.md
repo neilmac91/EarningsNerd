@@ -684,6 +684,10 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
                  every name whole and nothing overflows (E34).
+                 A mark a reader can clear is not one either: the wording review's Reviewed and
+                 Follow up (WordingChanges.tsx) start unset and a second press clears them, so they
+                 stay a pair of aria-pressed toggles in a labelled group, behind the rule's disable on
+                 that line with its reason (D-046).
                  Gate: earningsnerd/no-hand-rolled-toggle-group (eslint.designRules.mjs) fails a
                  role="group" holding an aria-pressed <button> or <Button>, anywhere outside
                  components/ui/SegmentedControl.tsx. It reads the button in the group's own markup,
