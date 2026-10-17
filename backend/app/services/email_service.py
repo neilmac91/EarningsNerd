@@ -74,7 +74,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
     tile, and the header fits a 320 px screen at Android's largest font size, 200%, the width a phone at its
     largest display size lays the page out at, and a 360 px screen to 230%, as every page sent did when
     measured (in Chromium, in Inter's text cut; a phone draws the text in its own sans-serif, unmeasured). A
-    long word in a body would widen the page, and the header with it, which no gate holds yet (E112). At the
+    long word in a body would widen the page, and the header with it, which no gate holds yet (E116). At the
     set size the header is pixel for pixel what it was without either.
     ``frontend/tests/e2e/mail-header-reflow.spec.ts`` holds the template's header, and through
     ``test_mail_header_template.py`` this one, to 320 and 390 px at 200%.

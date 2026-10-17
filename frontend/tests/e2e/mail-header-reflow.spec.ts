@@ -20,7 +20,7 @@ import { test, expect, type Page } from '@playwright/test'
 // tile stays beside the wordmark: left of its painted lines, its middle level with them. Each is measured in painted
 // text with a Range (lessons/frontend-check-brand-layouts-at-200-percent-text.md). At 320 px and the default size the
 // page fits too. Unchecked here: the mail's panel and the body it holds (a long word in a body widens the column the
-// header shares; E112), other widths and zooms (a 360 px screen holding to 230% is a measurement, not a check),
+// header shares; E116), other widths and zooms (a 360 px screen holding to 230% is a measurement, not a check),
 // WebKit, which an iPhone's mail apps draw with, and any real mail client.
 //
 // A text zoom, which an Android WebView sets from the phone's font size unless its mail app sets its own, scales
