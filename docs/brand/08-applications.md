@@ -490,7 +490,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   warning colour is for status. A signed-out bell offers an email the morning a company reports, and
   its second action follows the registration mode ("Request an invite" while invite-only). The error
   card's "Try again" is a `RetryButton`. `brandCopyRules.spec.ts` rule 1d bans the old claims under
-  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker.
+  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker. Every
+  estimated row shows its "usually" note, the lane's glyph and the words on a line of their own, in
+  the week sheet as in the day list and the day dialog, so the footer's sentence describes what the
+  rows show. At 200% text nothing is clipped or overlaps: each view picks its layout by its own
+  width in em (the day list in place of the sheet, a stacked row without its decorative logo, a month
+  day's count of reports in place of its tickers, which a caption says), names wrap instead of
+  truncating and the range label wraps between whole dates (`calendarReflow.spec.tsx`,
+  `calendarEventRow.spec.tsx`). The bell's popover is placed from its measured height inside what the
+  reader can see, scrolling inside when neither side of the bell holds it whole
+  (`BellPopover.spec.tsx`).
 - **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
   the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
@@ -501,7 +510,13 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an
   error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
   in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
-  longer promises every filing, and the title is in sentence case.
+  longer promises every filing, and the title is in sentence case. At 200% text a row's company
+  name wraps under its ticker in the primary ink (in both themes), each date and form code stays
+  whole, and a middot keeps to the fact before it, so no line starts with one; each fact, its label,
+  its value and its middot, is one run, so a line breaks between facts, and inside one only when it
+  alone is wider than the line; the error alert's
+  glyph keeps its size, its message a 12rem floor, and Retry ("Retrying…" while busy) wraps under it
+  inside the alert (`full-text-search.spec.tsx`).
 - **Multi-Period Analysis** (`frontend/features/analysis/*`, `frontend/app/analysis/page.tsx`): the
   fair-use cap is stated once, in the narrative card, with no plan link; "See plans" stays only beside
   the 403 "Pro feature" gate, and the page's three inline links (Log in, See plans, Terms) carry the
