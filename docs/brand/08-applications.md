@@ -553,14 +553,16 @@ heading (audit T7). The fetcher, the card and its spec stay for the day a curati
 known-good set, a size floor, or 10-K and 10-Q only). The mount gate
 (`tests/unit/landing-sections-mounted.spec.ts`) records the omission as deliberate.
 
-## 8. Left for the founder
+## 8. Decided by the founder
 
-- The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is a pipeline
-  snapshot ending at FY2024; it is regenerated through the pipeline, not edited, so the landing
-  page shows FY2019 to FY2024 in that one demo until the founder runs it to FY2025.
-- A curation rule for §7.
+- The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`, the analysis
+  teaser's sample and the landing's samples) ends at FY2024, and its own comment calls its figures
+  approximate; it is regenerated through the pipeline to FY2025, not edited (D-046, E93).
+- §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
+  first, at most six (D-046, E90).
 
-Each has its own line in `tasks/todo.md`, as does the landing composition (tell T4).
+The landing composition (tell T4) is decided too: labelled rows after the hero (D-045), as its own
+PR.
 
 ## 9. Gates touched
 

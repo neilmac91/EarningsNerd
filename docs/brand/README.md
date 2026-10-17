@@ -145,15 +145,20 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 - `lessons/frontend-check-brand-layouts-at-200-percent-text.md`: a figure pair wraps on its own
   width; a positioned twin centres on its anchor's measured midpoint.
 
-## Left for the founder
+## Decided by the founder
 
-1. The Multi-Period demo regenerated through the pipeline to end at FY2025
-   (`frontend/features/analysis/demo/demo-analysis.json`).
-2. A curation rule before Notable filings returns to the homepage (`NotableFilings.tsx`).
-3. The landing page's section composition (tell T4), as its own PR.
-4. Vercel Web Analytics on the privacy page, or gated on consent: `/privacy` does not name it today.
+The founder took the last four on 2026-10-17 (D-045 and D-046):
 
-Each has its own line in `tasks/todo.md`.
+1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is regenerated
+   through the pipeline to end at FY2025, a paid run under a USD 0.10 ceiling (E93).
+2. Notable filings returns to the homepage with 10-K and 10-Q filings only, from companies that
+   hold a full summary, newest first, at most six (`NotableFilings.tsx`, E90).
+3. The landing page's sections after the hero become labelled rows (tell T4, D-045), as its own
+   PR.
+4. Vercel Web Analytics loads only after the visitor allows analytics (D-046), as its own PR, so
+   `/privacy` needs no sentence naming it.
+
+Only the founder sentence's words (D6) still wait on the founder.
 
 ## Closing
 

@@ -693,7 +693,7 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  components/ui/SegmentedControl.tsx. It reads the button in the group's own markup,
                  through a same-file wrapper component (one level) and through the DS Button imported
                  under another name. WordingChanges' review row (LabelToggle) carries the rule's one
-                 disable: a second press clears its label, a state the control cannot hold (E62). A row
+                 disable: a second press clears its label, a state the control cannot hold (D-046). A row
                  without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
                  file and a wrapper that renders another wrapper are outside its reach (review-checked).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
