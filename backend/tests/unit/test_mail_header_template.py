@@ -30,7 +30,7 @@ page's holds three, the header's, the panel's and the footer line's. Around them
 - carries no inline SVG, which Gmail and Outlook drop;
 - keeps the header at its set size in a view that enlarges small text, such as one that fits a wider page
   to a phone's screen (``-webkit-text-size-adjust:100%`` on its table), and leaves every other line to the
-  view, the panel's and the footer line's (a text zoom scales every line, the header's too: F26);
+  view, the panel's and the footer line's (a text zoom scales every line, the header's too, unmeasured on a phone);
 - breaks no run of a body's for it: a line that prints a run with nowhere to break, such as a link with
   its token or the reader's name, carries the rule that lets it break anywhere, since on the panel the
   rule would reach a body's own table and split a column of amounts; nor does a body lend it to a table;

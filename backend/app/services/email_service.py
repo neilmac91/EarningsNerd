@@ -185,7 +185,7 @@ def _hidden_text(text: str) -> str:
 # line, a no-break space, a zero-width non-joiner, a zero-width space, a zero-width joiner and a zero-width no-break
 # space, one set for each character the line falls short of its _PREVIEW_LENGTH. Each prints as a blank or as
 # nothing. Clients differ in which of them a preview keeps, so the set mixes them, and in most previews the line is
-# followed by blanks, not the header's words; F26 checks the inboxes this mail reaches. React Email 6.11.2 left the
+# followed by blanks, not the header's words, though no real inbox has been checked. React Email 6.11.2 left the
 # two direction marks out of the set, since spam filters such as rspamd score them as hidden text.
 _PREHEADER_FILL = "&nbsp;&zwnj;&#8203;&zwj;&#65279;"
 _PREVIEW_LENGTH = 200

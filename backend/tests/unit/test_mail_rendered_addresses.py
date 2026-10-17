@@ -1269,7 +1269,7 @@ _HIDDEN_DIV = re.compile(r'<div\b[^>]*\bstyle="[^"]*display\s*:\s*none', re.IGNO
 # A scheme, a www. host, a host with a path, or an address. A bare host with no path passes: a company's name can
 # be shaped like one ("Amazon.com, Inc.").
 _LINK_OR_ADDRESS = re.compile(r"://|\bwww\.|\b[a-z0-9-]+\.[a-z]{2,}/|@", re.IGNORECASE)
-# A bound this gate sets on a line, so that most phones' previews show it whole (F26 checks the inboxes it reaches).
+# A bound this gate sets on a line, so that most phones' previews show it whole (unchecked in a real inbox).
 PREHEADER_LIMIT = 90
 # The fill, as React Email's preview component (6.11.3) repeats it after its line: one set of these characters,
 # each a blank or nothing, for each character the line falls short of PREVIEW_LENGTH, so that in most previews the
