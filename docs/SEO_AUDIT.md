@@ -85,10 +85,11 @@ exists — a site this young with zero backlinks essentially doesn't get discove
   will simply not surface — even for the navigational query "Earnings Nerd".
 - **This is the single highest-impact remaining action.** See `LAUNCH_CHECKLIST.md` §1.
 
-### S6 — Apex → www redirect is temporary (307) **[FOUNDER ACTION]**
-- **Evidence (live):** `curl -I https://earningsnerd.io/` → `HTTP/2 307` to www. A 307 tells
+### S6 — Apex → www redirect was temporary (307) **[DONE by 2026-10-17]**
+- **Evidence (at the audit):** `curl -I https://earningsnerd.io/` → `HTTP/2 307` to www. A 307 tells
   Google "this move is temporary", splitting signals across two hosts. Vercel domain settings
   can issue a permanent 308. Checklist §3.
+- **Resolved:** by 2026-10-17 `https://earningsnerd.io/` answers `308` to www, keeping path and query.
 
 ### S7 — Waitlist middleware: currently OFF in production (verify intent)
 - **Evidence (live):** the homepage returns 200 with full prerendered content;
