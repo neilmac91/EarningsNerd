@@ -93,7 +93,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
   export is the analysis workbook). The check marks are in the brand ink and hidden from
-  assistive tech. The history and "Unlimited" lines wait on the founder (pub/F03, pub/F05).
+  assistive tech. "Unlimited" stays, with the fair-use guardrail stated once where it is read
+  (pub/F05, D-040, E58); the history lines leave until entitlements enforce a retention (pub/F03,
+  D-046, E58).
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as
@@ -102,7 +104,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   count and the step numbers are set in the ink, not sage. The trust panel reads "Before you join"
   over its three tiles with no lead (the clarity promise is gone, and a lead only repeated the first
   tile's source line), and its middle tile
-  is "Security", whose body waits on the founder with the /security claims. The problem cards and the
+  is "Security", whose body changes with /security's unsupported claims (D-046, E109). The problem
+  cards and the
   joined heading are h2, so the outline does not skip a level after the h1 when the example beside
   the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
@@ -134,7 +137,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
-  dialog waits on the founder (chrome/F1).
+  dialog takes D-046's words, which name PostHog and say that statistics are tied to an internal
+  account id when you are logged in (chrome/F1, F33, E109).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
@@ -574,14 +578,15 @@ heading (audit T7). The fetcher, the card and its spec stay for the day a curati
 known-good set, a size floor, or 10-K and 10-Q only). The mount gate
 (`tests/unit/landing-sections-mounted.spec.ts`) records the omission as deliberate.
 
-## 8. Left for the founder
+## 8. Decided by the founder
 
-- The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is a pipeline
-  snapshot ending at FY2024; it is regenerated through the pipeline, not edited, so the landing
-  page shows FY2019 to FY2024 in that one demo until the founder runs it to FY2025.
-- A curation rule for §7.
+- The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`, the analysis
+  teaser's sample and the landing's samples) ends at FY2024, and its own comment calls its figures
+  approximate; it is regenerated through the pipeline to FY2025, not edited (D-046, E93).
+- §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
+  first, at most six (D-046, E90).
 
-Each has its own line in `tasks/todo.md`, as does the landing composition (tell T4).
+The landing composition (tell T4) is decided too: labelled rows after the hero (D-045, E113).
 
 ## 9. Gates touched
 
