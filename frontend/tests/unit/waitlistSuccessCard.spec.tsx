@@ -1,11 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MouseEvent, ReactNode } from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 // axios's own settle (its xhr, http and fetch adapters end with it): the stub adapter below applies the
 // request's validateStatus exactly as a real response would.
 import settle from 'axios/unsafe/core/settle.js'
-import client from '@/lib/api/client'
+import client, { ApiError } from '@/lib/api/client'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
 
@@ -18,6 +18,8 @@ import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
  * signup holds is answered 400 with the router's code and no `detail`: the form routes on the code to its
  * own sentence, never on the router's words, and never prints axios's "Request failed with status code 400".
  * Under it, "Join without the code" links to /waitlist (F47, D-046), and the submit after it carries no code.
+ * A Ctrl or Cmd click opens the link in a new tab and leaves this one as it was. A Turnstile token verifies
+ * once, so a join that does not land renews the widget, and the next submit carries a new token.
  */
 
 const api = vi.hoisted(() => ({ joinWaitlist: vi.fn() }))
@@ -49,27 +51,67 @@ vi.mock('next/navigation', async () => {
   const { useSyncExternalStore } = await import('react')
   return { useSearchParams: () => new URLSearchParams(useSyncExternalStore(url.subscribe, url.read, url.read)) }
 })
+type LinkStandInProps = {
+  href: string
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void
+  onNavigate?: (event: { preventDefault: () => void }) => void
+  scroll?: boolean
+  children: ReactNode
+  [key: string]: unknown
+}
+// next/link 16 as it handles a click (client/app-dir/link.js): onClick runs on every click. A modified click (Ctrl,
+// Cmd, Shift or Alt: a new tab or window) is the browser's, and only a plain one calls onNavigate and then navigates,
+// here by changing the URL. The scroll prop shows as data-scroll.
 vi.mock('next/link', () => ({
-  default: ({ href, onClick, children, scroll: _scroll, ...props }: { href: string; onClick?: (event: MouseEvent<HTMLAnchorElement>) => void; children: ReactNode; scroll?: boolean; [key: string]: unknown }) => (
+  default: ({ href, onClick, onNavigate, scroll, children, ...props }: LinkStandInProps) => (
     <a
       href={href}
+      data-scroll={scroll === undefined ? undefined : String(scroll)}
       {...props}
       onClick={(event) => {
         onClick?.(event)
+        if (event.defaultPrevented) return
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+          // The browser opens the link in a new tab and this one stays as it was; jsdom cannot open one.
+          event.preventDefault()
+          return
+        }
         event.preventDefault()
-        url.go(href)
+        let navigationPrevented = false
+        onNavigate?.({ preventDefault: () => (navigationPrevented = true) })
+        if (!navigationPrevented) url.go(href)
       }}
     >
       {children}
     </a>
   ),
 }))
-afterEach(() => url.reset())
+// Turnstile, off as CI builds it unless a case turns it on. On, each mount of the widget yields a new token, as a
+// new Cloudflare widget does.
+const turnstile = vi.hoisted(() => ({ on: false, mounts: 0 }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
   TURNSTILE_SITE_KEY: '',
-  TURNSTILE_ENABLED: false,
+  get TURNSTILE_ENABLED() {
+    return turnstile.on
+  },
 }))
+vi.mock('@/features/auth/components/TurnstileWidget', async () => {
+  const { useEffect } = await import('react')
+  return {
+    default: function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
+      useEffect(() => {
+        if (turnstile.on) onToken(`token-${++turnstile.mounts}`)
+      }, [onToken])
+      return null
+    },
+  }
+})
+afterEach(() => {
+  url.reset()
+  turnstile.on = false
+  turnstile.mounts = 0
+})
 
 const link = 'https://earningsnerd.io/waitlist?ref=new00001'
 
@@ -147,7 +189,10 @@ describe('waitlist join refused', () => {
 
   it('offers "Join without the code" under the message, a link to /waitlist with no ?ref= (F47, D-046)', async () => {
     const alert = await joinRefused()
-    expect(within(alert).getByRole('link', { name: 'Join without the code' })).toHaveAttribute('href', '/waitlist')
+    const joinWithout = within(alert).getByRole('link', { name: 'Join without the code' })
+    expect(joinWithout).toHaveAttribute('href', '/waitlist')
+    // scroll={false}: the reader stays at the form, where focus goes.
+    expect(joinWithout).toHaveAttribute('data-scroll', 'false')
   })
 
   it('sends no referral code on the submit after following it, the email still typed', async () => {
@@ -163,5 +208,52 @@ describe('waitlist join refused', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
     expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent("You're on the waitlist.")
     expect(api.joinWaitlist).toHaveBeenLastCalledWith(expect.objectContaining({ referral_code: null }), undefined)
+  })
+
+  it('keeps the refusal on a Ctrl or Cmd click, which opens the link in a new tab and leaves this one on its ?ref=', async () => {
+    const alert = await joinRefused()
+    for (const modifier of ['ctrlKey', 'metaKey']) {
+      fireEvent.click(within(alert).getByRole('link', { name: 'Join without the code' }), { [modifier]: true })
+      expect(screen.queryByRole('alert'), modifier).toBe(alert)
+    }
+    expect(screen.getByLabelText('Email address')).not.toHaveFocus()
+  })
+
+  // The router verifies the Turnstile token before it reads the code, and Cloudflare verifies a token once (siteverify
+  // answers timeout-or-duplicate after), so a join that does not land renews the widget for the next submit.
+  describe('with Turnstile on', () => {
+    const joined = { success: true, message: "You're on the waitlist.", position: 43, referral_code: 'new00002', referral_link: link }
+    beforeEach(() => {
+      turnstile.on = true
+      // Its calls and any answer a failed case left queued.
+      api.joinWaitlist.mockReset()
+    })
+
+    it('sends a new token on the join without the code', async () => {
+      const alert = await joinRefused()
+      fireEvent.click(within(alert).getByRole('link', { name: 'Join without the code' }))
+      api.joinWaitlist.mockResolvedValueOnce(joined)
+      fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
+      expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent("You're on the waitlist.")
+      expect(api.joinWaitlist.mock.calls.map(([join, token]) => [join.referral_code, token])).toEqual([
+        ['abc12345', 'token-1'],
+        [null, 'token-2'],
+      ])
+    })
+
+    it.each([
+      ['a rate limit', new ApiError(429, 'Too many waitlist requests. Please try again later.')],
+      ['a network error', new ApiError(0, 'Network Error')],
+    ])('sends a new token on the retry after %s', async (_, failure) => {
+      api.joinWaitlist.mockRejectedValueOnce(failure)
+      render(<WaitlistForm source="waitlist" />)
+      fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ada@example.test' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
+      await screen.findByRole('alert')
+      api.joinWaitlist.mockResolvedValueOnce(joined)
+      fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
+      expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent("You're on the waitlist.")
+      expect(api.joinWaitlist.mock.calls.map(([, token]) => token)).toEqual(['token-1', 'token-2'])
+    })
   })
 })

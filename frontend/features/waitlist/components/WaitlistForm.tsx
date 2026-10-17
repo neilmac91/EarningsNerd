@@ -40,6 +40,8 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   const [name, setName] = useState('')
   const [honeypot, setHoneypot] = useState('')
   const [turnstileToken, setTurnstileToken] = useState('')
+  // A new key mounts a new Turnstile widget, which issues a new token (see handleSubmit's finally).
+  const [turnstileKey, setTurnstileKey] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [referralRefused, setReferralRefused] = useState(false)
@@ -130,12 +132,21 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
       )
     } finally {
       setIsSubmitting(false)
+      // Cloudflare verifies a Turnstile token once (siteverify answers timeout-or-duplicate after), and the router
+      // checks it before the honeypot, the referral code and the signup. A sent join may have spent its token (only
+      // the rate limit answers before the check, and a lost request cannot say), so the form renews it after every
+      // one: it drops the token and mounts a new widget, and the button waits for the new token. After a join that
+      // lands, the form is gone.
+      setTurnstileToken('')
+      setTurnstileKey((key) => key + 1)
     }
   }
 
   // "Join without the code" navigates to /waitlist, with no ?ref=. Search params do not remount a page in the App
   // Router, so the form keeps what was typed and reads no code from the URL from then on. The refusal clears, and
-  // the focused link with it, so focus goes to the email field, where Enter submits.
+  // the focused link with it, so focus goes to the email field, where Enter submits. Link runs this as onNavigate,
+  // only for a navigation in this tab: a Ctrl or Cmd click opens /waitlist in a new tab and leaves this one, and its
+  // ?ref=, as they were.
   const joinWithoutCode = () => {
     setReferralRefused(false)
     emailRef.current?.focus()
@@ -266,7 +277,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             description={unknownReferralDescription}
             action={
               // scroll={false}: the reader stays at the form, where focus goes.
-              <Link href="/waitlist" scroll={false} onClick={joinWithoutCode} className={pillLinkClass}>
+              <Link href="/waitlist" scroll={false} onNavigate={joinWithoutCode} className={pillLinkClass}>
                 Join without the code
               </Link>
             }
@@ -275,7 +286,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
         {error && <Notice variant="error" title={error} />}
 
-        <TurnstileWidget onToken={setTurnstileToken} />
+        <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
 
         <Button
           type="submit"
