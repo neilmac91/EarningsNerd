@@ -167,6 +167,21 @@ describe('analysis presentation API admission', () => {
     expect(log).not.toHaveBeenCalled()
   })
 
+  it('gives the reader the recovery sentence for a decoder defect in the stream, and logs the defect as itself', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reader = serve({ type: 'complete', ...completion, narrative_presentation: presentation })
+    const handlers = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() }
+    // The review of #1299's form: a dataset left without its data_notes upstream, which makes the decoder's report read
+    // throw the engine's TypeError. Before, streamAnalysis's outer catch showed the reader that text and logged nothing.
+    await streamAnalysis('META', range, handlers, undefined, { ...dataset, data_notes: undefined })
+    expect(handlers.onComplete).not.toHaveBeenCalled()
+    expect(handlers.onError.mock.calls).toEqual([['The analysis evidence could not be read consistently. Run analysis again to reload the report.']])
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][0]).toBe('[analysis] narrative presentation decoder failed:')
+    expect(String(log.mock.calls[0][1])).toBe("TypeError: Cannot read properties of undefined (reading 'notes')")
+    expect(reader.cancel).toHaveBeenCalledTimes(1)
+  })
+
   it('requires the currently displayed financial snapshot for new envelopes', () => {
     expect(() => decodeNarrativePresentation(presentation, completion)).toThrow('analysis evidence')
     expect(() => decodeNarrativePresentation(presentation, completion, { ...dataset, snapshot_id: 'other' })).toThrow('analysis evidence')

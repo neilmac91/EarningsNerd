@@ -255,4 +255,70 @@ of the index with all 132 tests green. The spec now imports each module and chec
 exports as Next evaluates it, and walks every page and layout under the extensions Next serves
 (next.config.js's `pageExtensions`, else Next's default), with a `.ts` layout planted in its
 self-check. A gate over a framework's files reads the file names the framework reads, and a gate
-over a value reads the value, not the way one file typed it.
+over a value reads the value, not the way one file typed it. An evaluated value is the test
+environment's value, though: the review of `7b330a22` found a flag-conditional title the literal
+reader had refused passing once evaluated, so a gate that evaluates must also refuse a value an
+environment read reaches (`41fa85a2`). The post-merge review of 2026-10-16 found that refusal reading
+only a title member's own initializer; it now follows every way a page sets a text (a spread, a name
+assigned or written into after its declaration, each state a generated page returns) to the binding
+in scope, and the evaluated robots and card are held to the literal's reading.
+
+**Recurrence (2026-10-16, the post-merge review of #1291, #1299, #1310 and #1312)**: reviews cut
+short before the four merged found eight brand gates reading less than their rules or their headers,
+each shown by a probe that left the gate green: a whole file skipped (`lib/planLimits.ts`, for its
+two mirror lines) after the plan lines moved into it; an exemption keyed to a heading's words that
+took every icon on it, inside it or on a second heading with the same words; an option scan keyed to
+`<option>` beside a rule about every choice the form offers; a date lint keyed to one callee
+spelling and one direction of D-033; a JSX reader that joined a count to the word ending the block
+before it; a stylesheet reader that needed the `;` CSS lets a block's last statement drop; a password
+check that took any `autoComplete` as forwarded and followed one component's callers. A skip or an
+exemption is as wide as the thing it exists for and no wider: pin it to that line or that site, let
+each entry take one find, and have the scan assert it read the file it used to skip.
+The review of that PR (#1370) then found a widening passing a form main failed: the reader that keeps
+the words apart where JSX drops a line break no longer joined a count whose hyphen ends one element to
+the unit opening the next (`<b>10-</b>` then `<b>year window</b>`), which main's joined reading
+failed. Probing every widening in the PR for the same found seven more: a module named planLimits.ts
+outside lib/ taken as TRIAL_DAYS's own, an `<option value={prefs.x}>` taken as a control's state, a
+serverApi call in static metadata taken as a generated page's data, a template read only in its
+expanded readings and no longer with each substitution a name, a PasswordField read only through the
+forwarders a caller hands in, copy composed so a slot's text ran into the count, and a reasons reader
+keyed to HTTPException beside main's scan of every `detail="…"`; and a cap on a template's readings
+dropped the rest silently. A widening adds a reading and keeps the old one beside it (both scanned, a
+find in either reported once), the old gate's failing form is planted beside the new ones so the spec
+fails if the old reading goes, and a reader that caps what it expands fails loudly at the cap.
+The next round's reviews found the fixes widening one side of a pair and leaving the other: the date
+lint read a helper's key written as a template but not a field's, the trial reader held TRIAL_DAYS's
+declaration to lib/planLimits.ts but took its import from any module named planLimits (and the flag's
+from any module at all), and the preference scan read a field from `checked` and `value` alone though
+its rule is every field the form reads. A fix to one side of a pair (a declaration and its imports, a
+helper's key and a field's key, the read side and the save side) widens the other in the same commit.
+And a negated selector attribute holds for every node that lacks it: `[value.name!='x']` matched a
+destructuring that keeps the name with a default, whose value has no name; pin the node's type first.
+Round four's review found the neighbours of round three's forms again (a save helper in `useCallback`
+beside the arrow in a const, a spread beside a prop, a default whose left side is a pattern), so the
+round closed the family rather than the instances. The root cause was a reader that knew a function
+by one syntax; the fix lists the language's forms and reads each: a function declared, held, wrapped
+in any call, an object's method, a hook's return, handed on as a prop or an argument; the value moved
+by a const, a key, a prop, a spread, an argument, a return or a context. What stays out of reach (another
+module, a class component, React state or a ref, a computed key, call/apply/bind, an array of
+functions) is named in the spec's header and planted as a gap the self-check asserts unread, so the
+limit is pinned rather than silent. And the round-three rule went to every negated selector attribute
+at once, five of them, not the one a reviewer named.
+Round five's review (Codex on 77b306f6) found a reader that searched a value instead of evaluating it:
+`autoComplete={reset ? 'new-password' : 'off'}` passed the password scan because one literal in it named
+a valid kind, so the field was judged by its best branch. A value is judged by every alternative it can
+render (each branch of a condition, `&&`, `||` and `??` as the language takes them, a template's every
+part, a const, an object's entry, a same-file function's returns), every alternative must pass, and a
+form the evaluator cannot read fails loudly with the form. The round closed that reader's family, then
+probed the spec's other readers with the same forms and found both short: the forwarding follower knew a
+component by its declared name alone (an alias, a wrapper, a loader, an import under another name, a
+call and `createElement` went unread), and the length reader read a ternary in a slot as a gap. A family
+closed in one reader is probed in its neighbours in the same round.
+Round six's reviews found the round-five readers closed for a value written as a name and open for one taken out of
+a pattern or handed on through an operator: Codex's forwarder destructured out of an object
+(`const { Secret } = Fields`), an object of components imported under an alias, and the preference scan's prefs
+value handed on through `??`, a ternary, a spread copy or useMemo and saved through mutateAsync. A binding pattern is
+a path from its root (each key, index, rest and default), and one path model serves every reader at once, names and
+values alike; a value that may be the one a gate follows (either side of `??`, `||` or `&&`, either branch, a copy of
+it) is followed as it. And a test of where a body can end reads the language's statements, not its last one: an
+if/else that returns in both branches ends in neither.

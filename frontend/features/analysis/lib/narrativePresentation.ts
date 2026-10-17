@@ -37,8 +37,19 @@ export interface NarrativePresentation {
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const text = (value: unknown): value is string => typeof value === 'string' && value.length > 0
+
+/** The one sentence a reader gets for analysis evidence that will not decode, a defect in the decoder included. */
+export const EVIDENCE_RECOVERY = 'The analysis evidence could not be read consistently. Run analysis again to reload the report.'
+
+/** The decoder's own refusal of an envelope, carrying EVIDENCE_RECOVERY: its caller tells it from a defect by this class. */
+export class EvidenceRejection extends TypeError {
+  constructor() {
+    super(EVIDENCE_RECOVERY)
+  }
+}
+
 function invalid(): never {
-  throw new TypeError('The analysis evidence could not be read consistently. Run analysis again to reload the report.')
+  throw new EvidenceRejection()
 }
 
 function decodeOperand(value: unknown, citations: Map<number, AnalysisCitation>): NarrativeEvidenceOperand {
@@ -73,7 +84,8 @@ export function decodeNarrativePresentation(
   // The data-notes decoder rejects with a DataNotesRejection naming the broken field: it goes to the
   // console for diagnostics, and the reader gets the one recovery sentence every other decode failure
   // here gives. Anything else, a plain TypeError from inside the decoder included, is a defect, not a
-  // rejection, and propagates unchanged.
+  // rejection, and propagates unchanged: its one caller, streamAnalysis, logs it as itself and gives the
+  // reader the same recovery sentence, never the engine's text.
   let notes: DataNotesWire
   try {
     notes = decodeCitationDataNotes(value.notes, dataset, completion.citations)

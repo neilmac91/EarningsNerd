@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import PasswordField from '@/features/auth/components/PasswordField'
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
+import { bindingResolver, type Binding } from './astBindings'
 
 /**
  * The password rule the UI states moves in lockstep with the server (CLAUDE.md rule 12; the
@@ -26,21 +27,62 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
  *    blocked would be false whenever it does.
  *  - A file that handles a password (renders a password field or reads lib/passwordRules) never writes a
  *    length by hand: no length in copy ("12 characters", "12-character", "12+", "12 or more", "twelve"),
- *    on one line or composed across JSX text and its expressions (`At least {12}` then `characters` on the
- *    next line), no `minLength` or `min_length` number, no local constant whose name says min and len, no
- *    `.length` compared against a number or a numeric constant of any name, no `.min(n)` call or `.{n,}`
- *    pattern, and no number equal to the floor anywhere in its code. Any other file that mentions a password
- *    never types the floor itself, in any of those forms or in a constant named for a minimum, a length, a
- *    floor or a password. A count computed at runtime is not read. The two pages that state PASSWORD_RULE
- *    render it word for word, whatever their source looks like (authPagesCopy.spec.tsx for
- *    /reset-password, RegisterForm.spec.tsx for /register).
+ *    on one line, composed across JSX text and its expressions (`At least {12}` then `characters` on the
+ *    next line), or composed in a template literal or a `+` chain (its literal parts and the number each
+ *    slot holds, a literal or a numeric constant of any name: `Use at least ${MIN_CHARS} characters.`; an
+ *    element's text is read composed and with each template or chain in its braces a gap, a count either
+ *    reading states failing, so composing never hides one), no `minLength` or `min_length` number, no local
+ *    constant whose name says min and len, no `.length` compared against a number or a numeric constant of
+ *    any name, no `.min(n)` call or `.{n,}` pattern, and no number equal to the floor anywhere in its code.
+ *    Beside those readings, every value a slot, an operand or a braced expression can render is read, as the
+ *    field reader below reads an autoComplete (a ternary's either branch, `&&`, `||`, `??`, a const of any
+ *    kind, a name destructured at any depth, an object's entry or a member path, a same-file function's
+ *    return), one branching value at a time with the others
+ *    gaps, in copy, a comparison, a minimum call, a pattern composed in a template or a chain, and a
+ *    `minLength` held in a value. Any other file that mentions a password never types the floor itself, in
+ *    any of those forms or in a constant named for a minimum, a length, a floor or a password. Not read, each
+ *    planted as a gap: a count computed at runtime or worked out by arithmetic (`${8 + 4}`), and one only two
+ *    branching values state together (`{a ? 1 : 9}{b ? 2 : 9} characters`); a value with more readings than
+ *    the evaluator takes fails loudly. The two pages that state PASSWORD_RULE render it word for word,
+ *    whatever their source looks like (authPagesCopy.spec.tsx for /reset-password, RegisterForm.spec.tsx for
+ *    /register).
  *  - Every new-password field carries `minLength={PASSWORD_MIN_LENGTH}`, or its form checks
  *    `.length < PASSWORD_MIN_LENGTH` in its code (CODE_CHECKED, read on the syntax tree, so a comment or a
- *    string does not count). A field is a new-password field when its `autoComplete` names new-password: a
- *    literal, braced or not, inside an expression, or in a spread object. Every password field (`<PasswordField>`
- *    or a `type` that names password) names its `autoComplete` or forwards one passed in (PasswordField
- *    forwards its prop; a spread of props), which is read at the caller that writes it, and the scan must
- *    find the app's new-password fields, so a field it cannot read fails instead of passing unseen.
+ *    string does not count). A field's `autoComplete` is read in every value it can render: a literal,
+ *    braced or not; a template or a `+` chain, each part's every value; each branch of a condition, nested;
+ *    `&&`, `||` and `??` as the language takes them; a same-file const; a name destructured at any depth out
+ *    of an object or an array (a key, renamed or not, an index, a rest without the keys taken beside it, each
+ *    step's default); a same-file object's or array's entry or a member path (`CONFIG.inputs.ac`), or every
+ *    entry for a key the reader cannot name (`MODES[kind]`); a same-file function's every return (one called
+ *    where it stands and `useMemo`'s factory among them; undefined where its body can end without one: an if
+ *    with an else, a switch with a default and a try with a catch that return in every arm end in none, and a
+ *    loop is read as able to end, so a function whose loop returns fails closed), its parameters bound to the
+ *    call's arguments; and a prop the component forwards (a key of its first parameter, destructured, `props.x`
+ *    or taken by a const; a spread of its props, or of a rest without the key), with the default it renders. A
+ *    field is a new-password field when one of those values names
+ *    new-password, and it fails when any value names neither new- nor current-password ("off", a falsy `&&`,
+ *    undefined, null or void, in any branch: `reset ? 'new-password' : 'off'` fails). A form the reader
+ *    cannot evaluate fails loudly, with the form: a name from another module, a `let`, a call, an object or
+ *    a spread it cannot follow, a class's `this.props`, a value destructured from inside a prop, a computed
+ *    key or an array's rest destructured, a forwarded value composed into text, a prop of a parameter after
+ *    the first, more than 64 composed values. Every password field (a `type` that can be
+ *    password, a PasswordField, or a component that forwards one, rendered, called as a function or created
+ *    with `createElement`) names its autoComplete so. A forwarding component (FORWARDERS, found to a fixed
+ *    point) is read at each caller, under every name the caller renders it by: its declared name; a const
+ *    that holds it, through any call that wraps it (forwardRef, memo, a `lazy` or `dynamic` loader), a
+ *    condition's either branch or a logical operator; an entry of the objects a const holds, at any depth
+ *    (`Fields.Secret`, `Kit.inputs.Secret`), dotted, by a literal key, or every entry for any other key
+ *    (`PICK[which]`); a name destructured out of any of these (renamed, nested, with a default, both read, an
+ *    array's element); an import under any name (default, `{ A as B }`, a namespace, an object imported under
+ *    an alias, through re-exports); and a prop of a same-file component that its callers hand it
+ *    (`<Page Field={Secret} />` read where Page renders `<Field>`, an `as` prop among them). One forwarded
+ *    from a function the reader cannot name (a callback, a render prop) fails loudly, every forwarding
+ *    component is rendered by a file the scan reads, and the scan must find the app's new-password fields,
+ *    so a field it cannot read fails instead of passing unseen. Not read, each planted as a gap: a clone's
+ *    override (`cloneElement`), an `as` prop of a component no file the scan reads declares, a component
+ *    loaded by a `.then`, destructured by a computed key, out of a `let`, out of a call or out of an array's
+ *    rest, a `type` forwarded under another prop's name or carried only by a spread the reader cannot
+ *    follow, and a value written to the DOM.
  *  - Every file under SOURCE_ROOTS is read (scripts, Markdown, MDX) or listed in NOT_READ with why it can
  *    hold no password rule.
  *  - The strength meter says "Too short" under the minimum and scores length past it.
@@ -108,6 +150,15 @@ const isScript = (rel: string) => /\.[cm]?[jt]sx?$/.test(rel)
 const scriptKind = (rel: string) =>
   rel.endsWith('.tsx') ? ts.ScriptKind.TSX : rel.endsWith('.jsx') ? ts.ScriptKind.JSX : /\.[cm]?js$/.test(rel) ? ts.ScriptKind.JS : ts.ScriptKind.TS
 const parse = (source: string, rel: string) => ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, scriptKind(rel))
+/** Each source parsed once for the field scans, which read every file more than once (FORWARDERS' fixed point). */
+const PARSED = new Map<string, { source: string; sf: ts.SourceFile }>()
+const parsed = (source: string, rel: string) => {
+  const hit = PARSED.get(rel)
+  if (hit?.source === source) return hit.sf
+  const sf = parse(source, rel)
+  PARSED.set(rel, { source, sf })
+  return sf
+}
 const lineOf = (sf: ts.SourceFile, node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim()
 
@@ -154,8 +205,8 @@ const COMPARISONS = new Set([ts.SyntaxKind.LessThanToken, ts.SyntaxKind.LessThan
 /**
  * In a script, the lengths a line scan cannot see: copy composed across JSX text and its expressions (a
  * number in braces, a sentence split over lines), a `.length` compared against a numeric constant of any
- * name, a `.min(n)` call and a `.{n,}` pattern. Where the file handles a password, any count; where it only
- * mentions one, the floor.
+ * name, a `.min(n)` call, a `.{n,}` pattern and a `minLength` held in a constant, each read in every value
+ * its parts can render. Where the file handles a password, any count; where it only mentions one, the floor.
  */
 function codeForms(source: string, rel: string): string[] {
   const handles = HANDLES_PASSWORD.test(source)
@@ -185,45 +236,160 @@ function codeForms(source: string, rel: string): string[] {
     const inner = unwrap(node)
     return ts.isPropertyAccessExpression(inner) && inner.name.text === 'length'
   }
-  // What an element renders as text: its text, its literal or constant expressions, its children's text.
-  const rendered = (node: ts.Node): string => {
+  // What a piece of copy renders as text: a literal's own, a template's parts with what each slot holds, a `+` chain
+  // joined; a number from a literal or a numeric constant of any name, and any other value a gap no count spans.
+  const composed = (node: ts.Expression): string => {
+    const inner = unwrap(node)
+    if (ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner)) return inner.text
+    if (ts.isTemplateExpression(inner)) return inner.head.text + inner.templateSpans.map((span) => composed(span.expression) + span.literal.text).join('')
+    if (isPlus(inner)) return composed(inner.left) + composed(inner.right)
+    return String(valueOf(inner) ?? ' … ')
+  }
+  /** Whether a `+` chain carries a string: an operand, through nested chains and parentheses, that is a string or a template. */
+  const carriesText = (node: ts.Expression): boolean => {
+    const inner = unwrap(node)
+    return isPlus(inner) ? carriesText(inner.left) || carriesText(inner.right) : ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner) || ts.isTemplateExpression(inner)
+  }
+  /** Whether a template or a `+` chain is read as part of a larger one: a chain's operand, a slot, or a JSX child an element composes. */
+  const composedByParent = (node: ts.Node): boolean => {
+    let parent = node.parent
+    while (parent && (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent) || ts.isSatisfiesExpression(parent))) parent = parent.parent
+    return !!parent && (isPlus(parent) || ts.isTemplateSpan(parent) || (ts.isJsxExpression(parent) && (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent))))
+  }
+  // What an element renders as text: its text, each expression composed as copy, its children's text. Read again with
+  // each template or `+` chain in braces a gap (`composing` false), any other value as before, so composing never hides
+  // a count that reading states (a slot's text run into the count: `{`Use at ${'least'}`}8 characters`).
+  const rendered = (node: ts.Node, composing = true): string => {
     if (ts.isJsxText(node)) return node.text
     if (ts.isJsxExpression(node)) {
       const inner = node.expression && unwrap(node.expression)
       if (!inner) return ''
-      if (ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner)) return inner.text
-      return String(valueOf(inner) ?? ' … ')
+      return composing || ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner) ? composed(inner) : String(valueOf(inner) ?? ' … ')
     }
-    return ts.isJsxElement(node) || ts.isJsxFragment(node) ? node.children.map(rendered).join('') : ' '
+    return ts.isJsxElement(node) || ts.isJsxFragment(node) ? node.children.map((child) => rendered(child, composing)).join('') : ' '
   }
-  const statesCount = (node: ts.Node) => (ts.isJsxElement(node) || ts.isJsxFragment(node)) && copy.test(squash(rendered(node)))
+  // Every value a slot, an operand or a braced expression can render, read beside the readings above (which stay): a
+  // ternary's either branch, `&&`, `||` and `??`, a const of any kind, an object's entry, a same-file function's return
+  // (the field reader's evaluator, a value it cannot know a gap). One branching value varies at a time, the others gaps,
+  // so the readings grow with the values and not with their product; a value with more readings than the evaluator
+  // takes fails loudly.
+  const evaluate = evaluator(sf, bindingResolver(sf), true)
+  const ALTERNATIVES = new Map<ts.Node, Alternative[]>()
+  const alternatives = (node: ts.Expression): Alternative[] => {
+    let values = ALTERNATIVES.get(node)
+    if (!values) {
+      ALTERNATIVES.set(node, (values = evaluate.of(node)))
+      const capped = values.find((value) => value.kind === 'unreadable' && value.cap)
+      if (capped?.kind === 'unreadable') out.push(`${rel}:${lineOf(sf, node)} (a value with more readings than this reader takes): ${capped.form}`)
+    }
+    return values
+  }
+  const texts = (node: ts.Expression, jsx: boolean) => [...new Set(alternatives(node).map((value) => textOf(value, jsx)))]
+  const numbers = (node: ts.Expression) => texts(node, false).filter((text) => /^\d+$/.test(text)).map(Number)
+  /** A piece of copy as its parts, each every text it can render: a template's or a chain's literal parts and values, and an
+      element's text, braced expressions (a template or a chain in braces by its own parts) and children. */
+  const parts = (node: ts.Node, jsx: boolean): string[][] => {
+    if (ts.isJsxText(node)) return [[node.text]]
+    if (ts.isJsxElement(node) || ts.isJsxFragment(node)) return node.children.flatMap((child) => parts(child, true))
+    if (ts.isJsxExpression(node)) return node.expression ? parts(node.expression, true) : []
+    if (ts.isJsxSelfClosingElement(node) || !ts.isExpression(node)) return [[' ']]
+    const inner = unwrap(node)
+    if (ts.isTemplateExpression(inner)) return [[inner.head.text], ...inner.templateSpans.flatMap((span) => [...parts(span.expression, false), [span.literal.text]])]
+    if (isPlus(inner)) return [...parts(inner.left, false), ...parts(inner.right, false)]
+    return [texts(inner, jsx)]
+  }
+  const READINGS = new Map<ts.Node, string[]>()
+  /** A piece's readings: every branching part a gap, then each branching part's every text in turn, the others gaps. */
+  const readings = (node: ts.Node): string[] => {
+    let hit = READINGS.get(node)
+    if (!hit) {
+      const all = parts(node, false)
+      const base = all.map((options) => (options.length === 1 ? options[0] : ' … '))
+      const varied = all.flatMap((options, i) => (options.length > 1 ? options.map((text) => [...base.slice(0, i), text, ...base.slice(i + 1)].join('')) : []))
+      READINGS.set(node, (hit = [base.join(''), ...varied].map(squash)))
+    }
+    return hit
+  }
+  const STATED = new Map<ts.Node, string | undefined>()
+  /** The text in which an element states a count, composed, with its templates as gaps, or in any reading; undefined
+      where none does. */
+  const stated = (node: ts.Node): string | undefined => {
+    if (!ts.isJsxElement(node) && !ts.isJsxFragment(node)) return undefined
+    if (!STATED.has(node)) STATED.set(node, [rendered(node), rendered(node, false)].map(squash).concat(readings(node)).find((text) => copy.test(text)))
+    return STATED.get(node)
+  }
+  const patternIn = (text: string) => {
+    const min = text.match(/(?<!\\)\.\{(\d+),\d*\}/)
+    return !!min && counts(Number(min[1]))
+  }
+  /** Whether a string or a pattern literal inside a node holds a counting pattern by itself. */
+  const literalPattern = (node: ts.Node): boolean =>
+    ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isRegularExpressionLiteral(node)) && patternIn(node.text)) ||
+    (ts.forEachChild(node, (child) => literalPattern(child) || undefined) ?? false)
+  const statesCount = (node: ts.Node) => stated(node) !== undefined
   const visit = (node: ts.Node): void => {
     // The innermost element whose text states a count, so one sentence is one finding.
     if (statesCount(node) && !(node as ts.JsxElement | ts.JsxFragment).children.some(statesCount)) {
-      out.push(`${rel}:${lineOf(sf, node)} (copy composed across JSX): ${squash(rendered(node))}`)
+      out.push(`${rel}:${lineOf(sf, node)} (copy composed across JSX): ${stated(node)}`)
+    }
+    // A template or a `+` chain is copy too, read at its outermost node; a string on one line is the line scan's.
+    const piece = ts.isTemplateExpression(node) || (ts.isNoSubstitutionTemplateLiteral(node) && node.text.includes('\n')) || (isPlus(node) && carriesText(node))
+    if (piece && !composedByParent(node)) {
+      const text = [squash(composed(node as ts.Expression)), ...readings(node)].find((reading) => copy.test(reading))
+      if (text !== undefined) out.push(`${rel}:${lineOf(sf, node)} (copy composed in a template or a + chain): ${text}`)
+      // A pattern composed in a template or a chain (`new RegExp(`^.{${MIN},}$`)`), where no literal in it holds one alone.
+      const pattern = literalPattern(node) ? undefined : readings(node).find(patternIn)
+      if (pattern !== undefined) out.push(`${rel}:${lineOf(sf, node)} (a pattern minimum): ${pattern}`)
     }
     if (ts.isBinaryExpression(node) && COMPARISONS.has(node.operatorToken.kind)) {
       const other = isLength(node.left) ? node.right : isLength(node.right) ? node.left : undefined
-      if (other && counts(valueOf(other))) out.push(`${rel}:${lineOf(sf, node)} (a length compared against a number): ${squash(node.getText(sf))}`)
+      if (other && (counts(valueOf(other)) || numbers(other).some(counts))) out.push(`${rel}:${lineOf(sf, node)} (a length compared against a number): ${squash(node.getText(sf))}`)
     }
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'min') {
       const receiver = node.expression.expression
       const math = ts.isIdentifier(receiver) && receiver.text === 'Math'
-      if (!math && node.arguments.length > 0 && counts(valueOf(node.arguments[0]))) {
+      if (!math && node.arguments.length > 0 && (counts(valueOf(node.arguments[0])) || numbers(node.arguments[0]).some(counts))) {
         out.push(`${rel}:${lineOf(sf, node)} (a minimum call): ${squash(node.getText(sf))}`)
       }
     }
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isRegularExpressionLiteral(node)) {
-      const min = node.text.match(/(?<!\\)\.\{(\d+),\d*\}/)
-      if (min && counts(Number(min[1]))) out.push(`${rel}:${lineOf(sf, node)} (a pattern minimum): ${node.getText(sf)}`)
+      if (patternIn(node.text)) out.push(`${rel}:${lineOf(sf, node)} (a pattern minimum): ${node.getText(sf)}`)
+    }
+    // A minLength the line scan cannot see (a literal is its), in any value the evaluator reads: `minLength={GAP}`.
+    if ((ts.isJsxAttribute(node) || ts.isPropertyAssignment(node)) && /^min_?length$/i.test(node.name.getText(sf))) {
+      const value = ts.isPropertyAssignment(node) ? node.initializer : node.initializer && ts.isJsxExpression(node.initializer) ? node.initializer.expression : undefined
+      const inner = value && unwrap(value)
+      if (inner && !ts.isNumericLiteral(inner) && !ts.isStringLiteralLike(inner) && numbers(inner).some(counts)) {
+        out.push(`${rel}:${lineOf(sf, node)} (a minLength held in a value): ${squash(node.getText(sf))}`)
+      }
     }
     ts.forEachChild(node, visit)
   }
   visit(sf)
-  return out
+  return [...new Set(out)]
 }
 
-type Field = { line: number; tag: string; id: string; kind: 'new' | 'current' | 'forwarded' | 'unnamed'; floor: boolean }
+/** A password field: where it renders, what its autoComplete is (named in every value it can take, or not), whether one
+    of those values is new-password (the floor applies), and each prop it forwards its autoComplete through, with the
+    component that forwards it under the name its callers render it by. */
+type Field = {
+  line: number
+  tag: string
+  id: string
+  kind: 'new' | 'current' | 'forwarded' | 'unnamed' | 'unreadable'
+  isNew: boolean
+  floor: boolean
+  forwards: Array<{ component: string; prop: string }>
+  renders: string[]
+  unreadable?: string
+}
+/** The components each component's props are handed by the callers that render it, keyed `Component#prop`
+    (`<Page Field={Secret} />` hands Page's `Field` what Secret names). */
+type Passes = ReadonlyMap<string, readonly string[]>
+const NO_PASSES: Passes = new Map()
+/** The components that forward a password field's autoComplete, each with the props it forwards it through, and the
+    components the callers in the same sources hand as props. */
+type Forwarders = ReadonlyMap<string, ReadonlySet<string>> & { readonly passes?: Passes }
 
 /** Whether a value carries a string that passes `test`: a literal, braced or not, or one inside an expression. */
 function carries(value: ts.Node | undefined, test: (text: string) => boolean): boolean {
@@ -238,37 +404,666 @@ function carries(value: ts.Node | undefined, test: (text: string) => boolean): b
 const namesNew = (text: string) => /\bnew-password\b/i.test(text)
 const namesCurrent = (text: string) => /\bcurrent-password\b/i.test(text)
 
-/** The password fields (`<PasswordField>`, a `type` that names password) and new-password fields a file renders. */
-function passwordFields(source: string, rel: string): Field[] {
+/** One value an expression can render: its text; nothing (undefined, null or false); a prop the function it renders in
+    forwards from its caller; or a form this reader cannot evaluate, which fails loudly. */
+type Alternative =
+  | { kind: 'text'; text: string }
+  | { kind: 'nothing'; value: 'undefined' | 'null' | 'false' }
+  | { kind: 'forwarded'; prop: string; from: ts.SignatureDeclaration }
+  | { kind: 'unreadable'; form: string; cap?: true }
+type Resolve = (ref: ts.Identifier) => Binding | undefined
+/** A same-file function's parameters, each bound to the argument a call passes it, read where the call is. */
+type Env = ReadonlyMap<ts.Node, { value: ts.Expression | undefined; env: Env }>
+/** What an expression holds: a same-file object or array literal (with where its entries are read), or a function's props;
+    a rest of an object or of the props without the keys taken out beside it. */
+type Holder =
+  | { object: ts.ObjectLiteralExpression; env: Env; without?: readonly string[] }
+  | { array: ts.ArrayLiteralExpression; env: Env }
+  | { props: ts.ParameterDeclaration; without?: readonly string[] }
+/** One step a pattern takes into what it destructures: an object's key, an array's index, or an object's rest. */
+type Step = { key: string } | { index: number } | { rest: string[] }
+/** Where a destructured name sits: its pattern's root (a declaration or a parameter) and each step from it, with the
+    default each step renders where its entry is undefined. Undefined for a computed key or an array's rest, which no
+    reader here follows. */
+function bindingSteps(decl: ts.BindingElement): { root: ts.VariableDeclaration | ts.ParameterDeclaration; steps: Array<{ step: Step; fallback?: ts.Expression }> } | undefined {
+  const steps: Array<{ step: Step; fallback?: ts.Expression }> = []
+  let node: ts.Node = decl
+  while (ts.isBindingElement(node)) {
+    const element: ts.BindingElement = node
+    const pattern = element.parent
+    if (ts.isArrayBindingPattern(pattern)) {
+      if (element.dotDotDotToken) return undefined
+      steps.unshift({ step: { index: pattern.elements.indexOf(element) }, fallback: element.initializer })
+    } else {
+      const key = element.propertyName ?? element.name
+      const taken = pattern.elements.filter((other) => other !== element).map((other) => other.propertyName ?? other.name)
+      if (ts.isComputedPropertyName(key) || (element.dotDotDotToken && taken.some((other) => ts.isComputedPropertyName(other)))) return undefined
+      steps.unshift({ step: element.dotDotDotToken ? { rest: taken.map(keyText) } : { key: keyText(key) }, fallback: element.initializer })
+    }
+    node = pattern.parent
+  }
+  return ts.isVariableDeclaration(node) || ts.isParameter(node) ? { root: node, steps } : undefined
+}
+/** The most values a template or a `+` chain is read in; one with more fails loudly rather than be read in part. */
+const MAX_ALTERNATIVES = 64
+const UNDEFINED: Alternative = { kind: 'nothing', value: 'undefined' }
+const FALSE: Alternative = { kind: 'nothing', value: 'false' }
+const BOOLEANS: Alternative[] = [{ kind: 'text', text: 'true' }, FALSE]
+const COMPARING = new Set([
+  ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
+  ts.SyntaxKind.LessThanToken, ts.SyntaxKind.LessThanEqualsToken, ts.SyntaxKind.GreaterThanToken, ts.SyntaxKind.GreaterThanEqualsToken,
+  ts.SyntaxKind.InstanceOfKeyword, ts.SyntaxKind.InKeyword,
+])
+const isPlus = (node: ts.Node): node is ts.BinaryExpression => ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken
+const bareExpression = (node: ts.Expression): ts.Expression => {
+  let inner = node
+  while (ts.isParenthesizedExpression(inner) || ts.isAsExpression(inner) || ts.isSatisfiesExpression(inner) || ts.isNonNullExpression(inner) || ts.isTypeAssertionExpression(inner)) inner = inner.expression
+  return inner
+}
+/** A property's key as text: `autoComplete`, `'auto-complete'`, `0`. */
+const keyText = (name: ts.Node) => name.getText().replace(/^["'`]|["'`]$/g, '')
+/** What a value renders as: its text; nothing as its own name in a template, and as nothing at all in JSX; a value this
+    reader cannot know, a gap. */
+const textOf = (value: Alternative, jsx = false) => (value.kind === 'text' ? value.text : value.kind === 'nothing' ? (jsx ? '' : value.value) : ' … ')
+const isUndefined = (value: Alternative) => value.kind === 'nothing' && value.value === 'undefined'
+/** Truthiness as `&&`, `||` and `??` take it: "0" may be the number 0, and a value this reader cannot know may be either. */
+const mayBeFalsy = (value: Alternative) => value.kind !== 'text' || value.text === '' || value.text === '0'
+const mayBeTruthy = (value: Alternative) => value.kind !== 'nothing' && !(value.kind === 'text' && value.text === '')
+const isNullish = (value: Alternative) => value.kind === 'nothing' && value.value !== 'false'
+const mayBeNullish = (value: Alternative) => isNullish(value) || value.kind === 'forwarded' || value.kind === 'unreadable'
+
+/** Whether a `break` can leave a switch: one not inside a loop or a switch within it, or any labelled one. */
+function breaksOut(statement: ts.SwitchStatement): boolean {
+  const within = (node: ts.Node, nested: boolean): boolean => {
+    if (ts.isFunctionLike(node)) return false
+    if (ts.isBreakStatement(node)) return !nested || !!node.label
+    const inner = nested || ts.isIterationStatement(node, false) || (ts.isSwitchStatement(node) && node !== statement)
+    return ts.forEachChild(node, (child) => within(child, inner) || undefined) ?? false
+  }
+  return statement.caseBlock.clauses.some((clause) => clause.statements.some((child) => within(child, false)))
+}
+/** Whether a statement can finish and let the code after it run. A return, a throw, a break or a continue cannot (a loop,
+    a switch or a label a break leaves is read as able to end); a block cannot once one of its statements cannot; an if
+    with an else cannot when neither branch can; a try cannot when its finally cannot, or when neither its block nor its
+    catch can; a switch with a default cannot when no break leaves it and its last clause cannot. Anything else, a loop
+    among them, can: reading too many ends only adds an undefined. */
+function canEnd(statement: ts.Statement): boolean {
+  if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement) || ts.isBreakStatement(statement) || ts.isContinueStatement(statement)) return false
+  if (ts.isBlock(statement)) return statement.statements.every(canEnd)
+  if (ts.isIfStatement(statement)) return !statement.elseStatement || canEnd(statement.thenStatement) || canEnd(statement.elseStatement)
+  if (ts.isTryStatement(statement)) {
+    return (!statement.finallyBlock || canEnd(statement.finallyBlock)) && (canEnd(statement.tryBlock) || (!!statement.catchClause && canEnd(statement.catchClause.block)))
+  }
+  if (ts.isSwitchStatement(statement)) {
+    const clauses = statement.caseBlock.clauses
+    const last = clauses[clauses.length - 1]
+    return !clauses.some(ts.isDefaultClause) || breaksOut(statement) || !last || last.statements.every(canEnd)
+  }
+  return true
+}
+/** What a same-file function hands back: its concise body, or each `return` of its own, with undefined for a bare `return`
+    and for a body that can end without one. */
+function returnsOf(fn: ts.SignatureDeclaration): Array<ts.Expression | undefined> {
+  const body = (fn as ts.FunctionLikeDeclarationBase).body
+  if (!body) return [undefined]
+  if (!ts.isBlock(body)) return [body]
+  const out: Array<ts.Expression | undefined> = []
+  const walk = (node: ts.Node): void => {
+    if (node !== body && ts.isFunctionLike(node)) return
+    if (ts.isReturnStatement(node)) out.push(node.expression)
+    ts.forEachChild(node, walk)
+  }
+  walk(body)
+  if (canEnd(body)) out.push(undefined)
+  return out
+}
+/** A function written in place: an arrow or a function expression (called where it stands, or `useMemo`'s factory). */
+const functionIn = (node: ts.Node | undefined) => {
+  const inner = node && bareExpression(node as ts.Expression)
+  return inner && (ts.isArrowFunction(inner) || ts.isFunctionExpression(inner)) ? inner : undefined
+}
+/** The same-file function a name binds to: a declaration, or a const holding an arrow or a function expression. */
+function functionOf(binding: Binding | undefined): ts.SignatureDeclaration | undefined {
+  if (!binding) return undefined
+  if (ts.isFunctionDeclaration(binding.decl)) return binding.decl
+  return ts.isVariableDeclaration(binding.decl) && binding.decl.parent.flags & ts.NodeFlags.Const ? functionIn(binding.init) : undefined
+}
+
+/**
+ * Every value an expression can render, read in its file: a literal; a template or a `+` chain, each part's every value;
+ * each branch of a condition, nested; `&&`, `||` and `??` as the language takes them; a same-file const; a same-file
+ * object's entry, or every entry for a key the reader cannot name (`MODES[kind]`); a same-file function's every return
+ * (an arrow or a function called in place, and `useMemo`'s factory, among them), its parameters bound to the call's
+ * arguments and their defaults; a name destructured at any depth, out of an object or an array (a key, renamed or not, an
+ * index, a rest without the keys taken out beside it, each step's default); and a prop the function it renders in
+ * forwards from its caller (a key of its first parameter, the props: destructured, `props.x`, a const that takes it),
+ * with the default it renders when none is passed. Anything else is unreadable: a name from another module, a `let`, a
+ * call or an object this reader cannot follow, a class's `this.props`, a value destructured from inside a prop, a
+ * computed key or an array's rest destructured, a forwarded value composed into text, more than MAX_ALTERNATIVES values. With `gaps`
+ * (the length reader), a value it cannot know composes into text as a gap instead of making the whole unreadable.
+ */
+function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
+  const show = (node: ts.Node) => squash(node.getText(sf))
+  const unreadable = (node: ts.Node, why: string): Alternative[] => [{ kind: 'unreadable', form: `${show(node)} (${why})` }]
+  /** A prop a function forwards from its caller: a key of its first parameter, which holds the props. */
+  const forwarded = (param: ts.ParameterDeclaration, prop: string, at: ts.Node): Alternative[] =>
+    param.parent.parameters[0] === param ? [{ kind: 'forwarded', prop, from: param.parent }] : unreadable(at, 'a parameter after the first, which holds no props')
+  const paramHolder = (param: ts.ParameterDeclaration, env: Env, depth: number): Holder | undefined => {
+    const bound = env.get(param)
+    return bound ? holderOf(bound.value ?? param.initializer, bound.value ? bound.env : env, depth + 1) : { props: param }
+  }
+  const holderOf = (expr: ts.Expression | undefined, env: Env, depth = 0): Holder | undefined => {
+    const inner = expr && bareExpression(expr)
+    if (!inner || depth > 24) return undefined
+    if (ts.isObjectLiteralExpression(inner)) return { object: inner, env }
+    if (ts.isArrayLiteralExpression(inner)) return { array: inner, env }
+    // A member is the holder its entry holds (`KIT.inputs`, `KIT['inputs']`).
+    if (ts.isPropertyAccessExpression(inner)) return holderAt(holderOf(inner.expression, env, depth + 1), inner.name.text, undefined, env, depth)
+    if (ts.isElementAccessExpression(inner) && (ts.isStringLiteralLike(inner.argumentExpression) || ts.isNumericLiteral(inner.argumentExpression))) {
+      return holderAt(holderOf(inner.expression, env, depth + 1), inner.argumentExpression.text, undefined, env, depth)
+    }
+    const decl = ts.isIdentifier(inner) ? resolve(inner)?.decl : undefined
+    if (decl && ts.isParameter(decl)) return paramHolder(decl, env, depth)
+    if (decl && ts.isBindingElement(decl)) {
+      const path = bindingSteps(decl)
+      return path && path.steps.reduce<Holder | undefined>((holder, step) => stepInto(holder, step, env, depth), rootHolder(path.root, env, depth))
+    }
+    return decl && ts.isVariableDeclaration(decl) && decl.parent.flags & ts.NodeFlags.Const ? holderOf(decl.initializer, env, depth + 1) : undefined
+  }
+  /** An entry's node: an object's by its key, an array's by its index; 'missing' where it has none, undefined where this
+      reader cannot tell (a spread before it, a computed key, a method). */
+  const nodeAt = (holder: Exclude<Holder, { props: ts.ParameterDeclaration }>, key: string): { node: ts.Expression; env: Env } | 'missing' | undefined => {
+    if ('array' in holder) {
+      const index = Number(key)
+      const elements = holder.array.elements
+      if (!Number.isInteger(index) || index < 0 || elements.slice(0, index + 1).some(ts.isSpreadElement)) return undefined
+      const element = elements[index]
+      return !element || ts.isOmittedExpression(element) ? 'missing' : { node: element, env: holder.env }
+    }
+    if (holder.without?.includes(key)) return 'missing'
+    if (holder.object.properties.some((p) => ts.isSpreadAssignment(p) || (p.name && ts.isComputedPropertyName(p.name)))) return undefined
+    const entry = holder.object.properties.find((p) => p.name && keyText(p.name) === key)
+    if (!entry) return 'missing'
+    if (ts.isPropertyAssignment(entry)) return { node: entry.initializer, env: holder.env }
+    return ts.isShorthandPropertyAssignment(entry) ? { node: entry.name, env: holder.env } : undefined
+  }
+  /** The holder an entry holds, or its step's default where the entry is missing; none past the props. */
+  const holderAt = (holder: Holder | undefined, key: string, fallback: ts.Expression | undefined, env: Env, depth: number): Holder | undefined => {
+    if (!holder || 'props' in holder) return undefined
+    const found = nodeAt(holder, key)
+    if (found === 'missing') return fallback ? holderOf(fallback, env, depth + 1) : undefined
+    return found ? holderOf(found.node, found.env, depth + 1) : undefined
+  }
+  /** What a pattern's root holds: a parameter's props (or the argument a call binds), or a const's initializer. */
+  const rootHolder = (root: ts.VariableDeclaration | ts.ParameterDeclaration, env: Env, depth: number): Holder | undefined =>
+    ts.isParameter(root) ? paramHolder(root, env, depth) : root.parent.flags & ts.NodeFlags.Const ? holderOf(root.initializer, env, depth + 1) : undefined
+  /** One step into a holder: an entry's holder, or a rest of an object or of the props without the keys taken. */
+  const stepInto = (holder: Holder | undefined, { step, fallback }: { step: Step; fallback?: ts.Expression }, env: Env, depth: number): Holder | undefined => {
+    if ('rest' in step) return holder && !('array' in holder) ? { ...holder, without: [...(holder.without ?? []), ...step.rest] } : undefined
+    return holderAt(holder, 'key' in step ? step.key : String(step.index), fallback, env, depth)
+  }
+  /** A holder's entry by its key, its every value (undefined where it has none), or the prop where it holds the props. */
+  const entryIn = (holder: Holder | undefined, key: string, at: ts.Node, depth: number): Alternative[] => {
+    if (!holder) return unreadable(at, 'an object this reader cannot follow')
+    if ('props' in holder) return holder.without?.includes(key) ? [UNDEFINED] : forwarded(holder.props, key, at)
+    const found = nodeAt(holder, key)
+    if (found === 'missing') return [UNDEFINED]
+    return found ? of(found.node, found.env, depth) : unreadable(at, 'an entry this reader cannot read: a spread before it, a computed key or a method')
+  }
+  /** Every entry a holder holds, for a key the reader cannot name. */
+  const everyEntryIn = (holder: Holder | undefined, at: ts.Node, depth: number): Alternative[] => {
+    if (!holder || 'props' in holder) return unreadable(at, 'an object this reader cannot follow, by a key it cannot name')
+    if ('array' in holder) {
+      return holder.array.elements.flatMap((element) =>
+        ts.isSpreadElement(element) ? unreadable(element, 'a spread this reader cannot follow') : ts.isOmittedExpression(element) ? [UNDEFINED] : of(element, holder.env, depth),
+      )
+    }
+    return holder.object.properties
+      .filter((p) => !(p.name && !ts.isComputedPropertyName(p.name) && holder.without?.includes(keyText(p.name))))
+      .flatMap((p) =>
+        ts.isPropertyAssignment(p) ? of(p.initializer, holder.env, depth) : ts.isShorthandPropertyAssignment(p) ? of(p.name, holder.env, depth) : unreadable(p, 'an entry this reader cannot read'),
+      )
+  }
+  /** A value with the default a parameter or a destructured key renders where it may be undefined. */
+  const withDefault = (values: Alternative[], fallback: ts.Expression | undefined, env: Env, depth: number) =>
+    fallback && values.some((value) => isUndefined(value) || value.kind === 'forwarded' || value.kind === 'unreadable')
+      ? [...values.filter((value) => !isUndefined(value)), ...of(fallback, env, depth)]
+      : values
+  const named = (e: ts.Identifier, env: Env, depth: number): Alternative[] => {
+    if (e.text === 'undefined') return [UNDEFINED]
+    const decl = resolve(e)?.decl
+    if (!decl) return unreadable(e, 'a name from another module, or a global')
+    if (ts.isParameter(decl)) {
+      const bound = env.get(decl)
+      return bound ? withDefault(bound.value ? of(bound.value, bound.env, depth) : [UNDEFINED], decl.initializer, env, depth) : unreadable(e, 'a parameter that is not a prop')
+    }
+    if (ts.isBindingElement(decl)) {
+      // A destructured name: its pattern's root taken apart step by step, at any depth, each step's default beside.
+      const path = bindingSteps(decl)
+      if (!path) return unreadable(e, "a computed key or an array's rest, destructured")
+      if (ts.isVariableDeclaration(path.root) && !(path.root.parent.flags & ts.NodeFlags.Const)) return unreadable(e, 'a let or a var, which can change')
+      const last = path.steps[path.steps.length - 1]
+      if ('rest' in last.step) return unreadable(e, 'a rest, destructured')
+      let holder = rootHolder(path.root, env, depth)
+      for (const step of path.steps.slice(0, -1)) {
+        if (holder && 'props' in holder && !('rest' in step.step)) return unreadable(e, 'a value destructured from inside a prop')
+        holder = stepInto(holder, step, env, depth)
+      }
+      return withDefault(entryIn(holder, 'key' in last.step ? last.step.key : String(last.step.index), e, depth), last.fallback, env, depth)
+    }
+    if (ts.isVariableDeclaration(decl)) return decl.parent.flags & ts.NodeFlags.Const && decl.initializer ? of(decl.initializer, env, depth) : unreadable(e, 'a let or a var, which can change')
+    return unreadable(e, 'a function, not a value')
+  }
+  /** A template or a `+` chain: each part's every value, joined; `${x}` alone is x's own value. */
+  const composed = (e: ts.TemplateExpression | ts.BinaryExpression, env: Env, depth: number): Alternative[] => {
+    if (ts.isTemplateExpression(e) && !e.head.text && e.templateSpans.length === 1 && !e.templateSpans[0].literal.text) return of(e.templateSpans[0].expression, env, depth)
+    const parts: Alternative[][] = ts.isTemplateExpression(e)
+      ? [[{ kind: 'text', text: e.head.text }], ...e.templateSpans.flatMap((span): Alternative[][] => [of(span.expression, env, depth), [{ kind: 'text', text: span.literal.text }]])]
+      : [of(e.left, env, depth), of(e.right, env, depth)]
+    let texts = ['']
+    for (const options of parts) {
+      const blocked = options.find((o) => o.kind === 'unreadable' && (o.cap || !gaps)) ?? (gaps ? undefined : options.find((o) => o.kind === 'forwarded'))
+      if (blocked) return blocked.kind === 'unreadable' ? [blocked] : unreadable(e, 'a forwarded value composed into text')
+      texts = [...new Set(texts.flatMap((head) => options.map((o) => head + textOf(o))))]
+      if (texts.length > MAX_ALTERNATIVES) return [{ kind: 'unreadable', form: `${show(e)} (more than ${MAX_ALTERNATIVES} values)`, cap: true }]
+    }
+    return texts.map((text) => ({ kind: 'text', text }))
+  }
+  const called = (e: ts.CallExpression, env: Env, depth: number): Alternative[] => {
+    const callee = bareExpression(e.expression)
+    const binding = ts.isIdentifier(callee) ? resolve(callee) : undefined
+    // `useMemo(() => value, deps)` renders its factory's value; an arrow or a function called where it stands, its own.
+    const memo = !binding && /^(?:React\.)?useMemo$/.test(callee.getText(sf))
+    const fn = memo ? functionIn(e.arguments[0]) : binding ? functionOf(binding) : functionIn(callee)
+    if (!fn || e.arguments.some(ts.isSpreadElement)) return unreadable(e, 'a call this reader cannot follow')
+    const scope = new Map(env)
+    fn.parameters.forEach((parameter, index) => scope.set(parameter, { value: memo ? undefined : e.arguments[index], env }))
+    return returnsOf(fn).flatMap((value) => (value ? of(value, scope, depth) : [UNDEFINED]))
+  }
+  const read = (node: ts.Node, env: Env, depth: number): Alternative[] => {
+    if (ts.isJsxExpression(node)) return node.expression ? of(node.expression, env, depth) : [UNDEFINED]
+    const e = bareExpression(node as ts.Expression)
+    if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return [{ kind: 'text', text: e.text }]
+    if (ts.isNumericLiteral(e)) return [{ kind: 'text', text: String(Number(e.text.replace(/_/g, ''))) }]
+    if (e.kind === ts.SyntaxKind.TrueKeyword) return [{ kind: 'text', text: 'true' }]
+    if (e.kind === ts.SyntaxKind.FalseKeyword) return [FALSE]
+    if (e.kind === ts.SyntaxKind.NullKeyword) return [{ kind: 'nothing', value: 'null' }]
+    if (ts.isVoidExpression(e)) return [UNDEFINED]
+    if (ts.isTemplateExpression(e) || isPlus(e)) return composed(e, env, depth)
+    if (ts.isConditionalExpression(e)) return [...of(e.whenTrue, env, depth), ...of(e.whenFalse, env, depth)]
+    if (ts.isPrefixUnaryExpression(e) && e.operator === ts.SyntaxKind.ExclamationToken) return BOOLEANS
+    if (ts.isBinaryExpression(e)) {
+      const op = e.operatorToken.kind
+      if (COMPARING.has(op)) return BOOLEANS
+      const left = of(e.left, env, depth)
+      const right = () => of(e.right, env, depth)
+      // `&&` renders a falsy left as itself and otherwise the right; `||` a truthy left and otherwise the right; `??` a
+      // left that is neither null nor undefined and otherwise the right.
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) return [...left.filter(mayBeFalsy).map((o) => (o.kind === 'text' || o.kind === 'nothing' ? o : FALSE)), ...(left.some(mayBeTruthy) ? right() : [])]
+      if (op === ts.SyntaxKind.BarBarToken) return [...left.filter(mayBeTruthy), ...(left.some(mayBeFalsy) ? right() : [])]
+      if (op === ts.SyntaxKind.QuestionQuestionToken) return [...left.filter((o) => !isNullish(o)), ...(left.some(mayBeNullish) ? right() : [])]
+      return unreadable(e, 'an operator this reader does not evaluate')
+    }
+    if (ts.isIdentifier(e)) return named(e, env, depth)
+    if (ts.isPropertyAccessExpression(e)) return entryIn(holderOf(e.expression, env, depth), e.name.text, e, depth)
+    if (ts.isElementAccessExpression(e)) {
+      const keys = of(e.argumentExpression, env, depth)
+      return keys.every((key) => key.kind === 'text')
+        ? keys.flatMap((key) => entryIn(holderOf(e.expression, env, depth), textOf(key), e, depth))
+        : everyEntryIn(holderOf(e.expression, env, depth), e, depth)
+    }
+    if (ts.isCallExpression(e)) return called(e, env, depth)
+    return unreadable(e, 'a form this reader does not evaluate')
+  }
+  const of = (node: ts.Node, env: Env, depth: number): Alternative[] => {
+    if (depth > 24) return unreadable(node, 'nested past what this reader follows')
+    const out = read(node, env, depth + 1)
+    // An object read by every entry and holding none, or a function with no value, renders undefined.
+    return out.length ? out : [UNDEFINED]
+  }
+  return {
+    of: (node: ts.Node) => of(node, new Map(), 0),
+    holderOf: (expr: ts.Expression) => holderOf(expr, new Map()),
+    forwarded,
+  }
+}
+
+/** Each file's binding resolver, made once. */
+const RESOLVERS = new WeakMap<ts.SourceFile, Resolve>()
+const resolverOf = (sf: ts.SourceFile) => {
+  let resolve = RESOLVERS.get(sf)
+  if (!resolve) RESOLVERS.set(sf, (resolve = bindingResolver(sf)))
+  return resolve
+}
+/** A module by its path from the frontend root: one parsed here (a planted source among them), or a file on disk. */
+const moduleAt = (rel: string): ts.SourceFile | undefined => {
+  const hit = PARSED.get(rel)
+  if (hit) return hit.sf
+  const file = path.join(frontendDir, rel)
+  return existsSync(file) && statSync(file).isFile() ? parsed(readFileSync(file, 'utf8'), rel) : undefined
+}
+/** The module a specifier names (`@/` is the frontend root); undefined for a package. */
+const moduleRel = (importer: string, specifier: string): string | undefined => {
+  const base = specifier.startsWith('@/') ? specifier.slice(2) : specifier.startsWith('.') ? path.posix.join(path.posix.dirname(importer), specifier) : undefined
+  return base === undefined ? undefined : ['', '.tsx', '.ts', '.jsx', '.js', '/index.tsx', '/index.ts'].map((suffix) => base + suffix).find((rel) => isScript(rel) && !!moduleAt(rel))
+}
+/** A file's imports: each local name with the names its module declares the import under, and each namespace's module. */
+const IMPORTS = new WeakMap<ts.SourceFile, { names: Map<string, string[]>; namespaces: Map<string, string> }>()
+function importsOf(sf: ts.SourceFile) {
+  let hit = IMPORTS.get(sf)
+  if (hit) return hit
+  hit = { names: new Map<string, string[]>(), namespaces: new Map<string, string>() }
+  IMPORTS.set(sf, hit)
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.importClause) continue
+    const from = moduleRel(sf.fileName, statement.moduleSpecifier.text)
+    const { name, namedBindings } = statement.importClause
+    if (!from) continue
+    if (name) hit.names.set(name.text, declaredNames(from, 'default'))
+    if (namedBindings && ts.isNamespaceImport(namedBindings)) hit.namespaces.set(namedBindings.name.text, from)
+    if (namedBindings && ts.isNamedImports(namedBindings)) {
+      for (const element of namedBindings.elements) hit.names.set(element.name.text, declaredNames(from, (element.propertyName ?? element.name).text))
+    }
+  }
+  return hit
+}
+/** The names a module declares an export under: through `export { A as B }`, a re-export from another module or
+    `export *`, and `export default` (what it exports by name, or `default@file` for a function with none). */
+function declaredNames(rel: string | undefined, name: string, depth = 0): string[] {
+  const sf = rel === undefined || depth > 8 ? undefined : moduleAt(rel)
+  if (!sf || rel === undefined) return []
+  const out: string[] = []
+  for (const statement of sf.statements) {
+    const from = ts.isExportDeclaration(statement) && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleRel(rel, statement.moduleSpecifier.text) : undefined
+    if (name === 'default' && ts.isExportAssignment(statement) && !statement.isExportEquals) {
+      const names = heldNames(statement.expression, sf, depth + 1)
+      out.push(...(names.length ? names : [`default@${rel}`]))
+    } else if (name === 'default' && (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) && ts.getCombinedModifierFlags(statement) & ts.ModifierFlags.Default) {
+      out.push(statement.name?.text ?? `default@${rel}`)
+    } else if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+      for (const element of statement.exportClause.elements) {
+        if (element.name.text !== name) continue
+        const local = (element.propertyName ?? element.name).text
+        out.push(...(statement.moduleSpecifier ? declaredNames(from, local, depth + 1) : namedNames(sf, local, moduleConst(sf, local), depth + 1, NO_PASSES)))
+      }
+    } else if (ts.isExportDeclaration(statement) && !statement.exportClause && from && name !== 'default') out.push(...declaredNames(from, name, depth + 1))
+  }
+  return out.length ? out : [name === 'default' ? `default@${rel}` : name]
+}
+const LOGICAL = new Set([ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken])
+/** The components a value names: an identifier (with what a same-file const it names holds, what a destructured name
+    holds, or what it imports), a member (with what its object holds at the key), through parentheses and any call that
+    wraps one (`memo(PasswordField)`), either branch of a condition or a logical operator, and the default export of a
+    module a loader imports (`lazy(() => import('./Secret'))`). */
+function heldNames(value: ts.Expression, sf: ts.SourceFile, depth = 0, passes: Passes = NO_PASSES): string[] {
+  const inner = bareExpression(value)
+  if (depth > 8) return []
+  if (ts.isIdentifier(inner)) return namedNames(sf, inner.text, resolverOf(sf)(inner)?.decl, depth, passes)
+  if (ts.isPropertyAccessExpression(inner)) return [inner.getText(sf), ...namesAt(inner.expression, [inner.name.text], sf, depth + 1, passes)]
+  // An element of an object of components: by a literal key, that entry; by any other, every entry of the object it holds.
+  if (ts.isElementAccessExpression(inner)) {
+    const key = ts.isStringLiteralLike(inner.argumentExpression) || ts.isNumericLiteral(inner.argumentExpression) ? inner.argumentExpression.text : undefined
+    const keys = key !== undefined ? [key] : objectKeys(inner.expression, sf)
+    return keys.flatMap((each) => namesAt(inner.expression, [each], sf, depth + 1, passes))
+  }
+  if (ts.isConditionalExpression(inner)) return [...heldNames(inner.whenTrue, sf, depth + 1, passes), ...heldNames(inner.whenFalse, sf, depth + 1, passes)]
+  if (ts.isBinaryExpression(inner) && LOGICAL.has(inner.operatorToken.kind)) return [...heldNames(inner.left, sf, depth + 1, passes), ...heldNames(inner.right, sf, depth + 1, passes)]
+  if (ts.isCallExpression(inner)) {
+    const loaded = inner.expression.kind === ts.SyntaxKind.ImportKeyword ? inner : functionIn(inner.arguments[0])?.body
+    if (loaded && ts.isCallExpression(loaded) && loaded.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const specifier = loaded.arguments[0]
+      return specifier && ts.isStringLiteral(specifier) ? declaredNames(moduleRel(sf.fileName, specifier.text), 'default', depth + 1) : []
+    }
+    return inner.arguments[0] && !ts.isSpreadElement(inner.arguments[0]) ? heldNames(inner.arguments[0], sf, depth + 1, passes) : []
+  }
+  return []
+}
+/** The keys of the same-file object literal a value holds, written in place or held by a const. */
+function objectKeys(value: ts.Expression, sf: ts.SourceFile, depth = 0): string[] {
+  const inner = bareExpression(value)
+  if (ts.isObjectLiteralExpression(inner)) return inner.properties.flatMap((p) => (p.name && !ts.isComputedPropertyName(p.name) ? [keyText(p.name)] : []))
+  const decl = ts.isIdentifier(inner) && depth < 8 ? resolverOf(sf)(inner)?.decl : undefined
+  return decl && ts.isVariableDeclaration(decl) && decl.parent.flags & ts.NodeFlags.Const && decl.initializer ? objectKeys(decl.initializer, sf, depth + 1) : []
+}
+/** A name, with what the same-file const it binds to holds, what the pattern that destructures it holds there, or the
+    names its import declares. */
+const namedNames = (sf: ts.SourceFile, name: string, decl: Binding['decl'] | undefined, depth: number, passes: Passes): string[] => [
+  name,
+  ...(decl && ts.isVariableDeclaration(decl) && decl.parent.flags & ts.NodeFlags.Const && decl.initializer ? heldNames(decl.initializer, sf, depth + 1, passes) : []),
+  ...(decl && ts.isBindingElement(decl) ? patternNames(decl, sf, depth + 1, passes) : []),
+  ...(decl ? [] : (importsOf(sf).names.get(name) ?? [])),
+]
+/** The components a value holds at a path of keys (an object's entry, an array's element): its own names with the keys
+    after them (`Fields`, then `Secret`, names `Fields.Secret`, an entry written in place), and what it holds there,
+    followed through an object or an array written in place, a const, a destructured name, a namespace import, either
+    branch of a condition or a logical operator, and a component's prop (what its callers hand it). */
+function namesAt(value: ts.Expression, keys: readonly string[], sf: ts.SourceFile, depth: number, passes: Passes): string[] {
+  if (!keys.length) return heldNames(value, sf, depth, passes)
+  const inner = bareExpression(value)
+  if (depth > 8) return []
+  const at = (child: ts.Expression, rest: readonly string[] = keys.slice(1)) => namesAt(child, rest, sf, depth + 1, passes)
+  if (ts.isObjectLiteralExpression(inner)) {
+    const entry = inner.properties.find((p) => p.name && !ts.isComputedPropertyName(p.name) && keyText(p.name) === keys[0])
+    return entry && ts.isPropertyAssignment(entry) ? at(entry.initializer) : entry && ts.isShorthandPropertyAssignment(entry) ? at(entry.name) : []
+  }
+  if (ts.isArrayLiteralExpression(inner)) {
+    const index = Number(keys[0])
+    const element = inner.elements[index]
+    return Number.isInteger(index) && element && !ts.isOmittedExpression(element) && !inner.elements.slice(0, index + 1).some(ts.isSpreadElement) ? at(element) : []
+  }
+  if (ts.isConditionalExpression(inner)) return [...at(inner.whenTrue, keys), ...at(inner.whenFalse, keys)]
+  if (ts.isBinaryExpression(inner) && LOGICAL.has(inner.operatorToken.kind)) return [...at(inner.left, keys), ...at(inner.right, keys)]
+  if (!ts.isIdentifier(inner) && !ts.isPropertyAccessExpression(inner)) return []
+  const own = heldNames(inner, sf, depth + 1, passes).map((name) => [name, ...keys].join('.'))
+  if (ts.isPropertyAccessExpression(inner)) return [...own, ...at(inner.expression, [inner.name.text, ...keys])]
+  const decl = resolverOf(sf)(inner)?.decl
+  if (decl && ts.isVariableDeclaration(decl)) return [...own, ...(decl.parent.flags & ts.NodeFlags.Const && decl.initializer ? at(decl.initializer, keys) : [])]
+  if (decl && ts.isBindingElement(decl)) return [...own, ...patternNames(decl, sf, depth + 1, passes, keys)]
+  if (decl && ts.isParameter(decl)) return [...own, ...propNames(decl, keys, sf, passes)]
+  const namespace = decl ? undefined : importsOf(sf).namespaces.get(inner.text)
+  return [...own, ...(namespace ? declaredNames(namespace, keys[0], depth + 1).map((name) => [name, ...keys.slice(1)].join('.')) : [])]
+}
+/** The components a destructured name holds: its pattern's root taken apart by its keys (with `extra` after them), each
+    step's default beside; a rest keeps the keys it is taken at. A component's prop holds what its callers hand it. */
+function patternNames(decl: ts.BindingElement, sf: ts.SourceFile, depth: number, passes: Passes, extra: readonly string[] = []): string[] {
+  const path = bindingSteps(decl)
+  if (!path || depth > 8) return []
+  const keys = [...path.steps.flatMap(({ step }) => ('key' in step ? [step.key] : 'index' in step ? [String(step.index)] : [])), ...extra]
+  let taken = 0
+  const defaults = path.steps.flatMap(({ step, fallback }) => {
+    if (!('rest' in step)) taken++
+    return fallback ? namesAt(fallback, keys.slice(taken), sf, depth + 1, passes) : []
+  })
+  const { root } = path
+  const held = ts.isParameter(root) ? propNames(root, keys, sf, passes)
+    : root.parent.flags & ts.NodeFlags.Const && root.initializer ? namesAt(root.initializer, keys, sf, depth + 1, passes) : []
+  return [...held, ...defaults]
+}
+/** What a component's callers hand its prop (the first key, of its first parameter), with the keys after it. */
+function propNames(param: ts.ParameterDeclaration, keys: readonly string[], sf: ts.SourceFile, passes: Passes): string[] {
+  const component = param.parent.parameters[0] === param ? componentName(param.parent, sf.fileName) : undefined
+  return component && keys.length ? (passes.get(`${component}#${keys[0]}`) ?? []).map((name) => [name, ...keys.slice(1)].join('.')) : []
+}
+/**
+ * The components each component's props are handed by the callers that render it, over `sources`, to a fixed point (a
+ * prop handed on as another's): `<Page Field={Secret} />` hands Page's `Field` what Secret names. Only a value naming a
+ * component (a capital, as JSX requires) is kept.
+ */
+function componentPasses(sources: ReadonlyArray<{ rel: string; source: string }>): Map<string, string[]> {
+  const passes = new Map<string, string[]>()
+  for (let grew = true, round = 0; grew && round < 8; round++) {
+    grew = false
+    for (const { rel, source } of sources) {
+      if (!isScript(rel)) continue
+      const sf = parsed(source, rel)
+      const visit = (node: ts.Node): void => {
+        if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && !/^[a-z][^.]*$/.test(node.tagName.getText(sf))) {
+          const callees = heldNames(node.tagName as ts.Expression, sf, 0, passes)
+          for (const attribute of node.attributes.properties) {
+            if (!ts.isJsxAttribute(attribute) || !attribute.initializer || !ts.isJsxExpression(attribute.initializer) || !attribute.initializer.expression) continue
+            const handed = heldNames(attribute.initializer.expression, sf, 0, passes).filter((name) => /^[A-Z]/.test(name) || name.startsWith('default@'))
+            for (const callee of handed.length ? callees : []) {
+              const key = `${callee}#${attribute.name.getText(sf)}`
+              const known = passes.get(key) ?? []
+              const added = [...new Set(handed)].filter((name) => !known.includes(name))
+              if (!added.length) continue
+              passes.set(key, [...known, ...added])
+              grew = true
+            }
+          }
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(sf)
+    }
+  }
+  return passes
+}
+/** A module's own top-level const or function by its name (for a name a module exports, read from outside it). */
+function moduleConst(sf: ts.SourceFile, name: string): ts.VariableDeclaration | ts.FunctionDeclaration | undefined {
+  for (const statement of sf.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) return statement
+    if (ts.isVariableStatement(statement)) {
+      const decl = statement.declarationList.declarations.find((d) => ts.isIdentifier(d.name) && d.name.text === name)
+      if (decl) return decl
+    }
+  }
+  return undefined
+}
+
+/** The name a function is rendered or called under: its own declared name; a const that holds it, in place or through any
+    call that wraps it (forwardRef, memo, any other; a wrapped one named with a capital, as JSX requires); an entry of
+    the objects a const holds, at any depth (`Fields.Secret`, `Kit.inputs.Secret`); or a default export (`default@file`). Undefined for any other function (a callback, a render
+    prop), whose callers this reader cannot find. */
+function componentName(fn: ts.SignatureDeclaration, rel: string): string | undefined {
+  if (ts.isFunctionDeclaration(fn)) return fn.name?.text ?? (ts.getCombinedModifierFlags(fn) & ts.ModifierFlags.Default ? `default@${rel}` : undefined)
+  let node: ts.Node = fn
+  let wrapped = false
+  for (;;) {
+    const parent = node.parent
+    if (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent) || ts.isSatisfiesExpression(parent)) node = parent
+    else if (ts.isCallExpression(parent) && parent.arguments.some((argument) => argument === node)) {
+      node = parent
+      wrapped = true
+    } else break
+  }
+  const holder = node.parent
+  if (ts.isVariableDeclaration(holder) && ts.isIdentifier(holder.name)) return !wrapped || /^[A-Z]/.test(holder.name.text) ? holder.name.text : undefined
+  if (ts.isExportAssignment(holder)) return `default@${rel}`
+  // An object's entry, at any depth of the objects a const holds (`Fields.Secret`, `Kit.inputs.Secret`).
+  const keys: string[] = []
+  let entry: ts.Node = ts.isMethodDeclaration(fn) ? fn : holder
+  while ((ts.isPropertyAssignment(entry) || ts.isMethodDeclaration(entry)) && ts.isObjectLiteralExpression(entry.parent) && !ts.isComputedPropertyName(entry.name)) {
+    keys.unshift(keyText(entry.name))
+    let object: ts.Node = entry.parent.parent
+    while (ts.isParenthesizedExpression(object) || ts.isAsExpression(object) || ts.isSatisfiesExpression(object)) object = object.parent
+    if (ts.isVariableDeclaration(object) && ts.isIdentifier(object.name)) return `${object.name.text}.${keys.join('.')}`
+    entry = object
+  }
+  return undefined
+}
+
+/** The password fields (a `type` that can be password, a PasswordField, a forwarding component rendered, called or
+    created) and new-password fields a file renders. */
+function passwordFields(source: string, rel: string, forwarders: Forwarders = FORWARDERS): Field[] {
   if (!isScript(rel)) return []
-  const sf = parse(source, rel)
+  const sf = parsed(source, rel)
+  const evaluate = evaluator(sf, resolverOf(sf))
   const out: Field[] = []
+  /** Each attribute a tag reads: as written (undefined for a bare one), or the values a spread gives it. */
+  type Attrs = Map<string, ts.Node | undefined | Alternative[]>
+  const valuesOf = (value: ts.Node | undefined | Alternative[]): Alternative[] =>
+    Array.isArray(value) ? value : value === undefined ? [{ kind: 'text', text: 'true' }] : evaluate.of(value)
+  /** The names a tag renders a component under (an intrinsic element, lowercase, its own); the props each forwarder among
+      them forwards a field's autoComplete through. */
+  const passes = forwarders.passes ?? NO_PASSES
+  const namesOf = (tag: ts.Expression) => (/^[a-z][^.]*$/.test(tag.getText(sf)) ? [tag.getText(sf)] : heldNames(tag, sf, 0, passes))
+  const forwardedBy = (names: string[]) => (names.some((name) => forwarders.has(name)) ? [...new Set(names.flatMap((name) => [...(forwarders.get(name) ?? [])]))] : undefined)
+  const keysOf = (names: string[]) => [...new Set([...(forwardedBy(names) ?? ['autoComplete']), 'type', 'minLength', 'id'])]
+  /** Spreads an object into a tag's attributes as React does, a later attribute winning: the entries of an object the
+      evaluator holds (written in place, held, destructured or a member; a rest without the keys taken out beside it); the
+      props a function forwards, all of them or a rest without those keys; and for any other value, every attribute this
+      reader reads, unreadable. */
+  const spreadInto = (attrs: Attrs, value: ts.Expression, keys: readonly string[]) => {
+    const holder = evaluate.holderOf(value)
+    if (holder && 'object' in holder) {
+      for (const entry of holder.object.properties) {
+        const key = entry.name && !ts.isComputedPropertyName(entry.name) ? keyText(entry.name) : undefined
+        if (key !== undefined && holder.without?.includes(key)) continue
+        if (ts.isSpreadAssignment(entry)) spreadInto(attrs, entry.expression, keys)
+        else if (ts.isPropertyAssignment(entry) && key !== undefined) attrs.set(key, entry.initializer)
+        else if (ts.isShorthandPropertyAssignment(entry)) attrs.set(entry.name.text, entry.name)
+        else for (const read of keys) attrs.set(read, [{ kind: 'unreadable', form: `${squash(entry.getText(sf))} (an entry this reader cannot read)` }])
+      }
+      return
+    }
+    const props = holder && 'props' in holder ? holder : undefined
+    for (const key of keys) {
+      if (props?.without?.includes(key)) continue
+      const spread: Alternative[] = props ? evaluate.forwarded(props.props, key, value) : [{ kind: 'unreadable', form: `{...${squash(value.getText(sf))}} (a spread this reader cannot follow)` }]
+      attrs.set(key, attrs.has(key) ? [...spread, ...valuesOf(attrs.get(key))] : spread)
+    }
+  }
+  /** One field from its attributes (written on a tag, or the object a forwarding component is called or created with). */
+  const field = (at: ts.Node, tag: string, names: string[], attrs: Attrs) => {
+    const own = forwardedBy(names)
+    // A forwarding component's autoComplete is the props it forwards it through; any other field's, its own attribute.
+    const props = (own ?? ['autoComplete']).filter((name) => attrs.has(name))
+    const values = props.flatMap((name) => valuesOf(attrs.get(name)))
+    const node = (name: string) => {
+      const value = attrs.get(name)
+      return Array.isArray(value) ? undefined : value
+    }
+    const isNew = props.some((name) => carries(node(name), namesNew)) || values.some((v) => v.kind === 'text' && namesNew(v.text))
+    const typed = attrs.has('type') && (carries(node('type'), (text) => text === 'password') || valuesOf(attrs.get('type')).some((v) => v.kind === 'text' && v.text === 'password'))
+    if (!isNew && !names.includes('PasswordField') && !own && !typed) return
+    const forwards: Field['forwards'] = []
+    let unnamable: string | undefined
+    for (const value of values) {
+      if (value.kind !== 'forwarded') continue
+      const component = componentName(value.from, rel)
+      if (component) forwards.push({ component, prop: value.prop })
+      else unnamable ??= `${value.prop} (forwarded from a function this reader cannot name, a callback or a render prop, so no caller of it is read)`
+    }
+    const unreadable = values.find((v): v is Extract<Alternative, { kind: 'unreadable' }> => v.kind === 'unreadable')?.form ?? unnamable
+    const namesKind = (v: Alternative) => v.kind === 'forwarded' || (v.kind === 'text' && (namesNew(v.text) || namesCurrent(v.text)))
+    const kind: Field['kind'] = !props.length ? 'unnamed' : unreadable ? 'unreadable' : !values.every(namesKind) ? 'unnamed' : forwards.length ? 'forwarded' : isNew ? 'new' : 'current'
+    const min = node('minLength')
+    const minExpression = min && ts.isJsxExpression(min) ? min.expression : (min as ts.Expression | undefined)
+    const id = node('id')
+    out.push({
+      line: lineOf(sf, at),
+      tag,
+      id: id && ts.isStringLiteral(id) ? id.text : '',
+      kind,
+      isNew,
+      floor: !!minExpression && minExpression.getText(sf) === 'PASSWORD_MIN_LENGTH',
+      forwards,
+      renders: names.filter((name) => forwarders.has(name)),
+      unreadable,
+    })
+  }
   const visit = (node: ts.Node): void => {
     if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
-      // Attributes written on the element, and those of a spread object (`{...{ autoComplete: '…' }}`).
-      const attrs = new Map<string, ts.Node | undefined>()
-      let spreadsProps = false
+      const names = namesOf(node.tagName as ts.Expression)
+      const attrs: Attrs = new Map()
       for (const prop of node.attributes.properties) {
         if (ts.isJsxAttribute(prop)) attrs.set(prop.name.getText(sf), prop.initializer)
-        else if (ts.isObjectLiteralExpression(unwrap(prop.expression))) {
-          for (const entry of (unwrap(prop.expression) as ts.ObjectLiteralExpression).properties) {
-            if (ts.isPropertyAssignment(entry)) attrs.set(entry.name.getText(sf).replace(/^["'`]|["'`]$/g, ''), entry.initializer)
-          }
-        } else spreadsProps = true
+        else spreadInto(attrs, prop.expression, keysOf(names))
       }
-      const tag = node.tagName.getText(sf)
-      const autoComplete = attrs.get('autoComplete')
-      const isNew = carries(autoComplete, namesNew)
-      if (isNew || tag === 'PasswordField' || carries(attrs.get('type'), (text) => text === 'password')) {
-        const min = attrs.get('minLength')
-        const minExpression = min && ts.isJsxExpression(min) ? min.expression : (min as ts.Expression | undefined)
-        out.push({
-          line: lineOf(sf, node),
-          tag,
-          id: (attrs.get('id') as ts.StringLiteral | undefined)?.text ?? '',
-          kind: isNew ? 'new' : carries(autoComplete, namesCurrent) ? 'current' : attrs.has('autoComplete') || spreadsProps ? 'forwarded' : 'unnamed',
-          floor: !!minExpression && minExpression.getText(sf) === 'PASSWORD_MIN_LENGTH',
-        })
+      field(node, node.tagName.getText(sf), names, attrs)
+    }
+    // A forwarding component called as a function (`Secret({ autoComplete: … })`), or any element created without JSX
+    // (`createElement(Secret, { … })`, `jsx('input', { … })`): the object it is handed is its attributes.
+    if (ts.isCallExpression(node)) {
+      const create = /^(?:React\.)?(?:createElement|jsxs?|jsxDEV)$/.test(node.expression.getText(sf))
+      const tag = create ? node.arguments[0] : node.expression
+      const object = create ? node.arguments[1] : node.arguments[0]
+      const names = !tag || ts.isSpreadElement(tag) ? [] : ts.isStringLiteralLike(tag) ? [tag.text] : namesOf(tag)
+      if (create || forwardedBy(names) || names.includes('PasswordField')) {
+        const attrs: Attrs = new Map()
+        if (object && !ts.isSpreadElement(object)) spreadInto(attrs, object, keysOf(names))
+        field(node, tag ? tag.getText(sf) : '', names, attrs)
       }
     }
     ts.forEachChild(node, visit)
@@ -278,16 +1073,59 @@ function passwordFields(source: string, rel: string): Field[] {
 }
 const describeField = (rel: string, field: Field) => `${rel}:${field.line} <${field.tag}>`
 
+/**
+ * The components that forward a password field's autoComplete from their own props, with the props they forward it
+ * through, found over `sources` to a fixed point: a caller of one renders a password field itself, read where it writes
+ * those props (or forwards them on).
+ */
+function forwardingComponents(sources: ReadonlyArray<{ rel: string; source: string }>): Map<string, Set<string>> & { passes: Passes } {
+  // Parse every source first, so one imports another by its path whichever is read first.
+  for (const { rel, source } of sources) if (isScript(rel)) parsed(source, rel)
+  const found = Object.assign(new Map<string, Set<string>>(), { passes: componentPasses(sources) })
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const { rel, source } of sources) {
+      for (const { component, prop } of passwordFields(source, rel, found).flatMap((field) => field.forwards)) {
+        const props = found.get(component) ?? new Set<string>()
+        found.set(component, props)
+        if (props.has(prop)) continue
+        props.add(prop)
+        grew = true
+      }
+    }
+  }
+  return found
+}
+/** The app's and planted sources' own forwarding components (the app's files are FORWARDERS' already). */
+const forwardersOf = (sources: ReadonlyArray<{ rel: string; source: string }>): Forwarders => {
+  const own = forwardingComponents(sources)
+  const merged = Object.assign(new Map<string, Set<string>>([...FORWARDERS].map(([name, props]) => [name, new Set(props)])), { passes: own.passes })
+  for (const [name, props] of own) merged.set(name, new Set([...(merged.get(name) ?? []), ...props]))
+  return merged
+}
+const forwardersFor = (source: string, rel: string) => forwardersOf([{ rel, source }])
+
 /** New-password JSX fields whose `minLength` is not the shared constant. */
-const fieldsWithoutFloor = (source: string, rel: string) =>
-  passwordFields(source, rel)
-    .filter((field) => field.kind === 'new' && !field.floor)
+const fieldsWithoutFloor = (source: string, rel: string, forwarders: Forwarders = forwardersFor(source, rel)) =>
+  passwordFields(source, rel, forwarders)
+    .filter((field) => field.isNew && !field.floor)
     .map((field) => describeField(rel, field))
-/** Password fields with no `autoComplete` this scan can read or follow. */
-const unnamedFields = (source: string, rel: string) =>
-  passwordFields(source, rel)
+/** Password fields whose autoComplete does not name new- or current-password in every value it can take. */
+const unnamedFields = (source: string, rel: string, forwarders: Forwarders = forwardersFor(source, rel)) =>
+  passwordFields(source, rel, forwarders)
     .filter((field) => field.kind === 'unnamed')
     .map((field) => describeField(rel, field))
+/** Password fields whose autoComplete holds a form this reader cannot evaluate: each fails loudly, with the form. */
+const unreadableFields = (source: string, rel: string, forwarders: Forwarders = forwardersFor(source, rel)) =>
+  passwordFields(source, rel, forwarders)
+    .filter((field) => field.kind === 'unreadable')
+    .map((field) => `${describeField(rel, field)} autoComplete is a form this reader cannot evaluate: ${field.unreadable}`)
+/** Forwarding components no source renders (a route's entry, which the framework renders, or a component nothing uses):
+    no caller's value reaches their field. */
+const unrenderedForwarders = (sources: ReadonlyArray<{ rel: string; source: string }>, forwarders: Forwarders) => {
+  const rendered = new Set(sources.flatMap(({ rel, source }) => passwordFields(source, rel, forwarders).flatMap((field) => field.renders)))
+  return [...forwarders.keys()].filter((name) => !rendered.has(name)).sort()
+}
 
 /** Whether a form checks `….length < PASSWORD_MIN_LENGTH` in its code; a comment or a string does not count. */
 function checksFloorInCode(source: string, rel: string): boolean {
@@ -341,6 +1179,8 @@ function passwordValidators(source: string): string[] {
 const ALL_FILES = SOURCE_ROOTS.flatMap((root) => walk(path.join(frontendDir, root)))
 const FILES = ALL_FILES.filter((file) => READ.test(file))
 const rel = (file: string) => path.relative(frontendDir, file).split(path.sep).join('/')
+/** The app's forwarding components, PasswordField among them. */
+const FORWARDERS = forwardingComponents(FILES.filter((file) => isScript(rel(file))).map((file) => ({ rel: rel(file), source: readFileSync(file, 'utf8') })))
 const RULE_FILE = 'lib/passwordRules.ts'
 
 describe('the password rule moves in lockstep with the backend', () => {
@@ -414,6 +1254,7 @@ describe('the password rule moves in lockstep with the backend', () => {
   it('every new-password field carries minLength={PASSWORD_MIN_LENGTH}, or its form checks the floor in code', () => {
     const sources = FILES.map((file) => ({ rel: rel(file), source: readFileSync(file, 'utf8') }))
     // The scan finds the app's new-password fields: a check that reads none must not pass.
+    expect([...FORWARDERS.keys()], 'the scan finds the component the app forwards a password field through').toContain('PasswordField')
     const found = sources.flatMap(({ rel, source }) => passwordFields(source, rel).filter((f) => f.kind === 'new').map((f) => `${rel} <${f.tag} id="${f.id}">`))
     expect(found).toEqual(
       expect.arrayContaining([
@@ -425,10 +1266,12 @@ describe('the password rule moves in lockstep with the backend', () => {
       ]),
     )
     expect(
-      sources.flatMap(({ rel, source }) => unnamedFields(source, rel)),
-      "name the field's autoComplete (new-password or current-password), so this check can tell which it is",
+      sources.flatMap(({ rel, source }) => unnamedFields(source, rel, FORWARDERS)),
+      "name the field's autoComplete (new-password or current-password) in every value it can take, so this check can tell which it is",
     ).toEqual([])
-    const missing = sources.filter(({ rel }) => !(rel in CODE_CHECKED)).flatMap(({ rel, source }) => fieldsWithoutFloor(source, rel))
+    expect(sources.flatMap(({ rel, source }) => unreadableFields(source, rel, FORWARDERS)), 'write the autoComplete in a form this reader evaluates').toEqual([])
+    expect(unrenderedForwarders(sources, FORWARDERS), 'a component forwards a password field\'s autoComplete, but no file the scan reads renders it').toEqual([])
+    const missing = sources.filter(({ rel }) => !(rel in CODE_CHECKED)).flatMap(({ rel, source }) => fieldsWithoutFloor(source, rel, FORWARDERS))
     expect(missing, 'give the field minLength={PASSWORD_MIN_LENGTH}').toEqual([])
     for (const file of Object.keys(CODE_CHECKED)) {
       expect(checksFloorInCode(readFileSync(path.join(frontendDir, file), 'utf8'), file), `${file} must check .length < PASSWORD_MIN_LENGTH in its code`).toBe(true)
@@ -496,6 +1339,18 @@ describe('the password rule moves in lockstep with the backend', () => {
           // The shared constant, a count computed at runtime and Math.min are not a hand-typed length.
           'const d = <p>At least {PASSWORD_MIN_LENGTH} characters, {Math.min(a, 8)} left.</p>',
           'if (items.length > 0 && pw.length < PASSWORD_MIN_LENGTH) {}',
+          // The review of #1310's forms: a length in a template literal or a `+` chain, its slot a constant of any
+          // name or a literal; and inside a JSX child, read with the element's text.
+          'const e = `Use at least ${GAP} characters.`',
+          "const f = 'At least ' + GAP + ' characters.'",
+          "const g = 'At least 8 ' + 'characters.'",
+          'const h = <PasswordField hint={`At least ${8} characters.`} />',
+          'const i = <p>{`At least ${GAP}`} characters.</p>',
+          // The shared constant in a template, and a template with no count, are not a hand-typed length.
+          'const j = `At least ${PASSWORD_MIN_LENGTH} characters.`',
+          'const k = `Use ${words} characters you can remember.`',
+          // A slot's text run into the count: composed it reads "least8"; with the template a gap, the count stands.
+          "const l = <p>{`Use at ${'least'}`}8 characters.</p>",
         ].join('\n'),
         'probe.tsx',
       ),
@@ -505,6 +1360,12 @@ describe('the password rule moves in lockstep with the backend', () => {
       'probe.tsx:10 (a length compared against a number): pw.length < GAP',
       'probe.tsx:11 (a minimum call): z.string().min(8)',
       'probe.tsx:12 (a pattern minimum): ".{8,}"',
+      'probe.tsx:15 (copy composed in a template or a + chain): Use at least 8 characters.',
+      'probe.tsx:16 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:17 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:18 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:19 (copy composed across JSX): At least 8 characters.',
+      'probe.tsx:22 (copy composed across JSX): … 8 characters.',
     ])
     // Where a file only mentions a password: the floor in those forms, and no other count.
     expect(
@@ -519,6 +1380,8 @@ describe('the password rule moves in lockstep with the backend', () => {
           'const b = <p>At most {400} characters.</p>',
           'const LIMIT = 400',
           'if (note.length > LIMIT) {}',
+          `const t = \`at least \${${PASSWORD_MIN_LENGTH}} characters\``,
+          'const u = `at most ${400} characters`',
         ].join('\n'),
         'note.tsx',
       ),
@@ -527,6 +1390,84 @@ describe('the password rule moves in lockstep with the backend', () => {
       'note.tsx:4 (a length compared against a number): pw.length < n',
       `note.tsx:5 (a minimum call): z.string().min(${PASSWORD_MIN_LENGTH})`,
       `note.tsx:6 (a pattern minimum): /^.{${PASSWORD_MIN_LENGTH},}$/`,
+      `note.tsx:10 (copy composed in a template or a + chain): at least ${PASSWORD_MIN_LENGTH} characters`,
+    ])
+    // Every value a slot, an operand or a braced expression can render (#1370's fifth round, beside the readings above):
+    // a ternary's either branch, `&&`, `??`, a string const, an object's entry, a same-file function's return, and a
+    // comparison, a minimum call, a composed pattern and a minLength through them.
+    expect(
+      codeForms(
+        [
+          form.trimEnd(),
+          'const GAP = 8',
+          "const UNIT = 'characters'",
+          'const LIMITS = { password: 8 }',
+          "const minFor = (plan: string) => (plan === 'pro' ? 12 : 8)",
+          'const a = `At least ${strict ? 12 : 8} characters.`',
+          'const b = <p>At least {strict ? 12 : 8} characters.</p>',
+          'const c = `Use ${GAP} ${UNIT}.`',
+          'const d = <p>At least {strict && 8} characters.</p>',
+          'const e = `At least ${limit ?? 8} characters.`',
+          'const f = `At least ${LIMITS.password} characters.`',
+          "const g = `At least ${minFor('pro')} characters.`",
+          'const h = <p>At least <b>{strict ? 12 : 8}</b> characters.</p>',
+          'if (pw.length < (strict ? 12 : GAP)) {}',
+          'const schema = z.string().min(strict ? 12 : GAP)',
+          'const re = new RegExp(`^.{${GAP},}$`)',
+          'const i = <input type="password" minLength={GAP} />',
+          // A count worked out at runtime stays unread; one beside a value the evaluator cannot know is read past it.
+          'const j = `${remaining} characters left`',
+          "const k = <p>{strict ? `${unknown} 8 characters.` : null}</p>",
+          // A count destructured, at any depth, out of an object or an array, or reached through members.
+          'const POLICY = { limits: { min: 8 } }',
+          'const { password: fromPattern } = LIMITS',
+          'const [fromArray] = [8]',
+          'const { limits: { min: nestedMin } } = POLICY',
+          'const l = `At least ${fromPattern} characters.`',
+          'const m = <p>At least {fromArray} characters.</p>',
+          'const n = `At least ${nestedMin} characters.`',
+          'const o = `At least ${POLICY.limits.min} characters.`',
+        ].join('\n'),
+        'probe.tsx',
+      ),
+    ).toEqual([
+      'probe.tsx:6 (copy composed in a template or a + chain): At least 12 characters.',
+      'probe.tsx:7 (copy composed across JSX): At least 12 characters.',
+      'probe.tsx:8 (copy composed in a template or a + chain): Use 8 characters.',
+      'probe.tsx:9 (copy composed across JSX): At least 8 characters.',
+      'probe.tsx:10 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:11 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:12 (copy composed in a template or a + chain): At least 12 characters.',
+      'probe.tsx:13 (copy composed across JSX): At least 12 characters.',
+      'probe.tsx:14 (a length compared against a number): pw.length < (strict ? 12 : GAP)',
+      'probe.tsx:15 (a minimum call): z.string().min(strict ? 12 : GAP)',
+      'probe.tsx:16 (a pattern minimum): ^.{8,}$',
+      'probe.tsx:17 (a minLength held in a value): minLength={GAP}',
+      'probe.tsx:19 (copy composed across JSX): … 8 characters.',
+      'probe.tsx:19 (copy composed in a template or a + chain): … 8 characters.',
+      'probe.tsx:24 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:25 (copy composed across JSX): At least 8 characters.',
+      'probe.tsx:26 (copy composed in a template or a + chain): At least 8 characters.',
+      'probe.tsx:27 (copy composed in a template or a + chain): At least 8 characters.',
+    ])
+    // The length reader's limits, each a gap: a floor only two branching values state together, and one worked out by
+    // arithmetic, are not read; the floor in one branch is. A value with more readings than the evaluator takes is loud.
+    const [tens, ones] = [String(PASSWORD_MIN_LENGTH).slice(0, -1) || '0', String(PASSWORD_MIN_LENGTH).slice(-1)]
+    const slots = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((name) => `\${${name} ? 1 : 2}`).join('')
+    expect(
+      codeForms(
+        [
+          '// password note',
+          `const a = <p>{x ? ${tens} : 9}{y ? ${ones} : 9} characters</p>`,
+          `const b = \`at least \${${PASSWORD_MIN_LENGTH - 4} + 4} characters\``,
+          `const c = \`at least \${big ? ${PASSWORD_MIN_LENGTH} : 0} characters\``,
+          `const d = \`\${flag ? \`${slots}\` : ''} characters\``,
+        ].join('\n'),
+        'note.tsx',
+      ),
+    ).toEqual([
+      `note.tsx:4 (copy composed in a template or a + chain): at least ${PASSWORD_MIN_LENGTH} characters`,
+      expect.stringMatching(/^note\.tsx:5 \(a value with more readings than this reader takes\): `.*` \(more than 64 values\)$/),
     ])
     expect(
       fieldsWithoutFloor(
@@ -556,6 +1497,39 @@ describe('the password rule moves in lockstep with the backend', () => {
     ].join('\n')
     expect(fieldsWithoutFloor(spreads, 'probe.tsx')).toEqual(['probe.tsx:1 <PasswordField>'])
     expect(unnamedFields(spreads, 'probe.tsx')).toEqual(['probe.tsx:3 <Input>'])
+    // The review of #1310's forms: a literal autoComplete must name new- or current-password ("off", "password", a typo
+    // or a bare attribute names neither), and a forwarding component's caller is a field, whatever the component is called.
+    const named = [
+      '<Input id="n" type="password" autoComplete="off" />',
+      "<Input id=\"o\" type=\"password\" autoComplete={'password'} />",
+      '<PasswordField id="p" autoComplete="off" showStrength />',
+      '<input id="q" type="password" autoComplete="new_password" />',
+      "<input id=\"r\" type=\"password\" autoComplete={on ? 'off' : 'username'} />",
+      '<input id="s" type="password" autoComplete />',
+      'export function SecretInput(props: { id: string; autoComplete?: string }) { return <Input id={props.id} type="password" autoComplete={props.autoComplete} /> }',
+      'const t = <SecretInput id="t" />',
+      'const u = <SecretInput id="u" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} />',
+      'export const Shown = forwardRef(function Shown(props: Props, ref: Ref) { return <input ref={ref} type="password" {...props} /> })',
+      'const v = <Shown id="v" />',
+    ].join('\n')
+    expect(unnamedFields(named, 'probe.tsx')).toEqual([
+      'probe.tsx:1 <Input>', 'probe.tsx:2 <Input>', 'probe.tsx:3 <PasswordField>', 'probe.tsx:4 <input>', 'probe.tsx:5 <input>', 'probe.tsx:6 <input>',
+      'probe.tsx:8 <SecretInput>', 'probe.tsx:11 <Shown>',
+    ])
+    expect(fieldsWithoutFloor(named, 'probe.tsx')).toEqual([])
+    expect([...forwardingComponents([{ rel: 'probe.tsx', source: named }]).keys()].sort()).toEqual(['SecretInput', 'Shown'])
+    // Undefined, null and void name nothing (the review of 3a1368ec): the field is unnamed and its component forwards
+    // nothing. A PasswordField is a field with no forwarders handed in at all.
+    const nothing = [
+      'export function LoginPage() { return <form><input id="a" type="password" autoComplete={undefined} /></form> }',
+      'export function ResetPage() { return <form><input id="b" type="password" autoComplete={null} /></form> }',
+      'export function JoinPage() { return <form><input id="c" type="password" autoComplete={void 0} /></form> }',
+    ].join('\n')
+    expect([unnamedFields(nothing, 'probe.tsx'), [...forwardingComponents([{ rel: 'probe.tsx', source: nothing }]).keys()]]).toEqual([
+      ['probe.tsx:1 <input>', 'probe.tsx:2 <input>', 'probe.tsx:3 <input>'],
+      [],
+    ])
+    expect(passwordFields('export const F = () => <PasswordField id="w" />', 'probe.tsx', new Map()).map((field) => field.kind)).toEqual(['unnamed'])
     // CODE_CHECKED's check is read on the syntax tree: a comment or a string does not count.
     expect(checksFloorInCode('// if (next.length < PASSWORD_MIN_LENGTH) {}\nconst s = "next.length < PASSWORD_MIN_LENGTH"', 'probe.tsx')).toBe(false)
     expect(checksFloorInCode('if (next.length < PASSWORD_MIN_LENGTH) {}', 'probe.tsx')).toBe(true)
@@ -584,6 +1558,344 @@ describe('the password rule moves in lockstep with the backend', () => {
     // A helper call is a statement of the body; the docstring and the comment are not.
     expect(pythonBody(python, /^def validate\b/)).toEqual(['_reject_letters_only(value)', 'return value'])
     expect(passwordValidators(python)).toEqual(['("password") if value.isalpha(): / raise ValueError("Add a digit.") / return validate_password_strength(value)'])
+  })
+
+  it('reads every value an autoComplete can render, flags a field one value leaves unnamed, and fails loudly on a form it cannot evaluate', () => {
+    // Each form with its own field (Codex on 77b306f6: a mixed ternary passed, because one valid branch classed it new).
+    const family = [
+      "import { useContext, useMemo, useState } from 'react'",
+      "import { SHARED_MODE } from '@/lib/elsewhere'",
+      "const NEW = 'new-password'",
+      "const BLANK = ''",
+      "const MODES = { reset: 'new-password', login: 'current-password' } as const",
+      "const MIXED = { reset: 'new-password', off: 'off' } as const",
+      "const pick = (reset: boolean) => (reset ? 'new-password' : 'current-password')",
+      "const pickOff = (reset: boolean) => (reset ? 'new-password' : 'off')",
+      'function echo(value: string) { return value }',
+      "function maybe(reset: boolean) { if (reset) return 'new-password' }",
+      `const many = (n: number) => \`${['1', '3', '5', '7', '1', '3', '5'].map((digit) => `\${n ? ${digit} : ${Number(digit) + 1}}`).join('')}\``,
+      "let later = 'current-password'",
+      "export function Form({ reset, kind, mode = 'current-password', fallback = 'off' }: { reset: boolean; kind: 'reset' | 'login'; mode?: string; fallback?: string }) {",
+      "  const local = reset ? NEW : 'current-password'",
+      "  const [state] = useState('current-password')",
+      '  const { mode: shared } = useContext(Settings)',
+      '  return (',
+      '    <form>',
+      '      <input id="literal" type="password" autoComplete="current-password" />',
+      "      <input id=\"braced\" type=\"password\" autoComplete={'current-password'} />",
+      '      <input id="template" type="password" autoComplete={`current-password`} />',
+      "      <input id=\"slot\" type=\"password\" autoComplete={`${'new'}-password`} />",
+      "      <input id=\"ternary\" type=\"password\" autoComplete={reset ? 'new-password' : 'current-password'} />",
+      "      <input id=\"nested\" type=\"password\" autoComplete={reset ? (kind === 'reset' ? NEW : 'current-password') : 'current-password'} />",
+      "      <input id=\"or\" type=\"password\" autoComplete={BLANK || 'current-password'} />",
+      "      <input id=\"nullish\" type=\"password\" autoComplete={(kind === 'reset' ? NEW : undefined) ?? 'current-password'} />",
+      '      <input id="const" type="password" autoComplete={NEW} />',
+      '      <input id="local" type="password" autoComplete={local} />',
+      '      <input id="lookup" type="password" autoComplete={MODES[kind]} />',
+      '      <input id="entry" type="password" autoComplete={MODES.login} />',
+      "      <input id=\"key\" type=\"password\" autoComplete={MODES['login']} />",
+      '      <input id="call" type="password" autoComplete={pick(reset)} />',
+      "      <input id=\"echo\" type=\"password\" autoComplete={echo('current-password')} />",
+      "      <input id=\"memo\" type=\"password\" autoComplete={useMemo(() => (reset ? NEW : 'current-password'), [reset])} />",
+      "      <input id=\"inPlace\" type=\"password\" autoComplete={(() => 'current-password')()} />",
+      '      <input id="prop" type="password" autoComplete={mode} />',
+      "      <input id=\"codex\" type=\"password\" autoComplete={reset ? 'new-password' : 'off'} />",
+      "      <input id=\"and\" type=\"password\" autoComplete={reset && 'new-password'} />",
+      "      <input id=\"nestedOff\" type=\"password\" autoComplete={reset ? NEW : kind === 'login' ? 'current-password' : 'off'} />",
+      "      <input id=\"orOff\" type=\"password\" autoComplete={(kind === 'reset' && NEW) || 'off'} />",
+      "      <input id=\"nullishOff\" type=\"password\" autoComplete={MIXED.off ?? 'current-password'} />",
+      '      <input id="lookupOff" type="password" autoComplete={MIXED[kind]} />',
+      '      <input id="callOff" type="password" autoComplete={pickOff(reset)} />',
+      '      <input id="fallsOff" type="password" autoComplete={maybe(reset)} />',
+      "      <input id=\"templateOff\" type=\"password\" autoComplete={`${reset ? 'new' : 'no'}-password`} />",
+      "      <input id=\"undefinedBranch\" type=\"password\" autoComplete={reset ? undefined : 'current-password'} />",
+      "      <input id=\"nullishFalls\" type=\"password\" autoComplete={(kind === 'reset' ? NEW : undefined) ?? 'off'} />",
+      '      <input id="defaultOff" type="password" autoComplete={fallback} />',
+      '      <input id="imported" type="password" autoComplete={SHARED_MODE} />',
+      '      <input id="let" type="password" autoComplete={later} />',
+      '      <input id="unknownCall" type="password" autoComplete={String(reset)} />',
+      '      <input id="method" type="password" autoComplete={NEW.trim()} />',
+      '      <input id="state" type="password" autoComplete={state} />',
+      '      <input id="context" type="password" autoComplete={shared} />',
+      '      <input id="composedProp" type="password" autoComplete={`${kind}-password`} />',
+      '      <input id="many" type="password" autoComplete={many(1)} />',
+      '    </form>',
+      '  )',
+      '}',
+      'export class Legacy extends Component<{ mode: string }> {',
+      '  render() { return <input id="class" type="password" autoComplete={this.props.mode} /> }',
+      '}',
+      // A name destructured at any depth, out of an object or an array (#1370's sixth round), and a body that ends in every
+      // path (the re-review of 6a39e259: an if/else that returns in both branches gained a phantom undefined).
+      "const CONFIG = { inputs: { ac: 'new-password' }, ac: 'current-password' } as const",
+      "const PAIR = ['new-password', 'off'] as const",
+      "function pickEvery(r: boolean) { if (r) { return 'new-password' } else { return 'current-password' } }",
+      "function pickSwitch(k: string) { switch (k) { case 'reset': return 'new-password'; default: return 'current-password' } }",
+      "function pickTry() { try { return 'current-password' } catch { return 'current-password' } }",
+      "function pickLoop() { for (;;) { return 'current-password' } }",
+      'export function Patterns({ reset, kind }: { reset: boolean; kind: string }) {',
+      '  const { inputs: { ac: nestedAc } } = CONFIG',
+      "  const [arrayAc] = ['current-password']",
+      "  const { missing: defaultedAc = 'current-password' } = CONFIG",
+      '  const { inputs: _inputs, ...restConfig } = CONFIG',
+      '  const [, second] = PAIR',
+      '  const { [kind]: computedAc } = CONFIG',
+      '  let { ac: letAc } = CONFIG',
+      '  const [, ...tail] = PAIR',
+      '  const { ac: importedAc } = SHARED_CONFIG',
+      '  return (',
+      '    <form>',
+      '      <input id="nestedPattern" type="password" autoComplete={nestedAc} />',
+      '      <input id="arrayPattern" type="password" autoComplete={arrayAc} />',
+      '      <input id="patternDefault" type="password" autoComplete={defaultedAc} />',
+      '      <input id="memberPath" type="password" autoComplete={CONFIG.inputs.ac} />',
+      '      <input id="objectRest" type="password" autoComplete={restConfig.ac} />',
+      '      <input id="takenFromRest" type="password" autoComplete={restConfig.inputs} />',
+      '      <input id="arrayOff" type="password" autoComplete={second} />',
+      '      <input id="everyBranch" type="password" autoComplete={pickEvery(reset)} />',
+      '      <input id="switchDefault" type="password" autoComplete={pickSwitch(kind)} />',
+      '      <input id="tryCatch" type="password" autoComplete={pickTry()} />',
+      '      <input id="loopReturns" type="password" autoComplete={pickLoop()} />',
+      '      <input id="computedPattern" type="password" autoComplete={computedAc} />',
+      '      <input id="letPattern" type="password" autoComplete={letAc} />',
+      '      <input id="arrayRestValue" type="password" autoComplete={tail[0]} />',
+      '      <input id="importedPattern" type="password" autoComplete={importedAc} />',
+      '    </form>',
+      '  )',
+      '}',
+      'export function Nested({ input: { ac } }: { input: { ac?: string } }) { return <input id="fromPropNested" type="password" autoComplete={ac} /> }',
+    ].join('\n')
+    expect(passwordFields(family, 'family.tsx', new Map()).map((field) => `${field.id} ${field.kind}`)).toEqual([
+      // Read: every value names new- or current-password, or forwards the caller's.
+      'literal current', 'braced current', 'template current', 'slot new', 'ternary new', 'nested new', 'or current', 'nullish new',
+      'const new', 'local new', 'lookup new', 'entry current', 'key current', 'call new', 'echo current', 'memo new', 'inPlace current',
+      'prop forwarded',
+      // Flagged: one value names neither, in any branch.
+      'codex unnamed', 'and unnamed', 'nestedOff unnamed', 'orOff unnamed', 'nullishOff unnamed', 'lookupOff unnamed', 'callOff unnamed',
+      'fallsOff unnamed', 'templateOff unnamed', 'undefinedBranch unnamed', 'nullishFalls unnamed', 'defaultOff unnamed',
+      // Loud: a form the evaluator cannot read.
+      'imported unreadable', 'let unreadable', 'unknownCall unreadable', 'method unreadable', 'state unreadable', 'context unreadable',
+      'composedProp unreadable', 'many unreadable', 'class unreadable',
+      // Destructured at any depth: read, flagged (an array's 'off', a key the rest leaves out), or loud; and every path's end.
+      'nestedPattern new', 'arrayPattern current', 'patternDefault current', 'memberPath new', 'objectRest current', 'takenFromRest unnamed',
+      'arrayOff unnamed', 'everyBranch new', 'switchDefault new', 'tryCatch current',
+      // A loop is read as able to end, so a function whose loop returns gains an undefined: it fails closed, a stated limit.
+      'loopReturns unnamed',
+      'computedPattern unreadable', 'letPattern unreadable', 'arrayRestValue unreadable', 'importedPattern unreadable', 'fromPropNested unreadable',
+    ])
+    expect(unnamedFields(family, 'family.tsx', new Map())[0]).toBe('family.tsx:37 <input>')
+    expect(unreadableFields(family, 'family.tsx', new Map())).toEqual([
+      'family.tsx:49 <input> autoComplete is a form this reader cannot evaluate: SHARED_MODE (a name from another module, or a global)',
+      'family.tsx:50 <input> autoComplete is a form this reader cannot evaluate: later (a let or a var, which can change)',
+      'family.tsx:51 <input> autoComplete is a form this reader cannot evaluate: String(reset) (a call this reader cannot follow)',
+      'family.tsx:52 <input> autoComplete is a form this reader cannot evaluate: NEW.trim() (a call this reader cannot follow)',
+      'family.tsx:53 <input> autoComplete is a form this reader cannot evaluate: state (an object this reader cannot follow)',
+      'family.tsx:54 <input> autoComplete is a form this reader cannot evaluate: shared (an object this reader cannot follow)',
+      'family.tsx:55 <input> autoComplete is a form this reader cannot evaluate: `${kind}-password` (a forwarded value composed into text)',
+      expect.stringMatching(/^family\.tsx:56 <input> autoComplete is a form this reader cannot evaluate: `.*` \(more than 64 values\)$/),
+      'family.tsx:61 <input> autoComplete is a form this reader cannot evaluate: this.props.mode (an object this reader cannot follow)',
+      "family.tsx:92 <input> autoComplete is a form this reader cannot evaluate: computedAc (a computed key or an array's rest, destructured)",
+      'family.tsx:93 <input> autoComplete is a form this reader cannot evaluate: letAc (a let or a var, which can change)',
+      'family.tsx:94 <input> autoComplete is a form this reader cannot evaluate: tail[0] (an object this reader cannot follow)',
+      'family.tsx:95 <input> autoComplete is a form this reader cannot evaluate: importedAc (an object this reader cannot follow)',
+      'family.tsx:99 <input> autoComplete is a form this reader cannot evaluate: ac (a value destructured from inside a prop)',
+    ])
+    // The floor follows a new-password value in any branch, a mixed one included.
+    expect(fieldsWithoutFloor(family, 'family.tsx', new Map())).toContain('family.tsx:37 <input>')
+  })
+
+  it('follows a forwarded autoComplete to every caller, under every name a caller renders its component by', () => {
+    const secret = [
+      "export default function Secret({ mode = 'current-password' }: { mode?: string }) { return <input id=\"secretInput\" type=\"password\" autoComplete={mode} /> }",
+      "export const Plain = (props: { ac?: string }) => <input id=\"plainInput\" type=\"password\" autoComplete={props.ac ?? 'current-password'} />",
+      'export const Wrapped = withTheme((props: { ac?: string }) => <input id="wrappedInput" type="password" autoComplete={props.ac} />)',
+      'export const Fields = { Hidden: (props: { ac?: string }) => <input id="hiddenInput" type="password" autoComplete={props.ac} /> }',
+      'export function Spread(props: { autoComplete?: string }) { return <input {...props} id="spreadInput" type="password" /> }',
+      'export function Renamed({ which }: { which?: string }) { return <Secret id="renamedSecret" mode={which} /> }',
+      // Read where they render: a rest without the key, an invalid fallback, a const object spread in, a spread unread.
+      'export function Swallow({ autoComplete, ...rest }: { autoComplete?: string }) { return <input {...rest} id="swallow" type="password" /> }',
+      "export const BadFallback = (props: { ac?: string }) => <input id=\"badFallback\" type=\"password\" autoComplete={props.ac ?? 'off'} />",
+      "const NEW_ATTRS = { autoComplete: 'new-password' } as const",
+      'export function FromConst() { return <input {...NEW_ATTRS} id="fromConst" type="password" /> }',
+      "export function FromCall() { return <input {...register('password')} id=\"fromCall\" type=\"password\" /> }",
+      // Loud: a prop of a parameter after the first, and one forwarded from a function no caller can name.
+      'export function Second(label: string, props: { ac?: string }) { return <input id="second" type="password" autoComplete={props.ac} /> }',
+      'export function Rows({ items }: { items: Array<{ ac: string }> }) { return <>{items.map((item) => <input id="callback" type="password" autoComplete={item.ac} />)}</> }',
+    ].join('\n')
+    const barrel = ["export { default as Hidden2 } from './secret'", "export { Plain as Bare } from './secret'"].join('\n')
+    const page = [
+      "import Pw from '@/features/auth/components/PasswordField'",
+      "import Shh, { Plain as Simple, Wrapped, Fields, Spread, Renamed } from './secret'",
+      "import * as All from './secret'",
+      "import { Hidden2, Bare } from './index'",
+      'const Alias = Simple',
+      'const Memo = memo(Shh)',
+      "const Lazy = dynamic(() => import('./secret'))",
+      'const Either = flag ? Shh : Simple',
+      'export function Page() {',
+      '  return (',
+      '    <>',
+      '      <Pw id="pw" autoComplete="off" />',
+      '      <Shh id="shh" mode="off" />',
+      '      <Simple id="simple" ac="off" />',
+      '      <All.Plain id="all" ac="off" />',
+      '      <Hidden2 id="hidden2" mode="off" />',
+      '      <Bare id="bare" ac="off" />',
+      '      <Alias id="alias" ac="off" />',
+      '      <Memo id="memo" mode="off" />',
+      '      <Lazy id="lazy" mode="off" />',
+      '      <Either id="either" ac="current-password" />',
+      '      <Wrapped id="wrapped" ac="off" />',
+      '      <Fields.Hidden id="entry" ac="off" />',
+      '      <Spread id="spread" autoComplete="off" />',
+      '      <Renamed id="renamed" which="off" />',
+      "      {Shh({ id: 'called', mode: 'off' })}",
+      "      {createElement(Simple, { id: 'created', ac: 'off' })}",
+      "      {createElement('input', { id: 'createdInput', type: 'password', autoComplete: 'off' })}",
+      '      <Shh id="good" mode="new-password" />',
+      '      <Simple id="current" ac="current-password" />',
+      '    </>',
+      '  )',
+      '}',
+    ].join('\n')
+    // Not read, each a limit the header states: a clone's override, an `as` prop of a component no file read declares, a
+    // component loaded by a `.then`, a `type` forwarded under another prop's name or carried only by a spread the reader
+    // cannot follow, and a value written to the DOM.
+    const gaps = [
+      "import { cloneElement } from 'react'",
+      "import { Plain } from './secret'",
+      "const Then = dynamic(() => import('./secret').then((m) => m.Plain))",
+      "function TypeKind({ kind }: { kind: string }) { return <input type={kind} autoComplete=\"off\" /> }",
+      'export function Gaps() {',
+      "  ref.current?.setAttribute('autocomplete', 'off')",
+      '  return (',
+      '    <>',
+      "      {cloneElement(<Plain id=\"cloned\" ac=\"current-password\" />, { ac: 'off' })}",
+      '      <Box as={Plain} id="as" ac="off" />',
+      '      <Then id="then" ac="off" />',
+      '      <TypeKind kind="password" />',
+      "      <input {...register('password')} id=\"registered\" />",
+      '    </>',
+      '  )',
+      '}',
+    ].join('\n')
+    const sources = [
+      { rel: 'plants/secret.tsx', source: secret },
+      { rel: 'plants/index.ts', source: barrel },
+      { rel: 'plants/page.tsx', source: page },
+      { rel: 'plants/gaps.tsx', source: gaps },
+    ]
+    const forwarders = forwardersOf(sources)
+    const kinds = (rel: string, source: string) => passwordFields(source, rel, forwarders).map((field) => `${field.id} ${field.kind}`)
+    expect(kinds('plants/page.tsx', page)).toEqual([
+      'pw unnamed', 'shh unnamed', 'simple unnamed', 'all unnamed', 'hidden2 unnamed', 'bare unnamed', 'alias unnamed', 'memo unnamed',
+      'lazy unnamed', 'either current', 'wrapped unnamed', 'entry unnamed', 'spread unnamed', 'renamed unnamed', 'called unnamed',
+      'created unnamed', 'createdInput unnamed', 'good new', 'current current',
+    ])
+    expect(kinds('plants/secret.tsx', secret)).toEqual([
+      'secretInput forwarded', 'plainInput forwarded', 'wrappedInput forwarded', 'hiddenInput forwarded', 'spreadInput forwarded',
+      'renamedSecret forwarded', 'swallow unnamed', 'badFallback unnamed', 'fromConst new', 'fromCall unreadable', 'second unreadable',
+      'callback unreadable',
+    ])
+    expect(kinds('plants/gaps.tsx', gaps)).toEqual(['cloned current'])
+    expect(Object.fromEntries([...forwardingComponents(sources)].map(([name, props]) => [name, [...props]]))).toEqual({
+      Secret: ['mode'], Plain: ['ac'], Wrapped: ['ac'], 'Fields.Hidden': ['ac'], Spread: ['autoComplete'], Renamed: ['which'], BadFallback: ['ac'],
+    })
+    // A forwarding component nothing renders is a field no caller's value reaches: it fails (the plants' own, so a
+    // component the app adds never reads as unrendered here).
+    expect(unrenderedForwarders(sources, forwardingComponents(sources))).toEqual(['BadFallback'])
+  })
+
+  it('follows a component reached through a binding pattern, a lookup or a prop its callers hand it', () => {
+    // Codex on 6a39e259: a forwarder destructured out of an object (`const { Secret } = Fields`) passed `mode="off"`; and the
+    // re-review of 6a39e259: an object of components imported under an alias (`<F.Hidden>`). Each form with its own field.
+    const kit = [
+      "export const Plain = (props: { ac?: string }) => <input id=\"plainInput\" type=\"password\" autoComplete={props.ac ?? 'current-password'} />",
+      'export const Fields = { Hidden: (props: { ac?: string }) => <input id="hiddenInput" type="password" autoComplete={props.ac} /> }',
+      'export const Kit = { inputs: { Deep: (props: { ac?: string }) => <input id="deepInput" type="password" autoComplete={props.ac} /> } }',
+      'const Local = { Inner: (props: { ac?: string }) => <input id="innerInput" type="password" autoComplete={props.ac} /> }',
+      'const { Inner } = Local',
+      'export const UseInner = () => <Inner id="sameFile" ac="off" />',
+      'export const ByName = () => <Local.Inner id="innerByName" ac="current-password" />',
+    ].join('\n')
+    const barrel = "export { Fields as Kit2 } from './kit'"
+    const page = [
+      "import { Plain, Fields, Kit, Fields as F } from './kit'",
+      "import * as All from './kit'",
+      "import { Kit2 } from './index'",
+      'const { Hidden } = Fields',
+      'const { Hidden: Renamed } = Fields',
+      'const { inputs: { Deep } } = Kit',
+      'const { Missing = Plain } = Fields',
+      'const [First] = [Plain]',
+      'const { Plain: FromNamespace } = All',
+      'const { Hidden: FromReexport } = Kit2',
+      'const PICK = { plain: Plain }',
+      'function Frame({ Field, ac }: { Field: Comp; ac?: string }) { return <Field id="framedInner" ac={ac} /> }',
+      'function FrameLiteral({ Field }: { Field: Comp }) { return <Field id="framedLiteral" ac="off" /> }',
+      'function Box({ as: As, ...rest }: { as: Comp; ac?: string }) { return <As {...rest} id="boxedInner" /> }',
+      "export function Page({ which }: { which: 'plain' }) {",
+      '  const Picked = PICK[which]',
+      '  return (',
+      '    <>',
+      '      <Hidden id="destructured" ac="off" />',
+      '      <Renamed id="renamedKey" ac="off" />',
+      '      <Deep id="nested" ac="off" />',
+      '      <Missing id="defaulted" ac="off" />',
+      '      <First id="arrayed" ac="off" />',
+      '      <FromNamespace id="fromNamespace" ac="off" />',
+      '      <FromReexport id="fromReexport" ac="off" />',
+      '      <F.Hidden id="aliasObject" ac="off" />',
+      '      <Picked id="picked" ac="off" />',
+      '      <Frame id="framed" Field={Plain} ac="off" />',
+      '      <FrameLiteral Field={Plain} />',
+      '      <Box id="boxed" as={Plain} ac="off" />',
+      '      <Hidden id="destructuredValid" ac="current-password" />',
+      '    </>',
+      '  )',
+      '}',
+    ].join('\n')
+    // Not read, each a limit the header states: a computed key, a `let`, a component out of a call, an array's rest.
+    const gaps = [
+      "import { Fields } from './kit'",
+      "export function Gaps({ key }: { key: 'Hidden' }) {",
+      '  const { [key]: Computed } = Fields',
+      '  let { Hidden: Changing } = Fields',
+      '  const { Hidden: FromHook } = useFields()',
+      '  const [, ...others] = [Fields.Hidden]',
+      '  const [Rested] = others',
+      '  return (',
+      '    <>',
+      '      <Computed id="computedKey" ac="off" />',
+      '      <Changing id="letPattern" ac="off" />',
+      '      <FromHook id="fromHook" ac="off" />',
+      '      <Rested id="arrayRest" ac="off" />',
+      '    </>',
+      '  )',
+      '}',
+    ].join('\n')
+    const sources = [
+      { rel: 'patterns/kit.tsx', source: kit },
+      { rel: 'patterns/index.ts', source: barrel },
+      { rel: 'patterns/page.tsx', source: page },
+      { rel: 'patterns/gaps.tsx', source: gaps },
+    ]
+    const forwarders = forwardersOf(sources)
+    const kinds = (rel: string, source: string) => passwordFields(source, rel, forwarders).map((field) => `${field.id} ${field.kind}`)
+    expect(kinds('patterns/kit.tsx', kit)).toEqual([
+      'plainInput forwarded', 'hiddenInput forwarded', 'deepInput forwarded', 'innerInput forwarded', 'sameFile unnamed', 'innerByName current',
+    ])
+    expect(kinds('patterns/page.tsx', page)).toEqual([
+      'framedInner forwarded', 'framedLiteral unnamed', 'boxedInner forwarded',
+      'destructured unnamed', 'renamedKey unnamed', 'nested unnamed', 'defaulted unnamed', 'arrayed unnamed', 'fromNamespace unnamed',
+      'fromReexport unnamed', 'aliasObject unnamed', 'picked unnamed', 'framed unnamed', 'boxed unnamed', 'destructuredValid current',
+    ])
+    expect(kinds('patterns/gaps.tsx', gaps)).toEqual([])
+    expect(Object.fromEntries([...forwardingComponents(sources)].map(([name, props]) => [name, [...props]]))).toEqual({
+      Plain: ['ac'], 'Fields.Hidden': ['ac'], 'Kit.inputs.Deep': ['ac'], 'Local.Inner': ['ac'], Frame: ['ac'], Box: ['ac'],
+    })
+    expect(forwardingComponents(sources).passes.get('Frame#Field')).toEqual(['Plain'])
+    expect(unrenderedForwarders(sources, forwardingComponents(sources))).toEqual([])
   })
 
   it('the strength meter says "Too short" under the minimum and scores length past it', () => {
