@@ -15,7 +15,10 @@ import { test, expect } from '@playwright/test'
 // React's useSyncExternalStore in hooks/usePrefersReducedMotion.ts, stubbed here: the helper calls
 // only that file's framework-free prefersReducedMotion(), which runs for real.
 // Observable contract: after a highlight, `document.adoptedStyleSheets` carries a sheet whose rules
-// include `::highlight(copilot-citation)`, and `CSS.highlights.get('copilot-citation')` exists.
+// include `::highlight(copilot-citation)`, and `CSS.highlights.get('copilot-citation')` exists. What
+// Chromium computes for the highlighted passage is the device's mark (D-044): `.en-mark`'s tint and 2px
+// hairline as this page's stylesheet paints them, light and dark, the hairline unbroken, the passage
+// in the primary ink.
 
 const FRONTEND = path.resolve(__dirname, '../..')
 
@@ -76,6 +79,38 @@ test.describe('Copilot citation highlight', () => {
 
       const found = m.highlightExcerptInDom(container, 'Net income rose on higher services revenue during the quarter')
       const flashedAfterFirst = flashedParas()
+      // The paint Chromium computes for the highlighted paragraph, beside the device's own mark and the primary ink
+      // as this page's stylesheet paints them, in each theme.
+      const para = container.querySelector('[data-para="1"]')!
+      const mark = document.createElement('span')
+      mark.className = 'en-mark'
+      const ink = document.createElement('span')
+      ink.className = 'text-text-primary-light dark:text-text-primary-dark'
+      document.body.append(mark, ink)
+      const paint = () => {
+        const h = getComputedStyle(para, '::highlight(copilot-citation)')
+        const d = getComputedStyle(mark)
+        return {
+          tint: h.backgroundColor,
+          hairline: h.textDecorationColor,
+          line: h.textDecorationLine,
+          width: h.textDecorationThickness,
+          skipInk: h.textDecorationSkipInk,
+          ink: h.color,
+          device: {
+            tint: /,\s*(rgba?\([^)]*\))\s+62%\)$/.exec(d.backgroundImage)?.[1],
+            hairline: /^(rgba?\([^)]*\))\s/.exec(d.boxShadow)?.[1],
+            width: /\s-(\d+px)\s/.exec(d.boxShadow)?.[1],
+            ink: getComputedStyle(ink).color,
+          },
+        }
+      }
+      const light = paint()
+      document.documentElement.classList.add('dark')
+      const dark = paint()
+      document.documentElement.classList.remove('dark')
+      mark.remove()
+      ink.remove()
       const rule = document.adoptedStyleSheets
         .flatMap((s) => Array.from(s.cssRules))
         .find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === '::highlight(copilot-citation)')
@@ -93,7 +128,8 @@ test.describe('Copilot citation highlight', () => {
         found,
         foundSecond,
         ruleText: rule?.cssText ?? null,
-        background: rule?.style.backgroundColor ?? null,
+        light,
+        dark,
         registeredRanges: registered?.size ?? null,
         sheetsAfterSecond,
         clearedStillRegistered,
@@ -105,7 +141,13 @@ test.describe('Copilot citation highlight', () => {
     expect(result.found).toBe(true)
     expect(result.foundSecond).toBe(true)
     expect(result.ruleText).toContain('::highlight(copilot-citation)')
-    expect(result.background).toBe('rgba(79, 122, 99, 0.22)')
+    // The device's mark in both themes: its tint, its 2px hairline unbroken, the passage in the primary ink.
+    expect(result.light.device).toEqual({ tint: 'rgb(236, 242, 238)', hairline: 'rgb(207, 224, 214)', width: '2px', ink: 'rgb(26, 26, 23)' })
+    expect(result.dark.device).toEqual({ tint: 'rgba(127, 178, 149, 0.14)', hairline: 'rgba(127, 178, 149, 0.28)', width: '2px', ink: 'rgb(215, 218, 220)' })
+    for (const theme of [result.light, result.dark]) {
+      expect({ tint: theme.tint, hairline: theme.hairline, width: theme.width, ink: theme.ink }).toEqual(theme.device)
+      expect({ line: theme.line, skipInk: theme.skipInk }).toEqual({ line: 'underline', skipInk: 'none' })
+    }
     // One Highlight holding exactly the matched Range.
     expect(result.registeredRanges).toBe(1)
     // A second highlight reuses the adopted sheet rather than adding another.

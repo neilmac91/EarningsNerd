@@ -39,6 +39,13 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 text on a tinted bg is measured against the mixed tint; non-text UI (bars, sparklines,
 hairlines-as-meaning) ≥ 3:1.
 
+**The device's tint is a ground like any other** (`brand-weak` light, `brand-weak-dark` mixed over what
+is behind it). The words on it are the primary ink pair: a marked block's excerpt is 15.4:1 on the light
+tint and 10.7:1 on the dark tint over navy, and the Source pane's located passage takes the primary ink
+too, since the reader's secondary ink measures 4.49:1 on the dark tint over the slate panel (D-044). The
+marker and its twin sit beside the tint, not on it, in `brand-strong` (5.9:1 on cream, 9.8:1 on navy).
+Gate: tests/e2e/risk-evidence-rows.spec.ts measures the marker, the twin and the excerpt in both themes.
+
 ## 2. Theme-responsiveness is mandatory
 
 Every color on a surface that renders in **both** themes must be a light/dark **pair**:
@@ -83,10 +90,14 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
   `.tabular` = mono evidence register; `.tnum` = tabular figures in the CURRENT (body) face —
   numerals inside prose/UI copy only. Data tables and KPI tiles are **not** `.tnum` surfaces: their
   numerics render mono (DataTable numeric cells, StatCard figures — the data-role rule).
-- **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
-  (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
-  On a public page the serif appears only inside a quoted passage the product located (the hero
-  example's evidence row, the social card's excerpt), never for a headline, tagline or a claim of ours.
+- **Editorial serif (Newsreader)** is wired to the filing's own words alone: the real filing viewer
+  (**`.filing-reader`**, 19/1.7, opsz auto: Item 1A, MD&A, notes) and a passage the server located,
+  set as a marked block (`.en-marked`, 16/26). Serif = the filing's own words. Inside the product the
+  marked blocks are the filing page's Risks rows (D-044); on a public page the serif appears only inside
+  a quoted passage the product located (the hero example's evidence row, the social card's excerpt),
+  never for a headline, tagline or a claim of ours. Gate: tests/unit/designSystemDoneGate.spec.ts
+  (EDITORIAL_SURFACES, an equality: the reader, the hero example and the Risks rows; outside the reader
+  the face sits only in a marked block's class list; globals.css sets it on `.filing-reader` alone).
   **`.markdown-body` is NOT serif**: it carries the reader's list + heading + table manners on the
   **body sans**, but FILLS its pane with no measure cap (it renders inside a card/pane, where any
   capped measure reads as dead space — field-tested twice) — its app consumer is
@@ -1053,13 +1064,22 @@ Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain s
                  the implementation establishes ("where a match is found"); "generated" stays distinct from
                  "the filing's own words".
 
-Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
-                 opening words of the row's own verbatim excerpt, unique per row via excerptHeadings — the
-                 server withholds model titles), the excerpt in blockquote manners (border-l-2 hairline, no
-                 fill, no radius, 14px secondary) and the provenance chip; a lead line above and a data-face
-                 tally below ("3 of 4 excerpts located in the filing text · 1 withheld …"). No stripe, no
-                 trend glyph, no nested evidence box. The row wraps a long unbreakable token
-                 ([overflow-wrap:anywhere]).
+Evidence rows    <SummaryRisks>  (P-03; a marked copy since D-044): one hairline list inside the section: a
+                 row is an h3 (14/600, the opening words of the row's own verbatim excerpt, unique per row via
+                 excerptHeadings, since the server withholds model titles), the excerpt and the provenance chip; a
+                 lead line above and a data-face tally below ("3 of 4 excerpts located in the filing text · 1
+                 withheld …"), both outside the margin. The brand device marks a row whose excerpt the server
+                 located (source_verified, the chip's "Verified in filing", D-028): an EnRef on its heading
+                 ([1], [2] … in reading order among the located rows, the chip's 12px), the twin in the margin
+                 MarkedCopy draws beside the list (components/ui, 2.25rem, 2.75rem from sm; the rows take
+                 pl-3 sm:pl-3.5 inside it), and the excerpt as a marked block (`en-marked px-3.5 py-2.5
+                 font-editorial text-base leading-relaxed` in the primary ink, HeroExample's recipe). One
+                 marker per row, so the twins never overprint. A row not located keeps blockquote manners
+                 (border-l-2 hairline, no fill, no radius, 14px secondary) and no marker; a list with no
+                 located row draws no margin. No stripe, no trend glyph, no nested evidence box. The row
+                 wraps a long unbreakable token ([overflow-wrap:anywhere]); at 390px under 200% text a
+                 marked block's measure is about 171px of 32px serif, so a word longer than it breaks inside
+                 it rather than push the page sideways.
                  Heading rule (riskHeadline.ts, inside excerptHeadings): a verbatim prefix of the excerpt, never
                  recased and never whitespace-normalised (one enclosing quote pair is dropped first, only when
                  it wraps the whole span). The first sentence stays whole when it fits in 100 characters; a
@@ -1068,7 +1088,10 @@ Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section
                  date, name, bracket or quotation. Never at a comma or a dash. "…" whenever the excerpt goes
                  on; "Risk n" when no heading fits. Gates: riskHeadline.spec.ts (the rule, on the production,
                  backend-fixture and eval spans), riskTitle.spec.ts (what excerptHeadings adds around it),
-                 SummaryRisks.spec.tsx (the wiring), tests/e2e/risk-evidence-rows.spec.ts (layout).
+                 SummaryRisks.spec.tsx (the wiring and the device's rows), tests/e2e/risk-evidence-rows.spec.ts
+                 (layout: each twin on its marker's line, none overprinting, the margin's width, the marker,
+                 twin and excerpt at 4.5:1 or more, at 390 and 1440, both themes, default and 200% text),
+                 brandCopyRules.spec.ts rule 3 (where the device renders, and only on located rows).
 
 Callout          <Callout label tone="neutral|caution">  (P-08; replaces SummaryBlock) — an inset well:
                  `rounded border bg-panel-light px-4 py-3.5` (dark: white/10 hairline on panel-dark), no
@@ -1136,13 +1159,23 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  before the reader. A citation jump (highlightInDom) scrolls the reader and the table's
                  box only, never the page (no scrollIntoView), and centres the passage in the reader's
                  on-screen part (above the fold and the consent bar, before the desktop pane sticks):
-                 smoothly, or in one jump under prefers-reduced-motion. A box names itself only when it
+                 smoothly, or in one jump under prefers-reduced-motion. The located passage wears the
+                 device's mark (D-044): `::highlight(copilot-citation)` (CITATION_HIGHLIGHT_CSS, a constructed
+                 sheet) paints `.en-mark`'s tint and its 2px hairline, `.dark`'s pair in dark, the hairline an
+                 unbroken underline where the tint ends (`text-underline-offset: calc(0.2632em - 2px)`,
+                 Newsreader's descent below the baseline), and sets the passage in the primary ink, since the
+                 reader's secondary ink is 4.49:1 on the dark tint over the slate panel. The Highlight API
+                 paints colours and decorations only, so the tint fills the line's content area where
+                 `.en-mark` starts it at 62% of the line box. The block's `.citation-flash` stays the
+                 attention pulse, which fades; the mark is what stays. A box names itself only when it
                  starts to overflow, never on every resize (the name scans the whole reader). The AI
-                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts,
-                 tests/unit/readerTableRegionName.spec.ts, tests/e2e/filing-reader-wide-tables.spec.ts
+                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts (the paint
+                 equals `.en-mark`'s, read from globals.css), tests/unit/readerTableRegionName.spec.ts,
+                 tests/e2e/filing-reader-wide-tables.spec.ts
                  (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
-                 tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
-                 in real layout, the page unmoved).
+                 tests/e2e/copilot-highlight-css.spec.ts (what Chromium computes for the passage against
+                 `.en-mark` on the same page, both themes; a far-right table cell revealed in its own box in
+                 real layout, the page unmoved).
 
 Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
@@ -1273,12 +1306,21 @@ inset hairline at the baseline, `box-decoration-break: clone` so a wrapped phras
 stripe never sits on a rounded container, the filing's words inside it in `.filing-reader`'s face), `.en-margin` (a gutter with a hairline on its
 inner edge; `w-11` from `sm`, `w-9` on phones) and `.en-margin-mark` (an 11px data-face bracket,
 `brand-strong`, absolutely positioned on the line of the in-text marker it twins; the twin is
-measured by `features/marketing/components/MarkedCopy.tsx`, never hard-coded). Rules: a mark means
+measured by `components/ui/MarkedCopy.tsx`, never hard-coded). Rules: a mark means
 "located" and a bracket means "cited"; one `.en-mark` per surface may sit under a phrase of ours as
 the signature; none on a figure, a price, a status, a competitor's name or an unverified claim; no
 margin without a marker; the hairline never scales with the type. The 11px mark is the one
 sanctioned sub-12px text beside copy because it is a twin of a 12px marker, not copy; it still
 carries no claim and is `aria-hidden` (the in-text marker is the accessible one).
+Inside the product the device marks every passage the server located, and nothing else (D-044): the
+filing page's Risks rows (Evidence rows, §4) and the Source pane's located passage (Filing reader, §4).
+One marker per row, so the twins never overprint; the one-`.en-mark` limit stays for a phrase of ours.
+Ask this Filing's answers and the Multi-Period narrative keep their citation chips: a cited line carries
+several markers there, and their twins would overprint. Gate: brandCopyRules.spec.ts rule 3
+(DEVICE_PLACES, an equality: the hero example's evidence row and the Risks rows; on a list's row a
+marker or a marked block only under a test of the row's `source_verified`; one marker per row and per
+line; no margin holding CopilotMessage, NarrativePane or CitationChip; its planted forms in
+`tests/unit/fixtures/brandRule3Forms.tsx`).
 
 ## 8. Theme mechanics
 

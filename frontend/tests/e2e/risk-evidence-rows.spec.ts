@@ -1,17 +1,23 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
+import { textContrast } from './fixtures/contrast'
 import { API_ORIGIN, SUMMARY, answerApi, type Theme } from './fixtures/filing3Api'
 
 /**
- * Risk evidence rows on the filing page (2026-10 critique P-03, founder option b): what only a real
- * layout shows, in Chromium at 390 and 1440 in both themes. Which heading a row gets and that its
- * blockquote holds the whole span are pinned once, in jsdom (riskHeadline.spec.ts, riskTitle.spec.ts,
- * SummaryRisks.spec.tsx; one test per rule, AGENTS.md §4). Here:
+ * Risk evidence rows on the filing page (2026-10 critique P-03, founder option b), as a marked copy
+ * (D-044): what only a real layout shows, in Chromium at 390 and 1440 in both themes, at the default
+ * text size and with the browser's text doubled. Which heading a row gets, that its blockquote holds the
+ * whole span, and which rows the device marks are pinned once, in jsdom (riskHeadline.spec.ts,
+ * riskTitle.spec.ts, SummaryRisks.spec.tsx; one test per rule, AGENTS.md §4). Here:
  *
  *   - each row's h3 and blockquote text sits inside the row and the viewport, and the page does not
  *     scroll sideways, a long unbreakable token (a URL) included at 390;
- *   - the blockquote computes to 14px.
+ *   - each located excerpt is a marked block in the filing's face at 16px (1rem), on the device's tint;
+ *   - every marker has its twin in the margin, centred on the marker's line, no two twins overprint, and
+ *     the margin holds (2.25rem at 390, 2.75rem from sm) with each twin inside it;
+ *   - the marker, the twin and the excerpt's ink clear 4.5:1 on what is behind them (text-floors' rule,
+ *     the composited ground of fixtures/contrast.ts), in both themes.
  *
  * The four risks are the production filing-3 spans (fixtures/filing-3-risks.json, copied verbatim
  * from raw_summary.sections.risks of the critique harness's cached GET /api/summaries/filing/3,
@@ -52,6 +58,18 @@ async function openRisks(page: Page, baseURL: string, theme: Theme, risks: Risk[
   await page.locator(SECTION).scrollIntoViewIfNeeded()
 }
 
+/** Chromium's own text setting doubled (standard 32, fixed 26), as reflow-200.spec.ts sets it, then a beat for the
+    margin to measure its markers again (MarkedCopy re-reads them when its body resizes). */
+async function doubleText(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  await expect
+    .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize), { message: 'the 200% text setting took' })
+    .toBe('32px')
+  await page.evaluate(() => document.fonts.ready)
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+}
+
 /** Every measurement the assertions need, read from the rendered rows. */
 const measure = (page: Page) =>
   page.evaluate((section) => {
@@ -61,10 +79,27 @@ const measure = (page: Page) =>
       range.selectNodeContents(el)
       return range.getBoundingClientRect()
     }
+    const root = document.querySelector(section)!
+    const margin = root.querySelector('.en-margin')
+    const marginBox = margin?.getBoundingClientRect()
+    const mid = (r: DOMRect) => (r.top + r.bottom) / 2
     return {
       dark: document.documentElement.classList.contains('dark'),
+      rootPx: parseFloat(getComputedStyle(document.documentElement).fontSize),
       pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
-      rows: Array.from(document.querySelectorAll(`${section} li`))
+      marginWidth: marginBox?.width ?? null,
+      markers: Array.from(root.querySelectorAll<HTMLElement>('[data-en-ref]')).map((el) => ({ label: el.textContent, mid: mid(el.getBoundingClientRect()) })),
+      twins: Array.from(root.querySelectorAll<HTMLElement>('.en-margin-mark')).map((el) => {
+        const r = textBox(el)
+        return {
+          label: el.textContent,
+          mid: mid(el.getBoundingClientRect()),
+          top: r.top,
+          bottom: r.bottom,
+          inMargin: !!marginBox && r.left >= marginBox.left - 0.5 && r.right <= marginBox.right + 0.5,
+        }
+      }),
+      rows: Array.from(root.querySelectorAll('li'))
         .filter((li) => li.querySelector('h3'))
         .map((li) => {
           const row = li.getBoundingClientRect()
@@ -77,11 +112,15 @@ const measure = (page: Page) =>
           }
           const h3 = li.querySelector('h3')!
           const quote = li.querySelector('blockquote')!
+          const style = getComputedStyle(quote)
           return {
             heading: h3.textContent ?? '',
             headingInside: inside(h3),
             quoteInside: inside(quote),
-            quotePx: getComputedStyle(quote).fontSize,
+            marked: quote.classList.contains('en-marked'),
+            quotePx: parseFloat(style.fontSize),
+            quoteFace: style.fontFamily,
+            quoteTint: style.backgroundColor,
           }
         }),
     }
@@ -97,18 +136,54 @@ for (const viewport of VIEWPORTS) {
     test.use({ viewport })
 
     for (const theme of ['light', 'dark'] as const) {
-      test(`${theme}: heading and excerpt inside the row and the page, the excerpt at 14px`, async ({ page, baseURL }) => {
-        await openRisks(page, baseURL!, theme)
-        const m = await measure(page)
-        expect(m.dark).toBe(theme === 'dark')
-        expect(m.rows).toHaveLength(RISKS.length)
-        for (const row of m.rows) {
-          expect.soft(row.headingInside, `heading inside: ${row.heading}`).toEqual({ row: true, page: true })
-          expect.soft(row.quoteInside, `excerpt inside: ${row.heading}`).toEqual({ row: true, page: true })
-          expect.soft(row.quotePx).toBe('14px')
-        }
-        expect.soft(m.pageOverflow, 'page scrolls sideways').toBeLessThanOrEqual(0)
-      })
+      for (const text of ['default', '200%'] as const) {
+        test(`${theme}, ${text} text: the rows inside the page, a marked block per located excerpt, each marker's twin on its line`, async ({ page, baseURL }) => {
+          await openRisks(page, baseURL!, theme)
+          if (text === '200%') await doubleText(page)
+          // The margin re-measures after layout settles (fonts, the text setting): wait for every twin to reach its marker.
+          await expect
+            .poll(async () => {
+              const { markers, twins } = await measure(page)
+              return markers.length === RISKS.length && twins.length === markers.length && markers.every((m, i) => Math.abs(twins[i].mid - m.mid) <= 1)
+            }, { message: 'each twin settles on its marker' })
+            .toBe(true)
+          const m = await measure(page)
+          expect(m.dark).toBe(theme === 'dark')
+          expect(m.rootPx).toBe(text === '200%' ? 32 : 16)
+          expect(m.rows).toHaveLength(RISKS.length)
+          for (const row of m.rows) {
+            expect.soft(row.headingInside, `heading inside: ${row.heading}`).toEqual({ row: true, page: true })
+            expect.soft(row.quoteInside, `excerpt inside: ${row.heading}`).toEqual({ row: true, page: true })
+            // A located excerpt is a marked block in the filing's face, at 1rem, on the device's tint.
+            expect.soft(row.marked, `marked block: ${row.heading}`).toBe(true)
+            expect.soft(row.quotePx).toBe(m.rootPx)
+            expect.soft(row.quoteFace).toMatch(/Newsreader/)
+            expect.soft(row.quoteTint).toBe(theme === 'dark' ? 'rgba(127, 178, 149, 0.14)' : 'rgb(236, 242, 238)')
+          }
+          // One marker per located row, numbered in reading order, each with its twin on its line in the margin.
+          expect(m.markers.map((marker) => marker.label)).toEqual(RISKS.map((_, i) => `[${i + 1}]`))
+          expect(m.twins.map((twin) => twin.label)).toEqual(m.markers.map((marker) => marker.label))
+          m.markers.forEach((marker, i) => expect.soft(Math.abs(m.twins[i].mid - marker.mid), `${marker.label} twin on its line`).toBeLessThanOrEqual(1))
+          expect.soft(m.twins.every((twin) => twin.inMargin), 'every twin inside the margin').toBe(true)
+          for (let i = 1; i < m.twins.length; i += 1) {
+            expect.soft(m.twins[i].top, `${m.twins[i].label} clear of ${m.twins[i - 1].label}`).toBeGreaterThanOrEqual(m.twins[i - 1].bottom)
+          }
+          // The margin holds: 2.25rem on a phone, 2.75rem from sm, whatever the text size.
+          expect.soft(m.marginWidth).toBeCloseTo((viewport.width >= 640 ? 2.75 : 2.25) * m.rootPx, 0)
+          expect.soft(m.pageOverflow, 'page scrolls sideways').toBeLessThanOrEqual(0)
+
+          // The marker, the twin and the excerpt's ink on the marked block's tint: text-floors' 4.5:1, measured on the
+          // ground each one is painted over.
+          const section = page.locator(SECTION)
+          for (const [name, locator] of [
+            ['marker', section.locator('[data-en-ref]').first()],
+            ['twin', section.locator('.en-margin-mark').first()],
+            ['excerpt', section.locator('blockquote.en-marked').first()],
+          ] as const) {
+            expect.soft(await textContrast(locator), `${name} contrast`).toBeGreaterThanOrEqual(4.5)
+          }
+        })
+      }
     }
   })
 }

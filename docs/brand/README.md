@@ -47,8 +47,8 @@ FY2024, verified against SEC XBRL.
 - `frontend/app/globals.css`: the "Brand device" block: `.en-mark` (the highlight), `.en-marked`
   (the marked block), `.en-margin` (the gutter) and `.en-margin-mark` (the bracket twin), each
   with its dark pair.
-- `frontend/features/marketing/components/MarkedCopy.tsx`: the component that measures the
-  markers and places their twins (`EnRef` renders a marker).
+- `frontend/components/ui/MarkedCopy.tsx`: the component that measures the markers and places
+  their twins (`EnRef` renders a marker), on the landing page and the filing page's Risks (D-044).
 
 ## Templates
 

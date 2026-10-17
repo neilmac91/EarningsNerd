@@ -66,6 +66,10 @@ product located in a filing (the hero example's evidence row, the social card's 
 quotation marks, never for a headline, a tagline, an aside or a claim of ours. The italic "Nerd"
 in the wordmark is Inter, and stays the brand's only typographic flourish.
 
+Inside the product Newsreader sets the filing reader and the excerpts the server located, each in
+its marked block: the filing page's Risks rows (D-044). A summary, an answer, a heading or a label
+of ours never takes it (`frontend/tests/unit/designSystemDoneGate.spec.ts` names the surfaces).
+
 ## 3. Spacing, radius, elevation
 
 As they stand: Tailwind's base scale with the 18, 52, 72 px and 24 px gutter additions; radii
@@ -111,7 +115,7 @@ bracketed marks (`[F1]`, `[1]`) in the data face at 11 px, `brand-strong` ink, e
 the line of the marker it twins (`.en-margin`, `.en-margin-mark`). The twin is decorative
 (`aria-hidden`). The in-text marker is the product's own citation marker and the accessible one:
 the data face, semibold, in brackets, at the provenance chip's 12 px (`EnRef` in
-`frontend/features/marketing/components/MarkedCopy.tsx`).
+`frontend/components/ui/MarkedCopy.tsx`).
 
 Rules:
 
@@ -120,15 +124,25 @@ Rules:
   it is 12 mm on A4 and 6 mm on a card. The in-text marker is never smaller than the provenance
   chip (12 px); its twin is 11 px, the one sub-12 px text beside copy, because it repeats a marker
   the reader already has; 7 pt in print. The gutter and its twins show at every width.
-- **Placement.** The mark goes under one phrase per surface (the hero's accent phrase, the social
-  card's promise) or beside one located passage; the margin goes on the left of a marked copy
-  surface only. Never both marks on a headline, never a mark on a figure (sage never colours a
-  number: the Separate Signals Rule), never a margin without at least one marker in the text.
+- **Placement.** The mark goes under one phrase of ours per surface (the hero's accent phrase, the
+  social card's promise) or beside a located passage; the margin goes on the left of a marked copy
+  surface only. On a public page that is one passage. Inside the product the device marks every
+  passage the server located, because there it is literal (D-044): the filing page's Risks section
+  is a marked copy (a marker on each located row's heading, its twin in the margin, the excerpt a
+  marked block; a row not located keeps the plain quotation and no marker), and the Source pane
+  paints the passage it locates with the mark's tint and its 2 px hairline. One marker per row, so
+  the twins never overprint; the one-highlight limit stays for a phrase of ours. Ask this Filing's
+  answers and the Multi-Period narrative keep their citation chips: a cited line carries several
+  markers, and their twins would overprint. Never both marks on a headline, never a mark on a figure
+  (sage never colours a number: the Separate Signals Rule), never a margin without at least one
+  marker in the text. `frontend/tests/unit/brandCopyRules.spec.ts` rule 3 holds the places.
 - **Colour.** Light: tint `#ECF2EE`, hairline `#CFE0D6`, bar `#4F7A63`, marks `#3C6650`. Dark: tint
   `rgba(127,178,149,0.14)`, hairline `rgba(127,178,149,0.28)`, bar `#7FB295`, marks `#98C5AD`. The
   tint is a surface, never a fill for text; measured, the hairline reads 1.24:1 on cream and the
   tint 1.02:1, which is the point: the device is quiet, and the ink on it (15.4:1 light, 10.7:1
-  dark) carries the words.
+  dark) carries the words. The words on the tint are the primary ink: in the Source pane the
+  reader's secondary ink would be 4.49:1 on the dark tint over the slate panel, so the located
+  passage takes the primary ink there (8.1:1).
 - **Meaning.** A mark means "located in the filing" and a bracket means "cited". A highlight on a
   phrase we wrote is allowed once per surface, as the brand's signature; it is never put on an
   unverified claim, a number, a price or a competitor's name.
@@ -137,6 +151,10 @@ Rules:
   breaks per line, so keep the phrase short); no mark on a photograph; no scaling the hairline with
   the type.
 
-Specification in code: `frontend/app/globals.css` ("Brand device"), consumed by
-`frontend/features/marketing/components/*` on the landing page, `frontend/scripts/brand/og-template.html`
-on the social card, and the templates under [templates/](templates/).
+Specification in code: `frontend/app/globals.css` ("Brand device") and
+`frontend/components/ui/MarkedCopy.tsx` (the margin and the marker), consumed by
+`frontend/features/marketing/components/*` on the landing page,
+`frontend/features/summaries/components/SummaryRisks.tsx` and the Source pane's highlight
+(`frontend/features/filings/components/copilot/highlightInDom.ts`) on the filing page,
+`frontend/scripts/brand/og-template.html` on the social card, and the templates under
+[templates/](templates/).

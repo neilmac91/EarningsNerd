@@ -227,7 +227,15 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   is a visible "Ratio source:" line (`PerAdsNote.tsx`). The actions bar reads "Save summary", and a
   stored summary that did not finish offers neither it nor an export, only "Copy filing link"
   (`SummaryActionsBar.tsx`). SourceTrace's "Open in SEC EDGAR" link and its sheet's close button, and
-  the actions bar's manual-copy link, carry the brand focus ring.
+  the actions bar's manual-copy link, carry the brand focus ring. The Risks section is a marked copy
+  (D-044, `SummaryRisks.tsx`): a row whose excerpt the server located carries a bracketed marker on
+  its heading, the marker's twin sits in the margin on its line, and the excerpt is a marked block in
+  the filing's face; a row not located keeps the plain quotation and no marker. The Source pane paints
+  the passage it locates in the mark's tint and its 2 px hairline, the passage in the primary ink
+  (`highlightInDom.ts`). Ask's answers and the Multi-Period narrative keep their chips. Gates:
+  `brandCopyRules.spec.ts` rule 3 (the device's places, located rows only, one marker per row, its
+  planted forms), `designSystemDoneGate.spec.ts` (Newsreader's surfaces), `highlightInDom.spec.ts`,
+  `tests/e2e/risk-evidence-rows.spec.ts` and `tests/e2e/copilot-highlight-css.spec.ts`.
 - **Ticker route** (`frontend/features/filings/components/TickerFilingsView.tsx`, the /filing/AAPL
   picker): a load failure reads "Filings unavailable" with a Retry held through its refetch; a 404 is
   "Company not found", read from the held error so a refetch cannot flip it; a first load paused
