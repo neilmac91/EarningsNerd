@@ -220,3 +220,32 @@ stored in `filing_content_cache` (E28 (b)) or preparation under load (E77).
 and tests, and this PR's own bootstrap test goes. Main's tests still catch the M11 mutation: on the merge, dropping
 `EDGAR_CACHE_DIR` from `copilot_bootstrap.py` fails 2 of `test_copilot_bootstrap.py`'s tests. `PREREGISTRATION.md`'s
 addendum 2 says how the merge head's own draw counts.
+
+## The merge head's draw (pre-registered, addendum 2): run 38947512898, valid, 18 of 18
+
+[Run 38947512898](https://github.com/neilmac91/EarningsNerd/actions/runs/38947512898) drew on `06d3f9cd`, the head
+that merged as `dd31aa1b`. The draw gate logged "No earlier draw on 06d3f9cdef8c: this run draws." Every addendum 2
+condition held:
+- `preparation.json`: status `complete`, `USE_EDGARTOOLS_SECTIONS` true, edgartools `5.58.0`;
+- all 18 first generations hashed to `c221b7e3c5c2`, and no row took a retry;
+- all six sources were byte-identical to draw 2's, so the merge with #1347 moved no source.
+
+`accepted: true`: 18 of 18 scored and passed, zero errors. Each question passed on its first generation. Classified with
+`classify_corpus.py`:
+
+| Question | First generations citing filing text | Excerpts (all verified) |
+| --- | --- | --- |
+| AAPL, TSLA, MSFT | 0 of 3 each | none |
+| BABA FY2025 | 2 of 3 | the whole income-statement `Revenue` row, copied with its blank cells, both times |
+| BABA FY2026 | 1 of 3 | the whole `Consolidated revenue` row; run 2 also declared it, verified but unreferenced |
+| ASML | 0 of 3 | none |
+
+This is the first draw in which BABA FY2025's first generation cited table text under addendum 1. Both citations were
+the whole row as the text shows it, and both verified. Across draws 2 and 3, addendum 1 failed that first generation
+0 of 6, against 7 of 9 under #1111's prompt on the same source.
+
+The merge head's eval-baseline, read under B1, was `PASS — no hard regressions (1 warning(s))`. Its note read
+"native-section excerpts 62 of 64 eligible attempts (unavailable=0); non-native: ASML 20-F x2". The warning is the
+absolute advisory on untraceable dollar figures. Cost, off-peak: the draw USD 0.007023 across 35 calls, the
+eval-baseline USD 0.176975 across 70 calls. The measurement's total is USD 1.526343 plus one errored call, against the
+USD 2.25 ceiling.

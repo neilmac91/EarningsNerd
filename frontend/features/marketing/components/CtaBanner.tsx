@@ -17,7 +17,10 @@ export default function CtaBanner({ accessMode }: { accessMode: AccessMode }) {
     <section aria-labelledby="cta-h" className="border-t border-border-light py-20 dark:border-white/10 sm:py-24">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <SectionImpression section="cta_banner">
-          <Card elevation="e3" radius="2xl" className="grid grid-cols-1 items-center gap-8 p-8 sm:p-12 md:grid-cols-2 lg:p-14">
+          {/* Two columns from md at the reader's text size (48rem: 768px at the default size, 1536px under a 200%
+              text setting): md's 768px split the card at 200% text, and the one-line "See a live example" ran past
+              its half and the page to 886px (tests/e2e/reflow-200.spec.ts). */}
+          <Card elevation="e3" radius="2xl" className="grid grid-cols-1 items-center gap-8 p-8 sm:p-12 [@media(min-width:48rem)]:grid-cols-2 lg:p-14">
             <div>
               <h2 id="cta-h" className="text-3xl lg:text-4xl">
                 Start with a real filing.

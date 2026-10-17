@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPathMatch } from 'next/dist/shared/lib/router/utils/path-match'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -12,29 +13,81 @@ import { describe, expect, it } from 'vitest'
  * address, a sent message keeps those addresses for as long as it is kept, and nobody can edit it
  * after sending, so renaming, moving, removing or replacing one of these files, or redirecting or
  * rewriting its path, changes the image in every message already delivered and on any page that
- * links it. This list is the register of published paths: a change that puts a new asset path in
- * mail adds it here in the same PR. Each path must be its published file in frontend/public, byte
- * for byte (a new rendition takes a new name, so a changed file fails here until it does); lie outside
- * the middleware's matcher, so the middleware never runs on it and no branch of it, however it reads
- * the deployment, can move it; and be reached by no redirect or rewrite in next.config.js or
- * vercel.json, and no basePath, read in a production build's environment. The origin mail addresses
- * them on is review-checked, and so are the response headers a route or a headers rule sets on them (a
- * Content-Type that stops a mail client showing the image) and anything set only in the Vercel
- * dashboard (a variable a rule reads, or a redirect).
+ * links it. The register of published paths is publishedAssetUrls.json, beside this spec: the origin
+ * mail addresses them on, and each path with the sha256 of its published file and what it is published
+ * for. A change that puts a new path in mail adds it there in the same PR. Two backend gates read the
+ * same file and fail until it does, each within the limits its header names: one renders the mail
+ * email_service.py builds and reads its addresses as they are sent
+ * (backend/tests/unit/test_mail_rendered_addresses.py), and one reads the code
+ * (backend/tests/unit/test_mail_published_assets.py). A path never leaves the register: its paths are the
+ * list written in this spec, so a path joins both in the same change and neither may drop it. Each
+ * path must be its published file in frontend/public, byte for byte (a new rendition takes a new name,
+ * so a changed file fails here until it does); lie outside the middleware's matcher, so the middleware
+ * never runs on it and no branch of it, however it reads the deployment, can move it; and be reached by
+ * no redirect or rewrite in next.config.js or vercel.json, and no basePath, read in a production
+ * build's environment. FRONTEND_URL's default is held to the register's origin by the backend gate;
+ * whether that origin answers without a redirect is review-checked, and so are the response headers a
+ * route or a headers rule sets on these paths (a Content-Type that stops a mail client showing the
+ * image) and anything set only in the Vercel dashboard (a variable a rule reads, or a redirect).
  */
-const PUBLISHED = [
-  // The app tile in the transactional mail header (docs/brand/templates/email-header.html) once
-  // its port into backend/app/services/email_service.py ships.
-  { url: '/assets/earningsnerd-appicon.png', sha256: '8b4018f64120e085a8267aa65b91d9862f044a65e19a884760872f522d695761' },
-  // The bare sage mark's raster, the Excel export's bytes: first offered as the mail header's mark,
-  // kept at its URL since the header took the tile (D-035), though no mail references it.
-  { url: '/assets/earningsnerd-mark-sage.png', sha256: '0556990f3e0484b4690891d39c1d9565a3a5513d1593a4df17327ab302d4691d' },
-]
+type Register = { origin: string; paths: { url: string; sha256: string; use: string }[] }
+const REGISTER = JSON.parse(
+  readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'publishedAssetUrls.json'), 'utf8'),
+) as Register
+const PUBLISHED = REGISTER.paths
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+
+// The URLs a layout's exported metadata object gives metadataBase, read as the compiler reads the file: a line
+// in a comment sets none, nor does another object's metadataBase; one that is no literal URL reads as '', and so
+// does each other way the value may be set: a spread in the object, a key the reader cannot read, a getter, a
+// method or a shorthand, and each mention of the metadata object outside its declaration (an assignment to a key
+// of its, Object.assign onto it, an alias, a function it is handed to), which may change it.
+function metadataBases(source: string): string[] {
+  const sf = ts.createSourceFile('layout.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const bases: string[] = []
+  for (const statement of sf.statements) {
+    if (!ts.isVariableStatement(statement) || !statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue
+    for (const declaration of statement.declarationList.declarations) {
+      let value = declaration.initializer
+      while (value && (ts.isSatisfiesExpression(value) || ts.isAsExpression(value) || ts.isParenthesizedExpression(value))) value = value.expression
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== 'metadata' || !value || !ts.isObjectLiteralExpression(value)) continue
+      for (const property of value.properties) {
+        if (ts.isSpreadAssignment(property)) {
+          bases.push('')
+          continue
+        }
+        // A computed key names one only as a literal: another may be metadataBase.
+        const key = ts.isComputedPropertyName(property.name) ? property.name.expression : property.name
+        const name = ts.isStringLiteralLike(key) || ts.isNumericLiteral(key) || (ts.isIdentifier(key) && key === property.name) ? key.text : undefined
+        if (name === undefined) {
+          bases.push('')
+          continue
+        }
+        if (name !== 'metadataBase') continue
+        if (!ts.isPropertyAssignment(property)) {
+          bases.push('')
+          continue
+        }
+        const init = property.initializer
+        const literal = ts.isNewExpression(init) && init.expression.getText(sf) === 'URL' && init.arguments?.length === 1 ? init.arguments[0] : undefined
+        bases.push(literal && ts.isStringLiteralLike(literal) ? literal.text : '')
+      }
+    }
+  }
+  // A key named metadata, and a declaration's own name, are no mention of the object.
+  const mentions = (node: ts.Node): void => {
+    const up = node.parent
+    const named = (ts.isPropertyAccessExpression(up) || ts.isPropertyAssignment(up) || ts.isVariableDeclaration(up)) && up.name === node
+    if (ts.isIdentifier(node) && node.text === 'metadata' && !named) bases.push('')
+    ts.forEachChild(node, mentions)
+  }
+  ts.forEachChild(sf, mentions)
+  return bases
+}
 const PUBLIC = path.join(FRONTEND, 'public')
-// The origin mail addresses the published paths on (LOGO_README.md › Rules).
-const MAIL_HOST = 'www.earningsnerd.io'
+// The origin mail addresses the published paths on (LOGO_README.md › Rules), as the register names it.
+const MAIL_HOST = new URL(REGISTER.origin).host
 // The Vercel project's production domains (docs/LAUNCH_CHECKLIST.md › DNS / redirect config): the apex,
 // which redirects to www, and www.
 const PRODUCTION_HOSTS = ['earningsnerd.io', MAIL_HOST]
@@ -265,6 +318,84 @@ function reaches(rule: Route, url: string): boolean {
   if (rule.src !== undefined) return legacyRouteRegex(rule.src).test(url)
   return false
 }
+
+describe('the register', () => {
+  // The backend gate reads the same values, so their shape is pinned here once for both.
+  it('names a bare https origin and each path once, with its sha256 and its use', () => {
+    const origin = new URL(REGISTER.origin)
+    expect(`${origin.protocol}//${origin.host}`, 'the origin is a bare https origin: no path, no trailing slash').toBe(REGISTER.origin)
+    expect(origin.protocol).toBe('https:')
+    const urls = PUBLISHED.map((p) => p.url)
+    expect(urls.length, 'the register lists the published paths').toBeGreaterThan(0)
+    expect(new Set(urls).size, 'each path is registered once').toBe(urls.length)
+    for (const { url, sha256, use } of PUBLISHED) {
+      expect(url, `${url}: a path, with no query or fragment`).toMatch(/^\/[^?#\s]+$/)
+      expect(sha256, `${url}: its published file's sha256, in hex`).toMatch(/^[0-9a-f]{64}$/)
+      expect(use.trim(), `${url}: say what it is published for`).not.toBe('')
+    }
+  })
+
+  // Written out here, not read from the register, and the register's paths are exactly this list: a path
+  // that joins the register joins the list in the same change, and dropping it from either fails.
+  it('keeps every path published so far', () => {
+    const urls = PUBLISHED.map((p) => p.url)
+    const published = ['/assets/earningsnerd-appicon.png', '/assets/earningsnerd-mark-sage.png']
+    for (const url of published) {
+      expect(urls, `${url} ${KEPT}: a path never leaves the register`).toContain(url)
+    }
+    expect([...urls].sort(), 'a path that joins the register is written into this list in the same change').toEqual([...published].sort())
+  })
+
+  it("names the site's canonical origin, the root layout's metadataBase", () => {
+    const bases = metadataBases(readFileSync(path.join(FRONTEND, 'app', 'layout.tsx'), 'utf8'))
+    expect(
+      bases.length === 1 && bases[0] !== '',
+      `app/layout.tsx names one metadataBase, as a literal URL, and mentions its metadata nowhere else ('' is a way the check cannot read): ${JSON.stringify(bases)}`,
+    ).toBe(true)
+    expect(REGISTER.origin, 'mail addresses the published paths on the canonical origin').toBe(new URL(bases[0]).origin)
+  })
+
+  // Each way a layout can name its metadataBase, and the look-alikes that name none (as [] or ''), scored on
+  // every run so the reader stays as wide as the check above needs.
+  const LAYOUTS: Array<[string, string, string[]]> = [
+    ['a literal URL in the exported metadata', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a quoted key', "export const metadata: Metadata = {\n  'metadataBase': new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['the metadata under a satisfies clause', "export const metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n} satisfies Metadata", ['https://www.earningsnerd.io']],
+    ['a line in a comment above the literal', "export const metadata: Metadata = {\n  // metadataBase: new URL('https://earningsnerd.io'),\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ["another object's metadataBase", "const preview = { metadataBase: new URL('https://earningsnerd.io') }\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a metadata the module does not export', "const metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", []],
+    ["another exported object's metadataBase", "export const preview = { metadataBase: new URL('https://earningsnerd.io') }\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a URL held in a name, which the check does not resolve', "export const metadata: Metadata = {\n  metadataBase: new URL(SITE),\n}", ['']],
+    ['a metadataBase given as a string', "export const metadata: Metadata = {\n  metadataBase: 'https://www.earningsnerd.io',\n}", ['']],
+    ['the metadata cast with as', "export const metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n} as Metadata", ['https://www.earningsnerd.io']],
+    ['the metadata in brackets', "export const metadata: Metadata = ({\n  metadataBase: new URL('https://www.earningsnerd.io'),\n})", ['https://www.earningsnerd.io']],
+    ['a spread after the literal, which may set metadataBase again', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n  ...preview,\n}", ['https://www.earningsnerd.io', '']],
+    ['a later assignment to metadataBase', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nmetadata.metadataBase = new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io', '']],
+    ['a later assignment through a key the reader cannot read', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nmetadata[key] = new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io', '']],
+    ['Object.assign onto the metadata', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nObject.assign(metadata, preview)", ['https://www.earningsnerd.io', '']],
+    ['a metadataBase a getter gives', "export const metadata: Metadata = {\n  get metadataBase() {\n    return new URL('https://www.earningsnerd.io')\n  },\n}", ['']],
+    ['a shorthand metadataBase', "const metadataBase = new URL('https://www.earningsnerd.io')\nexport const metadata: Metadata = { metadataBase }", ['']],
+    ["an assignment to another object's metadataBase", "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\npreview.metadataBase = new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io']],
+    ['a computed key the reader cannot read', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n  [KEY]: new URL('https://earningsnerd.io'),\n}", ['https://www.earningsnerd.io', '']],
+    ['a computed key spelled as a string', "export const metadata: Metadata = {\n  ['metadataBase']: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a later compound assignment to metadataBase', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nmetadata.metadataBase ??= new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io', '']],
+    ['an alias of the metadata, through which metadataBase is set', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nconst m = metadata\nm.metadataBase = new URL('https://earningsnerd.io')", ['https://www.earningsnerd.io', '']],
+    ['Object.defineProperty onto the metadata', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nObject.defineProperty(metadata, 'metadataBase', { value: new URL('https://earningsnerd.io') })", ['https://www.earningsnerd.io', '']],
+    ['the metadata handed to a function', "export const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\ndecorate(metadata)", ['https://www.earningsnerd.io', '']],
+    ['a key named metadata on another object, which is no mention', "export const config = { metadata: true }\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}\nconfig.metadata = false", ['https://www.earningsnerd.io']],
+    ['a numeric key beside metadataBase, which names another property', "export const metadata: Metadata = {\n  0: 'x',\n  metadataBase: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+    ['a computed key in a template with no fields', "export const metadata: Metadata = {\n  [`metadataBase`]: new URL('https://www.earningsnerd.io'),\n}", ['https://www.earningsnerd.io']],
+  ]
+  for (const [what, source, expected] of LAYOUTS) {
+    it(`reads a planted layout's metadataBase: ${what}`, () => {
+      expect(metadataBases(source)).toEqual(expected)
+    })
+  }
+  it('keeps every planted layout, each with a name of its own', () => {
+    expect(LAYOUTS.length, 'a planted layout leaves this list only with its count').toBe(27)
+    expect(new Set(LAYOUTS.map(([what]) => what)).size, 'each planted layout has a name of its own').toBe(LAYOUTS.length)
+  })
+})
 
 describe('published asset URLs', () => {
   for (const { url, sha256 } of PUBLISHED) {

@@ -55,6 +55,14 @@ colour class on a `-dark` token with no `dark:` variant paints the dark theme's 
 (a stylesheet block whose every selector names `.dark` is the dark theme's), except on a surface dark in
 both themes on purpose, listed in its own residue (the logos' forced-dark mode, the debug payload panel).
 
+- **A state's colour pairs too, and a bare one is not harmless.** The brand tint's states take the dark
+  tokens the §1 table pairs with them: a hover hairline `hover:border-brand-border
+  dark:hover:border-brand-border-dark`, an outline `ring-brand-border dark:ring-brand-border-dark`, the
+  interactive Card's pressed fill `active:bg-brand-weak/60 dark:active:bg-brand-weak-dark`. Tailwind writes a
+  `dark:` class at the same specificity as a `hover:` or `active:` one and later in the sheet, so where the
+  element sets its resting colour under `dark:`, a bare light state colour loses to it and dark shows no hover
+  or pressed change at all; where it sets none, as a ring, the light colour paints on navy (the Copilot's user
+  bubble drew `#CFE0D6` on the panel at 10.7:1, where light's ring sits at 1.3:1).
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
@@ -231,8 +239,9 @@ Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 an
                  where the narrow state cannot see it (tests/unit/buttonHeightIsAMinimum.spec.ts holds
                  both). A `whitespace-normal` className still loses to the base `whitespace-nowrap`
                  above 24rem (stylesheet order): use `wrap`.
-                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at the default),
-                 tests/unit/button-wrap.spec.tsx (the narrow state keeps a caller's min-h and py).
+                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at both; a 768px
+                 and an 834px tablet at 200%), tests/unit/button-wrap.spec.tsx (the narrow state keeps a
+                 caller's min-h and py).
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
@@ -518,10 +527,14 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
                  tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
-                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` keeps
-                 its warning tint and pulse for now; the design owner chose the brand tint (bg-brand-weak
-                 text-brand-strong, dark pair) with a sage pulse dot, static under reduced motion, which
-                 lands as its own token change (D-032), so no other colour goes on it meanwhile.
+                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
+                 own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
+                 dot in that sage ink, static under reduced motion (D-032): a new filing is news, not a
+                 caution. Its label holds 5.8:1 in light and 5.9:1 on the dark card (6.1:1 pressed); its one
+                 use, the dashboard's What changed "New", strips the dot. Gates: tests/unit/badgeVariants.spec.tsx
+                 (its classes equal brand's, the dot in its ink, the label on the interactive Card at rest and
+                 pressed in both themes) and tests/unit/designSnapshotParity.spec.ts (DESIGN.md's badge-new
+                 paints what the variant paints).
 
 Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
                  <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
@@ -751,13 +764,27 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  role="group" named by its title and described by its message (an async failure is also
                  announced with role="alert") — on z-overlay, behind a transparent catcher so
                  an outside press closes only the popover; the panel is the Card recipe (dark:shadow-none).
-                 Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
-                 once per open, callbacks through a ref); Escape closes in window capture with preventDefault
-                 (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /
-                 Shift+Tab before the first close it and resume the page's order at the trigger; a scroll that
-                 moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
-                 scrolling behind a fixed dialog does not move it); every close returns focus to
-                 the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
+                 Placed where it fits, from its measured height, never an assumed one: 18.75rem wide (300px
+                 at the default text size) within 12px of the visible viewport (window.visualViewport: on a
+                 phone whose page is wider than the screen, Chromium widens the layout viewport and
+                 window.inner* to the page), below its trigger, above it when only that side holds it
+                 whole (capped at its own height, so text that grows scrolls rather than reach over the
+                 trigger), otherwise on the roomier side with its height capped there, scrolling inside
+                 (overflow-y-auto, scroll-py-4); a trigger out of view leaves it inside the area too. When
+                 neither side offers 6rem of the reader's text (96px at the default size; a landscape phone
+                 at large text, or with the keyboard up), it spans the visible height over its trigger and
+                 scrolls inside, the one placement that covers the trigger: a side that short would show
+                 little more than the panel's padding. Gate: placeBellPopover's cases and the rendered
+                 placement and width cases in BellPopover.spec.tsx (the width read at a 16px and a 32px root).
+                 Keyboard: focus moves to the first action, without scrolling the page (a capped panel
+                 scrolls itself to show that action and its ring), unless the user already moved it
+                 elsewhere (armed once per open, callbacks through a ref); Escape closes in window capture
+                 with preventDefault (stopPropagation alone still closes a native <dialog> beneath); Tab
+                 past the last action / Shift+Tab before the first close it and resume the page's order at
+                 the trigger; a scroll that moves the trigger, or a resize, closes it (fixed at its rect,
+                 it would detach; the page scrolling behind a fixed dialog does not move it); every close
+                 returns focus to the trigger unless the user moved on. While a native <dialog> is open, it
+                 portals into it.
                  The evidence popovers (SourceTrace's "Source detail", CitationChip's citation card) are the
                  hover/focus variant of this contract: they open on hover or focus, so focus stays on the chip
                  until the user asks for more, and the same hand-off applies from there — Tab on the open chip
@@ -796,6 +823,19 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  or `scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)]`, never a fixed `top-16`, so a bar that
                  wraps under enlarged text covers nothing. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts
                  and tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text).
+                 The open mobile menu scrolls inside the viewport: the header is a column no taller than it
+                 (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
+                 with auto side margins is not stretched) and the menu panel takes the rest
+                 (`overflow-y-auto overscroll-contain`, its scroll padding the nav's inset, as the Modal
+                 panel's). The cap is the bar's own height, never `--site-header-h`, which counts the open
+                 menu. A sticky header taller than the viewport stays stuck to its top until the page's end,
+                 so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
+                 landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
+                 a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
+                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
+                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
+                 top-left place, which `w-full` holds.
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1212,6 +1252,19 @@ ground; copy the reader must read stays secondary, including the point-of-use AI
 `tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
 rendered ground.
 
+**Reflow at 200% text.** The pricing section's billing toggle (a radio group, not the
+SegmentedControl) wraps its two segments whole onto a second row inside its one shell when they do not
+fit side by side, each filling its row (`grow`), at `min-h-9` rather than a fixed height; no-break
+spaces hold "Annual ·" and "save 20%", so the label breaks only after its middot. At 360px and 200%
+text the unwrapped group took the page to 368px, its Annual label on three lines below its segment.
+The final CTA card and the site footer open their columns at md at the reader's text size,
+`[@media(min-width:48rem)]:` (768px at the default size, 1536px under a 200% text setting), not `md:`:
+their columns hold a one-line button and words that cannot break, and at md's 768px under 200% text
+the footer took every route to 812px and the card took / to 886px. The auth shell's lockup yields to
+the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
+at 360 and 390px, every line but the last ending at the middot; a 768px and an 834px tablet over its route
+loop).
+
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
 `.en-mark` (a phrase highlight: pale sage tint from 62% of the line box, a 2px `brand-border`
@@ -1234,6 +1287,12 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
   light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
   the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
 - Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`.
+  The auth shell's lockup (the 2rem mark and the text-lg wordmark, about 10rem, 1.5rem in) yields to the mark alone
+  below a 12rem viewport (384px under a 200% text setting, never at the default size), where it and its
+  clear space no longer fit; its link keeps the site header logo's name, `aria-label="EarningsNerd home"`,
+  with the wordmark `display: none` (sr-only text still lays out past the link, which the bar's checks
+  read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
+  200%, the bar's edge in the logo's clear space).
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
   see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
 

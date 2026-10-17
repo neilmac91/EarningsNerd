@@ -170,6 +170,7 @@ frontend/
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
 | `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; a failed reconciliation read rolls back the event, a failed serving-Price read reports `unavailable` |
 | `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
+| `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the commit of a new Stripe customer id before checkout; the subscriptions router owns Stripe calls and HTTP responses |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
@@ -284,7 +285,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | `saved_summaries.py` / `contact.py` / `feedback.py` / `email.py` | `/api/...` | saved items, forms (rate-limited + Turnstile), email mgmt |
 | `webhooks.py` | `/api` | Resend webhook (`POST /api/webhooks/resend`, Svix-verified) |
 | `admin.py` | `/api/admin` | admin surface (see docs/OPERATIONS.md) |
-| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, backfill-facts, sync-companyfacts, precompute, notable-filings-scan |
+| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, retention-purge, earnings-calendar-refresh, earnings-day-alerts, backfill-facts, notable-filings-scan, sync-companyfacts, backfill-filing-history, precompute; with `DURABLE_TASKS_ENABLED` each is queued to `services/internal_task_runner.py`, otherwise it runs as a background task after the 202, and one that uses the database opens its own session (`services/job_sessions.py`); a precompute `dry_run` answers synchronously |
 | `sitemap.py` | `/` | sitemap.xml |
 
 ## Frontend architecture
