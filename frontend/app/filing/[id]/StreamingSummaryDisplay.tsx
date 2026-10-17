@@ -25,7 +25,7 @@ import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from 
 import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
-import { TRIAL_DAYS } from '@/lib/planLimits'
+import { PRO_FAIR_USE_LINE, TRIAL_DAYS } from '@/lib/planLimits'
 import { useCountUp } from '@/hooks/useCountUp'
 import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { RetryButton } from '@/hooks/useRetainedFailure'
@@ -408,9 +408,13 @@ export default function StreamingSummaryDisplay({
           headingLevel="h2"
           headingRef={failureHeadingRef}
           description={
-            showTrial
-              ? `Your free summaries reset next month. Or go unlimited now with a ${TRIAL_DAYS}-day free trial of Pro: cancel anytime during the trial and you won’t be charged.`
-              : 'Your free summaries reset next month. Or go unlimited now with Pro.'
+            <>
+              {showTrial
+                ? `Your free summaries reset next month. Or go unlimited now with a ${TRIAL_DAYS}-day free trial of Pro: cancel anytime during the trial and you won’t be charged.`
+                : 'Your free summaries reset next month. Or go unlimited now with Pro.'}
+              {/* What "unlimited" holds, stated once app-wide (lib/planLimits.ts PRO_FAIR_USE_LINE, E58). */}
+              <span className="mt-2 block">{PRO_FAIR_USE_LINE}</span>
+            </>
           }
           action={
             <Link href={showTrial ? pricingHref('monthly') : '/pricing'} className={buttonVariants()}>

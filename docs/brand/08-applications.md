@@ -75,7 +75,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   everyone, invited or not. That invite-path Pro line is a founder claim, like the pricing pages'
   "Unlimited" line (the founder's review filed both under F32, later F41): this one is conditional on
   the server's promo config, and D-040 keeps "Unlimited" on the plan cards, with the fair-use guardrail
-  stated once after the series (E58). Every page link and button on these routes carries the brand
+  stated once, in the /pricing FAQ and the filing page's monthly-limit card (D-046). Every page link and button on these routes carries the brand
   focus ring.
 - **Pricing** (`frontend/app/pricing/page.tsx`): the free plan's call to action reads the
   registration mode (`features/marketing/api/access-api.ts`, the client twin of the server's
@@ -274,7 +274,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   companies you follow."), the limit banner states the account's own count and nothing about
   Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
   and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
-  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide, after the series, E58),
+  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide: `PRO_FAIR_USE_LINE` in
+  `frontend/lib/planLimits.ts`, built from `PRO_SUMMARY_MONTHLY_CAP` (the backend's `config.py` default), read by
+  the /pricing FAQ and the filing page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face.

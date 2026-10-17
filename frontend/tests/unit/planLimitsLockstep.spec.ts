@@ -10,7 +10,7 @@ import {
   FREE_SUMMARY_LIMIT,
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_COPILOT_QUESTIONS,
-  FREE_HISTORY_RETENTION_DAYS,
+  PRO_SUMMARY_MONTHLY_CAP,
   TRIAL_DAYS,
 } from '@/lib/planLimits'
 import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
@@ -103,9 +103,9 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     expect(FREE_EARNINGS_ALERT_LIMIT).toBe(backendConst('FREE_EARNINGS_ALERT_LIMIT'))
   })
 
-  it('mirrors the free Copilot taste and history retention', () => {
+  it('mirrors the free Copilot taste, and the Pro fair-use ceiling PRO_FAIR_USE_LINE states (E58)', () => {
     expect(FREE_COPILOT_QUESTIONS).toBe(freeEntitlementField('copilot_free_taste'))
-    expect(FREE_HISTORY_RETENTION_DAYS).toBe(freeEntitlementField('history_retention_days'))
+    expect(PRO_SUMMARY_MONTHLY_CAP).toBe(settingDefault('PRO_SUMMARY_MONTHLY_CAP'))
   })
 
   it('mirrors the waitlist REFERRAL_BONUS, which the referral sentence reads', () => {

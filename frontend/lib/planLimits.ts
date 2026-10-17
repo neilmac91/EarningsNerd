@@ -23,12 +23,24 @@ export const FREE_EARNINGS_ALERT_LIMIT = 3
 export const TRIAL_DAYS = 7
 
 /**
- * Two more free-tier facts the marketing pricing card states, mirrored from the same
- * `_FREE = Entitlements(...)` block (`copilot_free_taste`, `history_retention_days`). Same
- * lockstep spec keeps them honest.
+ * One more free-tier fact the marketing pricing card states, mirrored from the same
+ * `_FREE = Entitlements(...)` block (`copilot_free_taste`). Same lockstep spec keeps it honest.
+ * The block's `history_retention_days` has no mirror: nothing enforces it (entitlements.py calls it
+ * forward-looking), so no copy claims a summary history or its length while that holds (D-046;
+ * tests/unit/summaryPlanClaims.spec.ts).
  */
 export const FREE_COPILOT_QUESTIONS = 3
-export const FREE_HISTORY_RETENTION_DAYS = 90
+
+/**
+ * Pro's summary fair-use ceiling, mirrored from backend/app/config.py (PRO_SUMMARY_MONTHLY_CAP's default; the
+ * lockstep spec holds it). Pro's summaries are unlimited as a plan, and this guardrail bounds the summaries one
+ * account can generate in a month: the counter moves when a run the account started completes, and reading a
+ * summary moves nothing. It is stated once, in PRO_FAIR_USE_LINE, which the /pricing FAQ and the filing page's
+ * monthly-limit card read (E58, D-046), while the plan cards, the dashboard strip, BillingPanel, the upgrade
+ * dialog and the signup gate keep "Unlimited" (D-040).
+ */
+export const PRO_SUMMARY_MONTHLY_CAP = 300
+export const PRO_FAIR_USE_LINE = `Pro's unlimited summaries have a fair-use ceiling: an account can generate up to ${PRO_SUMMARY_MONTHLY_CAP} new summaries a month.`
 
 /**
  * Multi-Period Analysis period caps, mirrored from `backend/app/config.py` (ANALYSIS_MAX_ANNUAL_PERIODS,

@@ -7,6 +7,7 @@ import PricingSection from '@/features/marketing/components/PricingSection'
 import { queryKeys } from '@/lib/queryKeys'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
+import { PRO_FAIR_USE_LINE } from '@/lib/planLimits'
 
 const mockGetSubscriptionStatus = vi.fn<[], Promise<SubscriptionStatus>>()
 const mockGetUsage = vi.fn<[], Promise<Usage>>()
@@ -473,6 +474,15 @@ describe('PricingPage', () => {
     expect(screen.queryByRole('button', { name: /create a free account/i })).not.toBeInTheDocument()
     fireEvent.click(free)
     expect(mockPush).toHaveBeenCalledWith('/waitlist')
+  })
+
+  // E58 (D-046): the plan cards keep "Unlimited", and the FAQ says what bounds it, in the one sentence lib/planLimits.ts
+  // builds from the mirrored cap (summaryPlanClaims.spec.ts holds it to that one source).
+  it('the FAQ states the Pro fair-use ceiling in its one sentence', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    renderPricing()
+    const answer = await screen.findByText(PRO_FAIR_USE_LINE)
+    expect(answer.previousElementSibling).toHaveTextContent('Are Pro summaries unlimited?')
   })
 
   it('a confirmed guest keeps registration routing on both cards', async () => {
