@@ -459,7 +459,7 @@ describe('BellPopover placement', () => {
     document.body.appendChild(bell)
     try {
       render(<BellPopover blocked={{ kind: 'signin', ticker: 'AAPL', message: '', anchor, trigger: bell }} onClose={() => {}} />)
-      run(screen.getByRole('group', { name: 'Sign in to set earnings alerts' }))
+      run(screen.getByRole('group', { name: 'Log in to set earnings alerts' }))
     } finally {
       bell.remove()
       if (scroll) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', scroll)
