@@ -510,8 +510,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   whole, and a middot keeps to the fact before it, so no line starts with one; each fact, its label,
   its value and its middot, is one run, so a line breaks between facts, and inside one only when it
   alone is wider than the line; the error alert's
-  glyph keeps its size, its message a 12rem floor, and Retry ("Retrying…" while busy) wraps under it
-  inside the alert (`full-text-search.spec.tsx`).
+  glyph keeps its size, its message takes its column's whole width and breaks a long token, and
+  "Try again" ("Trying again…" while busy) sits on its own row under it, inside the alert
+  (`full-text-search.spec.tsx`).
 - **Multi-Period Analysis** (`frontend/features/analysis/*`, `frontend/app/analysis/page.tsx`): the
   fair-use cap is stated once, in the narrative card, with no plan link; "See plans" stays only beside
   the 403 "Pro feature" gate, and the page's three inline links (Sign in, See plans, Terms) carry the
