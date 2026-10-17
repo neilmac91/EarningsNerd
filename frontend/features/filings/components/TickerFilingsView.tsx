@@ -103,9 +103,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
             )}
           </p>
           {loadFailed ? (
-            <RetryButton failures={[companyFailure]} focusTarget={pageHeadingRef} className="mt-6">
-              Retry
-            </RetryButton>
+            <RetryButton failures={[companyFailure]} focusTarget={pageHeadingRef} className="mt-6" />
           ) : (
             <Link href="/" className={buttonVariants({ className: 'mt-6' })}>
               Go to the homepage
@@ -167,9 +165,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
                 title="Couldn’t load the filings"
                 description="Try again in a moment."
                 action={
-                  <RetryButton failures={[filingsFailure]} focusTarget={filingsHeadingRef} size="sm">
-                    Retry
-                  </RetryButton>
+                  <RetryButton failures={[filingsFailure]} focusTarget={filingsHeadingRef} size="sm" />
                 }
               />
             )}

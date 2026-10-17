@@ -79,7 +79,7 @@ export interface NoticeProps {
   title: ReactNode
   /** Supporting copy under the title. */
   description?: ReactNode
-  /** Usually a small secondary/ghost <Button> ("Retry", "Reset password"). */
+  /** Usually a small secondary/ghost <Button> ("Try again", "Reset password"). */
   action?: ReactNode
   className?: string
 }

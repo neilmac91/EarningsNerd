@@ -239,24 +239,24 @@ export default function CompanySearch({
           aria-live="polite"
           className="absolute z-10 mt-2 w-full rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-panel-light dark:bg-error-dark/10 p-4 shadow-e3 dark:shadow-none backdrop-blur-sm"
         >
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="mb-1 font-semibold text-error-light dark:text-error-dark">Error searching companies</div>
-              {/* Keyed to the failure count, so a retry that fails again with the same message
-                  re-inserts it and the live region announces it again. */}
-              <div key={companiesQuery.errorUpdateCount} className="text-sm text-error-light dark:text-error-dark">
-                {error instanceof ApiError
-                  ? error.detail
-                  : error instanceof Error
-                    ? error.message
-                    : 'An unexpected error occurred. Please try again.'}
-              </div>
-            </div>
-            {/* When the alert goes while "Try again" holds focus (the search lands), focus moves to the field,
-                except after a tap, which would raise the touch keyboard. */}
-            <RetryButton size="sm" className="ml-4" failures={[failure]} focusTarget={inputRef} textField>
-              Try again
-            </RetryButton>
+          <div className="mb-1 font-semibold text-error-light dark:text-error-dark">Error searching companies</div>
+          {/* Keyed to the failure count, so a retry that fails again with the same message
+              re-inserts it and the live region announces it again. The backend's own words can hold a long
+              token, so it breaks inside the alert. */}
+          <div key={companiesQuery.errorUpdateCount} className="break-words text-sm text-error-light dark:text-error-dark">
+            {error instanceof ApiError
+              ? error.detail
+              : error instanceof Error
+                ? error.message
+                : 'An unexpected error occurred. Please try again.'}
+          </div>
+          {/* The Retry takes its own row under the message, as a Notice's action does: it keeps the room of
+              "Trying again…" at rest, and beside the message that room left the message too little width at
+              200% text on a phone and pushed the Retry past the screen (e2e reflow-200.spec.ts holds this).
+              When the alert goes while "Try again" holds focus (the search lands), focus moves to the field,
+              except after a tap, which would raise the touch keyboard. */}
+          <div className="mt-2.5 flex">
+            <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField />
           </div>
         </div>
       )}
