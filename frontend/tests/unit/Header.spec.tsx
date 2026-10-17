@@ -164,9 +164,9 @@ describe('Header theme toggle placement', () => {
     expect(screen.getAllByTestId('theme-toggle')).toHaveLength(3)
   })
 
-  // The header is sticky, so an open menu taller than the viewport never scrolls: the Theme row is the
-  // menu's first row, ahead of the nav links, so it opens directly under the bar (the 390x664 case in
-  // tests/e2e/reflow-200.spec.ts), and its toggle is the menu's first Tab stop.
+  // The Theme row is the menu's first row, ahead of the nav links, so it opens directly under the bar, in
+  // view before the open menu is scrolled (the menu scrolls inside the viewport below the bar; the 390x664
+  // and 360x640 cases in tests/e2e/reflow-200.spec.ts), and its toggle is the menu's first Tab stop.
   it.each([
     ['a guest', null],
     ['a signed-in reader', mockUser],
