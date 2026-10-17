@@ -88,7 +88,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   card carries no "Most popular" badge. The Free plan reads "10-K, 10-Q and 20-F filings from SEC
   EDGAR" in place of "Access to all filings": no "Supported" hedge, and 20-F only while
   `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's `ENABLE_FPI_FILINGS` ("10-K and 10-Q filings from SEC
-  EDGAR" otherwise; the deploy sets the API's flag on, its code default is off; tasks/todo.md F39). The Pro list reads "Ask
+  EDGAR" otherwise; the deploy sets the API's flag on, its code default is off). The Pro list reads "Ask
   this Filing, with cited passages you can check" (it read "with cited answers" until the Ask this Filing
   PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
@@ -565,7 +565,7 @@ known-good set, a size floor, or 10-K and 10-Q only). The mount gate
 - §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
   first, at most six (D-046, E90).
 
-The landing composition (tell T4) is decided too: labelled rows after the hero (D-045, E103).
+The landing composition (tell T4) is decided too: labelled rows after the hero (D-045, E113).
 
 ## 9. Gates touched
 

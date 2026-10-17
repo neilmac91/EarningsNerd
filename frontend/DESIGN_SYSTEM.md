@@ -239,8 +239,9 @@ Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 an
                  where the narrow state cannot see it (tests/unit/buttonHeightIsAMinimum.spec.ts holds
                  both). A `whitespace-normal` className still loses to the base `whitespace-nowrap`
                  above 24rem (stylesheet order): use `wrap`.
-                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at the default),
-                 tests/unit/button-wrap.spec.tsx (the narrow state keeps a caller's min-h and py).
+                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at both; a 768px
+                 and an 834px tablet at 200%), tests/unit/button-wrap.spec.tsx (the narrow state keeps a
+                 caller's min-h and py).
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
@@ -812,6 +813,19 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  or `scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)]`, never a fixed `top-16`, so a bar that
                  wraps under enlarged text covers nothing. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts
                  and tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text).
+                 The open mobile menu scrolls inside the viewport: the header is a column no taller than it
+                 (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
+                 with auto side margins is not stretched) and the menu panel takes the rest
+                 (`overflow-y-auto overscroll-contain`, its scroll padding the nav's inset, as the Modal
+                 panel's). The cap is the bar's own height, never `--site-header-h`, which counts the open
+                 menu. A sticky header taller than the viewport stays stuck to its top until the page's end,
+                 so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
+                 landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
+                 a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
+                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
+                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
+                 top-left place, which `w-full` holds.
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1228,6 +1242,19 @@ ground; copy the reader must read stays secondary, including the point-of-use AI
 `tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
 rendered ground.
 
+**Reflow at 200% text.** The pricing section's billing toggle (a radio group, not the
+SegmentedControl) wraps its two segments whole onto a second row inside its one shell when they do not
+fit side by side, each filling its row (`grow`), at `min-h-9` rather than a fixed height; no-break
+spaces hold "Annual ·" and "save 20%", so the label breaks only after its middot. At 360px and 200%
+text the unwrapped group took the page to 368px, its Annual label on three lines below its segment.
+The final CTA card and the site footer open their columns at md at the reader's text size,
+`[@media(min-width:48rem)]:` (768px at the default size, 1536px under a 200% text setting), not `md:`:
+their columns hold a one-line button and words that cannot break, and at md's 768px under 200% text
+the footer took every route to 812px and the card took / to 886px. The auth shell's lockup yields to
+the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
+at 360 and 390px, every line but the last ending at the middot; a 768px and an 834px tablet over its route
+loop).
+
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
 `.en-mark` (a phrase highlight: pale sage tint from 62% of the line box, a 2px `brand-border`
@@ -1250,6 +1277,12 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
   light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
   the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
 - Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`.
+  The auth shell's lockup (the 2rem mark and the text-lg wordmark, about 10rem, 1.5rem in) yields to the mark alone
+  below a 12rem viewport (384px under a 200% text setting, never at the default size), where it and its
+  clear space no longer fit; its link keeps the site header logo's name, `aria-label="EarningsNerd home"`,
+  with the wordmark `display: none` (sr-only text still lays out past the link, which the bar's checks
+  read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
+  200%, the bar's edge in the logo's clear space).
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
   see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
 

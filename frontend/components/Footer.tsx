@@ -34,7 +34,10 @@ export default function Footer() {
         {/* The footer opens its own outline section, so its column titles (h3) never follow a page
             whose content ends at h1 (the 404, /analysis, /search) with a skipped level. */}
         <h2 className="sr-only">Site links</h2>
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+        {/* Four columns from md at the reader's text size: 48rem is 768px at the default size and 1536px under a
+            200% text setting. An fr column never shrinks below its longest word, so md's 768px opened them at
+            200% text and the Legal column took the page to 812px (tests/e2e/reflow-200.spec.ts). */}
+        <div className="grid grid-cols-1 gap-10 [@media(min-width:48rem)]:grid-cols-[1.5fr_1fr_1fr_1fr]">
           {/* Brand column */}
           <div>
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />
