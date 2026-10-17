@@ -85,6 +85,13 @@ inline styles:
 - every colour a page writes, in a style or an attribute HTML maps to a colour, is a design token's
   (``DESIGN.md``'s frontmatter), as six-digit hex, in its own view and in classic Outlook's, and every
   link sets a colour of its own that a browser takes, which a client would otherwise paint its link blue.
+
+And it holds every page to open ``<body>`` with the mail's preheader, the line an inbox lists beside the
+subject (``preheader_problems``, planted in ``PREHEADERS``): one, hidden from the view and from classic
+Outlook's, plain text of ``PREHEADER_LIMIT`` characters at most with no link or address, since an inbox shows
+it before the mail is opened, and the fill after it, so the header's words do not follow it into the preview.
+What it cannot see: whether a line says what its mail says, which review reads, and a line longer than the
+limit for a company whose name is longer than the inputs' (the alert's line prints the name as EDGAR spells it).
 """
 import ast
 import html
@@ -1221,7 +1228,7 @@ def test_every_page_sent_keeps_the_break_rule_out_of_its_tables(rendered):
 
 
 def test_every_page_sent_sets_the_shells_viewport_alone(rendered):
-    shell = viewports(email_service._wrap_html("<p>Body</p>"))
+    shell = viewports(email_service._wrap_html("<p>Body</p>", preheader="The mail's own line."))
     assert shell == ["width=device-width, initial-scale=1"], f"the shell no longer sets the phone's own width: {shell}"
     problems = [f"{name}: {sets}" for name, page in _pages(rendered) if (sets := viewports(page)) != shell]
     assert not problems, (
@@ -1250,6 +1257,179 @@ def test_the_earnings_day_rows_keep_a_two_word_slot_on_one_line():
 def test_every_page_sent_takes_its_colours_from_the_tokens(rendered):
     problems = [f"{name}: {problem}" for name, page in _pages(rendered) for problem in colour_problems(page)]
     assert not problems, "\n".join(sorted(set(problems)))
+
+
+# The preheader, as email_service._preheader opens <body> with it: the line an inbox lists beside the subject.
+_OPENS_BODY = re.compile(r'<body\b[^>]*>\s*<div style="([^"]*)">(.*?)</div>', re.IGNORECASE | re.DOTALL)
+_HIDDEN_DIV = re.compile(r'<div\b[^>]*\bstyle="[^"]*display\s*:\s*none', re.IGNORECASE)
+_LINK_OR_ADDRESS = re.compile(r"://|\bwww\.|@", re.IGNORECASE)
+# A bound this gate sets on a line, so that it fits a phone's preview: about what Apple Mail's two lines hold.
+PREHEADER_LIMIT = 90
+# The fill: a zero-width non-joiner and a no-break space, taken in turn, at least this many pairs (200 characters),
+# more than a preview shows past the line.
+FILL_PAIRS = 100
+_FILL_RUN = re.compile(f"(?:&zwnj;&nbsp;){{{FILL_PAIRS},}}$")
+
+
+def preheader_problems(page: str) -> list[str]:
+    """Where a page breaks the preheader's rules (email_service._preheader). It opens <body> with one hidden line of
+    the mail's own, so an inbox lists the mail by its own words and not by the header's. The line is plain text,
+    PREHEADER_LIMIT characters at most, with no link or address, since an inbox shows it before the mail is opened,
+    a phone's lock screen among them. The fill comes after it, so the header's words do not follow the line into
+    the preview."""
+    opening = _OPENS_BODY.search(page)
+    if not opening:
+        return ["the page opens <body> with no preheader, so an inbox lists the mail by the header's words: hand "
+                "_wrap_html the mail's own line"]
+    style, inner = opening.groups()
+    declared = re.sub(r"\s", "", style).lower()
+    problems = []
+    if "display:none" not in declared:
+        problems.append("the preheader is not display:none, so the view shows it above the header")
+    if "mso-hide:all" not in declared:
+        problems.append("the preheader is not mso-hide:all, so classic Outlook shows it above the header")
+    fill = _FILL_RUN.search(inner)
+    if not fill:
+        problems.append(
+            f"the fill no longer follows the preheader's line ({FILL_PAIRS} pairs of a zero-width non-joiner and a no-break "
+            "space at least), so the header's words follow it into the preview"
+        )
+    if "<" in inner:
+        problems.append("the preheader holds markup: its line is plain text, escaped as a unit")
+    line = html.unescape(inner[: fill.start()] if fill else inner).strip()
+    if not re.search(r"\w", line):
+        problems.append("the preheader's line is empty, so an inbox lists the mail by the header's words")
+    if len(line) > PREHEADER_LIMIT:
+        problems.append(f"the preheader's line runs to {len(line)} characters, past the {PREHEADER_LIMIT} this gate allows: {line!r}")
+    if _LINK_OR_ADDRESS.search(line):
+        problems.append(
+            "the preheader's line carries a link or an address, which an inbox shows before the mail is opened, a phone's "
+            f"lock screen among them: {line!r}"
+        )
+    hidden = len(_HIDDEN_DIV.findall(page))
+    if hidden > 1:
+        problems.append(f"the page holds {hidden} hidden lines: it holds one preheader, first in <body>")
+    return problems
+
+
+def test_every_page_sent_opens_with_a_line_of_its_own(rendered):
+    problems = [f"{name}: {problem}" for name, page in _pages(rendered) for problem in preheader_problems(page)]
+    assert not problems, "\n".join(sorted(set(problems)))
+
+
+def test_a_preheader_escapes_what_a_caller_hands_in():
+    # A company's name, a ticker and a form type are a caller's data, as EDGAR and the calendar send them.
+    company, ticker, form = 'Tom & Jerry <a href="x">Inc</a>', "<i>T</i>", "<b>10-K</b>"
+    pages = [
+        email_service.render_new_filing_alert(name=None, company_name=company, ticker=ticker, filing_type=form, filing_date="2026-01-01", filing_id=1)[0],
+        email_service.render_daily_digest(name=None, items=[dict(company_name=company, ticker=ticker, filing_type=form, filing_date="2026-01-01", filing_id=1)])[0],
+        email_service.render_earnings_day_alert(name=None, items=[dict(ticker=ticker, company_name=company, time="bmo")])[0],
+    ]
+    problems = [problem for page in pages for problem in preheader_problems(page)]
+    assert not problems, "a preheader carries what a caller hands in as text, escaped as a unit:\n" + "\n".join(problems)
+    lines = [_preheader_line(page) for page in pages]
+    assert company in lines[0] and ticker in lines[1] and form in lines[1] and ticker in lines[2], (
+        f"each line reads what the caller handed in, escaped once and no more: {lines}"
+    )
+
+
+def _preheader_line(page: str) -> str:
+    """A page's preheader line, as an inbox reads it: its text, the fill aside."""
+    inner = _OPENS_BODY.search(page).group(2)
+    fill = _FILL_RUN.search(inner)
+    return html.unescape(inner[: fill.start()] if fill else inner).strip()
+
+
+# Each mail's line, as the render's inputs give it: the words an inbox lists the mail by. A change to a line is
+# a change to this list, read in review.
+PREHEADER_LINES = {
+    "render_welcome_email": ["You're number 3 on the list. Verify your email to secure your spot."],
+    "render_referral_success_email": ["Someone joined with your referral link. You're now number 2."],
+    "send_verification_email": ["Confirm your address to start reading. The link works for 24 hours."],
+    "send_invite_email": ["Full Pro access to the private beta, with no card needed. The link works once."] * 2,
+    "send_password_reset_email": ["The link works once, for one hour. If you didn't ask for it, ignore this email."],
+    "send_oauth_linked_email": ["If this was you, there's nothing to do. If it wasn't, reset your password now."],
+    "send_account_exists_email": ["You already have an account with this address. Log in, or reset your password."],
+    "render_new_filing_alert": [f"{COMPANY} filed it with the SEC on 2026-01-01."] * 5,
+    "render_daily_digest": ["PVCT 10-K, PVCT 10-K and PVCT 10-K."],
+    "render_earnings_day_alert": ["PVCT before open and BETA during market hours.", "PVCT after close."],
+    "render_data_quality_report": ["This week's scan, each section with its count."] * 2,
+}
+# The eleven mails the module builds, each once: its render, or the send_ function that builds its page.
+MAILS = (
+    "render_welcome_email", "render_referral_success_email", "send_verification_email", "send_invite_email",
+    "send_password_reset_email", "send_oauth_linked_email", "send_account_exists_email", "render_new_filing_alert",
+    "render_daily_digest", "render_earnings_day_alert", "render_data_quality_report",
+)
+# A send_ or build_ function sends what its render builds.
+PREHEADER_LINES |= {
+    "send_waitlist_welcome_email": PREHEADER_LINES["render_welcome_email"],
+    "send_referral_success_email": PREHEADER_LINES["render_referral_success_email"],
+    "build_new_filing_alert": PREHEADER_LINES["render_new_filing_alert"],
+    "send_new_filing_alert": PREHEADER_LINES["render_new_filing_alert"],
+    "build_daily_digest": PREHEADER_LINES["render_daily_digest"],
+    "send_daily_digest": PREHEADER_LINES["render_daily_digest"],
+    "send_earnings_day_alert": PREHEADER_LINES["render_earnings_day_alert"],
+}
+
+
+def test_each_mail_lists_by_its_own_line(rendered):
+    lines: dict[str, list[str]] = {}
+    for name, page in _pages(rendered):
+        lines.setdefault(name, []).append(_preheader_line(page))
+    assert lines == PREHEADER_LINES, (
+        f"the mails' preheader lines are now {lines}: hold PREHEADER_LINES to them in the diff that changes a line"
+    )
+    firsts = {mail: PREHEADER_LINES[mail][0] for mail in MAILS}
+    assert len(set(firsts.values())) == len(MAILS), f"each mail lists by a line of its own: {firsts}"
+
+
+def test_a_preheader_lists_four_names_and_past_four_the_first_three_and_how_many_more():
+    assert [email_service._listed(list("ABCDEFG")[:n]) for n in range(8)] == [
+        "", "A", "A and B", "A, B and C", "A, B, C and D", "A, B, C and 2 more", "A, B, C and 3 more", "A, B, C and 4 more",
+    ]
+
+
+def _opening(div: str) -> str:
+    return f'<!doctype html><html><body style="margin:0;">{div}<table><tr><td>EarningsNerd</td></tr></table></body></html>'
+
+
+_FILL = "&zwnj;&nbsp;" * 100
+_HIDES = "display:none;max-height:0;overflow:hidden;mso-hide:all;"
+# Each way a page can break the preheader's rules, and the look-alikes that keep them.
+PREHEADERS = [
+    # Broken.
+    ("no preheader", '<!doctype html><html><body style="margin:0;"><table><tr><td>EarningsNerd</td></tr></table></body></html>', "with no preheader"),
+    ("the preheader after the header", f'<!doctype html><html><body><table><tr><td>EarningsNerd</td></tr></table><div style="{_HIDES}">A line.{_FILL}</div></body></html>', "with no preheader"),
+    ("a preheader the view shows", _opening(f'<div style="max-height:0;overflow:hidden;mso-hide:all;">A line.{_FILL}</div>'), "not display:none"),
+    ("a preheader classic Outlook shows", _opening(f'<div style="display:none;max-height:0;overflow:hidden;">A line.{_FILL}</div>'), "not mso-hide:all"),
+    ("a line without its fill", _opening(f'<div style="{_HIDES}">A line.</div>'), "the fill no longer follows"),
+    ("a line with a fill too short", _opening(f'<div style="{_HIDES}">A line.{"&zwnj;&nbsp;" * 99}</div>'), "the fill no longer follows"),
+    ("a line whose fill comes before it", _opening(f'<div style="{_HIDES}">{_FILL}A line.</div>'), "the fill no longer follows"),
+    ("a line that holds markup", _opening(f'<div style="{_HIDES}"><b>Acme</b> filed it.{_FILL}</div>'), "holds markup"),
+    ("an empty line", _opening(f'<div style="{_HIDES}">{_FILL}</div>'), "line is empty"),
+    ("a line of punctuation", _opening(f'<div style="{_HIDES}">. {_FILL}</div>'), "line is empty"),
+    ("a line past the limit", _opening(f'<div style="{_HIDES}">{"x" * 91}{_FILL}</div>'), "runs to 91 characters"),
+    ("a line with a link", _opening(f'<div style="{_HIDES}">Reset it at https://e.test/r?t=abc{_FILL}</div>'), "carries a link or an address"),
+    ("a line with a bare host", _opening(f'<div style="{_HIDES}">Read it at www.earningsnerd.io{_FILL}</div>'), "carries a link or an address"),
+    ("a line with an address", _opening(f'<div style="{_HIDES}">Sent to a@e.test{_FILL}</div>'), "carries a link or an address"),
+    ("a second preheader", _opening(f'<div style="{_HIDES}">A line.{_FILL}</div><div style="{_HIDES}">Another.{_FILL}</div>'), "2 hidden lines"),
+    # Kept.
+    ("the shell's own preheader", email_service._wrap_html("<p>Body</p>", preheader="The mail's own line."), None),
+    ("a line with markup's characters, escaped", _opening(f'<div style="{_HIDES}">Tom &amp; Jerry &lt;TJ&gt; filed it.{_FILL}</div>'), None),
+    ("a line at the limit", _opening(f'<div style="{_HIDES}">{"x" * 90}{_FILL}</div>'), None),
+    ("a line with a longer fill", _opening(f'<div style="{_HIDES}">A line.{_FILL}&zwnj;&nbsp;&zwnj;&nbsp;</div>'), None),
+    ("a line whose style is spaced as written", _opening(f'<div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">A line.{_FILL}</div>'), None),
+]
+
+
+@pytest.mark.parametrize("page, expected", [case[1:] for case in PREHEADERS], ids=[case[0] for case in PREHEADERS])
+def test_the_preheader_check_scores_every_planted_page(page, expected):
+    problems = preheader_problems(page)
+    if expected is None:
+        assert not problems, problems
+    else:
+        assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
 
 
 def _img(src: str) -> str:
@@ -1355,11 +1535,14 @@ def test_the_planted_lists_keep_their_counts():
         "SENDS": (sum(case[2] > 0 for case in SENDS), sum(case[2] == 0 for case in SENDS)),
         "ADDRESSES": (sum(isinstance(case[-1], str) for case in ADDRESSES), sum(case[-1] is None for case in ADDRESSES)),
         "SENT": (sum(isinstance(case[-1], str) for case in SENT), sum(case[-1] is None for case in SENT)),
+        "PREHEADERS": (sum(isinstance(case[-1], str) for case in PREHEADERS), sum(case[-1] is None for case in PREHEADERS)),
     }
-    assert counts == {"PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (7, 1)}, (
-        "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
-    )
-    for name, cases in (("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT)):
+    assert counts == {
+        "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (7, 1), "PREHEADERS": (15, 5),
+    }, "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
+    for name, cases in (
+        ("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT), ("PREHEADERS", PREHEADERS),
+    ):
         labels = [case[0] for case in cases]
         assert len(set(labels)) == len(labels), f"each case {name} plants has a name of its own"
 

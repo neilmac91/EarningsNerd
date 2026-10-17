@@ -137,6 +137,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - test-judge-context-parity.md — Give an LLM judge the same (or a superset of the) grounding the generator used
 - test-layout-numbers-are-one-environments-run.md — Accept a layout measurement on its invariants, never on equal pixels; one pinned browser still measures differently on another machine
 - test-leave-the-tree-alone-during-a-background-suite.md — Leave the working tree untouched while a background full-suite run reads it
+- test-mark-a-made-up-token-before-its-first-push.md — Mark a made-up, credential-shaped fixture value `gitleaks:allow` before its first push; the secret scan reads every branch, so one branch's finding fails main's and every pull request's
 - test-parser-callback-positions.md — Match whole-input callbacks to exact raw-source positions before accepting event capacity
 - test-persistent-sqlite-db-goes-stale.md — The dev SQLite DB (backend/earningsnerd.db) is persistent — rm it after a schema change; the test suite never uses it
 - test-pin-a-row-lock-with-a-statement-spy.md — Pin a row lock with a statement spy; a race test under SQLite cannot see FOR UPDATE

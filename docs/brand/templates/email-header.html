@@ -9,7 +9,10 @@
   ported: backend/tests/unit/test_mail_header_template.py holds the two to the same tags and text,
   cell by cell, the tile's cell aside, so a change to one is a change to the other. Do not link this
   file. The page around them is _wrap_html's own. Its head sets the charset, this file's viewport and
-  the light-only colour scheme. The header, the panel and the footer line each take the screen's
+  the light-only colour scheme. Its body opens with the mail's preheader, the line an inbox lists
+  beside the subject, hidden from the view and from classic Outlook's (display:none; mso-hide:all)
+  and followed by invisible characters, so the inbox lists each mail by its own words and not by this
+  header's. The header, the panel and the footer line each take the screen's
   width up to 600px (width:100%;max-width:600px), so a phone lays the page out at its own width and
   shows the text at its set size, in portrait at least. Classic Outlook reads no max-width, so each
   sits in a 600px table that only Outlook's conditional comments show. The header sets
@@ -67,6 +70,7 @@
 </style>
 </head>
 <body style="margin:0;padding:0;background-color:#F4F3EE;">
+  <!-- Preheader: _wrap_html opens <body> with the mail's own line here, hidden, before the header. -->
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="background-color:#F4F3EE;">
     <tr>
       <td align="center" style="padding:32px 12px 0 12px;">

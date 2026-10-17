@@ -16,6 +16,9 @@ the hosted raster the template's note spells (``<img src="{base}/assets/earnings
 on ``FRONTEND_URL``. The template's outer table holds two cells, the header's and the footer line's; the
 page's holds three, the header's, the panel's and the footer line's. Around them, the page:
 
+- opens ``<body>`` with the mail's preheader, once, hidden from the view and from classic Outlook's, so an
+  inbox lists the mail by its own line and not by the header's words (``test_mail_rendered_addresses.py``
+  holds every page sent to the line's rules);
 - puts the body and the footer in the panel's cells, each once and each in a cell of its own, and
   carries one wordmark, the name split by markup into its two styles: the header's;
 - is fluid: the header, the panel and the footer line each take the screen's width up to 600 px
@@ -82,6 +85,8 @@ _WORDMARK = re.compile(r"Earnings\s*(?:<[^>]+>\s*)+Nerd", re.IGNORECASE)
 _INVISIBLE = re.compile("[\u00ad\u200b-\u200d\u2060\ufeff]")
 _DEVICE_WIDTH = "width=device-width, initial-scale=1"
 _FOOTER_WORDING = "Filing data sourced from SEC EDGAR. Not investment advice."
+_LINE = "The mail's own line."  # a preheader, as each mail hands one to _wrap_html
+_FIRST_IN_BODY = re.compile(r"<body\b[^>]*>\s*(<div\b[^>]*>)", re.IGNORECASE)
 _TABLE_PADDING = re.compile(r"""\bstyle\s*=\s*(?:(["'])(?:(?!\1).)*padding|[^\s"'>]*padding)""", re.IGNORECASE | re.DOTALL)
 
 
@@ -167,7 +172,7 @@ def test_the_header_and_footer_line_are_the_templates(monkeypatch):
     tile = note_tile.replace("{base}", "https://frontend.example.test")
     expected_header = header[:open_cell] + [cell, tile, "</td>"] + header[close_cell + 1 :]
 
-    cells = _outer_cells(_tokens(email_service._wrap_html("<p>Body</p>")))
+    cells = _outer_cells(_tokens(email_service._wrap_html("<p>Body</p>", preheader=_LINE)))
     assert len(cells) == 3, f"the page's outer table holds a cell each for the header, the panel and the footer line: {len(cells)} cells"
     assert cells[0] == expected_header, (
         "the mail's header is no longer the template's (docs/brand/templates/email-header.html): change both"
@@ -182,7 +187,7 @@ def test_the_header_and_footer_line_are_the_templates(monkeypatch):
 
 def test_the_footer_line_names_filing_data_alone():
     for where, cell in (
-        ("the mail", _outer_cells(_tokens(email_service._wrap_html("<p>Body</p>")))[2]),
+        ("the mail", _outer_cells(_tokens(email_service._wrap_html("<p>Body</p>", preheader=_LINE)))[2]),
         ("the template", _template_cells()[1]),
     ):
         text = html.unescape(" ".join(token for token in cell if not token.startswith("<"))).strip()
@@ -195,8 +200,15 @@ def test_the_footer_line_names_filing_data_alone():
 def test_the_page_holds_its_slots_and_its_shell_rules():
     body = "<p>Hi Tom &amp; Jerry,</p><p>We received a request to reset your password.</p>"
     footer = "<span>The footer slot.</span>"
-    page = email_service._wrap_html(body, footer=footer)
+    page = email_service._wrap_html(body, footer=footer, preheader=_LINE)
 
+    opening = _FIRST_IN_BODY.search(page)
+    hides = re.sub(r"\s", "", opening.group(1)).lower() if opening else ""
+    assert "display:none" in hides and "mso-hide:all" in hides, (
+        "the page opens <body> with the mail's preheader, hidden from the view and from classic Outlook's, so an inbox "
+        "lists the mail by its own line and not by the header's words"
+    )
+    assert page.count(html.escape(_LINE)) == 1, "the preheader sits once, first in <body>"
     tokens = _tokens(page)
     panel = _table(tokens, next(t for t in tokens if t.startswith("<table") and "border:1px solid #E5E7EB" in t))
     assert page.count(body) == 1 and body in "".join(panel), "the body sits once, in the panel"
@@ -208,7 +220,7 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
 
     problems = text_size_problems(page) + fixed_width_problems(page) + outlook_width_problems(page) + reach_problems(page)
     assert not problems, "\n".join(problems)
-    plain = email_service._wrap_html(f"<p>{'x' * LONG_RUN}</p>")
+    plain = email_service._wrap_html(f"<p>{'x' * LONG_RUN}</p>", preheader=_LINE)
     assert long_run_problems(plain) and not lent_runs(plain), (
         "the shell lets a body's runs break for it, in some engine: put the rule on the lines that print one, since on "
         "the panel it reaches a body's own table and splits a column of amounts"

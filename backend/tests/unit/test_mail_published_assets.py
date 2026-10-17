@@ -1226,7 +1226,7 @@ def test_the_tile_follows_frontend_url_whose_default_is_the_registers_origin(mon
     for origin in (ORIGIN, "https://frontend.example.test"):
         for configured in (origin, f"{origin}/"):
             monkeypatch.setattr(settings, "FRONTEND_URL", configured)
-            sources = re.findall(r'<img src="([^"]+)"', email_service._wrap_html("<p>Body</p>"))
+            sources = re.findall(r'<img src="([^"]+)"', email_service._wrap_html("<p>Body</p>", preheader="The mail's own line."))
             assert sources == [f"{origin}{email_service._HEADER_TILE_PATH}"], (
                 f"FRONTEND_URL={configured!r} gave the header's image {sources}"
             )
