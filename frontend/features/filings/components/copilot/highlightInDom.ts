@@ -16,15 +16,27 @@ import { CONSENT_INSET_PROPERTY } from '@/lib/consentLayer'
 const HIGHLIGHT_NAME = 'copilot-citation'
 
 /**
- * Paint for `::highlight(copilot-citation)`. Registered from here as a constructed stylesheet rather
- * than in `app/globals.css`: lightningcss (Next 16.3's CSS pipeline) does not know the `::highlight()`
- * pseudo-element — it emits a SelectorError warning and, with error recovery, keeps the rule, but
- * Next's build surfaces that as "Parsing CSS source code failed" on every build. Same visual as
- * before — the sage of `.citation-flash`, 22% — and it only ever runs where the Highlight API exists,
+ * Paint for `::highlight(copilot-citation)`: the brand device's mark on the passage the reader located
+ * (D-044), so a located passage looks the same in the reader as on the landing page. It takes `.en-mark`'s
+ * tint and 2px hairline from app/globals.css, light and dark (a `.dark` rule, as globals.css pairs the
+ * device; tests/unit/highlightInDom.spec.ts holds the values to the stylesheet's). The Highlight API
+ * paints colours and text decorations only, so the tint fills the passage's content area (`.en-mark`
+ * starts it at 62% of the line box) and the hairline is a 2px underline, unbroken by descenders, set
+ * where the tint ends: Newsreader's content area ends 0.2632em below the baseline, measured in Chromium.
+ * The passage reads in the primary ink, as the landing's marked block does: the reader's secondary ink
+ * measures 4.49:1 on the dark tint over the slate panel, under the 4.5:1 floor.
+ * Registered from here as a constructed stylesheet rather than in `app/globals.css`: lightningcss
+ * (Next 16.3's CSS pipeline) does not know the `::highlight()` pseudo-element: it emits a
+ * SelectorError warning and, with error recovery, keeps the rule, but Next's build surfaces that as
+ * "Parsing CSS source code failed" on every build. It only ever runs where the Highlight API exists,
  * which implies constructable stylesheets too.
  */
-// eslint-disable-next-line no-restricted-syntax -- a constructed stylesheet has no Tailwind token; the rgba is .citation-flash's sage at 22% (its theme pairing waits on the D1 device decision, ASK-19).
-export const CITATION_HIGHLIGHT_CSS = `::highlight(${HIGHLIGHT_NAME}) { background-color: rgba(79, 122, 99, 0.22); color: inherit; }`
+/* eslint-disable no-restricted-syntax -- a constructed stylesheet has no Tailwind token: these are .en-mark's tint and hairline (brand-weak, brand-border and their dark pair) and the primary ink pair, held to app/globals.css and tailwind.config.js by tests/unit/highlightInDom.spec.ts. */
+export const CITATION_HIGHLIGHT_CSS = [
+  `::highlight(${HIGHLIGHT_NAME}) { background-color: #ECF2EE; color: #1A1A17; text-decoration: underline 2px #CFE0D6; text-decoration-skip-ink: none; text-underline-offset: calc(0.2632em - 2px); }`,
+  `.dark ::highlight(${HIGHLIGHT_NAME}) { background-color: rgba(127, 178, 149, 0.14); color: #D7DADC; text-decoration-color: rgba(127, 178, 149, 0.28); }`,
+].join('\n')
+/* eslint-enable no-restricted-syntax */
 
 let highlightSheet: CSSStyleSheet | null = null
 

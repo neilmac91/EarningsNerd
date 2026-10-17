@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import MarkedCopy, { EnRef } from '@/features/marketing/components/MarkedCopy'
+import { EnRef, MarkedCopy } from '@/components/ui/MarkedCopy'
 
 /**
  * The margin twin sits on its marker's line at any text size (DESIGN.md › Graphic device). The

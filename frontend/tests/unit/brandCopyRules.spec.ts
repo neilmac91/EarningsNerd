@@ -165,8 +165,22 @@ import { routeFiles, walkImports } from './importWalk'
  *    types), by its name; a test fails one that is neither, and a field whose literals carry no
  *    digit is a word by its type. A map over a figure array renders what its callback returns.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
- *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
- *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
+ *    figure or a price, the hero's accent phrases included. The device means located (D-044): it renders
+ *    (MarkedCopy, EnRef, a marked block's `en-marked`) only in DEVICE_PLACES, an equality naming the
+ *    passage each place marks (the landing's evidence row, the filing page's Risks); the gutter's classes
+ *    are written only in its own module (components/ui/MarkedCopy.tsx), and every MarkedCopy carries a
+ *    marker. On a row of a list (what a `.map` or `.flatMap` callback returns) a marker or a marked block
+ *    renders only under a test of the row's located flag, `source_verified` (the chip's "Verified in
+ *    filing", D-028): `=== true` or the field itself, `!== true` on a conditional's false branch, an `if`
+ *    around the return, a conjunction or a same-file const holding one; a helper's call is a guard the gate
+ *    does not read, so it fails closed. One marker per row and per line, so the twins never overprint, and
+ *    no margin holds an Ask answer, the narrative or their chips (CopilotMessage, NarrativePane,
+ *    CitationChip, injectCitationMarkers), which keep their chips. The reads follow the file's consts and
+ *    components; a row component from another file is read in its own file, which must then be a place.
+ *    Review-checked: a guard that reads another row's flag, and a single passage outside a list, whose
+ *    picker locates it (pickEvidence). The planted forms (tests/unit/fixtures/brandRule3Forms.tsx) are
+ *    scored on every run. The reader's located passage (its ::highlight paint) is held to `.en-mark` by
+ *    tests/unit/highlightInDom.spec.ts, and the face of a marked block by designSystemDoneGate.spec.ts.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
@@ -187,6 +201,9 @@ const FILES = SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))
 const FORMS = path.join(ROOT, 'tests/unit/fixtures/brandRule2Forms.tsx')
 /** The stylesheet check's planted forms, one rule per form, scored the same way. */
 const STYLE_FORMS = path.join(ROOT, 'tests/unit/fixtures/brandRule2Styles.css')
+/** Rule 3's planted forms (the device inside the product, D-044): one component per form, its mark in the comment
+ *  before it, scored by the last rule 3 test. In the program, so the checks read its bindings; outside the scan roots. */
+const DEVICE_FORMS = path.join(ROOT, 'tests/unit/fixtures/brandRule3Forms.tsx')
 /** One program over the scanned files, so rule 2 can ask the checker what an expression renders (a
  *  number, a template with a number in it, a formatter fed a number), not only what its literals say.
  *  This build is the suite's slowest import (about 11 s on a laptop, outside any test's timeout): the
@@ -194,7 +211,7 @@ const STYLE_FORMS = path.join(ROOT, 'tests/unit/fixtures/brandRule2Styles.css')
  *  it without losing the checker, so do not fold it back into a regex. */
 const TSCONFIG = ts.readConfigFile(path.join(ROOT, 'tsconfig.json'), ts.sys.readFile)
 const PARSED = ts.parseJsonConfigFileContent(TSCONFIG.config, ts.sys, ROOT)
-const PROGRAM = ts.createProgram([...FILES, FORMS], { ...PARSED.options, noEmit: true, skipLibCheck: true })
+const PROGRAM = ts.createProgram([...FILES, FORMS, DEVICE_FORMS], { ...PARSED.options, noEmit: true, skipLibCheck: true })
 const CHECKER = PROGRAM.getTypeChecker()
 /** The routes a stranger can open before signing in, the scope rule 1c reads (rule 1c alone: rule 2 reads
     every file under D-030, as rules 1, 1b and 3 do): the root layout (header, footer, consent bar), the root
@@ -1007,7 +1024,7 @@ function tokenInk(tokens: string[], svgText = false): Ink {
 
 /** The scanned files and the planted forms, so a component is followed only into code the scan owns, never into a
     library. */
-const SCANNED = new Set([...FILES, FORMS].map((file) => path.normalize(file)))
+const SCANNED = new Set([...FILES, FORMS, DEVICE_FORMS].map((file) => path.normalize(file)))
 
 /** The declaration behind an identifier or a component tag, followed through imports and re-exports. */
 function declarationOf(name: ts.Node): ts.Declaration | undefined {
@@ -3162,6 +3179,317 @@ describe('brand rule 2: sage never colours a number', () => {
   })
 })
 
+/** The device's own module: the margin is drawn there, and no other file writes the gutter's classes. */
+const DEVICE_FILE = 'components/ui/MarkedCopy.tsx'
+/** Every place the device renders (MarkedCopy, EnRef, or a marked block, `en-marked`), each around a passage the
+    server located, with why (D-044). An equality: a file that renders the device and is not listed fails, and so does
+    a listed file that no longer renders it. Ask answers (CopilotMessage) and the Multi-Period narrative (NarrativePane)
+    are not places: they keep their citation chips, since a cited line carries several markers there and their twins
+    would overprint. */
+const DEVICE_PLACES: Record<string, string> = {
+  'features/marketing/components/HeroExample.tsx':
+    "the landing's evidence row: the first risk excerpt the server located (pickEvidence, held by hero-example-surface.spec.tsx)",
+  'features/summaries/components/SummaryRisks.tsx':
+    "the filing page's Risks: each row whose excerpt the server located, its chip's Verified in filing (D-028, D-044)",
+}
+/** What keeps its citation chips: a margin never holds an answer, the narrative or their chips. */
+const CHIP_SURFACES = new Set(['CitationChip', 'CopilotMessage', 'NarrativePane'])
+const CHIP_CALLS = new Set(['injectCitationMarkers'])
+/** The server's located flag on a row (`RiskFactor.source_verified`, the chip's "Verified in filing"). */
+const LOCATED_FIELD = 'source_verified'
+/** Tags whose content runs on the line of the element around them, so their markers share it. */
+const INLINE_TAGS = new Set(['a', 'abbr', 'b', 'cite', 'code', 'em', 'i', 'mark', 'q', 's', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u'])
+const AND = ts.SyntaxKind.AmpersandAmpersandToken
+const OR = ts.SyntaxKind.BarBarToken
+const NULLISH = ts.SyntaxKind.QuestionQuestionToken
+
+const jsxOpening = (n: ts.Node) => (ts.isJsxElement(n) ? n.openingElement : ts.isJsxSelfClosingElement(n) ? n : undefined)
+const tagOf = (n: ts.Node) => jsxOpening(n)?.tagName.getText()
+const isMarker = (n: ts.Node) => tagOf(n) === 'EnRef'
+const isMarkedBlock = (n: ts.Node) => {
+  const opening = jsxOpening(n)
+  return !!opening && classTokens(opening).includes('en-marked')
+}
+
+/** A same-file `const`'s value, for a name rendered where it is read (`<MarkedCopy>{list}</MarkedCopy>`). */
+function constValue(id: ts.Identifier): ts.Expression | undefined {
+  const declaration = declarationOf(id)
+  return declaration && ts.isVariableDeclaration(declaration) && declaration.getSourceFile() === id.getSourceFile()
+    && declaration.initializer && ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const ? declaration.initializer : undefined
+}
+
+/** The same-file component a tag renders (`<Row …/>` with Row declared in the file), else undefined. */
+function sameFileComponent(n: ts.Node): ts.FunctionLikeDeclaration | undefined {
+  const opening = jsxOpening(n)
+  const fn = opening && componentFunction(opening)
+  return fn && fn.getSourceFile() === n.getSourceFile() ? fn : undefined
+}
+
+/** A list's rows: the same-file callbacks a `.map` or `.flatMap` call renders, one row per member. */
+const rowCallbacks = (call: ts.CallExpression) =>
+  ts.isPropertyAccessExpression(call.expression) && ['map', 'flatMap'].includes(call.expression.name.text) ? callbacksOf(call) : []
+
+/** The field read is the server's located flag (`risk.source_verified`, `risk?.source_verified`, `risk['source_verified']`). */
+function locatedField(e: ts.Expression): boolean {
+  const x = unwrap(e)
+  return (ts.isPropertyAccessExpression(x) && x.name.text === LOCATED_FIELD)
+    || (ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) && x.argumentExpression.text === LOCATED_FIELD)
+}
+
+/** Whether a test holds only for a row the server located (or, `negated`, whether its negation does): the located
+    flag read as true (`=== true`, or the field itself, which is `boolean | null`), `!` of a test that holds only when
+    the row is not located, a conjunction with one such test, a disjunction of two, `Boolean(…)` of one, and a same-file
+    const bound to one. A call is a guard the gate does not read, so it fails closed (`isLocated(risk)`), and so does any
+    comparison but with `true` (`!== false` lets a null through). */
+function locatedTest(e: ts.Expression, negated = false, depth = 0): boolean {
+  const x = unwrap(e)
+  if (ts.isPrefixUnaryExpression(x) && x.operator === ts.SyntaxKind.ExclamationToken) return locatedTest(x.operand, !negated, depth)
+  if (ts.isBinaryExpression(x)) {
+    const op = x.operatorToken.kind
+    const [l, r] = [locatedTest(x.left, negated, depth), locatedTest(x.right, negated, depth)]
+    if (op === AND) return negated ? l && r : l || r
+    if (op === OR) return negated ? l || r : l && r
+    const equal = op === ts.SyntaxKind.EqualsEqualsEqualsToken || op === ts.SyntaxKind.EqualsEqualsToken
+    const unequal = op === ts.SyntaxKind.ExclamationEqualsEqualsToken || op === ts.SyntaxKind.ExclamationEqualsToken
+    const other = locatedField(x.left) ? x.right : locatedField(x.right) ? x.left : undefined
+    return (equal || unequal) && !!other && unwrap(other).kind === ts.SyntaxKind.TrueKeyword && equal !== negated
+  }
+  if (locatedField(x)) return !negated
+  if (ts.isCallExpression(x) && ts.isIdentifier(x.expression) && x.expression.text === 'Boolean' && x.arguments.length === 1) {
+    return locatedTest(x.arguments[0], negated, depth)
+  }
+  if (ts.isIdentifier(x) && depth < 4) {
+    const value = constValue(x)
+    return !!value && locatedTest(value, negated, depth + 1)
+  }
+  return false
+}
+
+/** What a callback returns, each return with whether the `if` statements around it hold only for a located row. */
+function guardedReturns(fn: ts.FunctionLikeDeclaration): { expression: ts.Expression; guarded: boolean }[] {
+  return returnedExpressions(fn).map((expression) => {
+    let guarded = false
+    for (let at: ts.Node = expression; at.parent && at !== fn.body; at = at.parent) {
+      const parent = at.parent
+      if (ts.isIfStatement(parent) && at !== parent.expression) guarded ||= locatedTest(parent.expression, at === parent.elseStatement)
+    }
+    return { expression, guarded }
+  })
+}
+
+/** Every element and call an expression renders, read through the file: JSX children and attributes, both branches of
+    a conditional and of `&&`, `||` and `??`, an array's members, a list's rows (what a `.map` or `.flatMap` callback
+    returns), a same-file const and a same-file component's returns, each once. A component from another file is read
+    where it is defined, as a place of its own. */
+function eachRendered(e: ts.Node, fn: (n: ts.Node) => void, seen = new Set<ts.Node>()): void {
+  if (ts.isJsxExpression(e)) return e.expression ? eachRendered(e.expression, fn, seen) : undefined
+  const x = ts.isExpression(e) ? unwrap(e) : e
+  if (seen.has(x)) return
+  seen.add(x)
+  if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x) || ts.isJsxFragment(x)) {
+    if (!ts.isJsxFragment(x)) fn(x)
+    const component = ts.isJsxFragment(x) ? undefined : sameFileComponent(x)
+    if (component) for (const r of returnedExpressions(component)) eachRendered(r, fn, seen)
+    const opening = jsxOpening(x)
+    for (const a of opening?.attributes.properties ?? []) {
+      if (ts.isJsxAttribute(a) && a.initializer && ts.isJsxExpression(a.initializer) && a.initializer.expression) eachRendered(a.initializer.expression, fn, seen)
+    }
+    if (!ts.isJsxSelfClosingElement(x)) {
+      for (const c of x.children) {
+        if (ts.isJsxExpression(c)) { if (c.expression) eachRendered(c.expression, fn, seen) }
+        else if (!ts.isJsxText(c)) eachRendered(c, fn, seen)
+      }
+    }
+  } else if (ts.isConditionalExpression(x)) {
+    eachRendered(x.whenTrue, fn, seen)
+    eachRendered(x.whenFalse, fn, seen)
+  } else if (ts.isBinaryExpression(x) && [AND, OR, NULLISH].includes(x.operatorToken.kind)) {
+    eachRendered(x.left, fn, seen)
+    eachRendered(x.right, fn, seen)
+  } else if (ts.isArrayLiteralExpression(x)) {
+    for (const m of x.elements) eachRendered(m, fn, seen)
+  } else if (ts.isIdentifier(x)) {
+    const value = constValue(x)
+    if (value) eachRendered(value, fn, seen)
+  } else if (ts.isCallExpression(x)) {
+    fn(x)
+    for (const callback of rowCallbacks(x)) for (const r of returnedExpressions(callback)) eachRendered(r, fn, seen)
+  }
+}
+
+/** How many markers one rendering of an expression holds, at most: a conditional's branches are alternatives (the
+    larger counts), JSX children and an array's members add up, and a list whose rows render a marker holds many (2). */
+function markerCount(e: ts.Node, seen = new Set<ts.Node>()): number {
+  if (ts.isJsxExpression(e)) return e.expression ? markerCount(e.expression, seen) : 0
+  const x = ts.isExpression(e) ? unwrap(e) : e
+  if (seen.has(x)) return 0
+  seen.add(x)
+  if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x) || ts.isJsxFragment(x)) {
+    let count = !ts.isJsxFragment(x) && isMarker(x) ? 1 : 0
+    const component = ts.isJsxFragment(x) ? undefined : sameFileComponent(x)
+    if (component) count += Math.max(0, ...returnedExpressions(component).map((r) => markerCount(r, new Set(seen))))
+    for (const a of jsxOpening(x)?.attributes.properties ?? []) {
+      if (ts.isJsxAttribute(a) && a.initializer && ts.isJsxExpression(a.initializer) && a.initializer.expression) count += markerCount(a.initializer.expression, seen)
+    }
+    if (!ts.isJsxSelfClosingElement(x)) for (const c of x.children) count += ts.isJsxExpression(c) ? (c.expression ? markerCount(c.expression, seen) : 0) : ts.isJsxText(c) ? 0 : markerCount(c, seen)
+    return count
+  }
+  if (ts.isConditionalExpression(x)) return Math.max(markerCount(x.whenTrue, new Set(seen)), markerCount(x.whenFalse, new Set(seen)))
+  if (ts.isBinaryExpression(x) && x.operatorToken.kind === AND) return markerCount(x.right, seen)
+  if (ts.isBinaryExpression(x) && [OR, NULLISH].includes(x.operatorToken.kind)) return Math.max(markerCount(x.left, new Set(seen)), markerCount(x.right, new Set(seen)))
+  if (ts.isArrayLiteralExpression(x)) return x.elements.reduce((sum, m) => sum + markerCount(m, seen), 0)
+  if (ts.isIdentifier(x)) {
+    const value = constValue(x)
+    return value ? markerCount(value, seen) : 0
+  }
+  if (ts.isCallExpression(x)) return rowCallbacks(x).flatMap(returnedExpressions).some((r) => markerCount(r, new Set(seen)) > 0) ? 2 : 0
+  return 0
+}
+
+/** The markers that run on one line inside an element: its own children's, through inline tags, expressions,
+    conditionals (the larger branch), consts and lists (a list of markers on one line holds many). */
+function lineMarkers(children: readonly ts.Node[], seen = new Set<ts.Node>()): number {
+  const one = (e: ts.Node): number => {
+    const x = ts.isExpression(e) ? unwrap(e) : e
+    if (seen.has(x)) return 0
+    seen.add(x)
+    if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) {
+      if (isMarker(x)) return 1
+      return ts.isJsxElement(x) && INLINE_TAGS.has(tagOf(x) ?? '') ? lineMarkers(x.children, seen) : 0
+    }
+    if (ts.isJsxFragment(x)) return lineMarkers(x.children, seen)
+    if (ts.isJsxExpression(x)) return x.expression ? one(x.expression) : 0
+    if (ts.isConditionalExpression(x)) return Math.max(one(x.whenTrue), one(x.whenFalse))
+    if (ts.isBinaryExpression(x) && x.operatorToken.kind === AND) return one(x.right)
+    if (ts.isBinaryExpression(x) && [OR, NULLISH].includes(x.operatorToken.kind)) return Math.max(one(x.left), one(x.right))
+    if (ts.isArrayLiteralExpression(x)) return x.elements.reduce((sum, m) => sum + one(m), 0)
+    if (ts.isIdentifier(x)) {
+      const value = constValue(x)
+      return value ? one(value) : 0
+    }
+    if (ts.isCallExpression(x)) return rowCallbacks(x).flatMap(returnedExpressions).some((r) => one(r) > 0) ? 2 : 0
+    return 0
+  }
+  return children.reduce((sum, c) => sum + (ts.isJsxText(c) ? 0 : one(c)), 0)
+}
+
+/** A marker and a marked block, and whether a test that holds only for a located row encloses them, from the row's
+    root down: an `if` around the return, `&&`'s left, a conditional's test (negated on its false branch). A row is
+    what a `.map` or `.flatMap` callback returns; a nested list's rows are rows of their own, read where they stand. */
+function rowSites(e: ts.Node, guarded: boolean, seen: Set<ts.Node>, out: { node: ts.Node; guarded: boolean }[]) {
+  if (ts.isJsxExpression(e)) return e.expression ? rowSites(e.expression, guarded, seen, out) : out
+  const x = ts.isExpression(e) ? unwrap(e) : e
+  if (seen.has(x)) return out
+  seen.add(x)
+  if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x) || ts.isJsxFragment(x)) {
+    if (!ts.isJsxFragment(x) && (isMarker(x) || isMarkedBlock(x))) out.push({ node: x, guarded })
+    const component = ts.isJsxFragment(x) ? undefined : sameFileComponent(x)
+    if (component) for (const r of guardedReturns(component)) rowSites(r.expression, guarded || r.guarded, seen, out)
+    for (const a of jsxOpening(x)?.attributes.properties ?? []) {
+      if (ts.isJsxAttribute(a) && a.initializer && ts.isJsxExpression(a.initializer) && a.initializer.expression) rowSites(a.initializer.expression, guarded, seen, out)
+    }
+    if (!ts.isJsxSelfClosingElement(x)) {
+      for (const c of x.children) {
+        if (ts.isJsxExpression(c)) { if (c.expression) rowSites(c.expression, guarded, seen, out) }
+        else if (!ts.isJsxText(c)) rowSites(c, guarded, seen, out)
+      }
+    }
+  } else if (ts.isConditionalExpression(x)) {
+    rowSites(x.whenTrue, guarded || locatedTest(x.condition), seen, out)
+    rowSites(x.whenFalse, guarded || locatedTest(x.condition, true), seen, out)
+  } else if (ts.isBinaryExpression(x) && x.operatorToken.kind === AND) {
+    rowSites(x.right, guarded || locatedTest(x.left), seen, out)
+  } else if (ts.isBinaryExpression(x) && [OR, NULLISH].includes(x.operatorToken.kind)) {
+    rowSites(x.left, guarded, seen, out)
+    rowSites(x.right, guarded, seen, out)
+  } else if (ts.isArrayLiteralExpression(x)) {
+    for (const m of x.elements) rowSites(m, guarded, seen, out)
+  } else if (ts.isIdentifier(x)) {
+    const value = constValue(x)
+    if (value) rowSites(value, guarded, seen, out)
+  }
+  return out
+}
+
+type DeviceOffence = { node: ts.Node; text: string }
+
+/** Rule 3's checks over one file, each naming what it found. */
+const DEVICE_CHECKS: Record<string, (sf: ts.SourceFile, rel: string) => DeviceOffence[]> = {
+  // The gutter's classes are written only in the device's own module.
+  'a bare gutter': (sf, rel) => {
+    const out: DeviceOffence[] = []
+    if (rel === DEVICE_FILE) return out
+    visit(sf, (n) => {
+      const opening = ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) ? jsxOpening(n) : undefined
+      if (opening && classTokens(opening).some((t) => t === 'en-margin' || t === 'en-margin-mark')) out.push({ node: n, text: 'en-margin' })
+    })
+    return out
+  },
+  // A margin appears only beside text that carries a marker.
+  'a margin without a marker': (sf) => {
+    const out: DeviceOffence[] = []
+    visit(sf, (n) => {
+      if (ts.isJsxSelfClosingElement(n) && tagOf(n) === 'MarkedCopy') out.push({ node: n, text: '<MarkedCopy /> without <EnRef>' })
+      if (ts.isJsxElement(n) && tagOf(n) === 'MarkedCopy' && n.children.reduce((sum, c) => sum + (ts.isJsxText(c) ? 0 : markerCount(c)), 0) === 0) {
+        out.push({ node: n, text: '<MarkedCopy> without <EnRef>' })
+      }
+    })
+    return out
+  },
+  // Ask answers and the narrative keep their citation chips: a margin holds none of them.
+  'a margin beside an answer, the narrative or their chips': (sf) => {
+    const out: DeviceOffence[] = []
+    visit(sf, (n) => {
+      if (!ts.isJsxElement(n) || tagOf(n) !== 'MarkedCopy') return
+      for (const c of n.children) {
+        eachRendered(c, (m) => {
+          const call = ts.isCallExpression(m) ? m.expression : undefined
+          const name = call ? (ts.isIdentifier(call) ? call.text : ts.isPropertyAccessExpression(call) ? call.name.text : '') : tagOf(m)
+          if (name && (CHIP_SURFACES.has(name) || (call && CHIP_CALLS.has(name)))) out.push({ node: m, text: name })
+        })
+      }
+    })
+    return out
+  },
+  // One marker per row (what a .map or .flatMap callback returns) and per line, so the twins never overprint.
+  'a second marker on one row or line': (sf) => {
+    const out: DeviceOffence[] = []
+    visit(sf, (n) => {
+      if (ts.isCallExpression(n)) {
+        for (const callback of rowCallbacks(n)) for (const r of returnedExpressions(callback)) if (markerCount(r) > 1) out.push({ node: r, text: 'a row with more than one marker' })
+      }
+      if (ts.isJsxElement(n) && !INLINE_TAGS.has(tagOf(n) ?? '') && lineMarkers(n.children) > 1) out.push({ node: n, text: 'a line with more than one marker' })
+    })
+    return out
+  },
+  // On a row of a list, a marker or a marked block renders only under a test of the row's located flag.
+  'a marker or a marked block on a row the server did not locate': (sf) => {
+    const out: DeviceOffence[] = []
+    visit(sf, (n) => {
+      if (!ts.isCallExpression(n)) return
+      for (const callback of rowCallbacks(n)) {
+        for (const r of guardedReturns(callback)) {
+          for (const site of rowSites(r.expression, r.guarded, new Set(), [])) {
+            if (!site.guarded) out.push({ node: site.node, text: isMarker(site.node) ? '<EnRef> on a row not located' : 'a marked block on a row not located' })
+          }
+        }
+      }
+    })
+    return out
+  },
+}
+
+/** The files that render the device: MarkedCopy, EnRef, or a class of its own (`en-marked`, `en-margin`). */
+function rendersDevice(sf: ts.SourceFile): boolean {
+  let found = false
+  visit(sf, (n) => {
+    if (found || !(ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n))) return
+    const tag = tagOf(n)
+    if (tag === 'MarkedCopy' || tag === 'EnRef' || classTokens(jsxOpening(n)!).some((t) => ['en-marked', 'en-margin', 'en-margin-mark'].includes(t))) found = true
+  })
+  return found
+}
+
 describe('brand rule 3: the Marked Copy Rule', () => {
   it('the highlight (en-mark) never sits on a figure or a price', () => {
     const offenders: string[] = []
@@ -3178,26 +3506,40 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     for (const [variant, headline] of Object.entries(HEADLINES)) expect(headline.accent, variant).not.toMatch(/[\d$%]/)
   })
 
-  it('the margin exists only inside MarkedCopy, and every MarkedCopy carries a marker', () => {
-    const marginOutside: string[] = []
-    const withoutMarker: string[] = []
-    for (const { rel, sf } of SOURCES) {
-      visit(sf, (n) => {
-        if ((ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) && rel !== 'features/marketing/components/MarkedCopy.tsx') {
-          const opening = ts.isJsxElement(n) ? n.openingElement : n
-          if (classTokens(opening).includes('en-margin')) marginOutside.push(where(rel, sf, n, 'en-margin'))
-        }
-        if (ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'MarkedCopy') {
-          let marker = false
-          visit(n, (m) => {
-            if ((ts.isJsxElement(m) && m.openingElement.tagName.getText() === 'EnRef') || (ts.isJsxSelfClosingElement(m) && m.tagName.getText() === 'EnRef')) marker = true
-          })
-          if (!marker) withoutMarker.push(where(rel, sf, n, '<MarkedCopy> without <EnRef>'))
-        }
-      })
+  it('the device renders only in its places, each a passage the server located (DEVICE_PLACES, D-044)', () => {
+    const places = SOURCES.filter(({ rel, sf }) => rel !== DEVICE_FILE && rendersDevice(sf)).map(({ rel }) => rel).sort()
+    expect(places, 'name the located passage a new place marks in DEVICE_PLACES; Ask answers and the narrative keep their chips')
+      .toEqual(Object.keys(DEVICE_PLACES).sort())
+  })
+
+  it.each(Object.keys(DEVICE_CHECKS))('no %s', (check) => {
+    const found = SOURCES.flatMap(({ rel, sf }) => DEVICE_CHECKS[check](sf, rel).map(({ node, text }) => where(rel, sf, node, text)))
+    expect(found, 'the margin and the mark mean located (D-044): see DESIGN.md › Graphic device').toEqual([])
+  })
+
+  it('scores every planted form in tests/unit/fixtures/brandRule3Forms.tsx as its mark says', () => {
+    const sf = PROGRAM.getSourceFile(DEVICE_FORMS)
+    if (!sf) throw new Error(`${DEVICE_FORMS} is not in the program`)
+    const forms = new Map<string, { mark: string; fn: ts.FunctionDeclaration }>()
+    for (const stmt of sf.statements) {
+      if (!ts.isFunctionDeclaration(stmt) || !stmt.name) continue
+      const mark = ts.getLeadingCommentRanges(sf.text, stmt.pos)?.map((r) => /^\/\*\*\s*(D\d+) (flag|clean|gap):/.exec(sf.text.slice(r.pos, r.end))).find(Boolean)
+      if (mark && mark[1] === stmt.name.text) forms.set(mark[1], { mark: mark[2], fn: stmt })
     }
-    expect(marginOutside, 'render <MarkedCopy> instead of a bare gutter').toEqual([])
-    expect(withoutMarker, 'a margin appears only beside text that carries a marker').toEqual([])
+    const formOf = (node: ts.Node) => [...forms].find(([, { fn }]) => node.pos >= fn.pos && node.end <= fn.end)?.[0]
+    const named = new Map<string, string[]>()
+    for (const [check, run] of Object.entries(DEVICE_CHECKS)) {
+      for (const { node } of run(sf, 'tests/unit/fixtures/brandRule3Forms.tsx')) {
+        const form = formOf(node) ?? `outside a form, line ${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
+        named.set(form, [...(named.get(form) ?? []), check])
+      }
+    }
+    expect([...forms.values()].filter((f) => f.mark === 'flag').length, 'the fixture plants forms that break the rule').toBeGreaterThan(0)
+    expect([...forms.values()].filter((f) => f.mark === 'clean').length, 'the fixture plants look-alikes').toBeGreaterThan(0)
+    const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark}): ${named.get(name)?.join(', ') ?? 'not named'}`)
+    const strays = [...named.keys()].filter((name) => !forms.has(name))
+    expect(misread, 'rule 3 reads these forms against their marks: fix the check, or flip the mark with its record (D-044)').toEqual([])
+    expect(strays, 'rule 3 named a node that is not in a planted form').toEqual([])
   })
 
   it('the scan sees the surfaces it guards (the rules above stay meaningful)', () => {

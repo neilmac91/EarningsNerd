@@ -1,3 +1,8 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import postcss from 'postcss'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   CITATION_HIGHLIGHT_CSS,
@@ -447,3 +452,57 @@ describe('highlightExcerptInDom', () => {
     })
   })
 })
+
+/**
+ * The reader's located passage wears the brand device's mark (D-044): the tint and the 2px hairline of
+ * `.en-mark` in app/globals.css, light and dark, so it looks the same in the reader as on the landing page,
+ * and the passage in the primary ink (tailwind.config.js), as the landing's marked block sets it. The
+ * paint is a constructed sheet the stylesheet cannot hold (see CITATION_HIGHLIGHT_CSS), so this reads both
+ * and holds one to the other; tests/e2e/copilot-highlight-css.spec.ts reads what Chromium computes.
+ */
+describe('the located passage takes the device mark (D-044)', () => {
+  const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+  const tokens = createRequire(import.meta.url)('../../tailwind.config.js').theme.extend.colors as { text: { primary: { light: string; dark: string } } }
+  const colour = (value = '') => value.replace(/\s+/g, '').toLowerCase()
+  /** A rule's declarations by property, the rule found by its whole selector. */
+  const rule = (css: string, selector: string): Record<string, string> => {
+    const out: Record<string, string> = {}
+    postcss.parse(css).walkRules((r) => {
+      if (r.selector.replace(/\s+/g, ' ').trim() === selector) r.walkDecls((d) => { out[d.prop] = d.value })
+    })
+    return out
+  }
+  const globals = readFileSync(path.join(FRONTEND, 'app/globals.css'), 'utf8')
+  /** `.en-mark`'s tint (the gradient's stop from 62%) and hairline (the inset shadow at its foot). */
+  const device = (selector: string) => {
+    const d = rule(globals, selector)
+    const shadow = /^inset 0 -(\d+px) 0 (.+)$/.exec(d['box-shadow'] ?? '')
+    return { tint: colour(/62%,\s*(.+?)\s+62%\)$/.exec(d.background ?? '')?.[1]), hairline: colour(shadow?.[2]), width: shadow?.[1] }
+  }
+
+  it('reads the device from the stylesheet (anti-vacuity)', () => {
+    expect(device('.en-mark')).toEqual({ tint: '#ecf2ee', hairline: '#cfe0d6', width: '2px' })
+    expect(device('.dark .en-mark')).toEqual({ tint: 'rgba(127,178,149,0.14)', hairline: 'rgba(127,178,149,0.28)', width: '2px' })
+  })
+
+  it("paints .en-mark's tint and 2px hairline, unbroken, in light, on the primary ink", () => {
+    const light = rule(CITATION_HIGHLIGHT_CSS, '::highlight(copilot-citation)')
+    const line = /^underline (\d+px) (.+)$/.exec(light['text-decoration'] ?? '')
+    const mark = device('.en-mark')
+    expect({
+      tint: colour(light['background-color']),
+      hairline: colour(line?.[2]),
+      width: line?.[1],
+      unbroken: light['text-decoration-skip-ink'],
+      ink: colour(light.color),
+    }).toEqual({ tint: mark.tint, hairline: mark.hairline, width: mark.width, unbroken: 'none', ink: colour(tokens.text.primary.light) })
+  })
+
+  it("takes .en-mark's dark pair under .dark, on the dark primary ink", () => {
+    const dark = rule(CITATION_HIGHLIGHT_CSS, '.dark ::highlight(copilot-citation)')
+    const mark = device('.dark .en-mark')
+    expect({ tint: colour(dark['background-color']), hairline: colour(dark['text-decoration-color']), ink: colour(dark.color) })
+      .toEqual({ tint: mark.tint, hairline: mark.hairline, ink: colour(tokens.text.primary.dark) })
+  })
+})
+
