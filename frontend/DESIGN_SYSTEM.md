@@ -55,6 +55,14 @@ colour class on a `-dark` token with no `dark:` variant paints the dark theme's 
 (a stylesheet block whose every selector names `.dark` is the dark theme's), except on a surface dark in
 both themes on purpose, listed in its own residue (the logos' forced-dark mode, the debug payload panel).
 
+- **A state's colour pairs too, and a bare one is not harmless.** The brand tint's states take the dark
+  tokens the §1 table pairs with them: a hover hairline `hover:border-brand-border
+  dark:hover:border-brand-border-dark`, an outline `ring-brand-border dark:ring-brand-border-dark`, the
+  interactive Card's pressed fill `active:bg-brand-weak/60 dark:active:bg-brand-weak-dark`. Tailwind writes a
+  `dark:` class at the same specificity as a `hover:` or `active:` one and later in the sheet, so where the
+  element sets its resting colour under `dark:`, a bare light state colour loses to it and dark shows no hover
+  or pressed change at all; where it sets none, as a ring, the light colour paints on navy (the Copilot's user
+  bubble drew `#CFE0D6` on the panel at 10.7:1, where light's ring sits at 1.3:1).
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
@@ -518,10 +526,14 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
                  tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
-                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` keeps
-                 its warning tint and pulse for now; the design owner chose the brand tint (bg-brand-weak
-                 text-brand-strong, dark pair) with a sage pulse dot, static under reduced motion, which
-                 lands as its own token change (D-032), so no other colour goes on it meanwhile.
+                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
+                 own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
+                 dot in that sage ink, static under reduced motion (D-032): a new filing is news, not a
+                 caution. Its label holds 5.8:1 in light and 5.9:1 on the dark card (6.1:1 pressed); its one
+                 use, the dashboard's What changed "New", strips the dot. Gates: tests/unit/badgeVariants.spec.tsx
+                 (its classes equal brand's, the dot in its ink, the label on the interactive Card at rest and
+                 pressed in both themes) and tests/unit/designSnapshotParity.spec.ts (DESIGN.md's badge-new
+                 paints what the variant paints).
 
 Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
                  <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
