@@ -372,8 +372,9 @@ async def test_analysis_stream_releases_its_connection_before_the_body_streams(m
 # the four holders' finalizers wait for that loop: the summary read and its progress poll answered
 # 4x200 then 4x500 in a burst of eight (``lessons/ops-release-cached-filing-reads-before-yield.md``).
 # The fix shape is a sync function handed to ``run_in_threadpool`` that does the session work, builds
-# the payload and releases the session (``get_summary``, ``get_what_changed``), or a service that
-# reads and releases in one unit.
+# the payload and releases the session (``get_summary``, ``get_what_changed``, ``get_company_peers``),
+# or a service that reads and releases in one unit, called through ``run_in_threadpool``. A service
+# called with the session on the loop checks out on the loop too, which this walk cannot see.
 #
 # An AST walk reads every ``async def`` under ``app/routers/`` that receives a session: a parameter
 # named ``db``, annotated with ``Session`` (bare or inside ``Annotated``, or through a module-level
@@ -539,8 +540,9 @@ def test_async_routes_keep_the_request_session_off_the_loop():
         "These async routes work their request session on the event loop beyond their ceiling "
         f"(line, attribute): {over}. Move the session work, the payload and the release into one "
         "sync function handed to run_in_threadpool, or into a service that reads and releases in "
-        "one unit (lessons/ops-release-cached-filing-reads-before-yield.md). Do not raise a ceiling "
-        "to pass."
+        "one unit, called through run_in_threadpool: a service called with the session on the loop "
+        "checks out on the loop too (lessons/ops-release-cached-filing-reads-before-yield.md). Do "
+        "not raise a ceiling to pass."
     )
 
 

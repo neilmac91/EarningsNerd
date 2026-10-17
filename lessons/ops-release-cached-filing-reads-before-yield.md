@@ -32,7 +32,7 @@ unit in the thread pool (2026-10-17); the analysis stream, at its cap, streamed 
 read's transaction still open, which its own case in the file holds to zero connections out while
 the body streams. Its AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
-routes). Neither half sees a session handed to a service that runs on the loop on a route the burst
-does not list (the filings reads, E94; the waitlist join and verify writes, E112), which stays a
-review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
+routes). Neither half sees a session handed to a service that runs on the loop where the burst does
+not assert the route's checkouts (the filings reads, E94) or does not list the route (the rest of the
+watchlist and analysis routers, E112 and E113), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
