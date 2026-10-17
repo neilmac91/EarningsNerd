@@ -155,9 +155,9 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
 2. Notable filings returns to the homepage with 10-K and 10-Q filings only, from companies that
    hold a full summary, newest first, at most six (`NotableFilings.tsx`, E90).
 3. The landing page's sections after the hero become labelled rows (tell T4, D-045, E113).
-4. Vercel Web Analytics is to load only after the visitor allows analytics (D-046). Until E114
-   lands it runs for every visitor, so the consent bar's promise becomes true in code with that
-   change. What `/privacy` says of analytics and Do Not Track, in draft #1265, stays with the
+4. Vercel Web Analytics is to load only after the visitor allows analytics (D-046). Until that
+   change lands (#1387, E114) it runs for every visitor, so the consent bar's promise becomes true
+   in code with it. What `/privacy` says of analytics and Do Not Track, in draft #1265, stays with the
    founder (F4).
 
 Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
