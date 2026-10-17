@@ -6,6 +6,6 @@
  */
 export const LEGAL_DATES = {
   terms: 'June 16, 2026',
-  privacy: 'June 22, 2026',
+  privacy: 'October 12, 2026',
   security: 'June 22, 2026',
 } as const
