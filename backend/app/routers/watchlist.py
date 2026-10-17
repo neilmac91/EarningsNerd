@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -10,7 +11,7 @@ from app.routers.auth import get_current_user
 from app.services.summary_generation_service import get_generation_progress_snapshot
 from app.services.summary_placeholders import is_summary_placeholder
 from app.config import settings
-from app.services import watchlist_service
+from app.services import filing_list_service, watchlist_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.turnstile import enforce_turnstile
 from app.utils.text import has_control_characters
@@ -449,26 +450,42 @@ async def get_waitlist_status(email: EmailStr, request: Request, db: Session = D
         error_detail="Too many status checks. Please try again later.",
     )
     normalized_email = email.strip().lower()
-    signup = find_signup_by_email(db, normalized_email)
-    if not signup:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Email not found on the waitlist.",
-        )
 
-    referrals_count = count_referrals(db, signup.referral_code)
-    position = calculate_waitlist_position(signup.position, signup.priority_score)
-    return WaitlistStatusResponse(
-        position=position,
-        referrals_count=int(referrals_count),
-        positions_gained=signup.priority_score * REFERRAL_BONUS,
-    )
+    # The lookups, the response and the session release are one unit off the event loop, so the
+    # pooled connection is back before the route yields to the dependency's finalizer
+    # (``lessons/ops-release-cached-filing-reads-before-yield.md``).
+    def status_for_reader() -> WaitlistStatusResponse:
+        try:
+            signup = find_signup_by_email(db, normalized_email)
+            if not signup:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Email not found on the waitlist.",
+                )
+
+            referrals_count = count_referrals(db, signup.referral_code)
+            position = calculate_waitlist_position(signup.position, signup.priority_score)
+            return WaitlistStatusResponse(
+                position=position,
+                referrals_count=int(referrals_count),
+                positions_gained=signup.priority_score * REFERRAL_BONUS,
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(status_for_reader)
 
 
 @waitlist_router.get("/stats")
 async def get_waitlist_stats(db: Session = Depends(get_db)):
-    total_signups = count_signups(db)
-    return {"total_signups": int(total_signups)}
+    # The count and the session release are one unit off the event loop, as for the status read.
+    def stats_for_reader() -> dict[str, int]:
+        try:
+            return {"total_signups": int(count_signups(db))}
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(stats_for_reader)
 
 
 @waitlist_router.post("/verify/{token}")
