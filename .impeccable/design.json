@@ -230,7 +230,7 @@
         "role": "semantic",
         "displayName": "Warning Light",
         "canonical": "#92400E",
-        "description": "Warning text in light mode, including the new-filing badge."
+        "description": "Warning text in light mode."
       },
       "warning-dark": {
         "role": "semantic",
@@ -526,9 +526,9 @@
       "name": "New filing badge",
       "refersTo": "badge-new",
       "kind": "chip",
-      "description": "Badge.tsx new variant: warning tint, 12/16 semibold label, 10px/2px padding, full radius, 6px gap/dot. The dot uses the existing ambient duration and standard easing; reduced motion makes it static. Preview padding is illustrative.",
+      "description": "Badge.tsx new variant: the brand tint, the brand chip's own recipe (pale sage fill, sage hairline and deep sage label; in dark the translucent sage tint and hairline with bright sage ink), 12/16 semibold label, 10px/2px padding, full radius, 6px gap and a 6px dot in the label's sage ink. A new filing is news, not a caution, so it takes no warning tint. The dot uses the existing ambient duration and standard easing; reduced motion makes it static. Its one use, the dashboard's What changed chip, strips the dot. Preview padding is illustrative.",
       "html": "<div class=\"ds-stage\"><span class=\"ds-badge\"><span class=\"ds-dot\" aria-hidden=\"true\"></span>New filing</span></div>",
-      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC) or style(--heading-color: #d7dadc){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15)}}.ds-badge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:9999px;padding:2px 10px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:var(--track-caption,.01em);background:var(--ds-warning-tint);color:var(--ds-warning)}.ds-dot{width:6px;height:6px;border-radius:9999px;background:currentColor;animation:ds-pulse var(--duration-ambient,1800ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)) infinite}@keyframes ds-pulse{0%,100%{opacity:1}50%{opacity:.5}}@media(prefers-reduced-motion:reduce){.ds-dot{animation:none}}"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-strong:#3C6650;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC) or style(--heading-color: #d7dadc){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-strong:#98C5AD;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28)}}.ds-badge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border:1px solid var(--ds-brand-line);border-radius:9999px;padding:2px 10px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:var(--track-caption,.01em);background:var(--ds-tint);color:var(--ds-strong)}.ds-dot{width:6px;height:6px;border-radius:9999px;background:currentColor;animation:ds-pulse var(--duration-ambient,1800ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)) infinite}@keyframes ds-pulse{0%,100%{opacity:1}50%{opacity:.5}}@media(prefers-reduced-motion:reduce){.ds-dot{animation:none}}"
     },
     {
       "name": "Navigation",

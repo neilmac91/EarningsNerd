@@ -40,7 +40,7 @@
   trailing slash stripped (base = settings.FRONTEND_URL.rstrip("/"), as
   backend/app/services/waitlist_service.py does): a doubled slash answers 308. Sent mail keeps the
   whole address, so the origin is published along with the path: use the origin that answers without
-  a redirect (https://www.earningsnerd.io today; the apex answers 307 to it) and keep it answering.
+  a redirect (https://www.earningsnerd.io today; the apex answers 308 to it) and keep it answering.
   FRONTEND_URL defaults to https://www.earningsnerd.io (backend/app/config.py), and production
   sets none, so it runs on that default. The path never moves
   (frontend/public/assets/LOGO_README.md; the register, frontend/tests/unit/publishedAssetUrls.json,

@@ -65,7 +65,7 @@ ROUTER_ORM_CEILINGS: dict[str, int] = {
 
     "app/routers/sitemap.py": 0,
 
-    "app/routers/subscriptions.py": 3,
+    "app/routers/subscriptions.py": 0,
 
     "app/routers/summaries.py": 31,
 
