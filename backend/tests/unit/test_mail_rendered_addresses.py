@@ -1622,6 +1622,10 @@ HIDDEN_TEXTS = [
     ("an em of a small parent", '<div style="font-size:4px"><span style="font-size:0.5em">Half of four.</span></div>', "font size is 2px"),
     ("smaller under a parent at 4.5 px", '<div style="font-size:4.5px"><p style="font-size:smaller">A size smaller.</p></div>', "font size is 3.75px"),
     ("<font size> under a style that sets a size of 0", '<font size="7" style="font-size:0">Legacy words.</font>', "font size is 0px"),
+    ("<small> under a parent at 4.5 px, set smaller by a browser's own sheet", '<div style="font-size:4.5px"><small>Fine print.</small></div>', "font size is 3.75px"),
+    ("<h6> under a parent at 5.9 px, at the 0.67em a browser's own sheet gives it", '<div style="font-size:5.9px"><h6>A small heading.</h6></div>', "font size is 3.953px"),
+    ("font-size:revert on a <sub>, back to a browser's own smaller size", '<div style="font-size:4.5px"><sub style="font-size:revert">Fine print.</sub></div>', "font size is 3.75px"),
+    ("a tenth of a form control's 13.333 px, whatever its parent's", '<div style="font-size:48px"><button><span style="font-size:10%">Pressed words.</span></button></div>', "font size is 1.33333px"),
     ("max-height:0 under overflow:hidden, as a preheader hides", '<p style="max-height:0;overflow:hidden">Clipped words.</p>', "max-height:0"),
     ("height:0 under overflow:hidden", '<p style="height:0;overflow:hidden">Clipped words.</p>', "(height:0"),
     ("a box 1 px wide that clips", '<p style="width:1px;overflow:hidden">Clipped words.</p>', "width:1px"),
@@ -1659,6 +1663,7 @@ HIDDEN_TEXTS = [
     ("a keyword size rspamd does not read, under a parent at 2 px", '<div style="font-size:2px"><p style="font-size:medium">Words at medium.</p></div>', "rspamd reads its font size as 2px"),
     ("font-size:initial, which rspamd does not read, under a parent at 0", '<div style="font-size:0"><p style="font-size:initial">Words at medium.</p></div>', "rspamd reads its font size as 0px"),
     ("<font size>, which rspamd does not read, under a style at 0", '<p style="font-size:0"><font size="3">Legacy words.</font></p>', "rspamd reads its font size as 0px"),
+    ("<h1> under a parent at 2 px, 4 px a browser's way and 2 px rspamd's", '<div style="font-size:2px"><h1>A heading.</h1></div>', "rspamd reads its font size as 2px"),
     ("a height rspamd reads as 0, at 16 px an em", '<p style="font-size:100px;height:0.05em;overflow:hidden">Clipped words.</p>', "rspamd reads height as 0"),
     ("a colour attribute rspamd reads over the style", '<p><span color="#FBFAF6" style="color:#1A1A17">Ink in a browser.</span></p>', "rspamd reads its colour as too like the ground"),
     ("a bgcolor on a div, which rspamd reads", '<div bgcolor="#1A1A17"><p style="color:#1A1A17">Ink on the panel.</p></div>', "rspamd reads its colour as too like the ground"),
@@ -1716,6 +1721,7 @@ HIDDEN_TEXTS = [
     ("two opacities of 0.3, whose product paints the ink faint but apart from the ground", '<div style="opacity:0.3"><p style="opacity:0.3">Faint words.</p></div>', None),
     ("a font of 4 px, rspamd's first shown size", '<p style="font-size:4px">Small words.</p>', None),
     ("0.25em, 4 px a browser's way and rspamd's", '<p style="font-size:0.25em">Small words.</p>', None),
+    ("<small> under a parent at 5 px, 4.17 px in a browser", '<div style="font-size:5px"><small>Fine print.</small></div>', None),
     ("the font-size keywords and CSS-wide ones", '<p style="font-size:xx-small">A</p><p style="font-size:smaller">B</p><p style="font-size:larger">C</p><p style="font-size:initial">D</p><p style="font-size:inherit">E</p><p style="font-size:revert">F</p><p style="font:inherit">G</p>', None),
     ("the colour keywords", '<p style="color:inherit">A</p><p style="color:currentcolor">B</p><p style="color:initial">C</p><p style="color:unset">D</p>', None),
     ("the visibility keywords", '<p style="visibility:initial">A</p><p style="visibility:visible">B</p><p style="visibility:inherit">C</p><p style="visibility:unset">D</p>', None),
@@ -1968,7 +1974,7 @@ def test_the_planted_lists_keep_their_counts():
     }
     assert counts == {
         "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (11, 1), "PREHEADERS": (21, 7),
-        "HIDDEN_TEXTS": (105, 32), "TEXT_PARTS": (11, 3),
+        "HIDDEN_TEXTS": (110, 33), "TEXT_PARTS": (11, 3),
     }, "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     for name, cases in (
         ("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT), ("PREHEADERS", PREHEADERS),

@@ -7,12 +7,14 @@
 Every mail `email_service.py` built appended its plain-text copy to the page as a
 `<pre style="display:none">` and sent no text part. A spam filter reads hidden text as a signal:
 rspamd's `HIDDEN_TEXT` (`rules/html.lua`) scores 200 or more hidden characters, at up to 5 points.
-Measured with rspamd 4.2.2 on production-shaped mails, it fired on 31 of main's 40 (2.1 to 5
-points): the invite's copy alone was past it, and #1334's preheaders, hidden text too, took the
-password reset (217), verification (214), OAuth-linked (212) and account-exists (254) mails past it
-as well. The copies had also drifted from their pages: reworded sentences, missing links, and the
-page's escaped greeting ("&amp;") printed as text. Given no text part, Resend builds one from the
-page, its hidden preheader and header among it.
+Measured with rspamd 4.2.2 on production-shaped mails, it fired on 31 of main's 40 (2.1 to 5 points):
+the invite's copy alone was past it, and #1334's preheaders, hidden text too, took the password reset
+(217), verification (214), OAuth-linked (212) and account-exists (254) mails past it as well. The copies
+had also drifted from their pages: reworded sentences, missing links, and the page's escaped greeting
+("&amp;") printed as text. Given no text part, Resend builds one from the page, its hidden preheader and
+header among it. A text part of the mail's own has one cost: rspamd's `URI_COUNT_ODD` (1 point) fires
+where a multipart/alternative mail's URLs total odd, as they do where the header's tile image is the one
+URL only the page carries (E125).
 
 ## Rule
 

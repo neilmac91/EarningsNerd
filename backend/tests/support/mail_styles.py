@@ -1925,6 +1925,13 @@ _FONT_KEYWORDS = {
     "xxx-large": 48.0,
 }
 _FONT_SIZE_ATTRIBUTE = {"1": 10.0, "2": 13.0, "3": 16.0, "4": 18.0, "5": 24.0, "6": 32.0, "7": 48.0}  # <font size>
+# The sizes a browser's own sheet gives the elements it sizes, as factors of the parent's, and a form control's
+# 13.333 px whatever its parent's (measured in Chromium); rspamd reads none of them, so its size stays the parent's.
+_UA_FONT_FACTORS = {
+    "small": 1 / 1.2, "sub": 1 / 1.2, "sup": 1 / 1.2, "big": 1.2, "h1": 2.0, "h2": 1.5, "h3": 1.17, "h5": 0.83,
+    "h6": 0.67,
+}
+_CONTROLS = frozenset({"button", "input", "select", "textarea"})
 _NUMBER = r"[+-]?(?:\d+\.?\d*|\.\d+)"
 _DIMENSION = re.compile(rf"({_NUMBER})([a-z]*|%)")
 # A length in px. In a browser, an absolute unit at its rate, a font-relative one against the box's font size and rem
@@ -2062,12 +2069,18 @@ def _rspamd_length(value: str) -> float | None:
     return number * _RSPAMD_PX[unit] if unit in _RSPAMD_PX else None
 
 
-def _font_px(value: str, parent: float) -> float:
-    """A font size as a browser computes it against its parent's, in px; ``revert`` keeps the parent's, as the
-    browser's own sheet sets no size on the elements a mail holds. Raises ``_Unread`` for a value it does not
-    resolve."""
-    if value in ("inherit", "unset", "revert", "revert-layer"):
+def _ua_font_px(tag: str, parent: float) -> float:
+    """The font size a browser's own sheet gives an element under its parent's: the parent's for most."""
+    return 40 / 3 if tag in _CONTROLS else parent * _UA_FONT_FACTORS.get(tag, 1.0)
+
+
+def _font_px(value: str, parent: float, reverted: float) -> float:
+    """A font size as a browser computes it against its parent's, in px, ``revert`` taking the size the browser's
+    own sheet gives the element (``reverted``). Raises ``_Unread`` for a value it does not resolve."""
+    if value in ("inherit", "unset"):
         return parent
+    if value in ("revert", "revert-layer"):
+        return reverted
     if value == "initial":
         return 16.0
     if value in _FONT_KEYWORDS:
@@ -2080,12 +2093,12 @@ def _font_px(value: str, parent: float) -> float:
     return _length_px(value, parent)
 
 
-def _shorthand_font_px(value: str, parent: float) -> float:
+def _shorthand_font_px(value: str, parent: float, reverted: float) -> float:
     """The size a ``font`` shorthand sets, its first word before the ``/`` of a line height that is a size, or a
     CSS-wide keyword's. Raises ``_Unread`` where it sets none the reader reads (a system font such as caption)."""
     for word in value.split("/")[0].split():
         try:
-            return _font_px(word, parent)
+            return _font_px(word, parent, reverted)
         except _Unread:
             continue
     raise _Unread(value)
@@ -2280,10 +2293,11 @@ def _seen_below(seen: _Seen, element: ElementTree.Element, declared: list[tuple[
             return kept
 
     visible = resolved(("visibility",), lambda name, value: _visible(value, seen.visible), seen.visible)
+    own_size = _ua_font_px(tag, seen.size)
     size = resolved(
         ("font-size", "font"),
-        lambda name, value: _font_px(value, seen.size) if name == "font-size" else _shorthand_font_px(value, seen.size),
-        _FONT_SIZE_ATTRIBUTE.get(element.get("size") or "", seen.size) if tag == "font" else seen.size,
+        lambda name, value: (_font_px if name == "font-size" else _shorthand_font_px)(value, seen.size, own_size),
+        _FONT_SIZE_ATTRIBUTE.get(element.get("size") or "", own_size) if tag == "font" else own_size,
     )
     link = tag == "a" and element.get("href") is not None
     colour = resolved(
@@ -2496,8 +2510,9 @@ def hidden_text_problems(page: str) -> list[str]:
     one a browser's own style sheet hides), skips its content (``hidden="until-found"``, ``content-visibility:
     hidden``) or clips its overflow (``hidden``, ``clip``, ``auto``, ``scroll``) to under 4 px, ``height:0`` or
     ``max-height:0`` among them; or where the text is ``visibility:hidden``, set under 4 px (``font-size:0``,
-    ``font:0/0 a``) or in a colour that is transparent or, painted at the opacity its boxes multiply to, too like the
-    ground behind it, by rspamd's measures. rspamd's reading (``css_rule.cxx``, ``html_block.hxx``, measured with
+    ``font:0/0 a``, and the sizes a browser's own sheet gives ``<small>``, ``<sub>``, ``<sup>``, the headings and a
+    form control count) or in a colour that is transparent or, painted at the opacity its boxes multiply to, too like
+    the ground behind it, by rspamd's measures. rspamd's reading (``css_rule.cxx``, ``html_block.hxx``, measured with
     rspamd 4.2.2) hides it too where a box sets an opacity under 0.1, a box above it is ``visibility:hidden`` or
     carries the ``hidden`` attribute over any display, rspamd reads its size as 3 px
     or less (em and rem at 16 px, ex at 8, a keyword and ``<font size>`` not at all), or reads its colour, a
@@ -2512,7 +2527,8 @@ def hidden_text_problems(page: str) -> list[str]:
     line clamps, ``-webkit-text-fill-color``, ``background-image``, ``text-indent``, a negative margin, a line height
     under 4 px in a box that clips its overflow, and text in a media element's fallback, an SVG or a closed
     ``<details>``. Unread: a ``<style>`` block (the page rules refuse one), text outside the ``<body>``, a box clipped
-    by its parent's fixed size or by its own padding, and text behind an image."""
+    by its parent's fixed size or by its own padding, text behind an image, and the 13 px a browser gives monospace
+    text under no size set as a length."""
     found, refused = set(), []
     for outlook in (False, True):
         texts, refusals = _texts(page, outlook)
