@@ -22,4 +22,18 @@ describe('Button label wrapping', () => {
       }
     }
   })
+
+  it('below 24rem the narrow state keeps a caller\'s own min-h and py, through <Button> and buttonVariants alike', () => {
+    const narrow = (className: string) => className.split(/\s+/).filter((token) => token.startsWith('[@media(max-width:24rem)]:'))
+    const bare = buttonVariants({ size: 'md' })
+    expect(narrow(bare)).toEqual(expect.arrayContaining(['[@media(max-width:24rem)]:h-auto', '[@media(max-width:24rem)]:min-h-10', '[@media(max-width:24rem)]:py-2', '[@media(max-width:24rem)]:whitespace-normal']))
+    const own = buttonVariants({ size: 'md', className: 'min-h-11 py-3' })
+    expect(narrow(own)).not.toEqual(expect.arrayContaining(['[@media(max-width:24rem)]:min-h-10']))
+    expect(narrow(own)).not.toEqual(expect.arrayContaining(['[@media(max-width:24rem)]:py-2']))
+    expect(narrow(own)).toEqual(expect.arrayContaining(['[@media(max-width:24rem)]:h-auto', '[@media(max-width:24rem)]:whitespace-normal']))
+    expect(narrow(buttonVariants({ size: 'md', className: 'sm:py-3' }))).toEqual(expect.arrayContaining(['[@media(max-width:24rem)]:py-2']))
+    render(<Button className="min-h-11">Open report</Button>)
+    expect(screen.getByRole('button', { name: 'Open report' }).className.split(/\s+/)).not.toContain('[@media(max-width:24rem)]:min-h-10')
+    expect(narrow(buttonVariants({ size: 'icon-sm', className: 'min-h-11' }))).toEqual([])
+  })
 })

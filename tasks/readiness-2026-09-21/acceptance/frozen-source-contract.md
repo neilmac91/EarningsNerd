@@ -17,13 +17,13 @@ The resolver checks fixed manifest hashes, exact identity and role coverage, saf
 
 ## Production parsing
 
-The adapter supplies retained sources to the existing Edgar parsers and SEC document service. It preserves primary text, section extraction, filing-instance XBRL, companyfacts fallback, statement context and excerpt acquisition. Persisted, Redis and process XBRL caches are bypassed in the isolated invocation. Companyfacts still passes through the existing accession-filtered production parser; missing facts remain missing.
+The adapter supplies retained sources to the existing Edgar parsers and SEC document service. It preserves primary text, section extraction, filing-instance XBRL, companyfacts fallback, statement context and excerpt acquisition. Since E28 (PR #1347) the section parser reads the primary text the pipeline's bound document fetch returned, not an SDK-resolved filing: the adapter checks that its input is the archived primary packet and that populated sections came from the production parse of it. Persisted, Redis and process XBRL caches are bypassed in the isolated invocation. Companyfacts still passes through the existing accession-filtered production parser; missing facts remain missing.
 
 The production pipeline invokes XBRL and sections for 10-K, 10-Q and 20-F. Its 6-K branch uses the production exhibit extractor and may fall back to the archived primary. Standalone adapter canaries also exercise 6-K XBRL capability; that does not mean the production pipeline calls it.
 
 Source faults remain recorded even if the production pipeline catches the exception. Every actual provider reservation rechecks the active archive context and source violations, including retries, recovery and attribution verification. The worker retains the source trace, exact summarizer inputs and outputs, previews, canonical output, rendered output and export, and seals each declared artifact. Collection verifies those retained bytes against the contract.
 
-For H02 and H19, the retained index names a co-registrant primary URL. Its unique selected SGML attachment supplies the parser bytes through an explicit alias. Live HTTP byte parity for those two alias URLs remains unverified and must remain a limitation in the measurement report. Known SEC-injected script/wrapper differences between HTTP and SGML are audited exactly; unknown differences fail.
+For H02 and H19, the retained index names a co-registrant primary URL. Its unique selected SGML attachment supplies the SDK parser bytes through an explicit alias (the section parse no longer reaches it since E28; whether any channel still does is unverified until an offline trace on the frozen archive). Live HTTP byte parity for those two alias URLs remains unverified and must remain a limitation in the measurement report. Known SEC-injected script/wrapper differences between HTTP and SGML are audited exactly; unknown differences fail.
 
 ## Execution prerequisites
 

@@ -12,7 +12,7 @@ export interface Usage {
   qa_limit: number
   /** FREE "taste" of Copilot (roadmap 2.2): lifetime grounded questions spent so far. */
   copilot_free_taste_used: number
-  /** FREE plan's lifetime taste allowance (0 for PRO, which is unlimited via qa_limit). */
+  /** FREE plan's lifetime taste allowance (0 for PRO: Pro has no taste allowance, and its monthly cap is qa_limit). */
   copilot_free_taste_total: number
   /** Multi-Period Analysis generations this month (fresh AI narratives only; cached re-serves are free). */
   analysis_used: number

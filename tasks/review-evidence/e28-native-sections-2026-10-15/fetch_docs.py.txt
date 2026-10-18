@@ -1,0 +1,13 @@
+"""Fetch the golden set's eligible primary documents once, ~1 req/s, into the docs dir (untrusted data)."""
+import json, sys, time, pathlib, httpx
+golden = json.load(open(sys.argv[1])); out = pathlib.Path(sys.argv[2])
+ua = {"User-Agent": "EarningsNerd research contact@earningsnerd.io", "Accept-Encoding": "gzip, deflate"}
+items = [i for i in golden["filings"] if i["filing_type"].split("/")[0] in ("10-K", "10-Q", "20-F")] if isinstance(golden, dict) and "filings" in golden else None
+if items is None:
+    items = [i for i in (golden if isinstance(golden, list) else next(v for v in golden.values() if isinstance(v, list))) if i["filing_type"].split("/")[0] in ("10-K", "10-Q", "20-F")]
+with httpx.Client(headers=ua, timeout=60, follow_redirects=True) as c:
+    for i in items:
+        p = out / f"{i['ticker']}_{i['filing_type'].replace('/', '-')}_{i['accession_number']}.html"
+        if p.exists(): continue
+        r = c.get(i["document_url"]); r.raise_for_status(); p.write_text(r.text, encoding="utf-8")
+        print(i["ticker"], i["filing_type"], len(r.text)); time.sleep(1.1)

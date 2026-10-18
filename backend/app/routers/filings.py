@@ -93,7 +93,7 @@ async def get_company_filings(
     ticker: str,
     background: BackgroundTasks,
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
-    limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings to return; default serves the recent cap"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings per form group (the 6-Ks, and every other form); default serves the recent cap"),
     db: Session = Depends(get_db, scope="function")
 ):
     """Get filings for a company.
@@ -202,7 +202,7 @@ async def get_company_filings(
         # Persist and commit the listing, then convert it to response models (still inside this
         # try, so the finally below releases the session only after the DTOs exist).
         return filing_list_service.persist_live_filings(
-            db, ticker_upper, types_list, company_id, sec_filings, FilingResponse.from_orm
+            db, ticker_upper, types_list, company_id, sec_filings, limit, FilingResponse.from_orm
         )
 
     except asyncio.TimeoutError:

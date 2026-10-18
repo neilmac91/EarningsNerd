@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 import { ChatCircleTextIcon, XIcon } from '@/lib/icons'
 import { Button } from '@/components/ui'
 import type { FocusHandoff } from '@/hooks/useFocusHandoff'
+import { COPILOT_CLAIM } from './copilotClaim'
 
 interface CopilotCoachmarkProps {
   /** Opens the Copilot rail (also marks the coachmark seen via the parent's `open` effect). */
@@ -20,7 +21,7 @@ interface CopilotCoachmarkProps {
  * One-time, contextual nudge anchored above the "Source" launcher (it opens the pane on Ask, its
  * initial tab), shown the first time a
  * user reaches a filing summary (NN/g: a coachmark earns its place only to signal a genuinely new /
- * non-obvious affordance, fired at a contextual moment — not a launch-time tour). Purely
+ * non-obvious affordance, fired at a contextual moment, not a launch-time tour). Purely
  * presentational: the parent owns the once-only / persisted visibility. Entrance motion is gated
  * behind `motion-safe` so it's silent under prefers-reduced-motion (WCAG 2.3.3).
  */
@@ -46,7 +47,7 @@ export default function CopilotCoachmark({ onTry, tryHandoff, onDismiss, style }
             New: ask this filing anything
           </p>
           <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            Get plain-English answers, each cited to the exact filing text.
+            {COPILOT_CLAIM}
           </p>
           <Button
             ref={tryHandoff?.attach}
