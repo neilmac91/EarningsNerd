@@ -374,8 +374,12 @@ class _CopilotChatMixin:
                     # A tool is a blocking DB lookup whose pool checkout can wait. Run it in a
                     # Copilot lookup thread so the loop keeps serving the requests that hold the
                     # slots; calls stay sequential, so the caller's tool state is never touched
-                    # by two threads at once.
-                    result = await run_in_lookup_thread(run_tool, call["name"], parsed_args)
+                    # by two threads at once. The question's deadline bounds the wait: a call still
+                    # queued then never runs, and a running one finishes and closes its own session.
+                    # The claim repair in ``_admit_answer`` is not bounded: an answer that finished
+                    # inside the budget stays publishable.
+                    async with asyncio.timeout_at(deadline):
+                        result = await run_in_lookup_thread(run_tool, call["name"], parsed_args)
                     ok = not (isinstance(result, dict) and "error" in result)
                     yield STREAM_ACTIVITY_SENTINEL + json.dumps(
                         {"name": call["name"], "args": parsed_args, "phase": "done", "ok": ok}
