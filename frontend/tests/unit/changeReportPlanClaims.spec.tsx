@@ -61,6 +61,11 @@ const RESTATE =
   'table\'s row in features/marketing/components/PricingSection.tsx, the Pro chip and the line on ProDepth\'s ' +
   'Change Report row) and move this gate beside them.'
 
+const SAME_REPORT =
+  `Free and Pro read the same Change Report while ${FLAG} stays off (its one plan difference, entitlements.py's ` +
+  'wording block, ships behind that flag), so the landing claims no difference. Ship the flag first, then restate ' +
+  'the claims from entitlements.py.'
+
 /**
  * Whether production can serve the wording diff: the Settings default is True, or an executable line of a workflow
  * gives the flag a value that is not a false spelling (or names it without a value the read can take). Throws when
@@ -115,7 +120,7 @@ describe("the landing's Change Report claims while production serves no wording 
     render(<PricingSection accessMode="public" showBeta={false} />)
     const row = screen.getByRole('rowheader', { name: 'Change Report' }).closest('tr')!
     const [free, pro] = within(row).getAllByRole('cell').map((cell) => cell.textContent)
-    expect(free, `the plan table claims a Change Report difference production does not serve. ${RESTATE}`).toBe(pro)
+    expect(free, `the plan table gives the Change Report's two plans different cells. ${SAME_REPORT}`).toBe(pro)
     expect(free).toBe('Included')
   })
 
@@ -126,7 +131,7 @@ describe("the landing's Change Report claims while production serves no wording 
       within(screen.getByRole('heading', { level: 3, name: title }).parentElement!).queryByText('Pro', { exact: true })
     // Anti-vacuity: the read finds the chip where Pro has a feature in full.
     expect(chip('Ask this Filing')).toBeInTheDocument()
-    expect(chip('Change Report'), `ProDepth sells the Change Report as Pro's while both plans read the same report. ${RESTATE}`).toBeNull()
+    expect(chip('Change Report'), `ProDepth puts the Pro chip on its Change Report row. ${SAME_REPORT}`).toBeNull()
     expect(screen.getByText(/Both plans include it\.$/)).toBeInTheDocument()
   })
 })
