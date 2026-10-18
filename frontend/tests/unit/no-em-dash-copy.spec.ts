@@ -194,11 +194,13 @@ function violationsIn(text: string, file: string): string[] {
   const knownAs = knownAsIn(declarationOf)
   const calleeName = (call: ts.CallExpression) => knownAs(call.expression)?.name ?? ''
   /** The React element call a call is (one of ELEMENT_MAKERS, or cloneElement), by the name its callee is known by; a
-      same-file function of that name is the file's own, as the shared reading holds it. */
+      same-file function of that name, or a method of anything but React's namespace, is the file's own, as the shared
+      reading holds it. */
   const elementCall = (call: ts.CallExpression): string | undefined => {
     const name = calleeName(call)
     if (!ELEMENT_MAKERS.has(name) && name !== 'cloneElement') return undefined
     const callee = unwrapHeld(call.expression)
+    if (ts.isPropertyAccessExpression(callee) || ts.isElementAccessExpression(callee)) return typeLeaves(callee.expression).has('react') ? name : undefined
     const declaration = ts.isIdentifier(callee) ? declarationOf(callee) : undefined
     const init = declaration && ts.isVariableDeclaration(declaration) && declaration.initializer ? unwrapHeld(declaration.initializer) : undefined
     const own = !!declaration && (ts.isFunctionDeclaration(declaration) || (!!init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))))
@@ -668,6 +670,10 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       "const DashText = () => '—'",
       'export const GC = () => <p><DashText /> shares</p>',
       'export const GD = () => <p>{cloneElement(<DashText />)} shares</p>',
+      "const formatters = { createElement(v?: number) { return v ?? '—' } }",
+      'export const GE = ({ v }: { v?: number }) => <p>{formatters.createElement(v)} shares</p>',
+      "const cells = { jsx: (v?: string) => v ?? '—' }",
+      "export const GF = ({ v }: { v?: string }) => <p>{cells['jsx'](v)} sh</p>",
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
     // attribute's value) and 18 to 19 hold the token where nothing joins it (a name no line reads, a comparison, a
@@ -753,9 +759,11 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // handed, so one alone in a cell (253, at 254) makes another beside a unit fail (255). A tag that names an intrinsic
     // element is never a binding: `<abbr>` beside a unit passes though the file declares an `abbr` that returns the
     // token (256, at 257). A component that returns the token as text of its own (258) fails beside a unit (259), and
-    // so does its clone (260).
+    // so does its clone (260). A method under a maker's name is React's only on React's namespace: a same-file object's
+    // is the file's own, so its fallback fails where its call is joined, written as Codex's `formatters.createElement`
+    // (261, at 262) or by a literal key (263, at 264).
     expect(violationsIn(src, file)).toEqual(
-      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205, 209, 212, 214, 216, 218, 220, 222, 224, 226, 228, 231, 235, 236, 237, 238, 239, 241, 243, 245, 246, 249, 255, 259, 260].map(
+      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205, 209, 212, 214, 216, 218, 220, 222, 224, 226, 228, 231, 235, 236, 237, 238, 239, 241, 243, 245, 246, 249, 255, 259, 260, 262, 264].map(
         (line) => `features/zzprobe/Probe.tsx:${line} —`,
       ),
     )
