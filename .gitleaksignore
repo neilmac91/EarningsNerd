@@ -104,3 +104,9 @@ ade6f8bbfe3c949d1718bb5bde7d14930d1c583b:frontend/features/research-evidence-pac
 # 2026-10-15: a design-census border-radius identifier in the token dump on codex/wave3-design-system-review (#1340),
 # reviewed by hand, no credential. Covers commit 6ee3c7c8 only; that branch's later commits rename the matched field.
 6ee3c7c847d83e76dac72cbc8429c6dacbfaac81:tasks/design-system-review-2026-10/data/tokens.json:generic-api-key:1
+# 2026-10-17 #1334 (E54): a made-up 43-character reset token (base64 of a phrase) in two mail-test fixtures, long so
+# the long-run rule meets a link at its real length; reviewed by hand, no credential. These pins cover eec330cb, the
+# branch commit that introduced the bare lines; the lines now carry an inline gitleaks:allow, which covers whatever
+# commit carries them after a squash merge.
+eec330cb5a12b2c2c40ad7589a2679dc82bf3383:backend/tests/unit/test_mail_rendered_addresses.py:generic-api-key:101
+eec330cb5a12b2c2c40ad7589a2679dc82bf3383:backend/tests/unit/test_mail_header_template.py:generic-api-key:251

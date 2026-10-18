@@ -4,7 +4,7 @@ import path from 'node:path'
 import { render } from '@testing-library/react'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { Badge } from '@/components/ui'
+import { Badge, Card } from '@/components/ui'
 
 /**
  * chrome/F8, chrome/F9 (D-032): a status chip is its own Badge variant, never a data colour. `beat` and
@@ -21,7 +21,11 @@ import { Badge } from '@/components/ui'
  *  - Badge.tsx no longer documents beat/miss/new as tonal recipes;
  *  - no `<Badge icon={null}>` in app/, components/ or features/ takes `beat` or `miss` (a literal, or a
  *    variable in a file that names either): a direction without its glyph is a status in data colours.
- *    No file is exempt: the watchlist and dashboard rows say "Ready" and "Error" on success and error.
+ *    No file is exempt: the watchlist and dashboard rows say "Ready" and "Error" on success and error;
+ *  - `new` is the brand tint with its sage dot (D-032, E51): the `brand` chip's own classes, so it cannot drift
+ *    back to the warning tint or apart from the brand chip, a pulse dot in the label's ink that stops under
+ *    reduced motion, and a label that clears 4.5:1 in both themes on the interactive Card its one use sits on
+ *    (the dashboard's What changed card), at rest and pressed, the grounds read from Card's own classes.
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -138,5 +142,66 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
     }
 
     expect(found, 'use the success, error or warning variant').toEqual([])
+  })
+})
+
+/** A colour token's value, or undefined for a utility that is no colour (`text-xs`): `brand-weak` → its hex,
+    `brand-weak-dark` → its rgba, `brand` → its DEFAULT; an opacity suffix (`/60`) is read apart. */
+const tokenValue = (name: string): string | undefined => {
+  const bare = name.split('/')[0]
+  if (bare === 'white') return '#FFFFFF'
+  const [family, ...rest] = bare.split('-')
+  const value = C[family]?.[rest.length ? rest.join('-') : 'DEFAULT']
+  return typeof value === 'string' ? value : undefined
+}
+/** A fill class's colour over what lies under it (`brand-weak`, `brand-weak-dark`, `brand-weak/60`); an opacity
+    replaces the token's own alpha, as Tailwind's does on an rgba token. */
+const paint = (fill: string, under: Rgb): Rgb => {
+  const [, pct] = fill.split('/')
+  const value = tokenValue(fill)
+  const rgba = value?.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/)
+  if (!value || (!value.startsWith('#') && !rgba)) throw new Error(`no colour token ${fill}`)
+  const [rgb, alpha]: [Rgb, number] = rgba
+    ? [[Number(rgba[1]), Number(rgba[2]), Number(rgba[3])], rgba[4] === undefined ? 1 : Number(rgba[4])]
+    : [hex(value), 1]
+  return over(rgb, pct ? Number(pct) / 100 : alpha, under)
+}
+/** A theme's own colour class on one property (`bg`, `text`) under the given state variants (none, `active`). */
+const own = (classes: string[], theme: 'light' | 'dark', property: 'bg' | 'text', state: string[] = []): string | undefined => {
+  const wanted = (theme === 'dark' ? ['dark', ...state] : state).join(':')
+  for (const parts of classes.map((c) => c.split(':'))) {
+    const utility = parts[parts.length - 1]
+    const value = utility.slice(property.length + 1)
+    if (parts.slice(0, -1).join(':') === wanted && utility.startsWith(`${property}-`) && tokenValue(value)) return value
+  }
+  return undefined
+}
+
+describe('the new chip (D-032, E51)', () => {
+  it('is the brand tint with its sage dot, and its label clears 4.5:1 in both themes on the card it sits on', () => {
+    const chip = (variant: 'new' | 'brand') => render(<Badge variant={variant}>New</Badge>).container.firstElementChild as HTMLElement
+    const fresh = chip('new')
+    // The brand chip's own classes, both themes: a new filing is news, not a caution, so no warning tint.
+    expect(fresh.className, 'the new chip takes the brand tint (Badge.tsx TINT)').toBe(chip('brand').className)
+    // Its affordance is a pulse dot in the label's ink, which is sage here, and it stops under reduced motion.
+    const dot = fresh.querySelector('span[aria-hidden="true"]')
+    expect(dot?.className.split(/\s+/)).toEqual(expect.arrayContaining(['bg-current', 'animate-pulse', 'motion-reduce:animate-none']))
+
+    // Its one use sits on an interactive Card (WhatChangedCard): the card's fill at rest, and its pressed fill over
+    // the page when pressed (a dark press with no twin of its own keeps the resting fill, which outranks it).
+    const card = (render(<Card interactive />).container.firstElementChild as HTMLElement).className.split(/\s+/)
+    const classes = fresh.className.split(/\s+/)
+    for (const theme of ['light', 'dark'] as const) {
+      const rest = paint(own(card, theme, 'bg') ?? '', hex(theme === 'dark' ? C.background.dark : C.background.light))
+      const press = own(card, theme, 'bg', ['active'])
+      const pressed = press ? paint(press, hex(theme === 'dark' ? C.background.dark : C.background.light)) : rest
+      const ink = own(classes, theme, 'text', [])
+      const fill = own(classes, theme, 'bg', [])
+      if (!ink || !fill) throw new Error(`no ${theme} ink or fill in ${fresh.className}`)
+      for (const [state, ground] of [['at rest', rest], ['pressed', pressed]] as const) {
+        const ratio = Math.round(contrast(paint(ink, ground), paint(fill, ground)) * 100) / 100
+        expect(ratio, `the new chip's label in ${theme}, on the card ${state}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
   })
 })

@@ -103,9 +103,12 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    to symbols deleted in the same PR, or under a pre-approved, PR-body-documented contract change.
    Anything else: stop and surface it first.
 7. **datetime:** timezone-aware UTC via `app/utils/datetimes.py` (`utcnow()`, `iso_z()`); never
-   `datetime.utcnow()`. The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced
-   by `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity).
-   Serialized timestamps use `iso_z()`; never hand-append `"Z"`.
+   `datetime.utcnow()`/`utcfromtimestamp()`, nor a local-clock read (`datetime.now()` without a zone,
+   `today()`). The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced by
+   `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity) and
+   the SEC tickers-cache TTL pinned by `backend/tests/unit/test_naive_local_now_allowlist.py`.
+   Serialized timestamps use `iso_z()`; never hand-append `"Z"` (gate:
+   `backend/tests/unit/test_datetimes.py`).
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
    Sole sanctioned exception: pre-Settings infra-bootstrap constants in `database.py`,
    `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity) plus `Settings.__init__`
@@ -129,7 +132,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     or none, also fails `tests/unit/brandCopyRules.spec.ts` rule 2)
     `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
     outranks the workspace layers; the consent bar's inset), `tests/e2e/text-floors.spec.ts` (muted text clears
-    4.5:1 on what is behind it; no checked route skips a heading level) and
+    4.5:1 on what is behind it; no checked route skips a heading level), `tests/e2e/reflow-200.spec.ts` (no
+    checked route scrolls sideways at 390px under a 200% text setting) and
     `tests/unit/siteChromeFocusRing.spec.ts` (every site-chrome Tab stop carries the brand ring); the surface
     clause is review-checked.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the

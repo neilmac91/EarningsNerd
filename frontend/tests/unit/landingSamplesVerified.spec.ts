@@ -25,6 +25,10 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    reads as copilot_tools.fact_to_citation writes one, its label names the concept its section ref
  *    holds, its figure is that concept's FY2025 value (or growth), and the figure the answer puts
  *    before its marker rounds from it; a passage is the filing's sentence verbatim;
+ *  - the Copilot teaser's blurred sample (CopilotTeaser.tsx, read from its source as the hero fallback
+ *    is) states only the verified Services pair, a dimensioned fact the tool cannot fetch, so it cites
+ *    passages: its markers run [1], [2] with one matched source each, it names the drivers the
+ *    filing's Item 7 sentence names, and it shows no XBRL marker, locator, tag or braces glyph;
  *  - no figure row is labelled with a CamelCase or namespaced XBRL concept.
  */
 
@@ -211,6 +215,48 @@ describe('the Ask this Filing sample reads as a live answer does', () => {
         expect(Number(n), `[${c.n}] answer percentage`).toBe(Number(Number(pct).toFixed(decimals(n))))
       }
     }
+  })
+})
+
+describe("the Copilot teaser's sample cites passages, as a live Services answer does", () => {
+  // The teaser answers a Services question. Services net sales is a dimensioned fact: companyfacts does not
+  // carry it and the Copilot tool cannot fetch it, so a live answer cites its figures to passages of the
+  // filing, never to an XBRL chip, while the landing's Ask demo answers total net sales with XBRL chips
+  // (docs/brand/08-applications.md §1, Sample data).
+  const TEASER = readFileSync(path.join(FRONTEND, 'features/filings/components/copilot/CopilotTeaser.tsx'), 'utf8')
+  const BLOCK = TEASER.slice(TEASER.indexOf('{/* Blurred sample answer'), TEASER.indexOf('{/* Value props */}'))
+  /** What the sample renders: its JSX comments and tags dropped, whitespace collapsed. */
+  const TEXT = BLOCK.replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const SERVICES = VERIFIED['Services net sales']
+
+  it('reads the sample the teaser renders', () => {
+    expect(BLOCK.length, 'the sample sits between its comment and the value props').toBeGreaterThan(0)
+    expect(TEXT).toContain('AAPL · 10-K · FY2025')
+  })
+
+  it('states only the verified Services pair and its growth', () => {
+    const dollars = new Set(SERVICES.flatMap((v) => [`$${(v / 1e9).toFixed(1)}B`, `$${(v / 1e9).toFixed(2)}B`]))
+    const figures = TEXT.match(DOLLAR_RE) ?? []
+    const percents = TEXT.match(PERCENT_RE) ?? []
+    expect(figures, 'the sample states the Services figures').toContain(`$${(SERVICES[0] / 1e9).toFixed(1)}B`)
+    for (const figure of figures) expect(dollars, `teaser ${figure}: a Services value`).toContain(figure)
+    expect(percents, 'the teaser states the Services change, at one decimal').toEqual([`${growth(SERVICES).toFixed(1)}%`])
+  })
+
+  it('names the drivers in the words of the Item 7 sentence it cites', () => {
+    const sentence = AUDIT.replace(/\s+/g, ' ').match(/"(Services net sales increased during 2025[^"]*)"/)?.[1] ?? ''
+    const drivers = sentence.match(/higher net sales from (.+)\.$/)?.[1]
+    expect(drivers, '00-audit.md §4 records the Item 7 sentence').toBeTruthy()
+    const before = TEXT.slice(0, TEXT.indexOf('[2]')).trim()
+    expect(before.endsWith(drivers as string), `the sentence before [2] names "${drivers}"`).toBe(true)
+  })
+
+  it('cites passages: markers [1] and [2], one matched source each, and no XBRL marker, locator, tag or glyph', () => {
+    const markers = [...TEXT.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1])
+    expect(markers).toEqual(['1', '2'])
+    expect(TEXT).toContain(`${markers.length} matched sources`)
+    expect(TEXT).not.toMatch(/\[F\s*\d+\]|\bXBRL\b|us-gaap:/i)
+    expect(BLOCK, 'braces mark an XBRL figure (DESIGN_SYSTEM.md, Evidence identity)').not.toContain('BracketsCurly')
   })
 })
 

@@ -66,9 +66,11 @@ const PRICE_CLASS =
   // eslint-disable-next-line no-restricted-syntax -- the 40px display figure sets its own tracking; the ramp has no 40
   'font-data tnum text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary-light dark:text-text-primary-dark'
 const MUTED_CLASS = 'text-text-secondary-light dark:text-text-secondary-dark'
-// Design: 44px tall, full card width. buttonVariants' md size sets h-10; h-11 is emitted later in
-// the height scale, so it wins (verified against the built stylesheet, not assumed).
-const CTA_CLASS = 'mt-5 h-11 w-full'
+// Design: 44px tall, full card width. buttonVariants' md size sets h-10, and min-h-11 lifts the box to
+// 44px whatever the stylesheet order. min-h, not h: below a 24rem viewport the Button's narrow state sets
+// h-auto so a label can wrap, and a caller's own min-h is the one height it keeps
+// (tests/unit/buttonHeightIsAMinimum.spec.ts).
+const CTA_CLASS = 'mt-5 min-h-11 w-full'
 
 function FeatureList({ items }: { items: readonly string[] }) {
   return (
@@ -130,10 +132,12 @@ export default function PricingSection({
     select(next)
   }
 
-  // The ring sits on each radio's className itself, where the ring scan can read it.
+  // The ring sits on each radio's className itself, where the ring scan can read it. min-h, not h: a label that
+  // wraps grows its segment instead of spilling out of it. grow: once the segments wrap onto two rows each fills its
+  // row; on one row the group is as wide as its two labels, so there is nothing to grow into.
   const radioClass = (option: Billing) =>
     [
-      'h-9 rounded px-3.5 text-sm font-semibold transition-colors duration-fast motion-reduce:transition-none',
+      'min-h-9 grow rounded px-3.5 py-1 text-sm font-semibold transition-colors duration-fast motion-reduce:transition-none',
       billing === option
         ? 'bg-brand-weak text-text-primary-light dark:bg-brand-weak-dark dark:text-text-primary-dark'
         : `bg-transparent ${MUTED_CLASS}`,
@@ -158,11 +162,14 @@ export default function PricingSection({
                 possible at this price.
               </p>
             </div>
+            {/* One control whose segments wrap whole onto a second row inside it when the two do not fit side by
+                side, as SegmentedControl's fullWidth does (DESIGN_SYSTEM.md): at 360px and 200% text the unwrapped
+                group ran to 368px, its Annual label on three lines below its segment. */}
             <div
               role="radiogroup"
               aria-label="Billing period"
               onKeyDown={onKeyDown}
-              className="inline-flex rounded-lg border border-border-light bg-panel-light p-1 shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+              className="inline-flex max-w-full flex-wrap gap-y-1 rounded-lg border border-border-light bg-panel-light p-1 shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
             >
               <button
                 ref={(el) => {
@@ -188,8 +195,9 @@ export default function PricingSection({
                 onClick={() => select('annual')}
                 className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('annual'))}
               >
-                Annual{' '}
-                <span className="font-medium">· save {PRO_PRICING.annualSavingsPercent}%</span>
+                {/* No-break spaces hold the middot to "Annual" and "save" to its figure, so a label too long for its
+                    row breaks only after the middot: "Annual ·" over "save N%", never a line that starts "·". */}
+                Annual&nbsp;<span className="font-medium">· save&nbsp;{PRO_PRICING.annualSavingsPercent}%</span>
               </button>
             </div>
           </div>

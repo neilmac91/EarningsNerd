@@ -28,11 +28,11 @@
      - beat / miss:  earnings surprise — gain/loss DATA colors (kept distinct
                      from the brand accent), soft tint bg, auto ▲/▼. A
                      direction only, never a status.
-     - new:          new-filing pulse — warning tint + a calm pulsing dot
-                     (respects prefers-reduced-motion). The design owner
-                     chose the brand tint with a sage dot (D-032); it lands
-                     as its own token change, and the warning tint stays
-                     until then.
+     - new:          new-filing pulse — the brand tint (TINT, as brand) + a
+                     calm pulsing dot in its sage ink (respects
+                     prefers-reduced-motion). A new filing is news, not a
+                     caution, so it takes no warning tint (D-032). Its label
+                     holds 5.8:1 in light, 5.9:1 on the dark card.
    Casing: `pro` UPPERCASES its label; brand and every other variant stay
    sentence case. icon={null} strips a variant's automatic affordance (the
    ▲ / ▼ glyph or the pulse dot).
@@ -88,7 +88,7 @@ const VARIANT: Record<BadgeVariant, string> = {
   ),
   beat: 'bg-gain-soft text-gain-text dark:bg-gain-soft-dark dark:text-gain-dark',
   miss: 'bg-loss-soft text-loss-text dark:bg-loss-soft-dark dark:text-loss-dark',
-  new: 'bg-warning-light/10 text-warning-light dark:bg-warning-dark/15 dark:text-warning-dark',
+  new: TINT,
 }
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {

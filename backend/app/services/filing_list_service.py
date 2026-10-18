@@ -20,6 +20,8 @@ a connection out again (``lessons/ops-release-cached-filing-reads-before-yield.m
 import asyncio
 import logging
 from datetime import datetime, timedelta
+from itertools import chain
+from operator import attrgetter
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 from sqlalchemy.orm import Session, joinedload
@@ -27,7 +29,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal
 from app.models import Company, Filing
 from app.services.company_resolution import resolve_or_create_company_by_cik
+from app.services.edgar.client import _take_recent
 from app.services.edgar.compat import sec_edgar_service
+from app.services.edgar.config import FilingType
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -36,7 +40,7 @@ T = TypeVar("T")
 
 # Constants for filings endpoint configuration
 SEC_REQUEST_TIMEOUT_SECONDS = 20.0  # Timeout for SEC EDGAR requests (within frontend's 30s limit)
-CACHED_FILINGS_LIMIT = 20  # Maximum number of cached filings to return as fallback
+CACHED_FILINGS_LIMIT = 20  # Rows the default list serves per group: the reports, and 6-Ks apart
 
 # B2: stale-within-TTL cache for the company filings list. The hot path already persists every SEC
 # fetch into the Filing table, so a recently-synced ticker can serve its list straight from the DB
@@ -199,14 +203,24 @@ def cached_filings(
     joinedload(company) so the converter doesn't lazy-load the company per row (this is the primary
     serving path, not just a fallback).
     """
-    # Default serves the recent cap (unchanged behaviour); an explicit ?limit= (P1-6 "show full
-    # history") raises it so the deep-backfilled rows surface.
+    # Each group serves its newest `row_cap` rows: the reports, and the 6-Ks (FilingType.is_interim)
+    # apart, as on the live fetch (edgar/client.py RECENT_FILINGS_MATERIALIZE_CAP): an issuer that
+    # furnishes a 6-K most business days would otherwise fill the cap and hide its 20-F/40-F. The
+    # default cap is CACHED_FILINGS_LIMIT; an explicit ?limit= (P1-6 "show full history") raises it
+    # so the deep-backfilled rows surface. With no 6-K type requested, this is the one reports query.
     row_cap = limit or CACHED_FILINGS_LIMIT
+    six_k_types = [t for t in types_list if FilingType.from_string(t, strict=False).is_interim]
+    report_types = [t for t in types_list if t not in six_k_types]
     try:
-        cached = db.query(Filing).options(joinedload(Filing.company)).filter(
-            Filing.company_id == company_id,
-            Filing.filing_type.in_(types_list)
-        ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
+        newest_per_group = [
+            db.query(Filing).options(joinedload(Filing.company)).filter(
+                Filing.company_id == company_id,
+                Filing.filing_type.in_(types)
+            ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
+            for types in (report_types, six_k_types)
+            if types
+        ]
+        cached = sorted(chain.from_iterable(newest_per_group), key=lambda f: f.filing_date, reverse=True)
         return [convert(f) for f in cached]
     finally:
         # A sync dependency's finalizer runs in the thread pool after this async route yields.
@@ -233,14 +247,17 @@ def persist_live_filings(
     types_list: List[str],
     company_id: int,
     sec_filings: List[Dict[str, Any]],
+    limit: Optional[int],
     convert: Callable[[Filing], T],
 ) -> List[T]:
     """Persist a live SEC listing and return it converted, in SEC order.
 
     New rows are inserted, existing rows on the old ``cgi-bin/viewer`` URL are rewritten, superseded
     filings are marked and everything commits in one transaction; the (ticker, types) is then
-    stamped fresh. The DTOs are built last, after the commit, while the session is still open: the
-    router's ``finally`` releases it. Any exception propagates to the router's fallbacks.
+    stamped fresh. Every listed row is persisted; an explicit ``limit`` caps each group of the
+    response (the 6-Ks, and every other form), as :func:`cached_filings` does. The DTOs are built
+    last, after the commit, while the session is still open: the router's ``finally`` releases it.
+    Any exception propagates to the router's fallbacks.
     """
     filings = []
     new_filings = []  # Track newly added filings for batch refresh
@@ -324,5 +341,8 @@ def persist_live_filings(
     # Mark this (ticker, types) freshly synced so subsequent loads take the B2 fast path.
     _mark_filings_synced(ticker_upper, types_list)
 
-    # Convert to response models after commit
+    # Convert to response models after commit; ?limit= keeps the newest `limit` of each group with
+    # the live fetch's own per-group rule.
+    if limit is not None:
+        filings = _take_recent(filings, limit, six_k_apart=True, form=attrgetter("filing_type"))
     return [convert(f) for f in filings]

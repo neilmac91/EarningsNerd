@@ -40,8 +40,8 @@ def backport_homepage_url() -> bool:
     inside the accession folder still answers 200. edgartools 5.61.0 moved ``homepage_url`` there
     (upstream GH #1421). At 5.58.0, ``Filing.html()`` re-reads an inline-XBRL primary document
     (it starts with an XML prolog) through the homepage, so every 10-K, 10-Q and 20-F section read
-    in ``xbrl_sections._extract_sections_sync`` failed, and both the summary excerpt and the
-    eval harness fell back to the regex extractor.
+    through ``Filing.obj()`` failed, and both the summary excerpt and the eval harness fell back to
+    the regex extractor (the summary's section source has parsed the fetched document since #1347).
 
     Returns True when it replaced the property, False when the installed release already builds
     the in-folder URL (an upgrade, or a second call).

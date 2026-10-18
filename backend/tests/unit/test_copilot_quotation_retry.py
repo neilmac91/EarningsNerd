@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from app.services import copilot_service
-from app.services.copilot import envelope as copilot_envelope
+from app.services.copilot import prompt as copilot_prompt
 from app.services.ai import copilot_chat
 from app.services.ai.copilot_chat import merge_chat_usage
 from app.services.ai.provider_requests import signal_provider_start
@@ -122,7 +122,6 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
 
     monkeypatch.setattr(copilot_service, "_select_source_text", select)
     monkeypatch.setattr(copilot_service, "normalize_for_match", normalized)
-    monkeypatch.setattr(copilot_envelope, "normalize_for_match", normalized)
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool", fact)
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
     question_budgets, real_chat_deadline = [], copilot_service.chat_deadline
@@ -157,6 +156,13 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
     assert first_system["role"] == retry_system["role"] == "system"
     assert retry_system["content"] != first_system["content"]
     assert "quot" in retry_system["content"].lower() and "contiguous" in retry_system["content"].lower()
+    # The first generation keeps SYSTEM_PROMPT's bytes. A decision-F retry adds the evidence guidance
+    # alone; only an excerpt failure adds the table guidance, chosen by its owned exception class.
+    added = "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
+    if surface == "citation_excerpt":
+        added += "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE
+    assert first_system["content"].startswith(copilot_prompt.SYSTEM_PROMPT)
+    assert retry_system["content"] == first_system["content"] + added
     assert complete["usage"]["total_tokens"] == 26
     assert complete["usage"]["call_count"] == 2
     assert complete["usage"]["estimated_cost_usd"] == pytest.approx(0.003)
@@ -194,18 +200,15 @@ async def test_retry_exhaustion_has_one_terminal_error_without_private_candidate
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
-    "malformed", "citation", "upstream", "ambiguous", "missing_source",
+    "malformed", "upstream", "ambiguous", "missing_source",
     "missing_source_excerpt", "quoted_section", "missing_id",
-    "short_excerpt", "short_source", "leading_zero_missing", "late_quoted_label",
+    "short_source", "leading_zero_missing", "late_quoted_label",
+    "short_excerpt_with_quoted_label", "duplicate_id_with_missing_id",
 ])
 async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case):
     selected = filing()
     payload = {
         "malformed": 'A private answer [1].\n===CITATIONS===[{"n":1,',
-        "citation": envelope("The filing supports this claim [1].", declarations=[
-            {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
-            {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
-        ]),
         "upstream": STREAM_ERROR_SENTINEL + "offline provider failed",
         "ambiguous": envelope(f'The filing said "{KNOWN}" [1]. [More](https://example.invalid)'),
         "missing_source": f'The filing said "{KNOWN}".\n===CITATIONS===[]',
@@ -214,7 +217,18 @@ async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case)
                                    section='Item 2 — "Management demand commentary"'),
         "missing_id": envelope(f'Management said "{KNOWN}" [1]. Capacity investment continued [2].',
                                excerpt=INVENTED),
-        "short_excerpt": envelope(f'Management said "{KNOWN}" [1].', excerpt='"Changed demand"'),
+        "short_excerpt_with_quoted_label": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [2].', declarations=[
+                {"n": 1, "excerpt": '"Changed demand"', "section": "Item 2 — MD&A"},
+                {"n": 2, "excerpt": KNOWN, "section": 'Item 2 — "Management demand commentary"'},
+            ],
+        ),
+        "duplicate_id_with_missing_id": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [2].', declarations=[
+                {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+                {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
+            ],
+        ),
         "short_source": rejected("citation_excerpt"),
         "leading_zero_missing": envelope(
             f'Management said "{KNOWN}" [1]. Capacity investment continued [01].', excerpt=INVENTED,
@@ -241,6 +255,50 @@ async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case)
     assert len(calls) == 1
     assert len([row for row in rows if row["type"] == "error"]) == 1
     assert all(row["type"] in {"progress", "error"} for row in rows)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["recovered", "exhausted"])
+@pytest.mark.parametrize("case", ["short_excerpt", "duplicate_id", "bare_figure"])
+async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance(
+    monkeypatch, case, outcome,
+):
+    """The table-text failures copilot-eval withholds earn the one private regeneration, nothing more.
+
+    The replacement still passes every admission check: a second failure is the same single generic
+    error, and the rejected candidate never reaches the client or the replacement prompt.
+    """
+    first = {
+        "short_excerpt": envelope(f'{POISON}: management said "{KNOWN}" [1].', excerpt='"Changed demand"'),
+        "duplicate_id": envelope(f"{POISON}: the filing supports this claim [1].", declarations=[
+            {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+            {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
+        ]),
+        "bare_figure": envelope(f"{POISON}: demand remained robust [1].", excerpt="robust"),
+    }[case]
+    calls = []
+
+    async def stream(messages, *_args, **_kwargs):
+        calls.append(copy.deepcopy(messages))
+        if len(calls) == 1 or outcome == "exhausted":
+            yield first
+        else:
+            yield envelope(f'Management said "{KNOWN}" [1].')
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    rows = await collect()
+    assert len(calls) == 2
+    assert calls[0][0]["content"] == copilot_prompt.SYSTEM_PROMPT
+    assert calls[1][0]["content"] == (copilot_prompt.SYSTEM_PROMPT + "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
+                                      + "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE)
+    assert POISON not in json.dumps(calls[1]) and POISON not in json.dumps(rows)
+    terminal = [row for row in rows if row["type"] in {"complete", "error"}]
+    if outcome == "recovered":
+        assert len(terminal) == 1 and terminal[0]["type"] == "complete"
+        assert [c["excerpt"] for c in terminal[0]["citations"]] == [KNOWN]
+        assert all(c["verified"] is True for c in terminal[0]["citations"])
+    else:
+        assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
 
 
 @pytest.mark.asyncio

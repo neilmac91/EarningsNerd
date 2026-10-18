@@ -17,8 +17,10 @@ Conventions (also stated on the Overview sheet, where users see them):
   the fraction (0.558) and formats as ``0.0%``. Dataset margin values arrive ×100 and are divided
   back down on write; growth ratios arrive as fractions and are written as-is.
 - Calculated figures carry a cell Comment, never a fill (a fill reads as data emphasis).
-- Sources & Methods carries the output values, calculation operands and source links, plus
+- Sources & methods carries the output values, calculation operands and source links, plus
   explicit reasons for missing or limited figures. Missing values remain blank numeric cells.
+- Header rows rest in the ink on a neutral fill and the Overview's labels in the ink: sage colours
+  no text here (D-041, applying D-030); the sage tab colour marks the workbook as EarningsNerd's.
 """
 from __future__ import annotations
 
@@ -40,8 +42,8 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, export_points, formula_text, note_index, notes_summary,
-    operand_records, period_label, point_method, point_notes,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, export_points, formula_text, note_index,
+    notes_summary, operand_records, period_label, point_method, point_notes,
 )
 from app.services.trend_analysis.data_notes import resolve_data_notes
 from app.utils.datetimes import iso_z, utcnow
@@ -55,10 +57,10 @@ _MARK_PNG = Path(__file__).resolve().parent.parent / "assets" / "brand" / "earni
 CHART_SERIES: tuple[str, ...] = ("3E8E84", "B8812F", "5B7CC0", "CF7159", "6E7E9C", "8B7BC0")
 
 _TAB_COLOR = PALETTE["brand"].lstrip("#")
-_HEADER_FILL = PatternFill("solid", start_color=PALETTE["brand_weak"].lstrip("#"))
-_HEADER_FONT = Font(bold=True, color=PALETTE["brand_strong"].lstrip("#"), size=10)
+_HEADER_FILL = PatternFill("solid", start_color=PALETTE["background"].lstrip("#"))
+_HEADER_FONT = Font(bold=True, color=PALETTE["ink"].lstrip("#"), size=10)
 _INK_FONT = Font(color=PALETTE["ink"].lstrip("#"))
-_LABEL_FONT = Font(bold=True, color=PALETTE["brand_strong"].lstrip("#"))
+_LABEL_FONT = Font(bold=True, color=PALETTE["ink"].lstrip("#"))
 _FOOTNOTE_FONT = Font(color=PALETTE["ink_tertiary"].lstrip("#"), size=9)
 _HAIRLINE = Side(style="thin", color=PALETTE["border"].lstrip("#"))
 _CELL_BORDER = Border(left=_HAIRLINE, right=_HAIRLINE, top=_HAIRLINE, bottom=_HAIRLINE)
@@ -167,7 +169,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     mode_label = "Annual" if dataset.get("mode") == "annual" else "Quarterly"
     periods = dataset.get("periods", [])
 
-    title = _write_text(ws, 7, 1, f"{dataset.get('company_name', '')} — Multi-Period Analysis")
+    title = _write_text(ws, 7, 1, f"{dataset.get('company_name', '')} · Multi-Period Analysis")
     title.font = Font(bold=True, size=15, color=PALETTE["ink"].lstrip("#"))
     subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd · AI summaries of SEC filings")
     subtitle.font = _FOOTNOTE_FONT
@@ -175,13 +177,13 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     facts: list[tuple[str, str]] = [
         ("Ticker", str(dataset.get("ticker", ""))),
         ("Mode", mode_label),
-        ("Periods", f"{period_label(dataset.get('period_key', ''))} ({len(periods)} periods)"),
+        ("Periods", f"{period_label(dataset.get('period_key', ''))} · {count_label(len(periods), 'period')}"),
         ("Exported", exported_at.strftime("%B %d, %Y")),
         ("Exported UTC", iso_z(exported_at)),
         ("Data as of", str(dataset.get("data_as_of") or "Not recorded")),
         ("Dataset version", str(dataset.get("dataset_version") or "Legacy snapshot")),
         ("Snapshot", str(dataset.get("snapshot_id") or "Not recorded")),
-        ("Source", "SEC filings and calculations via EarningsNerd — earningsnerd.io"),
+        ("Source", "SEC filings and calculations via EarningsNerd · earningsnerd.io"),
     ]
     row = 10
     for label, value in facts:
@@ -191,9 +193,9 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
 
     notes = [
         "Percent series (margins, growth) are true Excel percentages: a cell showing 55.8% stores 0.558.",
-        "Monetary values retain the supplied numeric precision and reporting currencies shown in Metrics and Sources & Methods; no currency conversion is applied.",
-        "Sources & Methods lists reported inputs, formulas, source links and any limitations for each figure.",
-        "Sources & Methods preserves raw dataset values: a margin of 55.8% is recorded there as 55.8 with unit percent.",
+        "Monetary values retain the supplied numeric precision and reporting currencies shown in Metrics and Sources & methods; no currency conversion is applied.",
+        "Sources & methods lists reported inputs, formulas, source links and any limitations for each figure.",
+        "Sources & methods preserves raw dataset values: a margin of 55.8% is recorded there as 55.8 with unit percent.",
         FCF_DEFINITION,
     ]
     if _has_derived(dataset):
@@ -201,7 +203,9 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
             "Calculated figures (including computed Q4) carry cell comments; calculation method "
             "is separate from whether the source checks passed."
         )
-    notes += ["Data notes", notes_summary(envelope)]
+    notes.append("Data notes")
+    if summary := notes_summary(envelope):
+        notes.append(summary)
     notes.extend(f"Data note {note['letter']}: {note['message']}" for note in envelope["notes"])
     row += 1
     for note in notes:
@@ -457,7 +461,7 @@ def build_analysis_workbook(
     overview.title = "Overview"
     _build_overview(overview, dataset, exported, envelope)
     _build_metrics(workbook.create_sheet("Metrics"), dataset, indexed)
-    _build_sources(workbook.create_sheet("Sources & Methods"), dataset, indexed)
+    _build_sources(workbook.create_sheet("Sources & methods"), dataset, indexed)
     _add_top_line_sheet(workbook, dataset, indexed)
     _add_line_panel_sheets(workbook, dataset, indexed)
 

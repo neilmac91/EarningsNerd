@@ -100,7 +100,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
 | `RESEND_FROM_EMAIL` | `"EarningsNerd <hello@inbound.earningsnerd.io>"` | Sender on a Resend-verified domain; complete surrounding quotes are normalized away. |
 | `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
-| `FRONTEND_URL` | `"https://earningsnerd.io"` | Public frontend origin used in email links. |
+| `FRONTEND_URL` | `"https://www.earningsnerd.io"` | Public frontend origin: mail links, sign-in redirects and the mail header's tile (`/assets/earningsnerd-appicon.png`) are built on it. Use the origin that answers without a redirect (the apex answers 307 to www): sent mail keeps the whole address. Set it without a trailing slash: the tile and the waitlist's links strip one, the other links append their paths to it as it is. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |
 | `SECRET_KEY` | `required` | Required in every environment; at least 32 characters, known placeholders rejected. Prefer 64+ random characters. |
 | `IP_HASH_SALT` | `""` | IP-hash pepper; call sites fall back to SECRET_KEY when empty. |
@@ -143,7 +143,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `AI_SUMMARY_THINKING_MAX_TOKENS` | `24000` | Output ceiling for the thinking-mode summary arm (reasoning tokens count toward it). |
 | `AI_SECTION_RECOVERY_MODEL` | `""` | Section-recovery override; empty falls back through AI_FAST_MODEL to AI_DEFAULT_MODEL. |
 | `USE_STRUCTURED_OUTPUT` | `false` | Structured Phase-A response format; off pending eval bake-off. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
-| `USE_EDGARTOOLS_SECTIONS` | `true` | Prefer native section extraction with legacy/thin-section fallback. |
+| `USE_EDGARTOOLS_SECTIONS` | `true` | Parse the 10-K, 10-Q and 20-F summary sections locally from the primary document the pipeline already fetched (edgartools' HTML parser in `edgar/xbrl_sections.py`; no SEC request), with the legacy regex/dense-window excerpt as the fallback when sections are empty or thin, the document is over 16,000,000 characters, or the parse fails or runs past its 30 s bound (40 s for a 20-F, counting time queued behind another parse). `false` is the regex-only rollback. The cap is an input change against the `obj()` path, which parsed any size within 30 s (40 s for a 20-F); no golden document over it has sections, and the `Section parse skipped` log counts the rest. From early October 2026 (between CI's reports of 4 and 7 October) until #1350's backport (deployed 2026-10-16) the source called `Filing.obj()`, which SEC's 403 on edgartools 5.58.0's index URL disabled, so each excerpt first built in that window is a regex excerpt and stays one until its stored excerpt is cleared (`tasks/review-evidence/e28-native-sections-2026-10-15/`). |
 | `AI_QUALITY_GATE` | `true` | Partial summaries persist but do not consume monthly quota. |
 | `AI_FIGURE_TRACE_GATE` | `false` | Untraceable dollar figures tier summaries partial when armed; off keeps advisory audits. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `AI_FORWARD_QUOTE_GATE` | `false` | Drop forward quotes not verbatim in the filing when armed; off keeps advisory audits. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
@@ -221,7 +221,7 @@ AI_FAST_MODEL=                                # Optional cheaper model for low-r
 AI_SECTION_RECOVERY_MODEL=                    # Optional override for section recovery (falls back to AI_FAST_MODEL)
 RECOVERY_MAX_CONCURRENCY=3                    # Max concurrent calls for section recovery
 USE_STRUCTURED_OUTPUT=false                   # Phase-A structured extraction (JSON response_format)
-USE_EDGARTOOLS_SECTIONS=true                  # Native edgartools section extraction (vs legacy regex)
+USE_EDGARTOOLS_SECTIONS=true                  # Parse sections locally from the fetched primary document (vs regex fallback); no SEC call
 AI_QUALITY_GATE=true                          # Partial summaries don't consume user quota
 AI_FIGURE_TRACE_GATE=false                    # T3.2 number-diff gate: when on, an untraceable DOLLAR figure in summary prose tiers "partial". Default off (advisory: list attached to the verdict for measurement, never affects tier) until the corpus FP rate is measured
 AI_ATTRIBUTION_GATE=false                     # #805 path step 4: drop unstated causal clauses when on; advisory audit when off
@@ -283,7 +283,7 @@ REVERSE_TRIAL_DAYS=7
 RESEND_API_KEY=...
 RESEND_FROM_EMAIL=...             # Must be on a Resend-verified domain (else emails silently drop)
 RESEND_WEBHOOK_SECRET=...         # Svix signing secret for the Resend webhook
-FRONTEND_URL=https://earningsnerd.io  # Used in email links (verification, reset)
+FRONTEND_URL=https://www.earningsnerd.io  # Mail links, sign-in redirects, the mail header's tile
 
 # Analytics & Monitoring
 POSTHOG_API_KEY=...

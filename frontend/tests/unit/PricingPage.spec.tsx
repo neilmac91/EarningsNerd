@@ -606,7 +606,7 @@ describe('PricingPage', () => {
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
     const { container } = renderPricing()
     await screen.findByRole('button', { name: /current plan/i })
-    expect(screen.getByText('Ask this Filing, with cited answers')).toBeInTheDocument()
+    expect(screen.getByText('Ask this Filing, with cited passages you can check')).toBeInTheDocument()
     if (on) {
       expect(container).toHaveTextContent('Unlimited Multi-Period Analysis')
       expect(screen.getByText('PDF, CSV and Excel exports')).toBeInTheDocument()
@@ -622,8 +622,9 @@ describe('PricingPage', () => {
     flags.ENABLE_ANALYSIS = on
     const layout = render(<PricingLayout><div /></PricingLayout>)
     const { description } = JSON.parse(layout.container.querySelector('script[type="application/ld+json"]')!.textContent!)
-    // The rest of the description reads either way, so neither case passes on an empty one.
-    expect(description).toContain('filing Q&A, alerts, and exports.')
+    // The rest of the description reads either way, so neither case passes on an empty one. Filing Q&A has a
+    // sentence of its own, outside the list "Unlimited" heads (planLimitsLockstep.spec.ts).
+    expect(description).toContain('alerts, and exports. Pro also includes filing Q&A.')
     if (on) expect(description).toContain('multi-period analysis')
     else expect(description).not.toMatch(/multi-period/i)
   })

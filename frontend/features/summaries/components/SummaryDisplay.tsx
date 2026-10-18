@@ -263,14 +263,14 @@ export function SummaryDisplay({
         <Card as="section" className="p-6">
           {/* h2, like the summary's sections: it follows them as a sibling, not inside the last one. */}
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h2>
-          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask the Copilot.</p>
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask this filing.</p>
           <ul className="space-y-2">
             {metadata.action_items.map((item: string, index: number) => (
               <li key={index}>
                 <button
                   type="button"
                   onClick={() => onAsk(item, 'followup')}
-                  className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                  className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:border-brand-border-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
                   <ChatCircleTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
                   <span>{item}</span>

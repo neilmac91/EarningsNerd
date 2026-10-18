@@ -55,6 +55,25 @@ def _get_executor() -> ThreadPoolExecutor:
     return ex
 
 
+# CPU-bound parses of content the app already fetched (the summary's section parse, E28) get one
+# worker of their own, off the SEC pool above. On one vCPU, parallel parses only add memory and
+# latency (four large 10-Ks and 20-Fs at once: 13.8 to 18.5 s each and +513 MB on the SEC pool, against
+# +297 MB on one worker), and on the SEC pool they would queue timed calls whose timeouts count as
+# circuit-breaker failures (tasks/review-evidence/e28-native-sections-2026-10-15/runtime_limits.md).
+_PARSE_WORKERS = 1
+_parse_executor: ThreadPoolExecutor | None = None
+
+
+def _get_parse_executor() -> ThreadPoolExecutor:
+    """Return the live local-parse worker, (re)creating it the way ``_get_executor`` does."""
+    global _parse_executor
+    ex = _parse_executor
+    if ex is None or getattr(ex, "_shutdown", False):
+        ex = ThreadPoolExecutor(max_workers=_PARSE_WORKERS, thread_name_prefix="edgar_parse")
+        _parse_executor = ex
+    return ex
+
+
 async def run_in_executor(
     func: Callable[..., T],
     *args,
@@ -120,6 +139,26 @@ async def run_in_executor_with_timeout(
     except asyncio.TimeoutError as exc:
         raise EdgarTimeoutError(
             message=f"EdgarTools operation timed out after {timeout}s",
+            timeout_seconds=timeout,
+            cause=exc,
+        )
+
+
+async def run_parse_with_timeout(func: Callable[[], T], timeout: float) -> T:
+    """Run a local CPU-bound parse on the single parse worker, with a timeout.
+
+    No SEC request and no circuit breaker. The timeout counts time queued behind another parse, and a
+    call still queued when its waiter is cancelled never runs. A running call is owned by the active
+    ``RequestWork``, as executor calls are. Its exceptions are not translated.
+
+    Raises:
+        EdgarTimeoutError: If the parse has not finished within ``timeout``
+    """
+    try:
+        return await asyncio.wait_for(run_executor_work(_get_parse_executor(), func), timeout=timeout)
+    except asyncio.TimeoutError as exc:
+        raise EdgarTimeoutError(
+            message=f"Local parse timed out after {timeout}s",
             timeout_seconds=timeout,
             cause=exc,
         )
@@ -230,19 +269,20 @@ def get_executor_stats() -> dict:
 
 def shutdown_executor(wait: bool = True) -> None:
     """
-    Shutdown the EdgarTools thread pool.
+    Shutdown the EdgarTools thread pool and the local-parse worker.
 
-    Call this during application shutdown to ensure clean cleanup. Clears the module reference so a
-    subsequent submission auto-heals via _get_executor() (relevant when the app lifespan runs more
-    than once in a process, e.g. across tests) rather than failing permanently.
+    Call this during application shutdown to ensure clean cleanup. Clears the module references so a
+    subsequent submission auto-heals via _get_executor() / _get_parse_executor() (relevant when the
+    app lifespan runs more than once in a process, e.g. across tests) rather than failing permanently.
 
     Args:
         wait: Whether to wait for pending operations to complete
     """
-    global _edgar_executor
-    ex = _edgar_executor
-    if ex is None:
-        return
-    logger.info("Shutting down EdgarTools thread pool")
-    ex.shutdown(wait=wait)
-    _edgar_executor = None
+    global _edgar_executor, _parse_executor
+    if _edgar_executor is not None:
+        logger.info("Shutting down EdgarTools thread pool")
+        _edgar_executor.shutdown(wait=wait)
+        _edgar_executor = None
+    if _parse_executor is not None:
+        _parse_executor.shutdown(wait=wait)
+        _parse_executor = None
