@@ -98,13 +98,17 @@ longer than the inputs' (the alert's line, and the earnings alert's for one comp
 caller hands it in, first, so a preview that cuts the line cuts what follows it).
 
 The preheader is the one text a page hides (E110): ``mail_styles.hidden_text_problems``, planted in
-``HIDDEN_TEXTS``, finds every other, in a browser's view or classic Outlook's, the ways a page hides text from
-its reader or a spam filter reads as hidden: an element laid out nowhere or that skips its content, opacity
-under rspamd's floor, a box that clips its overflow to 3 px or less, ``visibility:hidden``, a font size of 3 px
-or less, a colour that is transparent or too like the ground behind it, and ``mso-hide:all``; it refuses
-``position``, ``transform``, ``clip``, ``clip-path`` and ``text-indent``, which can hide text in ways it does not
-model. Each page once hid a plain-text copy of its mail, which on the account mails took them past rspamd's
-HIDDEN_TEXT floor of 200 hidden characters (``rules/html.lua``). That copy is now the mail's text part, which a
+``HIDDEN_TEXTS``, finds every other way a page hides text from its reader or a spam filter reads as hidden, in a
+browser's view, as rspamd reads the page, and in classic Outlook's view: an element laid out nowhere or that skips
+its content, an opacity under 0.1, a box that clips its overflow to under 4 px, ``visibility:hidden`` (on a box
+above, as rspamd reads it), a font size under 4 px (em at 16 px as rspamd reads it), a colour that is transparent
+or too like the ground behind it, and ``mso-hide:all``; it refuses what it does not model or resolve, a
+``var()`` or ``calc()`` among the values and ``position``, the transforms, masks and filters among the
+properties. Its planted cases were each scored offline against rspamd 4.2.2's own counts and against whether
+Chromium paints the text. Each page once hid a plain-text copy of its mail, which took most of them past
+rspamd's HIDDEN_TEXT floor of 200 hidden characters (``rules/html.lua``; measured with rspamd 4.2.2 on
+production-shaped mails: the account mails, the welcome and the referral, and a digest or an earnings alert of
+several companies). That copy is now the mail's text part, which a
 client shows in place of the page and a spam filter compares with it: every mail carries one, each ``send_``
 function handing it to the transport as ``text=`` and each render or build function returning it after its page,
 and it says what its page says (``text_part_problems``, planted in ``TEXT_PARTS``): the words the page shows below
@@ -1583,9 +1587,10 @@ def _hiding(fragment: str) -> str:
     )
 
 
-# Each way a page can hide text from its reader, and the look-alikes that show it or hide nothing a filter counts.
+# Each way a page can hide text from its reader, in a browser or as rspamd reads it, each form the reader refuses, and
+# the look-alikes that show the text or hide nothing a filter counts, on each side of each floor.
 HIDDEN_TEXTS = [
-    # Broken.
+    # Broken: hidden in a browser.
     ("a hidden plain-text copy, as _hidden_text appended one", '<pre style="display:none">Hi there, a copy of the text part.</pre>', "laid out nowhere"),
     ("a second hidden line", '<div style="display:none">A second line no one sees.</div>', "laid out nowhere"),
     ("display:none, important over a later display", '<p style="display:none !important;display:block">Hidden still.</p>', "laid out nowhere"),
@@ -1597,51 +1602,133 @@ HIDDEN_TEXTS = [
     ("visibility:hidden", '<p style="visibility:hidden">Invisible words.</p>', "visibility:hidden"),
     ("visibility:collapse", '<p style="visibility:collapse">Collapsed words.</p>', "visibility:hidden"),
     ("a hidden parent's own words beside a child it shows", '<p style="visibility:hidden"><span style="visibility:visible">Shown.</span> Not shown.</p>', "visibility:hidden"),
+    ("visibility:hidden on a box that sets a display", '<p style="visibility:hidden;display:block">Hidden words.</p>', "it is visibility:hidden"),
     ("opacity:0", '<p style="opacity:0">Words at no opacity.</p>', "opacity:0"),
     ("opacity as a percentage", '<p style="opacity:0%">Words at no opacity.</p>', "opacity:0%"),
-    ("opacity under rspamd's floor", '<p style="opacity:0.03">Words all but clear.</p>', "opacity:0.03"),
-    ("opacities that multiply under rspamd's floor", '<div style="opacity:0.2"><p style="opacity:0.1">Twice faded.</p></div>', "opacity:0.1, 0.02 with"),
+    ("a hidden copy at opacity 0.05", '<pre style="opacity:0.05">Hi there, a copy of the text part.</pre>', "opacity:0.05"),
+    ("opacity just under rspamd's floor of 0.1", '<p style="opacity:0.09">Words all but clear.</p>', "opacity:0.09, under 0.1"),
+    ("a percentage under the floor", '<p style="opacity:5%">Words all but clear.</p>', "opacity:5%"),
+    ("opacities that multiply to paint the ink too like the ground", '<div style="opacity:0.2"><p style="opacity:0.12">Twice faded.</p></div>', "painted at the opacity of 0.024"),
+    ("opacity:inherit, which multiplies the parent's again", '<div style="opacity:0.15"><p style="opacity:inherit">Twice faded.</p></div>', "painted at the opacity of 0.0225"),
     ("font-size:0", '<p style="font-size:0">Words at no size.</p>', "font size is 0px"),
     ("a font size of 2 px", '<p style="font-size:2px">Words too small to read.</p>', "font size is 2px"),
+    ("a font just under 4 px", '<p style="font-size:3.9px">Words too small to read.</p>', "font size is 3.9px, under 4 px"),
     ("font:0/0 a, the shorthand", '<p style="font:0/0 a">Words at no size.</p>', "font size is 0px"),
+    ("a font shorthand after the longhand", '<p style="font-size:16px;font:2px Arial">Words too small to read.</p>', "font size is 2px"),
     ("a size a parent at 0 hands down", '<div style="font-size:0"><span>Inherited words.</span></div>', "font size is 0px"),
+    ("font-size:unset of a parent at 0", '<div style="font-size:0"><p style="font-size:unset">Inherited words.</p></div>', "font size is 0px"),
+    ("font:inherit of a parent at 0", '<div style="font-size:0"><p style="font:inherit">Inherited words.</p></div>', "font size is 0px"),
     ("a percentage of the parent's size", '<p style="font-size:10%">Words at a tenth.</p>', "font size is 1.6px"),
     ("an em of a small parent", '<div style="font-size:4px"><span style="font-size:0.5em">Half of four.</span></div>', "font size is 2px"),
-    ("<font size> under a style that sets none", '<font size="7" style="font-size:0">Legacy words.</font>', "font size is 0px"),
+    ("smaller under a parent at 4.5 px", '<div style="font-size:4.5px"><p style="font-size:smaller">A size smaller.</p></div>', "font size is 3.75px"),
+    ("<font size> under a style that sets a size of 0", '<font size="7" style="font-size:0">Legacy words.</font>', "font size is 0px"),
     ("max-height:0 under overflow:hidden, as a preheader hides", '<p style="max-height:0;overflow:hidden">Clipped words.</p>', "max-height:0"),
     ("height:0 under overflow:hidden", '<p style="height:0;overflow:hidden">Clipped words.</p>', "(height:0"),
     ("a box 1 px wide that clips", '<p style="width:1px;overflow:hidden">Clipped words.</p>', "width:1px"),
+    ("a box that clips at 3.5 px", '<p style="max-height:3.5px;overflow:hidden">Clipped words.</p>', "max-height:3.5px"),
     ("overflow-y:clip under a zero height", '<p style="height:0;overflow-y:clip">Clipped words.</p>', "overflow:clip"),
+    ("a scroll box of no height", '<p style="height:0;overflow:auto">Clipped words.</p>', "height:0 under overflow:auto"),
+    ("max-block-size:0 under overflow:scroll", '<p style="max-block-size:0;overflow:scroll">Clipped words.</p>', "max-block-size:0"),
     ("the overflow shorthand's second word", '<p style="overflow:visible hidden;max-height:0">Clipped words.</p>', "max-height:0"),
     ("a transparent colour", '<p style="color:transparent">Clear words.</p>', "transparent"),
     ("rgba at no alpha", '<p style="color:rgba(26,26,23,0)">Clear words.</p>', "transparent"),
-    ("the panel's colour on the panel", '<p style="color:#FBFAF6">White on white.</p>', "too like the ground"),
-    ("a colour all but the ground's", '<p style="color:#FAF9F5">Near white on white.</p>', "too like the ground"),
-    ("ink on a ground of ink", '<table><tr><td bgcolor="#1A1A17"><span style="color:#1A1A17">Dark on dark.</span></td></tr></table>', "too like the ground"),
-    ("a named colour on its own ground", '<div style="background-color:white"><p style="color:white">Named white.</p></div>', "too like the ground"),
-    ("<font color> on the panel", '<font color="#FBFAF6">Legacy white.</font>', "too like the ground"),
+    ("the panel's colour on the panel", '<p style="color:#FBFAF6">White on white.</p>', "its colour is too like the ground"),
+    ("a colour all but the ground's", '<p style="color:#FAF9F5">Near white on white.</p>', "its colour is too like the ground"),
+    ("ink on a ground of ink", '<table><tr><td bgcolor="#1A1A17"><span style="color:#1A1A17">Dark on dark.</span></td></tr></table>', "its colour is too like the ground"),
+    ("a named colour on its own ground", '<div style="background-color:white"><p style="color:white">Named white.</p></div>', "its colour is too like the ground"),
+    ("the background shorthand's colour as the ground", '<div style="background:#123456 none"><p style="color:#123456">Blue on blue.</p></div>', "its colour is too like the ground"),
+    ("a ground under the alpha floor, which leaves the panel behind", '<div style="background:rgba(0,0,0,0.03)"><p style="color:#FBFAF6">White on white.</p></div>', "its colour is too like the ground"),
+    ("a transparent background over a dark ground", '<div style="background:#000000"><p style="background-color:transparent;color:#000000">Dark on dark.</p></div>', "its colour is too like the ground"),
+    ("panel ink on a div whose bgcolor a browser ignores", '<div bgcolor="#123456"><p style="color:#FBFAF6">White on white.</p></div>', "its colour is too like the ground"),
+    ("<font color> on the panel", '<font color="#FBFAF6">Legacy white.</font>', "its colour is too like the ground"),
+    ("color:inherit of the panel's colour", '<div style="color:#FBFAF6"><p style="color:inherit">Inherited white.</p></div>', "its colour is too like the ground"),
+    ("color:currentcolor of the panel's colour", '<div style="color:#FBFAF6"><p style="color:currentcolor">Inherited white.</p></div>', "its colour is too like the ground"),
+    ("color:initial, black, on a black ground", '<div style="background:#000000"><p style="color:initial">Black on black.</p></div>', "its colour is too like the ground"),
+    ("a link in a browser's blue on a ground of that blue", '<div style="background:#0000EE"><a href="https://e.test/x">A link</a></div>', "its colour is too like the ground"),
+    ("a hidden run of controls rspamd counts", '<p style="display:none">\u0085\u0085\u001c\u001d</p>', "laid out nowhere"),
     ("mso-hide:all, which classic Outlook hides", '<div style="mso-hide:all">Words Outlook drops.</div>', "mso-hide:all"),
     ("a hidden line inside Outlook's conditional comment", '<!--[if mso]><div style="display:none">Outlook only, hidden.</div><![endif]-->', "laid out nowhere"),
+    # Broken: shown in a browser, hidden as rspamd reads it.
+    ("a child shown again under a hidden parent", '<div style="visibility:hidden"><span style="visibility:visible">Shown again.</span></div>', "rspamd reads <div> as visibility:hidden"),
+    ("visibility after a display, which rspamd applies last", '<div style="display:block;visibility:hidden"><span style="visibility:visible">Shown again.</span></div>', "rspamd reads <div> as visibility:hidden"),
+    ("a second display rspamd keeps where the first stood", '<div style="display:none;visibility:hidden;display:block"><span style="visibility:visible">Shown again.</span></div>', "rspamd reads <div> as visibility:hidden"),
+    ("visibility:visible after hidden, which rspamd does not read", '<p style="visibility:hidden;visibility:visible">Shown in a browser.</p>', "rspamd reads <p> as visibility:hidden"),
+    ("the hidden attribute over a display the page sets", '<p hidden style="display:block">Shown in a browser.</p>', "carries the hidden attribute"),
+    ("a size of 4.3 px a browser shows and rspamd reads at 16 px an em", '<div style="font-size:18px"><p style="font-size:0.24em">Small words.</p></div>', "rspamd reads its font size as 3px"),
+    ("ex, which rspamd reads at 8 px", '<div style="font-size:20px"><p style="font-size:0.45ex">Small words.</p></div>', "rspamd reads its font size as 3px"),
+    ("a keyword size rspamd does not read, under a parent at 2 px", '<div style="font-size:2px"><p style="font-size:medium">Words at medium.</p></div>', "rspamd reads its font size as 2px"),
+    ("font-size:initial, which rspamd does not read, under a parent at 0", '<div style="font-size:0"><p style="font-size:initial">Words at medium.</p></div>', "rspamd reads its font size as 0px"),
+    ("<font size>, which rspamd does not read, under a style at 0", '<p style="font-size:0"><font size="3">Legacy words.</font></p>', "rspamd reads its font size as 0px"),
+    ("a height rspamd reads as 0, at 16 px an em", '<p style="font-size:100px;height:0.05em;overflow:hidden">Clipped words.</p>', "rspamd reads height as 0"),
+    ("a colour attribute rspamd reads over the style", '<p><span color="#FBFAF6" style="color:#1A1A17">Ink in a browser.</span></p>', "rspamd reads its colour as too like the ground"),
+    ("a bgcolor on a div, which rspamd reads", '<div bgcolor="#1A1A17"><p style="color:#1A1A17">Ink on the panel.</p></div>', "rspamd reads its colour as too like the ground"),
+    ("a 4-digit hex rspamd does not read, leaving the panel's colour above it", '<div style="color:#FBFAF6"><p style="color:#1118">Grey in a browser.</p></div>', "rspamd reads its colour as too like the ground"),
+    # Refused: hiding the reader does not model or resolve.
     ("a box moved off the page", '<p style="position:absolute;left:-9999px">Off the page.</p>', "sets position:absolute"),
     ("a line indented out of its box", '<p style="text-indent:-9999px">Indented away.</p>', "sets text-indent:-9999px"),
     ("a box scaled to nothing", '<p style="transform:scale(0)">Scaled away.</p>', "sets transform:scale(0)"),
     ("a box clipped by clip", '<p style="clip:rect(0 0 0 0)">Clipped away.</p>', "sets clip:rect(0 0 0 0)"),
     ("a box clipped by clip-path", '<p style="clip-path:inset(50%)">Clipped away.</p>', "sets clip-path:inset(50%)"),
+    ("scale:0", '<p style="scale:0">Scaled away.</p>', "sets scale:0"),
+    ("translate off the page", '<p style="translate:-9999px">Moved away.</p>', "sets translate:-9999px"),
+    ("zoom to a hundredth", '<p style="zoom:0.01">Shrunk away.</p>', "sets zoom:0.01"),
+    ("filter:opacity(0)", '<p style="filter:opacity(0)">Filtered away.</p>', "sets filter:opacity(0)"),
+    ("a transparent mask", '<p style="mask-image:linear-gradient(transparent,transparent)">Masked away.</p>', "sets mask-image"),
+    ("contain:strict", '<p style="contain:strict">Contained away.</p>', "sets contain:strict"),
+    ("a line clamp", '<p style="-webkit-line-clamp:1">Clamped lines.</p>', "sets -webkit-line-clamp:1"),
+    ("a transparent text fill", '<p style="-webkit-text-fill-color:transparent">Unfilled words.</p>', "sets -webkit-text-fill-color:transparent"),
+    ("a negative margin off the page", '<p style="margin-left:-9999px">Moved away.</p>', "sets margin-left:-9999px"),
+    ("a gradient ground", '<div style="background:linear-gradient(#FBFAF6,#FBFAF6)"><p style="color:#FBFAF6">White on a gradient.</p></div>', "sets background:linear-gradient"),
+    ("an image ground", '<div style="background-image:url(https://e.test/g.png)"><p>Words on an image.</p></div>', "sets background-image:url"),
+    ("a font size from calc()", '<p style="font-size:calc(0px)">Computed size.</p>', "sets font-size:calc(0px)"),
+    ("a font size from a custom property", '<p style="--z:0px;font-size:var(--z)">Computed size.</p>', "sets font-size:var(--z)"),
+    ("a font size with an exponent", '<p style="font-size:1e-9px">Computed size.</p>', "sets font-size:1e-9px"),
+    ("a font size in a viewport unit", '<p style="font-size:0.1vw">Computed size.</p>', "sets font-size:0.1vw"),
+    ("a system font in the shorthand", '<p style="font:caption">System words.</p>', "sets font:caption"),
+    ("an opacity from calc()", '<p style="opacity:calc(0)">Computed opacity.</p>', "sets opacity:calc(0)"),
+    ("visibility from a custom property", '<p style="visibility:var(--v)">Computed visibility.</p>', "sets visibility:var(--v)"),
+    ("a colour from a custom property", '<p style="color:var(--c)">Computed colour.</p>', "sets color:var(--c)"),
+    ("a colour from light-dark()", '<p style="color:light-dark(#FBFAF6,#FBFAF6)">Computed colour.</p>', "sets color:light-dark"),
+    ("a clip at a height from calc()", '<p style="max-height:calc(0px);overflow:hidden">Computed clip.</p>', "sets max-height:calc(0px)"),
+    ("a clip at a percentage height", '<p style="height:0%;overflow:hidden">Computed clip.</p>', "sets height:0%"),
+    ("a clip at a line height of 0", '<p style="line-height:0;overflow:hidden">Clipped lines.</p>', "sets line-height:0px under overflow:hidden"),
+    ("a closed details", "<details><summary>Shown.</summary>Folded words.</details>", "a closed <details>"),
+    ("an SVG's text", '<svg width="80" height="20"><text x="0" y="15">SVG words</text></svg>', "holds text in an SVG"),
+    ("an SVG's description", '<svg width="10" height="10"><desc>Described words.</desc></svg>', "holds text in an SVG"),
+    ("a video's fallback", "<video>Fallback words.</video>", "holds text in <video>'s fallback"),
+    ("an audio's fallback", "<audio controls>Fallback words.</audio>", "holds text in <audio>'s fallback"),
+    ("an iframe's fallback", "<iframe>Fallback words.</iframe>", "holds text in <iframe>'s fallback"),
     # Kept.
     ("a hairline cell at 1 px holding a no-break space", '<table><tr><td height="1" bgcolor="#E5E7EB" style="height:1px;background-color:#E5E7EB;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>', None),
     ("an image set to display:block", '<img src="https://e.test/a.png" width="32" height="32" alt="A described image" style="display:block;">', None),
     ("the tagline's mark, its words at 18 px in a span at 5.187 px", '<span style="display:inline-block;"><span style="font-size:5.187px;line-height:0;"><span style="font-size:18px;line-height:0;">shows its work</span></span>.</span>', None),
     ("a line at line-height:0, which still paints", '<p style="line-height:0">Painted words.</p>', None),
+    ("a box that clips with no size, which grows to its lines", '<p style="overflow:hidden">Words in a box that grows.</p>', None),
     ("white on the button's sage", '<a href="https://e.test/x" style="background:#4F7A63;color:#ffffff;padding:12px;">Read the summary</a>', None),
     ("the muted ink on the panel", '<p style="color:#6B7280">Muted words.</p>', None),
     ("a link that sets no colour, in a browser's blue", '<a href="https://e.test/x">A link</a>', None),
     ("a box that clips at a size that shows its line", '<p style="max-height:600px;overflow:hidden">A tall box.</p>', None),
+    ("a box that clips at 4 px", '<p style="max-height:4px;overflow:hidden">A thin box.</p>', None),
+    ("opacity at rspamd's floor of 0.1", '<p style="opacity:0.1">Faint words.</p>', None),
     ("half opacity", '<p style="opacity:0.5">Half shown.</p>', None),
+    ("half opacity as a percentage", '<p style="opacity:50%">Half shown.</p>', None),
     ("two opacities whose product shows", '<div style="opacity:0.5"><p style="opacity:0.5">A quarter shown.</p></div>', None),
-    ("a child shown again under a hidden parent with no words of its own", '<div style="visibility:hidden"><span style="visibility:visible">Shown again.</span></div>', None),
+    ("two opacities of 0.3, whose product paints the ink faint but apart from the ground", '<div style="opacity:0.3"><p style="opacity:0.3">Faint words.</p></div>', None),
+    ("a font of 4 px, rspamd's first shown size", '<p style="font-size:4px">Small words.</p>', None),
+    ("0.25em, 4 px a browser's way and rspamd's", '<p style="font-size:0.25em">Small words.</p>', None),
+    ("the font-size keywords and CSS-wide ones", '<p style="font-size:xx-small">A</p><p style="font-size:smaller">B</p><p style="font-size:larger">C</p><p style="font-size:initial">D</p><p style="font-size:inherit">E</p><p style="font-size:revert">F</p><p style="font:inherit">G</p>', None),
+    ("the colour keywords", '<p style="color:inherit">A</p><p style="color:currentcolor">B</p><p style="color:initial">C</p><p style="color:unset">D</p>', None),
+    ("the visibility keywords", '<p style="visibility:initial">A</p><p style="visibility:visible">B</p><p style="visibility:inherit">C</p><p style="visibility:unset">D</p>', None),
+    ("a 4-digit hex rspamd does not read, on a colour that shows", '<p style="color:#1118">Grey words.</p>', None),
+    ("the header's negative letter spacing", '<p style="letter-spacing:-0.44px">Tight words.</p>', None),
+    ("a font shorthand before the longhand", '<p style="font:2px Arial;font-size:16px">Words at 16 px.</p>', None),
+    ("a child that resets the size under a parent at 0", '<div style="font-size:0"><p style="font-size:16px">Words at 16 px.</p></div>', None),
+    ("a child shown again under a parent rspamd reads as shown", '<div style="visibility:hidden;display:block"><span style="visibility:visible">Shown again.</span></div>', None),
     ("Outlook's own tagline in a conditional comment, which Outlook shows", "The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span>shows its work.</span><!--<![endif]-->", None),
     ("mso-hide:all on a box of spaces", '<div style="mso-hide:all">&nbsp; &#8203;</div>', None),
+    ("a hidden run of spaces, separators and a vertical tab, which rspamd does not count", '<p style="display:none">&nbsp;\u2028\u2029\u000b&#8203;</p>', None),
     ("a static box with no indent", '<p style="position:static;text-indent:0">Plain words.</p>', None),
+    ("an open details", "<details open><summary>Shown.</summary>Unfolded words.</details>", None),
     ("a zero-width space between two words", "<p>Earnings&#8203;Nerd</p>", None),
     ("a font shorthand that sets a size and a family", '<p style="font:bold 16px/1.5 Inter,Arial">Bold words.</p>', None),
 ]
@@ -1881,7 +1968,7 @@ def test_the_planted_lists_keep_their_counts():
     }
     assert counts == {
         "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (11, 1), "PREHEADERS": (21, 7),
-        "HIDDEN_TEXTS": (41, 16), "TEXT_PARTS": (11, 3),
+        "HIDDEN_TEXTS": (105, 32), "TEXT_PARTS": (11, 3),
     }, "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     for name, cases in (
         ("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT), ("PREHEADERS", PREHEADERS),

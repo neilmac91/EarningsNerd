@@ -37,9 +37,9 @@
   (inferred). A link whose text sits in a child of a token's colour, under ``text-decoration:none``, shows no
   blue, and fails all the same, and a word that names a colour where another property takes a name of its own,
   such as an animation's, is read as that colour (asking);
-- ``hidden_text_problems``: every text a page holds and does not show its reader, in its own view or classic
-  Outlook's, and each declaration that can hide text in a way the reader does not model (E110); the gate sets the
-  preheader aside, the one text a page may hide;
+- ``hidden_text_problems``: every text a page holds and does not show its reader, in a browser's view, as rspamd
+  reads it or in classic Outlook's view, and each declaration or element that can hide text in a way the reader
+  does not model or resolve (E110); the gate sets the preheader aside, the one text a page may hide;
 - ``shown_text``: the text a page shows below its header, a line for each block, which a mail's text part says too.
 
 A page is read as a browser builds it, by ``tinyhtml5``, the WHATWG tree builder (``requirements.in``): an
@@ -231,6 +231,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ElementTree
 from bisect import bisect_right
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from functools import cache
 from pathlib import Path
@@ -1901,31 +1902,66 @@ def outlook_width_problems(page: str) -> list[str]:
 
 # --------------------------------------------------------------------------- text a page holds and does not show
 
-# What rspamd's HIDDEN_TEXT does not count (rules/html.lua, 4.2.0): whitespace, the Unicode separators and the
-# invisible characters that pad an inbox preview. A hidden run with nothing else in it, a hairline cell's no-break
+# What rspamd's HIDDEN_TEXT does not count (rules/html.lua, 4.2): ASCII whitespace, the Unicode separators (Zs, Zl
+# and Zp) and the invisible characters that pad an inbox preview. It counts the other controls, U+0085 and U+001C to
+# U+001F among them (measured with rspamd 4.2.2). A hidden run with nothing else in it, a hairline cell's no-break
 # space or a preheader's fill, hides nothing a reader or a filter counts.
-_UNCOUNTED = re.compile(r"[\s­͏​-‍⁠﻿]")
-# The smallest font a reader can read, and the largest rspamd reads as hidden (html_block.hxx: 3 px or less).
-_LEGIBLE_PX = 3.0
-# rspamd's floors for a colour that shows: an alpha of at least 10 in 255, and a weighted distance from the ground
-# behind it of at least 0.1 (html_block.hxx).
+_UNCOUNTED = re.compile(
+    "[\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\u00ad\u034f\u200b-\u200d\u2060\ufeff]"
+)
+# Under 4 px no text reads: rspamd keeps a box's font size in whole px and hides one of 3 or less (html_block.hxx),
+# so 3.9px hides, and the reader holds a browser's size to the same floor; a box that clips its overflow under it
+# shows no line.
+_LEGIBLE_PX = 4.0
+# rspamd's floors: an opacity under 0.1 hides a box and all it holds (css_rule.cxx), and a colour shows at an alpha
+# of 10 in 255 or more and at a weighted distance of 0.1 or more from the ground behind it (html_block.hxx). A
+# browser's opacities multiply down the tree, and the reader paints a text's colour over its ground at their product
+# before it measures the distance.
+_OPAQUE = 0.1
 _SHOWN_ALPHA = 10 / 255
-_ALIKE = 0.1
+_DISTINCT = 0.1
 _FONT_KEYWORDS = {
     "xx-small": 9.0, "x-small": 10.0, "small": 13.0, "medium": 16.0, "large": 18.0, "x-large": 24.0, "xx-large": 32.0,
     "xxx-large": 48.0,
 }
 _FONT_SIZE_ATTRIBUTE = {"1": 10.0, "2": 13.0, "3": 16.0, "4": 18.0, "5": 24.0, "6": 32.0, "7": 48.0}  # <font size>
-_LENGTH = re.compile(r"([+-]?(?:\d+\.?\d*|\.\d+))([a-z%]*)")
-# The properties that can move or clip text out of view in ways the reader does not model, with the values that
-# cannot: a page that sets one any other way is refused.
-_UNMODELLED = {
-    "position": {"static", "initial", "unset", "revert", "revert-layer"},
-    "transform": {"none", "initial", "unset", "revert", "revert-layer"},
-    "clip": {"auto", "initial", "unset", "revert", "revert-layer"},
-    "clip-path": {"none", "initial", "unset", "revert", "revert-layer"},
-    "text-indent": {"0", "0px", "initial", "unset", "revert", "revert-layer"},
+_NUMBER = r"[+-]?(?:\d+\.?\d*|\.\d+)"
+_DIMENSION = re.compile(rf"({_NUMBER})([a-z]*|%)")
+# A length in px. In a browser, an absolute unit at its rate, a font-relative one against the box's font size and rem
+# against the root's 16 px; as rspamd reads it, each unit at a fixed rate, em and rem at 16 px, ex at 8 and the
+# viewport units at a fixed screen's (css_tokeniser.cxx).
+_ABSOLUTE_PX = {"px": 1.0, "pt": 4 / 3, "pc": 16.0, "in": 96.0, "cm": 96 / 2.54, "mm": 96 / 25.4, "q": 96 / 101.6}
+_FONT_RELATIVE = {"em": 1.0, "ex": 0.5, "ch": 0.5}
+_RSPAMD_PX = {
+    "px": 1.0, "em": 16.0, "rem": 16.0, "ex": 8.0, "vw": 8.0, "vh": 6.0, "vmax": 8.0, "vmin": 6.0, "pt": 4 / 3,
+    "pc": 16.0, "in": 96.0, "cm": 96 / 2.54, "mm": 96 / 25.4,
 }
+_INERT = frozenset({"initial", "unset", "revert", "revert-layer"})
+# The properties that can move, clip, scale, mask or repaint text out of view in ways the reader does not model, each
+# with the values that cannot: a page that sets one any other way is refused. A negative margin is refused too.
+_UNMODELLED = {
+    "position": {"static", *_INERT}, "transform": {"none", *_INERT}, "translate": {"none", *_INERT},
+    "rotate": {"none", *_INERT}, "scale": {"none", *_INERT}, "zoom": {"normal", "1", "100%", "reset", *_INERT},
+    "clip": {"auto", *_INERT}, "clip-path": {"none", *_INERT}, "mask": {"none", *_INERT},
+    "mask-image": {"none", *_INERT}, "-webkit-mask": {"none", *_INERT}, "-webkit-mask-image": {"none", *_INERT},
+    "filter": {"none", *_INERT}, "mix-blend-mode": {"normal", *_INERT}, "contain": {"none", *_INERT},
+    "line-clamp": {"none", *_INERT}, "-webkit-line-clamp": {"none", *_INERT},
+    "-webkit-text-fill-color": {"currentcolor", "inherit", *_INERT}, "background-image": {"none", *_INERT},
+    "text-indent": {"0", "0px", *_INERT},
+}
+_MARGINS = frozenset({
+    "margin", "margin-top", "margin-right", "margin-bottom", "margin-left", "margin-block", "margin-block-start",
+    "margin-block-end", "margin-inline", "margin-inline-start", "margin-inline-end",
+})
+_NEGATIVE = re.compile(r"(?<![\w-])-(?:\d|\.\d)")
+# The elements whose text a browser shows only in some states, or never, which the reader does not model: a media or
+# embedded element's fallback text, and an SVG's text (its <title> a browser lays out nowhere).
+_FALLBACK_HOLDERS = frozenset({"video", "audio", "iframe", "object", "canvas"})
+# The overflow values that clip a box's content to its size, and those that leave it whole.
+_CLIPPING = frozenset({"hidden", "clip", "auto", "scroll", "overlay"})
+_WHOLE = frozenset({"visible", *_INERT})
+# The elements HTML maps a bgcolor onto as a hint to the style (rspamd reads it on any, over the style).
+_BGCOLOR_HINTED = frozenset({"body", "table", "thead", "tbody", "tfoot", "tr", "td", "th"})
 _BLOCKS = frozenset({
     "address", "article", "aside", "blockquote", "br", "caption", "dd", "div", "dl", "dt", "figcaption", "figure",
     "footer", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li", "main", "nav", "ol", "p", "pre", "section",
@@ -1933,6 +1969,11 @@ _BLOCKS = frozenset({
 })
 _BLACK, _WHITE, _LINK_BLUE = (0.0, 0.0, 0.0, 1.0), (1.0, 1.0, 1.0, 1.0), (0.0, 0.0, 238 / 255, 1.0)
 _BLOCK_EDGE = "\x1e"  # marks a block's edge among a page's texts; a page's own text holds no record separator
+
+
+class _Unread(ValueError):
+    """A value the reader does not resolve on a property it reads: ``var()``, ``calc()``, ``min()``, an exponent, a
+    viewport unit, a gradient. The walk refuses the declaration rather than guess what it paints."""
 
 
 def _all_declared(style: str | None) -> list[tuple[str, bool, str]]:
@@ -1956,7 +1997,7 @@ def _winner(declared: list[tuple[str, bool, str]], *names: str) -> tuple[str, st
 
 
 def _rgba(value: str | None) -> tuple[float, float, float, float] | None:
-    """A colour as sRGB and alpha, each from 0 to 1, or None for a value that is no colour the reader resolves
+    """A colour as a browser reads it, as sRGB and alpha, each from 0 to 1, or None for a value that is no colour
     (``currentcolor``, a CSS-wide keyword, ``var()``, ``light-dark()``, ``color-mix()``)."""
     colour = parse_color(value) if value else None
     if colour is None or isinstance(colour, str):
@@ -1966,164 +2007,448 @@ def _rgba(value: str | None) -> tuple[float, float, float, float] | None:
     return (red, green, blue, float(srgb.alpha))
 
 
-def _alike(colour: tuple[float, ...], ground: tuple[float, ...]) -> bool:
+def _rspamd_rgba(value: str | None) -> tuple[float, float, float, float] | None:
+    """A colour as rspamd reads it, or None where it reads none and keeps the colour above: every colour a browser
+    reads but a 4-digit hex, and a space-separated ``rgb()`` or ``hsl()`` without the alpha after its ``/``
+    (measured with rspamd 4.2.2)."""
+    value = value or ""
+    if re.fullmatch(r"#[0-9a-f]{4}", value):
+        return None
+    colour = _rgba(value)
+    if colour is not None and "/" in value and value.startswith(("rgb", "hsl")):
+        return (*colour[:3], 1.0)
+    return colour
+
+
+def _too_alike(colour: tuple[float, ...], ground: tuple[float, ...]) -> bool:
     """Whether a colour is too like the ground behind it to read, by rspamd's weighted distance in sRGB."""
     dr, dg, db = (((a - b) * 255) ** 2 for a, b in zip(colour[:3], ground[:3]))
     mean_red = (colour[0] + ground[0]) * 255 / 2
-    return max(0.0, 2 * dr + 4 * dg + 3 * db + mean_red * (dr - db) / 256) ** 0.5 / 256 < _ALIKE
+    return max(0.0, 2 * dr + 4 * dg + 3 * db + mean_red * (dr - db) / 256) ** 0.5 / 256 < _DISTINCT
 
 
-def _length_px(value: str | None, font: float) -> float | None:
-    """A length in px, a font-relative one against ``font``; 0 in any unit is 0. None for a length the reader cannot
-    resolve, a percentage or a viewport unit, or no length."""
-    match = _LENGTH.fullmatch(value or "")
+def _painted(colour: tuple[float, ...], ground: tuple[float, ...], opacity: float) -> tuple[float, ...]:
+    """The colour a browser paints a text in over its ground, its alpha times the opacity its boxes multiply to."""
+    alpha = colour[3] * opacity
+    return (*(c * alpha + g * (1 - alpha) for c, g in zip(colour[:3], ground[:3])), 1.0)
+
+
+def _length_px(value: str, font: float) -> float:
+    """A length in px as a browser computes it, a font-relative one against ``font``; 0 in any unit is 0. Raises
+    ``_Unread`` for one the reader does not resolve: a percentage, a viewport unit, a function, an exponent."""
+    match = _DIMENSION.fullmatch(value)
+    if not match or match.group(2) == "%":
+        raise _Unread(value)  # a percentage height is of a box whose size the reader does not know, or auto
+    number, unit = float(match.group(1)), match.group(2)
+    if number == 0:
+        return 0.0
+    if unit in _ABSOLUTE_PX:
+        return number * _ABSOLUTE_PX[unit]
+    if unit in _FONT_RELATIVE:
+        return number * font * _FONT_RELATIVE[unit]
+    if unit == "rem":
+        return number * 16.0
+    raise _Unread(value)
+
+
+def _rspamd_length(value: str) -> float | None:
+    """A length as rspamd reads it, in px at its fixed rates, or None where it reads none (a percentage aside)."""
+    match = _DIMENSION.fullmatch(value)
     if not match:
         return None
     number, unit = float(match.group(1)), match.group(2)
     if number == 0:
         return 0.0
-    return {"px": number, "em": font * number, "rem": 16.0 * number, "pt": number * 4 / 3, "pc": number * 16,
-            "in": number * 96, "cm": number * 96 / 2.54, "mm": number * 96 / 25.4, "ex": font * number / 2,
-            "ch": font * number / 2}.get(unit)
+    return number * _RSPAMD_PX[unit] if unit in _RSPAMD_PX else None
 
 
-def _font_px(value: str, parent: float) -> float | None:
-    """A font size as a browser computes it against its parent's, in px, or None for a value that is no size."""
-    if value in ("inherit", "unset"):
+def _font_px(value: str, parent: float) -> float:
+    """A font size as a browser computes it against its parent's, in px; ``revert`` keeps the parent's, as the
+    browser's own sheet sets no size on the elements a mail holds. Raises ``_Unread`` for a value it does not
+    resolve."""
+    if value in ("inherit", "unset", "revert", "revert-layer"):
         return parent
-    if value in ("initial", "revert", "revert-layer"):
+    if value == "initial":
         return 16.0
     if value in _FONT_KEYWORDS:
         return _FONT_KEYWORDS[value]
     if value in ("smaller", "larger"):
         return parent / 1.2 if value == "smaller" else parent * 1.2
-    if value.endswith("%") and (match := _LENGTH.fullmatch(value)):
+    match = _DIMENSION.fullmatch(value)
+    if match and match.group(2) == "%":
         return parent * float(match.group(1)) / 100
     return _length_px(value, parent)
 
 
-def _shorthand_font_px(value: str, parent: float) -> float | None:
-    """The size a ``font`` shorthand sets: its first word, before the ``/`` of a line height, that is a size."""
-    if value in _GLOBAL:
-        return _font_px(value, parent)
+def _shorthand_font_px(value: str, parent: float) -> float:
+    """The size a ``font`` shorthand sets, its first word before the ``/`` of a line height that is a size, or a
+    CSS-wide keyword's. Raises ``_Unread`` where it sets none the reader reads (a system font such as caption)."""
     for word in value.split("/")[0].split():
-        if (size := _font_px(word, parent)) is not None:
-            return size
+        try:
+            return _font_px(word, parent)
+        except _Unread:
+            continue
+    raise _Unread(value)
+
+
+def _rspamd_font_px(declared: list[tuple[str, bool, str]], parent: float | None) -> float | None:
+    """The font size rspamd reads off a style, in px, or None where it reads none and keeps the size above: the last
+    ``font-size`` that is a length or a percentage (of the size above, or of 16 px), else the first in a ``font``
+    shorthand. A keyword it does not read, nor ``<font size>`` (css_rule.cxx, measured with rspamd 4.2.2)."""
+
+    def size(word: str) -> float | None:
+        match = _DIMENSION.fullmatch(word)
+        if match and match.group(2) == "%":
+            return (16.0 if parent is None else parent) * float(match.group(1)) / 100
+        return _rspamd_length(word)
+
+    sizes = [found for name, _important, value in declared if name == "font-size" and (found := size(value)) is not None]
+    if sizes:
+        return sizes[-1]
+    for name, _important, value in declared:
+        if name == "font":
+            return next((found for word in value.split("/")[0].split() if (found := size(word)) is not None), None)
     return None
 
 
 def _ground(element: ElementTree.Element, declared: list[tuple[str, bool, str]]) -> tuple[float, ...] | None:
-    """The colour an element paints behind its text: its background's colour, from ``background-color`` or the
-    ``background`` shorthand (which, setting none, sets it transparent), or its ``bgcolor`` hint below either."""
+    """The colour an element paints behind its text in a browser: its background's colour, from
+    ``background-color`` or the ``background`` shorthand (which, setting none, sets it transparent), or the
+    ``bgcolor`` hint of a body or a table's part below either. Raises ``_Unread`` for a ground the reader cannot
+    compare: an image or a gradient, a value it does not resolve."""
     won = _winner(declared, "background-color", "background")
     if won is None:
-        return _rgba(element.get("bgcolor"))
+        return _rgba(element.get("bgcolor")) if _local(element.tag) in _BGCOLOR_HINTED else None
     name, value = won
+    if value in _GLOBAL:
+        return None
     if name == "background-color":
-        return _rgba(value)
-    words = [tinycss2.serialize([token]) for token in tinycss2.parse_component_value_list(value) if token.type != "whitespace"]
+        if (colour := _rgba(value)) is None:
+            raise _Unread(value)
+        return colour
+    words = _words(value)
+    if any(word != "none" and _rgba(word) is None and "(" in word for word in words):
+        raise _Unread(value)  # url(), a gradient, var()
     return next((colour for colour in map(_rgba, words) if colour is not None), (0.0, 0.0, 0.0, 0.0))
 
 
-def _opacity(declared: list[tuple[str, bool, str]]) -> tuple[float, str] | None:
-    """The opacity an element sets, as a number and as written, or None where it sets none the reader reads."""
-    won = _winner(declared, "opacity")
-    match = re.fullmatch(r"([+-]?(?:\d+\.?\d*|\.\d+))(%?)", won[1]) if won else None
-    return (float(match.group(1)) / (100 if match.group(2) else 1), won[1]) if match else None
+def _rspamd_ground(element: ElementTree.Element, declared: list[tuple[str, bool, str]]) -> tuple[float, ...] | None:
+    """The ground rspamd reads an element to set: the last ``background-color`` it reads, else the first colour of a
+    ``background`` shorthand, and a ``bgcolor`` on any element over either; None where it sets none."""
+    ground = None
+    for name, _important, value in declared:
+        if name == "background-color" and (colour := _rspamd_rgba(value)) is not None:
+            ground = colour
+    if ground is None:
+        for name, _important, value in declared:
+            if name == "background":
+                ground = next((colour for word in _words(value) if (colour := _rspamd_rgba(word)) is not None), ground)
+    return _rspamd_rgba(element.get("bgcolor")) or ground
 
 
-def _clipped_to(declared: list[tuple[str, bool, str]], font: float) -> str | None:
-    """Where a box clips its overflow (``hidden`` or ``clip``) to 3 px or less on an axis, as ``height:0`` or
-    ``max-height:0`` clip a preheader, the declaration that does it; else None."""
-    for axis, sizes in (("y", ("height", "max-height")), ("x", ("width", "max-width"))):
+def _words(value: str) -> list[str]:
+    """A value's component values as written, a function and its arguments one word."""
+    return [tinycss2.serialize([token]) for token in tinycss2.parse_component_value_list(value) if token.type != "whitespace"]
+
+
+def _opacity(value: str) -> float:
+    """An opacity as a number from 0 to 1, a percentage read as a fraction. Raises ``_Unread`` otherwise."""
+    match = re.fullmatch(rf"({_NUMBER})(%?)", value)
+    if not match:
+        raise _Unread(value)
+    return min(1.0, max(0.0, float(match.group(1)) / (100 if match.group(2) else 1)))
+
+
+# The values rspamd reads as a display, on display and on visibility alike (css_value.cxx); visibility:visible is
+# none of them.
+_RSPAMD_DISPLAYS = frozenset({
+    "hidden", "collapse", "none", "inline", "block", "content", "flex", "grid", "inline-block", "inline-flex",
+    "inline-grid", "inline-table", "list-item", "run-in", "table", "table-caption", "table-column-group",
+    "table-header-group", "table-footer-group", "table-row-group", "table-cell", "table-column", "table-row", "initial",
+})
+
+
+def _rspamd_display(declared: list[tuple[str, bool, str]]) -> tuple[str, str] | None:
+    """The display rspamd gives a box, as (property, value), or None where it reads none: it keeps one rule for each of
+    display and visibility, where the property first appears, holding the last value it reads as a display, and
+    applies them in that order, the later over the earlier, importance aside (measured with rspamd 4.2.2)."""
+    first, last = [], {}
+    for name, _important, value in declared:
+        if name in ("display", "visibility"):
+            if name not in first:
+                first.append(name)
+            if value in _RSPAMD_DISPLAYS:
+                last[name] = value
+    applied = [(name, last[name]) for name in first if name in last]
+    return applied[-1] if applied else None
+
+
+def _visible(value: str, parent: bool) -> bool:
+    """Whether a browser shows a box's text under ``visibility:value``, a value that inherits the parent's."""
+    if value in ("inherit", "unset", "revert", "revert-layer"):
+        return parent
+    if value in ("hidden", "collapse", "visible", "initial"):
+        return value in ("visible", "initial")
+    raise _Unread(value)
+
+
+def _colour(value: str, parent: tuple[float, ...], link: bool) -> tuple[float, ...]:
+    """A box's text colour as a browser computes it: the parent's for a value that inherits it, the browser's own
+    link blue for ``revert`` on a link, black for ``initial``, else the colour written."""
+    if value in ("inherit", "unset", "currentcolor", "revert", "revert-layer"):
+        return _LINK_BLUE if link and value.startswith("revert") else parent
+    if value == "initial":
+        return _BLACK
+    if (colour := _rgba(value)) is None:
+        raise _Unread(value)
+    return colour
+
+
+def _own_opacity(value: str, parent: float) -> float:
+    """The opacity a box sets, ``inherit`` taking its parent's own (which the walk multiplies in again)."""
+    if value == "inherit":
+        return parent
+    return 1.0 if value in _INERT else _opacity(value)
+
+
+def _line_height(value: str, parent: tuple[str, float] | None) -> tuple[str, float] | None:
+    """A line height as a box hands it down: None for normal, a number as a factor of each box's font size, a length
+    or a percentage in px (a percentage against 16 px, as the reader reads it only to find one under 4 px)."""
+    if value in ("inherit", "unset", "revert", "revert-layer"):
+        return parent
+    if value in ("normal", "initial"):
+        return None
+    match = _DIMENSION.fullmatch(value)
+    if match and match.group(2) == "":
+        return ("factor", float(match.group(1)))
+    if match and match.group(2) == "%":
+        return ("px", 16.0 * float(match.group(1)) / 100)
+    return ("px", _length_px(value, 16.0))
+
+
+def _shorthand_line_height(value: str, parent: tuple[str, float] | None) -> tuple[str, float] | None:
+    """The line height a ``font`` shorthand sets: the one after its ``/``, or normal where it sets none."""
+    if value in _GLOBAL:
+        return _line_height(value, parent)
+    return _line_height(value.split("/")[1].split()[0], parent) if "/" in value else None
+
+
+def _line_px(line_height: tuple[str, float] | None, size: float) -> float | None:
+    """A line height in px at a box's font size, None for normal."""
+    if line_height is None:
+        return None
+    kind, amount = line_height
+    return amount * size if kind == "factor" else amount
+
+
+@dataclass(frozen=True)
+class _Seen:
+    """What a text inherits on the way down a page, as a browser reads it and as rspamd does: whether a browser shows
+    it, its size, colour and the ground behind it, the opacity its boxes multiply to, the opacity its own box sets
+    (which ``opacity:inherit`` takes) and the line height its boxes set (None for normal); why rspamd hides all a box
+    holds (a hidden box above it), the size rspamd reads (None where no box sets one), rspamd's colour and ground;
+    and whether it sits in the header."""
+
+    visible: bool = True
+    size: float = 16.0
+    colour: tuple[float, ...] = _BLACK
+    ground: tuple[float, ...] = _WHITE
+    opacity: float = 1.0
+    own_opacity: float = 1.0
+    line_height: tuple[str, float] | None = None
+    rspamd_hidden: str | None = None
+    rspamd_size: float | None = None
+    rspamd_colour: tuple[float, ...] = _BLACK
+    rspamd_ground: tuple[float, ...] = _WHITE
+    header: bool = False
+
+
+def _seen_below(seen: _Seen, element: ElementTree.Element, declared: list[tuple[str, bool, str]], header: bool,
+                refuse: Callable[[str, str], None]) -> _Seen:
+    """What the element's text and its children inherit from it, each declaration the reader cannot resolve refused
+    (``refuse(name, value)``), the element then read as if it set none."""
+    tag = _local(element.tag)
+
+    def resolved(names: tuple[str, ...], read: Callable[[str, str], object], kept: object) -> object:
+        won = _winner(declared, *names)
+        if won is None:
+            return kept
+        try:
+            return read(*won)
+        except _Unread:
+            refuse(*won)
+            return kept
+
+    visible = resolved(("visibility",), lambda name, value: _visible(value, seen.visible), seen.visible)
+    size = resolved(
+        ("font-size", "font"),
+        lambda name, value: _font_px(value, seen.size) if name == "font-size" else _shorthand_font_px(value, seen.size),
+        _FONT_SIZE_ATTRIBUTE.get(element.get("size") or "", seen.size) if tag == "font" else seen.size,
+    )
+    link = tag == "a" and element.get("href") is not None
+    colour = resolved(
+        ("color",),
+        lambda name, value: _colour(value, seen.colour, link),
+        # a <font color> is a hint below the style; a browser's own sheet colours a link that sets none
+        (_rgba(element.get("color")) or seen.colour) if tag == "font" and element.get("color") else (
+            _LINK_BLUE if link else seen.colour
+        ),
+    )
+    try:
+        ground = _ground(element, declared)
+    except _Unread:
+        refuse(*(_winner(declared, "background-color", "background") or ("background", "")))
+        ground = None
+    own_opacity = resolved(("opacity",), lambda name, value: _own_opacity(value, seen.own_opacity), 1.0)
+    line_height = resolved(
+        ("line-height", "font"),
+        lambda name, value: (_line_height if name == "line-height" else _shorthand_line_height)(value, seen.line_height),
+        seen.line_height,
+    )
+
+    # rspamd's reading: the display its display and visibility set (``_rspamd_display``), and the hidden attribute
+    # over any display; a hidden box hides all it holds (css_rule.cxx, html_block.hxx; an opacity under 0.1 the walk
+    # reads at the box).
+    rspamd_hidden = seen.rspamd_hidden
+    shown_by = _rspamd_display(declared)
+    if rspamd_hidden is None and shown_by and shown_by[1] in ("none", "hidden", "collapse"):
+        rspamd_hidden = f"rspamd reads <{tag}> as {shown_by[0]}:{shown_by[1]}, which hides all it holds"
+    elif rspamd_hidden is None and element.get("hidden") is not None:
+        rspamd_hidden = f"<{tag}> carries the hidden attribute, which rspamd reads as hiding it over any display"
+    rspamd_size = _rspamd_font_px(declared, seen.rspamd_size)
+    rspamd_colour = seen.rspamd_colour
+    for name, _important, value in declared:
+        if name == "color" and (read := _rspamd_rgba(value)) is not None:
+            rspamd_colour = read
+    rspamd_colour = _rspamd_rgba(element.get("color")) or rspamd_colour
+    rspamd_ground = _rspamd_ground(element, declared)
+    return _Seen(
+        visible=visible,
+        size=size,
+        colour=colour,
+        ground=ground if ground and ground[3] > _SHOWN_ALPHA else seen.ground,
+        opacity=seen.opacity * own_opacity,
+        own_opacity=own_opacity,
+        line_height=line_height,
+        rspamd_hidden=rspamd_hidden,
+        rspamd_size=seen.rspamd_size if rspamd_size is None else rspamd_size,
+        rspamd_colour=rspamd_colour,
+        rspamd_ground=seen.rspamd_ground if rspamd_ground is None else rspamd_ground,
+        header=header,
+    )
+
+
+def _clipped_to(declared: list[tuple[str, bool, str]], below: _Seen, refuse: Callable[[str, str], None]) -> str | None:
+    """Where a box clips its overflow (``hidden``, ``clip``, ``auto``, ``scroll``) to under 4 px on an axis in a
+    browser, as ``height:0`` or ``max-height:0`` clip a preheader, the declaration that does it; where rspamd reads
+    ``overflow:hidden`` or ``clip`` over a height or a width it reads as 0, that; else None. A size the reader cannot
+    resolve under a clip is refused, and so is a line height under 4 px under one, which can leave no line."""
+    for axis, sizes in (("y", ("height", "block-size", "max-height", "max-block-size")),
+                        ("x", ("width", "inline-size", "max-width", "max-inline-size"))):
         won = _winner(declared, "overflow", f"overflow-{axis}")
         if won is None:
             continue
         words = won[1].split()
         overflow = (words[1] if won[0] == "overflow" and axis == "y" and len(words) > 1 else words[0]) if words else ""
-        if overflow not in ("hidden", "clip"):
+        if overflow in _WHOLE:
             continue
-        for size in sizes:
-            set_to = _winner(declared, size)
-            if set_to and (px := _length_px(set_to[1], font)) is not None and px <= _LEGIBLE_PX:
-                return f"{size}:{set_to[1]} under overflow:{overflow}"
+        if overflow not in _CLIPPING:
+            refuse(*won)
+            continue
+        set_any = False
+        for pair in (sizes[:2], sizes[2:]):
+            set_to = _winner(declared, *pair)
+            if set_to is None or set_to[1] in ("auto", "none", "fit-content", "min-content", "max-content", *_GLOBAL):
+                continue
+            set_any = True
+            try:
+                px = _length_px(set_to[1], below.size)
+            except _Unread:
+                refuse(*set_to)
+                continue
+            if px < _LEGIBLE_PX:
+                return f"{set_to[0]}:{set_to[1]} under overflow:{overflow}"
+        line = _line_px(below.line_height, below.size)
+        if axis == "y" and not set_any and line is not None and line < _LEGIBLE_PX:
+            refuse("line-height", f"{line:g}px under overflow:{overflow}")
+    # rspamd reads the overflow shorthand alone, its last word, and hides a box it clips whose height or width,
+    # each clamped by its max, it reads as 0 (measured with rspamd 4.2.2).
+    overflow = next((value.split()[-1] for name, _important, value in reversed(declared) if name == "overflow" and value), "")
+    if overflow in ("hidden", "clip"):
+        for size, cap in (("height", "max-height"), ("width", "max-width")):
+            read = [px for name in (size, cap) if (won := _winner(declared, name)) and (px := _rspamd_length(won[1])) is not None]
+            if read and int(min(read)) == 0:
+                return f"rspamd reads {size} as 0 under overflow:{overflow}"
     return None
 
 
-@dataclass(frozen=True)
-class _Seen:
-    """What a text inherits on the way down a page: whether it is visible, its size and colour (None where the reader
-    does not resolve it), the ground behind it, the opacity its boxes multiply to, and whether it sits in the
-    header."""
-
-    visible: bool = True
-    size: float = 16.0
-    colour: tuple[float, ...] | None = _BLACK
-    ground: tuple[float, ...] = _WHITE
-    opacity: float = 1.0
-    header: bool = False
-
-
-def _seen_below(seen: _Seen, element: ElementTree.Element, declared: list[tuple[str, bool, str]], header: bool) -> _Seen:
-    """What the element's text and its children inherit from it."""
-    visible = seen.visible
-    if won := _winner(declared, "visibility"):
-        visible = {"hidden": False, "collapse": False, "visible": True, "initial": True}.get(won[1], visible)
-    size = seen.size
-    if won := _winner(declared, "font-size", "font"):
-        computed = _font_px(won[1], seen.size) if won[0] == "font-size" else _shorthand_font_px(won[1], seen.size)
-        size = seen.size if computed is None else computed
-    elif _local(element.tag) == "font" and element.get("size") in _FONT_SIZE_ATTRIBUTE:
-        size = _FONT_SIZE_ATTRIBUTE[element.get("size")]
-    colour = seen.colour
-    if won := _winner(declared, "color"):
-        colour = seen.colour if won[1] in ("inherit", "unset", "currentcolor") else (
-            _BLACK if won[1] == "initial" else _rgba(won[1])
-        )
-    elif _local(element.tag) == "font" and element.get("color"):
-        colour = _rgba(element.get("color"))
-    elif _local(element.tag) == "a" and element.get("href") is not None:
-        colour = _LINK_BLUE  # a browser's own style sheet colours a link that sets none
-    ground = _ground(element, declared)
-    opacity = seen.opacity * min(1.0, max(0.0, own[0])) if (own := _opacity(declared)) else seen.opacity
-    return _Seen(visible, size, colour, ground if ground and ground[3] > _SHOWN_ALPHA else seen.ground, opacity, header)
-
-
-def _unshown(text: str | None, seen: _Seen) -> str | None:
-    """Why a text inheriting ``seen`` does not show, or None where it shows."""
+def _hidden_because(text: str | None, seen: _Seen) -> str | None:
+    """Why a text inheriting ``seen`` does not show, in a browser or as rspamd reads it, or None where it shows."""
     if not text or not _UNCOUNTED.sub("", text):
         return None
     if not seen.visible:
         return "it is visibility:hidden or collapse"
-    if seen.size <= _LEGIBLE_PX:
-        return f"its font size is {seen.size:g}px, {_LEGIBLE_PX:g} px or less"
-    if seen.colour is not None and seen.colour[3] < _SHOWN_ALPHA:
+    if seen.size < _LEGIBLE_PX:
+        return f"its font size is {seen.size:g}px, under {_LEGIBLE_PX:g} px"
+    if seen.colour[3] < _SHOWN_ALPHA:
         return "its colour is transparent"
-    if seen.colour is not None and _alike(seen.colour, seen.ground):
+    if _too_alike(_painted(seen.colour, seen.ground, seen.opacity), seen.ground):
+        if seen.opacity < 1:
+            return f"its colour, painted at the opacity of {seen.opacity:.3g} its boxes multiply to, is too like the ground behind it"
         return "its colour is too like the ground behind it"
+    if seen.rspamd_hidden:
+        return seen.rspamd_hidden
+    if seen.rspamd_size is not None and int(seen.rspamd_size) <= 3:
+        return f"rspamd reads its font size as {int(seen.rspamd_size)}px, 3 or less"
+    if seen.rspamd_colour[3] < _SHOWN_ALPHA:
+        return "rspamd reads its colour as transparent"
+    if seen.rspamd_ground[3] > _SHOWN_ALPHA and _too_alike(seen.rspamd_colour, seen.rspamd_ground):
+        return "rspamd reads its colour as too like the ground behind it"
     return None
 
 
 def _texts(page: str, outlook: bool) -> tuple[list[tuple[str | None, str, bool]], list[str]]:
-    """Each text of the page's body in one view, in order, as (why it does not show or None, text, in the header),
-    ``_BLOCK_EDGE`` marking each block's edge; and each declaration the reader refuses."""
+    """Each text of the page's body in one view, a browser's (with rspamd's reading of the same page) or classic
+    Outlook's, in order, as (why it does not show or None, text, in the header), ``_BLOCK_EDGE`` marking each
+    block's edge; and each declaration and element the reader refuses."""
     root = tinyhtml5.parse(outlook_view(page) if outlook else page, namespace_html_elements=False)
     headers = set(_header_tables(root))
     body = next((element for element in root.iter() if element.tag == "body"), root)
     texts: list[tuple[str | None, str, bool]] = []
     refused: list[str] = []
 
-    def walk(element: ElementTree.Element, seen: _Seen) -> None:
+    def own_text(element: ElementTree.Element) -> bool:
+        """Whether the element holds a counted character of its own, in its text or after a child."""
+        return bool(_UNCOUNTED.sub("", (element.text or "") + "".join(child.tail or "" for child in element)))
+
+    def walk(element: ElementTree.Element, seen: _Seen, holder: str | None) -> None:
         declared = _all_declared(element.get("style"))
         tag = _local(element.tag)
         header = seen.header or element in headers
+
+        def refuse(name: str, value: str) -> None:
+            refused.append(
+                f"<{tag}> sets {name}:{value}, which can hide text in a way this reader does not model or resolve: "
+                "write a value it reads, or teach the reader (tests/support/mail_styles.py)"
+            )
+
         for name, allowed in _UNMODELLED.items():
             if (won := _winner(declared, name)) and won[1] not in allowed:
-                refused.append(
-                    f"<{tag}> sets {name}:{won[1]}, which can move or clip text out of view in a way this reader does not "
-                    "model: drop it, or teach the reader (tests/support/mail_styles.py)"
-                )
-        below = _seen_below(seen, element, declared, header)
+                refuse(*won)
+        for name, _important, value in declared:
+            if name in _MARGINS and _NEGATIVE.search(value):
+                refuse(name, value)
+        if tag in _FALLBACK_HOLDERS:
+            holder = f"<{tag}>'s fallback"
+        elif tag == "svg":
+            holder = "an SVG"
+        if holder and own_text(element) and not (holder == "an SVG" and tag == "title"):
+            refused.append(
+                f"<{tag}> holds text in {holder}, which a browser shows only in some states or never and this reader "
+                "does not model: set the text as the page's own, or teach the reader (tests/support/mail_styles.py)"
+            )
+        closed = tag == "details" and element.get("open") is None
+        below = _seen_below(seen, element, declared, header, refuse)
         hidden = None
         if not _laid_out_alone(element):
             hidden = f"<{tag}> is laid out nowhere (display:none, the hidden attribute or a browser's own style sheet)"
@@ -2131,11 +2456,10 @@ def _texts(page: str, outlook: bool) -> tuple[list[tuple[str | None, str, bool]]
             hidden = f"<{tag}> skips its content (hidden=until-found or content-visibility:hidden), which shows only when found"
         elif outlook and (_winner(declared, "mso-hide") or ("", ""))[1] == "all":
             hidden = f"<{tag}> is mso-hide:all, which classic Outlook hides"
-        elif below.opacity < _SHOWN_ALPHA:
-            # Opacity multiplies down the tree: 0.1 inside 0.2 paints at 0.02.
-            own = (_opacity(declared) or (1.0, "1"))[1]
-            hidden = f"<{tag}> is opacity:{own}, {below.opacity:.3g} with the boxes around it"
-        elif clip := _clipped_to(declared, below.size):
+        elif below.own_opacity < _OPAQUE:
+            own = (_winner(declared, "opacity") or ("opacity", "1"))[1]
+            hidden = f"<{tag}> is opacity:{own}, under {_OPAQUE:g}, which rspamd reads as hiding all it holds"
+        elif clip := _clipped_to(declared, below, refuse):
             hidden = f"<{tag}> clips its overflow to nothing ({clip})"
         if hidden is not None:
             texts.append((hidden, "".join(element.itertext()), header))
@@ -2143,32 +2467,52 @@ def _texts(page: str, outlook: bool) -> tuple[list[tuple[str | None, str, bool]]
         block = tag in _BLOCKS
         if block:
             texts.append((None, _BLOCK_EDGE, header))
-        texts.append((_unshown(element.text, below), element.text or "", header))
+        texts.append((_hidden_because(element.text, below), element.text or "", header))
+        if closed and own_text(element):
+            holder_text = "a closed <details>, outside its summary"
+            refused.append(
+                f"<{tag}> holds text in {holder_text}, which a browser shows only in some states or never and this "
+                "reader does not model: set the text as the page's own, or teach the reader (tests/support/mail_styles.py)"
+            )
         for child in element:
             if isinstance(child.tag, str):
-                walk(child, below)
-            texts.append((_unshown(child.tail, below), child.tail or "", header))
+                inner = holder
+                if closed and _local(child.tag) != "summary":
+                    inner = "a closed <details>, outside its summary"
+                walk(child, below, inner)
+            texts.append((_hidden_because(child.tail, below), child.tail or "", header))
         if block:
             texts.append((None, _BLOCK_EDGE, header))
 
-    walk(body, _Seen())
+    walk(body, _Seen(), None)
     return texts, refused
 
 
 def hidden_text_problems(page: str) -> list[str]:
-    """Where a page holds text it does not show its reader, in a browser's view or classic Outlook's, and each
-    declaration that can hide text in a way the reader does not model. A text is hidden where an element is laid out
-    nowhere (``display:none``, the ``hidden`` attribute, one a browser's own style sheet hides), skips its content
-    (``hidden="until-found"``, ``content-visibility:hidden``), paints under rspamd's alpha floor (its opacity times
-    the opacities of the boxes around it) or clips its overflow to 3 px or less, ``height:0`` or ``max-height:0``
-    among them;
-    where the text is ``visibility:hidden``, set at 3 px or less (``font-size:0``, ``font:0/0 a``) or in a colour
-    that is transparent or too like the ground behind it (rspamd's measures, ``html_block.hxx``); and, in classic
-    Outlook's view, under ``mso-hide:all``. A run counts where it holds a character rspamd counts: whitespace and the
-    characters that pad a preview do not (``rules/html.lua``), so a hairline's no-break space hides nothing. The
-    reader refuses ``position`` other than static, ``transform``, ``clip``, ``clip-path`` and ``text-indent``, which
-    can move or clip text out of view in ways it does not model. Unread: a ``<style>`` block (the page rules refuse
-    one), text outside the ``<body>``, a box clipped by its parent's fixed size, and text behind an image."""
+    """Where a page holds text it does not show its reader, in a browser's view, as rspamd reads it, or in classic
+    Outlook's view; and each declaration or element that can hide text in a way the reader does not model or resolve.
+
+    In a browser, a text is hidden where an element is laid out nowhere (``display:none``, the ``hidden`` attribute,
+    one a browser's own style sheet hides), skips its content (``hidden="until-found"``, ``content-visibility:
+    hidden``) or clips its overflow (``hidden``, ``clip``, ``auto``, ``scroll``) to under 4 px, ``height:0`` or
+    ``max-height:0`` among them; or where the text is ``visibility:hidden``, set under 4 px (``font-size:0``,
+    ``font:0/0 a``) or in a colour that is transparent or, painted at the opacity its boxes multiply to, too like the
+    ground behind it, by rspamd's measures. rspamd's reading (``css_rule.cxx``, ``html_block.hxx``, measured with
+    rspamd 4.2.2) hides it too where a box sets an opacity under 0.1, a box above it is ``visibility:hidden`` or
+    carries the ``hidden`` attribute over any display, rspamd reads its size as 3 px
+    or less (em and rem at 16 px, ex at 8, a keyword and ``<font size>`` not at all), or reads its colour, a
+    ``color`` attribute over the style and a ``bgcolor`` on any element, as transparent or too like its ground. In
+    classic Outlook's view it is hidden under ``mso-hide:all``. A run counts where it holds a character rspamd
+    counts: whitespace and the characters that pad a preview do not (``rules/html.lua``), so a hairline's no-break
+    space hides nothing.
+
+    The reader refuses what it does not model: a value it does not resolve on a property it reads (``var()``,
+    ``calc()``, an exponent, a viewport unit, a gradient ground), ``position`` other than static, ``transform`` and
+    the transform properties, ``zoom``, ``clip``, ``clip-path``, masks, ``filter``, ``mix-blend-mode``, ``contain``,
+    line clamps, ``-webkit-text-fill-color``, ``background-image``, ``text-indent``, a negative margin, a line height
+    under 4 px in a box that clips its overflow, and text in a media element's fallback, an SVG or a closed
+    ``<details>``. Unread: a ``<style>`` block (the page rules refuse one), text outside the ``<body>``, a box clipped
+    by its parent's fixed size or by its own padding, and text behind an image."""
     found, refused = set(), []
     for outlook in (False, True):
         texts, refusals = _texts(page, outlook)

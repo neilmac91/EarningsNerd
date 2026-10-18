@@ -393,9 +393,12 @@ Never re-send an `ambiguous` batch by hand under its old key, and never edit its
 `body_text`, so a drain it runs fails the digest of every due batch frozen with a text part and
 parks it as `payload_drift`, unsent: after a rollback past E110, and during the deploy that ships
 it, in a job execution that started on the old image and reaches its drain after the new image
-froze a batch. One with `attempts = 0` never reached the provider, so give its filings back to
-selection as above. A `retryable` batch needs no action: the job retries it with backoff,
-re-keying it if the replay window closed. Historical `notification_log` rows are never replayed.
+froze a batch. Such a batch was ready or retryable when that drain claimed it, so the provider
+never accepted it: at `attempts = 0` it never reached the provider, and a retryable batch's attempts
+each ended in a documented non-acceptance (the old drain re-keys one whose replay window closed
+before it parks it). Give its filings back to selection as above. Otherwise a `retryable` batch
+needs no action: the job retries it with backoff, re-keying it if the replay window closed.
+Historical `notification_log` rows are never replayed.
 
 ### Monitoring Alerts (Suggested Thresholds)
 

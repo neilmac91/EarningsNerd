@@ -12,6 +12,8 @@ the module pins the shape:
 - no f-string, ``+``/``%`` concatenation or ``.format(...)`` call anywhere in the module uses a
   bare ``name`` / ``full_name``;
 - every ``greeting = ...`` assignment is a call to ``_greeting``;
+- ``_greeting_text``, which keeps the name as typed, is called only inside ``_greeting`` and in a text part (the
+  value of a ``text_body = ...`` assignment): a page that greets with it would print a markup-shaped name as markup;
 - the hidden-text literal (``display:none``) appears only inside ``_preheader``, the one helper that
   hides text (the line an inbox lists beside the subject): a helper that hides a copy of the text part,
   as ``_hidden_text`` did, fails here. This walk checks where the literal sits, not what the helper
@@ -32,6 +34,7 @@ ALLOWED_SITES: set[tuple[str, str]] = set()
 NAME_IDS = {"name", "full_name"}
 GREETING_HELPER = "_greeting"
 GREETING_TEXT_HELPER = "_greeting_text"
+TEXT_PART = "text_body"
 PREHEADER_HELPER = "_preheader"
 HIDDEN_TEXT_HELPERS = frozenset({PREHEADER_HELPER})
 HIDDEN_COPY_MARKER = "display:none"
@@ -47,6 +50,7 @@ class _Finder(ast.NodeVisitor):
     def __init__(self) -> None:
         self.hits: list[tuple[str, str]] = []
         self._stack: list[str] = []
+        self._text_parts = 0
 
     def _where(self) -> str:
         return self._stack[-1] if self._stack else "<module>"
@@ -72,6 +76,13 @@ class _Finder(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
+        if (
+            isinstance(node.func, ast.Name)
+            and node.func.id == GREETING_TEXT_HELPER
+            and self._where() != GREETING_HELPER
+            and not self._text_parts
+        ):
+            self.hits.append((self._where(), f"{GREETING_TEXT_HELPER}() outside a text part ({TEXT_PART} = ...)"))
         if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
             values = list(node.args) + [keyword.value for keyword in node.keywords]
             for value in values:
@@ -89,7 +100,10 @@ class _Finder(ast.NodeVisitor):
             )
             if not is_helper_call:
                 self.hits.append((self._where(), f"greeting built without {GREETING_HELPER}()"))
+        text_part = any(isinstance(target, ast.Name) and target.id == TEXT_PART for target in node.targets)
+        self._text_parts += text_part
         self.generic_visit(node)
+        self._text_parts -= text_part
 
     def visit_Constant(self, node: ast.Constant) -> None:
         if isinstance(node.value, str) and HIDDEN_COPY_MARKER in node.value and self._where() not in HIDDEN_TEXT_HELPERS:
@@ -141,9 +155,14 @@ def raw_hidden_copy(text):
 def raw_preheader(text):
     return f'<div style="display:none;mso-hide:all;">{text}</div>'
 
+def page_greets_as_typed(name):
+    greeting = _greeting(name)
+    return f"<p>{_greeting_text(name)}</p>"
+
 async def uses_helpers(name, text):
     greeting = _greeting(name)
-    return f"{_preheader(text)}<p>{greeting}</p>", f"{_greeting_text(name)}\\n\\n{text}"
+    text_body = f"{_greeting_text(name)}\\n\\n{text}"
+    return f"{_preheader(text)}<p>{greeting}</p>", text_body
 
 def other_names_are_fine(company_name, ticker):
     return f"{company_name} ({ticker})" + ticker
@@ -161,6 +180,7 @@ def test_finder_catches_every_bypass_shape_and_accepts_the_helpers():
         ("str_format", ".format() receives name"),
         ("raw_hidden_copy", "hidden text built outside _preheader()"),
         ("raw_preheader", "hidden text built outside _preheader()"),
+        ("page_greets_as_typed", "_greeting_text() outside a text part (text_body = ...)"),
     ]
 
 
@@ -170,7 +190,7 @@ def test_email_service_routes_every_name_through_the_helpers():
     assert not unexpected, (
         "app/services/email_service.py interpolates a recipient's name outside the escaping helpers:\n"
         + "\n".join(f"  {function}(): {offence}" for function, offence in sorted(unexpected))
-        + "\nUse `greeting = _greeting(name)` for the page's salutation, `_greeting_text(name)` for the text part's, "
+        + "\nUse `greeting = _greeting(name)` for the page's salutation, `_greeting_text(name)` in `text_body = ...` for the text part's, "
         "`_wrap_html(..., preheader=line)` for the preheader, and hand the text part to send_email as `text=` "
         "rather than hiding a copy in the page. Extending ALLOWED_SITES needs a written reason next to the entry."
     )

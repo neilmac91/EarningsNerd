@@ -32,6 +32,7 @@ from app.models.notification_delivery import (
     DeliveryBatch,
     DeliveryItem,
 )
+from app.services import email_service
 from app.services import notification_delivery_service as delivery
 from app.services import resend_service
 from app.services.filing_scan_service import run_daily_digest, run_filing_scan
@@ -469,6 +470,10 @@ async def test_digest_keeps_the_unowned_filings_when_an_overlapping_run_takes_on
         assert [i["filing_id"] for i in digest.await_args.kwargs["items"]] == [2]
         kinds = sorted(b.kind for b in _batches(db))
         assert kinds == [KIND_FILING_DIGEST, KIND_FILING_REALTIME]
+        # The kept digest freezes the page and text part of the filings it kept, not of the digest that collided.
+        [kept] = [b for b in _batches(db) if b.kind == KIND_FILING_DIGEST]
+        _subject, page, text = email_service.build_daily_digest(name=digest.await_args.kwargs["name"], items=digest.await_args.kwargs["items"])
+        assert (kept.body_html, kept.body_text) == (page, text)
 
 
 @pytest.mark.asyncio

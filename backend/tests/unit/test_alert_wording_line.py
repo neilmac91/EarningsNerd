@@ -17,7 +17,13 @@ import pytest
 
 from app.config import settings
 from app.models.filing_section_text import FilingSectionText
-from app.services.email_service import build_daily_digest, render_daily_digest, render_new_filing_alert, wording_changes_line
+from app.services.email_service import (
+    build_daily_digest,
+    build_new_filing_alert,
+    render_daily_digest,
+    render_new_filing_alert,
+    wording_changes_line,
+)
 from app.services.filing_scan_service import alert_wording_changes, run_daily_digest, run_filing_scan
 
 NOW = datetime(2026, 6, 17, tzinfo=timezone.utc)
@@ -142,6 +148,19 @@ def _fetch_returning(accession, sec_url, document_url):
     return _fetch
 
 
+def _built(name, items):
+    """The page and text part the build function makes of the one filing the drain hands an alert's transport: what
+    its batch froze."""
+    [item] = items
+    _subject, page, text = build_new_filing_alert(name=name, **item)
+    return (page, text)
+
+
+def _alert_items(kwargs):
+    """The one filing an alert transport is handed, as the build function takes it."""
+    return [{key: value for key, value in kwargs.items() if key not in ("to_email", "name")}]
+
+
 def _batch_parts(user_id):
     """Each batch's frozen page and text part, as (html, text)."""
     from app.database import SessionLocal
@@ -169,6 +188,7 @@ async def test_pro_realtime_alert_carries_the_line_while_the_feature_is_on(monke
         assert stats["alerts_sent"] == 1
         assert send.await_args.kwargs["wording_changes"] == SUMMARY
         [(html, text)] = _batch_parts(uid)
+        assert (html, text) == _built(send.await_args.kwargs["name"], _alert_items(send.await_args.kwargs))
         assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in html
         assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in text
 
@@ -206,6 +226,8 @@ async def test_the_digest_carries_the_line_for_pro_only(monkeypatch, is_pro):
         [item] = [i for i in send.await_args.kwargs["items"] if i["company_name"].startswith("Co ")] if is_pro else [
             i for i in send.await_args.kwargs["items"]]
         [(html, text)] = _batch_parts(uid)
+        _subject, page, text_part = build_daily_digest(name=send.await_args.kwargs["name"], items=send.await_args.kwargs["items"])
+        assert (html, text) == (page, text_part), "the digest froze a page and text part its build function does not make"
         if is_pro:
             assert item["wording_changes"] == SUMMARY
             assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in html
@@ -254,6 +276,7 @@ async def test_a_batch_rebuilt_by_the_drain_carries_the_line(monkeypatch):
         assert (result.suppressed, result.rebuilt, result.accepted) == (1, 1, 1)
         [rebuilt] = sent
         assert rebuilt.to_email == f"moved-{uid}@example.com"
+        assert (rebuilt.html, rebuilt.text) == _built(rebuilt.name, rebuilt.items), "the rebuild froze a part its build function does not make"
         assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in rebuilt.html
         assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in rebuilt.text
         assert rebuilt.items[0]["wording_changes"] == SUMMARY

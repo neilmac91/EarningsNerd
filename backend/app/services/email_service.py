@@ -6,8 +6,6 @@ import re
 from app.config import settings
 from app.services.resend_service import send_email
 
-_LINE_BREAKS = re.compile(r"[\r\n]+")
-
 _DEFAULT_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
 # The footer line, below the panel on every page (D-043) and last in every text part.
 _FOOTER_LINE = "Filing data sourced from SEC EDGAR. Not investment advice."
@@ -173,11 +171,12 @@ def _greeting_text(name: str | None) -> str:
     """The salutation line of every mail that addresses the recipient by name, as its text part prints it.
 
     The display name is user-supplied text, so it enters a mail only here and through ``_greeting``, which
-    escapes this line for the page: it is collapsed onto one line, so it can never start a line of its own,
-    and kept as typed, since plain text shows an ampersand or a bracket as itself. A missing or blank name
-    falls back to the neutral greeting. Gate: ``tests/unit/test_email_name_interpolation_allowlist.py``.
+    escapes this line for the page: its whitespace, every line separator among it (``str.splitlines``'s, U+2028
+    and U+2029 too), is collapsed to single spaces, so it can never start a line of its own, and it is kept as
+    typed, since plain text shows an ampersand or a bracket as itself. A missing or blank name falls back to the
+    neutral greeting. Gate: ``tests/unit/test_email_name_interpolation_allowlist.py``.
     """
-    cleaned = _LINE_BREAKS.sub(" ", name or "").strip()
+    cleaned = " ".join((name or "").split())
     return f"Hi {cleaned}," if cleaned else "Hi there,"
 
 
@@ -283,7 +282,8 @@ def render_welcome_email(
         f"Your current position: #{position}\n\n"
         "Share your referral link to move up the list. Each successful referral bumps you up 5 spots.\n"
         f"{referral_link}\n\n"
-        f"Please verify your email to secure your place: {verification_link}\n\n"
+        "Please verify your email to secure your place:\n"
+        f"Verify email: {verification_link}\n\n"
         "We'll keep you posted as we open up access."
     )
     preheader = f"You're number {position} on the list. Share your referral link to move up."
@@ -797,7 +797,7 @@ def render_earnings_day_alert(
         ticker = str(it.get("ticker", ""))
         slot = _TIME_LABEL.get((it.get("time") or "").lower())
         return (
-            f"{it.get('company_name') or ticker} ({ticker}) reports today"
+            f"{it.get('company_name') or it.get('ticker') or ''} ({ticker}) reports today"
             + (f" · {slot}" if slot else "")
             + (" (results are out)" if it.get("status") == "reported" else "")
             + f"\nView {ticker}: {settings.FRONTEND_URL}/company/{ticker}"

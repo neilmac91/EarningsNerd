@@ -5,11 +5,14 @@ it through ``email_service._greeting`` for its page (HTML-escaped, one line) and
 ``_greeting_text`` for its text part (one line, as typed: plain text is never read as markup, so an
 escape would print as ``&lt;``). The text part goes to the provider as the mail's ``text``, and the
 page hides no copy of it (E110). This proof renders every sender with a markup-shaped name and
-checks the page and the text part; the structural gate that keeps new templates on the helpers is
+checks the page and the text part, and holds its list to every ``send_`` function that takes a name;
+the structural gate that keeps new templates on the helpers is
 ``test_email_name_interpolation_allowlist.py``.
 """
+import ast
 import asyncio
 import html
+from pathlib import Path
 
 import pytest
 
@@ -46,6 +49,38 @@ SENDERS = [
     (send_new_filing_alert, dict(company_name="Acme Corp", ticker="ACME", filing_type="10-K", filing_date="2026-01-01", filing_id=1)),
     (send_daily_digest, dict(items=[{"company_name": "Acme Corp", "ticker": "ACME", "filing_type": "10-K", "filing_date": "2026-01-01", "filing_id": 1}])),
 ]
+
+
+def _greeting_senders(source: str) -> set[str]:
+    """The ``send_`` coroutines a module defines that take a ``name``: every sender that greets its reader by name."""
+    return {
+        node.name
+        for node in ast.parse(source).body
+        if isinstance(node, ast.AsyncFunctionDef)
+        and node.name.startswith("send_")
+        and "name" in {argument.arg for argument in (*node.args.args, *node.args.kwonlyargs)}
+    }
+
+
+_SENDERS_PROBE = """
+async def send_greets(*, to_email, name): ...
+async def send_greets_positionally(to_email, name): ...
+async def send_no_name(*, to_email): ...
+def send_sync(*, name): ...
+async def render_greets(*, name): ...
+"""
+
+
+def test_the_proof_renders_every_sender_that_greets_by_name():
+    # A gate that cannot fail proves nothing: the reader of the module's senders, on a probe.
+    assert _greeting_senders(_SENDERS_PROBE) == {"send_greets", "send_greets_positionally"}
+    module = Path(email_service.__file__).read_text(encoding="utf-8")
+    listed = {sender.__name__ for sender, _kwargs in SENDERS}
+    assert _greeting_senders(module) == listed, (
+        "every send_ function that takes a name is rendered here with a markup-shaped one, so a page that greets "
+        f"without escaping fails: add {sorted(_greeting_senders(module) - listed)} to SENDERS, drop "
+        f"{sorted(listed - _greeting_senders(module))}"
+    )
 
 
 @pytest.fixture
@@ -86,9 +121,10 @@ def test_every_sender_renders_a_markup_shaped_name_as_text(sender, kwargs, sent)
     ids=["welcome", "referral_success"],
 )
 def test_render_functions_keep_the_name_on_one_line_escaped_in_the_page_and_as_typed_in_the_text(render, kwargs):
-    html_doc, text = render(name="Eve\r\n<b>Bcc</b>: x", **kwargs)
+    html_doc, text = render(name="Eve\r\n<b>Bcc</b>:\u2029x", **kwargs)
     assert "<b>" not in html_doc and "Hi Eve &lt;b&gt;Bcc&lt;/b&gt;: x," in html_doc
-    # One line: a line break in the name cannot start a line of its own in the text part.
+    # One line: no line separator in the name, a paragraph separator among them, starts a line of its own in the
+    # text part.
     assert text.splitlines()[0] == "Hi Eve <b>Bcc</b>: x,"
 
 
@@ -98,6 +134,8 @@ def test_text_greeting_keeps_the_name_as_typed_collapses_lines_and_falls_back_wh
     assert _greeting_text("  \r\n ") == "Hi there,"
     assert _greeting_text("Jane") == "Hi Jane,"
     assert _greeting_text("Eve\r\nBcc: x") == "Hi Eve Bcc: x,"
+    # Every line separator str.splitlines knows, the Unicode ones a form lets through among them, and runs of spaces.
+    assert _greeting_text("Eve\u2028Bcc:\u2029x\x85y\x1cz\x0bw\x0c v  u\tt") == "Hi Eve Bcc: x y z w v u t,"
     assert _greeting_text('<a href="x">x</a>') == 'Hi <a href="x">x</a>,'
     assert _greeting_text("Tom & Jerry") == "Hi Tom & Jerry,"
     assert _greeting_text("José Ñandú") == "Hi José Ñandú,"
@@ -109,5 +147,6 @@ def test_greeting_helper_escapes_collapses_lines_and_falls_back_when_blank():
     assert _greeting("  \r\n ") == "Hi there,"
     assert _greeting("Jane") == "Hi Jane,"
     assert _greeting("Eve\r\nBcc: x") == "Hi Eve Bcc: x,"
+    assert _greeting("Eve\u2028Bcc: x") == "Hi Eve Bcc: x,"
     assert _greeting('<a href="x">x</a>') == "Hi &lt;a href=&quot;x&quot;&gt;x&lt;/a&gt;,"
     assert _greeting("José Ñandú") == "Hi José Ñandú,"
