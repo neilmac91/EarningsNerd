@@ -9,8 +9,9 @@ import LandingRow from '@/features/marketing/components/LandingRow'
  * The landing's ruled row (D-045; features/marketing/components/LandingRow.tsx), the one shape every section after
  * the hero takes (tests/unit/landing-sections-mounted.spec.ts holds the page to it): a section named by its h2, a
  * label column holding the number, the title and the one line, and the content beside it. The number is the
- * `landing-row` counter in CSS (app/page.tsx resets it on <main>), so a self-omitting section takes none; the e2e
- * renders read it on the page. The columns open at 64rem at the reader's text size, over a one-column base.
+ * `landing-row` counter in CSS (app/page.tsx resets it on <main>), so a self-omitting section takes none;
+ * tests/e2e/home-page-unauthenticated.spec.ts reads the painted numbers on the built page (01, 02, … with no gap).
+ * The columns open at 64rem at the reader's text size, over a one-column base.
  */
 describe('LandingRow', () => {
   it('is a section named by its h2, with the number, the title and the line in the label column beside the content', () => {
