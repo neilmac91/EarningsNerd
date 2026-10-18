@@ -24,9 +24,10 @@ import {
  *    Evaluated on whole class strings, so a stripe split across template chunks or cx() arguments
  *    is caught, while a quotation's unrounded 2px bar and the Callout's full hairline pass.
  *  - no-four-up-grid (D-045): the landing lays nothing out four across. A token that sets four column tracks or
- *    more, under any variant, fails: grid-cols-N with N of 4 or more, an arbitrary template whose tracks count to
- *    4 or more (repeat() counted out, line names not), and a template the width or a variable decides. It runs on
- *    the landing's own files only (LANDING_GRID_FILES), never on the product screens the landing demos.
+ *    more, under any variant, fails: grid-cols-N with N of 4 or more, an arbitrary template or grid shorthand whose
+ *    tracks count to 4 or more (repeat() counted out, line names not; the shorthand's columns after its slash), a
+ *    template the width or a variable decides, a column flow, and CSS multi-column by its count or column width.
+ *    It runs on the landing's own files only (LANDING_GRID_FILES), never on the product screens the landing demos.
  *  - no-form-code-badge (P-04): a form code is text in the data face, never a <Badge> or a hand-rolled eyebrow chip.
  *  - no-unguarded-animation (P-09): every animation utility stops under reduced motion, through
  *    motion-safe: or a motion-reduce:animate-none with the same variants that always renders with it.
@@ -117,12 +118,28 @@ describe('fourUpGrid', () => {
     expect(fourUpGrid('lg:[&>div>dl]:!grid-cols-4')).toBe('lg:[&>div>dl]:!grid-cols-4')
     expect(fourUpGrid('grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]')).toBe('grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]')
     expect(fourUpGrid('grid-cols-(--landing-cols)')).toBe('grid-cols-(--landing-cols)')
+    // The grid shorthands: the columns after the slash, or the cells of the first area string.
+    expect(fourUpGrid('[grid-template:auto/repeat(4,1fr)]')).toBe('[grid-template:auto/repeat(4,1fr)]')
+    expect(fourUpGrid('lg:[grid:auto-flow/1fr_1fr_1fr_1fr]')).toBe('lg:[grid:auto-flow/1fr_1fr_1fr_1fr]')
+    expect(fourUpGrid("[grid-template:'a_b_c_d']")).toBe("[grid-template:'a_b_c_d']")
+    // A column flow gives every item a column of its own.
+    expect(fourUpGrid('grid grid-flow-col')).toBe('grid-flow-col')
+    expect(fourUpGrid('[grid:auto/auto-flow]')).toBe('[grid:auto/auto-flow]')
+    expect(fourUpGrid('[grid-auto-flow:column_dense]')).toBe('[grid-auto-flow:column_dense]')
+    // CSS multi-column: a count of four or more, or a column width the container's width turns into a count.
+    expect(fourUpGrid('columns-1 md:columns-4')).toBe('md:columns-4')
+    expect(fourUpGrid('columns-xs')).toBe('columns-xs')
+    expect(fourUpGrid('columns-[18rem]')).toBe('columns-[18rem]')
+    expect(fourUpGrid('[column-count:5]')).toBe('[column-count:5]')
+    expect(fourUpGrid('[columns:4_10rem]')).toBe('[columns:4_10rem]')
   })
 
   it('passes three tracks or fewer, and utilities that set no tracks of their own', () => {
     expect(fourUpGrid('grid grid-cols-1 [@media(min-width:40rem)]:grid-cols-2 lg:grid-cols-3')).toBeNull()
     expect(fourUpGrid('[@media(min-width:64rem)]:grid-cols-[14rem_minmax(0,1fr)]')).toBeNull()
     expect(fourUpGrid('lg:[&>div>dl]:grid-cols-3 grid-cols-[auto_1fr] grid-cols-none grid-cols-subgrid col-span-4 gap-4')).toBeNull()
+    expect(fourUpGrid('[grid-template:auto/1fr_1fr] [grid:repeat(2,auto)/repeat(3,1fr)] [grid-template:none] grid-flow-row [grid-auto-flow:row]')).toBeNull()
+    expect(fourUpGrid('columns-3 columns-auto [column-count:2] [columns:auto] [grid-template-rows:repeat(4,auto)]')).toBeNull()
   })
 })
 
@@ -132,6 +149,7 @@ ruleTester.run('no-four-up-grid', noFourUpGrid, {
     "<ol className={cx('grid grid-cols-1 sm:grid-cols-2', wide && 'lg:grid-cols-3')} />",
     // A span of four columns is not four columns.
     '<div className="col-span-4 lg:col-span-4" />',
+    '<div className="grid [grid-template:auto/repeat(2,1fr)] columns-2" />',
   ],
   invalid: [
     { code: '<dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10" />', errors: [{ messageId: 'fourUp' }] },
@@ -141,6 +159,10 @@ ruleTester.run('no-four-up-grid', noFourUpGrid, {
     { code: '<div className={`grid ${gap} md:grid-cols-4`} />', errors: [{ messageId: 'fourUp' }] },
     { code: "const TILES = 'grid grid-cols-2 md:grid-cols-4'", errors: [{ messageId: 'fourUp' }] },
     { code: '<div className="grid grid-cols-1 lg:grid-cols-[repeat(4,minmax(0,1fr))]" />', errors: [{ messageId: 'fourUp' }] },
+    // The grid shorthands and multi-column lay items out across as grid-cols does.
+    { code: '<div className="grid [grid-template:auto/repeat(4,1fr)]" />', errors: [{ messageId: 'fourUp' }] },
+    { code: '<div className="grid lg:[grid:auto-flow/repeat(4,minmax(0,1fr))]" />', errors: [{ messageId: 'fourUp' }] },
+    { code: '<ul className="columns-2 lg:columns-4" />', errors: [{ messageId: 'fourUp' }] },
   ],
 })
 

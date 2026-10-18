@@ -16,18 +16,25 @@
 //                       names (docs/brand/09-stress-test.md §2). The rule fails a class token that sets
 //                       four column tracks or more under any variant, at any breakpoint and on any element
 //                       it styles: `grid-cols-N` with N of 4 or more, and an arbitrary template
-//                       (`grid-cols-[…]`, `[grid-template-columns:…]`) whose tracks count to 4 or more,
-//                       a `repeat(N, …)` counted N times its tracks and a line name `[a]` not counted;
-//                       a template whose count only the width decides (`repeat(auto-fill, …)`,
-//                       `repeat(auto-fit, …)`) or the scan cannot read (`var(…)`) fails too, since it
-//                       can open four. It reads class strings as no-side-stripe does, a constant and a
+//                       (`grid-cols-[…]`, `[grid-template-columns:…]`) or shorthand (`[grid-template:…]`,
+//                       `[grid:…]`: the track list after the `/`, or the cells of the first area string)
+//                       whose tracks count to 4 or more, a `repeat(N, …)` counted N times its tracks and a
+//                       line name `[a]` not counted; a template whose count only the width decides
+//                       (`repeat(auto-fill, …)`, `repeat(auto-fit, …)`) or the scan cannot read (`var(…)`)
+//                       fails too, since it can open four, and so does a column flow (`grid-flow-col`,
+//                       `[grid-auto-flow:column]`, the `grid` shorthand's `auto-flow` after its `/`), which
+//                       gives every item a column of its own. CSS multi-column counts the same way:
+//                       `columns-N` with N of 4 or more, `[columns:…]` and `[column-count:…]` by their
+//                       count, and a column width (`columns-xs`, `columns-[18rem]`) as the width's count.
+//                       It reads class strings as no-side-stripe does, a constant and a
 //                       ternary's arm included. It runs on the landing's own composition only
 //                       (LANDING_GRID_FILES below, eslint.config.mjs): the route, the marketing modules
 //                       and the sections the route mounts from other features, which
 //                       tests/unit/landing-sections-mounted.spec.ts holds to the route's imports. The
 //                       product screens the landing demos keep their own layouts (KpiStrip is four-up on
-//                       the analysis page). A four-across row built with flex (`basis-1/4`) is outside it
-//                       (review-checked).
+//                       the analysis page). Outside it (review-checked): a four-across row built with flex
+//                       (`basis-1/4`, `w-1/4`), a table of four columns or more, and a template set in an
+//                       inline style or a stylesheet rather than a class.
 //   no-form-code-badge  (P-04) A form code (the form families EDGAR writes, 10-K, 10-Q, 8-K, SC 13D,
 //                       S-1, DEF 14A and their kin, FORM_CODES, and the insider forms the product
 //                       writes as words, Form 3, Form 4 and Form 5) is text in the data face, never a
@@ -277,14 +284,51 @@ export function templateTrackCount(template) {
   return count
 }
 
-/** The column tracks a class utility sets, or null for one that sets none of its own (`grid-cols-none`,
- *  `grid-cols-subgrid`, anything that is not a column template). */
+/** The columns a grid shorthand declares (`grid-template` or `grid`, Tailwind's `_` for a space): the track list
+ *  after the top-level `/`, or, with no slash, the cells of the first area string (none: rows alone, or `none`).
+ *  The `grid` shorthand's `auto-flow` after the slash is a column flow, every item a column: Infinity. */
+function shorthandColumnCount(value) {
+  const text = value.replace(/_/g, ' ')
+  const [, columns] = topLevel(text, /\//)
+  if (columns !== undefined) return /\bauto-flow\b/.test(columns) ? Infinity : templateTrackCount(columns)
+  const area = text.match(/["']([^"']*)["']/)
+  return area ? area[1].trim().split(/\s+/).filter(Boolean).length : null
+}
+
+// Tailwind's column-width scale for `columns-*` (3xs to 7xl): the container's width decides the count.
+const MULTICOL_WIDTHS = /^(?:3xs|2xs|xs|sm|md|lg|xl|[2-7]xl)$/
+
+/** The columns a multi-column value lays out: a count where it names one, Infinity for a column width alone (the
+ *  container's width turns it into a count), null for `auto`. */
+function multicolCount(value) {
+  const parts = value.replace(/_/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const count = parts.find((part) => /^\d+$/.test(part))
+  if (count !== undefined) return Number(count)
+  return parts.every((part) => part === 'auto') ? null : Infinity
+}
+
+/** The columns a class utility lays its items out in, or null for one that sets none of its own (`grid-cols-none`,
+ *  `grid-cols-subgrid`, `columns-auto`, anything that is not a column template, a column flow or multi-column). */
 export function gridColumnCount(utility) {
   const numbered = utility.match(/^grid-cols-(\d+)$/)
   if (numbered) return Number(numbered[1])
   const arbitrary = utility.match(/^grid-cols-\[(.*)\]$/s) ?? utility.match(/^\[grid-template-columns:(.*)\]$/s)
   if (arbitrary) return templateTrackCount(arbitrary[1])
   if (/^grid-cols-\(/.test(utility)) return Infinity
+  const shorthand = utility.match(/^\[grid(?:-template)?:(.*)\]$/s)
+  if (shorthand) return shorthandColumnCount(shorthand[1])
+  if (/^grid-flow-col(?:-dense)?$/.test(utility) || /^\[grid-auto-flow:(?:dense_)?column(?:_dense)?\]$/.test(utility)) return Infinity
+  const multicol = utility.match(/^columns-(.+)$/s)
+  if (multicol) {
+    const value = multicol[1]
+    if (/^\d+$/.test(value)) return Number(value)
+    if (value === 'auto') return null
+    if (MULTICOL_WIDTHS.test(value) || /^\(/.test(value)) return Infinity
+    const bracket = value.match(/^\[(.*)\]$/s)
+    return bracket ? multicolCount(bracket[1]) : null
+  }
+  const multicolProperty = utility.match(/^\[(?:columns|column-count):(.*)\]$/s)
+  if (multicolProperty) return multicolCount(multicolProperty[1])
   return null
 }
 
