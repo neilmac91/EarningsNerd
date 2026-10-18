@@ -46,3 +46,15 @@ over its heading and "10-|K" broken at 200% text. `SummaryBlocks.tsx` groups the
 heading; `tests/e2e/text-floors.spec.ts` asserts the badge wholly beneath its heading, every heading
 beside its index and, at 320px, no sideways scroll; `SummaryBlocks.spec.tsx`,
 `GenerateSignupGate.spec.tsx` and `StreamingSummaryDisplay.spec.tsx` pin the wrapping classes.
+
+**Recurrence (2026-10-17, the mail header, #1334)**: the mail's lockup, the tile beside a one-word wordmark, and its
+tagline's mark, kept on one line, held a phone's page about 420 px wide under a WebView text zoom at 200%, and the
+overflow stayed a recorded residual until Codex's review flagged it (r4302052395). A text zoom scales px sizes, which
+the site's rem-based checks never move. The wordmark now wraps between its two words at a zero-width space and the
+mark is an inline-block that wraps inside itself only where its words do not fit (D-048), and
+`frontend/tests/e2e/mail-header-reflow.spec.ts` holds the template's header, and through the parity test the mail's, to
+no painted text outside the screen at 320 and 390 px with every computed size doubled: the wordmark on the lines
+"Earnings" and "Nerd", and on one line at its set size; the mark on one line where it fits, and broken between its
+words alone where it does not; the tile beside the wordmark. Its first form placed the tile against the wordmark's
+cell, whose box is its row's height, so a tile moved off the wordmark's line passed (round 24's review); it now
+places the tile against the painted lines, measured with a Range.
