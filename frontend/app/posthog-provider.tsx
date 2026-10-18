@@ -153,18 +153,14 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
   }, [initialized])
 
-  // Fix for React Error #310: Use conditional rendering instead of early return
-  // This ensures all hooks are called on every render, preventing hook violations
+  // One tree before and after the SDK loads. The provider stays mounted around the page and only the page-view
+  // tracker joins once PostHog has loaded, so a first allow from the footer's Cookie settings never remounts the
+  // route: a draft and the opener's focus survive it. Before consent the provider only hands its hooks the global
+  // client, as their default context does, and consent still gates posthog.init above.
   return (
-    <>
-      {initialized && posthog?.__loaded ? (
-        <PHProvider client={posthog}>
-          <PostHogPageViewWrapper />
-          {children}
-        </PHProvider>
-      ) : (
-        <>{children}</>
-      )}
-    </>
+    <PHProvider client={posthog}>
+      {initialized && posthog?.__loaded ? <PostHogPageViewWrapper /> : null}
+      {children}
+    </PHProvider>
   )
 }
