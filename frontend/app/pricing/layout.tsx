@@ -1,26 +1,32 @@
 import type { Metadata } from 'next'
-import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
+import { ANALYSIS_LINES, shipped } from '@/lib/planLimits'
 import { PRO_PRICING } from './prices'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
-// The pricing page itself is a client component, so its metadata lives here.
+// The pricing page itself is a client component, so its metadata lives here. Pro's questions have a monthly cap, so
+// "unlimited" never heads a list that names filing Q&A: Q&A has a sentence of its own (planLimitsLockstep.spec.ts).
 export const metadata: Metadata = {
   title: 'Pricing | EarningsNerd',
   description:
-    'EarningsNerd plans: free AI summaries of SEC filings every month, or go Pro for unlimited 10-K and 10-Q analysis, exports, and filing Q&A.',
+    'EarningsNerd plans: free AI summaries of SEC filings every month, or go Pro for unlimited 10-K and 10-Q analysis and exports. Pro also includes filing Q&A.',
   alternates: { canonical: '/pricing' },
 }
 
 // Product/Offer structured data uses the same approved offer as the visible pricing surfaces, and
 // names multi-period analysis only while ENABLE_ANALYSIS ships it, as the Pro lists do (/analysis
-// 404s while the flag is off). Built at render, as the page and PricingSection read the flag.
+// 404s while the flag is off): its piece is lib/planLimits.ts ANALYSIS_LINES.productJsonLd, read
+// through shipped() at render, as the page and PricingSection read their lines.
 const pricingJsonLd = () => ({
   '@context': 'https://schema.org',
   '@type': 'Product',
   '@id': `${SITE_URL}/pricing#product`,
   name: 'EarningsNerd Pro',
-  description: `Unlimited AI summaries of SEC 10-K and 10-Q filings, ${ENABLE_ANALYSIS ? 'multi-period analysis, ' : ''}filing Q&A, alerts, and exports.`,
+  description: `${shipped([
+    { text: 'Unlimited AI summaries of SEC 10-K and 10-Q filings' },
+    ANALYSIS_LINES.productJsonLd,
+    { text: 'alerts' },
+  ]).join(', ')}, and exports. Pro also includes filing Q&A.`,
   brand: { '@type': 'Brand', name: 'EarningsNerd' },
   url: `${SITE_URL}/pricing`,
   offers: [

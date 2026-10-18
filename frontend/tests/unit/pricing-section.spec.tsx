@@ -10,6 +10,7 @@ import { ACCESS_COPY } from '@/features/marketing/lib/access'
  */
 
 // Live mutable flag so a test can flip ENABLE_PRO_TRIAL without re-importing the component.
+// The flags ship off: the plan lists leave out the lines they decide (lib/planLimits.ts shipped).
 const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false, ENABLE_FPI_FILINGS: false }))
 vi.mock('@/lib/featureFlags', () => flags)
 

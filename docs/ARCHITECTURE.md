@@ -76,7 +76,9 @@ Every consumer drains it:
 stream_filing_summary(filing_id, ...)
   a. Fetch filing text from SEC EDGAR   (24h FilingContentCache short-circuit)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
-  c. Extract critical sections from the filing text
+  c. Parse critical sections locally from the fetched primary-document HTML (edgar/xbrl_sections;
+                                         no SEC call; starts once (a) has the text; awaited (30 s /
+                                         40 s bound) before the excerpt is built and joined with (b))
   d. Summarize with the AI model; the admission lease is counted as one usage unit when the
                                          request dispatcher signals the first provider request
                                          (in-stage timeout → deterministic XBRL fallback)
@@ -96,8 +98,8 @@ The generator itself is a short stage map (`_stage_sequence()` in `summary_pipel
 |---|---|
 | `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
 | `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
-| `fetch.py` | `fetch_document` (starts the XBRL/section tasks; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
-| `enrichment.py` | `start_enrichment_tasks`, `parse_and_enrich` (progress, excerpt, bounded join) |
+| `fetch.py` | `fetch_document` (starts the XBRL task; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
+| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `parse_and_enrich` (progress, excerpt, bounded join) |
 | `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
 | `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
 | `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
@@ -168,6 +170,7 @@ frontend/
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
 | `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; a failed reconciliation read rolls back the event, a failed serving-Price read reports `unavailable` |
 | `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
+| `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the commit of a new Stripe customer id before checkout; the subscriptions router owns Stripe calls and HTTP responses |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
@@ -240,6 +243,8 @@ by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` mo
 
 `client.py` (EdgarTools calls, breaker-wrapped), `xbrl_service.py` (persisted accession snapshot first, then two-tier cached XBRL),
 `xbrl_companyfacts.py` (companyfacts fallback transport and parser, delegated by the service class),
+`xbrl_sections.py` (the summary's sections, parsed locally from the primary document the pipeline
+fetched: no SEC request, breaker-exempt CPU work on its own single worker, off the SEC pool),
 `compat.py` (ticker cache + document fetch), `circuit_breaker.py`, `async_executor.py`
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting
@@ -280,7 +285,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | `saved_summaries.py` / `contact.py` / `feedback.py` / `email.py` | `/api/...` | saved items, forms (rate-limited + Turnstile), email mgmt |
 | `webhooks.py` | `/api` | Resend webhook (`POST /api/webhooks/resend`, Svix-verified) |
 | `admin.py` | `/api/admin` | admin surface (see docs/OPERATIONS.md) |
-| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, backfill-facts, sync-companyfacts, precompute, notable-filings-scan |
+| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, retention-purge, earnings-calendar-refresh, earnings-day-alerts, backfill-facts, notable-filings-scan, sync-companyfacts, backfill-filing-history, precompute; with `DURABLE_TASKS_ENABLED` each is queued to `services/internal_task_runner.py`, otherwise it runs as a background task after the 202, and one that uses the database opens its own session (`services/job_sessions.py`); a precompute `dry_run` answers synchronously |
 | `sitemap.py` | `/` | sitemap.xml |
 
 ## Frontend architecture
@@ -289,7 +294,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
   chrome + `ui/` only (allowlist-enforced). Key components and homes:
   `features/summaries/components/` (SummarySections + section renderers,
   FinancialMetricsTable, SummaryDisplay), `features/filings/components/` (NotableFilings,
-  AskFilingAnswer, copilot/), `features/companies/components/` (CompanySearch),
+  copilot/), `features/companies/components/` (CompanySearch),
   `features/analysis/components/` (Multi-Period Analysis),
   `app/filing/[id]/StreamingSummaryDisplay.tsx` (live generation UX).
 - **Query keys** come exclusively from `lib/queryKeys.ts` (ESLint-enforced) — one factory

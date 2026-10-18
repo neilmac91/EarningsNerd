@@ -87,7 +87,16 @@ async function answerSiteApi(page: Page, baseURL: string, signedIn: boolean) {
   })
 }
 
-type Route = { name: string; path: string; status?: number; open: (page: Page, baseURL: string) => Promise<void>; ready: (page: Page) => Promise<void> }
+type Route = {
+  name: string
+  path: string
+  status?: number
+  open: (page: Page, baseURL: string) => Promise<void>
+  ready: (page: Page) => Promise<void>
+  /** Fold every ancestor's opacity into the text's ink, as Chromium paints it (the in-flight progress card,
+      whose pending steps once sat at opacity-40, 2.1:1). Opt-in while the other routes' fades are unmeasured. */
+  foldOpacity?: boolean
+}
 const ROUTES: Route[] = [
   { name: 'home', path: '/', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'pricing', path: '/pricing', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Pricing' })).toBeVisible() },
@@ -95,6 +104,22 @@ const ROUTES: Route[] = [
   { name: 'filing', path: '/filing/3', open: (p, b) => answerApi(p, b, 'anon'), ready: (p) => expect(p.getByText('On this page')).toBeVisible() },
   { name: 'dashboard', path: '/dashboard', open: (p, b) => answerSiteApi(p, b, true), ready: (p) => expect(p.getByRole('heading', { level: 2, name: 'Your companies' })).toBeVisible() },
   { name: 'not found', path: '/no-such-page', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
+  {
+    // A signed-in run in flight on a filing with no summary: the stream request is held open, so the
+    // progress card stays up with every step still pending (filing/F14). Its pending labels are tertiary
+    // ink at full opacity; folded opacity makes the census see what a faded label would paint.
+    name: 'filing, a summary in flight (pending steps)',
+    path: '/filing/3',
+    foldOpacity: true,
+    open: async (p, b) => {
+      await noSummary(p, b, 'pro')
+      await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3/generate-stream', () => new Promise<void>(() => {}))
+    },
+    ready: async (p) => {
+      await expect(p.getByRole('heading', { level: 2, name: 'Generating the summary' })).toBeVisible()
+      await expect(p.getByText('Writing the summary', { exact: true })).toBeVisible()
+    },
+  },
   {
     name: 'legacy markdown filing',
     path: '/filing/3',
@@ -172,7 +197,7 @@ const PUBLIC_ROUTES: Route[] = [
 const NOT_VISITED: Record<string, string> = {
   '/admin/feedback': 'admin only, no admin session in this e2e; admin-feedback-page.spec.tsx pins its outline',
   '/admin/invites': 'admin only, no admin session in this e2e; admin-invites-page.spec.tsx pins its outline',
-  '/analysis': 'Multi-Period Analysis renders from the API; its surface is brand-analysis (#1299), which adds its entry',
+  '/analysis': 'Multi-Period Analysis renders from the API; its entry, the coverage and dataset answered through page.route, waits on #1289 (tasks/todo.md E38)',
   '/calendar': 'the earnings calendar renders from the API; its surface is brand-calendar-search (#1301), which adds its entry',
   '/dashboard/settings': 'signed-in settings; its surface is brand-settings-subscriptions (#1291), which adds its entry',
   '/labs/filing-redlines': 'a labs prototype outside the brand series (tasks/todo.md E26)',
@@ -234,8 +259,8 @@ async function visit(page: Page, baseURL: string, route: Route) {
 }
 
 /** Every visible text element painted in `ink`, with its WCAG contrast over the composited ground. */
-const inkCensus = (page: Page, ink: string) =>
-  page.evaluate((ink) => {
+const inkCensus = (page: Page, ink: string, foldOpacity = false) =>
+  page.evaluate(({ ink, foldOpacity }) => {
     type Rgba = { r: number; g: number; b: number; a: number }
     const parse = (c: string): Rgba => {
       const m = c.match(/rgba?\(([^)]+)\)/)
@@ -263,11 +288,16 @@ const inkCensus = (page: Page, ink: string) =>
       }
       if (!layers.length || layers[layers.length - 1].a !== 1) layers.push({ r: 255, g: 255, b: 255, a: 1 })
       const ground = layers.reduceRight((under, top) => over(top, under))
-      const [hi, lo] = [lum(over(parse(s.color), ground)), lum(ground)].sort((x, y) => y - x)
+      // An ancestor's opacity fades the text into what is behind it (an approximation that ignores any
+      // ground inside the faded group, which the progress card's step rows do not have).
+      let fade = 1
+      if (foldOpacity) for (let n: Element | null = el; n; n = n.parentElement) fade *= Number(getComputedStyle(n).opacity)
+      const textInk = parse(s.color)
+      const [hi, lo] = [lum(over({ ...textInk, a: textInk.a * fade }, ground)), lum(ground)].sort((x, y) => y - x)
       found.push({ text: text.slice(0, 48), ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100 })
     }
     return found
-  }, ink)
+  }, { ink, foldOpacity })
 
 /** Heading levels in DOM order (the detector's reading) and as the accessibility tree exposes them. */
 const headingSkips = (page: Page) =>
@@ -298,9 +328,11 @@ test.describe('main routes at 1440x900, light theme', () => {
       await visit(page, baseURL!, route)
       await page.mouse.move(0, 0)
 
-      const census = await inkCensus(page, TERTIARY_INK)
-      // Anti-vacuity: the homepage keeps tertiary labels inside its sample cards (on panel and white).
+      const census = await inkCensus(page, TERTIARY_INK, route.foldOpacity)
+      // Anti-vacuity: the homepage keeps tertiary labels inside its sample cards (on panel and white), and
+      // the in-flight card its pending step labels.
       if (route.name === 'home') expect(census.length, `tertiary text found on ${route.name}`).toBeGreaterThan(10)
+      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name}`).toContain('Writing the summary')
       // Soft: one run reports every floor a route misses.
       expect.soft(census.filter((c) => c.ratio < 4.5), `tertiary text under 4.5:1 on ${route.name}`).toEqual([])
 
@@ -375,8 +407,10 @@ test.describe('main routes at 1440x900, light theme', () => {
 const CARD_STATES: { name: string; route: Route; card: string }[] = [
   {
     name: 'filing without a summary, guest (the signup gate)',
-    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'anon'), ready: (p) => expect(p.getByRole('link', { name: 'Create free account' })).toBeVisible() },
-    card: 'Create a free account to analyze this filing',
+    // No backend answers /api/auth/registration here, so the gate fails closed to its invite-only copy. The
+    // header carries the same 'Request an invite' CTA in invite mode, so the gate's link is read inside #main.
+    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'anon'), ready: (p) => expect(p.locator('#main').getByRole('link', { name: 'Request an invite' })).toBeVisible() },
+    card: 'Summaries need an account',
   },
   {
     name: 'filing without a summary, signed in, the run fails',
@@ -395,7 +429,7 @@ const CARD_STATES: { name: string; route: Route; card: string }[] = [
       },
       ready: (p) => expect(p.getByRole('button', { name: 'Retry' })).toBeVisible(),
     },
-    card: 'Summary temporarily unavailable',
+    card: 'This summary did not finish',
   },
   {
     name: 'empty watchlist',
@@ -490,4 +524,98 @@ test('at 390px the filing page keeps body text 16px off the edges, with the Ask 
   await expect(page.locator(PANE).getByPlaceholder('Ask about this filing…')).toBeVisible()
   await settled(page.locator(PANE))
   expect(await edgeParagraphs(page), 'sheet open').toEqual([])
+})
+
+/**
+ * The tone badge beside a section heading ("Management tone: cautious", filing/F20; the founder's
+ * design review of #1293): the index and the heading are one group that never wraps, and the row wraps
+ * only the badge, so where the badge does not fit beside its heading it moves beneath it instead of
+ * squeezing the heading, its label wraps inside it rather than push the page wider, and a long heading
+ * wraps its own words beside its index instead of dropping beneath it (the principal review of #1293).
+ * Measured on the painted boxes at 320px with the default text size and at 390x844 with Chromium's text
+ * doubled (standard 32px). Geometry only, so the light theme stands for both. The fixture's sections
+ * carry no tone, so this case gives the first two one, and the second the schema's longest title
+ * (summary_schema.py's "Earnings Quality & Cash Conversion"), which no 320px row holds on one line.
+ */
+const TONED_SUMMARY = {
+  ...SUMMARY,
+  rendered_sections: (SUMMARY.rendered_sections as Array<Record<string, unknown>>).map((section, i) =>
+    i === 0 ? { ...section, tone: 'cautious' } : i === 1 ? { ...section, title: 'Earnings Quality & Cash Conversion', tone: 'positive' } : section,
+  ),
+}
+const TONED_FILING: Route = {
+  name: 'filing with toned sections',
+  path: '/filing/3',
+  open: async (p, b) => {
+    await answerApi(p, b, 'anon')
+    await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3', (r) =>
+      r.fulfill({ status: 200, headers: corsFor(b), json: TONED_SUMMARY }),
+    )
+  },
+  ready: (p) => expect(p.getByText('Management tone: cautious', { exact: true })).toBeVisible(),
+}
+
+/** Each summary section's heading row (the section's first child, holding its "01" index): whether the
+    heading sits beside its index, and for a toned row whether its badge's box meets the heading's, sits
+    wholly beneath it, and how far either reaches past the row or the viewport. Read from the section, so
+    any arrangement of the row's items is measured, not only the one the page ships. */
+const headingRows = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('section h2')].flatMap((heading) => {
+      const row = heading.closest('section')?.firstElementChild
+      const index = row?.querySelector('span[aria-hidden="true"]')
+      if (!row || !index || !row.contains(heading) || !/^\d{2}$/.test((index.textContent ?? '').trim())) return []
+      const h = heading.getBoundingClientRect()
+      const i = index.getBoundingClientRect()
+      const badge = [...row.children].find((child) => (child.textContent ?? '').startsWith('Management tone: '))
+      const b = badge?.getBoundingClientRect()
+      const rowRight = row.getBoundingClientRect().right
+      const viewport = document.documentElement.clientWidth
+      return [{
+        heading: (heading.textContent ?? '').trim(),
+        // Beside its index: the heading starts right of the index and its first line is the index's line.
+        besideIndex: h.left >= i.right - 0.5 && h.top < i.bottom,
+        toned: !!b,
+        meets: !!b && h.left < b.right && b.left < h.right && h.top < b.bottom && b.top < h.bottom,
+        beneath: !!b && b.top >= h.bottom - 1,
+        pastRow: Math.max(0, Math.round(Math.max(h.right, b?.right ?? 0) - rowRight)),
+        pastViewport: Math.max(0, Math.round(Math.max(h.right, b?.right ?? 0, rowRight) - viewport)),
+      }]
+    }),
+  )
+
+test('the tone badge moves beneath its heading at 320px, and the page stays 320px wide', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 320, height: 720 })
+  await visit(page, baseURL!, TONED_FILING)
+  const rows = await headingRows(page)
+  expect(rows.filter((r) => r.toned).map((r) => r.heading), 'both toned sections were measured').toEqual(['The Print', 'Earnings Quality & Cash Conversion'])
+  expect(rows.filter((r) => !r.besideIndex).map((r) => r.heading), 'a heading dropped beneath its index').toEqual([])
+  expect(
+    rows.filter((r) => r.toned && (r.meets || !r.beneath || r.pastRow > 0 || r.pastViewport > 0)),
+    'a badge meets its heading, stays beside it, runs past its row, or its row runs past the viewport',
+  ).toEqual([])
+  // The founder's ask at 320px with the default text size: no sideways scroll.
+  const width = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }))
+  expect(width.scroll, `the document is ${width.scroll}px wide against a ${width.client}px viewport`).toBeLessThanOrEqual(width.client)
+})
+
+// The page's own width at 200% is reflow-200.spec.ts's gate (#1278): on main the site header's phone
+// cluster and the "Ask this filing" Button still run past 390px at that size, which no filing-page
+// change can bring in. This case holds what the heading row controls: its heading, its badge and its row.
+test('the tone badge stays inside its row and the viewport at 390px and 200% text', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await visit(page, baseURL!, TONED_FILING)
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  await expect
+    .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize), { message: 'the 200% text setting took' })
+    .toBe('32px')
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  const rows = await headingRows(page)
+  expect(rows.filter((r) => r.toned).map((r) => r.heading), 'both toned sections were measured').toEqual(['The Print', 'Earnings Quality & Cash Conversion'])
+  expect(rows.filter((r) => !r.besideIndex).map((r) => r.heading), 'a heading dropped beneath its index').toEqual([])
+  expect(
+    rows.filter((r) => r.toned && (r.meets || !r.beneath || r.pastRow > 0 || r.pastViewport > 0)),
+    'a badge meets its heading, stays beside it, runs past its row, or its row runs past the viewport',
+  ).toEqual([])
 })

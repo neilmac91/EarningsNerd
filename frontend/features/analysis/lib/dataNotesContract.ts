@@ -7,8 +7,17 @@ import {
 const bases: readonly DataNoteBasis[] = ['qoq', 'yoy', 'cagr', 'window_pp']
 const totalFields = ['reviewValues', 'reviewComparisons', 'unavailable', 'passed', 'unknown', 'calculated', 'total'] as const
 
+/** The decoder's own rejection of a payload. A caller catches this class alone: a plain TypeError from
+ * inside the decoder (a read on undefined, a call on a non-function) is a defect and propagates. */
+export class DataNotesRejection extends TypeError {
+  constructor(detail: string) {
+    super(`Invalid analysis data notes: ${detail}`)
+    this.name = 'DataNotesRejection'
+  }
+}
+
 function invalid(detail: string): never {
-  throw new TypeError(`Invalid analysis data notes: ${detail}`)
+  throw new DataNotesRejection(detail)
 }
 
 function record(value: unknown, field: string): Record<string, unknown> {

@@ -232,10 +232,13 @@ textdistance==4.6.3
     # via edgartools
 tinycss2==1.5.1
     # via
+    #   -r requirements.in
     #   cssselect2
     #   weasyprint
 tinyhtml5==2.1.0
-    # via weasyprint
+    # via
+    #   -r requirements.in
+    #   weasyprint
 tqdm==4.68.2
     # via edgartools
 truststore==0.10.4

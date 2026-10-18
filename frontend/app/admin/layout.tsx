@@ -21,7 +21,8 @@ function AdminSubNav() {
       aria-label="Admin sections"
       className="border-b border-border-light bg-panel-light dark:border-white/10 dark:bg-panel-dark"
     >
-      <div className="mx-auto flex max-w-7xl items-center gap-1 px-4 sm:px-6 lg:px-8">
+      {/* flex-wrap: at 200% text the two tabs are wider than a phone, and an unwrapped row took the page to 443px. */}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-1 px-4 sm:px-6 lg:px-8">
         {ADMIN_NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`)
           return (

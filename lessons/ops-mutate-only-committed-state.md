@@ -13,6 +13,13 @@ after the commit exposed it (`KeyError: 'accessions'`).
 restore with `git checkout --` (or `git restore`) on a file that has uncommitted work; if a
 mutation is needed mid-edit, commit first or restore from a copied backup of the working file.
 A suite run that fails after a restore is read before the next commit, not after.
+Run the unmutated code through the same harness first and count kills only against a clean
+baseline: a test that already fails turns every mutant "killed".
 
 **Evidence.** #766 (W3-9b): the `--accessions` filter was re-applied and the commit amended before
 push; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9b section.
+
+**Recurrence (2026-10-16, E20).** A harness run on the Resend webhook fix reported all eleven
+mutants killed, while one test case failed on the unmutated code too. A rerun with a baseline row showed the
+non-validating-base64 mutant had survived; a stray-character secret case now kills it
+(`backend/tests/unit/test_resend_webhook_signature.py`).

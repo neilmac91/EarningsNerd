@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card'
 import { cx } from '@/components/ui/cx'
 import { ArrowRightIcon, BellIcon, ClockCounterClockwiseIcon, FilePdfIcon, FileXlsIcon } from '@/lib/icons'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
-import { FREE_COPILOT_QUESTIONS, FREE_HISTORY_RETENTION_DAYS } from '@/lib/planLimits'
+import { ANALYSIS_MAX_ANNUAL_PERIODS, ANALYSIS_MAX_QUARTERLY_PERIODS, FREE_COPILOT_QUESTIONS, FREE_HISTORY_RETENTION_DAYS } from '@/lib/planLimits'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 import AskFilingDemo from '@/features/marketing/components/AskFilingDemo'
 import ChangeReportDemo from '@/features/marketing/components/ChangeReportDemo'
@@ -105,7 +105,7 @@ export default function ProDepth() {
           <div className="mt-12 space-y-12 lg:space-y-16">
             <FeatureRow
               title="Ask this Filing"
-              description={`Ask a question of one filing. The answer cites the XBRL figures and passages it used, and each chip says whether we matched the source or only cited it. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
+              description={`Ask a question of one filing. The answer comes from that filing, with cited passages you can check, and each chip says whether we matched the source or only cited it. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
             >
               <AskFilingDemo />
             </FeatureRow>
@@ -113,7 +113,7 @@ export default function ProDepth() {
             {ENABLE_ANALYSIS && (
               <FeatureRow
                 title="Multi-Period Analysis"
-                description="Up to 10 fiscal years or 12 quarters of one company: charts, a metrics grid, and a streamed trend narrative with citations. Export to Excel."
+                description={`Up to ${ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years or ${ANALYSIS_MAX_QUARTERLY_PERIODS} quarters of one company: charts, a metrics grid, and a streamed trend narrative with citations. Export to Excel.`}
                 cta={
                   <MarketingCta variant="secondary" size="md" href="/analysis?ticker=AAPL" className="mt-4">
                     Try it on Apple

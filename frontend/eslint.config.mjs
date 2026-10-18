@@ -73,8 +73,8 @@ const RAW_FETCH_RULES = [
 const LOCAL_DATE_MESSAGE =
   'Do not format a Date built from an API value — an API calendar date is a UTC-midnight instant, so ' +
   'this renders the previous day for viewers behind UTC. Use formatLocalDate from lib/format.ts. ' +
-  '(A genuine timestamp — created_at, updated_at — should be assigned to a variable first, which ' +
-  'documents that the local-time render is intended.)'
+  '(A genuine timestamp, such as created_at or Stripe\'s trial_end, goes through formatInstant from ' +
+  'lib/format.ts, which renders the day it falls on in the viewer\'s zone.)'
 /** The API's calendar-date fields. Each is a UTC-midnight instant on the wire, so constructing a
  *  Date from one is the root of the whole defect class — banning the construction catches the
  *  indirect form that no shape-based selector can see. Adding a new calendar-date field to the API
@@ -91,17 +91,20 @@ const LOCAL_DATE_MESSAGE =
 const CALENDAR_DATE_FIELDS =
   'filing_date|filed_date|period_end_date|earnings_date|event_date|transaction_date|last_transaction_date|report_date'
 const CALENDAR_FIELD_MESSAGE =
-  'Do not build a Date from an API calendar-date field — it is a UTC-midnight instant, so any ' +
-  'later render shows the previous day for viewers behind UTC. Pass the raw string to ' +
-  'formatLocalDate from lib/format.ts instead. (Comparing two of them as instants is fine; ' +
+  'Do not build a Date from an API calendar-date field, directly or through formatInstant — it is a ' +
+  'UTC-midnight instant, so any later render shows the previous day for viewers behind UTC. Pass the ' +
+  'raw string to formatLocalDate from lib/format.ts instead. (Comparing two of them as instants is fine; ' +
   'features/filings/lib/recommendedFiling.ts is allow-listed for exactly that.)'
 /** Three access shapes, because one selector cannot see all of them:
  *   - `f.filing_date`      -> the property is an Identifier
  *   - `f['filing_date']`   -> computed, so the name lives on Literal.value, not Identifier.name
  *   - `const { filing_date } = f` then `new Date(filing_date)` -> a bare Identifier, no member at all
- *  The Identifier selector covers the first and third together. */
-const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
-  const root = ctor === 'Date' ? `NewExpression[callee.name='Date']` : `CallExpression[callee.name='parseISO']`
+ *  The Identifier selector covers the first and third together.
+ *  formatInstant (lib/format.ts) is a constructor here too: it runs parseISO inside the helper, where
+ *  no selector at the call site sees it, so `formatInstant(filing.filing_date, …)` would render the
+ *  previous day behind UTC while passing every rule above. Its gate is this list. */
+const CALENDAR_FIELD_RULES = ['Date', 'parseISO', 'formatInstant'].flatMap((ctor) => {
+  const root = ctor === 'Date' ? `NewExpression[callee.name='Date']` : `CallExpression[callee.name='${ctor}']`
   return [
     { selector: `${root} Identifier[name=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
     { selector: `${root} Literal[value=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
@@ -257,12 +260,15 @@ const config = [
   // string walker (eslint.designRules.mjs): no side-tab stripe on a rounded container (P-08), no
   // form code inside a Badge (P-04), no animation utility that keeps moving under reduced motion
   // (P-09), and no hand-rolled single-choice toggle group outside the SegmentedControl (CO-15).
+  // direction-text-tokens holds direction text to the 700-level gain/loss inks, never the 600
+  // level or sage (D-030).
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: TEST_FILES,
     plugins: { earningsnerd: { rules: { ...gridBaseTrackPlugin.rules, ...designRulesPlugin.rules } } },
     rules: {
       'earningsnerd/responsive-grid-base-track': 'error',
+      'earningsnerd/direction-text-tokens': 'error',
       'earningsnerd/no-side-stripe': 'error',
       'earningsnerd/no-form-code-badge': 'error',
       'earningsnerd/no-unguarded-animation': 'error',

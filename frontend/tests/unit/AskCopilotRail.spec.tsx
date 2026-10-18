@@ -113,7 +113,7 @@ describe('AskCopilotRail', () => {
     renderRail({ open: true, isPro: false })
     // Richer teaser: value prop + upsell CTA (no streaming). The CTA opens the contextual upgrade
     // modal and records the click, rather than navigating to a raw /pricing link.
-    expect(screen.getByText(/cited to the exact filing text/i)).toBeInTheDocument()
+    expect(screen.getByText(/cited passages you can check against the filing/i)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
     expect(analytics.paywallCtaClicked).toHaveBeenCalledWith(
       expect.objectContaining({ filingId: 42, entryPoint: 'copilot_rail' }),
@@ -136,7 +136,84 @@ describe('AskCopilotRail', () => {
     // Composer (not the teaser) once usage confirms taste remains, plus an honest count.
     expect(await screen.findByLabelText(/ask about this filing/i)).toBeInTheDocument()
     expect(screen.getByText(/2 of 3 free questions left/i)).toBeInTheDocument()
-    expect(screen.queryByText(/cited to the exact filing text/i)).not.toBeInTheDocument()
+    // Pro's questions are capped too, so the upsell names the plan and promises no "unlimited" (ASK-03).
+    expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
+    expect(screen.queryByText(/unlimited/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/cited passages you can check against the filing/i)).not.toBeInTheDocument()
+  })
+
+  it('a FREE user who spends the last question keeps the conversation, with the cap from usage and no "unlimited"', async () => {
+    let captured: CopilotHandlers | null = null
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
+      captured = handlers
+    })
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 2, copilot_free_taste_total: 3,
+    })
+    const user = userEvent.setup()
+    renderRail({ open: true, isPro: false })
+    await user.type(await screen.findByLabelText(/ask about this filing/i), 'anything')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 3, copilot_free_taste_total: 3,
+    })
+    await act(async () => {
+      captured!.onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] })
+    })
+
+    // One product name in the sentence (D-034), and Pro's monthly cap read from the usage response.
+    expect(await screen.findByText('You’ve used your 3 free questions.')).toBeInTheDocument()
+    expect(screen.getByText('Pro includes 1,000 questions a month.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
+    expect(screen.queryByText(/unlimited|copilot/i)).not.toBeInTheDocument()
+  })
+
+  it('refetches usage after a plan gate, so the usage line agrees with the plan card', async () => {
+    let captured: CopilotHandlers | null = null
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
+      captured = handlers
+    })
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 2, copilot_free_taste_total: 3,
+    })
+    const user = userEvent.setup()
+    renderRail({ open: true, isPro: false })
+    expect(await screen.findByText(/1 of 3 free questions left/i)).toBeInTheDocument()
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'anything')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+
+    // The allowance was spent elsewhere first (another tab): the server's 403 says so, and its count moved.
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 3, copilot_free_taste_total: 3,
+    })
+    const fetched = mockGetUsage.mock.calls.length
+    await act(async () => {
+      captured!.onError("You've used your 3 free Copilot questions. Upgrade to Pro to access this feature.")
+    })
+
+    expect(await screen.findByText('You’ve used your 3 free questions.')).toBeInTheDocument()
+    expect(mockGetUsage.mock.calls.length).toBeGreaterThan(fetched)
+    expect(screen.queryByText(/1 of 3 free questions left/i)).not.toBeInTheDocument()
+  })
+
+  it('names the filing without a possessive on "this filing" when the issuer is unknown', () => {
+    renderRail({ open: true, ticker: null, companyName: null })
+    expect(screen.getByText(/ask anything about this 10-Q\./i)).toBeInTheDocument()
+    expect(screen.queryByText(/this filing’s/i)).not.toBeInTheDocument()
+  })
+
+  it('drops the old claim from the empty state: not every answer carries a citation', () => {
+    renderRail({ open: true })
+    // An answer can ship an uncited figure or a not-disclosed verdict with no citation
+    // (copilot_service.py), so the rail never says every answer cites its excerpts (D-034). The
+    // sentence it says instead is copilotClaim.spec.tsx's case; this one holds the old one out.
+    expect(screen.getByRole('button', { name: /what are the top risks/i })).toBeInTheDocument()
+    expect(screen.queryByText(/cite the excerpts they came from|grounded in the filing/i)).not.toBeInTheDocument()
   })
 
   it('shows the teaser for a FREE user who has spent all their free questions', async () => {
@@ -147,7 +224,7 @@ describe('AskCopilotRail', () => {
     renderRail({ open: true, isPro: false })
 
     // Exhausted + no conversation yet → the locked teaser (its CTA upsells).
-    expect(await screen.findByText(/cited to the exact filing text/i)).toBeInTheDocument()
+    expect(await screen.findByText(/cited passages you can check against the filing/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/ask about this filing/i)).not.toBeInTheDocument()
   })
 
@@ -158,6 +235,88 @@ describe('AskCopilotRail', () => {
       screen.getByRole('button', { name: /how did revenue and margins change this quarter/i }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /what are the top risks/i })).toBeInTheDocument()
+  })
+
+  it('brings the composer back into view when a question leaves focus in it, after Send or Enter', async () => {
+    vi.mocked(askFilingStream).mockImplementation(async () => {})
+    // jsdom has no scrollIntoView; record each call's element and options.
+    const calls: { el: Element; arg: unknown }[] = []
+    const jsdomScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+      calls.push({ el: this, arg })
+    })
+    try {
+      const user = userEvent.setup()
+      // The column returns to the top, then the composer's shell (the box that draws its focus ring around the field
+      // and Send, never the whole form: CopilotComposer.spec.tsx) comes to its nearest edge, once per question.
+      for (const via of ['Send', 'Enter'] as const) {
+        calls.length = 0
+        const view = renderRail({ open: true })
+        const field = screen.getByLabelText(/ask about this filing/i)
+        await user.type(field, via === 'Enter' ? 'What changed?{Enter}' : 'What changed?')
+        if (via === 'Send') await user.click(screen.getByRole('button', { name: /^send$/i }))
+        expect(document.activeElement).toBe(via === 'Enter' ? field : screen.getByRole('button', { name: /^send$/i }))
+        expect(calls).toHaveLength(1)
+        expect(calls[0].arg).toEqual({ block: 'nearest' })
+        expect(calls[0].el.contains(field) && calls[0].el.contains(document.activeElement)).toBe(true)
+        expect(calls[0].el.tagName).not.toBe('FORM')
+        view.unmount()
+      }
+      expect(askFilingStream).toHaveBeenCalledTimes(2)
+    } finally {
+      Element.prototype.scrollIntoView = jsdomScrollIntoView
+    }
+  })
+
+  it('anchors once per question: a progress heartbeat leaves the column and the composer where the reader put them', async () => {
+    let captured!: CopilotHandlers
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => { captured = handlers })
+    // jsdom has no scrollIntoView; count the reveals.
+    const reveals: Element[] = []
+    const jsdomScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+      reveals.push(this)
+    })
+    try {
+      const user = userEvent.setup()
+      renderRail({ open: true })
+      const field = screen.getByLabelText(/ask about this filing/i)
+      // The column that scrolls as one (the composer form's parent): record every write to its scrollTop.
+      const column = field.closest('form')!.parentElement!
+      const writes: number[] = []
+      let top = 0
+      Object.defineProperty(column, 'scrollTop', {
+        configurable: true,
+        get: () => top,
+        set: (value: number) => {
+          top = value
+          writes.push(value)
+        },
+      })
+
+      await user.type(field, 'What changed?{Enter}')
+      expect(writes).toEqual([0])
+      expect(reveals).toHaveLength(1)
+
+      // The reader scrolls back up the column while the answer is read; the server's heartbeats keep coming.
+      top = 120
+      act(() => {
+        captured.onProgress?.('reading')
+        captured.onProgress?.('reading')
+      })
+      expect(writes).toEqual([0])
+      expect(top).toBe(120)
+      expect(reveals).toHaveLength(1)
+
+      // The next question is a new turn, and anchors again.
+      act(() => captured.onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+      await user.type(field, 'And margins?{Enter}')
+      expect(askFilingStream).toHaveBeenCalledTimes(2)
+      expect(writes).toEqual([0, 0])
+      expect(reveals).toHaveLength(2)
+    } finally {
+      Element.prototype.scrollIntoView = jsdomScrollIntoView
+    }
   })
 
   it('holds intermediate prose and renders the source-check footer + a source row on complete', async () => {
