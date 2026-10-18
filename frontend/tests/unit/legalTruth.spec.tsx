@@ -88,7 +88,7 @@ const REMOVED_CLAIMS: Array<[string, RegExp]> = [
 ]
 
 const claimsIn = (where: string, text: string) =>
-  REMOVED_CLAIMS.filter(([, re]) => re.test(text)).map(([label]) => `${where} (${label}): ${JSON.stringify(text.slice(0, 120))}`)
+  REMOVED_CLAIMS.filter(([, re]) => re.test(text)).map(([label]) => `${where} (${label}): ${JSON.stringify(text)}`)
 
 /** Every copy literal of a module: strings, templates (`{x}` for each substitution) and JSX text. */
 function literals(rel: string): string[] {
@@ -110,7 +110,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(text.length).toBeGreaterThan(4000)
     const sentences = text.split(/(?<=[.:;])\s+/)
     const waitlist = literals('app/waitlist/page.tsx')
-    expect(waitlist.some((l) => l.includes('Card details stay with Stripe'))).toBe(true)
+    expect(waitlist).toContain('Security') // the trust panel's tile title: the scan reads the tile's copy
     expect([...sentences.flatMap((s) => claimsIn('/security', s)), ...waitlist.flatMap((l) => claimsIn('app/waitlist/page.tsx', l))]).toEqual([])
   })
 
