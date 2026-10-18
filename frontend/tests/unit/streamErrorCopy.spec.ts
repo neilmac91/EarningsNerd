@@ -12,9 +12,10 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
 /**
  * The summary stream's error sentences are written in the backend pipeline (summary_stages, and the
  * payload messages services/ai/summary_finalize.py writes for generation.py and finalize.py to stream),
- * which stays untouched until the founder opens it, so the filing page maps each one to the product's
- * words (features/summaries/lib/streamErrorCopy.ts, brand sweep filing/F48). This gate reads every module
- * under summary_stages plus ai/summary_finalize.py, read only, and holds the map to that Python source:
+ * whose sentences change with the next functional change there (F35, D-046, E92); until then the filing page
+ * maps each one to the product's words (features/summaries/lib/streamErrorCopy.ts, brand sweep filing/F48).
+ * This gate reads every module under summary_stages plus ai/summary_finalize.py, read only, and holds the
+ * map to that Python source:
  *
  *  1. Coverage: every message those modules stream as an error has its line in STREAM_ERROR_COPY, keyed
  *     by the exact Python text (escapes decoded, `\N{EM DASH}` and the other names in UNICODE_NAMES

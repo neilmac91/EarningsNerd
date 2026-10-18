@@ -185,8 +185,9 @@ describe('StreamingSummaryDisplay paywall routing', () => {
   })
 })
 
-// The pipeline's sentences keep their em-dashes until the founder opens summary_stages; the card shows
-// the mapped sentence (features/summaries/lib/streamErrorCopy.ts), and the raw one still routes it.
+// The pipeline's sentences keep their em-dashes until the next functional change to summary_stages (F35,
+// D-046, E92); the card shows the mapped sentence (features/summaries/lib/streamErrorCopy.ts), and the raw one
+// still routes it.
 describe('StreamingSummaryDisplay failure reason', () => {
   it('shows a backend sentence in the product voice', async () => {
     render(
