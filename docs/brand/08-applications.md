@@ -160,8 +160,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
   a minute." The success heading is an h2.
   The prose links on /contact are underlined and carry the brand focus ring. The /security links
-  are unchanged, because /security is a legal page under the founder's boundary; the ring triple
-  on its five links rides the founder-gated security-claims PR.
+  are unchanged: the ring triple on its five links is to ride the /security PR, which D-046
+  authorises (E109).
 
 - **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
   `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
@@ -197,8 +197,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   signed "Still running", without guessing why. A stored summary that failed reads "This summary did
   not finish" over its own sentence, "The last attempt for this filing did not finish. Retry to
   generate it again." The pipeline's stream errors are mapped on the client
-  (`frontend/features/summaries/lib/streamErrorCopy.ts`), because the summary_stages strings are the
-  founder's until he opens them; the raw sentence still decides the paywall card and the retry, and
+  (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings are to change
+  with the next functional change there, and the mapping holds until then (F35, D-046, E92). The raw
+  sentence still decides the paywall card and the retry, and
   `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
   `services/ai/summary_finalize.py`, whose payload messages two stages stream) so a reworded sentence
   fails until it is mapped. The client's own fallbacks (`features/summaries/api/summaries-api.ts`,
@@ -277,7 +278,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   companies you follow."), the limit banner states the account's own count and nothing about
   Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
   and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
-  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide, after the series, E58),
+  "Unlimited" among them, and the fair-use guardrail is to be stated once, app-wide, after the series, E58),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face.
