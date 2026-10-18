@@ -1267,11 +1267,15 @@ scrolls inside a box that `useOverflowRegion` names and puts in the Tab order, n
 at the end of one sentence, under the last row's rule. Gates: `earningsnerd/no-four-up-grid`
 (`eslint.designRules.mjs`, run on `LANDING_GRID_FILES`: the route, every marketing module and the
 sections the route mounts from other features) fails a class that sets four column tracks or more under
-any variant; `tests/unit/landing-sections-mounted.spec.ts` holds `<main>` to the hero, the rows in
+any variant (a template, a grid shorthand, a column flow, or multi-column by its count or column width);
+`tests/unit/landing-sections-mounted.spec.ts` holds `<main>` to the hero, the rows in
 order and the close, each row's component to returning its `LandingRow` (or null) and the close to one
 paragraph; `tests/unit/pricing-section.spec.tsx` holds the table's caption, headers and cells;
-`tests/unit/landingRow.spec.tsx` the row's own shape. E90 remounts Notable filings as a row after
-Reporting this week.
+`tests/unit/landingRow.spec.tsx` the row's own shape; `tests/e2e/home-page-unauthenticated.spec.ts` reads
+the painted numbers on the built page, 01 to the last row with no gap. The plan table and the Pro extras
+claim no summary history while nothing enforces one (D-046), and the Change Report the same on both plans
+while production serves no wording diff (`tests/unit/changeReportPlanClaims.spec.tsx`). E90 remounts
+Notable filings as a row after Reporting this week.
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
