@@ -198,9 +198,7 @@ export default function EarningsCalendarPage() {
           description="The calendar service did not respond. Your alert subscriptions are unaffected."
           action={
             // When the card goes while "Try again" holds focus (the range loads), focus moves to the page heading.
-            <RetryButton size="sm" failures={[failure]} focusTarget={headingRef}>
-              Try again
-            </RetryButton>
+            <RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />
           }
         />
       )}

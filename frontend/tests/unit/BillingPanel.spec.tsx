@@ -167,7 +167,7 @@ describe('BillingPanel', () => {
     expect(screen.getByRole('button', { name: /manage billing/i })).toBeInTheDocument()
     expect(screen.queryByText(/failed to load billing information/i)).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /^retry$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^try again$/i }))
     await waitFor(() => expect(screen.queryByText(/couldn't refresh billing details/i)).not.toBeInTheDocument())
     expect(await screen.findByText('Access until')).toBeInTheDocument()
     expect(screen.getByText('Pro', { exact: true })).toBeInTheDocument()
@@ -183,7 +183,7 @@ describe('BillingPanel', () => {
     expect(screen.queryByText('Plan')).not.toBeInTheDocument()
     expect(screen.queryByText('Free', { exact: true })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /^retry$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^try again$/i }))
     expect(await screen.findByText('Free', { exact: true })).toBeInTheDocument()
     expect(screen.queryByText(/failed to load billing information/i)).not.toBeInTheDocument()
   })

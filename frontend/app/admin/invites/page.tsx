@@ -379,9 +379,7 @@ export default function AdminInvitesPage() {
                 title="Could not load the invites."
                 description={isApiError(invitesFailure.error) ? getErrorMessage(invitesFailure.error) : undefined}
                 action={
-                  <RetryButton size="sm" failures={[invitesFailure]} focusTarget={invitesHeadingRef}>
-                    Retry
-                  </RetryButton>
+                  <RetryButton size="sm" failures={[invitesFailure]} focusTarget={invitesHeadingRef} />
                 }
               />
             </div>

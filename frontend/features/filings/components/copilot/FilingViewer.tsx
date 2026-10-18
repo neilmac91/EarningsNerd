@@ -140,9 +140,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {status === 'error' && (
-              <RetryButton failures={[failure]} focusTarget={contentRef} variant="secondary" size="sm" leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
-                Try again
-              </RetryButton>
+              <RetryButton failures={[failure]} focusTarget={contentRef} variant="secondary" size="sm" leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />} />
             )}
             {isHttpUrl(secUrl) && (
               <a href={secUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
