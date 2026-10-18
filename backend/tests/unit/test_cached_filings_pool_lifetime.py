@@ -7,9 +7,11 @@ One rule, two halves in this one module:
   request without a pool timeout, with no transaction left for the finalizer and, for the summaries,
   peers and waitlist routes, no checkout on the event-loop thread; a six-reader what-changed burst
   with a slow wording diff must wait for its slots in the thread pool, not on the loop; the
-  analysis stream must release its connection before its body streams, alone and in a burst; and
-  the generate stream's Pro force branch must read nothing its commit expired, so its one checkout
-  is in the thread pool.
+  analysis stream must release its connection before its body streams, alone and in a burst; the
+  generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
+  in the thread pool; and each auth session route (logout signed in, with only the refresh cookie
+  and with a dead one, logout-all, refresh) must answer an eight-request burst with no checkout on
+  the loop and nothing left for the finalizer.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails a session call on the loop in the route's own body above that route's ceiling, so a route
   the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
@@ -439,6 +441,119 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
         [call] = pipeline_calls
         assert (call["user_id"], call["force_regenerate"], call["current_user"].is_pro) == (user_id, True, True)
         assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "FORCE")
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path,case", [
+    ("/api/auth/logout", "logout_signed_in"),
+    ("/api/auth/logout", "logout_cookie_only"),
+    ("/api/auth/logout", "logout_dead_cookie"),
+    ("/api/auth/logout-all", "logout_all"),
+    ("/api/auth/refresh", "refresh"),
+])
+async def test_auth_session_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, path, case):
+    """The logout, logout-all and refresh routes run their session work in the thread pool and
+    release the session before they return. On the loop, a revoke that found no live token kept its
+    read transaction, the audit write read its row back after its commit, and the refresh read the
+    user its rotation had expired: each held a connection for the dependency's finalizer, so the
+    fifth of eight requests on four slots blocked the loop for the pool timeout and answered 500."""
+    from app.config import settings
+    from app.models import AuditLog, RefreshToken, User
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'auth-sessions.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="session-reader@example.com", is_active=True)
+        db.add(user)
+        db.flush()
+        raw_tokens = [refresh_token_service.create_refresh_token(db, user)[1] for _ in range(8)]
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    bearer = auth.create_access_token({"sub": "session-reader@example.com"})
+
+    def headers(i: int) -> dict[str, str]:
+        sent = {}
+        if case in ("logout_signed_in", "logout_all"):
+            sent["Authorization"] = f"Bearer {bearer}"
+        if case == "logout_dead_cookie":
+            # A second logout, or a token already rotated away: the revoke finds nothing to commit.
+            sent["Cookie"] = f"{settings.REFRESH_COOKIE_NAME}=no-longer-live-{i}"
+        elif case != "logout_all":
+            sent["Cookie"] = f"{settings.REFRESH_COOKIE_NAME}={raw_tokens[i]}"
+        return sent
+
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        # A client per request, so no request picks up another's rotated cookie.
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(path, headers=headers(i))
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert [response.status_code for response in responses] == [200] * 8
+        payloads = [response.json() for response in responses]
+        if case == "logout_all":
+            assert {payload["status"] for payload in payloads} == {"success"}
+            assert sum(payload["sessions_revoked"] for payload in payloads) == 8
+        elif case == "refresh":
+            assert all(payload["access_token"] and payload["token_type"] == "bearer" for payload in payloads)
+        else:
+            assert payloads == [{"status": "success"}] * 8
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        # Every checkout waited in the thread pool, none on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        with sessions() as db:
+            tokens = db.query(RefreshToken).order_by(RefreshToken.id).all()
+            originals, minted = tokens[:8], tokens[8:]
+            logouts = db.query(AuditLog).filter(AuditLog.action == "logout").count()
+        if case == "logout_dead_cookie":
+            assert [token.revoked_at for token in originals] == [None] * 8 and logouts == 0
+        else:
+            assert all(token.revoked_at is not None for token in originals)
+            assert logouts == (8 if case in ("logout_signed_in", "logout_all") else 0)
+        if case == "refresh":
+            # Each live token was rotated once, into a token of its own.
+            assert len(minted) == 8
+            assert sorted(token.replaced_by_id for token in originals) == [token.id for token in minted]
+        else:
+            assert minted == []
     finally:
         engine.dispose()
 
