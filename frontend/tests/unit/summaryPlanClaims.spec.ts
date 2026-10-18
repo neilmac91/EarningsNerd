@@ -15,8 +15,9 @@ import { PRO_FAIR_USE_LINE, PRO_SUMMARY_MONTHLY_CAP } from '@/lib/planLimits'
  *    backend/app/services/entitlements.py declares it as forward-looking, and no code ages out, hides or deletes a
  *    Free account's summaries. The first case lists every read of that field in backend/app (an attribute read
  *    anywhere, or the name in any module but entitlements.py, where the dataclass declares it and the plan blocks
- *    set it) and every summary model the scheduled purge (services/retention_service.py) imports; both lists are
- *    empty. A PR that enforces a retention fails it, and states the claim in that PR with this gate moved beside it.
+ *    set it) and every summary model the scheduled purge (services/retention_service.py) imports, in any import form
+ *    (planted); both lists are empty. A PR that enforces a retention through either fails it, and states the claim in
+ *    that PR with this gate moved beside it. Out of reach: a retention with its window hardcoded in another module.
  *    The second reads every copy literal (a string, a template with each substitution read as `{x}`, JSX text) of
  *    every tracked module under app, components, features, hooks and lib, and fails one that claims a summary
  *    history, its length or that summaries are kept (HISTORY_CLAIMS). The company page's filing history ("Show
@@ -76,6 +77,19 @@ const MODULES = execFileSync('git', ['ls-files', '--', ...SCAN_DIRS], { cwd: FRO
   .filter((rel) => /\.tsx?$/.test(rel) && !/\.(spec|test)\.tsx?$|\.d\.ts$/.test(rel))
 const LITERALS = MODULES.flatMap((rel) => literals(readFileSync(path.join(FRONTEND, rel), 'utf8'), rel))
 
+/** Every module and name a Python file imports from app.models, in any form: one line or a parenthesised list,
+ * every import statement, a submodule (`from app.models.summary import ...`, `import app.models.summary`), an alias. */
+function modelImports(source: string): string[] {
+  const names: string[] = []
+  for (const m of source.matchAll(/^from (app\.models(?:\.\w+)*) import (\([^)]*\)|[^\n]+)$/gm)) {
+    if (m[1] !== 'app.models') names.push(m[1])
+    const list = m[2].replace(/#[^\n]*/g, '').replace(/[()]/g, '')
+    names.push(...list.split(',').map((name) => name.trim().split(/\s+as\s+/)[0]).filter(Boolean))
+  }
+  for (const m of source.matchAll(/^import (app\.models(?:\.\w+)*)/gm)) names.push(m[1])
+  return names
+}
+
 describe('no summary-history claim while no retention is enforced (D-046)', () => {
   it('nothing enforces a summary retention: no read of history_retention_days, no summary model in the purge', () => {
     const python = execFileSync('git', ['ls-files', '--', '.'], { cwd: BACKEND_APP, encoding: 'utf8' })
@@ -90,10 +104,23 @@ describe('no summary-history claim while no retention is enforced (D-046)', () =
       })
     }
     expect(reads, 'a retention is enforced now: state it on the pricing surfaces in this PR and move this gate with it').toEqual([])
-    const purge = readFileSync(path.join(BACKEND_APP, 'services/retention_service.py'), 'utf8')
-    const models = purge.match(/^from app\.models import ([^\n]+)$/m)?.[1].split(',').map((name) => name.trim()) ?? []
+    const models = modelImports(readFileSync(path.join(BACKEND_APP, 'services/retention_service.py'), 'utf8'))
     expect(models.length).toBeGreaterThan(0)
     expect(models.filter((name) => /summar/i.test(name))).toEqual([])
+  })
+
+  it('reads every import form the purge could bring a summary model in by (a self-check on planted forms)', () => {
+    const planted: Array<[string, boolean]> = [
+      ['from app.models import ContactSubmission, PasswordResetToken', false],
+      ['from app.models import ContactSubmission  # a Summary is never purged', false],
+      ['from app.models import (\n    ContactSubmission,\n    Summary,\n)', true],
+      ['from app.models import ContactSubmission\nfrom app.models import Summary', true],
+      ['from app.models.summary import Summary', true],
+      ['from app.models.summary import SummaryArchive as Archive', true],
+      ['from app.models import Summary as S', true],
+      ['import app.models.summary', true],
+    ]
+    expect(planted.map(([source]) => modelImports(source).some((name) => /summar/i.test(name)))).toEqual(planted.map(([, flag]) => flag))
   })
 
   it('no copy claims a summary history, its length or that summaries are kept', () => {
