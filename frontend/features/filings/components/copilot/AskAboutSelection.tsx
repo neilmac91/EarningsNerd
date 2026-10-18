@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { SparkleIcon } from '@/lib/icons'
+import { ChatCircleTextIcon } from '@/lib/icons'
 
 const MIN_SELECTION_LEN = 8
 const MAX_SELECTION_LEN = 4000
 
-/** A selection worth offering "Ask about this" on — long enough to be meaningful, not a whole page. */
+/** A selection worth offering "Ask about this" on: long enough to be meaningful, not a whole page. */
 export function shouldOfferAsk(text: string): boolean {
   const t = text.trim()
   return t.length >= MIN_SELECTION_LEN && t.length <= MAX_SELECTION_LEN
@@ -112,7 +112,7 @@ export default function AskAboutSelection({ containerRef, enabled, onAsk }: AskA
       style={{ position: 'fixed', top: floating.top, left: floating.left, transform: 'translate(-50%, -100%)' }}
       className="z-overlay inline-flex items-center gap-1.5 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold shadow-e3 transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
-      <SparkleIcon className="h-3.5 w-3.5" />
+      <ChatCircleTextIcon className="h-3.5 w-3.5" aria-hidden="true" />
       Ask about this
     </button>,
     document.body,

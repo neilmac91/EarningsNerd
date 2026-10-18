@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 type NumericInput = number | string | null | undefined
 
@@ -292,4 +292,23 @@ export const formatLocalDate = (
     return fallback
   }
   return format(date, pattern)
+}
+
+/**
+ * Format an INSTANT (a full ISO timestamp with its offset, such as Stripe's `trial_end` or
+ * `current_period_end`) as the day it falls on in the viewer's own time zone: the counterpart of
+ * formatLocalDate, which keeps a calendar-day value's own day. 2026-10-21T01:05:33Z falls on Oct 20 in
+ * New York, so a trial that ends then ends on Oct 20 for a reader there. parseISO rejects a rolled-over
+ * day or month, so an unreadable value renders the fallback, as formatLocalDate's does.
+ */
+export const formatInstant = (
+  value: string | null | undefined,
+  pattern: string,
+  fallback = '',
+): string => {
+  if (!value) return fallback
+  // Bound first: format(parseISO(x)) is the shape the date lint flags, and this helper is the path
+  // that lint's message gives a genuine timestamp.
+  const instant = parseISO(value)
+  return Number.isNaN(instant.getTime()) ? fallback : format(instant, pattern)
 }

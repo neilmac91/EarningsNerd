@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { CheckIcon, CopyIcon } from '@/lib/icons'
 import { ApiError } from '@/lib/api/client'
 import { joinWaitlist } from '@/features/waitlist/api/waitlist-api'
+import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
@@ -24,6 +25,10 @@ const twitterCopy =
   'I just joined the waitlist for @EarningsNerd, AI summaries of SEC filings for investors who still check the source. Join me:'
 const linkedInCopy =
   'Excited to get early access to EarningsNerd, a tool that uses AI to summarize SEC filings. Join the waitlist:'
+// The router's invalid_referral (a 400 carrying its code): no signup holds the ?ref= this page was opened with.
+const unknownReferralCopy = "We can't find this referral code on the waitlist. Check the link with whoever shared it."
+// Wrapping pills (DESIGN_SYSTEM.md, Wrapping button): at 200% text "Share on WhatsApp" is wider than the card.
+const shareLinkClass = buttonVariants({ variant: 'secondary', size: 'sm', wrap: true, className: 'max-w-full' })
 
 export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps) {
   const searchParams = useSearchParams()
@@ -93,8 +98,13 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         return
       }
 
+      if (data?.success === false && data?.error === 'invalid_referral') {
+        setError(unknownReferralCopy)
+        return
+      }
+
       if (!data?.success) {
-        setError(data?.message || 'Unable to join the waitlist right now.')
+        setError(data?.message || data?.detail || 'Unable to join the waitlist right now.')
         return
       }
 
@@ -146,7 +156,9 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             Your referral link
           </div>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="break-all text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+            {/* The data face: Inter's contextual alternates draw the x of a code such as p4x8n2wd as a
+                multiplication sign; Geist Mono has none, so the link reads as Copy copies it. */}
+            <span className="break-all font-data text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               {success.referral_link}
             </span>
             <Button
@@ -163,18 +175,18 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         </div>
 
         <div className="mt-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Move up the list by sharing. Each referral bumps you up 5 spots.
+          Each person who joins with your link moves you up {REFERRAL_BONUS} spots.
         </div>
 
         {shareLinks && (
           <div className="mt-4 flex flex-wrap gap-3">
-            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className={shareLinkClass}>
               Share on Twitter
             </a>
-            <a href={shareLinks.linkedIn} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+            <a href={shareLinks.linkedIn} target="_blank" rel="noreferrer" className={shareLinkClass}>
               Share on LinkedIn
             </a>
-            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className={shareLinkClass}>
               Share on WhatsApp
             </a>
           </div>

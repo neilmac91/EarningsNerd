@@ -370,9 +370,13 @@ async def test_server_lookup_is_labelled_and_never_becomes_model_tool_history(mo
 
 
 @pytest.mark.asyncio
-async def test_rounded_display_precision_still_certifies(monkeypatch):
-    """"RMB996.3 billion" is the correct rounding of the filing value at the precision written."""
-    rounded = 'Revenue for the fiscal year ended March 31, 2025 was RMB996.3 billion.'
+@pytest.mark.parametrize('rounded', [
+    'Revenue for the fiscal year ended March 31, 2025 was RMB996.3 billion.',
+    'Revenue for the fiscal year ended March 31, 2025 was RMB1.0 trillion.',
+])
+async def test_rounded_display_precision_still_certifies(monkeypatch, rounded):
+    """"RMB996.3 billion" and "RMB1.0 trillion" are correct roundings of the filing value at the
+    precision written; the repair and the value guard both read the trillion scale (E103)."""
     complete = await _complete(monkeypatch, rounded)
     assert complete['answer'] == rounded[:-1] + ' [1].'
     assert len(complete['citations']) == 1
@@ -554,6 +558,13 @@ def test_display_rounding_half_interval_is_the_last_stated_digit():
         'Revenue for the fiscal year ended March 31, 2025 was RMB996.3 billion.')
     assert (whole['value'], whole['tolerance']) == (996347000000.0, 5e5)
     assert (tenths['value'], tenths['tolerance']) == (996300000000.0, 5e7)
+    # A trillion claim reads at its scale (E103), and every repair scale word reads as the value
+    # guard reads it.
+    trillions = service._plan_uncited_fact_citation(
+        'Revenue for the fiscal year ended March 31, 2025 was RMB1.02 trillion.')
+    assert (trillions['value'], trillions['tolerance']) == (1.02e12, 5e9)
+    from app.services.copilot.figures import _SCALE_WORDS
+    assert all(_SCALE_WORDS.get(word) == scale for word, scale in service._CLAIM_SCALES.items())
     assert whole['concept'] == 'revenue' and whole['currency'] == 'CNY'
     assert whole['period_end'] == '2025-03-31'
     # And that interval is what certification actually compares against, signed.

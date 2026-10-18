@@ -4,7 +4,8 @@
    Cards LIFT, never tint: lighter-than-page fill + hairline + soft e-shadow in
    light; in dark they separate via fill contrast + hairline with shadow:none.
    `interactive` hover BRIGHTENS (toward white + brand hairline), never darkens
-   — and never hover:opacity. Focus-visible = brand ring for keyboard users.
+   — and never hover:opacity. Pressed takes the sage tint, its dark twin in dark.
+   Focus-visible = brand ring for keyboard users.
 ============================================================================= */
 
 import { type ElementType, type HTMLAttributes } from 'react'
@@ -44,7 +45,7 @@ export function Card({
           cx(
             'cursor-pointer transition-colors duration-fast',
             'hover:border-brand-border hover:bg-white',
-            'active:bg-brand-weak/60',
+            'active:bg-brand-weak/60 dark:active:bg-brand-weak-dark',
             'focus-visible:outline-none focus-visible:shadow-ring-brand',
             'dark:hover:border-brand-border-dark dark:focus-visible:shadow-ring-brand-dark',
           ),

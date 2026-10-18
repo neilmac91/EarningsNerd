@@ -49,17 +49,30 @@ def point_notes(point: dict[str, Any], note: dict[str, Any] | None = None) -> li
     notes = [f"Data note {note['letter']}: {note['message']}"] if note else []
     if point_method(point) == "calculated":
         notes.append(
-            "Calculated figure. See Sources & Methods for the available formula and operands."
-            if provenance else "Computed Q4 — calculation details are unavailable in this older snapshot."
+            "Calculated figure. See Sources & methods for the available formula and operands."
+            if provenance else "Computed Q4. Calculation details are unavailable in this older snapshot."
         )
     if provenance.get("formula"):
         notes.append(formula_text(provenance["formula"]))
     return notes
 
 
+def count_label(count: int, singular: str, plural: str | None = None) -> str:
+    """The count with its noun, singular at one: "1 figure", "3 figures"."""
+    return f"{count} {singular if count == 1 else plural or singular + 's'}"
+
+
+_PERIOD_KEY = r"(?:FY)?\d{4}(?:Q[1-4])?"
+
+
 def period_label(period: Any) -> str:
-    """Display-only vocabulary; internal lookup and snapshot keys stay unchanged."""
-    return re.sub(r"\b(\d{4})Q([1-4])\b", r"Q\2 \1", str(period or ""))
+    """Display-only vocabulary; internal lookup and snapshot keys stay unchanged.
+
+    A window key "FY2022..FY2024" reads as the range "FY2022–FY2024" (an unspaced en-dash, the
+    voice guide's range form), and a quarter key "2026Q2" as "Q2 2026".
+    """
+    text = re.sub(rf"\b({_PERIOD_KEY})\.\.({_PERIOD_KEY})\b", "\\1\u2013\\2", str(period or ""))
+    return re.sub(r"\b(\d{4})Q([1-4])\b", r"Q\2 \1", text)
 
 
 def raw_value_text(value: Any) -> str:
@@ -79,19 +92,24 @@ def note_index(envelope: dict[str, Any]) -> dict[tuple[str, str, str], dict[str,
 
 
 def notes_summary(envelope: dict[str, Any]) -> str:
+    """The data-notes count line, read as the web's DataNotes summary reads: one clause per count
+    that is not zero, singular at one, and the passed count only when no figure needs review or
+    lacks a validation record. Empty when every count is zero."""
     totals = envelope["totals"]
     unknown_comparisons = sum(
         len(note["comparisons"]) for note in envelope["notes"] if note["kind"] == "unknown"
     )
-    return " · ".join([
-        f"{totals['reviewValues']} figures need review",
-        f"{totals['reviewComparisons']} comparisons need review",
-        f"{totals['unavailable']} unavailable",
-        f"{totals['unknown']} {'figure' if totals['unknown'] == 1 else 'figures'} with no validation record",
-        f"{unknown_comparisons} {'comparison' if unknown_comparisons == 1 else 'comparisons'} with no validation record",
-        f"{totals['passed']} passed automated checks",
-        f"{totals['calculated']} calculated †",
-    ])
+    all_passed = totals["reviewValues"] == 0 and totals["unknown"] == 0
+    clauses = (
+        (totals["reviewValues"], "figure needs review", "figures need review"),
+        (totals["reviewComparisons"], "comparison needs review", "comparisons need review"),
+        (totals["unavailable"], "unavailable", "unavailable"),
+        (totals["unknown"], "figure with no validation record", "figures with no validation record"),
+        (unknown_comparisons, "comparison with no validation record", "comparisons with no validation record"),
+        (totals["passed"] if all_passed else 0, "passed automated checks", "passed automated checks"),
+        (totals["calculated"], "calculated †", "calculated †"),
+    )
+    return " · ".join(count_label(count, singular, plural) for count, singular, plural in clauses if count)
 
 
 def source_urls(provenance: dict[str, Any]) -> list[str]:

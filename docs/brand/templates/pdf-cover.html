@@ -6,9 +6,10 @@
   masthead (render_branded_pdf: the inline sage mark, the HTML wordmark and the document kind),
   and backend/app/services/export_service.py (generate_pdf_html) builds the filing summary PDF on
   that shell. This file is the cover those two would add in front of page 1; port it into
-  pdf_branding.py rather than linking it. The shell names the Inter face 'Inter Var' and loads
-  both fonts from app/assets/fonts/ by absolute file:// URI; this preview loads the same two files
-  from frontend/scripts/brand/fonts/ by relative path.
+  pdf_branding.py rather than linking it. The shell names the Inter faces 'Inter Var' and loads
+  its three files from app/assets/fonts/ by absolute file:// URI (Inter's roman and italic, and
+  Geist Mono: WeasyPrint never slants a face it lacks, so the italic "Nerd" needs Inter's italic);
+  this preview loads the same three files from frontend/scripts/brand/fonts/ by relative path.
 
   Named fields. This cover is a template, so it is the one place in the brand templates where
   placeholders are allowed: the tally line's four counts are written {matched}, {checkable},
@@ -36,6 +37,12 @@
     font-style: normal;
     font-weight: 100 900;
     src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-latin.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-style: italic;
+    font-weight: 100 900;
+    src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-Italic-latin.woff2') format('woff2');
   }
   @font-face {
     font-family: 'Geist Mono';

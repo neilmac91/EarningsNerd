@@ -133,9 +133,10 @@ Rules:
   phrase we wrote is allowed once per surface, as the brand's signature; it is never put on an
   unverified claim, a number, a price or a competitor's name.
 - **Misuse.** No mark on a figure; no margin as decoration; no mark in gain, loss, warning or any
-  status colour; no mark across more than one line of a headline at phone width (the highlight
-  breaks per line, so keep the phrase short); no mark on a photograph; no scaling the hairline with
-  the type.
+  status colour; no mark across more than one line of a headline at phone width at the default text
+  size (the highlight breaks per line, so keep the phrase short), though under a reader's enlarged
+  text a mark runs onto the next line rather than push the page sideways, as `.en-mark` and the
+  mail's tagline do (D-048); no mark on a photograph; no scaling the hairline with the type.
 
 Specification in code: `frontend/app/globals.css` ("Brand device"), consumed by
 `frontend/features/marketing/components/*` on the landing page, `frontend/scripts/brand/og-template.html`
