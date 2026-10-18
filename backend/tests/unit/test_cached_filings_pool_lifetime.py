@@ -457,8 +457,10 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
     """The logout, logout-all and refresh routes run their session work in the thread pool and
     release the session before they return. On the loop, a revoke that found no live token kept its
     read transaction, the audit write read its row back after its commit, and the refresh read the
-    user its rotation had expired: each held a connection for the dependency's finalizer, so the
-    fifth of eight requests on four slots blocked the loop for the pool timeout and answered 500."""
+    user its rotation had expired, so each held a connection for the dependency's finalizer. Of eight
+    requests on four slots, the dead-cookie logout and the refresh answered 500 from the fifth on; the
+    signed-in logout and logout-all left their transactions to the finalizer; and the cookie-only
+    logout checked out on the loop."""
     from app.config import settings
     from app.models import AuditLog, RefreshToken, User
     from app.routers import auth
