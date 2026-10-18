@@ -6,6 +6,8 @@ import re
 from app.config import settings
 from app.services.resend_service import send_email
 
+# Every character str.splitlines breaks a line at: a name's run of them becomes one space (_greeting_text).
+_LINE_SEPARATORS = re.compile("[\n\v\f\r\x1c-\x1e\x85\u2028\u2029]+")
 _DEFAULT_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
 # The footer line, below the panel on every page (D-043) and last in every text part.
 _FOOTER_LINE = "Filing data sourced from SEC EDGAR. Not investment advice."
@@ -171,12 +173,13 @@ def _greeting_text(name: str | None) -> str:
     """The salutation line of every mail that addresses the recipient by name, as its text part prints it.
 
     The display name is user-supplied text, so it enters a mail only here and through ``_greeting``, which
-    escapes this line for the page: its whitespace, every line separator among it (``str.splitlines``'s, U+2028
-    and U+2029 too), is collapsed to single spaces, so it can never start a line of its own, and it is kept as
-    typed, since plain text shows an ampersand or a bracket as itself. A missing or blank name falls back to the
-    neutral greeting. Gate: ``tests/unit/test_email_name_interpolation_allowlist.py``.
+    escapes this line for the page: each run of line separators in it (every one ``str.splitlines`` breaks a
+    line at, U+2028 and U+2029 among them) becomes one space, so it can never start a line of its own, and the
+    rest is kept as typed, its spaces among it, since plain text shows an ampersand or a bracket as itself. A
+    missing or blank name falls back to the neutral greeting. Gate:
+    ``tests/unit/test_email_name_interpolation_allowlist.py``.
     """
-    cleaned = " ".join((name or "").split())
+    cleaned = _LINE_SEPARATORS.sub(" ", name or "").strip()
     return f"Hi {cleaned}," if cleaned else "Hi there,"
 
 

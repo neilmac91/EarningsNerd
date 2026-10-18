@@ -12,6 +12,8 @@ the structural gate that keeps new templates on the helpers is
 import ast
 import asyncio
 import html
+import inspect
+import re
 from pathlib import Path
 
 import pytest
@@ -33,6 +35,7 @@ from app.services.email_service import (
     send_verification_email,
     send_waitlist_welcome_email,
 )
+from tests.unit.test_email_name_interpolation_allowlist import NAME_IDS
 
 NAME = '<a href="x">x</a>'
 ESCAPED_NAME = html.escape(NAME)
@@ -52,28 +55,35 @@ SENDERS = [
 
 
 def _greeting_senders(source: str) -> set[str]:
-    """The ``send_`` coroutines a module defines that take a ``name``: every sender that greets its reader by name."""
+    """The ``send_`` functions a module defines, coroutines or not, that take a recipient's name by any name the
+    interpolation gate reads as one (``NAME_IDS``), however it is passed: every sender that greets its reader."""
     return {
         node.name
         for node in ast.parse(source).body
-        if isinstance(node, ast.AsyncFunctionDef)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name.startswith("send_")
-        and "name" in {argument.arg for argument in (*node.args.args, *node.args.kwonlyargs)}
+        and NAME_IDS & {argument.arg for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)}
     }
 
 
 _SENDERS_PROBE = """
 async def send_greets(*, to_email, name): ...
 async def send_greets_positionally(to_email, name): ...
+async def send_greets_by_full_name(*, to_email, full_name): ...
+def send_greets_synchronously(*, to_email, name): ...
+def send_greets_positional_only(name, /, to_email): ...
 async def send_no_name(*, to_email): ...
-def send_sync(*, name): ...
+async def send_company_name(*, to_email, company_name): ...
 async def render_greets(*, name): ...
 """
 
 
 def test_the_proof_renders_every_sender_that_greets_by_name():
     # A gate that cannot fail proves nothing: the reader of the module's senders, on a probe.
-    assert _greeting_senders(_SENDERS_PROBE) == {"send_greets", "send_greets_positionally"}
+    assert _greeting_senders(_SENDERS_PROBE) == {
+        "send_greets", "send_greets_positionally", "send_greets_by_full_name", "send_greets_synchronously",
+        "send_greets_positional_only",
+    }
     module = Path(email_service.__file__).read_text(encoding="utf-8")
     listed = {sender.__name__ for sender, _kwargs in SENDERS}
     assert _greeting_senders(module) == listed, (
@@ -98,7 +108,11 @@ def sent(monkeypatch):
 
 @pytest.mark.parametrize("sender, kwargs", SENDERS, ids=[sender.__name__ for sender, _ in SENDERS])
 def test_every_sender_renders_a_markup_shaped_name_as_text(sender, kwargs, sent):
-    asyncio.run(sender(to_email="recipient@example.com", name=NAME, **kwargs))
+    # The name goes in by the sender's own parameter for it, and a sender that is no coroutine runs as it is.
+    parameter = next(name for name in inspect.signature(sender).parameters if name in NAME_IDS)
+    result = sender(to_email="recipient@example.com", **{parameter: NAME}, **kwargs)
+    if inspect.iscoroutine(result):
+        asyncio.run(result)
     assert len(sent) == 1
     page, text = sent[0]
 
@@ -134,8 +148,13 @@ def test_text_greeting_keeps_the_name_as_typed_collapses_lines_and_falls_back_wh
     assert _greeting_text("  \r\n ") == "Hi there,"
     assert _greeting_text("Jane") == "Hi Jane,"
     assert _greeting_text("Eve\r\nBcc: x") == "Hi Eve Bcc: x,"
-    # Every line separator str.splitlines knows, the Unicode ones a form lets through among them, and runs of spaces.
-    assert _greeting_text("Eve\u2028Bcc:\u2029x\x85y\x1cz\x0bw\x0c v  u\tt") == "Hi Eve Bcc: x y z w v u t,"
+    # Every line separator str.splitlines knows, the Unicode ones a form lets through among them, each run one space.
+    assert _greeting_text("Eve\u2028Bcc:\u2029x\x85y\x1cz\x1dq\x1er\x0bw\x0cv\r\n\u2028u") == "Hi Eve Bcc: x y z q r w v u,"
+    # The rest as typed: a run of spaces, a tab, the wide space a Japanese keyboard types between names, a no-break
+    # space, none of which breaks a line.
+    assert _greeting_text("Jane  Doe\tX") == "Hi Jane  Doe\tX,"
+    assert _greeting_text("山田\u3000太郎") == "Hi 山田\u3000太郎,"
+    assert _greeting_text("Ann\u00a0Lee\u202fX") == "Hi Ann\u00a0Lee\u202fX,"
     assert _greeting_text('<a href="x">x</a>') == 'Hi <a href="x">x</a>,'
     assert _greeting_text("Tom & Jerry") == "Hi Tom & Jerry,"
     assert _greeting_text("José Ñandú") == "Hi José Ñandú,"
@@ -150,3 +169,11 @@ def test_greeting_helper_escapes_collapses_lines_and_falls_back_when_blank():
     assert _greeting("Eve\u2028Bcc: x") == "Hi Eve Bcc: x,"
     assert _greeting('<a href="x">x</a>') == "Hi &lt;a href=&quot;x&quot;&gt;x&lt;/a&gt;,"
     assert _greeting("José Ñandú") == "Hi José Ñandú,"
+
+
+@pytest.mark.parametrize("name", ["Jane", "Jane  Doe", "  Bob\t", "山田\u3000太郎", "Ann\u00a0Lee", "Eve\r\n\r\nBcc", "Tom & <Jerry>", None, ""])
+def test_the_page_greets_as_main_did_for_a_name_holding_no_other_line_separator(name):
+    # Main collapsed CR and LF alone (``[\r\n]+``) and stripped the ends; E110 adds the other line separators, so
+    # a page greets any other name as main did, byte for byte.
+    cleaned = re.sub(r"[\r\n]+", " ", name or "").strip()
+    assert _greeting(name) == (f"Hi {html.escape(cleaned)}," if cleaned else "Hi there,")

@@ -297,6 +297,9 @@ async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_rea
         assert stats["digests_sent"] == 1 and len(_batches(db)) == 2  # no third batch: the rebuilt one owns it
         assert [i["filing_id"] for i in digest.await_args.kwargs["items"]] == [db.query(Filing).one().id]
         assert _log_count(db) == 1
+        # The rebuilt digest froze the digest's own page and text part, not the released alert's.
+        _subject, page, text = email_service.build_daily_digest(name=digest.await_args.kwargs["name"], items=digest.await_args.kwargs["items"])
+        assert (db.get(DeliveryBatch, rebuilt.id).body_html, db.get(DeliveryBatch, rebuilt.id).body_text) == (page, text)
 
         # A preference that drops the filing type altogether stays a plain suppression: owned, not re-sent.
         _reset_delivery_state(db)
@@ -419,6 +422,9 @@ async def test_unwatching_one_company_rebuilds_the_digest_for_the_rest_in_the_sa
         assert stats["digests_sent"] == 1 and stats["filings_included"] == 1
         assert (stats["delivery_suppressed"], stats["delivery_rebuilt"]) == (1, 1)  # both visible in the job outcome
         assert _log_count(db) == 1
+        # The rebuilt digest froze the page and text part of the filing it kept, not the released digest's two.
+        _subject, page, text = email_service.build_daily_digest(name=second.await_args.kwargs["name"], items=second.await_args.kwargs["items"])
+        assert (rebuilt.body_html, rebuilt.body_text) == (page, text)
 
 
 @pytest.mark.asyncio

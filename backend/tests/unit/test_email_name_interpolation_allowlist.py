@@ -9,8 +9,9 @@ such as rspamd scores 200 hidden characters or more as hidden text. The renderin
 ``test_email_name_escaping.py``. Prose alone would rot (CLAUDE.md rule 12), so this AST walk over
 the module pins the shape:
 
-- no f-string, ``+``/``%`` concatenation or ``.format(...)`` call anywhere in the module uses a
-  bare ``name`` / ``full_name``;
+- no f-string, ``+``/``%`` concatenation, ``.format(...)`` or ``.join(...)`` call anywhere in the module
+  reads a recipient's name (``name`` or ``full_name``, or an attribute so named, such as ``user.full_name``),
+  bare or wrapped (``str(full_name)``), outside the greeting helpers themselves;
 - every ``greeting = ...`` assignment is a call to ``_greeting``;
 - ``_greeting_text``, which keeps the name as typed, is called only inside ``_greeting`` and in a text part (the
   value of a ``text_body = ...`` assignment): a page that greets with it would print a markup-shaped name as markup;
@@ -40,8 +41,20 @@ HIDDEN_TEXT_HELPERS = frozenset({PREHEADER_HELPER})
 HIDDEN_COPY_MARKER = "display:none"
 
 
-def _bare_name(node: ast.AST) -> str | None:
-    return node.id if isinstance(node, ast.Name) and node.id in NAME_IDS else None
+GREETING_HELPERS = frozenset({GREETING_HELPER, GREETING_TEXT_HELPER})
+_CONCATENATION = (ast.Add, ast.Mod)
+
+
+def _names_in(node: ast.AST) -> list[str]:
+    """Each recipient's name an expression reads, in order: a name or an attribute among ``NAME_IDS`` anywhere in
+    it (``name``, ``str(full_name)``, ``user.full_name``), outside a call to a greeting helper, which handles it."""
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in GREETING_HELPERS:
+        return []
+    own = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+    found = [own] if own in NAME_IDS else []
+    for child in ast.iter_child_nodes(node):
+        found += _names_in(child)
+    return found
 
 
 class _Finder(ast.NodeVisitor):
@@ -62,16 +75,24 @@ class _Finder(ast.NodeVisitor):
 
     visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
 
+    def _reads(self, node: ast.AST) -> list[str]:
+        """The recipient's names ``node`` reads, each once; none inside the greeting helpers, which handle them."""
+        return [] if self._where() in GREETING_HELPERS else list(dict.fromkeys(_names_in(node)))
+
     def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
         for part in node.values:
-            if isinstance(part, ast.FormattedValue) and (ident := _bare_name(part.value)):
-                self.hits.append((self._where(), f"f-string interpolates {{{ident}}}"))
+            if isinstance(part, ast.FormattedValue):
+                for ident in self._reads(part.value):
+                    self.hits.append((self._where(), f"f-string interpolates {{{ident}}}"))
         self.generic_visit(node)
 
     def visit_BinOp(self, node: ast.BinOp) -> None:
-        if isinstance(node.op, (ast.Add, ast.Mod)):
+        if isinstance(node.op, _CONCATENATION):
             for side in (node.left, node.right):
-                if ident := _bare_name(side):
+                # A nested concatenation and an f-string report their own names.
+                if isinstance(side, ast.JoinedStr) or (isinstance(side, ast.BinOp) and isinstance(side.op, _CONCATENATION)):
+                    continue
+                for ident in self._reads(side):
                     self.hits.append((self._where(), f"string arithmetic on {ident}"))
         self.generic_visit(node)
 
@@ -83,11 +104,11 @@ class _Finder(ast.NodeVisitor):
             and not self._text_parts
         ):
             self.hits.append((self._where(), f"{GREETING_TEXT_HELPER}() outside a text part ({TEXT_PART} = ...)"))
-        if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
+        if isinstance(node.func, ast.Attribute) and node.func.attr in ("format", "join"):
             values = list(node.args) + [keyword.value for keyword in node.keywords]
             for value in values:
-                if ident := _bare_name(value):
-                    self.hits.append((self._where(), f".format() receives {ident}"))
+                for ident in self._reads(value):
+                    self.hits.append((self._where(), f".{node.func.attr}() receives {ident}"))
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
@@ -164,8 +185,20 @@ async def uses_helpers(name, text):
     text_body = f"{_greeting_text(name)}\\n\\n{text}"
     return f"{_preheader(text)}<p>{greeting}</p>", text_body
 
-def other_names_are_fine(company_name, ticker):
-    return f"{company_name} ({ticker})" + ticker
+def wrapped_name(full_name):
+    return f"<p>Hi {str(full_name)},</p>"
+
+def user_object(user):
+    return f"<p>Hi {user.full_name},</p>"
+
+def joined(name):
+    return "".join(["Hi ", name, ","])
+
+def concatenated_call(name):
+    return "Hi " + name.title() + ","
+
+def other_names_are_fine(company_name, ticker, user):
+    return f"{company_name} ({ticker}) {user.email}" + ticker + ", ".join([company_name])
 '''
 
 
@@ -175,12 +208,17 @@ def test_finder_catches_every_bypass_shape_and_accepts_the_helpers():
         ("raw_fstring", "greeting built without _greeting()"),
         ("raw_fstring", "f-string interpolates {name}"),
         ("escaped_inline", "greeting built without _greeting()"),
+        ("escaped_inline", "f-string interpolates {name}"),
         ("concatenation", "string arithmetic on full_name"),
         ("percent_format", "string arithmetic on name"),
         ("str_format", ".format() receives name"),
         ("raw_hidden_copy", "hidden text built outside _preheader()"),
         ("raw_preheader", "hidden text built outside _preheader()"),
         ("page_greets_as_typed", "_greeting_text() outside a text part (text_body = ...)"),
+        ("wrapped_name", "f-string interpolates {full_name}"),
+        ("user_object", "f-string interpolates {full_name}"),
+        ("joined", ".join() receives name"),
+        ("concatenated_call", "string arithmetic on name"),
     ]
 
 
