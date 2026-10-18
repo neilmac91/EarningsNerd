@@ -8,12 +8,15 @@ assignment alias such as ``submit = enqueue_task``, a ``partial``, a callback ar
 the walk could not see. In ``app/routers/`` the payload must be a
 dict literal with literal keys and the key a literal or f-string, built only from
 ``SERVER_OWNED_NAMES`` (never a route parameter, and bound in the route only by plain assignment
-from a resolved row's ``.id``) and ``SERVER_OWNED_CALLS`` (fixed vocabularies, no arguments).
+from a resolved row's ``.id``) and ``SERVER_OWNED_CALLS`` (fixed vocabularies called bare with no
+arguments, each bound in its module only by its import from the source named here, as Python's own
+symbol table resolves it, so a router cannot rebind one to return caller input).
 Every such call passes a key, because a keyless task is named at random and so each request would
 queue a new one. Its window (``seconds``/``dedupe_seconds``) sets the time bucket appended to the
 key, so it is a literal or built only from module-level names and builtins, never from the route's
 own values. A ``PASS_THROUGH`` wrapper is exempt because its callers are checked as enqueue sites,
-and only while it hands ``enqueue_task`` its own kind, payload, key and window unchanged. Any other
+and only while it hands ``enqueue_task`` its own kind, payload, key and window unchanged and takes
+no other parameter (one would carry caller input past the checked call sites). Any other
 site must be listed in ``EXEMPT`` with its reason, and a listed site that is gone fails. Growing any
 of these sets is a reviewed change to this file.
 
@@ -24,6 +27,7 @@ routes that reach it carry ``Depends(_require_internal_token)``. An enqueuer loo
 """
 import ast
 import builtins
+import symtable
 from pathlib import Path
 
 import pytest
@@ -33,7 +37,7 @@ PASS_THROUGH = {("routers/filings.py", "_enqueue_visit_task")}
 ENQUEUERS = {"enqueue_task"} | {name for _, name in PASS_THROUGH}
 KEYS, WINDOWS = ("key", "dedupe_key"), ("seconds", "dedupe_seconds")
 SERVER_OWNED_NAMES = {"company_id"}
-SERVER_OWNED_CALLS = {"company_list_forms"}
+SERVER_OWNED_CALLS = {"company_list_forms": "app.services.latest_filing_service"}
 EXEMPT = {
     ("services/internal_task_runner.py", "enqueue_internal_job"): "operator routes (_require_internal_token)",
     ("services/internal_task_runner.py", "run_internal_task"): "worker-side fan-out of an operator job",
@@ -80,9 +84,30 @@ def _stored(fn: ast.AST) -> set[str]:
     return {n.id for n in ast.walk(fn) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
 
 
+def _scopes(table):
+    """``table`` and every scope nested in it."""
+    yield table
+    for child in table.get_children():
+        yield from _scopes(child)
+
+
+def _bound_only_by_import(text: str, name: str, origin: str) -> bool:
+    """Every scope of the module ``text`` reads ``name`` from its ``from <origin> import name``, and nothing
+    rebinds it: no other import of it, no assignment or def at module level, no binding in any scope."""
+    imports = [n for n in ast.walk(ast.parse(text)) if isinstance(n, (ast.Import, ast.ImportFrom))
+               and any((a.asname or a.name).split(".")[0] == name for a in n.names)]
+    if not imports or any(not isinstance(n, ast.ImportFrom) or n.module != origin for n in imports):
+        return False
+    module, *nested = _scopes(symtable.symtable(text, "<route module>", "exec"))
+    return not module.lookup(name).is_assigned() and all(
+        scope.lookup(name).is_global() and not scope.lookup(name).is_declared_global()
+        for scope in nested if name in scope.get_identifiers())
+
+
 def _server_owned(expr: ast.expr, fn: ast.AST) -> bool:
     if isinstance(expr, ast.Call):
-        return _called_name(expr) in SERVER_OWNED_CALLS and not expr.args and not expr.keywords
+        return (isinstance(expr.func, ast.Name) and expr.func.id in SERVER_OWNED_CALLS
+                and not expr.args and not expr.keywords)
     if not (isinstance(expr, ast.Name) and expr.id in SERVER_OWNED_NAMES):
         return False
     from_rows = [t for n in ast.walk(fn) if isinstance(n, ast.Assign) and isinstance(n.value, ast.Attribute)
@@ -106,7 +131,7 @@ def _module_level(expr: ast.expr, fn: ast.AST, tree: ast.Module) -> bool:
 def _forwards_unchanged(fn: ast.AST, call: ast.Call) -> bool:
     params = _params(fn)
     forwarded = {k.arg: ast.unparse(k.value) for k in call.keywords}
-    return ([ast.unparse(a) for a in call.args] == params[:2] and {"key", "seconds"} <= set(params)
+    return (len(params) == 4 and [ast.unparse(a) for a in call.args] == params[:2] and {"key", "seconds"} <= set(params)
             and forwarded == {"dedupe_key": "key", "dedupe_seconds": "seconds"}
             and not {*params[:2], "key", "seconds"} & _stored(fn))
 
@@ -145,7 +170,7 @@ def test_public_durable_tasks_are_named_only_by_server_owned_values():
             seen.add((rel, fn.name))
             if not _forwards_unchanged(fn, call):
                 offenders.append(f"{rel}:{call.lineno} {fn.name}: a pass-through must hand enqueue_task its own "
-                                 f"kind, payload, key and window unchanged: {ast.unparse(call)}")
+                                 f"kind, payload, key and window unchanged, and take no other parameter: {ast.unparse(call)}")
         elif (rel, fn.name) in EXEMPT:
             seen.add((rel, fn.name))
         elif rel.startswith("routers/"):
@@ -155,6 +180,10 @@ def test_public_durable_tasks_are_named_only_by_server_owned_values():
     for rel, tree, enqueuers in _modules():
         offenders += [f"{rel}:{n.lineno}: {ast.unparse(n)} is used other than as a direct call, so its calls "
                       "escape this check; call it by name" for n in _escaping(tree, enqueuers)]
+        offenders += [f"{rel}: {name} is bound other than by its import from {origin}, so a call to it may not "
+                      "return the fixed vocabulary" for name, origin in SERVER_OWNED_CALLS.items()
+                      if rel.startswith("routers/") and any(isinstance(n, ast.Name) and n.id == name for n in ast.walk(tree))
+                      and not _bound_only_by_import((APP_DIR / rel).read_text(encoding="utf-8"), name, origin)]
     assert not offenders, "\n".join(offenders)
     listed = set(EXEMPT) | PASS_THROUGH
     assert seen == listed, f"stale EXEMPT or PASS_THROUGH entries: {listed - seen}"
@@ -169,3 +198,37 @@ def test_public_durable_tasks_are_named_only_by_server_owned_values():
 ])
 def test_an_enqueuer_used_other_than_as_a_call_is_flagged(source, escapes):
     assert len(_escaping(ast.parse(source), ENQUEUERS)) == escapes
+
+
+@pytest.mark.parametrize("source,forwards", [
+    ("async def w(kind, payload, *, key, seconds):\n"
+     "    await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)\n", True),
+    ("async def w(kind, payload, types, *, key, seconds):\n    payload['filing_types'] = types\n"
+     "    await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)\n", False),
+])
+def test_a_pass_through_takes_only_what_it_forwards(source, forwards):
+    fn = ast.parse(source).body[0]
+    call = next(n for n in ast.walk(fn) if isinstance(n, ast.Call) and _called_name(n) == "enqueue_task")
+    assert _forwards_unchanged(fn, call) is forwards
+
+
+FORMS_IMPORT = "from app.services.latest_filing_service import company_list_forms\n"
+
+
+@pytest.mark.parametrize("source,bound", [
+    (FORMS_IMPORT + "def route(filing_types):\n    return company_list_forms()\n", True),
+    (FORMS_IMPORT + "company_list_forms = lambda: [filing_types]\n", False),
+    (FORMS_IMPORT + "def route(filing_types):\n    company_list_forms = lambda: [filing_types]\n    return company_list_forms()\n", False),
+    (FORMS_IMPORT + "def company_list_forms():\n    return []\n", False),
+    ("from app.services.other import company_list_forms\n", False),
+])
+def test_a_fixed_vocabulary_is_bound_only_by_its_import(source, bound):
+    assert _bound_only_by_import(source, "company_list_forms", SERVER_OWNED_CALLS["company_list_forms"]) is bound
+
+
+def test_a_fixed_vocabulary_is_called_bare_with_no_arguments():
+    def expr(source):
+        return ast.parse(source, mode="eval").body
+    assert _server_owned(expr("company_list_forms()"), None)
+    assert not _server_owned(expr("forms.company_list_forms()"), None)
+    assert not _server_owned(expr("company_list_forms(filing_types)"), None)
