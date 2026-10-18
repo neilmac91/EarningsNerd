@@ -130,11 +130,13 @@ export default async function Home() {
         <ReportingThisWeek data={reportingThisWeek} />
 
         {/* Notable filings is dormant under the brand (docs/brand/01-interview.md, A8; the 2026-10
-            audit found microcap 8-Ks under "high-signal"): the component, its fetcher and its spec
-            stay until a curation rule exists, and tests/unit/landing-sections-mounted.spec.ts no
-            longer lists it. Its fetcher revalidated at 3600 like the rest, so dropping it leaves the
-            route's ISR window where it was. E90 remounts it here, as a LandingRow after Reporting this
-            week and before the close; the counter numbers it, and the mount gate's ROWS list takes it. */}
+            audit found microcap 8-Ks under "high-signal") and waits on E90 (tasks/todo.md), which
+            remounts it under D-046's curation rule: 10-K and 10-Q filings only, from companies that hold
+            a full summary of any filing, newest first, at most six. It returns here, as a LandingRow
+            after Reporting this week and before the close; the counter numbers it, and
+            tests/unit/landing-sections-mounted.spec.ts takes it back into its lists. The component, its
+            fetcher and its spec stay for that day; the fetcher revalidated at 3600 like the rest, so
+            dropping it left the route's ISR window where it was. */}
 
         {/* The close: one line, not a banner */}
         <ClosingLine accessMode={accessMode} />

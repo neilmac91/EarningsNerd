@@ -27,8 +27,8 @@ const HOME_COMPONENT = 'Home'
 const LIVE_DATA_SECTIONS: ReadonlyArray<readonly [string, string]> = [
   ['LandingHero', 'fetchExampleData'],
   ['ReportingThisWeek', 'fetchReportingThisWeek'],
-  // NotableFilings left this list on 2026-10-11 (brand studio, docs/brand/01-interview.md A8): the
-  // section is dormant until a curation rule exists; the component and fetcher remain for that day.
+  // NotableFilings left this list on 2026-10-11 (brand studio, docs/brand/01-interview.md A8). It waits on
+  // E90, which remounts it under D-046's curation rule; the component and fetcher remain for that day.
   ['PricingSection', 'fetchSignupConfig'],
 ]
 
