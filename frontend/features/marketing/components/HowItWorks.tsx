@@ -26,7 +26,7 @@ const STEPS = [
 /**
  * The compact three-step "how it works" row: icon tile, step number in the data face, title and
  * one line of description. It owns no section of its own; SummaryContents renders it beneath the
- * contents card (design section 5), so headings here are h3 under that section's h2.
+ * contents list in its ruled row, so headings here are h3 under that row's h2.
  */
 export default function HowItWorks() {
   return (

@@ -10,6 +10,24 @@
 //                       text that is always there around it), so `border-l-4 ${tone} … rounded-xl`
 //                       is caught although no single literal holds both classes. A primitive that
 //                       always rounds itself (Card) needs no rounded-* beside the stripe.
+//   no-four-up-grid     (D-045) The landing page lays nothing out four across: every section after the
+//                       hero is one ruled row (features/marketing/components/LandingRow.tsx), and the
+//                       four-up stat strip and the four-up extras grid were the template skeleton tell T4
+//                       names (docs/brand/09-stress-test.md §2). The rule fails a class token that sets
+//                       four column tracks or more under any variant, at any breakpoint and on any element
+//                       it styles: `grid-cols-N` with N of 4 or more, and an arbitrary template
+//                       (`grid-cols-[…]`, `[grid-template-columns:…]`) whose tracks count to 4 or more,
+//                       a `repeat(N, …)` counted N times its tracks and a line name `[a]` not counted;
+//                       a template whose count only the width decides (`repeat(auto-fill, …)`,
+//                       `repeat(auto-fit, …)`) or the scan cannot read (`var(…)`) fails too, since it
+//                       can open four. It reads class strings as no-side-stripe does, a constant and a
+//                       ternary's arm included. It runs on the landing's own composition only
+//                       (LANDING_GRID_FILES below, eslint.config.mjs): the route, the marketing modules
+//                       and the sections the route mounts from other features, which
+//                       tests/unit/landing-sections-mounted.spec.ts holds to the route's imports. The
+//                       product screens the landing demos keep their own layouts (KpiStrip is four-up on
+//                       the analysis page). A four-across row built with flex (`basis-1/4`) is outside it
+//                       (review-checked).
 //   no-form-code-badge  (P-04) A form code (the form families EDGAR writes, 10-K, 10-Q, 8-K, SC 13D,
 //                       S-1, DEF 14A and their kin, FORM_CODES, and the insider forms the product
 //                       writes as words, Form 3, Form 4 and Form 5) is text in the data face, never a
@@ -211,6 +229,92 @@ export const noSideStripe = {
           return
         }
       }
+    })
+  },
+}
+
+/** The landing's own composition, which no-four-up-grid reads (eslint.config.mjs): the route, every marketing module,
+ *  and the sections the route mounts from other features. A section mounted from elsewhere joins
+ *  LANDING_SECTIONS_ELSEWHERE in the same change (tests/unit/landing-sections-mounted.spec.ts fails until it does). */
+export const LANDING_SECTIONS_ELSEWHERE = ['features/calendar/components/ReportingThisWeek.tsx']
+export const LANDING_GRID_FILES = ['app/page.tsx', 'features/marketing/**/*.{ts,tsx}', ...LANDING_SECTIONS_ELSEWHERE]
+
+/** Top-level parts of a CSS value, split on `separator` outside parentheses and brackets. */
+function topLevel(text, separator) {
+  const parts = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '(' || ch === '[') depth++
+    else if ((ch === ')' || ch === ']') && depth > 0) depth--
+    else if (depth === 0 && separator.test(ch)) {
+      parts.push(text.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(text.slice(start))
+  return parts.map((part) => part.trim()).filter(Boolean)
+}
+
+/** The column tracks a grid template declares (Tailwind's `_` for a space): a `repeat(N, …)` counts N times its
+ *  tracks, a line name (`[full-start]`) none. Infinity where the count is the width's (auto-fill, auto-fit) or
+ *  the scan cannot read it (a `var(…)`), since either can open four. */
+export function templateTrackCount(template) {
+  let count = 0
+  for (const part of topLevel(template.replace(/_/g, ' '), /\s/)) {
+    if (part.startsWith('[')) continue
+    const repeat = part.match(/^repeat\((.*)\)$/s)
+    if (repeat) {
+      const [times, ...tracks] = topLevel(repeat[1], /,/)
+      if (!/^\d+$/.test(times ?? '')) return Infinity
+      count += Number(times) * templateTrackCount(tracks.join(' '))
+      continue
+    }
+    if (/\bvar\(/.test(part)) return Infinity
+    count += 1
+  }
+  return count
+}
+
+/** The column tracks a class utility sets, or null for one that sets none of its own (`grid-cols-none`,
+ *  `grid-cols-subgrid`, anything that is not a column template). */
+export function gridColumnCount(utility) {
+  const numbered = utility.match(/^grid-cols-(\d+)$/)
+  if (numbered) return Number(numbered[1])
+  const arbitrary = utility.match(/^grid-cols-\[(.*)\]$/s) ?? utility.match(/^\[grid-template-columns:(.*)\]$/s)
+  if (arbitrary) return templateTrackCount(arbitrary[1])
+  if (/^grid-cols-\(/.test(utility)) return Infinity
+  return null
+}
+
+/** The first token in `classText` that sets four column tracks or more, under any variant, else null. */
+export function fourUpGrid(classText) {
+  for (const raw of classText.split(/\s+/)) {
+    if (!raw) continue
+    const count = gridColumnCount(splitClassToken(raw).utility)
+    if (count !== null && count >= 4) return raw
+  }
+  return null
+}
+
+export const noFourUpGrid = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'The landing page lays nothing out four across (D-045).' },
+    schema: [],
+    messages: {
+      fourUp:
+        '{{token}} lays its items out four or more across: the landing has no four-up grids (D-045, tell T4). ' +
+        "Put at most three across, or make the items a ruled list in the row's content column.",
+    },
+  },
+  create(context) {
+    // Every piece of class text the unit renders is read, whatever branch it sits on: a four-up grid on any
+    // render is one.
+    return classUnitVisitors((node, pieces) => {
+      const token = fourUpGrid(pieces.map((piece) => piece.text).join(' '))
+      if (token !== null) context.report({ node, messageId: 'fourUp', data: { token } })
     })
   },
 }
@@ -1171,6 +1275,7 @@ const plugin = {
   rules: {
     'direction-text-tokens': directionTextTokens,
     'no-side-stripe': noSideStripe,
+    'no-four-up-grid': noFourUpGrid,
     'no-form-code-badge': noFormCodeBadge,
     'no-unguarded-animation': noUnguardedAnimation,
     'locale-pinned-numbers': localePinnedNumbers,

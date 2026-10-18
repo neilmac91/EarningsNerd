@@ -9,7 +9,7 @@ import ProDepth from '@/features/marketing/components/ProDepth'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import ReaderQuoteSlot from '@/features/marketing/components/ReaderQuoteSlot'
 import ReportingThisWeek from '@/features/calendar/components/ReportingThisWeek'
-import CtaBanner from '@/features/marketing/components/CtaBanner'
+import ClosingLine from '@/features/marketing/components/ClosingLine'
 import { betaPricingActive, resolveAccessMode } from '@/features/marketing/lib/access'
 import { DEFAULT_HEADLINE, pageTitleFor } from '@/features/marketing/lib/headline'
 import { LOGO_DEV_ENABLED } from '@/lib/featureFlags'
@@ -101,39 +101,43 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
       />
-      <main>
-        {/* 2. Hero: headline (LCP), primary CTA + access line, company search, live example */}
+      {/* Every section after the hero is one ruled row (LandingRow, D-045), numbered by the `landing-row` counter
+          reset here, so a section that omits itself takes no number. The order is pinned by
+          tests/unit/landing-sections-mounted.spec.ts. */}
+      <main className="[counter-reset:landing-row]">
+        {/* Hero: headline (LCP), primary CTA + access line, company search, live example */}
         <LandingHero example={example} accessMode={accessMode} />
 
-        {/* 3. Product capabilities strip */}
+        {/* What a summary does: four behaviours */}
         <MeasuredClaims />
 
-        {/* 4. Evidence: where the numbers come from */}
+        {/* Evidence: where the numbers come from */}
         <EvidenceSection />
 
-        {/* 5. What a summary contains + how it works */}
+        {/* What a summary contains + how it works */}
         <SummaryContents />
 
-        {/* 6. What Pro adds */}
+        {/* What Pro adds */}
         <ProDepth />
 
-        {/* 7. Pricing */}
+        {/* Pricing: one table */}
         <PricingSection accessMode={accessMode} showBeta={showBeta} />
 
         {/* Reader quote: renders nothing until a real reader's words fill READER_QUOTE (no placeholder ever ships) */}
         <ReaderQuoteSlot />
 
-        {/* 8. Reporting this week — omits itself entirely when there is no live data */}
+        {/* Reporting this week: omits itself entirely when there is no live data */}
         <ReportingThisWeek data={reportingThisWeek} />
 
         {/* Notable filings is dormant under the brand (docs/brand/01-interview.md, A8; the 2026-10
             audit found microcap 8-Ks under "high-signal"): the component, its fetcher and its spec
             stay until a curation rule exists, and tests/unit/landing-sections-mounted.spec.ts no
             longer lists it. Its fetcher revalidated at 3600 like the rest, so dropping it leaves the
-            route's ISR window where it was. */}
+            route's ISR window where it was. E90 remounts it here, as a LandingRow after Reporting this
+            week and before the close; the counter numbers it, and the mount gate's ROWS list takes it. */}
 
-        {/* 9. Final CTA */}
-        <CtaBanner accessMode={accessMode} />
+        {/* The close: one line, not a banner */}
+        <ClosingLine accessMode={accessMode} />
       </main>
     </div>
   )
