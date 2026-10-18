@@ -27,7 +27,7 @@ export default function ClosingLine({ accessMode }: { accessMode: AccessMode }) 
             placement="cta_banner"
             className="rounded-sm font-semibold text-brand-strong underline underline-offset-4 transition-colors duration-fast hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-dark"
           >
-            read the Apple 10-K summary
+            read the Apple <span className="whitespace-nowrap">10-K</span> summary
           </ExampleCtaLink>{' '}
           first, then read your own.{' '}
           <MarketingCta href={access.href} size="md" className="ml-1 align-middle">

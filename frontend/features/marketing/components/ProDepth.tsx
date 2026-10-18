@@ -142,7 +142,7 @@ export default function ProDepth() {
                           <span aria-hidden="true">·</span>{' '}
                         </>
                       )}
-                      <span>{tag}</span>
+                      <span className="whitespace-nowrap">{tag}</span>
                     </Fragment>
                   ))}
                 </span>
