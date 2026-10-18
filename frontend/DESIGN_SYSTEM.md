@@ -949,8 +949,11 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  (`en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed`, primary ink, the speaker
                  in the body face, `font-sans`), with no marker and no twin, since a quote has no heading to
                  carry one (D-044); any other quote keeps the neutral hairline (border-l-2, italic, secondary
-                 ink). Gates: SummaryBlocks.spec.tsx, brandCopyRules.spec.ts rule 3 (the quote blocks take the
-                 block alone), tests/e2e/risk-evidence-rows.spec.ts (the located quote's face, tint and ink).
+                 ink). The speaker's line wraps (`flex-wrap`), so the evidence chip drops under the speaker
+                 where the line cannot hold both. Gates: SummaryBlocks.spec.tsx, brandCopyRules.spec.ts rule 3
+                 (the quote blocks take the block alone), tests/e2e/risk-evidence-rows.spec.ts (the located
+                 quote's face, tint and ink, and each quote's words, speaker and chip inside its block at 390
+                 under 200% text).
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
                  honoured once its section renders (features/summaries/hooks/useSectionArrival); later
                  renders never move the reader. Where the page has no structured summary to hold it, the

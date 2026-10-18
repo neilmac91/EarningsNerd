@@ -20,7 +20,9 @@ import { API_ORIGIN, DOCUMENT, EXCERPT, SUMMARY, answerApi, type Theme } from '.
  *     the composited ground of fixtures/contrast.ts), in both themes;
  *   - a quote whose evidence the server located is a marked block in the filing's face at 1rem on the
  *     tint, its words and its speaker (in the body face) at 4.5:1 or more, with no marker and no twin;
- *     a quote whose evidence was not located keeps the neutral 2px hairline in the body face.
+ *     a quote whose evidence was not located keeps the neutral 2px hairline in the body face; each
+ *     quote's words, speaker and chip stay inside its block (the chip wraps under the speaker where
+ *     the marked block's padding leaves too little room, as at 390 under 200% text).
  *
  * The four risks are the production filing-3 spans (fixtures/filing-3-risks.json, copied verbatim
  * from raw_summary.sections.risks of the critique harness's cached GET /api/summaries/filing/3,
@@ -205,7 +207,15 @@ for (const viewport of VIEWPORTS) {
             const [located, cited] = Array.from(root.querySelectorAll('blockquote'))
             const style = (el: Element) => getComputedStyle(el)
             const r = located.getBoundingClientRect()
+            /** What a quote holds (its words, the speaker, the chip) that runs past the block's own edges. */
+            const outside = (block: Element) => {
+              const b = block.getBoundingClientRect()
+              return Array.from(block.querySelectorAll('*'))
+                .filter((el) => { const e = el.getBoundingClientRect(); return e.width > 0 && (e.left < b.left - 0.5 || e.right > b.right + 0.5) })
+                .map((el) => `${el.tagName.toLowerCase()}: ${(el.textContent ?? '').trim().slice(0, 40)}`)
+            }
             return {
+              outside: { located: outside(located), cited: outside(cited) },
               located: {
                 marked: located.classList.contains('en-marked'),
                 face: style(located).fontFamily,
@@ -228,6 +238,7 @@ for (const viewport of VIEWPORTS) {
           })
           expect.soft(q.cited).toEqual({ marked: false, face: expect.not.stringMatching(/Newsreader/), rule: '2px', tint: 'rgba(0, 0, 0, 0)' })
           expect.soft(q.device, 'a quote block takes no marker and no twin').toBe(0)
+          expect.soft(q.outside, "a quote's words, speaker and chip stay inside its block").toEqual({ located: [], cited: [] })
           for (const [name, locator] of [
             ['quote', quotes.locator('blockquote.en-marked p').first()],
             ['speaker', quotes.locator('blockquote.en-marked cite').first()],

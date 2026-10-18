@@ -271,7 +271,9 @@ function BlockView({ block, tableLabel }: { block: RenderedBlock; tableLabel?: s
         <>
           <p>“{block.text}”</p>
           {(block.speaker || block.evidence) && (
-            <div className="mt-1 flex items-center gap-2">
+            // Wraps, so the chip drops under the speaker where the line cannot hold both (the marked block's padding
+            // narrows it: at 390 under 200% text the chip ran 4px past the page).
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {/* The speaker is attribution, not the filing's words: the body face, inside a marked block too. */}
               {block.speaker && (
                 <cite className="block font-sans text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
