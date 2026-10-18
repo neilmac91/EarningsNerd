@@ -170,7 +170,12 @@ import { routeFiles, walkImports } from './importWalk'
  *    DEVICE_PLACES, an equality naming each place, the parts it renders and the passage it marks (the
  *    landing's evidence row and the filing page's Risks with all three, the summary's located quotes with
  *    the block alone); the gutter's classes are written only in its own module
- *    (components/ui/MarkedCopy.tsx), and every MarkedCopy carries a marker. On a row of a list (what a
+ *    (components/ui/MarkedCopy.tsx), and every MarkedCopy carries a marker. The two forms stay apart: a
+ *    located passage set as a block takes the marked block (a quote among them); the highlight's tint and
+ *    hairline (`en-mark`) sit under one phrase of ours per surface (HIGHLIGHT_PLACES, an equality) and are
+ *    the Source pane's ::highlight paint. No quote block takes `en-mark`, on it, inside it or around it,
+ *    and a class any string names counts as a part, so a Source pane module that adds `en-marked` is a
+ *    place DEVICE_PLACES does not list. On a row of a list (what a
  *    `.map` or `.flatMap` callback returns, through the file's components, so a summary block is one) a
  *    marker or a marked block renders only under a test of its located flag, a risk's `source_verified`
  *    (the chip's "Verified in filing", D-028) or an evidence's `verified`: `=== true` or the field itself,
@@ -3477,6 +3482,20 @@ const DEVICE_CHECKS: Record<string, (sf: ts.SourceFile, rel: string) => DeviceOf
     })
     return out
   },
+  // The two forms stay apart: a quote is a passage set as a block, so it takes the marked block when located and
+  // never the highlight's tint and hairline (`en-mark`), located or not: not on the quote, inside it or around it.
+  'the highlight on a quote block': (sf) => {
+    const out: DeviceOffence[] = []
+    const quote = (n: ts.Node) => tagOf(n) === 'blockquote'
+    visit(sf, (n) => {
+      if (!(ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) || !classTokens(jsxOpening(n)!).includes('en-mark')) return
+      let around = quote(n)
+      for (let at = n.parent; at && !around; at = at.parent) if (ts.isJsxElement(at) && quote(at)) around = true
+      if (ts.isJsxElement(n)) for (const c of n.children) eachRendered(c, (m) => { if (quote(m)) around = true })
+      if (around) out.push({ node: n, text: 'en-mark on a quote block' })
+    })
+    return out
+  },
   // The marker sits on its row's heading, outside the passage: never inside a marked block (a quote block takes none).
   'a marker inside a marked block': (sf) => {
     const out: DeviceOffence[] = []
@@ -3504,18 +3523,39 @@ const DEVICE_CHECKS: Record<string, (sf: ts.SourceFile, rel: string) => DeviceOf
 }
 
 /** The device's parts a file renders: MarkedCopy (the margin), EnRef (the marker), a marked block (`en-marked`); the
-    gutter's own classes count as the margin. */
+    gutter's own classes count as the margin. A class a string names anywhere in the file counts too, so a script that
+    adds one (`el.classList.add('en-marked')`, as a reader's highlight could) makes its file a place like a className. */
 function deviceParts(sf: ts.SourceFile): DevicePart[] {
   const parts = new Set<DevicePart>()
+  const classes = (tokens: string[]) => {
+    if (tokens.some((t) => t === 'en-margin' || t === 'en-margin-mark')) parts.add('margin')
+    if (tokens.includes('en-marked')) parts.add('block')
+  }
   visit(sf, (n) => {
+    if (ts.isStringLiteralLike(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) classes(n.text.split(/[\s.'"]+/))
     if (!(ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n))) return
     const tag = tagOf(n)
-    const tokens = classTokens(jsxOpening(n)!)
-    if (tag === 'MarkedCopy' || tokens.some((t) => t === 'en-margin' || t === 'en-margin-mark')) parts.add('margin')
+    if (tag === 'MarkedCopy') parts.add('margin')
     if (tag === 'EnRef') parts.add('marker')
-    if (tokens.includes('en-marked')) parts.add('block')
+    classes(classTokens(jsxOpening(n)!))
   })
   return (['margin', 'marker', 'block'] as const).filter((part) => parts.has(part))
+}
+
+/** The highlight under a phrase of ours, the brand's signature: one per surface, each listed with its phrase. An
+    equality of files and counts: a second highlight on a surface, or one on a new surface, fails until it is named
+    here. A located passage never takes it as a class: set as a block it takes the marked block, and inside running
+    text (the Source pane) its look is the reader's ::highlight paint (tests/unit/highlightInDom.spec.ts). */
+const HIGHLIGHT_PLACES: Record<string, { count: number; phrase: string }> = {
+  'features/marketing/components/HeroHeadline.tsx': { count: 1, phrase: "the served headline's accent phrase (the source)" },
+  'app/waitlist/page.tsx': { count: 1, phrase: 'the waitlist headline: with receipts' },
+  'features/auth/components/AuthShell.tsx': { count: 1, phrase: 'the auth pane tagline: shows its work' },
+}
+/** The JSX elements a file marks with the highlight (`en-mark`), in any class list it writes. */
+const highlights = (sf: ts.SourceFile) => {
+  const out: ts.Node[] = []
+  visit(sf, (n) => { if ((ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) && classTokens(jsxOpening(n)!).includes('en-mark')) out.push(n) })
+  return out
 }
 
 describe('brand rule 3: the Marked Copy Rule', () => {
@@ -3538,6 +3578,20 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     const places = Object.fromEntries(SOURCES.filter(({ rel }) => rel !== DEVICE_FILE).map(({ rel, sf }) => [rel, deviceParts(sf)] as const).filter(([, parts]) => parts.length > 0))
     expect(places, 'name the located passage a new place marks, and its parts, in DEVICE_PLACES; Ask answers and the narrative keep their chips')
       .toEqual(Object.fromEntries(Object.entries(DEVICE_PLACES).map(([rel, { parts }]) => [rel, parts])))
+  })
+
+  it('one highlight per surface, under a phrase of ours (HIGHLIGHT_PLACES)', () => {
+    const found = Object.fromEntries(SOURCES.map(({ rel, sf }) => [rel, highlights(sf).length] as const).filter(([, count]) => count > 0))
+    expect(found, 'the highlight is the signature under one phrase of ours per surface; a located passage takes the marked block or the reader\'s paint')
+      .toEqual(Object.fromEntries(Object.entries(HIGHLIGHT_PLACES).map(([rel, { count }]) => [rel, count])))
+  })
+
+  it('counts a class any string names as a part: a Source pane module that adds the marked block fails (planted)', () => {
+    const rel = 'features/filings/components/copilot/highlightInDom.ts'
+    const planted = ts.createSourceFile(rel, "export const mark = (el: HTMLElement) => el.classList.add('en-marked')", ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+    expect(SOURCES.map((s) => s.rel), 'the Source pane module is scanned').toContain(rel)
+    expect(deviceParts(planted), 'a script that adds the class renders the marked block').toEqual(['block'])
+    expect(Object.keys(DEVICE_PLACES), 'and the Source pane is no place, so the places equality fails on it').not.toContain(rel)
   })
 
   it.each(Object.keys(DEVICE_CHECKS))('no %s', (check) => {

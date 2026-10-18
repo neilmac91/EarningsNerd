@@ -138,7 +138,11 @@ Rules:
   answers and the Multi-Period narrative keep their citation chips: a cited line carries several
   markers, and their twins would overprint. Never both marks on a headline, never a mark on a figure
   (sage never colours a number: the Separate Signals Rule), never a margin without at least one
-  marker in the text. `frontend/tests/unit/brandCopyRules.spec.ts` rule 3 holds the places.
+  marker in the text. The two forms stay apart: a located passage set as a block (a Risks excerpt, a
+  located quote) takes the marked block, a located passage inside running text (the Source pane's)
+  takes the tint and hairline, nothing unlocated takes either, and inside the product only the Risks
+  rows carry a marker and its twin. `frontend/tests/unit/brandCopyRules.spec.ts` rule 3 holds the
+  places.
 - **Colour.** Light: tint `#ECF2EE`, hairline `#CFE0D6`, bar `#4F7A63`, marks `#3C6650`. Dark: tint
   `rgba(127,178,149,0.14)`, hairline `rgba(127,178,149,0.28)`, bar `#7FB295`, marks `#98C5AD`. The
   tint is a surface, never a fill for text; measured, the hairline reads 1.24:1 on cream and the

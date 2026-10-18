@@ -1333,6 +1333,16 @@ marker or a marked block only under a test of its located flag, a risk's `source
 evidence's `verified`; one marker per row and per line, and none inside a marked block; no margin
 holding CopilotMessage, NarrativePane or CitationChip; its planted forms in
 `tests/unit/fixtures/brandRule3Forms.tsx`).
+Two forms, kept apart: `.en-marked` sets a located passage as a block (the 3px bar, the tint, square
+corners, the filing's words in Newsreader: a Risks excerpt, a located quote), and the tint and 2px
+hairline, `.en-mark`'s look, mark a located passage inside running text (the Source pane's
+::highlight paint). Nothing unlocated takes either form, a quote block never takes the tint and
+hairline, the Source pane never takes `.en-marked`, and inside the product only the Risks rows carry a
+marker and its twin. Gates: brandCopyRules.spec.ts rule 3 (no `en-mark` on, in or around a quote
+block; the highlight's places, HIGHLIGHT_PLACES, an equality of one per surface; a class any string
+names counts as a part, so a Source pane module that adds `en-marked` fails DEVICE_PLACES) and
+highlightInDom.spec.ts (the reader's paint is `.en-mark`'s look, never the marked block's bar, with
+planted paints).
 
 ## 8. Theme mechanics
 

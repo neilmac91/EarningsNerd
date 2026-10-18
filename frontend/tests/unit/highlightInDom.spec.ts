@@ -485,24 +485,38 @@ describe('the located passage takes the device mark (D-044)', () => {
     expect(device('.dark .en-mark')).toEqual({ tint: 'rgba(127,178,149,0.14)', hairline: 'rgba(127,178,149,0.28)', width: '2px' })
   })
 
-  it("paints .en-mark's tint and 2px hairline, unbroken, in light, on the primary ink", () => {
-    const light = rule(CITATION_HIGHLIGHT_CSS, '::highlight(copilot-citation)')
+  /** Where a paint departs from the running-text form of the device: `.en-mark`'s tint and 2px hairline, unbroken, on
+      the primary ink, with `.dark`'s pair. The other form, the marked block's bar (a border) or its class, is never
+      the reader's: a located passage inside running text is marked, not set as a block. */
+  const departures = (css: string): string[] => {
+    const light = rule(css, '::highlight(copilot-citation)')
+    const dark = rule(css, '.dark ::highlight(copilot-citation)')
     const line = /^underline (\d+px) (.+)$/.exec(light['text-decoration'] ?? '')
-    const mark = device('.en-mark')
-    expect({
-      tint: colour(light['background-color']),
-      hairline: colour(line?.[2]),
-      width: line?.[1],
-      unbroken: light['text-decoration-skip-ink'],
-      ink: colour(light.color),
-    }).toEqual({ tint: mark.tint, hairline: mark.hairline, width: mark.width, unbroken: 'none', ink: colour(tokens.text.primary.light) })
+    const [mark, markDark] = [device('.en-mark'), device('.dark .en-mark')]
+    const out: string[] = []
+    if (colour(light['background-color']) !== mark.tint) out.push('the tint')
+    if (colour(line?.[2]) !== mark.hairline || line?.[1] !== mark.width) out.push('the 2px hairline')
+    if (light['text-decoration-skip-ink'] !== 'none') out.push('the unbroken hairline')
+    if (colour(light.color) !== colour(tokens.text.primary.light)) out.push('the primary ink')
+    if (colour(dark['background-color']) !== markDark.tint || colour(dark['text-decoration-color']) !== markDark.hairline) out.push("the dark pair")
+    if (colour(dark.color) !== colour(tokens.text.primary.dark)) out.push('the dark primary ink')
+    if (Object.keys({ ...light, ...dark }).some((prop) => prop.startsWith('border')) || /en-marked/.test(css)) out.push("the marked block's bar")
+    return out
+  }
+
+  it("paints .en-mark's tint and 2px hairline, unbroken, on the primary ink, light and dark", () => {
+    expect(departures(CITATION_HIGHLIGHT_CSS)).toEqual([])
   })
 
-  it("takes .en-mark's dark pair under .dark, on the dark primary ink", () => {
-    const dark = rule(CITATION_HIGHLIGHT_CSS, '.dark ::highlight(copilot-citation)')
-    const mark = device('.dark .en-mark')
-    expect({ tint: colour(dark['background-color']), hairline: colour(dark['text-decoration-color']), ink: colour(dark.color) })
-      .toEqual({ tint: mark.tint, hairline: mark.hairline, ink: colour(tokens.text.primary.dark) })
+  // Planted paints, each departing in one way (the first is the 22% sage it replaced, the second the block form).
+  it.each([
+    ['the 22% sage it replaced', CITATION_HIGHLIGHT_CSS.replace('background-color: #ECF2EE; color: #1A1A17; text-decoration: underline 2px #CFE0D6; text-decoration-skip-ink: none; text-underline-offset: calc(0.2632em - 2px);', 'background-color: rgba(79, 122, 99, 0.22); color: #1A1A17;'), ['the tint', 'the 2px hairline', 'the unbroken hairline']],
+    ["the marked block's form, the bar beside the tint", CITATION_HIGHLIGHT_CSS.replace('text-decoration: underline 2px #CFE0D6; text-decoration-skip-ink: none; text-underline-offset: calc(0.2632em - 2px);', 'border-left: 3px solid #4F7A63;'), ['the 2px hairline', 'the unbroken hairline', "the marked block's bar"]],
+    ['the secondary ink', CITATION_HIGHLIGHT_CSS.replace('color: #1A1A17;', 'color: inherit;'), ['the primary ink']],
+    ['no dark pair', CITATION_HIGHLIGHT_CSS.split('\n')[0], ['the dark pair', 'the dark primary ink']],
+  ])('names a paint with %s', (_name, css, expected) => {
+    expect(css).not.toBe(CITATION_HIGHLIGHT_CSS)
+    expect(departures(css)).toEqual(expected)
   })
 })
 

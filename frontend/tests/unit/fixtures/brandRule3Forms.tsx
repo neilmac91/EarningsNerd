@@ -323,6 +323,35 @@ export function D24({ blocks }: { blocks: RenderedBlock[] }) {
   )
 }
 
+/** D26 flag: a quote the server did not locate takes the highlight's tint and hairline. */
+export function D26({ blocks }: { blocks: RenderedBlock[] }) {
+  return <div>{blocks.map((block, i) => (block.kind === 'quote' ? <blockquote key={i} className="en-mark">“{block.text}”</blockquote> : null))}</div>
+}
+
+/** D27 flag: a located quote takes the highlight's tint and hairline (the running-text form) in place of the marked block. */
+export function D27({ blocks }: { blocks: RenderedBlock[] }) {
+  return (
+    <div>
+      {blocks.map((block, i) =>
+        block.evidence?.verified === true ? (
+          <blockquote key={i}>
+            <span className="en-mark">“{block.text}”</span>
+          </blockquote>
+        ) : null,
+      )}
+    </div>
+  )
+}
+
+/** D28 clean: the highlight under a phrase of ours, the brand's signature. */
+export function D28() {
+  return (
+    <h1>
+      Read the filing faster. Keep <span className="en-mark">the source</span> in view.
+    </h1>
+  )
+}
+
 /** D25 flag: a located quote block in a margin, with no marker for a twin to repeat. */
 export function D25({ block }: { block: RenderedBlock }) {
   return (
