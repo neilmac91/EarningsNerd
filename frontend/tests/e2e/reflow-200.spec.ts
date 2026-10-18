@@ -410,7 +410,16 @@ test.describe('a 390x664 phone at 200% text', () => {
     card nor moves a control in it (read from the card's own corner: focusing the Retry scrolls it into view, and on
     the dashboard the header changes while the account read is in flight). The full-text search alert, fixed the same way, is
     behind a flag CI's build leaves off, so its browser case waits on E39 and full-text-search.spec.tsx pins its
-    layout. CI has no backend: the API is answered in the browser. */
+    layout. CI has no backend: the API is answered in the browser.
+
+    A Notice inside a card is held to its own border as well: its Retry and every text run lie inside the Notice, at
+    rest and busy. Its text column used to be what the row left after the glyph, so under 200% text the comparison
+    card's Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at
+    360px the billing and ticker filings cards' Retry ran 15px past it (billing's "information" 33px). The Notice's
+    row now wraps, its text column going under the glyph where it cannot keep 9rem beside it (components/ui/Notice.tsx).
+    At 320px those two cards keep only the card's checks: their p-6 (48px a side at 200% text) leaves the Notice a 92px
+    content box, narrower than the Retry's narrowest state (138px), which sits 13px past the Notice's border there,
+    inside the card (tasks/todo.md E120). */
 const SEARCH_DOWN = 'SEC EDGAR is temporarily unavailable. Please retry shortly.'
 /** A backend detail with a long token in it, which no line break may split. */
 const SEARCH_DOWN_TOKEN = 'SEC EDGAR is unavailable: EDGAR_COMPANY_TICKERS_UPSTREAM_TIMEOUT'
@@ -497,6 +506,28 @@ const reach = (card: Locator) =>
     }
     return { right: Math.round(right * 10) / 10, what, viewport: document.documentElement.clientWidth }
   })
+/** What crosses a Notice's border: each visible control's box and each text run, against the Notice's own box. */
+const pastNotice = (notice: Locator) =>
+  notice.evaluate((el) => {
+    const n = el.getBoundingClientRect()
+    const past = (r: DOMRect) => r.left < n.left - 0.5 || r.right > n.right + 0.5 || r.top < n.top - 0.5 || r.bottom > n.bottom + 0.5
+    const edges = (r: DOMRect) => `${Math.round(r.left)}-${Math.round(r.right)}px`
+    const said = (text: string | null) => (text ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)
+    const found: string[] = []
+    for (const control of el.querySelectorAll('a, button')) {
+      const r = control.getBoundingClientRect()
+      if (control.checkVisibility() && past(r)) found.push(`${control.tagName.toLowerCase()} "${said(control.textContent)}" ${edges(r)}`)
+    }
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const r = range.getBoundingClientRect()
+      if (past(r)) found.push(`text "${said(node.textContent)}" ${edges(r)}`)
+    }
+    return { notice: edges(n), found }
+  })
 const settle = (page: Page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
 
 type Failure = {
@@ -509,6 +540,8 @@ type Failure = {
   act?: (page: Page) => Promise<void>
   /** The card the controls must stay inside. */
   card: (page: Page) => Locator
+  /** A Notice inside the card, and the widths at which its own border holds the Retry and every text run too. */
+  notice?: { at: (page: Page) => Locator; widths: number[] }
   /** The first control's name; a RetryButton is pressed and its request held open for the busy state. */
   retry: 'RetryButton' | 'reset'
   widths: number[]
@@ -524,6 +557,10 @@ const guestSearch = (detail: string) => async (page: Page, baseURL: string, hold
 }
 const searchFor = (page: Page) => page.getByRole('combobox', { name: 'Or start with a company' }).fill('apple')
 const searchAlert = (page: Page) => page.getByRole('alert').filter({ hasText: 'Error searching companies' })
+/** The three Notices inside a card, each an error Notice with a RetryButton. */
+const comparisonNotice = (page: Page) => page.getByRole('alert').filter({ hasText: 'Couldn’t load the comparison' })
+const billingNotice = (page: Page) => page.getByRole('alert').filter({ hasText: 'Failed to load billing information' })
+const tickerFilingsNotice = (page: Page) => page.getByRole('alert').filter({ hasText: 'Couldn’t load the filings' })
 const FAILURES: Failure[] = [
   { name: 'the homepage search alert', path: '/', open: guestSearch(SEARCH_DOWN), act: searchFor, card: searchAlert, retry: 'RetryButton', widths: [320, 360, 390] },
   { name: 'the homepage search alert, a long token in its message', path: '/', open: guestSearch(SEARCH_DOWN_TOKEN), act: searchFor, card: searchAlert, retry: 'RetryButton', widths: [320] },
@@ -555,13 +592,35 @@ const FAILURES: Failure[] = [
     widths: [320],
   },
   {
-    // A Notice inside a card: its text column is narrow, and a cramped Retry sets its spinner above its label.
+    // A Notice inside a card: a cramped Retry sets its spinner above its label, and where the Notice's text column
+    // cannot keep 9rem beside the glyph it goes under it.
     name: "the company page's comparison card (a Notice inside a card)",
     path: '/company/AAPL',
     open: (p, b, hold) => answerSite(p, b, false, { path: '/api/summaries/filing/11/what-changed', status: 503, body: { detail: 'Service temporarily unavailable.' } }, hold),
-    card: (p) => p.getByRole('alert').filter({ hasText: 'Couldn’t load the comparison' }).locator('xpath=../..'),
+    card: (p) => comparisonNotice(p).locator('xpath=../..'),
+    notice: { at: comparisonNotice, widths: [320, 360] },
     retry: 'RetryButton',
-    widths: [320],
+    widths: [320, 360],
+  },
+  {
+    // The settings page's billing card, a p-6 Card with the Notice as its child.
+    name: "the settings page's billing card (a Notice inside a p-6 card)",
+    path: '/dashboard/settings',
+    open: (p, b, hold) => answerSite(p, b, true, { path: '/api/subscriptions/subscription', status: 503, body: { detail: 'Service temporarily unavailable.' } }, hold),
+    card: (p) => billingNotice(p).locator('xpath=..'),
+    notice: { at: billingNotice, widths: [360] },
+    retry: 'RetryButton',
+    widths: [320, 360],
+  },
+  {
+    // /filing/AAPL: the "Recent filings" card (p-6) of a loaded company, its filings read failing.
+    name: "the ticker filings card (a Notice inside a p-6 card)",
+    path: '/filing/AAPL',
+    open: (p, b, hold) => answerSite(p, b, false, { path: '/api/filings/company/AAPL', status: 503, body: { detail: SEARCH_DOWN } }, hold),
+    card: (p) => tickerFilingsNotice(p).locator('xpath=../..'),
+    notice: { at: tickerFilingsNotice, widths: [360] },
+    retry: 'RetryButton',
+    widths: [320, 360],
   },
 ]
 
@@ -599,6 +658,10 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
             expect(m.scrollWidth, `${at}, ${state}: it widens the page past its own ${pageWidth}px; ${why(m)}`).toBeLessThanOrEqual(pageWidth)
             const b = await controlBoxes(card)
             expect(b.outside, `${at}, ${state}: every control lies inside the card (${b.card}): ${b.controls.join('; ')}`).toEqual([])
+            if (failure.notice?.widths.includes(width)) {
+              const n = await pastNotice(failure.notice.at(page))
+              expect(n.found, `${at}, ${state}: the Retry and every text run lie inside the Notice (${n.notice})`).toEqual([])
+            }
             expect(await collisions(card), `${at}, ${state}: its controls`).toEqual([])
             return b
           }

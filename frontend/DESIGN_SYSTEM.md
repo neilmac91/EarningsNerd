@@ -192,15 +192,22 @@ two actions); a message carrying the backend's words breaks a long token (`break
 row is narrower than the spinner beside "again…" (a Notice inside a card at 200% text), the spinner goes above
 the label (Button's reserve, below). Before, at 390px under 200% text, the homepage and full-text search alerts
 pushed their Retry past the screen (the page 445 and 472px wide), the dashboard's account card put its Retry's
-left edge off the screen at 320px, and the comparison card's Retry widened the page at 320px. Gates: e2e
-`reflow-200.spec.ts`, "a failure's controls stay inside their card" (the homepage search alert at 320, 360 and
-390px and with a long token, the dashboard's account card at 320, 360 and 390px, the route and dashboard error
-boundaries and the company page's comparison card at 320px, at rest and busy); `full-text-search.spec.tsx` for
+left edge off the screen at 320px, and the comparison card's Retry widened the page at 320px. A Notice inside a
+card keeps its Retry and its title inside its own border too: its row wraps, and its text column goes under the
+glyph where it cannot keep 9rem beside it (Inline notice, below). Before, under 200% text, the comparison card's
+Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at 360px
+the billing and ticker filings cards' Retry ran 15px past it. Gates: e2e `reflow-200.spec.ts`, "a failure's
+controls stay inside their card" (the homepage search alert at 320, 360 and 390px and with a long token, the
+dashboard's account card at 320, 360 and 390px, the route and dashboard error boundaries at 320px, and the
+comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at 360px and the
+comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
 the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
 `twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
-reserve's rows. Its limit: a Notice's text column inside a card, after its icon and both paddings, is narrower at
-320px under 200% text than any Try again, reserved or not, so there the Retry still runs past the Notice's
-border, inside the card. Where one Notice holds two failed reads, one
+reserve's rows. Its limit: at 320px under 200% text the billing and ticker filings cards' `p-6` (48px a side)
+leaves a Notice a 92px content box, narrower than the Retry's narrowest state (138px, its padding and "again…"),
+so there the Retry sits 13px past the Notice's border, inside the card, the page at its width. Main's resting
+Retry is 30px past it there, so the cards' padding causes it, not the reserve or the Notice (E120). Where one
+Notice holds two failed reads, one
 RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
 the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
 not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and
@@ -678,7 +685,14 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
                  centres two actions and sets the second under the first when they do not fit side by
                  side, and its description, like a Notice's, breaks a long word
-                 (tests/unit/twoActionsWrap.spec.tsx).
+                 (tests/unit/twoActionsWrap.spec.tsx). A Notice's own row wraps: its text column's
+                 basis is 9rem (about 20 characters: 144px at the default size, 288px under 200% text),
+                 so where it cannot keep that beside the glyph (a card on a phone at 200% text) it goes
+                 under the glyph at the Notice's whole inner width. The glyph then sits alone at the top
+                 left over the title, and the title, description and action share the full width; the
+                 title breaks a long word, as the description does. No container query: a
+                 container-type would collapse a Notice wherever a parent sizes it to its content. Gate:
+                 e2e reflow-200.spec.ts (the Retry and every text run inside the Notice's border).
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +

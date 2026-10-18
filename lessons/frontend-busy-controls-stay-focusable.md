@@ -216,9 +216,11 @@ move focus a mouse user did not lose.
   (two actions past the card or the screen at 320px), and the company page's comparison card (a Notice in a card:
   the page 326px at 320px). Gates: `tests/e2e/reflow-200.spec.ts` ("a failure's controls stay inside their card"),
   `full-text-search.spec.tsx` (its browser case waits on E39), `twoActionsWrap.spec.tsx` and `button-wrap.spec.tsx`.
-  Its limit: inside a card, a Notice's text column after its icon and both paddings is narrower at 320px under
-  200% text than any Try again, reserved or not, so the Retry still runs past the Notice's border there, inside the
-  card. During a refetch nobody
+  A Notice's row wraps, its text column going under the glyph where it cannot keep 9rem beside it, so a Notice
+  inside a card keeps its Retry and its title inside its own border (reflow-200 holds three such cards). Its limit:
+  at 320px under 200% text the billing and ticker filings cards' `p-6` leaves a Notice a 92px content box, narrower
+  than the Retry's narrowest state (138px), so the Retry sits 13px past the Notice's border there, inside the card
+  (E120). During a refetch nobody
   pressed it is busy (aria-busy, aria-disabled, the spinner, a refused press) under its own label: a label
   swap inside the card's `role=alert` would re-announce the failure at every reconnect. Two failed reads in one
   Notice share one RetryButton (the dashboard's plan strip, the pricing page's details Notice): its press

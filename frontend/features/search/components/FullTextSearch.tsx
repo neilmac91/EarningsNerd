@@ -251,8 +251,6 @@ export default function FullTextSearch() {
       </div>
 
       {failure.failed && (
-        // The message takes the line it needs (12rem at least, so it never thins to a word a line) and
-        // Retry wraps under it when the two do not fit; the glyph keeps its size.
         <div
           role="alert"
           className="flex items-start gap-2 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"
