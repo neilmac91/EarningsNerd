@@ -1,0 +1,41 @@
+"""Run PR #1347's section seam on the HTML #1350's copilot-eval prepared, and compare with the
+sections and the excerpt that run produced through the backported obj() path. The excerpt is built
+the way get_or_cache_excerpt builds one on a fresh cache (the section assembly, its 8,000-character
+floor, then the regex extractor).
+
+Usage: python -I compare_copilot_sources.py ARTIFACT_DIR   (copilot-fidelity-38817393205, unpacked)
+Local files only; no network. Prints one JSON line per source and a total.
+"""
+import asyncio, hashlib, json, os, sys
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+for k in ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"): os.environ.setdefault(k, "x")
+sys.path.insert(0, os.environ.get("BACKEND", "/home/user/EarningsNerd/backend"))
+from app.services.edgar.compat import xbrl_service
+from app.services.openai_service import openai_service
+from app.services.summary_generation_service import _EDGARTOOLS_EXCERPT_MIN
+
+root = sys.argv[1]
+prep = json.load(open(os.path.join(root, "preparation.json")))
+same = 0
+for source in prep["sources"]:
+    acc = source["accession_number"]
+    form = source.get("filing_type") or source.get("form")
+    folder = os.path.join(root, acc)
+    html = open(os.path.join(folder, "filing.html"), "rb").read().decode("utf-8")
+    recorded = json.load(open(os.path.join(folder, "sections.json")))
+    mine = asyncio.run(xbrl_service.get_filing_sections(acc, form, html=html))
+    sha = lambda v: hashlib.sha256(json.dumps(v, sort_keys=True, default=str).encode()).hexdigest()
+    key = form.upper()
+    excerpt = openai_service.assemble_excerpt_from_sections(mine, key, filing_text=html) if mine else None
+    if excerpt and len(excerpt) < _EDGARTOOLS_EXCERPT_MIN:
+        excerpt = None
+    excerpt = excerpt or openai_service.extract_critical_sections(html, key)
+    recorded_excerpt = open(os.path.join(folder, "excerpt.txt"), "rb").read()
+    match = sha(mine) == sha(recorded) and excerpt.encode() == recorded_excerpt
+    same += match
+    print(json.dumps({"accession": acc, "form": form, "ticker": source.get("ticker"),
+                      "recorded": {k: len(v) for k, v in (recorded or {}).items()},
+                      "this_pr": {k: len(v) for k, v in (mine or {}).items()},
+                      "sections_sha256_identical": sha(mine) == sha(recorded),
+                      "excerpt_identical": excerpt.encode() == recorded_excerpt}))
+print(f"{same} of {len(prep['sources'])} Copilot sources: identical sections and excerpt")

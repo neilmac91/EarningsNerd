@@ -1,14 +1,15 @@
 import asyncio
 import csv
 import io
+import math
 import re
 from html import escape
 
 from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, render_branded_pdf
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, export_points, formula_text, note_index, notes_summary,
-    operand_records, period_label, point_method, raw_value_text, source_urls,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, export_points, formula_text, note_index,
+    notes_summary, operand_records, period_label, point_method, raw_value_text, source_urls,
 )
 from app.services.trend_analysis.data_notes import (
     citation_data_notes, note_for_quality, resolve_data_notes,
@@ -17,6 +18,47 @@ from app.services.trend_analysis.narrative_display import compact_narrative_text
 from app.services.summary_sections import Block, Section, render_sections
 from app.services.provenance_service import project_summary_risks
 from app.utils.datetimes import ensure_utc, iso_z, utcnow
+
+# A PDF table aligns the same columns the page does. The metrics block (Financial Highlights) is
+# FinancialMetricsTable on the page, whose Current Period, Prior Period and Change columns are
+# right-aligned and numeric by definition, whatever a cell holds ("+14.4 ppts", "—"), so the PDF
+# marks those three by header. Every other table (segments, footnotes) is GenericTable on the page
+# (SummaryBlocks.tsx) and takes its content rule: a column is numeric when it holds a value and
+# every non-empty cell is a whole figure, with no letters beyond one trailing K/M/B/T scale and a
+# leading number that lib/format.ts parseNumeric reads ("$391.0B", "61.2%", "(12.4)"), or the bare
+# "-" or "—". Commentary that opens with a figure ("41% operating margin") and "+14.4 ppts" stay
+# prose there.
+_METRIC_FIGURE_HEADERS = frozenset({"Current Period", "Prior Period", "Change"})
+_WHOLE_FIGURE = re.compile(r"^[\W\d_]*[KMBT]?$", re.IGNORECASE)
+_LEADING_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+_NOT_A_NUMBER = frozenset({
+    "", "n/a", "na", "nan", "undefined", "not available", "not disclosed", "none", "--", "—", "null",
+})  # parseNumeric's MISSING_TOKENS
+
+
+def _parses_as_number(cell: str) -> bool:
+    if cell.lower() in _NOT_A_NUMBER:
+        return False
+    cleaned = re.sub(r"[a-zA-Z]+$", "", re.sub(r"[(),$]", "", cell))
+    match = _LEADING_NUMBER.match(cleaned.removesuffix("%").lstrip())
+    return match is not None and math.isfinite(float(match.group()))
+
+
+def numeric_columns(rows: list[list[str]], width: int) -> list[bool]:
+    """Which of a table's columns are numeric, by the web's rule above."""
+    columns = []
+    for column in range(width):
+        cells = [(row[column] if column < len(row) else "").strip() for row in rows]
+        columns.append(any(cells) and all(
+            cell in ("", "-", "—") or (_WHOLE_FIGURE.match(cell) is not None and _parses_as_number(cell))
+            for cell in cells
+        ))
+    return columns
+
+
+def _num(numeric: list[bool], column: int) -> str:
+    return ' class="num"' if column < len(numeric) and numeric[column] else ""
+
 
 class ExportService:
     def __init__(self):
@@ -30,7 +72,9 @@ class ExportService:
             f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
             f"Period End: {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'} · "
             f"Generated {utcnow().strftime('%B %d, %Y')}"
-            f"<br>Source: SEC EDGAR — <span class=\"data\">{escape(filing.sec_url or '')}</span>"
+            # backend/evals/acceptance_readiness.py anchors its blinding of the generation date on
+            # "<br>Source: SEC EDGAR"; test_acceptance_readiness.py runs that blinding on this output.
+            f"<br>Source: SEC EDGAR · <span class=\"data\">{escape(filing.sec_url or '')}</span>"
         )
 
         # Render every structured section through the shared renderer so the PDF stays in
@@ -46,13 +90,13 @@ class ExportService:
                 <p>This AI-generated summary is derived from publicly available SEC filings and is
                 provided for informational purposes only. It is not investment advice or a
                 recommendation to buy, sell, or hold any security, and it may be incomplete or
-                contain errors — the authoritative source is always the original SEC filing.
+                contain errors. The authoritative source is always the original SEC filing.
                 Use is subject to the EarningsNerd Terms of Service (earningsnerd.io/terms).</p>
             </div>
         """
 
         return render_branded_pdf(
-            title=f"{escape(filing.company.name or '')} — {escape(filing.filing_type or '')} Summary",
+            title=f"{escape(filing.company.name or '')} · {escape(filing.filing_type or '')} summary",
             doc_kind="Filing<br>Summary",
             meta_html=meta_html,
             body_html=body_html,
@@ -82,7 +126,8 @@ class ExportService:
             if not block.text:
                 return ""
             text = escape(block.text).replace("\n", "<br />")
-            speaker = f" — {escape(block.speaker)}" if block.speaker else ""
+            # The attribution sits on its own line (the shell sets cite as a block), with no dash.
+            speaker = f"<cite>{escape(block.speaker)}</cite>" if block.speaker else ""
             return f"<blockquote>“{text}”{speaker}</blockquote>"
         if block.kind == "bullets":
             if not block.items:
@@ -95,12 +140,19 @@ class ExportService:
             # (headers/rows) exactly like a plain table — one Section/Block, identical figures.
             if not block.rows:
                 return ""
+            # A numeric column takes class="num" on its header and cells: right-aligned figures in
+            # the data face, as the page's table sets them (the metrics block by header, any other
+            # table by its content; see _METRIC_FIGURE_HEADERS).
+            numeric = (
+                [header in _METRIC_FIGURE_HEADERS for header in block.headers] if block.kind == "metrics"
+                else numeric_columns(block.rows, max(len(block.headers), *(len(row) for row in block.rows)))
+            )
             thead = ""
             if block.headers:
-                head_cells = "".join(f"<th>{escape(h)}</th>" for h in block.headers)
+                head_cells = "".join(f"<th{_num(numeric, c)}>{escape(h)}</th>" for c, h in enumerate(block.headers))
                 thead = f"<thead><tr>{head_cells}</tr></thead>"
             body = "".join(
-                "<tr>" + "".join(f"<td>{escape(cell)}</td>" for cell in row) + "</tr>"
+                "<tr>" + "".join(f"<td{_num(numeric, c)}>{escape(cell)}</td>" for c, cell in enumerate(row)) + "</tr>"
                 for row in block.rows
             )
             return f"<table>{thead}<tbody>{body}</tbody></table>"
@@ -123,10 +175,11 @@ class ExportService:
         writer.writerow(["earningsnerd.io"])
         writer.writerow([])
 
-        # Header
-        writer.writerow([f"{filing.company.name} - {filing.filing_type} Summary"])
+        # Header: the PDF's title form, then where the words come from (the PDF's meta line).
+        writer.writerow([f"{filing.company.name} · {filing.filing_type} summary"])
         writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])
         writer.writerow([f"Generated: {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"])
+        writer.writerow([f"Source: SEC EDGAR · {filing.sec_url or ''}"])
         writer.writerow([])
 
         # Render every structured section through the shared renderer (single source of truth)
@@ -136,7 +189,7 @@ class ExportService:
         for section in render_sections(raw_summary):
             self._write_section_csv(writer, section)
 
-        # BOM: the brand row's em dash guarantees non-ASCII on row 1, and Excel on Windows only
+        # BOM: the brand row's middot guarantees non-ASCII on row 1, and Excel on Windows only
         # decodes a CSV as UTF-8 when the file leads with one (the same rationale as the deleted
         # client-side analysis CSV). Explicit escape — a literal BOM char is invisible and easily
         # stripped by editors/formatters.
@@ -154,7 +207,7 @@ class ExportService:
                     # Curly quotes (not straight ") so csv.writer doesn't double-escape into """…""".
                     line = f"“{block.text}”"
                     if block.speaker:
-                        line += f" — {block.speaker}"
+                        line += f" · {block.speaker}"
                     writer.writerow([line])
             elif block.kind == "bullets":
                 if block.text:
@@ -272,7 +325,8 @@ class ExportService:
 
     def _analysis_grid(self, dataset: dict, indexed: dict) -> str:
         periods = [p.get("key", "") for p in dataset.get("periods", [])]
-        headers = "".join(f"<th>{escape(period_label(period))}</th>" for period in periods)
+        # Every period column holds figures (td.num below), so its header aligns with them.
+        headers = "".join(f'<th class="num">{escape(period_label(period))}</th>' for period in periods)
         rows = []
         for series in dataset.get("series", []):
             points = {p.get("period"): p for p in series.get("points", [])}
@@ -290,18 +344,23 @@ class ExportService:
             rows.append(f"<tr><td>{label}</td>{''.join(cells)}</tr>")
         return f"<table><thead><tr><th>Metric</th>{headers}</tr></thead><tbody>{''.join(rows)}</tbody></table>"
 
+    # An operand's source fields under the workbook's column names, never the dataset's keys.
+    _OPERAND_LABELS = (("accession", "Accession"), ("raw_tag", "Source tag"), ("filed_at", "Filed"))
+
     def _analysis_operands(self, provenance: dict) -> str:
         items = []
         for label, operand in operand_records(provenance):
             dates = " to ".join(str(operand[k]) for k in ("period_start", "period_end") if operand.get(k))
-            text = (f"{label}: {operand.get('concept', '')} = {raw_value_text(operand.get('value'))} "
+            # The concept reads as words ("operating cash flow"), as the page's source panel shows it.
+            concept = str(operand.get("concept", "")).replace("_", " ")
+            text = (f"{label}: {concept} = {raw_value_text(operand.get('value'))} "
                     f"{operand.get('unit', '')} ({dates})")
             nested = operand.get("provenance") or {}
             if nested.get("formula"):
                 text += " · " + formula_text(nested["formula"])
-            for key in ("accession", "raw_tag", "filed_at"):
+            for key, name in self._OPERAND_LABELS:
                 if operand.get(key):
-                    text += f" · {key}: {operand[key]}"
+                    text += f" · {name}: {operand[key]}"
             link = self._analysis_links({**nested, "source_url": operand.get("source_url") or nested.get("source_url")})
             items.append(f"<li>{escape(text)}{' · ' + link if link else ''}</li>")
         return '<ul class="operands">' + "".join(items) + "</ul>" if items else ""
@@ -349,13 +408,16 @@ class ExportService:
     def _analysis_data_notes(envelope: dict) -> str:
         items = []
         for note in envelope["notes"]:
-            count = len(note["values"])
-            comparisons = len(note["comparisons"])
-            scope = f"{count} figures · {comparisons} comparisons" if count or comparisons else "Narrative sources"
+            # Singular at one, and a clause only for a count that is not zero (the page's form).
+            scope = " · ".join(
+                count_label(count, noun) for count, noun in
+                ((len(note["values"]), "figure"), (len(note["comparisons"]), "comparison")) if count
+            ) or "Narrative sources"
             items.append(f'<li id="{escape(note["id"], quote=True)}"><strong>{escape(note["letter"])}.</strong> '
                          f'{escape(note["message"])} <span class="ref">({scope})</span></li>')
-        return (f'<h2>Data notes</h2><p class="footnote">{escape(notes_summary(envelope))}</p>'
-                f'<ul class="data-notes">{"".join(items)}</ul>')
+        summary = notes_summary(envelope)
+        line = f'<p class="footnote">{escape(summary)}</p>' if summary else ""
+        return f'<h2>Data notes</h2>{line}<ul class="data-notes">{"".join(items)}</ul>'
 
     def generate_analysis_pdf_html(self, analysis, company) -> str:
         """Render the saved financial snapshot; presentation fallback never consults current facts."""
@@ -368,7 +430,10 @@ class ExportService:
         citation_items, marks = self._analysis_citations(citations, notes)
         # Storage keeps raw operand tails for older tabs. Format a PDF-only copy;
         # the shared precision policy retains distinct amounts that would round alike.
-        narrative = self._narrative_to_html(compact_narrative_text(analysis.narrative_md or ""))
+        # The export's period_label then prints a window key ("FY2016..FY2025" in the CAGR
+        # sentence) as the range the rest of this PDF prints; it runs after the compaction, whose
+        # evidence offsets index the stored text. The web and the stored narrative are unchanged.
+        narrative = self._narrative_to_html(period_label(compact_narrative_text(analysis.narrative_md or "")))
         narrative = re.sub(r"\[(\d+)\]", lambda match: match[0] + marks.get(match[1], ""), narrative)
         generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
         generated = iso_z(ensure_utc(generated_at)) if generated_at else "Not recorded"
@@ -388,14 +453,14 @@ class ExportService:
                 <h2>Metrics by period</h2>
                 {self._analysis_grid(dataset, indexed)}
                 <p class="footnote">Letters refer to Data notes. † Calculated figure;
-                    available formulas and operands appear in Sources &amp; Methods. Calculation method is separate
+                    available formulas and operands appear in Sources &amp; methods. Calculation method is separate
                     from whether source checks passed.</p>
                 <p class="footnote">{escape(FCF_DEFINITION)}</p>
             </section>
             <h2>Narrative sources</h2><ol class="sources">{citation_items}</ol>
             <p class="footnote">Source entries identify reported or calculated figures.
                 Citation verification confirms traceability, not financial reconciliation.</p>
-            <section class="methods"><h2>Sources &amp; Methods</h2>
+            <section class="methods"><h2>Sources &amp; methods</h2>
                 <p class="footnote">Raw values retain the supplied numeric representation.
                 Reported figures come from SEC filings; calculated figures use the formulas and operands below.
                 Missing values are unavailable in this analysis, which does not establish that the company did not report them.</p>
@@ -407,13 +472,12 @@ class ExportService:
             <p class="footnote">{escape(ANALYSIS_DISCLAIMER)}</p>
         """
         return render_branded_pdf(
-            title=f"{escape(company.name)} — Multi-Period Analysis", doc_kind="Multi-Period<br>Analysis",
+            title=f"{escape(company.name)} · Multi-Period Analysis", doc_kind="Multi-Period<br>Analysis",
             meta_html=meta_html, body_html=body_html,
             extra_css=("ol.sources, .data-notes, .methods { font-size: 8.5pt; } "
                        ".data-notes { list-style: none; padding-left: 0; } "
                        ".methods li { margin-bottom: 4px; } .operands { margin-top: 2px; } "
                        ".metrics-landscape td.num { white-space: nowrap; padding-left: 4px; padding-right: 4px; } "
-                       f".data-note a, .methods a, .sources a {{ color: {PALETTE['brand_strong']}; }} "
                        ".data-note { margin-left: 2px; } .snapshot { overflow-wrap: anywhere; }"),
         )
 

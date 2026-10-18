@@ -476,6 +476,32 @@ async def test_sixk_grounding_uses_exhibit_text_first_like_production(monkeypatc
         assert grounding["filing_text"] == primary_document
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parsed", [True, False], ids=["sections", "no-sections"])
+async def test_grounding_parses_sections_from_the_fetched_document_like_production(monkeypatch, parsed):
+    """E28 parity: like the pipeline, the harness parses sections from the primary document it just
+    fetched (no SEC resolution); a None parse falls back to the regex excerpt."""
+    from app.services.edgar.compat import sec_edgar_service, xbrl_service
+    document = "<html><body>Primary document fetched once through the app transport.</body></html>"
+    monkeypatch.setattr(sec_edgar_service, "get_filing_document_with_source",
+                        AsyncMock(return_value=(document, {"representation": "httpx_decoded_response_text_utf8"})))
+    monkeypatch.setattr(xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    native = {"risk": "R" * 4000, "mda": "M" * 4000, "financials": "F" * 4000}
+    sections = AsyncMock(return_value=dict(native) if parsed else None)
+    monkeypatch.setattr(xbrl_service, "get_filing_sections", sections)
+    monkeypatch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", True)
+    monkeypatch.setattr(openai_service, "extract_critical_sections", lambda text, form: "regex excerpt")
+    filing = GoldenFiling("FIX", "320193", "0000320193-25-000079", "10-K", "https://sec.example/10k", "Fixture")
+    grounding = await runner._get_grounding(filing)
+    sections.assert_awaited_once_with(filing.accession_number, "10-K", html=document)
+    if parsed:
+        assert grounding["excerpt"] == openai_service.assemble_excerpt_from_sections(native, "10-K", filing_text=document)
+        assert grounding["coverage_inventory"]["source"] == "edgartools"
+    else:
+        assert grounding["excerpt"] == "regex excerpt"
+        assert grounding["coverage_inventory"]["source"] == "regex_fallback"
+
+
 @pytest.mark.parametrize("path", ["legacy_cached_excerpt", "edgartools", "regex_fallback"])
 def test_excerpt_inventory_observes_returned_string_without_reextracting_cache(path, monkeypatch, caplog):
     from types import SimpleNamespace

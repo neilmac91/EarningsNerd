@@ -269,9 +269,14 @@ async def run_invocation(
                 grounding["source_calls"].append({"owner": "xbrl_service.get_xbrl_data", "result": result})
                 return result
 
-            async def measured_sections(accession: str, cik: str, *args: Any, **kwargs: Any) -> Any:
-                result = await original_sections(accession, cik, *args, **kwargs)
-                grounding["source_calls"].append({"owner": "xbrl_service.get_filing_sections", "result": result})
+            async def measured_sections(accession: str, filing_type: str, *, html: Any) -> Any:
+                result = await original_sections(accession, filing_type, html=html)
+                encoded = html.encode("utf-8") if isinstance(html, str) else b""
+                grounding["source_calls"].append({
+                    "owner": "xbrl_service.get_filing_sections", "accession": accession,
+                    "filing_type": filing_type, "html_bytes": len(encoded),
+                    "html_sha256": hashlib.sha256(encoded).hexdigest(), "result": result,
+                })
                 return result
 
             def measured_statement(*args: Any, **kwargs: Any) -> Any:
