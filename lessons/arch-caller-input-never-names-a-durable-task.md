@@ -23,9 +23,18 @@ is given, by design, so the fix belongs to the caller: `backend/app/routers/fili
 `company_list_forms()`, and `backend/app/services/filing_list_service.py::requested_filing_types`
 reads each entry as its SEC form and drops unknown ones. Gate:
 `backend/tests/unit/test_filings_routes.py::test_filing_types_values_cannot_mint_durable_refresh_tasks`
-(before the fix: 40 junk values queued 40 tasks, and 5 known-form variants queued 4). The other
-enqueue sites carry a resolved company id (`routers/analysis.py`) or sit behind operator auth
-(`services/internal_task_runner.py`); new sites are review-checked. The same route's in-process
+(before the fix: 40 junk values queued 40 tasks, and 5 known-form variants queued 4).
+`backend/tests/unit/test_durable_task_payloads_server_owned.py` walks every `enqueue_task` and
+`_enqueue_visit_task` call under `backend/app/`. In `app/routers/` the payload must be a dict
+literal and the dedupe key a literal or f-string, built only from `company_id` (never a route
+parameter, bound only from a row's `.id`) and `company_list_forms()`; before the fix it failed on
+the filings payload's `types_list`. Every such call passes a key (a keyless task is named at
+random, one per request), and its window is a literal or a module-level constant. Any other site,
+such as the operator-only `services/internal_task_runner.py`, is listed with its reason, and a
+listed site that is gone fails. Validating a caller's choice into a bounded set, and counting the
+payloads one company can produce per bucket, are review-checked. So are the gate's two limits: it
+takes `.id` from any object, a request model's too, and does not follow callers of
+`enqueue_internal_job` (today only the token-gated internal job routes). The same route's in-process
 refresh (`DURABLE_TASKS_ENABLED=false`, not the production path) still takes the caller's
 canonical forms in the caller's order: it queues nothing on the shared queue, is deduped per
 process while in flight, and stamps the per-filter freshness key that the fast path reads.
