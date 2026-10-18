@@ -573,9 +573,11 @@ content is unchanged. The brief's reader-quote slot stays unrendered
 
 The section is unmounted from `app/page.tsx` and its fetcher removed from the page, and the
 component carries a DORMANT note: the week's list read as microcap 8-Ks under a "high-signal"
-heading (audit T7). The fetcher, the card and its spec stay for the day a curation rule exists (a
-known-good set, a size floor, or 10-K and 10-Q only). The mount gate
-(`tests/unit/landing-sections-mounted.spec.ts`) records the omission as deliberate.
+heading (audit T7). The fetcher, the card and its spec stay for its return. The curation rule is
+decided (D-046, §8): 10-K and 10-Q filings only, from companies that hold a full summary, newest
+first, at most six. The section is to return under it with E90, placed in D-045's labelled rows
+(E113); until then the mount gate (`tests/unit/landing-sections-mounted.spec.ts`) records the
+omission as deliberate.
 
 ## 8. Decided by the founder
 
