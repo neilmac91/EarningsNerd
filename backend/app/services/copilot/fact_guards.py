@@ -64,8 +64,9 @@ def _fact_identity(fact: dict) -> str:
 # How far back (chars) to look for the figure a fact marker claims to support.
 _ADJACENCY_WINDOW_CHARS = 64
 
+# A "t" for trillion must end its word: "$2.04 to $2.10" is a range, not $2.04 trillion.
 _NUMBER_TOKEN = re.compile(
-    r"(\$)?\s*([0-9][\d,]*(?:\.\d+)?)\s*(billion|million|thousand|bn|[bmk%])?",
+    r"(\$)?\s*([0-9][\d,]*(?:\.\d+)?)\s*(trillion|billion|million|thousand|tn|bn|t(?![a-z])|[bmk%])?",
     re.IGNORECASE,
 )
 
@@ -105,8 +106,10 @@ def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
         float(fact.get("value"))
     except (TypeError, ValueError):
         return True
-    # Prior markers in the window ([2], [F1]) are citations, not figures — scrub them.
+    # Prior markers in the window ([2], [F1]) are citations, not figures — scrub them. A written
+    # date's own comma and period end no clause (see ``_WRITTEN_DATE``).
     scrubbed = re.sub(r"\[\s*F?\s*\d+\s*\]", " ", window, flags=re.IGNORECASE)
+    scrubbed = _WRITTEN_DATE.sub(lambda found: re.sub(r"[.,]", " ", found[0]), scrubbed)
     figures = [m for m in _NUMBER_TOKEN.finditer(scrubbed) if not _is_year(m)]
     if not figures:
         return True
@@ -114,8 +117,8 @@ def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
         # The figure's own clause (see ``_CLAUSE_BOUNDARY``), read through parentheses around the
         # figure alone, carries its growth-direction wording ("revenue declined (15.3%)").
         start, end = _figure_extent(m)
-        clause = (_CLAUSE_BOUNDARY.split(scrubbed[:start])[-1] + scrubbed[start:end]
-                  + _CLAUSE_BOUNDARY.split(scrubbed[end:])[0])
+        clause = slice(start - len(_CLAUSE_BOUNDARY.split(scrubbed[:start])[-1]),
+                       end + len(_CLAUSE_BOUNDARY.split(scrubbed[end:])[0]))
         if _figure_matches_value(fact, m) and _figure_sign_agrees(fact, m, clause):
             return True
     return False
@@ -199,6 +202,13 @@ _CONCEPT_PATTERNS: dict[str, re.Pattern] = {
 # is a driver mention, not the figure's label). A period/comma followed by a digit is inside a
 # number ("$96.77B", "1,023"), not a boundary.
 _CLAUSE_BOUNDARY = re.compile(r"[;:()—–]|[.,](?![0-9])")
+# A written date is one phrase: for the value guard's sign reading, the comma of "December 31, 2024"
+# and the period of "Dec. 31, 2024" do not end the figure's clause, so "Net income for the year
+# ended December 31, 2024 was $1.2B" still names the figure. The concept guard splits as before.
+_WRITTEN_DATE = re.compile(
+    r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|"
+    r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.?\s+\d{1,2}(?:st|nd|rd|th)?,\s+(?:19|20)\d\d\b"
+)
 
 
 def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:

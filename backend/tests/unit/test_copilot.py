@@ -1727,6 +1727,17 @@ _LOSS_NARROWED = {**_LOSS_847M, "kind": "yoy_growth", "value": 0.153, "unit": "p
     (_REVENUE_GREW, "Revenue increased by $153 million (15.3%) year over year", True),
     # A bare figure may still be a display-scaled rendering of the value.
     (_revenue_fact(81_460_000_000.0, 2022), "Revenue, in billions of dollars, was 81.46", True),
+    # A written date's comma does not hide the profit name, a minus sign reads through a currency
+    # label, and "negative growth" is a fall.
+    (_NET_LOSS, "Net income for the year ended December 31, 2024 was $1.2B", False),
+    ({**_NET_LOSS, "unit": "CNY"}, "Net income was -RMB1.2 billion", True),
+    (_REVENUE_DECLINE, "Revenue saw negative growth of 15.3%", True),
+    # Trillion is a scale word (E103): a trillion-scale fact keeps its chip, and a billion-scale
+    # fact stated in trillions loses it.
+    ({**_revenue_fact(1.02e12, 2024), "unit": "CNY"}, "Revenue was RMB1.02 trillion", True),
+    (_revenue_fact(1.02e12, 2024), "Revenue was $1.02 trillion", True),
+    (_REVENUE_1_2B, "Revenue was $1.2 trillion", False),
+    (_REVENUE_1_2B, "Revenue was 1.2 trillion", False),
 ])
 async def test_service_adjacency_reads_the_figure_sign_and_scale(monkeypatch, fact, prose, kept):
     """A verified chip must not sit on a figure whose sign or scale contradicts its fact. Main kept
@@ -1831,6 +1842,49 @@ _FCF_BURN = {"concept": "free_cash_flow", "value": -300_000_000.0}
     # ... and make a year-shaped figure a figure, not context.
     ({"concept": "revenue", "value": 2.023e9}, "Revenue was $(2,023) billion ", False),
     ({**_NET_LOSS, "value": -2.023e9}, "Net income was $(2,023) million ", True),
+    # A written date's comma and period do not end the figure's clause, so the profit name before
+    # it is read; a comma between a month-day and a figure that is not a year still ends it.
+    (_NET_LOSS, "Net income for the fiscal year ended December 31, 2024 was $1.2 billion ", False),
+    (_NET_LOSS, "Net income for the year ended Dec. 31, 2024 was $1.2 billion ", False),
+    (_NET_LOSS, "Net income for the year ended January 28, 2023: $1.2 billion ", False),
+    (_REVENUE_GROWTH, "Revenue fell in the year ended December 31, 2024 by 15.3% ", False),
+    (_NET_LOSS, "Net loss for the year ended December 31, 2024 was $1.2 billion ", True),
+    (_NET_LOSS, "Net income was restated on March 5, 1.2 billion ", True),
+    # A minus sign reads through a currency label and emphasis, as an article does; a dash
+    # followed by a space is still a list bullet.
+    (_NET_LOSS, "Net income was -€1.2 billion ", True),
+    (_NET_LOSS, "Net income was -US$1.2 billion ", True),
+    (_NET_LOSS, "Net income was -RMB1.2 billion ", True),
+    (_NET_LOSS, "Net income was -£1.2 billion ", True),
+    (_NET_LOSS, "Net income was -HK$1.2 billion ", True),
+    (_NET_LOSS, "Net income was −€1.2 billion ", True),
+    (_NET_LOSS, "Net income was -**$1.2 billion** ", True),
+    ({"concept": "eps_diluted", "value": -2.04}, "Diluted EPS was -US$2.04 ", True),
+    (_NET_LOSS, "Net income swung to a **$1.2 billion** ", True),
+    (_GROSS_MARGIN, "- **17.9%** gross margin ", True),
+    # The subject of a causal verb before the figure names another item, so its direction words
+    # are not read; "boosted" and "weighed on" state a direction themselves, and a direction word
+    # after the verb, or before a verb that follows the figure, is still read.
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Higher interest rates drove a 15.3% ", True),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Increased competition caused a 15.3% ", True),
+    (_REVENUE_GROWTH, "Lower costs drove a 15.3% ", True),
+    (_REVENUE_GROWTH, "Lower prices boosted revenue by 15.3% ", True),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Higher costs weighed on revenue by 15.3% ", True),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Higher prices boosted revenue by 15.3% ", False),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Higher prices drove revenue up 15.3% ", False),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Revenue grew 15.3% and drove profits ", False),
+    # "Negative growth" is a fall.
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Revenue saw negative growth of 15.3% ", True),
+    (_REVENUE_GROWTH, "Revenue saw negative growth of 15.3% ", False),
+    # Trillion is a scale word, read at face value (E103); a "t" that begins a word is not one.
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was RMB1.02 trillion ", True),
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was $1.02 trillion ", True),
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was $1.02tn ", True),
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was $1.02T ", True),
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was $(1.02) trillion ", True),
+    ({"concept": "revenue", "value": 1.2e9}, "Revenue was $1.2 trillion ", False),
+    ({"concept": "revenue", "value": 1.2e9}, "Revenue was 1.2 trillion ", False),
+    ({"concept": "eps_diluted", "value": 2.04}, "Diluted EPS was $2.04 to $2.10 ", True),
 ])
 def test_value_guard_sign_rules(fact, window, kept):
     assert copilot_service._fact_matches_adjacent_number(fact, window) is kept
@@ -2076,6 +2130,8 @@ def test_count_uncited_figures_classifies_tokens():
     figures, uncited = copilot_service.count_uncited_figures(answer)
     assert figures == 3  # $97.69B, $17.45B, 17.9% — not 2024, not 3, not the [1] digit
     assert uncited == 2  # $17.45B and 17.9% sit outside any claim span
+    # "trillion" is a scale suffix too (E103), so a whole-number trillion figure counts.
+    assert copilot_service.count_uncited_figures("Revenue reached RMB1 trillion.") == (1, 1)
 
 
 @pytest.mark.unit

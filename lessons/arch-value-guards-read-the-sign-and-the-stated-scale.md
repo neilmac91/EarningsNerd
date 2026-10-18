@@ -21,12 +21,16 @@ The sign is read only where the prose states one, so the check stays falsificati
 - A negative amount or margin written without a sign loses its chip when its own clause, or the
   label it follows ("Net income: $1.2B"), names a profit-type metric (income, profit, earnings, EPS,
   margin, cash flow) and its claim span holds no sign word (loss, deficit, negative, used, outflow).
-  "Fell to" or "down" state a change, not a sign.
+  "Fell to" or "down" state a change, not a sign. A minus sign before a currency label or emphasis
+  ("-€1.2B", "-RMB1.2B", "-**$1.2B**") is a sign.
 - A negative growth rate loses its chip to a rise stated in its own clause.
 - A positive rate loses its chip to a figure written negative (a minus sign, "negative 15.3%", or
   the table form "(15.3)%"; "(15.3%)" in prose is an aside). A positive growth rate also loses it to
   a fall stated in its own clause.
 - The change of a loss is not read: "the net loss narrowed" is a positive rate.
+- A figure's own clause is the one a reader sees. A written date does not end it ("Net income for
+  the year ended December 31, 2024 was $1.2B" names the figure), and the subject of a causal verb
+  before the figure names the cause, not the figure ("higher rates drove a 15.3% [F1] decline").
 
 Do not demand sign wording the prose may lack. A comparative ("compared with $0.8 billion") sits in
 a span the previous chip has bounded, away from the word "loss", and is correct. The prompt puts the
