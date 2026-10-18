@@ -7,6 +7,7 @@ import { useEffect, Suspense, useState } from 'react'
 import { getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
 import { canRecordTelemetry, onRecordingBlocked, sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
 import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
+import { PostHogReadyContext } from '@/lib/posthogReady'
 
 function PostHogPageView() {
   const pathname = usePathname()
@@ -41,21 +42,31 @@ function PostHogPageViewWrapper() {
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const [initialized, setInitialized] = useState(false)
+  // The visitor's analytics choice as this provider last applied it; with `initialized` it makes PostHogReadyContext.
+  const [analyticsAllowed, setAnalyticsAllowed] = useState(false)
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
 
-    // Early return if PostHog key is not configured
+    // Without a key there is no SDK to start: only the choice is followed, so identification can still mirror the
+    // account id into Sentry once analytics is allowed.
     if (!key) {
       console.warn('PostHog: NEXT_PUBLIC_POSTHOG_KEY not set, analytics disabled')
-      return
+      const followChoice = (event?: Event) => {
+        const chosen = event ? (event as CustomEvent<CookiePreferences>).detail : getCookiePreferences()
+        setAnalyticsAllowed(chosen?.analytics === true)
+      }
+      followChoice()
+      window.addEventListener('cookieConsentChanged', followChoice)
+      return () => window.removeEventListener('cookieConsentChanged', followChoice)
     }
 
     // Check cookie consent before initializing PostHog
     const initializePostHog = (preferences?: CookiePreferences | null) => {
       try {
         const consent = preferences || getCookiePreferences()
+        setAnalyticsAllowed(consent?.analytics === true)
 
         // Only initialize if user has consented to analytics
         // OR if no preferences set yet (will be handled by cookie banner)
@@ -157,10 +168,15 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   // tracker joins once PostHog has loaded, so a first allow from the footer's Cookie settings never remounts the
   // route: a draft and the opener's focus survive it. Before consent the provider only hands its hooks the global
   // client, as their default context does, and consent still gates posthog.init above.
+  // Account identification waits on this (lib/posthogReady.ts): the visitor allows analytics and the SDK has loaded,
+  // or there is no key and nothing to load.
+  const ready = analyticsAllowed && (initialized || !process.env.NEXT_PUBLIC_POSTHOG_KEY)
   return (
-    <PHProvider client={posthog}>
-      {initialized && posthog?.__loaded ? <PostHogPageViewWrapper /> : null}
-      {children}
-    </PHProvider>
+    <PostHogReadyContext.Provider value={ready}>
+      <PHProvider client={posthog}>
+        {initialized && posthog?.__loaded ? <PostHogPageViewWrapper /> : null}
+        {children}
+      </PHProvider>
+    </PostHogReadyContext.Provider>
   )
 }
