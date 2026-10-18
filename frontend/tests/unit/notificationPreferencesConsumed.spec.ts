@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { bindingResolver } from './astBindings'
+import { bindingResolver, containerEscape } from './astBindings'
 
 /**
  * No dead preference ships (DSW-01). Every alert preference the settings form renders or saves, and every
@@ -33,14 +33,19 @@ import { bindingResolver } from './astBindings'
  * are read the same way: a call of `save`, any `.mutate` or `.mutateAsync`, the function a mutation runs (its
  * `mutationFn`) called directly, or any such function that calls one, its update written in place, held in a const or
  * spread from one; and each name handed to `setBool` or any such function that saves `{ [name]: … }` keyed by its own
- * parameter. Out of reach, each planted as a gap the self-check asserts unread: a value or a function from another
- * module, a class component, the value kept in React state or a ref (`useState`, `useRef`), a copy made another way (a
- * JSON round trip), an array's rest, a field named by a computed key or enumerated (`prefs[key]`,
- * `Object.entries(prefs)`), a function called through call, apply or bind or held in an array, and a save sent by hand
- * (`fetch`). A field the API fills from the account's entitlements
- * (`_prefs_response` in backend/app/routers/users.py assigns it from `ent.`, and the update model does not take it) is
- * gating the user cannot set, not a preference, so a read of it there is not held to the jobs; read directly as a
- * control's state (`checked={prefs.x}`), as main read it, any field is.
+ * parameter. A container the scan reads through a name (an update a save sends, an object of savers, an options array
+ * and the objects in it) is read only while nothing can change it after its initializer, each use read as astBindings'
+ * containerEscape reads it, a save that sends it (followed into a same-file saver's parameter) and an `options` prop
+ * counting as reads: a write, a method that may write it, a call or a component it is handed to, or an export fails
+ * the scan with the use and its line. Out of reach, each planted as a gap the self-check asserts unread: a value or a
+ * function from another module, a class component, the value kept in React state or a ref (`useState`, `useRef`), a
+ * copy made another way (a JSON round trip), an array's rest, a field named by a computed key or enumerated
+ * (`prefs[key]`, `Object.entries(prefs)`), a function called through call, apply or bind or held in an array, a save
+ * sent by hand (`fetch`), and an object a same-file hook returns, written after the call (read as the hook writes it);
+ * a component that writes the options array it is handed is not read either. A field the API fills from the account's
+ * entitlements (`_prefs_response` in backend/app/routers/users.py assigns it from `ent.`, and the update model does not
+ * take it) is gating the user cannot set, not a preference, so a read of it there is not held to the jobs; read
+ * directly as a control's state (`checked={prefs.x}`), as main read it, any field is.
  *
  * The values the form offers are read where they are written, in each form a choice takes: any element's
  * `value="…"` or `value={'…'}` (an <option>, a radio input, a custom item; `value={prefs.x}` is the control's
@@ -138,6 +143,9 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     const inner = unwrap(node)
     return ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner) ? inner.text : null
   }
+  /** The containers the scan reads through a name (and the objects of an options array it reads each entry's value of),
+      each checked once the scan is done: nothing may change one after its initializer. */
+  const followed = new Map<ts.ObjectLiteralExpression | ts.ArrayLiteralExpression, string>()
   /** The array literal an expression names: written in place, or a const in this file. */
   const arrayOf = (node: ts.Expression): ts.ArrayLiteralExpression | null => {
     const inner = unwrap(node)
@@ -152,6 +160,7 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
       ts.forEachChild(n, find)
     }
     find(source)
+    if (found) followed.set(found, inner.text)
     return found
   }
   /** The values a `value={…}` takes: a literal, or the elements (or one field of each) of the array a `.map` callback walks. */
@@ -170,10 +179,11 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
         || call.expression.name.text !== 'map') return null
       const array = arrayOf(call.expression.expression)
       if (!array) return null
-      const values = array.elements.map((item) => {
+      const values = array.elements.map((item, index) => {
         if (!field) return literal(item as ts.Expression)
         const object = unwrap(item as ts.Expression)
         if (!ts.isObjectLiteralExpression(object)) return null
+        if (followed.has(array)) followed.set(object, `${followed.get(array)}[${index}]`)
         const prop = object.properties.find(
           (p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && !!p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === field,
         )
@@ -196,6 +206,10 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     }
     const array = arrayOf(expression)
     if (array) {
+      array.elements.forEach((item, index) => {
+        const object = unwrap(item as ts.Expression)
+        if (followed.has(array) && ts.isObjectLiteralExpression(object)) followed.set(object, `${followed.get(array)}[${index}]`)
+      })
       const values = array.elements.map((item) => literal(valueOf(item as ts.Expression)))
       return values.every((value): value is string => value !== null) ? values : null
     }
@@ -320,9 +334,16 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     const inner = bare(value)
     if (ts.isObjectLiteralExpression(inner)) return [inner]
     const name = nameOf(inner)
-    if (name !== undefined) return objectsIn(consts.get(name), depth + 1)
+    if (name !== undefined) return objectsIn(follow(name), depth + 1)
     if (!ts.isCallExpression(inner)) return []
     return named(nameOf(inner.expression)).flatMap((hook) => returnsOf(hook).flatMap((value) => objectsIn(value, depth + 1)))
+  }
+  /** What a name holds, a container recorded as followed. */
+  const follow = (name: string): ts.Expression | undefined => {
+    const init = consts.get(name)
+    const inner = init && bare(init)
+    if (inner && (ts.isObjectLiteralExpression(inner) || ts.isArrayLiteralExpression(inner))) followed.set(inner, name.replace(/#\d+$/, ''))
+    return init
   }
   /** A tag that provides a context: `<C.Provider>`, or `<C>` where C is a same-file `createContext(…)` (React 19). */
   const contextOf = (tag: string | undefined): string | undefined => {
@@ -364,13 +385,18 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     if (isHolder(value)) addHolder(name)
     for (const fn of functionsIn(value)) addFunction(name, fn)
     for (const object of objectsIn(value)) {
-      for (const property of object.properties) {
+      const fns = object.properties.flatMap((property) => {
         const key = propertyKey(property.name)
-        if (key === undefined) continue
-        if (ts.isMethodDeclaration(property)) addFunction(`${name}.${key}`, property)
-        else if (ts.isPropertyAssignment(property)) for (const fn of functionsIn(property.initializer)) addFunction(`${name}.${key}`, fn)
-        else if (ts.isShorthandPropertyAssignment(property)) for (const fn of named(nameOf(property.name))) addFunction(`${name}.${key}`, fn)
-      }
+        if (key === undefined) return []
+        const held = ts.isMethodDeclaration(property) ? [property] : ts.isPropertyAssignment(property) ? functionsIn(property.initializer)
+          : ts.isShorthandPropertyAssignment(property) ? named(nameOf(property.name)) : []
+        return held.map((fn) => [`${name}.${key}`, fn] as const)
+      })
+      for (const [key, fn] of fns) addFunction(key, fn)
+      // An object of functions a const holds, read at its declaration: checked like a container read by its name.
+      let top: ts.Node = object
+      while (ts.isParenthesizedExpression(top.parent) || ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent)) top = top.parent
+      if (fns.length && ts.isVariableDeclaration(top.parent) && top.parent.initializer === top) followed.set(object, top.parent.name.getText(source))
     }
   }
   /** The array literals a value is: written in place, or held in a const. */
@@ -379,7 +405,7 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     const inner = bare(value)
     if (ts.isArrayLiteralExpression(inner)) return [inner]
     const name = nameOf(inner)
-    return name !== undefined ? arraysIn(consts.get(name), depth + 1) : []
+    return name !== undefined ? arraysIn(follow(name), depth + 1) : []
   }
   /** Hand a value to a binding: a name; an array pattern, each element the array's element at its index; or an object
       pattern, whose keys taken out of the prefs value are fields read, whose rest holds the rest of it, and each of whose
@@ -595,6 +621,20 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     ts.forEachChild(node, visit)
   }
   visit(source)
+  // Every container the scan read through a name: nothing may change it after its initializer (a write would save a field or
+  // offer a value the scan never saw). Its read sites are reads: an update a save sends (a same-file function it is handed to
+  // is followed into its parameter) and an options prop.
+  const sends = (use: ts.Expression) => {
+    const call = use.parent
+    if (!ts.isCallExpression(call) || !call.arguments.includes(use) || !savesHere(call)) return false
+    const callee = bare(call.expression)
+    return !(ts.isIdentifier(callee) && resolve(callee))
+  }
+  const offers = (use: ts.Expression) => ts.isJsxExpression(use.parent) && ts.isJsxAttribute(use.parent.parent) && use.parent.parent.name.getText(source) === 'options'
+  for (const [container, name] of followed) {
+    const escaped = containerEscape(container, source, resolve, { reads: (use) => sends(use) || offers(use) })
+    if (escaped) unreadable.push(`${file}:${line(container)} ${name} (a container that can change after its initializer: ${escaped.how}, line ${line(escaped.at)})`)
+  }
   // The reads beside main's: a field the API fills from entitlements is gating, not a preference, unless read as a state above.
   for (const [field, at] of reads) if (!derived.has(field) && !fields.has(field)) fields.set(field, at)
   return { fields, options, unreadable }
@@ -684,10 +724,18 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       "export const M = () => <SegmentedControl label=\"x\" options={[{ value: v, label: 'V' }]} value={prefs.m} onChange={() => {}} />",
       // A select's value is its state; an <option>'s is what it offers, and the current preference offers no literal.
       'export const N = () => <select value={prefs.digest}><option value={prefs.digest}>Current</option></select>',
+      // An entry of an options array written after its initializer (#1370's seventh round): loud, through a .map or a prop.
+      "const CHOICES2 = [{ value: 'choice_written' }]",
+      "CHOICES2[0].value = 'choice_extra'",
+      'export const O = () => <select>{CHOICES2.map((c) => <option key={c.value} value={c.value}>{c.value}</option>)}</select>',
+      "const PERIODS2 = [{ value: 'period_written', label: 'W' }]",
+      "PERIODS2[0].value = 'period_extra'",
+      'export const P = () => <SegmentedControl label="p" options={PERIODS2} value={prefs.p} onChange={() => {}} />',
     ].join('\n')
     const { options, unreadable } = formPreferences('fixture.tsx', fixture)
     expect([...options.keys()].sort()).toEqual([
-      'annual', 'biweekly', 'daily', 'fortnightly', 'hourly', 'immediate', 'interim', 'monthly', 'never', 'quarterly', 'weekly', 'yearly',
+      'annual', 'biweekly', 'choice_written', 'daily', 'fortnightly', 'hourly', 'immediate', 'interim', 'monthly', 'never', 'period_written', 'quarterly',
+      'weekly', 'yearly',
     ])
     expect(unreadable).toEqual([
       'fixture.tsx:7 <option value={v}>',
@@ -695,6 +743,8 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       'fixture.tsx:16 <SegmentedControl options={load()}>',
       "fixture.tsx:17 <SegmentedControl options={[{ value: v, label: 'V' }]}>",
       'fixture.tsx:18 <option value={prefs.digest}>',
+      'fixture.tsx:19 CHOICES2[0] (a container that can change after its initializer: an entry assigned, line 20)',
+      'fixture.tsx:22 PERIODS2[0] (a container that can change after its initializer: an entry assigned, line 23)',
     ])
   })
 
@@ -742,6 +792,17 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['  const [, ...restPair] = [other, prefs]'],
       // A save through any trigger a mutation offers, and the function it runs called directly (the re-review: mutateAsync).
       ['  const mutation2 = useMutation({ mutationFn: updatePrefs })'],
+      // A container the scan reads through a name, written after its initializer (#1370's seventh round): an update a save
+      // sends, an options array, an object of savers. Each fails loudly; the scan still reads what the initializer holds.
+      ['  const update3 = { f_written_update: true }', ['f_written_update']],
+      ['  update3.f_written_extra = true'],
+      ["  const OFFERED = ['offered_written']"],
+      ["  OFFERED.push('offered_extra')"],
+      ['  const acts = { send: (u: Update) => save(u) }'],
+      ['  acts.extra = true'],
+      ['  const hooked = useNoop()'],
+      ['  const update4 = { f_rebound_update: true }', ['f_rebound_update']],
+      ['  hooked.keep = (u: Update) => save(u)'],
       ['  return ('],
       ['    <PrefsContext.Provider value={prefs}>'],
       ['    <Prefs19 value={prefs}>'],
@@ -787,6 +848,10 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['      <button onClick={() => updatePrefs({ f_mutation_fn: true })}>Direct</button>', ['f_mutation_fn']],
       ['      <button onClick={() => persist(update)}>Held</button>'],
       ['      <button onClick={() => persist({ ...base })}>Spread</button>'],
+      ['      <button onClick={() => persist(update3)}>Written</button>'],
+      ['      <select>{OFFERED.map((o) => <option key={o} value={o}>{o}</option>)}</select>'],
+      ['      <button onClick={() => acts.send({ f_acts_saved: true })}>Acts</button>', ['f_acts_saved']],
+      ['      <button onClick={() => persistOther(update4)}>Rebound</button>'],
       ['      <button onClick={() => run(persist)}>Run</button>'],
       ['      <Panel onSave={persist} />'],
       // The prefs value handed on: a prop, a spread, a wrapped or an object's component, a rest, a context, a hook.
@@ -817,6 +882,9 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['      <Toggle checked={viaJson.f_gap_json} />', [], ['f_gap_json']],
       ['      <Toggle checked={restPair[0].f_gap_array_rest} />', [], ['f_gap_array_rest']],
       ["      <button onClick={() => fetch('/api/prefs', { method: 'PUT', body: JSON.stringify({ f_gap_fetch: true }) })}>Fetch</button>", [], ['f_gap_fetch']],
+      // Out of reach too: an object a same-file hook returns, written after the call (its returned object is read as the hook
+      // writes it).
+      ['      <button onClick={() => hooked.keep({ f_gap_hook_write: true })}>Hooked</button>', [], ['f_gap_hook_write']],
       ['    </Prefs19>'],
       ['    </PrefsContext.Provider>'],
       ['  )'],
@@ -824,6 +892,8 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['function persistDecl(u: Update) { mutation.mutate(u) }'],
       ['function usePersist() { return (u: Update) => save(u) }'],
       ['function useActions() { return { keep: (u: Update) => save(u) } }'],
+      ['function useNoop() { return { keep: (u: Update) => u } }'],
+      ['function persistOther(u: Update) { u = { f_rebound_extra: true }; save(u) }'],
       ['function usePrefsValue() { const { data: prefs } = useQuery(q); return prefs }'],
       ["function useLabel(p: Prefs) { return p.f_hook_arg ? 'On' : 'Off' }", ['f_hook_arg']],
       ['function run(fn: (u: Update) => void) { fn({ f_arg_saved: true }) }', ['f_arg_saved']],
@@ -848,10 +918,20 @@ describe('Notification preferences the form offers are read by the alert jobs', 
     const { fields, options, unreadable } = formPreferences('fixture.tsx', FORMS.map(([code]) => code).join('\n'), new Set(['f_available']))
     expect([...fields.keys()].sort()).toEqual(FORMS.flatMap(([, read = []]) => read).sort())
     expect(FORMS.flatMap(([, , gap = []]) => gap).filter((name) => fields.has(name)), 'a limit the header states is read after all: move it to the read forms').toEqual([])
-    expect([...options.keys()].sort()).toEqual(['hourly', 'monthly', 'never', 'weekly'])
+    expect([...options.keys()].sort()).toEqual(['hourly', 'monthly', 'never', 'offered_written', 'weekly'])
     // The current preference as an option's value still offers no literal (0662fdcf); a context provider's value is no choice.
-    const optionLine = FORMS.findIndex(([code]) => code.includes('<option value={prefs.f_option}>')) + 1
-    expect(unreadable).toEqual([`fixture.tsx:${optionLine} <option value={prefs.f_option}>`])
+    // Each written container is loud, with what its write does and where.
+    const lineWith = (needle: string) => FORMS.findIndex(([code]) => code.includes(needle)) + 1
+    const written = (name: string, how: string, at: string) =>
+      `fixture.tsx:${lineWith(`const ${name} =`)} ${name} (a container that can change after its initializer: ${how}, line ${lineWith(at)})`
+    expect(unreadable).toEqual([
+      `fixture.tsx:${lineWith('<option value={prefs.f_option}>')} <option value={prefs.f_option}>`,
+      written('acts', 'an entry assigned', 'acts.extra'),
+      written('update3', 'an entry assigned', 'update3.f_written_extra'),
+      // A same-file saver that sends another object than the one it is handed (its parameter reassigned).
+      written('update4', 'the name that holds it assigned', 'function persistOther'),
+      written('OFFERED', 'a method called on it', 'OFFERED.push'),
+    ])
     // The gating the response fills from the entitlements is no setting: the update model takes none of it.
     expect([...DERIVED], 'the response fills the two gates from the entitlements').toEqual(expect.arrayContaining(['eightk_available', 'realtime_available']))
     expect([...DERIVED].filter((field) => SETTABLE.has(field)), 'a field the user can set is a preference, never gating').toEqual([])
