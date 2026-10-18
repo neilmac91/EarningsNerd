@@ -51,7 +51,10 @@ import ts from 'typescript'
  *    which types suspend: by default one known by the name Suspense). A same-file component's element, by JSX,
  *    `createElement` or the runtime's calls, also
  *    holds what the component returns, each time it is rendered (`<AlertMark />` where `AlertMark` returns
- *    `<BellIcon />`), so a glyph or an icon a component draws is read where the component is rendered;
+ *    `<BellIcon />`), so a glyph or an icon a component draws is read where the component is rendered. A gate that
+ *    reads an element as what renders in its place (`rendered`, the em-dash gate's) has it hold what the component
+ *    returns and nothing else, asked before its own leaves. A tag that names an intrinsic element (`<span>`,
+ *    `<my-chart>`) is a string to React, never the binding of that name a file may declare;
  *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions); an
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
@@ -355,6 +358,13 @@ export interface HeldOptions<L> {
       wait). By default, a type known by the name Suspense that is not a same-file component; a gate that reads React's
       types as values (the em-dash gate) says it of a type however the type reaches the element. */
   suspends?: (type: ts.Expression) => boolean
+  /** Whether a same-file component's element (by JSX, createElement or the runtime's calls) is what the component
+      returns and nothing else, asked before `leafOf`: for a gate that reads an element as what renders in its place
+      (the em-dash gate), so an element of a component that returns an element of its own is that element, and one of a
+      component that passes its children or a prop through, or returns a fragment or text, is what it renders into the
+      element's parent. By default the element is `leafOf`'s, or else holds what the component returns and the children
+      it is handed. */
+  rendered?: boolean
 }
 
 /** React's calls that make an element of the type they are given: createElement, and the JSX runtime's jsx, jsxs and
@@ -367,6 +377,15 @@ const RUNTIME_MAKERS = new Set(['jsx', 'jsxs', 'jsxDEV'])
 export const writtenChild = (c: ts.JsxChild): boolean =>
   !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces) && !(ts.isJsxExpression(c) && !c.expression)
 
+/** The type a JSX tag names when it may be a component: an identifier or a member. A tag that names an intrinsic element
+    (an identifier that starts lower case or holds a dash: `<span>`, `<my-chart>`) or a namespaced one is a string to
+    React, never a binding, whatever the file declares by that name. */
+export const componentTag = (opening: ts.JsxOpeningLikeElement): ts.Identifier | ts.PropertyAccessExpression | undefined => {
+  const tag = opening.tagName
+  if (ts.isIdentifier(tag)) return /^[a-z]|-/.test(tag.text) ? undefined : tag
+  return ts.isPropertyAccessExpression(tag) ? tag : undefined
+}
+
 /**
  * The values of one source. `leafOf` names the leaves an expression is by itself (an import of an icon, a
  * namespace's member), or returns undefined.
@@ -374,7 +393,7 @@ export const writtenChild = (c: ts.JsxChild): boolean =>
 export function heldValues<L>(
   sf: ts.SourceFile,
   leafOf: (e: ts.Expression) => L[] | undefined,
-  { memberLeaf, textLeaf, suspends }: HeldOptions<L> = {},
+  { memberLeaf, textLeaf, suspends, rendered }: HeldOptions<L> = {},
 ): HeldValues<L> {
   // Keyed by the declaration (scopeResolver), never by the bare name.
   const holders = new Map<ts.Node, Held<L>>()
@@ -449,6 +468,24 @@ export function heldValues<L>(
     }
     return value
   }
+  /** What same-file components render where their element is: what they return, the components themselves aside. */
+  const renders = (fns: Set<Fn>, element: ts.Node, record?: Set<ts.Node>): Held<L> => {
+    const value = returned(fns, record)
+    if (leavesOf(value).size > 0) record?.add(element)
+    return { ...value, fns: null }
+  }
+  /** Whether a call is one of React's ELEMENT_MAKERS (a same-file function of that name is the file's own). */
+  const maker = (call: ts.CallExpression) => ELEMENT_MAKERS.has(calleeName(call)) && !valueOf(call.expression).fns?.size
+  /** The same-file components an element is of: its JSX tag's, or the type a maker call is given; null for any other
+      expression. */
+  const componentsOf = (x: ts.Expression): Set<Fn> | null => {
+    if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) {
+      const type = componentTag(ts.isJsxElement(x) ? x.openingElement : x)
+      return type ? valueOf(type).fns : null
+    }
+    const type = ts.isCallExpression(x) && maker(x) ? x.arguments[0] : undefined
+    return type && !ts.isSpreadElement(type) ? valueOf(type).fns : null
+  }
 
   const leavesAre = (own: L[]): Held<L> => {
     const leaves = new Map<L, number>()
@@ -487,6 +524,9 @@ export function heldValues<L>(
 
   const valueOf = (e: ts.Expression, record?: Set<ts.Node>): Held<L> => {
     const x = unwrapHeld(e)
+    // A same-file component's element is what the component renders, for a gate that reads it so (`rendered`).
+    const components = rendered ? componentsOf(x) : null
+    if (components?.size) return renders(components, x, record)
     const own = leafOf(x)
     if (own?.length) {
       record?.add(x)
@@ -520,16 +560,11 @@ export function heldValues<L>(
     if (ts.isCallExpression(x)) return callValue(x, record)
     if (ts.isJsxSelfClosingElement(x) || ts.isJsxElement(x) || ts.isJsxFragment(x)) {
       const opening = ts.isJsxFragment(x) ? undefined : ts.isJsxElement(x) ? x.openingElement : x
-      const tag = opening?.tagName
-      const type = tag && (ts.isIdentifier(tag) || ts.isPropertyAccessExpression(tag)) ? tag : undefined
+      const type = opening && componentTag(opening)
       let value = type ? valueOf(type, record) : empty<L>()
       const component = !!value.fns?.size
       // A same-file component's element holds what the component renders, not the component.
-      if (component) {
-        const rendered = returned(value.fns, record)
-        if (leavesOf(rendered).size > 0) record?.add(x)
-        value = { ...rendered, fns: null }
-      }
+      if (component && value.fns) value = renders(value.fns, x, record)
       // Its children: those written inside it, or else the `children` its props give it; and a Suspense's fallback,
       // which renders in their place while they wait (one or the other renders).
       const written = ts.isJsxSelfClosingElement(x) ? [] : x.children.filter(writtenChild)
@@ -596,11 +631,7 @@ export function heldValues<L>(
     if ((ELEMENT_MAKERS.has(name) || name === 'cloneElement') && !valueOf(x.expression).fns?.size) {
       let value = arg(0)
       const component = name !== 'cloneElement' && !!value.fns?.size
-      if (component) {
-        const rendered = returned(value.fns, record)
-        if (leavesOf(rendered).size > 0) record?.add(x)
-        value = { ...rendered, fns: null }
-      }
+      if (component && value.fns) value = renders(value.fns, x, record)
       // The children it hands the element: createElement's and cloneElement's arguments from the third on, rendered
       // together, or else (and always for the runtime's calls) its props' `children`; and a Suspense's fallback.
       let children = empty<L>()
@@ -830,8 +861,8 @@ export function heldValues<L>(
       properties (a later attribute overriding), and its children as `children`. */
   const render = (x: ts.JsxElement | ts.JsxSelfClosingElement, record?: Set<ts.Node>) => {
     const opening = ts.isJsxElement(x) ? x.openingElement : x
-    const tag = opening.tagName
-    if (!ts.isIdentifier(tag) && !ts.isPropertyAccessExpression(tag)) return
+    const tag = componentTag(opening)
+    if (!tag) return
     const fns = valueOf(tag).fns
     if (!fns?.size) return
     const props = jsxProps(opening, record)
@@ -898,11 +929,10 @@ export function heldValues<L>(
     return declaration ? holders.get(declaration) : undefined
   }
   const renderOf = (element: ts.JsxOpeningLikeElement | ts.CallExpression): Held<L> => {
-    const maker = (call: ts.CallExpression) => ELEMENT_MAKERS.has(calleeName(call)) && !valueOf(call.expression).fns?.size
-    const type = ts.isCallExpression(element) ? (maker(element) ? element.arguments[0] : undefined) : element.tagName
+    const type = ts.isCallExpression(element) ? (maker(element) ? element.arguments[0] : undefined) : componentTag(element)
     if (!type || !(ts.isIdentifier(type) || ts.isPropertyAccessExpression(type))) return empty()
     const fns = valueOf(type).fns
-    return fns?.size ? { ...returned(fns), fns: null } : empty()
+    return fns?.size ? renders(fns, element) : empty()
   }
   return { valueOf: (e) => valueOf(e), holderOf, renderOf, held }
 }

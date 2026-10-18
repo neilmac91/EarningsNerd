@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, propertyOf, scopeResolver, unwrapHeld, writtenChild, type HeldValues } from './heldValues'
+import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, propertyOf, scopeResolver, unwrapHeld, writtenChild, type HeldValues } from './heldValues'
 
 /**
  * Copy-voice structural guard: no em-dashes in user-facing copy
@@ -62,8 +62,19 @@ import { ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, propertyOf, scopeResol
  * `children`), or else its element's. `Children.only` gives back the element
  * it is given, and `Children.toArray` and `Children.map` keep an element whole
  * (they do not enter a fragment) with its type, so each is read through. A
- * component named Fragment that the file declares is its own and stays an
- * element.
+ * same-file component's element renders what the component returns in its
+ * place, so the shared reading (`rendered`) reads it as that: an element of
+ * its own when the component returns one (`<span>{children}</span>`; a
+ * component named Fragment that the file declares is one of these, read by
+ * what it returns), and otherwise what the component passes through or
+ * returns itself: its children (`<>{children}</>`,
+ * `<Fragment>{children}</Fragment>`, `children` or `props.children`, renamed
+ * or destructured), a prop it renders in their place, a render prop's return,
+ * or a fragment or text of its own, from a function declaration or an arrow,
+ * wrapped in `memo` or `forwardRef`, held, handed through a prop, made by an
+ * element call or cloned. Beside siblings it is joined
+ * (`<p><Pass>—</Pass> shares</p>`); alone in a cell it stands alone. A tag
+ * that names an intrinsic element (`<abbr>`) is never a binding.
  * What a same-file function returns is its call's value, read where the
  * call is (E76): a formatter's `'—'` fallback fails wherever its call is
  * joined into copy (a unit after it, `{shares(n)} shares` or
@@ -72,22 +83,27 @@ import { ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, propertyOf, scopeResol
  * `useMemo`'s beside a sibling). A formatter whose value sits beside copy
  * returns no figure for a missing value (`null`), and its caller renders the
  * token in an element of its own in its place. Out of reach, each planted
- * as a gap in the self-check and review-checked: an element that holds the
- * token, set beside a unit (`{v ?? <Missing />} sh`: an element is one value
- * to this reading, which cannot tell it from What changed's dash beside its
- * arrow and sr-only labels); an array held in a name or returned by a call,
- * rendered as children (the reading keeps what an array's elements hold, not
- * how many there are); a context's Consumer, whose function child's return
- * renders into its parent; `createFactory`, which React 19 removed, so a call
- * of it throws before anything renders; an element call whose arguments are
- * spread in; a lazy type, which a promise resolves; a call's value wrapped in
- * another call or a method (`String(f(n))`, `f(n).trim()`); a token or a type
- * that crosses modules (an export read in another file, an imported
- * formatter's fallback, a component named Fragment or a context imported from
- * another module, which may be React's re-exported); React state; a class's
- * field read through `this`; a promise's `then`; and a generator's `yield`.
- * One over-read fails closed: a clone handed children keeps its element's own
- * in this reading.
+ * as a gap in the self-check and review-checked: an element of its own that
+ * holds the token, set beside a unit (`{v ?? <Missing />} sh` where Missing
+ * returns a span: an element is one value to this reading, which cannot tell
+ * it from What changed's dash beside its arrow and sr-only labels); an array
+ * held in a name or returned by a call, rendered as children (the reading
+ * keeps what an array's elements hold, not how many there are); a context's
+ * Consumer, whose function child's return renders into its parent;
+ * `createFactory`, which React 19 removed, so a call of it throws before
+ * anything renders; an element call whose arguments are spread in; a lazy
+ * type, which a promise resolves; a call's value wrapped in another call or a
+ * method (`String(f(n))`, `f(n).trim()`); a token or a type that crosses
+ * modules (an export read in another file, an imported formatter's fallback, a
+ * component named Fragment or a context imported from another module, which
+ * may be React's re-exported, and an imported component, whose return the
+ * reading cannot see); React state; a class's field read through `this` (a
+ * class component's render among them); a promise's `then`; and a generator's
+ * `yield`. Two over-reads fail closed: a clone handed children keeps its
+ * element's own in this reading, and a component's element holds what every
+ * element of it in the file is handed (the shared reading's parameter is not
+ * told apart by call), so a pass-through handed the token in one place fails
+ * beside a unit in another.
  *
  * If you're writing copy and want a dash: restructure the sentence (split it,
  * use a colon, or a middot separator for compact labels). En-dashes (–) in
@@ -160,9 +176,10 @@ type TypeLeaf = 'react' | 'context' | 'fragmentType' | 'suspense'
     cannot read may be any of them. */
 const reactMember = (key: string | undefined): TypeLeaf[] | undefined =>
   key === undefined ? ['fragmentType', 'suspense'] : key === 'Suspense' ? ['suspense'] : FRAGMENT_TYPES.has(key) ? ['fragmentType'] : key === 'default' ? ['react'] : undefined
-/** What the kind reading holds: an element's kind (a fragment, or an element of its own), and what a clone's props and
-    children are to it (`inert`: a clone is its element's kind). */
-type Kind = 'fragment' | 'element' | 'inert'
+/** What the kind reading holds: an element's kind (a fragment, or an element of its own), text, which renders into its
+    parent as a fragment's children do, and what a clone's props and children are to it (`inert`: a clone is its
+    element's kind). */
+type Kind = 'fragment' | 'element' | 'text' | 'inert'
 /** What the token reading holds as a leaf: the token, and an element, a value of its own (a fragment is no element: the
     shared reading holds its children). */
 type Leaf = 'token' | 'element'
@@ -224,18 +241,15 @@ function violationsIn(text: string, file: string): string[] {
     return leaves.has('fragmentType') || leaves.has('suspense')
   }
   const isSuspense = (type: ts.Expression) => typeLeaves(type).has('suspense')
-  /** The type a JSX tag names: none for an intrinsic element (`<span>`, `<my-chart>`) or a namespaced one. */
-  const tagType = (opening: ts.JsxOpeningLikeElement): ts.Expression | undefined => {
-    const tag = opening.tagName
-    return ts.isJsxNamespacedName(tag) || (ts.isIdentifier(tag) && /^[a-z]|-/.test(tag.text)) ? undefined : tag
-  }
   const openingOf = (e: ts.JsxElement | ts.JsxSelfClosingElement) => (ts.isJsxElement(e) ? e.openingElement : e)
   /** The type an element call is given: its first argument, unless it is spread in (a gap). */
   const typeArgument = (call: ts.CallExpression) => (call.arguments[0] && !ts.isSpreadElement(call.arguments[0]) ? call.arguments[0] : undefined)
 
   // A clone's type is its element's (React's cloneElement keeps `element.type`), and its element is a value: written in
   // place, held, handed through a parameter or a prop, returned, or picked by Children's methods. The kind reading
-  // follows it there; a clone's props and children do not change its kind.
+  // follows it there; a clone's props and children do not change its kind. A same-file component's element is the kind
+  // of what the component returns (the shared reading's `rendered`), and text renders into its parent as a fragment's
+  // children do, so a component that passes its children through renders into its element's parent.
   /** Whether an expression is a clone's argument after its first (its props or a child). */
   const cloneArgument = (e: ts.Expression): boolean => {
     let n: ts.Node = e
@@ -244,28 +258,32 @@ function violationsIn(text: string, file: string): string[] {
   }
   const kindLeafOf = (e: ts.Expression): Kind[] | undefined => {
     if (cloneArgument(e)) return ['inert']
+    if (ts.isStringLiteralLike(e) || ts.isTemplateExpression(e) || ts.isNumericLiteral(e)) return ['text']
     if (ts.isJsxFragment(e)) return ['fragment']
-    if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e)) return isFragmentType(tagType(openingOf(e))) ? ['fragment'] : ['element']
+    if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e)) return isFragmentType(componentTag(openingOf(e))) ? ['fragment'] : ['element']
     if (ts.isCallExpression(e) && ELEMENT_MAKERS.has(elementCall(e) ?? '')) return isFragmentType(typeArgument(e)) ? ['fragment'] : ['element']
     return undefined
   }
   let kindsRead: HeldValues<Kind> | undefined
-  const kinds = () => (kindsRead ??= heldValues<Kind>(source, kindLeafOf))
-  /** Whether a clone may be a fragment: its element may be one. */
+  const kinds = () =>
+    (kindsRead ??= heldValues<Kind>(source, kindLeafOf, { textLeaf: (text) => (text.containsOnlyTriviaWhiteSpaces ? undefined : ['text']), rendered: true }))
+  /** Whether a clone may render into its parent: its element may be a fragment, or render text into its parent. */
   const clonesFragment = (call: ts.CallExpression) => {
     const element = typeArgument(call)
-    return !!element && leavesOf(kinds().valueOf(element)).has('fragment')
+    const kindsOfElement = element ? leavesOf(kinds().valueOf(element)) : new Map<Kind, number>()
+    return kindsOfElement.has('fragment') || kindsOfElement.has('text')
   }
 
   /** The parents that render their children into their own parent: `<>`, and an element of a fragment type. */
-  const fragment = (parent: ts.JsxElement | ts.JsxFragment) => ts.isJsxFragment(parent) || isFragmentType(tagType(parent.openingElement))
+  const fragment = (parent: ts.JsxElement | ts.JsxFragment) => ts.isJsxFragment(parent) || isFragmentType(componentTag(parent.openingElement))
   const values = heldValues<Leaf>(
     source,
     (e) => {
       if (isToken(e)) return ['token']
       // An element is a value of its own; a fragment, `<>` or an element of a fragment type made by JSX, React's element
-      // calls or a clone of one, is its children (the shared reading holds them).
-      if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e)) return isFragmentType(tagType(openingOf(e))) ? undefined : ['element']
+      // calls or a clone of one, is its children (the shared reading holds them). A same-file component's element never
+      // reaches here: the shared reading holds what the component returns (`rendered`).
+      if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e)) return isFragmentType(componentTag(openingOf(e))) ? undefined : ['element']
       if (!ts.isCallExpression(e)) return undefined
       const name = elementCall(e)
       if (!name) return undefined
@@ -274,7 +292,7 @@ function violationsIn(text: string, file: string): string[] {
     },
     // The shared reading follows each same-file call into what the function returns (E76), so a formatter's fallback
     // fails where its call is joined into copy; the self-check's E76 plants (88 to 97) fail if it stops.
-    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined), suspends: isSuspense },
+    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined), suspends: isSuspense, rendered: true },
   )
   const holdsToken = (joined: Joined) => {
     if (!joined) return false
@@ -338,11 +356,14 @@ function violationsIn(text: string, file: string): string[] {
       if (!soleChild(node, fragment) || node.dotDotDotToken) return [node.expression]
       return besideEachOther([node.expression])
     }
-    // An element of a fragment type written among siblings renders into its parent what its props give it: its
-    // `children` when none are written inside it, and a Suspense's fallback.
+    // An element written among siblings renders into its parent: a same-file component's, what the component returns
+    // (`rendered`: an element of its own is one value, so what the component passes through or returns itself fails);
+    // one of a fragment type, what its props give it: its `children` when none are written inside it, and a Suspense's
+    // fallback.
     if ((ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) && (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent))) {
       const opening = openingOf(node)
-      const type = tagType(opening)
+      const type = componentTag(opening)
+      if (type && values.valueOf(type).fns?.size) return soleChild(node, fragment) ? [] : [node]
       if (!type || !isFragmentType(type)) return []
       const written = ts.isJsxElement(node) && node.children.some(writtenChild)
       if (soleChild(node, fragment)) {
@@ -592,6 +613,61 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       'export const EM = () => <p><Later>—</Later> shares</p>',
       "export const EN = () => <p>{cloneElement(FRAG, null, 'x')} shares</p>",
       "export function EO(v?: string) { const jsx = (x?: string) => x ?? '—'; return <p>{jsx(v)} sh</p> }",
+      "import { forwardRef, Component } from 'react'",
+      "import { Passthrough } from './elsewhere'",
+      'const Transparent = ({ children }: { children: ReactNode }) => <>{children}</>',
+      'export const FA = () => <p><Transparent>—</Transparent> shares</p>',
+      'export const FB = () => <td><Transparent>—</Transparent></td>',
+      'const InFragment = ({ children }: { children: ReactNode }) => <Fragment>{children}</Fragment>',
+      'export const FC = () => <p><InFragment>—</InFragment> shares</p>',
+      'function Bare({ children }: { children: ReactNode }) { return children }',
+      'export const FD = () => <p><Bare>—</Bare> shares</p>',
+      'function ByProps(props: { children: ReactNode }) { return props.children }',
+      'export const FE = () => <p><ByProps>—</ByProps> shares</p>',
+      'const Arrow = ({ children }: { children: ReactNode }) => children',
+      'export const FF = () => <p><Arrow>—</Arrow> shares</p>',
+      'const Block = (props: { children: ReactNode }) => { const shown = props.children; return <>{shown}</> }',
+      'export const FG = () => <p><Block>—</Block> shares</p>',
+      'const Kept = memo(({ children }: { children: ReactNode }) => <>{children}</>)',
+      'export const FH = () => <p><Kept>—</Kept> shares</p>',
+      'const Ref = forwardRef<HTMLElement, { children: ReactNode }>(({ children }, ref) => <>{children}</>)',
+      'export const FI = () => <p><Ref>—</Ref> shares</p>',
+      'const Renamed = ({ children: kids }: { children: ReactNode }) => <>{kids}</>',
+      'export const FJ = () => <p><Renamed>—</Renamed> shares</p>',
+      'const Labelled = ({ label }: { label: string }) => <>{label}</>',
+      'export const FK = () => <p><Labelled label="—" /> shares</p>',
+      'const Inner = ({ children }: { children: ReactNode }) => <>{children}</>',
+      'const Outer = ({ children }: { children: ReactNode }) => <Inner>{children}</Inner>',
+      'export const FL = () => <p><Outer>—</Outer> shares</p>',
+      'const Boxed = ({ children }: { children: ReactNode }) => <span>{children}</span>',
+      'export const FM = () => <p><Boxed>—</Boxed> shares</p>',
+      'const HELD_PASS = <Transparent>—</Transparent>',
+      'export const FN = () => <p>{HELD_PASS} shares</p>',
+      "export const FO = () => <p>{createElement(Transparent, null, '—')} shares</p>",
+      "export const FP = () => <p>{jsx(Transparent, { children: '—' })} shares</p>",
+      'export const FQ = () => <p>{cloneElement(<Transparent>—</Transparent>)} shares</p>',
+      'export const FR = () => <p>{cloneElement(<Arrow>—</Arrow>)} shares</p>',
+      'const Gate = ({ children, on }: { children: ReactNode; on: boolean }) => (on ? <>{children}</> : null)',
+      'export const FS = ({ on }: { on: boolean }) => <p><Gate on={on}>—</Gate> shares</p>',
+      'const NoFigure = () => <>—</>',
+      'export const FT = ({ v }: { v?: string }) => <p>{v ?? <NoFigure />} sh</p>',
+      'const Measure = ({ children }: { children: (w: number) => ReactNode }) => <>{children(4)}</>',
+      "export const FU = () => <p><Measure>{() => '—'}</Measure> shares</p>",
+      'const Show = ({ As }: { As: ElementType }) => <p><As>—</As> shares</p>',
+      'export const FV = () => <Show As={Transparent} />',
+      'const PARTS_PASS = { Through: ({ children }: { children: ReactNode }) => <>{children}</> }',
+      'export const FW = () => <p><PARTS_PASS.Through>—</PARTS_PASS.Through> shares</p>',
+      'export const FX = () => <p><Passthrough>—</Passthrough> shares</p>',
+      'class Classy extends Component<{ children: ReactNode }> { render() { return this.props.children } }',
+      'export const FY = () => <p><Classy>—</Classy> shares</p>',
+      'const Over = ({ children }: { children: ReactNode }) => <>{children}</>',
+      'export const FZ = () => <td><Over>—</Over></td>',
+      'export const GA = () => <p><Over>x</Over> shares</p>',
+      "function abbr() { return '—' }",
+      'export const GB = () => <p><abbr title="shares">sh</abbr> shares</p>',
+      "const DashText = () => '—'",
+      'export const GC = () => <p><DashText /> shares</p>',
+      'export const GD = () => <p>{cloneElement(<DashText />)} shares</p>',
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
     // attribute's value) and 18 to 19 hold the token where nothing joins it (a name no line reads, a comparison, a
@@ -661,8 +737,25 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // into createElement (201) and a lazy type (202, at 203). A clone handed children keeps its element's own in this
     // reading, an over-read that fails closed (204). A same-file function of a maker's name is the file's own: its
     // fallback fails where its call is joined (205).
+    // Same-file components (206 and 207 import forwardRef, Component and a component from elsewhere). A component's
+    // element renders what the component returns in its place, so one that passes its children through fails beside a
+    // unit: Codex's `<>{children}</>` (208, at 209; alone in a cell, 210, it passes), `<Fragment>{children}</Fragment>`
+    // (211, at 212), a function declaration's `return children` (213, at 214) and `return props.children` (215, at 216),
+    // an arrow's bare `children` (217, at 218), an arrow with a block body through a local (219, at 220), `memo` (221, at
+    // 222), `forwardRef` (223, at 224), a renamed children prop (225, at 226), a prop rendered in their place (227, at
+    // 228) and a pass-through inside another (229 and 230, at 231). One that wraps its children in an element of its own
+    // passes (232, at 233). A pass-through's element held (234, at 235), made by createElement (236) or the runtime's jsx
+    // (237), and cloned (238; and the clone of one that returns its text children, 239) fails, and so do a conditional
+    // pass-through (240, at 241), a component that returns the token in a fragment of its own, beside a unit (242, at
+    // 243), a render prop's return (244, at 245), a pass-through handed in through a prop (246, given at 247) and one read
+    // from an object (248, at 249). Planted gaps: an imported component (250, the module gap) and a class component (251,
+    // at 252, the `this` gap). An over-read fails closed: a pass-through's element holds what every element of it is
+    // handed, so one alone in a cell (253, at 254) makes another beside a unit fail (255). A tag that names an intrinsic
+    // element is never a binding: `<abbr>` beside a unit passes though the file declares an `abbr` that returns the
+    // token (256, at 257). A component that returns the token as text of its own (258) fails beside a unit (259), and
+    // so does its clone (260).
     expect(violationsIn(src, file)).toEqual(
-      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205].map(
+      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205, 209, 212, 214, 216, 218, 220, 222, 224, 226, 228, 231, 235, 236, 237, 238, 239, 241, 243, 245, 246, 249, 255, 259, 260].map(
         (line) => `features/zzprobe/Probe.tsx:${line} —`,
       ),
     )
