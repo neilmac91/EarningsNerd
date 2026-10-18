@@ -48,7 +48,7 @@ function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation
       onClick={() => flashAndScrollToSource(citation.n)}
       title={`${display}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
       aria-label={`Citation ${citation.n}: ${label}. ${display}${note ? `, ${dataNoteDescription(note)}` : ''}`}
-      className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-data-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+      className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       [{citation.n}]<DataNoteMark note={note} />
     </button>
@@ -274,9 +274,13 @@ export default function NarrativePane({
           )}
           {state.status === 'done' && <DataNotesLink notes={citedNotes} />}
           {state.status === 'done' && completion?.cached && !sample && (
-            <Badge title="Served from a previous run of this exact period range. It regenerates automatically when new filings arrive.">
-              Cached
-            </Badge>
+            // The explanation is a visible line, not a title tooltip: a phone or a keyboard never shows a title.
+            <>
+              <Badge>Cached</Badge>
+              <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                Served from an earlier run · regenerates if these figures change
+              </span>
+            </>
           )}
         </div>
         {state.status === 'done' && !notEnoughData && (

@@ -576,16 +576,18 @@ class XBRLServiceCompat:
     async def get_filing_sections(
         self,
         accession_number: str,
-        cik: str,
         filing_type: str,
+        *,
+        html: str,
     ) -> Optional[Dict[str, str]]:
         """
-        Extract critical sections (financials / mda / risk) via edgartools' native parser.
+        Parse critical sections (financials / mda / risk) from the fetched primary document.
 
         Returns a dict of clean section text, or None when unavailable (callers fall back
-        to the legacy regex extractor).
+        to the legacy regex extractor). No SEC request: ``html`` is the document the caller
+        already downloaded through ``sec_edgar_service``.
         """
-        return await edgar_xbrl_service.get_filing_sections(accession_number, cik, filing_type)
+        return await edgar_xbrl_service.get_filing_sections(accession_number, filing_type, html=html)
 
 
 # Singleton instances for drop-in replacement

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { LightningIcon } from '@/lib/icons'
+import { proIncludes } from '@/lib/planLimits'
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 
 interface UpgradeModalProps {
@@ -28,11 +29,8 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
   const router = useRouter()
 
   const heading = title ?? 'Upgrade to Pro'
-  const body =
-    message ??
-    (feature
-      ? `${feature} is a Pro feature. Pro includes unlimited summaries, hourly filing alerts, 8-K alerts, Multi-Period Analysis, and exports.`
-      : 'Pro includes unlimited summaries, hourly filing alerts, 8-K alerts, Multi-Period Analysis, and exports.')
+  // The Pro list is shared and follows ENABLE_ANALYSIS (lib/planLimits.ts proIncludes).
+  const body = message ?? (feature ? `${feature} is a Pro feature. ${proIncludes()}` : proIncludes())
 
   return (
     <Modal open={open} onClose={onClose} labelledBy="upgrade-modal-title" size="md">

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/Button'
-import { CheckCircleIcon, QuotesIcon } from '@/lib/icons'
+import { ChatCircleTextIcon, CheckCircleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip from '@/features/filings/components/copilot/CitationChip'
@@ -42,7 +42,7 @@ export default function AskFilingDemo() {
           aria-hidden="true"
           className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand-weak text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark"
         >
-          <QuotesIcon className="h-4 w-4" />
+          <ChatCircleTextIcon className="h-4 w-4" />
         </span>
         <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
           Ask this Filing

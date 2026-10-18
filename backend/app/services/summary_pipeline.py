@@ -344,9 +344,13 @@ def _get_generation_semaphore() -> asyncio.Semaphore:
 
 
 # Pipeline outcome timeout. This is a *backstop* against a genuine hang/runaway — it sits
-# deliberately above the sum of the per-step budgets (≈15s fetch + 18s enrichment + 75s AI
+# deliberately above the sum of the typical per-step budgets (≈15s fetch + 18s enrichment + 75s AI
 # fallback ≈ 108s) so the per-step timeouts remain the primary controls and the AI fallback
 # always gets to produce a (partial) result rather than being pre-empted into a timeout error.
+# Two waits are not in that sum: the fetch's 15s is per attempt (up to three, with backoff), and the
+# section parse is awaited before the enrichment join, bounded by get_filing_sections (30s, 40s for a
+# 20-F; typically under 7s). With every step at its bound together the backstop can pre-empt the
+# AI fallback, as it could before E28.
 # The whole pipeline body runs inside `asyncio.timeout(PIPELINE_TIMEOUT_SECONDS)`.
 # Final cleanup may exceed this deadline while a synchronous worker finishes; cancelling its
 # asyncio waiter cannot kill its thread, and releasing ownership early would abandon that work.

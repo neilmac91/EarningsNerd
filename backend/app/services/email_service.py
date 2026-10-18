@@ -17,28 +17,148 @@ _ALERT_FOOTER = (
 )
 
 
-def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
+# The mail header's mark, the app tile (D-035), as the raster the frontend serves. Sent mail keeps
+# this address for as long as the message is kept, so it is a published URL
+# (frontend/public/assets/LOGO_README.md › Published URLs stay put): the path never moves, and it is
+# built on FRONTEND_URL, the origin that answers without a redirect. Gates:
+# tests/unit/test_mail_rendered_addresses.py reads the mail as it is sent, and
+# tests/unit/test_mail_published_assets.py reads the code.
+_HEADER_TILE_PATH = "/assets/earningsnerd-appicon.png"
+
+# A line that prints a run with nowhere to break may break it anywhere: a link with its token, a report's
+# hash, the reader's name, which may be an address typed as a name, or a company's as EDGAR spells it
+# ("BIOPHARMACEUTICALS,"). Unbroken, the run would hold the fluid panel wider than a phone's screen, and widen it
+# past the header where a view fits a wider page to its screen and enlarges its text. On those lines alone, or
+# on a cell of their own that holds no amount, not on the panel or a table: there it would reach a body's own
+# table and split a column of amounts.
+_BREAK_ANYWHERE = "overflow-wrap:anywhere;word-break:break-word;"
+
+
+def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> str:
+    """The page of every mail this module builds: the brand header, the panel that holds ``body``
+    and ``footer``, and the footer line, after the mail's ``preheader``.
+
+    Most inboxes list a mail by its subject and the first text its page holds, hidden text included,
+    and the first this page shows is the header's ("EarningsNerd The summary that shows its work.").
+    So each mail hands in a line of its own, plain text, which ``_preheader`` sets first in ``<body>``,
+    hidden and followed by characters that print as a blank or as nothing, and such an inbox lists the
+    mail by its own words.
+
+    The header (the lockup, a hairline, the marked tagline) and the footer line are
+    ``docs/brand/templates/email-header.html``, ported; tests/unit/test_mail_header_template.py
+    holds the two to the same markup. That preview draws the tile as inline SVG, which Gmail and
+    Outlook drop, so the mail shows the hosted raster in its place, with no Outlook conditional
+    around it (Outlook shows a PNG) and an empty ``alt``: the text wordmark beside it names the
+    brand, and carries it alone where images are blocked. The apps that darken a light-only message
+    recolour its text and leave its images alone, which is why the header carries the tile, on its
+    own ground, and not the bare mark.
+
+    The page is fluid: the header, the panel and the footer line each take the screen's width up to
+    600 px (``width:100%;max-width:600px``), and the head sets the template's viewport, so a phone lays
+    the page out at its own width and shows the text at its set size, the 16 px body at 16 px, in
+    portrait at least (iOS may enlarge text in landscape). Classic Outlook reads no ``max-width``, so each
+    sits in a 600 px table that only its conditional comments show. A line that prints a run with nowhere
+    to break, such as a link with its token, the reader's name or a company's, carries
+    ``_BREAK_ANYWHERE``, so the run cannot hold the page wider than a phone's screen. The header keeps the
+    template's ``-webkit-text-size-adjust:100%`` on its table, so a view that enlarges text leaves its
+    lines their proportions (enlarged, the tagline would outgrow the wordmark), and the panel and the
+    footer line leave their text to the view. So the header can show smaller than the body: where
+    Blink's text autosizer applies a larger font scale, it enlarges the body and leaves the header; and a
+    view that ignores the viewport and fits a wider page to its screen, which no mail client is known to
+    do, shows a short mail at a fraction of its size and may enlarge a long one's body past twice the
+    wordmark's size. A text zoom scales every line, the header's too (the property multiplies it by one),
+    and an Android WebView sets one from the phone's font size unless its app sets its own. So the wordmark
+    may wrap between its two words, at a zero-width space, and nowhere else, and the tagline's mark is an
+    inline-block, which keeps its three words and full stop on one line where they fit and wraps inside
+    itself where they do not (D-048): under a large zoom the lockup shows Nerd under Earnings, beside the
+    tile, and the header fits a 320 px screen at Android's largest font size, 200%, the width a phone at its
+    largest display size lays the page out at, and a 360 px screen to 230%, as every page sent did when
+    measured (in Chromium, in Inter's text cut; a phone draws the text in its own sans-serif, unmeasured). A
+    long word in a body would widen the page, and the header with it, which no gate holds yet (E116). At the
+    set size the header is pixel for pixel what it was without either.
+    ``frontend/tests/e2e/mail-header-reflow.spec.ts`` holds the template's header, and through
+    ``test_mail_header_template.py`` this one, to 320 and 390 px at 200%.
+    The panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the body
+    lines up under the header there too.
+    """
+    # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
+    tile_url = f"{settings.FRONTEND_URL.rstrip('/')}{_HEADER_TILE_PATH}"
     return f"""
-    <html>
-      <body style="margin:0;padding:0;background:#F4F3EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F3EE;padding:32px 12px;">
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light">
+        <meta name="supported-color-schemes" content="light">
+      </head>
+      <body style="margin:0;padding:0;background-color:#F4F3EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+        {_preheader(preheader)}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="background-color:#F4F3EE;">
           <tr>
-            <td align="center">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;padding:32px;color:#1A1A17;">
+            <td align="center" style="padding:32px 12px 0 12px;">
+              <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:100%;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
                 <tr>
-                  <td style="font-size:22px;font-weight:700;color:#1A1A17;">Earnings<em style="color:#3C6650;font-style:italic;">Nerd</em></td>
+                  <td style="padding:0 32px 20px 32px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="vertical-align:middle;padding:0 10px 0 0;line-height:0;">
+                          <img src="{tile_url}" width="32" height="32" alt="" style="display:block;border:0;">
+                        </td>
+                        <td style="vertical-align:middle;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.44px;color:#1A1A17;">Earnings&#8203;<em style="font-style:italic;color:#3C6650;">Nerd</em></td>
+                      </tr>
+                    </table>
+                  </td>
                 </tr>
                 <tr>
-                  <td style="padding-top:16px;font-size:16px;line-height:1.6;color:#1A1A17;">
+                  <td style="padding:0 32px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr><td height="1" bgcolor="#E5E7EB" style="height:1px;background-color:#E5E7EB;font-size:1px;line-height:1px;">&nbsp;</td></tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span style="display:inline-block;"><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span>.</span><!--<![endif]--></td>
+                </tr>
+              </table>
+              <!--[if mso]></td></tr></table><![endif]-->
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 12px 24px 12px;">
+              <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="width:100%;max-width:600px;background:#FBFAF6;border:1px solid #E5E7EB;border-radius:16px;color:#1A1A17;">
+                <tr>
+                  <td style="padding:32px 32px 0 32px;border-radius:15px 15px 0 0;font-size:16px;line-height:1.6;color:#1A1A17;">
                     {body}
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding-top:32px;font-size:12px;color:#6B7280;">
+                  <td style="padding:32px;border-radius:0 0 15px 15px;font-size:12px;color:#6B7280;">
                     {footer}
                   </td>
                 </tr>
               </table>
+              <!--[if mso]></td></tr></table><![endif]-->
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 12px 32px 12px;">
+              <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+                <tr>
+                  <td style="padding:0 32px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr><td height="1" bgcolor="#E5E7EB" style="height:1px;background-color:#E5E7EB;font-size:1px;line-height:1px;">&nbsp;</td></tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Filing data sourced from SEC EDGAR. Not investment advice.</td>
+                </tr>
+              </table>
+              <!--[if mso]></td></tr></table><![endif]-->
             </td>
           </tr>
         </table>
@@ -68,6 +188,46 @@ def _hidden_text(text: str) -> str:
     return f'<pre style="display:none">{html.escape(text)}</pre>'
 
 
+# What follows a preheader's line: the set React Email's preview component (Resend's, 6.11.3) repeats after its
+# line, a no-break space, a zero-width non-joiner, a zero-width space, a zero-width joiner and a zero-width no-break
+# space, one set for each character the line falls short of its _PREVIEW_LENGTH. Each prints as a blank or as
+# nothing. Clients differ in which of them a preview keeps, so the set mixes them, and in most previews the line is
+# followed by blanks, not the header's words, though no real inbox has been checked. React Email 6.11.2 left the
+# two direction marks out of the set, since spam filters such as rspamd score them as hidden text.
+_PREHEADER_FILL = "&nbsp;&zwnj;&#8203;&zwj;&#65279;"
+_PREVIEW_LENGTH = 200
+
+
+def _preheader(text: str) -> str:
+    """A mail's preheader, the line an inbox lists beside its subject, as ``_wrap_html`` opens ``<body>``.
+
+    The line is the mail's own, written per mail: it says what the mail is for, beside the subject, and
+    carries no link, no address and not the reader's name, since an inbox shows it before the mail is
+    opened, a phone's lock screen among them. It is hidden from the view (``display:none``, with React
+    Email's other hiding properties, and classic Outlook's ``mso-hide:all``) and followed by
+    ``_PREHEADER_FILL``. Like ``_hidden_text``, it escapes the whole text as a unit: user-supplied text
+    never becomes markup. Gate: tests/unit/test_mail_rendered_addresses.py.
+    """
+    fill = _PREHEADER_FILL * max(0, _PREVIEW_LENGTH - len(text))
+    return (
+        '<div style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0;mso-hide:all;">'
+        f"{html.escape(text)}{fill}</div>"
+    )
+
+
+def _listed(names: list[str], room: int = 89) -> str:
+    """Names as a preheader lists them: "A", "A and B", "A, B and C", as many as ``room`` holds, then how
+    many more ("A, B, C and 2 more"); the first is always named. The room is a line's 90 characters, the
+    gate's PREHEADER_LIMIT, less the full stop the callers end it with."""
+
+    def joined(shown: int) -> str:
+        rest = len(names) - shown
+        parts = [*names[:shown], f"{rest} more"] if rest > 0 else names[:shown]
+        return " and ".join(part for part in (", ".join(parts[:-1]), *parts[-1:]) if part)
+
+    return joined(next((shown for shown in range(len(names), 1, -1) if len(joined(shown)) <= room), 1))
+
+
 def render_welcome_email(
     *,
     name: str | None,
@@ -77,13 +237,13 @@ def render_welcome_email(
 ) -> tuple[str, str]:
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're on the EarningsNerd waitlist.</p>
     <p style="margin:0 0 16px;">Your current position: <strong>#{position}</strong></p>
     <p style="margin:0 0 20px;">
       Share your referral link to move up the list. Each successful referral bumps you up <strong>5 spots</strong>.
     </p>
-    <p style="margin:0 0 20px;">
+    <p style="margin:0 0 20px;{_BREAK_ANYWHERE}">
       <a href="{referral_link}" style="color:#3C6650;">{referral_link}</a>
     </p>
     <p style="margin:0 0 24px;">
@@ -101,7 +261,8 @@ def render_welcome_email(
         f"Verify your email to secure your place: {verification_link}\n\n"
         "We'll keep you posted as we open up access."
     )
-    return _wrap_html(html_body), text_body
+    preheader = f"You're number {position} on the list. Share your referral link to move up."
+    return _wrap_html(html_body, preheader=preheader), text_body
 
 
 def render_referral_success_email(
@@ -112,10 +273,10 @@ def render_referral_success_email(
 ) -> tuple[str, str]:
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You moved up the EarningsNerd waitlist.</p>
     <p style="margin:0 0 16px;">Your new position: <strong>#{new_position}</strong></p>
-    <p style="margin:0 0 20px;">
+    <p style="margin:0 0 20px;{_BREAK_ANYWHERE}">
       Keep sharing your referral link to climb even faster:
       <a href="{referral_link}" style="color:#3C6650;">{referral_link}</a>
     </p>
@@ -129,7 +290,8 @@ def render_referral_success_email(
         f"{referral_link}\n\n"
         "Thanks for spreading the word."
     )
-    return _wrap_html(html_body), text_body
+    preheader = f"Someone joined with your referral link. You're now number {new_position}."
+    return _wrap_html(html_body, preheader=preheader), text_body
 
 
 async def send_waitlist_welcome_email(
@@ -180,22 +342,23 @@ async def send_verification_email(
 ) -> None:
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Verify your email address and you can start reading.</p>
     <p style="margin:0 0 24px;">
-      <a href="{verification_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Verify my email</a>
+      <a href="{verification_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Verify my email</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This link expires in 24 hours. If you didn&apos;t create an account, you can safely ignore this email.</p>
-    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
     """
     text_body = (
         f"{greeting}\n\nVerify your email address and you can start reading.\n\n"
         f"{verification_link}\n\nThis link expires in 24 hours."
     )
+    preheader = "Confirm your email address. The link works for 24 hours."
     await send_email(
         to=[to_email],
         subject="Verify your EarningsNerd email",
-        html=f"{_wrap_html(html_body)}{_hidden_text(text_body)}",
+        html=f"{_wrap_html(html_body, preheader=preheader)}{_hidden_text(text_body)}",
     )
 
 
@@ -209,22 +372,23 @@ async def send_invite_email(
     greeting = _greeting(name)
     invite_footer = "You're receiving this because you were invited to the EarningsNerd private beta."
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're invited to the EarningsNerd private beta. Full Pro access, on us.</p>
     <p style="margin:0 0 24px;">
-      <a href="{magic_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Accept your invite</a>
+      <a href="{magic_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Accept your invite</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This is a single-use invite link. No credit card required.</p>
-    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
     """
     text_body = (
         f"{greeting}\n\nYou're invited to the EarningsNerd private beta. Full Pro access, on us.\n\n"
         f"{magic_link}\n\nThis is a single-use invite link. No credit card required."
     )
+    preheader = "The private beta, with full Pro access and no card needed. The link works once."
     await send_email(
         to=[to_email],
         subject="Your EarningsNerd beta invite",
-        html=f"{_wrap_html(html_body, invite_footer)}{_hidden_text(text_body)}",
+        html=f"{_wrap_html(html_body, invite_footer, preheader=preheader)}{_hidden_text(text_body)}",
     )
 
 
@@ -236,22 +400,23 @@ async def send_password_reset_email(
 ) -> None:
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">We received a request to reset your EarningsNerd password.</p>
     <p style="margin:0 0 24px;">
-      <a href="{reset_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Reset my password</a>
+      <a href="{reset_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Reset my password</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This link expires in 1 hour and can only be used once. If you didn&apos;t request a reset, no action is needed.</p>
-    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
     """
     text_body = (
         f"{greeting}\n\nReset your EarningsNerd password:\n\n"
         f"{reset_link}\n\nThis link expires in 1 hour and can only be used once."
     )
+    preheader = "Set a new password. The link works once, for one hour."
     await send_email(
         to=[to_email],
         subject="Reset your EarningsNerd password",
-        html=f"{_wrap_html(html_body)}{_hidden_text(text_body)}",
+        html=f"{_wrap_html(html_body, preheader=preheader)}{_hidden_text(text_body)}",
     )
 
 
@@ -267,7 +432,7 @@ async def send_oauth_linked_email(
     react (reset password / contact support) rather than silently merging the identities."""
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">A <strong>{provider}</strong> sign-in was just linked to your EarningsNerd account.</p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">If this was you, no action is needed — you can now sign in with {provider}.</p>
     <p style="margin:0;font-size:14px;color:#B91C1C;">If this <strong>wasn&apos;t</strong> you, please reset your password immediately and contact support.</p>
@@ -277,10 +442,11 @@ async def send_oauth_linked_email(
         f"If this was you, no action is needed. If it wasn't, reset your password immediately "
         f"and contact support."
     )
+    preheader = "If this was you, there's nothing to do. If it wasn't, reset your password now."
     await send_email(
         to=[to_email],
         subject=f"A {provider} sign-in was linked to your EarningsNerd account",
-        html=f"{_wrap_html(html_body)}{_hidden_text(text_body)}",
+        html=f"{_wrap_html(html_body, preheader=preheader)}{_hidden_text(text_body)}",
     )
 
 
@@ -294,10 +460,10 @@ async def send_account_exists_email(
     """Sent when someone tries to register with an already-registered email (anti-enumeration)."""
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Someone tried to create an EarningsNerd account using this email address, but you already have one.</p>
     <p style="margin:0 0 8px;">
-      <a href="{login_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Log in to your account</a>
+      <a href="{login_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Log in to your account</a>
     </p>
     <p style="margin:16px 0 0;font-size:14px;color:#6B7280;">Forgot your password?
       <a href="{reset_link}" style="color:#3C6650;">Reset it here</a>.
@@ -307,10 +473,11 @@ async def send_account_exists_email(
         f"{greeting}\n\nSomeone tried to sign up with your email, but you already have an account.\n\n"
         f"Log in: {login_link}\nReset password: {reset_link}\n\nIf this wasn't you, no action is needed."
     )
+    preheader = "You already have an account. Log in, or ignore this if it wasn't you."
     await send_email(
         to=[to_email],
         subject="Someone tried to sign up with your EarningsNerd email",
-        html=f"{_wrap_html(html_body)}{_hidden_text(text_body)}",
+        html=f"{_wrap_html(html_body, preheader=preheader)}{_hidden_text(text_body)}",
     )
 
 
@@ -371,12 +538,12 @@ def render_new_filing_alert(
         html.escape(company_name), html.escape(ticker), html.escape(filing_type), html.escape(filing_date)
     )
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
-    <p style="margin:0 0 16px;"><strong>{e_company} ({e_ticker})</strong> just filed a
-      <strong>{e_type}</strong> with the SEC ({e_date}).</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}"><strong>{e_company} ({e_ticker})</strong> just filed a
+      <strong>{e_type}</strong> with the SEC <span style="white-space:nowrap;">({e_date}).</span></p>
     {_wording_html(wording, url)}
     <p style="margin:0 0 24px;">
-      <a href="{url}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Read the AI summary</a>
+      <a href="{url}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Read the AI summary</a>
     </p>
     <p style="margin:0;font-size:13px;color:#6B7280;">We summarise what changed so you don&apos;t have to read the whole filing.</p>
     """
@@ -386,7 +553,8 @@ def render_new_filing_alert(
         + (f"{wording} Review the changes: {url}#what-changed\n\n" if wording else "")
         + f"Read the AI summary: {url}"
     )
-    return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
+    preheader = f"{company_name} filed with the SEC on {filing_date}."
+    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
 
 
 def render_daily_digest(
@@ -406,16 +574,16 @@ def render_daily_digest(
     rows_html = "".join(
         f"""
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;">
+          <td style="padding:10px 0;border-bottom:1px solid #E5E7EB;{_BREAK_ANYWHERE}">
             <strong>{html.escape(it['company_name'])} ({html.escape(it['ticker'])})</strong> — {html.escape(it['filing_type'])}
-            <span style="color:#6B7280;">· {html.escape(it['filing_date'])}</span>{_row_wording(it)}<br>
+            <span style="color:#6B7280;white-space:nowrap;">· {html.escape(it['filing_date'])}</span>{_row_wording(it)}<br>
             <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">Read the summary →</a>
           </td>
         </tr>"""
         for it in items
     )
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">New filings from companies you track:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
     """
@@ -429,7 +597,9 @@ def render_daily_digest(
         for it in items
     )
     text_body = f"{greeting}\n\nNew filings from companies you track:\n{text_lines}"
-    return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
+    listed = [f"{it['ticker']} {it['filing_type']}" for it in items]
+    preheader = f"{_listed(listed)}."
+    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
 
 
 _DQ_FOOTER = (
@@ -447,11 +617,13 @@ def _dq_section(title: str, rows_html: str, count: int) -> str:
 
 
 def _dq_rows(items: list[dict], cols) -> str:
-    """A borderless HTML table, one row per item; each column callable is escaped before render."""
+    """A borderless HTML table, one row per item; each column callable is escaped before render. Each row's
+    cell breaks a long run anywhere (a hash, an address), the cell and not the table, so the rule reaches no
+    other column."""
     return (
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">'
         + "".join(
-            '<tr><td style="padding:6px 0;border-bottom:1px solid #E5E1D8;">'
+            f'<tr><td style="padding:6px 0;border-bottom:1px solid #E5E7EB;{_BREAK_ANYWHERE}">'
             + " · ".join(html.escape(str(col(it))) for col in cols)
             + "</td></tr>"
             for it in items
@@ -565,10 +737,14 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
         *[f"  {n['ticker']} (CIK {n['cik']})" for n in notf],
     ]
     text_body = "EarningsNerd data-quality report\n\n" + "\n".join(text_lines)
-    return _wrap_html(html_body, footer=_DQ_FOOTER), text_body
+    preheader = "This week's scan, each section with its count."
+    return _wrap_html(html_body, footer=_DQ_FOOTER, preheader=preheader), text_body
 
 
 _TIME_LABEL = {"bmo": "before open", "amc": "after close", "dmh": "during market hours"}
+# The slot as the HTML row prints it: a two-word slot keeps its words on one line, and "during market hours" wraps
+# between its words, as the row's other words do.
+_TIME_LABEL_HTML = {"bmo": "before&nbsp;open", "amc": "after&nbsp;close", "dmh": "during market hours"}
 
 
 def render_earnings_day_alert(
@@ -582,19 +758,19 @@ def render_earnings_day_alert(
     for it in items:
         ticker = html.escape(str(it.get("ticker", "")))
         company = html.escape(str(it.get("company_name") or it.get("ticker") or ""))
-        slot = _TIME_LABEL.get((it.get("time") or "").lower())
-        when = f'<span style="color:#6B7280;"> · {slot}</span>' if slot else ""
+        slot = _TIME_LABEL_HTML.get((it.get("time") or "").lower())
+        when = f' <span style="color:#6B7280;">·&nbsp;{slot}</span>' if slot else ""  # the middot stays with the slot
         reported = (it.get("status") == "reported")
         tail = " (results are out)" if reported else ""
         rows_html += f"""
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;">
+          <td style="padding:10px 0;border-bottom:1px solid #E5E7EB;{_BREAK_ANYWHERE}">
             <strong>{company} ({ticker})</strong> reports today{when}{html.escape(tail)}<br>
             <a href="{settings.FRONTEND_URL}/company/{ticker}" style="color:#3C6650;">View {ticker} →</a>
           </td>
         </tr>"""
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Companies you follow report earnings today:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
     <p style="margin:16px 0 0;font-size:13px;color:#6B7280;">We'll have the AI summary ready shortly after they file.</p>
@@ -605,7 +781,19 @@ def render_earnings_day_alert(
         for it in items
     )
     text_body = f"{greeting}\n\nCompanies you follow report earnings today:\n{text_lines}"
-    return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
+    if len(items) == 1:
+        # The subject names one company's ticker, so the line names the company in full, and its slot where the
+        # calendar gives one.
+        slot = _TIME_LABEL.get((items[0].get("time") or "").lower(), "today")
+        preheader = f"{items[0].get('company_name') or items[0].get('ticker')} reports {slot}."
+    else:
+        listed = [
+            f"{it.get('ticker')}"
+            + (f" {_TIME_LABEL[(it.get('time') or '').lower()]}" if (it.get('time') or '').lower() in _TIME_LABEL else "")
+            for it in items
+        ]
+        preheader = f"{_listed(listed)}."
+    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
 
 
 async def send_earnings_day_alert(

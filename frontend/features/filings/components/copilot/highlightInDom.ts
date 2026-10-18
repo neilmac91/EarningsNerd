@@ -23,6 +23,7 @@ const HIGHLIGHT_NAME = 'copilot-citation'
  * before — the sage of `.citation-flash`, 22% — and it only ever runs where the Highlight API exists,
  * which implies constructable stylesheets too.
  */
+// eslint-disable-next-line no-restricted-syntax -- a constructed stylesheet has no Tailwind token; the rgba is .citation-flash's sage at 22% (its theme pairing waits on the D1 device decision, ASK-19).
 export const CITATION_HIGHLIGHT_CSS = `::highlight(${HIGHLIGHT_NAME}) { background-color: rgba(79, 122, 99, 0.22); color: inherit; }`
 
 let highlightSheet: CSSStyleSheet | null = null

@@ -494,7 +494,7 @@ describe('account query ownership structural gate', () => {
       visit(source)
     }
     expect(errors).toEqual([])
-    expect(owners.size).toBe(12) // Deliberately inventory new consumers alongside the key owner.
+    expect(owners.size).toBe(11) // Deliberately inventory new consumers alongside the key owner (SubscriptionGate, deleted unused, was the twelfth).
   })
 
   it('ordinary transitions use the shared owner, and completion invalidates both scoped families', () => {

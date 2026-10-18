@@ -10,7 +10,7 @@ import {
 } from '@/lib/icons'
 import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
-import { Notice, Skeleton } from '@/components/ui'
+import { Checkbox, Notice, Skeleton } from '@/components/ui'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
@@ -27,6 +27,7 @@ import BulkResultSummary, {
   type BulkInviteOutcome,
 } from '@/features/admin/components/BulkResultSummary'
 import InviteRow from '@/features/admin/components/InviteRow'
+import TableScroll from '@/features/admin/components/TableScroll'
 
 const MAX_CONCURRENCY = 4
 const LIST_LIMIT = 200
@@ -250,12 +251,11 @@ export default function AdminInvitesPage() {
           </div>
 
           <label className="mt-4 inline-flex items-center gap-2.5 text-sm text-text-primary-light dark:text-text-primary-dark">
-            <input
-              type="checkbox"
+            <Checkbox
+              size="sm"
               checked={sendEmail}
               onChange={(e) => setSendEmail(e.target.checked)}
               disabled={sending}
-              className="h-4 w-4 rounded border-border-light text-brand-strong focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark dark:focus-visible:shadow-ring-brand-dark"
             />
             <span className="inline-flex items-center gap-1.5">
               <EnvelopeSimpleIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
@@ -393,7 +393,7 @@ export default function AdminInvitesPage() {
               {(invites?.length ?? 0) === 0 ? 'No invites yet. Send your first one above.' : 'No invites match these filters.'}
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <TableScroll label="Invites">
               <table className="min-w-full divide-y divide-border-light dark:divide-white/10">
                 <thead className="bg-background-light dark:bg-white/5">
                   <tr>
@@ -441,7 +441,7 @@ export default function AdminInvitesPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           )}
 
           <p className="border-t border-border-light px-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">

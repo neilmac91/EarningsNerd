@@ -16,7 +16,7 @@ export default function GoogleSignInButton({
   label?: string
 }) {
   return (
-    <OAuthStartControl apiBase={apiBase} provider="google" invite={invite} className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-light bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.99] focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+    <OAuthStartControl apiBase={apiBase} provider="google" invite={invite} className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-light bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.99]">
       <GoogleLogo />
       {label}
     </OAuthStartControl>

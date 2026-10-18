@@ -15,7 +15,7 @@ import EarningsCalendarPage from '@/features/calendar/components/EarningsCalenda
 export const metadata: Metadata = {
   title: 'Earnings calendar | EarningsNerd',
   description:
-    'The most-anticipated U.S. earnings, week by week. Before-open and after-close lanes, estimated vs confirmed vs reported dates, and day-of alerts.',
+    'U.S. earnings dates, week by week: before the open or after the close, estimated or reported, with an optional email the morning a company you follow reports.',
 }
 
 export default function CalendarRoute() {

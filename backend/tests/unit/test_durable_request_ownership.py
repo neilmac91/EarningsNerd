@@ -176,15 +176,20 @@ async def test_summary_stops_enrichment_before_releasing_leadership(monkeypatch,
 
     async def document(*_args, **_kwargs):
         entered["document"].set()
-        await entered["xbrl"].wait()
-        await entered["sections"].wait()
+        await entered["xbrl"].wait()  # XBRL runs concurrently with the document fetch
+        # The section parse reads the fetched document, so it cannot have started yet.
+        assert not entered["sections"].is_set()
         if stop == "document_error":
             raise RuntimeError("document unavailable")
-        await blocked("document")
+        return "FETCHED PRIMARY DOCUMENT " * 40
 
     def checked_release(*args):
-        expected = {"xbrl", "sections"} if stop == "document_error" else set(entered)
+        # A document error ends the request before the parse could start; a disconnect arrives
+        # while both siblings are blocked.
+        expected = {"xbrl"} if stop == "document_error" else {"xbrl", "sections"}
         assert expected <= stopped, "request siblings must finish cleanup before leadership releases"
+        if stop == "document_error":
+            assert not entered["sections"].is_set(), "a failed fetch must not start the section parse"
         release(*args)
 
     async def consume():
@@ -196,13 +201,13 @@ async def test_summary_stops_enrichment_before_releasing_leadership(monkeypatch,
     with stream_boundaries(), monkeypatch.context() as patch:
         patch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", True)
         patch.setattr(pipeline.xbrl_service, "get_xbrl_data", lambda *_: blocked("xbrl"))
-        patch.setattr(pipeline.xbrl_service, "get_filing_sections", lambda *_: blocked("sections"))
+        patch.setattr(pipeline.xbrl_service, "get_filing_sections", lambda *_, **__: blocked("sections"))
         patch.setattr(pipeline.sec_edgar_service, "get_filing_document", document)
         patch.setattr(pipeline, "_release_inflight", checked_release)
         task = asyncio.create_task(consume())
         try:
             if stop == "disconnect":
-                await asyncio.gather(*(event.wait() for event in entered.values()))
+                await asyncio.wait_for(asyncio.gather(*(event.wait() for event in entered.values())), 5)
                 task.cancel()
                 with pytest.raises(asyncio.CancelledError):
                     await task
@@ -302,7 +307,79 @@ async def test_summary_disconnect_joins_actual_worker_before_releasing_leadershi
             assert await asyncio.to_thread(entered.wait, 2)
             task.cancel()
             await asyncio.wait_for(draining.wait(), 2)
-            assert not task.done(), "the request ended while its actual worker was still running"
+            # Cleanup that skipped the thread would finish within a few loop turns; give it time.
+            done, _ = await asyncio.wait({task}, timeout=0.3)
+            assert not done, "the request ended while its actual worker was still running"
+            assert not closed.is_set()
+            finish.set()
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(task, 2)
+            assert filing_id not in pipeline._inflight_generations
+        finally:
+            finish.set()
+            await asyncio.gather(task, return_exceptions=True)
+            reset_inflight()
+
+
+@pytest.mark.asyncio
+async def test_summary_disconnect_joins_the_section_parse_worker_before_releasing_leadership(monkeypatch):
+    """The section parse runs on a real edgar executor thread after the document fetch. A disconnect
+    while it parses must wait for that thread, through the real ``get_filing_sections`` seam."""
+    from app.database import engine
+    from app.models import Base
+    from app.services.edgar import xbrl_service as edgar_xbrl_module
+    from app.services.request_work import RequestWork
+
+    Base.metadata.create_all(bind=engine)
+    reset_inflight()
+    filing_id = seed_company_filing()
+    entered, finish, closed = (threading.Event() for _ in range(3))
+    draining = asyncio.Event()
+    release = pipeline._release_inflight
+    parsed: list[tuple[str, str]] = []
+    document_text = "FETCHED PRIMARY DOCUMENT " * 40
+
+    def real_parse(html, base_form):
+        parsed.append((html, base_form))
+        entered.set()
+        try:
+            assert finish.wait(5), "test did not release its controlled section parse"
+            return None
+        finally:
+            closed.set()
+
+    class CheckedWork(RequestWork):
+        async def drain(self):
+            draining.set()
+            await super().drain()
+
+    def checked_release(*args):
+        assert closed.is_set(), "async cancellation abandoned the running section parse"
+        release(*args)
+
+    async def consume():
+        return [event async for event in pipeline.stream_filing_summary(
+            filing_id=filing_id, current_user=None, user_id=None,
+            telemetry_distinct_id="offline", telemetry_entry_point=None, telemetry_ctx={},
+        )]
+
+    with stream_boundaries(), monkeypatch.context() as patch:
+        patch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", True)
+        patch.setattr(pipeline, "RequestWork", CheckedWork)
+        # The real seam (no harness stub): only the parse itself is controlled.
+        patch.delattr(pipeline.xbrl_service, "get_filing_sections")
+        patch.setattr(edgar_xbrl_module, "_sections_from_html", real_parse)
+        patch.setattr(pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=document_text))
+        patch.setattr(pipeline, "_release_inflight", checked_release)
+        task = asyncio.create_task(consume())
+        try:
+            assert await asyncio.to_thread(entered.wait, 2)
+            assert parsed == [(document_text, "10-K")]
+            task.cancel()
+            await asyncio.wait_for(draining.wait(), 2)
+            # Cleanup that skipped the thread would finish within a few loop turns; give it time.
+            done, _ = await asyncio.wait({task}, timeout=0.3)
+            assert not done, "the request ended while its section parse was still running"
             assert not closed.is_set()
             finish.set()
             with pytest.raises(asyncio.CancelledError):

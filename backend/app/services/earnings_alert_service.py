@@ -9,9 +9,12 @@ Watchlists stay unlimited; the cap is purely on how many companies may have the 
   Pro  = 100 — an INVISIBLE anti-abuse guardrail (nothing surfaces it; only the 101st enable
                returns a terse generic 403 with NO code — the frontend renders it verbatim)
 
-Enforced in one place (`set_earnings_alert`) so the rule has a single home, mirroring how
-``monthly_summary_limit`` is enforced. The digest reuses the existing email machinery and dedups on
-``(user, event, event_date)`` so a moved date re-alerts while an old send can't fire twice.
+The cap is checked when an alert is enabled (`set_earnings_alert`, the 403 above) and applied again
+when alerts are sent (`send_earnings_day_alerts`): a downgrade leaves the flags as they were, so the
+send keeps the user's first ``earnings_alert_limit`` companies (watch ``created_at``, then ``id``)
+and skips the rest for that run — kept, not deleted, so an upgrade restores them. The digest reuses
+the existing email machinery and dedups on ``(user, event, event_date)`` so a moved date re-alerts
+while an old send can't fire twice.
 """
 from __future__ import annotations
 
@@ -63,6 +66,22 @@ def enabled_tickers(db: Session, user_id: int) -> list[str]:
         .all()
     )
     return [t.upper() for (t,) in rows if t]
+
+
+def _alerting_company_ids(db: Session, user: User) -> set[int]:
+    """The companies whose earnings-day alert fires for ``user``: the first
+    ``earnings_alert_limit`` distinct enabled companies of the user's current plan, in a fixed
+    order (the watch row's ``created_at``, then ``id``) so the same ones alert day to day. The
+    order follows when the company was watched, not when its alert was enabled (no such column)."""
+    limit = get_entitlements(user).earnings_alert_limit
+    rows = (
+        db.query(Watchlist.company_id)
+        .filter(Watchlist.user_id == user.id, Watchlist.earnings_alert.is_(True))
+        .order_by(Watchlist.created_at.asc().nulls_last(), Watchlist.id.asc())
+        .all()
+    )
+    ordered = list(dict.fromkeys(company_id for (company_id,) in rows))  # first row per company
+    return set(ordered[:limit])
 
 
 def _get_or_create_company(db: Session, ticker: str) -> Company:
@@ -149,7 +168,9 @@ async def send_earnings_day_alerts(
     sender: Optional[SendEarningsAlert] = None,
 ) -> dict:
     """Send one batched email per opted-in user whose watched companies report today, then record
-    the dedup ledger. Injectable ``sender`` keeps this unit-testable with no live Resend."""
+    the dedup ledger. Only the companies within the user's current plan cap alert; ``capped``
+    counts the sends skipped as beyond it. Injectable ``sender`` keeps this unit-testable with no
+    live Resend."""
     if today is None:
         from app.services.earnings_calendar_service import today_eastern
         today = today_eastern()  # event_date is an ET calendar day; don't use the server's UTC date
@@ -160,7 +181,7 @@ async def send_earnings_day_alerts(
     # Users with an enabled alert on a company reporting today. Exclude users with no usable email —
     # otherwise they'd hit a guaranteed send failure that then permanently dedups as handled.
     rows = (
-        db.query(User, Company.ticker, EarningsEvent)
+        db.query(User, Watchlist.company_id, Company.ticker, EarningsEvent)
         .join(Watchlist, Watchlist.user_id == User.id)
         .join(Company, Watchlist.company_id == Company.id)
         .join(EarningsEvent, func.upper(Company.ticker) == EarningsEvent.ticker)
@@ -174,10 +195,22 @@ async def send_earnings_day_alerts(
         .all()
     )
 
+    # The plan cap holds here too, not only at toggle time: a downgrade (e.g. a Stripe cancellation)
+    # leaves every enabled flag on. Alerts beyond the cap are skipped before claiming, so they
+    # neither send nor write a ledger row, and an upgrade restores them.
+    alerting: dict[int, set[int]] = {}
+    capped: set[tuple[int, int]] = set()  # (user, event) sends skipped as beyond the cap
     per_user: dict[int, dict] = {}
-    for user, ticker, ev in rows:
+    for user, company_id, ticker, ev in rows:
+        if user.id not in alerting:
+            alerting[user.id] = _alerting_company_ids(db, user)
+        if company_id not in alerting[user.id]:
+            capped.add((user.id, ev.id))
+            continue
         bucket = per_user.setdefault(user.id, {"user": user, "events": {}})
         bucket["events"][ev.id] = (ticker, ev)
+    # Company tickers are not unique: an event also reached through an in-cap company still sends.
+    capped -= {(uid, ev_id) for uid, bucket in per_user.items() for ev_id in bucket["events"]}
 
     emails = 0
     failed = 0
@@ -268,4 +301,5 @@ async def send_earnings_day_alerts(
                            user_id, len(claim_ids) - matched, len(claim_ids))
         db.commit()
 
-    return {"users": len(per_user), "emails": emails, "events": events_sent, "failed": failed}
+    return {"users": len(per_user), "emails": emails, "events": events_sent, "failed": failed,
+            "capped": len(capped)}
