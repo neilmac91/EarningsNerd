@@ -107,9 +107,7 @@ export default function AdminFeedbackPage() {
                 title="Could not load the feedback."
                 description={isApiError(feedbackFailure.error) ? getErrorMessage(feedbackFailure.error) : undefined}
                 action={
-                  <RetryButton size="sm" failures={[feedbackFailure]} focusTarget={feedbackHeadingRef}>
-                    Retry
-                  </RetryButton>
+                  <RetryButton size="sm" failures={[feedbackFailure]} focusTarget={feedbackHeadingRef} />
                 }
               />
             </div>

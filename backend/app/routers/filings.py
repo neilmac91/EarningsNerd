@@ -14,6 +14,7 @@ from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
 from app.services.durable_tasks import enqueue_task, TaskUnavailable
 from app.services import filing_list_service, filing_read_service
+from app.services.latest_filing_service import company_list_forms
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -111,9 +112,10 @@ async def get_company_filings(
         # Session remains reusable for the short persistence unit after the await.
         filing_list_service.release_request_session(db)
         try:
-            sec_results = await sec_edgar_service.search_company(ticker)
-            if sec_results:
-                sec_data = sec_results[0]
+            # Exact ticker only: a ticker missing from SEC's file is a 404, never its first partial
+            # name/ticker match (RTN once listed Enterprise Products Partners' filings).
+            sec_data = await sec_edgar_service.resolve_ticker(ticker)
+            if sec_data:
                 # CIK-first: reuse an existing row for this CIK (e.g. stored under a preferred
                 # ticker) instead of 500-ing on the unique-CIK insert (interim safeguard 1).
                 # New rows take the canonical primary ticker (P0-1).
@@ -175,8 +177,10 @@ async def get_company_filings(
     cached = get_cached_filings()
     if cached:
         if settings.DURABLE_TASKS_ENABLED:
+            # The payload names the Cloud Task and keys the per-process guard, so it never carries
+            # the caller's ?filing_types=: one refresh of the company's list forms per bucket.
             await _enqueue_visit_task(
-                "filings", {"company_id": company_id, "filing_types": types_list},
+                "filings", {"company_id": company_id, "filing_types": company_list_forms()},
                 key=f"filings:{company_id}",
                 seconds=int(filing_list_service.FILINGS_LIST_TTL.total_seconds()),
             )

@@ -1,4 +1,4 @@
-"""Copilot fact guards extracted without changing admission behavior."""
+"""Copilot fact guards: the provenance, value, currency and concept checks a fact marker must pass."""
 from __future__ import annotations
 
 import json
@@ -8,6 +8,7 @@ from datetime import date
 from typing import Any, Optional
 
 from app.services import copilot_tools
+from app.services.copilot.figures import _figure_extent, _figure_matches_value, _figure_sign_agrees, _is_year
 
 
 def _reporting_currency(filing: Any) -> Optional[str]:
@@ -63,8 +64,9 @@ def _fact_identity(fact: dict) -> str:
 # How far back (chars) to look for the figure a fact marker claims to support.
 _ADJACENCY_WINDOW_CHARS = 64
 
+# A "t" for trillion must end its word: "$2.04 to $2.10" is a range, not $2.04 trillion.
 _NUMBER_TOKEN = re.compile(
-    r"(\$)?\s*([0-9][\d,]*(?:\.\d+)?)\s*(billion|million|thousand|bn|[bmk%])?",
+    r"(\$)?\s*([0-9][\d,]*(?:\.\d+)?)\s*(trillion|billion|million|thousand|tn|bn|t(?![a-z])|[bmk%])?",
     re.IGNORECASE,
 )
 
@@ -82,13 +84,15 @@ def _adjacency_window(text: str, marker_start: int, prev_marker_end: int) -> str
 
 
 def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
-    """True when the fact's value plausibly matches a figure stated just before its marker.
+    """True when a figure stated just before the fact's marker plausibly IS the fact's value.
 
     The trust guard for TOOL citations (field report: the model reused revenue fact markers
     [F1]/[F2]/[F3] as year markers on gross-profit/operating-income/net-income figures, so
     chips opened provenance for a DIFFERENT metric than the claim). Text citations verify by
     excerpt matching; fact citations verify by VALUE ADJACENCY: some number in the preceding
-    window must equal the fact's value (at display-rounding tolerance).
+    window must match the fact's magnitude at display-rounding tolerance ("$81.46B" / "81.46" /
+    "$2.04"; a scale word or $ is read at face value) and must not state the opposite sign
+    ("net income was $1.2B" on a loss, "grew 15.3%" on a decline). See ``copilot.figures``.
 
     Falsification-only: a window with NO number tokens can't be checked — the marker is kept
     (qualitative placements like "margins compressed [F1]" exist). Bare 4-digit integers that
@@ -99,48 +103,24 @@ def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
     claim must not vouch for a reused marker sitting on a different number.
     """
     try:
-        value = float(fact.get("value"))
+        float(fact.get("value"))
     except (TypeError, ValueError):
         return True
-    percent_like = fact.get("kind") in ("yoy_growth", "margin")
-    # Prior markers in the window ([2], [F1]) are citations, not figures — scrub them.
+    # Prior markers in the window ([2], [F1]) are citations, not figures — scrub them. A written
+    # date's own comma and period end no clause (see ``_WRITTEN_DATE``).
     scrubbed = re.sub(r"\[\s*F?\s*\d+\s*\]", " ", window, flags=re.IGNORECASE)
-
-    candidates: list[tuple[str, float]] = []
-    saw_token = False
-    for m in _NUMBER_TOKEN.finditer(scrubbed):
-        dollar, raw, suffix = m.group(1), m.group(2).replace(",", ""), (m.group(3) or "").lower()
-        try:
-            num = float(raw)
-        except ValueError:
-            continue
-        if not dollar and not suffix and num.is_integer() and 1900 <= num <= 2100:
-            continue  # a year, not a figure
-        saw_token = True
-        scale = {"billion": 1e9, "bn": 1e9, "b": 1e9, "million": 1e6, "m": 1e6, "thousand": 1e3, "k": 1e3}.get(suffix)
-        if suffix == "%":
-            candidates.append(("pct", num))
-        elif scale:
-            candidates.append(("abs", num * scale))
-        else:
-            candidates.append(("plain", num))
-    if not saw_token:
+    scrubbed = _WRITTEN_DATE.sub(lambda found: re.sub(r"[.,]", " ", found[0]), scrubbed)
+    figures = [m for m in _NUMBER_TOKEN.finditer(scrubbed) if not _is_year(m)]
+    if not figures:
         return True
-
-    def _close(a: float, b: float, *, rel: float = 0.01, absolute: float = 0.011) -> bool:
-        return abs(a - b) <= max(rel * max(abs(a), abs(b)), absolute)
-
-    for token_kind, num in candidates:
-        if percent_like:
-            # Prose states percents ("17.9%" or bare "17.9"); the fact value is a fraction.
-            if token_kind in ("pct", "plain") and _close(num, abs(value) * 100.0, absolute=0.11):
-                return True
-        else:
-            if token_kind == "pct":
-                continue
-            # Match the raw value or any display scaling of it ("$81.46B" / "81.46" / "$2.04").
-            if any(_close(num, abs(value) / d) for d in (1.0, 1e3, 1e6, 1e9)):
-                return True
+    for m in figures:
+        # The figure's own clause (see ``_CLAUSE_BOUNDARY``), read through parentheses around the
+        # figure alone, carries its growth-direction wording ("revenue declined (15.3%)").
+        start, end = _figure_extent(m)
+        clause = slice(start - len(_CLAUSE_BOUNDARY.split(scrubbed[:start])[-1]),
+                       end + len(_CLAUSE_BOUNDARY.split(scrubbed[end:])[0]))
+        if _figure_matches_value(fact, m) and _figure_sign_agrees(fact, m, clause):
+            return True
     return False
 
 
@@ -161,7 +141,8 @@ def _fact_matches_adjacent_currency(fact: dict, window: str) -> bool:
     window = re.sub(r"[*_`]+", "", window)
     scrubbed = re.sub(r"\[\s*F?\s*\d+\s*\]", " ", window, flags=re.I)
     for match in _NUMBER_TOKEN.finditer(scrubbed):
-        if not _fact_matches_adjacent_number(fact, match[0]):
+        # Magnitude alone picks out the fact's figure; its sign is the value guard's question.
+        if not (_is_year(match) or _figure_matches_value(fact, match)):
             continue
         before = _CURRENCY_BEFORE.search(scrubbed[:match.start()].rstrip())
         # The number token owns an optional bare $, so inspect the currency prefix including it.
@@ -221,6 +202,13 @@ _CONCEPT_PATTERNS: dict[str, re.Pattern] = {
 # is a driver mention, not the figure's label). A period/comma followed by a digit is inside a
 # number ("$96.77B", "1,023"), not a boundary.
 _CLAUSE_BOUNDARY = re.compile(r"[;:()—–]|[.,](?![0-9])")
+# A written date is one phrase: for the value guard's sign reading, the comma of "December 31, 2024"
+# and the period of "Dec. 31, 2024" do not end the figure's clause, so "Net income for the year
+# ended December 31, 2024 was $1.2B" still names the figure. The concept guard splits as before.
+_WRITTEN_DATE = re.compile(
+    r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|"
+    r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.?\s+\d{1,2}(?:st|nd|rd|th)?,\s+(?:19|20)\d\d\b"
+)
 
 
 def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:

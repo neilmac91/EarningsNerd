@@ -39,10 +39,25 @@ Weighed three layouts:
   month/week renders honestly (e.g. Fri Jul 3 2026 = Independence Day observed).
 - **Top 5 per day** by `anticipation_score` desc; `+N more` opens the day
   dialog (desktop/month) or expands in place (mobile). Day cells never overflow.
+- **Only what fits whole, at any text size.** Each view picks its layout by its
+  own width in em (container queries), so 200% text gets the narrow layout
+  rather than a clipped one: the week shows the five-column sheet from 42.5em
+  and the day list below it; a list or dialog row narrower than 16em drops its
+  decorative logo and stacks (the bell beside the ticker alone, the status chip,
+  name, note and EPS full width under it, so no chip runs under the bell); a
+  month day lists tickers with their session glyph and follow bell from 42em,
+  the tickers alone from 21em, and below that the count of companies
+  reporting, under one-letter weekday heads, with a caption that says so; there
+  a holiday drops its "Closed" and its date takes the weekend's muted ink.
+  Today's marker is sized in rem, so it holds its digits at any text size.
+  Names wrap, never truncate, and the range label wraps between whole dates.
+  `tests/unit/calendarReflow.spec.tsx` and `calendarEventRow.spec.tsx`.
 - **Status ladder:** `Est.` (dashed chip, tentative by design) → `Confirmed`
   (brand tint) → `Reported` (quiet chip; EPS actual + calm ▲/▼ in the
   gain/loss *text* tokens). Estimated rows with a habitual slot say
-  "usually before open / after close" (§3.3 — right ~3 times in 4).
+  "usually before open / after close" (§3.3: right about 3 times in 4), on a line
+  of their own after the lane's glyph, in every row kind (the week sheet, the
+  day list, the day dialog), since the page's footer explains "usually".
 - **Alerts:** bell on every row (the subscription is per *company*, so it
   shows on reported rows too — it arms the next quarter).
   - Signed-out → sign-in popover; its second action follows the registration
@@ -67,7 +82,11 @@ Weighed three layouts:
   role: nothing is inert and Tab is not trapped — its transparent catcher only
   turns an outside press into a close; the async error is also a `role="alert"`) with
   Esc, outside-click, Tab-out, bell-moving scroll and resize dismissal and focus return,
-  rendered inside the day `<dialog>` while one is open;
+  rendered inside the day `<dialog>` while one is open, and placed from its measured
+  height inside the visible viewport (below the bell, above it, or capped on the
+  roomier side and scrolling inside; when neither side offers 6rem of the reader's
+  text, over the bell at the visible height), a capped panel scrolling its focused
+  action into view, never the page;
   `aria-live` on the range heading; every numeral/ticker is `font-data tabular-nums`.
 - **Motion:** token-timed only — `animate-content-in` on the skeleton→content
   flip, shimmer at `duration-ambient`, `motion-safe:` guards. No decorative motion.

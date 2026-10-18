@@ -50,11 +50,12 @@ npm run dev
 
 **Backend** (from `backend/`):
 ```bash
-pytest tests/              # all tests, in parallel (pytest.ini adds `-n auto`)
+pytest tests/              # the fast lane, in parallel (pytest.ini adds `-n auto` and deselects the performance suite)
+pytest -m "" tests/        # everything, the performance suite included
 pytest tests/unit/         # unit only
 pytest tests/smoke/ -v     # critical-path smoke tests
 pytest -n 0 tests/unit/test_x.py  # one file, serially (debuggers, quick loops)
-ruff check app             # lint
+ruff check . && bandit -r app -ll  # lint and security scan, as CI runs them
 ```
 
 **Frontend** (from `frontend/`):
@@ -68,8 +69,10 @@ npm run build              # production build
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
-`backend-tests` (ruff + bandit + pytest), `frontend-tests` (vitest), and `e2e-tests` (build +
-Playwright). All three must pass before the backend auto-deploys to Cloud Run on `main`. See
+`backend-tests` (ruff + bandit + the parallel pytest fast lane, then the performance suite
+serially), `migrations-postgres` (the migrations and the concurrency tests on PostgreSQL),
+`frontend-tests` (vitest), `e2e-tests` (build + Playwright) and `secret-scan` (gitleaks). All five
+must pass before the backend auto-deploys to Cloud Run on `main`. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
 ## Workflow

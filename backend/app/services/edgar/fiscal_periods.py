@@ -1,6 +1,18 @@
-"""Anchor discrete-quarter labels to the filing's own fiscal focus, never calendar months."""
-from datetime import date
-from typing import Any
+"""Anchor per-filing fiscal labels to the filing's own fiscal focus, never calendar months or years."""
+from datetime import date, timedelta
+from typing import Any, Optional
+
+from app.services.facts.calendar import ANNUAL_FORMS
+
+# A 52/53-week calendar drifts a few days from whole quarters and years; transition periods do not.
+_DRIFT_DAYS = 18
+
+
+def _focus_year(fiscal_year: Any) -> Optional[int]:
+    """The DEI fiscal-year focus as an int, or None when it is missing or implausible."""
+    if isinstance(fiscal_year, str) and fiscal_year.isdigit():
+        fiscal_year = int(fiscal_year)
+    return fiscal_year if type(fiscal_year) is int and 1900 <= fiscal_year <= 2200 else None
 
 
 def fiscal_label(end: str, report_end: str, fiscal_year: Any, fiscal_period: Any) -> dict:
@@ -11,9 +23,8 @@ def fiscal_label(end: str, report_end: str, fiscal_year: Any, fiscal_period: Any
     transition periods unknown. This is only used for already-selected discrete-quarter or
     instant facts, never six-/nine-month YTD values.
     """
-    if isinstance(fiscal_year, str) and fiscal_year.isdigit():
-        fiscal_year = int(fiscal_year)
-    if type(fiscal_year) is not int or not 1900 <= fiscal_year <= 2200:
+    fiscal_year = _focus_year(fiscal_year)
+    if fiscal_year is None:
         return {}
     if fiscal_period not in ("Q1", "Q2", "Q3", "Q4"):
         return {}
@@ -22,7 +33,54 @@ def fiscal_label(end: str, report_end: str, fiscal_year: Any, fiscal_period: Any
     except (TypeError, ValueError):
         return {}
     quarters = round(days / 91.3125)
-    if days < 0 or abs(days - quarters * 91.3125) > 18:
+    if days < 0 or abs(days - quarters * 91.3125) > _DRIFT_DAYS:
         return {}
     offset = int(fiscal_period[1]) - 1 - quarters
     return {"fiscal_year": fiscal_year + offset // 4, "fiscal_period": f"Q{offset % 4 + 1}"}
+
+
+def annual_fiscal_label(end: str, report_end: Any, fiscal_year: Any, fiscal_period: Any) -> dict:
+    """Name an annual report's point by the issuer's fiscal year where its end's calendar year does not.
+
+    A retailer's year ending 1 February 2025 is its fiscal 2024, and a 52-week year ending
+    1 January 2023 is fiscal 2022. The DEI focus names the year the filing reports; a comparative
+    ends a whole number of fiscal years earlier. Like the companyfacts writer
+    (``facts/calendar.reported_fiscal_year``) this trusts only an annual report's FY focus that names
+    the anchor's end year or the year before; it narrows the year before to a year that mostly lies
+    in it (one ending by early July), so a lagging focus on a December year keeps the default.
+    Unlike that writer it sees one filing and no filing date, so it can neither outvote an outlier
+    focus across the years nor tell whether a late report's year chain holds a timely one. The
+    per-filing writer makes up for the first where companyfacts already stores a trusted year for one
+    of the report's period ends: it moves the filing's annual labels onto that year chain
+    (``facts/fiscal_evidence.adopt_trusted_fiscal_years``). Before the first companyfacts sync it
+    cannot, so a year named by its end under a lagging focus (Salesforce's fiscal 2026, ended
+    31 January 2026, focus 2025) keeps the year before; the stored-row relabel (#1372) rewrites only
+    calendar-default labels, so such a row stays until the filing's facts are rewritten. Both are
+    known limits (``lessons/sec-fact-writers-name-a-period-alike.md``).
+    Returns {} when the calendar year of the end already names the year (the fact normalizer's
+    default, so a calendar-aligned issuer's points keep their exact shape), when the focus is not
+    trusted, or when the point is not a whole number of years before the anchor.
+    """
+    fiscal_year = _focus_year(fiscal_year)
+    try:
+        point, anchor = date.fromisoformat(end), date.fromisoformat(report_end)
+    except (TypeError, ValueError):
+        return {}
+    # The calendar year the fiscal year ends in, or the one its midpoint falls in.
+    if fiscal_period != "FY" or fiscal_year not in (anchor.year, (anchor - timedelta(days=183)).year):
+        return {}
+    days = (anchor - point).days
+    years = round(days / 365.25)
+    if days < 0 or abs(days - years * 365.25) > _DRIFT_DAYS or fiscal_year - years == point.year:
+        return {}
+    return {"fiscal_year": fiscal_year - years, "fiscal_period": "FY"}
+
+
+def filing_point_label(form: Any, end: str, report_end: Any, fiscal_year: Any, fiscal_period: Any) -> dict:
+    """A 10-Q point's fiscal quarter, or an annual report point's fiscal year, from the filing's focus."""
+    form = str(form or "")
+    if form.removesuffix("/A") == "10-Q":
+        return fiscal_label(end, report_end, fiscal_year, fiscal_period)
+    if form in ANNUAL_FORMS:
+        return annual_fiscal_label(end, report_end, fiscal_year, fiscal_period)
+    return {}

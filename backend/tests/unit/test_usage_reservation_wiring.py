@@ -384,32 +384,61 @@ async def test_pipeline_timeout_during_the_charge_write_still_refunds_the_commit
     """The thread-pool charge write cannot be cancelled: when the pipeline deadline passes while
     it is running, the worker still commits, and the coroutine awaiting it is cancelled before it
     can record the month. The timeout refund must still find that committed unit, or a timed-out
-    generation costs quota against the stated refund policy."""
+    generation costs quota against the stated refund policy.
+
+    The test controls each step rather than racing a real deadline. It expires the pipeline's own
+    deadline once the write is blocked in the worker thread and the pipeline awaits it, and lets the
+    write finish only after the deadline has fired. A real 0.6 s deadline also covered the setup
+    work before the provider starts: under parallel load the mocked SEC fetch took 0.53 s of it.
+    The deadline then passed before any write began, and the test timed out waiting for one
+    (CI run 38078792172)."""
     import asyncio
-    import time
+    import threading
+    from types import SimpleNamespace
+
+    from app.services.summary_stages import generation_run
 
     user_id, filing_id = _seed_user(), seed_company_filing()
     loop = asyncio.get_running_loop()
     real_increment = summary_pipeline.increment_user_usage
-    write_done = asyncio.Event()
+    write_started, charge_awaited, write_done = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    finish_write = threading.Event()
+    deadline = asyncio.timeout(None)  # the pipeline's backstop deadline, armed only by the test
 
     def slow_increment(*args, **kwargs):
-        time.sleep(1.2)  # the pipeline deadline passes while this write is in the thread pool
+        loop.call_soon_threadsafe(write_started.set)
+        assert finish_write.wait(30), "the test never let the charge write finish"
         result = real_increment(*args, **kwargs)
         loop.call_soon_threadsafe(write_done.set)
         return result
+
+    def recording_shield(future):
+        charge_awaited.set()  # the pipeline is about to await the in-flight charge write
+        return asyncio.shield(future)
 
     async def blocking_provider(*args, **kwargs):
         signal_provider_start()
         await asyncio.sleep(30)
         return CANONICAL_PAYLOAD
 
+    async def expire_the_deadline_during_the_write():
+        await write_started.wait()
+        await charge_awaited.wait()
+        deadline.reschedule(loop.time())
+        while not deadline.expired():  # expiry cancels the pipeline's await of the write
+            await asyncio.sleep(0)
+        finish_write.set()  # the worker still commits
+
     with stream_boundaries() as summarize, patch.object(summary_pipeline, "increment_user_usage", slow_increment), \
-            patch.object(summary_pipeline, "PIPELINE_TIMEOUT_SECONDS", 0.6), \
+            patch.object(summary_pipeline, "asyncio", SimpleNamespace(
+                **{**vars(asyncio), "timeout": lambda _seconds: deadline})), \
+            patch.object(generation_run, "asyncio", SimpleNamespace(**{**vars(asyncio), "shield": recording_shield})), \
             patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 0.1):
         summarize.side_effect = blocking_provider
-        events = await _run(filing_id, user_id)
-        await asyncio.wait_for(write_done.wait(), 5)
+        controller = asyncio.create_task(expire_the_deadline_during_the_write())
+        events = await asyncio.wait_for(_run(filing_id, user_id), 30)  # hang guards only
+        await asyncio.wait_for(controller, 5)
+        assert write_done.is_set()
     assert events[-1]["type"] == "error" and "timed out" in events[-1]["message"]
     assert _state(user_id) == (0, 0)  # the committed unit was found and refunded; no lease left
 
