@@ -71,7 +71,7 @@ mark.
 | 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
 | 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
 | 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings dormant |
-| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 12 of 42 |
+| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 11 of 42 (12 until D-045's rows rescored T4) |
 | 10 | this page | The handoff |
 | all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
 
