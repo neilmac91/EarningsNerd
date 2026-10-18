@@ -2142,6 +2142,8 @@ describe('the password rule moves in lockstep with the backend', () => {
       'const STACK = [Quiet]; STACK.push(Secret)',
       'const LENT = { field: Quiet }; lend(LENT)',
       'const CALLS = { Field: Quiet }; CALLS.Field = Secret',
+      // The limit: a component written into a container and called under a lowercase name reads as no field.
+      "const lower = { field: Quiet }; lower.field = Secret; export const viaCall = lower.field({ id: 'lowerCall', mode: 'off' })",
       'function Frame({ Field }: { Field: typeof Quiet }) { return <Field id="framed" mode="off" /> }',
       'export const SHARED = { field: Quiet }',
       'export function Page() {',
