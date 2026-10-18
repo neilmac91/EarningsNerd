@@ -1600,6 +1600,7 @@ HIDDEN_TEXTS = [
     ("opacity:0", '<p style="opacity:0">Words at no opacity.</p>', "opacity:0"),
     ("opacity as a percentage", '<p style="opacity:0%">Words at no opacity.</p>', "opacity:0%"),
     ("opacity under rspamd's floor", '<p style="opacity:0.03">Words all but clear.</p>', "opacity:0.03"),
+    ("opacities that multiply under rspamd's floor", '<div style="opacity:0.2"><p style="opacity:0.1">Twice faded.</p></div>', "opacity:0.1, 0.02 with"),
     ("font-size:0", '<p style="font-size:0">Words at no size.</p>', "font size is 0px"),
     ("a font size of 2 px", '<p style="font-size:2px">Words too small to read.</p>', "font size is 2px"),
     ("font:0/0 a, the shorthand", '<p style="font:0/0 a">Words at no size.</p>', "font size is 0px"),
@@ -1636,6 +1637,7 @@ HIDDEN_TEXTS = [
     ("a link that sets no colour, in a browser's blue", '<a href="https://e.test/x">A link</a>', None),
     ("a box that clips at a size that shows its line", '<p style="max-height:600px;overflow:hidden">A tall box.</p>', None),
     ("half opacity", '<p style="opacity:0.5">Half shown.</p>', None),
+    ("two opacities whose product shows", '<div style="opacity:0.5"><p style="opacity:0.5">A quarter shown.</p></div>', None),
     ("a child shown again under a hidden parent with no words of its own", '<div style="visibility:hidden"><span style="visibility:visible">Shown again.</span></div>', None),
     ("Outlook's own tagline in a conditional comment, which Outlook shows", "The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span>shows its work.</span><!--<![endif]-->", None),
     ("mso-hide:all on a box of spaces", '<div style="mso-hide:all">&nbsp; &#8203;</div>', None),
@@ -1879,7 +1881,7 @@ def test_the_planted_lists_keep_their_counts():
     }
     assert counts == {
         "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (11, 1), "PREHEADERS": (21, 7),
-        "HIDDEN_TEXTS": (40, 15), "TEXT_PARTS": (11, 3),
+        "HIDDEN_TEXTS": (41, 16), "TEXT_PARTS": (11, 3),
     }, "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     for name, cases in (
         ("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT), ("PREHEADERS", PREHEADERS),

@@ -2053,12 +2053,14 @@ def _clipped_to(declared: list[tuple[str, bool, str]], font: float) -> str | Non
 @dataclass(frozen=True)
 class _Seen:
     """What a text inherits on the way down a page: whether it is visible, its size and colour (None where the reader
-    does not resolve it), the ground behind it, and whether it sits in the header."""
+    does not resolve it), the ground behind it, the opacity its boxes multiply to, and whether it sits in the
+    header."""
 
     visible: bool = True
     size: float = 16.0
     colour: tuple[float, ...] | None = _BLACK
     ground: tuple[float, ...] = _WHITE
+    opacity: float = 1.0
     header: bool = False
 
 
@@ -2083,7 +2085,8 @@ def _seen_below(seen: _Seen, element: ElementTree.Element, declared: list[tuple[
     elif _local(element.tag) == "a" and element.get("href") is not None:
         colour = _LINK_BLUE  # a browser's own style sheet colours a link that sets none
     ground = _ground(element, declared)
-    return _Seen(visible, size, colour, ground if ground and ground[3] > _SHOWN_ALPHA else seen.ground, header)
+    opacity = seen.opacity * min(1.0, max(0.0, own[0])) if (own := _opacity(declared)) else seen.opacity
+    return _Seen(visible, size, colour, ground if ground and ground[3] > _SHOWN_ALPHA else seen.ground, opacity, header)
 
 
 def _unshown(text: str | None, seen: _Seen) -> str | None:
@@ -2128,8 +2131,10 @@ def _texts(page: str, outlook: bool) -> tuple[list[tuple[str | None, str, bool]]
             hidden = f"<{tag}> skips its content (hidden=until-found or content-visibility:hidden), which shows only when found"
         elif outlook and (_winner(declared, "mso-hide") or ("", ""))[1] == "all":
             hidden = f"<{tag}> is mso-hide:all, which classic Outlook hides"
-        elif (opacity := _opacity(declared)) and opacity[0] < _SHOWN_ALPHA:
-            hidden = f"<{tag}> is opacity:{opacity[1]}"
+        elif below.opacity < _SHOWN_ALPHA:
+            # Opacity multiplies down the tree: 0.1 inside 0.2 paints at 0.02.
+            own = (_opacity(declared) or (1.0, "1"))[1]
+            hidden = f"<{tag}> is opacity:{own}, {below.opacity:.3g} with the boxes around it"
         elif clip := _clipped_to(declared, below.size):
             hidden = f"<{tag}> clips its overflow to nothing ({clip})"
         if hidden is not None:
@@ -2154,8 +2159,9 @@ def hidden_text_problems(page: str) -> list[str]:
     """Where a page holds text it does not show its reader, in a browser's view or classic Outlook's, and each
     declaration that can hide text in a way the reader does not model. A text is hidden where an element is laid out
     nowhere (``display:none``, the ``hidden`` attribute, one a browser's own style sheet hides), skips its content
-    (``hidden="until-found"``, ``content-visibility:hidden``), is ``opacity:0`` (an alpha under rspamd's floor) or
-    clips its overflow to 3 px or less, ``height:0`` or ``max-height:0`` among them;
+    (``hidden="until-found"``, ``content-visibility:hidden``), paints under rspamd's alpha floor (its opacity times
+    the opacities of the boxes around it) or clips its overflow to 3 px or less, ``height:0`` or ``max-height:0``
+    among them;
     where the text is ``visibility:hidden``, set at 3 px or less (``font-size:0``, ``font:0/0 a``) or in a colour
     that is transparent or too like the ground behind it (rspamd's measures, ``html_block.hxx``); and, in classic
     Outlook's view, under ``mso-hide:all``. A run counts where it holds a character rspamd counts: whitespace and the
