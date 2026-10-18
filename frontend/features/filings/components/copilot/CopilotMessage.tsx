@@ -395,7 +395,7 @@ export default function CopilotMessage({
         <div className="mt-2.5">
           {onRetry && (
             <Button variant="secondary" size="sm" onClick={onRetry} leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
-              Retry
+              Try again
             </Button>
           )}
         </div>

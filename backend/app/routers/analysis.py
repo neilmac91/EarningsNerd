@@ -37,7 +37,7 @@ from app.schemas.analysis import (
     ExportDatasetRequest,
     StreamRequest,
 )
-from app.services import analysis_data_access, facts_service, trend_analysis_service
+from app.services import analysis_data_access, facts_service, filing_list_service, trend_analysis_service
 from app.services.durable_tasks import enqueue_task
 from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -331,37 +331,50 @@ async def stream_analysis(
         error_detail="Too many analysis generations. Please retry in a minute.",
         include_client_ip=False,
     )
-    company = _get_company(db, ticker)
-
-    # Snapshot everything the generator needs — it runs after this request's session is gone.
-    # Read before the admission below commits, so no expired instance is refreshed under a lease.
-    company_id = company.id
-    ticker_value = company.ticker
     user_id = current_user.id
 
-    allowed, _count, cap = check_analysis_limit(current_user, db)
-    token = None
-    if allowed:
-        # The read above is not serialized; the reservation is (E07b slice 2). It holds one unit
-        # until a fresh generation converts it or a cached / exempt outcome releases it.
-        allowed, _count, cap, token = reserve_analysis_use(current_user, db)
-    if not allowed:
-        # The cap blocks only runs that would CONSUME quota. A non-force request whose range
-        # already has a cached row can only resolve free — a cache re-serve, or a
-        # system-invalidated regeneration (prompt bump / new facts), which is meter-exempt —
-        # so it proceeds; without this, the very prompt bump that invalidates the cached fleet
-        # would lock at-cap users out of analyses they already paid quota for.
-        reaches_free_path = not body.force and trend_analysis_service.has_cached_analysis(
-            db, company_id, body.mode, body.start_period, body.end_period
-        )
-        if not reaches_free_path:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"You've reached this month's fair-use limit of {cap} analyses. "
-                    "It resets at the start of next month."
-                ),
-            )
+    # The admission (the company lookup, the cap check, the lease and the cached-range read) and the
+    # session release are one unit off the event loop. The generator below runs after this request's
+    # session is gone, and the dependency's finalizer runs only once the stream ends, so a transaction
+    # left open here would hold a pooled connection for the whole stream
+    # (``lessons/ops-release-cached-filing-reads-before-yield.md``).
+    def admit_reader() -> tuple[int, str, str | None]:
+        try:
+            company = _get_company(db, ticker)
+
+            # Snapshot everything the generator needs. Read before the admission below commits,
+            # so no expired instance is refreshed under a lease.
+            company_id = company.id
+            ticker_value = company.ticker
+
+            allowed, _count, cap = check_analysis_limit(current_user, db)
+            token = None
+            if allowed:
+                # The read above is not serialized; the reservation is (E07b slice 2). It holds one
+                # unit until a fresh generation converts it or a cached / exempt outcome releases it.
+                allowed, _count, cap, token = reserve_analysis_use(current_user, db)
+            if not allowed:
+                # The cap blocks only runs that would CONSUME quota. A non-force request whose range
+                # already has a cached row can only resolve free — a cache re-serve, or a
+                # system-invalidated regeneration (prompt bump / new facts), which is meter-exempt —
+                # so it proceeds; without this, the very prompt bump that invalidates the cached
+                # fleet would lock at-cap users out of analyses they already paid quota for.
+                reaches_free_path = not body.force and trend_analysis_service.has_cached_analysis(
+                    db, company_id, body.mode, body.start_period, body.end_period
+                )
+                if not reaches_free_path:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=(
+                            f"You've reached this month's fair-use limit of {cap} analyses. "
+                            "It resets at the start of next month."
+                        ),
+                    )
+            return company_id, ticker_value, token
+        finally:
+            filing_list_service.release_request_session(db)
+
+    company_id, ticker_value, token = await run_in_threadpool(admit_reader)
 
     held = {"token": token}  # the admission lease, until converted by metering or released
 
