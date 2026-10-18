@@ -59,7 +59,10 @@ import { bindingResolver, containerEscape } from './astBindings'
  *
  * Limits: a block is reached by name (a same-named function in another module is not told apart, and a call
  * made through a variable or getattr is not followed, which only narrows), and a reached block counts as a
- * whole, so a read whose value the job then drops still counts; review reads what the job does with it.
+ * whole, so a read whose value the job then drops still counts; review reads what the job does with it. In the
+ * form, each walk follows a value eight steps (a wrapping call, a hook's return, a const, a spread into an update):
+ * a chain longer than that, or a cycle of them (a hook that returns its own call, a const that holds itself), fails
+ * the scan loudly with the place it stopped, so it never reads as no saver or no field.
  *
  * The digest frequency select failed this: users.py stored `digest` and no job read it, so a "Weekly" choice
  * still mailed daily. It comes back only with a reader here.
@@ -237,7 +240,10 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
   // A name is the declaration an identifier binds to in the file (astBindings, so two components' `props` stay apart; an
   // unbound name, an import or a global, is its text), or a member path from one (`actions.persist`, `props.source`). A
   // function is reached by the name its call or its tag spells, and each of its parameters takes what every call and tag
-  // in the file hands it there. Run to a fixed point.
+  // in the file hands it there. Run to a fixed point, which the loop reaches: it only adds (a function to a name, a holder,
+  // a saver, a context), and every name it adds is a declaration of the file, a member path written in it, or a declaration
+  // with at most two of the file's keys after it, so what it can add is finite. Each walk inside it stops at eight steps
+  // and says so (pastReach).
   const resolve = bindingResolver(source)
   const ids = new Map<ts.Node, string>()
   const keyOf = (id: ts.Identifier): string => {
@@ -312,10 +318,19 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     if (body) walk(body)
     return out
   }
+  /** A value a walk here reaches past its eight steps (a chain of wrapping calls, hook returns, consts or spreads, or a cycle
+      of them: a hook that returns its own call, a const that holds itself): what it holds goes unread, so the scan fails
+      loudly, once per place, with where it stopped and what it was following. */
+  const pastReach = <T>(node: ts.Node, what: string): T[] => {
+    const entry = `${file}:${line(node)} ${node.getText(source).replace(/\s+/g, ' ')} (${what} through more steps than this reader follows)`
+    if (!unreadable.includes(entry)) unreadable.push(entry)
+    return []
+  }
   /** The functions a value is: an arrow or a function expression; a named one; the one a call wraps as its first argument
       (useCallback, memo, forwardRef or any wrapper, nested), useMemo's factory's result; what a same-file hook returns. */
   const functionsIn = (value: ts.Expression | undefined, depth = 0): Fn[] => {
-    if (!value || depth > 8) return []
+    if (!value) return []
+    if (depth > 8) return pastReach(value, 'a function held')
     const inner = bare(value)
     if (ts.isArrowFunction(inner) || ts.isFunctionExpression(inner)) return [inner]
     const name = nameOf(inner)
@@ -330,7 +345,8 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
   }
   /** The object literals a value is: written in place, held in a const, or what a same-file hook returns. */
   const objectsIn = (value: ts.Expression | undefined, depth = 0): ts.ObjectLiteralExpression[] => {
-    if (!value || depth > 8) return []
+    if (!value) return []
+    if (depth > 8) return pastReach(value, 'an object held')
     const inner = bare(value)
     if (ts.isObjectLiteralExpression(inner)) return [inner]
     const name = nameOf(inner)
@@ -401,7 +417,8 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
   }
   /** The array literals a value is: written in place, or held in a const. */
   const arraysIn = (value: ts.Expression | undefined, depth = 0): ts.ArrayLiteralExpression[] => {
-    if (!value || depth > 8) return []
+    if (!value) return []
+    if (depth > 8) return pastReach(value, 'an array held')
     const inner = bare(value)
     if (ts.isArrayLiteralExpression(inner)) return [inner]
     const name = nameOf(inner)
@@ -581,7 +598,9 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
         const update = (object: ts.ObjectLiteralExpression, depth = 0): void => {
           for (const prop of object.properties) {
             if (ts.isSpreadAssignment(prop)) {
-              if (depth < 8) for (const inner of objectsIn(prop.expression)) update(inner, depth + 1)
+              const spread = objectsIn(prop.expression)
+              if (depth < 8) for (const inner of spread) update(inner, depth + 1)
+              else if (spread.length) pastReach(prop, 'an update spread')
               continue
             }
             const key = propertyKey(prop.name)
@@ -803,6 +822,14 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       ['  const hooked = useNoop()'],
       ['  const update4 = { f_rebound_update: true }', ['f_rebound_update']],
       ['  hooked.keep = (u: Update) => save(u)'],
+      // Past a walk's eight steps (#1370's eighth round), each loud with the place it stopped: Codex's saver nine wrappers
+      // deep on 3ebe222b, a cycle of consts read as an object (a save sends it) and as an array (a pattern takes it apart),
+      // and an update that spreads itself.
+      ['  const persistDeep = w1(w2(w3(w4(w5(w6(w7(w8(w9((u: Update) => save(u))))))))))'],
+      ['  const loopA = loopB'],
+      ['  const loopB = loopA'],
+      ['  const [fromLoop] = loopA'],
+      ['  const spreadLoop = { f_spread_loop: true, ...spreadLoop }', ['f_spread_loop']],
       ['  return ('],
       ['    <PrefsContext.Provider value={prefs}>'],
       ['    <Prefs19 value={prefs}>'],
@@ -885,6 +912,10 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       // Out of reach too: an object a same-file hook returns, written after the call (its returned object is read as the hook
       // writes it).
       ['      <button onClick={() => hooked.keep({ f_gap_hook_write: true })}>Hooked</button>', [], ['f_gap_hook_write']],
+      // Past a walk's reach: the saver nine wrappers deep is never found, so its field stays unread, loudly.
+      ['      <button onClick={() => persistDeep({ f_gap_deep_wrapper: true })}>Deep</button>', [], ['f_gap_deep_wrapper']],
+      ['      <button onClick={() => persist(loopA)}>Loop</button>'],
+      ['      <button onClick={() => persist(spreadLoop)}>Spread loop</button>'],
       ['    </Prefs19>'],
       ['    </PrefsContext.Provider>'],
       ['  )'],
@@ -924,8 +955,17 @@ describe('Notification preferences the form offers are read by the alert jobs', 
     const lineWith = (needle: string) => FORMS.findIndex(([code]) => code.includes(needle)) + 1
     const written = (name: string, how: string, at: string) =>
       `fixture.tsx:${lineWith(`const ${name} =`)} ${name} (a container that can change after its initializer: ${how}, line ${lineWith(at)})`
+    // A walk past its eight steps is loud where it stopped: the saver's arrow, the ninth value the wrappers hold; the cycle's
+    // const the ninth step lands on, from each const's own value (as an object) and from the pattern (as an array), the save
+    // of loopA stopping where loopB's value does; and the spread the update walk reaches ninth.
+    const past = (needle: string, form: string, what: string) => `fixture.tsx:${lineWith(needle)} ${form} (${what} through more steps than this reader follows)`
     expect(unreadable).toEqual([
+      past('const persistDeep =', '(u: Update) => save(u)', 'a function held'),
+      past('const loopA =', 'loopB', 'an object held'),
+      past('const loopA =', 'loopB', 'an array held'),
+      past('const loopB =', 'loopA', 'an object held'),
       `fixture.tsx:${lineWith('<option value={prefs.f_option}>')} <option value={prefs.f_option}>`,
+      past('const spreadLoop =', '...spreadLoop', 'an update spread'),
       written('acts', 'an entry assigned', 'acts.extra'),
       written('update3', 'an entry assigned', 'update3.f_written_extra'),
       // A same-file saver that sends another object than the one it is handed (its parameter reassigned).
@@ -944,7 +984,10 @@ describe('Notification preferences the form offers are read by the alert jobs', 
   })
 
   it('every value the form offers is a literal the jobs act on, and the scan reads each one', () => {
-    expect(form.unreadable, 'write the value as a literal or through a .map over a literal array').toEqual([])
+    expect(
+      form.unreadable,
+      'write each value as a literal or through a .map over a literal array, keep what the scan reads through (an update, an object of savers, an options array) unchanged after its initializer, and within eight steps of where it is used',
+    ).toEqual([])
     const unread = [...form.options].filter(([value]) => !hasLiteral(consumerCode, value))
     expect(unread.map(([value, at]) => `${FORM}:${at} option "${value}" has no reader the jobs reach in ${CONSUMERS.join(', ')}`)).toEqual([])
   })

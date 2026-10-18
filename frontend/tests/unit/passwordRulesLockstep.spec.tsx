@@ -43,8 +43,9 @@ import { bindingEscape, bindingReferences, bindingResolver, containerEscape, wri
  *    any of those forms or in a constant named for a minimum, a length, a floor or a password. Not read, each
  *    planted as a gap: a count computed at runtime or worked out by arithmetic (`${8 + 4}`), and one only two
  *    branching values state together (`{a ? 1 : 9}{b ? 2 : 9} characters`); a value with more readings than
- *    the evaluator takes fails loudly, and so does one read through a container, a parameter or props that can
- *    change (as the field reader below reads them), where a gap would hide what the page renders. The two pages that state PASSWORD_RULE render it word for word,
+ *    the evaluator takes fails loudly, and so does one nested past the 24 steps it follows (a cycle of consts) or
+ *    read through a container, a parameter or props that can change (as the field reader below reads them), where
+ *    a gap would hide what the page renders. The two pages that state PASSWORD_RULE render it word for word,
  *    whatever their source looks like (authPagesCopy.spec.tsx for /reset-password, RegisterForm.spec.tsx for
  *    /register).
  *  - Every new-password field carries `minLength={PASSWORD_MIN_LENGTH}`, or its form checks
@@ -82,7 +83,8 @@ import { bindingEscape, bindingReferences, bindingResolver, containerEscape, wri
  *    cannot evaluate fails loudly, with the form: a name from another module, a `let`, a call, an object or
  *    a spread it cannot follow, a class's `this.props`, a value destructured from inside a prop, a computed
  *    key or an array's rest destructured, a forwarded value composed into text, a prop of a parameter after
- *    the first, more than 64 composed values. Every password field (a `type` that can be
+ *    the first, more than 64 composed values, a value nested past the 24 steps the evaluator follows (a cycle
+ *    of consts). Every password field (a `type` that can be
  *    password, a PasswordField, or a component that forwards one, rendered, called as a function or created
  *    with `createElement`) names its autoComplete so. A forwarding component (FORWARDERS, found to a fixed
  *    point) is read at each caller, under every name the caller renders it by: its declared name; a const
@@ -92,7 +94,13 @@ import { bindingEscape, bindingReferences, bindingResolver, containerEscape, wri
  *    (`PICK[which]`); a name destructured out of any of these (renamed, nested, with a default, both read, an
  *    array's element); an import under any name (default, `{ A as B }`, a namespace, an object imported under
  *    an alias, through re-exports); and a prop of a same-file component that its callers hand it
- *    (`<Page Field={Secret} />` read where Page renders `<Field>`, an `as` prop among them). A component is named
+ *    (`<Page Field={Secret} />` read where Page renders `<Field>`, an `as` prop among them), run to a fixed
+ *    point however many components hand it down. The follower takes eight steps from where a name is rendered
+ *    (each const, key, pattern, module, branch of a condition or a logical operator and wrapping call is one),
+ *    and a prop is handed names of at most eight member steps: a chain longer than that, or a cycle (a const
+ *    that holds itself, an `export *` that re-exports itself, a component that hands a member of its own prop
+ *    back to itself), names a component it cannot follow, and a tag, a `createElement` or a call named as a
+ *    component that renders one fails loudly, with where it stopped. A component is named
  *    through a container (an entry, an element, a pattern over one) only while nothing in its module can change
  *    the container, each use read as above: a tag, a `createElement` or a call named as a component (a capital,
  *    as JSX requires) through one that can fails loudly. One forwarded
@@ -104,7 +112,7 @@ import { bindingEscape, bindingReferences, bindingResolver, containerEscape, wri
  *    rest, a `type` forwarded under another prop's name or carried only by a spread the reader cannot
  *    follow, a value written to the DOM, a write into a container another module declares (an import is named
  *    by its declaration, so an export is followed rather than refused), and a component written into a
- *    container and called under a lowercase name.
+ *    container, or reached past the follower's reach, and called under a lowercase name.
  *  - Every file under SOURCE_ROOTS is read (scripts, Markdown, MDX) or listed in NOT_READ with why it can
  *    hold no password rule.
  *  - The strength meter says "Too short" under the minimum and scores length past it.
@@ -430,8 +438,8 @@ const namesCurrent = (text: string) => /\bcurrent-password\b/i.test(text)
 
 /** One value an expression can render: its text; nothing (undefined, null or false); a prop the function it renders in
     forwards from its caller; or a form this reader cannot evaluate, which fails loudly (one with more values than it
-    takes, `cap`, and one read through a container or a binding that can change, `loud`, fail even where the length
-    reader reads a gap). */
+    takes, `cap`, and one read through a container or a binding that can change or nested past what it follows, `loud`,
+    fail even where the length reader reads a gap). */
 type Alternative =
   | { kind: 'text'; text: string }
   | { kind: 'nothing'; value: 'undefined' | 'null' | 'false' }
@@ -441,14 +449,15 @@ type Resolve = (ref: ts.Identifier) => Binding | undefined
 /** A same-file function's parameters, each bound to the argument a call passes it, read where the call is. */
 type Env = ReadonlyMap<ts.Node, { value: ts.Expression | undefined; env: Env }>
 /** What an expression holds: a same-file object or array literal (with where its entries are read), or a function's props;
-    a rest of an object or of the props without the keys taken out beside it; or one of those that can change after this
-    reader's source for it (a container written or handed on after its initializer, a parameter assigned, props written),
-    through which every value read is unreadable. */
+    a rest of an object or of the props without the keys taken out beside it; or one this reader cannot follow, through
+    which every value read is unreadable, loudly: one of those that can change after this reader's source for it (a
+    container written or handed on after its initializer, a parameter assigned, props written), or one nested past what
+    it follows. */
 type Holder =
   | { object: ts.ObjectLiteralExpression; env: Env; without?: readonly string[] }
   | { array: ts.ArrayLiteralExpression; env: Env }
   | { props: ts.ParameterDeclaration; without?: readonly string[] }
-  | { written: ts.Node; why: string }
+  | { unfollowed: ts.Node; why: string }
 /** One step a pattern takes into what it destructures: an object's key, an array's index, or an object's rest. */
 type Step = { key: string } | { index: number } | { rest: string[] }
 /** Where a destructured name sits: its pattern's root (a declaration or a parameter) and each step from it, with the
@@ -573,8 +582,9 @@ function functionOf(binding: Binding | undefined): ts.SignatureDeclaration | und
  * not assign it, and props only while the component does not write them. Anything else is unreadable: a name from
  * another module, a `let`, a call or an object this reader cannot follow, a class's `this.props`, a value destructured
  * from inside a prop, a computed key or an array's rest destructured, a forwarded value composed into text, more than
- * MAX_ALTERNATIVES values, and a value read through what can change. With `gaps` (the length reader), a value it cannot
- * know composes into text as a gap instead of making the whole unreadable, except the last two, which stay loud.
+ * MAX_ALTERNATIVES values, a value read through what can change, and one nested past the 24 steps this reader follows (a
+ * cycle of consts). With `gaps` (the length reader), a value it cannot know composes into text as a gap instead of making
+ * the whole unreadable, except the last three, which stay loud.
  */
 function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
   const show = (node: ts.Node) => squash(node.getText(sf))
@@ -584,6 +594,8 @@ function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
   /** Whether a parameter, or a name destructured from one, is assigned in its function (a const cannot be). */
   const reassigned = (decl: Binding['decl']) => references(decl).some((ref) => writtenAs(ref) !== undefined)
   const REASSIGNED = 'a parameter assigned in its function'
+  /** Past the 24 steps this reader follows (a cycle of consts): loud, like a value read through what can change. */
+  const NESTED = 'nested past what this reader follows'
   /** Why a container this reader reaches through a binding or an entry can change after its initializer, or undefined. */
   const changes = (literal: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression): string | undefined => {
     if (!CHANGES.has(literal)) {
@@ -611,20 +623,21 @@ function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
   const forwarded = (param: ts.ParameterDeclaration, prop: string, at: ts.Node): Alternative[] =>
     param.parent.parameters[0] === param ? [{ kind: 'forwarded', prop, from: param.parent }] : unreadable(at, 'a parameter after the first, which holds no props')
   const paramHolder = (param: ts.ParameterDeclaration, env: Env, depth: number): Holder | undefined => {
-    if (reassigned(param)) return { written: param, why: REASSIGNED }
+    if (reassigned(param)) return { unfollowed: param, why: REASSIGNED }
     const bound = env.get(param)
     if (bound) return holderOf(bound.value ?? param.initializer, bound.value ? bound.env : env, depth + 1, true)
     const why = propsChange(param)
-    return why ? { written: param, why } : { props: param }
+    return why ? { unfollowed: param, why } : { props: param }
   }
   /** What an expression holds. A container is read where it is written in place; reached through a binding or an entry
       (`bound`), only while nothing can change it after its initializer. */
   const holderOf = (expr: ts.Expression | undefined, env: Env, depth = 0, bound = false): Holder | undefined => {
     const inner = expr && bareExpression(expr)
-    if (!inner || depth > 24) return undefined
+    if (!inner) return undefined
+    if (depth > 24) return { unfollowed: inner, why: NESTED }
     if (ts.isObjectLiteralExpression(inner) || ts.isArrayLiteralExpression(inner)) {
       const why = bound ? changes(inner) : undefined
-      return why ? { written: inner, why } : ts.isObjectLiteralExpression(inner) ? { object: inner, env } : { array: inner, env }
+      return why ? { unfollowed: inner, why } : ts.isObjectLiteralExpression(inner) ? { object: inner, env } : { array: inner, env }
     }
     if (ts.isCallExpression(inner) && freezes(inner)) return holderOf(inner.arguments[0] as ts.Expression, env, depth + 1, bound)
     // A member is the holder its entry holds (`KIT.inputs`, `KIT['inputs']`).
@@ -636,14 +649,14 @@ function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
     if (decl && ts.isParameter(decl)) return paramHolder(decl, env, depth)
     if (decl && ts.isBindingElement(decl)) {
       const path = bindingSteps(decl)
-      if (path && ts.isParameter(path.root) && reassigned(decl)) return { written: decl, why: REASSIGNED }
+      if (path && ts.isParameter(path.root) && reassigned(decl)) return { unfollowed: decl, why: REASSIGNED }
       return path && path.steps.reduce<Holder | undefined>((holder, step) => stepInto(holder, step, env, depth), rootHolder(path.root, env, depth))
     }
     return decl && ts.isVariableDeclaration(decl) && decl.parent.flags & ts.NodeFlags.Const ? holderOf(decl.initializer, env, depth + 1, true) : undefined
   }
   /** An entry's node: an object's by its key, an array's by its index; 'missing' where it has none, undefined where this
       reader cannot tell (a spread before it, a computed key, a method). */
-  const nodeAt = (holder: Exclude<Holder, { props: ts.ParameterDeclaration } | { written: ts.Node }>, key: string): { node: ts.Expression; env: Env } | 'missing' | undefined => {
+  const nodeAt = (holder: Exclude<Holder, { props: ts.ParameterDeclaration } | { unfollowed: ts.Node }>, key: string): { node: ts.Expression; env: Env } | 'missing' | undefined => {
     if ('array' in holder) {
       const index = Number(key)
       const elements = holder.array.elements
@@ -661,7 +674,7 @@ function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
   /** The holder an entry holds, or its step's default where the entry is missing; none past the props. */
   const holderAt = (holder: Holder | undefined, key: string, fallback: ts.Expression | undefined, env: Env, depth: number): Holder | undefined => {
     if (!holder || 'props' in holder) return undefined
-    if ('written' in holder) return holder
+    if ('unfollowed' in holder) return holder
     const found = nodeAt(holder, key)
     if (found === 'missing') return fallback ? holderOf(fallback, env, depth + 1, true) : undefined
     return found ? holderOf(found.node, found.env, depth + 1, true) : undefined
@@ -671,14 +684,14 @@ function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
     ts.isParameter(root) ? paramHolder(root, env, depth) : root.parent.flags & ts.NodeFlags.Const ? holderOf(root.initializer, env, depth + 1, true) : undefined
   /** One step into a holder: an entry's holder, or a rest of an object or of the props without the keys taken. */
   const stepInto = (holder: Holder | undefined, { step, fallback }: { step: Step; fallback?: ts.Expression }, env: Env, depth: number): Holder | undefined => {
-    if (holder && 'written' in holder) return holder
+    if (holder && 'unfollowed' in holder) return holder
     if ('rest' in step) return holder && !('array' in holder) ? { ...holder, without: [...(holder.without ?? []), ...step.rest] } : undefined
     return holderAt(holder, 'key' in step ? step.key : String(step.index), fallback, env, depth)
   }
   /** A holder's entry by its key, its every value (undefined where it has none), or the prop where it holds the props. */
   const entryIn = (holder: Holder | undefined, key: string, at: ts.Node, depth: number): Alternative[] => {
     if (!holder) return unreadable(at, 'an object this reader cannot follow')
-    if ('written' in holder) return loudly(at, holder.why)
+    if ('unfollowed' in holder) return loudly(at, holder.why)
     if ('props' in holder) return holder.without?.includes(key) ? [UNDEFINED] : forwarded(holder.props, key, at)
     const found = nodeAt(holder, key)
     if (found === 'missing') return [UNDEFINED]
@@ -686,7 +699,7 @@ function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
   }
   /** Every entry a holder holds, for a key the reader cannot name. */
   const everyEntryIn = (holder: Holder | undefined, at: ts.Node, depth: number): Alternative[] => {
-    if (holder && 'written' in holder) return loudly(at, holder.why)
+    if (holder && 'unfollowed' in holder) return loudly(at, holder.why)
     if (!holder || 'props' in holder) return unreadable(at, 'an object this reader cannot follow, by a key it cannot name')
     if ('array' in holder) {
       return holder.array.elements.flatMap((element) =>
@@ -793,7 +806,7 @@ function evaluator(sf: ts.SourceFile, resolve: Resolve, gaps = false) {
     return unreadable(e, 'a form this reader does not evaluate')
   }
   const of = (node: ts.Node, env: Env, depth: number): Alternative[] => {
-    if (depth > 24) return unreadable(node, 'nested past what this reader follows')
+    if (depth > 24) return loudly(node, NESTED)
     const out = read(node, env, depth + 1)
     // An object read by every entry and holding none, or a function with no value, renders undefined.
     return out.length ? out : [UNDEFINED]
@@ -845,10 +858,12 @@ function importsOf(sf: ts.SourceFile) {
   return hit
 }
 /** The names a module declares an export under: through `export { A as B }`, a re-export from another module or
-    `export *`, and `export default` (what it exports by name, or `default@file` for a function with none). */
+    `export *`, and `export default` (what it exports by name, or `default@file` for a function with none). A chain of
+    re-exports past the follower's reach, a cycle of `export *` among them, is a name it cannot follow. */
 function declaredNames(rel: string | undefined, name: string, depth = 0): string[] {
-  const sf = rel === undefined || depth > 8 ? undefined : moduleAt(rel)
+  const sf = rel === undefined ? undefined : moduleAt(rel)
   if (!sf || rel === undefined) return []
+  if (depth > FOLLOW_STEPS) return [pastReach(rel)]
   const out: string[] = []
   for (const statement of sf.statements) {
     const from = ts.isExportDeclaration(statement) && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleRel(rel, statement.moduleSpecifier.text) : undefined
@@ -871,17 +886,18 @@ const LOGICAL = new Set([ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarB
 /** The components a value names: an identifier (with what a same-file const it names holds, what a destructured name
     holds, or what it imports), a member (with what its object holds at the key), through parentheses and any call that
     wraps one (`memo(PasswordField)`), either branch of a condition or a logical operator, and the default export of a
-    module a loader imports (`lazy(() => import('./Secret'))`). */
+    module a loader imports (`lazy(() => import('./Secret'))`). Past the follower's reach (a cycle of consts), a name it
+    cannot follow. */
 function heldNames(value: ts.Expression, sf: ts.SourceFile, depth = 0, passes: Passes = NO_PASSES): string[] {
   const inner = bareExpression(value)
-  if (depth > 8) return []
+  if (depth > FOLLOW_STEPS) return [pastReach(placeOf(sf, inner))]
   if (ts.isIdentifier(inner)) return namedNames(sf, inner.text, resolverOf(sf)(inner)?.decl, depth, passes)
   if (ts.isPropertyAccessExpression(inner)) return [inner.getText(sf), ...namesAt(inner.expression, [inner.name.text], sf, depth + 1, passes)]
   // An element of an object of components: by a literal key, that entry; by any other, every entry of the object it holds.
   if (ts.isElementAccessExpression(inner)) {
     const key = ts.isStringLiteralLike(inner.argumentExpression) || ts.isNumericLiteral(inner.argumentExpression) ? inner.argumentExpression.text : undefined
     const keys = key !== undefined ? [key] : objectKeys(inner.expression, sf)
-    return keys.flatMap((each) => namesAt(inner.expression, [each], sf, depth + 1, passes))
+    return keys.flatMap((each) => (isUnfollowed(each) ? [each] : namesAt(inner.expression, [each], sf, depth + 1, passes)))
   }
   if (ts.isConditionalExpression(inner)) return [...heldNames(inner.whenTrue, sf, depth + 1, passes), ...heldNames(inner.whenFalse, sf, depth + 1, passes)]
   if (ts.isBinaryExpression(inner) && LOGICAL.has(inner.operatorToken.kind)) return [...heldNames(inner.left, sf, depth + 1, passes), ...heldNames(inner.right, sf, depth + 1, passes)]
@@ -895,12 +911,14 @@ function heldNames(value: ts.Expression, sf: ts.SourceFile, depth = 0, passes: P
   }
   return []
 }
-/** The keys of the same-file object literal a value holds, written in place or held by a const. */
+/** The keys of the same-file object literal a value holds, written in place or held by a const; past the follower's reach
+    (a cycle of consts), a name it cannot follow in their place. */
 function objectKeys(value: ts.Expression, sf: ts.SourceFile, depth = 0): string[] {
   const inner = bareExpression(value)
   if (ts.isObjectLiteralExpression(inner)) return inner.properties.flatMap((p) => (p.name && !ts.isComputedPropertyName(p.name) ? [keyText(p.name)] : []))
-  const decl = ts.isIdentifier(inner) && depth < 8 ? resolverOf(sf)(inner)?.decl : undefined
-  return decl && ts.isVariableDeclaration(decl) && decl.parent.flags & ts.NodeFlags.Const && decl.initializer ? objectKeys(decl.initializer, sf, depth + 1) : []
+  const decl = ts.isIdentifier(inner) ? resolverOf(sf)(inner)?.decl : undefined
+  if (!decl || !ts.isVariableDeclaration(decl) || !(decl.parent.flags & ts.NodeFlags.Const) || !decl.initializer) return []
+  return depth < FOLLOW_STEPS ? objectKeys(decl.initializer, sf, depth + 1) : [pastReach(placeOf(sf, inner))]
 }
 /** A name, with what the same-file const it binds to holds, what the pattern that destructures it holds there, or the
     names its import declares. */
@@ -913,15 +931,16 @@ const namedNames = (sf: ts.SourceFile, name: string, decl: Binding['decl'] | und
 /** The components a value holds at a path of keys (an object's entry, an array's element): its own names with the keys
     after them (`Fields`, then `Secret`, names `Fields.Secret`, an entry written in place), and what it holds there,
     followed through an object or an array written in place, a const, a destructured name, a namespace import, either
-    branch of a condition or a logical operator, and a component's prop (what its callers hand it). */
+    branch of a condition or a logical operator, and a component's prop (what its callers hand it). Past the follower's
+    reach, a name it cannot follow. */
 function namesAt(value: ts.Expression, keys: readonly string[], sf: ts.SourceFile, depth: number, passes: Passes): string[] {
   if (!keys.length) return heldNames(value, sf, depth, passes)
   const inner = bareExpression(value)
-  if (depth > 8) return []
+  if (depth > FOLLOW_STEPS) return [pastReach(placeOf(sf, inner))]
   const at = (child: ts.Expression, rest: readonly string[] = keys.slice(1)) => namesAt(child, rest, sf, depth + 1, passes)
   // An entry is named by the container's initializer only while nothing in its module can change it after.
   const why = ts.isObjectLiteralExpression(inner) || (ts.isArrayLiteralExpression(inner) && Number.isInteger(Number(keys[0]))) ? componentsChange(inner, sf) : undefined
-  if (why) return [`${WRITTEN}${why}`]
+  if (why) return [`${UNFOLLOWED}${why}`]
   if (ts.isObjectLiteralExpression(inner)) {
     const entry = inner.properties.find((p) => p.name && !ts.isComputedPropertyName(p.name) && keyText(p.name) === keys[0])
     return entry && ts.isPropertyAssignment(entry) ? at(entry.initializer) : entry && ts.isShorthandPropertyAssignment(entry) ? at(entry.name) : []
@@ -934,19 +953,29 @@ function namesAt(value: ts.Expression, keys: readonly string[], sf: ts.SourceFil
   if (ts.isConditionalExpression(inner)) return [...at(inner.whenTrue, keys), ...at(inner.whenFalse, keys)]
   if (ts.isBinaryExpression(inner) && LOGICAL.has(inner.operatorToken.kind)) return [...at(inner.left, keys), ...at(inner.right, keys)]
   if (!ts.isIdentifier(inner) && !ts.isPropertyAccessExpression(inner)) return []
-  const own = heldNames(inner, sf, depth + 1, passes).map((name) => [name, ...keys].join('.'))
+  const own = heldNames(inner, sf, depth + 1, passes).map((name) => withKeys(name, keys))
   if (ts.isPropertyAccessExpression(inner)) return [...own, ...at(inner.expression, [inner.name.text, ...keys])]
   const decl = resolverOf(sf)(inner)?.decl
   if (decl && ts.isVariableDeclaration(decl)) return [...own, ...(decl.parent.flags & ts.NodeFlags.Const && decl.initializer ? at(decl.initializer, keys) : [])]
   if (decl && ts.isBindingElement(decl)) return [...own, ...patternNames(decl, sf, depth + 1, passes, keys)]
   if (decl && ts.isParameter(decl)) return [...own, ...propNames(decl, keys, sf, passes)]
   const namespace = decl ? undefined : importsOf(sf).namespaces.get(inner.text)
-  return [...own, ...(namespace ? declaredNames(namespace, keys[0], depth + 1).map((name) => [name, ...keys.slice(1)].join('.')) : [])]
+  return [...own, ...(namespace ? declaredNames(namespace, keys[0], depth + 1).map((name) => withKeys(name, keys.slice(1))) : [])]
 }
-/** A name for a component this reader cannot know: one read through a container that can change after its initializer.
-    A tag or a call that renders it fails loudly. */
-const WRITTEN = '\u0000written: '
-const isWritten = (name: string) => name.startsWith(WRITTEN)
+/** A name for a component this reader cannot follow: one read through a container that can change after its initializer,
+    or one past the follower's reach. A tag, a `createElement` or a call named as a component that renders it fails
+    loudly, with why. */
+const UNFOLLOWED = '\u0000unfollowed: '
+const isUnfollowed = (name: string) => name.startsWith(UNFOLLOWED)
+/** The follower's reach: the steps it takes from where a name is rendered (each const, key, pattern, module, branch of a
+    condition or a logical operator and wrapping call is one) before a chain, or a cycle, is one it cannot follow; and the
+    member steps a name a prop is handed may take, which keeps the props callers hand finite. */
+const FOLLOW_STEPS = 8
+/** A name past the follower's reach, with where it stopped: a file's line, or the module whose exports it was reading. */
+const pastReach = (where: string) => `${UNFOLLOWED}more steps than this reader follows, at ${where}`
+const placeOf = (sf: ts.SourceFile, node: ts.Node) => `${sf.fileName}:${lineOf(sf, node)}`
+/** A name with keys after it (`Fields`, then `Secret`, names `Fields.Secret`); a name this reader cannot follow stays as it is. */
+const withKeys = (name: string, keys: readonly string[]) => (isUnfollowed(name) || !keys.length ? name : [name, ...keys].join('.'))
 /** Why a container the follower names components through can change after its initializer in its own module (another
     module's write is a stated limit: the follower reads an import by its declaration), or undefined. */
 const FOLLOWED = new WeakMap<ts.Node, string | undefined>()
@@ -958,10 +987,12 @@ function componentsChange(literal: ts.ObjectLiteralExpression | ts.ArrayLiteralE
   return FOLLOWED.get(literal)
 }
 /** The components a destructured name holds: its pattern's root taken apart by its keys (with `extra` after them), each
-    step's default beside; a rest keeps the keys it is taken at. A component's prop holds what its callers hand it. */
+    step's default beside; a rest keeps the keys it is taken at. A component's prop holds what its callers hand it. Past
+    the follower's reach, a name it cannot follow. */
 function patternNames(decl: ts.BindingElement, sf: ts.SourceFile, depth: number, passes: Passes, extra: readonly string[] = []): string[] {
   const path = bindingSteps(decl)
-  if (!path || depth > 8) return []
+  if (!path) return []
+  if (depth > FOLLOW_STEPS) return [pastReach(placeOf(sf, decl))]
   const keys = [...path.steps.flatMap(({ step }) => ('key' in step ? [step.key] : 'index' in step ? [String(step.index)] : [])), ...extra]
   let taken = 0
   const defaults = path.steps.flatMap(({ step, fallback }) => {
@@ -976,16 +1007,19 @@ function patternNames(decl: ts.BindingElement, sf: ts.SourceFile, depth: number,
 /** What a component's callers hand its prop (the first key, of its first parameter), with the keys after it. */
 function propNames(param: ts.ParameterDeclaration, keys: readonly string[], sf: ts.SourceFile, passes: Passes): string[] {
   const component = param.parent.parameters[0] === param ? componentName(param.parent, sf.fileName) : undefined
-  return component && keys.length ? (passes.get(`${component}#${keys[0]}`) ?? []).map((name) => [name, ...keys.slice(1)].join('.')) : []
+  return component && keys.length ? (passes.get(`${component}#${keys[0]}`) ?? []).map((name) => withKeys(name, keys.slice(1))) : []
 }
 /**
  * The components each component's props are handed by the callers that render it, over `sources`, to a fixed point (a
- * prop handed on as another's): `<Page Field={Secret} />` hands Page's `Field` what Secret names. Only a value naming a
- * component (a capital, as JSX requires) is kept.
+ * prop handed on as another's, down any number of components): `<Page Field={Secret} />` hands Page's `Field` what Secret
+ * names. Only a value naming a component (a capital, as JSX requires) is kept. The loop ends: the passes only grow, inside
+ * a finite set. Each name is made of the sources' own names, keys and modules, and one handed with more than FOLLOW_STEPS
+ * member steps is a name this reader cannot follow, which stops the one name that would grow forever: a component that
+ * hands a member of its own prop back to itself adds a step to it each round.
  */
 function componentPasses(sources: ReadonlyArray<{ rel: string; source: string }>): Map<string, string[]> {
   const passes = new Map<string, string[]>()
-  for (let grew = true, round = 0; grew && round < 8; round++) {
+  for (let grew = true; grew; ) {
     grew = false
     for (const { rel, source } of sources) {
       if (!isScript(rel)) continue
@@ -995,7 +1029,9 @@ function componentPasses(sources: ReadonlyArray<{ rel: string; source: string }>
           const callees = heldNames(node.tagName as ts.Expression, sf, 0, passes)
           for (const attribute of node.attributes.properties) {
             if (!ts.isJsxAttribute(attribute) || !attribute.initializer || !ts.isJsxExpression(attribute.initializer) || !attribute.initializer.expression) continue
-            const handed = heldNames(attribute.initializer.expression, sf, 0, passes).filter((name) => /^[A-Z]/.test(name) || name.startsWith('default@') || isWritten(name))
+            const handed = heldNames(attribute.initializer.expression, sf, 0, passes)
+              .filter((name) => /^[A-Z]/.test(name) || name.startsWith('default@') || isUnfollowed(name))
+              .map((name) => (isUnfollowed(name) || name.split('.').length - 1 <= FOLLOW_STEPS ? name : pastReach(placeOf(sf, attribute))))
             for (const callee of handed.length ? callees : []) {
               const key = `${callee}#${attribute.name.getText(sf)}`
               const known = passes.get(key) ?? []
@@ -1080,7 +1116,7 @@ function passwordFields(source: string, rel: string, forwarders: Forwarders = FO
       reader reads, unreadable. */
   const spreadInto = (attrs: Attrs, value: ts.Expression, keys: readonly string[]) => {
     const holder = evaluate.holderOf(value)
-    if (holder && 'written' in holder) {
+    if (holder && 'unfollowed' in holder) {
       const spread: Alternative[] = [{ kind: 'unreadable', form: `{...${squash(value.getText(sf))}} (${holder.why})`, loud: true }]
       for (const key of keys) attrs.set(key, attrs.has(key) ? [...spread, ...valuesOf(attrs.get(key))] : spread)
       return
@@ -1105,12 +1141,12 @@ function passwordFields(source: string, rel: string, forwarders: Forwarders = FO
   }
   /** One field from its attributes (written on a tag, or the object a forwarding component is called or created with). */
   const field = (at: ts.Node, tag: string, names: string[], attrs: Attrs) => {
-    const reached = names.find(isWritten)
+    const reached = names.find(isUnfollowed)
     if (reached) {
       const id = attrs.get('id')
       out.push({
         line: lineOf(sf, at), tag, id: id && !Array.isArray(id) && ts.isStringLiteral(id) ? id.text : '', kind: 'unreadable', isNew: false, floor: false,
-        forwards: [], renders: names.filter((name) => forwarders.has(name)), unreadable: `${tag} (a component read through ${reached.slice(WRITTEN.length)})`,
+        forwards: [], renders: names.filter((name) => forwarders.has(name)), unreadable: `${tag} (a component read through ${reached.slice(UNFOLLOWED.length)})`,
       })
       return
     }
@@ -1171,7 +1207,7 @@ function passwordFields(source: string, rel: string, forwarders: Forwarders = FO
       // A call through a container that can change is a component's (loud) only where it is named as one: a capital, as JSX requires.
       const callee = bareExpression(node.expression)
       const calledName = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : undefined
-      if (create || forwardedBy(names) || names.includes('PasswordField') || (names.some(isWritten) && (calledName === undefined || /^[A-Z]/.test(calledName)))) {
+      if (create || forwardedBy(names) || names.includes('PasswordField') || (names.some(isUnfollowed) && (calledName === undefined || /^[A-Z]/.test(calledName)))) {
         const attrs: Attrs = new Map()
         if (object && !ts.isSpreadElement(object)) spreadInto(attrs, object, keysOf(names))
         field(node, tag ? tag.getText(sf) : '', names, attrs)
@@ -1193,6 +1229,8 @@ function forwardingComponents(sources: ReadonlyArray<{ rel: string; source: stri
   // Parse every source first, so one imports another by its path whichever is read first.
   for (const { rel, source } of sources) if (isScript(rel)) parsed(source, rel)
   const found = Object.assign(new Map<string, Set<string>>(), { passes: componentPasses(sources) })
+  // To a fixed point, which the loop reaches: the forwarders only grow, each a component the sources declare (by the name
+  // componentName gives it) with a prop it forwards, a key written in the sources.
   for (let grew = true; grew; ) {
     grew = false
     for (const { rel, source } of sources) {
@@ -1545,6 +1583,14 @@ describe('the password rule moves in lockstep with the backend', () => {
           'const p = `At least ${WRITTEN_LIMITS.min} characters.`',
           'const SENTENCE = `At least ${WRITTEN_LIMITS.min}`',
           'const q = <p>{SENTENCE} characters.</p>',
+          // Nested past what the evaluator follows, a cycle of consts read as a value and as a holder (#1370's eighth round):
+          // loud, where a gap would read the template as no count without the reader having finished it.
+          'const LOOP_A = LOOP_B',
+          'const LOOP_B = LOOP_A',
+          'const r = `At least ${LOOP_A} characters.`',
+          'const HOLD_A = HOLD_B',
+          'const HOLD_B = HOLD_A',
+          'const s = `At least ${HOLD_A.min} characters.`',
         ].join('\n'),
         'probe.tsx',
       ),
@@ -1571,6 +1617,9 @@ describe('the password rule moves in lockstep with the backend', () => {
       'probe.tsx:31 (a value this reader cannot read): WRITTEN_LIMITS.min (a container that can change after its initializer: an entry assigned, line 29)',
       // Read through a const's template: the template stays loud where a gap would hide the count.
       'probe.tsx:32 (a value this reader cannot read): WRITTEN_LIMITS.min (a container that can change after its initializer: an entry assigned, line 29)',
+      // The cycle stops on the const its twenty-fifth step reaches, as a value; as a holder, at the member read through it.
+      'probe.tsx:35 (a value this reader cannot read): LOOP_B (nested past what this reader follows)',
+      'probe.tsx:38 (a value this reader cannot read): HOLD_A.min (nested past what this reader follows)',
     ])
     // The length reader's limits, each a gap: a floor only two branching values state together, and one worked out by
     // arithmetic, are not read; the floor in one branch is. A value with more readings than the evaluator takes is loud.
@@ -2017,6 +2066,88 @@ describe('the password rule moves in lockstep with the backend', () => {
       Plain: ['ac'], 'Fields.Hidden': ['ac'], 'Kit.inputs.Deep': ['ac'], 'Local.Inner': ['ac'], Frame: ['ac'], Box: ['ac'],
     })
     expect(forwardingComponents(sources).passes.get('Frame#Field')).toEqual(['Plain'])
+    expect(unrenderedForwarders(sources, forwardingComponents(sources))).toEqual([])
+  })
+
+  it('follows a prop handed down any number of components, and fails loudly where a chain runs past what it follows', () => {
+    // Codex on 3ebe222b: `Plain` handed from F9 down to F0, which renders `<Field ac="off" />`, took ten rounds to reach F0,
+    // and the propagation stopped after eight without a word, so the invalid field was never read; Plain's separate valid
+    // render kept the unrendered-forwarder check quiet. It now runs to its fixed point; F0 is declared first, so each round
+    // hands Plain one component further down.
+    const kit = "export const Plain = (props: { ac?: string }) => <input id=\"plainInput\" type=\"password\" autoComplete={props.ac ?? 'current-password'} />"
+    const handDown = [
+      "import { Plain } from './kit'",
+      'function F0({ Field }: { Field: Comp }) { return <Field id="handedDown" ac="off" /> }',
+      ...Array.from({ length: 9 }, (_, i) => `function F${i + 1}({ Field }: { Field: Comp }) { return <F${i} Field={Field} /> }`),
+      'export const Top = () => <><F9 Field={Plain} /><Plain id="plainValid" ac="current-password" /></>',
+    ].join('\n')
+    // Each cap the follower keeps against a cycle (of consts, keys, patterns or modules) fails loudly where it is reached,
+    // with its own component and field, through each way a name reaches a field: a tag, `createElement`, a call named as a
+    // component, and a prop its callers hand. The props a component is handed stay finite: a name it hands a member of
+    // its own prop back to itself grows a step a round, and past eight steps it is one the follower cannot follow.
+    const reach = [
+      "import { Plain } from './kit'",
+      "import { Ghost } from './loopA'",
+      'const Kit = { field: Plain }',
+      'const LoopA = LoopB',
+      'const LoopB = LoopA',
+      'const KeysA = KeysB',
+      'const KeysB = KeysA',
+      ...Array.from({ length: 7 }, (_, i) => `const Member${i} = Member${i + 1}`),
+      'const Member7 = Kit.field',
+      'const { field: Destructured } = Kit',
+      ...Array.from({ length: 7 }, (_, i) => `const Pattern${i} = Pattern${i + 1}`),
+      'const Pattern7 = Destructured',
+      'function Frame({ Field }: { Field: Comp }) { return <Field id="patternChain" ac="off" /> }',
+      'function Grow({ Node }: { Node: Comp }) { return <><Node id="grown" ac="off" /><Grow Node={Node.Inner} /></> }',
+      // The limit: a component reached past the follower's reach and called under a lowercase name reads as no field.
+      ...Array.from({ length: 8 }, (_, i) => `const lowered${i} = lowered${i + 1}`),
+      'const lowered8 = Plain',
+      "export function Reach({ which }: { which: 'field' }) {",
+      '  const ByKey = KeysA[which]',
+      '  return (',
+      '    <>',
+      '      <LoopA id="constCycle" ac="off" />',
+      "      {createElement(Ghost, { id: 'exportCycle', ac: 'off' })}",
+      "      {ByKey({ id: 'keyCycle', ac: 'off' })}",
+      '      <Member0 id="memberChain" ac="off" />',
+      '      <Frame Field={Pattern0} />',
+      '      <Grow Node={Plain} />',
+      "      {lowered0({ id: 'loweredChain', ac: 'off' })}",
+      '    </>',
+      '  )',
+      '}',
+    ].join('\n')
+    const sources = [
+      { rel: 'reach/kit.tsx', source: kit },
+      { rel: 'reach/handdown.tsx', source: handDown },
+      { rel: 'reach/loopA.ts', source: "export * from './loopB'" },
+      { rel: 'reach/loopB.ts', source: "export * from './loopA'" },
+      { rel: 'reach/page.tsx', source: reach },
+    ]
+    const forwarders = forwardersOf(sources)
+    const kinds = (rel: string, source: string) => passwordFields(source, rel, forwarders).map((field) => `${field.id} ${field.kind}`)
+    expect(kinds('reach/handdown.tsx', handDown)).toEqual(['handedDown unnamed', 'plainValid current'])
+    expect(forwardingComponents(sources).passes.get('F0#Field')).toContain('Plain')
+    expect(kinds('reach/page.tsx', reach)).toEqual(['patternChain unreadable', 'grown unreadable', 'constCycle unreadable', 'exportCycle unreadable', 'keyCycle unreadable', 'memberChain unreadable'])
+    const lineWith = (needle: string) => reach.split('\n').findIndex((line) => line.includes(needle)) + 1
+    const stopped = (field: string, tag: string, where: string) =>
+      `reach/page.tsx:${lineWith(field)} <${tag}> autoComplete is a form this reader cannot evaluate: ${tag} (a component read through more steps than this reader follows, at ${where})`
+    expect(unreadableFields(reach, 'reach/page.tsx', forwarders)).toEqual([
+      // A prop its callers hand (patternNames: the destructured name eight consts in).
+      stopped('id="patternChain"', 'Field', `reach/page.tsx:${lineWith('const { field: Destructured }')}`),
+      // The name a component hands a member of its own prop back to itself, past eight member steps.
+      stopped('id="grown"', 'Node', `reach/page.tsx:${lineWith('<Grow Node={Node.Inner} />')}`),
+      // A tag (heldNames: the cycle of consts stops on the const its ninth step reaches).
+      stopped('id="constCycle"', 'LoopA', `reach/page.tsx:${lineWith('const LoopA = LoopB')}`),
+      // createElement (declaredNames: the cycle of `export *` stops in the module its ninth step reaches).
+      stopped("id: 'exportCycle'", 'Ghost', 'reach/loopB.ts'),
+      // A call named as a component (objectKeys: a key the follower cannot name, read through the cycle of consts).
+      stopped("id: 'keyCycle'", 'ByKey', `reach/page.tsx:${lineWith('const KeysB = KeysA')}`),
+      // A tag again (namesAt: the member eight consts in).
+      stopped('id="memberChain"', 'Member0', `reach/page.tsx:${lineWith('const Member7 = Kit.field')}`),
+    ])
+    expect(Object.fromEntries([...forwardingComponents(sources)].map(([name, props]) => [name, [...props]]))).toEqual({ Plain: ['ac'] })
     expect(unrenderedForwarders(sources, forwardingComponents(sources))).toEqual([])
   })
 
