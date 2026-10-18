@@ -567,6 +567,74 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
         engine.dispose()
 
 
+@pytest.mark.asyncio
+async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypatch, tmp_path, caplog):
+    """The refresh releases its session inside its unit, after the rotation has committed. A close
+    that fails there (a connection that dropped after the unit's last statement) must not turn the
+    response into a 500: the old token is already rotated away, so a reader who never receives the
+    new cookie refreshes with the old one next, and the replay sweep signs them out everywhere. The
+    release logs the failure, the route answers with the rotated cookie, and the dependency's
+    finalizer closes the session after the response."""
+    from sqlalchemy.exc import OperationalError
+
+    from app.config import settings
+    from app.models import AuditLog, RefreshToken, User
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'refresh-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="dropped-close@example.com", is_active=True)
+        db.add(user)
+        db.flush()
+        raw_token = refresh_token_service.create_refresh_token(db, user)[1]
+        db.commit()
+
+    closes: list[str] = []
+
+    class DroppedCloseSession(Session):
+        """The first close fails as a dropped connection's rollback would; later closes succeed."""
+
+        def close(self) -> None:
+            if not closes:
+                closes.append("failed")
+                raise OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly"))
+            closes.append("closed")
+            super().close()
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=DroppedCloseSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/auth/refresh", headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}={raw_token}"},
+            )
+        assert response.status_code == 200 and response.json()["token_type"] == "bearer"
+        # The release inside the unit failed and was logged; the finalizer then closed the session.
+        assert closes == ["failed", "closed"]
+        assert "Releasing the request session failed" in caplog.text
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
+        # The reader holds the rotated token, so the next refresh is no replay.
+        assert original.revoked_at is not None and original.replaced_by_id == replacement.id
+        assert refresh_token_service._hash_token(
+            response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
+    finally:
+        engine.dispose()
+
+
 # ── Structure: every async route keeps its request session off the loop ──────────────
 #
 # The ratchet: an async route never works its request session on the event loop.

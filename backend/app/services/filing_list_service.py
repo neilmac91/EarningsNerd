@@ -151,8 +151,16 @@ def release_request_session(db: Session) -> None:
     the route returns. The sync ``get_db`` finalizer runs in the thread pool only after the async
     route yields, so a completed read left open there can starve the pool
     (``lessons/ops-release-cached-filing-reads-before-yield.md``). The Session stays reusable for a
-    later short unit."""
-    db.close()
+    later short unit.
+
+    A close that fails (its connection dropped after the unit's last statement) is logged, not raised:
+    the unit's work has committed, and raising would turn its response into a 500, which for a
+    refresh loses the rotated token. The dependency's finalizer closes the session again after the
+    response, as it did before routes released early."""
+    try:
+        db.close()
+    except Exception:
+        logger.exception("Releasing the request session failed; its dependency finalizer closes it again")
 
 
 def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional[str]) -> Company:
