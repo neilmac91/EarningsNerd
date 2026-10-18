@@ -752,12 +752,16 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
                  every name whole and nothing overflows (E34).
+                 A mark a reader can clear is not one either: the wording review's Reviewed and
+                 Follow up (WordingChanges.tsx) start unset and a second press clears them, so they
+                 stay a pair of aria-pressed toggles in a labelled group, behind the rule's disable on
+                 that line with its reason (D-046).
                  Gate: earningsnerd/no-hand-rolled-toggle-group (eslint.designRules.mjs) fails a
                  role="group" holding an aria-pressed <button> or <Button>, anywhere outside
                  components/ui/SegmentedControl.tsx. It reads the button in the group's own markup,
                  through a same-file wrapper component (one level) and through the DS Button imported
                  under another name. WordingChanges' review row (LabelToggle) carries the rule's one
-                 disable: a second press clears its label, a state the control cannot hold (E62). A row
+                 disable: a second press clears its label, a state the control cannot hold (D-046). A row
                  without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
                  file and a wrapper that renders another wrapper are outside its reach (review-checked).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
