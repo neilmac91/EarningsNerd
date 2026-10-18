@@ -247,9 +247,30 @@ describe('FullTextSearch controls and errors', () => {
     renderSearch()
     search('going concern')
     expect(await screen.findByRole('alert')).toHaveTextContent('SEC full-text search is rate-limited right now. Please retry shortly.')
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(/No filings match/)).toBeInTheDocument()
     expect(vi.mocked(searchFullText)).toHaveBeenCalledTimes(2)
+  })
+
+  // At 200% text on a phone the Retry beside the message ran past the alert and the screen (Codex on #1380: 472px at
+  // 390px, 848px with a long token). The fix is the Notice's layout; its browser case waits on E39, since CI's e2e
+  // build leaves /search off, so this pins the layout (tests/e2e/reflow-200.spec.ts holds the homepage alert's twin).
+  it("stacks the Retry under the message, in the message's column, and breaks a long token in the message", async () => {
+    vi.mocked(searchFullText).mockRejectedValueOnce(fromBackend(502, 'SEC full-text search failed: EFTS_UPSTREAM_TIMEOUT_EXCEEDED'))
+    renderSearch()
+    search('going concern')
+    const alert = await screen.findByRole('alert')
+    const message = within(alert).getByText(/EFTS_UPSTREAM_TIMEOUT_EXCEEDED/)
+    const row = within(alert).getByRole('button', { name: 'Try again' }).parentElement as HTMLElement
+    expect(alert).toHaveClass('flex', 'items-start')
+    expect(alert.className).not.toMatch(/\b(justify-between|items-center)\b/)
+    expect(message).toHaveClass('break-words')
+    // The message's column holds the message, then the Retry's own row.
+    const column = message.parentElement as HTMLElement
+    expect(column).toHaveClass('min-w-0', 'flex-1')
+    expect([...column.children]).toEqual([message, row])
+    expect(row.className).toBe('mt-2.5 flex')
+    expect(row.children).toHaveLength(1)
   })
 
   it.each([
@@ -283,18 +304,20 @@ describe('FullTextSearch controls and errors', () => {
     expect(alert).not.toHaveTextContent(clientText)
   })
 
-  // At 200% text the glyph shrank to a speck, the message thinned to a word a line and the busy "Retrying…"
-  // ran past the viewport: the message keeps a 12rem floor, Retry wraps under it, the glyph keeps its size.
-  it('lays the alert out to wrap: the message keeps a floor, Retry wraps under it, the glyph keeps its size', async () => {
+  // At 200% text the glyph shrank to a speck, the message thinned to a word a line and the busy Retry ran past
+  // the viewport (#1369). The alert now stacks (#1380, the case above): the glyph keeps its size, the message takes
+  // its column's whole width, and the Retry sits on its own row under it, never beside the message.
+  it('keeps the glyph its size and gives the message its whole column, the Retry under it', async () => {
     vi.mocked(searchFullText).mockRejectedValueOnce(fromBackend(502, 'SEC full-text search is temporarily unavailable.'))
     renderSearch()
     search('going concern')
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveClass('flex-wrap')
     const message = within(alert).getByText('SEC full-text search is temporarily unavailable.')
-    expect(message).toHaveClass('min-w-0')
-    expect(message.parentElement).toHaveClass('min-w-0', 'flex-[1_1_12rem]')
-    expect(message.parentElement?.querySelector('svg')).toHaveClass('shrink-0')
+    expect(message.parentElement).toHaveClass('min-w-0', 'flex-1')
+    expect(alert.querySelector('svg')).toHaveClass('flex-none', 'h-4', 'w-4')
+    const row = within(alert).getByRole('button', { name: 'Try again' }).parentElement as HTMLElement
+    expect(message.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(message.parentElement?.contains(row)).toBe(true)
   })
 
   it("shows the backend's own detail word for word (the 502)", async () => {
@@ -317,7 +340,7 @@ describe('FullTextSearch controls and errors', () => {
     expect(await screen.findByText('Apple Inc.')).toBeInTheDocument()
     search('going concern')
     expect(await screen.findByRole('alert')).toHaveTextContent('SEC full-text search is temporarily unavailable.')
-    const button = screen.getByRole('button', { name: 'Retry' })
+    const button = screen.getByRole('button', { name: 'Try again' })
     button.focus()
     fireEvent.click(button)
     await waitFor(() => expect(vi.mocked(searchFullText)).toHaveBeenCalledTimes(3))

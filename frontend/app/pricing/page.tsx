@@ -355,18 +355,14 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 
           {identityUnavailable ? (
             // Identity failed with nothing retained: an account error, not a guest view. Each Notice is
-            // keyed: unkeyed, React would reuse "Retry account check" as "Retry subscription" when one
+            // keyed: unkeyed, React would reuse the account Notice's Retry as the details Notice's when one
             // Notice replaces the other, and a Retry must never outlive its Notice (RetryButton).
             <div key="identity" className="mt-6 mx-auto max-w-2xl text-left">
               <Notice
                 variant="error"
                 title="We couldn't check your account"
-                description={identityFailure.error instanceof Error ? identityFailure.error.message : 'Please retry.'}
-                action={
-                  <RetryButton size="sm" failures={[identityFailure]} focusTarget={introRef}>
-                    Retry account check
-                  </RetryButton>
-                }
+                description={identityFailure.error instanceof Error ? identityFailure.error.message : 'Please try again.'}
+                action={<RetryButton size="sm" failures={[identityFailure]} focusTarget={introRef} />}
               />
             </div>
           ) : (subscriptionFailure.failed || usageFailure.failed) && (
@@ -376,28 +372,16 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
                 title={subscriptionStale ? "We couldn't refresh your plan details" : "We couldn't load all pricing details"}
                 description={
                   subscriptionStale
-                    ? 'Showing your last loaded plan. Retry to refresh it.'
+                    ? 'Showing your last loaded plan. Try again to refresh it.'
                     : subscriptionFailure.error instanceof Error
                     ? subscriptionFailure.error.message
                     : usageFailure.error instanceof Error
                     ? usageFailure.error.message
-                    : 'Please retry.'
+                    : 'Please try again.'
                 }
-                action={
-                  // Each Retry only for its own failure: a press on a healthy one would do nothing.
-                  <>
-                    {subscriptionFailure.failed && (
-                      <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={introRef}>
-                        Retry subscription
-                      </RetryButton>
-                    )}
-                    {usageFailure.failed && (
-                      <RetryButton size="sm" failures={[usageFailure]} focusTarget={introRef}>
-                        Retry usage
-                      </RetryButton>
-                    )}
-                  </>
-                }
+                // One Retry for both reads: a press retries only the failed ones (RetryButton), and two
+                // buttons with the one label side by side could not say which read each retries.
+                action={<RetryButton size="sm" failures={[subscriptionFailure, usageFailure]} focusTarget={introRef} />}
               />
             </div>
           )}

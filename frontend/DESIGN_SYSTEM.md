@@ -170,16 +170,50 @@ that carries `aria-disabled` or on a use of a shared control that renders one wi
 `<Button loading>`, RetryButton, AlertBell).
 
 A Retry of a failed query is
-`<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}>`, never a hand-rolled
+`<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef} />`, never a hand-rolled
 `<Button loading={isFetching}>`. `queryKey` is the key the query's own `useQuery` was given: it is the hold's
 identity, so a key change (another user, a new search term) never holds the old query's error (gated in
 `tests/unit/useRetainedFailure.spec.tsx`). The error UI stays up through any refetch until data replaces it;
-the Retry is busy while the query has a fetch in flight (paused offline included), reads "Retrying…" only
+the Retry is busy while the query has a fetch in flight (paused offline included), reads "Trying again…" only
 while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` heading, or a text field with
 `textField`) when it unmounts while focused. It lives beside its hook in `hooks/useRetainedFailure.tsx`, not in
 `components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
 chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
-A Retry that restarts a stream, not a query (the filing page's "Retry generation"), is RetryButton too, given the
+Its label is the product's one retry verb (D-032): "Try again", busy "Trying again…", RetryButton's own, so a
+call site passes none: TypeScript refuses a child, an aria-label and an aria-labelledby (RetryButtonProps declares
+each `never`), RetryButton drops each at run time (one a spread or a cast brings in), and the gate fails a call
+site that passes one, under any name an import gives RetryButton. It keeps the room of the spinner and "Trying
+again…" at rest (Button's `reserveLoadingText`, below; D-032), so the swap never resizes it or moves what sits
+beside it: without it, at 390px under 200% text the label wrapped and the card grew 22 to 24px (e2e
+`filing-source-chip.spec.ts` holds the box through the swap, in both themes at 390 and 1440px). That room must
+never cost reflow. So the Retry takes its own row under its message, as a Notice's action does, never a place
+beside its message or another control in a row that cannot wrap (GuidanceCard's action row wraps and centres
+two actions); a message carrying the backend's words breaks a long token (`break-words`); and where even its own
+row is narrower than the spinner beside "again…" (a Notice inside a card at 200% text), the spinner goes above
+the label (Button's reserve, below). Before, at 390px under 200% text, the homepage and full-text search alerts
+pushed their Retry past the screen (the page 445 and 472px wide), the dashboard's account card put its Retry's
+left edge off the screen at 320px, and the comparison card's Retry widened the page at 320px. A Notice inside a
+card keeps its Retry and its title inside its own border too: its row wraps, and its text column goes under the
+glyph where it cannot keep 9rem beside it (Inline notice, below). Before, under 200% text, the comparison card's
+Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at 360px
+the billing and ticker filings cards' Retry ran 15px past it. Gates: e2e `reflow-200.spec.ts`, "a failure's
+controls stay inside their card" (the homepage search alert at 320, 360 and 390px and with a long token, the
+dashboard's account card at 320, 360 and 390px, the route and dashboard error boundaries at 320px, and the
+comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at 360px and the
+comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
+the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
+`twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
+reserve's rows. Its limit: at 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the
+admin feedback and invites lists) leaves a Notice a 92px content box, narrower than the Retry's narrowest state
+(138px, its padding and "again…"), so there the Retry sits 13px past the Notice's border, inside the card, the
+page at its width. Main's resting Retry is 30px past it there, so the cards' padding causes it, not the reserve
+or the Notice (E120). Where one Notice holds two failed reads, one
+RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
+the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
+not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and
+so does the copy beside a Retry ("Try again in a moment."): the gate's one-verb clauses fail any other label, busy
+text or "retry" in copy, naming the file and line.
+A Retry that restarts a stream, not a query (the filing page's generation restart), is RetryButton too, given the
 stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no query to hold, and the press
 clears the error in the render that starts the stream, so the card leaves with the press when the run starts
 and its hand-off target is the progress card's heading. The card offers it only for a failure a retry can help
@@ -189,7 +223,8 @@ card's own heading. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
-imported name), and under RetryButton's own import aliases; what it cannot prove (a `let`, a JSX spread on
+imported name), and under any name an import of RetryButton's module gives it (an alias, a default import,
+`H.RetryButton`); what it cannot prove (a `let`, a JSX spread on
 RetryButton or into such a component, an empty list) fails as built by hand. A card that ends a run the user is
 waiting on (a failed generation, the monthly limit) takes focus when it appears, on its title
 (`GuidanceCard`'s `headingRef`: `tabIndex={-1}`, no outline, described by the card's description), and only when nobody holds focus (`useFocusOnArrival`,
@@ -222,6 +257,16 @@ Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text l
                  Constrain width at the call site; never override its height or whitespace.
                  Default buttons keep their fixed height above a 24rem viewport (below it, the Button
                  size row); icon-sm stays a 32px square.
+
+Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> keeps a loading label's room at
+                 rest when it is longer than the resting one: what shows is laid over an invisible, aria-hidden
+                 copy of the loading state (the spinner's box and that label) in one grid cell, so the swap
+                 never resizes the button or moves what sits beside it. Each row wraps, its label based at its
+                 longest word, so where the button is narrower than the spinner beside that word the spinner
+                 goes above the label, and the room is never wider than that word with the padding.
+                 RetryButton's "Trying again…" is its one use (tests/unit/button-wrap.spec.tsx holds the cell
+                 and the rows; busyControlsStayFocusable.spec.ts holds RetryButton to reserving the busy text
+                 it shows).
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
@@ -640,7 +685,17 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
-                 Card; inside a Card, Notice is the right scale.
+                 Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
+                 centres two actions and sets the second under the first when they do not fit side by
+                 side, and its description, like a Notice's, breaks a long word
+                 (tests/unit/twoActionsWrap.spec.tsx). A Notice's own row wraps: its text column's
+                 basis is 9rem (about 20 characters: 144px at the default size, 288px under 200% text),
+                 so where it cannot keep that beside the glyph (a card on a phone at 200% text) it goes
+                 under the glyph at the Notice's whole inner width. The glyph then sits alone at the top
+                 left over the title, and the title, description and action share the full width; the
+                 title breaks a long word, as the description does. No container query: a
+                 container-type would collapse a Notice wherever a parent sizes it to its content. Gate:
+                 e2e reflow-200.spec.ts (the Retry and every text run inside the Notice's border).
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +

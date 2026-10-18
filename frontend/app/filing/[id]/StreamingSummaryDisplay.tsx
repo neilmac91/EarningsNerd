@@ -322,7 +322,7 @@ export default function StreamingSummaryDisplay({
   const showTrial = ENABLE_PRO_TRIAL && trialEligible
   // The reason the run stopped, in the product's words: the raw message still decides the card (the
   // paywall matcher reads it), the reader sees its mapped sentence.
-  const failureReason = streamErrorCopy(error || message) || 'It timed out before the summary finished. Retry to pick it up again.'
+  const failureReason = streamErrorCopy(error || message) || 'It timed out before the summary finished. Try again to pick it up.'
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -450,9 +450,7 @@ export default function StreamingSummaryDisplay({
               <RetryButton
                 failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
                 focusTarget={retryFocusTarget}
-              >
-                Retry generation
-              </RetryButton>
+              />
             ) : undefined
           }
         />

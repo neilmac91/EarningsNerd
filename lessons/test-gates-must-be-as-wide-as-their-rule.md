@@ -324,7 +324,7 @@ reads taken from the specification or from habit, each then measured: a fixed la
 percentage cell's padding to its share and gives a spanning cell's columns its width less the spacing
 inside it; a row's cells skip what a rowspan above holds; HTML ignores a cell's zero width; a section's
 display, not its tag, makes it a header group; an automatic layout holds each column to its widest cell's
-padding; and an image or a form control is one box whatever its display. Nine of the 415 mutation proofs
+padding; and an image or a form control is one box whatever its display. Nine of the PR's own 415 mutants
 survived on reads no page planted (a tenth was equivalent), and the reviewers' own mutations found more: a
 read the model makes is not covered until a page that needs it is planted and scored. The review after
 that found the next guesses where the model had generalised from one measured shape: Chromium spreads a
@@ -373,3 +373,15 @@ exports as Next evaluates it, and walks every page and layout under the extensio
 (next.config.js's `pageExtensions`, else Next's default), with a `.ts` layout planted in its
 self-check. A gate over a framework's files reads the file names the framework reads, and a gate
 over a value reads the value, not the way one file typed it.
+
+**Recurrence (2026-10-15, the wall-clock gate)**: `backend/tests/unit/test_wall_clock_bounds.py`
+reads Python, so it follows values by heuristics, and five review rounds on #1349 each found the
+previous round's fixes had dropped shapes an earlier revision caught: a stored deadline built from a
+duration-named budget, a floor on `abs(remaining)`, plural and numbered elapsed names, a reused name
+appended to a list, a deviation floor from a constant, then from a stored target. The round after the
+last fix (a helper that told a plain span apart under `abs`, removed for a both-ways rule) came back clean. Each fix had been scored on its own new samples and the
+existing ones, while the shapes earlier reviewers had probed lived only in their reports. Every
+probed shape, racing or safe, now sits in the gate's self-test, and a fix to a heuristic gate is
+scored against every earlier revision's samples (a harness that loads each revision's file by path
+and runs all their samples through each) before it is pushed. Record a deliberate trade-off in the
+gate's header in the same commit, or the next review reports it as a regression.
