@@ -2,6 +2,8 @@ from typing import Optional, Dict, Any, List
 import re
 import logging
 
+from app.utils.numbers import money_prefix_for
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,16 +33,17 @@ def has_valid_xbrl_data(xbrl_data: Optional[Dict[str, Any]]) -> bool:
     return False
 
 
-def format_currency(value: Optional[float]) -> str:
+def format_currency(value: Optional[float], money_prefix: str) -> str:
+    """Format a money figure; ``money_prefix`` comes from ``money_prefix_for`` (the filer's currency)."""
     if value is None:
         return "Not disclosed"
     try:
         abs_val = abs(value)
         if abs_val >= 1_000_000_000:
-            return f"${value / 1_000_000_000:.1f}B"
+            return f"{money_prefix}{value / 1_000_000_000:.1f}B"
         if abs_val >= 1_000_000:
-            return f"${value / 1_000_000:.1f}M"
-        return f"${value:,.0f}"
+            return f"{money_prefix}{value / 1_000_000:.1f}M"
+        return f"{money_prefix}{value:,.0f}"
     except Exception as e:
         logger.warning(f"Error formatting currency value {value}: {e}")
         return "Not disclosed"
@@ -186,6 +189,9 @@ def generate_xbrl_summary(
     # Use has_valid_xbrl_data() to properly check for data
     # An empty dict {} is falsy, so `if xbrl_data:` would skip valid responses
     has_xbrl_data = has_valid_xbrl_data(xbrl_data)
+    # Standardized XBRL values are in the filer's reporting currency: label them by the primary
+    # path's rule, never a fixed "$" (a CNY filer's revenue would read as dollars, ~7x too large).
+    money_prefix = money_prefix_for(xbrl_data.get("reporting_currency") if has_xbrl_data else None)
 
     if has_xbrl_data:
         # Note: xbrl_data is guaranteed truthy by has_valid_xbrl_data()
@@ -194,11 +200,11 @@ def generate_xbrl_summary(
         eps = xbrl_data.get('earnings_per_share', {}).get('current', {})
 
         if revenue.get('value'):
-            metrics_summary.append(f"- **Revenue**: {format_currency(revenue['value'])} (Period: {revenue.get('period', 'N/A')})")
+            metrics_summary.append(f"- **Revenue**: {format_currency(revenue['value'], money_prefix)} (Period: {revenue.get('period', 'N/A')})")
             has_xbrl_data = True
 
         if net_income.get('value'):
-            metrics_summary.append(f"- **Net Income**: {format_currency(net_income['value'])} (Period: {net_income.get('period', 'N/A')})")
+            metrics_summary.append(f"- **Net Income**: {format_currency(net_income['value'], money_prefix)} (Period: {net_income.get('period', 'N/A')})")
             has_xbrl_data = True
 
         if eps.get('value'):
@@ -225,8 +231,8 @@ def generate_xbrl_summary(
         table_rows = []
 
         # Revenue row
-        rev_current = format_currency(revenue.get('value'))
-        rev_prior = format_currency(prior_revenue.get('value')) if prior_revenue.get('value') else "—"
+        rev_current = format_currency(revenue.get('value'), money_prefix)
+        rev_prior = format_currency(prior_revenue.get('value'), money_prefix) if prior_revenue.get('value') else "—"
         rev_commentary = "Full comparison available in detailed analysis." if rev_current == "Not disclosed" else "From XBRL data"
         table_rows.append({
             "metric": "Revenue",
@@ -237,8 +243,8 @@ def generate_xbrl_summary(
         })
 
         # Net Income row
-        ni_current = format_currency(net_income.get('value'))
-        ni_prior = format_currency(prior_net_income.get('value')) if prior_net_income.get('value') else "—"
+        ni_current = format_currency(net_income.get('value'), money_prefix)
+        ni_prior = format_currency(prior_net_income.get('value'), money_prefix) if prior_net_income.get('value') else "—"
         ni_commentary = "Full comparison available in detailed analysis." if ni_current == "Not disclosed" else "From XBRL data"
         table_rows.append({
             "metric": "Net Income",
@@ -250,10 +256,10 @@ def generate_xbrl_summary(
 
         # EPS row if available
         if eps.get('value') is not None:
-            eps_prior = f"${prior_eps.get('value'):.2f}" if prior_eps.get('value') is not None else "—"
+            eps_prior = f"{money_prefix}{prior_eps.get('value'):.2f}" if prior_eps.get('value') is not None else "—"
             table_rows.append({
                 "metric": "EPS (Basic)",
-                "current_period": f"${eps.get('value'):.2f}",
+                "current_period": f"{money_prefix}{eps.get('value'):.2f}",
                 "prior_period": eps_prior,
                 "change": "—",
                 "commentary": "From XBRL data"

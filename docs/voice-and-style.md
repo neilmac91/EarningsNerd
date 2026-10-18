@@ -118,6 +118,9 @@ the business card, the footer and the merch; it is the positioning in six words.
   casing everywhere they are named, including on the sales page.
 - "AI-powered", lowercase p, except at the start of a sentence or in title-case page titles.
 - Ellipsis character `…` on loading states ("Logging in…") is fine.
+- One retry verb ([D-032](brand/decisions-log.md)): "Try again", and "Trying again…" while it runs, on every
+  retry control and in the copy beside it ("Try again in a moment."); never "Retry" or "please retry".
+  `frontend/tests/unit/busyControlsStayFocusable.spec.ts` fails another label, busy text or "retry" in copy.
 - Buzzwords to avoid: unlock, seamless(ly), empower, effortless(ly), supercharge, transform,
   actionable insights, decision-ready, game-changing, "in today's fast-paced world". Say what
   the thing does instead. Add: "signal" as a noun for the product's output, "edge", "clarity"

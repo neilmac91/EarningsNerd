@@ -365,11 +365,9 @@ function ReviewedChanges({ block, context }: { block: SectionChangesOk; context:
           <Notice
             variant="error"
             title="Couldn’t load your review"
-            description="The changes are listed below; retry to mark them."
+            description="The changes are listed below; try again to mark them."
             action={
-              <RetryButton size="sm" failures={[failure]} focusTarget={progressRef}>
-                Retry
-              </RetryButton>
+              <RetryButton size="sm" failures={[failure]} focusTarget={progressRef} />
             }
           />
         </div>

@@ -188,7 +188,7 @@ export const generateSummaryStream = async (
     }
 
     console.warn(`[summary] ${filingId} stream attempt ${attempt} failed (${result.error}); retrying once...`)
-    onProgress('initializing', 'Connection interrupted. Retrying...')
+    onProgress('initializing', 'Connection interrupted. Trying again…')
     await new Promise((resolve) => setTimeout(resolve, STREAM_RETRY_BACKOFF_MS))
   }
 }

@@ -234,7 +234,7 @@ describe('Admin list Retry: the Notice holds through the refetch, then focus goe
   async function pressRetryAndHold(list: { mock: { calls: unknown[] } }, failedTitle: string) {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(failedTitle)
-    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const retry = within(alert).getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(list.mock.calls).toHaveLength(2))

@@ -317,7 +317,7 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     expect(statusTokens(card)).toEqual([])
     fireEvent.click(within(card).getByRole('button', { name: 'Upgrade to Pro' }))
     expect(onUpgrade).toHaveBeenCalledTimes(1)
-    expect(within(card).queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: /try again/i })).not.toBeInTheDocument()
   })
 
   it('the Pro fair-use cap is the same quiet card, with no button (upgrading cannot lift it)', () => {
@@ -345,6 +345,6 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     render(<CopilotMessage message={errorMessage('The answer could not be completed. Please try again.')} onRetry={vi.fn()} />)
     const bubble = screen.getByRole('alert')
     expect(errorTokens(bubble).length).toBeGreaterThan(0)
-    expect(within(bubble).getByRole('button', { name: /retry/i })).toBeInTheDocument()
+    expect(within(bubble).getByRole('button', { name: /try again/i })).toBeInTheDocument()
   })
 })

@@ -414,7 +414,7 @@ const CARD_STATES: { name: string; route: Route; card: string }[] = [
   },
   {
     name: 'filing without a summary, signed in, the run fails',
-    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'pro'), ready: (p) => expect(p.getByRole('button', { name: 'Retry generation' })).toBeVisible() },
+    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'pro'), ready: (p) => expect(p.getByRole('button', { name: 'Try again', exact: true })).toBeVisible() },
     card: 'Generation interrupted',
   },
   {
@@ -427,7 +427,7 @@ const CARD_STATES: { name: string; route: Route; card: string }[] = [
           r.fulfill({ status: 200, headers: corsFor(b), json: { ...SUMMARY, raw_summary: { ...(SUMMARY.raw_summary as object), writer_error: 'writer failed' } } }),
         )
       },
-      ready: (p) => expect(p.getByRole('button', { name: 'Retry' })).toBeVisible(),
+      ready: (p) => expect(p.getByRole('button', { name: 'Try again', exact: true })).toBeVisible(),
     },
     card: 'This summary did not finish',
   },
