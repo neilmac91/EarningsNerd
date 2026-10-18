@@ -108,6 +108,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## SEC / EDGAR data
 
+- sec-bind-a-ticker-by-exact-match-only.md — Bind a requested ticker to a company by exact match only (`resolve_ticker`); never take a search result by position (partly gated by `backend/tests/unit/test_search_company_callers_allowlist.py`: the `search_company` and `_local_search` callers and positional use of a result; another fuzzy source is review-checked)
 - sec-cap-6-ks-apart-from-reports.md — Cap a mixed-form filings list per form group, 6-Ks apart, so a daily 6-K filer never hides its 20-F/40-F (partly gated by `backend/tests/unit/test_filings_endpoint_db_first.py` for the company filings list; a new mixed-form list is review-checked)
 - sec-companyfacts-reads-the-reporting-currency.md — Read a companyfacts concept's foreign list only when its USD list is that list's convenience translation, never a hard-coded USD list and never the latest or widest list alone; a native-currency write demotes the current USD twin it supersedes and promotes a native ratio over a USD-derived one, never rewriting an identity (partly gated by the native-currency tests in `backend/tests/unit/test_companyfacts_ingest.py` for the CNY shape, both switch directions and stray lists; other fact writers are review-checked)
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths

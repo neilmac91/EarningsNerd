@@ -111,9 +111,10 @@ async def get_company_filings(
         # Session remains reusable for the short persistence unit after the await.
         filing_list_service.release_request_session(db)
         try:
-            sec_results = await sec_edgar_service.search_company(ticker)
-            if sec_results:
-                sec_data = sec_results[0]
+            # Exact ticker only: a ticker missing from SEC's file is a 404, never its first partial
+            # name/ticker match (RTN once listed Enterprise Products Partners' filings).
+            sec_data = await sec_edgar_service.resolve_ticker(ticker)
+            if sec_data:
                 # CIK-first: reuse an existing row for this CIK (e.g. stored under a preferred
                 # ticker) instead of 500-ing on the unique-CIK insert (interim safeguard 1).
                 # New rows take the canonical primary ticker (P0-1).
