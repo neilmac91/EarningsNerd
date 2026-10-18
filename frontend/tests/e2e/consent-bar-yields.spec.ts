@@ -114,6 +114,13 @@ const hitsItself = (loc: Locator) =>
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return at === el || el.contains(at)
   })
+/** document.elementFromPoint at the element's centre is in the site header: the element lies under the open mobile menu. */
+const hitsHeader = (loc: Locator) =>
+  loc.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+    return !!at && !el.contains(at) && !!at.closest('header')
+  })
 /** document.elementFromPoint at the element's centre is a sheet scrim: the element is inert under a real modal. */
 const hitsScrim = (loc: Locator) =>
   loc.evaluate((el) => {
@@ -135,8 +142,10 @@ const layer = (page: Page) =>
 const stored = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('cookie_consent') ?? 'null'))
 const consentEvents = (page: Page) => page.evaluate(() => window.__consentEvents ?? [])
 
-/** Every consent choice and both launchers hit themselves, sit inside the viewport and clear the bar. */
-async function expectBothControlSetsUsable(page: Page) {
+/** Every consent choice and both launchers hit themselves, sit inside the viewport and clear the bar. With the mobile
+    menu open (`menu`, the header's box), a launcher the menu reaches lies under the menu instead, and under nothing
+    else: the header ranks above the workspace chrome (DESIGN_SYSTEM §4), and the reader closes the menu to reach it. */
+async function expectBothControlSetsUsable(page: Page, menu?: Rect) {
   const vp = await viewport(page)
   await expect.poll(async () => ({ ...(await layer(page)), height: Math.ceil((await rectOf(bar(page))).h) })).toMatchObject({ visible: true })
   const barRect = await rectOf(bar(page))
@@ -148,7 +157,8 @@ async function expectBothControlSetsUsable(page: Page) {
   }
   for (const [label, loc] of [['launcher', launcher(page)], ['feedback launcher', feedbackLauncher(page)]] as const) {
     const r = await rectOf(loc)
-    expect(await hitsItself(loc), `${label} is covered`).toBe(true)
+    if (menu && overlaps(r, menu)) expect(await hitsHeader(loc), `${label} is covered by something other than the open menu`).toBe(true)
+    else expect(await hitsItself(loc), `${label} is covered`).toBe(true)
     expect(inside(r, vp), `${label} is outside the viewport`).toBe(true)
     expect(overlaps(r, barRect), `${label} overlaps the bar`).toBe(false)
     expect(r.y + r.h, `${label} is not above the bar`).toBeLessThanOrEqual(barRect.y + 0.5)
@@ -172,7 +182,7 @@ async function expectMenuYields(page: Page, menuClearsBar: boolean) {
   const barTop = (await rectOf(bar(page))).y
   if (menuClearsBar) {
     expect(header.y + header.h, 'the open menu reaches the bar').toBeLessThanOrEqual(barTop + 0.5)
-    await expectBothControlSetsUsable(page)
+    await expectBothControlSetsUsable(page, header)
   } else {
     expect(header.y + header.h, 'the open menu was expected to reach the bar on this short viewport').toBeGreaterThan(barTop)
   }
