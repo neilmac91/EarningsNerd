@@ -8,17 +8,23 @@ already labelled these figures "CNY 941.2B"; both producers now share one rule, 
 below fails if either drifts from the other. The prior-period backfill both paths run before storing
 (``schemas/summary.py`` ``attach_normalized_facts``) writes the same cells and uses the same rule.
 """
+import ast
 import copy
+import inspect
 import json
 from types import SimpleNamespace
 
 import pytest
 
+from app.schemas import summary as summary_schema
 from app.schemas.summary import attach_normalized_facts
+from app.services import fallback_summary
+from app.services.ai import markdown_render
 from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import openai_service
 from app.services.provenance_service import build_metric_source
 from app.services.summary_pipeline import _finalize_summary_projection
+from app.utils.numbers import money_prefix_for
 
 
 def _metrics(currency=None, **extra):
@@ -149,3 +155,31 @@ def test_the_read_path_verifies_the_relabelled_figure():
 
     assert row["current_period"] == "CNY 941.2B"
     assert source["source_verified"] is True
+
+
+def _function(module, name):
+    """The one ``def`` named ``name`` in ``module``'s source (a method or a nested def included)."""
+    defs = [n for n in ast.walk(ast.parse(inspect.getsource(module)))
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == name]
+    assert len(defs) == 1, f"{module.__name__} defines {len(defs)} functions named {name}"
+    return defs[0]
+
+
+@pytest.mark.parametrize("module,writer,formatters", [
+    (markdown_render, "_apply_structured_fallbacks", ()),
+    (fallback_summary, "generate_xbrl_summary", ("format_currency",)),
+    (summary_schema, "attach_normalized_facts", ("_format_xbrl_value",)),
+])
+def test_every_writer_takes_its_money_label_from_the_shared_helper(module, writer, formatters):
+    """Rule 12 gate on the source: the output tests above pass a pasted copy of the rule, so each writer
+    must call the shared ``money_prefix_for``, and neither it nor its formatters may carry a "$"-led or
+    "USD" literal. A new writer, or a new helper one of these calls, is review-checked."""
+    fn = _function(module, writer)
+    assert getattr(module, "money_prefix_for", None) is money_prefix_for, (
+        f"{module.__name__}.money_prefix_for is not the shared helper")
+    called = {n.func.id for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    assert "money_prefix_for" in called, f"{writer} does not call money_prefix_for"
+    for node in [fn, *(_function(module, f) for f in formatters)]:
+        literals = [n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+        copies = [s for s in literals if s.strip().upper() == "USD" or s.startswith("$")]
+        assert not copies, f"{node.name} carries its own money-label rule: {copies}"

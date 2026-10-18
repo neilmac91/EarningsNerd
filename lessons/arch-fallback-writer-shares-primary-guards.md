@@ -34,5 +34,8 @@ copies of the prefix expression. They behave the same today; do not add another.
 `backend/tests/unit/test_fallback_summary_currency.py::test_the_fallback_labels_money_by_the_primary_path_rule`,
 with the backfill pinned by `test_the_stored_fallback_backfills_a_zero_prior_in_the_filer_currency`
 and `test_the_primary_path_backfill_labels_a_blank_prior_in_the_filer_currency` in the same file.
-The same one-shared-predicate pattern for model-facing surfaces:
-`lessons/arch-guard-every-model-facing-surface.md`.
+A pasted copy of the rule passes those output tests, so
+`test_every_writer_takes_its_money_label_from_the_shared_helper` there reads the three writers'
+source: each must call the shared helper, and neither it nor its formatter may carry a "$"-led or
+"USD" literal. A new writer is review-checked. The same one-shared-predicate pattern for
+model-facing surfaces: `lessons/arch-guard-every-model-facing-surface.md`.
