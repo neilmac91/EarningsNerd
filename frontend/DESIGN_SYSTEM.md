@@ -197,11 +197,12 @@ card keeps its Retry and its title inside its own border too: its row wraps, and
 glyph where it cannot keep 9rem beside it (Inline notice, below). Before, under 200% text, the comparison card's
 Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at 360px
 the billing and ticker filings cards' Retry ran 15px past it. Gates: e2e `reflow-200.spec.ts`, "a failure's
-controls stay inside their card" (the homepage search alert at 320, 360 and 390px and with a long token, the
+controls stay inside their card" (the homepage search alert and the full-text search alert on /search, each at 320,
+360 and 390px and with a long token, the
 dashboard's account card at 320, 360 and 390px, the route and dashboard error boundaries at 320px, and the
 comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at 360px and the
 comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
-the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
+the full-text search alert's layout;
 `twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
 reserve's rows. Its limit: at 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the
 admin feedback and invites lists) leaves a Notice a 92px content box, narrower than the Retry's narrowest state

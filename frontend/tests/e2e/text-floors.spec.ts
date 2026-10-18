@@ -81,6 +81,9 @@ async function answerSiteApi(page: Page, baseURL: string, signedIn: boolean) {
         return json(200, [{ company: { id: 1, ticker: 'AAPL', name: 'Apple Inc.' }, latest_filing: { id: 11, filing_type: '10-K', filing_date: '2025-10-31', period_end_date: '2025-09-27', summary_id: null, summary_status: 'ready', summary_created_at: null, summary_updated_at: null, needs_regeneration: false }, total_filings: 12 }])
       case '/api/dashboard/feed':
         return json(200, { items: [] })
+      case '/api/dashboard/calendar/upcoming':
+        // The dashboard's Upcoming earnings card, there while CI's e2e build turns the calendar on.
+        return json(200, { events: [{ ticker: 'AAPL', company_name: 'Apple Inc.', earnings_date: '2026-10-29', time: 'amc', eps_estimated: 1.78, revenue_estimated: null }] })
       case '/api/saved-summaries/':
       case '/api/watchlist/':
         return json(200, [])
@@ -105,7 +108,15 @@ const ROUTES: Route[] = [
   { name: 'pricing', path: '/pricing', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Pricing' })).toBeVisible() },
   { name: 'company', path: '/company/AAPL', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('button', { name: /^Report year 2025\b/ })).toBeVisible() },
   { name: 'filing', path: '/filing/3', open: (p, b) => answerApi(p, b, 'anon'), ready: (p) => expect(p.getByText('On this page')).toBeVisible() },
-  { name: 'dashboard', path: '/dashboard', open: (p, b) => answerSiteApi(p, b, true), ready: (p) => expect(p.getByRole('heading', { level: 2, name: 'Your companies' })).toBeVisible() },
+  {
+    name: 'dashboard',
+    path: '/dashboard',
+    open: (p, b) => answerSiteApi(p, b, true),
+    ready: async (p) => {
+      await expect(p.getByRole('heading', { level: 2, name: 'Your companies' })).toBeVisible()
+      await expect(p.getByText('Est. EPS $1.78', { exact: true })).toBeVisible()
+    },
+  },
   { name: 'not found', path: '/no-such-page', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
   {
     // A signed-in run in flight on a filing with no summary: the stream request is held open, so the

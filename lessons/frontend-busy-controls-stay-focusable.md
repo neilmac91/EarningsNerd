@@ -214,8 +214,9 @@ move focus a mouse user did not lose.
   full-text search alert (Codex: the page 472px, 848px with a long token), the dashboard's account card (Try again
   beside Go to login, the Retry's left edge off the screen at 320px), the route, dashboard and root error fallbacks
   (two actions past the card or the screen at 320px), and the company page's comparison card (a Notice in a card:
-  the page 326px at 320px). Gates: `tests/e2e/reflow-200.spec.ts` ("a failure's controls stay inside their card"),
-  `full-text-search.spec.tsx` (its browser case waits on E39), `twoActionsWrap.spec.tsx` and `button-wrap.spec.tsx`.
+  the page 326px at 320px). Gates: `tests/e2e/reflow-200.spec.ts` ("a failure's controls stay inside their card",
+  the full-text search alert on /search included), `full-text-search.spec.tsx` (that alert's layout),
+  `twoActionsWrap.spec.tsx` and `button-wrap.spec.tsx`.
   A Notice's row wraps, its text column going under the glyph where it cannot keep 9rem beside it, so a Notice
   inside a card keeps its Retry and its title inside its own border (reflow-200 holds three such cards). Its limit:
   at 320px under 200% text a `p-6` card (billing, ticker filings, the admin lists) leaves a Notice a 92px content

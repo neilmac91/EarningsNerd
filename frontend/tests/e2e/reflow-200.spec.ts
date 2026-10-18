@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
-import { answerSearch, runSearch } from './fixtures/searchApi'
+import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
 
 /**
  * No sideways scroll at 200% text on a phone. At 390x844, at the default text size and with the
@@ -434,9 +434,10 @@ test.describe('a 390x664 phone at 200% text', () => {
     card reaches past the screen, the card adds nothing to the page's own width (measured before the failure), every
     control lies inside the card, no control's text paints past its box or onto another's, and the press neither resizes the
     card nor moves a control in it (read from the card's own corner: focusing the Retry scrolls it into view, and on
-    the dashboard the header changes while the account read is in flight). The full-text search alert, fixed the same way, is
-    behind a flag CI's build leaves off, so its browser case waits on E39 and full-text-search.spec.tsx pins its
-    layout. CI has no backend: the API is answered in the browser.
+    the dashboard the header changes while the account read is in flight). The full-text search alert on /search, fixed
+    the same way (Codex on #1380 measured its Retry taking the page to 472px at 390px, and to 848px with a long token),
+    has the homepage alert's cases, now that CI's e2e build turns /search on; full-text-search.spec.tsx pins its layout.
+    CI has no backend: the API is answered in the browser.
 
     A Notice inside a card is held to its own border as well: its Retry and every text run lie inside the Notice, at
     rest and busy. Its text column used to be what the row left after the glyph, so under 200% text the comparison
@@ -583,6 +584,19 @@ const guestSearch = (detail: string) => async (page: Page, baseURL: string, hold
 }
 const searchFor = (page: Page) => page.getByRole('combobox', { name: 'Or start with a company' }).fill('apple')
 const searchAlert = (page: Page) => page.getByRole('alert').filter({ hasText: 'Error searching companies' })
+/** The full-text search's failure: the router's 502 sentence (routers/search.py), or a detail holding a long token. */
+const FULL_TEXT_DOWN = 'SEC full-text search is temporarily unavailable.'
+const FULL_TEXT_DOWN_TOKEN = 'SEC full-text search failed: EFTS_UPSTREAM_TIMEOUT_EXCEEDED'
+const guestFullText = (detail: string) => async (page: Page, baseURL: string, hold: () => boolean) => {
+  await answerGuest(page, baseURL)
+  const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
+  await page.route(
+    (url) => url.origin === API_ORIGIN && url.pathname === '/api/search/full-text',
+    (route) => (hold() ? undefined : route.fulfill({ status: 502, headers: cors, json: { detail } })),
+  )
+}
+const fullTextFor = (page: Page) => page.getByRole('textbox', { name: 'Search the full text of SEC filings' }).fill(SEARCH_QUERY)
+const fullTextAlert = (page: Page) => page.getByRole('alert').filter({ hasText: 'SEC full-text search' })
 /** The three Notices inside a card, each an error Notice with a RetryButton. */
 const comparisonNotice = (page: Page) => page.getByRole('alert').filter({ hasText: 'Couldn’t load the comparison' })
 const billingNotice = (page: Page) => page.getByRole('alert').filter({ hasText: 'Failed to load billing information' })
@@ -590,6 +604,8 @@ const tickerFilingsNotice = (page: Page) => page.getByRole('alert').filter({ has
 const FAILURES: Failure[] = [
   { name: 'the homepage search alert', path: '/', open: guestSearch(SEARCH_DOWN), act: searchFor, card: searchAlert, retry: 'RetryButton', widths: [320, 360, 390] },
   { name: 'the homepage search alert, a long token in its message', path: '/', open: guestSearch(SEARCH_DOWN_TOKEN), act: searchFor, card: searchAlert, retry: 'RetryButton', widths: [320] },
+  { name: 'the full-text search alert', path: '/search', open: guestFullText(FULL_TEXT_DOWN), act: fullTextFor, card: fullTextAlert, retry: 'RetryButton', widths: [320, 360, 390] },
+  { name: 'the full-text search alert, a long token in its message', path: '/search', open: guestFullText(FULL_TEXT_DOWN_TOKEN), act: fullTextFor, card: fullTextAlert, retry: 'RetryButton', widths: [320] },
   {
     name: "the dashboard's account card (Try again beside Go to login)",
     path: '/dashboard',
