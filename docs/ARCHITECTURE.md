@@ -341,6 +341,27 @@ unused since generation became account-required in #619; kept because migrations
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
+- Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
+  A foreign list is read only when the USD list is its convenience translation (every USD
+  period the collector keeps, by period end and span, is also kept from the foreign list; an
+  item it drops counts on neither side); among such lists the per-filing extractor's
+  `_reporting_currency` rule picks. A foreign US-GAAP filer's history is therefore stored as
+  reported (CNY, JPY), never from its USD convenience translations. A filer with no USD list at
+  all, such as a 10-K filer that reports in CAD, is stored in its own currency too, since no USD
+  period then needs a twin; a USD-only read stored nothing for it. Any other shape keeps the USD
+  list: a stray foreign fact, whatever its date, and a currency switch in either direction. A
+  switcher's years reported in a non-USD currency are not ingested in that currency; after a
+  switch to USD, its earlier years come from the USD convenience translations, as before. Quarter
+  derivation works in any currency. Once the native row arrives, a sync demotes, never deletes,
+  any current USD row at the same concept, period end and fiscal period, whatever its source or
+  filing. The newer-accession rule above is per unit; across units the pick has already chosen
+  the series currency. A derived ratio (`pure`) keeps its unit, so where a known filing date kept
+  one computed from USD operands current, the sync demotes it and promotes the native
+  calculation. A ratio stored before operands were recorded (2026-10-10) counts as USD-derived
+  when it is derived and has no filing owner, because companyfacts was then read only in USD.
+  One stored under the native calculation's own identity (same filing) keeps its
+  USD operands, because ingestion never rewrites an identity; the journaled repair
+  (`docs/quarterly-data-repair.md`) recomputes it.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional
