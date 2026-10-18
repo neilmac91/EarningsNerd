@@ -162,7 +162,8 @@ Rules:
 Specification in code: `frontend/app/globals.css` ("Brand device") and
 `frontend/components/ui/MarkedCopy.tsx` (the margin and the marker), consumed by
 `frontend/features/marketing/components/*` on the landing page,
-`frontend/features/summaries/components/SummaryRisks.tsx` and the Source pane's highlight
+`frontend/features/summaries/components/SummaryRisks.tsx`, `SummaryBlocks.tsx` (the located
+quotes) and the Source pane's highlight
 (`frontend/features/filings/components/copilot/highlightInDom.ts`) on the filing page,
 `frontend/scripts/brand/og-template.html` on the social card, and the templates under
 [templates/](templates/).
