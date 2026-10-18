@@ -93,7 +93,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
   export is the analysis workbook). The check marks are in the brand ink and hidden from
-  assistive tech. The history and "Unlimited" lines wait on the founder (pub/F03, pub/F05).
+  assistive tech. "Unlimited" stays, with the fair-use guardrail stated once where it is read
+  (pub/F05, D-040, E58); the history lines leave until entitlements enforce a retention (pub/F03,
+  D-046, E58).
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as
