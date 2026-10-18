@@ -177,7 +177,12 @@ def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional
 
 
 def requested_filing_types(filing_types: Optional[str]) -> List[str]:
-    """The form types to list for a ``?filing_types=`` value (None when absent), amendments added."""
+    """The form types to list for a ``?filing_types=`` value (None when absent), amendments added.
+
+    The caller's value is validated here, where it enters: each entry reads as its SEC form
+    (``10k`` lists ``10-K``) and an unknown one is dropped, as the SEC layer drops it, so a value
+    that names no known form lists nothing.
+    """
     # Parse filing types. Default to the domestic financial reports; when FPI support is enabled,
     # also discover foreign-issuer forms (20-F annual, 6-K interim, 40-F) so ADRs like Alibaba
     # ($BABA) list their filings instead of showing an empty state. An explicit ?filing_types=
@@ -187,7 +192,8 @@ def requested_filing_types(filing_types: Optional[str]) -> List[str]:
     from app.services.filing_amendment_service import expand_amendment_forms
     from app.services.latest_filing_service import company_list_forms
     if filing_types:
-        return expand_amendment_forms([t.strip() for t in filing_types.split(",")])
+        forms = (FilingType.from_string(t, strict=False) for t in filing_types.split(","))
+        return expand_amendment_forms([f.value for f in forms if f is not FilingType.UNKNOWN])
     return company_list_forms()
 
 
