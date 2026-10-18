@@ -36,15 +36,17 @@ const EXTRAS = [
   },
 ] as const
 
-/** One Pro feature: the PRO chip + title + paragraph (and an optional CTA) above its product screen, the same
- *  order for every feature (D-045: no alternating rows). */
+/** One feature: its title (with the Pro chip when Pro has it in full and Free does not) + paragraph (and an
+ *  optional CTA) above its product screen, the same order for every feature (D-045: no alternating rows). */
 function FeatureRow({
   title,
+  pro = false,
   description,
   cta,
   children,
 }: {
   title: string
+  pro?: boolean
   description: string
   cta?: ReactNode
   children: ReactNode
@@ -53,9 +55,11 @@ function FeatureRow({
     <div className="py-10 first:pt-0 last:pb-0">
       <div className="max-w-2xl">
         <div className="flex items-center gap-2.5">
-          <Badge variant="pro" className="shrink-0">
-            Pro
-          </Badge>
+          {pro && (
+            <Badge variant="pro" className="shrink-0">
+              Pro
+            </Badge>
+          )}
           <h3 className="min-w-0 flex-1 text-xl">{title}</h3>
         </div>
         <p className="mt-3 text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
@@ -70,10 +74,13 @@ function FeatureRow({
 }
 
 /**
- * "What Pro adds" as a ruled row (D-045): the feature screens one under another in the content column,
- * each pitch above the REAL product screen fed static sample data (Ask this Filing, Multi-Period Analysis,
+ * "More ways to read one filing" as a ruled row (D-045): the feature screens one under another in the content
+ * column, each pitch above the REAL product screen fed static sample data (Ask this Filing, Multi-Period Analysis,
  * Change Report), then the "Also in Pro" extras as a ruled list, two across from 40rem at the reader's text
- * size, never the four-up grid of tiles the template skeleton had (T4). Multi-Period Analysis (its row, its
+ * size, never the four-up grid of tiles the template skeleton had (T4). The Pro chip marks the two features Pro
+ * has in full (Free asks a few questions and sees the analysis demo); the Change Report carries none, since both
+ * plans read the same report while production ships no wording diff (entitlements.py, ENABLE_SECTION_CHANGES;
+ * tests/unit/changeReportPlanClaims.spec.ts). Multi-Period Analysis (its row, its
  * CTA, the Excel extra and its mention in the lead) renders only while the analysis route exists
  * (ENABLE_ANALYSIS): the route 404s otherwise, so the page never sells a feature that ships off.
  */
@@ -93,6 +100,7 @@ export default function ProDepth() {
       <div className="divide-y divide-border-light dark:divide-white/10">
         <FeatureRow
           title="Ask this Filing"
+          pro
           description={`Ask a question of one filing. The answer comes from that filing, with cited passages you can check, and each chip says whether we matched the source or only cited it. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
         >
           <AskFilingDemo />
@@ -101,6 +109,7 @@ export default function ProDepth() {
         {ENABLE_ANALYSIS && (
           <FeatureRow
             title="Multi-Period Analysis"
+            pro
             description={`Up to ${ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years or ${ANALYSIS_MAX_QUARTERLY_PERIODS} quarters of one company: charts, a metrics grid, and a streamed trend narrative with citations. Export to Excel.`}
             cta={
               <MarketingCta variant="secondary" size="md" href="/analysis?ticker=AAPL" className="mt-4">
@@ -115,7 +124,7 @@ export default function ProDepth() {
 
         <FeatureRow
           title="Change Report"
-          description="What changed against the prior filing: metric deltas computed from XBRL, risk factors that are new, and language no longer cited."
+          description="What changed against the prior filing: metric deltas computed from XBRL, risk factors that are new, and language no longer cited. Both plans include it."
         >
           <ChangeReportDemo />
         </FeatureRow>

@@ -161,7 +161,8 @@ describe('ProDepth', () => {
     for (const title of ['Ask this Filing', 'Change Report']) {
       expect(within(section).getByRole('heading', { level: 3, name: title })).toBeInTheDocument()
     }
-    expect(within(section).getAllByText('Pro')).toHaveLength(2)
+    // One Pro chip, Ask this Filing's: both plans read the same Change Report (changeReportPlanClaims.spec.tsx).
+    expect(within(section).getAllByText('Pro')).toHaveLength(1)
 
     expect(
       within(section).getByText(`Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`, { exact: false }),
@@ -191,7 +192,7 @@ describe('ProDepth', () => {
       within(section).getByText('Ask it a question, read its periods side by side, see what changed since the last one.'),
     ).toBeInTheDocument()
     expect(within(section).getByRole('heading', { level: 3, name: 'Multi-Period Analysis' })).toBeInTheDocument()
-    expect(within(section).getAllByText('Pro')).toHaveLength(3)
+    expect(within(section).getAllByText('Pro')).toHaveLength(2)
     expect(within(section).getByRole('heading', { level: 4, name: 'Excel export' })).toBeInTheDocument()
     expect(within(section).getByText('XLSX')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Try it on Apple/ })).toHaveAttribute('href', '/analysis?ticker=AAPL')
