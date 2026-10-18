@@ -17,6 +17,7 @@ case rather than quietly presented as fixed.
 These tests drive the real service path with a fake stream and a scoped fact lookup; every
 negative control leaves the answer byte-identical.
 """
+import json
 import logging
 from datetime import datetime
 from types import SimpleNamespace
@@ -309,6 +310,72 @@ def test_preserved_durations_never_reach_the_model_prompt():
              'reporting_currency': 'USD'}
     assert service._compact_xbrl_block(dated) == service._compact_xbrl_block(undated)
     assert 'period_start' not in service._compact_xbrl_block(dated)
+
+
+# Annual reports whose fiscal years the calendar years of their ends do not name: (DEI focus, each
+# fiscal year's start and end, newest first). Salesforce's 10-K 0001108524-26-000060 says focus 2025
+# for the year it calls fiscal 2026; Target's fiscal 2024 ended 1 February 2025.
+LABELLED_ANNUAL_REPORTS = {
+    'crm': (2025, [('2025-02-01', '2026-01-31'), ('2024-02-01', '2025-01-31'), ('2023-02-01', '2024-01-31')]),
+    'target': (2024, [('2024-02-04', '2025-02-01'), ('2023-01-29', '2024-02-03'), ('2022-01-30', '2023-01-28')]),
+}
+
+
+@pytest.mark.parametrize('issuer', sorted(LABELLED_ANNUAL_REPORTS))
+def test_annual_fiscal_labels_never_reach_the_model_prompt(issuer):
+    """An annual report's block is byte-identical to main's, which named no annual fiscal year.
+
+    The per-filing labeller names Salesforce's fiscal 2026 by its lagging focus, 2025, and one filing
+    cannot tell that from Target's year named by its start, so the year is left to the filing's text
+    and the numeric tools. The instance path appends the label and the companyfacts fallback writes
+    it first, so both key orders are checked.
+    """
+    from app.services.edgar import fiscal_periods
+
+    focus, years = LABELLED_ANNUAL_REPORTS[issuer]
+    snapshot = {'revenue': [{'period': end, 'value': 100.0 - i, 'form': '10-K', 'period_start': start}
+                            for i, (start, end) in enumerate(years)],
+                'total_assets': [{'period': end, 'value': 500.0 - i, 'form': '10-K'}
+                                 for i, (_start, end) in enumerate(years[:2])],
+                'reporting_currency': 'USD'}
+
+    def label(point):
+        return fiscal_periods.filing_point_label('10-K', point['period'], years[0][1], focus, 'FY')
+
+    def with_labels(first):
+        return {key: [{**label(p), **p} if first else {**p, **label(p)} for p in value]
+                if isinstance(value, list) else value for key, value in snapshot.items()}
+
+    instance, fallback = with_labels(first=False), with_labels(first=True)
+    assert [p['fiscal_year'] for p in instance['revenue']] == [focus, focus - 1, focus - 2]
+    assert all(p['fiscal_period'] == 'FY' for p in instance['revenue'] + instance['total_assets'])
+    for labelled in (instance, fallback):
+        block = service._compact_xbrl_block(labelled)
+        assert block == service._compact_xbrl_block(snapshot)
+        assert 'fiscal_year' not in block and 'fiscal_period' not in block and 'period_start' not in block
+
+
+def test_quarter_labels_still_reach_the_model_prompt():
+    """A 10-Q's quarter labels reach the model as on main, its prior year-end balance's Q4 included.
+
+    Only an annual point's label is left out; source durations are dropped as before.
+    """
+    from app.services.edgar import fiscal_periods
+
+    def labelled(end, value, start=None):
+        point = {'period': end, 'value': value, 'form': '10-Q', **({'period_start': start} if start else {})}
+        return {**point, **fiscal_periods.filing_point_label('10-Q', end, '2026-04-30', 2026, 'Q1')}
+
+    revenue = [labelled('2026-04-30', 400.0, '2026-02-01'), labelled('2025-04-30', 350.0, '2025-02-01')]
+    assets = [labelled('2026-04-30', 7_000.0), labelled('2026-01-31', 6_000.0)]
+
+    block = service._compact_xbrl_block({'revenue': revenue, 'total_assets': assets})
+
+    assert json.loads(block) == {
+        'revenue': [{k: v for k, v in p.items() if k != 'period_start'} for p in revenue], 'total_assets': assets}
+    assert [(p['fiscal_year'], p['fiscal_period']) for p in json.loads(block)['total_assets']] == [
+        (2026, 'Q1'), (2025, 'Q4')]
+    assert 'period_start' not in block
 
 
 def test_newly_dated_facts_do_not_let_a_mismatched_comparison_through():
