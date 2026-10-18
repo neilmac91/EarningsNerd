@@ -109,7 +109,7 @@ async def get_company_filings(
     # no checkout waits on the event loop and no SEC or queue await holds a connection
     # (lessons/ops-release-cached-filing-reads-before-yield.md). The session stays reusable for the
     # next unit.
-    company = await run_in_threadpool(filing_list_service.company_identity, db, ticker_upper)
+    company = await run_in_threadpool(filing_list_service.stored_company_identity, db, ticker_upper)
 
     if not company:
         # Try to fetch company from SEC and create it
@@ -230,8 +230,8 @@ async def get_company_filings(
         raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
     except Exception as e:
         logger.exception(f"Unexpected error fetching filings for {ticker_upper}")
-        # Rollback any pending transaction to recover session state, then try to return cached
-        # data on any error
+        # Try to return cached data on any error; the unit that failed has already released the
+        # session
         cached = await run_in_threadpool(get_cached_filings_after_rollback)
         if cached:
             logger.info(f"Returning {len(cached)} cached filings for {ticker_upper} after error")

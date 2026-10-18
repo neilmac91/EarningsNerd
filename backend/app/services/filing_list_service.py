@@ -160,7 +160,7 @@ class CompanyIdentity(NamedTuple):
         return cls(company.id, company.cik, company.history_backfilled_at is None)
 
 
-def company_identity(db: Session, ticker_upper: str) -> Optional[CompanyIdentity]:
+def stored_company_identity(db: Session, ticker_upper: str) -> Optional[CompanyIdentity]:
     """The stored company for this (already upper-cased) ticker, or None on a miss; releases the
     session either way, so the miss path's SEC awaits hold no connection."""
     try:
@@ -281,7 +281,9 @@ def cached_filings_after_rollback(
     limit: Optional[int],
     convert: Callable[[Filing], T],
 ) -> List[T]:
-    """Roll back a failed live unit, then serve :func:`cached_filings` (the error fallbacks)."""
+    """Serve :func:`cached_filings` for the error fallbacks. The rollback first is a guard: every
+    earlier unit releases the session before it returns, a failed live persist included, so it
+    normally finds no transaction to roll back."""
     db.rollback()  # Ensure clean session state
     return cached_filings(db, company_id, types_list, limit, convert)
 
