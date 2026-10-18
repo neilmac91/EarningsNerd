@@ -28,8 +28,8 @@ describe('annualTickLabel', () => {
 
 describe('periodAxisLabel (the axis caption)', () => {
   it('names the tick unit per mode, styled from the chart theme tokens', () => {
-    expect(periodAxisLabel('annual', false).value).toBe('Financial Year')
-    expect(periodAxisLabel('quarterly', false).value).toBe('Fiscal Quarter')
+    expect(periodAxisLabel('annual', false).value).toBe('Fiscal year')
+    expect(periodAxisLabel('quarterly', false).value).toBe('Fiscal quarter')
     expect(periodAxisLabel('annual', false).style.fontSize).toBe(11)
     // Theme ink follows dark mode (chartTheme label values).
     expect(periodAxisLabel('annual', true).style.fill).not.toBe(periodAxisLabel('annual', false).style.fill)

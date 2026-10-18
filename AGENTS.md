@@ -69,7 +69,9 @@ file instead.
 ## 4. Testing proportionality
 
 - One machine gate per "never again" rule (rule 12), with exactly one mutation proof: break the
-  guarded thing, show the gate failing, restore, paste both tails in the PR body.
+  guarded thing, show the gate failing, restore, paste both tails in the PR body. A gate's planted
+  cases are its fixture, not mutation proofs, so the one proof limits none of them
+  (`lessons/test-gates-must-be-as-wide-as-their-rule.md`).
 - Records-only PR (§5's records tier: `tasks/`, `lessons/`, `docs/`, `.claude/agents/`,
   `.claude/skills/`, `.impeccable/`, root Markdown other than `CLAUDE.md` and `AGENTS.md`): the
   link/anchor check plus §5's one Sonnet lens. A `DESIGN.md` or `.impeccable/design.json` change

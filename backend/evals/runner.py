@@ -133,11 +133,12 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
     excerpt = None
     source = "regex_fallback"
     sections = None
-    # Production parses edgartools sections and fetches XBRL for 10-K/10-Q/20-F only; a 6-K has
-    # neither, so the harness must not enrich it with grounding users never receive.
-    if settings.USE_EDGARTOOLS_SECTIONS and filing.cik and filing.accession_number and not is_six_k:
+    # Production parses the sections from the fetched primary document and fetches XBRL for
+    # 10-K/10-Q/20-F only; a 6-K has neither, so the harness must not enrich it with grounding
+    # users never receive.
+    if settings.USE_EDGARTOOLS_SECTIONS and text and not is_six_k:
         try:
-            sections = await xbrl_service.get_filing_sections(filing.accession_number, filing.cik, form)
+            sections = await xbrl_service.get_filing_sections(filing.accession_number, form, html=text)
         except Exception:  # noqa: BLE001
             sections = None
         if sections:

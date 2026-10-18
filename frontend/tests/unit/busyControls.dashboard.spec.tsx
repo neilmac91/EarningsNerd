@@ -23,7 +23,7 @@ import { queryKeys } from '@/lib/queryKeys'
  * `disabled`. It stays pending until the refetch drops the row, since the kept focus could otherwise
  * send a second DELETE (lessons/frontend-busy-controls-stay-focusable.md, rules (f) and (g)).
  *
- * Manage subscription stays pending until the page leaves for Stripe, as BillingPanel's Manage billing.
+ * Manage billing stays pending until the page leaves for Stripe, as BillingPanel's Manage billing.
  */
 
 const api = vi.hoisted(() => ({
@@ -246,7 +246,7 @@ describe('Plan and usage Retry', () => {
     await settle()
     // The dashboard stays up (no page-wide skeleton), and Retry is busy, focused, and inert.
     expect(screen.getByText('Unable to load plan details')).toBeInTheDocument()
-    expect(screen.getByText('Jump to any company')).toBeInTheDocument()
+    expect(screen.getByText('Find a company by name or ticker')).toBeInTheDocument()
     expectBusyAndFocused(retry)
     fireEvent.click(retry)
     await settle()
@@ -595,7 +595,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     act(() => onlineManager.setOnline(true))
     await waitFor(() => expect(api.getUsage).toHaveBeenCalledTimes(2))
     expectBusyAndFocused(retry)
-    expect(screen.getByText('Jump to any company')).toBeInTheDocument()
+    expect(screen.getByText('Find a company by name or ticker')).toBeInTheDocument()
     await act(async () => background.resolve(usage))
     await waitFor(() => expect(retry.isConnected).toBe(false))
     await settle()
@@ -783,7 +783,7 @@ describe('Retry announcements', () => {
   })
 })
 
-describe('Manage subscription', () => {
+describe('Manage billing', () => {
   it('stays busy while the page leaves for the portal, and is live again after a back-forward restore', async () => {
     healthyApi()
     api.getSubscriptionStatus.mockResolvedValue({ ...subscription, is_pro: true, plan: 'pro', status: 'active' })
@@ -793,7 +793,7 @@ describe('Manage subscription', () => {
     Object.defineProperty(window, 'location', { value: { href: '' }, writable: true, configurable: true })
     try {
       renderDashboard()
-      const manage = await screen.findByRole('button', { name: 'Manage subscription' })
+      const manage = await screen.findByRole('button', { name: 'Manage billing' })
       manage.focus()
       fireEvent.click(manage)
       await waitFor(() => expect(window.location.href).toBe('https://billing.stripe.com/p/session_1'))
@@ -820,7 +820,7 @@ describe('Manage subscription', () => {
     api.createPortalSession.mockResolvedValue({ url: '' })
     renderDashboard()
 
-    const manage = await screen.findByRole('button', { name: 'Manage subscription' })
+    const manage = await screen.findByRole('button', { name: 'Manage billing' })
     manage.focus()
     fireEvent.click(manage)
     await waitFor(() => expect(api.toastError).toHaveBeenCalledWith('Could not open the billing portal. Please try again.'))
@@ -932,5 +932,24 @@ describe('Saved summary Delete', () => {
     elsewhere.focus()
     await waitFor(() => expect(deleteApple.isConnected).toBe(false))
     expect(document.activeElement).toBe(elsewhere)
+  })
+})
+
+describe('Monthly limit banner', () => {
+  // DSW-22: the banner states the account's own numbers from the usage response, not a plan pitch.
+  // It makes no claim about Pro's limit (PRO_SUMMARY_MONTHLY_CAP is enforced; the founder decided F41 on
+  // 2026-10-15, D-040: "Unlimited" stays on the plan cards, the guardrail is E58's): the banner's whole text is asserted (the title, the count line and
+  // the Upgrade link), so a second sentence anywhere in the banner fails it.
+  it.each([
+    [4, 'Almost at your limit', 'You have 1 summary left this month.'],
+    [5, 'Limit reached', "You've used all 5 summaries this month."],
+  ])('with %i of 5 used it reads "%s"', async (used, title, line) => {
+    healthyApi()
+    api.getUsage.mockResolvedValue({ ...usage, summaries_used: used, summaries_limit: 5 })
+    renderDashboard()
+
+    const banner = (await screen.findByText(title)).closest('[role="status"]') as HTMLElement
+    expect(within(banner).getByText(line)).toBeInTheDocument()
+    expect(banner.textContent).toBe(`${title}${line}Upgrade to Pro`)
   })
 })

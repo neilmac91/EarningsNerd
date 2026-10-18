@@ -18,7 +18,8 @@ import threading
 import weakref
 from datetime import datetime, timedelta
 from itertools import islice
-from typing import Dict, List, Optional, Tuple
+from operator import attrgetter
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urljoin
 
 from edgar import Company as EdgarCompany, set_identity
@@ -47,8 +48,37 @@ apply_edgartools_backports()
 # Default cap on filings materialized from the recent submissions window when no explicit limit is
 # given (the company filings-list path). The recent window is already SEC-bounded (~1 year or ~1000
 # filings); this caps memory for very high-volume filers while leaving a generous multi-year slice
-# for the year-grouped UI. Reports (10-K/10-Q/20-F/6-K/40-F) are a few per year, so 50 spans ~10y.
+# for the year-grouped UI. Reports (10-K/10-Q/20-F/40-F) are a few per year, so 50 spans ~10y. A 6-K
+# is not: BP, Shell and HSBC furnish one most business days (buyback notices), filling 50 slots in
+# about ten weeks. So on this path 6-Ks fill a budget of their own of the same size (`_take_recent`),
+# and a 20-F or 40-F filed earlier in the window is still listed.
 RECENT_FILINGS_MATERIALIZE_CAP = 50
+# The 6-K group as FilingType.is_interim defines it (6-K, 6-K/A); filing_list_service.cached_filings
+# budgets the same group on the DB-first serve, so the cold and warm lists agree.
+_SIX_K_FORMS = frozenset(ft.value for ft in FilingType if ft.is_interim)
+
+
+def _take_recent(
+    filings: Iterable[Any], cap: int, six_k_apart: bool, form: Callable[[Any], str] = attrgetter("form")
+) -> List[Any]:
+    """The first ``cap`` filings of a newest-first stream. With ``six_k_apart``, the first ``cap``
+    6-Ks plus the first ``cap`` of the other forms, in stream order. That walk reads the whole
+    stream: a list rarely fills both budgets (a foreign issuer files a few reports a year, a domestic
+    one no 6-K), SEC bounds the recent window, and only the kept rows are held. ``form`` reads a
+    row's form type; the cold filings list passes a stored row's, to cap its response by ``?limit=``."""
+    if not six_k_apart:
+        return list(islice(filings, cap))
+    taken: List[Any] = []
+    six_ks = others = 0
+    for f in filings:
+        if form(f) in _SIX_K_FORMS:
+            if six_ks < cap:
+                six_ks += 1
+                taken.append(f)
+        elif others < cap:
+            others += 1
+            taken.append(f)
+    return taken
 
 # Negative cache for the bounded-fallback path: (ticker/cik, base_forms) that returned NOTHING even
 # after a full-history load — i.e. a company that doesn't file these forms (e.g. precompute a 10-K for
@@ -98,14 +128,14 @@ def get_filing_by_accession(company: EdgarCompany, accession_number: str) -> lis
     return filings
 
 
-# Short-lived, per-CIK EdgarCompany cache for the by-accession summary path. A single summary run
-# resolves the SAME filing twice — the XBRL extraction and the section extraction fire as CONCURRENT
-# tasks (summary_pipeline.py), each on its own edgar-thread-pool thread. Without sharing, an
-# accession older than the recent window full-loads the company's history ONCE PER extraction; with
-# it, the second reuses the first's already-loaded entity (edgartools keeps the loaded submissions
-# on the instance). The cache is deliberately small + short-TTL: it only needs to span a run's
-# concurrent extractions, and a fully-loaded mega-filer entity is tens of MB, so we cap memory
-# hard. Staleness is a non-issue here — we fetch a FIXED historical filing by accession, not "latest".
+# Short-lived, per-CIK EdgarCompany cache for the by-accession summary path. A summary run resolves
+# its filing once, for the XBRL instance extraction (a 6-K resolves it for its exhibit text instead);
+# until E28 the section extraction resolved the SAME filing again, concurrently, and this cache
+# kept that second resolution from full-loading the company's history a second time. It still
+# spans resolutions of one company within its TTL (a regeneration, another filing of the same
+# company), reusing the already-loaded entity (edgartools keeps the loaded submissions on the
+# instance). The cache is deliberately small + short-TTL, and a fully-loaded mega-filer entity is
+# tens of MB, so we cap memory hard. Staleness is a non-issue here — we fetch a FIXED historical filing by accession, not "latest".
 # NOTE: only the by-accession path uses this. The filings-LIST path (get_filings_multi) keeps building
 # a fresh entity per load so it always sees the newest recent window.
 _COMPANY_CACHE_TTL = timedelta(seconds=120)
@@ -155,8 +185,8 @@ def _get_or_build_company(cik: str) -> EdgarCompany:
 
 
 def resolve_filing_by_accession(cik: str, accession_number: str) -> Tuple[EdgarCompany, list]:
-    """Resolve a filing by accession, reusing a cached EdgarCompany across a summary's two concurrent
-    extractions so an old filing's full-history load runs once, not per extraction. Thread-safe:
+    """Resolve a filing by accession, reusing a cached EdgarCompany across resolutions of one company
+    within the cache's TTL so an old filing's full-history load runs once, not per call. Thread-safe:
     same-CIK resolutions serialize on a per-CIK lock (edgartools' lazy load mutates the entity).
 
     Callers may read INIT-TIME METADATA (e.g. ``company.sic``, ``is_financial_institution()``) on the
@@ -239,12 +269,13 @@ class EdgarClient:
         download *per form type* — the cause of the request timeout. The recent window (SEC's
         "greater of ~1000 filings or ~1 year") always contains the newest 10-K/10-Q/20-F for an
         active filer; older history accrues in our DB across loads (see the DB-first serving in
-        app/routers/filings.py). ``islice`` bounds materialization to keep memory flat.
+        app/routers/filings.py). ``_take_recent`` bounds the rows kept to keep memory flat.
 
         Args:
             ticker: Stock ticker OR CIK (callers on this path pass the CIK).
             filing_types: Form types to retrieve (base forms; ``/A`` handled by ``include_amended``).
-            limit: Maximum number of filings to return (None → a bounded recent default).
+            limit: Maximum number of filings to return (None → a bounded recent default, with
+                6-Ks capped apart from the other forms).
             include_amended: Whether to include amended filings (/A).
 
         Returns:
@@ -291,8 +322,11 @@ class EdgarClient:
 
         # Bound materialization. The recent-window filter already bounds the row count for normal
         # filers; this cap protects memory for high-volume filers and keeps a generous multi-year
-        # slice for the year-grouped UI.
+        # slice for the year-grouped UI. On that list path (no limit) 6-Ks take a budget of their own,
+        # so a daily 6-K filer's notices cannot push its 20-F/40-F out; a bounded caller keeps the
+        # newest `limit` across every form.
         materialize_cap = limit if limit is not None else RECENT_FILINGS_MATERIALIZE_CAP
+        six_k_apart = limit is None and not _SIX_K_FORMS.isdisjoint(base_forms)
 
         try:
             edgar_company = await run_with_circuit_breaker(
@@ -302,23 +336,22 @@ class EdgarClient:
 
             # ONE recent-window fetch across all requested forms. trigger_full_load=False skips
             # edgartools' paginated older-filings download (the scaling cost). We filter to
-            # `allowed_forms` INSIDE the (lazy) islice so a superset fetch (base + /A, when amendments
+            # `allowed_forms` INSIDE the (lazy) cap so a superset fetch (base + /A, when amendments
             # were forced on) is trimmed to what the caller asked for before the cap, and so the
             # empty-check below measures "empty for the requested forms" — not raw pre-trim rows.
             filings = await run_with_circuit_breaker(
-                lambda: list(
-                    islice(
-                        (
-                            f
-                            for f in edgar_company.get_filings(
-                                form=base_forms,
-                                amendments=wants_amended,
-                                trigger_full_load=False,
-                            )
-                            if getattr(f, "form", None) in allowed_forms
-                        ),
-                        materialize_cap,
-                    )
+                lambda: _take_recent(
+                    (
+                        f
+                        for f in edgar_company.get_filings(
+                            form=base_forms,
+                            amendments=wants_amended,
+                            trigger_full_load=False,
+                        )
+                        if getattr(f, "form", None) in allowed_forms
+                    ),
+                    materialize_cap,
+                    six_k_apart,
                 ),
                 timeout=self.timeout,
             )
