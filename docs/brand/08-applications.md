@@ -93,7 +93,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
   export is the analysis workbook). The check marks are in the brand ink and hidden from
-  assistive tech. The history and "Unlimited" lines wait on the founder (pub/F03, pub/F05).
+  assistive tech. "Unlimited" stays; the fair-use guardrail is to be stated once where it is read
+  (pub/F05, D-040, E58), and the history lines are to leave until entitlements enforce a retention
+  (pub/F03, D-046, E58).
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as
@@ -102,7 +104,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   count and the step numbers are set in the ink, not sage. The trust panel reads "Before you join"
   over its three tiles with no lead (the clarity promise is gone, and a lead only repeated the first
   tile's source line), and its middle tile
-  is "Security", whose body waits on the founder with the /security claims. The problem cards and the
+  is "Security", whose body is to change with /security's unsupported claims (D-046, E109). The problem cards and the
   joined heading are h2, so the outline does not skip a level after the h1 when the example beside
   the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
@@ -134,7 +136,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
-  dialog waits on the founder (chrome/F1).
+  dialog is to take D-046's words, which name PostHog and say that statistics are tied to an
+  internal account id when you are logged in (chrome/F1, F33, E109).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
@@ -157,8 +160,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
   a minute." The success heading is an h2.
   The prose links on /contact are underlined and carry the brand focus ring. The /security links
-  are unchanged, because /security is a legal page under the founder's boundary; the ring triple
-  on its five links rides the founder-gated security-claims PR.
+  are unchanged: the ring triple on its five links is to ride the /security PR, which D-046
+  authorises (E109).
 
 - **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
   `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
@@ -194,8 +197,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   signed "Still running", without guessing why. A stored summary that failed reads "This summary did
   not finish" over its own sentence, "The last attempt for this filing did not finish. Try again to
   generate it." The pipeline's stream errors are mapped on the client
-  (`frontend/features/summaries/lib/streamErrorCopy.ts`), because the summary_stages strings are the
-  founder's until he opens them; the raw sentence still decides the paywall card and the retry, and
+  (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings are to change
+  with the next functional change there, and the mapping holds until then (F35, D-046, E92). The raw
+  sentence still decides the paywall card and the retry, and
   `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
   `services/ai/summary_finalize.py`, whose payload messages two stages stream) so a reworded sentence
   fails until it is mapped. The client's own fallbacks (`features/summaries/api/summaries-api.ts`,
@@ -274,7 +278,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   companies you follow."), the limit banner states the account's own count and nothing about
   Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
   and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
-  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide, after the series, E58),
+  "Unlimited" among them, and the fair-use guardrail is to be stated once, app-wide, after the series, E58),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face.
@@ -571,18 +575,21 @@ content is unchanged. The brief's reader-quote slot stays unrendered
 
 The section is unmounted from `app/page.tsx` and its fetcher removed from the page, and the
 component carries a DORMANT note: the week's list read as microcap 8-Ks under a "high-signal"
-heading (audit T7). The fetcher, the card and its spec stay for the day a curation rule exists (a
-known-good set, a size floor, or 10-K and 10-Q only). The mount gate
-(`tests/unit/landing-sections-mounted.spec.ts`) records the omission as deliberate.
+heading (audit T7). The fetcher, the card and its spec stay for its return. The curation rule is
+decided (D-046, §8): 10-K and 10-Q filings only, from companies that hold a full summary, newest
+first, at most six. The section is to return under it with E90, placed in D-045's labelled rows
+(E113); until then the mount gate (`tests/unit/landing-sections-mounted.spec.ts`) records the
+omission as deliberate.
 
-## 8. Left for the founder
+## 8. Decided by the founder
 
-- The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is a pipeline
-  snapshot ending at FY2024; it is regenerated through the pipeline, not edited, so the landing
-  page shows FY2019 to FY2024 in that one demo until the founder runs it to FY2025.
-- A curation rule for §7.
+- The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`, the analysis
+  teaser's sample and the landing's samples) ends at FY2024, and its own comment calls its figures
+  approximate; it is to be regenerated through the pipeline to FY2025, not edited (D-046, E93).
+- §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
+  first, at most six (D-046, E90).
 
-Each has its own line in `tasks/todo.md`, as does the landing composition (tell T4).
+The landing composition (tell T4) is decided too: labelled rows after the hero (D-045, E113).
 
 ## 9. Gates touched
 
