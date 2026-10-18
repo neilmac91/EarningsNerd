@@ -1,9 +1,8 @@
 """Normalize SEC companyfacts into reported and derived fiscal-period rows."""
 from __future__ import annotations
 
-import math
 from datetime import date
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from app.services.fact_provenance import fact_operand
 from app.services.facts.calendar import (
@@ -11,9 +10,9 @@ from app.services.facts.calendar import (
 )
 from app.services.facts.concepts import (
     COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, NON_NEGATIVE_CONCEPTS,
-    _CONCEPT_UNITS, _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP, _classify_duration, _parse_date,
+    _CONCEPT_UNITS, _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP,
 )
-from app.services.facts.currency import series_unit
+from app.services.facts.currency import admitted_items, series_unit
 from app.services.facts.derive import derive_same_period_metrics
 from app.services.facts.quarterly import (
     QUARTER_WINDOW, derive_cumulative_quarters, derive_quarter_sum_fallback, reported_fact,
@@ -59,25 +58,7 @@ def _collect_companyfacts_values(
             continue
         tag_best: dict[tuple[date, str], dict[str, Any]] = {}
         tag_candidates: dict[tuple[date, str], list[dict]] = {}
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            value = item.get("val")
-            if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
-                continue
-            end = _parse_date(item.get("end"))
-            if end is None:
-                continue
-            start: Optional[date] = None
-            if instant:
-                klass = "I"
-            else:
-                start = _parse_date(item.get("start"))
-                if start is None:
-                    continue
-                klass = _classify_duration(start, end)
-                if klass is None:
-                    continue
+        for (end, klass), start, value, item in admitted_items(items, instant=instant):
             filed = str(item.get("filed") or "")
             record = {
                 "value": float(value),
@@ -208,14 +189,15 @@ def _collect_companyfacts_concepts(
     for concept, tags in COMPANYFACTS_DURATION_TAGS.items():
         if financial_sic and concept in _FI_SKIPPED_CONCEPTS:
             continue
-        unit_key = series_unit(usgaap, tags, _CONCEPT_UNITS.get(concept, "USD"))
+        unit_key = series_unit(usgaap, tags, _CONCEPT_UNITS.get(concept, "USD"), instant=False)
         values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False)
         if values:
             duration_values[concept] = values
 
     instant_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_INSTANT_TAGS.items():
-        values = _collect_companyfacts_values(usgaap, tags, series_unit(usgaap, tags, "USD"), instant=True)
+        unit_key = series_unit(usgaap, tags, "USD", instant=True)
+        values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=True)
         if values:
             instant_values[concept] = values
     return duration_values, instant_values

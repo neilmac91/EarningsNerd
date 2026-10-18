@@ -343,9 +343,12 @@ unused since generation became account-required in #619; kept because migrations
   available for their own filing even when they are not the current company value.
 - Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
   A foreign list is read only when the USD list is its convenience translation (every USD
-  period-end is also one of its period-ends); among such lists the per-filing extractor's
+  period the collector keeps, by period end and span, is also kept from the foreign list; an
+  item it drops counts on neither side); among such lists the per-filing extractor's
   `_reporting_currency` rule picks. A foreign US-GAAP filer's history is therefore stored as
-  reported (CNY, JPY), never from its USD convenience translations. Any other shape keeps the USD
+  reported (CNY, JPY), never from its USD convenience translations. A filer with no USD list at
+  all, such as a 10-K filer that reports in CAD, is stored in its own currency too, since no USD
+  period then needs a twin; a USD-only read stored nothing for it. Any other shape keeps the USD
   list: a stray foreign fact, whatever its date, and a currency switch in either direction. A
   switcher's years reported in a non-USD currency are not ingested in that currency; after a
   switch to USD, its earlier years come from the USD convenience translations, as before. Quarter

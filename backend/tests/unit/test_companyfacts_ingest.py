@@ -895,6 +895,35 @@ class TestNativeReportingCurrency:
         payload["facts"]["us-gaap"][REV_TAG]["units"]["EUR"] = [stray]
         assert svc.normalize_companyfacts(1, payload) == svc.normalize_companyfacts(1, _calendar_payload())
 
+    @pytest.mark.parametrize("unusable", [
+        {"val": None}, {"val": float("nan")}, {"val": float("inf")}, {"start": None},
+        {"start": "2023-10-01"},  # six months: a cumulative slice ends there, not the fiscal year
+        {"start": "2023-12-01"},  # four months: no duration class at all
+    ], ids=["no-value", "nan", "infinite", "no-start", "six-month-span", "unclassified-span"])
+    def test_a_native_year_the_collector_drops_keeps_the_usd_reading(self, unusable):
+        # The CNY list's only FY2024 revenue item is one the collector drops, or keys as another
+        # span, so CNY does not keep every period USD keeps. A CNY read would lose FY2024 and leave
+        # the USD row an earlier sync stored there current inside a CNY series.
+        payload = _cny_payload()
+        payload["facts"]["us-gaap"][REV_TAG]["units"]["CNY"][-1].update(unusable)  # 20F-2024's own year
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        revenue = {f["period_end"].year: (f["unit"], f["value"]) for f in facts
+                   if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+        assert revenue == {fy: ("USD", round(value / rate, 0))
+                           for (fy, _start, _end, rate), value in zip(_CNY_YEARS, _CNY_REVENUE)}
+
+    def test_a_native_list_still_wins_on_the_periods_both_lists_keep(self):
+        # Unusable items count on neither side: a valueless, later-filed copy of the CNY FY2024
+        # item costs CNY nothing, and a USD item the collector drops (no start) needs no CNY twin.
+        payload = _cny_payload()
+        units = payload["facts"]["us-gaap"][REV_TAG]["units"]
+        units["CNY"].append({**units["CNY"][-1], "val": None, "filed": "2024-08-01"})
+        units["USD"].append(_item(130e9, "2025-03-31", accn="6K-2025", fy=2025, form="6-K", filed="2025-05-20"))
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        revenue = {f["period_end"].year: (f["unit"], f["value"]) for f in facts
+                   if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+        assert revenue == {fy: ("CNY", value) for (fy, *_rest), value in zip(_CNY_YEARS, _CNY_REVENUE)}
+
     def test_the_normalizers_read_a_native_filer_without_settings_orm_or_edgar(self, tmp_path):
         # A fresh interpreter with no Settings env (no SECRET_KEY): importing the pure normalizers
         # and reading the annual and quarterly CNY shapes, where series_unit runs the currency
@@ -1067,4 +1096,27 @@ class TestNativeReportingCurrencySync:
         assert (again["inserted"], again["demoted"]) == (0, 0)
         usd_filer = _new_company(db)  # ratios from USD operands are the upsert's alone
         assert svc._persist_companyfacts_payload(db, usd_filer, payload(("USD", "USD/shares")))["demoted"] == 0
+        db.close()
+
+    def test_a_native_year_the_collector_drops_leaves_the_stored_usd_series_current(self):
+        # Over the USD revenue a pre-fix sync stored, the CNY list's only FY2024 item has no value.
+        # Revenue stays on the USD list, so the sync demotes none of those rows, and the Multi-Period
+        # series stays USD rather than CNY with a USD FY2024 point (a YoY of -85.0%).
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+        from app.services import trend_analysis_service
+
+        db = SessionLocal()
+        fpi = _new_company(db)
+        usd = [round(value / rate, 0) for (_fy, _start, _end, rate), value in zip(_CNY_YEARS, _CNY_REVENUE)]
+        svc.upsert_facts_bulk(db, [_fact_dict(fpi.id, end=date(fy, 3, 31), value=value, accession=f"20F-{fy}")
+                                   for (fy, *_rest), value in zip(_CNY_YEARS, usd)])
+        payload = _cny_payload()
+        payload["facts"]["us-gaap"][REV_TAG]["units"]["CNY"][-1]["val"] = None
+        svc._persist_companyfacts_payload(db, fpi, payload)
+        dataset = trend_analysis_service.build_dataset(db, fpi, "annual", "FY2022", "FY2024")
+        series = next(s for s in dataset["series"] if s["concept"] == "revenue")
+        assert (series["unit"], [p["value"] for p in series["points"]]) == ("USD", usd)
+        rows = db.query(FinancialFact).filter_by(company_id=fpi.id, concept="revenue").all()
+        assert {(r.unit, r.is_latest) for r in rows} == {("USD", True)}
         db.close()

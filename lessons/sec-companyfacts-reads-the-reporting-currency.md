@@ -18,7 +18,8 @@ filer that switched from USD to CNY was read in CNY while its older USD years st
 question is not which currency is newest or widest but whether the USD list is a translation.
 
 **Rule**: Read a companyfacts concept's foreign unit list only when its USD list is that list's
-convenience translation: every USD period-end is also a foreign period-end
+convenience translation: every USD period the collector keeps (period end and span) is also kept
+from the foreign list, both lists read through the collector's own `admitted_items`
 (`facts/currency.py::series_unit`). Among such lists, pick with the per-filing rule
 (`_reporting_currency`), which lives in that dependency-free module and which
 `edgar/instance/core.py` re-exports, so the normalizer loads no Settings, ORM or EDGAR code when it

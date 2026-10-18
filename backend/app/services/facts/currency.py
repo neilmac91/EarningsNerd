@@ -9,11 +9,15 @@ translation is read from its reporting currency instead.
 The currency ranking (``_reporting_currency``) is defined here, not in the per-filing extractor
 that shares it (``edgar/instance/core.py`` re-exports it), so the pure normalizers that import
 this module load no Settings, ORM or EDGAR code, at import or at call time. Only
-``demote_convenience_rows``, which the session-owning ingest calls, imports the ORM.
+``demote_convenience_rows``, which the session-owning ingest calls, imports the ORM. The
+collector's item admission (``admitted_items``) lives here too, so the ranking counts exactly the
+periods ``companyfacts`` keeps.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import math
+from datetime import date
+from typing import TYPE_CHECKING, Any, Iterator
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -58,19 +62,54 @@ def _reporting_currency(
     )[0]
 
 
-def series_unit(usgaap: dict, tags: tuple[str, ...], default_unit: str) -> str:
+def admitted_items(items: list, *, instant: bool) -> Iterator[tuple[tuple[date, str], date | None, float, dict]]:
+    """Each companyfacts item the collector keeps, as ``((end, klass), start, value, item)``.
+
+    A kept item has a finite numeric ``val`` and a parseable ``end``. A duration also needs a
+    parseable ``start``, and its span sets klass ("FY", "Q", "YTD6" or "YTD9"; any other span is
+    dropped); an instant's klass is "I". ``series_unit`` ranks the unit lists on these same keys,
+    so a list never wins on a period that the collector then drops.
+    """
+    # Call time: concepts imports quarterly, which imports this module.
+    from app.services.facts.concepts import _classify_duration, _parse_date
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        value = item.get("val")
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+            continue
+        end = _parse_date(item.get("end"))
+        if end is None:
+            continue
+        start: date | None = None
+        if instant:
+            klass = "I"
+        else:
+            start = _parse_date(item.get("start"))
+            if start is None:
+                continue
+            klass = _classify_duration(start, end)
+            if klass is None:
+                continue
+        yield (end, klass), start, value, item
+
+
+def series_unit(usgaap: dict, tags: tuple[str, ...], default_unit: str, *, instant: bool) -> str:
     """The unit list one concept is read from: its reporting currency across its candidate tags.
 
     ``default_unit`` is the concept's USD unit ("USD" or "USD/shares"); only lists of the same
     shape compete. A foreign list is read only when the USD list is its convenience translation:
-    every USD period-end is also one of its period-ends. Among such lists ``_reporting_currency``,
+    every USD period the collector keeps (``admitted_items``: period end and span class) is also
+    kept from the foreign list; an item the collector drops counts on neither side, and with no
+    USD list every foreign list qualifies. Among such lists ``_reporting_currency``,
     the per-filing extractor's rule, picks (the most distinct period-ends, then the latest).
     Any other shape keeps ``default_unit``: a stray foreign fact, whatever its date, or a currency
-    switch in either direction. There some USD period-end has no native twin, so a native read
+    switch in either direction. There some USD period has no native twin, so a native read
     would leave the USD row an earlier sync stored there current beside the native series.
     """
     suffix = "/shares" if default_unit.endswith("/shares") else ""
-    ends: dict[str, set[str]] = {}
+    kept: dict[str, set[tuple[date, str]]] = {}
     for tag in tags:
         node = usgaap.get(tag)
         units = node.get("units") if isinstance(node, dict) else None
@@ -78,11 +117,10 @@ def series_unit(usgaap: dict, tags: tuple[str, ...], default_unit: str) -> str:
             currency = key.removesuffix(suffix)
             if key != currency + suffix or not is_amount_unit(currency) or not isinstance(items, list):
                 continue
-            ends.setdefault(currency, set()).update(
-                str(item["end"])[:10] for item in items if isinstance(item, dict) and item.get("end"))
-    usd = ends.pop("USD", set())
-    native = [(end, 0.0, currency, 0.0) for currency, periods in ends.items() if usd <= periods
-              for end in periods]
+            kept.setdefault(currency, set()).update(period for period, *_ in admitted_items(items, instant=instant))
+    usd = kept.pop("USD", set())
+    native = [(end.isoformat(), 0.0, currency, 0.0) for currency, periods in kept.items() if usd <= periods
+              for end, _klass in periods]
     if not native:
         return default_unit
     return f"{_reporting_currency(native, max(native)[0])}{suffix}"
