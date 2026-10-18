@@ -131,7 +131,7 @@ describe('a failed load', () => {
     expect(within(card).getByText('Try again in a moment.')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'No watchlist companies yet' })).toBeNull()
 
-    const retry = within(card).getByRole('button', { name: 'Retry' })
+    const retry = within(card).getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(api.getWatchlistInsights).toHaveBeenCalledTimes(2))

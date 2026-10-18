@@ -35,14 +35,17 @@ LEADER = (
 )
 GRANDCHILDREN = {
     "plain": "import time\nprint('ready', flush=True)\ntime.sleep(60)\n",
-    "slow": (  # still handling SIGTERM when the child has already died of it
+    # Still handling SIGTERM when the child has already died of it. It waits for SIGTERM with sigwait, not a Python
+    # handler: CPython runs a handler only at its next check, so a SIGTERM delivered after that check and before
+    # time.sleep enters its syscall left the handler waiting out the whole sleep, and the member read deaf
+    # (CI run 38186685529). A blocked SIGTERM stays pending until sigwait takes it, whenever it arrives.
+    "slow": (
         "import signal, sys, time\n"
-        "def stop(*_):\n"
-        "    time.sleep(0.5)\n"
-        "    sys.exit(0)\n"
-        "signal.signal(signal.SIGTERM, stop)\n"
+        "signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})\n"
         "print('ready', flush=True)\n"
-        "time.sleep(60)\n"
+        "signal.sigwait({signal.SIGTERM})\n"
+        "time.sleep(0.5)\n"
+        "sys.exit(0)\n"
     ),
     "deaf": (  # ignores SIGTERM: only SIGKILL ends it
         "import signal, time\n"
@@ -203,14 +206,21 @@ def test_a_member_no_signal_reaches_is_not_reported_as_signalled(runner, group, 
     proc.wait()
     monkeypatch.setattr(runner, "_group_alive", lambda pgid, proc_root=Path("/proc"): True)
     monkeypatch.setattr(runner, "_GROUP_GRACE_SECONDS", 0.2)
+    # Grace periods are counted, not timed: an elapsed bound (< 0.1 s) held only on an idle runner.
+    drained, real_drain = [], runner._drain_group
+
+    def drain(proc, seconds: float) -> None:
+        drained.append(seconds)
+        real_drain(proc, seconds)
+
+    monkeypatch.setattr(runner, "_drain_group", drain)
 
     def refuse(pgid: int, sig: int) -> None:
         raise PermissionError(1, "Operation not permitted")
 
     monkeypatch.setattr(runner.os, "killpg", refuse)
-    started = time.monotonic()
     assert runner._terminate_group(proc) is None
-    assert time.monotonic() - started < 0.1
+    assert drained == []  # no signal was sent, so no grace period was given
 
     def refuse_sigkill(pgid: int, sig: int) -> None:
         if sig == signal.SIGKILL:
@@ -218,6 +228,7 @@ def test_a_member_no_signal_reaches_is_not_reported_as_signalled(runner, group, 
 
     monkeypatch.setattr(runner.os, "killpg", refuse_sigkill)
     assert runner._terminate_group(proc) == "SIGTERM"
+    assert drained == [0.2]  # one grace period after the SIGTERM; none after the refused SIGKILL
 
 
 def _reached(module, name: str, seen: set[str]) -> None:

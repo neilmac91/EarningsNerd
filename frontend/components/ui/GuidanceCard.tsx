@@ -101,11 +101,14 @@ export function GuidanceCard({
         {title}
       </Heading>
       {description ? (
-        <p id={describes} className="mt-1.5 max-w-[38ch] text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+        <p id={describes} className="mt-1.5 max-w-[38ch] break-words text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
           {description}
         </p>
       ) : null}
-      {action ? <div className="mt-5 flex items-center gap-2">{action}</div> : null}
+      {/* Two actions wrap to two centred rows when they do not fit side by side (a Retry keeps the room of
+          "Trying again…", wider than its label), so a card never pushes a control past its edge or the screen's
+          (tests/e2e/reflow-200.spec.ts holds the dashboard's account card and the error boundaries). */}
+      {action ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
     </div>
   )
 }

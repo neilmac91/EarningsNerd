@@ -99,7 +99,7 @@ describe('AdminInvitesPage', () => {
     renderPage()
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Could not load the invites.')
-    await user.click(within(alert).getByRole('button', { name: 'Retry' }))
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('alice@example.com')).toBeInTheDocument()
     expect(listInvites).toHaveBeenCalledTimes(2)
   })

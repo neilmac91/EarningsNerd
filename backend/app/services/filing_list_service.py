@@ -151,8 +151,20 @@ def release_request_session(db: Session) -> None:
     the route returns. The sync ``get_db`` finalizer runs in the thread pool only after the async
     route yields, so a completed read left open there can starve the pool
     (``lessons/ops-release-cached-filing-reads-before-yield.md``). The Session stays reusable for a
-    later short unit."""
-    db.close()
+    later short unit.
+
+    A close that fails is logged, not raised. Units call this in a ``finally``, where raising would
+    replace the unit's own outcome: a refresh whose rotation has committed would answer 500 and lose
+    the rotated token, and a refresh's 401 would become a 500. The logged traceback reaches Sentry.
+    When the rollback fails because the connection dropped after the unit's last statement, the
+    session has already let go of its transaction, and SQLAlchemy has invalidated the connection and
+    returned its pool slot, so the dependency's finalizer finds nothing left to release. A rollback
+    that fails for another reason holds the slot until garbage collection, as it did when the
+    finalizer closed."""
+    try:
+        db.close()
+    except Exception:
+        logger.exception("Releasing the request session failed; the unit's own outcome stands")
 
 
 def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional[str]) -> Company:
@@ -177,7 +189,12 @@ def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional
 
 
 def requested_filing_types(filing_types: Optional[str]) -> List[str]:
-    """The form types to list for a ``?filing_types=`` value (None when absent), amendments added."""
+    """The form types to list for a ``?filing_types=`` value (None when absent), amendments added.
+
+    The caller's value is validated here, where it enters: each entry reads as its SEC form
+    (``10k`` lists ``10-K``) and an unknown one is dropped, as the SEC layer drops it, so a value
+    that names no known form lists nothing.
+    """
     # Parse filing types. Default to the domestic financial reports; when FPI support is enabled,
     # also discover foreign-issuer forms (20-F annual, 6-K interim, 40-F) so ADRs like Alibaba
     # ($BABA) list their filings instead of showing an empty state. An explicit ?filing_types=
@@ -187,7 +204,8 @@ def requested_filing_types(filing_types: Optional[str]) -> List[str]:
     from app.services.filing_amendment_service import expand_amendment_forms
     from app.services.latest_filing_service import company_list_forms
     if filing_types:
-        return expand_amendment_forms([t.strip() for t in filing_types.split(",")])
+        forms = (FilingType.from_string(t, strict=False) for t in filing_types.split(","))
+        return expand_amendment_forms([f.value for f in forms if f is not FilingType.UNKNOWN])
     return company_list_forms()
 
 
