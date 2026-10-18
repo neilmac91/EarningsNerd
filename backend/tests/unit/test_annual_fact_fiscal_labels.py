@@ -21,12 +21,13 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Query, sessionmaker
 
 from app.models import Base, Company, Filing, FinancialFact
 from app.services import copilot_tools, facts_service
 from app.services import trend_analysis_service as analysis
 from app.services.edgar import fiscal_periods, xbrl_instance
+from app.services.facts import fiscal_evidence
 from app.services.edgar.xbrl_companyfacts import parse_company_facts
 from app.services.edgar.xbrl_standardized import extract_standardized_metrics
 from app.utils.sec_urls import build_sec_archive_url
@@ -471,6 +472,30 @@ def test_a_quarterly_reports_labels_never_move(db, monkeypatch):
     assert {(row.period_end.isoformat(), row.fiscal_year, row.fiscal_period) for row in stored} == {
         ("2026-04-30", 2026, "Q1"), ("2025-04-30", 2025, "Q1"), ("2026-01-31", 2025, "Q4"),
     }
+
+
+def test_the_writers_company_lock_comes_before_the_evidence_read(db, monkeypatch):
+    """A companyfacts sync that committed between the evidence read and the write would leave the filing
+    its own lagging labels beside the sync's rows. On PostgreSQL the fact writers' company lock closes
+    that window only when it is taken before the read. SQLite renders ``FOR UPDATE`` as nothing, so the
+    order of the two calls is pinned here (``lessons/test-pin-a-row-lock-with-a-statement-spy.md``)."""
+    company = _company(db, "crm")
+    facts_service._persist_companyfacts_payload(db, company, _companyfacts("crm", (LAGGING_FOCUS["crm"] - 1,)))
+    calls: list[str] = []
+    real_lock, real_read = Query.with_for_update, fiscal_evidence.trusted_fiscal_years
+
+    def lock(self, *args, **kwargs):
+        calls.append(f"lock {self.column_descriptions[0]['entity'].__tablename__}")
+        return real_lock(self, *args, **kwargs)
+
+    def read(*args, **kwargs):
+        calls.append("evidence read")
+        return real_read(*args, **kwargs)
+
+    monkeypatch.setattr(Query, "with_for_update", lock)
+    monkeypatch.setattr(fiscal_evidence, "trusted_fiscal_years", read)
+    _open_annual_report(db, monkeypatch, "crm", LAGGING_FOCUS["crm"])
+    assert calls[:2] == ["lock companies", "evidence read"]
 
 
 def test_a_late_year_chain_synced_first_gives_each_period_end_one_label(db, monkeypatch):

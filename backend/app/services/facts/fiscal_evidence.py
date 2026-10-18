@@ -73,11 +73,16 @@ def adopt_trusted_fiscal_years(db: Session, form: Optional[str], facts: list[dic
     by end would give the newest year, which companyfacts does not hold yet, the label of the one
     before it. Disagreeing offsets, or no trusted year at all (companyfacts not synced yet), keep the
     filing's own labels. A calendar-aligned or Target-style filing moves by zero; quarter labels never
-    move. Mutates ``facts``; one query for an annual report, none otherwise.
+    move. Mutates ``facts``; one query for an annual report, none otherwise. The fact writers' company
+    lock is taken before that query, so a companyfacts sync cannot commit between the evidence read
+    and the write that follows (``upsert_facts`` takes it again in the same transaction).
     """
     annual = [fact for fact in facts if fact["fiscal_period"] == "FY"] if form in ANNUAL_FORMS else []
     if not annual:
         return
+    from app.services.facts.upsert import _lock_fact_companies  # upsert imports this module
+
+    _lock_fact_companies(db, annual)
     trusted = trusted_fiscal_years(db, annual[0]["company_id"], {fact["period_end"] for fact in annual})
     offsets = {trusted[fact["period_end"]] - fact["fiscal_year"] for fact in annual if fact["period_end"] in trusted}
     if len(offsets) == 1 and (offset := offsets.pop()):
