@@ -44,8 +44,9 @@ export default function CompanySearch({
   placeholder?: string
   /**
    * Override the pick behaviour (default navigates to /company/{ticker}). Used by surfaces that
-   * consume the selection in place — e.g. the Multi-Period Analysis picker. Enter on a
-   * ticker-shaped query with no results still navigates only in the default mode.
+   * consume the selection in place — e.g. the Multi-Period Analysis picker. An Enter pressed before
+   * the results arrive picks through it too, as in the default mode: the result whose ticker is the
+   * typed text once the search lands, or a ticker-shaped text as typed when the search failed.
    */
   onSelect?: (ticker: string) => void
 }) {
@@ -103,7 +104,7 @@ export default function CompanySearch({
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   })
-  const { data: companies, isLoading } = companiesQuery
+  const { data: companies, isLoading, isLoadingError } = companiesQuery
   // The alert keeps its failure through any refetch until data replaces it. An errored search has no
   // data, so its refetch goes back to pending, and the alert (and a focused "Try again" in it) would
   // vanish. A new term is another query, so typing one drops the old failure.
@@ -137,6 +138,40 @@ export default function CompanySearch({
     setHighlightIndex(-1)
   }, [query, companies])
 
+  // An Enter with no results to pick from waits here for the search of the text it was pressed on. It
+  // acts once, when that search answers, and only while the field still holds that text: typing or
+  // Escape drops it, and an unmounted search acts on nothing. It opens the result whose ticker is the
+  // text, never the first partial hit, so a name ("nike") stays on the list its search brings, for the
+  // user to pick from. After a failed search it still opens a ticker-shaped text as typed.
+  const pendingEnter = useRef<string | null>(null)
+  const settleEnter = () => {
+    const term = pendingEnter.current
+    if (term === null) return
+    if (term !== query) {
+      pendingEnter.current = null
+      return
+    }
+    // Called from the Enter, this render's search may still be the previous text's: the flush
+    // lands in the next render.
+    if (term !== debouncedQuery) return
+    if (companies) {
+      pendingEnter.current = null
+      const exact = companies.findIndex((c) => c.ticker.toUpperCase() === term.trim().toUpperCase())
+      if (exact !== -1) goToResult(companies[exact].ticker, exact)
+    } else if (isLoadingError) {
+      // Failed for good: the retries above are spent (a "Try again" still running is not final).
+      pendingEnter.current = null
+      const typed = tickerShaped(term)
+      if (!typed) return
+      if (onSelect) {
+        setQuery('')
+        onSelect(typed)
+      } else {
+        router.push(`/company/${typed}`)
+      }
+    }
+  }
+
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       setQuery('')
@@ -157,20 +192,14 @@ export default function CompanySearch({
       const ticker = navigableTickers[position]
       if (ticker) {
         goToResult(ticker, position)
-      } else {
-        // No results yet (query in flight): if the input is ticker-shaped,
-        // navigate directly — power users shouldn't wait for autocomplete.
-        // Name-like queries ("apple inc") are NOT navigated; they'd produce
-        // junk /company/ URLs.
-        const typed = tickerShaped(query)
-        if (typed) {
-          if (onSelect) {
-            setQuery('')
-            onSelect(typed)
-          } else {
-            router.push(`/company/${typed}`)
-          }
-        }
+      } else if (query.trim()) {
+        // No results to pick from yet: search this text now, not after the debounce, and act when
+        // that search answers (settleEnter), at once if it already has. Opening a ticker-shaped text
+        // straight away sent names such as "nike" to /company/NIKE, which the server binds by exact
+        // ticker only: a 404.
+        pendingEnter.current = query
+        setDebouncedQuery(query)
+        settleEnter()
       }
     }
   }
@@ -187,6 +216,10 @@ export default function CompanySearch({
       lastTrackedQuery.current = debouncedQuery
     }
   }, [debouncedQuery, isLoading, isError, companies])
+
+  // No dependency list: it runs after every render, and after the search is counted above, so the pick a
+  // pending Enter makes is recorded after the search it came from.
+  useEffect(settleEnter)
 
   return (
     <div className="relative">

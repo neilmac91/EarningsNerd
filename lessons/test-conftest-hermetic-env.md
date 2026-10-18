@@ -3,10 +3,11 @@
 Date: 2026-07-06   Area: test
 
 **Context**: `backend/tests/conftest.py` unconditionally sets test env vars at import time —
-`SKIP_REDIS_INIT=true`, a ≥32-char `SECRET_KEY`, mock Stripe keys,
-`PWNED_PASSWORD_CHECK_ENABLED=false`, and empty live-provider keys (`SENTRY_DSN`,
-`POSTHOG_API_KEY`, `RESEND_API_KEY`, `ALPHA_VANTAGE_API_KEY`, `TURNSTILE_SECRET_KEY`) — so
-the suite runs offline with SQLite and no Redis. Two implications that have bitten: env vars
+`SKIP_REDIS_INIT=true`, a ≥32-char `SECRET_KEY`, mock OpenAI and Stripe keys,
+`PWNED_PASSWORD_CHECK_ENABLED=false`, a private per-process `DATABASE_URL`, and empty
+live-provider keys (`SENTRY_DSN`, `POSTHOG_API_KEY`, `RESEND_API_KEY`, `ALPHA_VANTAGE_API_KEY`,
+`TURNSTILE_SECRET_KEY`), and the network gate it registers clears every `*_proxy` variable —
+so the suite runs offline with SQLite and no Redis. Two implications that have bitten: env vars
 set in CI steps are OVERRIDDEN by conftest (a CI-provided SECRET_KEY is inert), and any test
 needing different config must monkeypatch `settings`, not the environment. The offline claim
 was not true until 2026-10-09: CODE RED record 16 found 11 tests reaching SEC and Yahoo on
