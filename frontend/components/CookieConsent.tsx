@@ -6,6 +6,7 @@ import { CookieIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { Button, Checkbox, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
+import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 
 // Isomorphic layout effect (the repo's SSR-safe alias, as in ui/Input and useCountUp): useLayoutEffect
 // in the browser, where the consent inset must land before the bar's first paint; useEffect on a server
@@ -242,9 +243,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   Analytics cookies
                 </h3>
                 <p id="cookie-analytics-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Help us understand how visitors interact with our website by collecting
-                  anonymous usage statistics (PostHog). This helps us improve the user
-                  experience.
+                  {ANALYTICS_CONSENT_CLAUSE}
                 </p>
               </div>
               <div className="ml-4">

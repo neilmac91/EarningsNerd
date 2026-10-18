@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 import { LEGAL_DATES } from '@/lib/legalDates'
 
 export const metadata: Metadata = {
@@ -116,7 +117,7 @@ export default function PrivacyPage() {
               <strong>Essential Cookies:</strong> Required for the website to function (authentication, security, session management). These cannot be disabled.
             </li>
             <li>
-              <strong>Analytics Cookies:</strong> Help us understand how visitors use our site (PostHog). You can opt-in or opt-out via our cookie consent banner.
+              <strong>Analytics Cookies:</strong> {ANALYTICS_CONSENT_CLAUSE} You can opt-in or opt-out via our cookie consent banner.
             </li>
             <li>
               <strong>Session Recording:</strong> Records your interactions to help identify bugs (PostHog). This is opt-in only and masks sensitive information like passwords.

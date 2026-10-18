@@ -102,7 +102,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   count and the step numbers are set in the ink, not sage. The trust panel reads "Before you join"
   over its three tiles with no lead (the clarity promise is gone, and a lead only repeated the first
   tile's source line), and its middle tile
-  is "Security", whose body waits on the founder with the /security claims. The problem cards and the
+  is "Security", whose body changes with /security's unsupported claims (D-046, E109). The problem
+  cards and the
   joined heading are h2, so the outline does not skip a level after the h1 when the example beside
   the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
@@ -134,7 +135,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
-  dialog waits on the founder (chrome/F1).
+  dialog takes D-046's words, which name PostHog and say that statistics are tied to an internal
+  account id when you are logged in (chrome/F1, F33, E109).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
@@ -156,9 +158,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the route's own 500 detail is developer wording; any other failure shows the backend's own detail,
   or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
   a minute." The success heading is an h2.
-  The prose links on /contact are underlined and carry the brand focus ring. The /security links
-  are unchanged, because /security is a legal page under the founder's boundary; the ring triple
-  on its five links rides the founder-gated security-claims PR.
+  The prose links on /contact are underlined and carry the brand focus ring.
+- **Security** (`frontend/app/security/page.tsx`): since D-046 every sentence says what the code or
+  its hosting does, a fact the repository cannot show (encryption at rest) named as the provider's,
+  the headings in sentence case, under a new date (`LEGAL_DATES.security`). Gone: a Redis cache
+  (production runs none, ADR-0004), CSP headers against XSS (the site sends frame-ancestors only),
+  every API endpoint behind authentication (search, company pages and summaries are public),
+  enterprise-grade hosting with 99.9% uptime, and firewalls and intrusion detection.
+  `tests/unit/legalTruth.spec.tsx` keeps them out, with the waitlist Security tile's old "No personal
+  financial data stored"; holds the consent dialog's analytics clause and /privacy's analytics
+  cookies line to one constant (`ANALYTICS_CONSENT_CLAUSE` in `frontend/lib/consentCopy.ts`); and
+  fails a legal page whose text changes without its date. The page's five links are unchanged:
+  D-046's go-ahead covered its claims, headings and date, so the ring triple on them waits on a
+  presentation change to the legal pages (`siteChromeFocusRing.spec.ts`'s residue).
 
 - **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
   `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
@@ -434,8 +446,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   literal, and "copilot" in JSX text, a string of more than one word or a template part open at a
   substitution edge, joined to punctuation or not, so "free copilot questions" and "Ask the copilot: what
   changed" fail while a one-word identifier such as `copilot_question_asked` or `copilot:paneWidth` and a
-  class list do not; a one-word copy literal such as `title="copilot"` is its known limit; the /security
-  line is its one named residue, counted by mention),
+  class list do not; a one-word copy literal such as `title="copilot"` is its known limit; its residue
+  is empty since D-046's /security change named the feature "Ask this Filing"),
   `brandCopyRules.spec.ts` rule 1 (on every surface under app, components, features, hooks and lib, in
   one sentence of one literal with its whitespace collapsed, or of one element's inline children read
   together (`<p>Every answer is <strong>cited</strong> to the filing.</p>`), whatever scope phrase follows:

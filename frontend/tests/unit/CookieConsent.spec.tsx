@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import CookieConsent, { type CookiePreferences } from '@/components/CookieConsent'
 import { buttonVariants } from '@/components/ui'
+import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 
 // The "Cookie preferences saved" confirmation is a sonner toast (top-centre Toaster in app/providers.tsx)
 // since EN-02: it must not share the bottom-right corner with the "Ask this Filing" launcher.
@@ -58,7 +59,8 @@ describe('CookieConsent settings dialog', () => {
     // Checkbox lists its props by name, so each category's description reaches the input only through its
     // aria-describedby forward; a dropped forward would strip these from screen readers.
     expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toHaveAccessibleDescription(/^Required for the website to function properly\./)
-    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(/^Help us understand how visitors interact/)
+    // D-046 (F33): the clause names PostHog, its purpose and the account link, in the words /privacy also reads.
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(ANALYTICS_CONSENT_CLAUSE)
     expect(screen.getByRole('checkbox', { name: 'Session recording' })).toHaveAccessibleDescription(/^Records your interactions with the site/)
   })
 
