@@ -205,7 +205,7 @@ describe('StreamingSummaryDisplay failure reason', () => {
 })
 
 // EN-05: a failed generation used to leave focus where it was, usually <body> after page load, so a
-// keyboard user tabbed through the whole site header to reach "Retry generation" (9 stops at 1440px on
+// keyboard user tabbed through the whole site header to reach the card's Retry (9 stops at 1440px on
 // main), and the Retry's own press dropped focus to <body> again. Real-browser runs:
 // tests/e2e/summary-generation-focus.spec.ts.
 describe('StreamingSummaryDisplay focus around a failed generation', () => {
@@ -239,7 +239,7 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
   const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
   const outside = (name: string) => act(() => { screen.getByRole('button', { name }).click() })
   const heading = (name: string) => screen.getByRole('heading', { name })
-  const retry = () => screen.getByRole('button', { name: 'Retry generation' })
+  const retry = () => screen.getByRole('button', { name: 'Try again' })
 
   it('a failure that lands with focus on <body> focuses the card heading, one Tab before its Retry', async () => {
     render(<Page start={STREAMING} />)
@@ -280,13 +280,13 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).not.toHaveFocus()
   })
 
-  it('Retry generation hands focus to the progress heading when its press restarts the run', async () => {
+  it('its Try again hands focus to the progress heading when its press restarts the run', async () => {
     render(<Page start={FAILED} />)
     await settle()
     retry().focus()
     fireEvent.click(retry(), { detail: 0 })
     await settle()
-    expect(screen.queryByRole('button', { name: 'Retry generation' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
     expect(document.activeElement).toBe(heading('Generating the summary'))
     expect(heading('Generating the summary')).toHaveAttribute('tabindex', '-1')
   })

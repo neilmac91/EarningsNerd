@@ -30,7 +30,11 @@ loop; it covers only the routes it lists. The peers ranking and the waitlist sta
 handed their session to a service on the loop and answered 500 in that burst until each became one
 unit in the thread pool (2026-10-17); the analysis stream, at its cap, streamed with its cached-range
 read's transaction still open, which its own case in the file holds to zero connections out while
-the body streams. Its AST ratchet reads every async router function and fails a session call on the
+the body streams. The generate stream's Pro force branch committed its clears and then read the user
+and the filing; the commit had expired both, so each read refreshed its row with a checkout on the
+loop (`lessons/arch-one-summary-orchestrator.md` keeps the stream's reads off expired fields). It
+reads them before the commit now, and its own case in the file holds the force path to one
+checkout, in the thread pool (2026-10-17, E104). The file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
 not assert the route's checkouts (the filings reads, E94) or does not list the route (the rest of the

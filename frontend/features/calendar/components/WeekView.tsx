@@ -4,7 +4,7 @@
    WeekView (features/calendar/components/WeekView.tsx)
    -----------------------------------------------------------------------------
    Wide: one calendar sheet — five weekday columns with BMO / AMC /
-   During·unspecified lanes stacked inside each day, top 5 per day, "+N more"
+   During·unspecified lanes stacked inside each day, the first five per day, "+N more"
    opening the day dialog. Narrow: a vertical day-by-day list with roomier
    44px-target rows and in-place expansion. Both are CSS-switched, so there is
    no resize listener to get wrong, on the view's own width in em (its text
@@ -174,7 +174,7 @@ function MobileDay({
               onClick={() => setExpanded((v) => !v)}
               className={cx('mt-2 h-9 w-full rounded-lg border border-dashed border-brand-border text-sm font-semibold dark:border-brand-border-dark', countControlClass('button'))}
             >
-              {expanded ? 'Show top 5' : `+${hidden} more`}
+              {expanded ? 'Show fewer' : `+${hidden} more`}
             </button>
           )}
         </div>

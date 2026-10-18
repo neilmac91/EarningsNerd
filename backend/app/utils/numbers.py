@@ -75,3 +75,17 @@ def parse_display_number(value: object) -> tuple[Optional[Decimal], bool]:
     if outer_negative or parenthesized or (sign1 or sign2) in ("-", "−"):
         number = -number
     return number, unit in ("%", "percent")
+
+
+def money_prefix_for(reporting_currency: object) -> str:
+    """The label for a money figure in the filer's reporting currency: a bare "$" for USD (or no
+    currency, the backend's domestic default), else the ISO code and a space ("EUR 30.6B", "CNY 941.2B").
+
+    Standardized XBRL values are in the reporting currency, and a CNY figure shown as "$" reads ~7x
+    too large. The P&L table cells of a summary are labelled by this rule: the primary filler in
+    ``ai/markdown_render.py``, the AI-timeout fallback in ``fallback_summary.py``, and the
+    prior-period backfill both paths run before storing (``schemas/summary.py``
+    ``attach_normalized_facts``). ``ai/bank_guards.py`` and ``ai/financing_comparison.py`` still
+    carry their own copies of the same expression.
+    """
+    return "$" if str(reporting_currency or "USD").upper() == "USD" else f"{str(reporting_currency).upper()} "

@@ -369,7 +369,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
             // gate is only reached when there's genuinely nothing to show; !summaryLoading stops it
             // flashing while the query loads. Deliberately NOT gated on !activeErrorMessage: a
             // transient getSummary error must keep the working gate for a guest, not fall through
-            // to the error card whose "Retry generation" dead-ends at "please sign in" for them
+            // to the error card whose "Try again" dead-ends at "please sign in" for them
             // (it self-heals on reload if a cached summary did exist).
             <div className="space-y-6">
               <GenerateSignupGate filing={filing} entryPoint={entryPoint} />

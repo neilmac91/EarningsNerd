@@ -447,7 +447,7 @@ describe('Company page', () => {
 
     const alert = await screen.findByRole('alert', {}, { timeout: 4000 })
     expect(alert).toHaveTextContent('Couldn’t load filings')
-    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const retry = within(alert).getByRole('button', { name: 'Try again' })
     const refetch = deferred<Filing[]>()
     api.getCompanyFilings.mockReturnValue(refetch.promise)
     retry.focus()
@@ -517,7 +517,7 @@ describe('FilingFeed Retry', () => {
   const renderFeed = () => renderWithClient(<FilingFeed watchlistCount={1} />)
   const errorRetry = async () => {
     await screen.findByText("Couldn't load your feed")
-    return screen.getByRole('button', { name: 'Retry' })
+    return screen.getByRole('button', { name: 'Try again' })
   }
 
   it('keeps the error card and its focused Retry through the retry, then hands focus to "What\'s new"', async () => {
