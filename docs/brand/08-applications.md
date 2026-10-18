@@ -580,9 +580,9 @@ The section is unmounted from `app/page.tsx` and its fetcher removed from the pa
 component carries a DORMANT note: the week's list read as microcap 8-Ks under a "high-signal"
 heading (audit T7). The fetcher, the card and its spec stay for its return. The curation rule is
 decided (D-046, §8): 10-K and 10-Q filings only, from companies that hold a full summary, newest
-first, at most six. The section is to return under it with E90, placed in D-045's labelled rows
-(E113); until then the mount gate (`tests/unit/landing-sections-mounted.spec.ts`) records the
-omission as deliberate.
+first, at most six. The section is to return under it with E90, as a ruled row after Reporting
+this week (D-045, §1); until then the mount gate (`tests/unit/landing-sections-mounted.spec.ts`)
+records the omission as deliberate.
 
 ## 8. Decided by the founder
 
@@ -592,7 +592,7 @@ omission as deliberate.
 - §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
   first, at most six (D-046, E90).
 
-The landing composition (tell T4) is decided too: labelled rows after the hero (D-045, E113).
+The landing composition (tell T4) is decided too, and landed: ruled rows after the hero (D-045, #1398).
 
 ## 9. Gates touched
 
