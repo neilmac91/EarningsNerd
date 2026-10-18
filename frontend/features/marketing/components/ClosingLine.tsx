@@ -17,20 +17,24 @@ export default function ClosingLine({ accessMode }: { accessMode: AccessMode }) 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <SectionImpression section="cta_banner">
+        {/* The sentence and the button share the line while both fit; where they do not, the button wraps
+            under the sentence, flush with it, rather than indenting a wrapped inline box. */}
         <p
           data-landing-close=""
-          className="border-t border-border-light py-12 text-lg text-text-primary-light dark:border-white/10 dark:text-text-primary-dark sm:py-16"
+          className="flex flex-wrap items-center gap-4 border-t border-border-light py-12 text-lg text-text-primary-light dark:border-white/10 dark:text-text-primary-dark sm:py-16"
         >
-          Start with a real filing:{' '}
-          <ExampleCtaLink
-            href={exampleFilingHref('cta_banner_example')}
-            placement="cta_banner"
-            className="rounded-sm font-semibold text-brand-strong underline underline-offset-4 transition-colors duration-fast hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-dark"
-          >
-            read the Apple <span className="whitespace-nowrap">10-K</span> summary
-          </ExampleCtaLink>{' '}
-          first, then read your own.{' '}
-          <MarketingCta href={access.href} size="md" className="ml-1 align-middle">
+          <span>
+            Start with a real filing:{' '}
+            <ExampleCtaLink
+              href={exampleFilingHref('cta_banner_example')}
+              placement="cta_banner"
+              className="rounded-sm font-semibold text-brand-strong underline underline-offset-4 transition-colors duration-fast hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-dark"
+            >
+              read the Apple <span className="whitespace-nowrap">10-K</span> summary
+            </ExampleCtaLink>{' '}
+            first, then read your own.
+          </span>
+          <MarketingCta href={access.href} size="md">
             {access.cta}
             <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
           </MarketingCta>
