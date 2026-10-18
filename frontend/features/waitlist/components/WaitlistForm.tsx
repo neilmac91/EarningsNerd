@@ -9,7 +9,7 @@ import { joinWaitlist } from '@/features/waitlist/api/waitlist-api'
 import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
+import { Button, Card, Input, Notice, buttonVariants, cx, primaryUnavailableClass } from '@/components/ui'
 
 type WaitlistSuccess = {
   message?: string
@@ -54,6 +54,9 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   const refParam = searchParams.get('ref')
   const referralCode = refParam ? refParam.trim().toLowerCase() : null
   const emailRef = useRef<HTMLInputElement>(null)
+  // With Turnstile on, a join waits for a token: on the first load, while a new one is issued after each join the
+  // form sends (handleSubmit's finally), and after one expires.
+  const tokenPending = TURNSTILE_ENABLED && !turnstileToken
 
   const referralLink = success?.referral_link
 
@@ -74,7 +77,8 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
     event.preventDefault()
     // The submit Button uses `loading` (aria-disabled, not native disabled) to keep its resting
     // fill, so Enter in a field can still fire this while a request is in flight — guard explicitly.
-    if (isSubmitting) return
+    // The wait for a Turnstile token is aria-disabled too, so a press or Enter sends nothing until the token comes.
+    if (isSubmitting || tokenPending) return
     setError(null)
     setReferralRefused(false)
     setCopied(false)
@@ -291,12 +295,15 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
         <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
 
+        {/* The wait for a token is aria-disabled with handleSubmit's guard, never native disabled: the token renews
+            after every join the form sends, while the button that sent it has focus, and Chromium moves focus to
+            <body> from a focused button that turns disabled (lessons/frontend-busy-controls-stay-focusable.md (e)). */}
         <Button
           type="submit"
           loading={isSubmitting}
           loadingText="Joining waitlist..."
-          disabled={TURNSTILE_ENABLED && !turnstileToken}
-          className="w-full"
+          aria-disabled={isSubmitting || tokenPending || undefined}
+          className={cx('w-full', tokenPending && !isSubmitting && primaryUnavailableClass)}
         >
           Join the waitlist
         </Button>

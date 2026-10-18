@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MouseEvent, ReactNode } from 'react'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 // axios's own settle (its xhr, http and fetch adapters end with it): the stub adapter below applies the
 // request's validateStatus exactly as a real response would.
@@ -19,7 +20,8 @@ import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
  * own sentence, never on the router's words, and never prints axios's "Request failed with status code 400".
  * Under it, "Join without the code" links to /waitlist (F47, D-046), and the submit after it carries no code.
  * A Ctrl or Cmd click opens the link in a new tab and leaves this one as it was. A Turnstile token verifies
- * once, so a join that does not land renews the widget, and the next submit carries a new token.
+ * once, so a join that does not land renews the widget, and the next submit carries a new token. While a token
+ * comes, the button keeps focus and is aria-disabled, never natively disabled, and a press sends nothing.
  */
 
 const api = vi.hoisted(() => ({ joinWaitlist: vi.fn() }))
@@ -87,8 +89,8 @@ vi.mock('next/link', () => ({
   ),
 }))
 // Turnstile, off as CI builds it unless a case turns it on. On, each mount of the widget yields a new token, as a
-// new Cloudflare widget does.
-const turnstile = vi.hoisted(() => ({ on: false, mounts: 0 }))
+// new Cloudflare widget does: at once, or, while a case holds tokens, when the case issues it (issueToken).
+const turnstile = vi.hoisted(() => ({ on: false, mounts: 0, hold: false, waiting: new Set<() => void>() }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
   TURNSTILE_SITE_KEY: '',
@@ -101,7 +103,21 @@ vi.mock('@/features/auth/components/TurnstileWidget', async () => {
   return {
     default: function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
       useEffect(() => {
-        if (turnstile.on) onToken(`token-${++turnstile.mounts}`)
+        if (!turnstile.on) return
+        const token = `token-${++turnstile.mounts}`
+        if (!turnstile.hold) {
+          onToken(token)
+          return
+        }
+        const issue = () => {
+          turnstile.waiting.delete(issue)
+          onToken(token)
+        }
+        turnstile.waiting.add(issue)
+        // An unmounted widget's token never comes (TurnstileWidget removes its widget).
+        return () => {
+          turnstile.waiting.delete(issue)
+        }
       }, [onToken])
       return null
     },
@@ -111,7 +127,11 @@ afterEach(() => {
   url.reset()
   turnstile.on = false
   turnstile.mounts = 0
+  turnstile.hold = false
+  turnstile.waiting.clear()
 })
+/** Hands the mounted widget's held token to the form, as Cloudflare does once its check passes. */
+const issueToken = () => act(() => turnstile.waiting.forEach((issue) => issue()))
 
 const link = 'https://earningsnerd.io/waitlist?ref=new00001'
 
@@ -268,6 +288,73 @@ describe('waitlist join refused', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
       expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent("You're on the waitlist.")
       expect(api.joinWaitlist.mock.calls.map(([, token]) => token)).toEqual(['token-1', 'token-2'])
+    })
+
+    // A refused join spent its token, so the form renews it while the button that sent the join has focus. A
+    // natively disabled button loses focus in Chromium (to <body>, never given back when the token comes); jsdom moves
+    // no focus, so each case holds the attributes too: aria-disabled while the token comes, never native disabled.
+    describe('while a token comes', () => {
+      const refused = { success: false, error: 'invalid_referral', message: 'Referral code not recognized.' }
+      beforeEach(() => {
+        turnstile.hold = true
+      })
+
+      async function refusedFromTheButton() {
+        render(<WaitlistForm source="waitlist" />)
+        issueToken()
+        fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ada@example.test' } })
+        const button = screen.getByRole('button', { name: 'Join the waitlist' })
+        button.focus()
+        api.joinWaitlist.mockResolvedValueOnce(refused)
+        await userEvent.keyboard('{Enter}')
+        await screen.findByRole('alert')
+        return button
+      }
+
+      it('keeps focus on the button through the renewal after a refusal, unable to act until the new token', async () => {
+        const button = await refusedFromTheButton()
+        expect(document.activeElement).toBe(button)
+        expect(button).not.toBeDisabled()
+        expect(button).toHaveAttribute('aria-disabled', 'true')
+        issueToken()
+        expect(document.activeElement).toBe(button)
+        expect(button).not.toHaveAttribute('aria-disabled')
+      })
+
+      it('sends nothing on a press or Enter while the token renews, and the new token on the next press', async () => {
+        const button = await refusedFromTheButton()
+        await userEvent.keyboard('{Enter}')
+        await userEvent.click(button)
+        fireEvent.submit(button.closest('form')!)
+        await act(async () => {})
+        expect(api.joinWaitlist).toHaveBeenCalledTimes(1)
+        // Nothing was sent, so the refusal and its way forward stay.
+        expect(screen.getByRole('link', { name: 'Join without the code' })).toBeInTheDocument()
+
+        issueToken()
+        api.joinWaitlist.mockResolvedValueOnce(refused)
+        await userEvent.keyboard('{Enter}')
+        await waitFor(() => expect(api.joinWaitlist).toHaveBeenCalledTimes(2))
+        expect(api.joinWaitlist.mock.calls.map(([, token]) => token)).toEqual(['token-1', 'token-2'])
+      })
+
+      it('waits for the first token the same way: focusable, and the first press after it sends token-1', async () => {
+        render(<WaitlistForm source="waitlist" />)
+        fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ada@example.test' } })
+        const button = screen.getByRole('button', { name: 'Join the waitlist' })
+        button.focus()
+        expect(button).not.toBeDisabled()
+        expect(button).toHaveAttribute('aria-disabled', 'true')
+        await userEvent.keyboard('{Enter}')
+        expect(api.joinWaitlist).not.toHaveBeenCalled()
+
+        issueToken()
+        expect(document.activeElement).toBe(button)
+        api.joinWaitlist.mockResolvedValueOnce(joined)
+        await userEvent.keyboard('{Enter}')
+        expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent("You're on the waitlist.")
+        expect(api.joinWaitlist.mock.calls.map(([, token]) => token)).toEqual(['token-1'])
+      })
     })
   })
 })
