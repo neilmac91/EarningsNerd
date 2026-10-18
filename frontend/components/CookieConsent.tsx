@@ -29,6 +29,25 @@ const DEFAULT_PREFERENCES: CookiePreferences = {
 
 const STORAGE_KEY = 'cookie_consent'
 
+/**
+ * Do Not Track wins while the browser sends it (D-046): analytics and session recording stay off for this visitor,
+ * whatever is stored or chosen, so /privacy's "We respect the 'Do Not Track' browser setting" holds. This is the
+ * app's one reader of the signal. The two functions below apply it, so every consent reader (PostHog's provider,
+ * lib/analytics, the identification hook, the summary stream's consent flag) follows it with no check of its own,
+ * and the settings dialog shows it. `window.doNotTrack` is the older, non-standard place some browsers report it.
+ */
+export function browserSendsDoNotTrack(): boolean {
+  if (typeof window === 'undefined') return false
+  return navigator.doNotTrack === '1' || (window as Window & { doNotTrack?: string | null }).doNotTrack === '1'
+}
+
+/** Analytics and session recording off while the browser sends Do Not Track; essential stays on. */
+function applyDoNotTrack(preferences: CookiePreferences): void {
+  if (!browserSendsDoNotTrack()) return
+  preferences.analytics = false
+  preferences.sessionRecording = false
+}
+
 export function getCookiePreferences(): CookiePreferences | null {
   if (typeof window === 'undefined') return null
 
@@ -39,6 +58,9 @@ export function getCookiePreferences(): CookiePreferences | null {
     const preferences = JSON.parse(stored) as CookiePreferences
     // Ensure essential is always true
     preferences.essential = true
+    // Read as off while the browser sends Do Not Track. Storage keeps what was written, so the visitor's own
+    // choice is back once the browser stops sending it.
+    applyDoNotTrack(preferences)
     return preferences
   } catch (error) {
     console.error('Failed to load cookie preferences:', error)
@@ -52,6 +74,8 @@ export function saveCookiePreferences(preferences: CookiePreferences): void {
   try {
     // Ensure essential is always true
     preferences.essential = true
+    // Written as off while the browser sends Do Not Track, so the event's detail carries off too.
+    applyDoNotTrack(preferences)
     preferences.timestamp = new Date().toISOString()
     localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
 
@@ -82,14 +106,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     const existingPreferences = getCookiePreferences()
 
     if (!existingPreferences) {
-      // Check "Do Not Track" browser setting
-      // Note: window.doNotTrack is non-standard but supported by some browsers
-      const windowDoNotTrack = 'doNotTrack' in window ? (window as Window & { doNotTrack?: string }).doNotTrack : undefined
-      const doNotTrack =
-        navigator.doNotTrack === '1' ||
-        windowDoNotTrack === '1'
-
-      if (doNotTrack) {
+      if (browserSendsDoNotTrack()) {
         // Respect DNT by only enabling essential cookies
         const dntPreferences = { ...DEFAULT_PREFERENCES }
         saveCookiePreferences(dntPreferences)
@@ -189,6 +206,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
   if (!showBanner && !showSettings) return null
 
+  // While the browser sends Do Not Track, analytics and session recording stay off (D-046): getCookiePreferences()
+  // reads them as off, so their boxes open unticked, and here they are disabled under a note that says why, which
+  // each box reads after its own description.
+  const doNotTrack = browserSendsDoNotTrack()
+
   // ui/Modal owns the dialog contract (focus in, Tab cycle, Escape, scroll lock, focus return);
   // Escape and the scrim close it exactly as Cancel does. The primitive also owns viewport
   // sizing and inner scrolling so all three categories stay reachable on a short screen.
@@ -212,6 +234,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           Essential cookies keep you signed in and the site working. Analytics cookies and session
           recording are off until you allow them here. Choose the ones you are comfortable with.
         </p>
+        {doNotTrack && (
+          <p id="cookie-dnt-note" className="mb-6 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Your browser sends Do Not Track, so analytics and session recording stay off.
+          </p>
+        )}
 
         <div className="space-y-4">
           {/* Essential cookies */}
@@ -259,11 +286,12 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               <div className="ml-4">
                 <Checkbox
                   checked={preferences.analytics}
+                  disabled={doNotTrack}
                   onChange={(e) =>
                     setPreferences({ ...preferences, analytics: e.target.checked })
                   }
                   aria-labelledby="cookie-analytics-title"
-                  aria-describedby="cookie-analytics-desc"
+                  aria-describedby={doNotTrack ? 'cookie-analytics-desc cookie-dnt-note' : 'cookie-analytics-desc'}
                 />
               </div>
             </div>
@@ -288,11 +316,12 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               <div className="ml-4">
                 <Checkbox
                   checked={preferences.sessionRecording}
+                  disabled={doNotTrack}
                   onChange={(e) =>
                     setPreferences({ ...preferences, sessionRecording: e.target.checked })
                   }
                   aria-labelledby="cookie-recording-title"
-                  aria-describedby="cookie-recording-desc"
+                  aria-describedby={doNotTrack ? 'cookie-recording-desc cookie-dnt-note' : 'cookie-recording-desc'}
                 />
               </div>
             </div>
