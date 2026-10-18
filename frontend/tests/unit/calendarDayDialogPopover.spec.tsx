@@ -90,6 +90,30 @@ describe('the day dialog says the order it shows', () => {
   })
 })
 
+// The narrow list's "+N more" expands the day in place. Its toggle then says what it does: the day's order is large caps
+// and most followed first within each report time, a curated list and follow counts, not a ranking of five (E65).
+describe("the narrow day list's toggle says what it does", () => {
+  it('reads "Show fewer" once the day is expanded, never "Show top 5", and "+2 more" again after', async () => {
+    await renderPage()
+    let toggle: HTMLElement | undefined
+    for (const more of screen.getAllByRole('button', { name: /^\+\d+ more$/ })) {
+      fireEvent.click(more)
+      const dialog = document.querySelector('dialog[open]')
+      if (dialog) {
+        fireEvent.click(within(dialog as HTMLElement).getByRole('button', { name: 'Close' }))
+        continue
+      }
+      toggle = more
+      break
+    }
+    if (!toggle) throw new Error('no "+N more" expanded its day in place')
+    expect(toggle).toHaveAccessibleName('Show fewer')
+    expect(screen.queryByRole('button', { name: /show top/i })).toBeNull()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAccessibleName('+2 more')
+  })
+})
+
 describe('the bell popover never outlives a change of the day dialog', () => {
   it('closing the day (its X, from the keyboard) closes the popover inside it; Escape is not swallowed', async () => {
     await renderPage()
