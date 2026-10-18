@@ -361,3 +361,40 @@ export function D25({ block }: { block: RenderedBlock }) {
   )
 }
 
+/** D29 flag: a marker a same-file helper returns, called in a row: the row reader does not follow a plain call's
+    return, so the margin reads as holding no marker and the gate fails closed. */
+export function D29({ risks }: { risks: RiskFactor[] }) {
+  const marker = (i: number) => <EnRef label={`[${i + 1}]`} />
+  return (
+    <MarkedCopy>
+      <ul>
+        {risks.map((risk, i) => (
+          <li key={i}>
+            <h3>{risk.summary}{marker(i)}</h3>
+          </li>
+        ))}
+      </ul>
+    </MarkedCopy>
+  )
+}
+
+/** D30 gap: a second marker a same-file helper returns, beside the row's own guarded marker: the row reader does not
+    follow a plain call's return, so it counts one marker on the row. */
+export function D30({ risks }: { risks: RiskFactor[] }) {
+  const extra = (i: number) => <EnRef label={`[${i + 1}]`} />
+  return (
+    <MarkedCopy>
+      <ul>
+        {risks.map((risk, i) => (
+          <li key={i}>
+            <h3>
+              {risk.summary}
+              {risk.source_verified === true && <EnRef label={`[${i + 1}]`} />}
+              {extra(i)}
+            </h3>
+          </li>
+        ))}
+      </ul>
+    </MarkedCopy>
+  )
+}

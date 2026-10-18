@@ -185,8 +185,9 @@ import { routeFiles, walkImports } from './importWalk'
  *    none), and no margin holds an Ask answer, the narrative or their chips (CopilotMessage,
  *    NarrativePane, CitationChip, injectCitationMarkers), which keep their chips. The reads follow the
  *    file's consts and components; a row component from another file is read in its own file, which must
- *    then be a place. Review-checked: a guard that reads another row's flag, and a single passage outside
- *    a list, whose picker locates it (pickEvidence). The planted forms
+ *    then be a place. Review-checked: a guard that reads another row's flag, a second marker a same-file
+ *    helper returns beside the row's guarded one (D30), and a single passage outside a list, whose picker
+ *    locates it (pickEvidence). The planted forms
  *    (tests/unit/fixtures/brandRule3Forms.tsx) are scored on every run. The reader's located passage (its
  *    ::highlight paint) is held to `.en-mark` by tests/unit/highlightInDom.spec.ts, and the face of a
  *    marked block by designSystemDoneGate.spec.ts.

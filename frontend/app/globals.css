@@ -14,7 +14,8 @@
      Roboto shadow it on Windows/Android.
    - data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim
      excerpts, Ask-this-Filing output. Columns must never jitter.
-   Editorial serif (Newsreader) is opt-in for long-form filing reading only.
+   Editorial serif (Newsreader) is opt-in for the filing's own words: long-form filing reading, and
+   inside the product a passage the server located, set as a marked block (D-044).
 ============================================================================= */
 :root {
   /* next/font self-hosts under HASHED family names exposed ONLY as CSS vars
@@ -306,12 +307,13 @@
    "Filing Reader" spec DC. TWO classes, ONE layout:
 
    - .filing-reader — the REAL filing viewer (Item 1A, MD&A, notes). The
-     editorial serif's ONE surface: Newsreader 19/1.7, opsz auto. Serif =
-     the filing's own words.
+     editorial serif's long-form surface: Newsreader 19/1.7, opsz auto.
+     Serif = the filing's own words.
    - .markdown-body — markdown that is NOT the filing's own words (its only
      app consumer today is the AI-generated summary). Body sans, default
-     size — UI, AI summaries and Ask output never render serif, so the
-     serif register stays unambiguous.
+     size — UI, AI summaries and Ask output stay sans, except a passage the
+     server located, which the summary sets as a marked block in the serif
+     (D-044), so the serif still means the filing's own words.
 
    SHARED LAYOUT (both classes):
    - MEASURE lives on the CHILDREN (68ch), never globally; tables, figures
