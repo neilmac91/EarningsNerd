@@ -2,11 +2,13 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { ACCESS_COPY } from '@/features/marketing/lib/access'
+import { FREE_COPILOT_QUESTIONS, FREE_EARNINGS_ALERT_LIMIT, FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 /**
  * The landing pricing section shows the SAME numbers as the pricing page (one price source, one
- * approved offer), never the design's placeholders; the toggle is an accessible radio group; and the
- * beta line, account CTA and trial copy each follow their one deciding source.
+ * approved offer), never the design's placeholders; it is one table, the plans as its columns and what
+ * each includes as its rows (D-045); the toggle is an accessible radio group; and the beta line, account
+ * CTA and trial copy each follow their one deciding source.
  */
 
 // Live mutable flag so a test can flip ENABLE_PRO_TRIAL without re-importing the component.
@@ -82,15 +84,57 @@ describe('PricingSection', () => {
     expect(monthly).toHaveFocus()
   })
 
-  // The Free card names 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS
-  // (tasks/todo.md F39), and never the "Supported" hedge, as /pricing does (PricingPage.spec.tsx).
-  it.each([true, false])('names the filing forms on the Free card without a hedge, 20-F only while the FPI flag ships it (flag %s)', (on) => {
+  // The Filings row names 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS
+  // (tasks/todo.md F39), and never the "Supported" hedge, as /pricing does (PricingPage.spec.tsx); both plans read it.
+  it.each([true, false])('names the filing forms in both plans without a hedge, 20-F only while the FPI flag ships it (flag %s)', (on) => {
     flags.ENABLE_FPI_FILINGS = on
     const { container } = renderSection()
-    expect(screen.getByText(on ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR')).toBeInTheDocument()
+    const row = screen.getByRole('rowheader', { name: 'Filings' }).closest('tr')!
+    expect(within(row).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(
+      Array(2).fill(on ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR'),
+    )
     if (!on) expect(container).not.toHaveTextContent('20-F')
     expect(container).not.toHaveTextContent(/Supported/i)
     flags.ENABLE_FPI_FILINGS = false
+  })
+
+  // D-045: pricing on the landing is one table, a real one: a caption that names it, the two plans as column headers,
+  // what each includes as row headers, one cell per plan in every row, read from lib/planLimits.ts. A plan that does
+  // not include a row's thing reads "Not included" to a screen reader, never a bare dash.
+  it('is one table: the plans as its columns and what each includes as its rows, from the plan-line mirror', () => {
+    const { container } = renderSection()
+    expect(container.querySelectorAll('table')).toHaveLength(1)
+    const table = screen.getByRole('table', { name: 'What each plan includes' })
+    expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Free', 'Pro'])
+    expect(within(table).getAllByRole('rowheader').map((header) => header.textContent)).toEqual([
+      'Price',
+      'Summaries',
+      'Filings',
+      'Company search and historical filings',
+      'Ask this Filing',
+      'Change Report',
+      'Alerts',
+      'Exports',
+      'Summary history',
+      'Watchlist',
+      'Priority support',
+    ])
+    const cells = (label: string) =>
+      within(screen.getByRole('rowheader', { name: label }).closest('tr')!).getAllByRole('cell').map((cell) => cell.textContent)
+    expect(cells('Summaries')).toEqual([`${FREE_SUMMARY_LIMIT} a month`, 'Unlimited'])
+    expect(cells('Ask this Filing')).toEqual([`${FREE_COPILOT_QUESTIONS} questions`, 'Included'])
+    expect(cells('Alerts')).toEqual([`${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`, 'Hourly filing alerts and 8-K alerts'])
+    expect(cells('Exports')).toEqual(['—Not included', 'PDF and CSV exports'])
+    expect(cells('Priority support')).toEqual(['—Not included', 'Included'])
+    // Every row is a row header and one cell per plan; the closing row holds the two calls to action under their plans.
+    for (const row of within(table).getAllByRole('row').slice(1, -1)) {
+      expect(within(row).getAllByRole('rowheader')).toHaveLength(1)
+      expect(within(row).getAllByRole('cell')).toHaveLength(2)
+    }
+    const actions = within(table).getAllByRole('row').at(-1)!
+    expect(within(actions).getAllByRole('link').map((link) => link.textContent)).toEqual([ACCESS_COPY.public.cta, 'Upgrade to Pro'])
+    // The dash is decoration: the reading is the words.
+    for (const dash of within(table).getAllByText('—')) expect(dash).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('shows the beta line only when showBeta is set', () => {

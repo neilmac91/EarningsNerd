@@ -14,7 +14,7 @@ import {
 import { FREE_COPILOT_QUESTIONS, FREE_HISTORY_RETENTION_DAYS } from '@/lib/planLimits'
 
 /**
- * "What Pro adds" (landing section 6): the three product screens are the REAL product components
+ * "What Pro adds" (the landing's fourth ruled row, D-045): the three product screens are the REAL product components
  * (CitationChip, KpiStrip, MetricsTable, WhatChanged) fed the static landing samples. These specs
  * prove the samples satisfy each component's contract at runtime, pin the accessibility shape the
  * design asks for, and keep the plan-cap copy on the lib/planLimits mirror.
@@ -152,7 +152,7 @@ describe('ProDepth', () => {
     flags.analysis = false
   })
 
-  it('is a labelled section with the Pro rows, the extras grid and mirror-driven caps', () => {
+  it('is a labelled section with the Pro rows, the extras list and mirror-driven caps', () => {
     render(<ProDepth />)
     const section = screen.getByRole('region', { name: 'More ways to read one filing.' })
     expect(section.id).toBe('pro')

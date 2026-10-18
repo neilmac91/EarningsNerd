@@ -46,9 +46,10 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
  * On a 768px and an 834px tablet at 200% every route passes the same checks too: the footer's columns and
- * the final CTA card's open at md at the reader's text size (48rem), where at md's 768px they took pages to
- * 812-886px. At 1440x900 at the default size the site header's bar spans its container and the logo keeps
- * its top-left place, which the bar's w-full holds.
+ * the final CTA card's opened at md at the reader's text size (48rem), where at md's 768px they took pages to
+ * 812-886px; the card is the landing's one-line close since D-045, and the landing's rows open their label
+ * column at 64rem the same way. At 1440x900 at the default size the site header's bar spans its container and
+ * the logo keeps its top-left place, which the bar's w-full holds.
  *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
@@ -679,8 +680,9 @@ for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 640 }
 
 /** A tablet at 200% text. At 768px with the text doubled, the footer's four columns took every route with the footer to
     812px (an fr column never shrinks below its longest word, here the Legal column's), and from 780 to 880px the final
-    CTA card's two columns ran its one-line "See a live example" past its half, taking / to 886px. Both now open their
-    columns at md at the reader's text size, 48rem: 768px at the default size, 1536px with the text doubled. At 768 and
+    CTA card's two columns ran its one-line "See a live example" past its half, taking / to 886px. The footer opens its
+    columns at md at the reader's text size, 48rem: 768px at the default size, 1536px with the text doubled; the card
+    is the landing's one-line close since D-045, and the landing's rows open their columns at 64rem. At 768 and
     834px every route in the loop passes the width, bar and clear-space checks; the 200% setting is confirmed by the
     root's 32px and by the 48rem query not matching. */
 async function doubleTextOnATablet(page: Page) {

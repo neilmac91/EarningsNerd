@@ -21,7 +21,9 @@ browser at the breakpoint's px width with the text doubled (`Page.setFontSizes`,
 setting took (the root's 32px, the rem query not matching), and take viewport captures, never full-page ones,
 of the 200% state.
 
-**Evidence**: `frontend/components/Footer.tsx`, `frontend/features/marketing/components/CtaBanner.tsx`; the
-tablet pass of `frontend/tests/e2e/reflow-200.spec.ts` (768 and 834px at 200% text over its route loop): red on
-main's build (812px on every route with the footer at 768px, 863px on / at 834px), green on the branch. Partly
-gated: the pass covers the routes it visits; a px breakpoint on another route is review-checked.
+**Evidence**: `frontend/components/Footer.tsx`, `frontend/features/marketing/components/CtaBanner.tsx` (the card
+became the landing's one-line close, `ClosingLine.tsx`, under D-045, whose ruled rows open their label column at 64rem
+by this rule: `LandingRow.tsx`); the tablet pass of `frontend/tests/e2e/reflow-200.spec.ts` (768 and 834px at 200%
+text over its route loop): red on main's build (812px on every route with the footer at 768px, 863px on / at 834px),
+green on the branch. Partly gated: the pass covers the routes it visits; a px breakpoint on another route is
+review-checked.
