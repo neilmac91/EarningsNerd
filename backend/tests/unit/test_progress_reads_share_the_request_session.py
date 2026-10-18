@@ -9,7 +9,8 @@ request on a one-slot pool could not finish. Both now read the progress rows in 
 session, in one query.
 
 - Behaviour: each route answers one request on a one-slot pool, and eight requests on four slots,
-  with the summary statuses the progress rows imply.
+  with the summary statuses the summaries and progress rows imply; the feed's unit leaves nothing
+  for the dependency's finalizer.
 - Structure: no code under ``app/`` calls ``get_generation_progress_snapshot`` again.
 """
 
@@ -20,19 +21,25 @@ from pathlib import Path
 import httpx
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from app import database
 from app.database import Base
-from app.models import Company, Filing, SummaryGenerationProgress, User, Watchlist
+from app.models import Company, Filing, Summary, SummaryGenerationProgress, User, Watchlist
 from app.services import summary_generation_service
 from app.utils.datetimes import utcnow
 from main import app
 
-# Reader i watches one company whose filing has no summary; its progress row, if any, by i % 3.
-_STAGES = ("analyzing", "error", None)
-_FEED_STATUS = {"analyzing": "generating:analyzing", "error": "error", None: "missing"}
+# Reader i watches one company with one filing, which by i % 4 has: a progress row at "analyzing",
+# one at "error", nothing, or a ready summary beside a progress row at "summarizing".
+_VARIANTS = (("analyzing", False), ("error", False), (None, False), ("summarizing", True))
+_STATUS = {"analyzing": "generating:analyzing", "error": "error", None: "missing"}
+
+
+def _expected_status(i: int) -> str:
+    stage, summarized = _VARIANTS[i % 4]
+    return "ready" if summarized else _STATUS[stage]
 
 
 @pytest.mark.asyncio
@@ -65,14 +72,30 @@ async def test_progress_reads_need_no_second_connection(monkeypatch, tmp_path, p
             db.add(reader)
             db.flush()
             db.add(Watchlist(user_id=reader.id, company_id=company.id))
-            stage = _STAGES[i % 3]
+            stage, summarized = _VARIANTS[i % 4]
+            if summarized:
+                db.add(Summary(filing_id=filing.id, business_overview="## Overview", raw_summary={}))
             if stage:
                 db.add(SummaryGenerationProgress(filing_id=filing.id, stage=stage, started_at=utcnow(),
                                                  updated_at=utcnow(), error="boom" if stage == "error" else None))
         db.commit()
 
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
     # The progress helper binds SessionLocal at import; both point at this pool, as in production.
-    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(summary_generation_service, "SessionLocal", sessionmaker(bind=engine))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
@@ -88,16 +111,20 @@ async def test_progress_reads_need_no_second_connection(monkeypatch, tmp_path, p
         responses = await asyncio.gather(*[read(i) for i in range(readers)])
         assert [response.status_code for response in responses] == [200] * readers
         for i, response in enumerate(responses):
-            stage = _STAGES[i % 3]
+            stage = _VARIANTS[i % 4][0]
             if path == "/api/dashboard/feed":
                 [item] = response.json()["items"]
-                assert (item["company"]["ticker"], item["summary_status"]) == (f"PRG{i}", _FEED_STATUS[stage])
+                assert (item["company"]["ticker"], item["summary_status"]) == (f"PRG{i}", _expected_status(i))
             else:
                 [insight] = response.json()
                 latest = insight["latest_filing"]
-                assert (insight["company"]["ticker"], latest["summary_status"]) == (f"PRG{i}", _FEED_STATUS[stage])
+                assert (insight["company"]["ticker"], latest["summary_status"]) == (f"PRG{i}", _expected_status(i))
+                # Every latest filing carries its progress, a summarized one included.
                 assert (latest["progress"] or {}).get("stage") == stage
         assert engine.pool.checkedout() == 0
+        if path == "/api/dashboard/feed":
+            # The feed's unit released its session; the dependency's finalizer found nothing open.
+            assert [session.open_at_close[-1:] for session in request_sessions] == [[False]] * readers
     finally:
         engine.dispose()
 
