@@ -342,8 +342,11 @@ dedicated identity, IAM, secret, bucket lifecycle and recovery limits.
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 
 New-filing alerts and daily digests are persisted in `earningsnerd_delivery_batches` (one row per
-outbound email: frozen recipient/sender/subject/HTML, the provider `Idempotency-Key`, status,
-lease and attempt bookkeeping) and `earningsnerd_delivery_items` (the filings each batch owns).
+outbound email: frozen recipient/sender/subject/HTML and plain-text part, the provider
+`Idempotency-Key`, status, lease and attempt bookkeeping) and `earningsnerd_delivery_items` (the
+filings each batch owns). The plain-text part (`body_text`, E110) is covered by the batch's
+`payload_sha256`; a batch frozen before the column holds NULL there and replays as it was frozen,
+its page alone, under the digest it was frozen with.
 `accepted`, `suppressed` and `ambiguous` are terminal. `ambiguous` means the provider's answer
 was lost after bytes may have left (timeout, dropped connection, unparsable or non-object 5xx
 response, expired sending lease, exhausted attempts, payload drift): the job never dispatches it
@@ -386,7 +389,10 @@ earningsnerd-earnings-day-alerts`): the job only takes over `failed` rows whose 
 today, so after that day the alert lapses.
 
 Never re-send an `ambiguous` batch by hand under its old key, and never edit its frozen payload
-(`payload_sha256` would then park it as `payload_drift`). A `retryable` batch needs no action:
+(`payload_sha256` would then park it as `payload_drift`). A revision from before E110 reads no
+`body_text`, so after a rollback past it every pending batch frozen with a text part fails its
+digest and is parked as `payload_drift`, unsent: one with `attempts = 0` never reached the
+provider, so give its filings back to selection as above. A `retryable` batch needs no action:
 the job retries it with backoff, re-keying it if the replay window closed. Historical
 `notification_log` rows are never replayed.
 

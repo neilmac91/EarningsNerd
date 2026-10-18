@@ -104,7 +104,7 @@ def _recorder(outcome=None):
 
     async def send(prepared):
         calls.append({"key": prepared.idempotency_key, "subject": prepared.subject, "html": prepared.html,
-                      "items": [i["filing_id"] for i in prepared.items], "to": prepared.to_email})
+                      "text": prepared.text, "items": [i["filing_id"] for i in prepared.items], "to": prepared.to_email})
         if isinstance(outcome, BaseException):
             raise outcome
         return "email_123"
@@ -132,14 +132,20 @@ async def test_batch_is_durable_and_sending_is_committed_before_the_provider_cal
                 observed["first_dispatch_at"] = row.first_dispatch_at
                 observed["log_rows"] = other.query(NotificationLog).count()
                 observed["watermark"] = other.query(Watchlist).one().last_alerted_accession
+            observed["text"] = prepared.text
             return "email_1"
 
         stats = await _scan_with_transport(db, send)
-        assert observed == {"in_transaction": False, "status": STATUS_SENDING, "attempts": 1,
-                            "first_dispatch_at": NOW.replace(tzinfo=None), "log_rows": 0, "watermark": None}
         (batch,) = _batches(db)
+        # The text part is frozen with the page (E110), and the transport is handed the frozen text.
+        assert batch.body_text and "Read the AI summary: " in batch.body_text
+        assert observed == {"in_transaction": False, "status": STATUS_SENDING, "attempts": 1,
+                            "first_dispatch_at": NOW.replace(tzinfo=None), "log_rows": 0, "watermark": None,
+                            "text": batch.body_text}
         assert batch.status == STATUS_ACCEPTED and batch.provider_email_id == "email_1"
-        assert batch.payload_sha256 == delivery.payload_digest(batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email)
+        assert batch.payload_sha256 == delivery.payload_digest(
+            batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email, text=batch.body_text,
+        )
         assert [i.filing_id for i in batch.items] == [db.query(Filing).one().id]
         assert stats["alerts_sent"] == 1 and stats["delivery_accepted"] == 1
         assert _log_count(db) == 1 and _watermark(db) == "new-10q"
@@ -297,7 +303,7 @@ async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_rea
                       sec_url="https://sec.example/kept/", document_url="https://sec.example/kept/doc.htm"))
         db.query(NotificationPreferences).one().realtime = True
         db.commit()
-        delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[77], now=NOW)
+        delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[77], now=NOW)
         db.query(NotificationPreferences).one().notify_10q = False
         db.commit()
         await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_recorder(), now=NOW + timedelta(hours=2))
@@ -308,7 +314,7 @@ async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_rea
                       sec_url="https://sec.example/fence/", document_url="https://sec.example/fence/doc.htm"))
         db.query(NotificationPreferences).one().notify_10q = True
         db.commit()
-        other = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[78], now=NOW)
+        other = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[78], now=NOW)
         assert delivery.claim(db, other.id, "owner", NOW)
         assert delivery.park_and_release(db, other.id, "stale", delivery.ERROR_REROUTED_TO_DIGEST, NOW) is False
         assert db.query(DeliveryItem).filter_by(batch_id=other.id).count() == 1
@@ -329,7 +335,7 @@ async def test_replacement_failure_preserves_old_ownership_for_retry_outside_sel
                       filing_date=NOW - timedelta(days=2), sec_url="https://sec.example/atomic-rebuild/",
                       document_url="https://sec.example/atomic-rebuild/doc.htm"))
         db.commit()
-        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h",
+        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t",
                                       filing_ids=[99], now=NOW)
         batch_id = batch.id
         db.query(NotificationPreferences).one().realtime = False
@@ -371,7 +377,7 @@ async def test_a_lost_fence_while_parking_is_a_lost_claim_not_a_reported_outcome
                     for i in (1, 2, 3)])
         db.commit()
         for fid in (1, 2, 3):
-            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[fid], now=NOW)
+            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[fid], now=NOW)
         # Batch 1: exhausted attempts; batch 2: rerouted; batch 3: plain suppression — every fence lost.
         b1 = _batches(db)[0]
         b1.attempts = 99
@@ -423,7 +429,7 @@ async def test_a_lost_fence_after_the_provider_call_is_a_lost_claim_not_a_report
                     for i in (1, 2, 3)])
         db.commit()
         for fid in (1, 2, 3):
-            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[fid], now=NOW)
+            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[fid], now=NOW)
         outcomes = iter([resend_service.ResendRetryableError("429"), resend_service.ResendPermanentError("422"), RuntimeError("timeout")])
 
         async def send(prepared):
@@ -451,7 +457,7 @@ async def test_digest_keeps_the_unowned_filings_when_an_overlapping_run_takes_on
         def racing_create(db_, **kwargs):
             calls.append(kwargs["filing_ids"])
             if len(calls) == 1:  # another run owns filing 1 after this digest's ownership checks
-                real_create(db_, kind=KIND_FILING_REALTIME, user_id=1, subject="x", html="x", filing_ids=[1], now=NOW)
+                real_create(db_, kind=KIND_FILING_REALTIME, user_id=1, subject="x", html="x", text="x", filing_ids=[1], now=NOW)
             return real_create(db_, **kwargs)
 
         from unittest.mock import patch
@@ -492,7 +498,7 @@ async def test_expired_preparation_claim_is_reclaimed_but_expired_sending_lease_
         for i, (status, lease) in enumerate([(STATUS_CLAIMED, NOW - timedelta(seconds=1)), (STATUS_SENDING, NOW - timedelta(seconds=1))]):
             db.add(DeliveryBatch(kind=KIND_FILING_REALTIME, user_id=1, channel="email", subject=base.subject,
                                  to_email=base.to_email, from_email=base.from_email, expected_item_count=1,
-                                 body_html=base.body_html, payload_sha256=base.payload_sha256,
+                                 body_html=base.body_html, body_text=base.body_text, payload_sha256=base.payload_sha256,
                                  idempotency_key=f"k{i}", status=status, owner_token="dead-worker",
                                  lease_expires_at=lease, first_dispatch_at=NOW if status == STATUS_SENDING else None,
                                  attempts=1 if status == STATUS_SENDING else 0, created_at=NOW, updated_at=NOW))
@@ -514,7 +520,7 @@ def test_stale_owner_cannot_authorize_or_finalize(engine):
         db.add(Filing(id=1, company_id=1, accession_number="a1", filing_type="10-Q", filing_date=NOW,
                       sec_url="https://sec.example/a1/", document_url="https://sec.example/a1/doc.htm"))
         db.commit()
-        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[1], now=NOW)
+        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[1], now=NOW)
         assert delivery.claim(db, batch.id, "worker-a", NOW) is True
         assert delivery.claim(db, batch.id, "worker-b", NOW) is False          # already claimed
         assert delivery.authorize_send(db, batch.id, "worker-b", NOW) is False  # wrong owner
@@ -531,7 +537,7 @@ def test_payload_drift_is_detected_before_dispatch(engine):
         db.add(Filing(id=1, company_id=1, accession_number="a1", filing_type="10-Q", filing_date=NOW,
                       sec_url="https://sec.example/a1/", document_url="https://sec.example/a1/doc.htm"))
         db.commit()
-        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[1], now=NOW)
+        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[1], now=NOW)
         batch.body_html = "edited"
         db.commit()
         send = _recorder()
@@ -540,6 +546,60 @@ def test_payload_drift_is_detected_before_dispatch(engine):
         assert send.calls == []
         (batch,) = _batches(db)
         assert batch.status == STATUS_AMBIGUOUS and batch.last_error_kind == delivery.ERROR_PAYLOAD_DRIFT
+
+
+def test_an_edited_text_part_is_payload_drift_too(engine):
+    """The digest the key is bound to covers the frozen text part (E110): an edit to it after selection would send
+    a payload the key was never bound to, so the batch is parked, as an edited page is."""
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        db.add(Filing(id=1, company_id=1, accession_number="a1", filing_type="10-Q", filing_date=NOW,
+                      sec_url="https://sec.example/a1/", document_url="https://sec.example/a1/doc.htm"))
+        db.commit()
+        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[1], now=NOW)
+        batch.body_text = "edited"
+        db.commit()
+        send = _recorder()
+        import asyncio
+        asyncio.run(delivery.drain(db, kind=KIND_FILING_REALTIME, send=send, now=NOW))
+        assert send.calls == []
+        (batch,) = _batches(db)
+        assert batch.status == STATUS_AMBIGUOUS and batch.last_error_kind == delivery.ERROR_PAYLOAD_DRIFT
+
+
+def test_a_batch_frozen_before_its_text_part_replays_as_it_was_frozen(engine, monkeypatch):
+    """A batch selected before the deploy holds no text part (body_text NULL) and a digest computed without one. It
+    keeps that digest, so it is not parked as drift, and it sends its page alone, the payload its key was bound to,
+    so a retry of an attempt made before the deploy is the same request (E110)."""
+    import asyncio
+    import hashlib
+
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        db.add(Filing(id=1, company_id=1, accession_number="a1", filing_type="10-Q", filing_date=NOW,
+                      sec_url="https://sec.example/a1/", document_url="https://sec.example/a1/doc.htm"))
+        db.commit()
+        user = db.get(User, 1)
+        page = "<!doctype html><p>frozen before E110</p>"
+        # The digest as the code before the column wrote it: no text key.
+        envelope = {"to": [user.email], "from": settings.RESEND_FROM_EMAIL, "subject": "s", "html": page}
+        legacy = hashlib.sha256(json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+        assert delivery.payload_digest("s", page, to_email=user.email, from_email=settings.RESEND_FROM_EMAIL) == legacy
+        db.add(DeliveryBatch(kind=KIND_FILING_REALTIME, user_id=1, channel="email", subject="s", to_email=user.email,
+                             from_email=settings.RESEND_FROM_EMAIL, expected_item_count=1, body_html=page,
+                             payload_sha256=legacy, idempotency_key="legacy-key", status=STATUS_READY, attempts=0,
+                             created_at=NOW, updated_at=NOW))
+        db.flush()
+        db.add(DeliveryItem(batch_id=db.query(DeliveryBatch).one().id, user_id=1, filing_id=1, channel="email", position=0))
+        db.commit()
+        transport = AsyncMock(return_value={"id": "email_legacy"})
+        monkeypatch.setattr(resend_service, "send_email", transport)
+        drained = asyncio.run(delivery.drain(db, kind=KIND_FILING_REALTIME, now=NOW))
+        assert drained.accepted == 1
+        (batch,) = _batches(db)
+        assert batch.status == STATUS_ACCEPTED and batch.body_text is None
+        sent = transport.await_args.kwargs
+        assert sent["html"] == page and sent["text"] is None and sent["idempotency_key"] == "legacy-key"
 
 
 # --------------------------------------------------------------------------- digest membership + watermark independence
@@ -589,7 +649,7 @@ async def test_changed_eligibility_suppresses_before_dispatch(engine, change):
         db.add(Filing(id=1, company_id=1, accession_number="a1", filing_type="10-Q", filing_date=NOW,
                       sec_url="https://sec.example/a1/", document_url="https://sec.example/a1/doc.htm"))
         db.commit()
-        delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[1], now=NOW)
+        delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[1], now=NOW)
         if change == "preference":
             db.query(NotificationPreferences).one().notify_10q = False
         elif change == "watch_removed":
@@ -611,7 +671,7 @@ def test_account_deletion_takes_batches_and_items_with_it(engine):
         db.add(Filing(id=1, company_id=1, accession_number="a1", filing_type="10-Q", filing_date=NOW,
                       sec_url="https://sec.example/a1/", document_url="https://sec.example/a1/doc.htm"))
         db.commit()
-        delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[1], now=NOW)
+        delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[1], now=NOW)
         db.delete(db.get(User, 1))  # the ORM deletion DELETE /api/users/me performs
         db.commit()
         assert db.query(DeliveryBatch).count() == 0 and db.query(DeliveryItem).count() == 0
@@ -623,8 +683,8 @@ def test_create_batch_refuses_a_filing_another_batch_owns(engine):
         db.add_all([Filing(id=i, company_id=1, accession_number=f"a{i}", filing_type="10-Q", filing_date=NOW,
                            sec_url=f"https://sec.example/a{i}/", document_url=f"https://sec.example/a{i}/doc.htm") for i in (1, 2)])
         db.commit()
-        assert delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[1], now=NOW)
-        assert delivery.create_batch(db, kind=KIND_FILING_DIGEST, user_id=1, subject="s", html="h", filing_ids=[2, 1], now=NOW) is None
+        assert delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[1], now=NOW)
+        assert delivery.create_batch(db, kind=KIND_FILING_DIGEST, user_id=1, subject="s", html="h", text="t", filing_ids=[2, 1], now=NOW) is None
         assert db.query(DeliveryBatch).count() == 1 and db.query(DeliveryItem).count() == 1
         assert delivery.already_owned(db, 1, 1) and not delivery.already_owned(db, 1, 2)
 
@@ -654,6 +714,12 @@ async def test_transport_sends_the_idempotency_key_and_classifies_outcomes(monke
     monkeypatch.setattr(resend_service.httpx, "AsyncClient", _client_factory(ok))
     assert (await resend_service.send_email(["a@example.com"], "s", "<p>h</p>", idempotency_key="key-1"))["id"] == "email_1"
     assert seen["key"] == "key-1" and seen["body"]["subject"] == "s"
+    # No text part was handed in, so the request carries none and the provider builds one from the page.
+    assert "text" not in seen["body"]
+    # A text part handed in goes as the mail's text, beside its page (E110), however short.
+    for text in ("Hi there,\n\nPlain words.", ""):
+        await resend_service.send_email(["a@example.com"], "s", "<p>h</p>", text=text, idempotency_key="key-1")
+        assert seen["body"]["text"] == text and seen["body"]["html"] == "<p>h</p>"
 
     cases = [
         (lambda r: httpx.Response(429, json={"name": "rate_limit_exceeded"}), resend_service.ResendRetryableError),
@@ -693,7 +759,7 @@ async def test_delivery_clock_refreshes_between_attempts_and_after_provider(engi
                            document_url=f"https://sec.example/{i}/doc.htm") for i in (1, 2)])
         db.commit()
         for i in (1, 2):
-            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h",
+            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t",
                                   filing_ids=[i], now=NOW)
         current = NOW + timedelta(minutes=5)
         observed = []
@@ -721,7 +787,7 @@ def test_authorization_requires_live_claim_and_replay_window(engine, monkeypatch
         db.add(Filing(id=1, company_id=1, accession_number="clock", filing_type="10-Q", filing_date=NOW,
                       sec_url="https://sec.example/clock/", document_url="https://sec.example/clock/doc.htm"))
         db.commit()
-        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[1], now=NOW)
+        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", text="t", filing_ids=[1], now=NOW)
         assert delivery.claim(db, batch.id, "owner", NOW)
         assert not delivery.authorize_send(db, batch.id, "owner", NOW + timedelta(seconds=60))
         batch = db.get(DeliveryBatch, batch.id)
@@ -748,6 +814,8 @@ async def test_retry_freezes_complete_envelope_and_rejects_changed_recipient(eng
         monkeypatch.setattr(settings, "RESEND_FROM_EMAIL", "changed@example.com")
         await delivery.drain(db, kind=KIND_FILING_REALTIME, now=NOW + timedelta(minutes=5))
         assert len(requests) == 2 and requests[0] == requests[1]
+        # The frozen text part is in the request, and replays with it.
+        assert json.loads(requests[0][1])["text"] == _batches(db)[0].body_text
         db.get(User, 1).email = "changed-recipient@example.com"
         db.commit()
         monkeypatch.setattr(resend_service.httpx, "AsyncClient", _client_factory(

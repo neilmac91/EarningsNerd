@@ -2,9 +2,9 @@
 
 Pins: the line's three states and its absence (no comparison, or the filing's own section only
 points at the annual report); the renderers carry it in HTML and text; the scan and the digest
-add it for a Pro recipient while the feature is on and never for a Free one or with the flag off;
-a batch the delivery drain rebuilds (the recipient's address changed after selection) carries
-it too, rendered from ``_item_dicts`` with the recipient. DB-backed on SQLite with the EDGAR
+add it, to the frozen page and text part alike, for a Pro recipient while the feature is on and
+never for a Free one or with the flag off; a batch the delivery drain rebuilds (the recipient's
+address changed after selection) carries it too, rendered from ``_item_dicts`` with the recipient. DB-backed on SQLite with the EDGAR
 fetch and the sender injected; the comparison summary is written straight onto the
 ``filing_section_text`` rows, as the extraction batch leaves it.
 """
@@ -63,8 +63,9 @@ def test_alert_and_digest_carry_the_line_in_html_and_text_only_when_given():
     ]
     html, text = render_daily_digest(name="Jane", items=items)
     assert html.count("Risk factor wording") == 1 and "3 paragraphs changed since the prior 10-Q" in html
-    assert "(2026-06-16): Risk factor wording: 3 paragraphs changed since the prior 10-Q. " in text
-    subject, _html = build_daily_digest(name="Jane", items=items)
+    assert text.count("Risk factor wording") == 1
+    assert "Acme Corp (ACME) · 10-Q · 2026-06-16\nRisk factor wording: 3 paragraphs changed since the prior 10-Q.\n" in text
+    subject, _html, _text = build_daily_digest(name="Jane", items=items)
     assert subject == "2 new filings from your watchlist"
 
 
@@ -141,13 +142,14 @@ def _fetch_returning(accession, sec_url, document_url):
     return _fetch
 
 
-def _batch_html(user_id):
+def _batch_parts(user_id):
+    """Each batch's frozen page and text part, as (html, text)."""
     from app.database import SessionLocal
     from app.models.notification_delivery import DeliveryBatch
 
     db = SessionLocal()
     try:
-        return [b.body_html for b in db.query(DeliveryBatch).filter(DeliveryBatch.user_id == user_id).all()]
+        return [(b.body_html, b.body_text) for b in db.query(DeliveryBatch).filter(DeliveryBatch.user_id == user_id).all()]
     finally:
         db.close()
 
@@ -166,8 +168,9 @@ async def test_pro_realtime_alert_carries_the_line_while_the_feature_is_on(monke
         db.close()
         assert stats["alerts_sent"] == 1
         assert send.await_args.kwargs["wording_changes"] == SUMMARY
-        [html] = _batch_html(uid)
+        [(html, text)] = _batch_parts(uid)
         assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in html
+        assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in text
 
 
 @pytest.mark.asyncio
@@ -183,8 +186,8 @@ async def test_the_line_is_withheld_with_the_flag_off(monkeypatch):
                               send_alert=send, now=NOW, cadence_minutes=0)
         db.close()
         assert send.await_args.kwargs["wording_changes"] is None
-        [html] = _batch_html(uid)
-        assert "Risk factor wording" not in html
+        [(html, text)] = _batch_parts(uid)
+        assert "Risk factor wording" not in html and "Risk factor wording" not in text
 
 
 @pytest.mark.asyncio
@@ -202,13 +205,14 @@ async def test_the_digest_carries_the_line_for_pro_only(monkeypatch, is_pro):
         assert stats["digests_sent"] >= 1
         [item] = [i for i in send.await_args.kwargs["items"] if i["company_name"].startswith("Co ")] if is_pro else [
             i for i in send.await_args.kwargs["items"]]
-        [html] = _batch_html(uid)
+        [(html, text)] = _batch_parts(uid)
         if is_pro:
             assert item["wording_changes"] == SUMMARY
             assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in html
+            assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in text
         else:
             assert item["wording_changes"] is None
-            assert "Risk factor wording" not in html
+            assert "Risk factor wording" not in html and "Risk factor wording" not in text
 
 
 @pytest.mark.asyncio
@@ -239,8 +243,8 @@ async def test_a_batch_rebuilt_by_the_drain_carries_the_line(monkeypatch):
             stats = await run_filing_scan(db, fetch_filings=_fetch_returning(accession, sec_url, document_url),
                                           send_alert=refused, now=NOW, cadence_minutes=0)
             assert stats["alerts_sent"] == 0 and stats["alerts_failed"] == 1
-            [frozen] = _batch_html(uid)
-            assert "Risk factor wording" not in frozen
+            [(frozen, frozen_text)] = _batch_parts(uid)
+            assert "Risk factor wording" not in frozen and "Risk factor wording" not in frozen_text
             db.query(User).filter(User.id == uid).update({"email": f"moved-{uid}@example.com"})
             db.commit()
             monkeypatch.setattr(settings, "ENABLE_SECTION_CHANGES", True)
@@ -251,6 +255,7 @@ async def test_a_batch_rebuilt_by_the_drain_carries_the_line(monkeypatch):
         [rebuilt] = sent
         assert rebuilt.to_email == f"moved-{uid}@example.com"
         assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in rebuilt.html
+        assert "Risk factor wording: 7 paragraphs changed since the prior 10-K." in rebuilt.text
         assert rebuilt.items[0]["wording_changes"] == SUMMARY
 
 

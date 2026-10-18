@@ -15,8 +15,8 @@ them in an interpreter of their own, with these settings, which a check holds th
 - the site's other origins (``CORS_ORIGINS_STR``) are set to hosts of their own.
 
 It reads every string a function sends, through the module's name for the transport or the transport itself, or
-returns. A page, as ``_wrap_html`` builds it, is read as its markup; any other string (a plain-text copy, a
-subject) as markup and as the text it is, as ``_hidden_text`` sends it. In them it reads:
+returns. A page, as ``_wrap_html`` builds it, is read as its markup; any other string (a text part, a subject) as
+markup and as the text it is, as a client shows a text part. In them it reads:
 - each attribute that holds an address: ``srcset`` candidate by candidate, as HTML parses it; a
   ``<meta>`` tag's content; a relative address, resolved against a ``<base href>``;
 - each URL in CSS, in a ``style`` attribute or a ``<style>`` block, with its escapes decoded: a ``url()``,
@@ -44,7 +44,8 @@ Nor may a module build an HTML page outside the shell, ``_wrap_html`` (a string 
 transport (``resend_service``), the delivery queue, which sends the pages it is handed, or the provider
 itself, save those ``SENDERS`` lists with how many times each names a send and what it sends, so a new
 sender, or a listed one that names a send once more, fails here until it builds its mail through
-``email_service`` or is listed. Planted modules score each check. What it cannot see:
+``email_service`` or is listed. Every send hands the transport a text part beside its page (planted in ``SENT``
+too). Planted modules score each check. What it cannot see:
 - an address in a form it does not read: an attribute outside the list it reads, a script;
 - which way a branch within one line goes (``x if c else y``, ``a or b``, a lookup), so a value no input
   passes may pick an address no render reads;
@@ -58,10 +59,10 @@ sender, or a listed one that names a send once more, fails here until it builds 
   or the queue bound by unpacking (``q, t = a, b``) or held as a class's attribute; a send
   behind a helper or a wrapper module, counted once however often its callers call it; and a call of the
   mail provider that names neither its settings nor its address;
-- mail built or finished outside ``email_service``, in the modules ``SENDERS`` lists:
-  ``routers/contact.py``'s confirmation (E56), the internal admin and team notices, and what a caller adds
-  to a page before it sends it (``data_quality_service.run_and_email`` appends the report's text copy, as
-  ``_hidden_text`` would).
+- mail built or sent outside ``email_service``, in the modules ``SENDERS`` lists: ``routers/contact.py``'s
+  confirmation (E56) and the internal admin and team notices, which send no text part of their own, and the
+  page and text part ``data_quality_service.run_and_email`` hands the transport, which the render here checks
+  as ``render_data_quality_report`` returns them.
 
 It also holds every page it renders to the shell's page rules, which ``test_mail_header_template.py``
 states and plants, and which ``tests/support/mail_styles.py`` models as Blink and WebKit read a page's
@@ -95,6 +96,23 @@ cannot see: whether a line says what its mail says, which review reads; a bare h
 because a company's name can be shaped like one; and a line longer than the limit for a company whose name is
 longer than the inputs' (the alert's line, and the earnings alert's for one company, print the name as the
 caller hands it in, first, so a preview that cuts the line cuts what follows it).
+
+The preheader is the one text a page hides (E110): ``mail_styles.hidden_text_problems``, planted in
+``HIDDEN_TEXTS``, finds every other, in a browser's view or classic Outlook's, the ways a page hides text from
+its reader or a spam filter reads as hidden: an element laid out nowhere or that skips its content, opacity
+under rspamd's floor, a box that clips its overflow to 3 px or less, ``visibility:hidden``, a font size of 3 px
+or less, a colour that is transparent or too like the ground behind it, and ``mso-hide:all``; it refuses
+``position``, ``transform``, ``clip``, ``clip-path`` and ``text-indent``, which can hide text in ways it does not
+model. Each page once hid a plain-text copy of its mail, which on the account mails took them past rspamd's
+HIDDEN_TEXT floor of 200 hidden characters (``rules/html.lua``). That copy is now the mail's text part, which a
+client shows in place of the page and a spam filter compares with it: every mail carries one, each ``send_``
+function handing it to the transport as ``text=`` and each render or build function returning it after its page,
+and it says what its page says (``text_part_problems``, planted in ``TEXT_PARTS``): the words the page shows below
+its header (``mail_styles.shown_text``), save the line under a button that offers its link to copy
+(``PAGE_ONLY``), every link the page carries written out, no address the page does not carry, the page's last
+line last, and no markup or character reference, since a client shows the text as written. What it cannot see:
+whether the text part's words come in the page's order; a word the page and the text part each say in another
+sentence; and text a ``<style>`` block hides, which the page rules refuse.
 """
 import ast
 import html
@@ -111,15 +129,18 @@ from urllib.parse import unquote, urljoin, urlsplit
 
 import pytest
 import tinycss2
+import tinyhtml5
 
 from app.services import email_service
 from tests.support.mail_styles import (
     colour_problems,
     fixed_width_problems,
+    hidden_text_problems,
     long_run_problems,
     long_runs,
     outlook_width_problems,
     reach_problems,
+    shown_text,
     text_size_problems,
     viewports,
 )
@@ -333,7 +354,7 @@ def addresses(page: str) -> list[str]:
 
 def read(sent: str) -> list[str]:
     """Every address a string carries: a page's, read as its markup, and any other string's, read as markup
-    and as the text it is, as _hidden_text sends it, so a plain-text copy's <https://...> is read too."""
+    and as the text it is, as a client shows a text part, so a text part's <https://...> is read too."""
     found = addresses(sent)
     return found if _PAGE.match(sent) else found + addresses(html.escape(sent))
 
@@ -444,14 +465,18 @@ def _render(cases: dict, module=email_service) -> dict:
 
     sent: list[str] = []
     sent_html: list[str] = []
+    sent_text: list[object] = []
 
     async def _record(to, subject, html, *args, **kwargs):
         sent.extend(_strings([to, subject, html, list(args), kwargs]))
         sent_html.append(html)
+        sent_text.append(kwargs.get("text"))
         return {"id": "msg_test"}
 
     out: dict[str, list[str]] = {}
     html_sent: dict[str, list[str]] = {}
+    text_sent: dict[str, list[object]] = {}
+    mails: dict[str, list[tuple[str, object]]] = {}  # each mail a function sends or returns, as (page, text part)
     transport = resend_service.send_email
     sys.settrace(trace)
     try:
@@ -464,8 +489,13 @@ def _render(cases: dict, module=email_service) -> dict:
                     result = asyncio.run(result)
                 out.setdefault(name, []).extend(_strings(result) + sent)
                 html_sent.setdefault(name, []).extend(sent_html)
+                text_sent.setdefault(name, []).extend(sent_text)
+                pages = [part for part in result if isinstance(part, str) and _PAGE.match(part)] if isinstance(result, tuple) else []
+                # A render or build function returns its text part last, after its page.
+                mails.setdefault(name, []).extend([*zip(sent_html, sent_text), *((pages[0], result[-1]) for _ in pages[:1])])
                 sent.clear()
                 sent_html.clear()
+                sent_text.clear()
     finally:
         sys.settrace(None)
         resend_service.send_email = transport
@@ -476,6 +506,8 @@ def _render(cases: dict, module=email_service) -> dict:
     return {
         "mail": out,
         "html_sent": html_sent,
+        "text_sent": text_sent,
+        "mails": mails,
         "values": values,
         "lines": len(lines),
         "unrun": [f"{line}: {source.splitlines()[line - 1].strip()}" for line in unrun],
@@ -714,7 +746,7 @@ SENDERS = {
     "app/services/email_service.py": (10, "every mail it builds, in the shell, through the transport"),
     "app/services/notification_delivery_service.py": (1, "the filing alerts and digests email_service builds, held for delivery"),
     "app/services/filing_scan_service.py": (5, "the filing alerts and digests email_service builds, queued: three batches and two drains"),
-    "app/services/data_quality_service.py": (1, "the data-quality report email_service builds, with its text copy"),
+    "app/services/data_quality_service.py": (1, "the data-quality report email_service builds, its page and text part"),
     "app/routers/contact.py": (2, "a notice to the team and a confirmation to the person who wrote in, pages of its own (E56)"),
     "app/routers/admin.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
     "app/routers/email.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
@@ -1058,9 +1090,9 @@ def _pages(rendered: dict) -> list[tuple[str, str]]:
     return pages
 
 
-def send_problems(html_sent: dict[str, list[str]], renders) -> list[str]:
+def send_problems(html_sent: dict[str, list[str]], text_sent: dict[str, list[object]], renders) -> list[str]:
     """Where a mail module's renders break the rule that each ``send_`` function sends mail and every mail it sends
-    is a page the shell built, while a render or build function sends none."""
+    is a page the shell built with a text part beside it, while a render or build function sends none."""
     problems = []
     sending = {name for name, sent in html_sent.items() if sent}
     if sending != {name for name in renders if name.startswith("send_")}:
@@ -1075,13 +1107,20 @@ def send_problems(html_sent: dict[str, list[str]], renders) -> list[str]:
         for html in sent
         if not _PAGE.match(html)
     ]
+    problems += [
+        f"{name} sends a page with no text part, so the provider builds one from the page, its preheader and header "
+        "among it, and a spam filter compares the two: hand send_email the mail's text= (email_service._wrap_text)"
+        for name, sent in text_sent.items()
+        for text in sent
+        if not (isinstance(text, str) and text.strip())
+    ]
     return problems
 
 
 def test_every_mail_the_module_sends_is_a_page_the_shell_built(rendered):
     # The page check holds every other string of email_service.py from opening a page, so an HTML that opens the
     # shell's doctype is the shell's, and each page rule below reads it.
-    problems = send_problems(rendered["html_sent"], RENDERS)
+    problems = send_problems(rendered["html_sent"], rendered["text_sent"], RENDERS)
     assert not problems, "\n".join(problems)
 
 
@@ -1101,8 +1140,12 @@ SENT = [
     ("a send_ function that sends a fragment through the transport itself, its error caught", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE)\n    try:\n        await resend_service.send_email(to=[to], subject='s', html='<p>x</p>')\n    except resend_service.ResendError:\n        pass\n", {"send_note": [{"to": TO}]}, "no page the shell built"),
     ("a render function that sends its page", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE)\n\n\nasync def render_note():\n    await send_email(to=[TO], subject='s', html=PAGE)\n    return PAGE\n\n\nTO = 'a@e.test'\n", {"send_note": [{"to": TO}], "render_note": [{}]}, "these renders sent mail"),
     ("a send_ function that sends nothing", _STUB + "async def send_note(to):\n    return PAGE\n" + _RENDER_NOTE, {"send_note": [{"to": TO}], "render_note": [{}]}, "these renders sent mail"),
+    ("a send_ function that sends its page with no text part", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE)\n", {"send_note": [{"to": TO}]}, "with no text part"),
+    ("a send_ function that hands in a text part of None", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE, text=None)\n", {"send_note": [{"to": TO}]}, "with no text part"),
+    ("a send_ function that hands in a blank text part", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE, text=' \\n ')\n", {"send_note": [{"to": TO}]}, "with no text part"),
+    ("a send_ function whose second send has no text part", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=PAGE, text='Hi.')\n    await resend_service.send_email(to=[to], subject='s', html=PAGE)\n", {"send_note": [{"to": TO}]}, "with no text part"),
     # Kept.
-    ("a send_ function that sends the page its render builds", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=render_note())\n" + _RENDER_NOTE, {"send_note": [{"to": TO}], "render_note": [{}]}, None),
+    ("a send_ function that sends the page its render builds, with its text part", _STUB + "async def send_note(to):\n    await send_email(to=[to], subject='s', html=render_note(), text='Hi.')\n" + _RENDER_NOTE, {"send_note": [{"to": TO}], "render_note": [{}]}, None),
 ]
 
 
@@ -1116,8 +1159,9 @@ def planted_sends() -> dict:
     return json.loads(run.stdout.splitlines()[-1])
 
 
-def _planted_sends() -> dict[str, dict[str, list[str]]]:
-    """In the render's own interpreter: the HTML each planted stub module sends, as the render records it."""
+def _planted_sends() -> dict[str, dict[str, dict[str, list]]]:
+    """In the render's own interpreter: the HTML and the text part each planted stub module sends, as the render
+    records them."""
     import importlib
     import tempfile
 
@@ -1126,13 +1170,14 @@ def _planted_sends() -> dict[str, dict[str, list[str]]]:
         sys.path.insert(0, folder)
         for index, (label, source, cases, _) in enumerate(SENT):
             (Path(folder) / f"planted_mail_{index}.py").write_text(source, encoding="utf-8")
-            sent[label] = _render(cases, importlib.import_module(f"planted_mail_{index}"))["html_sent"]
+            render = _render(cases, importlib.import_module(f"planted_mail_{index}"))
+            sent[label] = {"html": render["html_sent"], "text": render["text_sent"]}
     return sent
 
 
 @pytest.mark.parametrize("label, cases, expected", [(case[0], *case[2:]) for case in SENT], ids=[case[0] for case in SENT])
 def test_the_send_check_scores_every_planted_module(planted_sends, label, cases, expected):
-    problems = send_problems(planted_sends[label], cases)
+    problems = send_problems(planted_sends[label]["html"], planted_sends[label]["text"], cases)
     if expected is None:
         assert not problems, problems
     else:
@@ -1249,8 +1294,8 @@ def test_the_earnings_day_rows_keep_a_two_word_slot_on_one_line():
         assert page.count(slot) == 1, (
             f"the row no longer prints {slot!r}: the middot stays with the slot, and a two-word slot keeps its words on one line"
         )
-    for slot in ("(before open)", "(after close)", "(during market hours)"):
-        assert slot in text, f"the plain text no longer reads {slot!r}"
+    for slot in ("· before open", "· after close", "· during market hours"):
+        assert text.count(f"reports today {slot}") == 1, f"the text part no longer reads {slot!r} after its row's words"
     # The row's map and the plain text's name the same slots in the same words, so the inputs, which print each slot
     # _TIME_LABEL holds, print each the row can show.
     assert {key: html.unescape(label).replace("\xa0", " ") for key, label in email_service._TIME_LABEL_HTML.items()} == email_service._TIME_LABEL, (
@@ -1506,6 +1551,225 @@ def test_the_preheader_check_scores_every_planted_page(page, expected):
         assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
 
 
+# The one text a page hides is its preheader (E110). Each page once hid a plain-text copy of its mail too, in a
+# <pre style="display:none">, and on the account mails that copy and the preheader passed rspamd's HIDDEN_TEXT
+# floor of 200 hidden characters (rules/html.lua); the copy now goes to the provider as the mail's text part.
+def _without_preheader(page: str) -> str:
+    """The page with its preheader taken out, which ``preheader_problems`` holds: the one text a page may hide."""
+    opening = _OPENS_BODY.search(page)
+    if not opening:
+        return page
+    start = opening.start() + opening.group(0).index("<div")
+    return page[:start] + page[opening.end():]
+
+
+def test_every_page_hides_no_text_but_its_preheader(rendered):
+    problems = [
+        f"{name}: {problem}" for name, page in _pages(rendered) for problem in hidden_text_problems(_without_preheader(page))
+    ]
+    assert not problems, (
+        "a page hides text besides its preheader, which its reader never sees and a spam filter such as rspamd scores "
+        "as hidden text (HIDDEN_TEXT, from 200 characters): show it, or send it in the mail's text part:\n"
+        + "\n".join(sorted(set(problems)))
+    )
+
+
+def _hiding(fragment: str) -> str:
+    """A page with a preheader, then ``fragment`` in a cell on the panel's ground, in the panel's ink."""
+    return (
+        f'<!doctype html><html><body style="background-color:#F4F3EE;">{_hidden("A line of its own.")}'
+        '<table role="presentation"><tr><td style="background:#FBFAF6;color:#1A1A17;font-size:16px;">'
+        f"<p>Words the reader sees.</p>{fragment}</td></tr></table></body></html>"
+    )
+
+
+# Each way a page can hide text from its reader, and the look-alikes that show it or hide nothing a filter counts.
+HIDDEN_TEXTS = [
+    # Broken.
+    ("a hidden plain-text copy, as _hidden_text appended one", '<pre style="display:none">Hi there, a copy of the text part.</pre>', "laid out nowhere"),
+    ("a second hidden line", '<div style="display:none">A second line no one sees.</div>', "laid out nowhere"),
+    ("display:none, important over a later display", '<p style="display:none !important;display:block">Hidden still.</p>', "laid out nowhere"),
+    ("a cell set to display:none", '<table><tr><td style="display:none">A hidden cell.</td></tr></table>', "laid out nowhere"),
+    ("the hidden attribute", "<span hidden>A hidden span.</span>", "laid out nowhere"),
+    ("an SVG's title, a tooltip a browser does not lay out", '<svg width="10" height="10"><title>A tooltip of words.</title></svg>', "laid out nowhere"),
+    ("hidden until found", '<div hidden="until-found">Found only by a search.</div>', "skips its content"),
+    ("content-visibility:hidden", '<div style="content-visibility:hidden">Skipped content.</div>', "skips its content"),
+    ("visibility:hidden", '<p style="visibility:hidden">Invisible words.</p>', "visibility:hidden"),
+    ("visibility:collapse", '<p style="visibility:collapse">Collapsed words.</p>', "visibility:hidden"),
+    ("a hidden parent's own words beside a child it shows", '<p style="visibility:hidden"><span style="visibility:visible">Shown.</span> Not shown.</p>', "visibility:hidden"),
+    ("opacity:0", '<p style="opacity:0">Words at no opacity.</p>', "opacity:0"),
+    ("opacity as a percentage", '<p style="opacity:0%">Words at no opacity.</p>', "opacity:0%"),
+    ("opacity under rspamd's floor", '<p style="opacity:0.03">Words all but clear.</p>', "opacity:0.03"),
+    ("font-size:0", '<p style="font-size:0">Words at no size.</p>', "font size is 0px"),
+    ("a font size of 2 px", '<p style="font-size:2px">Words too small to read.</p>', "font size is 2px"),
+    ("font:0/0 a, the shorthand", '<p style="font:0/0 a">Words at no size.</p>', "font size is 0px"),
+    ("a size a parent at 0 hands down", '<div style="font-size:0"><span>Inherited words.</span></div>', "font size is 0px"),
+    ("a percentage of the parent's size", '<p style="font-size:10%">Words at a tenth.</p>', "font size is 1.6px"),
+    ("an em of a small parent", '<div style="font-size:4px"><span style="font-size:0.5em">Half of four.</span></div>', "font size is 2px"),
+    ("<font size> under a style that sets none", '<font size="7" style="font-size:0">Legacy words.</font>', "font size is 0px"),
+    ("max-height:0 under overflow:hidden, as a preheader hides", '<p style="max-height:0;overflow:hidden">Clipped words.</p>', "max-height:0"),
+    ("height:0 under overflow:hidden", '<p style="height:0;overflow:hidden">Clipped words.</p>', "(height:0"),
+    ("a box 1 px wide that clips", '<p style="width:1px;overflow:hidden">Clipped words.</p>', "width:1px"),
+    ("overflow-y:clip under a zero height", '<p style="height:0;overflow-y:clip">Clipped words.</p>', "overflow:clip"),
+    ("the overflow shorthand's second word", '<p style="overflow:visible hidden;max-height:0">Clipped words.</p>', "max-height:0"),
+    ("a transparent colour", '<p style="color:transparent">Clear words.</p>', "transparent"),
+    ("rgba at no alpha", '<p style="color:rgba(26,26,23,0)">Clear words.</p>', "transparent"),
+    ("the panel's colour on the panel", '<p style="color:#FBFAF6">White on white.</p>', "too like the ground"),
+    ("a colour all but the ground's", '<p style="color:#FAF9F5">Near white on white.</p>', "too like the ground"),
+    ("ink on a ground of ink", '<table><tr><td bgcolor="#1A1A17"><span style="color:#1A1A17">Dark on dark.</span></td></tr></table>', "too like the ground"),
+    ("a named colour on its own ground", '<div style="background-color:white"><p style="color:white">Named white.</p></div>', "too like the ground"),
+    ("<font color> on the panel", '<font color="#FBFAF6">Legacy white.</font>', "too like the ground"),
+    ("mso-hide:all, which classic Outlook hides", '<div style="mso-hide:all">Words Outlook drops.</div>', "mso-hide:all"),
+    ("a hidden line inside Outlook's conditional comment", '<!--[if mso]><div style="display:none">Outlook only, hidden.</div><![endif]-->', "laid out nowhere"),
+    ("a box moved off the page", '<p style="position:absolute;left:-9999px">Off the page.</p>', "sets position:absolute"),
+    ("a line indented out of its box", '<p style="text-indent:-9999px">Indented away.</p>', "sets text-indent:-9999px"),
+    ("a box scaled to nothing", '<p style="transform:scale(0)">Scaled away.</p>', "sets transform:scale(0)"),
+    ("a box clipped by clip", '<p style="clip:rect(0 0 0 0)">Clipped away.</p>', "sets clip:rect(0 0 0 0)"),
+    ("a box clipped by clip-path", '<p style="clip-path:inset(50%)">Clipped away.</p>', "sets clip-path:inset(50%)"),
+    # Kept.
+    ("a hairline cell at 1 px holding a no-break space", '<table><tr><td height="1" bgcolor="#E5E7EB" style="height:1px;background-color:#E5E7EB;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>', None),
+    ("an image set to display:block", '<img src="https://e.test/a.png" width="32" height="32" alt="A described image" style="display:block;">', None),
+    ("the tagline's mark, its words at 18 px in a span at 5.187 px", '<span style="display:inline-block;"><span style="font-size:5.187px;line-height:0;"><span style="font-size:18px;line-height:0;">shows its work</span></span>.</span>', None),
+    ("a line at line-height:0, which still paints", '<p style="line-height:0">Painted words.</p>', None),
+    ("white on the button's sage", '<a href="https://e.test/x" style="background:#4F7A63;color:#ffffff;padding:12px;">Read the summary</a>', None),
+    ("the muted ink on the panel", '<p style="color:#6B7280">Muted words.</p>', None),
+    ("a link that sets no colour, in a browser's blue", '<a href="https://e.test/x">A link</a>', None),
+    ("a box that clips at a size that shows its line", '<p style="max-height:600px;overflow:hidden">A tall box.</p>', None),
+    ("half opacity", '<p style="opacity:0.5">Half shown.</p>', None),
+    ("a child shown again under a hidden parent with no words of its own", '<div style="visibility:hidden"><span style="visibility:visible">Shown again.</span></div>', None),
+    ("Outlook's own tagline in a conditional comment, which Outlook shows", "The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span>shows its work.</span><!--<![endif]-->", None),
+    ("mso-hide:all on a box of spaces", '<div style="mso-hide:all">&nbsp; &#8203;</div>', None),
+    ("a static box with no indent", '<p style="position:static;text-indent:0">Plain words.</p>', None),
+    ("a zero-width space between two words", "<p>Earnings&#8203;Nerd</p>", None),
+    ("a font shorthand that sets a size and a family", '<p style="font:bold 16px/1.5 Inter,Arial">Bold words.</p>', None),
+]
+
+
+@pytest.mark.parametrize("page, expected", [(_hiding(case[1]), case[2]) for case in HIDDEN_TEXTS], ids=[case[0] for case in HIDDEN_TEXTS])
+def test_the_hidden_text_check_scores_every_planted_page(page, expected):
+    problems = hidden_text_problems(_without_preheader(page))
+    if expected is None:
+        assert not problems, problems
+    else:
+        assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
+
+
+def test_the_preheader_is_the_one_text_set_aside():
+    page = _hiding("")
+    assert any("laid out nowhere" in problem for problem in hidden_text_problems(page)), "read whole, the page hides its preheader"
+    assert hidden_text_problems(_without_preheader(page)) == []
+    second = page.replace("</div>", f'</div>{_hidden("A second line.")}', 1)
+    assert hidden_text_problems(_without_preheader(second)), "a second hidden line after the preheader is not set aside with it"
+
+
+# Every mail carries a text part (E110), which a client shows in place of the page, a text-only one or a watch, and a
+# spam filter compares with the page (rspamd's R_PARTS_DIFFER). It says what the page says below its header: the same
+# words, each link written out, the page's last line last. The one line a page shows that its text part need not is
+# the one under a button that offers its link to copy, since the text part writes each link out beside the words of
+# its button or link.
+PAGE_ONLY = ("Can't click the button? Copy this link:",)
+_WORD = re.compile(r"[^\W_]+(?:['’][^\W_]+)*")
+_MARKUP_IN_TEXT = re.compile(r"<[a-z!/?]|&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]*);", re.IGNORECASE)
+
+
+def _written(text: str) -> set[str]:
+    """The addresses a text writes out, as a client links them: each URL, less the punctuation that ends a sentence."""
+    return {url.rstrip(".,;:!?") for url in _TEXT_URL.findall(text)}
+
+
+def _words(text: str) -> set[str]:
+    """The words of a text, its addresses aside, in one case: what a text part and its page must share."""
+    return {word.lower() for word in _WORD.findall(_TEXT_URL.sub(" ", text))}
+
+
+def text_part_problems(page: str, text: object) -> list[str]:
+    """Where a mail's text part does not say what its page says (E110): there is none; it leaves out a link the page
+    carries, or writes out an address the page does not; its words are not the words the page shows below its header
+    (``shown_text``), save the ``PAGE_ONLY`` lines; it does not end with the page's last line, the footer line; or it
+    holds markup or a character reference, which a client shows as written (the inputs hand in none, so any is the
+    template's). What it cannot see: whether the words come in the page's order, or a word the page and the text part
+    each use in another sentence."""
+    if not isinstance(text, str) or not text.strip():
+        return ["the mail has no text part, so the provider builds one from the page, its preheader and header among it: "
+                "return it after the page and hand it to send_email as text= (email_service._wrap_text)"]
+    shown = shown_text(page)
+    links = {anchor.get("href").strip() for anchor in tinyhtml5.parse(page, namespace_html_elements=False).iter("a") if anchor.get("href")}
+    problems = []
+    if missing := sorted(links - _written(text)):
+        problems.append(f"the text part leaves out the address of a link the page carries, {missing}: write it out beside its words")
+    if extra := sorted(_written(text) - links - _written(shown)):
+        problems.append(f"the text part writes out an address the page does not carry: {extra}")
+    page_only = shown
+    for line in PAGE_ONLY:
+        page_only = page_only.replace(line, " ")
+    if only_page := sorted(_words(page_only) - _words(text)):
+        problems.append(f"the text part leaves out words only the page shows: {only_page}")
+    if only_text := sorted(_words(text) - _words(page_only)):
+        problems.append(f"the text part says words only the text part says: {only_text}")
+    last = shown.splitlines()[-1] if shown else ""
+    if " ".join(text.split()[-len(last.split()):]) != last:
+        problems.append(f"the text part does not end as the page does, with {last!r}")
+    if _MARKUP_IN_TEXT.search(text):
+        problems.append("the text part holds markup or a character reference, which a client shows as written: write it as plain text")
+    return problems
+
+
+def test_every_mail_carries_a_text_part_that_says_what_its_page_says(rendered):
+    mails = [(name, page, text) for name, pairs in rendered["mails"].items() for page, text in pairs]
+    assert {name for name, _, _ in mails} == set(RENDERS), (
+        "a render built no page with a text part beside it: a render or build function returns its text part after its "
+        "page, and a send_ function hands send_email both"
+    )
+    problems = [f"{name}: {problem}" for name, page, text in mails for problem in text_part_problems(page, text)]
+    assert not problems, "\n".join(sorted(set(problems)))
+
+
+_TEXT_PAGE_BODY = (
+    '<p style="margin:0 0 16px;">Hi Sam,</p><p style="margin:0 0 16px;">Your report is ready — read it today.</p>'
+    '<p><a href="https://e.test/report" style="color:#3C6650;">Read the report</a></p>'
+    '<p style="color:#6B7280;">Can&apos;t click the button? Copy this link:<br>https://e.test/report</p>'
+)
+_TEXT_FOOTER = 'You asked for it. <a href="https://e.test/settings" style="color:#3C6650;">Settings</a>.'
+_TEXT_PART = (
+    "Hi Sam,\n\nYour report is ready: read it today.\n\nRead the report: https://e.test/report\n\n"
+    "You asked for it. Settings (https://e.test/settings).\n\n" + email_service._FOOTER_LINE
+)
+
+
+def _text_page() -> str:
+    return email_service._wrap_html(_TEXT_PAGE_BODY, _TEXT_FOOTER, preheader="Your report is ready.")
+
+
+# Each way a text part can fail to say what its page says, and the look-alikes that say it.
+TEXT_PARTS = [
+    # Broken.
+    ("no text part", None, "has no text part"),
+    ("a blank text part", " \n ", "has no text part"),
+    ("a text part that leaves out the button's link", _TEXT_PART.replace("Read the report: https://e.test/report", "Read the report"), "leaves out the address"),
+    ("a text part that leaves out the footer's link", _TEXT_PART.replace(" (https://e.test/settings)", ""), "leaves out the address"),
+    ("a text part with an address the page does not carry", _TEXT_PART.replace("https://e.test/report", "https://e.test/elsewhere"), "does not carry"),
+    ("a text part that leaves out a sentence", _TEXT_PART.replace("Your report is ready: read it today.\n\n", ""), "words only the page shows"),
+    ("a text part that adds a sentence", _TEXT_PART.replace("Hi Sam,", "Hi Sam,\n\nAct now."), "words only the text part says"),
+    ("a text part that leaves out the footer line", _TEXT_PART.replace("\n\n" + email_service._FOOTER_LINE, ""), "does not end as the page does"),
+    ("a text part with the footer line first", email_service._FOOTER_LINE + "\n\n" + _TEXT_PART.replace("\n\n" + email_service._FOOTER_LINE, ""), "does not end as the page does"),
+    ("a text part that holds a tag", _TEXT_PART.replace("ready", "<strong>ready</strong>"), "holds markup"),
+    ("a text part that holds a character reference", _TEXT_PART.replace("Sam,", "Sam&apos;s,"), "holds markup"),
+    # Kept.
+    ("the text part as email_service writes one", _TEXT_PART, None),
+    ("a link's address before the full stop that ends its sentence", _TEXT_PART.replace("https://e.test/report\n", "https://e.test/report.\n"), None),
+    ("other punctuation, a comma for the page's dash", _TEXT_PART.replace("ready: read", "ready, read"), None),
+]
+
+
+@pytest.mark.parametrize("text, expected", [case[1:] for case in TEXT_PARTS], ids=[case[0] for case in TEXT_PARTS])
+def test_the_text_part_check_scores_every_planted_text(text, expected):
+    problems = text_part_problems(_text_page(), text)
+    if expected is None:
+        assert not problems, problems
+    else:
+        assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
+
+
 def _img(src: str) -> str:
     return f'<td><img src="{src}" width="32" alt=""></td>'
 
@@ -1610,12 +1874,16 @@ def test_the_planted_lists_keep_their_counts():
         "ADDRESSES": (sum(isinstance(case[-1], str) for case in ADDRESSES), sum(case[-1] is None for case in ADDRESSES)),
         "SENT": (sum(isinstance(case[-1], str) for case in SENT), sum(case[-1] is None for case in SENT)),
         "PREHEADERS": (sum(isinstance(case[-1], str) for case in PREHEADERS), sum(case[-1] is None for case in PREHEADERS)),
+        "HIDDEN_TEXTS": (sum(isinstance(case[-1], str) for case in HIDDEN_TEXTS), sum(case[-1] is None for case in HIDDEN_TEXTS)),
+        "TEXT_PARTS": (sum(isinstance(case[-1], str) for case in TEXT_PARTS), sum(case[-1] is None for case in TEXT_PARTS)),
     }
     assert counts == {
-        "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (7, 1), "PREHEADERS": (21, 7),
+        "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (11, 1), "PREHEADERS": (21, 7),
+        "HIDDEN_TEXTS": (40, 15), "TEXT_PARTS": (11, 3),
     }, "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     for name, cases in (
         ("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT), ("PREHEADERS", PREHEADERS),
+        ("HIDDEN_TEXTS", HIDDEN_TEXTS), ("TEXT_PARTS", TEXT_PARTS),
     ):
         labels = [case[0] for case in cases]
         assert len(set(labels)) == len(labels), f"each case {name} plants has a name of its own"

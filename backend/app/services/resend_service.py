@@ -53,8 +53,12 @@ async def send_email(
     html: str,
     from_email: str | None = None,
     *,
+    text: str | None = None,
     idempotency_key: str | None = None,
 ) -> dict:
+    """Send one email. ``text`` is its plain-text part, sent only when given (an empty string asks for none).
+    Given none, Resend builds one from the HTML: so it does for the internal notices, and for a delivery batch
+    frozen before batches held their text part, whose replay must be the request its key was bound to (E110)."""
     if not settings.RESEND_API_KEY:
         # Nothing was sent: a durable delivery may retry once the secret is configured.
         raise ResendRetryableError("Resend is not configured. Set RESEND_API_KEY.")
@@ -65,6 +69,8 @@ async def send_email(
         "subject": subject,
         "html": html,
     }
+    if text is not None:
+        payload["text"] = text
     headers = {
         "Authorization": f"Bearer {settings.RESEND_API_KEY}",
         "Content-Type": "application/json",

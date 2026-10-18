@@ -36,7 +36,11 @@
   ``all:revert``); and a URL printed as text, which Gmail and Apple Mail turn into a link in their own colour
   (inferred). A link whose text sits in a child of a token's colour, under ``text-decoration:none``, shows no
   blue, and fails all the same, and a word that names a colour where another property takes a name of its own,
-  such as an animation's, is read as that colour (asking).
+  such as an animation's, is read as that colour (asking);
+- ``hidden_text_problems``: every text a page holds and does not show its reader, in its own view or classic
+  Outlook's, and each declaration that can hide text in a way the reader does not model (E110); the gate sets the
+  preheader aside, the one text a page may hide;
+- ``shown_text``: the text a page shows below its header, a line for each block, which a mail's text part says too.
 
 A page is read as a browser builds it, by ``tinyhtml5``, the WHATWG tree builder (``requirements.in``): an
 end tag a browser implies is implied, a ``/>`` on an element that is not void is ignored, the first of two
@@ -220,7 +224,8 @@ text the page does not show: what ``display:none`` or the ``hidden`` attribute h
 content skipped, which the reader reads, and a hidden ``<embed>`` is laid out at a width of 0 unless the page sets
 one), what a browser's own style sheet hides (the head, and an input of type hidden and an audio without its
 controls, whatever display a page gives them), nor an image's ``alt``, which shows only where images are blocked.
-Text hidden another way, at ``font-size:0`` or in a box clipped to nothing, it reads as shown."""
+Text hidden another way, at ``font-size:0`` or in a box clipped to nothing, it reads as shown, and
+``hidden_text_problems`` fails it."""
 from __future__ import annotations
 
 import re
@@ -1892,3 +1897,285 @@ def outlook_width_problems(page: str) -> list[str]:
                 "table 600 px wide: give it one in a conditional comment"
             )
     return problems
+
+
+# --------------------------------------------------------------------------- text a page holds and does not show
+
+# What rspamd's HIDDEN_TEXT does not count (rules/html.lua, 4.2.0): whitespace, the Unicode separators and the
+# invisible characters that pad an inbox preview. A hidden run with nothing else in it, a hairline cell's no-break
+# space or a preheader's fill, hides nothing a reader or a filter counts.
+_UNCOUNTED = re.compile(r"[\s­͏​-‍⁠﻿]")
+# The smallest font a reader can read, and the largest rspamd reads as hidden (html_block.hxx: 3 px or less).
+_LEGIBLE_PX = 3.0
+# rspamd's floors for a colour that shows: an alpha of at least 10 in 255, and a weighted distance from the ground
+# behind it of at least 0.1 (html_block.hxx).
+_SHOWN_ALPHA = 10 / 255
+_ALIKE = 0.1
+_FONT_KEYWORDS = {
+    "xx-small": 9.0, "x-small": 10.0, "small": 13.0, "medium": 16.0, "large": 18.0, "x-large": 24.0, "xx-large": 32.0,
+    "xxx-large": 48.0,
+}
+_FONT_SIZE_ATTRIBUTE = {"1": 10.0, "2": 13.0, "3": 16.0, "4": 18.0, "5": 24.0, "6": 32.0, "7": 48.0}  # <font size>
+_LENGTH = re.compile(r"([+-]?(?:\d+\.?\d*|\.\d+))([a-z%]*)")
+# The properties that can move or clip text out of view in ways the reader does not model, with the values that
+# cannot: a page that sets one any other way is refused.
+_UNMODELLED = {
+    "position": {"static", "initial", "unset", "revert", "revert-layer"},
+    "transform": {"none", "initial", "unset", "revert", "revert-layer"},
+    "clip": {"auto", "initial", "unset", "revert", "revert-layer"},
+    "clip-path": {"none", "initial", "unset", "revert", "revert-layer"},
+    "text-indent": {"0", "0px", "initial", "unset", "revert", "revert-layer"},
+}
+_BLOCKS = frozenset({
+    "address", "article", "aside", "blockquote", "br", "caption", "dd", "div", "dl", "dt", "figcaption", "figure",
+    "footer", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li", "main", "nav", "ol", "p", "pre", "section",
+    "table", "tbody", "td", "tfoot", "th", "thead", "tr", "ul",
+})
+_BLACK, _WHITE, _LINK_BLUE = (0.0, 0.0, 0.0, 1.0), (1.0, 1.0, 1.0, 1.0), (0.0, 0.0, 238 / 255, 1.0)
+_BLOCK_EDGE = "\x1e"  # marks a block's edge among a page's texts; a page's own text holds no record separator
+
+
+def _all_declared(style: str | None) -> list[tuple[str, bool, str]]:
+    """Every declaration a style attribute makes, in order (name, important, value), comments dropped and names
+    and values lowercased. ``_declarations`` reads only the properties the other rules read."""
+    return [
+        (item.lower_name, item.important, tinycss2.serialize(item.value).strip().lower())
+        for item in tinycss2.parse_blocks_contents(style or "", skip_comments=True, skip_whitespace=True)
+        if item.type == "declaration"
+    ]
+
+
+def _winner(declared: list[tuple[str, bool, str]], *names: str) -> tuple[str, str] | None:
+    """The declaration that wins among those of ``names``, which set one property, as (name, value): an important
+    declaration over a normal one, and among equals the last, so a shorthand and its longhand read in order."""
+    won = None
+    for name, important, value in declared:
+        if name in names and (won is None or important or not won[0]):
+            won = (important, name, value)
+    return (won[1], won[2]) if won else None
+
+
+def _rgba(value: str | None) -> tuple[float, float, float, float] | None:
+    """A colour as sRGB and alpha, each from 0 to 1, or None for a value that is no colour the reader resolves
+    (``currentcolor``, a CSS-wide keyword, ``var()``, ``light-dark()``, ``color-mix()``)."""
+    colour = parse_color(value) if value else None
+    if colour is None or isinstance(colour, str):
+        return None
+    srgb = colour.to("srgb")
+    red, green, blue = (min(1.0, max(0.0, channel)) for channel in srgb.coordinates)
+    return (red, green, blue, float(srgb.alpha))
+
+
+def _alike(colour: tuple[float, ...], ground: tuple[float, ...]) -> bool:
+    """Whether a colour is too like the ground behind it to read, by rspamd's weighted distance in sRGB."""
+    dr, dg, db = (((a - b) * 255) ** 2 for a, b in zip(colour[:3], ground[:3]))
+    mean_red = (colour[0] + ground[0]) * 255 / 2
+    return max(0.0, 2 * dr + 4 * dg + 3 * db + mean_red * (dr - db) / 256) ** 0.5 / 256 < _ALIKE
+
+
+def _length_px(value: str | None, font: float) -> float | None:
+    """A length in px, a font-relative one against ``font``; 0 in any unit is 0. None for a length the reader cannot
+    resolve, a percentage or a viewport unit, or no length."""
+    match = _LENGTH.fullmatch(value or "")
+    if not match:
+        return None
+    number, unit = float(match.group(1)), match.group(2)
+    if number == 0:
+        return 0.0
+    return {"px": number, "em": font * number, "rem": 16.0 * number, "pt": number * 4 / 3, "pc": number * 16,
+            "in": number * 96, "cm": number * 96 / 2.54, "mm": number * 96 / 25.4, "ex": font * number / 2,
+            "ch": font * number / 2}.get(unit)
+
+
+def _font_px(value: str, parent: float) -> float | None:
+    """A font size as a browser computes it against its parent's, in px, or None for a value that is no size."""
+    if value in ("inherit", "unset"):
+        return parent
+    if value in ("initial", "revert", "revert-layer"):
+        return 16.0
+    if value in _FONT_KEYWORDS:
+        return _FONT_KEYWORDS[value]
+    if value in ("smaller", "larger"):
+        return parent / 1.2 if value == "smaller" else parent * 1.2
+    if value.endswith("%") and (match := _LENGTH.fullmatch(value)):
+        return parent * float(match.group(1)) / 100
+    return _length_px(value, parent)
+
+
+def _shorthand_font_px(value: str, parent: float) -> float | None:
+    """The size a ``font`` shorthand sets: its first word, before the ``/`` of a line height, that is a size."""
+    if value in _GLOBAL:
+        return _font_px(value, parent)
+    for word in value.split("/")[0].split():
+        if (size := _font_px(word, parent)) is not None:
+            return size
+    return None
+
+
+def _ground(element: ElementTree.Element, declared: list[tuple[str, bool, str]]) -> tuple[float, ...] | None:
+    """The colour an element paints behind its text: its background's colour, from ``background-color`` or the
+    ``background`` shorthand (which, setting none, sets it transparent), or its ``bgcolor`` hint below either."""
+    won = _winner(declared, "background-color", "background")
+    if won is None:
+        return _rgba(element.get("bgcolor"))
+    name, value = won
+    if name == "background-color":
+        return _rgba(value)
+    words = [tinycss2.serialize([token]) for token in tinycss2.parse_component_value_list(value) if token.type != "whitespace"]
+    return next((colour for colour in map(_rgba, words) if colour is not None), (0.0, 0.0, 0.0, 0.0))
+
+
+def _opacity(declared: list[tuple[str, bool, str]]) -> tuple[float, str] | None:
+    """The opacity an element sets, as a number and as written, or None where it sets none the reader reads."""
+    won = _winner(declared, "opacity")
+    match = re.fullmatch(r"([+-]?(?:\d+\.?\d*|\.\d+))(%?)", won[1]) if won else None
+    return (float(match.group(1)) / (100 if match.group(2) else 1), won[1]) if match else None
+
+
+def _clipped_to(declared: list[tuple[str, bool, str]], font: float) -> str | None:
+    """Where a box clips its overflow (``hidden`` or ``clip``) to 3 px or less on an axis, as ``height:0`` or
+    ``max-height:0`` clip a preheader, the declaration that does it; else None."""
+    for axis, sizes in (("y", ("height", "max-height")), ("x", ("width", "max-width"))):
+        won = _winner(declared, "overflow", f"overflow-{axis}")
+        if won is None:
+            continue
+        words = won[1].split()
+        overflow = (words[1] if won[0] == "overflow" and axis == "y" and len(words) > 1 else words[0]) if words else ""
+        if overflow not in ("hidden", "clip"):
+            continue
+        for size in sizes:
+            set_to = _winner(declared, size)
+            if set_to and (px := _length_px(set_to[1], font)) is not None and px <= _LEGIBLE_PX:
+                return f"{size}:{set_to[1]} under overflow:{overflow}"
+    return None
+
+
+@dataclass(frozen=True)
+class _Seen:
+    """What a text inherits on the way down a page: whether it is visible, its size and colour (None where the reader
+    does not resolve it), the ground behind it, and whether it sits in the header."""
+
+    visible: bool = True
+    size: float = 16.0
+    colour: tuple[float, ...] | None = _BLACK
+    ground: tuple[float, ...] = _WHITE
+    header: bool = False
+
+
+def _seen_below(seen: _Seen, element: ElementTree.Element, declared: list[tuple[str, bool, str]], header: bool) -> _Seen:
+    """What the element's text and its children inherit from it."""
+    visible = seen.visible
+    if won := _winner(declared, "visibility"):
+        visible = {"hidden": False, "collapse": False, "visible": True, "initial": True}.get(won[1], visible)
+    size = seen.size
+    if won := _winner(declared, "font-size", "font"):
+        computed = _font_px(won[1], seen.size) if won[0] == "font-size" else _shorthand_font_px(won[1], seen.size)
+        size = seen.size if computed is None else computed
+    elif _local(element.tag) == "font" and element.get("size") in _FONT_SIZE_ATTRIBUTE:
+        size = _FONT_SIZE_ATTRIBUTE[element.get("size")]
+    colour = seen.colour
+    if won := _winner(declared, "color"):
+        colour = seen.colour if won[1] in ("inherit", "unset", "currentcolor") else (
+            _BLACK if won[1] == "initial" else _rgba(won[1])
+        )
+    elif _local(element.tag) == "font" and element.get("color"):
+        colour = _rgba(element.get("color"))
+    elif _local(element.tag) == "a" and element.get("href") is not None:
+        colour = _LINK_BLUE  # a browser's own style sheet colours a link that sets none
+    ground = _ground(element, declared)
+    return _Seen(visible, size, colour, ground if ground and ground[3] > _SHOWN_ALPHA else seen.ground, header)
+
+
+def _unshown(text: str | None, seen: _Seen) -> str | None:
+    """Why a text inheriting ``seen`` does not show, or None where it shows."""
+    if not text or not _UNCOUNTED.sub("", text):
+        return None
+    if not seen.visible:
+        return "it is visibility:hidden or collapse"
+    if seen.size <= _LEGIBLE_PX:
+        return f"its font size is {seen.size:g}px, {_LEGIBLE_PX:g} px or less"
+    if seen.colour is not None and seen.colour[3] < _SHOWN_ALPHA:
+        return "its colour is transparent"
+    if seen.colour is not None and _alike(seen.colour, seen.ground):
+        return "its colour is too like the ground behind it"
+    return None
+
+
+def _texts(page: str, outlook: bool) -> tuple[list[tuple[str | None, str, bool]], list[str]]:
+    """Each text of the page's body in one view, in order, as (why it does not show or None, text, in the header),
+    ``_BLOCK_EDGE`` marking each block's edge; and each declaration the reader refuses."""
+    root = tinyhtml5.parse(outlook_view(page) if outlook else page, namespace_html_elements=False)
+    headers = set(_header_tables(root))
+    body = next((element for element in root.iter() if element.tag == "body"), root)
+    texts: list[tuple[str | None, str, bool]] = []
+    refused: list[str] = []
+
+    def walk(element: ElementTree.Element, seen: _Seen) -> None:
+        declared = _all_declared(element.get("style"))
+        tag = _local(element.tag)
+        header = seen.header or element in headers
+        for name, allowed in _UNMODELLED.items():
+            if (won := _winner(declared, name)) and won[1] not in allowed:
+                refused.append(
+                    f"<{tag}> sets {name}:{won[1]}, which can move or clip text out of view in a way this reader does not "
+                    "model: drop it, or teach the reader (tests/support/mail_styles.py)"
+                )
+        below = _seen_below(seen, element, declared, header)
+        hidden = None
+        if not _laid_out_alone(element):
+            hidden = f"<{tag}> is laid out nowhere (display:none, the hidden attribute or a browser's own style sheet)"
+        elif (element.get("hidden") or "").lower() == "until-found" or (_winner(declared, "content-visibility") or ("", ""))[1] == "hidden":
+            hidden = f"<{tag}> skips its content (hidden=until-found or content-visibility:hidden), which shows only when found"
+        elif outlook and (_winner(declared, "mso-hide") or ("", ""))[1] == "all":
+            hidden = f"<{tag}> is mso-hide:all, which classic Outlook hides"
+        elif (opacity := _opacity(declared)) and opacity[0] < _SHOWN_ALPHA:
+            hidden = f"<{tag}> is opacity:{opacity[1]}"
+        elif clip := _clipped_to(declared, below.size):
+            hidden = f"<{tag}> clips its overflow to nothing ({clip})"
+        if hidden is not None:
+            texts.append((hidden, "".join(element.itertext()), header))
+            return
+        block = tag in _BLOCKS
+        if block:
+            texts.append((None, _BLOCK_EDGE, header))
+        texts.append((_unshown(element.text, below), element.text or "", header))
+        for child in element:
+            if isinstance(child.tag, str):
+                walk(child, below)
+            texts.append((_unshown(child.tail, below), child.tail or "", header))
+        if block:
+            texts.append((None, _BLOCK_EDGE, header))
+
+    walk(body, _Seen())
+    return texts, refused
+
+
+def hidden_text_problems(page: str) -> list[str]:
+    """Where a page holds text it does not show its reader, in a browser's view or classic Outlook's, and each
+    declaration that can hide text in a way the reader does not model. A text is hidden where an element is laid out
+    nowhere (``display:none``, the ``hidden`` attribute, one a browser's own style sheet hides), skips its content
+    (``hidden="until-found"``, ``content-visibility:hidden``), is ``opacity:0`` (an alpha under rspamd's floor) or
+    clips its overflow to 3 px or less, ``height:0`` or ``max-height:0`` among them;
+    where the text is ``visibility:hidden``, set at 3 px or less (``font-size:0``, ``font:0/0 a``) or in a colour
+    that is transparent or too like the ground behind it (rspamd's measures, ``html_block.hxx``); and, in classic
+    Outlook's view, under ``mso-hide:all``. A run counts where it holds a character rspamd counts: whitespace and the
+    characters that pad a preview do not (``rules/html.lua``), so a hairline's no-break space hides nothing. The
+    reader refuses ``position`` other than static, ``transform``, ``clip``, ``clip-path`` and ``text-indent``, which
+    can move or clip text out of view in ways it does not model. Unread: a ``<style>`` block (the page rules refuse
+    one), text outside the ``<body>``, a box clipped by its parent's fixed size, and text behind an image."""
+    found, refused = set(), []
+    for outlook in (False, True):
+        texts, refusals = _texts(page, outlook)
+        found.update((reason, " ".join(text.split())) for reason, text, _header in texts if reason and _UNCOUNTED.sub("", text))
+        refused += refusals
+    hides = [f"the page hides {text[:60]!r}: {reason}" for reason, text in sorted(found)]
+    return hides + sorted(set(refused))
+
+
+def shown_text(page: str) -> str:
+    """The text a page shows its reader below its header, in a browser's view, a line for each block that holds any,
+    each line's spaces collapsed as a browser collapses them: what a mail's text part says too (E110). The header,
+    the hidden preheader and every text ``hidden_text_problems`` finds are left out."""
+    texts, _refused = _texts(page, outlook=False)
+    joined = "".join(text for reason, text, header in texts if reason is None and not header)
+    return "\n".join(line for line in (" ".join(part.split()) for part in joined.split(_BLOCK_EDGE)) if line)
