@@ -198,7 +198,7 @@ describe('FilingIndex', () => {
     const retry = vi.fn()
     render(<Harness status="error" failure={{ failed: true, error: new Error('down'), busy: false, retry }} />)
     expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load filings')
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(retry).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('link', { name: /Quarter ended/ })).toBeNull()
   })

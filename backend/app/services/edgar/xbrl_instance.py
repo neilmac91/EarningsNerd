@@ -293,18 +293,17 @@ def _finish_instance(result, accession_number, base_form, xb, period_of_report, 
     if not any(result.get(key) for key in anchor_keys):
         logger.info(f"No usable consolidated facts in instance for {accession_number}")
         return None
-    if base_form == "10-Q":
-        from .fiscal_periods import fiscal_label
-        entity = getattr(xb, "entity_info", None)
-        if isinstance(entity, dict):
-            for values in result.values():
-                if isinstance(values, list):
-                    for point in values:
-                        if isinstance(point, dict) and point.get("period"):
-                            point.update(fiscal_label(
-                                point["period"], period_of_report,
-                                entity.get("fiscal_year"), entity.get("fiscal_period"),
-                            ))
+    from .fiscal_periods import filing_point_label
+    entity = getattr(xb, "entity_info", None)
+    if isinstance(entity, dict):
+        for values in result.values():
+            if isinstance(values, list):
+                for point in values:
+                    if isinstance(point, dict) and point.get("period"):
+                        point.update(filing_point_label(
+                            base_form, point["period"], period_of_report,
+                            entity.get("fiscal_year"), entity.get("fiscal_period"),
+                        ))
     result["financial_classification"] = cash_financial_classification(
         company, getattr(company, "sic", None), profile_key
     )

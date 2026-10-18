@@ -96,7 +96,7 @@ describe('AdminFeedbackPage', () => {
     renderPage()
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Could not load the feedback.')
-    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
+    fireEvent.click(within(alert).getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(bugReport.message)).toBeInTheDocument()
     expect(listFeedback).toHaveBeenCalledTimes(2)
   })

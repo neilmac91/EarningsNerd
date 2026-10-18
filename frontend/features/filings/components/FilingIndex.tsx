@@ -179,9 +179,7 @@ export function FilingIndex({
             title="Couldn’t load filings"
             description="The filings service didn’t respond. The rest of this page is unaffected."
             action={
-              <RetryButton size="sm" failures={[failure]} focusTarget={headingRef}>
-                Retry
-              </RetryButton>
+              <RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />
             }
           />
         </div>

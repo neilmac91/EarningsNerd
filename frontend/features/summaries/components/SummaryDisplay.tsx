@@ -161,11 +161,11 @@ export function SummaryDisplay({
             // The card's own sentence: SUMMARY_FALLBACK_MESSAGE is the backend's stored body (the
             // failure detector's token), and the failure stays until a retry, so "temporarily" promised
             // a timing the code does not keep.
-            description="The last attempt for this filing did not finish. Retry to generate it again."
+            description="The last attempt for this filing did not finish. Try again to generate it."
             action={
               onRetry ? (
                 <Button variant="secondary" onClick={onRetry}>
-                  Retry
+                  Try again
                 </Button>
               ) : undefined
             }

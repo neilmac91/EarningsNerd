@@ -9,7 +9,7 @@ from typing import Any, Iterable, Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.services.metric_delta_service import strict_xbrl_metric_key
-from app.utils.numbers import parse_display_number
+from app.utils.numbers import money_prefix_for, parse_display_number
 
 _MISSING_STRINGS = {
     "",
@@ -44,12 +44,13 @@ def _infer_xbrl_metric(metric_name: str) -> Optional[str]:
     return strict_xbrl_metric_key(metric_name)
 
 
-def _format_xbrl_value(metric_key: str, value: float) -> str:
+def _format_xbrl_value(metric_key: str, value: float, money_prefix: str) -> str:
+    """Format a backfilled XBRL prior; ``money_prefix`` comes from ``money_prefix_for`` (the filer's currency)."""
     if metric_key in ("earnings_per_share", "eps_diluted"):
-        return f"${value:,.2f}"
+        return f"{money_prefix}{value:,.2f}"
     if metric_key in ("net_margin", "gross_margin", "operating_margin"):
         return f"{value:.1f}%"
-    return f"${value:,.0f}"
+    return f"{money_prefix}{value:,.0f}"
 
 
 def _is_missing_number(value: Optional[Decimal]) -> bool:
@@ -174,6 +175,9 @@ def attach_normalized_facts(
     else:
         metrics: list[NormalizedFact] = []
         normalized_rows: list[dict[str, Any]] = []
+        # A backfilled prior is in the filer's reporting currency, labelled by the same rule as the
+        # summary writers' own cells (a CNY prior shown as "$" reads ~7x too large).
+        money_prefix = money_prefix_for((xbrl_metrics or {}).get("reporting_currency"))
 
         for row in table:
             row_dict: Optional[dict[str, Any]] = None
@@ -244,7 +248,7 @@ def attach_normalized_facts(
                         prior_value_applied = True
 
                     if _is_missing(prior_period):
-                        formatted_prior = _format_xbrl_value(xbrl_key, prior_value_raw)
+                        formatted_prior = _format_xbrl_value(xbrl_key, prior_value_raw, money_prefix)
                         fact.prior_period = formatted_prior
                         row_dict["prior_period"] = formatted_prior
                         row_dict["priorPeriod"] = formatted_prior

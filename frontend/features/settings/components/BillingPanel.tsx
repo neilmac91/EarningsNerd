@@ -70,9 +70,7 @@ export default function BillingPanel() {
           title="Failed to load billing information"
           description="Please try again."
           action={
-            <RetryButton size="sm" failures={[identityUnavailable ? identityFailure : subscriptionFailure]} focusTarget={headingRef}>
-              Retry
-            </RetryButton>
+            <RetryButton size="sm" failures={[identityUnavailable ? identityFailure : subscriptionFailure]} focusTarget={headingRef} />
           }
         />
       </Card>
@@ -106,9 +104,7 @@ export default function BillingPanel() {
               title="Couldn't refresh billing details"
               description="Showing your last loaded details."
               action={
-                <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={headingRef}>
-                  Retry
-                </RetryButton>
+                <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={headingRef} />
               }
             />
           )}

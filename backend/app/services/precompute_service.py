@@ -81,11 +81,12 @@ async def precompute_one(
             company_id = company.id
 
     if cik is None:
-        sec_results = await sec_edgar_service.search_company(ticker_u)  # network, no session held
-        if not sec_results:
+        # Exact ticker only: an unlisted one is company_not_found, never the first partial match
+        # (a retired "X" once warmed, and paid for, Exxon's 10-K).
+        sec_company = await sec_edgar_service.resolve_ticker(ticker_u)  # network, no session held
+        if sec_company is None:
             result["status"] = "company_not_found"
             return result
-        sec_company = sec_results[0]
         cik = sec_company["cik"]
         if not dry_run:
             primary = await sec_edgar_service.primary_ticker_for_cik(cik)

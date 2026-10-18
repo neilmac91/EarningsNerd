@@ -86,11 +86,9 @@ export default function FilingFeed({
         <GuidanceCard
           variant="error"
           title="Couldn't load your feed"
-          description="Please retry in a moment."
+          description="Try again in a moment."
           action={
-            <RetryButton failures={[failure]} focusTarget={headingRef}>
-              Retry
-            </RetryButton>
+            <RetryButton failures={[failure]} focusTarget={headingRef} />
           }
         />
       ) : !data || data.length === 0 ? (
