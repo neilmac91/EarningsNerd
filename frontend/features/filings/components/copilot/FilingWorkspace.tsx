@@ -353,7 +353,7 @@ export default function FilingWorkspace({
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_var(--copilot-w)]" style={style}>
       <div className="min-w-0">{children}</div>
       {/* The desktop pane ends above the consent bar both before and after it sticks to the header. */}
-      <div ref={desktopCellRef} className="relative min-w-0 lg:sticky lg:top-16 lg:h-[max(0px,calc(100dvh_-_var(--source-pane-top,4rem)_-_var(--consent-inset,0px)))]">
+      <div ref={desktopCellRef} className="relative min-w-0 lg:sticky lg:top-[var(--site-header-h,4rem)] lg:h-[max(0px,calc(100dvh_-_var(--source-pane-top,var(--site-header-h,4rem))_-_var(--consent-inset,0px)))]">
         {summaryAvailable && (
           <>
             {/* Launcher (closed) */}

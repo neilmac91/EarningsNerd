@@ -53,6 +53,30 @@ const SIZE: Record<ButtonSize, string> = {
 
 const HEIGHT: Record<ButtonSize, string> = { sm: 'h-8', md: 'h-10', lg: 'h-12', 'icon-sm': 'h-8' }
 const WRAP_SIZE = { sm: 'min-h-8 py-1.5', md: 'min-h-10 py-2', lg: 'min-h-12 py-2.5' }
+// Below a 24rem viewport a labelled button takes the wrap state on its own: a media query's rem is the
+// browser's text size, so that is 384px at the default size (a 390px phone keeps one line) and 768px
+// under a 200% text setting (a 390px phone wraps the label instead of scrolling the page sideways).
+// The wrapped lines centre on tight leading. Written as an arbitrary variant: Tailwind drops
+// `max-[24rem]:` because the screens are in px. Gate: tests/e2e/reflow-200.spec.ts.
+// Each class is written out whole: Tailwind generates only the class names it finds in the source.
+const NARROW_WRAP = '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight'
+const NARROW_MIN_H: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
+  sm: '[@media(max-width:24rem)]:min-h-8',
+  md: '[@media(max-width:24rem)]:min-h-10',
+  lg: '[@media(max-width:24rem)]:min-h-12',
+}
+const NARROW_PY: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
+  sm: '[@media(max-width:24rem)]:py-1.5',
+  md: '[@media(max-width:24rem)]:py-2',
+  lg: '[@media(max-width:24rem)]:py-2.5',
+}
+/** The narrow state, keeping a caller's own min-h and py. The media block sits after every base
+    utility in the stylesheet, so the size's narrow min-h would otherwise beat a caller's min-h-11 and
+    shrink a 44px touch target to the size's height on a 360px or 375px phone at the default text size. */
+function wrapWhenNarrow(size: Exclude<ButtonSize, 'icon-sm'>, className?: string): string {
+  const own = (utility: string) => new RegExp(`(^|\\s)${utility}`).test(className ?? '')
+  return cx(NARROW_WRAP, !own('min-h-') && NARROW_MIN_H[size], !own('py-') && NARROW_PY[size])
+}
 
 const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
   primary: cx(
@@ -117,7 +141,9 @@ export interface ButtonVariantsOptions {
     <Button> itself composes this same factory — one source of truth. */
 export function buttonVariants({ variant = 'primary', size = 'md', wrap = false, className }: ButtonVariantsOptions = {}): string {
   return cx(BASE, SIZE[size],
-    wrap && size !== 'icon-sm' ? cx(WRAP_SIZE[size], 'whitespace-normal') : cx(HEIGHT[size], 'whitespace-nowrap'),
+    size === 'icon-sm' ? cx(HEIGHT[size], 'whitespace-nowrap')
+      : wrap ? cx(WRAP_SIZE[size], 'whitespace-normal')
+      : cx(HEIGHT[size], 'whitespace-nowrap', wrapWhenNarrow(size, className)),
     VARIANT[resolveVariant(variant)], className)
 }
 
@@ -193,7 +219,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       onClick={handleClick}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
-      className={cx(buttonVariants({ variant, size, wrap }), loading && 'cursor-progress', className)}
+      // className goes through buttonVariants so the narrow state can see a caller's own min-h or py.
+      className={cx(buttonVariants({ variant, size, wrap, className }), loading && 'cursor-progress')}
       {...rest}
     >
       {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}

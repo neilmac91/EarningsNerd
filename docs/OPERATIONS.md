@@ -113,8 +113,10 @@ requests per Form 4 for up to 60 Form 4s, so about 120) answers 404 unless `ENAB
 set (the deploy pins it `false`), and company search answers from the cached SEC ticker file only (its
 edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
 generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
-to companyfacts and its section parsing to the regex excerpt; a mega-filer's filing older than its
-recent submissions window needs about 43 history requests, past every enrichment budget; and a
+to companyfacts (its section parse makes no SEC request: parses run one at a time on their own
+worker, off the edgar pool, and the excerpt waits for it before the 18 s enrichment join; a parse past its 30 s bound, 40 s for a 20-F, leaves the regex excerpt); a
+mega-filer's filing older than its recent submissions window needs about 43 history requests, past
+every enrichment budget; and a
 company's first filings list, coverage and full-text search each wait for their request. Breaker-wrapped
 edgartools calls queued behind that work (a company's first filings list, 6-K text, and visit refreshes
 run in-process when durable tasks are off) can time out after 15 s (30 s for 6-K text), and five
@@ -540,6 +542,21 @@ their own pull requests, and the GitHub default `require_extra_approval_for_unat
 switched off for the same reason (agent commits are authored as `noreply@anthropic.com`). When the
 review service is unavailable, the pull request body's `Review override: <reason>` line is the only
 way through the gate, by design.
+
+Required checks bind a pull request only as far as its workflow files can be trusted. The ruleset pins
+each check to the GitHub Actions app, and that app runs a pull request's `pull_request` workflows from
+the pull request's own tree. So a pull request that edits `.github/workflows/` can make every required
+check pass: it can rewrite the job behind `backend-tests`, or add jobs named `review-gate` and
+`backend-tests` that do nothing. `test_no_job_in_any_other_workflow_publishes_a_check_named_review_gate`
+catches only an accidental second `review-gate` job, since a pull request that adds one on purpose can
+neuter `backend-tests` too. What binds such a pull request is that only the repository's writers can
+merge, and that `AGENTS.md` §5 reviews every change to `.github/workflows/**` at the high tier, so the
+merge rests on reading the workflow diff, not on the checks. A required check that a pull request cannot
+forge needs a source outside its workflows: a dedicated GitHub App that the ruleset names as the check's
+source, with its key held in an environment only `main` can use, or a ruleset-required workflow, which
+GitHub configures in an organization's or an enterprise's rulesets (a personal account owns this
+repository). Neither is in place, and the gap is accepted (the founder left this call to the agent on
+2026-10-16); closing it starts with that App.
 
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 

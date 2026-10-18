@@ -1,0 +1,24 @@
+"""Run the app's revived section seam (xbrl_service.get_filing_sections) on one fetched document.
+
+Usage: python seam_parity_one.py DOC_PATH FORM ACCESSION. Local files only; no network.
+"""
+import asyncio, hashlib, json, os, sys, time, resource
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+for k in ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"): os.environ.setdefault(k, "x")
+sys.path.insert(0, "/home/user/EarningsNerd/backend")
+path, form, acc = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, encoding="utf-8", newline="") as fh:
+    html = fh.read()
+from app.services.edgar.compat import xbrl_service
+from app.services.openai_service import openai_service
+base = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+t0 = time.perf_counter()
+sections = asyncio.run(xbrl_service.get_filing_sections(acc, form, html=html))
+dt = time.perf_counter() - t0
+excerpt = openai_service.assemble_excerpt_from_sections(sections, form, filing_text=html) if sections else None
+if excerpt and len(excerpt) < 8000:
+    excerpt = None
+print(json.dumps({"acc": acc, "form": form, "found": {k: len(v) for k, v in (sections or {}).items()},
+                  "excerpt_sha256": hashlib.sha256(excerpt.encode()).hexdigest() if excerpt else None,
+                  "seconds": round(dt, 2), "rss_before_mb": round(base),
+                  "maxrss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)}))

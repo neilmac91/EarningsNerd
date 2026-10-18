@@ -111,3 +111,54 @@ blocks it writes. Each seam probe matches the marker occurrence adjacent to its 
 - Decision unchanged: hold, no replacement PR, no Dependabot ignore. Next revisit: 6.0, replayed on
   this fixture per #1063's acceptance list. Recorded on #1285 in
   [comment 6177627038](https://github.com/neilmac91/EarningsNerd/pull/1285#issuecomment-6177627038).
+
+## Addendum, 2026-10-15: finding 6 corrected (E28)
+
+- Finding 6 says that 5.61.0's fix of `Filing.homepage_url` and `Filing.html()` does not reach
+  `app/`, because `app/` calls neither of them. It does reach `app/`, indirectly. The summary's
+  section source, `app/services/edgar/xbrl_sections.py::_extract_sections_sync`, calls
+  `Filing.obj()`. The report object that `obj()` returns reads its sections through `html()`.
+- On 5.58.0, `html()` re-reads any primary document that opens with an XML declaration (inline XBRL)
+  from the filing's index page. 5.58.0 builds that page's URL without the accession folder, and SEC
+  has answered that form with 403 since early October. So the source returns None for every filing
+  in every measured run (CI's evaluation and a local reproduction), and each 10-K, 10-Q and 20-F
+  excerpt built since then comes from the regex extractor; production runs the same pin, so it is
+  inferred to match, pending the log count in the E28 record.
+- Upstream fixed this by two routes. 5.61.0 moved the index URL inside the folder. 5.62.0 also stopped
+  sending an XML-declared document that already contains HTML to the index page. Each route revives
+  the source on its own, and the 5.62.0 route works even with the folderless URL. Under 5.61.0, 5.61.1
+  and 5.62.0 the same app call returns all three sections live for AAPL's 10-K, and under 5.62.0 for
+  NVDA's 10-Q too
+  ([`../e28-native-sections-2026-10-15/revive_probe_output.txt`](../e28-native-sections-2026-10-15/revive_probe_output.txt),
+  [`../e28-native-sections-2026-10-15/bump_5620_results.jsonl`](../e28-native-sections-2026-10-15/bump_5620_results.jsonl),
+  [`../e28-native-sections-2026-10-15/upstream_fixes.txt`](../e28-native-sections-2026-10-15/upstream_fixes.txt)).
+- So any bump to 5.61.0 or later also brings native sections back for every eligible excerpt built
+  after it. Stored excerpts are reused, so the October cohort keeps its regex excerpts. This is a
+  model-input change, and `backend/evals/RUNBOOK.md` requires it to be measured. A requirements-only
+  PR does not trigger `eval-baseline` on its own, so the measurement is a dispatched run, priced
+  under the spend rule. In CI's evaluation, summary citation fidelity was 0.97 with native sections
+  (2026-10-03 and 2026-10-04). Without them it read 0.818 to 0.841 in the four retained reports
+  (2026-10-07 to 2026-10-15), and decision 3 of `tasks/pr-disposition-2026-10-07.md` recorded 0.818 to
+  0.871 across eight runs on 7 October
+  ([`../e28-native-sections-2026-10-15/README.md`](../e28-native-sections-2026-10-15/README.md)).
+- The hold decision itself is unchanged; it rests on the Ford affix and seam regressions. The next
+  replay (6.0) must also land E28's decision first. Until then, PR #1347's branch carried
+  `backend/tests/unit/test_edgartools_sections_revival_tripwire.py`, failing any edgartools other
+  than 5.58.0 while the section source held its `obj()` allow-list entry. PR #1347 deleted it with
+  that entry, so it never reached main (see the next addendum).
+
+## Addendum, 2026-10-16: E28 landed (#1350, then PR #1347)
+
+- #1350 (merged and deployed 2026-10-16, 04:10Z) backported 5.61.0's in-folder index URL in
+  `app/services/edgar/edgartools_compat.py`, which revived the `obj()` path on 5.58.0; the inline
+  correction to finding 6 above is its record.
+- PR #1347 then moved the summary's section source off `obj()`: it parses the primary document the
+  pipeline fetched, so neither 5.61.x's index-URL fix nor 5.62.0's `html()` change reaches it, and
+  the tripwire and the allow-list entry are deleted. The backport stays for the remaining `obj()`
+  sites; its own test says when an upgrade makes it redundant.
+- A bump can still change section text through the HTML parser itself.
+  `backend/tests/unit/test_summary_sections_parity.py` now fails such a change in the free
+  `backend-tests` job, and the regression gate's native-section share fails a collapse in
+  `eval-baseline`.
+- The hold decision is unchanged: the Ford affix and seam regressions (decision D, #1063) stand. Any
+  replay must pass the parity test and a dispatched `eval-baseline`.

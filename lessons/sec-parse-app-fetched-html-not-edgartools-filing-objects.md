@@ -20,7 +20,7 @@ captured from an agent container, the same AttributeError appeared in PR #1286's
 (GH #1421). `backend/app/services/edgar/edgartools_compat.py` backports that fix while #1063 holds the
 pin, which restores `xbrl_sections.py` (see
 `tasks/review-evidence/edgartools-homepage-403-2026-10-15/`). The rule below still holds for new code,
-for its limiter and breaker reason.
+for its limiter and breaker reason, and PR #1347 then moved `xbrl_sections.py` itself onto it.
 
 **Rule**: For section text, fetch the primary document once through the app's SEC transport
 (limiter + breaker, CLAUDE.md rule 5) and parse it locally with edgartools' HTML parser
@@ -28,12 +28,18 @@ for its limiter and breaker reason.
 accessor for document text: its requests go through edgartools' client, which the deploy pins to
 the same 1 req/s (`EDGAR_RATE_LIMIT_PER_SEC`) but which the app's limiter, breaker and diagnostics
 never see, and they fail wherever the homepage does not resolve. The two sites that predate the
-rule stay as they are: `xbrl_sections.py` (the summary-section path; its production hit rate is
-open item E28) and `insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). Part
-keys differ by form: a 10-K's Item 1A is Part I, a 10-Q's is Part II; ask for the part first and
-fall back to any part.
+rule stay as they are: `edgar/sixk_extractor.py` (6-K exhibit text, through a getattr wrapper) and
+`insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). The summary-section path,
+`edgar/xbrl_sections.py`, joined the rule with E28: it parses the document the pipeline fetched with
+the same parser and holds no `obj()` entry. Before that it called `filing.obj()`, which returned
+nothing from early October (between CI's reports of 4 and 7 October) until the backport above,
+and each call re-downloaded the filing through edgartools' client. Part keys differ by form: a 10-K's Item 1A is Part I, a 10-Q's is
+Part II; ask for the part first and fall back to any part.
 
 **Evidence**: `backend/app/services/filing_section_service.py::parse_item_1a` and its tests in
-`backend/tests/unit/test_filing_section_service.py`; the corpus measures in the body of PR #1286.
+`backend/tests/unit/test_filing_section_service.py`; the corpus measures in the body of PR #1286;
+`backend/app/services/edgar/xbrl_sections.py::_sections_from_html` and
+`backend/tests/unit/test_summary_sections_parity.py` (PR #1347).
 Gate: `backend/tests/unit/test_edgartools_obj_allowlist.py` (every access to the accessor under
-`app/`, the call, a bare `.obj` read that aliases it or `getattr(x, "obj")`, is on its allow-list).
+`app/`, the call, a bare `.obj` read that aliases it or `"obj"` passed by name to `getattr` or a
+wrapper around it, is on its allow-list).

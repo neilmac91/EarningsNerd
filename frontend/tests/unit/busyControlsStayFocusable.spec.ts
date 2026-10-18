@@ -643,7 +643,7 @@ const STREAM_RESTART =
 const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
   'app/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'app/global-error.tsx': { sites: ['button "Try again"'], reason: ERROR_BOUNDARY_RESET },
-  'app/dashboard/error.tsx': { sites: ['Button "Try Again"'], reason: ERROR_BOUNDARY_RESET },
+  'app/dashboard/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'components/GlobalErrorBoundary.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'features/summaries/components/SummaryDisplay.tsx': {
     sites: ['Button "Retry"'],
@@ -653,13 +653,9 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     sites: ['Button "Retry"'],
     reason: STREAM_RESTART + 'Re-asks a copilot question whose answer stream failed.',
   },
-  'features/filings/components/AskFilingAnswer.tsx': {
-    sites: ['Button "Retry"'],
-    reason: STREAM_RESTART + "The design system's reference copilot answer (0 importers), as CopilotMessage.",
-  },
 }
-const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 7
-const MAX_RETRY_LABEL_PINNED_SITES = 7
+const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 6
+const MAX_RETRY_LABEL_PINNED_SITES = 6
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {

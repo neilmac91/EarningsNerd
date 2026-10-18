@@ -288,7 +288,7 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        // Skeleton→content handoff (DataTable, AskFilingAnswer) on the loading flip.
+        // Skeleton→content handoff (DataTable, the account settings and watchlist pages) on the loading flip.
         'content-in': { from: { opacity: '0' }, to: { opacity: '1' } },
         // count-up keyframe RETIRED — it was a fade impostor. The real signature
         // is hooks/useCountUp (rAF, duration-slow, ease-standard, tabular-nums).

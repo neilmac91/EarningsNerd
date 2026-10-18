@@ -558,9 +558,11 @@ async def test_digest_membership_and_payload_are_frozen_across_a_retry(engine, m
         assert stats["digests_failed"] == 1 and [i["filing_id"] for i in first.await_args.kwargs["items"]] == [1, 2]
         (batch,) = _batches(db)
         frozen_html = batch.body_html
-        # A newer filing lands and the watch's watermark moves on before the retry.
+        # A newer filing lands and is alerted before the retry: the watch's watermark moves on with
+        # d3's log row, which finalize_accepted always writes in the same commit.
         db.add(Filing(id=3, company_id=1, accession_number="d3", filing_type="10-Q", filing_date=NOW,
                       sec_url="https://sec.example/d3/", document_url="https://sec.example/d3/doc.htm"))
+        db.add(NotificationLog(user_id=1, filing_id=3, channel="email", status="sent"))
         watch = db.query(Watchlist).one()
         watch.last_alerted_at, watch.last_alerted_accession = NOW, "d3"
         db.commit()
@@ -572,8 +574,8 @@ async def test_digest_membership_and_payload_are_frozen_across_a_retry(engine, m
         assert stats["digests_sent"] == 1 and stats["filings_included"] == 2
         batches = _batches(db)
         assert batches[0].status == STATUS_ACCEPTED and batches[0].body_html == frozen_html
-        assert _log_count(db) == 2
-        # d3 is not part of that batch; a later digest may own it separately.
+        assert _log_count(db) == 3  # d1 and d2 on acceptance, plus d3's from its own alert
+        # d3 is not part of that batch; it was alerted on its own.
         assert [i.filing_id for i in batches[0].items] == [1, 2]
 
 

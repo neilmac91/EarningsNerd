@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock the admin API module so the page renders without real network calls.
 vi.mock('@/features/admin/api/admin-api', () => ({
@@ -247,3 +247,123 @@ describe('AdminInvitesPage resend dialog focus return', () => {
     expect(resend).not.toHaveAttribute('aria-busy')
   })
 })
+
+
+/**
+ * The table scrolls inside its card, never the page (DESIGN_SYSTEM.md §4 "Admin pages"; the #1309 capture review: at
+ * 390 the Status pills were cut off at the card's edge with no cue). Classes are what a unit test can pin; the
+ * capture harness measures the layout they make in a real browser.
+ */
+describe('AdminInvitesPage: the table scrolls inside its card', () => {
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  it('holds the table in a positioned scroll box that says nothing while the table fits', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    const box = (await screen.findByText('alice@example.com')).closest('table')!.parentElement!
+    expect(box).toHaveClass('relative', 'overflow-x-auto')
+    expect(box).not.toHaveAttribute('role')
+    expect(box).not.toHaveAttribute('tabindex')
+    expect(screen.queryByText('Scroll horizontally to read all columns.')).not.toBeInTheDocument()
+  })
+
+  it('says the table scrolls, and makes it a named keyboard region, while it is wider than its box', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => 356)
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(() => 854)
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    const region = await screen.findByRole('region', { name: 'Scrollable table: Invites' })
+    expect(region).toContainElement(screen.getByRole('button', { name: 'Revoke invite to alice@example.com' }))
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region).toHaveAccessibleDescription('Scroll horizontally to read all columns.')
+  })
+})
+
+/**
+ * An email chip keeps its address, its marker and its remove button inside it and the card, and the marker clear of
+ * the button (DESIGN_SYSTEM.md §4 "Admin pages"; the #1309 capture review: at 200% text the already-invited chip
+ * squeezed its address out and put its remove button past the card; the founder's recheck of #1344: at 320px under
+ * 200% text the marker painted through the button). jsdom lays nothing out, so this case can only pin the classes;
+ * tests/e2e/admin-invite-chip-reflow.spec.ts measures what they paint in Chromium.
+ */
+describe('AdminInvitesPage: an email chip stays inside its card', () => {
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+  })
+
+  it('keeps an already-invited address, its marker and its remove button inside the chip, the address on a line of its own and the button ending the chip when the row is narrow', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    await screen.findByText('alice@example.com')
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'alice@example.com' } })
+    fireEvent.blur(field)
+    const remove = await screen.findByRole('button', { name: 'Remove alice@example.com' })
+    const chip = remove.parentElement!
+    const address = within(chip).getByText('alice@example.com')
+    const marker = within(chip).getByText('· already invited')
+    // One group that wraps and may shrink below its text: when both do not fit, the marker goes under the address
+    // and the address truncates. A marker that cannot shrink (shrink-0, nowrap) squeezed the address to nothing.
+    const group = address.parentElement!
+    expect(marker.parentElement).toBe(group)
+    expect(group).toHaveClass('flex', 'min-w-0', 'flex-wrap')
+    expect(address).toHaveClass('truncate')
+    // The dot is held to "already" by a no-break space, so a wrapped marker never leaves the dot alone at a line's
+    // end. getByText's normalizer reads U+00A0 as a space, so the raw text is what pins it.
+    expect(marker.textContent).toBe('· already invited')
+    // The button is the chip's own last child, so it stays last in reading and Tab order; the chip is capped at the
+    // card and rounds as a box once it wraps (a 9999px radius turns a wrapped chip into a capsule whose curve
+    // crosses its text).
+    expect([...chip.children].at(-1)).toBe(remove)
+    expect(chip).toHaveClass('max-w-full', 'rounded-xl')
+    expect(chip).not.toHaveClass('rounded-full')
+    // The narrow state. The chip row is an inline-size query container; below 8em of its text size the group is too
+    // narrow for "· already", so it dissolves, the chip wraps with no row gap, and the address takes the first line
+    // whole and wraps anywhere instead of truncating (beside the button it kept 52px at 320px under 200% text, the
+    // chief designer's review of #1344). The marker takes the rest of the line it shares with the button, and carries
+    // that one class and nothing else (no shrink-0 or nowrap, above).
+    expect(chip.parentElement).toHaveClass('[container-type:inline-size]')
+    expect(chip).toHaveClass('[@container(width<8em)]:flex-wrap', '[@container(width<8em)]:gap-y-0')
+    expect(group).toHaveClass('[@container(width<8em)]:contents')
+    expectOwnLineWhenNarrow(address)
+    expect(marker.className).toBe('[@container(width<8em)]:flex-1')
+    expectEndsChipWhenNarrow(remove)
+  })
+
+  it('gives a valid and an invalid address the same line of their own, the button ending the chip, when the row is narrow', async () => {
+    vi.mocked(listInvites).mockResolvedValue([])
+    renderPage()
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'bob@example.com, nope' } })
+    fireEvent.blur(field)
+    for (const email of ['bob@example.com', 'nope']) {
+      const remove = await screen.findByRole('button', { name: `Remove ${email}` })
+      expectOwnLineWhenNarrow(within(remove.parentElement!).getByText(email))
+      expectEndsChipWhenNarrow(remove)
+    }
+  })
+})
+
+/**
+ * Below 8em the remove button ends the chip on whatever line it lands, as it does above (the chief designer's call on
+ * #1344): alone on a line it sat at the line's start.
+ */
+function expectEndsChipWhenNarrow(remove: HTMLElement) {
+  expect(remove).toHaveClass('[@container(width<8em)]:ml-auto')
+}
+
+/** Above 8em of the row the address truncates beside its marker; below it, it takes the first line whole and wraps. */
+function expectOwnLineWhenNarrow(address: HTMLElement) {
+  expect(address).toHaveClass(
+    'truncate',
+    '[@container(width<8em)]:order-first',
+    '[@container(width<8em)]:basis-full',
+    '[@container(width<8em)]:whitespace-normal',
+    '[@container(width<8em)]:[overflow-wrap:anywhere]',
+  )
+  // Sharing the first line with the button (flex-1) is what left it 52px.
+  expect(address).not.toHaveClass('[@container(width<8em)]:flex-1')
+}
