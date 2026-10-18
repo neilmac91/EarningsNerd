@@ -182,7 +182,10 @@ chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spe
 A Retry that restarts a stream, not a query (the filing page's "Retry generation"), is RetryButton too, given the
 stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no query to hold, and the press
 clears the error in the render that starts the stream, so the card leaves with the press when the run starts
-and its hand-off target is the progress card's heading. A failure built by hand like this is pinned, with its
+and its hand-off target is the progress card's heading. The card offers it only for a failure a retry can help
+(`isNonRetryableStreamError`: Pro's fair-use pause, a sign-in or a permission error keeps its sentence and no
+Retry), so a press that starts no run (signed out) keeps the card without it, and the target falls back to the
+card's own heading. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any

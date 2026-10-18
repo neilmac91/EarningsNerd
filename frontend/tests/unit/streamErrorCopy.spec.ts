@@ -6,7 +6,7 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingResolver } from './astBindings'
 import { pythonTokens, type Token } from './pythonTokens'
-import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
+import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 
 /**
@@ -36,7 +36,11 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     on is still written somewhere a stream error's text can come from (routers/summaries.py, the stage
  *     modules, the client's own fallbacks, the matchers' own `.includes` literals never counted): a
  *     dead-phrase check, not a proof that a stream error carries it. A 401 is never retried whatever its
- *     text (the reader sets retryable only for a 5xx).
+ *     text (the reader sets retryable only for a 5xx). Pro's fair-use pause is that proof for one sentence:
+ *     read in admission.py's own words, from the error it streams in the block under `if user_is_unlimited:`
+ *     (the billing-unlimited caller its usage gate blocked), it must match isNonRetryableStreamError, so
+ *     the stream never retries it and its card offers no Retry generation. A reworded pause fails here until
+ *     the matcher follows it.
  *  4. Voice: what the page shows has no em-dash, no exclamation mark, and reads as a sentence; a key's
  *     only fields are bare `{name}` ones, the only kind streamErrorCopy matches.
  *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads a file's raw text for the character, so a dash
@@ -218,6 +222,24 @@ export function streamedMessages(src: string, file: string): Streamed[] {
 
 const source = (file: string) => readFileSync(path.join(SERVICES, file), 'utf8')
 const streamed = () => SOURCES.flatMap((file) => streamedMessages(source(file), file))
+
+/** The error sentences a module streams inside the block under its first `if <condition>:` line, the block
+    read by indentation (blank and comment lines inside it skipped), or null when no such line exists. */
+export function errorsUnder(src: string, file: string, condition: string): Streamed[] | null {
+  const lines = src.split('\n')
+  const header = new RegExp(`^(\\s*)if ${condition}\\s*:\\s*(?:#.*)?$`)
+  const at = lines.findIndex((line) => header.test(line))
+  if (at < 0) return null
+  const indent = header.exec(lines[at])![1].length
+  let last = at
+  for (let i = at + 1; i < lines.length; i++) {
+    const text = lines[i].trim()
+    if (!text || text.startsWith('#')) continue
+    if (lines[i].search(/\S/) <= indent) break
+    last = i
+  }
+  return streamedMessages(src, file).filter((m) => m.error && m.line > at + 1 && m.line <= last + 1)
+}
 
 /** The phrases a matcher in summaries-api.ts tests for (its `.includes('…')` calls). */
 function matcherPhrases(fn: string): string[] {
@@ -402,6 +424,34 @@ describe('the summary stream error sentences the filing page maps', () => {
     // A matcher's own phrase is never its writer, whatever its spelling.
     const matcher = "const isNonRetryableStreamError = (m: string) => m.includes('sign-in') || m.includes(\"o'clock 9\")\nconst s = 'Sign in again.'"
     expect(frontendStrings(matcher)).toEqual(['Sign in again.'])
+  })
+
+  it("holds Pro's fair-use pause, in admission.py's own words, to the matcher that stops every retry", () => {
+    // The block read, planted: the error inside the block counts (its literals joined, a blank and a comment line
+    // inside skipped), the one after the block's dedent does not, and a condition no line tests reads as null.
+    const probe = [
+      'async def admit(run):',
+      '    if can_generate:',
+      '        return',
+      '    if user_is_unlimited:  # Pro',
+      '        logger.warning("capped")',
+      '',
+      '        # the pause',
+      '        yield {"type": "error", "message": ("A paused " "run.")}',
+      '        return',
+      '    yield {"type": "error", "message": "After the block."}',
+    ].join('\n')
+    expect(errorsUnder(probe, 'p.py', 'user_is_unlimited')).toEqual([{ file: 'p.py', line: 8, text: 'A paused run.', error: true }])
+    expect(errorsUnder(probe, 'p.py', 'user_is_pro')).toBeNull()
+    const file = 'summary_stages/admission.py'
+    const pause = errorsUnder(source(file), file, 'user_is_unlimited')
+    expect(pause, `${file} no longer tests \`if user_is_unlimited:\`: find where it streams Pro's fair-use pause and read that`).not.toBeNull()
+    expect(pause!.map((m) => m.text), `${file} streams one fair-use pause`).toHaveLength(1)
+    expect(
+      isNonRetryableStreamError(pause![0].text),
+      `${file}:${pause![0].line} "${pause![0].text}" no longer matches isNonRetryableStreamError: move its phrase ` +
+        '(features/summaries/api/summaries-api.ts) to the new words, or the stream retries the pause and its card offers Retry generation',
+    ).toBe(true)
   })
 
   it('spells a displayed em-dash only as the character, the char code in streamErrorCopy.ts aside', () => {

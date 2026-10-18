@@ -204,6 +204,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `features/summaries/hooks/useSummaryGeneration.ts`: a status with no detail, a dropped or closed
   stream, the idle timeout, a failed summary read) are sentences in the voice, never the browser's
   or the API client's transport text, pinned path by path in `tests/unit/summaryStreamFallbacks.spec.tsx`.
+  The error card offers Retry generation only for a failure a retry can help (`isNonRetryableStreamError`,
+  which also stops the stream's automatic retry): Pro's fair-use pause, a sign-in or a permission error
+  keeps its sentence and no Retry.
   At 200% text the progress card's header row wraps, the percent keeping to the right on a line of
   its own, and the form code in its meta line ("10-K · Processing…") never breaks at its hyphen.
 - **Signup gate** (`frontend/features/summaries/components/GenerateSignupGate.tsx`): it follows the

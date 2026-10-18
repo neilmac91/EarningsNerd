@@ -139,11 +139,16 @@ export const isPaywallStreamError = (message: string): boolean => {
   return m.includes('monthly limit') || m.includes('upgrade to pro')
 }
 
-// Errors that must NOT be auto-retried: retrying can't help and would waste the user's time.
-const isNonRetryableStreamError = (message: string): boolean => {
+// Errors a retry cannot help: the stream makes no automatic second attempt (generateSummaryStream below), and
+// the filing page's card offers no Retry generation (StreamingSummaryDisplay). Pro's fair-use pause is matched on
+// admission.py's own sentence ("We've temporarily paused new summary generation on your account …"): the
+// month's ceiling holds until the month turns, so a retry only repeats the blocked request.
+// tests/unit/streamErrorCopy.spec.ts reads that sentence from admission.py and holds this matcher to it.
+export const isNonRetryableStreamError = (message: string): boolean => {
   const m = (message || '').toLowerCase()
   return (
     isPaywallStreamError(message) ||
+    m.includes('paused new summary generation') ||
     m.includes('permission') ||
     m.includes('sign in') ||
     m.includes('authentication')

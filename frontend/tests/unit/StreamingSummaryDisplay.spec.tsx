@@ -203,6 +203,29 @@ describe('StreamingSummaryDisplay failure reason', () => {
     expect(screen.getByText('We could not generate this summary. Try again shortly.')).toBeInTheDocument()
     expect(screen.queryByText(/\u2014/)).toBeNull()
   })
+
+  // Pro's fair-use pause holds until the month turns, so a Retry could only repeat the blocked request: the card
+  // keeps its sentence and offers none (isNonRetryableStreamError, the matcher that also stops the stream's own
+  // retry). A failure a retry can help keeps Retry generation.
+  it("offers no Retry generation at Pro's fair-use pause, and one for a failure a retry can help", async () => {
+    const failed = (error: string) => (
+      <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
+    )
+    const { rerender } = render(
+      failed(
+        "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
+          'Please try again later or contact support.',
+      ),
+    )
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
+    expect(
+      screen.getByText("Your account has reached this month's limit on new summaries. It resets next month; contact support if you need more."),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry generation' })).toBeNull()
+    rerender(failed('The filing could not be summarized right now.'))
+    expect(screen.getByRole('button', { name: 'Retry generation' })).toBeInTheDocument()
+  })
 })
 
 // EN-05: a failed generation used to leave focus where it was, usually <body> after page load, so a
@@ -215,8 +238,9 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
   const FAILED: Run = { stage: 'error', error: 'The filing could not be summarized right now.' }
   const LIMIT: Run = { stage: 'error', error: "You've reached your monthly limit. Upgrade to Pro for unlimited summaries." }
 
-  /** page-client's slot for one generation: the stream's state, restarted the way useSummaryGeneration does. */
-  function Page({ start }: { start: Run }) {
+  /** page-client's slot for one generation: the stream's state, restarted the way useSummaryGeneration does, or,
+      when `pressed` is given, the state a press leaves (a signed-out press starts no run). */
+  function Page({ start, pressed }: { start: Run; pressed?: Run }) {
     const [run, setRun] = useState(start)
     return (
       <div>
@@ -232,7 +256,7 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
           filing={filing}
           error={run.error}
           // handleGenerateSummary clears the error in the same render that starts the stream.
-          onRetry={() => setRun({ stage: 'initializing', error: null })}
+          onRetry={() => setRun(pressed ?? { stage: 'initializing', error: null })}
         />
       </div>
     )
@@ -292,6 +316,19 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     expect(screen.queryByRole('button', { name: 'Retry generation' })).toBeNull()
     expect(document.activeElement).toBe(heading('Generating the summary'))
     expect(heading('Generating the summary')).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('a press that starts no run keeps the card, drops its Retry and hands focus to the card heading', async () => {
+    // Signed out, useSummaryGeneration sets its sign-in sentence and starts nothing: the card stays, and no retry
+    // can help that sentence, so the Retry leaves while it holds focus. The progress heading is not there.
+    render(<Page start={FAILED} pressed={{ stage: 'error', error: 'Sign in to generate this summary.' }} />)
+    await settle()
+    retry().focus()
+    fireEvent.click(retry(), { detail: 0 })
+    await settle()
+    expect(screen.getByText('Sign in to generate this summary.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry generation' })).toBeNull()
+    expect(document.activeElement).toBe(heading('Generation interrupted'))
   })
 
   it('a restart that fails again brings focus back into the new card', async () => {

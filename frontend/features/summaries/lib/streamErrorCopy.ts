@@ -6,7 +6,8 @@
  * stays untouched until the founder opens it (tasks/todo.md), so several still carry an em-dash
  * or a lowercase "please" the product voice does not use. The page maps each one here instead of
  * printing it. Only what the reader sees changes: the raw message is still what decides the card
- * (isPaywallStreamError) and the retry (isNonRetryableStreamError), so no matcher reads this map.
+ * (isPaywallStreamError) and the retry, automatic or offered (isNonRetryableStreamError), so no matcher reads
+ * this map.
  *
  * Keys are the backend's text exactly, as Python writes it; a `{name}` in a key is an f-string field and
  * matches any value, which the displayed sentence may reuse. A key spells the backend's em-dash through
@@ -37,7 +38,8 @@ export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
   "We couldn't generate this summary just now. Please try again shortly.": 'We could not generate this summary. Try again shortly.',
   // admission.py: the filing id is unknown.
   'Filing not found': 'This filing could not be found.',
-  // admission.py: Pro's fair-use ceiling. Never an upsell: a Pro user is not paywalled.
+  // admission.py: Pro's fair-use ceiling. Never an upsell (a Pro user is not paywalled), and never a retry: the
+  // ceiling holds until the month turns, so the stream does not retry it and its card offers no Retry.
   "We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support.":
     "Your account has reached this month's limit on new summaries. It resets next month; contact support if you need more.",
   // admission.py: the free monthly limit. The paywall card writes its own copy for this one; the line
