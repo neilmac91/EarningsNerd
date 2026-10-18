@@ -54,8 +54,9 @@ FY2024, verified against SEC XBRL.
 
 [templates/](templates/) with its own README: the social post (1080 × 1350, HTML and PNG), the
 business card front and back (SVG with trim guide and fill-in layer), the PDF cover (A4), the
-email header (600 px tables) and the A5 notebook cover (SVG and preview). Every figure is from
-the verified set; every colour is a token; the mark's paths are byte-identical to the mono mark.
+email header (a fluid column up to 600 px) and the A5 notebook cover (SVG and preview). Every figure
+is from the verified set; every colour is a token; the mark's paths are byte-identical to the mono
+mark.
 
 ## Records by phase
 
@@ -145,15 +146,22 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 - `lessons/frontend-check-brand-layouts-at-200-percent-text.md`: a figure pair wraps on its own
   width; a positioned twin centres on its anchor's measured midpoint.
 
-## Left for the founder
+## Decided by the founder
 
-1. The Multi-Period demo regenerated through the pipeline to end at FY2025
-   (`frontend/features/analysis/demo/demo-analysis.json`).
-2. A curation rule before Notable filings returns to the homepage (`NotableFilings.tsx`).
-3. The landing page's section composition (tell T4), as its own PR.
-4. Vercel Web Analytics on the privacy page, or gated on consent: `/privacy` does not name it today.
+The founder took the last four on 2026-10-17 (D-045 and D-046):
 
-Each has its own line in `tasks/todo.md`.
+1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is to be
+   regenerated through the pipeline to end at FY2025, a paid run under a USD 0.10 ceiling (E93).
+2. Notable filings is to return to the homepage with 10-K and 10-Q filings only, from companies
+   that hold a full summary, newest first, at most six (`NotableFilings.tsx`, E90).
+3. The landing page's sections after the hero are to become labelled rows (tell T4, D-045, E113).
+4. Vercel Web Analytics is to load only after the visitor allows analytics (D-046). Until that
+   change lands (#1387, E114) it runs for every visitor, so the consent bar's promise becomes true
+   in code with it. What `/privacy` says of analytics and Do Not Track, in draft #1265, stays with the
+   founder (F4).
+
+Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
+site goes without (A5) unless the founder writes one (D6, F48).
 
 ## Closing
 

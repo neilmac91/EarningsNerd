@@ -188,6 +188,24 @@ def test_fact_adjacency_flags_mislabeled_metric():
 
 
 @pytest.mark.unit
+def test_fact_adjacency_flags_wrong_sign_and_wrong_scale():
+    # The scorer builds its fact from the citation (``value_kind`` -> ``kind``), so the sign
+    # reading of a growth chip and the face-value scale reading both reach the eval.
+    misstated = score_fact_marker_adjacency(
+        "Revenue grew 15.3% [1]. Revenue was $1.2 million [2].",
+        [_fact_cite(1, -0.153, value_kind="yoy_growth", concept="revenue"),
+         _fact_cite(2, 1_200_000_000.0, concept="revenue")],
+    )
+    assert misstated[0] == 0.0 and len(misstated[1]) == 2
+    stated = score_fact_marker_adjacency(
+        "Revenue declined 15.3% [1]. Revenue was $1.2 billion [2].",
+        [_fact_cite(1, -0.153, value_kind="yoy_growth", concept="revenue"),
+         _fact_cite(2, 1_200_000_000.0, concept="revenue")],
+    )
+    assert stated == (1.0, [])
+
+
+@pytest.mark.unit
 def test_fact_adjacency_agrees_with_production_resolver_on_dense_marker_runs():
     """Production/scorer parity pin: the resolver judges windows against the FINAL text (stripped
     markers don't bound claim spans), so what the resolver ships must score 1.0 here. This is the

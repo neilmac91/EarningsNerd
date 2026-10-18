@@ -77,7 +77,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   // /assets/ holds the brand files that sent mail shows by URL (public/assets/LOGO_README.md › Rules). They are
-  // served as they are, so this middleware never runs on them and no branch of it can move one; the register,
-  // tests/unit/publishedAssetUrls.spec.ts, holds the matcher to that.
+  // served as they are, so this middleware never runs on them and no branch of it can move one; the register's
+  // gate, tests/unit/publishedAssetUrls.spec.ts, holds the matcher to that.
   matcher: ['/((?!_next/static|_next/image|assets/).*)'],
 }

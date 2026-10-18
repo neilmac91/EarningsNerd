@@ -10,6 +10,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from app.services.fact_provenance import METRIC_FORMULAS, calculated_provenance, fact_operand, reported_provenance
+from app.services.facts.currency import is_amount_unit
 
 QUARTER_WINDOW = (75, 105)
 FINAL_QUARTER_WINDOW = (75, 120)
@@ -93,7 +94,7 @@ def _matching_interval(later: dict, earlier: dict, *, final_quarter: bool = Fals
     return bool(
         start is not None and start == earlier.get("period_start")
         and later.get("raw_tag") and later["raw_tag"] == earlier.get("raw_tag")
-        and later.get("unit", "USD") == earlier.get("unit", "USD") == "USD"
+        and later.get("unit", "USD") == earlier.get("unit", "USD") and is_amount_unit(later.get("unit", "USD"))
         and window[0] <= (later["period_end"] - earlier["period_end"]).days <= window[1]
     )
 
@@ -127,7 +128,7 @@ def derive_cumulative_quarters(
              "FY": ("Q4", "YTD9", "FY - YTD9")}
     for concept, values in duration_values.items():
         for (end, kind), current in values.items():
-            if kind not in rules or current.get("unit", "USD") != "USD":
+            if kind not in rules or not is_amount_unit(unit := current.get("unit", "USD")):
                 continue
             quarter, prior_kind, formula = rules[kind]
             label = ("Q4", annual_years.get(end, end.year)) if kind == "FY" else quarter_labels.get(end)
@@ -141,15 +142,14 @@ def derive_cumulative_quarters(
             pair = next((chosen for prior in priors
                          if (chosen := compatible_vintages(current, prior)) is not None), None)
             if pair is None:
-                excluded.append({"concept": concept, "fiscal_year": fiscal_year,
-                                 "fiscal_period": quarter,
+                excluded.append({"concept": concept, "fiscal_year": fiscal_year, "fiscal_period": quarter,
                                  "reason": "incompatible_vintages" if priors else "missing_compatible_operand",
-                                 "inputs": [fact_operand(reported_fact(company_id, concept, "USD", r))
+                                 "inputs": [fact_operand(reported_fact(company_id, concept, unit, r))
                                             for r in [current, *priors]]})
                 continue
-            high, low = (reported_fact(company_id, concept, "USD", r) for r in pair)
+            high, low = (reported_fact(company_id, concept, unit, r) for r in pair)
             derived.append(_calculated_quarter(
-                reported_fact(company_id, concept, "USD", current),
+                reported_fact(company_id, concept, unit, current),
                 fiscal_year, quarter, high["value"] - low["value"],
                 low["period_end"] + timedelta(days=1), formula, [high, low],
             ))
@@ -184,7 +184,7 @@ def _compatible_quarter_sum(fy: dict, quarters: list[dict], values: dict) -> boo
 def derive_quarter_sum_fallback(facts: list[dict], duration_values: dict | None = None) -> list[dict]:
     groups: dict[tuple[str, Any], dict[str, dict]] = {}
     for fact in facts:
-        if fact.get("unit") == "USD" and fact.get("period_start") is not None:
+        if is_amount_unit(fact.get("unit")) and fact.get("period_start") is not None:
             groups.setdefault((fact["concept"], fact.get("fiscal_year")), {})[fact["fiscal_period"]] = fact
     derived = []
     for (concept, fiscal_year), periods in groups.items():
