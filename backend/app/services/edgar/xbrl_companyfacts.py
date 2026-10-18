@@ -173,23 +173,23 @@ def append_items(
     result: Dict[str, List[Dict]], normalized_accession: Optional[str],
     metric: str, data: list, raw_tag: Optional[str] = None,
 ) -> None:
-    from .fiscal_periods import fiscal_label
+    from .fiscal_periods import filing_point_label
     from app.services.facts.concepts import _classify_duration
 
     target = [item for item in data if _is_target(item, normalized_accession)]
     anchor = max(target, key=lambda item: item.get("end", "")) if target else {}
     for item in filter_and_sort(data):
-        label = {}
-        # Classify the actual duration before treating the filing focus as a quarter.
-        # Instant facts share the selected filing's report-period anchor.
+        # Classify the actual duration before applying the filing focus: a 10-Q labels its discrete
+        # quarters, an annual report its full years. Instant facts share the report-period anchor.
         try:
-            discrete = not item.get("start") or _classify_duration(
-                date.fromisoformat(item["start"]), date.fromisoformat(item["end"])
-            ) == "Q"
+            span = "instant" if not item.get("start") else _classify_duration(
+                date.fromisoformat(item["start"]), date.fromisoformat(item["end"]))
         except (ValueError, TypeError):
-            discrete = False
-        if discrete and (item.get("form") or "").removesuffix("/A") == "10-Q" and _is_target(item, normalized_accession):
-            label = fiscal_label(item["end"], anchor.get("end"), anchor.get("fy"), anchor.get("fp"))
+            span = None
+        own_span = "Q" if (item.get("form") or "").removesuffix("/A") == "10-Q" else "FY"
+        label = {}
+        if span in ("instant", own_span) and _is_target(item, normalized_accession):
+            label = filing_point_label(item.get("form"), item["end"], anchor.get("end"), anchor.get("fy"), anchor.get("fp"))
         result[metric].append({
             **label,
             "period": item.get("end"),

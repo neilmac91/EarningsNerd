@@ -182,11 +182,16 @@ def snapshot_filing(filing: Any) -> SimpleNamespace:
 
 
 def _without_source_durations(xbrl_data: Any) -> Any:
-    """Model-facing metrics without source durations or internal comparison descriptors."""
+    """Model-facing metrics without source durations, annual fiscal labels or internal comparison descriptors.
+
+    One filing cannot tell a lagging DEI focus from a year named by its start, so an annual label is left to
+    the filing's text and the numeric tools, which read the corrected financial_fact rows.
+    """
     if not isinstance(xbrl_data, dict):
         return xbrl_data
     return {
-        key: [{k: v for k, v in point.items() if k != "period_start"}
+        key: [{k: v for k, v in point.items() if k != "period_start"
+               and not (point.get("fiscal_period") == "FY" and k in ("fiscal_year", "fiscal_period"))}
               if isinstance(point, dict) else point for point in value]
         if isinstance(value, list) else value
         for key, value in xbrl_data.items()

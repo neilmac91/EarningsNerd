@@ -336,6 +336,34 @@ unused since generation became account-required in #619; kept because migrations
 - Per-filing discrete-quarter facts retain fiscal labels anchored to the XBRL filing focus and
   their own distance from its report date. Comparative quarters move across fiscal years;
   non-calendar years do not use calendar-quarter labels. Missing/irregular metadata stays unknown.
+  Annual-report (10-K/20-F/40-F and their amendments) points take the issuer's fiscal year from the
+  same anchor (the DEI FY focus year less whole years back from the report date) wherever the
+  calendar year of the period end misnames it: a year ending 1 February 2025 is fiscal 2024, a
+  52-week year ending 1 January 2023 is fiscal 2022. The focus is trusted within the companyfacts
+  writer's year bound (the end year or the year before), and the year before only where most of the
+  year lies in it, so a December filer's lagging focus cannot move its years. One filing cannot
+  outvote a lagging focus on a year ending January to early July (Salesforce's 10-K for its fiscal
+  2026, ended 31 January 2026, says 2025), as the companyfacts year chain can, so the per-filing
+  writer moves an annual report's FY rows onto the years companyfacts already stores for its period
+  ends (`facts/fiscal_evidence`: FY rows from the fiscal-year-window writer that name one year and
+  include a duration), by one offset for the whole filing; offsets that disagree keep the filing's
+  labels, quarter labels never move, and a report opened before the first sync keeps its own (a
+  known limit). Without a trusted focus, or for a point more than 18 days off a whole number of
+  years from the report date (a transition period), the label is the calendar year of the end,
+  never NULL (a NULL year would drop the period from Multi-Period Analysis). The fact identity
+  leaves the year out, so this is what lets the per-filing and companyfacts writers name a period
+  alike whichever stores it first, wherever a timely annual report (filed within 180 days of its
+  end) anchors the companyfacts year chain, short of that limit. Where a contiguous chain holds
+  none, the companyfacts writer keeps calendar years, for the chain's quarters too, while the
+  per-filing labellers, which see no filing date, name the fiscal year. So a delinquent filer whose
+  fiscal year is named for the calendar year before its end (in practice a year ending in January
+  or February, a 52-week year ending in early January, or a March 20-F named by its start) carries
+  two labels for one period end when its report is opened before the sync; synced first, the
+  report takes the calendar years. A 10-Q filer's quarter rows were already mixed this way before
+  the annual labeller (a 20-F filer has none, so for it the annual mix is new); the open follow-up,
+  in the companyfacts writer, fixes both. The Multi-Period Analysis dataset reads current rows in
+  period-end order, so a label that two period ends carry resolves to the later one, the axis
+  bucket's own end.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
   deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
   company row and preserve a known newer accession. The per-filing writer also preserves untied
