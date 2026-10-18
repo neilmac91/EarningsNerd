@@ -30,7 +30,8 @@ rule covers, so it was green while the rule was violated:
 This is more dangerous than having no gate. A missing gate is a known hole; a narrow gate
 reports "enforced" and stops anyone looking.
 
-**Rule**: Three sub-rules, each learned the hard way above.
+**Rule**: Five sub-rules, each learned the hard way; the context above, the evidence and the recurrences
+below record how.
 
 *Ask the source of truth rather than approximating it.* `git ls-files` is the exact set of
 files in the repo; a hand-written skip list is a guess at what git already knows, and it is
@@ -79,8 +80,34 @@ while its sibling reads only the syntax around it leaves the sibling as narrow a
 was, and a value the gate must recognise rather than read (a component's children) rides that walk
 as a mark, not a second walk of its own.
 
+*Read the output when the rule is about it.* When the rule constrains what code emits (the addresses
+a mail carries, the markup a page holds), a reader of the source follows a value only as far as its
+syntax reaches. Run the code and read what it emits. Hold the runs to the emitting module's whole
+public surface, not to the callers of one function, with inputs a coverage check holds to every line
+of the module and a second check holds to the lengths callers send, and read what leaves it (what a
+sender sends, not what a helper returns). Keep the source scan for the code no run reaches, and name in
+each gate's header what it cannot see. Where reading the output needs a model of its reader (how a
+browser reads a page), parse as the sources of truth do, and take what each parsed value means from what
+the reader does: score each entry of the model's tables against it (the pinned Chromium, for a page),
+read a property once per engine where the engines differ, on the side each check needs, and mark as
+inferred what no build here can show. A grammar says how a value may be written, not what an engine
+takes: `mdn-data` lists display values neither engine takes and gives `word-wrap` no `anywhere`, which
+Blink takes. Model the reader's behaviour, such as a box model, rather than the forms a review names.
+
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
+
+**Gate**: each gate scores its own planted forms in its own suite: rule 2's fixture,
+`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, in `brandCopyRules.spec.ts`; the route-metadata
+readers' self-checks in `routeMetadata.spec.ts`; the register's planted layouts (`LAYOUTS`), their count
+held equal, in `publishedAssetUrls.spec.ts`; the published-asset scan's `FORMS`, with equal counts and a
+header that names each gap a case marks, in `backend/tests/unit/test_mail_published_assets.py`; the
+mail reader's planted pages (`TEXT_SIZES`, `LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`,
+`COLOURS`), each list's counts held equal, in `backend/tests/unit/test_mail_header_template.py`; and the
+rendered gate's planted cases (`PAGES`, `REACHES`, `SENDS`, `ADDRESSES`), their counts held equal, in
+`backend/tests/unit/test_mail_rendered_addresses.py`.
+Scoring a model of a reader against the reader itself has no gate yet: E116 in `tasks/todo.md` would score
+the mail reader against the pinned Chromium in CI.
 
 **Evidence**: [#850](https://github.com/neilmac91/EarningsNerd/pull/850) —
 `frontend/tests/unit/designSystemDoneGate.spec.ts` and `testHomesAllowlist.spec.ts`;
@@ -225,6 +252,16 @@ handed to. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
 
+**Recurrence (2026-10-14, #1288)**: the voice gate's record promised sentence case on "headings,
+card and dialog titles, button labels and meta titles", while the spec read h1 to h3, four title
+props and two button tags. The founder's probe (a ModalHeader child, a CardTitle, a SecondaryHeader
+title, two links styled by `buttonVariants()`, an h4, an aria-label) stayed green, and the live
+"Cookie Preferences" dialog title was never counted. The fix read the record's words as the gate's
+extent: every heading level, the title components, any element whose className reaches the button
+factory, and the components found to render their children or title into one of those, found by a
+fixed-point pass over the tree instead of a hand list. Write the record's sentence from what the
+gate reads, and name the rest as review-checked.
+
 **Recurrence (2026-10-14, the Copilot's links)**: rule 2 read every component the app renders.
 Fixing the Copilot's links, which had waited on the founder's call, found the prose links' rule in
 `app/globals.css` setting sage at rest by `@apply` on every link in the filing reader, the summary
@@ -235,3 +272,104 @@ next review named a metric row's formatted figures outside it; so rule 2 classif
 API types declare that can hold a string, an array of them included, a figure field or a word field,
 and fails one it has not classified. A gate keyed on a list of names holds only when a test makes
 the list exhaustive over its domain.
+
+**Recurrence (2026-10-15, the mail's published addresses)**: #1334's asset gate,
+`test_mail_published_assets.py`, read the code that builds mail. It took each f-string and `+` chain
+whole and held what a name bound, and its header claimed that a registered path could not be changed
+once it sat in an address. The second delta review found the address changed, unseen, wherever it went
+after the expression that built it: a helper, an alias, a container, `+=`, a fill, an import. Every form
+the three lenses tried passed. A reader of the source follows a value only as far as its syntax reaches.
+When the rule is about what the code emits, read what it emits.
+`test_mail_rendered_addresses.py` first rendered the callers of `_wrap_html` and read what they
+returned. The third delta review found mail built around them unread: a payload builder that added to
+the page, a partial of `_wrap_html`, a renderer's plain-text copy parsed as markup, and a branch no input
+took. So it now renders every public function of the mail module, with its sends recorded, on inputs a
+line-coverage check holds to every line of the module, and reads each address in what is sent. The
+source scan stays for the code no render reaches, and its header names what it cannot follow.
+Its own name reads were then looser than Python's: a function merely named `dedent` was taken for
+`textwrap.dedent`, `nonlocal` named the function directly around instead of the nearest one that binds
+the name, a walrus in a comprehension was read as the comprehension's own, a `def`, a `class` and a
+`match` capture were no bindings at all, and a parameter's default was read inside the function, so a
+registered path rebound or handed on in each of those forms passed. When a gate resolves names, resolve
+them as the language does, and know a library function by what the module imports, not by its name.
+
+**Recurrence (2026-10-15, the mail's layout rules)**: #1334 holds CSS rules on every page the mail
+module sends: the header keeps `-webkit-text-size-adjust:100%` and every other line is left to the
+view, a run with nowhere to break can break anywhere, and the page is fluid. The first checks read
+substrings of one tag; the next walked the page with `HTMLParser` and approximated how a client reads
+it. Each review found a form of the rule the approximation missed: the property inherited from another
+element or set by a `<style>` block, the unprefixed name that iOS's WebKit ignores, a CSS comment or
+escape, `!important` order, the first of two `style` attributes, a self-closing tag that HTML opens, a
+`<b>` the parser opens again, and a wrap rule reset below the tag the check read. So the reader parses
+as the sources of truth do: a WHATWG tree builder builds the page and a CSS parser reads each style.
+The next two reviews found that the parse was not the half that failed. What a parsed value means was
+still a hand-written table, and a probe in Chromium found a hole in each: an allowlist of inline
+elements that ended a run at an element it did not know, `line-break:anywhere` missing from the break
+family, display values neither engine takes read as blocks and `display:inherit` as the element's own,
+`white-space` read apart from the `text-wrap-mode` it sets, an SVG's `<style>` missed under its
+namespaced name, `word-wrap:anywhere` read once for two engines that disagree, and a threshold above
+the runs that widen a phone's column. The gate's inputs also ran every line while their values were too
+short to print the runs the rule is about: every reader was "Ada". The review after them found the
+same two halves again. The width check read the widths an element declares, while a browser lays boxes
+out: an image at its natural size, a block's padding, a list's indent, a margin, and a table a percentage
+`max-width` does not hold in a cell each held a page wider than a phone with every test green; it now
+gives each box the room its parent leaves, as a box model does. And every company in the inputs was
+"Acme Corp", while EDGAR names carry runs of 18 to 21 characters, which the alerts printed with no rule.
+The table model was still written from the specification, and each read measured in Chromium corrected it:
+a fixed layout takes its widths from the first row it lays out, its first header group first, shares the
+room its columns leave by their widths, and resolves a percentage against the table less its spacing,
+shrinking it before it overruns; an `<object>`'s fallback is any child but a `<param>` or whitespace, a
+comment included; and an `<embed>` with a `type` but no `src` makes a box. The next review found more
+reads taken from the specification or from habit, each then measured: a fixed layout adds a lone
+percentage cell's padding to its share and gives a spanning cell's columns its width less the spacing
+inside it; a row's cells skip what a rowspan above holds; HTML ignores a cell's zero width; a section's
+display, not its tag, makes it a header group; an automatic layout holds each column to its widest cell's
+padding; and an image or a form control is one box whatever its display. Nine of the PR's own 415 mutants
+survived on reads no page planted (a tenth was equivalent), and the reviewers' own mutations found more: a
+read the model makes is not covered until a page that needs it is planted and scored. The review after
+that found the next guesses where the model had generalised from one measured shape: Chromium spreads a
+spanning cell's excess by its columns' content, not alike, so the reader, which measures no content, now
+counts each excess in full; a fixed layout splits a spanning percentage over its columns, its padding and
+their spacing aside; an `<svg>`'s width is a CSS length, where an image's is an HTML dimension; and a
+form control stays one box under a table part's display. Measure each shape a read covers, not the one
+that suggested it. The review of that fix found the same twice more, and two new gates as narrow as their
+first readers. A `<col>`'s min-width, measured beside columns that set no width, holds a fixed layout's
+column a width sets, and under a cell across columns Chromium lets it take the cell's excess or adds the
+two as its spread falls, so the reader adds them; and counting each spanning cell's excess in full failed a
+list whose rows each span the table, where cells across the same columns count once. The colour gate read
+the hex a page writes but not the colours a client paints in its place (a link that sets none, `initial`,
+`-webkit-link`), and the sender gate read the transport but not the queue that feeds it. The review after
+found the same again: a column no cell starts in and no `<col>` keeps merges into the one before it, so a
+span holds fewer spacings than its columns; a fixed layout ignores a `<col>`'s min-width in percent and caps
+a percent by a percent; a link's colour counts only where a browser takes it (it drops `#fffff`); and the
+mail module's own sends went unread as pages where one was not the shell's. And the review after that: a
+`<colgroup>`'s width keeps the columns of the `<col>`s that set none, a merged column's min-width adds to
+the table's least width save past every column kept, `light-dark()` takes no CSS-wide keyword, CSS's
+deprecated system colours still paint, and a send through the transport itself, or a module handed on under
+another module's name, went unread. The merge itself had made a cell whose columns it lays out as one count
+as that column's own cell, which a cell across columns that Chromium widens before it then used (Chromium
+takes the cells across columns after the others, the fewest columns first, then from the left), so the
+reader passed tables Chromium lays out wider, where the reader before the merge counted them in full. A
+bound rewritten tighter is scored again on every shape the old one held, by the width it counts: a verdict
+at the phone's width cannot report short a table wider than the phone. And the review after that: a
+`<colgroup>`'s `inherit` takes its table's width, a module's name for a module read through a module that
+another re-exports went unread, and a voice rule's exception for a conditional comment's condition excused
+a "!" in any bracket that opens `[if `. Those `<colgroup>` shapes had been left out of the scoring as an
+artifact of the least pass, which forces the table's width; they hid pages that pass where Chromium
+overflows. A shape a measure distorts is measured another way, at the width the page sets, not left out.
+When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
+parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
+`word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine
+where the engines disagree, on the side each check needs; and hold every value an input hands in to the
+lengths callers send, not only the lines they run.
+
+**Recurrence (2026-10-15, route metadata)**: `frontend/tests/unit/routeMetadata.spec.ts` (#1312) read
+a title or a description only as a typed literal and walked `page.tsx` and `layout.tsx` alone. The
+literal reader failed #1299's description, a template over the period caps `lib/planLimits.ts`
+mirrors from config, and the literal it asked for would have failed #1299's lockstep gate, so
+whichever PR landed second went red; the walk let a noindex `layout.ts` take every company page out
+of the index with all 132 tests green. The spec now imports each module and checks the metadata it
+exports as Next evaluates it, and walks every page and layout under the extensions Next serves
+(next.config.js's `pageExtensions`, else Next's default), with a `.ts` layout planted in its
+self-check. A gate over a framework's files reads the file names the framework reads, and a gate
+over a value reads the value, not the way one file typed it.

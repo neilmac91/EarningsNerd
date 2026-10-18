@@ -1,0 +1,17 @@
+SEC responses for one golden filing (PLD 10-K, CIK 1045609, accession 0001193125-26-051453), read 2026-10-15T21:31:17Z with the app's EDGAR identity as User-Agent.
+Format: HTTP status, bytes, URL. The short URL is what edgartools 5.58.0's Filing.homepage_url builds; the in-folder URL is what 5.61.0 builds.
+
+403 456  https://www.sec.gov/Archives/edgar/data/1045609/0001193125-26-051453-index.html
+200 23399  https://www.sec.gov/Archives/edgar/data/1045609/000119312526051453/0001193125-26-051453-index.html
+200 59058670  https://www.sec.gov/Archives/edgar/data/1045609/000119312526051453/0001193125-26-051453.txt
+
+Body of the 403 (the edge server's reference number trimmed):
+<HTML><HEAD>
+<TITLE>Access Denied</TITLE>
+</HEAD><BODY>
+<H1>Access Denied</H1>
+You don't have permission to access "http&#58;&#47;&#47;www&#46;sec&#46;gov&#47;Archives&#47;edgar&#47;data&#47;1045609&#47;0001193125&#45;26&#45;051453&#45;index&#46;html" on this server.<P>
+Reference [trimmed]
+<P>[trimmed]</P>
+</BODY>
+</HTML>

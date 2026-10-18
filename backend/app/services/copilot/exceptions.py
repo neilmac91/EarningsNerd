@@ -7,4 +7,4 @@ class _UnpublishableAnswer(ValueError):
 
 
 class _RegenerableEvidenceMismatch(_UnpublishableAnswer):
-    """Only referenced excerpt matching failed; identity, label and source checks passed."""
+    """A referenced excerpt failed or its ID was declared twice; labels, literals and source passed."""

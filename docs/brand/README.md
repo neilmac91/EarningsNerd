@@ -54,8 +54,9 @@ FY2024, verified against SEC XBRL.
 
 [templates/](templates/) with its own README: the social post (1080 × 1350, HTML and PNG), the
 business card front and back (SVG with trim guide and fill-in layer), the PDF cover (A4), the
-email header (600 px tables) and the A5 notebook cover (SVG and preview). Every figure is from
-the verified set; every colour is a token; the mark's paths are byte-identical to the mono mark.
+email header (a fluid column up to 600 px) and the A5 notebook cover (SVG and preview). Every figure
+is from the verified set; every colour is a token; the mark's paths are byte-identical to the mono
+mark.
 
 ## Records by phase
 

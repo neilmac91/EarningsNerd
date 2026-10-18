@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import logging
@@ -9,18 +10,38 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 
 from app.config import settings
+from app.utils.datetimes import utcnow
 from app.utils.pii import mask_recipients
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# Svix's own libraries refuse a timestamp more than five minutes either side of the receiver's clock.
+_TIMESTAMP_TOLERANCE_SECONDS = 5 * 60
+
+
+def _signing_key(secret: str) -> Optional[bytes]:
+    """The HMAC key a Svix signing secret carries: the base64 text after its ``whsec_`` prefix.
+
+    None when that text is empty or not base64: a misconfigured secret, which must fail closed.
+    """
+    encoded = secret.strip().removeprefix("whsec_")  # a secret stored with a newline still reads
+    try:
+        key = base64.b64decode(encoded + "=" * (-len(encoded) % 4), validate=True)
+    except ValueError:  # binascii.Error, or a character outside ASCII
+        return None
+    return key or None
+
+
 def verify_webhook_signature(payload: bytes, signature_header: str, secret: str, svix_id: str, svix_timestamp: str) -> bool:
     """
-    Verify Resend webhook signature, which uses the Svix standard.
+    Verify a Resend webhook by the Svix scheme Resend signs with.
 
-    The signed content is the `svix-id`, `svix-timestamp`, and request body,
-    concatenated with a `.` as a separator.
+    Svix keys an HMAC-SHA256 with the base64-decoded text of the ``whsec_`` secret, signs
+    ``{svix-id}.{svix-timestamp}.{raw body}``, and sends ``v1,<base64 digest>`` entries separated by
+    spaces in ``svix-signature``. A timestamp more than five minutes from this server's clock is
+    refused, as Svix's libraries refuse it, so a captured delivery cannot be replayed after that.
     """
     if not secret:
         # In non-production environments, we can allow verification to be skipped if the secret is not set.
@@ -31,28 +52,28 @@ def verify_webhook_signature(payload: bytes, signature_header: str, secret: str,
             logger.error("RESEND_WEBHOOK_SECRET is not set in production. Webhook verification failed.")
             return False
 
-    # Construct the signed payload according to Svix standard: svix-id.svix-timestamp.body
-    signed_payload = f"{svix_id}.{svix_timestamp}.".encode() + payload
-    expected_signature = hmac.new(
-        secret.encode(),
-        signed_payload,
-        hashlib.sha256
-    ).hexdigest()
+    key = _signing_key(secret)
+    if key is None:
+        logger.error("RESEND_WEBHOOK_SECRET is not a Svix signing secret (whsec_ and base64). Webhook verification failed.")
+        return False
 
-    # The svix-signature header can contain multiple signatures, space-separated.
-    # e.g., "v1,sig1 v1,sig2"
+    try:
+        sent_at = int(svix_timestamp)
+    except ValueError:
+        return False
+    # Compared, never subtracted: Python compares an int with a float exactly, so a long run of digits
+    # is no OverflowError, and the fraction of the clock's second is kept, as Svix's libraries keep it.
+    now = utcnow().timestamp()
+    if not now - _TIMESTAMP_TOLERANCE_SECONDS <= sent_at <= now + _TIMESTAMP_TOLERANCE_SECONDS:
+        logger.warning("Resend webhook timestamp is more than five minutes from the server clock")
+        return False
+
+    mac = hmac.new(key, f"{svix_id}.{svix_timestamp}.".encode() + payload, hashlib.sha256)
     for versioned_signature in signature_header.split(" "):
-        try:
-            version, signature = versioned_signature.split(",", 1)
-            if version != "v1":
-                continue
-            # Compare signatures in constant time to prevent timing attacks
-            # Bytes, not str: compare_digest raises TypeError on a non-ASCII str, and headers decode as latin-1.
-            if hmac.compare_digest(signature.encode(), expected_signature.encode()):
-                return True
-        except ValueError:
-            continue  # Ignore malformed signature parts
-
+        version, _, signature = versioned_signature.partition(",")
+        # Bytes, not str: compare_digest raises TypeError on a non-ASCII str, and headers decode as latin-1.
+        if version == "v1" and hmac.compare_digest(signature.encode(), base64.b64encode(mac.digest())):
+            return True
     return False
 
 

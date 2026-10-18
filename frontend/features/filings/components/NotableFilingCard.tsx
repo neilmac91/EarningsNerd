@@ -64,9 +64,10 @@ export default function NotableFilingCard({
             {filing.company_name}
           </span>
         </div>
-        <div className="mt-1 text-xs uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
-          {filing.form}
-          {ago ? ` • Filed ${ago}` : ''}
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+          {/* A form code is text in the data face, never an eyebrow chip (DESIGN.md › Chips). */}
+          <span className="font-data text-text-primary-light dark:text-text-primary-dark">{filing.form}</span>
+          {ago && <span>· Filed {ago}</span>}
         </div>
         <div className="mt-2">
           <Badge

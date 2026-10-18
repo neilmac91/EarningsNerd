@@ -48,3 +48,8 @@ sentry-sdk[fastapi]>=2.71.0
 # Testing
 pytest>=9.1.1
 pytest-asyncio>=0.23.0
+# The mail gates read a page as a browser builds it and its styles as CSS parses them
+# (tests/support/mail_styles.py). Already in the lock via weasyprint; declared because tests
+# import them directly.
+tinycss2>=1.5.1,<2
+tinyhtml5>=2.1.0,<3

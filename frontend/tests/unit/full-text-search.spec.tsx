@@ -1,11 +1,41 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios'
 
 vi.mock('@/features/search/api/search-api', () => ({ searchFullText: vi.fn() }))
 
 import FullTextSearch, { FullTextSearchResults } from '@/features/search/components/FullTextSearch'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
+import api, { ApiError } from '@/lib/api/client'
+
+/** An ApiError as lib/api/client builds it when the response body carried a string `detail`. */
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((yes) => { resolve = yes })
+  return { promise, resolve }
+}
+const fromBackend = (status: number, detail: string) => Object.assign(new ApiError(status, detail), { backendDetail: detail })
+
+/**
+ * The search request as lib/api/client fails it when the response has the given status and body: the
+ * real response interceptor runs, so `detail` is the client's own fallback (a bodiless 503's "Service
+ * temporarily unavailable" sentence) or axios's text (a bodiless 413), never typed out here.
+ */
+async function failThroughClient(status: number, data: unknown): Promise<never> {
+  const original = api.defaults.adapter
+  const adapter: AxiosAdapter = (config: InternalAxiosRequestConfig) => {
+    const response = { status, statusText: '', data, headers: new AxiosHeaders(), config }
+    return Promise.reject(new AxiosError(`Request failed with status code ${status}`, AxiosError.ERR_BAD_RESPONSE, config, null, response))
+  }
+  api.defaults.adapter = adapter
+  try {
+    await api.get('/api/search/full-text')
+  } finally {
+    api.defaults.adapter = original
+  }
+  throw new Error('the stub adapter did not fail the request')
+}
 
 const hit: FullTextSearchHit = {
   accession_no: '0000320193-24-000123',
@@ -49,9 +79,62 @@ describe('FullTextSearchResults', () => {
     expect(container.textContent).toContain('Apple Inc.')
   })
 
+  it('sets the form code as data-face text, never a chip, and rings and tints the row link inside the clipped list', () => {
+    render(<FullTextSearchResults hits={[hit]} />)
+    const form = screen.getByText('10-K')
+    expect(form).toHaveClass('font-data')
+    expect(form.className).not.toMatch(/\b(rounded|border|uppercase|tracking-eyebrow)\b/)
+    // The list is overflow-hidden, so an outer ring would be clipped: the inset token instead.
+    expect(screen.getByRole('link')).toHaveClass(
+      'focus-visible:outline-none',
+      'focus-visible:shadow-ring-brand-inset',
+      'dark:focus-visible:shadow-ring-brand-inset-dark',
+    )
+    // Hover brightens to the product's row tint (DESIGN_SYSTEM.md section 6), never darkens.
+    expect(screen.getByRole('link')).toHaveClass('hover:bg-brand-weak', 'dark:hover:bg-white/5')
+    expect(screen.getByRole('link').className).not.toMatch(/hover:bg-black/)
+  })
+
   it('renders one row per hit', () => {
     render(<FullTextSearchResults hits={[hit, { ...hit, accession_no: '0000320193-23-000077', document: 'aapl2.htm' }]} />)
     expect(screen.getAllByRole('link')).toHaveLength(2)
+  })
+
+  // At 200% text (the 2026-10-14 capture review of #1301) the name cut to "Apple …", an ISO date broke at
+  // its hyphen ("2024-11-" / "01") and a wrapped meta line began with a middot.
+  it('wraps the company name in full under its ticker, in the primary ink in both themes', () => {
+    render(<FullTextSearchResults hits={[hit]} />)
+    const name = screen.getByText('Apple Inc.')
+    expect(name).not.toHaveClass('truncate')
+    expect(name).toHaveClass('break-words', 'text-text-primary-light', 'dark:text-text-primary-dark')
+    expect(name.parentElement).toHaveClass('flex-wrap')
+  })
+
+  it('keeps each date and the form code whole, and a middot only ever ends a line', () => {
+    render(<FullTextSearchResults hits={[hit]} />)
+    for (const fact of ['10-K', '2024-11-01', '2024-09-28']) expect(screen.getByText(fact)).toHaveClass('whitespace-nowrap')
+    const meta = screen.getByText('2024-11-01').closest('p') as HTMLElement
+    // A no-break space glues each middot to the fact before it; the space after it is where a line may break.
+    // Assistive tech hears a comma (the sr-only span), not the middot.
+    expect(meta.textContent).toBe('10-K\u00a0·, Filed 2024-11-01\u00a0·, Period 2024-09-28')
+    for (const dot of within(meta).getAllByText('·')) expect(dot).toHaveAttribute('aria-hidden', 'true')
+    // The commas are sr-only (absolutely positioned) inside the list's clip, so the clip is positioned and holds
+    // them (lessons/frontend-sr-only-needs-a-positioned-clip.md).
+    expect(within(meta).getAllByText(',')[0]).toHaveClass('sr-only')
+    expect(meta.closest('ul')).toHaveClass('relative', 'overflow-hidden')
+  })
+
+  it('makes each fact one run, its label, its value and its middot, so the line breaks only between two facts', () => {
+    // The design review of #1369: only the values were runs, so at 320px the line broke between "Period" and its
+    // date. A run wider than the whole line still wraps inside, after its label (each value stays whole).
+    render(<FullTextSearchResults hits={[hit]} />)
+    const meta = screen.getByText('2024-11-01').closest('p') as HTMLElement
+    const runs = Array.from(meta.children)
+    expect(runs.map((run) => run.textContent)).toEqual(['10-K\u00a0·,', 'Filed 2024-11-01\u00a0·,', 'Period 2024-09-28'])
+    for (const run of runs) expect(run).toHaveClass('inline-block')
+    // Between two runs, a plain space and nothing else: the one place the line breaks.
+    const between = Array.from(meta.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE)
+    expect(between.map((node) => node.textContent)).toEqual([' ', ' '])
   })
 })
 
@@ -121,5 +204,133 @@ describe('FullTextSearch form filters', () => {
     await waitFor(() =>
       expect(vi.mocked(searchFullText)).toHaveBeenCalledWith(expect.objectContaining({ q: 'insider', forms: '10-K,4' })),
     )
+  })
+})
+
+describe('FullTextSearch controls and errors', () => {
+  beforeEach(() => vi.mocked(searchFullText).mockReset())
+
+  const renderSearch = () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <FullTextSearch />
+      </QueryClientProvider>,
+    )
+  }
+  const search = (q: string) => fireEvent.change(screen.getByLabelText(/Search the full text/i), { target: { value: q } })
+
+  it('rings the form toggles and Clear dates', () => {
+    renderSearch()
+    fireEvent.change(screen.getByLabelText('Filed on or after'), { target: { value: '2023-01-01' } })
+    for (const control of [screen.getByRole('button', { name: '10-K' }), screen.getByRole('button', { name: 'Clear dates' })]) {
+      expect(control).toHaveClass('focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark')
+    }
+  })
+
+  it('an unselected form toggle brightens like a result row; a selected one keeps its tint', () => {
+    renderSearch()
+    const toggle = screen.getByRole('button', { name: '10-K' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    // In dark it rests on white/5, so its hover steps to white/10 (the product's chip toggles).
+    expect(toggle).toHaveClass('hover:bg-brand-weak', 'dark:hover:bg-white/10')
+    expect(toggle.className).not.toMatch(/hover:bg-black/)
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle).toHaveClass('bg-brand-weak', 'dark:bg-brand-dark/15')
+  })
+
+  it('shows a backend detail (the 429) verbatim, and its Retry runs the search again', async () => {
+    vi.mocked(searchFullText)
+      .mockRejectedValueOnce(fromBackend(429, 'SEC full-text search is rate-limited right now. Please retry shortly.'))
+      .mockResolvedValueOnce({ query: 'going concern', total: 0, count: 0, hits: [] })
+    renderSearch()
+    search('going concern')
+    expect(await screen.findByRole('alert')).toHaveTextContent('SEC full-text search is rate-limited right now. Please retry shortly.')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText(/No filings match/)).toBeInTheDocument()
+    expect(vi.mocked(searchFullText)).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ['a lost connection (no response)', new ApiError(0, 'Could not reach the server. Try again in a moment.')],
+    // FastAPI's 422 carries a list, which reached the UI as "[object Object]" before lib/api/client read it.
+    ['a validation list in place of a detail', new ApiError(422, [{ loc: ['query', 'q'], msg: 'too long' }] as unknown as string)],
+    ['an error that is not an ApiError', new Error('boom')],
+  ])('shows its own sentence for %s', async (_name, error) => {
+    vi.mocked(searchFullText).mockRejectedValueOnce(error)
+    renderSearch()
+    search('going concern')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Search did not load. Try again in a minute.')
+  })
+
+  // lib/api/client's own fallbacks and axios's text fill `detail` when the body carried none: they are
+  // not the backend's words. These run the real interceptor, beside the 429 above.
+  it.each([
+    ["a bodiless 503 (the client's sentence)", 503, ''],
+    ["a bodiless 413 (axios's message)", 413, ''],
+    ['a 502 HTML gateway page (the client fallback)', 502, '<html>Bad Gateway</html>'],
+  ])('shows its own sentence for %s, never the client text in detail', async (_name, status, data) => {
+    const thrown = await failThroughClient(status, data).catch((err: unknown) => err)
+    expect(thrown).toBeInstanceOf(ApiError)
+    const clientText = (thrown as ApiError).detail
+    expect(clientText).toBeTruthy()
+    vi.mocked(searchFullText).mockImplementationOnce(() => failThroughClient(status, data))
+    renderSearch()
+    search('going concern')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Search did not load. Try again in a minute.')
+    expect(alert).not.toHaveTextContent(clientText)
+  })
+
+  // At 200% text the glyph shrank to a speck, the message thinned to a word a line and the busy "Retrying…"
+  // ran past the viewport: the message keeps a 12rem floor, Retry wraps under it, the glyph keeps its size.
+  it('lays the alert out to wrap: the message keeps a floor, Retry wraps under it, the glyph keeps its size', async () => {
+    vi.mocked(searchFullText).mockRejectedValueOnce(fromBackend(502, 'SEC full-text search is temporarily unavailable.'))
+    renderSearch()
+    search('going concern')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveClass('flex-wrap')
+    const message = within(alert).getByText('SEC full-text search is temporarily unavailable.')
+    expect(message).toHaveClass('min-w-0')
+    expect(message.parentElement).toHaveClass('min-w-0', 'flex-[1_1_12rem]')
+    expect(message.parentElement?.querySelector('svg')).toHaveClass('shrink-0')
+  })
+
+  it("shows the backend's own detail word for word (the 502)", async () => {
+    vi.mocked(searchFullText).mockRejectedValueOnce(fromBackend(502, 'SEC full-text search is temporarily unavailable.'))
+    renderSearch()
+    search('going concern')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('SEC full-text search is temporarily unavailable.')
+    expect(alert).not.toHaveTextContent('Search did not load')
+  })
+
+  it("after a search with results, a failed one's Retry stays up, busy and focused, with no old hits, until it lands", async () => {
+    const retry = deferred<{ query: string; total: number; count: number; hits: FullTextSearchHit[] }>()
+    vi.mocked(searchFullText)
+      .mockResolvedValueOnce({ query: 'apple', total: 1, count: 1, hits: [hit] })
+      .mockRejectedValueOnce(fromBackend(502, 'SEC full-text search is temporarily unavailable.'))
+      .mockReturnValueOnce(retry.promise)
+    renderSearch()
+    search('apple')
+    expect(await screen.findByText('Apple Inc.')).toBeInTheDocument()
+    search('going concern')
+    expect(await screen.findByRole('alert')).toHaveTextContent('SEC full-text search is temporarily unavailable.')
+    const button = screen.getByRole('button', { name: 'Retry' })
+    button.focus()
+    fireEvent.click(button)
+    await waitFor(() => expect(vi.mocked(searchFullText)).toHaveBeenCalledTimes(3))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+    // keepPreviousData hands the retry apple's results as a placeholder: none of it may show here.
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(button).toBeInTheDocument()
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    expect(document.activeElement).toBe(button)
+    expect(screen.queryByText('Apple Inc.')).toBeNull()
+    await act(async () => retry.resolve({ query: 'going concern', total: 0, count: 0, hits: [] }))
+    expect(await screen.findByText(/No filings match/)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByLabelText(/Search the full text/i))
   })
 })
