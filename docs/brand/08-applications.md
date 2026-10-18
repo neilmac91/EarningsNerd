@@ -294,7 +294,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   evidence table) is titled "Financial highlights", in sentence case; the summary's own section
   heading is the backend's schema title.
 - **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
-  `WeekView.tsx`): the coverage chip and the "+N more" and "Show top 5" controls rest in the ink,
+  `WeekView.tsx`): the coverage chip and the "+N more" and "Show fewer" controls rest in the ink,
   sage only under the pointer (D-030). `tests/unit/calendarCoverageChip.spec.tsx` renders the page
   on a bounded payload under the known universe: the chip shows there and nowhere else.
 - **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
