@@ -153,14 +153,18 @@ def release_request_session(db: Session) -> None:
     (``lessons/ops-release-cached-filing-reads-before-yield.md``). The Session stays reusable for a
     later short unit.
 
-    A close that fails (its connection dropped after the unit's last statement) is logged, not raised:
-    the unit's work has committed, and raising would turn its response into a 500, which for a
-    refresh loses the rotated token. The dependency's finalizer closes the session again after the
-    response, as it did before routes released early."""
+    A close that fails is logged, not raised. Units call this in a ``finally``, where raising would
+    replace the unit's own outcome: a refresh whose rotation has committed would answer 500 and lose
+    the rotated token, and a refresh's 401 would become a 500. The logged traceback reaches Sentry.
+    When the rollback fails because the connection dropped after the unit's last statement, the
+    session has already let go of its transaction, and SQLAlchemy has invalidated the connection and
+    returned its pool slot, so the dependency's finalizer finds nothing left to release. A rollback
+    that fails for another reason holds the slot until garbage collection, as it did when the
+    finalizer closed."""
     try:
         db.close()
     except Exception:
-        logger.exception("Releasing the request session failed; its dependency finalizer closes it again")
+        logger.exception("Releasing the request session failed; the unit's own outcome stands")
 
 
 def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional[str]) -> Company:

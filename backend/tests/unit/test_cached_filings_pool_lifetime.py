@@ -29,6 +29,7 @@ from typing import Any
 import httpx
 import pytest
 from sqlalchemy import create_engine, event
+from sqlalchemy.exc import IllegalStateChangeError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
 
@@ -570,13 +571,13 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
 @pytest.mark.asyncio
 async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypatch, tmp_path, caplog):
     """The refresh releases its session inside its unit, after the rotation has committed. A close
-    that fails there (a connection that dropped after the unit's last statement) must not turn the
-    response into a 500: the old token is already rotated away, so a reader who never receives the
-    new cookie refreshes with the old one next, and the replay sweep signs them out everywhere. The
-    release logs the failure, the route answers with the rotated cookie, and the dependency's
-    finalizer closes the session after the response."""
-    from sqlalchemy.exc import OperationalError
-
+    whose rollback fails there (a connection that dropped after the unit's last statement) must not
+    turn the response into a 500: the old token is already rotated away, so a reader who never
+    receives the new cookie refreshes with the old one next, and the replay sweep signs them out
+    everywhere. The first close drops the real DBAPI connection before it runs, so its rollback
+    fails as a dropped connection's does. SQLAlchemy reads that as a disconnect: it invalidates the
+    connection and returns its slot, the session lets go of its transaction, the release logs the
+    failure, and the route answers with the rotated cookie."""
     from app.config import settings
     from app.models import AuditLog, RefreshToken, User
     from app.services import refresh_token_service
@@ -599,16 +600,16 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
         raw_token = refresh_token_service.create_refresh_token(db, user)[1]
         db.commit()
 
-    closes: list[str] = []
+    at_close: list[tuple[bool, int]] = []
 
     class DroppedCloseSession(Session):
-        """The first close fails as a dropped connection's rollback would; later closes succeed."""
+        """Records, at each close, whether the session held a transaction and how many slots were out.
+        The first close drops its DBAPI connection first, as a server that went away would."""
 
         def close(self) -> None:
-            if not closes:
-                closes.append("failed")
-                raise OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly"))
-            closes.append("closed")
+            at_close.append((self.in_transaction(), engine.pool.checkedout()))
+            if len(at_close) == 1 and self.in_transaction():
+                self.connection().connection.dbapi_connection.close()
             super().close()
 
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=DroppedCloseSession))
@@ -621,9 +622,12 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
                 "/api/auth/refresh", headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}={raw_token}"},
             )
         assert response.status_code == 200 and response.json()["token_type"] == "bearer"
-        # The release inside the unit failed and was logged; the finalizer then closed the session.
-        assert closes == ["failed", "closed"]
-        assert "Releasing the request session failed" in caplog.text
+        # The unit's close held the user read's transaction and one slot; by the finalizer's close
+        # the dropped connection had been invalidated and its slot returned.
+        assert at_close == [(True, 1), (False, 0)]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert logged.exc_info[1].connection_invalidated
         assert engine.pool.checkedout() == 0
         with sessions() as db:
             original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
@@ -633,6 +637,25 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
             response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
     finally:
         engine.dispose()
+
+
+@pytest.mark.parametrize("error", [
+    OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
+    IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
+])
+def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
+    """Units release in a ``finally``, so a close that raised would replace the unit's own outcome:
+    a committed rotation would answer 500, and a refresh's 401 would become a 500. The release logs
+    any failed close, with its traceback, which Sentry's logging integration reports."""
+
+    class FailingClose:
+        def close(self) -> None:
+            raise error
+
+    filing_list_service.release_request_session(FailingClose())
+    [logged] = [record for record in caplog.records
+                if "Releasing the request session failed" in record.getMessage()]
+    assert logged.exc_info[1] is error
 
 
 # ── Structure: every async route keeps its request session off the loop ──────────────
