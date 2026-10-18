@@ -12,6 +12,7 @@ from app.models import Company, Filing, FinancialFact
 from app.services.facts.concepts import (
     _QUARTER_PERIODS, _duration_start, _fiscal_period, _parse_date, _unit_for,
 )
+from app.services.facts.fiscal_evidence import adopt_trusted_fiscal_years
 from app.services.facts.lineage import annotate_filing_calculations
 from app.services.facts.reconcile import _prior_values, cross_check_facts, reconcile_facts
 from app.utils.datetimes import utcnow
@@ -176,9 +177,9 @@ def process_filing_facts(
     flags_only: bool = False,
 ) -> Optional[dict[str, int]]:
     """Normalize ONE filing's stored ``xbrl_data`` into ``financial_fact`` (extract → normalize →
-    upsert → stamp ``processed_facts_at``). The per-filing core shared by ``backfill_facts`` (the
-    loop) and the post-summary event hook, so a freshly-summarized filing populates its own facts
-    without waiting for a batch run.
+    take the annual years companyfacts already names → upsert → stamp ``processed_facts_at``). The
+    per-filing core shared by ``backfill_facts`` (the loop) and the post-summary event hook, so a
+    freshly-summarized filing populates its own facts without waiting for a batch run.
 
     No network here: a supplied pre-fetched ``authoritative`` map enables the optional companyfacts
     cross-check; the backfill caller owns that fetch. The local-invariant gate runs regardless. Pass ``standardized`` to reuse metrics the caller already
@@ -203,6 +204,7 @@ def process_filing_facts(
     facts = normalize_standardized_to_facts(
         filing.company_id, filing.id, filing.accession_number, filing.filing_type, standardized
     )
+    adopt_trusted_fiscal_years(db, filing.filing_type, facts)  # Rows only; ``standardized`` keeps its labels.
     # upsert never commits here — this function owns the single commit so the fact rows and the
     # ``processed_facts_at`` stamp land together (and a caller can defer it with commit=False for a
     # larger per-filing transaction, e.g. remediation's xbrl_data write + delete + re-insert).
