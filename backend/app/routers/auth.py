@@ -28,6 +28,7 @@ from app.utils.text import has_control_characters
 from app.services import (
     audit_service,
     auth_account_service,
+    filing_list_service,
     invite_service,
     login_lockout,
     oauth_account_service,
@@ -696,15 +697,23 @@ async def refresh(
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     if not raw_token and body is not None:
         raw_token = body.refresh_token
+    user_agent, ip = request.headers.get("user-agent"), _client_ip(request)
+
+    def rotate_and_issue() -> str:
+        # One unit in the thread pool, released before the route returns: the rotation's checkout,
+        # and the user read its commit expires, never wait on the event loop
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            # Commits the rotation; on a replay it commits the chain revocation before re-raising.
+            user, new_refresh_token = refresh_token_service.rotate_and_commit(
+                db, raw_token, user_agent=user_agent, ip=ip,
+            )
+            return issue_session(db, user, response, request, refresh_token=new_refresh_token, commit=False)
+        finally:
+            filing_list_service.release_request_session(db)
 
     try:
-        # Commits the rotation; on a replay it commits the chain revocation before re-raising.
-        user, new_refresh_token = refresh_token_service.rotate_and_commit(
-            db,
-            raw_token,
-            user_agent=request.headers.get("user-agent"),
-            ip=_client_ip(request),
-        )
+        access_token = await run_in_threadpool(rotate_and_issue)
     except RefreshTokenReuseError as exc:
         _clear_refresh_cookie(response)
         _clear_auth_cookie(response)
@@ -724,7 +733,6 @@ async def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = issue_session(db, user, response, request, refresh_token=new_refresh_token, commit=False)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -1258,11 +1266,24 @@ async def logout(
 ):
     """Revoke the refresh token (if present) and clear both auth cookies."""
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
-    refresh_token_service.revoke_and_commit(db, raw_token)
+    # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
+    actor = (current_user.id, current_user.email) if current_user else None
+    hashed_ip = _hashed_client_ip(request)
+
+    def revoke() -> None:
+        # One unit in the thread pool, released before the route returns: a revoke that finds no live
+        # token commits nothing, and the audit write reads its row back, so either would otherwise
+        # hold a connection for the dependency's finalizer.
+        try:
+            refresh_token_service.revoke_and_commit(db, raw_token)
+            if actor:
+                audit_service.log_logout(db, actor[0], actor[1], ip_address=hashed_ip)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    await run_in_threadpool(revoke)
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
-    if current_user:
-        audit_service.log_logout(db, current_user.id, current_user.email, ip_address=_hashed_client_ip(request))
     return {"status": "success"}
 
 
@@ -1274,10 +1295,22 @@ async def logout_all(
     current_user: User = Depends(get_current_user),
 ):
     """Revoke every refresh token for the user (sign out all devices) and clear this session."""
-    revoked = refresh_token_service.revoke_all_and_commit(db, current_user.id)
+    # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
+    user_id, user_email = current_user.id, current_user.email
+    hashed_ip = _hashed_client_ip(request)
+
+    def revoke_all() -> int:
+        # One unit in the thread pool, released before the route returns (see ``logout``).
+        try:
+            revoked = refresh_token_service.revoke_all_and_commit(db, user_id)
+            audit_service.log_logout(db, user_id, user_email, ip_address=hashed_ip)
+            return revoked
+        finally:
+            filing_list_service.release_request_session(db)
+
+    revoked = await run_in_threadpool(revoke_all)
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
-    audit_service.log_logout(db, current_user.id, current_user.email, ip_address=_hashed_client_ip(request))
     return {"status": "success", "sessions_revoked": revoked}
 
 
