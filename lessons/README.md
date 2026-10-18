@@ -104,6 +104,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-stop-tuning-prose-know-the-floor.md — Stop tuning prompt prose when judge flags are heterogeneous or prompt-compliant
 - arch-structural-gates-over-prose-rules.md — Encode every "never do X again" rule as a machine-checked gate, not prose
 - arch-validate-inline-source-identities.md — Validate namespace bindings and qualified tags before selecting inline source facts
+- arch-value-guards-read-the-sign-and-the-stated-scale.md — A value guard reads the figure's sign and stated scale; tolerance covers only what the prose leaves open (partly gated by `backend/tests/unit/test_copilot.py` for the Copilot fact-marker value guard; other value matchers are review-checked)
 
 ## SEC / EDGAR data
 
