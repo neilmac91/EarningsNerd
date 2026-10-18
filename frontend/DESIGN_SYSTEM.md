@@ -203,11 +203,11 @@ comparison, billing and ticker filings cards at 320 and 360px, each held to its 
 comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
 the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
 `twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
-reserve's rows. Its limit: at 320px under 200% text the billing and ticker filings cards' `p-6` (48px a side)
-leaves a Notice a 92px content box, narrower than the Retry's narrowest state (138px, its padding and "again…"),
-so there the Retry sits 13px past the Notice's border, inside the card, the page at its width. Main's resting
-Retry is 30px past it there, so the cards' padding causes it, not the reserve or the Notice (E120). Where one
-Notice holds two failed reads, one
+reserve's rows. Its limit: at 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the
+admin feedback and invites lists) leaves a Notice a 92px content box, narrower than the Retry's narrowest state
+(138px, its padding and "again…"), so there the Retry sits 13px past the Notice's border, inside the card, the
+page at its width. Main's resting Retry is 30px past it there, so the cards' padding causes it, not the reserve
+or the Notice (E120). Where one Notice holds two failed reads, one
 RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
 the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
 not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and

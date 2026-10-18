@@ -218,9 +218,9 @@ move focus a mouse user did not lose.
   `full-text-search.spec.tsx` (its browser case waits on E39), `twoActionsWrap.spec.tsx` and `button-wrap.spec.tsx`.
   A Notice's row wraps, its text column going under the glyph where it cannot keep 9rem beside it, so a Notice
   inside a card keeps its Retry and its title inside its own border (reflow-200 holds three such cards). Its limit:
-  at 320px under 200% text the billing and ticker filings cards' `p-6` leaves a Notice a 92px content box, narrower
-  than the Retry's narrowest state (138px), so the Retry sits 13px past the Notice's border there, inside the card
-  (E120). During a refetch nobody
+  at 320px under 200% text a `p-6` card (billing, ticker filings, the admin lists) leaves a Notice a 92px content
+  box, narrower than the Retry's narrowest state (138px), so the Retry sits 13px past the Notice's border there,
+  inside the card (E120). During a refetch nobody
   pressed it is busy (aria-busy, aria-disabled, the spinner, a refused press) under its own label: a label
   swap inside the card's `role=alert` would re-announce the failure at every reconnect. Two failed reads in one
   Notice share one RetryButton (the dashboard's plan strip, the pricing page's details Notice): its press
