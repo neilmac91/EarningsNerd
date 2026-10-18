@@ -512,8 +512,9 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
         if case in ("logout_signed_in", "logout_all"):
             sent["Authorization"] = f"Bearer {bearer}"
         if case == "logout_dead_cookie":
-            # A second logout, or a token already rotated away: the revoke finds nothing to commit.
-            sent["Cookie"] = f"{settings.REFRESH_COOKIE_NAME}=no-longer-live-{i}"
+            # A token the server never issued: like a second logout's, the revoke finds no live token
+            # and commits nothing.
+            sent["Cookie"] = f"{settings.REFRESH_COOKIE_NAME}=never-issued-{i}"
         elif case != "logout_all":
             sent["Cookie"] = f"{settings.REFRESH_COOKIE_NAME}={raw_tokens[i]}"
         return sent
@@ -551,9 +552,15 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
             assert all(token.revoked_at is not None for token in originals)
             assert logouts == (8 if case in ("logout_signed_in", "logout_all") else 0)
         if case == "refresh":
-            # Each live token was rotated once, into a token of its own.
+            # Each live token was rotated once, into a token of its own, and each response carries the
+            # cookie for the token that replaced the one its request sent.
             assert len(minted) == 8
             assert sorted(token.replaced_by_id for token in originals) == [token.id for token in minted]
+            hash_by_id = {token.id: token.token_hash for token in minted}
+            assert [
+                refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME])
+                for response in responses
+            ] == [hash_by_id[token.replaced_by_id] for token in originals]
         else:
             assert minted == []
     finally:
