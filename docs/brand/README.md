@@ -150,11 +150,11 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 
 The founder took the last four on 2026-10-17 (D-045 and D-046):
 
-1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is regenerated
-   through the pipeline to end at FY2025, a paid run under a USD 0.10 ceiling (E93).
-2. Notable filings returns to the homepage with 10-K and 10-Q filings only, from companies that
-   hold a full summary, newest first, at most six (`NotableFilings.tsx`, E90).
-3. The landing page's sections after the hero become labelled rows (tell T4, D-045, E113).
+1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is to be
+   regenerated through the pipeline to end at FY2025, a paid run under a USD 0.10 ceiling (E93).
+2. Notable filings is to return to the homepage with 10-K and 10-Q filings only, from companies
+   that hold a full summary, newest first, at most six (`NotableFilings.tsx`, E90).
+3. The landing page's sections after the hero are to become labelled rows (tell T4, D-045, E113).
 4. Vercel Web Analytics is to load only after the visitor allows analytics (D-046). Until that
    change lands (#1387, E114) it runs for every visitor, so the consent bar's promise becomes true
    in code with it. What `/privacy` says of analytics and Do Not Track, in draft #1265, stays with the
