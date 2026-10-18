@@ -2,9 +2,9 @@
  * The summary stream's error sentences, as the filing page shows them.
  *
  * The backend writes these sentences in the generation pipeline (backend/app/services/summary_stages, and
- * services/ai/summary_finalize.py for the payload messages generation.py and finalize.py stream), which
- * stays untouched until the founder opens it (tasks/todo.md), so several still carry an em-dash
- * or a lowercase "please" the product voice does not use. The page maps each one here instead of
+ * services/ai/summary_finalize.py for the payload messages generation.py and finalize.py stream), whose
+ * sentences change with the next functional change there (F35, D-046, E92); until then several still carry an
+ * em-dash or a lowercase "please" the product voice does not use. The page maps each one here instead of
  * printing it. Only what the reader sees changes: the raw message is still what decides the card
  * (isPaywallStreamError) and the retry (isNonRetryableStreamError), so no matcher reads this map.
  *

@@ -167,7 +167,7 @@ function ChangeRow({ item, position, total, review }: { item: SectionChange; pos
       {review ? (
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <p className={cx('font-data text-xs', TERTIARY)}>{label}</p>
-          {/* eslint-disable-next-line earningsnerd/no-hand-rolled-toggle-group -- a second press clears the label, so "pressed nowhere" is a valid state here, which the SegmentedControl cannot hold (E62). */}
+          {/* eslint-disable-next-line earningsnerd/no-hand-rolled-toggle-group -- a second press clears the label, so "pressed nowhere" is a valid state here, which the SegmentedControl cannot hold (D-046). */}
           <div role="group" aria-label={`Mark change ${position} of ${total}`} className="flex items-center gap-1.5">
             {(['reviewed', 'follow_up'] as const).map((value) => (
               <LabelToggle
@@ -365,11 +365,9 @@ function ReviewedChanges({ block, context }: { block: SectionChangesOk; context:
           <Notice
             variant="error"
             title="Couldn’t load your review"
-            description="The changes are listed below; retry to mark them."
+            description="The changes are listed below; try again to mark them."
             action={
-              <RetryButton size="sm" failures={[failure]} focusTarget={progressRef}>
-                Retry
-              </RetryButton>
+              <RetryButton size="sm" failures={[failure]} focusTarget={progressRef} />
             }
           />
         </div>

@@ -450,7 +450,7 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     expect(tryAgain.isConnected).toBe(true)
     expect(tryAgain).toHaveAttribute('aria-busy', 'true')
     expect(tryAgain).toHaveAttribute('aria-disabled', 'true')
-    expect(tryAgain).toHaveAccessibleName('Retrying…')
+    expect(tryAgain).toHaveAccessibleName('Trying again…')
     expect(document.activeElement).toBe(tryAgain)
     expect(screen.getByText('Search is down')).toBeInTheDocument()
     await user.keyboard('{Enter}')

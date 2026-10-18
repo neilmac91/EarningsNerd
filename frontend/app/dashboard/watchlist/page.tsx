@@ -141,9 +141,7 @@ export default function WatchlistDashboardPage() {
             headingLevel="h2"
             description="Try again in a moment."
             action={
-              <RetryButton failures={[failure]} focusTarget={titleRef}>
-                Retry
-              </RetryButton>
+              <RetryButton failures={[failure]} focusTarget={titleRef} />
             }
             className={enterClass}
           />
