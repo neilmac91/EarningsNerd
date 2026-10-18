@@ -322,3 +322,13 @@ a path from its root (each key, index, rest and default), and one path model ser
 values alike; a value that may be the one a gate follows (either side of `??`, `||` or `&&`, either branch, a copy of
 it) is followed as it. And a test of where a body can end reads the language's statements, not its last one: an
 if/else that returns in both branches ends in neither.
+Round seven's review (Codex on 28b69145) found every reader trusting what a const holds: `const modes =
+['new-password']; modes[0] = 'off'` passed the password scan, read from its initializer, though the browser gets
+'off'. A const binding stops a reassignment of the name, not a write into what it holds, and a parameter is not even
+const. A reader trusts a container's initializer only while nothing can change it after, and that is an escape check,
+not a list of writes: every use of the container, of an alias, of a part or of a copy that holds a part must sit in a
+read position, and anything else fails loudly with the use and its line, so a write no one listed (a method that
+reads `this`, a same-file function that writes its parameter, a component handed the container) fails too. One check
+serves the three readers that trust a container, each naming its own read sites (a save that sends an update, an
+`options` prop); a reader that cannot see every writer says which in its header and plants it (the follower follows
+an export, so a write in the importing module is a stated limit).
