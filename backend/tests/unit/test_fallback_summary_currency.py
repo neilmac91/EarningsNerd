@@ -12,6 +12,7 @@ import ast
 import copy
 import inspect
 import json
+import symtable
 from types import SimpleNamespace
 
 import pytest
@@ -165,6 +166,13 @@ def _function(module, name):
     return defs[0]
 
 
+def _scopes(table):
+    """``table`` and every scope nested in it (defs, lambdas, comprehensions)."""
+    yield table
+    for child in table.get_children():
+        yield from _scopes(child)
+
+
 @pytest.mark.parametrize("module,writer,formatters", [
     (markdown_render, "_apply_structured_fallbacks", ()),
     (fallback_summary, "generate_xbrl_summary", ("format_currency",)),
@@ -173,12 +181,21 @@ def _function(module, name):
 def test_every_writer_takes_its_money_label_from_the_shared_helper(module, writer, formatters):
     """Rule 12 gate on the source: the output tests above pass a pasted copy of the rule, so each writer
     must call the shared ``money_prefix_for``, and neither it nor its formatters may carry a "$"-led or
-    "USD" literal. A new writer, or a new helper one of these calls, is review-checked."""
+    "USD" literal. The call must reach the module's import: no scope in the writer binds the name itself
+    (an assignment, a parameter, a nested def, an import, ``global``), as Python's own symbol table
+    resolves it. A new writer, or a new helper one of these calls, is review-checked."""
     fn = _function(module, writer)
     assert getattr(module, "money_prefix_for", None) is money_prefix_for, (
         f"{module.__name__}.money_prefix_for is not the shared helper")
     called = {n.func.id for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
     assert "money_prefix_for" in called, f"{writer} does not call money_prefix_for"
+    [table] = [t for t in _scopes(symtable.symtable(inspect.getsource(module), module.__file__, "exec"))
+               if t.get_type() == "function" and t.get_name() == writer]
+    for scope in _scopes(table):
+        if "money_prefix_for" in scope.get_identifiers():
+            name = scope.lookup("money_prefix_for")
+            assert name.is_global() and not name.is_declared_global(), (
+                f"{scope.get_name()} binds money_prefix_for itself, so its call may not reach the shared helper")
     for node in [fn, *(_function(module, f) for f in formatters)]:
         literals = [n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
         copies = [s for s in literals if s.strip().upper() == "USD" or s.startswith("$")]
