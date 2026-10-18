@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { CookieIcon } from '@/lib/icons'
+import { OPEN_COOKIE_SETTINGS_EVENT } from '@/lib/cookieSettings'
 import Link from 'next/link'
 import { Button, Checkbox, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
@@ -173,10 +174,18 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   // the Customize button that opened it (Save still dismisses both). Its state stays mounted too, so
   // the draft starts from the saved choices on every open: a dismissed edit must not come back, or be
   // saved by a later Save.
-  const handleOpenSettings = () => {
+  const handleOpenSettings = useCallback(() => {
     setPreferences(getCookiePreferences() ?? DEFAULT_PREFERENCES)
     setShowSettings(true)
-  }
+  }, [])
+
+  // After a first choice the bar is gone; the footer's "Cookie settings" (lib/cookieSettings.ts) opens this
+  // same dialog on the stored choices, and Save writes them and fires cookieConsentChanged as the bar does
+  // (D-046). ui/Modal returns focus to the control that opened it.
+  useEffect(() => {
+    window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
+    return () => window.removeEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
+  }, [handleOpenSettings])
 
   if (!showBanner && !showSettings) return null
 

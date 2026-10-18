@@ -1,5 +1,8 @@
+'use client'
+
 import Link from 'next/link'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
+import { openCookieSettings } from '@/lib/cookieSettings'
 import { ENABLE_ANALYSIS, ENABLE_CALENDAR } from '@/lib/featureFlags'
 
 type FooterLink = { label: string; href: string }
@@ -26,6 +29,11 @@ const FOOTER_LINKS: Record<string, FooterLink[]> = {
 }
 
 const CURRENT_YEAR = new Date().getFullYear()
+
+// One recipe for the column links and for "Cookie settings", a button that reads as one of them (it opens a dialog
+// and goes nowhere), each with the brand focus ring.
+const FOOTER_LINK =
+  'text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
 
 export default function Footer() {
   return (
@@ -55,14 +63,29 @@ export default function Footer() {
               <ul className="mt-4 space-y-3">
                 {links.map((link) => (
                   <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-                    >
+                    <Link href={link.href} className={FOOTER_LINK}>
                       {link.label}
                     </Link>
                   </li>
                 ))}
+                {/* The way back to the cookie settings after a first choice, which /privacy promises (D-046):
+                    it opens CookieConsent's dialog on the stored choices (lib/cookieSettings.ts). It takes
+                    focus first, so ui/Modal returns focus here on close whatever pressed it (Safari does not
+                    focus a clicked button). The auth routes have no site footer (lib/authShellRoutes.ts). */}
+                {category === 'Legal' && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.currentTarget.focus()
+                        openCookieSettings()
+                      }}
+                      className={FOOTER_LINK}
+                    >
+                      Cookie settings
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
           ))}

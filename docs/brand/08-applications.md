@@ -133,6 +133,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "Essential only" and "Allow analytics" (session recording stays off until it is chosen under
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
+  After a first choice the bar is gone, and the site footer's "Cookie settings" (`frontend/components/Footer.tsx`,
+  a button in the Legal column with the links' recipe and the brand ring) reopens the dialog on the stored
+  choices: Save writes them and fires `cookieConsentChanged` as the bar does, so /privacy's withdrawal
+  sentence holds (D-046; `lib/cookieSettings.ts`, `tests/unit/cookieSettingsReopen.spec.tsx`). The auth
+  routes have no site footer (`lib/authShellRoutes.ts`), so the control is not there.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
   dialog waits on the founder (chrome/F1).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
