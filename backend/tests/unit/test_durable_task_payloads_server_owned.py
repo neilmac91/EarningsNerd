@@ -3,7 +3,9 @@ is named only by server-owned values.
 
 ``enqueue_task`` names a task ``sha256(key:body)``, so whatever a route puts in the payload or the
 dedupe key decides how many distinct tasks its callers can queue. This AST walk finds every call of
-an enqueuer under ``app/``, by its name or an import alias. In ``app/routers/`` the payload must be a
+an enqueuer under ``app/``, by its name or an import alias, and fails on any other use of one (an
+assignment alias such as ``submit = enqueue_task``, a ``partial``, a callback argument), whose calls
+the walk could not see. In ``app/routers/`` the payload must be a
 dict literal with literal keys and the key a literal or f-string, built only from
 ``SERVER_OWNED_NAMES`` (never a route parameter, and bound in the route only by plain assignment
 from a resolved row's ``.id``) and ``SERVER_OWNED_CALLS`` (fixed vocabularies, no arguments).
@@ -17,11 +19,14 @@ of these sets is a reviewed change to this file.
 
 Known limits, review-checked: ``.id`` is accepted from any object, so a request model's ``.id``
 passes as a row's. Callers of the exempt ``enqueue_internal_job`` are not followed; today all 10
-routes that reach it carry ``Depends(_require_internal_token)``.
+routes that reach it carry ``Depends(_require_internal_token)``. An enqueuer looked up by a string
+(``getattr(module, "enqueue_task")``) is out of reach.
 """
 import ast
 import builtins
 from pathlib import Path
+
+import pytest
 
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 PASS_THROUGH = {("routers/filings.py", "_enqueue_visit_task")}
@@ -40,12 +45,24 @@ def _called_name(call: ast.Call) -> str | None:
     return func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
 
 
-def _sites():
+def _modules():
     for py in sorted(APP_DIR.rglob("*.py")):
-        rel = py.relative_to(APP_DIR).as_posix()
         tree = ast.parse(py.read_text(encoding="utf-8"))
         enqueuers = ENQUEUERS | {a.asname for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)
                                  for a in n.names if a.name in ENQUEUERS and a.asname}
+        yield py.relative_to(APP_DIR).as_posix(), tree, enqueuers
+
+
+def _escaping(tree: ast.AST, enqueuers: set[str]) -> list[ast.expr]:
+    """Each read of an enqueuer that is not a call's callee: an alias, a partial or a callback, whose calls
+    ``_sites`` cannot find."""
+    callees = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
+    return [n for n in ast.walk(tree) if isinstance(n, (ast.Name, ast.Attribute)) and isinstance(n.ctx, ast.Load)
+            and (n.id if isinstance(n, ast.Name) else n.attr) in enqueuers and id(n) not in callees]
+
+
+def _sites():
+    for rel, tree, enqueuers in _modules():
         for fn in ast.walk(tree):
             if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 nested = {id(n) for d in ast.walk(fn) if d is not fn and isinstance(d, (ast.FunctionDef, ast.AsyncFunctionDef)) for n in ast.walk(d)}
@@ -135,6 +152,20 @@ def test_public_durable_tasks_are_named_only_by_server_owned_values():
             offenders += _violations(rel, tree, fn, call)
         else:
             offenders.append(f"{rel}:{call.lineno} {fn.name}: unlisted enqueue site; add it to EXEMPT with its reason")
+    for rel, tree, enqueuers in _modules():
+        offenders += [f"{rel}:{n.lineno}: {ast.unparse(n)} is used other than as a direct call, so its calls "
+                      "escape this check; call it by name" for n in _escaping(tree, enqueuers)]
     assert not offenders, "\n".join(offenders)
     listed = set(EXEMPT) | PASS_THROUGH
     assert seen == listed, f"stale EXEMPT or PASS_THROUGH entries: {listed - seen}"
+
+
+@pytest.mark.parametrize("source,escapes", [
+    ("submit = enqueue_task", 1),
+    ("submit = durable_tasks.enqueue_task", 1),
+    ("run(partial(_enqueue_visit_task, 'filings'))", 1),
+    ("await enqueue_task('filings', {}, dedupe_key='k')", 0),
+    ("await durable_tasks.enqueue_task('filings', {}, dedupe_key='k')", 0),
+])
+def test_an_enqueuer_used_other_than_as_a_call_is_flagged(source, escapes):
+    assert len(_escaping(ast.parse(source), ENQUEUERS)) == escapes
