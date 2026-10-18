@@ -33,7 +33,8 @@ export const FREE_COPILOT_QUESTIONS = 3
 
 /**
  * Pro's summary fair-use ceiling, mirrored from backend/app/config.py (PRO_SUMMARY_MONTHLY_CAP's default; the
- * lockstep spec holds it). Pro's summaries are unlimited as a plan, and this guardrail bounds the summaries one
+ * lockstep spec holds it, and fails on a workflow that sets the variable, so production runs this default).
+ * Pro's summaries are unlimited as a plan, and this guardrail bounds the summaries one
  * account can generate in a calendar month (UTC): a leased run is counted when its provider request is issued, a
  * lease-free run when it completes, and reading a summary moves nothing. It is stated once, in PRO_FAIR_USE_LINE, which the /pricing FAQ and the filing page's
  * monthly-limit card read (E58, D-046), while the plan cards, the dashboard strip, BillingPanel, the upgrade

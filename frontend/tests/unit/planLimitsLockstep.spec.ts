@@ -108,6 +108,43 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     expect(PRO_SUMMARY_MONTHLY_CAP).toBe(settingDefault('PRO_SUMMARY_MONTHLY_CAP'))
   })
 
+  it('finds no deploy map that overrides PRO_SUMMARY_MONTHLY_CAP, so production runs the default the page states', () => {
+    const workflows = readdirSync(WORKFLOWS)
+      .filter((file) => /\.ya?ml$/.test(file))
+      .map((file) => [file, readFileSync(path.join(WORKFLOWS, file), 'utf8')] as const)
+    // Anti-vacuity: the read reaches the deploy's maps (ci.yml's service and job maps among them).
+    const ci = workflows.find(([file]) => file === 'ci.yml')?.[1] ?? ''
+    expect((ci.match(/--update-env-vars=/g) ?? []).length).toBeGreaterThanOrEqual(3)
+    expect(capOverrides(config, workflows), CAP_STAYS_DEFAULT).toEqual([])
+  })
+
+  it('reads a cap setting in every form a workflow writes one, and nothing else (planted forms)', () => {
+    const settings = `class Settings(BaseSettings):\n    ${CAP}: int = 300\n`
+    // ci.yml's service map, shortened: the form the gate exists for.
+    const serviceMap = '            --update-env-vars=ENVIRONMENT=production,COOKIE_DOMAIN=.earningsnerd.io,DB_POOL_SIZE=4,ENABLE_INSIDER_ACTIVITY=false \\'
+    const flagged: Record<string, string> = {
+      'the service map with the cap added': serviceMap.replace('DB_POOL_SIZE=4', `DB_POOL_SIZE=4,${CAP}=100`),
+      'a fresh map': `            --set-env-vars=${CAP}=0 \\`,
+      'an env: key': `          ${CAP}: "100"`,
+      'a value the deploy expands': `            --update-env-vars=DB_POOL_SIZE=3,${CAP}=\${PRO_CAP} \\`,
+      'a secret mapped onto it': `            --update-secrets=${CAP}=PRO_CAP:latest \\`,
+      "the default's own value": `            --update-env-vars=${CAP}=300 \\`,
+      'a run line': `        run: echo "${CAP}=150" >> "$GITHUB_ENV"`,
+    }
+    const passing: Record<string, string> = {
+      'a comment': `  # ${CAP} stays at config.py's default: never set it here`,
+      'the service map as it is': serviceMap,
+      'another cap': '          COPILOT_MONTHLY_QUESTION_CAP: "1000"',
+      'a gap: an env file the read cannot open': '            --env-vars-file=deploy/production.env.yaml \\',
+    }
+    const read = (line: string) => capOverrides(settings, [['ci.yml', line]]).length
+    expect(Object.keys(flagged).filter((name) => read(flagged[name]) !== 1), 'a form the read missed').toEqual([])
+    expect(Object.keys(passing).filter((name) => read(passing[name]) !== 0), 'a look-alike the read flagged').toEqual([])
+    expect(capOverrides(settings, [['ops.yaml', `jobs:\n  sync:\n    env:\n      ${CAP}: "5"\n`]])).toEqual([`ops.yaml:4 ${CAP}: "5"`])
+    expect(() => capOverrides('class Settings(BaseSettings):\n    OTHER: int = 1\n', [])).toThrow(/0 times/)
+    expect(() => capOverrides(settings + settings, [])).toThrow(/2 times/)
+  })
+
   it('mirrors the waitlist REFERRAL_BONUS, which the referral sentence reads', () => {
     const match = waitlistService.match(/^REFERRAL_BONUS\s*=\s*(\d+)/m)
     if (!match) throw new Error('REFERRAL_BONUS not found in backend/app/services/waitlist_service.py')
@@ -324,6 +361,35 @@ const settingDefault = (name: string): number => {
   const match = config.match(new RegExp(`^\\s+${name}\\s*:\\s*int\\s*=\\s*(\\d+)`, 'm'))
   if (!match) throw new Error(`${name} not found in backend/app/config.py`)
   return Number(match[1])
+}
+
+/**
+ * Production runs the Pro cap the page states. The /pricing FAQ and the filing page's limit card state
+ * PRO_SUMMARY_MONTHLY_CAP's Settings default through the mirror (lib/planLimits.ts), while the backend enforces
+ * `settings.PRO_SUMMARY_MONTHLY_CAP`, which an environment value overrides. So no deploy map sets it. The read
+ * takes the default from backend/app/config.py (declared once, or the read throws) and every executable line of
+ * every workflow under .github/workflows: a comment line is skipped, and any other line that names the variable
+ * counts, whatever its form (an --update-env-vars, --set-env-vars or --update-secrets entry, an env: key, a run
+ * line) and whatever its value (the default's own value too: the map would keep it when the default moves). Its
+ * planted forms score the read. Out of reach: a value set by hand on the Cloud Run service, which no file records,
+ * an env file a deploy names (`--env-vars-file`, none today) and an image's own ENV (backend/Dockerfile sets
+ * none of it).
+ */
+const CAP = 'PRO_SUMMARY_MONTHLY_CAP'
+const WORKFLOWS = path.resolve(frontendDir, '../.github/workflows')
+const CAP_STAYS_DEFAULT =
+  `The /pricing FAQ and the filing page's limit card state config.py's ${CAP} default (lib/planLimits.ts mirrors ` +
+  'it), so a deploy map that sets it leaves the page stating a ceiling the backend does not enforce. Change the ' +
+  'default in backend/app/config.py, and the mirror follows; never override it in a deploy map.'
+
+/** The executable workflow lines that name PRO_SUMMARY_MONTHLY_CAP, as `file:line text`. Throws unless config.py
+    declares the cap's default once, so a renamed or moved field cannot leave the read holding nothing. */
+function capOverrides(configSource: string, workflows: ReadonlyArray<readonly [string, string]>): string[] {
+  const defaults = configSource.match(new RegExp(`^\\s*${CAP}\\s*:\\s*int\\s*=\\s*\\d+`, 'gm')) ?? []
+  if (defaults.length !== 1) throw new Error(`config.py declares ${CAP}'s default ${defaults.length} times, not once`)
+  return workflows.flatMap(([file, text]) =>
+    text.split('\n').flatMap((line, i) => (line.trimStart().startsWith('#') || !line.includes(CAP) ? [] : [`${file}:${i + 1} ${line.trim()}`])),
+  )
 }
 
 const NUMBER_WORDS = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve'
