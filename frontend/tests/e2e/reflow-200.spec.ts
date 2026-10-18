@@ -1,5 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
+import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
+import { answerSearch, runSearch } from './fixtures/searchApi'
 
 /**
  * No sideways scroll at 200% text on a phone. At 390x844, at the default text size and with the
@@ -54,7 +56,9 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
  * geometry. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
  * answered in the browser, as a guest, and the filing page from fixtures/filing3Api.ts (for a guest, and
- * for its Pro reader in the signed-in menu case).
+ * for its Pro reader in the signed-in menu case). CI's e2e build turns /calendar and /search on, so both
+ * join the route loop with their rows painted: the calendar on its own fixtures with the clock pinned to one
+ * week (fixtures/calendarWeek.ts), the search answered and run (fixtures/searchApi.ts).
  */
 
 type Route = {
@@ -109,6 +113,28 @@ const ROUTES: Route[] = [
     open: (p, b) => answerApi(p, b, 'anon'),
     // Only a rendered summary has sections to jump to.
     ready: (p) => expect(p.getByRole('navigation', { name: 'Jump to section' })).toBeVisible(),
+    ...siteHeader,
+  },
+  {
+    // The fixtures' week with the clock pinned (fixtures/calendarWeek.ts); at every width here the week is its day list.
+    name: 'calendar',
+    path: '/calendar',
+    open: async (p, b) => {
+      await pinCalendarWeek(p)
+      await answerGuest(p, b)
+    },
+    ready: calendarWeekReady,
+    ...siteHeader,
+  },
+  {
+    // A search answered and run (fixtures/searchApi.ts), so its result rows are measured, a long filer name included.
+    name: 'search',
+    path: '/search',
+    open: async (p, b) => {
+      await answerGuest(p, b)
+      await answerSearch(p, b)
+    },
+    ready: runSearch,
     ...siteHeader,
   },
 ]

@@ -3,7 +3,10 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 import { settled } from './fixtures/contrast'
+import { answerAnalysisApi, runAnalysis } from './fixtures/analysisLayoutApi'
+import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
+import { answerSearch, runSearch } from './fixtures/searchApi'
 import { AUTH_ROUTES, isAuthRoute } from '../../lib/authShellRoutes'
 import { STATIC_ENTRIES } from '../../app/sitemap'
 
@@ -157,6 +160,16 @@ const ROUTES: Route[] = [
     },
     ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Something went wrong' })).toBeVisible(),
   },
+  {
+    // Multi-Period Analysis for a Pro reader, read once a run has finished: META's coverage, dataset and narrative
+    // are answered from the analysis layout fixtures (fixtures/analysisLayoutApi.ts).
+    name: 'analysis',
+    path: '/analysis?ticker=META',
+    open: async (p, b) => {
+      await answerAnalysisApi(p, b)
+    },
+    ready: (p) => runAnalysis(p, 'quarterly'),
+  },
 ]
 
 /**
@@ -164,8 +177,10 @@ const ROUTES: Route[] = [
  * covers every route the sitemap's static core names (STATIC_ENTRIES in app/sitemap.ts, which mirrors the
  * backend's STATIC_PAGES) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
  * /register, /check-email, /verify-email, /forgot-password and /reset-password), and the census cases below
- * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page) and the
- * flag-off /search 404. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
+ * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page), /calendar
+ * and /search. CI's e2e build turns the last two on: the calendar reads its own fixtures with the clock pinned to
+ * one week (fixtures/calendarWeek.ts), and the search is answered here and run (fixtures/searchApi.ts), so each is
+ * read with its rows painted. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
  * that no entry visits (a dynamic route by a representative path) unless NOT_VISITED names it with its reason,
  * so a new public page cannot stay outside the gate in silence. Kept apart from ROUTES so the cases below that pick a route by its index keep theirs.
  * /waitlist's example falls back to its h2 card here; waitlistPage.spec.tsx reads the outline with the
@@ -185,8 +200,24 @@ const PUBLIC_ROUTES: Route[] = [
   { name: 'terms', path: '/terms', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible() },
   { name: 'security', path: '/security', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Security' })).toBeVisible() },
   { name: 'delete account', path: '/delete-account', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Delete your account' })).toBeVisible() },
-  // CI builds with NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH off, so /search is the 404 page (app/search/layout.tsx).
-  { name: 'search (flag off)', path: '/search', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
+  {
+    name: 'calendar',
+    path: '/calendar',
+    open: async (p, b) => {
+      await pinCalendarWeek(p)
+      await answerSiteApi(p, b, false)
+    },
+    ready: calendarWeekReady,
+  },
+  {
+    name: 'search',
+    path: '/search',
+    open: async (p, b) => {
+      await answerSiteApi(p, b, false)
+      await answerSearch(p, b)
+    },
+    ready: runSearch,
+  },
 ]
 
 
@@ -197,8 +228,6 @@ const PUBLIC_ROUTES: Route[] = [
 const NOT_VISITED: Record<string, string> = {
   '/admin/feedback': 'admin only, no admin session in this e2e; admin-feedback-page.spec.tsx pins its outline',
   '/admin/invites': 'admin only, no admin session in this e2e; admin-invites-page.spec.tsx pins its outline',
-  '/analysis': 'Multi-Period Analysis renders from the API; its entry, the coverage and dataset answered through page.route, waits on #1289 (tasks/todo.md E38)',
-  '/calendar': 'the earnings calendar renders from the API; its surface is brand-calendar-search (#1301), which adds its entry',
   '/dashboard/settings': 'signed-in settings; its surface is brand-settings-subscriptions (#1291), which adds its entry',
   '/labs/filing-redlines': 'a labs prototype outside the brand series (tasks/todo.md E26)',
   '/labs/financial-refresh-review': 'a labs prototype outside the brand series (tasks/todo.md E26)',
@@ -226,11 +255,11 @@ function appRoutePatterns(): string[] {
 /**
  * Whether a visited path is an instance of a route pattern: segment by segment, a literal segment must match,
  * a dynamic one (`[id]`) takes any one segment, a catch-all (`[...rest]`) the rest, an optional catch-all
- * (`[[...rest]]`) the rest or nothing.
+ * (`[[...rest]]`) the rest or nothing. A query string is not a segment (/analysis?ticker=META visits /analysis).
  */
 function isInstance(pattern: string, visitedPath: string): boolean {
   const want = pattern.split('/').filter(Boolean)
-  const have = visitedPath.split('/').filter(Boolean)
+  const have = visitedPath.split('?')[0].split('/').filter(Boolean)
   for (let i = 0; i < want.length; i += 1) {
     const segment = want[i]
     if (segment.startsWith('[[...')) return true
@@ -391,6 +420,8 @@ test.describe('main routes at 1440x900, light theme', () => {
     expect(isInstance('/company/[ticker]', '/company/AAPL')).toBe(true)
     expect(isInstance('/company/[ticker]', '/filing/3')).toBe(false)
     expect(isInstance('/company/[ticker]', '/company')).toBe(false)
+    expect(isInstance('/analysis', '/analysis?ticker=META')).toBe(true)
+    expect(isInstance('/analysis', '/analysis/META')).toBe(false)
     expect(isInstance('/docs/[...slug]', '/docs/a/b')).toBe(true)
     expect(isInstance('/docs/[...slug]', '/docs')).toBe(false)
     expect(isInstance('/docs/[[...slug]]', '/docs')).toBe(true)
