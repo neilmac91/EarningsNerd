@@ -13,8 +13,8 @@ spec showed either: each Do Not Track case, unit and e2e, set the signal before 
 
 (a) A privacy signal the browser sends (Do Not Track, and any successor the site adopts) is applied in the
 two consent functions every reader goes through. `getCookiePreferences()` reads the categories it covers as
-off, a read-time mask that leaves storage as written, so the visitor's own choice is back when the signal
-stops. `saveCookiePreferences()` writes them off, so the `cookieConsentChanged` detail carries off too. Never
+off, a read-time mask that leaves storage as written, so a choice stored before the signal is back when it
+stops, unless the visitor saved while it was sent. `saveCookiePreferences()` writes them off, so the `cookieConsentChanged` detail carries off too. Never
 in a mount effect, a first-visit branch or a reader's own check.
 
 (b) The signal has one reader (`browserSendsDoNotTrack()` in `frontend/components/CookieConsent.tsx`), and

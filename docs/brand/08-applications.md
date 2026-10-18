@@ -142,8 +142,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   both boxes are unticked and disabled under the note "Your browser sends Do Not Track, so analytics and
   session recording stay off.", and `getCookiePreferences()` and `saveCookiePreferences()` read and write
   both as off whatever is stored or chosen, so every reader of the choice, PostHog's provider among them,
-  keeps /privacy's Do Not Track sentence (D-046). The stored choice stays as written, so it is back once the
-  browser stops sending the signal.
+  keeps /privacy's Do Not Track sentence (D-046). A choice stored before stays as written, so it is back once
+  the browser stops sending the signal, unless the visitor saves in the dialog meanwhile, which stores both as
+  off.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
   dialog waits on the founder (chrome/F1).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):

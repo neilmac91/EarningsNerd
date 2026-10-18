@@ -47,6 +47,12 @@ const ownDescription = (id: string) => (document.getElementById(id)?.textContent
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const APP_ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
+/** The root-level modules Next.js loads into the app (`instrumentation-client.ts`, `instrumentation.ts`,
+ *  `middleware.ts`): every `.ts` or `.tsx` file beside `package.json` but type declarations, tool configs and the
+ *  test setup. */
+const ROOT_MODULES = readdirSync(FRONTEND)
+  .filter((name) => /\.tsx?$/.test(name) && !/\.d\.ts$|\.config\.ts$|^vitest\.setup\.ts$/.test(name))
+  .map((name) => path.join(FRONTEND, name))
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
@@ -238,7 +244,11 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
       ].join('\n')
       expect(consentInputsRead('probe.tsx', probe)).toEqual(['doNotTrack', 'doNotTrack', STORAGE_KEY])
 
-      const readers = APP_ROOTS.flatMap((root) => walk(path.join(FRONTEND, root))).filter((file) => {
+      // The scan reaches the root-level modules too, the client instrumentation (Sentry's replay) among them.
+      expect(ROOT_MODULES.map((file) => path.basename(file))).toEqual(
+        expect.arrayContaining(['instrumentation-client.ts', 'instrumentation.ts', 'middleware.ts']),
+      )
+      const readers = [...APP_ROOTS.flatMap((root) => walk(path.join(FRONTEND, root))), ...ROOT_MODULES].filter((file) => {
         const text = readFileSync(file, 'utf8')
         return /doNotTrack|cookie_consent/.test(text) && consentInputsRead(file, text).length > 0
       })

@@ -58,8 +58,8 @@ export function getCookiePreferences(): CookiePreferences | null {
     const preferences = JSON.parse(stored) as CookiePreferences
     // Ensure essential is always true
     preferences.essential = true
-    // Read as off while the browser sends Do Not Track. Storage keeps what was written, so the visitor's own
-    // choice is back once the browser stops sending it.
+    // Read as off while the browser sends Do Not Track. Storage keeps what was written, so a choice stored before
+    // is back once the browser stops sending it, unless a save meanwhile wrote both off (saveCookiePreferences).
     applyDoNotTrack(preferences)
     return preferences
   } catch (error) {
