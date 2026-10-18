@@ -90,11 +90,9 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
         <GuidanceCard
           variant="error"
           title="Unable to load your companies"
-          description="Please retry in a moment."
+          description="Try again in a moment."
           action={
-            <RetryButton failures={[failure]} focusTarget={headingRef}>
-              Retry
-            </RetryButton>
+            <RetryButton failures={[failure]} focusTarget={headingRef} />
           }
         />
       ) : !insights || insights.length === 0 ? (

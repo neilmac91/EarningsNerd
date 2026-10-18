@@ -254,9 +254,7 @@ export default function DashboardPage() {
             description={userFailure.error instanceof Error ? userFailure.error.message : 'Please try again in a moment.'}
             action={
               <>
-                <RetryButton failures={[userFailure]} focusTarget={titleRef}>
-                  Retry
-                </RetryButton>
+                <RetryButton failures={[userFailure]} focusTarget={titleRef} />
                 <Link href="/login" className={buttonVariants({ variant: 'primary' })}>
                   Go to login
                 </Link>
@@ -370,8 +368,8 @@ export default function DashboardPage() {
                   <GuidanceCard
                     variant="error"
                     title="Unable to load saved summaries"
-                    description="Please retry in a moment."
-                    action={<RetryButton failures={[savedFailure]} focusTarget={savedRetryTarget}>Retry</RetryButton>}
+                    description="Try again in a moment."
+                    action={<RetryButton failures={[savedFailure]} focusTarget={savedRetryTarget} />}
                     className={hasSavedSummaries ? 'mb-3' : undefined}
                   />
                 )}
@@ -444,9 +442,7 @@ export default function DashboardPage() {
                     <WarningCircleIcon className="h-4 w-4 flex-shrink-0" />
                     Unable to load plan details
                   </p>
-                  <RetryButton size="sm" failures={[usageFailure, subscriptionFailure]} focusTarget={planHeadingRef}>
-                    Retry
-                  </RetryButton>
+                  <RetryButton size="sm" failures={[usageFailure, subscriptionFailure]} focusTarget={planHeadingRef} />
                 </div>
               ) : !subscription ? (
                 <p role="status" className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">Checking your plan…</p>

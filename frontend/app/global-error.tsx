@@ -29,7 +29,8 @@ export default function GlobalError({
                         <p className="text-text-secondary-light dark:text-text-secondary-dark">
                             The error has been logged. Try again, or reload the page.
                         </p>
-                        <div className="flex justify-center gap-4">
+                        {/* The two buttons wrap to two rows when they do not fit side by side (a phone at 200% text). */}
+                        <div className="flex flex-wrap justify-center gap-4">
                             <button
                                 onClick={() => reset()}
                                 className="rounded-lg bg-brand px-4 py-2 font-medium text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
