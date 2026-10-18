@@ -385,7 +385,7 @@ describe('PricingPage', () => {
     noCheckoutSideEffects()
 
     // Retry resolves the identity and the ordinary Free view follows.
-    fireEvent.click(screen.getByRole('button', { name: /retry account check/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await screen.findByRole('button', { name: /^current plan$/i })
     expect(screen.queryByText(/couldn't check your account/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /upgrade to pro/i })).toBeEnabled()
@@ -427,8 +427,12 @@ describe('PricingPage', () => {
     await Promise.resolve()
     noCheckoutSideEffects()
 
-    fireEvent.click(screen.getByRole('button', { name: /retry subscription/i }))
+    // One Retry serves both reads (each Retry reads "Try again", D-032): its press retries every read that failed.
+    expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1)
+    expect(mockGetUsage).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await screen.findByRole('button', { name: /^current plan$/i })
+    expect(mockGetUsage).toHaveBeenCalledTimes(2)
     // Usage is still failing; the plan decision does not depend on it.
     expect(screen.getByText(/couldn't load all pricing details/i)).toBeInTheDocument()
     const upgrade = screen.getByRole('button', { name: /upgrade to pro/i })
@@ -458,7 +462,7 @@ describe('PricingPage', () => {
       await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
     }
 
-    fireEvent.click(screen.getByRole('button', { name: /retry subscription/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(screen.queryByText(/couldn't refresh your plan details/i)).not.toBeInTheDocument())
     expect(screen.getAllByRole('button', { name: /current plan/i })).toHaveLength(1)
   })
