@@ -399,16 +399,20 @@ describe('tailwind content scans every module that composes classes', () => {
 describe("DESIGN_SYSTEM §3 — Newsreader sets only the filing's own words (the Source Voice Rule)", () => {
   /** Every file that sets the editorial face, and on what. An equality: a file that sets the face and is not listed
    *  fails, and so does a listed file that no longer sets it. The face means the filing's own words: the real filing
-   *  viewer, a located quoted passage on a public page and, since D-044, the excerpts the server located inside the
+   *  viewer, a located quoted passage on a public page and, since D-044, the passages the server located inside the
    *  product. Outside the reader it sets only a marked block (`en-marked`, a passage the server located), whose places
-   *  tests/unit/brandCopyRules.spec.ts rule 3 holds (DEVICE_PLACES). app/layout.tsx loads the font and is not a
-   *  surface: it names the loader and its variable, never the face's class or a var() of it. */
+   *  and whose located test tests/unit/brandCopyRules.spec.ts rule 3 holds (DEVICE_PLACES). app/layout.tsx loads the
+   *  font and is not a surface: it names the loader and its variable, never the face's class or a var() of it. */
   const EDITORIAL_SURFACES: Record<string, string> = {
     'features/filings/components/copilot/FilingViewer.tsx': 'the real filing viewer: `.filing-reader`, the filing text',
     'features/marketing/components/HeroExample.tsx': "a located quoted passage on a public page: the hero example's evidence row, a marked block",
     'features/summaries/components/SummaryRisks.tsx': "the located excerpts inside the product: the filing page's Risks rows, each a marked block (D-044)",
+    'features/summaries/components/SummaryBlocks.tsx': "the summary's quote blocks whose evidence the server located, each a marked block (D-044)",
   }
   const READER = 'features/filings/components/copilot/FilingViewer.tsx'
+  /** Planted forms, one component per form, its mark (`flag` or `clean`) in the comment before it: scored by the check
+   *  below on every run, so a change to the check that loses a form, or catches a look-alike, fails. */
+  const FORMS = 'tests/unit/fixtures/sourceVoiceForms.tsx'
 
   /** The utilities that set the face: every fontFamily stack Tailwind consumes that leads with Newsreader's variable
    *  (`font-editorial` today), read from the evaluated config, so a second stack is read the day it lands. */
@@ -417,36 +421,39 @@ describe("DESIGN_SYSTEM §3 — Newsreader sets only the filing's own words (the
   }).theme.extend.fontFamily
   const FACE_UTILITIES = Object.entries(families).filter(([, stack]) => stack[0] === 'var(--font-newsreader)').map(([key]) => `font-${key}`)
   const token = (name: string, before = '[\\w-]') => new RegExp(`(?<!${before})${name}(?![\\w-])`)
+  const READER_CLASS = token('filing-reader', '[\\w.-]')
   /** What sets the face in a string of app code: a face utility, the reader's own class (a selector's `.filing-reader`
    *  reads the reader and sets nothing), a var() of the face, or the family by name. */
   const SETS_FACE = [
     ...FACE_UTILITIES.map((u) => token(u)),
-    token('filing-reader', '[\\w.-]'),
+    READER_CLASS,
     /var\(\s*--font-(?:editorial|newsreader)\s*\)/,
     /^\s*['"]?Newsreader['"]?\s*(?:,|$)/,
   ]
 
-  /** Every string a module writes (literals and template chunks), from its syntax tree, so a comment never counts. */
-  const strings = (file: string): string[] => {
+  /** Every string a module writes (literals, template chunks and JSX text), from its syntax tree, so a comment never
+   *  counts. */
+  const strings = (file: string): { node: ts.Node; text: string }[] => {
     const sf = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-    const out: string[] = []
+    const out: { node: ts.Node; text: string }[] = []
     const visit = (n: ts.Node) => {
-      if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n) || ts.isJsxText(n)) out.push(n.text)
+      if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n) || ts.isJsxText(n)) out.push({ node: n, text: n.text })
       ts.forEachChild(n, visit)
     }
     visit(sf)
     return out
   }
+  const settingFace = (file: string) => strings(file).filter(({ text }) => SETS_FACE.some((re) => re.test(text)))
+  /** Outside the reader the face sits only on a marked block, in its own class list: a string that sets the face and
+   *  names no `en-marked`, or names the reader's class, is set on something else. */
+  const loose = (file: string) => settingFace(file).filter(({ text }) => !token('en-marked').test(text) || READER_CLASS.test(text))
   const APP = execFileSync('git', ['ls-files', '-z', 'app', 'components', 'features', 'hooks', 'lib'], { cwd: frontendDir, encoding: 'utf8' })
     .split('\0')
     .filter((f) => /\.(ts|tsx)$/.test(f))
-  const settingFace = (file: string) => strings(file).filter((text) => SETS_FACE.some((re) => re.test(text)))
 
   it('reads the face from the config and the app (anti-vacuity)', () => {
     expect(FACE_UTILITIES).toEqual(['font-editorial'])
     expect(APP.length).toBeGreaterThan(200)
-    expect(SETS_FACE.some((re) => re.test("cx('en-marked font-editorial', INK)"))).toBe(true)
-    expect(SETS_FACE.some((re) => re.test("box.closest('.filing-reader')"))).toBe(false)
   })
 
   it('sets the face only on the surfaces EDITORIAL_SURFACES names, each a passage of the filing (D-044)', () => {
@@ -456,10 +463,22 @@ describe("DESIGN_SYSTEM §3 — Newsreader sets only the filing's own words (the
   })
 
   it('outside the reader, sets the face only on a marked block, a passage the server located', () => {
-    const loose = APP.filter((file) => file !== READER).flatMap((file) =>
-      settingFace(file).filter((text) => !token('en-marked').test(text) || token('filing-reader', '[\\w.-]').test(text)).map((text) => `${file}: ${text.trim()}`),
-    )
-    expect(loose, 'the face sits on the marked block (`en-marked`) of a located passage, in the same class list').toEqual([])
+    const found = APP.filter((file) => file !== READER).flatMap((file) => loose(file).map(({ text }) => `${file}: ${text.trim()}`))
+    expect(found, 'the face sits on the marked block (`en-marked`) of a located passage, in the same class list').toEqual([])
+  })
+
+  it(`scores every planted form in ${FORMS} as its mark says`, () => {
+    const sf = ts.createSourceFile(FORMS, read(FORMS), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const forms = sf.statements.flatMap((stmt) => {
+      if (!ts.isFunctionDeclaration(stmt) || !stmt.name) return []
+      const mark = ts.getLeadingCommentRanges(sf.text, stmt.pos)?.map((r) => /^\/\*\*\s*(V\d+) (flag|clean):/.exec(sf.text.slice(r.pos, r.end))).find(Boolean)
+      return mark && mark[1] === stmt.name.text ? [{ name: mark[1], mark: mark[2], fn: stmt }] : []
+    })
+    const named = new Set(loose(FORMS).map(({ node }) => forms.find(({ fn }) => node.pos >= fn.pos && node.end <= fn.end)?.name ?? `outside a form at ${node.pos}`))
+    expect(forms.filter((f) => f.mark === 'flag').length, 'the fixture plants forms that break the rule').toBeGreaterThan(0)
+    expect(forms.filter((f) => f.mark === 'clean').length, 'the fixture plants look-alikes').toBeGreaterThan(0)
+    expect(forms.filter((f) => named.has(f.name) !== (f.mark === 'flag')).map((f) => `${f.name} (${f.mark})`), 'the check reads these forms against their marks').toEqual([])
+    expect([...named].filter((name) => !forms.some((f) => f.name === name)), 'the check named a string that is not in a planted form').toEqual([])
   })
 
   it('in the stylesheet, sets the face only on the reader', () => {

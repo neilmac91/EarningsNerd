@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 import { textContrast } from './fixtures/contrast'
-import { API_ORIGIN, SUMMARY, answerApi, type Theme } from './fixtures/filing3Api'
+import { API_ORIGIN, DOCUMENT, EXCERPT, SUMMARY, answerApi, type Theme } from './fixtures/filing3Api'
 
 /**
  * Risk evidence rows on the filing page (2026-10 critique P-03, founder option b), as a marked copy
- * (D-044): what only a real layout shows, in Chromium at 390 and 1440 in both themes, at the default
- * text size and with the browser's text doubled. Which heading a row gets, that its blockquote holds the
+ * (D-044), and the summary's quotes: what only a real layout shows, in Chromium at 390 and 1440 in both
+ * themes, at the default text size and with the browser's text doubled. Which heading a row gets, that its blockquote holds the
  * whole span, and which rows the device marks are pinned once, in jsdom (riskHeadline.spec.ts,
  * riskTitle.spec.ts, SummaryRisks.spec.tsx; one test per rule, AGENTS.md §4). Here:
  *
@@ -17,7 +17,10 @@ import { API_ORIGIN, SUMMARY, answerApi, type Theme } from './fixtures/filing3Ap
  *   - every marker has its twin in the margin, centred on the marker's line, no two twins overprint, and
  *     the margin holds (2.25rem at 390, 2.75rem from sm) with each twin inside it;
  *   - the marker, the twin and the excerpt's ink clear 4.5:1 on what is behind them (text-floors' rule,
- *     the composited ground of fixtures/contrast.ts), in both themes.
+ *     the composited ground of fixtures/contrast.ts), in both themes;
+ *   - a quote whose evidence the server located is a marked block in the filing's face at 1rem on the
+ *     tint, its words and its speaker (in the body face) at 4.5:1 or more, with no marker and no twin;
+ *     a quote whose evidence was not located keeps the neutral 2px hairline in the body face.
  *
  * The four risks are the production filing-3 spans (fixtures/filing-3-risks.json, copied verbatim
  * from raw_summary.sections.risks of the critique harness's cached GET /api/summaries/filing/3,
@@ -30,11 +33,23 @@ import { API_ORIGIN, SUMMARY, answerApi, type Theme } from './fixtures/filing3Ap
 type Risk = { supporting_evidence: string } & Record<string, unknown>
 const RISKS = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-risks.json'), 'utf8')) as Risk[]
 const SECTION = '#risks'
+const QUOTES = '#forward-signals'
+/** The summary's quotes (D-044), in a section of their own after the risks: the first is a sentence of filing 3
+    (fixtures/filing3Api.ts EXCERPT) whose evidence the server located; the second is synthetic, cited without a match. */
+const QUOTE_SECTION = {
+  id: 'forward-signals',
+  title: 'Forward Signals',
+  blocks: [
+    { kind: 'quote', text: EXCERPT, speaker: 'Filing statement', evidence: { excerpt: EXCERPT, section_ref: 'Item 7', verified: true, fragment_url: `${DOCUMENT}#:~:text=Americas%20net%20sales` } },
+    { kind: 'quote', text: 'We expect the year ahead to bring steady demand.', speaker: 'CEO', evidence: { excerpt: null, section_ref: 'Item 7', verified: false, fragment_url: DOCUMENT } },
+  ],
+}
 
 async function openRisks(page: Page, baseURL: string, theme: Theme, risks: Risk[] = RISKS) {
   await answerApi(page, baseURL)
-  const summary = structuredClone(SUMMARY) as { raw_summary: { sections: Record<string, unknown> } }
+  const summary = structuredClone(SUMMARY) as { raw_summary: { sections: Record<string, unknown> }; rendered_sections: unknown[] }
   summary.raw_summary.sections.risks = risks
+  summary.rendered_sections.push(QUOTE_SECTION)
   const origin = new URL(baseURL).origin
   // Registered after answerApi, so it answers the summary first; everything else falls through.
   await page.route(
@@ -182,6 +197,44 @@ for (const viewport of VIEWPORTS) {
           ] as const) {
             expect.soft(await textContrast(locator), `${name} contrast`).toBeGreaterThanOrEqual(4.5)
           }
+
+          // The summary's quotes: the located one a marked block with no marker or twin, the other on the neutral hairline.
+          const quotes = page.locator(QUOTES)
+          await quotes.scrollIntoViewIfNeeded()
+          const q = await quotes.evaluate((root) => {
+            const [located, cited] = Array.from(root.querySelectorAll('blockquote'))
+            const style = (el: Element) => getComputedStyle(el)
+            const r = located.getBoundingClientRect()
+            return {
+              located: {
+                marked: located.classList.contains('en-marked'),
+                face: style(located).fontFamily,
+                px: parseFloat(style(located).fontSize),
+                tint: style(located).backgroundColor,
+                speakerFace: style(located.querySelector('cite')!).fontFamily,
+                inside: r.left >= -0.5 && r.right <= window.innerWidth + 0.5,
+              },
+              cited: { marked: cited.classList.contains('en-marked'), face: style(cited).fontFamily, rule: style(cited).borderLeftWidth, tint: style(cited).backgroundColor },
+              device: root.querySelectorAll('[data-en-ref], .en-margin, .en-margin-mark').length,
+            }
+          })
+          expect.soft(q.located).toEqual({
+            marked: true,
+            face: expect.stringMatching(/Newsreader/),
+            px: m.rootPx,
+            tint: theme === 'dark' ? 'rgba(127, 178, 149, 0.14)' : 'rgb(236, 242, 238)',
+            speakerFace: expect.not.stringMatching(/Newsreader/),
+            inside: true,
+          })
+          expect.soft(q.cited).toEqual({ marked: false, face: expect.not.stringMatching(/Newsreader/), rule: '2px', tint: 'rgba(0, 0, 0, 0)' })
+          expect.soft(q.device, 'a quote block takes no marker and no twin').toBe(0)
+          for (const [name, locator] of [
+            ['quote', quotes.locator('blockquote.en-marked p').first()],
+            ['speaker', quotes.locator('blockquote.en-marked cite').first()],
+          ] as const) {
+            expect.soft(await textContrast(locator), `located ${name} contrast`).toBeGreaterThanOrEqual(4.5)
+          }
+          expect.soft((await measure(page)).pageOverflow, 'page scrolls sideways').toBeLessThanOrEqual(0)
         })
       }
     }

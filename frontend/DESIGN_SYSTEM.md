@@ -93,11 +93,13 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 - **Editorial serif (Newsreader)** is wired to the filing's own words alone: the real filing viewer
   (**`.filing-reader`**, 19/1.7, opsz auto: Item 1A, MD&A, notes) and a passage the server located,
   set as a marked block (`.en-marked`, 16/26). Serif = the filing's own words. Inside the product the
-  marked blocks are the filing page's Risks rows (D-044); on a public page the serif appears only inside
+  marked blocks are the filing page's Risks rows and the summary's located quotes (D-044), a quote's
+  speaker staying in the body face (`font-sans`); on a public page the serif appears only inside
   a quoted passage the product located (the hero example's evidence row, the social card's excerpt),
   never for a headline, tagline or a claim of ours. Gate: tests/unit/designSystemDoneGate.spec.ts
-  (EDITORIAL_SURFACES, an equality: the reader, the hero example and the Risks rows; outside the reader
-  the face sits only in a marked block's class list; globals.css sets it on `.filing-reader` alone).
+  (EDITORIAL_SURFACES, an equality: the reader, the hero example, the Risks rows and the quote blocks;
+  outside the reader the face sits only in a marked block's class list, scored on the planted forms of
+  `tests/unit/fixtures/sourceVoiceForms.tsx`; globals.css sets it on `.filing-reader` alone).
   **`.markdown-body` is NOT serif**: it carries the reader's list + heading + table manners on the
   **body sans**, but FILLS its pane with no measure cap (it renders inside a card/pane, where any
   capped measure reads as dead space — field-tested twice) — its app consumer is
@@ -943,6 +945,12 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  text glyph for the arithmetic direction (aria-hidden; sr-only words state it where no signed
                  string does), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
+                 A quote block whose evidence the server located (`evidence.verified`) is a marked block
+                 (`en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed`, primary ink, the speaker
+                 in the body face, `font-sans`), with no marker and no twin, since a quote has no heading to
+                 carry one (D-044); any other quote keeps the neutral hairline (border-l-2, italic, secondary
+                 ink). Gates: SummaryBlocks.spec.tsx, brandCopyRules.spec.ts rule 3 (the quote blocks take the
+                 block alone), tests/e2e/risk-evidence-rows.spec.ts (the located quote's face, tint and ink).
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
                  honoured once its section renders (features/summaries/hooks/useSectionArrival); later
                  renders never move the reader. Where the page has no structured summary to hold it, the
@@ -1313,13 +1321,17 @@ margin without a marker; the hairline never scales with the type. The 11px mark 
 sanctioned sub-12px text beside copy because it is a twin of a 12px marker, not copy; it still
 carries no claim and is `aria-hidden` (the in-text marker is the accessible one).
 Inside the product the device marks every passage the server located, and nothing else (D-044): the
-filing page's Risks rows (Evidence rows, §4) and the Source pane's located passage (Filing reader, §4).
+filing page's Risks rows (Evidence rows, §4), the summary's quotes whose evidence the server located
+(Section ledger, §4: the marked block alone, no marker, no twin) and the Source pane's located passage
+(Filing reader, §4).
 One marker per row, so the twins never overprint; the one-`.en-mark` limit stays for a phrase of ours.
 Ask this Filing's answers and the Multi-Period narrative keep their citation chips: a cited line carries
 several markers there, and their twins would overprint. Gate: brandCopyRules.spec.ts rule 3
-(DEVICE_PLACES, an equality: the hero example's evidence row and the Risks rows; on a list's row a
-marker or a marked block only under a test of the row's `source_verified`; one marker per row and per
-line; no margin holding CopilotMessage, NarrativePane or CitationChip; its planted forms in
+(DEVICE_PLACES, an equality of places and their parts: the hero example's evidence row and the Risks
+rows with the margin, the marker and the block, the quote blocks with the block alone; on a list's row a
+marker or a marked block only under a test of its located flag, a risk's `source_verified` or an
+evidence's `verified`; one marker per row and per line, and none inside a marked block; no margin
+holding CopilotMessage, NarrativePane or CitationChip; its planted forms in
 `tests/unit/fixtures/brandRule3Forms.tsx`).
 
 ## 8. Theme mechanics

@@ -165,22 +165,26 @@ import { routeFiles, walkImports } from './importWalk'
  *    types), by its name; a test fails one that is neither, and a field whose literals carry no
  *    digit is a word by its type. A map over a figure array renders what its callback returns.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
- *    figure or a price, the hero's accent phrases included. The device means located (D-044): it renders
- *    (MarkedCopy, EnRef, a marked block's `en-marked`) only in DEVICE_PLACES, an equality naming the
- *    passage each place marks (the landing's evidence row, the filing page's Risks); the gutter's classes
- *    are written only in its own module (components/ui/MarkedCopy.tsx), and every MarkedCopy carries a
- *    marker. On a row of a list (what a `.map` or `.flatMap` callback returns) a marker or a marked block
- *    renders only under a test of the row's located flag, `source_verified` (the chip's "Verified in
- *    filing", D-028): `=== true` or the field itself, `!== true` on a conditional's false branch, an `if`
- *    around the return, a conjunction or a same-file const holding one; a helper's call is a guard the gate
- *    does not read, so it fails closed. One marker per row and per line, so the twins never overprint, and
- *    no margin holds an Ask answer, the narrative or their chips (CopilotMessage, NarrativePane,
- *    CitationChip, injectCitationMarkers), which keep their chips. The reads follow the file's consts and
- *    components; a row component from another file is read in its own file, which must then be a place.
- *    Review-checked: a guard that reads another row's flag, and a single passage outside a list, whose
- *    picker locates it (pickEvidence). The planted forms (tests/unit/fixtures/brandRule3Forms.tsx) are
- *    scored on every run. The reader's located passage (its ::highlight paint) is held to `.en-mark` by
- *    tests/unit/highlightInDom.spec.ts, and the face of a marked block by designSystemDoneGate.spec.ts.
+ *    figure or a price, the hero's accent phrases included. The device means located (D-044): its parts
+ *    (the margin, MarkedCopy; the marker, EnRef; the marked block, `en-marked`) render only in
+ *    DEVICE_PLACES, an equality naming each place, the parts it renders and the passage it marks (the
+ *    landing's evidence row and the filing page's Risks with all three, the summary's located quotes with
+ *    the block alone); the gutter's classes are written only in its own module
+ *    (components/ui/MarkedCopy.tsx), and every MarkedCopy carries a marker. On a row of a list (what a
+ *    `.map` or `.flatMap` callback returns, through the file's components, so a summary block is one) a
+ *    marker or a marked block renders only under a test of its located flag, a risk's `source_verified`
+ *    (the chip's "Verified in filing", D-028) or an evidence's `verified`: `=== true` or the field itself,
+ *    `!== true` on a conditional's false branch, an `if` around the return, a conjunction or a same-file
+ *    const holding one; a helper's call is a guard the gate does not read, so it fails closed. One marker
+ *    per row and per line, so the twins never overprint, none inside a marked block (a quote block takes
+ *    none), and no margin holds an Ask answer, the narrative or their chips (CopilotMessage,
+ *    NarrativePane, CitationChip, injectCitationMarkers), which keep their chips. The reads follow the
+ *    file's consts and components; a row component from another file is read in its own file, which must
+ *    then be a place. Review-checked: a guard that reads another row's flag, and a single passage outside
+ *    a list, whose picker locates it (pickEvidence). The planted forms
+ *    (tests/unit/fixtures/brandRule3Forms.tsx) are scored on every run. The reader's located passage (its
+ *    ::highlight paint) is held to `.en-mark` by tests/unit/highlightInDom.spec.ts, and the face of a
+ *    marked block by designSystemDoneGate.spec.ts.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
@@ -3181,22 +3185,33 @@ describe('brand rule 2: sage never colours a number', () => {
 
 /** The device's own module: the margin is drawn there, and no other file writes the gutter's classes. */
 const DEVICE_FILE = 'components/ui/MarkedCopy.tsx'
-/** Every place the device renders (MarkedCopy, EnRef, or a marked block, `en-marked`), each around a passage the
-    server located, with why (D-044). An equality: a file that renders the device and is not listed fails, and so does
-    a listed file that no longer renders it. Ask answers (CopilotMessage) and the Multi-Period narrative (NarrativePane)
-    are not places: they keep their citation chips, since a cited line carries several markers there and their twins
-    would overprint. */
-const DEVICE_PLACES: Record<string, string> = {
-  'features/marketing/components/HeroExample.tsx':
-    "the landing's evidence row: the first risk excerpt the server located (pickEvidence, held by hero-example-surface.spec.tsx)",
-  'features/summaries/components/SummaryRisks.tsx':
-    "the filing page's Risks: each row whose excerpt the server located, its chip's Verified in filing (D-028, D-044)",
+/** The device's parts: the margin (MarkedCopy, which draws the twins), the in-text marker (EnRef) and the marked
+    block (`en-marked`). */
+type DevicePart = 'margin' | 'marker' | 'block'
+/** Every place the device renders, the parts it renders there, and why: each marks a passage the server located
+    (D-044). An equality: a file that renders a part it is not listed for fails, and so does a listed part a file no
+    longer renders. Ask answers (CopilotMessage) and the Multi-Period narrative (NarrativePane) are not places: they
+    keep their citation chips, since a cited line carries several markers there and their twins would overprint. */
+const DEVICE_PLACES: Record<string, { parts: DevicePart[]; why: string }> = {
+  'features/marketing/components/HeroExample.tsx': {
+    parts: ['margin', 'marker', 'block'],
+    why: "the landing's evidence row: the first risk excerpt the server located (pickEvidence, held by hero-example-surface.spec.tsx)",
+  },
+  'features/summaries/components/SummaryRisks.tsx': {
+    parts: ['margin', 'marker', 'block'],
+    why: "the filing page's Risks: each row whose excerpt the server located, its chip's Verified in filing (D-028, D-044)",
+  },
+  'features/summaries/components/SummaryBlocks.tsx': {
+    parts: ['block'],
+    why: "the summary's quote blocks whose evidence the server located (evidence.verified): the marked block alone, no marker and no twin, since a quote has no heading to carry one (D-044)",
+  },
 }
 /** What keeps its citation chips: a margin never holds an answer, the narrative or their chips. */
 const CHIP_SURFACES = new Set(['CitationChip', 'CopilotMessage', 'NarrativePane'])
 const CHIP_CALLS = new Set(['injectCitationMarkers'])
-/** The server's located flag on a row (`RiskFactor.source_verified`, the chip's "Verified in filing"). */
-const LOCATED_FIELD = 'source_verified'
+/** The server's located flags: a risk's `source_verified` (the chip's "Verified in filing") and a block's or a row's
+    evidence `verified` (BlockEvidence: the whole quote found in the filing text). */
+const LOCATED_FIELDS = new Set(['source_verified', 'verified'])
 /** Tags whose content runs on the line of the element around them, so their markers share it. */
 const INLINE_TAGS = new Set(['a', 'abbr', 'b', 'cite', 'code', 'em', 'i', 'mark', 'q', 's', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u'])
 const AND = ts.SyntaxKind.AmpersandAmpersandToken
@@ -3229,11 +3244,11 @@ function sameFileComponent(n: ts.Node): ts.FunctionLikeDeclaration | undefined {
 const rowCallbacks = (call: ts.CallExpression) =>
   ts.isPropertyAccessExpression(call.expression) && ['map', 'flatMap'].includes(call.expression.name.text) ? callbacksOf(call) : []
 
-/** The field read is the server's located flag (`risk.source_verified`, `risk?.source_verified`, `risk['source_verified']`). */
+/** The field read is a located flag (`risk.source_verified`, `block.evidence?.verified`, `risk['source_verified']`). */
 function locatedField(e: ts.Expression): boolean {
   const x = unwrap(e)
-  return (ts.isPropertyAccessExpression(x) && x.name.text === LOCATED_FIELD)
-    || (ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) && x.argumentExpression.text === LOCATED_FIELD)
+  return (ts.isPropertyAccessExpression(x) && LOCATED_FIELDS.has(x.name.text))
+    || (ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) && LOCATED_FIELDS.has(x.argumentExpression.text))
 }
 
 /** Whether a test holds only for a row the server located (or, `negated`, whether its negation does): the located
@@ -3462,6 +3477,15 @@ const DEVICE_CHECKS: Record<string, (sf: ts.SourceFile, rel: string) => DeviceOf
     })
     return out
   },
+  // The marker sits on its row's heading, outside the passage: never inside a marked block (a quote block takes none).
+  'a marker inside a marked block': (sf) => {
+    const out: DeviceOffence[] = []
+    visit(sf, (n) => {
+      if (!(ts.isJsxElement(n) && isMarkedBlock(n))) return
+      for (const c of n.children) eachRendered(c, (m) => { if (isMarker(m)) out.push({ node: m, text: '<EnRef> inside a marked block' }) })
+    })
+    return out
+  },
   // On a row of a list, a marker or a marked block renders only under a test of the row's located flag.
   'a marker or a marked block on a row the server did not locate': (sf) => {
     const out: DeviceOffence[] = []
@@ -3479,15 +3503,19 @@ const DEVICE_CHECKS: Record<string, (sf: ts.SourceFile, rel: string) => DeviceOf
   },
 }
 
-/** The files that render the device: MarkedCopy, EnRef, or a class of its own (`en-marked`, `en-margin`). */
-function rendersDevice(sf: ts.SourceFile): boolean {
-  let found = false
+/** The device's parts a file renders: MarkedCopy (the margin), EnRef (the marker), a marked block (`en-marked`); the
+    gutter's own classes count as the margin. */
+function deviceParts(sf: ts.SourceFile): DevicePart[] {
+  const parts = new Set<DevicePart>()
   visit(sf, (n) => {
-    if (found || !(ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n))) return
+    if (!(ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n))) return
     const tag = tagOf(n)
-    if (tag === 'MarkedCopy' || tag === 'EnRef' || classTokens(jsxOpening(n)!).some((t) => ['en-marked', 'en-margin', 'en-margin-mark'].includes(t))) found = true
+    const tokens = classTokens(jsxOpening(n)!)
+    if (tag === 'MarkedCopy' || tokens.some((t) => t === 'en-margin' || t === 'en-margin-mark')) parts.add('margin')
+    if (tag === 'EnRef') parts.add('marker')
+    if (tokens.includes('en-marked')) parts.add('block')
   })
-  return found
+  return (['margin', 'marker', 'block'] as const).filter((part) => parts.has(part))
 }
 
 describe('brand rule 3: the Marked Copy Rule', () => {
@@ -3506,10 +3534,10 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     for (const [variant, headline] of Object.entries(HEADLINES)) expect(headline.accent, variant).not.toMatch(/[\d$%]/)
   })
 
-  it('the device renders only in its places, each a passage the server located (DEVICE_PLACES, D-044)', () => {
-    const places = SOURCES.filter(({ rel, sf }) => rel !== DEVICE_FILE && rendersDevice(sf)).map(({ rel }) => rel).sort()
-    expect(places, 'name the located passage a new place marks in DEVICE_PLACES; Ask answers and the narrative keep their chips')
-      .toEqual(Object.keys(DEVICE_PLACES).sort())
+  it('the device renders only in its places, each part where it is listed (DEVICE_PLACES, D-044)', () => {
+    const places = Object.fromEntries(SOURCES.filter(({ rel }) => rel !== DEVICE_FILE).map(({ rel, sf }) => [rel, deviceParts(sf)] as const).filter(([, parts]) => parts.length > 0))
+    expect(places, 'name the located passage a new place marks, and its parts, in DEVICE_PLACES; Ask answers and the narrative keep their chips')
+      .toEqual(Object.fromEntries(Object.entries(DEVICE_PLACES).map(([rel, { parts }]) => [rel, parts])))
   })
 
   it.each(Object.keys(DEVICE_CHECKS))('no %s', (check) => {

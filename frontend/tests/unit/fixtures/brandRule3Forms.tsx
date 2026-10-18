@@ -13,6 +13,7 @@ import CitationChip from '@/features/filings/components/copilot/CitationChip'
 import CopilotMessage, { type CopilotMessageData } from '@/features/filings/components/copilot/CopilotMessage'
 import NarrativePane, { type NarrativeState } from '@/features/analysis/components/NarrativePane'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import type { RenderedBlock } from '@/features/summaries/api/summaries-api'
 import type { RiskFactor } from '@/types/summary'
 
 const BLOCK = 'en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed'
@@ -287,3 +288,47 @@ export function D21({ risks }: { risks: RiskFactor[] }) {
     </MarkedCopy>
   )
 }
+
+/** D22 clean: the summary's quote blocks: the marked block on a quote whose evidence the server located, the neutral
+    hairline on any other, and no marker or twin. */
+export function D22({ blocks }: { blocks: RenderedBlock[] }) {
+  return (
+    <div>
+      {blocks.map((block, i) =>
+        block.kind === 'quote' && block.evidence?.verified === true ? (
+          <blockquote key={i} className={BLOCK}>“{block.text}”</blockquote>
+        ) : (
+          <blockquote key={i} className="border-l-2 pl-3.5 italic">“{block.text}”</blockquote>
+        ),
+      )}
+    </div>
+  )
+}
+
+/** D23 flag: a quote the server did not locate takes the marked block. */
+export function D23({ blocks }: { blocks: RenderedBlock[] }) {
+  return <div>{blocks.map((block, i) => (block.kind === 'quote' ? <blockquote key={i} className={BLOCK}>“{block.text}”</blockquote> : null))}</div>
+}
+
+/** D24 flag: a quote block carries a marker: the marker belongs on a row's heading, and a quote has none. */
+export function D24({ blocks }: { blocks: RenderedBlock[] }) {
+  return (
+    <div>
+      {blocks.map((block, i) =>
+        block.evidence?.verified === true ? (
+          <blockquote key={i} className={BLOCK}>“{block.text}”<EnRef label={`[${i + 1}]`} /></blockquote>
+        ) : null,
+      )}
+    </div>
+  )
+}
+
+/** D25 flag: a located quote block in a margin, with no marker for a twin to repeat. */
+export function D25({ block }: { block: RenderedBlock }) {
+  return (
+    <MarkedCopy>
+      <blockquote className={BLOCK}>“{block.text}”</blockquote>
+    </MarkedCopy>
+  )
+}
+

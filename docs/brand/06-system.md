@@ -66,9 +66,10 @@ product located in a filing (the hero example's evidence row, the social card's 
 quotation marks, never for a headline, a tagline, an aside or a claim of ours. The italic "Nerd"
 in the wordmark is Inter, and stays the brand's only typographic flourish.
 
-Inside the product Newsreader sets the filing reader and the excerpts the server located, each in
-its marked block: the filing page's Risks rows (D-044). A summary, an answer, a heading or a label
-of ours never takes it (`frontend/tests/unit/designSystemDoneGate.spec.ts` names the surfaces).
+Inside the product Newsreader sets the filing reader and the passages the server located, each in
+its marked block: the filing page's Risks rows and the summary's located quotes (D-044). A summary,
+an answer, a heading, a speaker's name or a label of ours never takes it
+(`frontend/tests/unit/designSystemDoneGate.spec.ts` names the surfaces).
 
 ## 3. Spacing, radius, elevation
 
@@ -129,8 +130,10 @@ Rules:
   surface only. On a public page that is one passage. Inside the product the device marks every
   passage the server located, because there it is literal (D-044): the filing page's Risks section
   is a marked copy (a marker on each located row's heading, its twin in the margin, the excerpt a
-  marked block; a row not located keeps the plain quotation and no marker), and the Source pane
-  paints the passage it locates with the mark's tint and its 2 px hairline. One marker per row, so
+  marked block; a row not located keeps the plain quotation and no marker), a quote in the summary
+  whose evidence the server located takes the marked block alone (no marker and no twin: a quote has
+  no heading to carry one; any other quote keeps the neutral hairline), and the Source pane paints
+  the passage it locates with the mark's tint and its 2 px hairline. One marker per row, so
   the twins never overprint; the one-highlight limit stays for a phrase of ours. Ask this Filing's
   answers and the Multi-Period narrative keep their citation chips: a cited line carries several
   markers, and their twins would overprint. Never both marks on a headline, never a mark on a figure
