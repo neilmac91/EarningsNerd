@@ -30,7 +30,7 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
     if (payload?.detail) return payload.detail
     if (payload?.message) return payload.message
     if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
-      return 'The summary timed out. Retry to generate it again.'
+      return 'The summary timed out. Try again to generate it.'
     }
     // axios's own message ("Network Error", "Request failed with status code 500") is transport text.
     return 'The summary could not load. Try again.'
