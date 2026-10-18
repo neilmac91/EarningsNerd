@@ -148,6 +148,18 @@ const copyModules = () =>
 const ANONYMOUS_ANALYTICS =
   /\banonymous(?:ly)?\b[^.]*\b(?:usage|statistics|analytics|PostHog|tracking|telemetry|data)\b|\b(?:usage|statistics|analytics|PostHog|tracking|telemetry)\b[^.]*\banonymous(?:ly)?\b/i
 
+/** What breaks a page's ledger: an unreadable date, a date that does not rise, or a text that repeats the row before. */
+function ledgerFaults(rows: Array<{ date: string; sha256: string }>): string[] {
+  const faults: string[] = []
+  rows.forEach((row, i) => {
+    const time = Date.parse(row.date)
+    if (!Number.isFinite(time)) faults.push(`row ${i + 1} has no readable date`)
+    else if (i > 0 && !(time > Date.parse(rows[i - 1].date))) faults.push(`row ${i + 1} does not come after the row before it`)
+    if (i > 0 && row.sha256 === rows[i - 1].sha256) faults.push(`row ${i + 1} repeats the text of the row before it`)
+  })
+  return faults
+}
+
 describe("/security says what the code and the hosting do (D-046)", () => {
   it('names none of the claims D-046 removed, and neither does the waitlist page', () => {
     const text = rendered('security')
@@ -298,13 +310,16 @@ describe('a legal page’s date moves with its text (D-046)', () => {
 
   it('the ledger reads forward: each page’s dates rise, and each row’s text differs from the row before it', () => {
     for (const page of Object.keys(LEGAL_TEXT) as LegalPage[]) {
-      const rows = LEGAL_TEXT[page]
-      expect(rows.length, page).toBeGreaterThan(0)
-      const times = rows.map((row) => Date.parse(row.date))
-      expect(times.every((t) => Number.isFinite(t)), page).toBe(true)
-      expect(times.every((t, i) => i === 0 || t > times[i - 1]), page).toBe(true)
-      // Against the row before only: a date moved with no text change fails, a return to an earlier text appends.
-      expect(rows.every((row, i) => i === 0 || row.sha256 !== rows[i - 1].sha256), page).toBe(true)
+      expect(LEGAL_TEXT[page].length, page).toBeGreaterThan(0)
+      expect(ledgerFaults(LEGAL_TEXT[page]), page).toEqual([])
     }
+    // The rule on planted ledgers: a revert (A, B, then A again) appends; a date moved with no text change, a date
+    // that does not rise, and an unreadable date fail.
+    const A = 'aaaaaaaaaaaaaaaa'
+    const B = 'bbbbbbbbbbbbbbbb'
+    expect(ledgerFaults([{ date: 'June 16, 2026', sha256: A }, { date: 'November 2, 2026', sha256: B }, { date: 'December 7, 2026', sha256: A }])).toEqual([])
+    expect(ledgerFaults([{ date: 'June 16, 2026', sha256: A }, { date: 'November 2, 2026', sha256: A }])).toEqual(['row 2 repeats the text of the row before it'])
+    expect(ledgerFaults([{ date: 'November 2, 2026', sha256: A }, { date: 'June 16, 2026', sha256: B }])).toEqual(['row 2 does not come after the row before it'])
+    expect(ledgerFaults([{ date: 'Someday', sha256: A }])).toEqual(['row 1 has no readable date'])
   })
 })
