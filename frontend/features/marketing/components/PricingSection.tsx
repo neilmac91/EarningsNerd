@@ -17,7 +17,6 @@ import {
   FILING_FORMS_LINE,
   FREE_COPILOT_QUESTIONS,
   FREE_EARNINGS_ALERT_LIMIT,
-  FREE_HISTORY_RETENTION_DAYS,
   FREE_SUMMARY_LIMIT,
   TRIAL_DAYS,
   shipped,
@@ -68,7 +67,6 @@ const PLAN_ROWS: readonly PlanRow[] = [
   { label: { text: 'Change Report' }, free: INCLUDED, pro: INCLUDED },
   { label: { text: 'Alerts' }, free: { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` }, pro: { text: 'Hourly filing alerts and 8-K alerts' } },
   { label: { text: 'Exports' }, free: null, pro: ANALYSIS_LINES.exports },
-  { label: { text: 'Summary history' }, free: { text: `${FREE_HISTORY_RETENTION_DAYS} days` }, pro: { text: 'Full' } },
   { label: { text: 'Watchlist' }, free: { text: 'Unlimited' }, pro: { text: 'Unlimited' } },
   { label: { text: 'Priority support' }, free: null, pro: INCLUDED },
 ]

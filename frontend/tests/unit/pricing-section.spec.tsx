@@ -115,7 +115,6 @@ describe('PricingSection', () => {
       'Change Report',
       'Alerts',
       'Exports',
-      'Summary history',
       'Watchlist',
       'Priority support',
     ])
