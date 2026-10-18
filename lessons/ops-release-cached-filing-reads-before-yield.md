@@ -25,8 +25,8 @@ handlers (2026-10: the summary read and its polled progress had been missed and 
 the same burst; each is now one unit in the thread pool). The gate is
 `backend/tests/unit/test_cached_filings_pool_lifetime.py`, in two halves. Its parameterized
 full-app eight-request, four-slot burst also checks that the dependency's finalizer never finds a
-transaction still open and that the summaries, peers and waitlist routes make no checkout on the
-loop; it covers only the routes it lists. The peers ranking and the waitlist status and stats reads
+transaction still open and that no listed route makes a checkout on the loop; it covers only the
+routes it lists. The peers ranking and the waitlist status and stats reads
 handed their session to a service on the loop and answered 500 in that burst until each became one
 unit in the thread pool (2026-10-17); the analysis stream, at its cap, streamed with its cached-range
 read's transaction still open, which its own case in the file holds to zero connections out while
@@ -38,10 +38,16 @@ checkout, in the thread pool (2026-10-17, E104). The logout, logout-all and refr
 their session to services on the loop: a revoke that found no live token kept its read open, the
 audit write read its row back after its commit, and the refresh read the user its rotation had
 expired, so each left a connection for the finalizer, and two of the five rows of their burst case
-answered 500 until each route became one unit in the thread pool (2026-10-18, E121). The file's AST ratchet reads every async router function and fails a session call on the
+answered 500 until each route became one unit in the thread pool (2026-10-18, E121). The filings reads
+handed their session to `filing_read_service` and `filing_list_service` on the loop, so every read
+checked out on the loop and, once the pool was full, froze it for the pool timeout (1 s in #1357's
+probe); each is now a unit in the thread pool, the company list's lookup, company
+persist, cached and live reads and fallbacks included, and
+`backend/tests/unit/test_filings_endpoint_db_first.py` holds the company list's SEC-phase and fallback
+paths to no request-session transaction begun on the loop (2026-10-18, E94). The file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
-not assert the route's checkouts (the filings reads, E94) or does not list the route (the rest of the
-watchlist and analysis routers, E118 and E119; the rest of the auth router and the checkout route,
-E121), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
+not list the route (the rest of the watchlist and analysis routers, E118 and E119; the rest of the
+auth router and the checkout route, E121), or a background task's own session worked on the loop
+(E123), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
