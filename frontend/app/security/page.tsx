@@ -52,7 +52,8 @@ export default function SecurityPage() {
             <li>
               <strong>Passwords:</strong> Passwords are stored only as bcrypt hashes, never as the passwords
               themselves. When you set a password, we ask Have I Been Pwned whether it has appeared in a data breach,
-              sending only the first five characters of its SHA-1 hash, and refuse one that has.
+              sending only the first five characters of its SHA-1 hash, and refuse one that has; when the service
+              cannot be reached, the password is accepted.
             </li>
             <li>
               <strong>Database access:</strong> The API reaches the database through Cloud Run&apos;s built-in Cloud
@@ -77,8 +78,9 @@ export default function SecurityPage() {
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
-              <strong>Sessions:</strong> Your session is a signed token (a JWT) in an HttpOnly cookie, which the
-              page&apos;s scripts cannot read, sent only over HTTPS.
+              <strong>Sessions:</strong> Your session is a signed token (a JWT), which the site keeps in an HttpOnly
+              cookie sent only over HTTPS. The login and refresh responses also return the token in their body, and
+              the API accepts it as a bearer header; the site&apos;s own code neither stores nor sends that copy.
             </li>
             <li>
               <strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh
@@ -179,7 +181,7 @@ export default function SecurityPage() {
             What you can see and control:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
-            <li>The Privacy Policy says what we collect, why, and how long we keep it</li>
+            <li>The Privacy Policy says what we collect and why</li>
             <li>You can download your data and delete your account from your account settings</li>
             <li>
               Registrations, logins, failed logins, logouts, data exports, account deletions and administrator actions
@@ -273,7 +275,10 @@ export default function SecurityPage() {
               <strong>Sentry:</strong> Error reports, as Monitoring above describes
             </li>
             <li>
-              <strong>PostHog:</strong> Usage statistics, only after you allow analytics, and session recordings only if you allow those too
+              <strong>PostHog:</strong> Usage statistics: PostHog in your browser runs only after you allow analytics,
+              and records sessions only if you allow that too; the API also records account events, such as sign-ups
+              and trials, subscription and payment changes, feedback, clicks in alert emails and AI usage, against
+              your internal account id, whether or not you allow analytics
             </li>
           </ul>
         </section>
