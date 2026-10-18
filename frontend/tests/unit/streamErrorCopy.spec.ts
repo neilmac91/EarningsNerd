@@ -39,7 +39,7 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     text (the reader sets retryable only for a 5xx). Pro's fair-use pause is that proof for one sentence:
  *     read in admission.py's own words, from the error it streams in the block under `if user_is_unlimited:`
  *     (the billing-unlimited caller its usage gate blocked), it must match isNonRetryableStreamError, so
- *     the stream never retries it and its card offers no Retry generation. A reworded pause fails here until
+ *     the stream never retries it and its card offers no Retry. A reworded pause fails here until
  *     the matcher follows it.
  *  4. Voice: what the page shows has no em-dash, no exclamation mark, and reads as a sentence; a key's
  *     only fields are bare `{name}` ones, the only kind streamErrorCopy matches.
@@ -450,7 +450,7 @@ describe('the summary stream error sentences the filing page maps', () => {
     expect(
       isNonRetryableStreamError(pause![0].text),
       `${file}:${pause![0].line} "${pause![0].text}" no longer matches isNonRetryableStreamError: move its phrase ` +
-        '(features/summaries/api/summaries-api.ts) to the new words, or the stream retries the pause and its card offers Retry generation',
+        '(features/summaries/api/summaries-api.ts) to the new words, or the stream retries the pause and its card offers a Retry',
     ).toBe(true)
   })
 

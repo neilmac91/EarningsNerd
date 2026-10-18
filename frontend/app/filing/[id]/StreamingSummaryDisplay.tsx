@@ -180,7 +180,7 @@ export default function StreamingSummaryDisplay({
   // hand-off), the failure card's heading takes focus nobody holds when it appears.
   const progressHeadingRef = useRef<HTMLHeadingElement>(null)
   const failureHeadingRef = useRef<HTMLHeadingElement>(null)
-  // Where Retry generation hands focus when it leaves while holding it, resolved after the commit: the progress
+  // Where the card's Retry hands focus when it leaves while holding it, resolved after the commit: the progress
   // card's heading when its press starts the run, or this card's own heading when the card stays without its
   // Retry (a signed-out press starts no run, and its sign-in sentence is one no retry can help).
   const retryFocusTarget = useMemo(() => ({

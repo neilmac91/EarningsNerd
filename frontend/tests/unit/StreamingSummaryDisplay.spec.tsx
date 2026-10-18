@@ -206,11 +206,13 @@ describe('StreamingSummaryDisplay failure reason', () => {
 
   // Pro's fair-use pause holds until the month turns, so a Retry could only repeat the blocked request: the card
   // keeps its sentence and offers none (isNonRetryableStreamError, the matcher that also stops the stream's own
-  // retry). A failure a retry can help keeps Retry generation.
-  it("offers no Retry generation at Pro's fair-use pause, and one for a failure a retry can help", async () => {
+  // retry). A failure a retry can help keeps its Retry. The card's one button is its Retry, read by role and not
+  // by label, so the case holds whatever the Retry says.
+  it("offers no Retry at Pro's fair-use pause, and one for a failure a retry can help", async () => {
     const failed = (error: string) => (
       <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
     )
+    const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
     const { rerender } = render(
       failed(
         "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
@@ -222,9 +224,9 @@ describe('StreamingSummaryDisplay failure reason', () => {
     expect(
       screen.getByText("Your account has reached this month's limit on new summaries. It resets next month; contact support if you need more."),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Retry generation' })).toBeNull()
+    expect(cardButton()).toBeNull()
     rerender(failed('The filing could not be summarized right now.'))
-    expect(screen.getByRole('button', { name: 'Retry generation' })).toBeInTheDocument()
+    expect(cardButton()).toBeInTheDocument()
   })
 })
 
@@ -327,7 +329,7 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     fireEvent.click(retry(), { detail: 0 })
     await settle()
     expect(screen.getByText('Sign in to generate this summary.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Retry generation' })).toBeNull()
+    expect(within(screen.getByRole('alert')).queryByRole('button')).toBeNull()
     expect(document.activeElement).toBe(heading('Generation interrupted'))
   })
 

@@ -140,7 +140,7 @@ export const isPaywallStreamError = (message: string): boolean => {
 }
 
 // Errors a retry cannot help: the stream makes no automatic second attempt (generateSummaryStream below), and
-// the filing page's card offers no Retry generation (StreamingSummaryDisplay). Pro's fair-use pause is matched on
+// the filing page's card offers no Retry (StreamingSummaryDisplay). Pro's fair-use pause is matched on
 // admission.py's own sentence ("We've temporarily paused new summary generation on your account …"): the
 // month's ceiling holds until the month turns, so a retry only repeats the blocked request.
 // tests/unit/streamErrorCopy.spec.ts reads that sentence from admission.py and holds this matcher to it.
