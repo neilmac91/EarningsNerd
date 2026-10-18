@@ -88,12 +88,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   card carries no "Most popular" badge. The Free plan reads "10-K, 10-Q and 20-F filings from SEC
   EDGAR" in place of "Access to all filings": no "Supported" hedge, and 20-F only while
   `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's `ENABLE_FPI_FILINGS` ("10-K and 10-Q filings from SEC
-  EDGAR" otherwise; the deploy sets the API's flag on, its code default is off; tasks/todo.md F39). The Pro list reads "Ask
+  EDGAR" otherwise; the deploy sets the API's flag on, its code default is off). The Pro list reads "Ask
   this Filing, with cited passages you can check" (it read "with cited answers" until the Ask this Filing
   PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
   export is the analysis workbook). The check marks are in the brand ink and hidden from
-  assistive tech. The history and "Unlimited" lines wait on the founder (pub/F03, pub/F05).
+  assistive tech. "Unlimited" stays; the fair-use guardrail is to be stated once where it is read
+  (pub/F05, D-040, E58), and the history lines are to leave until entitlements enforce a retention
+  (pub/F03, D-046, E58).
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as
@@ -102,7 +104,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   count and the step numbers are set in the ink, not sage. The trust panel reads "Before you join"
   over its three tiles with no lead (the clarity promise is gone, and a lead only repeated the first
   tile's source line), and its middle tile
-  is "Security", whose body waits on the founder with the /security claims. The problem cards and the
+  is "Security", whose body is to change with /security's unsupported claims (D-046, E109). The problem cards and the
   joined heading are h2, so the outline does not skip a level after the h1 when the example beside
   the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
@@ -134,7 +136,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
-  dialog waits on the founder (chrome/F1).
+  dialog is to take D-046's words, which name PostHog and say that statistics are tied to an
+  internal account id when you are logged in (chrome/F1, F33, E109).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
@@ -157,8 +160,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
   a minute." The success heading is an h2.
   The prose links on /contact are underlined and carry the brand focus ring. The /security links
-  are unchanged, because /security is a legal page under the founder's boundary; the ring triple
-  on its five links rides the founder-gated security-claims PR.
+  are unchanged: the ring triple on its five links is to ride the /security PR, which D-046
+  authorises (E109).
 
 - **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
   `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
@@ -192,10 +195,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   summary" carries a glyph beside it: the sparkle is the AI summary chip's alone. A pending step keeps full opacity in the tertiary ink (it
   sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it.",
   signed "Still running", without guessing why. A stored summary that failed reads "This summary did
-  not finish" over its own sentence, "The last attempt for this filing did not finish. Retry to
-  generate it again." The pipeline's stream errors are mapped on the client
-  (`frontend/features/summaries/lib/streamErrorCopy.ts`), because the summary_stages strings are the
-  founder's until he opens them; the raw sentence still decides the paywall card and the retry, and
+  not finish" over its own sentence, "The last attempt for this filing did not finish. Try again to
+  generate it." The pipeline's stream errors are mapped on the client
+  (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings are to change
+  with the next functional change there, and the mapping holds until then (F35, D-046, E92). The raw
+  sentence still decides the paywall card and the retry, and
   `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
   `services/ai/summary_finalize.py`, whose payload messages two stages stream) so a reworded sentence
   fails until it is mapped. The client's own fallbacks (`features/summaries/api/summaries-api.ts`,
@@ -229,10 +233,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`SummaryActionsBar.tsx`). SourceTrace's "Open in SEC EDGAR" link and its sheet's close button, and
   the actions bar's manual-copy link, carry the brand focus ring.
 - **Ticker route** (`frontend/features/filings/components/TickerFilingsView.tsx`, the /filing/AAPL
-  picker): a load failure reads "Filings unavailable" with a Retry held through its refetch; a 404 is
+  picker): a load failure reads "Filings unavailable" with a "Try again" held through its refetch; a 404 is
   "Company not found", read from the held error so a refetch cannot flip it; a first load paused
   offline is still loading, never not found; none prints the raw error. A filings failure under a
-  loaded company is an inline Notice, "Couldn’t load the filings", with its Retry, inside the "Recent
+  loaded company is an inline Notice, "Couldn’t load the filings", with its "Try again", inside the "Recent
   filings" card. Each row's action is an "Open filing" text link on the identity strip's recipe, its
   hidden tail naming the form and the accession, and a Badge is a label, never a control
   (`tests/unit/badgeNeverAControl.spec.ts`, which reads a Badge and a control through their
@@ -241,7 +245,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
   `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
   `features/filings/components/FilingIndex.tsx`): a company that fails
-  to load says "Couldn’t load this company" with a Retry and never prints the raw error; only a 404
+  to load says "Couldn’t load this company" with "Try again" and never prints the raw error; only a 404
   reads "Company not found", an answer in the empty card (the error card stays for the load failure),
   with the search's scope ("No company with a ticker on SEC EDGAR matches
   …"). The watched star keeps the button's own ink, its fill and `aria-pressed` carrying the state. The
@@ -267,14 +271,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   watched company's card states its summary from the server's status (ready, being written, none yet,
   unavailable, failed) with a matching badge ("No summary yet", "Unavailable", "Needs regenerating" in
   sentence case), never from the regeneration flag alone; a failed load shows its error card with a
-  Retry and no empty card (a run the server still reports as generating after it died reads as being
+  "Try again" and no empty card (a run the server still reports as generating after it died reads as being
   written until tasks/todo.md E43 lands). The what-changed chips take `lib/financialTone`'s direction chip, the
   700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
   decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
   companies you follow."), the limit banner states the account's own count and nothing about
   Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
   and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
-  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide, after the series, E58),
+  "Unlimited" among them, and the fair-use guardrail is to be stated once, app-wide, after the series, E58),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face.
@@ -283,7 +287,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the glyph, on the element whose ink it inherits, or in a map that pairs it with its classes);
   `tests/unit/whatChangedChip.spec.tsx` holds the chip to the direction chip for the server's tone,
   which no lint can see, and `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences and the
-  Retry through its refetch.
+  "Try again" through its refetch.
 - **Notification bell** (`frontend/features/notifications/components/NotificationBell.tsx`): an
   alert reads "New 10-Q from AAPL", the form and ticker in the data face; the unread count rests in
   the ink, not on sage (D-030), while the sage dot still marks an unread row; the menu sits on the
@@ -294,7 +298,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   evidence table) is titled "Financial highlights", in sentence case; the summary's own section
   heading is the backend's schema title.
 - **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
-  `WeekView.tsx`): the coverage chip and the "+N more" and "Show top 5" controls rest in the ink,
+  `WeekView.tsx`): the coverage chip and the "+N more" and "Show fewer" controls rest in the ink,
   sage only under the pointer (D-030). `tests/unit/calendarCoverageChip.spec.tsx` renders the page
   on a bounded payload under the known universe: the chip shows there and nowhere else.
 - **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
@@ -469,7 +473,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "New invite link ready" otherwise. A link-only row's actions are named "Resend this link-only
   invite" and "Revoke this link-only invite". The empty lists are one plain line in the card ("No
   invites yet. Send your first one above.", "No feedback yet. Reports appear here as people send
-  them."), a failed load is a Notice with a Retry, and the section headings carry no icon. The status
+  them."), a failed load is a Notice with "Try again", and the section headings carry no icon. The status
   chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
   them takes the same quiet ground in dark (no fill, its hairline kept), "New" feedback takes an unread
   envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
@@ -485,18 +489,34 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   warning colour is for status. A signed-out bell offers an email the morning a company reports, and
   its second action follows the registration mode ("Request an invite" while invite-only). The error
   card's "Try again" is a `RetryButton`. `brandCopyRules.spec.ts` rule 1d bans the old claims under
-  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker.
+  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker. Every
+  estimated row shows its "usually" note, the lane's glyph and the words on a line of their own, in
+  the week sheet as in the day list and the day dialog, so the footer's sentence describes what the
+  rows show. At 200% text nothing is clipped or overlaps: each view picks its layout by its own
+  width in em (the day list in place of the sheet, a stacked row without its decorative logo, a month
+  day's count of reports in place of its tickers, which a caption says), names wrap instead of
+  truncating and the range label wraps between whole dates (`calendarReflow.spec.tsx`,
+  `calendarEventRow.spec.tsx`). The bell's popover is placed from its measured height inside what the
+  reader can see, scrolling inside when neither side of the bell holds it whole
+  (`BellPopover.spec.tsx`).
 - **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
   the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
   such as "{form} · Filed {ago}" (the notable-filing card, dormant off `/`, moved to the data face
-  with it). The form toggles, "Clear dates" and Retry (a `RetryButton`) carry the brand ring, the
+  with it). The form toggles, "Clear dates" and "Try again" (a `RetryButton`) carry the brand ring, the
   result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
   on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
   accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an
   error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
   in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
-  longer promises every filing, and the title is in sentence case.
+  longer promises every filing, and the title is in sentence case. At 200% text a row's company
+  name wraps under its ticker in the primary ink (in both themes), each date and form code stays
+  whole, and a middot keeps to the fact before it, so no line starts with one; each fact, its label,
+  its value and its middot, is one run, so a line breaks between facts, and inside one only when it
+  alone is wider than the line; the error alert's
+  glyph keeps its size, its message takes its column's whole width and breaks a long token, and
+  "Try again" ("Trying again…" while busy) sits on its own row under it, inside the alert
+  (`full-text-search.spec.tsx`).
 - **Multi-Period Analysis** (`frontend/features/analysis/*`, `frontend/app/analysis/page.tsx`): the
   fair-use cap is stated once, in the narrative card, with no plan link; "See plans" stays only beside
   the 403 "Pro feature" gate, and the page's three inline links (Sign in, See plans, Terms) carry the
@@ -531,12 +551,18 @@ sibling of the social post below.
 
 [templates/](templates/) holds the five applications and their README: the social post (1080 ×
 1350, with its PNG), the business card front and back (SVG with trim guide and fill-in layer), the
-PDF cover (A4, with the fields the backend fills named), the email header (600 px tables, inline
-styles) and the A5 notebook cover (SVG with its preview). Every figure in the folder is from the
-verified FY2025 set; every colour is a token; the mark's paths are byte-identical to
+PDF cover (A4, with the fields the backend fills named), the email header (a fluid column up to
+600 px, inline styles) and the A5 notebook cover (SVG with its preview). Every figure in the folder is
+from the verified FY2025 set; every colour is a token; the mark's paths are byte-identical to
 `earningsnerd-mark-mono.svg`. Two decisions were taken while checking them: the notebook's margin
 carries no printed bracket marks, because a cover has no text for them to twin (D-016), and the
-email footer uses the app's own sentence form of the disclaimer (D-017).
+email footer uses the app's own sentence form of the disclaimer (D-017). The mail's line now names
+filing data alone, "Filing data sourced from SEC EDGAR. Not investment advice.", since an
+earnings-day alert carries a provider's report dates (D-043), and its page is fluid up to 600 px
+(D-042). Each mail opens with a hidden preheader of its own, the line most inboxes list beside the
+subject, so none is listed by the header's words (D-047). Under a phone's text zoom the header's wordmark
+wraps between its two words and the tagline's mark inside itself, so the header fits a 320 px screen at
+200% (D-048).
 
 ## 6. The founder slot
 
@@ -549,18 +575,21 @@ content is unchanged. The brief's reader-quote slot stays unrendered
 
 The section is unmounted from `app/page.tsx` and its fetcher removed from the page, and the
 component carries a DORMANT note: the week's list read as microcap 8-Ks under a "high-signal"
-heading (audit T7). The fetcher, the card and its spec stay for the day a curation rule exists (a
-known-good set, a size floor, or 10-K and 10-Q only). The mount gate
-(`tests/unit/landing-sections-mounted.spec.ts`) records the omission as deliberate.
+heading (audit T7). The fetcher, the card and its spec stay for its return. The curation rule is
+decided (D-046, §8): 10-K and 10-Q filings only, from companies that hold a full summary, newest
+first, at most six. The section is to return under it with E90, placed in D-045's labelled rows
+(E113); until then the mount gate (`tests/unit/landing-sections-mounted.spec.ts`) records the
+omission as deliberate.
 
-## 8. Left for the founder
+## 8. Decided by the founder
 
-- The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is a pipeline
-  snapshot ending at FY2024; it is regenerated through the pipeline, not edited, so the landing
-  page shows FY2019 to FY2024 in that one demo until the founder runs it to FY2025.
-- A curation rule for §7.
+- The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`, the analysis
+  teaser's sample and the landing's samples) ends at FY2024, and its own comment calls its figures
+  approximate; it is to be regenerated through the pipeline to FY2025, not edited (D-046, E93).
+- §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
+  first, at most six (D-046, E90).
 
-Each has its own line in `tasks/todo.md`, as does the landing composition (tell T4).
+The landing composition (tell T4) is decided too: labelled rows after the hero (D-045, E113).
 
 ## 9. Gates touched
 

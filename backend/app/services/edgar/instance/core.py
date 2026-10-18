@@ -5,6 +5,9 @@ import math
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
+# The currency ranking lives in the dependency-free module the companyfacts normalizer shares it from.
+from app.services.facts.currency import _reporting_currency as _reporting_currency
+
 logger = logging.getLogger("app.services.edgar.instance_extractor")
 
 
@@ -94,39 +97,6 @@ def _currency(row: Dict[str, Any]) -> Optional[str]:
     text = str(ccy).strip().upper()
     # ISO-4217 codes are exactly three letters; this also rejects pandas <NA>, "" and other junk.
     return text if len(text) == 3 and text.isalpha() else None
-
-
-def _reporting_currency(
-    candidates: List[Tuple[str, float, Optional[str], float]],
-    period_of_report: str,
-) -> Optional[str]:
-    """Pick the issuer's reporting currency from candidate facts for one concept.
-
-    Foreign filers (e.g. Alibaba) tag the SAME line in BOTH their reporting currency (all periods)
-    AND a USD convenience translation (usually only the latest period). The reporting currency is
-    the one covering the most distinct period-ends; ties prefer the currency present at the filing's
-    own period_of_report, then alphabetical for determinism. Returns None when no fact carries a
-    currency (unit tests, per-share concepts), which disables currency filtering.
-    """
-    ends_by_ccy: Dict[Optional[str], set] = {}
-    for cand in candidates:  # candidates carry (end, value, ccy[, decimals]); only end + ccy are used
-        ends_by_ccy.setdefault(cand[2], set()).add(cand[0])
-    real = {c: ends for c, ends in ends_by_ccy.items() if c}
-    if not real:
-        return None
-    # Rank by: most distinct period-ends (the native currency spans all presented years; a USD
-    # convenience translation is usually only the latest year), then presence at the filing's own
-    # period, then prefer a NON-USD code (USD is the convenience-translation convention, so on a tie
-    # the native currency wins), then alphabetical for determinism.
-    return max(
-        real.items(),
-        key=lambda item: (
-            len(item[1]),
-            period_of_report in item[1],
-            item[0] != "USD",
-            item[0],
-        ),
-    )[0]
 
 
 def _numeric(value: Any) -> Optional[float]:

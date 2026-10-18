@@ -112,7 +112,7 @@ describe('FilingViewer (embedded)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'cite' }))
     expect(fetchFilingContent).toHaveBeenCalledTimes(2)
     expect(screen.getByText('Could not load the filing text.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /retrying/i })).toBe(retry)
+    expect(screen.getByRole('button', { name: /trying again/i })).toBe(retry)
     await act(async () => rejectRead(new Error('still unavailable')))
     expect(await screen.findByRole('button', { name: /try again/i })).toBe(retry)
     expect(retry).toHaveFocus()

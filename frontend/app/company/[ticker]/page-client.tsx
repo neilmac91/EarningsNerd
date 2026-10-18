@@ -310,9 +310,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             }
             action={
               loadFailed ? (
-                <RetryButton failures={[companyFailure]} focusTarget={companyRetryTarget}>
-                  Retry
-                </RetryButton>
+                <RetryButton failures={[companyFailure]} focusTarget={companyRetryTarget} />
               ) : (
                 <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
                   Go back home

@@ -645,7 +645,7 @@ describe('the review (Pro, signed in)', () => {
     expect(alert).toHaveTextContent('Couldn’t load your review')
     expect(screen.getAllByRole('listitem')).toHaveLength(5)
     expect(screen.queryByRole('button', { name: /Reviewed: change/ })).toBeNull()
-    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const retry = within(alert).getByRole('button', { name: 'Try again' })
     expect(retry).not.toBeDisabled()
     fireEvent.click(retry)
     await waitFor(() => expect(screen.getByTestId('wording-progress')).toHaveTextContent('0 of 5 changes marked.'))

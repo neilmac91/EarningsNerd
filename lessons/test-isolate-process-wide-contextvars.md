@@ -18,7 +18,8 @@ pair: one test leaves the state set, and the next test in definition order asser
 Since 2026-10-09 the gate runs under `-n auto`, where xdist can split an in-file pair across
 workers and a local random-order run can reverse it, so a pair alone proves nothing. Add both node
 ids to `_ORDERED_PROBES` in `backend/tests/unit/test_suite_isolation.py`, which runs them in order
-in a fresh serial process.
+in a fresh serial process. Name both halves `test_probe_*` or `test_isolation_*`: the same file
+fails while any function so named is missing from `_ORDERED_PROBES`.
 
 **Evidence**: `backend/tests/conftest.py::_isolate_ai_call_trigger`;
 `backend/tests/unit/test_ai_metrics.py::test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint`

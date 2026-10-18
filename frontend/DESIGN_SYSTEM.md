@@ -170,23 +170,58 @@ that carries `aria-disabled` or on a use of a shared control that renders one wi
 `<Button loading>`, RetryButton, AlertBell).
 
 A Retry of a failed query is
-`<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}>`, never a hand-rolled
+`<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef} />`, never a hand-rolled
 `<Button loading={isFetching}>`. `queryKey` is the key the query's own `useQuery` was given: it is the hold's
 identity, so a key change (another user, a new search term) never holds the old query's error (gated in
 `tests/unit/useRetainedFailure.spec.tsx`). The error UI stays up through any refetch until data replaces it;
-the Retry is busy while the query has a fetch in flight (paused offline included), reads "Retrying…" only
+the Retry is busy while the query has a fetch in flight (paused offline included), reads "Trying again…" only
 while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` heading, or a text field with
 `textField`) when it unmounts while focused. It lives beside its hook in `hooks/useRetainedFailure.tsx`, not in
 `components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
 chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
-A Retry that restarts a stream, not a query (the filing page's "Retry generation"), is RetryButton too, given the
+Its label is the product's one retry verb (D-032): "Try again", busy "Trying again…", RetryButton's own, so a
+call site passes none: TypeScript refuses a child, an aria-label and an aria-labelledby (RetryButtonProps declares
+each `never`), RetryButton drops each at run time (one a spread or a cast brings in), and the gate fails a call
+site that passes one, under any name an import gives RetryButton. It keeps the room of the spinner and "Trying
+again…" at rest (Button's `reserveLoadingText`, below; D-032), so the swap never resizes it or moves what sits
+beside it: without it, at 390px under 200% text the label wrapped and the card grew 22 to 24px (e2e
+`filing-source-chip.spec.ts` holds the box through the swap, in both themes at 390 and 1440px). That room must
+never cost reflow. So the Retry takes its own row under its message, as a Notice's action does, never a place
+beside its message or another control in a row that cannot wrap (GuidanceCard's action row wraps and centres
+two actions); a message carrying the backend's words breaks a long token (`break-words`); and where even its own
+row is narrower than the spinner beside "again…" (a Notice inside a card at 200% text), the spinner goes above
+the label (Button's reserve, below). Before, at 390px under 200% text, the homepage and full-text search alerts
+pushed their Retry past the screen (the page 445 and 472px wide), the dashboard's account card put its Retry's
+left edge off the screen at 320px, and the comparison card's Retry widened the page at 320px. A Notice inside a
+card keeps its Retry and its title inside its own border too: its row wraps, and its text column goes under the
+glyph where it cannot keep 9rem beside it (Inline notice, below). Before, under 200% text, the comparison card's
+Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at 360px
+the billing and ticker filings cards' Retry ran 15px past it. Gates: e2e `reflow-200.spec.ts`, "a failure's
+controls stay inside their card" (the homepage search alert at 320, 360 and 390px and with a long token, the
+dashboard's account card at 320, 360 and 390px, the route and dashboard error boundaries at 320px, and the
+comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at 360px and the
+comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
+the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
+`twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
+reserve's rows. Its limit: at 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the
+admin feedback and invites lists) leaves a Notice a 92px content box, narrower than the Retry's narrowest state
+(138px, its padding and "again…"), so there the Retry sits 13px past the Notice's border, inside the card, the
+page at its width. Main's resting Retry is 30px past it there, so the cards' padding causes it, not the reserve
+or the Notice (E120). Where one Notice holds two failed reads, one
+RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
+the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
+not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and
+so does the copy beside a Retry ("Try again in a moment."): the gate's one-verb clauses fail any other label, busy
+text or "retry" in copy, naming the file and line.
+A Retry that restarts a stream, not a query (the filing page's generation restart), is RetryButton too, given the
 stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no query to hold, and the press
 clears the error in the render that starts the stream, so the card leaves with the press when the run starts
 and its hand-off target is the progress card's heading. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
-imported name), and under RetryButton's own import aliases; what it cannot prove (a `let`, a JSX spread on
+imported name), and under any name an import of RetryButton's module gives it (an alias, a default import,
+`H.RetryButton`); what it cannot prove (a `let`, a JSX spread on
 RetryButton or into such a component, an empty list) fails as built by hand. A card that ends a run the user is
 waiting on (a failed generation, the monthly limit) takes focus when it appears, on its title
 (`GuidanceCard`'s `headingRef`: `tabIndex={-1}`, no outline, described by the card's description), and only when nobody holds focus (`useFocusOnArrival`,
@@ -220,6 +255,16 @@ Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text l
                  Default buttons keep their fixed height above a 24rem viewport (below it, the Button
                  size row); icon-sm stays a 32px square.
 
+Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> keeps a loading label's room at
+                 rest when it is longer than the resting one: what shows is laid over an invisible, aria-hidden
+                 copy of the loading state (the spinner's box and that label) in one grid cell, so the swap
+                 never resizes the button or moves what sits beside it. Each row wraps, its label based at its
+                 longest word, so where the button is narrower than the spinner beside that word the spinner
+                 goes above the label, and the room is never wider than that word with the padding.
+                 RetryButton's "Trying again…" is its one use (tests/unit/button-wrap.spec.tsx holds the cell
+                 and the rows; busyControlsStayFocusable.spec.ts holds RetryButton to reserving the busy text
+                 it shows).
+
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
@@ -239,8 +284,9 @@ Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 an
                  where the narrow state cannot see it (tests/unit/buttonHeightIsAMinimum.spec.ts holds
                  both). A `whitespace-normal` className still loses to the base `whitespace-nowrap`
                  above 24rem (stylesheet order): use `wrap`.
-                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at the default),
-                 tests/unit/button-wrap.spec.tsx (the narrow state keeps a caller's min-h and py).
+                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at both; a 768px
+                 and an 834px tablet at 200%), tests/unit/button-wrap.spec.tsx (the narrow state keeps a
+                 caller's min-h and py).
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
@@ -636,7 +682,17 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
-                 Card; inside a Card, Notice is the right scale.
+                 Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
+                 centres two actions and sets the second under the first when they do not fit side by
+                 side, and its description, like a Notice's, breaks a long word
+                 (tests/unit/twoActionsWrap.spec.tsx). A Notice's own row wraps: its text column's
+                 basis is 9rem (about 20 characters: 144px at the default size, 288px under 200% text),
+                 so where it cannot keep that beside the glyph (a card on a phone at 200% text) it goes
+                 under the glyph at the Notice's whole inner width. The glyph then sits alone at the top
+                 left over the title, and the title, description and action share the full width; the
+                 title breaks a long word, as the description does. No container query: a
+                 container-type would collapse a Notice wherever a parent sizes it to its content. Gate:
+                 e2e reflow-200.spec.ts (the Retry and every text run inside the Notice's border).
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
@@ -696,12 +752,16 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
                  every name whole and nothing overflows (E34).
+                 A mark a reader can clear is not one either: the wording review's Reviewed and
+                 Follow up (WordingChanges.tsx) start unset and a second press clears them, so they
+                 stay a pair of aria-pressed toggles in a labelled group, behind the rule's disable on
+                 that line with its reason (D-046).
                  Gate: earningsnerd/no-hand-rolled-toggle-group (eslint.designRules.mjs) fails a
                  role="group" holding an aria-pressed <button> or <Button>, anywhere outside
                  components/ui/SegmentedControl.tsx. It reads the button in the group's own markup,
                  through a same-file wrapper component (one level) and through the DS Button imported
                  under another name. WordingChanges' review row (LabelToggle) carries the rule's one
-                 disable: a second press clears its label, a state the control cannot hold (E62). A row
+                 disable: a second press clears its label, a state the control cannot hold (D-046). A row
                  without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
                  file and a wrapper that renders another wrapper are outside its reach (review-checked).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
@@ -763,13 +823,27 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  role="group" named by its title and described by its message (an async failure is also
                  announced with role="alert") — on z-overlay, behind a transparent catcher so
                  an outside press closes only the popover; the panel is the Card recipe (dark:shadow-none).
-                 Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
-                 once per open, callbacks through a ref); Escape closes in window capture with preventDefault
-                 (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /
-                 Shift+Tab before the first close it and resume the page's order at the trigger; a scroll that
-                 moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
-                 scrolling behind a fixed dialog does not move it); every close returns focus to
-                 the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
+                 Placed where it fits, from its measured height, never an assumed one: 18.75rem wide (300px
+                 at the default text size) within 12px of the visible viewport (window.visualViewport: on a
+                 phone whose page is wider than the screen, Chromium widens the layout viewport and
+                 window.inner* to the page), below its trigger, above it when only that side holds it
+                 whole (capped at its own height, so text that grows scrolls rather than reach over the
+                 trigger), otherwise on the roomier side with its height capped there, scrolling inside
+                 (overflow-y-auto, scroll-py-4); a trigger out of view leaves it inside the area too. When
+                 neither side offers 6rem of the reader's text (96px at the default size; a landscape phone
+                 at large text, or with the keyboard up), it spans the visible height over its trigger and
+                 scrolls inside, the one placement that covers the trigger: a side that short would show
+                 little more than the panel's padding. Gate: placeBellPopover's cases and the rendered
+                 placement and width cases in BellPopover.spec.tsx (the width read at a 16px and a 32px root).
+                 Keyboard: focus moves to the first action, without scrolling the page (a capped panel
+                 scrolls itself to show that action and its ring), unless the user already moved it
+                 elsewhere (armed once per open, callbacks through a ref); Escape closes in window capture
+                 with preventDefault (stopPropagation alone still closes a native <dialog> beneath); Tab
+                 past the last action / Shift+Tab before the first close it and resume the page's order at
+                 the trigger; a scroll that moves the trigger, or a resize, closes it (fixed at its rect,
+                 it would detach; the page scrolling behind a fixed dialog does not move it); every close
+                 returns focus to the trigger unless the user moved on. While a native <dialog> is open, it
+                 portals into it.
                  The evidence popovers (SourceTrace's "Source detail", CitationChip's citation card) are the
                  hover/focus variant of this contract: they open on hover or focus, so focus stays on the chip
                  until the user asks for more, and the same hand-off applies from there — Tab on the open chip
@@ -808,6 +882,19 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  or `scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)]`, never a fixed `top-16`, so a bar that
                  wraps under enlarged text covers nothing. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts
                  and tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text).
+                 The open mobile menu scrolls inside the viewport: the header is a column no taller than it
+                 (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
+                 with auto side margins is not stretched) and the menu panel takes the rest
+                 (`overflow-y-auto overscroll-contain`, its scroll padding the nav's inset, as the Modal
+                 panel's). The cap is the bar's own height, never `--site-header-h`, which counts the open
+                 menu. A sticky header taller than the viewport stays stuck to its top until the page's end,
+                 so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
+                 landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
+                 a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
+                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
+                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
+                 top-left place, which `w-full` holds.
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1225,6 +1312,19 @@ ground; copy the reader must read stays secondary, including the point-of-use AI
 `tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
 rendered ground.
 
+**Reflow at 200% text.** The pricing section's billing toggle (a radio group, not the
+SegmentedControl) wraps its two segments whole onto a second row inside its one shell when they do not
+fit side by side, each filling its row (`grow`), at `min-h-9` rather than a fixed height; no-break
+spaces hold "Annual ·" and "save 20%", so the label breaks only after its middot. At 360px and 200%
+text the unwrapped group took the page to 368px, its Annual label on three lines below its segment.
+The final CTA card and the site footer open their columns at md at the reader's text size,
+`[@media(min-width:48rem)]:` (768px at the default size, 1536px under a 200% text setting), not `md:`:
+their columns hold a one-line button and words that cannot break, and at md's 768px under 200% text
+the footer took every route to 812px and the card took / to 886px. The auth shell's lockup yields to
+the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
+at 360 and 390px, every line but the last ending at the middot; a 768px and an 834px tablet over its route
+loop).
+
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
 `.en-mark` (a phrase highlight: pale sage tint from 62% of the line box, a 2px `brand-border`
@@ -1247,6 +1347,12 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
   light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
   the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
 - Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`.
+  The auth shell's lockup (the 2rem mark and the text-lg wordmark, about 10rem, 1.5rem in) yields to the mark alone
+  below a 12rem viewport (384px under a 200% text setting, never at the default size), where it and its
+  clear space no longer fit; its link keeps the site header logo's name, `aria-label="EarningsNerd home"`,
+  with the wordmark `display: none` (sr-only text still lays out past the link, which the bar's checks
+  read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
+  200%, the bar's edge in the logo's clear space).
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
   see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
 

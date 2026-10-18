@@ -255,7 +255,7 @@ describe('Company page when the company does not load (CO-05)', () => {
     api.getCompany.mockRejectedValue(new ApiError(503, 'Service unavailable'))
     renderUnseeded()
     const card = (await screen.findByRole('heading', { name: 'Couldn’t load this company' })).closest('[role="alert"]') as HTMLElement
-    const retry = within(card).getByRole('button', { name: 'Retry' })
+    const retry = within(card).getByRole('button', { name: 'Try again' })
     const answer = deferred<Company>()
     api.getCompany.mockReturnValueOnce(answer.promise)
     retry.focus()
@@ -280,7 +280,7 @@ describe('Company page when the company does not load (CO-05)', () => {
     expect(screen.queryByText('Company not found')).toBeNull()
 
     api.getCompany.mockResolvedValue(COMPANY)
-    act(() => screen.getByRole('button', { name: 'Retry' }).click())
+    act(() => screen.getByRole('button', { name: 'Try again' }).click())
     expect(await screen.findByRole('heading', { level: 1, name: 'Apple Inc.' })).toBeInTheDocument()
   })
 
@@ -295,7 +295,7 @@ describe('Company page when the company does not load (CO-05)', () => {
     expect(card).not.toBeNull()
     expect(card.innerHTML).not.toMatch(/error-light|error-dark/)
     expect(screen.getByText('No company with a ticker on SEC EDGAR matches "AAPL".')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Go back home' })).toHaveAttribute('href', '/')
   })
 
@@ -345,7 +345,7 @@ describe('Company page when the company does not load (CO-05)', () => {
     await act(async () => answer.reject(new ApiError(404, 'Company not found')))
     const title = await screen.findByRole('heading', { name: 'Company not found' })
     expect(retry.isConnected).toBe(false)
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
     await waitFor(() => expect(document.activeElement).toBe(title))
   })
 
@@ -371,7 +371,7 @@ describe('Company page when the company does not load (CO-05)', () => {
     await settle()
     expect(screen.getByRole('heading', { name: 'Company not found' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Couldn’t load this company' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Go back home' })).toBe(home)
     expect(document.activeElement).toBe(home)
 
