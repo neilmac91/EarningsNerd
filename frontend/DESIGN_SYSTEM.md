@@ -1249,7 +1249,7 @@ per the design. `.glass-card` is retired on the landing route (its remaining con
 it is one ruled row, `features/marketing/components/LandingRow.tsx`, in the page's order: on the hero's
 container (`max-w-7xl`, so each rule runs the width of the hero's trust strip), a `border-t` hairline
 and `py-12 sm:py-16`, then a 14rem label column beside the content. The label column holds the
-section's number (the data face, 12px, tertiary ink: the `landing-row` CSS counter that
+section's number (12px data face, tertiary ink, secondary on navy: the `landing-row` CSS counter that
 `app/page.tsx` resets on `<main>`, aria-hidden as the summary's section index is, so a section that
 omits itself, Reporting this week with no data or the empty reader quote, takes no number and leaves
 no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
