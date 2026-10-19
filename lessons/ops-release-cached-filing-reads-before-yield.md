@@ -17,7 +17,8 @@ async route the unit is a sync function handed to `run_in_threadpool`, and the r
 no call on its session: a service called with the session on the loop checks out on the loop just as
 the route's own call does, and freezes it for the pool timeout once the pool is full. A route that
 returns a `StreamingResponse` releases its session before it returns, since the finalizer runs only
-once the stream ends.
+once the stream ends. A route that awaits other I/O, such as an SEC fetch or a mail send, releases
+its session before that await, so no pool slot waits on it.
 
 **Evidence**: `backend/app/routers/filings.py` company, specific, recent, content and fundamentals
 read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed
@@ -44,10 +45,17 @@ checked out on the loop and, once the pool was full, froze it for the pool timeo
 probe); each is now a unit in the thread pool, the company list's lookup, company
 persist, cached and live reads and fallbacks included, and
 `backend/tests/unit/test_filings_endpoint_db_first.py` holds the company list's SEC-phase and fallback
-paths to no request-session transaction begun on the loop (2026-10-18, E94). The file's AST ratchet reads every async router function and fails a session call on the
+paths to no request-session transaction begun on the loop (2026-10-18, E94). The watchlist router's
+routes handed their session to services on the loop too: the reads and every refusal left a
+transaction for the finalizer, the add, remove and alert toggles ran their statements on the loop
+on the connection the auth lookup had checked out, and the waitlist join checked out on the loop and
+held a connection through each of its welcome and referral sends, so eight joins on four slots answered
+4x200 then 4x500. Each is now one unit in the thread pool; their burst cases also hold every
+statement off the loop, and the join's own case holds both sends to no connection out (2026-10-19,
+E118). The file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
-not list the route (the rest of the watchlist and analysis routers, E118 and E119; the rest of the
+not list the route (the rest of the analysis router, E119; the rest of the
 auth router and the checkout route, E121), or a background task's own session worked on the loop
 (E123), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
