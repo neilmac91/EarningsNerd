@@ -21,10 +21,10 @@ name: Ops
 #     Known limit: the check is point-in-time and one-directional — a main push that lands AFTER
 #     it passes can still overlap this run, and a deploy never waits for ops. Do not dispatch
 #     write operations when a backend merge is imminent.
-#   - Every Cloud SQL step sets PGOPTIONS with lock_timeout=10s (fail fast, never queue behind a
-#     held lock). statement_timeout is per step: the write paths (the repair and relabel scripts)
-#     match the deploy migration step (120s); the read-only detection snapshots full-scan
-#     financial_fact and get 600s. The proxy binary is checksum-pinned
+#   - Every Cloud SQL step sets PGOPTIONS with a lock_timeout of at most 10s (fail fast, never queue
+#     behind a held lock; the capacity ledger uses 2s). statement_timeout is per step: the write
+#     paths (the repair and relabel scripts) match the deploy migration step (120s); the read-only
+#     detection snapshots full-scan financial_fact and get 600s. The proxy binary is checksum-pinned
 #     (lessons/ops-migrations-need-lock-timeout.md).
 
 on:

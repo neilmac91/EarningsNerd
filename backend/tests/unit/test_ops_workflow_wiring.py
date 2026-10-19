@@ -12,24 +12,29 @@ fails silently:
 So:
 - Every `run:` step after the proxy step, for any operation the proxy starts for, can reach Cloud
   SQL, whatever its command looks like: each must bound its locks (at most 10 s) and its statements
-  (at most 600 s) through `env: PGOPTIONS`, read as Postgres reads it (the last `-c` wins, a bare
-  number is milliseconds, 0 means no bound). A step there that opens no session is named in
-  `NO_DATABASE`.
+  (at most 600 s) through `env: PGOPTIONS`, read as Postgres reads it (split on unescaped spaces;
+  `-c name=value`, `-cname=value` or `--name=value`; a name's `-` reads as `_` and its case does not
+  count; the last setting wins; a bare number is milliseconds; 0 means no bound; any other switch
+  fails the gate). Its `run:` script may only append to PGOPTIONS, and never a timeout. A step there
+  that opens no session is named in `NO_DATABASE`, and must run no database command.
 - Every step whose text runs `psql` or a committed script (`python` or `bash` with a `scripts/`
   path, wherever it sits on the line) runs only for operations the proxy also runs for, and after
   it. A script also needs the dependency install before it, and the file committed. This half reads
   text, so a database client it cannot name (`pg_dump`, a Python one-liner) is outside it; the
   half above still bounds such a step.
 
-The fiscal-year relabel step runs for exactly its two operations, and any other operation would get
-a read-only dry run. It compares the settings its session reports with its own guards before the
+The fiscal-year relabel step runs for exactly its two operations, with no `continue-on-error`, and
+any other operation would get a read-only dry run. It compares the settings its session reports with its own guards before the
 script runs. Those guards and the dry run's read-only transactions reach the database only through
 libpq's `PGOPTIONS`. An `options` setting in the app engine's `connect_args`, a query on the URL
-the proxy step exports or on the URL the app builds from it, or a connection-level SQLAlchemy event
-that could `SET` them again would replace them, so none may exist.
+the proxy step exports or on the URL the app builds from it, a connection-level SQLAlchemy event
+that could `SET` them again, or a `SET` of a guard in the relabel script would replace them, so none
+may exist.
 
-`_selected` reads each `if:` as GitHub evaluates it: `contains()` on a string is a substring test.
-An `if:` form it does not know fails the gate rather than being skipped.
+`_selected` reads each `if:` as GitHub evaluates it: `contains()` on a string is a substring test,
+and both it and `==` compare strings without regard to case. An `if:` form it does not know fails
+the gate rather than being skipped, and `inputs[...]` or `outputs[...]` index syntax, which these
+checks would not see, is refused.
 """
 import ast
 import re
@@ -52,7 +57,7 @@ DB_COMMAND = re.compile(r"\bpsql\b|(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*\S*\
 RUNNER_SCRIPT = re.compile(r"(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*(\S*\bscripts/[\w./-]+\.(?:py|sh))")
 UNIT_MS = {"ms": 1, "s": 1_000, "min": 60_000, "h": 3_600_000, "d": 86_400_000}
 LOCK_MAX_MS, STATEMENT_MAX_MS = 10_000, 600_000
-CONNECTION_EVENTS = {"connect", "first_connect", "checkout", "engine_connect", "begin"}
+CONNECTION_EVENTS = {"do_connect", "connect", "first_connect", "checkout", "engine_connect", "begin", "after_begin"}
 
 
 def _selected(step) -> set[str]:
@@ -63,17 +68,40 @@ def _selected(step) -> set[str]:
     condition = re.sub(r"^\$\{\{\s*(.*?)\s*\}\}$", r"\1", condition.strip())
     condition = re.sub(r"^always\(\) && ", "", condition)
     if match := re.fullmatch(r"(!?)contains\('([^']*)', steps\.request\.outputs\.operation\)", condition):
-        hit = {op for op in OPTIONS if op in match.group(2)}
+        hit = {op for op in OPTIONS if op in match.group(2).lower()}
         return set(OPTIONS) - hit if match.group(1) else hit
     if match := re.fullmatch(r"steps\.request\.outputs\.operation == '([^']*)'", condition):
-        return {match.group(1)} & set(OPTIONS)
+        return {match.group(1).lower()} & set(OPTIONS)
     raise AssertionError(f"{step.get('name')!r}: teach _selected() this if: form rather than skip it: {condition!r}")
 
 
+def _pg_settings(options: str) -> list[tuple[str, str]]:
+    """PGOPTIONS as the backend splits it (a backslash escapes a space) and reads it (getopt over
+    `-c name=value`, `-cname=value` and `--name=value`), each name folded as Postgres folds it: `-`
+    reads as `_`, and case does not count. Any other switch fails the gate rather than being skipped."""
+    tokens, found, at = re.findall(r"(?:\\.|\S)+", options), [], 0
+    while at < len(tokens):
+        token = tokens[at]
+        if token.startswith("--"):
+            body = token[2:]
+        elif token == "-c" and at + 1 < len(tokens):
+            at += 1
+            body = tokens[at]
+        elif token.startswith("-c") and token != "-c":
+            body = token[2:]
+        else:
+            raise AssertionError(f"teach _pg_settings() this PGOPTIONS switch rather than skip it: {token!r} in {options!r}")
+        name, sep, value = body.partition("=")
+        assert sep, f"{token!r} sets no value in {options!r}"
+        found.append((name.replace("-", "_").lower(), value))
+        at += 1
+    return found
+
+
 def _setting_ms(options: str, name: str) -> int | None:
-    """The value Postgres applies from PGOPTIONS: the last `-c name=value` (or `--name=value`) wins,
-    and a bare number is milliseconds."""
-    values = re.findall(rf"(?:-c\s*|--){name}=(\S+)", options)
+    """The value Postgres applies from PGOPTIONS: the last setting of the name wins, and a bare
+    number is milliseconds."""
+    values = [value for key, value in _pg_settings(options) if key == name]
     if not values:
         return None
     match = re.fullmatch(r"(\d+)(ms|s|min|h|d)?", values[-1])
@@ -102,6 +130,7 @@ def test_dispatch_options_are_exactly_the_operations_the_resolve_step_accepts():
 
 
 def test_every_input_a_step_reads_is_declared_and_reaches_the_resolve_step_under_its_own_name():
+    assert not re.search(r"\b(?:inputs|outputs)\s*\[", OPS_TEXT), "read inputs and outputs as .name, which these checks see"
     read = set(re.findall(r"\b(?:github\.event\.)?inputs\.(\w+)", OPS_TEXT))
     assert read <= set(INPUTS), f"inputs no dispatch declares, which GitHub reads as '': {sorted(read - set(INPUTS))}"
     assert BY_NAME[RESOLVE][1]["env"] == {
@@ -118,7 +147,14 @@ def test_every_request_output_a_step_reads_is_one_the_resolve_step_writes():
 def test_every_step_that_can_reach_cloud_sql_bounds_its_locks_and_statements():
     reach = _cloud_sql_reach()
     assert len(reach) >= 4  # the capacity ledger, detection SQL, the ticker repair, the FY relabel
+    for name in NO_DATABASE:
+        assert not DB_COMMAND.search(BY_NAME[name][1].get("run") or ""), f"{name!r} is exempt as opening no session, yet runs one"
     for _, step in reach:
+        for match in re.finditer(r"(?<!\$)(?<!\$\{)\bPGOPTIONS\b", step["run"]):
+            line = step["run"][match.start():].split("\n", 1)[0]
+            append = re.match(r'PGOPTIONS="\$PGOPTIONS ([^"$`]*)"', line)
+            assert append and not {"lock_timeout", "statement_timeout"} & {key for key, _ in _pg_settings(append.group(1))}, (
+                f"{step['name']!r}: its run: script sets PGOPTIONS ({line.strip()!r}); only an append that leaves the bounds alone may")
         options = (step.get("env") or {}).get("PGOPTIONS", "")
         lock, statement = _setting_ms(options, "lock_timeout"), _setting_ms(options, "statement_timeout")
         assert lock and lock <= LOCK_MAX_MS, f"{step['name']!r}: env PGOPTIONS must set lock_timeout to 1ms..10s ({options!r})"
@@ -148,6 +184,7 @@ def test_every_database_command_runs_after_the_proxy_for_its_operations_with_its
 def test_the_relabel_step_runs_for_exactly_the_relabel_operations_and_reads_their_outputs():
     step = BY_NAME[RELABEL][1]
     assert _selected(step) == {"relabel-fy-dry-run", "relabel-fy-apply"}
+    assert "continue-on-error" not in step, "a failed company must fail the run"
     assert step["env"]["OP"] == "${{ steps.request.outputs.operation }}"
     assert step["env"]["TICKERS"] == "${{ steps.request.outputs.tickers }}"
 
@@ -173,6 +210,9 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     from app.config import settings
 
     tree = ast.parse((ROOT / "backend/app/database.py").read_text(encoding="utf-8"))
+    assigned = [ast.unparse(node.value) for node in ast.walk(tree) if isinstance(node, ast.Assign)
+                and any(getattr(target, "id", None) == "_DATABASE_URL" for target in node.targets)]
+    assert assigned == ["_database_url()"], f"the engine must use the URL _database_url() returns: {assigned}"
     engines = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                and getattr(node.func, "id", getattr(node.func, "attr", None)) == "create_engine"]
     assert engines, "app/database.py no longer calls create_engine: re-point this gate"
@@ -197,3 +237,6 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
                     and any(isinstance(arg, ast.Constant) and arg.value in CONNECTION_EVENTS for arg in node.args)):
                 listeners.append(f"{path.relative_to(ROOT)}:{node.lineno}")
     assert listeners == [], f"a connection-level event can set the session's guards again: {listeners}"
+    script = (ROOT / "backend/scripts/relabel_filing_fy_facts.py").read_text(encoding="utf-8")
+    assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
+                         r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", script, re.I), "the relabel script sets its own guards"
