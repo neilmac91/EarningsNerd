@@ -229,6 +229,28 @@ describe('StreamingSummaryDisplay failure reason', () => {
     rerender(failed('The filing could not be summarized right now.'))
     expect(cardButton()).toBeInTheDocument()
   })
+
+  // The stream endpoint's 403s hold whatever the reader retries. A Free reader's retry after a failed summary read
+  // sends force, and with a summary the page shows on the server, the route answers that regenerating is Pro-only:
+  // the card says the summary is there to read and offers no Retry, and stays the error card, not the paywall's
+  // monthly-limit card, which this reader has not hit. An inactive account's 403 offers none either.
+  it("offers no Retry at the stream endpoint's 403s, and shows each in the product's words", async () => {
+    const failed = (error: string) => (
+      <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
+    )
+    const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
+    const { rerender } = render(failed('Regenerating an analysis is a Pro feature.'))
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
+    expect(
+      screen.getByText('A summary of this filing is ready, and regenerating it is a Pro feature. Reload the page to read it.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: "You've hit this month's free limit" })).toBeNull()
+    expect(cardButton()).toBeNull()
+    rerender(failed('User account is inactive'))
+    expect(screen.getByText('This account is inactive. Contact support with any questions.')).toBeInTheDocument()
+    expect(cardButton()).toBeNull()
+  })
 })
 
 // EN-05: a failed generation used to leave focus where it was, usually <body> after page load, so a
