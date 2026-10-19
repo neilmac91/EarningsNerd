@@ -6683,7 +6683,7 @@ Full local and hosted verification plus independent exact-head review precede re
 - 2026-10-14 to 2026-10-19 (record 28, `runtime/control/DECISIONS-28.md`): PR #1314 (record 27) merged `c2c936a1`
   (twenty-third deploy-skip proof). On the founder's go (2026-10-14T22:58:13Z), the Sentry startup check
   (`optional-addons-pr-01`) built as PR #1333 in three rounds with no blocker and merged `a59b7fc4`: Sentry started on
-  every API-service revision of the seven days read, and the task worker starts none (founder). E30
+  every API-service revision created in the seven days read, and the task worker starts none (founder). E30
   (`database-url-advice-pr-01`, PR #1332): both `DATABASE_URL` '@' refusals advise characters the deploy can read; five
   review rounds with no blocker, three of them during a provider outage, then a pause of four and a half days and main
   merged in; merged `b9c69808` and deployed healthy (`earningsnerd-backend-00551-8jb`). Ninety-three main runs
