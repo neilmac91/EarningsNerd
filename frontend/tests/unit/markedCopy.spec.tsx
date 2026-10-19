@@ -54,3 +54,21 @@ describe('MarkedCopy places each twin on its marker', () => {
     expect(rule).toMatch(/transform:\s*translateY\(-50%\)/)
   })
 })
+
+/**
+ * Below its measure the margin gives way, and a word still longer than what is left breaks inside the marked
+ * block: at a hyphen where the browser hyphenates, anywhere where it cannot, never past the block. On the
+ * landing's card at 320px under 200% text the block keeps 115px of 32px serif, and without `overflow-wrap`
+ * seven words of the evidence row ran up to 49px past it. Neither declaration shows in CI's Chromium, which
+ * carries no hyphenation dictionary and renders the landing with no evidence row, so this reads the rule.
+ */
+describe('a marked block keeps a word longer than its measure inside itself', () => {
+  it('hyphenates it where the browser can, in an English page, and breaks it anywhere where it cannot', () => {
+    const css = readFileSync(path.join(FRONTEND, 'app/globals.css'), 'utf8')
+    const rule = css.match(/^\.en-marked\s*\{([^}]*)\}/m)?.[1] ?? ''
+    expect(rule, 'the marked block rule (anti-vacuity)').toMatch(/border-left:\s*3px solid/)
+    expect(rule).toMatch(/(?<![-\w])hyphens:\s*auto/)
+    expect(rule).toMatch(/overflow-wrap:\s*anywhere/)
+    expect(readFileSync(path.join(FRONTEND, 'app/layout.tsx'), 'utf8')).toMatch(/<html\s+lang="en"/)
+  })
+})

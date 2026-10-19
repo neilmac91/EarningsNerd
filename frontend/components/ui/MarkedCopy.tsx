@@ -30,8 +30,8 @@ import { markedCopyColumnsClass, markedMarginCollapseClass } from './markedCopyL
  * middle of the measured window. The margin stays at the default size on a 320px phone: this copy is
  * 18em wide on the filing page there and 15.4em in the landing's card. It goes under 200% text at
  * 390px and below: 10.2em and 7.6em at 390, 8em and 5.4em at 320, where giving it up leaves the
- * excerpt 197px of serif and no word breaks. The marked block hyphenates a word still longer than its
- * measure (`.en-marked`).
+ * excerpt 197px of serif and no word breaks. A word still longer than the measure breaks inside the
+ * marked block (`.en-marked`): at a hyphen where the browser hyphenates, anywhere where it cannot.
  */
 export function MarkedCopy({ children, className }: { children: ReactNode; className?: string }) {
   const bodyRef = useRef<HTMLDivElement | null>(null)
