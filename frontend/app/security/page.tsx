@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { ACCOUNT_EVENTS_DISCLOSURE } from '@/lib/consentCopy'
 import { LEGAL_DATES } from '@/lib/legalDates'
 
 export const metadata: Metadata = {
@@ -134,7 +135,7 @@ export default function SecurityPage() {
             <li>
               <strong>Monitoring:</strong> Errors from the site and the API are reported to Sentry, and can carry your
               internal account id when you are logged in. The site&apos;s reports leave out cookies, request bodies
-              and URL query strings, and no session replays are recorded.
+              and URL query strings, and Sentry records no session replays.
             </li>
           </ul>
         </section>
@@ -184,8 +185,8 @@ export default function SecurityPage() {
             <li>The Privacy Policy says what we collect and why</li>
             <li>You can download your data and delete your account from your account settings</li>
             <li>
-              Registrations, logins, failed logins, logouts, data exports, account deletions and administrator actions
-              are written to an audit log
+              Registrations, logins, failed logins, logouts, data exports and account deletions are written to an
+              audit log, and so are administrators&apos; invites, feedback status changes and new free accounts
             </li>
           </ul>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
@@ -205,6 +206,7 @@ export default function SecurityPage() {
             If a security incident happens:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
+            {/* Source: tasks/security_privacy_runbook.md §3, "Breach-notification readiness" (legalTruth.spec.tsx checks it). */}
             <li>A written runbook covers containing it, finding what it touched, gathering evidence and rotating keys</li>
             <li>When the law requires it, we notify the users affected and the data protection authority</li>
           </ul>
@@ -241,7 +243,7 @@ export default function SecurityPage() {
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
               Email us at{' '}
-              <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+              <a href="mailto:security@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                 security@earningsnerd.io
               </a>
             </li>
@@ -276,11 +278,10 @@ export default function SecurityPage() {
             </li>
             <li>
               <strong>PostHog:</strong> Usage statistics: PostHog in your browser runs only after you allow analytics,
-              and records sessions only if you allow that too; the API also records account events, such as sign-ups
-              and trials, subscription and payment changes, feedback, clicks in alert emails and AI usage, against
-              your internal account id, whether or not you allow analytics
+              and records sessions only if you allow that too
             </li>
           </ul>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark">{ACCOUNT_EVENTS_DISCLOSURE}</p>
         </section>
 
         <section className="mt-8">
@@ -299,7 +300,7 @@ export default function SecurityPage() {
             </li>
             <li>
               Security issues:{' '}
-              <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+              <a href="mailto:security@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                 security@earningsnerd.io
               </a>
             </li>
