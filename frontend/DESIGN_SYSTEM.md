@@ -1271,9 +1271,7 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  tests/unit/sourcePanePaint.spec.tsx (which paint each jump registers, through the real chip,
                  context, viewer and highlight chain), tests/unit/readerTableRegionName.spec.ts,
                  tests/e2e/filing-reader-wide-tables.spec.ts
-                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet),
-                 tests/e2e/filing-source-chip.spec.ts (a metric chip's heading, Cited or matched to its XBRL
-                 fact, in the find highlight on the real page) and
+                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
                  tests/e2e/copilot-highlight-css.spec.ts (what Chromium computes for each paint, the device's
                  against `.en-mark` on the same page, both themes; a far-right table cell revealed in its own
                  box in real layout, the page unmoved).
