@@ -216,6 +216,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 The rule is checked by the named gate; open the lesson only when that gate fails or you change it.
 
+- arch-mail-sends-its-words-as-a-text-part.md — Send a mail's words as its text part, never as a copy hidden in its page; the page hides only its preheader, and the text part says what the page says — gate: `backend/tests/unit/test_mail_rendered_addresses.py`
 - arch-sweep-dead-integration-consumers.md — When an integration is declared dead, sweep every consumer in the same pass — gate: `backend/tests/unit/test_dead_integrations_allowlist.py`
 - ops-a-review-you-triggered-is-a-review-you-wait-for.md — A review you triggered is a review you wait for; merging inside it discards what you asked for — gate: `.github/workflows/review-gate.yml` (required status check `review-gate`)
 - ops-deploy-detector-mirrors-the-image-context.md — Make the deploy change detector exclude exactly what `.dockerignore` excludes, and gate it with a test — gate: `backend/tests/unit/test_backend_deploy_scope.py`
