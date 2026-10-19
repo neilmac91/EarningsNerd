@@ -75,6 +75,12 @@ serially), `migrations-postgres` (the migrations and the concurrency tests on Po
 must pass before the backend auto-deploys to Cloud Run on `main`. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
+In a Claude Code session that loads the repository's hooks, `.claude/hooks/secret_scan_guard.py`
+runs the same pinned gitleaks over what a `git push` or a GitHub MCP file write would add. It
+refuses the call on a finding and, for a call that adds commits, when its binary is missing.
+Install the binary once per machine and pin, a new cloud container included, with
+`python3 .claude/hooks/secret_scan_guard.py --install`.
+
 ## Workflow
 
 1. Branch off `main`.
