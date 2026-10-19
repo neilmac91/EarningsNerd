@@ -26,6 +26,7 @@ from app import database
 from app.models import Base, Company, Filing, FinancialFact
 from app.models.financial_fact_revision import FinancialFactRevision
 from app.services import facts_service, quarterly_fact_repair
+from app.services.facts import fiscal_evidence
 from app.services.fact_provenance import reported_provenance
 from app.utils.sec_urls import build_sec_archive_url
 from scripts import relabel_filing_fy_facts as relabel
@@ -481,6 +482,18 @@ def test_a_filing_row_the_cross_check_sourced_from_companyfacts_is_relabelled_an
     assert sorted((r.period_end.isoformat(), r.fiscal_year) for r in owned) == [
         ("2023-01-28", 2022), ("2024-02-03", 2023),
     ]
+
+
+def test_the_trust_rule_is_the_one_the_per_filing_writer_applies(db, monkeypatch):
+    """The relabel reads ``facts/fiscal_evidence``, the rule #1364's writer adopts years by, so the two
+    cannot drift: a shared rule that trusts nothing holds every target here."""
+    company, _filing = _issuer(db, "JNJ")
+    monkeypatch.setattr(fiscal_evidence, "trusted_year", lambda evidence, legacy: (None, "companyfacts_disagree"))
+
+    result = relabel.relabel_company(db, company.id, apply=False, run_id="shared-rule")
+
+    assert result["relabel_rows"] == 0
+    assert result["skipped"]["companyfacts_disagree"] == result["scanned"] > 0
 
 
 def test_the_fact_identity_and_indexes_leave_fiscal_year_out():

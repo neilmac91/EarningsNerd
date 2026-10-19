@@ -29,6 +29,8 @@ end, so it is no evidence:
     unless the new label is one another period end of the same filing and concept carries, or one
     another current row of the concept carries (readers index current annual rows by year and
     concept): ``label_collision``, re-checked until none is left, since a held row keeps its label.
+The evidence and trust rule is ``app/services/facts/fiscal_evidence.py`` (``evidence_kind``,
+``trusted_year``), the rule #1364's per-filing writer adopts years by, so the two cannot drift.
 Durations and instants are both relabelled: an FY balance closes the year that ends on its date.
 Only ``fiscal_year`` changes, never period_end, value, unit, accession or is_latest; quarter rows
 and companyfacts, derived and reported-EPS rows without a filing owner are never touched and
@@ -82,30 +84,6 @@ SKIP_REASONS = (
 )
 
 
-def _evidence_kind(row: FinancialFact) -> str | None:
-    """``current`` for a companyfacts-reported FY row the fiscal-year-window writer stored (or a
-    repair corrected), ``legacy`` for one stored before it, None for any other row."""
-    from app.services.fact_provenance import PROVENANCE_VERSION
-
-    provenance = row.provenance if isinstance(row.provenance, dict) else {}
-    if (row.source != "companyfacts" or row.filing_id is not None or row.raw_tag is None
-            or row.fiscal_year is None or provenance.get("validation") == "unavailable"):
-        return None
-    return "current" if provenance.get("version") == PROVENANCE_VERSION else "legacy"
-
-
-def _trusted_year(evidence: list[tuple[int, bool]], legacy: bool) -> tuple[int | None, str | None]:
-    """The one companyfacts year at a period end, or the reason none can be trusted."""
-    if not evidence:
-        return None, "legacy_companyfacts_only" if legacy else "no_companyfacts_fy"
-    years = {year for year, _is_duration in evidence}
-    if len(years) > 1:
-        return None, "companyfacts_disagree"
-    if not any(is_duration for _year, is_duration in evidence):
-        return None, "untrusted_instant_only"
-    return years.pop(), None
-
-
 def _collisions(rows: list[FinancialFact], planned: dict[FinancialFact, int]) -> list[FinancialFact]:
     """Planned relabels whose label another period end of the same filing and concept, or another
     current row of the concept, would carry once every planned relabel is written."""
@@ -121,12 +99,14 @@ def _collisions(rows: list[FinancialFact], planned: dict[FinancialFact, int]) ->
 
 def plan_company(rows: Iterable[FinancialFact]) -> dict[str, Any]:
     """Split one company's FY rows into relabels and skips; reads attributes only."""
+    from app.services.facts.fiscal_evidence import evidence_kind, trusted_year
+
     rows = [row for row in rows if row.fiscal_period == "FY"]
     evidence: dict[date, list[tuple[int, bool]]] = defaultdict(list)
     legacy: set[date] = set()
     targets = []
     for row in rows:
-        kind = _evidence_kind(row)
+        kind = evidence_kind(row)
         if kind == "current":
             evidence[row.period_end].append((row.fiscal_year, row.period_start is not None))
         elif kind == "legacy":
@@ -145,7 +125,7 @@ def plan_company(rows: Iterable[FinancialFact]) -> dict[str, Any]:
     planned: dict[FinancialFact, int] = {}
     agreeing: list[FinancialFact] = []
     for row in targets:
-        year, reason = _trusted_year(evidence.get(row.period_end, []), row.period_end in legacy)
+        year, reason = trusted_year(evidence.get(row.period_end, []), row.period_end in legacy)
         if reason is not None:
             hold(row, reason)
         elif year == row.fiscal_year:
