@@ -1,0 +1,2819 @@
+{
+ "current": {
+  "alert-wording_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert-wording_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert-wording_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "data-quality": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  }
+ },
+ "header_home_link": {
+  "alert-wording_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "alert-wording_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "alert-wording_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "alert_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "alert_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "alert_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "data-quality": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "digest1_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "digest1_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "digest1_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "digest3_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "digest3_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "digest3_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "earnings1_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "earnings1_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "earnings1_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "earnings3_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "earnings3_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "earnings3_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "exists_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "exists_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "exists_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "invite_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "oauth_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "oauth_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "referral_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "referral_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "referral_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "reset_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "reset_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "reset_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "verify_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "verify_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "verify_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "welcome_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "welcome_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  },
+  "welcome_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "T_REMOTE_IMAGE": 0.0
+   }
+  }
+ },
+ "inline_mixed_top": {
+  "alert-wording_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert-wording_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert-wording_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "data-quality": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  }
+ },
+ "inline_nested": {
+  "alert-wording_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert-wording_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert-wording_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "data-quality": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  }
+ },
+ "inline_related_top": {
+  "alert-wording_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert-wording_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert-wording_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "alert_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "data-quality": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest1_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "digest3_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings1_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "earnings3_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "exists_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "invite_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "oauth_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "referral_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "reset_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_long_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_none_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "verify_short_": {
+   "score": 1.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_long_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_none_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  },
+  "welcome_short_": {
+   "score": 1.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0,
+    "TO_NO_BRKTS_HTML_IMG": 1.0
+   }
+  }
+ },
+ "text_site_line": {
+  "alert-wording_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert-wording_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert-wording_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "data-quality": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  }
+ },
+ "text_tile_url": {
+  "alert-wording_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert-wording_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert-wording_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "alert_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "data-quality": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest1_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "digest3_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings1_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "earnings3_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "exists_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "invite_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "oauth_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "referral_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "reset_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_long_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_none_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "verify_short_": {
+   "score": 0.8,
+   "tests": {
+    "HTML_FONT_LOW_CONTRAST": 0.7,
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_long_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_none_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  },
+  "welcome_short_": {
+   "score": 0.1,
+   "tests": {
+    "HTML_MESSAGE": 0.0,
+    "INVESTMENT_ADVICE": 0.1,
+    "NO_RECEIVED": -0.0,
+    "NO_RELAYS": -0.0
+   }
+  }
+ }
+}
