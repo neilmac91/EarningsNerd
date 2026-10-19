@@ -19,7 +19,7 @@ import { test, expect } from '@playwright/test'
 // in `CSS.highlights`. What Chromium computes for a passage the server located is the device's mark
 // (D-044): `.en-mark`'s tint and 2px hairline as this page's stylesheet paints them, light and dark, the
 // hairline unbroken, the passage in the primary ink. Any other passage takes the neutral find paint: the
-// brand sage at 22% in the paragraph's own ink, with no hairline, in both themes.
+// brand sage at 22% with no hairline, in both themes.
 
 const FRONTEND = path.resolve(__dirname, '../..')
 
@@ -126,7 +126,7 @@ test.describe('Copilot citation highlight', () => {
       const second = container.querySelector('[data-para="2"]')!
       const findPaint = () => {
         const h = getComputedStyle(second, '::highlight(copilot-find)')
-        return { tint: h.backgroundColor, line: h.textDecorationLine, ink: h.color, own: getComputedStyle(second).color }
+        return { tint: h.backgroundColor, line: h.textDecorationLine }
       }
       const findLight = findPaint()
       document.documentElement.classList.add('dark')
@@ -169,10 +169,10 @@ test.describe('Copilot citation highlight', () => {
     }
     // One Highlight holding exactly the matched Range.
     expect(result.registeredRanges).toBe(1)
-    // The find paint, in both themes: the brand sage at 22% in the paragraph's own ink, with no hairline. It replaced
-    // the device's highlight rather than joining it.
+    // The find paint, in both themes: the brand sage at 22% with no hairline (its ink is the rule's `inherit`, held in
+    // tests/unit/highlightInDom.spec.ts). It replaced the device's highlight rather than joining it.
     for (const find of [result.findLight, result.findDark]) {
-      expect({ tint: find.tint, line: find.line, ink: find.ink }).toEqual({ tint: 'rgba(79, 122, 99, 0.22)', line: 'none', ink: find.own })
+      expect(find).toEqual({ tint: 'rgba(79, 122, 99, 0.22)', line: 'none' })
     }
     expect(result.afterFind).toEqual({ device: false, find: 1 })
     // A second highlight reuses the adopted sheet rather than adding another.
