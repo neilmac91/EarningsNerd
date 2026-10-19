@@ -6680,6 +6680,14 @@ Full local and hosted verification plus independent exact-head review precede re
   profiles, the floor); #1281 merged `378c6e63` and deployed healthy (`earningsnerd-backend-00507-dwb`). E23's draws
   recorded (event 67, USD 0.189836); #1281's D-5 follow-up is E30. Twenty-two main runs classified; two deploys read
   back (healthy; every pin in place); production read live. Classifier denial 13; chief defect 16. Closure 178.
+- 2026-10-14 to 2026-10-19 (record 28, `runtime/control/DECISIONS-28.md`): PR #1314 (record 27) merged `c2c936a1`
+  (twenty-third deploy-skip proof). On the founder's go (2026-10-14T22:58:13Z), the Sentry startup check
+  (`optional-addons-pr-01`) built as PR #1333 in three rounds with no blocker and merged `a59b7fc4`: Sentry started on
+  every API-service revision of the seven days read, and the task worker starts none (founder). E30
+  (`database-url-advice-pr-01`, PR #1332): both `DATABASE_URL` '@' refusals advise characters the deploy can read; five
+  review rounds with no blocker, four of them during a provider outage, then a four-day pause and main merged in;
+  merged `b9c69808` and deployed healthy (`earningsnerd-backend-00551-8jb`). Ninety-three main runs classified; E30's
+  deploy read back (healthy; every pin in place); production read live. Ledger events 68–75 (USD 1.603888). Closure 179.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
