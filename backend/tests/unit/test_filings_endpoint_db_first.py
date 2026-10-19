@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool
 from unittest.mock import AsyncMock
@@ -23,6 +23,7 @@ from app.models import Company, Filing
 from app.routers import filings as filings_mod
 from app.services import filing_history_service, filing_list_service
 from app.services.edgar import client as edgar_client_mod
+from app.services.edgar.exceptions import EdgarError
 from app.services.latest_filing_service import company_list_forms
 
 
@@ -71,6 +72,16 @@ def client(db_engine, monkeypatch):
         filing_list_service._filings_synced_at.clear()
         filing_list_service._refreshing_keys.clear()
         filing_list_service._history_backfilling_ids.clear()
+
+
+def _on_event_loop() -> bool:
+    """Whether the calling thread is running an event loop: a request unit handed to the thread
+    pool runs in a worker thread, which has none."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
 
 
 def _seed_company(session, ticker="TESTCO", cik="0000895421"):
@@ -250,7 +261,10 @@ def test_cold_empty_db_does_synchronous_bounded_fetch_and_persists(client, monke
 
 def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkeypatch):
     """Warm background, cold-list and company-miss SEC waits all release the one-slot pool, and
-    each route returns with it released, before the dependency finalizer runs."""
+    each route returns with it released, before the dependency finalizer runs. Every transaction
+    the request session begins, the lookup, the company persist, the cached read and the live
+    persist, begins in the thread pool: a checkout on the event loop would freeze it for the pool
+    timeout once the pool is full (lessons/ops-release-cached-filing-reads-before-yield.md)."""
     engine = create_engine(
         f"sqlite:///{tmp_path / 'filings-lifetime.db'}",
         connect_args={"check_same_thread": False},
@@ -262,13 +276,17 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     held_at_finalizer = []
+    # Only the request session's own transactions: the history backfill runs after the response and
+    # opens its own sessions (filing_list_service.SessionLocal).
+    request_begins_on_loop = []
 
     def override_get_db():
         with TestingSession() as db:
+            event.listen(db, "after_begin", lambda *_: request_begins_on_loop.append(_on_event_loop()))
             yield db
             # The function-scoped finalizer runs once the route has returned (in the thread pool).
-            # The route must already have released its connection; the live path does that in its
-            # finally, after building the response.
+            # The route must already have released its connection; each unit does that before it
+            # returns, after building its response.
             held_at_finalizer.append(engine.pool.checkedout())
 
     phases = []
@@ -351,6 +369,66 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
         "history:MISSING",
     ]
     assert held_at_finalizer == [0, 0, 0]  # WARM (cached), COLD (live), MISSING (miss + live)
+    # The lookups, the company persist, the cached reads and the live persists: none began on the loop.
+    assert request_begins_on_loop and not any(request_begins_on_loop)
+
+
+@pytest.mark.parametrize("failure, status", [("timeout", 503), ("edgar", 503), ("persist", 500)])
+def test_cold_fetch_fallbacks_keep_the_request_session_off_the_event_loop(tmp_path, monkeypatch, failure, status):
+    """The cold live fetch's fallbacks (an SEC timeout, an SEC error, a persist that raises) read
+    the cached rows in the thread pool as well: no request-session transaction begins on the event
+    loop, and the route returns with its connection released."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'filings-fallbacks.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=0.05,
+    )
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    held_at_finalizer = []
+    request_begins_on_loop = []
+
+    def override_get_db():
+        with TestingSession() as db:
+            event.listen(db, "after_begin", lambda *_: request_begins_on_loop.append(_on_event_loop()))
+            try:
+                yield db
+            finally:  # the route's HTTPException is thrown in at the yield
+                held_at_finalizer.append(engine.pool.checkedout())
+
+    async def get_filings(cik, _types):
+        if failure == "timeout":
+            raise asyncio.TimeoutError
+        if failure == "edgar":
+            raise EdgarError("edgar down")
+        accession = f"{cik}-26-000001"
+        sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik.lstrip('0')}/{accession.replace('-', '')}/"
+        return [{"accession_number": accession, "filing_type": "10-K", "filing_date": "not-a-date",
+                 "document_url": sec_url + "primary.htm", "sec_url": sec_url}]
+
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", get_filings)
+    filing_list_service._filings_synced_at.clear()
+
+    with TestingSession() as db:
+        cold = _seed_company(db, ticker="COLD", cik="0000000002")
+        cold.history_backfilled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        db.commit()
+
+    main.app.dependency_overrides[get_db] = override_get_db
+    try:
+        assert TestClient(main.app).get("/api/filings/company/COLD").status_code == status
+    finally:
+        main.app.dependency_overrides.pop(get_db, None)
+        filing_list_service._filings_synced_at.clear()
+        engine.dispose()
+
+    assert held_at_finalizer == [0]
+    assert not any(request_begins_on_loop)
+    # The lookup, the cached read, the persist that raised (for that case) and the fallback read.
+    assert len(request_begins_on_loop) >= 3
 
 
 @pytest.mark.parametrize("synced_forms, expected_fetches", [

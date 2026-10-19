@@ -22,7 +22,7 @@ from typing import Any, Optional
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, defer, joinedload
 
-from app.models import Filing, Summary, Watchlist
+from app.models import Filing, Summary, SummaryGenerationProgress, Watchlist
 from app.services import metric_delta_service
 from app.services.copilot_tools import canonical_unit
 from app.services.edgar.models import MetricChange
@@ -34,7 +34,7 @@ from app.services.filing_section_service import (
     wording_change_summaries,
 )
 from app.services.section_review_service import review_progress
-from app.services.summary_generation_service import get_generation_progress_snapshot
+from app.services.summary_generation_service import progress_as_dict
 from app.services.summary_placeholders import is_summary_placeholder
 
 logger = logging.getLogger(__name__)
@@ -217,13 +217,13 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
 
 # --------------------------------------------------------------------------- summary status
 
-def _summary_status(summary: Optional[Summary], filing_id: int) -> dict:
-    """Mirror the watchlist-insights status taxonomy (ready/placeholder/generating/error/missing)."""
+def _summary_status(summary: Optional[Summary], progress: Optional[dict]) -> dict:
+    """Mirror the watchlist-insights status taxonomy (ready/placeholder/generating/error/missing).
+    ``progress`` is the filing's generation-progress snapshot, consulted only without a summary."""
     if summary is not None:
         placeholder = is_summary_placeholder(summary.business_overview)
         return {"summary_id": summary.id, "summary_status": "placeholder" if placeholder else "ready"}
 
-    progress = get_generation_progress_snapshot(filing_id)
     if progress:
         stage = progress.get("stage", "generating")
         return {
@@ -342,6 +342,19 @@ def compose_feed(
     ):
         summary_by_filing.setdefault(s.filing_id, s)
 
+    # Generation progress for the heads without a summary, read in this session. A helper that opens
+    # its own session per filing would need a second pooled connection while this one is held, and
+    # four such requests deadlock the four-slot pool (lessons/ops-one-connection-per-request-unit.md).
+    pending_ids = [fid for fid in filing_ids if fid not in summary_by_filing]
+    progress_by_filing: dict[int, dict] = {}
+    if pending_ids:
+        progress_by_filing = {
+            progress.filing_id: progress_as_dict(progress)
+            for progress in db.query(SummaryGenerationProgress)
+            .filter(SummaryGenerationProgress.filing_id.in_(pending_ids))
+            .all()
+        }
+
     wording_by_filing = _wording_changes(db, user_id, heads, section_access)
 
     items: list[dict] = []
@@ -352,7 +365,7 @@ def compose_feed(
         prior = prior_by_filing.get(f.id)
         prior_xbrl = prior_xbrl_by_id.get(prior.id) if prior else None
         what_changed = compute_what_changed(f.xbrl_data, prior_xbrl)
-        status = _summary_status(summary_by_filing.get(f.id), f.id)
+        status = _summary_status(summary_by_filing.get(f.id), progress_by_filing.get(f.id))
         items.append({
             "filing_id": f.id,
             "accession_number": f.accession_number,
