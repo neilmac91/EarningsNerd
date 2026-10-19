@@ -1,0 +1,32 @@
+"""E125 round 2: the reader against SpamAssassin's parser in character mode on every case set given (each a Python
+file defining CASES, {name: fragment}); a divergence is a page the reader neither refuses nor reads as SpamAssassin does."""
+import json
+import runpy
+import subprocess
+import sys
+
+sys.path.insert(0, ".")
+from tests.support.mail_styles import spamassassin_contrast_problems  # noqa: E402
+
+harness, *sets = sys.argv[1:]
+total = refused_n = diverged = 0
+for path in sets:
+    cases = runpy.run_path(path)["CASES"]
+    def page(f):
+        if f.lstrip().lower().startswith("<!doctype"):
+            return f
+        return "<!doctype html><html><head></head>" + ("" if f.startswith("<body") else "<body>") + f + "</body></html>"
+    rows = [{"name": n, "page": page(f)} for n, f in cases.items()]
+    out = subprocess.run(["perl", harness], input=json.dumps(rows).encode(), capture_output=True, check=True).stdout.decode()
+    sa = {r["name"]: r for r in map(json.loads, filter(None, out.split("\n")))}  # newlines alone: a text the parser reads may hold a line separator, where splitlines() would split
+    for row in rows:
+        total += 1
+        problems = spamassassin_contrast_problems(row["page"])
+        if any("too like" not in p for p in problems):
+            refused_n += 1
+            continue
+        port_low = any("too like" in p for p in problems)
+        if port_low != bool(sa[row["name"]]["low_contrast"]):
+            diverged += 1
+            print(f"DIVERGES {path.rsplit('/', 1)[-1]}: {row['name']}: port {'LOW' if port_low else 'pass'}, SpamAssassin {'LOW' if sa[row['name']]['low_contrast'] else 'pass'}")
+print(f"{total} pages: {refused_n} refused, {total - refused_n - diverged} read as SpamAssassin reads them, {diverged} otherwise")

@@ -88,6 +88,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-gate-reference-values-are-themselves-gated.md — A gate that compares against a token or an exemption set must pin those too
 - arch-guard-every-model-facing-surface.md — Suppress a value on EVERY model-facing surface, or the model parrots what the render dropped
 - arch-guard-every-writer-of-the-billing-binding.md — Guard every Stripe handler that writes the account's subscription binding; another subscription's non-entitling event never revokes an entitled one (partly gated by `backend/tests/unit/test_subscription_identity.py`: the late-event cases for the three writers, and a counted inventory of every mention of the binding that fails on a new one; that a newly listed writer carries the guard and asks entitlements.py is review-checked)
+- arch-mail-sends-its-words-as-a-text-part.md — Send a mail's words as its text part, never as a copy hidden in its page; the page hides only its preheader, SpamAssassin reads no text as too like its ground, and the text part says what the page says (partly gated by `backend/tests/unit/test_mail_rendered_addresses.py`; scoring a new planted form in rspamd, Chromium and SpamAssassin is not, E116)
 - arch-migrations-no-alembic.md — No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the migration_ledger table
 - arch-moved-code-resolves-seams-through-the-patched-module.md — Code moved out of a patched module keeps resolving its collaborators through that module at call time
 - arch-no-precomputed-deltas-in-grounding.md — Don't pre-chew derived deltas into the grounding without a groundedness guardrail
@@ -217,7 +218,6 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 The rule is checked by the named gate; open the lesson only when that gate fails or you change it.
 
-- arch-mail-sends-its-words-as-a-text-part.md — Send a mail's words as its text part, never as a copy hidden in its page; the page hides only its preheader, and the text part says what the page says — gate: `backend/tests/unit/test_mail_rendered_addresses.py`
 - arch-sweep-dead-integration-consumers.md — When an integration is declared dead, sweep every consumer in the same pass — gate: `backend/tests/unit/test_dead_integrations_allowlist.py`
 - ops-a-review-you-triggered-is-a-review-you-wait-for.md — A review you triggered is a review you wait for; merging inside it discards what you asked for — gate: `.github/workflows/review-gate.yml` (required status check `review-gate`)
 - ops-deploy-detector-mirrors-the-image-context.md — Make the deploy change detector exclude exactly what `.dockerignore` excludes, and gate it with a test — gate: `backend/tests/unit/test_backend_deploy_scope.py`
