@@ -6685,9 +6685,10 @@ Full local and hosted verification plus independent exact-head review precede re
   (`optional-addons-pr-01`) built as PR #1333 in three rounds with no blocker and merged `a59b7fc4`: Sentry started on
   every API-service revision of the seven days read, and the task worker starts none (founder). E30
   (`database-url-advice-pr-01`, PR #1332): both `DATABASE_URL` '@' refusals advise characters the deploy can read; five
-  review rounds with no blocker, four of them during a provider outage, then a four-day pause and main merged in;
-  merged `b9c69808` and deployed healthy (`earningsnerd-backend-00551-8jb`). Ninety-three main runs classified; E30's
-  deploy read back (healthy; every pin in place); production read live. Ledger events 68–75 (USD 1.603888). Closure 179.
+  review rounds with no blocker, three of them during a provider outage, then a pause of four and a half days and main
+  merged in; merged `b9c69808` and deployed healthy (`earningsnerd-backend-00551-8jb`). Ninety-three main runs
+  classified; E30's deploy read back (healthy; every pin in place); production read live. Ledger events 68–75 (USD
+  1.603888). Closure 179.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
