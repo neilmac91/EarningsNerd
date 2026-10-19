@@ -114,10 +114,11 @@ it is a 3 px `brand` bar on the left edge with the tint behind (`.en-marked`).
 **The margin** is a gutter of fixed width with a `brand-border` rule on its inner edge, holding
 bracketed marks (`[F1]`, `[1]`) in the data face at 11 px, `brand-strong` ink, each positioned on
 the line of the marker it twins (`.en-margin`, `.en-margin-mark`). The twin is decorative
-(`aria-hidden`), and so on screen is the in-text marker, the product's own citation marker:
-the data face, semibold, in brackets, at the provenance chip's 12 px (`EnRef` in
-`frontend/components/ui/MarkedCopy.tsx`). Its number points at a twin assistive tech never reaches,
-and the chip beside the passage carries the claim, so a heading's name is its words alone.
+(`aria-hidden`), and assistive tech skips the in-text marker too. The in-text marker is the
+product's own citation marker: the data face, semibold, in brackets, at the provenance chip's 12 px
+(`EnRef` in `frontend/components/ui/MarkedCopy.tsx`). Its number points at a twin assistive tech
+never reaches, and the chip beside the passage carries the claim, so a heading's name is its words
+alone.
 
 Rules:
 

@@ -1011,8 +1011,8 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  ink). The speaker's line wraps (`flex-wrap`), so the evidence chip drops under the speaker
                  where the line cannot hold both. Gates: SummaryBlocks.spec.tsx, brandCopyRules.spec.ts rule 3
                  (the quote blocks take the block alone), tests/e2e/risk-evidence-rows.spec.ts (the located
-                 quote's face, tint and ink, and each quote's words, speaker and chip inside its block at 390
-                 under 200% text).
+                 quote's face, tint and ink, its words unbroken mid-word, and each quote's words, speaker and
+                 chip inside its block at 320 and 390 under 200% text).
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
                  honoured once its section renders (features/summaries/hooks/useSectionArrival); later
                  renders never move the reader. Where the page has no structured summary to hold it, the
