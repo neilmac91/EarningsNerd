@@ -445,7 +445,8 @@ unused since generation became account-required in #619; kept because migrations
   `GET /metrics` (breaker/cache/thread-pool/DB-pool stats) — details in docs/OPERATIONS.md.
 - Sentry (backend + frontend), PostHog product analytics + inference-cost telemetry
   (`copilot_inference_cost`, `analysis_inference_cost` with grounding counters),
-  Vercel Analytics on the frontend (auto-enabled via `@vercel/analytics` in `app/layout.tsx`).
+  Vercel Analytics on the frontend (`@vercel/analytics`, mounted from `app/layout.tsx` by
+  `app/private-analytics.tsx` only once the visitor allows analytics, D-046).
 - The eval harness (`backend/evals/`) pins summary quality (`baseline_scores.json`) with a
   CI regression gate on AI-relevant PRs.
 
