@@ -75,8 +75,19 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
         await release_fetch.wait()
         return _companyfacts_payload() if successful_fetch else None
 
+    # Each request's ingest checks freshness once before it leads the fetch or joins the leader, and
+    # the join follows the check in the same loop step.
+    fresh_checks = 0
+    real_fresh_check = ingest._companyfacts_fresh_result
+
+    def counted_fresh_check(*args, **kwargs):
+        nonlocal fresh_checks
+        fresh_checks += 1
+        return real_fresh_check(*args, **kwargs)
+
     monkeypatch.setattr(database, "SessionLocal", sessions)
     monkeypatch.setattr(ingest, "_fetch_companyfacts_async", stalled_fetch)
+    monkeypatch.setattr(ingest, "_companyfacts_fresh_result", counted_fresh_check)
     monkeypatch.setattr(analysis, "enforce_rate_limit", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 1.0)
     facts_service._inflight_syncs.clear()
@@ -93,11 +104,12 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
     )
     try:
         await asyncio.wait_for(fetch_started.wait(), timeout=1.0)
-        # Let the second request complete its short preflight and join the leader's event.
-        for _ in range(20):
-            if engine.pool.checkedout() == 0:
+        # Let the second request complete its short preflight and join the leader's event. The
+        # preflight is a thread-pool unit, so it takes wall-clock time rather than loop turns.
+        for _ in range(200):
+            if fresh_checks == 2 and engine.pool.checkedout() == 0:
                 break
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.01)
 
         assert fetch_calls == 1
         assert engine.pool.checkedout() == 0

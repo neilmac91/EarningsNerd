@@ -10,9 +10,10 @@ One rule, two halves in this one module:
   analysis stream must release its connection before its body streams, alone and in a burst; the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
   in the thread pool; each auth session route (logout signed in, with only the refresh cookie and
-  with a dead one, logout-all, refresh), each watchlist route (its refusals included) and the
-  waitlist join and verification must answer an eight-request burst with no checkout on the loop
-  and nothing left for the finalizer; and the join must send its mails with no connection out.
+  with a dead one, logout-all, refresh), each watchlist and analysis route (their refusals
+  included) and the waitlist join and verification must answer an eight-request burst with no
+  checkout on the loop and nothing left for the finalizer; and the join must send its mails, and
+  the analysis exports render, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails a session call on the loop in the route's own body above that route's ceiling, so a route
   the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
@@ -977,6 +978,213 @@ async def test_waitlist_join_holds_no_connection_while_its_mails_send(monkeypatc
             rows = {row.email: row for row in db.query(WaitlistSignup).all()}
         assert rows["joiner@example.com"].welcome_email_sent is (not welcome_fails)
         assert rows["referrer@example.com"].priority_score == 1
+    finally:
+        engine.dispose()
+
+
+def _analysis_fixture(tmp_path, name: str, *, pro: bool):
+    """A four-slot pool over one company with two fiscal years of revenue and net income, eight
+    readers (Pro or Free), and a saved annual analysis whose snapshot matches the current facts."""
+    from app.models import TrendAnalysis, User
+    from app.services import trend_analysis_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / name}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture",
+                          history_backfilled_at=utcnow(), facts_synced_at=utcnow())
+        db.add(company)
+        db.flush()
+        for year, revenue, net_income in ((2024, 100, 10), (2025, 120, 15)):
+            for concept, value in (("revenue", revenue), ("net_income", net_income)):
+                db.add(FinancialFact(
+                    company_id=company.id, concept=concept, unit="USD", period_start=date(year, 1, 1),
+                    period_end=date(year, 12, 31), fiscal_year=year, fiscal_period="FY", value=value,
+                    form="10-K", accession=f"0000000001-{year % 100:02d}-000001", reconciled=True,
+                ))
+        for i in range(8):
+            db.add(User(email=f"analysis-reader-{i}@example.com", is_active=True, is_pro=pro))
+        db.flush()
+        saved = trend_analysis_service.build_dataset(db, company, "annual", "FY2024", "FY2025")
+        fingerprint = trend_analysis_service.dataset_fingerprint(saved)
+        db.add(TrendAnalysis(
+            company_id=company.id, mode="annual", period_key=saved["period_key"],
+            prompt_version=trend_analysis_service.PROMPT_VERSION, dataset_fingerprint=fingerprint,
+            dataset_json={**saved, "snapshot_id": fingerprint}, narrative_md="## Narrative",
+        ))
+        db.commit()
+    return engine, sessions
+
+
+def _patch_analysis_edges(monkeypatch, *, workbook, render) -> None:
+    """Fakes for everything past the request session: the companyfacts sync, the two renders, the
+    narrative presentation check (the saved row carries none), and the per-user limiters."""
+    from app.routers import analysis
+    from app.services import excel_export_service
+    from app.services.export_service import export_service
+    from app.services.trend_analysis import presentation
+
+    async def synced(_company_id: int) -> dict:
+        return {"synced": True}
+
+    monkeypatch.setattr(analysis, "_ingest_with_own_session", synced)
+    monkeypatch.setattr(excel_export_service, "build_analysis_workbook", workbook)
+    monkeypatch.setattr(export_service, "export_analysis_pdf", render)
+    monkeypatch.setattr(presentation, "presentation_is_current", lambda _dataset: True)
+    for limiter in ("COVERAGE_LIMITER", "DATASET_LIMITER", "XLSX_LIMITER"):
+        monkeypatch.setattr(analysis, limiter, RateLimiter(limit=100, window_seconds=60))
+
+
+_ANALYSIS_RANGE = {"mode": "annual", "start_period": "FY2024", "end_period": "FY2025"}
+_ANALYSIS_STATUS = {
+    "coverage_missing": 404, "dataset_missing": 404, "dataset_bad_range": 400, "xlsx_stale": 409,
+    "pdf_missing": 404, "pdf_free": 403,
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,body,case", [
+    ("GET", "/api/analysis/CACHED/coverage", None, "coverage"),
+    ("GET", "/api/analysis/NOSUCH/coverage", None, "coverage_missing"),
+    ("POST", "/api/analysis/CACHED/dataset", _ANALYSIS_RANGE, "dataset"),
+    ("POST", "/api/analysis/NOSUCH/dataset", _ANALYSIS_RANGE, "dataset_missing"),
+    ("POST", "/api/analysis/CACHED/dataset", {**_ANALYSIS_RANGE, "mode": "quarterly"}, "dataset_bad_range"),
+    ("POST", "/api/analysis/CACHED/export/xlsx", _ANALYSIS_RANGE, "xlsx"),
+    ("POST", "/api/analysis/CACHED/export/xlsx", {**_ANALYSIS_RANGE, "snapshot_id": "0" * 64}, "xlsx_stale"),
+    ("GET", "/api/analysis/export/1/pdf", None, "pdf"),
+    ("GET", "/api/analysis/export/999/pdf", None, "pdf_missing"),
+    ("GET", "/api/analysis/export/1/pdf", None, "pdf_free"),
+])
+async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, body, case):
+    """Each analysis route runs its session work in thread-pool units and releases before it
+    awaits anything else (the companyfacts sync, a render), its refusals included, so eight Pro
+    readers on four slots (Free for the PDF's plan refusal) leave nothing for the finalizer and run
+    no checkout or statement on the loop."""
+    from app.routers import auth
+
+    engine, _ = _analysis_fixture(tmp_path, "analysis-routes.db", pro=case != "pdf_free")
+
+    async def render(_analysis, _company) -> bytes:
+        return b"%PDF-test"
+
+    _patch_analysis_edges(monkeypatch, workbook=lambda _dataset: b"xlsx-test", render=render)
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"analysis-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.request(method, path, json=body)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert [response.status_code for response in responses] == [_ANALYSIS_STATUS.get(case, 200)] * 8
+        if case == "coverage":
+            assert [
+                (payload["ticker"], payload["supported"], payload["syncing"], payload["synced_at"] is not None,
+                 [period["key"] for period in payload["annual"]])
+                for payload in (response.json() for response in responses)
+            ] == [("CACHED", True, False, True, ["FY2024", "FY2025"])] * 8
+        elif case in ("coverage_missing", "dataset_missing"):
+            assert [response.json() for response in responses] == [{"detail": "Company not found"}] * 8
+        elif case == "dataset":
+            assert [response.json()["period_key"] for response in responses] == ["FY2024..FY2025"] * 8
+        elif case == "dataset_bad_range":
+            assert [response.json() for response in responses] == [
+                {"detail": "Invalid quarterly period key: 'FY2024' (expected e.g. '2024Q2')"}] * 8
+        elif case == "xlsx":
+            assert [(response.content, response.headers["content-disposition"]) for response in responses] == [
+                (b"xlsx-test", 'attachment; filename="CACHED_FY2024-FY2025_annual-metrics.xlsx"')] * 8
+        elif case == "xlsx_stale":
+            assert [response.json() for response in responses] == [
+                {"detail": "The financial data changed. Refresh the analysis before exporting."}] * 8
+        elif case == "pdf":
+            assert [(response.content, response.headers["content-disposition"]) for response in responses] == [
+                (b"%PDF-test", 'attachment; filename="CACHED_multi_period_annual_FY2024-FY2025.pdf"')] * 8
+        elif case == "pdf_missing":
+            assert [response.json() for response in responses] == [{"detail": "Analysis not found"}] * 8
+        else:
+            assert [response.json() for response in responses] == [
+                {"detail": "PDF export is a Pro feature. Upgrade to Pro to access this feature."}] * 8
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        # Every checkout and every statement ran in the thread pool, none on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("export", ["xlsx", "pdf"])
+async def test_analysis_exports_hold_no_connection_while_they_render(monkeypatch, tmp_path, export):
+    """The exports finish their reads and checks, release the session, and only then render: no
+    pool slot waits on the workbook build or the PDF render."""
+    from app.routers import auth
+
+    engine, _ = _analysis_fixture(tmp_path, "analysis-render.db", pro=True)
+    held: dict[str, int] = {}
+
+    def workbook(_dataset) -> bytes:
+        held["xlsx"] = engine.pool.checkedout()
+        return b"xlsx-test"
+
+    async def render(_analysis, _company) -> bytes:
+        held["pdf"] = engine.pool.checkedout()
+        return b"%PDF-test"
+
+    _patch_analysis_edges(monkeypatch, workbook=workbook, render=render)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    token = auth.create_access_token({"sub": "analysis-reader-0@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            if export == "xlsx":
+                response = await client.post("/api/analysis/CACHED/export/xlsx", json=_ANALYSIS_RANGE)
+            else:
+                response = await client.get("/api/analysis/export/1/pdf")
+        assert response.status_code == 200
+        # The render ran with no connection out: the route's unit had released the session.
+        assert held == {export: 0}
+        assert engine.pool.checkedout() == 0
     finally:
         engine.dispose()
 
