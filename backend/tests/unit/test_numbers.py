@@ -209,3 +209,40 @@ def test_a_figure_names_the_currency_of_the_prefix_the_parser_reads(text, named)
 
     assert display_currency(text) == named
 
+
+PREFIX_CODES = {
+    "US$": "USD", "NT$": "TWD", "HK$": "HKD", "S$": "SGD", "A$": "AUD", "C$": "CAD", "R$": "BRL",
+    "$": "USD", "€": "EUR", "£": "GBP", "¥": None, "₹": "INR", "₩": "KRW", "RMB": "CNY",
+}
+
+
+def test_every_currency_prefix_has_its_expected_code():
+    """A prefix added to the reader needs its code written here too."""
+    from app.utils.numbers import _PREFIX_CURRENCY
+
+    assert _PREFIX_CURRENCY == PREFIX_CODES
+
+
+@pytest.mark.parametrize("prefix", sorted(PREFIX_CODES))
+def test_every_currency_prefix_names_its_code_in_any_case(prefix):
+    """The parser reads a prefix in any case ("hk$5B"), so its code does too: the delta reader's old
+    case-sensitive scan read "hk$" as a bare "$", USD."""
+    from app.utils.numbers import display_currency
+
+    for spelling in {prefix, prefix.lower(), prefix.upper()}:
+        assert display_currency(f"{spelling}5B") == (True, PREFIX_CODES[prefix]), spelling
+
+
+@pytest.mark.parametrize("hostile", ["-" + " " * 400 + "Q", "5" + " " * 400 + "Q", "$" + " " * 300 + "(" + " " * 300])
+def test_the_display_grammar_never_backtracks_into_whitespace(hostile):
+    """Every whitespace run in the display grammar is possessive, so a cell with a long run of spaces
+    is refused at once. A greedy run tried every split of it: "-" and 400 spaces before "Q" took about
+    55 s per pass, and the read path makes four passes over each cell."""
+    import re
+
+    from app.utils.numbers import _DISPLAY_SCALAR, display_currency, parse_display_number
+
+    assert not re.findall(r"\\s[*+](?![+])", _DISPLAY_SCALAR.pattern), _DISPLAY_SCALAR.pattern
+    assert parse_display_number(hostile) == (None, False)
+    assert display_currency(hostile) == (False, None)
+

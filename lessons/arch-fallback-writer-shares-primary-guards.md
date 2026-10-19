@@ -19,12 +19,13 @@ and the backfill follow, and keep the parity test passing. Test each writer with
 inputs as well as USD ones. A label is read back as well, by one grammar: the display parser
 (`parse_display_number`) reads a figure's prefix, and the change-figure reader asks it which
 currency that prefix names (`display_currency`), so the two cannot disagree. Its codes are
-`ISO_4217_CURRENCIES` in the same module: every current ISO 4217 code a label can carry reads back,
-in capitals as the helper writes it. A withdrawn code (HRK, BGN) is still written, since the XBRL
-units choose the label, and reads as no currency. A new reader of money cells uses the same two
-functions. No currency maps to "$" here. That is the backend's domestic default for XBRL that names
-no currency. The frontend's rule for a payload without a currency is different: it shows no symbol
-(`lessons/frontend-xbrl-amounts-carry-their-own-currency.md`).
+`ISO_4217_CURRENCIES` in the same module: every current national currency in ISO 4217 (List One less
+its fund codes and the X-codes that name no currency) reads back, in capitals as the helper writes
+it. The XBRL units choose the label, so a code outside that set, such as a withdrawn one (HRK, BGN),
+is still written; its cell does not parse, so its row keeps no change figure. A new reader of money
+cells uses the same two functions. No currency maps to "$" here. That is the backend's domestic
+default for XBRL that names no currency. The frontend's rule for a payload without a currency is
+different: it shows no symbol (`lessons/frontend-xbrl-amounts-carry-their-own-currency.md`).
 
 Out of scope, and known: the fallback and the primary filler still differ on scale, on missing
 values and on row labels. The primary has a K tier ("950.0K") where the fallback prints "950,000".

@@ -40,11 +40,14 @@ ISO_4217_CURRENCIES = frozenset("""
 _ANY_CASE_CODES = "USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD"
 CURRENCY_CODE = rf"(?:{_ANY_CASE_CODES}|(?-i:{'|'.join(sorted(ISO_4217_CURRENCIES))}))"
 _CURRENCY = rf"(?:US\$|NT\$|HK\$|S\$|A\$|C\$|R\$|{CURRENCY_CODE}|[$€£¥₹₩])"
-_UNIT = r"(?:thousand|million|billion|trillion|mn|bn|[kmbt]|%|percent|bps|basis\s+points|x|×)"
+_UNIT = r"(?:thousand|million|billion|trillion|mn|bn|[kmbt]|%|percent|bps|basis\s++points|x|×)"
+# Every whitespace run is possessive (``\s*+``): no token here begins with whitespace, so it accepts
+# exactly what a greedy run would, and a long run of spaces fails at once instead of backtracking
+# through every split of it ("-" and 400 spaces before "Q" took about 55 s to refuse).
 _DISPLAY_SCALAR = re.compile(
-    rf"(?P<sign1>[+−-])?\s*(?P<currency>{_CURRENCY})?\s*(?P<sign2>[+−-])?\s*"
-    rf"(?P<paren>\()?\s*(?P<number>(?:[0-9]{{1,3}}(?:,[0-9]{{3}})+|[0-9]+)(?:\.[0-9]+)?|\.[0-9]+)"
-    rf"\s*(?P<unit>{_UNIT})?\s*(?(paren)\))\s*(?P<outer_unit>{_UNIT})?",
+    rf"(?P<sign1>[+−-])?\s*+(?P<currency>{_CURRENCY})?\s*+(?P<sign2>[+−-])?\s*+"
+    rf"(?P<paren>\()?\s*+(?P<number>(?:[0-9]{{1,3}}(?:,[0-9]{{3}})+|[0-9]+)(?:\.[0-9]+)?|\.[0-9]+)"
+    rf"\s*+(?P<unit>{_UNIT})?\s*+(?(paren)\))\s*+(?P<outer_unit>{_UNIT})?",
     re.IGNORECASE,
 )
 # The ISO code each prefix names. A bare "¥" is JPY or CNY, so it names none.
@@ -103,8 +106,9 @@ def parse_display_number(value: object) -> tuple[Optional[Decimal], bool]:
 def display_currency(value: object) -> tuple[bool, Optional[str]]:
     """Whether a displayed scalar names its currency, and the ISO code it names, read from the prefix
     :func:`parse_display_number` itself reads. So a code glued to its figure ("AED941.2B") counts, and
-    "US$" is USD, never "S$"; a bare "¥" names no code. Text that does not parse names none, since an
-    exact change figure binds only to a figure that parses."""
+    "US$" is USD, never "S$"; a bare "¥" names no code. Text the parser's grammar does not match names
+    none. A match the parser then refuses ("-$-941.2B") still names its prefix's code, but no exact
+    change figure binds to it, since binding needs a figure that parses."""
     if not isinstance(value, str):
         return False, None
     match, _ = _scalar_match(value)
