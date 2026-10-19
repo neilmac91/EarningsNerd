@@ -1656,10 +1656,10 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
 
     import main
 
-    # The capture reaches the structures the design checks of #1297 found this SDK builds under main's options (not a
-    # subprocess span, errno mechanism data or a gauge); an upgrade can add one it does not reach, so it fails here
-    # until the capture is checked again.
-    assert sentry_sdk.VERSION == "2.71.0"
+    # The capture reaches the structures the design checks of #1297 found the SDK builds under main's options (not a
+    # subprocess span, errno mechanism data or a gauge); re-checked for 2.72.0, which adds keys inside user data only.
+    # An upgrade can add one it does not reach, so it fails here until the capture is checked again.
+    assert sentry_sdk.VERSION == "2.72.0"
 
     received = []
     value_scrubber = main._value_scrubber
