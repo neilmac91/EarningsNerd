@@ -682,14 +682,15 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
 })
 
 /** The cookie settings dialog's category rows at 200% text (components/CookieConsent.tsx), opened from the footer's
-    "Cookie settings" on a page whose visitor has already chosen. Each row takes the Notice's recipe: it wraps, and its
-    text keeps 9rem beside the box or takes the card's width with the box under it. Before, a row could not wrap and
-    its text column never went narrower than its longest word, so at 390px the boxes ended at 341 to 382px against
-    their cards' 309px edge, and at 320px 100 to 143px past it. At 390px each box lies inside its card and each
-    description breaks only between words, read a character at a time as the billing toggle's labels are (below). At
-    320 and 360px each box lies inside its card, but ModalBody's px-6 and the card's p-4 leave the text too narrow for
-    its longest words, which still break there (tasks/todo.md E120). The dialog's title runs past the panel at these
-    widths (tasks/todo.md E126), so the panel's own sideways scroll is not asserted here. */
+    "Cookie settings" on a page whose visitor has already chosen. Each row takes the Notice's recipe: it wraps, its text
+    column keeps 9rem beside the box or takes the card's width with the box under it, and a word too long for the column
+    breaks inside it. Before, a row could not wrap and its text column never went narrower than its longest word, so the
+    boxes ended 32 to 73px past their cards at 390px, 62 to 103px at 360px and 89 to 130px at 320px, and the text ran
+    past the cards too. At 320, 360 and 390px each box and every run of text in its card lie inside the card. The text
+    column is 105, 132 and 162px there (ModalBody's px-6 and the card's p-4 under doubled text), so the longest words
+    still break at all three widths until a card's padding stops growing under enlarged text (tasks/todo.md E120, whose
+    measure with this recipe is 201px and no broken word at 320px). The dialog's title runs past the panel at these
+    widths (tasks/todo.md E129), so the panel's own sideways scroll is not asserted here. */
 const categoryRows = (dialog: Locator) =>
   dialog.evaluate((root) => {
     const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
@@ -699,34 +700,30 @@ const categoryRows = (dialog: Locator) =>
       while (card !== root && getComputedStyle(card).borderTopWidth === '0px') card = card.parentElement as HTMLElement
       const c = card.getBoundingClientRect()
       const b = box.getBoundingClientRect()
-      const description = document.getElementById(box.getAttribute('aria-describedby') ?? '')
-      const lines = new Map<number, string>()
-      const walker = document.createTreeWalker(description ?? root, NodeFilter.SHOW_TEXT)
-      for (let node = walker.nextNode() as Text | null; node && description; node = walker.nextNode() as Text | null) {
-        for (let i = 0; i < node.length; i++) {
-          const char = document.createRange()
-          char.setStart(node, i)
-          char.setEnd(node, i + 1)
-          const r = char.getBoundingClientRect()
-          if (!r.width && !r.height) continue
-          lines.set(Math.round(r.top), (lines.get(Math.round(r.top)) ?? '') + node.data[i])
-        }
+      // Each run of text in the card, as painted, that reaches past the card's sides.
+      const pastCard: string[] = []
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        const r = range.getBoundingClientRect()
+        if (r.left < c.left - 0.5 || r.right > c.right + 0.5) pastCard.push(`"${node.textContent.replace(/\s+/g, ' ').trim().slice(0, 30)}" ${px(r.left, r.right)}`)
       }
       return {
         title: document.getElementById(box.getAttribute('aria-labelledby') ?? '')?.textContent?.trim() ?? '',
-        words: (description?.textContent ?? '').replace(/\s+/g, ' ').trim().split(' '),
-        lines: [...lines.entries()].sort((x, y) => x[0] - y[0]).map(([, line]) => line.trim()),
-        inCard: b.left >= c.left - 0.5 && b.right <= c.right + 0.5 && b.top >= c.top - 0.5 && b.bottom <= c.bottom + 0.5,
+        boxInCard: b.left >= c.left - 0.5 && b.right <= c.right + 0.5 && b.top >= c.top - 0.5 && b.bottom <= c.bottom + 0.5,
+        pastCard,
         where: `box ${px(b.left, b.right)} by ${px(b.top, b.bottom)}, card ${px(c.left, c.right)} by ${px(c.top, c.bottom)}`,
       }
     })
   })
 
-test.describe("the cookie settings dialog's boxes stay inside their cards at 200% text", () => {
+test.describe("the cookie settings dialog's boxes and text stay inside their cards at 200% text", () => {
   for (const width of [320, 360, 390]) {
     test.describe(`a ${width}px phone`, () => {
       test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
-      test(`opened from the footer at ${width}px, each box inside its card${width === 390 ? ' and each description whole' : ''}`, async ({ page, baseURL }) => {
+      test(`opened from the footer at ${width}px, each box and its text inside its card`, async ({ page, baseURL }) => {
         await page.addInitScript(() => {
           try {
             localStorage.setItem('theme', 'light')
@@ -746,11 +743,9 @@ test.describe("the cookie settings dialog's boxes stay inside their cards at 200
         const rows = await categoryRows(dialog)
         expect(rows.map((row) => row.title)).toEqual(['Essential cookies', 'Analytics cookies', 'Session recording'])
         for (const row of rows) {
-          const at = `"${row.title}" at ${width}px and 200% text (${row.where}; description lines ${JSON.stringify(row.lines)})`
-          expect(row.inCard, `${at}: the box lies inside its card`).toBe(true)
-          if (width === 390) {
-            expect(row.lines.every((line) => line.split(/\s+/).every((token) => row.words.includes(token))), `${at}: the description breaks only between words`).toBe(true)
-          }
+          const at = `"${row.title}" at ${width}px and 200% text (${row.where})`
+          expect(row.boxInCard, `${at}: the box lies inside its card`).toBe(true)
+          expect(row.pastCard, `${at}: every run of text in the card lies inside it`).toEqual([])
         }
       })
     })
