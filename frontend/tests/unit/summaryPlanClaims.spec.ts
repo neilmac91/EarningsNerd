@@ -4,10 +4,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { pythonTokens } from './pythonTokens'
+import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
+import { STREAM_ERROR_COPY } from '@/features/summaries/lib/streamErrorCopy'
 import { PRO_FAIR_USE_LINE, PRO_SUMMARY_MONTHLY_CAP } from '@/lib/planLimits'
 
 /**
- * Two claims a plan makes about summaries, held to what the code does (docs/brand/decisions-log.md D-046; CLAUDE.md
+ * Three claims a plan makes about summaries, held to what the code does (docs/brand/decisions-log.md D-046; CLAUDE.md
  * rules 4 and 12; lessons/brand-a-promise-names-what-the-code-enforces.md):
  *
  * 1. No summary-history claim while no retention is enforced. The pricing surfaces said Free "keeps 90 days" of
@@ -33,8 +36,22 @@ import { PRO_FAIR_USE_LINE, PRO_SUMMARY_MONTHLY_CAP } from '@/lib/planLimits'
  *    PRO_SUMMARY_MONTHLY_CAP (which planLimitsLockstep.spec.ts holds to backend/app/config.py), placed by the /pricing
  *    FAQ and the filing page's monthly-limit card, and typed nowhere else: no other copy literal names a fair-use
  *    ceiling on summaries, and no module but lib/planLimits.ts reads PRO_SUMMARY_MONTHLY_CAP, so the number reaches
- *    copy only through the sentence (a typed "300 new summaries" is planLimitsLockstep.spec.ts's to fail).
- *    PricingPage.spec.tsx and StreamingSummaryDisplay.spec.tsx see the sentence rendered.
+ *    copy only through the sentence (a typed count, "300 summary generations" or "300 new summaries", is
+ *    planLimitsLockstep.spec.ts's to fail). PricingPage.spec.tsx and StreamingSummaryDisplay.spec.tsx see the
+ *    sentence rendered.
+ * 3. The ceiling counts what the meter counts (Codex on #1395, review comment 4314197512). Every run the usage gate
+ *    admits takes a unit of PRO_SUMMARY_MONTHLY_CAP once its provider request is issued, a Pro regeneration (`force`)
+ *    among them, so a count in "new summaries" overstates the allowance. PRO_FAIR_USE_LINE and the line the filing
+ *    page shows at the ceiling (STREAM_ERROR_COPY's one line for a stream error no retry can help, not the paywall,
+ *    that names a limit on summaries: admission.py's pause) count summary generations, regenerations included, and
+ *    no copy literal that names a limit (CEILING_CUES) counts new summaries. The planted forms score the reach: the
+ *    two sentences before the review are flagged, and the backend's own pause (a key the map replaces, which names
+ *    no limit) passes; out of reach, planted as gaps: a count split around an expression, and one said in other
+ *    words. The premise is read where it would change: the stream route sends `force` into the one pipeline as
+ *    `force_regenerate`, and the pipeline's modules and the usage service read that flag only at today's sites
+ *    (FORCE_READS), none of them a meter. A PR that exempts a regeneration from the meter in one of them fails here,
+ *    and restates the ceiling in that PR with this gate moved beside it. Out of reach: an exemption under another
+ *    name or outside those modules, and the analysis ceiling, stated nowhere yet (E122 states it the same way).
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -55,6 +72,25 @@ const HISTORY_CLAIMS: Array<[string, RegExp]> = [
 
 /** A fair-use ceiling named on summaries (PRO_FAIR_USE_LINE's own subject), in either order. */
 const SUMMARY_FAIR_USE = /\bfair[- ]use\b[^.]*\bsummar|\bsummar[^.]*\bfair[- ]use\b/i
+
+/** What makes a literal a ceiling sentence: it names a limit or a bound, or counts by the month. */
+const CEILING_CUES = /\bfair[- ]use\b|\b(?:limits?|ceilings?|caps?|capped|allowance|quota)\b|\bup to\b|\b(?:a|per|each|every|this|next) month\b|\bmonth's\b|\bmonthly\b/i
+/** The count the meter does not keep: new summaries, while a regeneration takes a unit too. */
+const NEW_SUMMARIES = /\bnew[- ](?:AI )?summar(?:y|ies)\b/i
+
+/** Where the summary pipeline reads its force flag today, as code, per module under backend/app: the orchestrator's
+ * parameter and its pass-through, the run's field, the stored-summary short-circuit (load_filing) and the in-place
+ * save (finalize). None of them is a meter: admit's usage gate, the charge at provider start
+ * (GenerationRun.begin_charge), the refunds and the usage service count a regeneration as they count any run. */
+const FORCE_READS: Record<string, number> = {
+  'services/summary_pipeline.py': 3,
+  'services/summary_stages/admission.py': 1,
+  'services/summary_stages/finalize.py': 5,
+  'services/summary_stages/generation_run.py': 1,
+}
+
+/** The reads of `force_regenerate` in a Python module: names only, so a comment or a docstring is not one. */
+const forceReads = (source: string) => pythonTokens(source).filter((t) => t.kind === 'name' && t.text === 'force_regenerate').length
 
 interface Literal {
   rel: string
@@ -80,6 +116,10 @@ function literals(source: string, rel: string): Literal[] {
 
 const historyFindings = (lits: Literal[]) =>
   lits.flatMap((l) => HISTORY_CLAIMS.filter(([, re]) => re.test(l.text)).map(([label]) => `${l.rel}:${l.line} (${label}) ${JSON.stringify(l.text)}`))
+
+/** Every ceiling sentence that counts new summaries. */
+const newCountFindings = (lits: Literal[]) =>
+  lits.filter((l) => CEILING_CUES.test(l.text) && NEW_SUMMARIES.test(l.text)).map((l) => `${l.rel}:${l.line} ${JSON.stringify(l.text)}`)
 
 const MODULES = execFileSync('git', ['ls-files', '--', ...SCAN_DIRS], { cwd: FRONTEND, encoding: 'utf8' })
   .split('\n')
@@ -180,7 +220,7 @@ describe('no summary-history claim while no retention is enforced (D-046)', () =
 
 describe("Pro's fair-use guardrail is one sentence, read at the FAQ and the limit card (E58, D-046)", () => {
   it('is built from the mirrored cap, never a typed number', () => {
-    expect(PRO_FAIR_USE_LINE).toContain(`${PRO_SUMMARY_MONTHLY_CAP} new summaries a month`)
+    expect(PRO_FAIR_USE_LINE).toContain(`up to ${PRO_SUMMARY_MONTHLY_CAP} summary generations a month`)
     const source = readFileSync(path.join(FRONTEND, 'lib/planLimits.ts'), 'utf8')
     expect(source).toMatch(/export const PRO_FAIR_USE_LINE = `[^`]*\$\{PRO_SUMMARY_MONTHLY_CAP\}[^`]*`/)
   })
@@ -230,6 +270,75 @@ describe("Pro's fair-use guardrail is one sentence, read at the FAQ and the limi
     }
     expect(Object.keys(flagged).filter((name) => capReads(flagged[name], 'probe.tsx').length === 0), 'a read the check missed').toEqual([])
     expect(Object.keys(passing).filter((name) => capReads(passing[name], 'probe.tsx').length > 0), 'a look-alike the check flagged').toEqual([])
+  })
+})
+
+describe("Pro's ceiling counts what the meter counts: summary generations, regenerations included (Codex on #1395)", () => {
+  it('the FAQ and the line at the ceiling count summary generations, regenerations included, and no ceiling counts new summaries', () => {
+    expect(newCountFindings(LITERALS), 'a regeneration takes a unit of the ceiling: count summary generations, regenerations included, never new summaries').toEqual([])
+    const atCeiling = Object.entries(STREAM_ERROR_COPY)
+      .filter(([key, shown]) => isNonRetryableStreamError(key) && !isPaywallStreamError(key) && CEILING_CUES.test(shown) && /\bsummar/i.test(shown))
+      .map(([, shown]) => shown)
+    expect(atCeiling, "streamErrorCopy.ts has one line for Pro's ceiling, and it names the limit").toHaveLength(1)
+    for (const sentence of [PRO_FAIR_USE_LINE, ...atCeiling]) {
+      expect(sentence, 'it names the unit it counts').toMatch(/\bgenerat/i)
+      expect(sentence, 'and that a regeneration is one').toMatch(/\bregenerations included\b/)
+    }
+  })
+
+  it('reads a ceiling counted in new summaries, and passes the counted unit and the look-alikes (a self-check on planted forms)', () => {
+    const planted: Array<[string, boolean | 'gap']> = [
+      // The two sentences before the review, then chief design's typed plant and first example for E122.
+      ["export const A = `Pro's unlimited summaries have a fair-use ceiling: an account can generate up to ${CAP} new summaries a month.`", true],
+      ["export const B = `Your account has reached this month's limit on new summaries. It resets next month. Contact support with any questions.`", true],
+      ["export const C = 'Pro accounts can generate up to 300 new summaries a month.'", true],
+      ['export const D = `Up to ${S} new summaries and ${A} new analyses a month; results already generated never count`', true],
+      ['export const E = () => <p>Your plan includes {CAP} new summaries each month.</p>', true],
+      ["export const F = 'Your new-summary allowance resets next month.'", true],
+      ["export const G = `Pro's unlimited summaries have a fair-use ceiling: an account can run up to ${CAP} summary generations a month, regenerations included.`", false],
+      ["export const H = `Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.`", false],
+      ["export const I = `We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support.`", false],
+      ['export const J = `${n} new summaries are ready to read`', false],
+      ['export const K = `${FREE} AI summaries a month`', false],
+      ["export const L = 'Your free summaries reset next month. Or go unlimited now with Pro.'", false],
+      ['// Up to 300 new summaries a month: a comment is not copy', false],
+      ['export const M = `Up to ${CAP} new ${noun} a month`', 'gap'],
+      ["export const N = 'Up to 300 summaries of filings you have not summarized yet, each month.'", 'gap'],
+    ]
+    const found = new Set(newCountFindings(literals(planted.map(([code]) => code).join('\n'), 'features/probe/Ceiling.tsx')).map((f) => Number(f.split(':')[1].split(' ')[0])))
+    expect([...found].sort((a, b) => a - b)).toEqual(planted.flatMap(([, flag], i) => (flag === true ? [i + 1] : [])))
+  })
+
+  it('a regeneration takes a unit: the route sends force through the one pipeline, and no module of it reads the flag at a meter', () => {
+    const route = pythonTokens(readFileSync(path.join(BACKEND_APP, 'routers/summaries.py'), 'utf8'))
+    expect(
+      route.some((t, i) => t.kind === 'name' && t.text === 'force_regenerate' && route[i + 1]?.text === '=' && route[i + 2]?.text === 'force'),
+      'routers/summaries.py no longer sends force into stream_filing_summary as force_regenerate: find where a Pro regeneration goes, and whether it still takes a unit',
+    ).toBe(true)
+    const stages = execFileSync('git', ['ls-files', '--', 'services/summary_stages'], { cwd: BACKEND_APP, encoding: 'utf8' })
+      .split('\n')
+      .filter((rel) => rel.endsWith('.py'))
+    expect(stages.length).toBeGreaterThan(5)
+    const reads = Object.fromEntries(
+      ['services/summary_pipeline.py', 'services/subscription_service.py', ...stages]
+        .map((rel) => [rel, forceReads(readFileSync(path.join(BACKEND_APP, rel), 'utf8'))] as const)
+        .filter(([, count]) => count > 0),
+    )
+    expect(
+      reads,
+      'a summary pipeline module reads force_regenerate in a new place: if a regeneration no longer takes a unit of the monthly ' +
+        'ceiling, restate PRO_FAIR_USE_LINE and the line at the ceiling in that PR, then move these counts',
+    ).toEqual(FORCE_READS)
+  })
+
+  it('reads the flag as code, never in a comment or a docstring (a self-check on planted forms)', () => {
+    const planted: Array<[string, number]> = [
+      ['# force_regenerate never reaches the meter', 0],
+      ['def admit(run):\n    """Under force_regenerate the stored row is replaced in place."""', 0],
+      ['if run.force_regenerate:\n    return', 1],
+      ['stream(force_regenerate=force_regenerate)', 2],
+    ]
+    expect(planted.map(([source]) => forceReads(source))).toEqual(planted.map(([, count]) => count))
   })
 })
 

@@ -34,14 +34,18 @@ export const FREE_COPILOT_QUESTIONS = 3
 /**
  * Pro's summary fair-use ceiling, mirrored from backend/app/config.py (PRO_SUMMARY_MONTHLY_CAP's default; the
  * lockstep spec holds it, and fails on a workflow that sets the variable, so production runs this default).
- * Pro's summaries are unlimited as a plan, and this guardrail bounds the summaries one
- * account can generate in a calendar month (UTC): a leased run is counted when its provider request is issued, a
- * lease-free run when it completes, and reading a summary moves nothing. It is stated once, in PRO_FAIR_USE_LINE, which the /pricing FAQ and the filing page's
- * monthly-limit card read (E58, D-046), while the plan cards, the dashboard strip, BillingPanel, the upgrade
- * dialog and the signup gate keep "Unlimited" (D-040).
+ * Pro's summaries are unlimited as a plan, and this guardrail bounds the summary generations one account runs in a
+ * calendar month (UTC). Every run the usage gate admits takes a unit when its provider request is issued, a Pro
+ * regeneration among them, so the copy counts generations, regenerations included, never new summaries. A provider
+ * failure, the pipeline's timeout or a partial verdict under the quality gate gives the unit back, and a run the
+ * reader leaves after the request is issued keeps it; a stored summary served or a run joined in flight never takes
+ * one (tests/unit/summaryPlanClaims.spec.ts holds the copy to this). It is stated once, in PRO_FAIR_USE_LINE, which the
+ * /pricing FAQ and the filing page's monthly-limit card read (E58, D-046), while the plan cards, the dashboard strip,
+ * BillingPanel, the upgrade dialog and the signup gate keep "Unlimited" (D-040). The filing page's card at the
+ * ceiling (features/summaries/lib/streamErrorCopy.ts) names the same unit.
  */
 export const PRO_SUMMARY_MONTHLY_CAP = 300
-export const PRO_FAIR_USE_LINE = `Pro's unlimited summaries have a fair-use ceiling: an account can generate up to ${PRO_SUMMARY_MONTHLY_CAP} new summaries a month.`
+export const PRO_FAIR_USE_LINE = `Pro's unlimited summaries have a fair-use ceiling: an account can run up to ${PRO_SUMMARY_MONTHLY_CAP} summary generations a month, regenerations included.`
 
 /**
  * Multi-Period Analysis period caps, mirrored from `backend/app/config.py` (ANALYSIS_MAX_ANNUAL_PERIODS,

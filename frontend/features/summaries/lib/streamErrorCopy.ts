@@ -43,8 +43,9 @@ export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
   // admission.py: Pro's fair-use ceiling. Never an upsell (a Pro user is not paywalled), and never a retry: the
   // ceiling holds until the month turns, so the stream does not retry it and its card offers no Retry. Nor a
   // promise of more: the ceiling is one global setting, with no per-account override or reset support could use.
+  // It counts what the meter counts: every summary generation, a regeneration among them (lib/planLimits.ts).
   "We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support.":
-    "Your account has reached this month's limit on new summaries. It resets next month. Contact support with any questions.",
+    "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
   // admission.py: the free monthly limit. The paywall card writes its own copy for this one; the line
   // keeps the map whole.
   "You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries.":

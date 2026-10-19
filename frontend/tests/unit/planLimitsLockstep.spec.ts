@@ -65,8 +65,8 @@ const freeEntitlementField = (name: string): number => {
 const SOURCE_ROOTS = ['app', 'features', 'components', 'lib', 'hooks']
 const SUMMARY_CAP_LABEL = 'free summary cap spelled out'
 const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
-  // Copy: the caps written out in prose. The summary pattern also reads Pro's ceiling typed with "new" ("300 new
-  // summaries", PRO_FAIR_USE_LINE's form).
+  // Copy: the caps written out in prose. The summary pattern also reads Pro's ceiling typed, in PRO_FAIR_USE_LINE's
+  // form ("300 summary generations") or with "new" ("300 new summaries").
   { label: SUMMARY_CAP_LABEL, pattern: /\b\d+ (?:new )?(?:free )?(?:AI )?summar(?:y|ies)\b/i },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
   { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
@@ -147,9 +147,15 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     expect(() => capOverrides(settings + settings, [])).toThrow(/2 times/)
   })
 
-  it('reads a summary cap typed with or without "new", the Pro ceiling\'s form (planted forms)', () => {
+  it('reads a summary cap typed with or without "new", and the Pro ceiling\'s sentence typed (planted forms)', () => {
     const { pattern } = LITERAL_PATTERNS.find(({ label }) => label === SUMMARY_CAP_LABEL)!
-    for (const typed of ['5 summaries', '5 free summaries', '5 AI summaries', 'Pro accounts can generate up to 300 new summaries a month.']) {
+    for (const typed of [
+      '5 summaries',
+      '5 free summaries',
+      '5 AI summaries',
+      'Pro accounts can generate up to 300 new summaries a month.',
+      'An account can run up to 300 summary generations a month, regenerations included.',
+    ]) {
       expect(pattern.test(typed), typed).toBe(true)
     }
     // A read of the cap types no number: summaryPlanClaims.spec.ts fails a read of it outside lib/planLimits.ts.
