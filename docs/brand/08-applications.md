@@ -137,8 +137,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
-  (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
-  visitor, which is why the clause names analytics cookies. The bar's two choices say what they set:
+  (`frontend/app/posthog-provider.tsx`). Vercel Web Analytics is cookieless, which is why the clause
+  names analytics cookies, and since D-046 it too loads only after the visitor allows analytics, read
+  from the same stored choice (`frontend/app/private-analytics.tsx`;
+  `tests/unit/privateAnalytics.spec.tsx`, `tests/e2e/analytics-consent.spec.ts`). The bar's two
+  choices say what they set:
   "Essential only" and "Allow analytics" (session recording stays off until it is chosen under
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.

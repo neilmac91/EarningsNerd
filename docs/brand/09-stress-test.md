@@ -62,8 +62,9 @@ by something still on the page.
    keeps you signed in; analytics cookies and session recording stay off until allowed. That is
    what `app/posthog-provider.tsx` enforces for PostHog, the one analytics tool that sets cookies;
    the first wording said "analytics" without "cookies", which the review caught, because Vercel
-   Web Analytics (cookieless) runs for every visitor. The dialog's intro, which promised "personalized content" the
-   site does not offer, names the three categories it actually has (`components/CookieConsent.tsx`,
+   Web Analytics (cookieless) ran for every visitor (since D-046 it waits for the same consent).
+   The dialog's intro, which promised "personalized content" the site does not offer, names the
+   three categories it actually has (`components/CookieConsent.tsx`,
    `tests/unit/CookieConsent.spec.tsx`).
 3. **The Financial Highlights table rounded the figure it was demonstrating.** `fmtCurrency`
    defaults to one decimal for values of a dollar or more, so a served "$7.46" displayed as "$7.5"

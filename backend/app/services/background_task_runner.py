@@ -5,7 +5,7 @@ import asyncio
 
 from app.database import SessionLocal
 from app.models import Company
-from app.services import facts_service, filing_history_service, filing_scan_service
+from app.services import facts_service, filing_history_service, filing_list_service, filing_scan_service
 from app.services.durable_tasks import CompanyTask, FilingsTask, TaskEnvelope
 from app.services.edgar.compat import sec_edgar_service
 
@@ -26,8 +26,11 @@ async def run_background_task(envelope: TaskEnvelope) -> None:
             if company is None:
                 return  # deletion after enqueue makes the obsolete task a successful no-op
             cik = company.cik
+            forms = filing_list_service.forms_to_refresh(db, company.id, task.filing_types)
+        if not forms:
+            return  # none of the payload's other forms is stored for this company: nothing to refresh
         rows = await asyncio.wait_for(
-            sec_edgar_service.get_filings(cik, task.filing_types), timeout=20.0,
+            sec_edgar_service.get_filings(cik, forms), timeout=20.0,
         )
         with SessionLocal() as db:
             company = db.get(Company, task.company_id)
