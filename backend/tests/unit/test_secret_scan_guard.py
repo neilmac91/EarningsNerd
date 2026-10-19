@@ -2,38 +2,51 @@
 push or a GitHub content write would add, and refuses the call on a finding (E126;
 lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md).
 
-A case runs the hook the way `.claude/settings.json` registers it (the registered command, through the shell, on
-the event Claude Code sends) in a scratch project, except the ones on the deadline, an unexpected error, a
-recursion, the downloads and the installer, which call its functions in this process. The project is a git
-repository holding copies of both hooks and CI's workflow, whose `refs/remotes/origin/main` stands for GitHub's
-main, with a branch `work` that carries one commit holding a planted credential-shaped line and a branch `clean`
-with one clean commit, neither on GitHub, and beside it a second repository, `elsewhere`, whose own `work` is
-clean: a case that moves into the project from there is refused only if the hook follows the move. Each test
-process builds the project once and each case runs in a copy. No case reads the machine's own git configuration,
-attributes or ignores.
+A case runs the hook the way `.claude/settings.json` registers it (the registered command, through the shell, on the
+event Claude Code sends) in a scratch project, except the ones on the deadline, an unexpected error, a recursion, a
+deep input, git's version strings, a refusal's git lines, a failed scan's errors, the downloads and the installer,
+which call its functions in this process. The project is a git repository holding copies of both hooks and CI's
+workflow, whose `refs/remotes/origin/main` stands for GitHub's main, with a branch `work` that carries one commit
+holding a planted credential-shaped line and a branch `clean` with one clean commit, neither on GitHub, and beside
+it a second repository, `elsewhere`, whose own `work` is clean: a case that moves into the project from there is
+refused only if the hook follows the move. Each test process builds the project once and each case runs in a copy.
+No case reads the machine's own git configuration, attributes or ignores.
 
 A stub gitleaks, installed where `--install` puts the pinned binary, reads what gitleaks reads (`git log -p -U0`
-over --log-opts in the directory it scans, the -i file, and that directory's own .gitleaksignore and
-.gitleaks.toml, or the rules GITLEAKS_CONFIG or GITLEAKS_CONFIG_TOML name), honours `gitleaks:allow`, and flags the
-planted value, which this file builds at run time so its own text matches no rule. It reads git's plain output
-more strictly than gitleaks: a line it cannot place under a full commit header and a `b/` path (colour, another
-format, an abbreviated commit, decorations, no prefixes) shows it nothing, where gitleaks still reports the line
-under all of them but colour, and under a commit main's pins do not match when the commit is abbreviated or
-missing. Each setting the hook holds that can hide a line from the
-stub (colour, the big-file threshold, a root commit's lines, an attributes file, copies, a replace ref, the
-commit header, decorations, prefixes) or fail the scan (a signature, the graft hint) is planted in the
-repository itself, where only the pin keeps the case passing; the rest keep CI's hunks, dates, paths and
-encoding and are not. With the pinned binary installed (`--install`), the cases that turn on how gitleaks reads
-its files and git's output run against it as well; CI installs none and skips them.
+over --log-opts in the directory it scans, the -i file, and that directory's own .gitleaksignore and .gitleaks.toml,
+or the rules --config, GITLEAKS_CONFIG or GITLEAKS_CONFIG_TOML name, each as gitleaks takes one: anything there but
+a directory, a link to /dev/null among them), honours `gitleaks:allow`, finds nothing under rules that neither
+extend gitleaks' own nor define one, and flags the planted value, which this file builds at run time so its own text
+matches no rule. It reads git's plain output more strictly than gitleaks: a line it cannot place under a full commit
+header and a `b/` path (colour, another format, an abbreviated commit, decorations, no prefixes) shows it nothing,
+where gitleaks still reports the line under all of them but colour, and under a commit main's pins do not match when
+the commit is abbreviated or missing. The settings the hook holds that can hide a line from the stub (colour, the
+big-file threshold, a root commit's lines, attributes from a file, a tree, a worktree, a bare repository's HEAD or
+the git directory, a text conversion, copies, a replace ref, the commit header, decorations, prefixes), fail the
+scan (shown signatures) or keep a graft from failing it closed (a silenced graft hint) are each planted in the
+repository itself, where only the hook's pin (for a text conversion, its --no-textconv) keeps the case passing on a
+git that reads it (diff.dstPrefix from 2.45 on, a bare repository's HEAD from 2.43 to 2.45). The rest, which keep
+CI's hunks, dates, paths and encoding or let the scan read another user's checkout (safe.directory), are not. On a
+git older than 2.43, which knows no attr.tree, or one whose version the hook cannot read, the hook refuses each call
+that adds commits, as it does a scan that would read a repository whose objects are not SHA-1. Outside CI, the cases
+that build a scratch project skip on a git that this file reads as older than 2.43, or whose version it cannot read;
+on CI they run, so a git too old there fails the suite. With the pinned binary installed (`--install`), the cases
+that turn on how gitleaks reads its files and git's output run against it as well; CI installs none and skips them.
 
-Planted below: the forms a push takes; the pushes the hook must read precisely, which name the clean branch from
-the planted one, so a push read whole would be refused; the commands that may and may not come before a push or
-run beside it, redirections among them; the moves of the shell's directory it follows, and the ones bash does not
-keep; the settings and refs that would blind the scan; the API writes; the MCP writes; and the look-alikes that
-must pass. Each gap the hook's header names that a case can stand for is planted as one that passes through, with
-the files its command names, so closing it is a deliberate change here; a GIT_DIR, HOME or CDPATH the shell's
-profile sets, a push a person or a session that loads no repository hooks makes, and an MCP server named without
-"github" are outside what a case here can run.
+Planted below: the forms a push takes; the pushes the hook must read precisely, which name the clean branch from the
+planted one, so a push read whole would be refused; the commands that may and may not come before a push or run
+beside it, redirections among them; the moves of the shell's directory and the variables it follows, the ones bash
+does not keep, the ways a command that may or may not run leaves them (a redirection that may fail among them, and
+the functions it defines), and the ones that leave a directory it cannot name; the words bash reads as no reserved
+word or operator (a quoted one, a case's pattern, a loop's name, one after a process substitution, an array's
+assignment); the parameter expansions the shell reader splits, refused (a nested quote or backquote in a
+double-quoted one, and a `<<` bash reads in a word, among them); a redirection after two closing words, which belongs
+to the outer compound, and a `{name}` descriptor's ambiguous copy and close; a line too long to read in time; the
+settings, files and refs that would blind the scan or fail it; the API writes; the MCP writes; and the look-alikes
+that must pass. Each gap the hook's header names that a case can stand for is planted as one that passes through,
+with the files its command names, so closing it is a deliberate change here; a GIT_DIR, HOME or CDPATH the shell's
+profile sets and a push a person or a session that loads no repository hooks makes are outside what a case here can
+run.
 """
 from __future__ import annotations
 
@@ -75,6 +88,13 @@ def _load():
 SCAN = _load()
 VERSION, SHA256 = SCAN._pin()
 TARGET = SCAN._platform()
+# The hook refuses every scan on a git older than 2.43, or one whose version it cannot read (cases below plant
+# both), so a case that builds a scratch project skips on a git this file reads so (_make), except on CI, where the
+# suite fails instead. The cases that build none run on any git. The version is read here, not by the hook, so that
+# a fault in the hook's own reading fails the cases rather than skipping them.
+GIT = subprocess.run(["git", "version"], capture_output=True, text=True).stdout.strip()
+_READ = re.match(r"git version (\d+)\.(\d+)", GIT)
+OLD_GIT = _READ is None or (int(_READ.group(1)), int(_READ.group(2))) < (2, 43)
 
 
 def _value(seed: int) -> str:
@@ -117,21 +137,30 @@ while i < len(flags):
 if options.get("--report-format") != "json":  # the hook reads the report as JSON, so it asks for JSON
     print("error: no JSON report was asked for", file=sys.stderr)
     sys.exit(1)
+def readable(path):  # what gitleaks' fileExists takes: anything that is there and no directory, /dev/null among them
+    return os.path.exists(path) and not os.path.isdir(path)
 pins, ignore = set(), options.get("--gitleaks-ignore-path", ".")
 for path in (ignore, os.path.join(ignore, ".gitleaksignore"), os.path.join(source, ".gitleaksignore")):
-    if os.path.isfile(path):
+    if readable(path):
         with open(path, encoding="utf-8") as handle:
             pins.update(line.strip() for line in handle if line.strip() and not line.startswith("#"))
-# The rules: --config, else GITLEAKS_CONFIG's file, else GITLEAKS_CONFIG_TOML's text, else the directory's own.
-config = options.get("--config") or os.environ.get("GITLEAKS_CONFIG")
+# The rules: --config (or -c), else GITLEAKS_CONFIG's file, else GITLEAKS_CONFIG_TOML's text, else the directory's own.
+config = options.get("--config") or options.get("-c") or os.environ.get("GITLEAKS_CONFIG")
 rules = "" if config else os.environ.get("GITLEAKS_CONFIG_TOML", "")
 config = config or ("" if rules else os.path.join(source, ".gitleaks.toml"))
-if config and os.path.isfile(config):
-    rules = open(config, encoding="utf-8").read()
+read = bool(rules)
+if config and readable(config):
+    rules, read = open(config, encoding="utf-8").read(), True
 allow_all = "STUB-ALLOW-ALL" in rules
+# Rules that neither extend gitleaks' own (useDefault) nor define one are none, and gitleaks 8.24.3 then finds nothing.
+if read and not re.search(r"(?m)^\s*useDefault\s*=\s*true", rules) and "[[rules]]" not in rules:
+    PLANTED = re.compile(r"(?!)")
 log = subprocess.run(["git", "-C", source, "log", "-p", "-U0", *options["--log-opts"].split(" ")], capture_output=True, text=True)
-if log.returncode or log.stderr:  # anything git says on its stderr fails gitleaks' scan
-    print(log.stderr, file=sys.stderr)
+if log.returncode or log.stderr:  # the stub fails on anything git says on its stderr, as gitleaks does on most of it
+    for line in [*(f"ERR [git] {text}" for text in log.stderr.splitlines()),
+                 'ERR failed to scan Git repository error="stderr is not empty"', "WRN partial scan completed in 1ms",
+                 "WRN no leaks found in partial scan"]:
+        print("6:12PM " + line, file=sys.stderr)
     sys.exit(1)
 findings, commit, path, number = [], None, None, 0
 for line in log.stdout.splitlines():
@@ -169,11 +198,13 @@ def _registered() -> list[dict]:
 
 
 def _plain_env() -> dict[str, str]:
-    """The test's environment without GIT_* (a git hook running pytest sets GIT_DIR) or GITLEAKS_*, and with no
-    system or global git configuration, attributes or ignores: the machine's own (a signing key, colours,
-    aliases, a global `*.py` ignore) is no case's."""
+    """The test's environment without GIT_* (a git hook running pytest sets GIT_DIR) or GITLEAKS_*, with no system
+    or global git configuration, attributes or ignores, and with git's messages in English: the machine's own (a
+    signing key, colours, aliases, a global `*.py` ignore, a locale) is no case's."""
     env = {key: value for key, value in os.environ.items() if not key.startswith(("GIT_", "GITLEAKS_"))}
-    return {**env, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "XDG_CONFIG_HOME": os.devnull}
+    return {**env, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_ATTR_NOSYSTEM": "1",
+            "XDG_CONFIG_HOME": os.devnull,
+            "LC_ALL": "C"}
 
 
 def _real_binary() -> Path | None:
@@ -260,14 +291,16 @@ def _event(tool: str, tool_input: object, cwd: Path) -> dict:
             "hook_event_name": "PreToolUse", "tool_name": tool, "tool_input": tool_input, "tool_use_id": "toolu_1"}
 
 
-def _make(tmp_path: Path, binary: str = "stub") -> Project:
+def _make(tmp_path: Path, binary: str = "stub", objects: str = "sha1") -> Project:
     """A scratch project built from nothing (the `project` fixture copies one this process built once)."""
+    if OLD_GIT and not os.environ.get("CI"):  # never on CI, where a git too old fails the suite
+        pytest.skip(f"the hook's scans need git 2.43 or later, and this machine's git reports {GIT!r}")
     root = tmp_path / "project"
     for source, folder in ((HOOK, ".claude/hooks"), (GUARD, ".claude/hooks"), (CI, ".github/workflows")):
         (root / folder).mkdir(parents=True, exist_ok=True)
         shutil.copy(source, root / folder)
     project = Project(root, tmp_path / "cache", tmp_path / "stub.log")
-    project.git("init", "-q", "-b", "main")
+    project.git("init", "-q", "-b", "main", f"--object-format={objects}")
     project.git("remote", "add", "origin", "https://github.com/neilmac91/EarningsNerd")
     project.commit({"a.py": "x = 1\n"}, "base")
     project.publish("main")
@@ -320,6 +353,7 @@ def _found(reason: str | None, where: str = "b.py:1") -> None:
 def _ordered(reason: str | None) -> None:
     assert reason is not None, "the hook let it through"
     assert "before a push in the same call" in reason and "Bash call of its own" in reason, reason
+    assert "(not git clean, which may remove a directory)" in reason, reason
 
 
 # Each form a push of the branch `work` takes, its one new commit holding the planted line. Each value is the
@@ -384,7 +418,6 @@ PUSHES = {
     "words backquotes add": ("git push `echo origin work`", [["checkout", "-q", "clean"]]),
     "words a variable adds": ("git push $REMOTE_AND_BRANCH", [["checkout", "-q", "clean"]]),
     "words xargs adds": ("echo work | xargs git push origin", [["checkout", "-q", "clean"]]),
-    "words a command holding git adds": ("echo work | parallel git push origin", [["checkout", "-q", "clean"]]),
     "cd into a subdirectory": ("cd .claude && git push", []),
     "an alias in -c": ("git -c alias.ship=push ship origin work", []),
     "an alias in the repository's config": ("git ship origin work", [["config", "alias.ship", "push"]]),
@@ -404,13 +437,14 @@ PUSHES = {
     "a function by the keyword": ("function f { git push origin work; }; f", []),
     "an if's branch": ("if true; then git push origin work; fi", []),
     "a case's branch": ("case x in x) git push origin work;; esac", []),
+    "a case's later arm, from where the case began": (
+        "case x in y) cd @ELSEWHERE@;; *) git push origin work;; esac", []),
     "a while loop": ("while true; do git push origin work && break; done", []),
     "in the background": ("git push origin work &", []),
     "a pipeline's second command": ("echo x | git push origin work", []),
     "timeout": ("timeout 60 git push", []),
     "env and an assignment": ("env GIT_TRACE=0 git push", []),
     "nice and its value": ("nice -n 5 git push", []),
-    "a command whose own name is not known": ("watch -n 5 git push", []),
     "git by its path": ("/usr/bin/git push", []),
     "git with quotes inside": ("g''it push", []),
     "git with a quoted letter": ('"g"it push', []),
@@ -436,6 +470,118 @@ PUSHES = {
         "echo $(echo a)#c; git push origin `true`", [["branch", "true", "clean"]]),
     "a HOME the call gives git, whose global config may push more": ("HOME=@REPO@ git push", [["checkout", "-q", "clean"]]),
     "a git command the hook does not know, read as a push of every branch": ("git town sync", [["checkout", "-q", "clean"]]),
+    "a push whose output a variable keeps": ('out=$(git push origin work 2>&1); echo "$out"', []),
+    "a substitution after an export of a variable the hook does not follow": ('export LANG=C; : "$(git push origin work)"', []),
+    "a for loop's body, with no list": ("set -- a; for x do git push origin work; done", []),
+    # A case in a function's body ends at its `esac`, after a `;;`.
+    "a push after a function whose body holds a case": ("f() { case x in x) :;; esac; }; git push origin work", []),
+    "a push in a case's arm in a function": (
+        'pu() { case "$1" in main) echo no;; *) git push origin "$1";; esac; }; pu work', []),
+    "a break count bash cannot read": ("for i in 1; do false && break \u00b2; done; git push origin work", []),
+    # A case's patterns, read as bash parses them: a reserved word in one is a word, and an arm's terminator ends it
+    # after a closing word before it (`};;`).
+    "a pattern's parenthesis after an arm that ends in a group": (
+        "case ls in y) { cd @ELSEWHERE@; };; (ls) git push origin work;; esac", []),
+    "a push after a function whose case has a reserved word for a pattern": (
+        "f() { case x in a) :;; if) :;; esac; }; git push origin work", []),
+    "a push after a function whose case has a reserved word in parentheses for a pattern": (
+        "f() { case x in (if) :;; esac; }; git push origin work", []),
+    "a push after a function whose case tests a reserved word": ("f() { case if in x) :;; esac; }; git push origin work", []),
+    "a push after a function whose loop's name is a reserved word": (
+        "f() { for case in a; do :; done; }; git push origin work", []),
+    "a push after a function whose case's arm opens with a reserved word": (
+        "f() { case x in x) if true; then :; fi;; esac; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body times a group": (
+        "f() { time { :; }; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body times a group with -p": (
+        "f() { time -p { :; }; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose loop has no list": (
+        "f() { for i do if true; then :; fi; done; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body defines one with the keyword": (
+        "g() { function f { :; }; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body defines one named case": (
+        "g() { function case { :; }; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function in parentheses whose case's pattern has no (": (
+        "f() ( case x in a) cd @ELSEWHERE@;; esac ); git push origin work", []),
+    "a push after a case whose esac follows a blank line": ("case x in x) :;;\n\nesac\ngit push origin work", []),
+    "a push after a substitution whose case has the word case for a pattern": (
+        "x=$(case x in (case) :;; esac); git push origin work", []),
+    "a case's third arm, from where the case began": (
+        "case x in a) :;; b) export GIT_DIR=@ELSEWHERE@/.git;; x) git push origin work;; esac", []),
+    # What the reader must read whole, where an error it does not expect would refuse the call without its finding:
+    # bash's time with --, a function named by a reserved word (a syntax error after the push's line), a break
+    # count past Python's int.
+    "time -- before a function that pushes": ("f() { git push origin work; }; time -- f", []),
+    "time -p -- before a function that pushes": ("f() { git push origin work; }; time -p -- f", []),
+    "a push, then a line defining time as a function": ("git push origin work\ntime() { :; }", []),
+    "a function named if, then a push": ("if() { :; }; git push origin work", []),
+    "a break count past Python's own limit": ("for i in 1; do break 100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000; done; git push origin work", []),
+    # A descriptor's digits stand right before their operator, unquoted: these are the refspec `2`.
+    "a quoted digit before a redirection, the push's refspec": (
+        "git push origin '2'>/dev/null", [["branch", "2", "work"], ["checkout", "-q", "clean"]]),
+    "a digit set apart from its redirection, the push's refspec": (
+        "git push origin 2 >/dev/null", [["branch", "2", "work"], ["checkout", "-q", "clean"]]),
+    "a push after a function whose body times a group with -p and --": (
+        "f() { time -p -- { :; }; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body times a group with --": (
+        "f() { time -- { :; }; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body echoes done": ("f() { echo done; cd @ELSEWHERE@; }; git push origin work", []),
+    # The branch `cat` (at clean) holds nothing new: a walk that took the process substitution's `cat` for a source
+    # of the subshell's push finds no line there, where a source no ref names is read whole, which would find the
+    # line however the walk read the push after the subshell.
+    "a push after a subshell whose push writes to a process substitution after &>": (
+        "(git push origin clean &> >(cat); cd @ELSEWHERE@); git push origin work", [["branch", "cat", "clean"]]),
+    "a push after a subshell whose push reads a process substitution that > opens": (
+        "(git push origin clean < >(cat); cd @ELSEWHERE@); git push origin work", [["branch", "cat", "clean"]]),
+    "a remote.origin.push from -c in double quotes, a glob no shell expands": (
+        'git -c "remote.origin.push=refs/heads/*" push', [["checkout", "-q", "clean"]]),
+    # An array's assignment is one word, as bash reads it: no function's definition (`failed=()`), and no subshell.
+    "a push after an empty array's assignment, then a loop": (
+        "failed=(); git push origin work && for b in x; do :; done", []),
+    "a push after a function whose body assigns an array a reserved word": (
+        "f() { a=(done); cd @ELSEWHERE@; }; git push origin work", []),
+    "a source an array holds": ('refs=(clean); git push origin "${refs[@]}"', [["checkout", "-q", "clean"]]),
+    # A compound command's redirection is set up before its body runs, from where the compound began.
+    "a group's output to a process substitution that pushes": ("{ cd @ELSEWHERE@; } > >(git push origin work)", []),
+    "a group's errors to a process substitution that pushes": ("{ cd @ELSEWHERE@; } 2> >(git push origin work)", []),
+    "an if's output to a process substitution that pushes": (
+        "if true; then cd @ELSEWHERE@; fi > >(git push origin work)", []),
+    "a case's output to a process substitution that pushes": (
+        "case x in x) cd @ELSEWHERE@;; esac > >(git push origin work)", []),
+    "a group's input from a process substitution that pushes": ("{ cd @ELSEWHERE@; } < <(git push origin work)", []),
+    "a group that exports a GIT_DIR, its output to a process substitution that pushes": (
+        "{ export GIT_DIR=@ELSEWHERE@/.git; } > >(git push origin work)", []),
+    "a group that defines git, its output to a process substitution that pushes": (
+        "{ git() { :; }; } > >(git push origin work)", []),
+    # After a process substitution's `)`, bash is among its command's words, where a reserved word is a word.
+    "a push after an echo of a process substitution and the word case": (
+        "echo <(true) case x in; git push origin work", []),
+    "a loop's push after an echo of a process substitution and the word case": (
+        "echo <(true) case; for i in 1; do git push origin work; done", []),
+    "a loop's push after an echo to a process substitution and the word case": (
+        "echo > >(cat) case; for i in 1; do git push origin work; done", []),
+    "a push after a subshell whose substitution echoes a process substitution and the word case": (
+        "(cd @ELSEWHERE@; cat <(echo <(true) case x in)); git push origin work", []),
+    "a push after a function whose body echoes a process substitution and a }": (
+        "f() { echo <(true) }; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body reads a process substitution that holds a case": (
+        "f() { cat <(case x in x) :;; esac); cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body runs a group as a coprocess": (
+        "f() { coproc { :; }; cd @ELSEWHERE@; }; git push origin work", []),
+    "a push after a function whose body runs a named group as a coprocess": (
+        "f() { coproc NAME { :; }; cd @ELSEWHERE@; }; git push origin work", []),
+    # xargs gives git its words, its command among them.
+    # Two closing words before a redirection: it belongs to the compound the last of them closes, and runs from
+    # where that compound began (`{ cd x; { :; } } > >(cmd)`), not from the inner one's.
+    "a group's output to a process substitution, after a nested group": (
+        "{ cd @ELSEWHERE@; { :; } } > >(git push origin work)", []),
+    "a group's output to a process substitution, after a nested if": (
+        "{ cd @ELSEWHERE@; if true; then :; fi } > >(git push origin work)", []),
+    "a nested group's output to a process substitution, in an if": (
+        "if true; then cd @ELSEWHERE@; { :; } fi > >(git push origin work)", []),
+    "a git command xargs reads from a process substitution": (
+        "xargs -a <(echo push origin work) git", [["checkout", "-q", "clean"]]),
+    "a git command xargs reads": ("echo push origin work | xargs git", [["checkout", "-q", "clean"]]),
 }
 # Pushes of `work` from the repository `elsewhere`, whose own `work` is clean: refused only when the hook follows
 # the move into the project.
@@ -459,14 +605,103 @@ ELSEWHERE = {
     "cd - back": "cd @REPO@ && cd /tmp && cd - && git push",
     "--git-dir": "git --git-dir=@REPO@/.git push origin work",
     "--git-dir and a separate value": "git --git-dir @REPO@/.git push origin work",
+    "a relative --git-dir before -C, which git reads from there": "git --git-dir=.git -C @REPO@ push origin work",
+    "a relative --git-dir and a separate value before -C": "git --git-dir .git -C @REPO@ push origin work",
+    "a relative GIT_DIR, which git reads from where -C leaves it": "GIT_DIR=.git git -C @REPO@ push origin work",
     "a GIT_DIR before the command": "GIT_DIR=@REPO@/.git git push origin work",
     "an exported GIT_DIR": "export GIT_DIR=@REPO@/.git; git push origin work",
     "sh -lc": "sh -lc 'cd @REPO@ && git push'",
     "env -C": "env -C @REPO@ git push origin work",
     "env --chdir=": "env --chdir=@REPO@ git push origin work",
+    "env --chdir and a separate value": "env --chdir @REPO@ git push origin work",
+    "env -C and the value attached": "env -C@REPO@ git push origin work",
+    "env -C in a group of short options": "env -iC @REPO@ git push origin work",
+    "a wrapper's env -C": "nice env -C @REPO@ git push origin work",
+    "a GIT_DIR the command gives a new shell": "GIT_DIR=@REPO@/.git bash -c 'git push origin work'",
+    "a GIT_DIR env gives a new shell": "env GIT_DIR=@REPO@/.git bash -c 'git push origin work'",
+    "a new shell's popd, with no stack of its own": "pushd @REPO@ && bash -c 'popd; git push origin work'",
+    "git -C ~, from the HOME the call sets": "HOME=@REPO@; git -C ~ push origin work",
+    "env -C ~, from the HOME the call sets": "HOME=@REPO@; env -C ~ git push origin work",
+    "--git-dir and a separate ~": "HOME=@REPO@; git --git-dir ~/.git push origin work",
+    "a GIT_DIR's ~, expanded as it is exported": "HOME=@REPO@; export GIT_DIR=~/.git; HOME=/; git push origin work",
+    "a GIT_DIR's ~, from a HOME before it in the command": "HOME=@REPO@ GIT_DIR=~/.git git push origin work",
+    "export's ~, from the HOME before the command": "HOME=@REPO@; export HOME=@ELSEWHERE@ GIT_DIR=~/.git; git push origin work",
+    "env --chdir and a separate ~": "HOME=@REPO@; env --chdir ~ git push origin work",
+    "env -C ~, the shell's HOME, not the command's": "HOME=@REPO@; HOME=@ELSEWHERE@ env -C ~ git push origin work",
+    "env --chdir ~, the shell's HOME, not the command's": "HOME=@REPO@; HOME=@ELSEWHERE@ env --chdir ~ git push origin work",
+    "a GIT_DIR's ~ among env's assignments": "HOME=@REPO@; env GIT_DIR=~/.git git push origin work",
+    "a GIT_DIR's ~ after env's own HOME": "HOME=@REPO@; env HOME=@ELSEWHERE@ GIT_DIR=~/.git git push origin work",
+    "env -v, --debug and --": "env -v --debug -- git -C @REPO@ push origin work",
+    "exec -a and a name holding c": "export GIT_DIR=@REPO@/.git; exec -ac git push origin work",
+    "a ~ in a call that quotes another word": "HOME=@REPO@; git -C ~ push -o 'ci.skip' origin work",
+    "sudo env -C, to a literal path wherever sudo starts": "sudo env -C @REPO@ git push origin work",
+    "a HOME exported again after export -n, which a new shell gets": (
+        "export HOME=@REPO@; export -n HOME; export HOME; bash -c 'cd; git push origin work'"),
+    "a HOME the command gives a new shell, whatever the shell holds unexported": (
+        "export HOME=@ELSEWHERE@; export -n HOME; HOME=@REPO@ bash -c 'cd; git push origin work'"),
+    "a HOME env gives a new shell, whatever the shell holds unexported": (
+        "export HOME=@ELSEWHERE@; export -n HOME; env HOME=@REPO@ bash -c 'cd; git push origin work'"),
+    # What may or may not run leaves the shell as one of its ways does: a condition's move outlasts its branches.
+    "a condition's move, and the else branch's push": (
+        "if cd @REPO@ && false; then cd @ELSEWHERE@; else git push origin work; fi"),
+    "a while's condition, after which its body may not run": (
+        "while cd @REPO@ && false; do cd @ELSEWHERE@; done; git push origin work"),
+    "eval with an assignment before it": "GIT_DIR=@REPO@/.git eval git push origin work",
+    "a GIT_DIR export -n hides and export shows again": (
+        "export GIT_DIR=@REPO@/.git; export -n GIT_DIR; export GIT_DIR; git push origin work"),
+    "a function defined in a group": "{ ls() { cd @REPO@; }; }; cd @ELSEWHERE@; ls; git push origin work",
+    "a function the keyword defines in a group": (
+        "{ function ls { cd @REPO@; }; }; cd @ELSEWHERE@; ls; git push origin work"),
+    "an EXIT trap an exit runs": "trap 'git push origin work' EXIT; cd @REPO@; [ -d / ] && exit; cd @ELSEWHERE@",
+    "env -C after another wrapper's, from where that leaves": "env -C @REPO@ nice env -C .claude git push origin work",
+    "a function's OLDPWD prefix, which its body's cd - reads": "f() { cd - && git push origin work; }; OLDPWD=@REPO@ f",
+    "an OLDPWD a new shell's command gives it": "OLDPWD=@REPO@ bash -c 'cd - && git push origin work'",
+    "unset -f, which leaves the variable": "export GIT_DIR=@REPO@/.git; unset -f GIT_DIR; git push origin work",
+    "a function export -f gives a new shell": "f() { cd @REPO@; }; export -f f; bash -c 'f; git push origin work'",
+    "an OLDPWD a new shell's cd replaces": "OLDPWD=@ELSEWHERE@ bash -c 'cd @REPO@ && cd /tmp && cd - && git push origin work'",
+    "an OLDPWD env gives a new shell, which its cd replaces": (
+        "env OLDPWD=@ELSEWHERE@ bash -c 'cd @REPO@ && cd /tmp && cd - && git push origin work'"),
+    "an OLDPWD before a function, which its cd replaces": (
+        "f() { cd @REPO@; cd /tmp; cd -; git push origin work; }; OLDPWD=@ELSEWHERE@ f"),
     "a trap, in the directory its shell ends in": "trap 'git push origin work' EXIT; cd @REPO@",
     "a subshell's trap, where the subshell ends": "(trap 'git push origin work' EXIT; cd @REPO@)",
     "an eval's trap, the shell's around it": "eval \"trap 'git push origin work' EXIT\"; cd @REPO@",
+    "export -n with a value, which it sets": "export -n GIT_DIR=@REPO@/.git; export GIT_DIR; git push origin work",
+    "a function a new shell's own new shell gets, exported": (
+        "f() { cd @REPO@; }; export -f f; bash -c 'bash -c \"f; git push origin work\"'"),
+    "a function's prefix assignment, which what it runs gets though the shell holds it unexported": (
+        "export GIT_DIR=@ELSEWHERE@/.git; export -n GIT_DIR; f() { git push origin work; }; GIT_DIR=@REPO@/.git f"),
+    "eval's prefix assignment, which its words get though the shell holds it unexported": (
+        "export GIT_DIR=@ELSEWHERE@/.git; export -n GIT_DIR; GIT_DIR=@REPO@/.git eval git push origin work"),
+    "unset -f in a pipeline, which leaves the shell's function": (
+        "ls() { cd @REPO@; }; unset -f ls | cat; ls; git push origin work"),
+    "a quoted ; an echo prints": "cd @REPO@; echo ';' cd @ELSEWHERE@; git push origin work",
+    "an escaped ; an echo prints": "cd @REPO@; echo \\; cd @ELSEWHERE@; git push origin work",
+    "a nested case's first pattern": "case a in a) cd @REPO@; case b in b) git push origin work;; esac;; esac",
+    "a function a process substitution removes": "ls() { cd @REPO@; }; cat <(unset -f ls); ls; git push origin work",
+    "a function a subshell removes": "ls() { cd @REPO@; }; (unset -f ls); ls; git push origin work",
+    "an escaped ;; an echo prints": r"cd @REPO@; echo \;\; cd @ELSEWHERE@; git push origin work",
+    "an arithmetic for in a case's arm in a function's body, whose ;; ends no arm": (
+        "f() { case x in x) for ((;;)); do break; done;; esac; cd @REPO@; }; f; git push origin work"),
+    "a push after an empty array's assignment, a cd and an if": (
+        "a=(); cd @REPO@; if true; then :; fi; git push origin work"),
+    "a push after an array a loop appends to": (
+        'out=() && cd @REPO@ && for f in a.py; do out+=("$f"); done && git push origin work'),
+    "a function that assigns an empty array, moves and loops": (
+        "f() { arr=(); cd @REPO@; for i in 1; do :; done; }; f; git push origin work"),
+    # A definition's redirection is set up at each call, from where it is called.
+    "a function whose definition's output goes to a process substitution that pushes, called after a cd": (
+        "f() { :; } > >(git push origin work); cd @REPO@; f"),
+    "a function whose definition's input comes from a process substitution that pushes, called after a cd": (
+        "f() { :; } < <(git push origin work); cd @REPO@; f"),
+    # Redirections that do not fail, so the cd runs.
+    "a cd whose errors go to /dev/null": "cd @REPO@ 2>/dev/null && git push origin work",
+    "a cd whose output and errors go to /dev/null by >& alone": "cd @REPO@ >& /dev/null && git push origin work",
+    "a cd whose output and errors go to /dev/null by 1>&": "cd @REPO@ 1>& /dev/null && git push origin work",
+    "a cd whose errors go where its output does": "cd @REPO@ 2>&1 && git push origin work",
+    "a cd with a here-document": "cd @REPO@ <<EOF\nhi\nEOF\ngit push origin work",
+    "a cd with a here-string": "cd @REPO@ <<< hi && git push origin work",
+    "a cd whose output goes to a process substitution": "cd @REPO@ > >(cat) && git push origin work",
 }
 # Pushes of `work` from the project after a move the shell does not keep, or undoes: refused only when the hook
 # reads the push in the project.
@@ -481,6 +716,35 @@ STAYS = {
     "pushd +N past the stack's end": "pushd +3; git push origin work",
     "popd with no stack": "popd; git push origin work",
     "an OLDPWD a later cd replaces": "OLDPWD=@ELSEWHERE@; cd /tmp && cd - && git push origin work",
+    "env -u GIT_DIR": "export GIT_DIR=@ELSEWHERE@/.git; env -u GIT_DIR git push origin work",
+    "env -u and the name attached": "export GIT_DIR=@ELSEWHERE@/.git; env -uGIT_DIR git push origin work",
+    "env --unset=GIT_DIR": "export GIT_DIR=@ELSEWHERE@/.git; env --unset=GIT_DIR git push origin work",
+    "env --unset and a separate name": "export GIT_DIR=@ELSEWHERE@/.git; env --unset GIT_DIR git push origin work",
+    "env -i": "export GIT_DIR=@ELSEWHERE@/.git; env -i git push origin work",
+    "env -i in a group of short options": "export GIT_DIR=@ELSEWHERE@/.git; env -iu X git push origin work",
+    "env -": "export GIT_DIR=@ELSEWHERE@/.git; env - git push origin work",
+    "env --ignore-environment": "export GIT_DIR=@ELSEWHERE@/.git; env --ignore-environment git push origin work",
+    "exec -c": "export GIT_DIR=@ELSEWHERE@/.git; exec -c git push origin work",
+    "exec -a and a name, then -c": "export GIT_DIR=@ELSEWHERE@/.git; exec -a name -c git push origin work",
+    "unset of an element, which unsets a variable whole": "export GIT_DIR=@ELSEWHERE@/.git; unset 'GIT_DIR[0]'; git push origin work",
+    "a list in the background, its cd among it": "cd @ELSEWHERE@ && true & git push origin work",
+    "env -C twice, the last from where env starts": "env -C @ELSEWHERE@ -C . git push origin work",
+    "env --chdir twice, the last from where env starts": "env --chdir=@ELSEWHERE@ --chdir=. git push origin work",
+    "a job in the background first in an else branch": (
+        "if false; then cd @ELSEWHERE@; else sleep 0 & git push origin work; fi"),
+    "a function whose subshell body holds a case": "f() ( case x in x) cd @ELSEWHERE@;; esac ); f; git push origin work",
+    "a process substitution that holds a case": "cat <(case x in x) cd @ELSEWHERE@;; esac); git push origin work",
+    "a case that ends just before its subshell does": "(cd @ELSEWHERE@; case x in x) :;; esac); git push origin work",
+    "a process substitution whose case has two arms, the first pattern opened": (
+        "cat <(case x in (y) :;; x) cd @ELSEWHERE@;; esac); git push origin work"),
+    "a function's subshell body: a case after a command, an esac an echo prints, a cd after the case": (
+        "f() ( true; case x in (y) echo esac;; x) cd @ELSEWHERE@;; esac; cd @ELSEWHERE@ ); f; git push origin work"),
+    "a break a new shell's string holds, which leaves no loop of the shell's": (
+        "for i in 1; do cd @ELSEWHERE@; bash -c 'break'; cd @REPO@; done; git push origin work"),
+    "a function a pipeline's command exports": (
+        "ls() { cd @ELSEWHERE@; }; export -f ls | cat; bash -c 'ls; git push origin work'"),
+    "a function a process substitution exports": (
+        "ls() { cd @ELSEWHERE@; }; cat <(export -f ls); bash -c 'ls; git push origin work'"),
 }
 # Pushes from the project that run in `elsewhere`, whose commits are clean: they pass, scanned there.
 MOVED_AWAY = {
@@ -489,6 +753,47 @@ MOVED_AWAY = {
     "env -C": "env -C @ELSEWHERE@ git push origin work",
     "pushd": "pushd @ELSEWHERE@ && git push origin work",
     "popd -n after pushd, which keeps the directory": "pushd @ELSEWHERE@ && popd -n && git push origin work",
+    "exec -a, whose name looks like an option": "export GIT_DIR=@ELSEWHERE@/.git; exec -a -c git push origin work",
+    "an absolute OLDPWD after a cd the hook cannot name": 'cd "$X"; OLDPWD=@ELSEWHERE@; cd - && git push origin work',
+    "cd -- and a directory": "cd -- @ELSEWHERE@ && git push origin work",
+    # Read where the shell is whichever way it went.
+    "a while's condition that moves the shell, which its body undoes": (
+        "while cd @ELSEWHERE@ && false; do cd @REPO@; done; git push origin work"),
+    "an if each of whose branches moves to one directory": (
+        "if true; then cd @ELSEWHERE@; else cd @ELSEWHERE@; fi && git push origin work"),
+    "an if's condition that moves the shell, which no branch undoes": (
+        "if cd @ELSEWHERE@; then :; fi; git push origin work"),
+    "a function that returns where it moved": "f() { cd @ELSEWHERE@; return; }; f; git push origin work",
+    "a cd after a cd in an && list, which runs only after it": (
+        "cd @REPO@ && cd @ELSEWHERE@ && git push origin work"),
+    "a subshell after a blank line in a case's arm, which no `;;` ends": (
+        "case x in\nx) cd @ELSEWHERE@\n\n(cd @REPO@)\ngit push origin work;;\nesac"),
+    "an && list, then a push after it": "cd @ELSEWHERE@ && true; git push origin work",
+    "a subshell in a case's first arm": "case x in x) cd @ELSEWHERE@; (cd @REPO@); git push origin work;; esac",
+    # What only bash reads, in bash's own string, and backquotes git's options do not hold.
+    "pushd in bash's string": "bash -c 'pushd @ELSEWHERE@ >/dev/null && git push origin work'",
+    "cd -e in bash's string": "bash -c 'cd -e @ELSEWHERE@ && git push origin work'",
+    "a $'' quote in bash's string": "bash -c \"cd $'@ELSEWHERE@' && git push origin work\"",
+    "backquotes after git's command": "cd @ELSEWHERE@ && git push origin `echo work`",
+    "a function an && list's first pipeline defines, which always runs": (
+        "f() { cd @ELSEWHERE@; } && true; f; git push origin work"),
+    "a quoted ;; in a case's arm, then a subshell": (
+        "case x in x) cd @ELSEWHERE@; echo ';;'; (cd @REPO@); git push origin work;; esac"),
+    "an empty case, then a subshell": "case x in esac; cd @ELSEWHERE@; (cd @REPO@); git push origin work",
+    "time -p, bash's reserved word, before a cd": "time -p cd @ELSEWHERE@ && git push origin work",
+    "a function's prefix assignment, unexported again after it": (
+        "cd @ELSEWHERE@; export GIT_DIR=@REPO@/.git; export -n GIT_DIR; f() { :; }; GIT_DIR=@REPO@/.git f; "
+        "git push origin work"),
+    "an arm's background job, from where the arm began": (
+        "cd @ELSEWHERE@; case x in y) cd @REPO@;; x) true & git push origin work;; esac"),
+    "an arm the case reaches without the functions an arm before defined": (
+        "cd @ELSEWHERE@; case x in y) ls() { cd @REPO@; };; x) ls; git push origin work;; esac"),
+    "an else the function its then-branch defines does not reach": (
+        "cd @ELSEWHERE@; if false; then ls() { cd @REPO@; }; else ls; git push origin work; fi"),
+    "eval's prefix assignment, unexported again after it": (
+        "cd @ELSEWHERE@; export GIT_DIR=@REPO@/.git; export -n GIT_DIR; GIT_DIR=@REPO@/.git eval :; git push origin work"),
+    "a HOME one way of an if unexports, for cd": (
+        "export HOME=@ELSEWHERE@; if [ -d /x ]; then export -n HOME; fi; cd; git push origin work"),
 }
 # Pushes of `clean` from `work`, whose HEAD holds the planted line: each passes, scanned, only if the hook reads
 # what the push names and not every branch.
@@ -524,6 +829,13 @@ PRECISE = {
     "piped into tail": ("git push origin clean 2>&1 | tail -n 3", []),
     "backquotes in single quotes": ("echo 'a `b` c'; git push origin clean", []),
     "a comment after the push": ("git push origin clean  # costs $0, `nothing` else", []),
+    "the push's output a variable keeps": ('out=$(git push origin clean 2>&1); echo "$out"', []),
+    "a substitution after another variable's assignment": ('FOO=1; out="$(git push origin clean)"', []),
+    "timeout's signal and its value": ("timeout -s KILL 60 git push origin clean", []),
+    "stdbuf's -o and its value": ("stdbuf -o L git push origin clean", []),
+    "exec -a and its name attached": ("exec -ax git push origin clean", []),
+    "a branch whose name ends in a digit, right before a redirection": (
+        "git push origin clean2>/dev/null", [["branch", "clean2", "clean"]]),
 }
 # Commands that may make or move a commit, or run what may, before a push in its call: refused whatever the
 # commits hold (here the branch `clean`, whose commit holds nothing).
@@ -612,11 +924,105 @@ BEFORE_REFUSED = {
     "git ls-remote running a program": "git ls-remote --upload-pack=./move.sh .; git push",
     "git archive running a program": "git archive --remote=. --exec=./move.sh HEAD; git push",
     "git add running an editor": "git add -e; git push",
+    # A builtin is the shell's only by its own name: `CD` or a path to a program named cd moves no shell.
+    "cd in capitals, another command": "CD @ELSEWHERE@; git push",
+    "a program named cd": "/usr/bin/cd @ELSEWHERE@; git push",
+    "export in capitals, another command": "EXPORT GIT_DIR=@ELSEWHERE@/.git; git push",
+    # A function the shell no longer has is a program by that name.
+    "a function unset removes, then its name": "f() { cd @ELSEWHERE@; }; unset f; f; git push",
+    "a function a new shell does not get": "f() { cd @ELSEWHERE@; }; bash -c 'f; git push'",
+    "an exported function sh may not import, as dash does not": "f() { cd @ELSEWHERE@; }; export -f f; sh -c 'f; git push'",
+    "a function a subshell defined": "(f() { cd @ELSEWHERE@; }); f; git push",
+    # A function the call may define otherwise, or not at all, is one the hook cannot read.
+    "a function unset may keep, a variable by its name the hook holds unknown": (
+        "ls() { cd @ELSEWHERE@; }; ls=1; unset ls; ls; git push"),
+    "a function an if's branch defines": "if true; then ls() { cd @ELSEWHERE@; }; fi; ls; git push",
+    "functions an if defines either way": (
+        "if true; then ls() { :; }; else ls() { cd @ELSEWHERE@; }; fi; ls; git push"),
+    "a function a skipped pipeline defines": "false && ls() { cd @ELSEWHERE@; }; ls; git push",
+    "a function its line redefines after a substitution calls it": (
+        "f() { :; }; x=$(f; git push); f() { cd @ELSEWHERE@; }"),
+    "a function its line defines after a substitution calls it": "x=$(f; git push); f() { cd @ELSEWHERE@; }",
+    "a file ENV gives sh": "ENV=rc.sh sh -c 'git push'",
+    "a directory ZDOTDIR gives zsh": "ZDOTDIR=d zsh -c 'git push'",
+    "a function a new shell defines, gone after it": "bash -c 'f() { cd @ELSEWHERE@; }'; f; git push",
+    "a function a piped group defines": "{ f() { cd @ELSEWHERE@; }; } | cat; f; git push",
+    "a function a background job defines": "f() { cd @ELSEWHERE@; } & f; git push",
+    "a function its line removes after a substitution calls it": (
+        "f() { cd @ELSEWHERE@; }; eval 'x=$(f; git push); unset f'"),
+    # A new shell given a startup file or a function runs it before its string.
+    "a file BASH_ENV gives a new shell": "BASH_ENV=rc.sh bash -c 'git push'",
+    "a function env gives a new shell": """env 'BASH_FUNC_git%%=() { command git "$@"; }' bash -c 'git push'""",
+    "a new shell after an export of a name a variable holds, which may be its startup file": (
+        "n=BASH_ENV; export $n=rc.sh; bash -c 'git push'"),
+    # A function a subshell defines, changes or exports stays there.
+    "a function a definition in a pipeline makes": "f() { cd @ELSEWHERE@; } | cat; f; git push",
+    "a function a piped call defines": "f() { g() { cd @ELSEWHERE@; }; }; f | cat; g; git push",
+    "a function a process substitution defines": "cat <(f() { cd @ELSEWHERE@; }); f; git push",
+    "a function a piped eval defines": "eval 'f() { cd @ELSEWHERE@; }' | cat; f; git push",
+    "a function a subshell exports": "f() { cd @ELSEWHERE@; }; (export -f f); bash -c 'f; git push'",
+    "a function export -fn stops exporting": "f() { cd @ELSEWHERE@; }; export -f f; export -fn f; bash -c 'f; git push'",
+    "a function an && list may export": "f() { cd @ELSEWHERE@; }; true && export -f f; bash -c 'f; git push'",
+    "a function unset may keep, after a variable read sets by its name": (
+        "ls() { cd @ELSEWHERE@; }; read ls <<< x; unset ls; ls; git push"),
+    "a function a loop's later turn calls": "for i in 1 2; do f; f() { git push origin work; }; done",
+    "a quoted reserved word, a program by that name": "'function' x; git push",
+    "a function one substitution defines, which another does not have": (
+        "x=$(f() { cd @ELSEWHERE@; }); y=$(f; git push)"),
+    "a push a function holds, which a substitution on its line calls": 'f() { git push origin work; }; x=$(f); echo "$x"',
+    "time in sh, a program there": "sh -c 'time cd @ELSEWHERE@ && git push origin work'",
+    "a function the keyword defines in a piped group": "{ function f { cd @ELSEWHERE@; }; } | cat; f; git push",
+    "an escaped reserved word, a program by that name": "\\time cd @ELSEWHERE@; git push",
+    "a quoted {, a program by that name": "'{' cd @ELSEWHERE@; git push",
+    "a quoted fi, a program by that name": "'fi' cd @ELSEWHERE@; git push",
+    "a quoted then, a program by that name": "'then' cd @ELSEWHERE@; git push",
+    "a function the || after an && list may get from where the list began": (
+        "f() { cd @ELSEWHERE@; }; true && { f() { cd @REPO@; }; false; } || { f; git push; }"),
+    "a function a definition after a pipe makes": "cat /dev/null | f() { cd @ELSEWHERE@; }; f; git push",
+    "a function a shell alias does not get": "f() { cd @ELSEWHERE@; }; git -c 'alias.x=!f; git push' x",
+    "a function defined again after unset -f, which no export marks": (
+        "f() { :; }; export -f f; unset -f f; f() { cd @ELSEWHERE@; }; bash -c 'f; git push'"),
+    "a function a background list defines": "true && eval 'f() { cd @ELSEWHERE@; }' && true & f; git push",
+    "a function unset -f removes": "f() { cd @ELSEWHERE@; }; unset -f f; f; git push",
+    "a function an and-or list's skipped pipeline redefines": (
+        "f() { :; }; f() { cd @ELSEWHERE@; } || f() { :; }; f; git push"),
+    "a function a piped definition with a redirection keeps to its subshell": (
+        "f() { cd @ELSEWHERE@; } >/dev/null | true; f; git push"),
+    "a function a piped definition with an input process substitution keeps to its subshell": (
+        "f() { cd @ELSEWHERE@; } < <(true) | true; f; git push"),
+    "a function a piped definition with a descriptor's redirection keeps to its subshell": (
+        "f() { cd @ELSEWHERE@; } 2>/dev/null | true; f; git push"),
+    "a commit in a process substitution the push writes to": "git push > >(git commit -qam x)",
+    "a commit in a process substitution the push reads": "git push < <(git commit -qam x)",
+    "a commit in a process substitution the push's errors go to": "git push 2> >(git commit -qam x)",
+    "a commit in a process substitution after &>": "git push &> >(git commit -qam x)",
+    "a tee in a process substitution the push's errors go to": "git push 2> >(tee push.log)",
+    "a function a piped definition with a process substitution after &> keeps to its subshell": (
+        "f() { cd @ELSEWHERE@; } &> >(cat) | true; f; git push"),
+    "a function a piped definition with a process substitution after < keeps to its subshell": (
+        "f() { cd @ELSEWHERE@; } < >(cat) | true; f; git push"),
+    "a program a function a loop's later turn redefines runs, before a push": (
+        "f() { :; }; for i in 1 2; do f; f() { make; }; done; git push origin work"),
+    "a function declare -fx exports to a new shell": "f() { git push origin work; }; declare -fx f; bash -c f",
+    "a function typeset -fx exports to a new shell": "f() { git push origin work; }; typeset -fx f; bash -c f",
+    "a git clean, which may remove the directory a cd after it enters": "git clean -fdq; git push",
+    "a commit a process substitution among an array's words runs": "a=(<(git commit -qam x)); git push",
+    "a file a function's definition writes at each call": "f() { :; } > log; f; git push",
+    "a function a piped definition that appends to a device keeps to its subshell": (
+        "f() { cd @ELSEWHERE@; } &>>/dev/null | true; f; git push"),
+    "a function a piped definition that opens a device to read and write keeps to its subshell": (
+        "f() { cd @ELSEWHERE@; } <>/dev/null | true; f; git push"),
+    "a function a piped definition with a process substitution after > keeps to its subshell": (
+        "f() { cd @ELSEWHERE@; } > >(cat) | true; f; git push"),
 }
 # Commands that may come before a push, or beside it: read-only or index-only git commands, cd and plain
 # builtins; the push of `clean` passes.
 BEFORE_ALLOWED = {
     "cd": "cd @REPO@ && git push",
+    "an and-or list, then a cd that names the directory again": "true && cd @ELSEWHERE@; cd @REPO@; git push",
+    "timeout's duration with a unit": "timeout 1m git push",
+    "a break in a function, which leaves no loop of its caller's": (
+        "f() { break; }; for i in 1; do cd @ELSEWHERE@; f; cd @REPO@; done; git push"),
     "status": "git status && git push",
     "add": "git add -A && git push",
     "log and diff": "git log -1 && git diff --stat && git push",
@@ -658,6 +1064,28 @@ BEFORE_ALLOWED = {
     "a function of reads, called first": "f() { git status; }; f; git push",
     "a function of reads by the keyword, called first": "function f { git status; }; f; git push",
     "a function that unsets its own prefix assignment": "f() { unset GIT_DIR; git status; }; GIT_DIR=@REPO@/.git f; git push",
+    "a cd whose failure ends the call": "cd @REPO@ || exit 1; git push",
+    "a cd whose failure runs a group that ends the call": "cd @REPO@ || { echo no; exit 1; }; git push",
+    "a -c value with a space, which no shell splits": "git -c 'user.name=a b' push origin clean",
+    "a substitution inside a push's, which moves nothing": 'out=$(: $(true); git push origin clean 2>&1); echo "$out"',
+    "a pattern's | after the first arm, which runs nothing": "case x in y) :;; a|b) git push;; esac",
+    "a quoted > an echo prints": "echo '>' x; git push origin clean",
+    "an escaped > an echo prints": r"echo \> x; git push origin clean",
+    "a process substitution an echo writes to, which only reads": "echo hi > >(cat); git push origin clean",
+    "a process substitution an echo writes to after &>, which only reads": "echo hi &> >(cat); git push origin clean",
+    "a whole case in a substitution, its pattern opened, a case word in its arm": (
+        "out=$(case x in (x) echo case;; esac); git push origin clean"),
+    "a break in an inner loop, which leaves the outer one running": (
+        "for i in 1; do for j in 1; do cd @ELSEWHERE@; break; done; cd @REPO@; done; git push"),
+    "a function whose definition writes a file, never called": "f() { :; } > log; git push origin clean",
+    "a process substitution the push's errors go to, which only reads": "git push origin clean 2> >(cat)",
+    "a device a read appends to before a push": "git status &>>/dev/null; git push origin clean",
+    "an array of file names before a push": "files=(a.py c.py); git push origin clean",
+    "an addition to a variable the hook does not follow, before a push": (
+        "PATH+=:/usr/local/bin; git push origin clean"),
+    "an element's assignment before a push": "a[1]=x; git push origin clean",
+    "a function whose body starts on the next line, called before a push": (
+        "f()\n{ git status; }\nf; git push origin clean"),
 }
 # Look-alikes on the branch `work`, whose new commit holds the planted line: none sends it to GitHub.
 PASSES = {
@@ -675,10 +1103,39 @@ PASSES = {
     "a quoted phrase": "grep -rn 'git push' .",
     "an echoed string": 'echo "git push"',
     "a file named push": "cat push.log",
-    "a directory that is no repository": "git -C /tmp push",
     "a push of nothing new": "git push origin main:refs/heads/copy",
     "a function that pushes, never called": "f() { git push origin work; }",
     "a function named git, which the shell runs instead": "git() { echo no; }; git push origin work",
+    # A function the hook cannot read pushes only when a body the call defines names git or gh.
+    "a loop whose turn defines a function, in a call that pushes nothing": "for i in 1 2; do g() { :; }; done; git status",
+    # A body's word holds git or gh inside a longer one, which names neither.
+    "a function the call may define otherwise, whose body says high": "true && f() { echo high; }; f; git log -1",
+    "functions an if defines either way, whose bodies say right and up": (
+        "if [ -f x ]; then say() { echo right; }; else say() { echo up; }; fi; say; git status"),
+    "a function the call may define otherwise, whose body names github": (
+        "true && f() { echo https://github.com; }; f; git status"),
+    "a function the call may define otherwise, none of whose bodies names git": "true && f() { :; }; f; git log -1",
+    "functions an if defines either way, called in a call that pushes nothing": (
+        "if [ -f x ]; then log() { echo a; }; else log() { echo b; }; fi; log hi; git status"),
+    "an empty array's assignment, in a call that pushes nothing": "files=(); git status",
+    "a comment that holds a parameter expansion with an operator character": "git status # ${x%)}",
+    "a default that runs a substitution holding a ;": "echo ${x:-$(git rev-parse HEAD; true)}; git status",
+    "a parameter expansion with an operator character in single quotes": "echo '${x%)}'; git status",
+    "a parameter expansion with an operator character in double quotes": 'echo "${x%)}"; git status',
+    "a double-quoted default that holds a quote": """echo "${x:-it's}"; git status""",
+    "a here-document whose text holds a parameter expansion with an operator character": (
+        "cat <<'EOF'\n${x%)}\nEOF\ngit status"),
+    "a comment in a substitution that holds a parameter expansion with an operator character": (
+        "x=$(git status # ${y%)}\n); git log -1"),
+    "a double-quoted default that holds a paired single-quoted word": '''echo "${x:-'a'}"; git status''',
+    "a double-quoted default that holds a paired quote inside, a push of nothing after": (
+        '''echo "${x:-'a' b}"; git push origin clean'''),
+    "an array holding a process substitution, in a call that pushes nothing": (
+        "a=(<(true)); git push origin clean"),
+    "xargs running a program that reads, before a git argument": "git ls-files | xargs grep -l git",
+    "xargs running echo with a git argument": "printf 'a\\n' | xargs echo git",
+    "a function the call may define otherwise, whose body names variables whose names hold gh and git": (
+        "true && f() { echo $GH_TOKEN $USE_GIT; }; f; git status"),
 }
 # Pushes the shell never runs that the hook reads anyway, and refuses.
 OVER_READ = {
@@ -686,6 +1143,10 @@ OVER_READ = {
     "an echo of a push": "echo git push",
     "a git command the hook does not know, named like push": "git push-notes",
     "a `$` in a quoted word, read as a word the shell expands": "git push -o 'note=$5' origin clean",
+    "a push after a function whose case holds an extended pattern, which bash parses only under extglob": (
+        "f() ( case x in @(a|b)) cd @ELSEWHERE@;; esac ); git push origin work"),
+    "a push after a function whose body echoes an extended pattern and a }, which bash parses only under extglob": (
+        "f() { echo @(a|b) }; cd @ELSEWHERE@; }; git push origin work"),
 }
 # Read as a command that may move a commit, and so refused before a push: the shell runs none.
 OVER_READ_ORDER = {
@@ -693,12 +1154,82 @@ OVER_READ_ORDER = {
 }
 # A directory the hook cannot name: refused, whatever the commits hold.
 UNNAMED = {
+    "a function the call may define otherwise, whose body runs git by its path": (
+        "true && f() { /usr/bin/git push origin work; }; f"),
+    "a function the call may define otherwise, whose body runs git in capitals": (
+        "true && f() { GIT push origin work; }; f"),
     "a variable": 'cd "$REPO" && git push',
     "a substitution": "cd $(git rev-parse --show-toplevel) && git push",
     "-C and a variable": 'git -C "$REPO" push',
     "a directory that does not exist yet": "cd /does/not/exist && git push",
     "a GIT_DIR from a variable": "GIT_DIR=$X git push",
     "cd - with no directory before": "cd - && git push",
+    "a substitution after moves that leave OLDPWD as the call found it": (
+        'cd "$REPO"; cd @ELSEWHERE@; : "$(git push)"'),
+    # What may or may not run leaves the shell where its ways agree, and nowhere the hook can name otherwise.
+    "an if whose else moves back": "if true; then cd @ELSEWHERE@; else cd @REPO@; fi; git push",
+    "an elif chain whose else moves back": (
+        "if false; then cd /tmp; elif true; then cd @ELSEWHERE@; else cd @REPO@; fi; git push"),
+    "a case whose last arm moves back": "case x in x) cd @ELSEWHERE@;; *) cd @REPO@;; esac; git push",
+    "a case whose patterns stand in parentheses": "case x in (x) cd @ELSEWHERE@;; (*) cd @REPO@;; esac; git push",
+    "an arm a fallthrough reaches": "case x in x) cd @ELSEWHERE@;& y) git push;; esac",
+    "a condition's move a skipped branch undoes": "if cd @ELSEWHERE@ && false; then cd @REPO@; fi; git push",
+    "a return in a function's body": "f() { cd @ELSEWHERE@; return; cd @REPO@; }; f; git push",
+    "a break in a loop's body": "for i in 1; do cd @ELSEWHERE@; break; cd @REPO@; done; git push",
+    "a continue in a loop's body": "for i in 1; do cd @ELSEWHERE@; continue; cd @REPO@; done; git push",
+    "a break an eval runs": "for i in 1; do cd @ELSEWHERE@; eval break; cd @REPO@; done; git push",
+    "a loop whose later turn moves": "for i in 1 2; do popd; pushd -n @ELSEWHERE@; done; git push",
+    "a list whose operator changes before a cd -": (
+        "cd @REPO@; cd @ELSEWHERE@; true || OLDPWD=@ELSEWHERE@ && cd -; git push"),
+    "an addition to GIT_DIR": "export GIT_DIR=@ELSEWHERE@/.git; export GIT_DIR+=x; git push",
+    "an addition to HOME": "export HOME=@ELSEWHERE@; export HOME+=/x; cd; git push",
+    "an addition to OLDPWD": "cd /tmp; export OLDPWD+=/x; cd -; git push",
+    "an assignment a special builtin may keep": "GIT_DIR=@ELSEWHERE@/.git :; git push",
+    "a substitution in a function another shell runs": (
+        """f() { : "$(git push)"; }; export -f f; env -C @ELSEWHERE@ bash -c f"""),
+    "a function a loop's turn redefines": "f() { :; }; for i in 1 2; do f; git push; f() { cd @ELSEWHERE@; }; done",
+    "read -a's array, attached": "read -aGIT_DIR <<< x; git push",
+    "read -ra's array, attached": "read -raGIT_DIR <<< x; git push",
+    # Each variable, part of the state and signal the reader handles, on its own.
+    # Each with its GIT_DIR named again, which the same unknown name makes one the hook cannot read.
+    "a HOME a name another holds sets": "n=HOME; export $n=@ELSEWHERE@; cd; GIT_DIR=.git git push",
+    "a CDPATH a name another holds sets": "n=CDPATH; export $n=@ELSEWHERE@; cd .claude; GIT_DIR=../.git git push",
+    "an OLDPWD a name another holds sets": (
+        "cd @ELSEWHERE@; cd @REPO@; n=OLDPWD; export $n=/tmp; cd -; GIT_DIR=.git git push"),
+    "a PWD a name another holds sets, then cd -": (
+        "n=PWD; export $n=@ELSEWHERE@; cd /tmp; cd -; GIT_DIR=.git git push"),
+    "a DEBUG trap that sets a variable": "trap 'export GIT_DIR=@ELSEWHERE@/.git' DEBUG; cd @REPO@; git push",
+    "a RETURN trap": "trap 'cd @ELSEWHERE@' RETURN; f() { :; }; f; git push",
+    "a HOME env -i drops, then a new shell's cd": "env -i bash -c 'cd; git push'",
+    "an OLDPWD sudo drops, then a new shell's cd -": (
+        "OLDPWD=@ELSEWHERE@ sudo env -C @REPO@ bash -c 'cd - && git push'"),
+    "printf -v's name, attached": "printf -vGIT_DIR %s @ELSEWHERE@/.git; git push",
+    "an expansion that assigns an element": ": ${GIT_DIR[0]:=@ELSEWHERE@/.git}; git push",
+    "a loop whose turn sets a variable it follows": "for i in 1 2; do git push; export GIT_DIR=@ELSEWHERE@/.git; done",
+    "an OLDPWD the ways of an if leave apart": "cd @REPO@; if true; then cd @ELSEWHERE@; cd @REPO@; fi; cd -; git push",
+    "a stack the ways of an if leave apart": "if true; then pushd -n @ELSEWHERE@; fi; popd; git push",
+    "a variable one way of an if sets": "if [ -d /nonexistent ]; then export GIT_DIR=@ELSEWHERE@/.git; fi; git push",
+    "a variable an else sets": "if true; then :; else export GIT_DIR=@ELSEWHERE@/.git; fi; git push",
+    "an elif with no else, whose conditions may all fail": (
+        "if false; then cd @ELSEWHERE@; elif false; then cd @ELSEWHERE@; fi; git push"),
+    "a loop whose turn moves OLDPWD, which its cd - reads": (
+        "cd @ELSEWHERE@; cd @REPO@; for i in 1 2; do cd -; git push; cd /tmp; cd @REPO@; done"),
+    "a DEBUG trap's move, with GIT_DIR named again": "trap 'cd @ELSEWHERE@' DEBUG; GIT_DIR=.git git push",
+    "a sudo another wrapper runs, then a new shell's cd -": (
+        "OLDPWD=@ELSEWHERE@ nice sudo env -C @REPO@ bash -c 'cd - && git push'"),
+    "env's long --unset of a name a variable holds": (
+        'export GIT_DIR=@ELSEWHERE@/.git; n=GIT_DIR; env --unset="$n" git push'),
+    "a loop's variable named HOME": "for HOME in @ELSEWHERE@; do cd; GIT_DIR=.git git push; done",
+    "an unexported HOME a piped new shell does not get": (
+        "export HOME=@ELSEWHERE@; export -n HOME; true | bash -c 'cd; GIT_DIR=.git git push'"),
+    "a function's OLDPWD prefix, gone after the call": "f() { :; }; OLDPWD=@ELSEWHERE@ f; cd - && git push",
+    "a break out of two loops": (
+        "for i in 1; do for j in 1; do cd @ELSEWHERE@; break 2; done; cd @REPO@; done; git push"),
+    "an OLDPWD a loop's turn may leave elsewhere": (
+        "cd @ELSEWHERE@; cd @REPO@; while false; do cd /tmp; cd @REPO@; done; cd -; git push"),
+    "a variable one way of an if unexports": (
+        "export GIT_DIR=@ELSEWHERE@/.git; if [ -d /x ]; then export -n GIT_DIR; fi; git push"),
+    "a for loop that may run no turn": "for f in; do cd @ELSEWHERE@; done; git push",
     "a substitution after a move": 'cd .claude && echo "$(git push)"',
     "a cd along a CDPATH the call sets": "CDPATH=@REPO@; cd .claude && git push",
     "cd after the call unsets HOME": "unset HOME; cd; git push",
@@ -715,6 +1246,218 @@ UNNAMED = {
     "an exported GIT_NAMESPACE": "export GIT_NAMESPACE=x; git push",
     "--namespace": "git --namespace=x push",
     "--namespace and a separate value": "git --namespace x push",
+    "cd -P through a file and up, which fails": "cd -P @ELSEWHERE@/e.py/..; git push origin work",
+    "cd through a directory that does not exist and up": "cd @ELSEWHERE@/missing/..; git push origin work",
+    "cd -L through a directory that does not exist and up": "cd -L @ELSEWHERE@/missing/..; git push origin work",
+    "cd --, then a word like an option, a directory": "cd -- -P; git push origin work",
+    "cd and an option bash refuses": "cd -x @ELSEWHERE@; git push origin work",
+    "a quoted ~": "cd '~'; git push origin work",
+    "a ~ and a quoted slash": "cd ~'/'; git push origin work",
+    "--git-dir= and a ~, which git takes as written": "git --git-dir=~/.git push origin work",
+    "sudo, whose options or policy may move it": "sudo git push origin work",
+    "a wrapper's sudo": "nice sudo git push origin work",
+    "env and an option the hook does not read": "env --ch @REPO@ git push origin work",
+    "a substitution between a GIT_DIR's export and its unset": (
+        'export GIT_DIR=@REPO@/.git; : "$(git push origin work)"; unset GIT_DIR'),
+    "a substitution's move to a literal path, with the line's GIT_DIR": (
+        'export GIT_DIR=@REPO@/.git; : "$(cd @ELSEWHERE@ && git push origin work)"; unset GIT_DIR'),
+    # FOLLOWED's other names: a subshell or an eval undoes the change, so only the line's text tells.
+    "a substitution after a subshell's HOME": '(export HOME=@ELSEWHERE@; : "$(git push origin work)")',
+    "a substitution after a subshell's CDPATH": '(CDPATH=@ELSEWHERE@; : "$(cd .claude && git push origin work)")',
+    "a substitution after an eval's OLDPWD": "cd /tmp && eval 'OLDPWD=@ELSEWHERE@; : \"$(cd - && git push origin work)\"'",
+    "a substitution after a subshell's XDG_CONFIG_HOME": '(export XDG_CONFIG_HOME=/tmp; : "$(git push origin work)")',
+    "a substitution after a subshell's GIT_CONFIG_*": (
+        '(export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=push.default GIT_CONFIG_VALUE_0=matching; : "$(git push)")'),
+    # QUOTED_TILDE's first alternative, a quote before the ~ alone (`'~'` matches both).
+    "a quoted ~ and a path": "cd '~/.claude'; git push origin work",
+    "an escaped ~": "cd \\~; git push origin work",
+    "cd -L through a file and up, which fails": "cd -L @ELSEWHERE@/e.py/..; git push origin work",
+    "a relative OLDPWD after a cd the hook cannot name": 'cd "$X"; OLDPWD=.@REPO@; cd - && git push origin work',
+    "cd and an option after its directory, which bash takes as a second one": "cd @ELSEWHERE@ -P; git push origin work",
+    # A variable the call names by another's value may be any the hook follows.
+    "an export of a name a variable holds": "n=GIT_DIR; export $n=@REPO@/.git; git push origin work",
+    "an unset of a name a variable holds": "export GIT_DIR=@ELSEWHERE@/.git; n=GIT_DIR; unset $n; git push origin work",
+    "env -u and a name a variable holds": 'export GIT_DIR=@ELSEWHERE@/.git; n=GIT_DIR; env -u "$n" git push origin work',
+    "read and a name a variable holds": "n=GIT_DIR; read -r $n <<< x; git push origin work",
+    # Variables the call sets in other forms.
+    "read -a's array": "export GIT_DIR=@ELSEWHERE@/.git; read -a GIT_DIR <<< x; git push origin work",
+    "read -ra's array, the value of a group's last option": (
+        "export GIT_DIR=@ELSEWHERE@/.git; read -ra GIT_DIR <<< x; git push origin work"),
+    "read of an element, which makes the variable an array": (
+        "export GIT_DIR=@ELSEWHERE@/.git; read 'GIT_DIR[0]' <<< x; git push origin work"),
+    "wait -p, which unsets its variable first": (
+        "export GIT_DIR=@ELSEWHERE@/.git; sleep 0 & wait -n -p GIT_DIR; git push origin work"),
+    "a for loop's variable": "for GIT_DIR in @ELSEWHERE@/.git; do git push origin work; done",
+    "a select loop's variable": "select GIT_DIR in @ELSEWHERE@/.git; do git push origin work; break; done",
+    "a parameter expansion that assigns": ": ${GIT_DIR:=@ELSEWHERE@/.git}; export GIT_DIR; git push origin work",
+    "one that assigns when the variable is unset": ": ${GIT_DIR=@ELSEWHERE@/.git}; export GIT_DIR; git push origin work",
+    "one that assigns the variable another names": "n=GIT_DIR; : ${!n:=@ELSEWHERE@/.git}; git push origin work",
+    "an arithmetic expansion that assigns": "HOME=@REPO@; : $((HOME = 0)); cd; git push origin work",
+    # A move that may or may not run, or that a trap makes between commands.
+    "a cd after a command that may fail": "false && cd @ELSEWHERE@; git push origin work",
+    "a cd after one that may fail": "cd @REPO@ || cd @ELSEWHERE@; git push origin work",
+    "a cd a test guards": "[ -d /nonexistent ] && cd @ELSEWHERE@; git push origin work",
+    "an if's cd": "if [ -d /nonexistent ]; then cd @ELSEWHERE@; fi; git push origin work",
+    "an else's cd": "if [ -d /tmp ]; then :; else cd @ELSEWHERE@; fi; git push origin work",
+    "a case's cd": "case x in y) cd @ELSEWHERE@;; esac; git push origin work",
+    "a while loop's cd": "while false; do cd @ELSEWHERE@; done; git push origin work",
+    "a loop's later turn, after its cd": "for i in 1 2; do git push origin work; cd @ELSEWHERE@; done",
+    "a function's return before its cd": "f() { return; cd @ELSEWHERE@; }; f; git push origin work",
+    "an export that may not run": "false && export GIT_DIR=@ELSEWHERE@/.git; git push origin work",
+    "an unset that may not run": "export GIT_DIR=@REPO@/.git; true || unset GIT_DIR; git push origin work",
+    "a DEBUG trap, between the commands after it": "trap 'cd @ELSEWHERE@' DEBUG; git push origin work",
+    "an ERR trap, named in any case": "trap 'cd @ELSEWHERE@' err; git push origin work",
+    # PWD, from which bash's cd takes OLDPWD, and a new shell its directory.
+    "an exported PWD before a substitution": 'export PWD=@ELSEWHERE@; : "$(git push origin work)"',
+    "cd - to a PWD the call sets": "PWD=@ELSEWHERE@; cd /tmp; cd -; git push origin work",
+    "cd - after the call unsets PWD": "unset PWD; cd /tmp; cd -; git push origin work",
+    "a new shell given a PWD": "PWD=/tmp bash -c 'cd .. && git push origin work'",
+    "popd to the - pushd -n put on the stack, which it reads then": (
+        "cd /tmp && pushd -n - && cd @ELSEWHERE@ && cd /tmp && popd && git push origin work"),
+    "an eval's cd before a substitution": 'eval cd @ELSEWHERE@; : "$(git push origin work)"',
+    # sudo's policy keeps or drops the variables the call gave.
+    "sudo's policy, which may drop a GIT_DIR the call exports": (
+        "export GIT_DIR=@ELSEWHERE@/.git; sudo env -C @REPO@ git push origin work"),
+    # What a program the command runs gets: the variables the shell exports.
+    "a HOME export -n keeps from a new shell": "export HOME=@ELSEWHERE@; export -n HOME; bash -c 'cd; git push origin work'",
+    "a HOME assigned after unset, which a new shell does not get": (
+        "unset HOME; HOME=@ELSEWHERE@; bash -c 'cd; git push origin work'"),
+    "a new shell's cd -, to an OLDPWD it may not get": "OLDPWD=@ELSEWHERE@; bash -c 'cd -; git push origin work'",
+    "a HOME export -n may keep from a new shell": (
+        "export HOME=@ELSEWHERE@; false || export -n HOME; bash -c 'cd; git push origin work'"),
+    # A push another program holds, which it may run anywhere.
+    "a push watch runs": "watch -n 5 git push",
+    "words parallel adds to a push it runs": "echo work | parallel git push origin",
+    "a push find runs in each directory it finds": "find @REPO@/.git -maxdepth 0 -execdir git push origin work \\;",
+    "a program a wrapper runs, holding a push": "nice find @REPO@/.git -maxdepth 0 -execdir git push origin work \\;",
+    # A word up to git's command that bash may expand to other words may be an option the hook would read.
+    "an option a variable holds, before git's command": "o=-C; git $o @ELSEWHERE@ push origin work",
+    "a command a variable holds, with options in it": "o='-C @ELSEWHERE@ push'; git $o origin work",
+    "a -c value a variable holds, which may split into options": "git -c $c push origin work",
+    "an option a substitution prints": "git $(echo -C) @ELSEWHERE@ push origin work",
+    "an option in backquotes": "git `echo -C` @ELSEWHERE@ push origin work",
+    "backquotes in a value before git's command": "git -c x=`echo 1 -C @ELSEWHERE@` push origin work",
+    "backquotes in a shell's string": "bash -c 'git `echo -C` @ELSEWHERE@ push origin work'",
+    "an option an escape spells": "git $'\\x2dC' @ELSEWHERE@ push origin work",
+    "an option a brace expansion spells": "git {-C,@ELSEWHERE@} push origin work",
+    "an option a brace sequence spells": "git -{C..C} @ELSEWHERE@ push origin work",
+    # A shell other than bash (sh may be dash) reads these otherwise, and git runs a shell alias with sh.
+    "pushd in sh, which dash does not have": "sh -c 'pushd @ELSEWHERE@ >/dev/null; git push origin work'",
+    "popd in sh": "sh -c 'popd; git push origin work'",
+    "a shell alias's pushd": "git -c 'alias.ship=!pushd @ELSEWHERE@ >/dev/null; git push origin work' ship",
+    "cd -e in sh, which dash refuses": "sh -c 'cd -e @ELSEWHERE@; git push origin work'",
+    "a ~ in env's word in sh, which dash leaves as written": (
+        "HOME=@ELSEWHERE@ sh -c 'env GIT_DIR=~/.git git push origin work'"),
+    "a ~ in env's word in bash's POSIX mode, which leaves it as written": (
+        "HOME=@ELSEWHERE@ bash --posix -c 'env GIT_DIR=~/.git git push origin work'"),
+    "a $'' quote in sh, which dash reads as $ and a string": "sh -c \"cd $'@ELSEWHERE@'; git push origin work\"",
+    'a $"" quote in sh': """sh -c 'cd $"@ELSEWHERE@"; git push origin work'""",
+    # A function the hook cannot read may push.
+    "a push a function an && list may define holds": "true && f() { git push origin work; }; f",
+    "a push a function sh may keep after unset holds": "sh -c 'f() { git push origin work; }; unset f; f'",
+    "a push a function a loop's turn redefines holds": "g() { g() { git push origin work; }; }; for i in 1 2; do g; done",
+    "a push with a relative GIT_DIR a function a loop's turn redefines holds": (
+        "g() { g() { GIT_DIR=.git git push origin work; }; }; for i in 1 2; do g; done"),
+    # Where a case's arm and an and-or list's pipeline may start.
+    "an arm after one ;;& ended, past a pattern between": (
+        "case x in x) cd @ELSEWHERE@;;& y) :;; *) git push origin work;; esac"),
+    "a pipeline after an && run that may fail at any of its pipelines": (
+        "false && cd @ELSEWHERE@ && true || git push origin work"),
+    "a pipeline after an || run that may succeed at any of its pipelines": (
+        "true || cd @ELSEWHERE@ || cd @ELSEWHERE@ && git push origin work"),
+    "a substitution inside one that moves first": ': "$(cd @ELSEWHERE@ && : "$(git push origin work)")"',
+    # A for that may run no turn, and a continue's turn, each where nothing else in its case masks it.
+    "a variable a for that may run no turn sets": (
+        "for i in $X; do export GIT_DIR=@ELSEWHERE@/.git; done; cd @REPO@; git push origin work"),
+    "a push in a loop whose continue leaves the shell elsewhere": (
+        "for i in 1 2; do git push origin work; cd @ELSEWHERE@; continue; cd @REPO@; done"),
+    "a fallthrough after an arm that ends in fi": "case x in x) if true; then cd @ELSEWHERE@; fi;& y) git push;; esac",
+    "a ;;& after an arm that ends in done": (
+        "case x in x) for i in 1; do cd @ELSEWHERE@; done;;& *) git push;; esac"),
+    "a fallthrough from a group the case may skip": "case z in (x) { cd @ELSEWHERE@; };& (z) git push;; esac",
+    "a fallthrough after an arm an inner case ends": (
+        "case a in a) case b in b) cd @ELSEWHERE@;; esac;& c) git push;; esac"),
+    "a case whose in follows a newline": "case x\nin x) cd @ELSEWHERE@;; esac; git push",
+    "a pattern esac in parentheses": "case esac in (esac) cd @ELSEWHERE@;; esac; git push",
+    "a pattern esac after a |": "case x in y) :;; x|esac) cd @ELSEWHERE@;; esac; git push",
+    "an until whose condition moves the shell before its next turn": "until git push; cd @ELSEWHERE@ && false; do :; done",
+    "a variable a while's turn sets, which a push after it reads": (
+        "while [ -d /x ]; do export GIT_DIR=@ELSEWHERE@/.git; done; cd @REPO@; git push"),
+    "an OLDPWD a loop's later turn moves": "cd @REPO@; for i in 1 2; do cd @ELSEWHERE@; done; cd -; git push",
+    "a stack a loop's later turn changes": (
+        "pushd -n @REPO@; for i in 1 2; do popd -n; pushd @ELSEWHERE@; done; popd; git push"),
+    "a loop whose turn unexports a variable it follows": (
+        "export GIT_DIR=@ELSEWHERE@/.git; for i in 1 2; do git push; export -n GIT_DIR; done"),
+    "a break count the hook cannot read, which may leave both loops": (
+        "for i in 1; do for j in 1; do cd @ELSEWHERE@; break $n; done; cd @REPO@; done; git push"),
+    "a substitution inside one that exports GIT_DIR first": (
+        ': "$(export GIT_DIR=@ELSEWHERE@/.git; : "$(git push origin work)")"'),
+    "backquotes inside a substitution that moves first": ': "$(cd @ELSEWHERE@ && : `git push origin work`)"',
+    "a substitution inside one that redefines its function first": (
+        """f() { :; }; eval ': "$(f() { cd @ELSEWHERE@; }; : "$(f; git push origin work)")"'"""),
+    "a substitution inside one whose cd the hook cannot follow": ': "$(cd a b; : "$(git push origin work)")"',
+    "pushd in sh after a bash -c in it": "sh -c 'bash -c true; pushd @ELSEWHERE@ >/dev/null; git push origin work'",
+    "an and-or list whose operator changes twice": "true && cd @ELSEWHERE@ || cd @REPO@ && git push",
+    "an addition to a relative GIT_DIR": "export GIT_DIR=x; export GIT_DIR+=@REPO@/.git; git push",
+    "an unexported addition to a relative GIT_DIR, exported again": (
+        "export -n GIT_DIR=x; export -n GIT_DIR+=@REPO@/.git; export GIT_DIR; git push"),
+    "an assignment eval may keep": "GIT_DIR=@ELSEWHERE@/.git eval true; git push",
+    "an option a glob may spell, before git's command": "git -? @ELSEWHERE@ push origin work",
+    "an option a star may spell, before git's command": "git -* @ELSEWHERE@ push origin work",
+    "an option a bracket may spell, before git's command": "git -[C] @ELSEWHERE@ push origin work",
+    "a function the call may define otherwise, whose body runs gh": "true && f() { gh pr create; }; f",
+    "a push a function a loop's turn defines before its continue holds": (
+        "f() { :; }; for i in 1 2; do f; if [ -e a.py ]; then f() { git push origin work; }; continue; fi; "
+        "f() { :; }; done"),
+    "a push in an inner loop whose continue count the hook cannot read": (
+        "for i in 1; do cd @ELSEWHERE@; for j in 1 2; do git push origin work; cd @REPO@; continue $n; "
+        "cd @ELSEWHERE@; done; cd @REPO@; done"),
+    "a push in an outer loop an inner continue 2 turns from elsewhere": (
+        "for i in 1 2; do git push origin work; for j in 1; do cd @ELSEWHERE@; continue 2; done; cd @REPO@; done"),
+    "a function set -a exports to a new shell": "set -a; f() { git push origin work; }; bash -c f",
+    "a function set -o allexport exports to a new shell": "set -o allexport; f() { git push origin work; }; bash -c f",
+    "time in sh before a function that pushes, which dash runs as a program": (
+        "sh -c 'f() { git push origin work; }; time f'"),
+    "an option in backquotes in double quotes": 'git "`echo -C`" @ELSEWHERE@ push origin work',
+    # A process substitution among a command's words is one of them: the cd then has two.
+    "a cd given a process substitution as well": "cd @ELSEWHERE@ <(true); git push origin work",
+    "a cd given a process substitution after one its output goes to": (
+        "cd @ELSEWHERE@ > >(cat) <(true); git push origin work"),
+    "a pushd given a process substitution as well": "pushd @ELSEWHERE@ <(true); git push origin work",
+    # A redirection that may fail runs no command it belongs to.
+    "a cd whose input file may be missing": "cd @ELSEWHERE@ < missing; git push origin work",
+    "a cd whose errors go to a descriptor the shell may not hold open": "cd @ELSEWHERE@ 2>&3; git push origin work",
+    "a cd whose input copies a descriptor from a word, an ambiguous redirect": (
+        "cd @ELSEWHERE@ <& missing; git push origin work"),
+    "a cd whose errors copy a descriptor from /dev/null, an ambiguous redirect": (
+        "cd @ELSEWHERE@ 2>& /dev/null; git push origin work"),
+    "a cd whose input copies a descriptor from a process substitution": (
+        "cd @ELSEWHERE@ <& <(true); git push origin work"),
+    "a cd whose errors copy a descriptor to a process substitution": "cd @ELSEWHERE@ 2>& >(true); git push origin work",
+    "a cd whose output goes to a terminal the shell may not have": "cd @ELSEWHERE@ > /dev/tty; git push origin work",
+    "a group whose input file may be missing": "{ cd @ELSEWHERE@; } < missing; git push origin work",
+    "a function whose definition's input file may be missing": (
+        "f() { cd @ELSEWHERE@; } < missing; f; git push origin work"),
+    "an export whose errors copy a descriptor from /dev/null": (
+        "export GIT_DIR=@ELSEWHERE@/.git 2>& /dev/null; git push origin work"),
+    "a GIT_DIR an addition changes": "export GIT_DIR=@REPO@/.git; GIT_DIR+=x; git push origin work",
+    "a HOME an addition changes, then cd": "HOME+=@ELSEWHERE@; cd; git push origin work",
+    "a GIT_DIR an element's assignment changes": (
+        "export GIT_DIR=@ELSEWHERE@/.git; GIT_DIR[0]=@REPO@/.git; git push origin work"),
+    # A loop whose turn moves runs its pushes from a directory the hook cannot name, a process substitution its
+    # redirection names among them, though bash runs that once, from where the loop began.
+    "a loop whose turn moves, its input from a process substitution that pushes": (
+        "while false; do cd @ELSEWHERE@; done < <(git push origin work)"),
+    "a group whose input file may be missing, after a nested group": (
+        "{ cd @ELSEWHERE@; { :; } } < missing; git push origin work"),
+    "an if whose input file may be missing, after its nested group": (
+        "{ cd @ELSEWHERE@; if true; then :; fi } < missing; git push origin work"),
+    "a descriptor a name holds, copied onto a word": (
+        "export GIT_DIR=@ELSEWHERE@/.git {fd}>&/dev/null; git push origin work"),
+    "a descriptor a name holds, closed": (
+        "export GIT_DIR=@ELSEWHERE@/.git {fd}>&-; git push origin work"),
+    "a function the call may define otherwise, whose body runs git in a string a shell runs": (
+        "true && f() { bash -c 'cd @REPO@;git push origin work'; }; f"),
 }
 # Writes the hook refuses outright: git builds the commits as it runs, or GitHub's API takes the content.
 OUTRIGHT = {
@@ -756,6 +1499,77 @@ OUTRIGHT = {
     "a wrapper": ("sudo gh api -X PUT repos/o/r/contents/f.txt -f content=Zm9v", "PUT repos/o/r/contents/f.txt"),
     "a shell given a string": ('bash -c "gh api -X PUT repos/o/r/contents/f.txt -f content=Zm9v"', "PUT repos/o/r/contents/f.txt"),
     "after a push": ("git push origin main && gh api -X PUT repos/o/r/contents/f.txt -f content=Zm9v", "PUT repos/o/r/contents/f.txt"),
+    "a case in a substitution, with a pattern no ( opens": (
+        ': "$(case x in x) git push origin work;; esac)"', "a case in a command substitution"),
+    "a function's body with no end": ("f() { :; git push origin work", "whose end the hook cannot find"),
+    "a function the keyword defines with no end": ("function f { :; git push origin work", "whose end the hook cannot find"),
+    "a process substitution with no end": ("cat <(case x in (x) :;;); git push origin work",
+                                           "whose end the hook cannot find"),
+    "a case after a command in a substitution": (
+        ': "$(true; case x in x) git push origin work;; esac)"', "a case in a command substitution"),
+    "a subshell's case in a substitution, whose pattern ends the substitution early": (
+        "x=$( (case a in a) :;; esac); cd @ELSEWHERE@ ); git push origin work", "a case in a command substitution"),
+    # A `${...}` whose word holds an operator character, which the shell reader splits where bash reads one word.
+    "a default of ) in a subshell": (
+        "(echo ${x:-)}; cd @ELSEWHERE@); git push origin work", "a parameter expansion the shell reader splits"),
+    "a suffix of ) stripped in a subshell": (
+        "(v=${x%)}; cd @ELSEWHERE@); git push origin work", "a parameter expansion the shell reader splits"),
+    "a default that holds a cd": (
+        "echo ${x:-;cd @ELSEWHERE@;}; git push origin work", "a parameter expansion the shell reader splits"),
+    "a prefix of ( stripped in a subshell": (
+        "(v=${x#(}; cd @ELSEWHERE@); git push origin work", "a parameter expansion the shell reader splits"),
+    "a parameter expansion with no end": (
+        "echo ${x; git push origin work", "a parameter expansion the shell reader splits"),
+    "a prefix of ( and a suffix of ) stripped": (
+        "v=${x#(}; cd @REPO@; w=${v%)}; git push origin work", "a parameter expansion the shell reader splits"),
+    "a default in double quotes that holds a quoted )": (
+        '(v="${x:-")"}"; cd @ELSEWHERE@); git push origin work', "a parameter expansion the shell reader splits"),
+    "a suffix of ) stripped, in a call that pushes nothing": (
+        "echo ${x%)}; git status", "a parameter expansion the shell reader splits"),
+    # Read as the shell reader reads each line: past its quotes and here-documents, in each string it reads.
+    "a suffix of ) stripped after a $'...' that escapes a quote": (
+        r"echo $'it\'s'; (v=${x%)}; cd @ELSEWHERE@); git push origin work",
+        "a parameter expansion the shell reader splits"),
+    "a suffix of ) stripped after an escaped quote": (
+        r"echo it\'s; (v=${x%)}; cd @ELSEWHERE@); git push origin work", "a parameter expansion the shell reader splits"),
+    "a suffix of ) stripped after a here-document whose text holds a quote": (
+        "cat <<'EOF'\nit's\nEOF\n(v=${x%)}; cd @ELSEWHERE@); git push origin work",
+        "a parameter expansion the shell reader splits"),
+    "a suffix of ) stripped in a new shell's string": (
+        "bash -c '(v=${x%)}; cd @ELSEWHERE@); git push origin work'", "a parameter expansion the shell reader splits"),
+    "a suffix of ) stripped in an eval's string": (
+        "eval '(v=${x%)}; cd @ELSEWHERE@)'; git push origin work", "a parameter expansion the shell reader splits"),
+    "a double-quoted default that nests a quoted word, in a call that pushes nothing": (
+        'echo "${x:-"a"}"; git status', "a parameter expansion the shell reader splits"),
+    "a double-quoted default that nests a quoted word with a quote in it": (
+        '(v="${x:-"it\'s)"}"; cd @ELSEWHERE@); git push origin work', "a parameter expansion the shell reader splits"),
+    "a push after a double-quoted default that nests a quoted word with a quote in it": (
+        'v="${x:-"it\'s"}"; (cd @ELSEWHERE@); git push origin work', "a parameter expansion the shell reader splits"),
+    "a suffix of ) stripped in a command substitution": (
+        "out=$( (v=${x%)}; cd @ELSEWHERE@); git push origin work )", "a parameter expansion the shell reader splits"),
+    # A function's body that is no compound command the hook reads.
+    "a function whose body is a [[ ]] test": (
+        "f() [[ -n x ]]; cd @REPO@; { :; }; git push origin work", "whose end the hook cannot find"),
+    "a function whose body is a [[ ]] test, in a group": (
+        "{ f() [[ -n x ]]; cd @REPO@; }; git push origin work", "whose end the hook cannot find"),
+    "a double-quoted default that nests a quote after an escaped brace": (
+        "(v=\"${x:-\\}\"it's\"}\"; cd @ELSEWHERE@); git push origin work",
+        "a parameter expansion the shell reader splits"),
+    "a double-quoted default that nests a quote after a quoted brace": (
+        "(v=\"${x:-'}'\"it's\"}\"; cd @ELSEWHERE@); git push origin work",
+        "a parameter expansion the shell reader splits"),
+    "a double-quoted default that nests a backquote": (
+        "(v=\"${x:-`echo }`\"a\"}\"; cd @ELSEWHERE@); git push origin work",
+        "a parameter expansion the shell reader splits"),
+    "a here-document word in a parameter expansion": (
+        "printf '%s\\n' ${x:-<<EOF}\n(cd @ELSEWHERE@); git push origin work\nEOF",
+        "it reads as a here-document"),
+    "a here-document word in an arithmetic expansion": (
+        "echo $[1<<2]\n(cd @ELSEWHERE@); git push origin work\n2", "it reads as a here-document"),
+    "a here-document word in a subscript": (
+        "a[1<<2]=x\n(cd @ELSEWHERE@); git push origin work\n2", "it reads as a here-document"),
+    "a function whose body dash reads as a simple command": (
+        "sh -c 'f() cd /; cd @REPO@; if true; then :; fi; git push origin work'", "whose end the hook cannot find"),
 }
 # API calls that add no content to a repository's history.
 API_PASSES = {
@@ -799,8 +1613,16 @@ GAPS = {
     "a GraphQL mutation from standard input": "gh api graphql -F query=@- < m.graphql",
     "a GraphQL mutation a variable holds": 'gh api graphql -f query="$MUTATION"',
     "a push a program runs": """python3 -c 'import subprocess; subprocess.run(["git", "push", "origin", "work"])'""",
+    "a push env -S splits from one word": "env -S 'git push origin work'",
     "a command substitution in an unquoted here-document's text": "cat <<EOF\n$(git push origin work)\nEOF",
     "a `$((` that bash reads as a command substitution": "echo $((git push origin work) )",
+    "a git a brace expansion spells": "{g..g}it push origin work",
+    "a git a glob spells": "/usr/bin/[g]it push origin work",
+    "a break an older bash compatibility level lets leave its caller's loop": (
+        "cd @ELSEWHERE@; BASH_COMPAT=43; f() { break; }; for i in 1; do cd @REPO@; f; cd @ELSEWHERE@; done; "
+        "git push origin work"),
+    "set -k's assignment among a command's arguments": "set -k; git -C @ELSEWHERE@ push origin work GIT_DIR=@REPO@/.git",
+    "a variable another arithmetic expression assigns": "HOME=@ELSEWHERE@; : $[HOME = 0]; cd; git push origin work",
 }
 
 
@@ -847,8 +1669,10 @@ def test_what_the_shell_never_runs_as_a_command_is_read_as_one(project: Project,
 @pytest.mark.parametrize("command", UNNAMED.values(), ids=UNNAMED.keys())
 def test_a_push_from_a_directory_the_hook_cannot_name_is_refused(project: Project, command: str) -> None:
     project.git("checkout", "-q", "clean")
-    reason = project.bash(command, env={"REPO": str(project.root)})
-    assert reason is not None and "directory the hook cannot name" in reason
+    # The session's HOME is the project, so a `~` the hook took where bash leaves it as written reads the finding.
+    reason = project.bash(command, env={"REPO": str(project.root), "HOME": str(project.root)})
+    assert reason is not None and "directory the hook cannot name" in reason, reason
+    assert "an exported function it may not import" in reason and "and not through a function" in reason, reason
 
 
 @pytest.mark.parametrize(("command", "what"), OUTRIGHT.values(), ids=OUTRIGHT.keys())
@@ -861,6 +1685,15 @@ def test_writes_the_hook_cannot_read_first_are_refused_outright(project: Project
 @pytest.mark.parametrize("command", API_PASSES.values(), ids=API_PASSES.keys())
 def test_api_calls_that_add_no_content_go_through(project: Project, command: str) -> None:
     assert project.bash(command) is None
+
+
+def test_a_line_too_long_to_read_in_time_is_refused(project: Project) -> None:
+    # One long word reads in time that grows as its square; a line past the floor is refused before it is read, and
+    # a here-document as large passes, since the hook reads its body line by line.
+    reason = project.bash("echo '" + "a" * 400_001 + "'; git push origin work")
+    assert reason is not None and "more than 400,000 characters" in reason, reason
+    big = "x" * 300 + "\n"
+    assert project.bash("cat <<EOF\n" + big * 2000 + "EOF\ngit status") is None
 
 
 # The files a stated gap's command names, so that closing the gap turns its case.
@@ -928,12 +1761,13 @@ def test_a_push_read_whole_says_so(project: Project) -> None:
     assert "sending more than literal refspecs name" in reason and "push literal refspecs" in reason
 
 
-# --- what would blind the scan -------------------------------------------------------------------------------
+# --- what would blind the scan or fail it --------------------------------------------------------------------
 
 # Settings that change what `git log -p` prints: (where it is set, name, value). Colour and the big-file threshold
 # hide the planted line from gitleaks; an abbreviated commit and another format leave it a finding whose commit
-# main's pins do not match; decorations and no prefixes gitleaks reads past. The stub, stricter, reads nothing
-# under any of them, so each case turns it blind unless the hook holds the setting at git's default.
+# main's pins do not match; decorations and prefixes gitleaks reads past. The stub, stricter, reads nothing under
+# any of them, so each case turns it blind unless the hook holds the setting at git's default. git reads
+# diff.dstPrefix from 2.45 on; an older one ignores it, and that case passes either way.
 BLINDERS = {
     "colour, in the repository": ("repository", "color.ui", "always"),
     "colour, in the global file": ("global", "color.ui", "always"),
@@ -942,6 +1776,7 @@ BLINDERS = {
     "a one-line format": ("repository", "format.pretty", "oneline"),
     "decorations": ("repository", "log.decorate", "full"),
     "no prefixes": ("repository", "diff.noprefix", "true"),
+    "another prefix": ("repository", "diff.dstPrefix", "x/"),
     "every file binary by its size": ("repository", "core.bigFileThreshold", "1"),
 }
 
@@ -978,7 +1813,8 @@ def _sign(project: Project, branch: str) -> None:
 
 
 def test_signed_commits_are_scanned_without_checking_their_signatures(project: Project) -> None:
-    # log.showSignature=true makes git log check each signature; one it cannot check fails gitleaks' scan.
+    # log.showSignature=true makes git log check each signature; an SSH one, with no allowed-signers file set, has
+    # git complain on its stderr, which fails gitleaks' scan.
     _sign(project, "clean")
     _sign(project, "work")
     project.git("config", "log.showSignature", "true")
@@ -987,11 +1823,39 @@ def test_signed_commits_are_scanned_without_checking_their_signatures(project: P
     assert len(project.scans()) == 2
 
 
-@pytest.mark.parametrize("scope", ["global", "repository", "git's default file"])
-def test_an_attributes_file_that_marks_the_file_binary_does_not_count(project: Project, tmp_path: Path,
-                                                                      scope: str) -> None:
-    # The global config naming one never reaches the scan's git; the repository's naming one, and the file git
-    # reads when none is named ($XDG_CONFIG_HOME/git/attributes), are held off by the pin of core.attributesFile.
+def _binary_tree(project: Project) -> str:
+    """A tree whose .gitattributes marks every Python file binary, for attr.tree to name."""
+    blob = project.git("hash-object", "-w", "--stdin", stdin="*.py -diff\n")
+    return project.git("mktree", stdin=f"100644 blob {blob}\t.gitattributes\n")
+
+
+ATTRIBUTE_SOURCES = ("a tree the repository names", "the worktree core.worktree names", "a bare repository's HEAD",
+                     "a .gitattributes in the git directory")
+
+
+def _plant_attributes(project: Project, source: str) -> None:
+    """A .gitattributes that marks every Python file binary, where git run in the project's git directory reads it:
+    a tree the repository's attr.tree names, the worktree around the git directory that its core.worktree names, a
+    bare repository's HEAD (git 2.43 to 2.45 read its .gitattributes; CI's later git does not) or the git directory
+    itself."""
+    if source == "a tree the repository names":
+        project.git("config", "attr.tree", _binary_tree(project))
+    elif source == "the worktree core.worktree names":
+        project.write({".gitattributes": "*.py -diff\n"})
+        project.git("config", "core.worktree", str(project.root))
+    elif source == "a bare repository's HEAD":
+        project.commit({".gitattributes": "*.py -diff\n"}, "attributes on the branch HEAD names")
+        project.git("config", "core.bare", "true")
+    else:
+        (project.root / ".git" / ".gitattributes").write_text("*.py -diff\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("scope", ["global", "repository", "git's default file", *ATTRIBUTE_SOURCES])
+def test_attributes_that_mark_the_file_binary_do_not_count(project: Project, tmp_path: Path, scope: str) -> None:
+    # The global config naming a file never reaches the scan's git; the repository's naming one, and the file git
+    # reads when none is named ($XDG_CONFIG_HOME/git/attributes), are held off by the pin of core.attributesFile. The
+    # four sources _plant_attributes plants, each of which git run in the git directory reads, are held off by the
+    # pin of attr.tree to the empty tree.
     attributes = tmp_path / "xdg" / "git" / "attributes"
     attributes.parent.mkdir(parents=True)
     attributes.write_text("*.py -diff\n", encoding="utf-8")
@@ -1000,21 +1864,452 @@ def test_an_attributes_file_that_marks_the_file_binary_does_not_count(project: P
         project.git("config", "core.attributesFile", str(attributes))
     elif scope == "global":
         env = _global(tmp_path, f"[core]\n\tattributesFile = {attributes}\n")
-    else:
+    elif scope == "git's default file":
         env = {"XDG_CONFIG_HOME": str(tmp_path / "xdg")}
+    else:
+        _plant_attributes(project, scope)
     _found(project.bash("git push origin work", env=env))
 
 
-def test_a_graft_file_fails_the_scan_closed_whatever_the_repository_says_of_its_hint(project: Project) -> None:
-    # A graft gives the planted commit the parent GitHub has with the same tree, so `git log -p` would show it
-    # adding nothing; git's hint about the graft file, held on, fails the scan rather than let it read that.
+def _old_git(tmp_path: Path, version: str = "git version 2.42.0") -> dict[str, str]:
+    """A PATH whose git reports `version` and runs the real git for everything else, taking `--path-format`, for a
+    version before 2.31, as an option it does not know, which rev-parse prints back, as those gits do."""
+    shim = tmp_path / "old-git"
+    shim.mkdir(parents=True)
+    real = shutil.which("git")
+    read = re.match(r"git version (\d+)\.(\d+)", version)
+    unknown = read is not None and (int(read.group(1)), int(read.group(2))) < (2, 31)
+    rename = ('for arg; do shift; case "$arg" in --path-format=*) arg=--no-such-option;; esac; set -- "$@" "$arg"; '
+              'done\n') if unknown else ""
+    (shim / "git").write_text(f'#!/bin/sh\ncase "$*" in *version) echo "{version}"; exit 0;; esac\n{rename}'
+                              f'exec {real} "$@"\n', encoding="utf-8")
+    (shim / "git").chmod(0o755)
+    return {"PATH": f"{shim}{os.pathsep}{os.environ['PATH']}"}
+
+
+def test_a_git_older_than_attr_tree_refuses_a_call_that_adds_commits(project: Project, tmp_path: Path) -> None:
+    # A git before 2.43 knows no attr.tree, so a tree's or worktree's .gitattributes could hide a line from its scan.
+    env = _old_git(tmp_path)
+    reason = project.bash("git push origin work", env=env)
+    assert reason is not None and "(git version 2.42.0) is older than 2.43" in reason, reason
+    reason = project.decide("mcp__github__create_or_update_file", {"owner": "neilmac91", "repo": "EarningsNerd",
+                            "message": "m", "branch": "main", "path": "x.py", "content": "x = 1\n"}, env=env)
+    assert reason is not None and "older than 2.43" in reason, reason
+    assert project.bash("git push origin main", env=env) is None  # a push that adds no commit runs no scan
+    for tool, extra in (("mcp__github__add_issue_comment", {"issue_number": 1, "body": "x"}),
+                        ("mcp__github__get_file_contents", {"path": "a.py"})):  # nor a GitHub call that sends no file
+        assert project.decide(tool, {"owner": "neilmac91", "repo": "EarningsNerd", **extra}, env=env) is None
+    # A version the hook cannot read is refused as well: it may be a git that knows no attr.tree.
+    reason = project.bash("git push origin work", env=_old_git(tmp_path / "unread", "git version unknown"))
+    assert reason is not None and "cannot read this machine's git version ('git version unknown')" in reason, reason
+    # A git before 2.31 knows no --path-format either, and the hook's reads ask for nothing it does not know.
+    env = _old_git(tmp_path / "2.30", "git version 2.30.2")
+    assert project.bash("git push origin main", env=env) is None
+    reason = project.bash("git push origin work", env=env)
+    assert reason is not None and "(git version 2.30.2) is older than 2.43" in reason, reason
+
+
+def test_a_scan_that_would_read_a_repository_whose_objects_are_not_sha1_is_refused(tmp_path: Path) -> None:
+    # The empty tree attr.tree is held at is SHA-1's, which names no tree in a SHA-256 repository. A push reads that
+    # repository, and so does a GitHub write the hook builds on its branch as fetched there.
+    project = _make(tmp_path, objects="sha256")
+    write = {"path": "x.py", "content": LEAK + "\n"}
+    for reason in (project.bash("git push origin work"),
+                   _mcp(project, "mcp__github__create_or_update_file", branch="main", **write)):
+        assert reason is not None and "objects are sha256, not SHA-1" in reason, reason
+    assert project.bash("git push origin main") is None  # a push that adds no commit runs no scan
+    # A write to a branch not fetched here is built in a fresh scratch repository, which is SHA-1, and scanned.
+    _found(_mcp(project, "mcp__github__create_or_update_file", branch="not-fetched", **write), "x.py:1")
+
+
+@pytest.mark.parametrize("how", ["a file", "a link to /dev/null"])
+@pytest.mark.parametrize("name", [".gitleaks.toml", ".gitleaksignore"])
+def test_rules_or_pins_in_the_git_directory_do_not_count(project: Project, name: str, how: str) -> None:
+    # gitleaks reads the scanned directory's own .gitleaksignore always, and its .gitleaks.toml when no --config names
+    # one, as here, where main has no rules: a call whose git directory holds either is refused, whatever kind of file
+    # it is. gitleaks reads a .gitleaks.toml that links to /dev/null as rules that find nothing.
+    planted = project.root / ".git" / name
+    if how == "a file":
+        planted.write_text(ALLOW_ALL if name == ".gitleaks.toml" else
+                           f"{project.leak}:b.py:generic-api-key:1\nx.py:generic-api-key:1\n", encoding="utf-8")
+    else:
+        planted.symlink_to(os.devnull)
+    write = {"branch": "main", "path": "x.py", "content": LEAK + "\n"}
+    for reason in (project.bash("git push origin work"), _mcp(project, "mcp__github__create_or_update_file", **write)):
+        assert reason is not None and f"git directory holds a {name}" in reason, reason
+
+
+def _shadow(project: Project, shadow: Path) -> Path:
+    """A repository at `shadow` that borrows the project's objects, holds the planted commit as fetched and marks
+    Python files binary, so a scan that read it in the project's place would let a push and a GitHub write through."""
+    project.git("init", "-q", "--bare", str(shadow))
+    (shadow / "objects" / "info" / "alternates").write_text(f"{project.root / '.git' / 'objects'}\n", encoding="utf-8")
+    (shadow / "info").mkdir(exist_ok=True)  # git's templates make it, and a git may have none
+    (shadow / "info" / "attributes").write_text("*.py -diff\n", encoding="utf-8")
+    project.git("--git-dir", str(shadow), "update-ref", "refs/remotes/origin/work", project.leak)
+    return shadow
+
+
+@pytest.mark.parametrize("how", ["a gitfile", "a link", "a directory", "a file git cannot read"])
+def test_a_git_directory_git_takes_for_another_is_refused(project: Project, tmp_path: Path, how: str) -> None:
+    # git run in the git directory, as the scan's reads and gitleaks' own git are, takes a .git there that is or
+    # names a repository for the repository, and fails on one it cannot read, while the call, from the worktree,
+    # reads the git directory itself.
+    planted = project.root / ".git" / ".git"
+    if how == "a directory":
+        _shadow(project, planted)
+    else:
+        shadow = _shadow(project, tmp_path / "shadow.git")
+        if how == "a link":
+            planted.symlink_to(shadow)
+        else:
+            planted.write_text(f"gitdir: {shadow}\n" if how == "a gitfile" else "not a gitfile\n", encoding="utf-8")
+    write = {"branch": "main", "path": "x.py", "content": LEAK + "\n"}
+    for reason in (project.bash("git push origin work"), _mcp(project, "mcp__github__create_or_update_file", **write)):
+        assert reason is not None and "git run in this repository's git directory (" in reason, reason
+
+
+@pytest.mark.parametrize("plant", ["a commondir file", "a HEAD git cannot read"])
+def test_a_git_directory_git_leaves_is_refused_for_a_linked_worktree_s_push(project: Project, tmp_path: Path,
+                                                                            plant: str) -> None:
+    # A linked worktree's own git directory names this one in its commondir, which git follows one step and no further,
+    # and keeps its own HEAD, so its push reads this git directory whatever its HEAD holds. The scan's git, run here,
+    # would follow a commondir planted here in turn, and on a HEAD it cannot read would walk up to a repository above.
+    linked = tmp_path / "linked"
+    project.git("worktree", "add", "-q", "--detach", str(linked), "work")
+    if plant == "a commondir file":
+        (project.root / ".git" / "commondir").write_text(f"{_shadow(project, tmp_path / 'shadow.git')}\n",
+                                                          encoding="utf-8")
+    else:
+        _shadow(project, tmp_path)  # the directory the project is in
+        (project.root / ".git" / "HEAD").write_text("not a ref\n", encoding="utf-8")
+    reason = project.bash(f"cd {linked} && git push origin work")
+    assert reason is not None and "git run in this repository's git directory (" in reason, reason
+
+
+def test_a_push_from_a_linked_directory_scans_its_repository(project: Project, tmp_path: Path) -> None:
+    # git answers from the directory a link leads to, so the hook joins git's relative answer to that directory's
+    # real path, not to the path the shell took.
+    deep = project.root / "a" / "b" / "c"
+    deep.mkdir(parents=True)
+    link = tmp_path / "link"
+    link.symlink_to(deep)
+    _found(project.bash(f"cd {link} && git push origin work"))
+
+
+@pytest.mark.parametrize("link", ["the checkout's .git", "the temporary directory"])
+def test_a_git_directory_named_through_a_link_is_its_own_repository(project: Project, tmp_path: Path,
+                                                                    link: str) -> None:
+    # git names a git directory by its real path, while a GitHub write's scan reaches the one it reads through the
+    # checkout's .git, or builds it in the temporary directory, either of which may be a link (macOS's is).
+    env: dict[str, str] = {}
+    if link == "the checkout's .git":
+        moved = tmp_path / "moved.git"
+        (project.root / ".git").rename(moved)
+        (project.root / ".git").symlink_to(moved)
+        branch = "main"  # built on the branch as fetched, in the checkout's git directory
+    else:
+        (tmp_path / "tmp-real").mkdir()
+        (tmp_path / "tmp-link").symlink_to(tmp_path / "tmp-real")
+        env["TMPDIR"] = str(tmp_path / "tmp-link")
+        branch = "not-fetched"  # built in a scratch repository in the temporary directory
+    write = {"owner": "neilmac91", "repo": "EarningsNerd", "message": "m", "branch": branch, "path": "x.py",
+             "content": LEAK + "\n"}
+    _found(project.decide("mcp__github__create_or_update_file", write, env=env), "x.py:1")
+    _found(project.bash("git push origin work", env=env))
+
+
+@pytest.mark.parametrize("how", ["an empty directory", "a dangling link"])
+def test_a_git_that_git_ignores_in_the_git_directory_is_scanned_through(project: Project, tmp_path: Path,
+                                                                       how: str) -> None:
+    # git takes the git directory itself when the .git in it is neither a repository nor a gitfile, so the call is
+    # scanned, not refused.
+    planted = project.root / ".git" / ".git"
+    planted.mkdir() if how == "an empty directory" else planted.symlink_to(tmp_path / "nowhere")
+    _found(project.bash("git push origin work"))
+    _found(_mcp(project, "mcp__github__create_or_update_file", branch="main", path="x.py", content=LEAK + "\n"),
+           "x.py:1")
+
+
+def test_the_session_s_git_dir_does_not_vouch_for_the_git_directory(project: Project, tmp_path: Path) -> None:
+    # The scan's git reads no GIT_* variable of the session, so neither does the check of what it takes for the
+    # repository: a GIT_DIR naming the git directory would answer for it while the scan follows the .git inside.
+    shadow = _shadow(project, tmp_path / "shadow.git")
+    (project.root / ".git" / ".git").write_text(f"gitdir: {shadow}\n", encoding="utf-8")
+    env = {"GIT_DIR": str(project.root / ".git")}
+    write = {"owner": "neilmac91", "repo": "EarningsNerd", "message": "m", "branch": "main", "path": "x.py",
+             "content": LEAK + "\n"}
+    for reason in (project.bash("git push origin work", env=env),
+                   project.decide("mcp__github__create_or_update_file", write, env=env)):
+        assert reason is not None and "git run in this repository's git directory (" in reason, reason
+
+
+def _hop(project: Project) -> str:
+    """elsewhere/hop, a link to a directory in the project: `hop/..` is `elsewhere` by the path's text, whose own
+    `work` is clean, and the project through the link."""
+    (project.root / "deep").mkdir()
+    (project.elsewhere / "hop").symlink_to(project.root / "deep")
+    return str(project.elsewhere / "hop")
+
+
+# Moves through a link and then up from it, which the system takes through the link (to the parent of the directory
+# it leads to) where the text of the path names the parent of the link: each pushes the project's `work` from
+# `elsewhere`, and is refused only when the hook follows it as the system does.
+THROUGH_A_LINK = {
+    "-C": "git -C @HOP@/.. push origin work",
+    "env -C": "env -C @HOP@/.. git push origin work",
+    "env --chdir=": "env --chdir=@HOP@/.. git push origin work",
+    "cd -P": "cd -P @HOP@/.. && git push origin work",
+    "cd -LP, whose last option wins": "cd -LP @HOP@/.. && git push origin work",
+    "cd -Pe, whose -e takes neither way": "cd -Pe @HOP@/.. && git push origin work",
+    "cd -P -, to an OLDPWD the call sets": "OLDPWD=@HOP@/..; cd -P - && git push origin work",
+    "cd -P -, to an OLDPWD before it in the command": "OLDPWD=@HOP@/.. cd -P - && git push origin work",
+    "cd -P alone, to a HOME the call sets": "HOME=@HOP@/..; cd -P && git push origin work",
+    "--git-dir": "git --git-dir=@HOP@/../.git push origin work",
+    "a GIT_DIR": "GIT_DIR=@HOP@/../.git git push origin work",
+}
+
+
+@pytest.mark.parametrize("command", THROUGH_A_LINK.values(), ids=THROUGH_A_LINK.keys())
+def test_a_move_through_a_link_and_up_is_read_as_the_system_takes_it(project: Project, command: str) -> None:
+    _found(project.bash(command.replace("@HOP@", _hop(project)), cwd=project.elsewhere))
+
+
+# The same moves by cd -L, which takes `..` from the path's text whatever bash's physical option says: from the
+# project, each lands in `elsewhere`, where the push passes, scanned there.
+BY_THE_TEXT = {
+    "cd -L": "cd -L @HOP@/.. && git push origin work",
+    "cd -PL, whose last option wins": "cd -PL @HOP@/.. && git push origin work",
+    "cd -L after set -P, which it overrides": "set -P; cd -L @HOP@/.. && git push origin work",
+    "cd -L -, to an OLDPWD the call sets": "OLDPWD=@HOP@/..; cd -L - && git push origin work",
+}
+
+
+@pytest.mark.parametrize("command", BY_THE_TEXT.values(), ids=BY_THE_TEXT.keys())
+def test_cd_l_through_a_link_and_up_is_read_by_the_path_s_text(project: Project, command: str) -> None:
+    assert project.bash(command.replace("@HOP@", _hop(project))) is None
+    assert [scan["argv"][1] for scan in project.scans()] == [str(project.elsewhere / ".git")]
+
+
+# The same moves by a cd or pushd with neither -L nor -P, which bash takes by the path's text unless its physical
+# option is on (a `set -P` in the call or the shell's profile, an exported SHELLOPTS, a new shell's own -P), which
+# the hook does not follow: each is refused as a push from a directory the hook cannot name. From the project, the
+# text leads to `elsewhere` (a clean push) and the link into the project (its finding), so a hook that took either
+# way would decide otherwise.
+AMBIGUOUS = {
+    "cd": "cd @HOP@/.. && git push origin work",
+    "pushd": "pushd @HOP@/.. && git push origin work",
+    "cd -e, an option that names neither way": "cd -e @HOP@/.. && git push origin work",
+    "cd -, to an OLDPWD the call sets": "OLDPWD=@HOP@/..; cd - && git push origin work",
+    "cd ~, to a HOME the call sets": "HOME=@HOP@/..; cd ~ && git push origin work",
+    "cd alone, to a HOME the call sets": "HOME=@HOP@/..; cd && git push origin work",
+    "popd, back to what pushd -n put on the stack": "pushd -n @HOP@/.. && popd && git push origin work",
+    "cd after set -P": "set -P; cd @HOP@/.. && git push origin work",
+    "cd after set -eP, a group of options": "set -eP; cd @HOP@/.. && git push origin work",
+    "cd after set -o physical": "set -o physical; cd @HOP@/.. && git push origin work",
+    "cd after set -eo physical": "set -eo physical; cd @HOP@/.. && git push origin work",
+    "cd after set -P and set +P": "set -P; set +P; cd @HOP@/.. && git push origin work",
+    "cd after set x -P, which sets the arguments": "set x -P; cd @HOP@/.. && git push origin work",
+    "cd after set -- -P, which sets the arguments": "set -- -P; cd @HOP@/.. && git push origin work",
+    "a subshell's cd after set -P": "set -P; (cd @HOP@/.. && git push origin work)",
+    "cd after a subshell's set -P": "(set -P); cd @HOP@/.. && git push origin work",
+    "a substitution's cd after set -P": 'set -P; : "$(cd @HOP@/.. && git push origin work)"',
+    "a process substitution's cd after set -P": "set -P; cat <(cd @HOP@/.. && git push origin work)",
+    "a trap's cd after set -P": "set -P; trap 'cd @HOP@/.. && git push origin work' EXIT",
+    "a new shell's cd": "bash -c 'cd @HOP@/.. && git push origin work'",
+    "a new shell's cd after set -P": "set -P; bash -c 'cd @HOP@/.. && git push origin work'",
+    "a new shell started with -P": "bash -P -c 'cd @HOP@/.. && git push origin work'",
+    "a new shell given SHELLOPTS": "env SHELLOPTS=physical bash -c 'cd @HOP@/.. && git push origin work'",
+    # bash holds the directory a cd with neither option enters by its real path under set -P, from which cd -L's
+    # `..` leads elsewhere than from the path's text.
+    "cd -L after a cd with neither, from the link it entered": "cd @HOP@ && cd -L .. && git push origin work",
+}
+
+
+@pytest.mark.parametrize("command", AMBIGUOUS.values(), ids=AMBIGUOUS.keys())
+def test_a_move_through_a_link_and_up_that_bash_s_physical_option_decides_is_refused(project: Project,
+                                                                                    command: str) -> None:
+    reason = project.bash(command.replace("@HOP@", _hop(project)))
+    assert reason is not None and "directory the hook cannot name" in reason, reason
+
+
+def test_a_tilde_is_the_shell_s_home_not_the_command_s(project: Project) -> None:
+    # bash expands a `~` before the command's own HOME takes effect, so `HOME=x cd ~` goes to the shell's HOME, and
+    # `HOME=x cd` to x: here the shell's HOME is the project, and the command's names `elsewhere`.
+    env = {"HOME": str(project.root)}
+    _found(project.bash("HOME=@ELSEWHERE@ cd ~ && git push origin work", env=env))
+    _found(project.bash("HOME=@ELSEWHERE@ git -C ~ push origin work", env=env))
+    assert project.bash("HOME=@ELSEWHERE@ cd && git push origin work", env=env) is None
+    # cd alone, with no HOME in the call, goes to the session's.
+    _found(project.bash("cd && git push origin work", cwd=project.elsewhere, env=env))
+
+
+def test_a_quoted_tilde_in_a_shell_alias_is_one_the_hook_cannot_read(project: Project) -> None:
+    # The alias's text comes from the repository's config, not the call: bash leaves its quoted ~ as written, the cd
+    # fails, and the push runs from the top directory.
+    project.git("config", "alias.ship", "!cd '~'; git push origin work")
+    project.git("checkout", "-q", "clean")
+    reason = project.bash("git ship", env={"HOME": str(project.root)})
+    assert reason is not None and "directory the hook cannot name" in reason, reason
+
+
+def test_a_shell_alias_gets_no_home_the_shell_holds_unexported(project: Project) -> None:
+    # git passes a shell alias the environment it got, which holds no HOME the call's shell has unexported: the
+    # alias's cd then fails, and its push runs from the top directory.
+    project.git("config", "alias.ship", "!cd; git push origin work")
+    project.git("checkout", "-q", "clean")
+    reason = project.bash("export HOME=@ELSEWHERE@; export -n HOME; git ship")
+    assert reason is not None and "directory the hook cannot name" in reason, reason
+
+
+def test_a_git_dir_naming_a_gitfile_is_read_in_the_repository_it_names(project: Project) -> None:
+    # git takes a GIT_DIR or --git-dir that names a gitfile (a linked worktree's or a submodule's .git) to the
+    # repository the file names.
+    (project.elsewhere / "link.git").write_text(f"gitdir: {project.root / '.git'}\n", encoding="utf-8")
+    _found(project.bash("GIT_DIR=@ELSEWHERE@/link.git git push origin work", cwd=project.elsewhere))
+    _found(project.bash("git --git-dir=@ELSEWHERE@/link.git push origin work", cwd=project.elsewhere))
+
+
+def test_a_tilde_and_a_user_s_name_is_that_user_s_home_directory(project: Project) -> None:
+    # bash takes `~name` from the password database, whatever HOME holds: here the call's HOME names `elsewhere`.
+    import pwd
+
+    try:
+        entry = pwd.getpwuid(os.getuid())
+    except KeyError:
+        pytest.skip("this process's user has no entry in the password database")
+    if not os.path.isdir(entry.pw_dir):
+        pytest.skip(f"this user's home directory ({entry.pw_dir}) does not exist")
+    path = os.path.relpath(project.root, os.path.realpath(entry.pw_dir))
+    _found(project.bash(f"HOME=@ELSEWHERE@; git -C ~{entry.pw_name}/{path} push origin work", cwd=project.elsewhere))
+
+
+@pytest.mark.parametrize(("how", "said"), [("no repository", "not a git repository"),
+                                           ("a core.worktree git cannot enter", "cannot chdir to '../missing'")])
+def test_a_push_whose_repository_git_cannot_read_is_refused(project: Project, how: str, said: str) -> None:
+    # The hook reads a push's repository where it runs, without the settings the call gives git. Where that read
+    # finds none, the push may still read one (here the call's GIT_WORK_TREE stands in for a core.worktree git
+    # cannot enter, as a removed submodule's is; a -c safe.directory does the same for another user's checkout),
+    # so the call is refused, not let through, with what git said.
+    if how == "no repository":
+        command = "git -C /tmp push"
+    else:
+        project.git("config", "core.worktree", "../missing")
+        command = "GIT_WORK_TREE=@REPO@ git push origin work"
+    reason = project.bash(command)
+    assert reason is not None and "git cannot read a repository where this push runs" in reason and said in reason, \
+        reason
+
+
+@pytest.mark.parametrize(("command", "name"), [
+    ("unset GIT_DIR; git push origin work", "GIT_DIR"),
+    ("export -n GIT_DIR; git push origin work", "GIT_DIR"),
+    ("env -u GIT_DIR git push origin work", "GIT_DIR"),
+    ("env -i git push origin work", "GIT_DIR"),
+    ("exec -c git push origin work", "GIT_DIR"),
+    ("env -u HOME bash -c 'cd; git push origin work'", "HOME"),
+    ("sudo env -C @REPO@ git push origin work", "GIT_DIR"),
+    ("env - git push origin work", "GIT_DIR"),
+    ("env --ignore-environment git push origin work", "GIT_DIR"),
+    ("env --unset=GIT_DIR git push origin work", "GIT_DIR"),
+], ids=["unset", "export -n", "env -u", "env -i", "exec -c", "a HOME env -u drops", "sudo", "env -",
+        "env --ignore-environment", "env --unset"])
+def test_a_session_location_variable_the_call_drops_leaves_a_push_unnamed(project: Project, command: str,
+                                                                           name: str) -> None:
+    # The hook's own reads run in the session's environment, whose GIT_DIR (or HOME) names `elsewhere`: a call that
+    # drops it pushes from the project, where those reads do not look, so its directory is one the hook cannot name.
+    env = {"GIT_DIR": str(project.elsewhere / ".git")} if name == "GIT_DIR" else {"HOME": str(project.elsewhere)}
+    reason = project.bash(command, env=env)
+    assert reason is not None and "directory the hook cannot name" in reason, reason
+
+
+def test_a_push_is_read_in_the_repository_the_session_s_git_dir_names(project: Project) -> None:
+    # The push's git reads the session's GIT_DIR, so the read that finds the push's repository does too: from
+    # `elsewhere`, this push sends the project's commits.
+    _found(project.bash("git push origin work", cwd=project.elsewhere, env={"GIT_DIR": str(project.root / ".git")}))
+
+
+def test_rules_in_the_git_directory_are_refused_whatever_main_holds(project: Project) -> None:
+    # Under the rules main names, gitleaks reads no .gitleaks.toml in the git directory, but one there is refused all
+    # the same, so it never starts to count the day main's rules go.
+    project.git("checkout", "-q", "main")
+    project.commit({".gitleaks.toml": "[extend]\nuseDefault = true\n"}, "rules on main")
+    project.publish("main")
+    project.git("checkout", "-q", "work")
+    project.git("rebase", "-q", "main")
+    (project.root / ".git" / ".gitleaks.toml").write_text(ALLOW_ALL, encoding="utf-8")
+    reason = project.bash("git push origin work")
+    assert reason is not None and "git directory holds a .gitleaks.toml" in reason, reason
+
+
+@pytest.mark.parametrize(("version", "refused"), [
+    ("git version 2.43.0", False), ("git version 2.55.0", False), ("git version 3.0.1", False),
+    ("git version 2.43.0.windows.1", False), ("git version 2.39.5 (Apple Git-154)", True),
+    ("git version 2.42.4", True), ("git version 1.99.9", True), ("", True), ("not git", True),
+])
+def test_the_scan_needs_git_2_43_or_later(version: str, refused: bool) -> None:
+    assert (SCAN._too_old(version) is not None) == refused
+
+
+def _graft(project: Project) -> None:
+    """Graft the planted commit onto a twin GitHub has with the same tree, so `git log -p` shows it adding nothing,
+    and silence git's hint about the graft file in the repository's config."""
     twin = project.git("commit-tree", project.git("rev-parse", "work^{tree}"), "-p", "main", "-m", "twin")
     project.git("update-ref", "refs/remotes/origin/twin", twin)
     (project.root / ".git" / "info").mkdir(exist_ok=True)
     (project.root / ".git" / "info" / "grafts").write_text(f"{project.leak} {twin}\n", encoding="utf-8")
     project.git("config", "advice.graftFileDeprecated", "false")
-    reason = project.bash("git push origin work")
+
+
+def _failed_for_the_graft(reason: str | None) -> None:
+    """A refusal of a scan the graft's hint failed: it names the hint, which gitleaks logs first, and not the closing
+    lines that report a partial scan with no leaks found."""
     assert reason is not None and "gitleaks failed" in reason, reason
+    assert "info/grafts is deprecated" in reason and "no leaks found" not in reason, reason
+
+
+def test_a_graft_file_fails_the_scan_closed_whatever_the_repository_says_of_its_hint(project: Project) -> None:
+    # git's hint about the graft file, held on, fails the scan rather than let it read the graft's view.
+    _graft(project)
+    _failed_for_the_graft(project.bash("git push origin work"))
+
+
+def test_a_refusal_names_git_s_lines_without_its_blank_ones() -> None:
+    # git's longer errors (a checkout another user owns) hold a blank line before the command that fixes them.
+    stderr = b"fatal: detected dubious ownership in repository at '/r'\nTo add an exception, call:\n\n\tgit x\n"
+    assert SCAN._tail(stderr) == ("fatal: detected dubious ownership in repository at '/r' / To add an exception, "
+                                  "call: / git x")
+
+
+def test_a_failed_scan_is_refused_with_the_errors_gitleaks_logged() -> None:
+    # gitleaks 8.24.3's stderr when git's own stderr fails its scan, abridged from what it logged for a graft: the
+    # refusal names the first error (git's) and the last (gitleaks' own), each without its time and level.
+    stderr = (b"6:12PM ERR [git] hint: Support for <GIT_DIR>/info/grafts is deprecated\n"
+              b"6:12PM ERR [git] hint: and will be removed in a future Git version.\n"
+              b"6:12PM ERR [git] hint: \n"
+              b'6:12PM ERR failed to scan Git repository error="stderr is not empty"\n'
+              b"6:12PM WRN scanned ~0 bytes (0)\n6:12PM WRN partial scan completed in 149ms\n"
+              b"6:12PM WRN no leaks found in partial scan\n")
+    assert SCAN._logged(stderr) == ("[git] hint: Support for <GIT_DIR>/info/grafts is deprecated / failed to scan "
+                                    'Git repository error="stderr is not empty"')
+    # Its fatal lines come in colour even under --no-color, as for a main .gitleaks.toml it cannot parse.
+    fatal = (b"\x1b[90m6:52PM\x1b[0m \x1b[31mFTL\x1b[0m \x1b[1munable to load gitleaks config, err: While parsing "
+             b"config: toml: expected character ]\x1b[0m\n")
+    assert SCAN._logged(fatal) == "unable to load gitleaks config, err: While parsing config: toml: expected character ]"
+    # A line git left empty names nothing, so the next one is named.
+    assert SCAN._logged(b"6:12PM ERR [git] \n6:12PM ERR [git] fatal: bad object\n6:12PM ERR failed to scan\n") == (
+        "[git] fatal: bad object / failed to scan")
+    # A panic logs nothing at an error level: its own line names it, not the stack after it (main's .gitleaks.toml
+    # with the regex `(`).
+    panic = (b"WARNING: All log messages before absl::InitializeLog() is called are written to STDERR\n"
+             b"E0000 00:00:1792435675.663074  145936 re2.cc:237] Error parsing '(': missing ): (\n"
+             b"panic: regexp: Compile(`(`): error parsing regexp: missing closing ): `(`\n\ngoroutine 1 [running]:\n"
+             b"main.main()\n\t/Users/zrice/code/gitleaks-org/gitleaks/main.go:18 +0x9d\n")
+    assert SCAN._logged(panic) == "panic: regexp: Compile(`(`): error parsing regexp: missing closing ): `(`"
+    # So does a Go runtime fatal error.
+    assert SCAN._logged(b"fatal error: concurrent map writes\n\ngoroutine 7 [running]:\nmain.main()\n") == (
+        "fatal error: concurrent map writes")
+    assert SCAN._logged(b"error: told to fail\n") == "error: told to fail"  # no level and no crash: its last lines
 
 
 def test_a_copy_the_repository_detects_does_not_hide_a_copied_line(project: Project) -> None:
@@ -1194,6 +2489,23 @@ def test_main_s_pins_come_from_origin_head_then_main_then_master(project: Projec
     assert project.bash("git push origin work") is None  # then origin/master
 
 
+def test_with_no_rules_on_main_the_scan_names_none(project: Project) -> None:
+    # gitleaks then reads its built-in config, as CI's scan does. No rules the hook could name stand in for it: those
+    # that extend it (`[extend] useDefault = true`) drop its global allowlist's stopwords, as the pinned binary's case
+    # below shows. A push, a write to a fetched branch, one to a branch not fetched and one to another repository each
+    # run a scan.
+    write = {"path": "x.py", "content": LEAK + "\n"}
+    _found(project.bash("git push origin work"))
+    _found(_mcp(project, "mcp__github__create_or_update_file", branch="main", **write), "x.py:1")
+    _found(_mcp(project, "mcp__github__create_or_update_file", branch="not-fetched", **write), "x.py:1")
+    _found(project.decide("mcp__github__create_or_update_file", {"owner": "someone", "repo": "else", "branch": "main",
+                                                                "message": "m", **write}), "x.py:1")
+    scans = [scan["argv"] for scan in project.scans() if scan["argv"][:1] == ["git"]]
+    # --config or -c, either with =, or c in a group of short flags (-vc): gitleaks reads each as naming rules
+    named = [arg for argv in scans for arg in argv if re.match(r"--config|-[a-z]*c", arg)]
+    assert len(scans) == 4 and not named, scans
+
+
 def test_rules_main_carries_count(project: Project) -> None:
     project.git("checkout", "-q", "main")
     project.commit({".gitleaks.toml": ALLOW_ALL}, "rules on main")
@@ -1340,6 +2652,18 @@ def test_a_repository_that_signs_every_commit_still_has_its_github_writes_scanne
         project.git("config", name, value)
     assert _mcp(project, "mcp__github__create_or_update_file", branch="main", path="x.py", content="x = 1\n") is None
     _found(_mcp(project, "mcp__github__create_or_update_file", branch="main", path="x.py", content=LEAK), "x.py:1")
+
+
+@pytest.mark.parametrize("setting", [*ATTRIBUTE_SOURCES, "color.diff"])
+def test_a_github_write_s_scan_holds_the_repository_s_settings_at_git_s_defaults(project: Project, setting: str) -> None:
+    # A write to a fetched branch is built and scanned in the repository's own git directory, so its settings reach
+    # that scan as they reach a push's, and SCAN_CONFIG holds them there too.
+    if setting == "color.diff":
+        project.git("config", "color.diff", "always")
+    else:
+        _plant_attributes(project, setting)
+    _found(_mcp(project, "mcp__github__create_or_update_file", branch="main", path="x.py", content=LEAK + "\n"),
+           "x.py:1")
 
 
 def test_a_github_write_scans_only_the_lines_it_adds(project: Project) -> None:
@@ -1491,6 +2815,40 @@ def test_a_recursion_past_python_s_own_limit_refuses(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(SCAN, "_bash_refusal", deep)
     reason = SCAN.refusal(_event("Bash", {"command": "git push"}, ROOT), time.monotonic() + 30)
     assert reason is not None and "more than five levels deep" in reason
+
+
+def test_a_call_whose_reading_outlasts_the_deadline_refuses() -> None:
+    # Functions that call each other many times over can take the reader past the hook's time, which the
+    # registration would then end, letting the call through: the reader refuses it first.
+    event = _event("Bash", {"command": "f() { :; }; f; git push origin work"}, ROOT)
+    reason = SCAN.refusal(event, time.monotonic() - 1)
+    assert reason is not None and "reading this call took the hook past" in reason, reason
+    assert "does not expect" not in reason, reason
+
+
+def test_an_error_reading_a_call_refuses_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A Bash call that names git or gh may push: a reading of it that fails refuses it, as one that recurses past
+    # Python's own limit does.
+    def broken(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("planted")
+
+    monkeypatch.setattr(SCAN._Reader, "read", broken)
+    reason = SCAN.refusal(_event("Bash", {"command": "git status"}, ROOT), time.monotonic() + 30)
+    assert reason is not None and "an error the hook does not expect (RuntimeError: planted)" in reason, reason
+
+    def deep(*args: object, **kwargs: object) -> None:
+        raise RecursionError("planted")
+
+    monkeypatch.setattr(SCAN._Reader, "read", deep)
+    reason = SCAN.refusal(_event("Bash", {"command": "git status"}, ROOT), time.monotonic() + 30)
+    assert reason is not None and "more than five levels deep" in reason, reason
+
+
+def test_a_refusal_shows_a_quoted_word_as_written(project: Project) -> None:
+    project.git("checkout", "-q", "clean")
+    reason = project.bash("'function' x; git push")
+    _ordered(reason)
+    assert "runs `function x`" in reason, reason
 
 
 def test_a_scan_past_its_deadline_refuses(project: Project, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1664,6 +3022,18 @@ def test_the_real_binary_reads_its_files_as_the_stub_does(tmp_path: Path) -> Non
     project.git("replace", "-d", project.leak)
     for name, _ in blinders:
         project.git("config", "--unset", name)
+    # gitleaks reads rules in the directory it scans when no --config names any, as with no rules on main, which is
+    # why the hook refuses a git directory that holds them.
+    rules = project.root / ".git" / ".gitleaks.toml"
+    for planted, exit_code in ((False, SCAN.LEAKS), (True, 0)):
+        if planted:
+            rules.write_text(ALLOW_ALL, encoding="utf-8")
+        direct = subprocess.run([str(project.binary()), "git", str(project.root / ".git"), "--log-opts=main..work",
+                                 "--no-banner", f"--exit-code={SCAN.LEAKS}"], cwd=tmp_path, env=_plain_env(),
+                                capture_output=True)
+        assert direct.returncode == exit_code, direct.stderr
+    assert "git directory holds a .gitleaks.toml" in (project.bash("git push origin work") or "")
+    rules.unlink()
     project.write({".gitleaksignore": f"{project.leak}:b.py:generic-api-key:1\nb.py:generic-api-key:1\n"})
     _found(project.bash("git push origin work"))  # the worktree's own pins do not reach the scan
     (project.root / ".gitleaksignore").unlink()
@@ -1682,6 +3052,33 @@ def test_the_real_binary_reads_its_files_as_the_stub_does(tmp_path: Path) -> Non
     project.commit({".gitleaks.toml": ALLOW_ALL}, "rules on main")
     project.publish("main")
     assert _mcp(project, "mcp__github__create_or_update_file", branch="main", path="x.py", content=LEAK) is None
+
+
+def test_the_real_binary_s_built_in_allowlist_lets_its_stopwords_through(tmp_path: Path) -> None:
+    # With no rules on main the scan names none, so gitleaks reads its built-in config, as CI's scan does: a
+    # placeholder token its global allowlist's stopwords let through goes through, where rules that only extend that
+    # config would refuse it.
+    project = _make(tmp_path, binary="real")
+    placeholder = 'GITHUB = "ghp_' + string.ascii_lowercase + '0123456789"\n'
+    project.git("checkout", "-q", "clean")
+    project.commit({"s.py": placeholder}, "a placeholder token")
+    assert project.bash("git push origin clean") is None
+    assert _mcp(project, "mcp__github__create_or_update_file", branch="main", path="s.py", content=placeholder) is None
+
+
+@pytest.mark.parametrize("source", ATTRIBUTE_SOURCES)
+def test_the_real_binary_reads_no_attributes_the_repository_points_it_at(tmp_path: Path, source: str) -> None:
+    project = _make(tmp_path, binary="real")
+    _plant_attributes(project, source)
+    _found(project.bash("git push origin work"))
+    _found(_mcp(project, "mcp__github__create_or_update_file", branch="main", path="x.py", content=LEAK + "\n"),
+           "x.py:1")
+
+
+def test_the_real_binary_s_failed_scan_is_refused_with_the_error_it_logged(tmp_path: Path) -> None:
+    project = _make(tmp_path, binary="real")
+    _graft(project)
+    _failed_for_the_graft(project.bash("git push origin work"))
 
 
 # --- the registration ----------------------------------------------------------------------------------------
