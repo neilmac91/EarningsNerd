@@ -54,11 +54,19 @@ import { bindingResolver, containerEscape } from './astBindings'
  * `value="…"` or `value={'…'}` (an <option>, a radio input, a custom item; `value={prefs.x}` is the control's
  * state, a field, and on an <option>, whose value is what it offers, a value the scan cannot read), each
  * entry's `value` in an `options` prop (SegmentedControl, the design system's single choice, or any select
- * wrapper), and a literal a save or mutate call writes into a field (`save({ digest: 'weekly' })`, each
- * branch of a condition over literals). A value or an `options` entry may also be the element,
+ * wrapper), and each value a save or mutate call writes into a field: a literal (`save({ digest: 'weekly' })`),
+ * each branch of a condition and each side of `||`, `??` or `&&`, what a same-file const holds (`const WEEKLY =
+ * 'weekly'`, through a const that names another), and a function's own parameter, read as its default and as what
+ * each call of the function in the file hands it (`choose('weekly')`); a control's callback's own parameter
+ * (`onChange={(v) => save({ digest: v })}`) also takes what the control offers, read where that is written (its
+ * options, or a switch's true or false). A boolean, a number, null or undefined offers no choice, and neither does a
+ * value an operator makes a boolean (`!x`, a comparison). A value or an `options` entry may also be the element,
  * or one of its fields, of the array a `.map` takes (`DIGESTS.map((d) => <option value={d}>)`,
- * `CHOICES.map((c) => ({ value: c.value }))`), the array written in place or as a const in the form. A `value`
- * or an `options` written any other way fails the scan, so a choice it cannot read never ships unread.
+ * `CHOICES.map((c) => ({ value: c.value }))`), the array written in place or as a const in the form. A `value`,
+ * an `options` entry or a saved value written any other way fails the scan with its place: a `let`, a value kept in
+ * React state, an import, a member (`e.target.value` is not the callback's own parameter), a call, a template with a
+ * substitution, a method, and a parameter of a function that no call in the file and no control hands a value. So a
+ * choice it cannot read never ships unread.
  *
  * Limits: a block is reached by name (a same-named function in another module is not told apart, and a call
  * made through a variable or getattr is not followed, which only narrows), and a reached block counts as a
@@ -228,17 +236,6 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     const value = body && valueOf(body)
     return value ? optionValues(value) : null
   }
-  /** The string literals an expression can be: a literal, each branch of a condition, each side of `||` or `??`. */
-  const literalsOf = (expression: ts.Expression): string[] => {
-    const inner = unwrap(expression)
-    const direct = literal(inner)
-    if (direct !== null) return [direct]
-    if (ts.isConditionalExpression(inner)) return [...literalsOf(inner.whenTrue), ...literalsOf(inner.whenFalse)]
-    const op = ts.isBinaryExpression(inner) ? inner.operatorToken.kind : undefined
-    if (ts.isBinaryExpression(inner) && (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken)) return [...literalsOf(inner.left), ...literalsOf(inner.right)]
-    return []
-  }
-
   // ── What the form hands where: its functions and the prefs value, followed through the file ─────────────────────────
   // A name is the declaration an identifier binds to in the file (astBindings, so two components' `props` stay apart; an
   // unbound name, an import or a global, is its text), or a member path from one (`actions.persist`, `props.source`). A
@@ -583,6 +580,75 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
     if (ts.isElementAccessExpression(node) && isHolder(node.expression) && ts.isStringLiteralLike(node.argumentExpression)) read(node.argumentExpression.text, node)
   })
 
+  // ── What a save writes into a field ─────────────────────────────────────────────────────────────────────────────────
+  // A control's callbacks: each function an attribute hands an element or a component (`onChange={(v) => …}`,
+  // `onChange={setBool('x')}`, `onChange={pick}`). The control calls it with the values it offers, read where they are
+  // written (its options), or a switch's true or false. And every call the file makes of each function, under any name.
+  const callbacks = new Set<Fn>()
+  const callsOf = new Map<Fn, ts.CallExpression[]>()
+  walkFile((node) => {
+    if (ts.isJsxAttribute(node) && node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression) {
+      for (const fn of functionsIn(node.initializer.expression)) callbacks.add(fn)
+    }
+    if (ts.isCallExpression(node)) for (const fn of functionsIn(node.expression)) callsOf.set(fn, [...(callsOf.get(fn) ?? []), node])
+  })
+  const BOOLEAN = new Set([
+    ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
+    ts.SyntaxKind.LessThanToken, ts.SyntaxKind.GreaterThanToken, ts.SyntaxKind.LessThanEqualsToken, ts.SyntaxKind.GreaterThanEqualsToken,
+    ts.SyntaxKind.InstanceOfKeyword, ts.SyntaxKind.InKeyword,
+  ])
+  /** The strings a save can write into a field, each with where it is written: a string literal; each branch of a
+      condition and each side of `||`, `??` or `&&`; what a same-file const holds; and a function's own parameter, read
+      as its default, as what each call of the function in the file hands it, and, for a control's callback, as the
+      values the control offers. A boolean, a number, null or undefined offers none, and neither does a value whose
+      operator makes it a boolean (`!x`, a comparison). Anything else fails the scan, with its place: a `let`, a value
+      kept in React state, an import, a member (`e.target.value` is not the callback's own parameter), a call, a
+      template with a substitution, and a parameter of a function no call in the file and no control hands a value.
+      `seen` stops a const or a parameter read twice, a cycle among them included. */
+  const refuseValue = (node: ts.Node): [] => {
+    const entry = `${file}:${line(node)} ${node.getText(source).replace(/\s+/g, ' ')} (a value a save writes that this scan cannot read)`
+    if (!unreadable.includes(entry)) unreadable.push(entry)
+    return []
+  }
+  const savedValues = (value: ts.Expression, seen = new Set<ts.Node>()): Array<[text: string, at: ts.Node]> => {
+    const inner = bare(value)
+    const unread = (node: ts.Node = inner) => refuseValue(node)
+    if (ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner)) return [[inner.text, inner]]
+    const kind = inner.kind
+    if (kind === ts.SyntaxKind.TrueKeyword || kind === ts.SyntaxKind.FalseKeyword || kind === ts.SyntaxKind.NullKeyword || ts.isNumericLiteral(inner) || ts.isBigIntLiteral(inner) || ts.isVoidExpression(inner)) return []
+    if (ts.isPrefixUnaryExpression(inner)) {
+      const signed = (inner.operator === ts.SyntaxKind.MinusToken || inner.operator === ts.SyntaxKind.PlusToken) && ts.isNumericLiteral(bare(inner.operand))
+      return inner.operator === ts.SyntaxKind.ExclamationToken || signed ? [] : unread()
+    }
+    if (ts.isConditionalExpression(inner)) return [...savedValues(inner.whenTrue, seen), ...savedValues(inner.whenFalse, seen)]
+    if (ts.isBinaryExpression(inner)) {
+      const op = inner.operatorToken.kind
+      if (BOOLEAN.has(op)) return []
+      if (LOGICAL.has(op)) return [...savedValues(inner.left, seen), ...savedValues(inner.right, seen)]
+      return op === ts.SyntaxKind.CommaToken ? savedValues(inner.right, seen) : unread()
+    }
+    if (!ts.isIdentifier(inner)) return unread()
+    const decl = resolve(inner)?.decl
+    if (!decl) return inner.text === 'undefined' ? [] : unread()
+    if (seen.has(decl)) return []
+    seen.add(decl)
+    if (ts.isVariableDeclaration(decl) && ts.isIdentifier(decl.name) && decl.initializer && decl.parent.flags & ts.NodeFlags.Const) {
+      return savedValues(decl.initializer, seen)
+    }
+    if (!ts.isParameter(decl) || !ts.isIdentifier(decl.name) || decl.dotDotDotToken) return unread()
+    const fn = decl.parent
+    const index = fn.parameters.indexOf(decl)
+    const calls = callsOf.get(fn) ?? []
+    if (!calls.length && !callbacks.has(fn)) return unread()
+    const values = decl.initializer ? savedValues(decl.initializer, seen) : []
+    for (const call of calls) {
+      const arg = call.arguments[index]
+      if (call.arguments.slice(0, index + 1).some(ts.isSpreadElement)) unread(call)
+      else if (arg) values.push(...savedValues(arg, seen))
+    }
+    return values
+  }
+
   const visit = (node: ts.Node): void => {
     // type BoolPref = 'notify_10k' | … : every member is a field the form can save.
     if (ts.isTypeAliasDeclaration(node) && ts.isUnionTypeNode(node.type)) {
@@ -608,7 +674,9 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
             }
             const key = propertyKey(prop.name)
             if (key !== undefined) fields.set(key, line(prop))
-            if (ts.isPropertyAssignment(prop)) for (const value of literalsOf(prop.initializer)) options.set(value, line(prop))
+            // Each value it writes there, read where it is written (savedValues); a method or an accessor computes one.
+            const value = ts.isPropertyAssignment(prop) ? prop.initializer : ts.isShorthandPropertyAssignment(prop) ? prop.name : undefined
+            for (const [text, at] of value ? savedValues(value) : refuseValue(prop)) options.set(text, line(at))
           }
         }
         for (const arg of node.arguments) for (const object of objectsIn(arg)) update(object)
@@ -768,6 +836,57 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       'fixture.tsx:19 CHOICES2[0] (a container that can change after its initializer: an entry assigned, line 20)',
       'fixture.tsx:22 PERIODS2[0] (a container that can change after its initializer: an entry assigned, line 23)',
     ])
+  })
+
+  it('reads every value a save writes into a field, and refuses one it cannot read (self-check)', () => {
+    // The value half of the review of 8fb22fbe, re-run on 28b69145 and 3ebe222b: a same-file const, a value kept in
+    // React state, a `let` and an import each offered a value the scan neither read nor refused. Each form saves into
+    // a field of its own, tagged with the values it offers, or with the form the scan must refuse.
+    const VALUES: Array<[code: string, offers?: string[], refused?: string]> = [
+      ["import { CHOICE } from './choices'"],
+      ["const WEEKLY = 'zz_weekly'"],
+      ["const BASE = 'zz_alias'"],
+      ['const ALIAS = BASE'],
+      ['export function Form({ on }: { on: boolean }) {'],
+      ["  const [v_state, setState] = useState('zz_state_initial')"],
+      ["  let pick = 'zz_let'"],
+      // A saver's own parameter takes what each call hands it; a control's callback, also what the control offers.
+      ['  const choose = (v: string) => save({ v_param: v })'],
+      ['  const onPick = (v: string) => save({ v_both: v })'],
+      ['  const orphan = (v: string) => save({ v_orphan: v })', [], 'v'],
+      ['  return ('],
+      ['    <>'],
+      // Chief design's probes: a same-file const (and a const holding one), React state, a `let`, an import.
+      ['      <button onClick={() => save({ v_const: WEEKLY })}>Weekly</button>', ['zz_weekly']],
+      ['      <button onClick={() => save({ v_alias: ALIAS })}>Alias</button>', ['zz_alias']],
+      ["      <button onClick={() => { setState('zz_state'); save({ v_state }) }}>State</button>", [], 'v_state'],
+      ['      <button onClick={() => save({ v_let: pick })}>Let</button>', [], 'pick'],
+      ['      <button onClick={() => save({ v_import: CHOICE })}>Import</button>', [], 'CHOICE'],
+      // A control callback's own parameter: the control's options carry its values.
+      ["      <SegmentedControl label=\"Seg\" options={[{ value: 'zz_seg', label: 'Seg' }]} value={prefs.v_callback} onChange={(v) => save({ v_callback: v })} />", ['zz_seg']],
+      ["      <button onClick={() => choose('zz_param')}>Param</button>", ['zz_param']],
+      ["      <SegmentedControl label=\"Both\" options={[{ value: 'zz_both_option', label: 'B' }]} value={prefs.v_both} onChange={onPick} />", ['zz_both_option']],
+      ["      <button onClick={() => onPick('zz_both_direct')}>Direct</button>", ['zz_both_direct']],
+      // A member of the callback's parameter is not the parameter; a template with a substitution; a branch the scan
+      // cannot read beside one it can.
+      ['      <select onChange={(e) => save({ v_member: e.target.value })}><option value="zz_member">M</option></select>', ['zz_member'], 'e.target.value'],
+      ['      <button onClick={() => save({ v_template: `${WEEKLY}ly` })}>Template</button>', [], '`${WEEKLY}ly`'],
+      ["      <button onClick={() => save({ v_branch: on ? 'zz_branch' : pick })}>Branch</button>", ['zz_branch'], 'pick'],
+      // A boolean, a number or null offers no choice, and neither does a value an operator makes a boolean.
+      ["      <button onClick={() => save({ v_not: !on, v_compared: pick === 'x', v_true: true, v_null: null, v_number: -1 })}>Flags</button>"],
+      ['    </>'],
+      ['  )'],
+      ['}'],
+    ]
+    const { fields, options, unreadable } = formPreferences('fixture.tsx', VALUES.map(([code]) => code).join('\n'))
+    expect([...fields.keys()].sort()).toEqual([
+      'v_alias', 'v_both', 'v_branch', 'v_callback', 'v_compared', 'v_const', 'v_import', 'v_let', 'v_member', 'v_not', 'v_null', 'v_number', 'v_orphan',
+      'v_param', 'v_state', 'v_template', 'v_true',
+    ])
+    expect([...options.keys()].sort()).toEqual(VALUES.flatMap(([, offers = []]) => offers).sort())
+    expect(unreadable).toEqual(
+      VALUES.flatMap(([, , refused], index) => (refused === undefined ? [] : [`fixture.tsx:${index + 1} ${refused} (a value a save writes that this scan cannot read)`])),
+    )
   })
 
   it('reads a field wherever the form reads the prefs value, and a save through any helper, but not gating the API derives (self-check)', () => {
@@ -1009,7 +1128,7 @@ describe('Notification preferences the form offers are read by the alert jobs', 
   it('every value the form offers is a literal the jobs act on, and the scan reads each one', () => {
     expect(
       form.unreadable,
-      'write each value as a literal or through a .map over a literal array, keep what the scan reads through (an update, an object of savers, an options array) unchanged after its initializer, and within eight steps of where it is used',
+      'write each value as a literal or through a .map over a literal array, save a literal, a same-file const or what a control hands its callback, keep what the scan reads through (an update, an object of savers, an options array) unchanged after its initializer, and within eight steps of where it is used',
     ).toEqual([])
     const unread = [...form.options].filter(([value]) => !hasLiteral(consumerCode, value))
     expect(unread.map(([value, at]) => `${FORM}:${at} option "${value}" has no reader the jobs reach in ${CONSUMERS.join(', ')}`)).toEqual([])
