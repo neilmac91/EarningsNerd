@@ -101,7 +101,7 @@ E30's paid runs in all: USD 1.603888 over 547 calls (events 69, 71, 73 and 75): 
 ## Plan
 
 1. **This record's PR:** a fact-check workflow over the draft (`record-28-factcheck-01`, closure 179), then `record-28-reviewer-01` (closure 178; one reviewer context bound to the final head, with same-context delta checks); `@codex review` after each push; an explicit squash title and message; then the twenty-fourth deploy-skip proof.
-2. **Record 29's closure** registers as actual the launches since closure 179 (E30's and the add-on's review workflows and their contexts, the two stopped workflows' agents, one each, this record's three fact-check workflows and its reviewer), annotates `record-27-reviewer-01`'s role (ten of its nits were applied before record 27's merge, not nine), and pre-registers what follows.
+2. **Record 29's closure** registers as actual the launches since closure 179 (E30's and the add-on's review workflows and their contexts, the two stopped workflows' agents, one each, this record's three fact-check workflows and its reviewer), annotates `record-27-reviewer-01`'s role in closure 179, whose "nine of its nits applied before the merge" counts only the nine its first pass had applied in `6f6ac8b` and leaves out ND-3, fixed in record 27's PR body before the merge (ten in all), and pre-registers what follows.
 3. **The founder's items** below; the chief starts neither scrubber extra nor a worker-Sentry change without the founder's word.
 4. **Then the checkpoint's Next queue:** the COO's G3 first-customer-part review and the G4 gate; B32's qualifying retained window; R1 waits on the founder's custody step-A answer.
 
