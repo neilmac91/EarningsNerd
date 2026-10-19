@@ -37,3 +37,12 @@ of a phrase, no credential): main's run at 01:11 had read 2,515 commits clean (j
 history was not to be rewritten, so `283ac453` pinned the two in its own `.gitleaksignore` and marked
 both lines, and #1382 merged the same six lines on main (`cc071d4a`, 06:16 UTC). No push to main and
 no other pull request ran CI in that window, so nothing was blocked.
+
+**Recurrence (2026-10-19, pinned on main)**: #1407's push at 09:15 UTC brought `41da420b` to the
+remote. Its E125 evidence holds a copy of E110's mail renderer (`render_mails.py.txt`), which sets CI's
+test `SECRET_KEY` and a made-up 43-character token: an evidence script, not a test, pushed without the
+scan this rule asks for. #1407's own run failed on the two (job 117981141804, `leaks found: 2`), and so
+did #1372's at 09:24 (job 117984774947). `3ed4198c` marked both lines and pinned them in #1407's own
+`.gitleaksignore`, which reached #1407's runs alone; another session's #1408 merged the same six lines
+on main (`4b2ae9d8`, 09:50 UTC), and every branch's scan passed again. Two pushes have skipped the scan
+since this rule was written (#1334 and #1407), so E126 proposes a gate before the push.
