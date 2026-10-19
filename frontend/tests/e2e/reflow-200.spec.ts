@@ -690,7 +690,7 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
     column is 105, 132 and 162px there (ModalBody's px-6 and the card's p-4 under doubled text), so the longest words
     still break at all three widths until a card's padding stops growing under enlarged text (tasks/todo.md E120, whose
     measure with this recipe is 201px and no broken word at 320px). The dialog's title runs past the panel at these
-    widths (tasks/todo.md E129), so the panel's own sideways scroll is not asserted here. */
+    widths (tasks/todo.md E130), so the panel's own sideways scroll is not asserted here. */
 const categoryRows = (dialog: Locator) =>
   dialog.evaluate((root) => {
     const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
