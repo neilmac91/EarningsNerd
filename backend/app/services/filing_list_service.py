@@ -247,14 +247,17 @@ def other_filing_forms() -> List[str]:
 
 
 def forms_to_refresh(db: Session, company_id: int, forms: List[str]) -> List[str]:
-    """The forms of a durable refresh's payload that the worker fetches: each one the company's list
-    serves by default, and each other one the company already has rows of. So a refresh keeps stored
-    rows fresh but never adds a form nobody stored, which would spend the fetch's row budget and
-    reach the pages that read every stored form (the watchlist, the dashboard, the digest)."""
+    """The forms of a durable refresh's payload that the worker fetches. The list-forms payload is
+    fetched whole, so a company's first 10-Q or 20-F arrives. It is recognised in either state of
+    ``ENABLE_FPI_FILINGS``, because a queued task can outlive a change of the flag. Any other payload
+    keeps only the forms the company already has rows of. So a refresh keeps stored rows fresh but
+    never adds a form nobody stored, which would spend the fetch's row budget and reach the pages
+    that read every stored form (the watchlist, the dashboard, the digest)."""
     from app.services.latest_filing_service import company_list_forms
-    kept = set(company_list_forms())
-    kept |= {form for (form,) in db.query(Filing.filing_type).filter(Filing.company_id == company_id).distinct()}
-    return [form for form in forms if form in kept]
+    if forms in (company_list_forms(fpi=False), company_list_forms(fpi=True)):
+        return forms
+    stored = {form for (form,) in db.query(Filing.filing_type).filter(Filing.company_id == company_id).distinct()}
+    return [form for form in forms if form in stored]
 
 
 def cached_filings(

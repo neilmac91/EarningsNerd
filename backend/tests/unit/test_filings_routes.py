@@ -693,6 +693,35 @@ def test_a_filing_types_filter_still_filters_the_served_rows(client, sessions, m
     assert calls == [("filings", {"company_id": company_id, "filing_types": forms}) for forms in refreshes]
 
 
+@pytest.mark.parametrize("stored, value, refreshes", [
+    pytest.param(["10-K"], "10-K,8-K", [DEFAULT_TYPES], id="asks-for-an-8-K-it-does-not-hold"),
+    pytest.param(["10-K", "8-K"], "10-K,8-K", [DEFAULT_TYPES, OTHER_TYPES], id="serves-a-stored-8-K"),
+    pytest.param(["10-K", "4"], "10-K,8-K", [DEFAULT_TYPES], id="holds-a-Form-4-it-was-not-asked-for"),
+])
+def test_the_other_forms_refresh_follows_the_rows_a_visit_serves(client, sessions, monkeypatch, stored, value,
+                                                                  refreshes):
+    """A visit queues the other-forms refresh only when it serves stored rows of a form outside the
+    list forms, the rows that would otherwise go stale. A request that merely names such a form, with
+    none of it stored, refreshes the list forms alone, so it costs no second task."""
+    with sessions() as s:
+        company_id = _seed_company(s, ticker="DUR").id
+        for n, form in enumerate(stored, start=1):
+            _seed_filing(s, company_id, "0000000002", f"0000000002-25-00000{n}", form, year=2025 - n)
+    calls = []
+
+    async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
+        calls.append((kind, payload))
+        return f"task-{kind}"
+
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    monkeypatch.setattr(sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
+
+    assert client.get("/api/filings/company/dur", params={"filing_types": value}).status_code == 200
+    assert calls == [("filings", {"company_id": company_id, "filing_types": forms}) for forms in refreshes]
+
+
 @pytest.mark.parametrize("fpi", [False, True])
 def test_the_two_refresh_vocabularies_split_every_form_the_parameter_accepts(monkeypatch, fpi):
     """Between them the two refresh payloads hold each form ``?filing_types=`` can list exactly once,
@@ -711,23 +740,35 @@ def _sec_row(n, form):
             "document_url": _archive("0000000002", accession) + "primary.htm"}
 
 
-@pytest.mark.parametrize("stored, payload, fetched", [
+FPI_LIST_TYPES = ["10-K", "10-Q", "20-F", "6-K", "40-F", "10-K/A", "10-Q/A"]  # with ENABLE_FPI_FILINGS on
+FPI_OTHER_TYPES = [form for form in ACCEPTED_TYPES if form not in FPI_LIST_TYPES]
+
+
+@pytest.mark.parametrize("stored, payload, fpi, fetched", [
     # The list refresh fetches every list form, stored or not, so a company's first 10-Q arrives.
-    pytest.param(["10-K"], DEFAULT_TYPES, DEFAULT_TYPES, id="list-forms"),
+    pytest.param(["10-K"], DEFAULT_TYPES, False, DEFAULT_TYPES, id="list-forms"),
     # The other refresh fetches only the other forms the company already has rows of.
-    pytest.param(["10-K", "8-K"], OTHER_TYPES, ["8-K"], id="stored-8-K"),
-    pytest.param(["10-K", "4", "8-K"], OTHER_TYPES, ["8-K", "4"], id="stored-8-K-and-Form-4"),
+    pytest.param(["10-K", "8-K"], OTHER_TYPES, False, ["8-K"], id="stored-8-K"),
+    pytest.param(["10-K", "4", "8-K"], OTHER_TYPES, False, ["8-K", "4"], id="stored-8-K-and-Form-4"),
     # None stored: no SEC call and nothing written.
-    pytest.param(["10-K"], OTHER_TYPES, [], id="none-stored"),
+    pytest.param(["10-K"], OTHER_TYPES, False, [], id="none-stored"),
+    # A task can outlive a change of ENABLE_FPI_FILINGS. Each payload keeps the meaning it was
+    # queued with: the other forms queued with the flag off include 20-F, 6-K and 40-F, which are
+    # list forms once it is on, and still fetch only the forms the company has.
+    pytest.param(["10-K", "8-K"], OTHER_TYPES, True, ["8-K"], id="other-forms-queued-before-the-flag-went-on"),
+    pytest.param(["10-K"], FPI_LIST_TYPES, False, FPI_LIST_TYPES, id="list-forms-queued-before-the-flag-went-off"),
+    pytest.param(["10-K"], DEFAULT_TYPES, True, DEFAULT_TYPES, id="list-forms-queued-before-the-flag-went-on"),
+    pytest.param(["20-F", "6-K/A"], FPI_OTHER_TYPES, False, ["6-K/A"], id="other-forms-queued-before-the-flag-went-off"),
 ])
 @pytest.mark.asyncio
 async def test_a_refresh_fetches_list_forms_and_only_other_forms_already_stored(sessions, monkeypatch, stored,
-                                                                                payload, fetched):
-    """The worker keeps a refresh to the company's list forms and the other forms it already has rows
-    of, so the wider refresh keeps stored rows fresh without adding a form nobody stored. Fetching
-    every other form instead, one visit asking for an 8-K wrote up to 50 of the newest rows across
-    all of them: Forms 3/4/5 could crowd the 8-K out of that budget and showed as the company's
-    latest filing on its watchers' pages."""
+                                                                                payload, fpi, fetched):
+    """The worker fetches a list-forms payload whole and keeps any other payload to the forms the
+    company already has rows of, so the wider refresh keeps stored rows fresh without adding a form
+    nobody stored. Fetching every other form instead, one visit asking for an 8-K wrote up to 50 of
+    the newest rows across all of them: Forms 3/4/5 could crowd the 8-K out of that budget and showed
+    as the company's latest filing on its watchers' pages."""
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", fpi)
     with sessions() as s:
         company_id = _seed_company(s, ticker="WRK").id
         for n, form in enumerate(stored, start=1):

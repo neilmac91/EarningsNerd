@@ -189,15 +189,15 @@ async def get_company_filings(
         if settings.DURABLE_TASKS_ENABLED:
             # The payload names the Cloud Task and keys the per-process guard, so it never carries
             # the caller's ?filing_types=: each is one of two fixed vocabularies. Every visit refreshes
-            # the company's list forms; one that asks for another form (an 8-K, a Form 4) also
-            # refreshes the other accepted forms, of which the worker fetches only those already
+            # the company's list forms; one that serves stored rows of another form (an 8-K, a Form 4)
+            # also refreshes the other accepted forms, of which the worker fetches only those already
             # stored (filing_list_service.forms_to_refresh). At most two refreshes per company per bucket.
             await _enqueue_visit_task(
                 "filings", {"company_id": company_id, "filing_types": company_list_forms()},
                 key=f"filings:{company_id}",
                 seconds=int(filing_list_service.FILINGS_LIST_TTL.total_seconds()),
             )
-            if not set(types_list) <= set(company_list_forms()):
+            if any(row.filing_type not in company_list_forms() for row in cached):
                 await _enqueue_visit_task(
                     "filings", {"company_id": company_id, "filing_types": other_filing_forms()},
                     key=f"filings:{company_id}",

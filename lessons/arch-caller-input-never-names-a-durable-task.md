@@ -21,12 +21,14 @@ values through the real task-naming code, with only the transport faked, and cou
 **Evidence**: `enqueue_task` in `backend/app/services/durable_tasks.py` hashes whatever body it is
 given, by design, so the fix belongs to the caller: `backend/app/routers/filings.py` enqueues
 `company_list_forms()` on every visit, and also `other_filing_forms()` (every other form the
-parameter accepts) when a request asks for one of those, so one company has at most two refresh
-payloads per bucket. `backend/app/services/filing_list_service.py::requested_filing_types` reads
-each entry as its SEC form and drops unknown ones. A fixed vocabulary can be wider than the work it
-should cause: the worker fetches only the payload's list forms and the other forms the company
-already has rows of (`forms_to_refresh`), because one fetch keeps the newest 50 rows across its
-forms and the watchlist, dashboard and digest read every stored form. Gate:
+parameter accepts) when the visit serves stored rows of one of those, so one company has at most two
+refresh payloads per bucket. `backend/app/services/filing_list_service.py::requested_filing_types`
+reads each entry as its SEC form and drops unknown ones. A fixed vocabulary can be wider than the
+work it should cause: the worker fetches the list-forms payload whole and keeps any other payload to
+the forms the company already has rows of (`forms_to_refresh`), because one fetch keeps the newest
+50 rows across its forms and the watchlist, dashboard and digest read every stored form. It
+recognises the list payload in either state of `ENABLE_FPI_FILINGS`, since a queued task can outlive
+a flag change, so a payload keeps the meaning it was queued with. Gate:
 `backend/tests/unit/test_filings_routes.py::test_filing_types_values_cannot_mint_durable_refresh_tasks`
 (before the fix: 40 junk values queued 40 tasks, and 5 known-form variants queued 4).
 `backend/tests/unit/test_durable_task_payloads_server_owned.py` walks every `enqueue_task` and
