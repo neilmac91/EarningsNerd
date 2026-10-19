@@ -25,6 +25,11 @@ The founder's review of PR #1226 measured both on the production build.
   inside its button (`buttonVariants({ wrap: true })`, `max-w-full`), when the card's own action row
   does not wrap; a header's figure beside a heading (a percent) moves beneath it on a line of its
   own; a form code ("10-K") is one `whitespace-nowrap` run, so it never breaks at its hyphen.
+- A gutter or an inset beside prose set in rem doubles with the text and halves the measure. Let it
+  give way below a measure through a container query in em on the copy's own width
+  (`[container-type:inline-size]` with `[@container(width<13em)]:`), since `sm:` reads the viewport
+  in px and never follows the text size, and read the prose a character at a time for a word broken
+  mid-word, at 320 and 390px under 200% text, not only for sideways scroll.
 - Prove it in Playwright on the real page at 390px with `document.documentElement.style.fontSize
   = '32px'` (or Chromium's own text size, `Page.setFontSizes`), in both themes, measuring painted
   text with a Range, at 320px with the default size, and in the narrowest desktop column the layout
@@ -58,3 +63,11 @@ no painted text outside the screen at 320 and 390 px with every computed size do
 words alone where it does not; the tile beside the wordmark. Its first form placed the tile against the wordmark's
 cell, whose box is its row's height, so a tile moved off the wordmark's line passed (round 24's review); it now
 places the tile against the painted lines, measured with a Range.
+
+**Recurrence (2026-10-18, the marked copy, #1396)**: chief design's review (6255015740) found the Risks
+section's margin and its rows' rem insets leaving a marked excerpt 101px of 32px serif at 320px under 200%
+text, about a third of its words broken mid-word ("primari / ly"), and 171px at 390px with five; the PR's
+e2e case passed, since it read only sideways scroll. `MarkedCopy` now gives way below 13em of its own width
+(`frontend/components/ui/markedCopyLayout.ts`), the marked block takes `hyphens: auto`, and
+`frontend/tests/e2e/risk-evidence-rows.spec.ts` reads every marked block's words at 320, 390 and 1440px in
+both themes, default and 200% text.
