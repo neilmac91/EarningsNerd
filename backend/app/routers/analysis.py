@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 
 import anyio
 
@@ -28,7 +29,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.dependencies import require_entitlement
-from app.models import Company, User
+from app.models import Company, TrendAnalysis, User
 from app.routers.auth import get_current_user
 from app.schemas.analysis import (
     CoverageLimits,
@@ -110,15 +111,30 @@ async def get_coverage(
         error_detail="Too many coverage requests. Please retry in a minute.",
         include_client_ip=False,
     )
-    company = _get_company(db, ticker)
+
+    def identify() -> Company:
+        # The lookup and its release are one unit off the event loop, so no connection waits through
+        # the SEC wait below (or, on timeout, the continuing background task). The row comes back
+        # detached with its columns loaded; everything after this reads only its identity fields,
+        # plus fresh, short reads, each released in its own unit
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            return _get_company(db, ticker)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    def read_periods(*, with_synced_at: bool) -> tuple[dict, datetime | None]:
+        try:
+            periods = trend_analysis_service.available_periods(db, company_id)
+            synced_at = analysis_data_access.facts_synced_at(db, company_id) if with_synced_at else None
+            return periods, synced_at
+        finally:
+            filing_list_service.release_request_session(db)
+
+    company = await run_in_threadpool(identify)
     company_id = company.id
     company_ticker = company.ticker
     company_name = company.name
-
-    # The dependency session otherwise survives the external SEC wait (and, on timeout, the
-    # continuing background task). Everything below uses immutable identity fields plus fresh,
-    # short reads after the wait.
-    analysis_data_access.release_coverage_read(db)
 
     task = asyncio.create_task(_ingest_with_own_session(company_id))
     if settings.DURABLE_TASKS_ENABLED:
@@ -156,7 +172,7 @@ async def get_coverage(
             )
         # First-touch sync is continuing through durable delivery (or the legacy local task).
         # Serve what exists and tell the client to retry only after delivery was accepted.
-        periods = trend_analysis_service.available_periods(db, company_id)
+        periods, _ = await run_in_threadpool(read_periods, with_synced_at=False)
         return CoverageResponse(
             ticker=company_ticker,
             company_name=company_name,
@@ -168,8 +184,7 @@ async def get_coverage(
             limits=_limits(),
         )
 
-    periods = trend_analysis_service.available_periods(db, company_id)
-    synced_at = analysis_data_access.facts_synced_at(db, company_id)
+    periods, synced_at = await run_in_threadpool(read_periods, with_synced_at=True)
     has_any = bool(periods["annual"] or periods["quarterly"])
     reason = None
     if not has_any:
@@ -203,14 +218,22 @@ async def get_dataset(
         error_detail="Too many analysis requests. Please retry in a minute.",
         include_client_ip=False,
     )
-    company = _get_company(db, ticker)
-    try:
-        dataset = trend_analysis_service.build_dataset(
-            db, company, body.mode, body.start_period, body.end_period
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    return dataset
+
+    def dataset_for_reader() -> dict:
+        # The lookup, the build (its reads and its CPU work) and the release in one unit off the
+        # event loop.
+        try:
+            company = _get_company(db, ticker)
+            try:
+                return trend_analysis_service.build_dataset(
+                    db, company, body.mode, body.start_period, body.end_period
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(dataset_for_reader)
 
 
 @router.post("/{ticker}/export/xlsx")
@@ -233,19 +256,28 @@ async def export_analysis_xlsx(
         error_detail="Too many export requests. Please retry in a minute.",
         include_client_ip=False,
     )
-    company = _get_company(db, ticker)
-    try:
-        dataset = trend_analysis_service.build_dataset(
-            db, company, body.mode, body.start_period, body.end_period
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-    if body.snapshot_id is not None and body.snapshot_id != trend_analysis_service.dataset_fingerprint(dataset):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="The financial data changed. Refresh the analysis before exporting.",
-        )
+    def dataset_for_export() -> tuple[dict, str]:
+        # The lookup, the build, the snapshot check and the release in one unit off the event loop,
+        # so no connection waits through the workbook render below.
+        try:
+            company = _get_company(db, ticker)
+            try:
+                dataset = trend_analysis_service.build_dataset(
+                    db, company, body.mode, body.start_period, body.end_period
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+            if body.snapshot_id is not None and body.snapshot_id != trend_analysis_service.dataset_fingerprint(dataset):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="The financial data changed. Refresh the analysis before exporting.",
+                )
+            return dataset, company.ticker
+        finally:
+            filing_list_service.release_request_session(db)
+
+    dataset, company_ticker = await run_in_threadpool(dataset_for_export)
 
     # Local import: openpyxl is heavy and only this route needs it (the export_analysis_pdf
     # pattern below). Building + zipping the workbook is CPU-bound — off the event loop.
@@ -253,7 +285,7 @@ async def export_analysis_xlsx(
 
     workbook_bytes = await asyncio.to_thread(build_analysis_workbook, dataset)
     filename = (
-        f"{company.ticker}_{dataset['period_key'].replace('..', '-')}_{body.mode}-metrics.xlsx"
+        f"{company_ticker}_{dataset['period_key'].replace('..', '-')}_{body.mode}-metrics.xlsx"
     )
     return FastAPIResponse(
         content=workbook_bytes,
@@ -441,57 +473,67 @@ async def export_analysis_pdf(
     from app.services.export_service import export_service
     from app.services.trend_analysis.presentation import presentation_is_current
 
-    if not get_entitlements(current_user).can_export:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="PDF export is a Pro feature. Upgrade to Pro to access this feature.",
-        )
-    analysis = analysis_data_access.find_analysis(db, analysis_id)
-    if analysis is None or not analysis.narrative_md:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
-    if analysis.prompt_version != trend_analysis_service.PROMPT_VERSION:
-        # A row persisted under an older prompt version carries old-semantics dataset flags and
-        # citation text (e.g. the pre-v2 over-broad "derived Q4" labels) — never export it.
-        # Re-running the analysis regenerates the row in place under the same id.
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This report is out of date. Run analysis again before exporting.",
-        )
-    company = analysis_data_access.find_company_by_id(db, analysis.company_id)
-    if company is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+    def analysis_for_export() -> tuple[TrendAnalysis, Company]:
+        # The plan check (its subscription read), the lookups, the snapshot checks and the release
+        # in one unit off the event loop, so no connection waits through the render below. The rows
+        # come back detached with their columns loaded, which is all the PDF reads of them.
+        try:
+            if not get_entitlements(current_user).can_export:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="PDF export is a Pro feature. Upgrade to Pro to access this feature.",
+                )
+            analysis = analysis_data_access.find_analysis(db, analysis_id)
+            if analysis is None or not analysis.narrative_md:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
+            if analysis.prompt_version != trend_analysis_service.PROMPT_VERSION:
+                # A row persisted under an older prompt version carries old-semantics dataset flags and
+                # citation text (e.g. the pre-v2 over-broad "derived Q4" labels) — never export it.
+                # Re-running the analysis regenerates the row in place under the same id.
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This report is out of date. Run analysis again before exporting.",
+                )
+            company = analysis_data_access.find_company_by_id(db, analysis.company_id)
+            if company is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
 
-    # Saved narratives and current facts must describe the same snapshot. A data correction
-    # invalidates the PDF as well as the on-page narrative, even without a prompt-version bump.
-    saved_dataset = analysis.dataset_json or {}
-    if not presentation_is_current(saved_dataset):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This analysis uses an older presentation format. Re-run it before exporting.",
-        )
-    try:
-        start_period, end_period = analysis.period_key.split("..")
-        current_dataset = trend_analysis_service.build_dataset(
-            db, company, analysis.mode, start_period, end_period
-        )
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This analysis no longer matches available data. Re-run it before exporting.",
-        )
-    saved_fingerprint = trend_analysis_service.dataset_fingerprint(saved_dataset)
-    if (
-        not saved_dataset.get("dataset_version")
-        or saved_dataset.get("dataset_version") != current_dataset.get("dataset_version")
-        or saved_dataset.get("snapshot_id") != saved_fingerprint
-        or saved_fingerprint != trend_analysis_service.dataset_fingerprint(current_dataset)
-        or analysis.dataset_fingerprint != saved_fingerprint
-        or (snapshot_id is not None and snapshot_id != saved_fingerprint)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="The financial data changed. Re-run the analysis before exporting.",
-        )
+            # Saved narratives and current facts must describe the same snapshot. A data correction
+            # invalidates the PDF as well as the on-page narrative, even without a prompt-version bump.
+            saved_dataset = analysis.dataset_json or {}
+            if not presentation_is_current(saved_dataset):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This analysis uses an older presentation format. Re-run it before exporting.",
+                )
+            try:
+                start_period, end_period = analysis.period_key.split("..")
+                current_dataset = trend_analysis_service.build_dataset(
+                    db, company, analysis.mode, start_period, end_period
+                )
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This analysis no longer matches available data. Re-run it before exporting.",
+                )
+            saved_fingerprint = trend_analysis_service.dataset_fingerprint(saved_dataset)
+            if (
+                not saved_dataset.get("dataset_version")
+                or saved_dataset.get("dataset_version") != current_dataset.get("dataset_version")
+                or saved_dataset.get("snapshot_id") != saved_fingerprint
+                or saved_fingerprint != trend_analysis_service.dataset_fingerprint(current_dataset)
+                or analysis.dataset_fingerprint != saved_fingerprint
+                or (snapshot_id is not None and snapshot_id != saved_fingerprint)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="The financial data changed. Re-run the analysis before exporting.",
+                )
+            return analysis, company
+        finally:
+            filing_list_service.release_request_session(db)
+
+    analysis, company = await run_in_threadpool(analysis_for_export)
 
     try:
         pdf_bytes = await export_service.export_analysis_pdf(analysis, company)
