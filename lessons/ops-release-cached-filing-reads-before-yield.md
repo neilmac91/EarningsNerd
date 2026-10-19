@@ -50,7 +50,8 @@ routes handed their session to services on the loop too: the reads and every ref
 transaction for the finalizer, the add, remove and alert toggles ran their statements on the loop
 on the connection the auth lookup had checked out, and the waitlist join checked out on the loop and
 held a connection through each of its welcome and referral sends, so eight joins on four slots answered
-4x200 then 4x500. Each is now one unit in the thread pool; their burst cases also hold every
+4x200 then 4x500. Each is now a thread-pool unit (the join two: the insert, then the welcome flag
+after the send); their burst cases also hold every
 statement off the loop, and the join's own case holds both sends to no connection out (2026-10-19,
 E118). The file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries

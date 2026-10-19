@@ -639,8 +639,8 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
 
 
 _WATCHLIST_STATUS = {
-    "add_missing": 404, "add_duplicate": 400, "remove_unwatched": 404, "enable_capped": 403,
-    "enable_unresolvable": 404,
+    "add_missing": 404, "add_duplicate": 400, "remove_missing": 404, "remove_unwatched": 404,
+    "enable_capped": 403, "enable_unresolvable": 404,
 }
 # Each reader's watch row for CACHED after the burst, by case: its earnings_alert flag, or no row.
 _WATCHLIST_ROW_AFTER = {
@@ -657,6 +657,7 @@ _WATCHLIST_ROW_AFTER = {
     ("POST", "/api/watchlist/NOSUCH", "add_missing"),
     ("POST", "/api/watchlist/CACHED", "add_duplicate"),
     ("DELETE", "/api/watchlist/CACHED", "remove"),
+    ("DELETE", "/api/watchlist/NOSUCH", "remove_missing"),
     ("DELETE", "/api/watchlist/CACHED", "remove_unwatched"),
     ("GET", "/api/watchlist/earnings-alerts", "alert_tickers"),
     ("POST", "/api/watchlist/CACHED/earnings-alert", "enable"),
@@ -754,7 +755,7 @@ async def test_watchlist_routes_release_their_connection_off_the_loop(monkeypatc
             # The payload reads the company row the commit expired, inside the unit.
             assert [(payload["company"]["ticker"], payload["created_at"] is not None)
                     for payload in payloads] == [("CACHED", True)] * 8
-        elif case == "add_missing":
+        elif case in ("add_missing", "remove_missing"):
             assert payloads == [{"detail": "Company not found"}] * 8
         elif case == "add_duplicate":
             assert payloads == [{"detail": "Company already in watchlist"}] * 8

@@ -184,11 +184,13 @@ def create_signup(
 
 def mark_welcome_email_sent(db: Session, signup_id: int) -> None:
     """Flag the signup's welcome mail as sent. The join route calls it in its own unit after the
-    send, and that unit's release rolls back a flag commit that fails."""
+    send, and that unit's release rolls back a flag commit that fails. A signup gone by then fails
+    the step as a failed flag commit does: the route logs it and answers ``email_sent`` false."""
     signup = db.get(WaitlistSignup, signup_id)
-    if signup is not None:
-        signup.welcome_email_sent = True
-        db.commit()
+    if signup is None:
+        raise LookupError(f"Waitlist signup {signup_id} is gone")
+    signup.welcome_email_sent = True
+    db.commit()
 
 
 def mark_email_verified(db: Session, email: str) -> bool:
