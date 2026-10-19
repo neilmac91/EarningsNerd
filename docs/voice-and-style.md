@@ -138,9 +138,14 @@ the business card, the footer and the merch; it is the positioning in six words.
   "Full summary". Never "verified" without a match behind it.
 - The account verb is "Log in": "Log out", "logged in", "logging in" (D-046). "Login" is the noun
   ("the login page", "Login failed"), and "sign up" is registering, so it stays. Never "sign in" or
-  "sign out" in any form; `frontend/tests/unit/brandVoiceRules.spec.ts` fails it in copy, except the
-  two words split across literals or joined with `+`, which its header names as gaps. The backend's
-  own messages follow in their voice pass (E45), and the OAuth-linked mail in E46's.
+  "sign out" in any form, "Signing you in…" and "Sign back in" included.
+  `frontend/tests/unit/brandVoiceRules.spec.ts` fails it in copy, a lowercase message and a character
+  reference included, except six forms its header names as gaps: the two words split around an
+  expression, across literals joined with `+` or around an element; a noun between them ("Sign other
+  devices out"); a letter from another script; and, in a lowercase string shaped like a class list,
+  the verb hyphenated into a longer word ("sign-in-related"). Copy in a JSON module stays
+  review-checked. The backend's own messages follow in their voice pass (E45), and the OAuth-linked
+  mail in E46's.
 
 ## Claims
 
