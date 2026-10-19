@@ -1312,8 +1312,10 @@ section's number (12px data face, tertiary ink, secondary on navy: the `landing-
 `app/page.tsx` resets on `<main>`, aria-hidden as the summary's section index is, so a section that
 omits itself, Reporting this week with no data or the empty reader quote, takes no number and leaves
 no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
-secondary). The columns open at `[@media(min-width:64rem)]:` at the reader's text size (1024px, or
-2048px under a 200% text setting) and the label stacks above the content below it. No row alternates
+secondary), one short sentence: a second sentence opens the content column, in body secondary under a
+`max-w-2xl` measure, as the evidence and contents rows' do. The columns open at
+`[@media(min-width:64rem)]:` at the reader's text size (1024px, or 2048px under a 200% text setting)
+and the label stacks above the content below it. No row alternates
 and no landing file lays items out four across: the claims and the extras are two across, the Pro
 screens one under another with each pitch above its screen, the contents and Reporting this week
 hairline lists. Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
@@ -1332,8 +1334,10 @@ order and the close, each row's component to returning its `LandingRow` (or null
 paragraph; `tests/unit/pricing-section.spec.tsx` holds the table's caption, headers and cells;
 `tests/unit/landingRow.spec.tsx` the row's own shape; `tests/e2e/home-page-unauthenticated.spec.ts` reads
 the painted numbers on the built page, 01 to the last row with no gap. The plan table and the Pro extras
-claim no summary history while nothing enforces one (D-046), and the Change Report the same on both plans
-while production serves no wording diff (`tests/unit/changeReportPlanClaims.spec.tsx`). E90 remounts
+claim no summary history while nothing enforces one (D-046), and the Change Report the same on both plans,
+its line naming the metric deltas alone, while production serves no wording diff and omits the report's
+risk lines (`tests/unit/changeReportPlanClaims.spec.tsx` fails a Pro chip on the row, or a risk or
+language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). E90 remounts
 Notable filings as a row after Reporting this week.
 
 Muted text on the cream page ground is `text-secondary`;
@@ -1352,10 +1356,15 @@ The site footer opens its columns at md at the reader's text size, `[@media(min-
 (768px at the default size, 1536px under a 200% text setting), not `md:`: its columns hold words that
 cannot break, and at md's 768px under 200% text the footer took every route to 812px (the landing's
 final CTA card took / to 886px the same way, until D-045 made the close one line). The landing's rows
-open their label column at 64rem by the same rule. The auth shell's lockup yields to
+open their label column at 64rem by the same rule. A form code in the landing's copy is one
+`whitespace-nowrap` run (`FormCodeText` in the plan table's cells, the claims, How it works and the Pro
+extras; a span of its own in the close and the extras' file kinds): before, the plan table painted
+"10-K and 10-" over "Q filings" at 320px, and the claims and How it works broke "10-Q" the same way at
+320px under 200% text. The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
-at 360 and 390px, every line but the last ending at the middot; a 768px and an 834px tablet over its route
-loop).
+at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
+its close on one painted line at 320 and 390px under 200% text and at 320px at the default size; a 768px
+and an 834px tablet over its route loop).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
