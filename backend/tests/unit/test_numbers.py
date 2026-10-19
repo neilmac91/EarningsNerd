@@ -9,6 +9,7 @@ the helper itself is still live in ``alpha_vantage.py`` and ``earnings_calendar_
 """
 import functools
 import hashlib
+import itertools
 import math
 import sys
 from decimal import Decimal
@@ -236,15 +237,21 @@ def test_every_currency_prefix_names_its_code_in_any_case(prefix):
 
 
 @functools.cache
-def _whitespace() -> tuple[str, ...]:
-    return tuple(chr(point) for point in range(sys.maxunicode + 1) if chr(point).isspace())
+def _whitespace_strings() -> tuple[str, ...]:
+    """Whitespace-only strings to try a repeated item on: every whitespace character alone and up to
+    four times over, and every mix of up to three of the common ones, so a composite item such as
+    ``(?:\\s\\s)`` or ``(?:[ \\t]\\n)`` counts too."""
+    spaces = [chr(point) for point in range(sys.maxunicode + 1) if chr(point).isspace()]
+    common = (" ", "\t", "\n", "\xa0")
+    return (*(space * count for space in spaces for count in range(1, 5)),
+            *("".join(mix) for count in (2, 3) for mix in itertools.product(common, repeat=count)))
 
 
 def _backtracking_whitespace_runs(pattern: str, flags: int) -> list[str]:
-    """Each repeat in ``pattern`` that can backtrack (greedy or lazy, over more than one character)
-    through an item that matches a whitespace character. It reads the parsed pattern (CPython's own
-    parser, ``re._parser``, private but stable since 3.11), so every spelling of such a run counts:
-    ``\\s{0,}``, ``[ \\t]*``, `` +``, ``(?:\\s)*``, ``[\\s,]*``."""
+    """Each repeat in ``pattern`` that can backtrack (greedy or lazy, with a choice of counts above one)
+    through an item that matches whitespace alone. It reads the parsed pattern (CPython's own parser, ``re._parser``,
+    private but stable since 3.11), so every spelling of such a run counts: ``\\s{0,}``, ``[ \\t]*``,
+    `` +``, ``(?:\\s)*``, ``[\\s,]*``, ``(?:\\s\\s)*``."""
     from re import _compiler, _constants as sre, _parser
 
     found = []
@@ -253,7 +260,7 @@ def _backtracking_whitespace_runs(pattern: str, flags: int) -> list[str]:
         for op, av in items:
             if op in (sre.MAX_REPEAT, sre.MIN_REPEAT):
                 low, high, item = av
-                if high > 1 and any(_compiler.compile(item, flags).fullmatch(space) for space in _whitespace()):
+                if high > max(low, 1) and any(_compiler.compile(item, flags).fullmatch(run) for run in _whitespace_strings()):
                     found.append(f"{op} {{{low},{high}}} {item}")
                 walk(item)
             elif op is sre.POSSESSIVE_REPEAT:
@@ -288,8 +295,10 @@ def test_the_display_grammar_never_backtracks_into_whitespace():
 
 # Spellings of a run the gate must read as backtracking, and look-alikes it must let pass.
 BACKTRACKING_RUNS = [r"\s*", r"\s+", r"\s*?", r"\s+?", r"\s{0,}", r"\s{1,}", r"\s{2,}", r"\s{0,500}", r"[ \t]*", r" *",
-                     r" +", r"(?:\s)*", r"[^\S]*", r"[\s,]*", r"\x20*", "\u00a0*", r"(?: |\t)*"]
-SAFE_RUNS = [r"\s++", r"\s{0,}+", r"\s?", r"\s{0,1}", r"\S*", r"[0-9]+", r"(?:,[0-9]{3})+", r"[kmbt]*"]
+                     r" +", r"(?:\s)*", r"[^\S]*", r"[\s,]*", r"\x20*", "\u00a0*", r"(?: |\t)*",
+                     r"(?:\s\s)*", r"(?:[ \t][ \t])*", r"(?:\s{2})+", r"(?: \t\n)*", r"(?:\s\s\s\s)*?"]
+SAFE_RUNS = [r"\s++", r"\s{0,}+", r"\s?", r"\s{0,1}", r"\S*", r"[0-9]+", r"(?:,[0-9]{3})+", r"[kmbt]*",
+             r"(?:\s\s)*+", r"(?:\s\S)*", r"(?:[0-9]\s)*"]
 
 
 @pytest.mark.parametrize("run", BACKTRACKING_RUNS + SAFE_RUNS)
