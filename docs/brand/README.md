@@ -157,8 +157,8 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
 3. The landing page's sections after the hero are to become labelled rows (tell T4, D-045, E113).
 4. Vercel Web Analytics is to load only after the visitor allows analytics (D-046). Until that
    change lands (#1387, E114) it runs for every visitor, so the consent bar's promise becomes true
-   in code with it. What `/privacy` says of analytics and Do Not Track, in draft #1265, stays with the
-   founder (F4).
+   in code with it. What `/privacy` says of Do Not Track is settled (D-049); what it says of
+   analytics, in draft #1265, stays with the founder (F4).
 
 Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
 site goes without (A5) unless the founder writes one (D6, F48).

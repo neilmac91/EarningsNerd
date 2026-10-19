@@ -71,10 +71,11 @@ export default function Footer() {
                     </Link>
                   </li>
                 ))}
-                {/* The way back to the cookie settings after a first choice, which /privacy promises (D-046):
-                    it opens CookieConsent's dialog on the stored choices (lib/cookieSettings.ts). It takes
-                    focus first, so ui/Modal returns focus here on close whatever pressed it (Safari does not
-                    focus a clicked button). The auth routes have no site footer (lib/authShellRoutes.ts). */}
+                {/* The way back to the cookie settings after a first choice, which /privacy's withdrawal sentence
+                    promises ("through our cookie consent banner or settings"): it opens CookieConsent's dialog on
+                    the stored choices (lib/cookieSettings.ts). It takes focus first, so ui/Modal returns focus
+                    here on close whatever pressed it (Safari does not focus a clicked button). The auth routes
+                    have no site footer (lib/authShellRoutes.ts). */}
                 {category === 'Legal' && (
                   <li>
                     <button

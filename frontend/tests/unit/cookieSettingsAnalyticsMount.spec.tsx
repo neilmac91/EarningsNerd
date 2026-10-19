@@ -10,7 +10,7 @@ import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentificati
 import { queryKeys } from '@/lib/queryKeys'
 
 /**
- * A first allow from the footer's Cookie settings (D-046) starts PostHog on a page the visitor is already using, so
+ * A first allow from the footer's Cookie settings starts PostHog on a page the visitor is already using, so
  * the provider's tree must not change shape when the SDK loads: the page keeps its state (a draft) and the control
  * gets its focus back. With no remount, a reader already signed in is identified because identification waits on
  * PostHog being ready (lib/posthogReady.ts), not on a fresh mount. The real provider and identification hook run here
@@ -58,7 +58,7 @@ function DraftPage() {
   )
 }
 
-describe('a first allow from the footer keeps the page mounted while PostHog starts (D-046)', () => {
+describe('a first allow from the footer keeps the page mounted while PostHog starts', () => {
   beforeEach(() => {
     mounts = 0
     localStorage.clear()

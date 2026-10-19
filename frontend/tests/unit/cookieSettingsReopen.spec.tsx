@@ -1,41 +1,48 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ts from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import CookieConsent, {
-  browserSendsDoNotTrack,
-  getCookiePreferences,
-  saveCookiePreferences,
-  type CookiePreferences,
-} from '@/components/CookieConsent'
+import PrivacyPage from '@/app/privacy/page'
+import CookieConsent, { getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
 import Footer from '@/components/Footer'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
 vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
 
 /**
- * The footer's "Cookie settings" reopens the consent dialog after a first choice (D-046). /privacy says consent can
- * be withdrawn "through our cookie consent banner or settings", and the bar shows only until a visitor chooses. With
- * a choice stored the bar stays hidden; the footer's control opens CookieConsent's own dialog on the stored toggles,
- * not the defaults; Save writes the new choice and fires cookieConsentChanged, as the bar's Save does (so PostHog
- * follows it); and focus comes back to the control however the dialog closes. The control's brand ring is held by
- * siteChromeFocusRing.spec.ts, which scans the footer.
+ * The footer's "Cookie settings" reopens the consent dialog after a first choice, so /privacy's withdrawal sentence
+ * holds: "You can withdraw consent for analytics and session recording at any time through our cookie consent banner
+ * or settings." The bar shows only until a visitor chooses. With a choice stored the bar stays hidden; the footer's
+ * control opens CookieConsent's own dialog on the stored toggles, not the defaults; Save writes the new choice and
+ * fires cookieConsentChanged, as the bar's Save does (so PostHog follows it); and focus comes back to the control
+ * however the dialog closes. The control's brand ring is held by siteChromeFocusRing.spec.ts, which scans the footer.
  *
- * Do Not Track wins while the browser sends it (D-046): /privacy says "We respect the 'Do Not Track' browser setting
- * and will not track users who have enabled it", and the footer's control reaches every visitor. The rule sits at
- * the two consent functions, so every reader follows it: getCookiePreferences() reads analytics and session
- * recording as off (storage keeps what was written, so the visitor's own choice is back once the browser stops
- * sending it), saveCookiePreferences() writes them off, and the dialog shows both boxes unticked and disabled under a
- * note that says why. browserSendsDoNotTrack() is the one reader of the signal and CookieConsent.tsx the one reader
- * of the stored choice, so no module can step around the rule.
+ * The cookie banner (the bar, its dialog and this control) is the only analytics control, for every visitor
+ * (docs/brand/decisions-log.md D-049): analytics and session recording stay off until the visitor allows them, and a
+ * browser privacy signal changes nothing in either direction. With Do Not Track and Global Privacy Control sent, a
+ * stored allow reads back as an allow, the dialog's boxes are enabled and Save stores what the visitor ticked;
+ * consentLayer.spec.tsx holds the first visit, where the bar shows.
+ *
+ * No app module reads a signal. The no-reader scan reads every module the app runs (appModules) for each name
+ * a signal is read by, as code: Do Not Track on navigator or window (`doNotTrack`, and `msDoNotTrack` in Internet
+ * Explorer), Global Privacy Control (`globalPrivacyControl`), the `DNT` and `Sec-GPC` request headers by name,
+ * without case, as a string, a Node request's property or a pattern, in middleware, a route handler, a server
+ * component or a routing rule, and PostHog's `respect_dnt`, which has the SDK read Do Not Track itself. A comment and
+ * copy that name a signal are not reads. /privacy's sentence, in the founder's words, is pinned beside the scan, so
+ * the two move together: a change that reads a signal fails the scan, whose message says /privacy's sentence changes
+ * in the same PR, and a change to the sentence fails the pin. The planted forms score the reach. Out of reach,
+ * planted as a gap: a name assembled at run time. Outside the scan: the API (backend/, another stack), review-checked.
  */
 
 const STORAGE_KEY = 'cookie_consent'
 const CHOSEN: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }
-const DNT_NOTE = 'Your browser sends Do Not Track, so analytics and session recording stay off.'
+/** /privacy's sentence on the banner and Do Not Track, as the founder approved it (D-049). */
+const PRIVACY_SENTENCE =
+  "Analytics and session recording stay off until you allow them, and you can change your choice at any time in Cookie settings. We don't change this based on your browser's Do Not Track setting."
 
 const stored = (): CookiePreferences | null => {
   const raw = localStorage.getItem(STORAGE_KEY)
@@ -46,37 +53,62 @@ const stored = (): CookiePreferences | null => {
 const ownDescription = (id: string) => (document.getElementById(id)?.textContent ?? '').replace(/\s+/g, ' ').trim()
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const APP_ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
-/** The root-level modules Next.js loads into the app (`instrumentation-client.ts`, `instrumentation.ts`,
- *  `middleware.ts`): every `.ts` or `.tsx` file beside `package.json` but type declarations, tool configs and the
- *  test setup. */
-const ROOT_MODULES = readdirSync(FRONTEND)
-  .filter((name) => /\.tsx?$/.test(name) && !/\.d\.ts$|\.config\.ts$|^vitest\.setup\.ts$/.test(name))
-  .map((name) => path.join(FRONTEND, name))
 
-const walk = (dir: string): string[] =>
-  readdirSync(dir).flatMap((name) => {
-    const full = path.join(dir, name)
-    if (statSync(full).isDirectory()) return walk(full)
-    return /\.tsx?$/.test(name) ? [full] : []
-  })
+/** Left out of the scan, as nothing in them runs in a browser or a request: the specs, the operator scripts, type
+ *  declarations and the configs of the lint, style and test tools. Next's own config runs in the server, so it stays. */
+const NOT_APP = /^(tests|scripts)\/|\.d\.[mc]?ts$|^(eslint\.[^/]+|postcss\.config\.js|tailwind\.config\.js|vitest\.[^/]+|playwright\.config\.ts)$/
 
-/** What a module's code reads of the rule's inputs: Do Not Track by any spelling, or the stored choice's key.
- *  An identifier or a string, so a comment or a sentence of copy that names either is not a read. */
-function consentInputsRead(fileName: string, text: string): string[] {
-  const kind = fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+/** Every module the app runs, from git's own list (tracked and new files, ignored ones left out): each JavaScript or
+ *  TypeScript module under frontend/ (app, components, features, hooks, lib, the root-level modules Next loads, and
+ *  any directory added later) and vercel.json, whose routing rules can match a request header. */
+const appModules = () =>
+  execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: FRONTEND, encoding: 'utf8' })
+    .split('\0')
+    .filter((rel) => (/\.[mc]?[jt]sx?$/.test(rel) || rel === 'vercel.json') && !NOT_APP.test(rel) && existsSync(path.join(FRONTEND, rel)))
+
+/** The names a browser privacy signal is read by, matched without case (a header's name is case-insensitive). */
+const SIGNAL_NAMES = new Set(['donottrack', 'msdonottrack', 'globalprivacycontrol', 'dnt', 'sec-gpc', 'respect_dnt'])
+/** The same names inside a regular expression's pattern, a header matched by pattern (`/^sec-gpc$/i`). */
+const SIGNAL_IN_PATTERN = /donottrack|globalprivacycontrol|respect_dnt|sec-gpc|(?<![a-z0-9_])dnt(?![a-z0-9_])/
+
+/** What a module's code reads of a browser privacy signal: an identifier or a string that is one of the names, or a
+ *  regular expression whose pattern names one. Comments, JSX text and a sentence of copy are not reads. */
+function signalReads(fileName: string, text: string): string[] {
+  const kind = fileName.endsWith('.json')
+    ? ts.ScriptKind.JSON
+    : /\.[jt]sx$/.test(fileName)
+      ? ts.ScriptKind.TSX
+      : /\.[mc]?js$/.test(fileName)
+        ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS
   const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, kind)
   const found: string[] = []
   const visit = (node: ts.Node) => {
-    const name = ts.isIdentifier(node) || ts.isStringLiteralLike(node) ? node.text : null
-    if (name === 'doNotTrack' || name === STORAGE_KEY) found.push(name)
+    if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) && SIGNAL_NAMES.has(node.text.toLowerCase())) found.push(node.text)
+    if (ts.isRegularExpressionLiteral(node)) {
+      // The pattern between the slashes, a letter escape (`\b`) read as a gap and any other backslash dropped.
+      const pattern = node.text.slice(1, node.text.lastIndexOf('/')).replace(/\\[a-z]/gi, ' ').replace(/\\/g, '').toLowerCase()
+      if (SIGNAL_IN_PATTERN.test(pattern)) found.push(node.text)
+    }
     ts.forEachChild(node, visit)
   }
   visit(source)
   return found
 }
 
-describe("the footer's Cookie settings reopens the consent dialog after a choice (D-046)", () => {
+/** What a module's code reads of the stored choice: its storage key, as a string. */
+function storedChoiceReads(fileName: string, text: string): number {
+  const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, /\.[jt]sx$/.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  let reads = 0
+  const visit = (node: ts.Node) => {
+    if (ts.isStringLiteralLike(node) && node.text === STORAGE_KEY) reads += 1
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return reads
+}
+
+describe("the footer's Cookie settings reopens the consent dialog after a choice", () => {
   let consentEvents: CookiePreferences[]
   const onConsentEvent = (e: Event) => consentEvents.push((e as CustomEvent<CookiePreferences>).detail)
 
@@ -148,81 +180,36 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
     expect(control.className).toBe(privacy.className)
   })
 
-  describe('while the browser sends Do Not Track, analytics and session recording stay off (D-046)', () => {
-    // jsdom reports no Do Not Track; a case defines it where a browser would, and every case ends with it gone.
-    const sendDoNotTrack = (on: Navigator | Window = navigator, value: string | null = '1') =>
-      Object.defineProperty(on, 'doNotTrack', { value, configurable: true })
-    const stopDoNotTrack = () => {
-      delete (navigator as { doNotTrack?: string | null }).doNotTrack
-      delete (window as { doNotTrack?: string | null }).doNotTrack
-    }
-    afterEach(stopDoNotTrack)
-
-    it('the footer opens the dialog with both boxes unticked and disabled, each described by its own text and the note', async () => {
-      sendDoNotTrack()
-      const { user, control } = renderChrome()
-      await user.click(control)
-      const dialog = screen.getByRole('dialog', { name: 'Cookie preferences' })
-      expect(within(dialog).getByText(DNT_NOTE)).toBeInTheDocument()
-
-      for (const [name, descId] of [['Analytics cookies', 'cookie-analytics-desc'], ['Session recording', 'cookie-recording-desc']]) {
-        const box = within(dialog).getByRole('checkbox', { name })
-        expect(box).not.toBeChecked()
-        expect(box).toBeDisabled()
-        expect(box).toHaveAccessibleDescription(`${ownDescription(descId)} ${DNT_NOTE}`)
-      }
+  describe('a browser privacy signal changes nothing: the banner is the only control (D-049)', () => {
+    // jsdom sends no signal. Each case sends every one a browser can, where the browser reports it, and ends with
+    // them gone.
+    const SIGNALS: Array<[object, string, unknown]> = [
+      [navigator, 'doNotTrack', '1'],
+      [window, 'doNotTrack', '1'],
+      [navigator, 'msDoNotTrack', '1'],
+      [navigator, 'globalPrivacyControl', true],
+    ]
+    beforeEach(() => {
+      for (const [on, name, value] of SIGNALS) Object.defineProperty(on, name, { value, configurable: true })
+    })
+    afterEach(() => {
+      for (const [on, name] of SIGNALS) delete (on as Record<string, unknown>)[name]
     })
 
-    it.each([
-      ['navigator.doNotTrack', () => navigator],
-      ['window.doNotTrack', () => window],
-    ])('a stored allow reads back as off through %s, storage untouched, and as stored once the browser stops', (_where, on) => {
+    it('a stored allow reads back as an allow', () => {
       const allowed: CookiePreferences = { ...CHOSEN, sessionRecording: true }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(allowed))
-      sendDoNotTrack(on())
+      expect(navigator.doNotTrack).toBe('1')
 
-      expect(browserSendsDoNotTrack()).toBe(true)
-      expect(getCookiePreferences()).toEqual({ ...allowed, analytics: false, sessionRecording: false })
-      expect(stored()).toEqual(allowed)
-
-      stopDoNotTrack()
       expect(getCookiePreferences()).toEqual(allowed)
+      expect(stored()).toEqual(allowed)
     })
 
-    it.each(['0', 'unspecified', null])('a browser reporting %s does not send it: the stored choice reads back as written', (value) => {
-      sendDoNotTrack(navigator, value)
-      expect(browserSendsDoNotTrack()).toBe(false)
-      expect(getCookiePreferences()).toEqual(CHOSEN)
-    })
-
-    it('a save writes analytics and session recording off, and the cookieConsentChanged detail carries off', () => {
-      sendDoNotTrack()
-      saveCookiePreferences({ essential: true, analytics: true, sessionRecording: true, timestamp: 'x' })
-
-      expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
-      expect(consentEvents).toEqual([expect.objectContaining({ essential: true, analytics: false, sessionRecording: false })])
-    })
-
-    it("the dialog's Save stores the choice as off, fires the event with off and returns focus to the control", async () => {
-      sendDoNotTrack()
+    it("the dialog's boxes are enabled on the stored choice, each described by its own text alone", async () => {
       const { user, control } = renderChrome()
-      await user.click(control)
-      await user.click(screen.getByRole('button', { name: 'Save preferences' }))
-
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
-      expect(consentEvents).toEqual([expect.objectContaining({ essential: true, analytics: false, sessionRecording: false })])
-      expect(control).toHaveFocus()
-    })
-
-    it('without it nothing changes: the boxes open enabled on the stored choice, with their own descriptions and no note', async () => {
-      const { user, control } = renderChrome()
-      expect(browserSendsDoNotTrack()).toBe(false)
-      expect(getCookiePreferences()).toEqual(CHOSEN)
-
       await user.click(control)
       const dialog = screen.getByRole('dialog', { name: 'Cookie preferences' })
-      expect(within(dialog).queryByText(DNT_NOTE)).not.toBeInTheDocument()
+
       const analytics = within(dialog).getByRole('checkbox', { name: 'Analytics cookies' })
       const recording = within(dialog).getByRole('checkbox', { name: 'Session recording' })
       expect(analytics).toBeEnabled()
@@ -231,28 +218,89 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
       expect(recording).toBeEnabled()
       expect(recording).not.toBeChecked()
       expect(recording).toHaveAccessibleDescription(ownDescription('cookie-recording-desc'))
+      expect(within(dialog).queryByText(/Do Not Track/)).not.toBeInTheDocument()
     })
 
-    it('browserSendsDoNotTrack is the one reader of the signal, and CookieConsent.tsx the one reader of the stored choice', () => {
-      // Self-check: the scan reads code; a comment or a sentence of copy that names either input is not a read.
-      const probe = [
-        "if (navigator.doNotTrack === '1') stop()",
-        "const legacy = 'doNotTrack' in window",
-        "const raw = localStorage.getItem('cookie_consent')",
-        '// the `cookie_consent` key and navigator.doNotTrack, named in a comment',
-        'const copy = <p>Your browser sends Do Not Track</p>',
-      ].join('\n')
-      expect(consentInputsRead('probe.tsx', probe)).toEqual(['doNotTrack', 'doNotTrack', STORAGE_KEY])
+    it('Save stores what the visitor ticked, the event carries it and focus returns to the control', async () => {
+      const { user, control } = renderChrome()
+      await user.click(control)
+      await user.click(screen.getByRole('checkbox', { name: 'Session recording' }))
+      await user.click(screen.getByRole('button', { name: 'Save preferences' }))
 
-      // The scan reaches the root-level modules too, the client instrumentation (Sentry's replay) among them.
-      expect(ROOT_MODULES.map((file) => path.basename(file))).toEqual(
-        expect.arrayContaining(['instrumentation-client.ts', 'instrumentation.ts', 'middleware.ts']),
-      )
-      const readers = [...APP_ROOTS.flatMap((root) => walk(path.join(FRONTEND, root))), ...ROOT_MODULES].filter((file) => {
-        const text = readFileSync(file, 'utf8')
-        return /doNotTrack|cookie_consent/.test(text) && consentInputsRead(file, text).length > 0
-      })
-      expect(readers.map((file) => path.relative(FRONTEND, file).split(path.sep).join('/'))).toEqual(['components/CookieConsent.tsx'])
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(stored()).toMatchObject({ essential: true, analytics: true, sessionRecording: true })
+      expect(consentEvents).toEqual([expect.objectContaining({ essential: true, analytics: true, sessionRecording: true })])
+      expect(control).toHaveFocus()
     })
+  })
+})
+
+describe('no app module reads a browser privacy signal, and /privacy says so (D-049)', () => {
+  it('reads each form of a read and passes a comment and copy that name a signal (a self-check on planted forms)', () => {
+    // [the form, the module it is planted in, its code, the names the scan reads]
+    const planted: Array<[string, string, string, string[]]> = [
+      ['Do Not Track on navigator', 'probe.tsx', "if (navigator.doNotTrack === '1') stop()", ['doNotTrack']],
+      ['Do Not Track on window, by its string', 'probe.tsx', "const legacy = 'doNotTrack' in window", ['doNotTrack']],
+      ["Internet Explorer's Do Not Track", 'probe.tsx', "const ie = navigator.msDoNotTrack === '1'", ['msDoNotTrack']],
+      ['Global Privacy Control', 'probe.tsx', 'if (navigator.globalPrivacyControl) stop()', ['globalPrivacyControl']],
+      ['the DNT header in middleware', 'middleware.ts', "if (request.headers.get('DNT') === '1') return NextResponse.next()", ['DNT']],
+      ['the Sec-GPC header in a server component', 'page.tsx', "const gpc = (await headers()).get('sec-gpc')", ['sec-gpc']],
+      ['the Sec-GPC header matched by pattern', 'route.ts', 'request.headers.forEach((_v, name) => { if (/^Sec-GPC$/i.test(name)) stop() })', ['/^Sec-GPC$/i']],
+      ["the DNT header as a Node request's property", 'handler.js', 'const sent = req.headers.dnt', ['dnt']],
+      ['the DNT header in a routing rule', 'vercel.json', '{ "rewrites": [{ "source": "/(.*)", "has": [{ "type": "header", "key": "DNT" }], "destination": "/" }] }', ['DNT']],
+      ['the Sec-GPC header in a routing rule', 'next.config.js', "module.exports = { rewrites: async () => [{ source: '/:path*', has: [{ type: 'header', key: 'Sec-GPC' }], destination: '/' }] }", ['Sec-GPC']],
+      ['PostHog told to read Do Not Track', 'probe.tsx', 'posthog.init(key, { respect_dnt: true })', ['respect_dnt']],
+      ['a comment that names the signals', 'probe.tsx', '// navigator.doNotTrack, navigator.globalPrivacyControl and the DNT and Sec-GPC headers, named in a comment', []],
+      ['copy that names them', 'probe.tsx', "const note = \"Your browser's Do Not Track (DNT) and Global Privacy Control (Sec-GPC) change nothing here.\"", []],
+      ['JSX copy that names one', 'probe.tsx', "const copy = <p>We don't change this based on your browser's Do Not Track setting.</p>", []],
+      // Out of reach: the scan reads a name written whole, as Tailwind classes are written; one assembled at run time
+      // is review-checked.
+      ['a gap: a name assembled at run time', 'route.ts', "const gpc = request.headers.get(['sec', 'gpc'].join('-'))", []],
+    ]
+    expect(planted.map(([form, file, code]) => [form, signalReads(file, code)])).toEqual(planted.map(([form, , , names]) => [form, names]))
+  })
+
+  it('no app module reads one', () => {
+    const modules = appModules()
+    expect(modules.length).toBeGreaterThan(350)
+    expect(modules).toEqual(
+      expect.arrayContaining([
+        'components/CookieConsent.tsx',
+        'app/posthog-provider.tsx',
+        'lib/analytics.ts',
+        'instrumentation-client.ts',
+        'instrumentation.ts',
+        'middleware.ts',
+        'next.config.js',
+        'vercel.json',
+      ]),
+    )
+    const reads = modules.flatMap((rel) => {
+      const text = readFileSync(path.join(FRONTEND, rel), 'utf8')
+      if (!/donottrack|globalprivacycontrol|dnt|sec-gpc/i.test(text)) return []
+      return signalReads(rel, text).map((name) => `${rel}: ${name}`)
+    })
+    expect(
+      reads,
+      `a browser privacy signal is read in app code. The cookie banner is the only analytics control for every visitor (docs/brand/decisions-log.md D-049), and /privacy (app/privacy/page.tsx) says: "${PRIVACY_SENTENCE}" A change that reads a signal changes that sentence, and its pin below, in the same PR.`,
+    ).toEqual([])
+  })
+
+  it("/privacy's sentence on the banner and Do Not Track, pinned beside the scan", () => {
+    const { container } = render(<PrivacyPage />)
+    expect(
+      (container.textContent ?? '').replace(/\s+/g, ' '),
+      "/privacy's sentence on the banner and Do Not Track changed. The no-reader scan above holds the code to it (D-049): change the two together, in the same PR.",
+    ).toContain(PRIVACY_SENTENCE)
+  })
+
+  it('CookieConsent.tsx is the one reader of the stored choice, so every consent reader takes it through getCookiePreferences()', () => {
+    const readers = appModules().filter((rel) => {
+      const text = readFileSync(path.join(FRONTEND, rel), 'utf8')
+      return text.includes(STORAGE_KEY) && storedChoiceReads(rel, text) > 0
+    })
+    expect(readers).toEqual(['components/CookieConsent.tsx'])
+    // Self-check: the key read as code counts; the key named in a comment does not.
+    expect(storedChoiceReads('probe.tsx', "const raw = localStorage.getItem('cookie_consent') // the cookie_consent key")).toBe(1)
   })
 })

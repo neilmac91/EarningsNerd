@@ -29,25 +29,6 @@ const DEFAULT_PREFERENCES: CookiePreferences = {
 
 const STORAGE_KEY = 'cookie_consent'
 
-/**
- * Do Not Track wins while the browser sends it (D-046): analytics and session recording stay off for this visitor,
- * whatever is stored or chosen, so /privacy's "We respect the 'Do Not Track' browser setting" holds. This is the
- * app's one reader of the signal. The two functions below apply it, so every consent reader (PostHog's provider,
- * lib/analytics, the identification hook, the summary stream's consent flag) follows it with no check of its own,
- * and the settings dialog shows it. `window.doNotTrack` is the older, non-standard place some browsers report it.
- */
-export function browserSendsDoNotTrack(): boolean {
-  if (typeof window === 'undefined') return false
-  return navigator.doNotTrack === '1' || (window as Window & { doNotTrack?: string | null }).doNotTrack === '1'
-}
-
-/** Analytics and session recording off while the browser sends Do Not Track; essential stays on. */
-function applyDoNotTrack(preferences: CookiePreferences): void {
-  if (!browserSendsDoNotTrack()) return
-  preferences.analytics = false
-  preferences.sessionRecording = false
-}
-
 export function getCookiePreferences(): CookiePreferences | null {
   if (typeof window === 'undefined') return null
 
@@ -58,9 +39,6 @@ export function getCookiePreferences(): CookiePreferences | null {
     const preferences = JSON.parse(stored) as CookiePreferences
     // Ensure essential is always true
     preferences.essential = true
-    // Read as off while the browser sends Do Not Track. Storage keeps what was written, so a choice stored before
-    // is back once the browser stops sending it, unless a save meanwhile wrote both off (saveCookiePreferences).
-    applyDoNotTrack(preferences)
     return preferences
   } catch (error) {
     console.error('Failed to load cookie preferences:', error)
@@ -74,8 +52,6 @@ export function saveCookiePreferences(preferences: CookiePreferences): void {
   try {
     // Ensure essential is always true
     preferences.essential = true
-    // Written as off while the browser sends Do Not Track, so the event's detail carries off too.
-    applyDoNotTrack(preferences)
     preferences.timestamp = new Date().toISOString()
     localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
 
@@ -106,21 +82,15 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     const existingPreferences = getCookiePreferences()
 
     if (!existingPreferences) {
-      if (browserSendsDoNotTrack()) {
-        // Respect DNT by only enabling essential cookies
-        const dntPreferences = { ...DEFAULT_PREFERENCES }
-        saveCookiePreferences(dntPreferences)
-        onPreferencesChanged?.(dntPreferences)
-      } else {
-        // Show banner for first-time visitors. Announce the consent layer in the same effect pass
-        // (height still 0): FilingWorkspace mounts earlier in the tree, so its coachmark decision
-        // and this flag land in one batched render and the nudge never points at a covered
-        // launcher, not even for a frame. The bar's layout effect below publishes the real height
-        // (and owns it: a re-run of this effect must not reset a measured inset to 0).
-        if (!isConsentLayerVisible()) publishConsentLayer(0)
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage/DNT, only readable client-side after hydration
-        setShowBanner(true)
-      }
+      // Show banner for first-time visitors, every one: the banner is the only control, and no browser
+      // privacy signal stands in for the visitor's choice (D-049). Announce the consent layer in the same
+      // effect pass (height still 0): FilingWorkspace mounts earlier in the tree, so its coachmark decision
+      // and this flag land in one batched render and the nudge never points at a covered
+      // launcher, not even for a frame. The bar's layout effect below publishes the real height
+      // (and owns it: a re-run of this effect must not reset a measured inset to 0).
+      if (!isConsentLayerVisible()) publishConsentLayer(0)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage, only readable client-side after hydration
+      setShowBanner(true)
     } else {
       // Use existing preferences
       setPreferences(existingPreferences)
@@ -197,19 +167,15 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   }, [])
 
   // After a first choice the bar is gone; the footer's "Cookie settings" (lib/cookieSettings.ts) opens this
-  // same dialog on the stored choices, and Save writes them and fires cookieConsentChanged as the bar does
-  // (D-046). ui/Modal returns focus to the control that opened it.
+  // same dialog on the stored choices, and Save writes them and fires cookieConsentChanged as the bar does,
+  // so /privacy's withdrawal sentence holds ("You can withdraw consent for analytics and session recording at
+  // any time through our cookie consent banner or settings."). ui/Modal returns focus to the control that opened it.
   useEffect(() => {
     window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
     return () => window.removeEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
   }, [handleOpenSettings])
 
   if (!showBanner && !showSettings) return null
-
-  // While the browser sends Do Not Track, analytics and session recording stay off (D-046): getCookiePreferences()
-  // reads them as off, so their boxes open unticked, and here they are disabled under a note that says why, which
-  // each box reads after its own description.
-  const doNotTrack = browserSendsDoNotTrack()
 
   // ui/Modal owns the dialog contract (focus in, Tab cycle, Escape, scroll lock, focus return);
   // Escape and the scrim close it exactly as Cancel does. The primitive also owns viewport
@@ -234,11 +200,6 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           Essential cookies keep you signed in and the site working. Analytics cookies and session
           recording are off until you allow them here. Choose the ones you are comfortable with.
         </p>
-        {doNotTrack && (
-          <p id="cookie-dnt-note" className="mb-6 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Your browser sends Do Not Track, so analytics and session recording stay off.
-          </p>
-        )}
 
         <div className="space-y-4">
           {/* Essential cookies */}
@@ -286,12 +247,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               <div className="ml-4">
                 <Checkbox
                   checked={preferences.analytics}
-                  disabled={doNotTrack}
                   onChange={(e) =>
                     setPreferences({ ...preferences, analytics: e.target.checked })
                   }
                   aria-labelledby="cookie-analytics-title"
-                  aria-describedby={doNotTrack ? 'cookie-analytics-desc cookie-dnt-note' : 'cookie-analytics-desc'}
+                  aria-describedby="cookie-analytics-desc"
                 />
               </div>
             </div>
@@ -316,12 +276,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               <div className="ml-4">
                 <Checkbox
                   checked={preferences.sessionRecording}
-                  disabled={doNotTrack}
                   onChange={(e) =>
                     setPreferences({ ...preferences, sessionRecording: e.target.checked })
                   }
                   aria-labelledby="cookie-recording-title"
-                  aria-describedby={doNotTrack ? 'cookie-recording-desc cookie-dnt-note' : 'cookie-recording-desc'}
+                  aria-describedby="cookie-recording-desc"
                 />
               </div>
             </div>

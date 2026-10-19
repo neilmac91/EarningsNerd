@@ -138,15 +138,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   After a first choice the bar is gone, and the site footer's "Cookie settings" (`frontend/components/Footer.tsx`,
   a button in the Legal column with the links' recipe and the brand ring) reopens the dialog on the stored
   choices: Save writes them and fires `cookieConsentChanged` as the bar does, so /privacy's withdrawal
-  sentence holds (D-046; `lib/cookieSettings.ts`, `tests/unit/cookieSettingsReopen.spec.tsx`). The auth
-  routes have no site footer (`lib/authShellRoutes.ts`), so the control is not there.
-  Under Do Not Track the dialog keeps analytics and session recording off: while the browser sends it,
-  both boxes are unticked and disabled under the note "Your browser sends Do Not Track, so analytics and
-  session recording stay off.", and `getCookiePreferences()` and `saveCookiePreferences()` read and write
-  both as off whatever is stored or chosen, so every reader of the choice, PostHog's provider among them,
-  keeps /privacy's Do Not Track sentence (D-046). A choice stored before stays as written, so it is back once
-  the browser stops sending the signal, unless the visitor saves in the dialog meanwhile, which stores both as
-  off.
+  sentence holds ("You can withdraw consent for analytics and session recording at any time through our
+  cookie consent banner or settings."; `lib/cookieSettings.ts`, `tests/unit/cookieSettingsReopen.spec.tsx`).
+  The auth routes have no site footer (`lib/authShellRoutes.ts`), so the control is not there.
+  The banner is the only control, for every visitor (D-049): no browser privacy signal is read, so a first
+  visit whose browser sends Do Not Track shows the bar like any other, and the dialog opens on the stored
+  choice with its Analytics cookies and Session recording boxes enabled.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
   dialog is to take D-046's words, which name PostHog and say that statistics are tied to an
   internal account id when you are logged in (chrome/F1, F33, E109).
