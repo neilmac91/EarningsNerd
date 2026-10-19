@@ -223,7 +223,7 @@ describe('StreamingSummaryDisplay failure reason', () => {
     await act(async () => {})
     expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
     expect(
-      screen.getByText("Your account has reached this month's limit on new summaries. It resets next month; contact support if you need more."),
+      screen.getByText("Your account has reached this month's limit on new summaries. It resets next month. Contact support with any questions."),
     ).toBeInTheDocument()
     expect(cardButton()).toBeNull()
     rerender(failed('The filing could not be summarized right now.'))
