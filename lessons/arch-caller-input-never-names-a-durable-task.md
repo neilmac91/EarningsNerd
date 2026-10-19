@@ -18,26 +18,31 @@ bounded canonical set, and count how many distinct payloads one company can prod
 bucket. The response can still filter per request. A fix is proven by sending N distinct caller
 values through the real task-naming code, with only the transport faked, and counting the tasks.
 
-**Evidence**: `enqueue_task` in `backend/app/services/durable_tasks.py` hashes whatever body it
-is given, by design, so the fix belongs to the caller: `backend/app/routers/filings.py` enqueues
-`company_list_forms()`, or `accepted_filing_forms()` (every form the parameter accepts) when a
-request asks for another, so one company has at most two refresh payloads per bucket, and
-`backend/app/services/filing_list_service.py::requested_filing_types` reads each entry as its SEC
-form and drops unknown ones. Gate:
+**Evidence**: `enqueue_task` in `backend/app/services/durable_tasks.py` hashes whatever body it is
+given, by design, so the fix belongs to the caller: `backend/app/routers/filings.py` enqueues
+`company_list_forms()` on every visit, and also `other_filing_forms()` (every other form the
+parameter accepts) when a request asks for one of those, so one company has at most two refresh
+payloads per bucket. `backend/app/services/filing_list_service.py::requested_filing_types` reads
+each entry as its SEC form and drops unknown ones. A fixed vocabulary can be wider than the work it
+should cause: the worker fetches only the payload's list forms and the other forms the company
+already has rows of (`forms_to_refresh`), because one fetch keeps the newest 50 rows across its
+forms and the watchlist, dashboard and digest read every stored form. Gate:
 `backend/tests/unit/test_filings_routes.py::test_filing_types_values_cannot_mint_durable_refresh_tasks`
 (before the fix: 40 junk values queued 40 tasks, and 5 known-form variants queued 4).
 `backend/tests/unit/test_durable_task_payloads_server_owned.py` walks every `enqueue_task` and
 `_enqueue_visit_task` call under `backend/app/`. In `app/routers/` the payload must be a dict
 literal and the dedupe key a literal or f-string, built only from `company_id` (never a route
 parameter, bound only from a row's `.id`) and the fixed vocabularies `company_list_forms()` and
-`accepted_filing_forms()`, or a conditional between such values; before the fix it failed on
-the filings payload's `types_list`. Every such call passes a key (a keyless task is named at
-random, one per request), and its window is a literal or a module-level constant. Any other site,
-such as the operator-only `services/internal_task_runner.py`, is listed with its reason, and a
-listed site that is gone fails. Validating a caller's choice into a bounded set, and counting the
-payloads one company can produce per bucket, are review-checked. So are the gate's two limits: it
-takes `.id` from any object, a request model's too, and does not follow callers of
-`enqueue_internal_job` (today only the token-gated internal job routes). The same route's in-process
-refresh (`DURABLE_TASKS_ENABLED=false`, not the production path) still takes the caller's
-canonical forms in the caller's order: it queues nothing on the shared queue, is deduped per
-process while in flight, and stamps the per-filter freshness key that the fast path reads.
+`other_filing_forms()`, with no format spec in a key's parts; before the fix it failed on the
+filings payload's `types_list`. Every such call passes a key (a keyless task is named at random, one
+per request), and its window is a literal or a module-level constant.
+`test_filings_routes.py::test_a_refresh_fetches_list_forms_and_only_other_forms_already_stored` pins
+the worker's narrowing. Any other site, such as the operator-only
+`services/internal_task_runner.py`, is listed with its reason, and a listed site that is gone fails.
+Validating a caller's choice into a bounded set, and counting the payloads one company can produce
+per bucket, are review-checked. So are the gate's two limits: it takes `.id` from any object, a
+request model's too, and does not follow callers of `enqueue_internal_job` (today only the
+token-gated internal job routes). The same route's in-process refresh
+(`DURABLE_TASKS_ENABLED=false`, not the production path) still takes the caller's canonical forms in
+the caller's order: it queues nothing on the shared queue, is deduped per process while in flight,
+and stamps the per-filter freshness key that the fast path reads.

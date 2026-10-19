@@ -13,11 +13,11 @@ dict literal with literal keys and the key a literal or f-string, built only fro
 ``SERVER_OWNED_NAMES`` (never a route parameter, and bound in the route only by plain assignment
 from a resolved row's ``.id``) and ``SERVER_OWNED_CALLS`` (fixed vocabularies called bare with no
 arguments, each bound in its module only by its import from the source named here, as Python's own
-symbol table resolves it, so a router cannot rebind one to return caller input). A conditional
-expression is server-owned when both its branches are: its test only picks one of them, so a
-route may choose among fixed vocabularies, and each adds at most one task per bucket.
-Every such call passes a key, because a keyless task is named at random and so each request would
-queue a new one. Its window (``seconds``/``dedupe_seconds``) sets the time bucket appended to the
+symbol table resolves it, so a router cannot rebind one to return caller input). An f-string part
+takes no format spec, since a spec is an expression of its own. A route may queue one task per
+fixed vocabulary, each behind any condition, so how many tasks a company can have per bucket stays
+review-checked. Every such call passes a key, because a keyless task is named at random and so each
+request would queue a new one. Its window (``seconds``/``dedupe_seconds``) sets the time bucket appended to the
 key, so it is a literal or built only from module-level names and builtins, never from the route's
 own values. A ``PASS_THROUGH`` wrapper is exempt because its callers are checked as enqueue sites,
 and only while it hands ``enqueue_task`` its own kind, payload, key and window unchanged and takes
@@ -45,7 +45,7 @@ KEYS, WINDOWS = ("key", "dedupe_key"), ("seconds", "dedupe_seconds")
 SERVER_OWNED_NAMES = {"company_id"}
 SERVER_OWNED_CALLS = {
     "company_list_forms": "app.services.latest_filing_service",
-    "accepted_filing_forms": "app.services.filing_list_service",
+    "other_filing_forms": "app.services.filing_list_service",
 }
 EXEMPT = {
     ("services/internal_task_runner.py", "enqueue_internal_job"): "operator routes (_require_internal_token)",
@@ -129,8 +129,6 @@ def _bound_only_by_import(text: str, name: str, origin: str) -> bool:
 
 
 def _server_owned(expr: ast.expr, fn: ast.AST) -> bool:
-    if isinstance(expr, ast.IfExp):
-        return _server_owned(expr.body, fn) and _server_owned(expr.orelse, fn)
     if isinstance(expr, ast.Call):
         return (isinstance(expr.func, ast.Name) and expr.func.id in SERVER_OWNED_CALLS
                 and not expr.args and not expr.keywords)
@@ -179,7 +177,8 @@ def _violations(rel: str, tree: ast.Module, fn: ast.AST, call: ast.Call) -> list
     for name in KEYS:
         key = kwargs.get(name)
         parts = key.values if isinstance(key, ast.JoinedStr) else [key] if key is not None else []
-        if any(not (isinstance(p, ast.Constant) or (isinstance(p, ast.FormattedValue) and _server_owned(p.value, fn)))
+        if any(not (isinstance(p, ast.Constant) or (isinstance(p, ast.FormattedValue) and p.format_spec is None
+                                                    and _server_owned(p.value, fn)))
                for p in parts):
             problems.append(f"{name} is not built from server-owned values: {ast.unparse(key)}")
     for name in WINDOWS:
@@ -280,13 +279,18 @@ def test_a_fixed_vocabulary_is_bound_only_by_its_import(source, bound):
     assert _bound_only_by_import(source, "company_list_forms", SERVER_OWNED_CALLS["company_list_forms"]) is bound
 
 
-def test_a_conditional_is_server_owned_only_when_both_its_branches_are():
-    def expr(source):
-        return ast.parse(source, mode="eval").body
-    assert _server_owned(expr("company_list_forms() if asks_beyond else accepted_filing_forms()"), None)
-    assert not _server_owned(expr("company_list_forms() if asks_beyond else types_list"), None)
-    assert not _server_owned(expr("types_list if asks_beyond else accepted_filing_forms()"), None)
-    assert not _server_owned(expr("company_list_forms() if asks_beyond else accepted_filing_forms(types_list)"), None)
+@pytest.mark.parametrize("key,owned", [
+    ('f"filings:{company_id}"', True),
+    ('f"filings:{company_id!r}"', True),
+    ('f"filings:{company_id:>{len(filing_types)}}"', False),  # the spec reads the route's own values
+    ('f"filings:{company_id:>8}"', False),
+])
+def test_a_key_part_takes_no_format_spec(key, owned):
+    tree = ast.parse("async def route(ticker, filing_types):\n    company_id = row.id\n"
+                     "    await enqueue_task('filings', {'company_id': company_id}, dedupe_key=" + key + ", dedupe_seconds=60)\n")
+    fn = tree.body[0]
+    call = next(n for n in ast.walk(fn) if isinstance(n, ast.Call) and _called_name(n) == "enqueue_task")
+    assert (_violations("routers/planted.py", tree, fn, call) == []) is owned
 
 
 def test_a_fixed_vocabulary_is_called_bare_with_no_arguments():

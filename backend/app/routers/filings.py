@@ -16,7 +16,7 @@ from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
 from app.services.durable_tasks import enqueue_task, TaskUnavailable
 from app.services import filing_list_service, filing_read_service
 from app.services.latest_filing_service import company_list_forms
-from app.services.filing_list_service import accepted_filing_forms
+from app.services.filing_list_service import other_filing_forms
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -188,17 +188,21 @@ async def get_company_filings(
     if cached:
         if settings.DURABLE_TASKS_ENABLED:
             # The payload names the Cloud Task and keys the per-process guard, so it never carries
-            # the caller's ?filing_types=. It is one of two fixed vocabularies: the company's list
-            # forms, or every form the parameter accepts when it asks for another (an 8-K, a Form 4),
-            # so stored rows of those forms keep refreshing. At most two refreshes per company per bucket.
+            # the caller's ?filing_types=: each is one of two fixed vocabularies. Every visit refreshes
+            # the company's list forms; one that asks for another form (an 8-K, a Form 4) also
+            # refreshes the other accepted forms, of which the worker fetches only those already
+            # stored (filing_list_service.forms_to_refresh). At most two refreshes per company per bucket.
             await _enqueue_visit_task(
-                "filings",
-                {"company_id": company_id,
-                 "filing_types": company_list_forms() if set(types_list) <= set(company_list_forms())
-                 else accepted_filing_forms()},
+                "filings", {"company_id": company_id, "filing_types": company_list_forms()},
                 key=f"filings:{company_id}",
                 seconds=int(filing_list_service.FILINGS_LIST_TTL.total_seconds()),
             )
+            if not set(types_list) <= set(company_list_forms()):
+                await _enqueue_visit_task(
+                    "filings", {"company_id": company_id, "filing_types": other_filing_forms()},
+                    key=f"filings:{company_id}",
+                    seconds=int(filing_list_service.FILINGS_LIST_TTL.total_seconds()),
+                )
         else:
             background.add_task(
                 filing_list_service.refresh_company_filings,

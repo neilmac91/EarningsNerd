@@ -236,12 +236,25 @@ def requested_filing_types(filing_types: Optional[str]) -> List[str]:
     return company_list_forms()
 
 
-def accepted_filing_forms() -> List[str]:
-    """Every form ``requested_filing_types`` can list, in one fixed order: the refresh a filings
-    visit queues when its ``?filing_types=`` asks for a form outside ``company_list_forms()``, so
-    stored rows of that form keep refreshing. With the list forms it is one of only two refresh
-    payloads a visit can produce (``routers/filings.py``)."""
-    return [form.value for form in FilingType if form is not FilingType.UNKNOWN]
+def other_filing_forms() -> List[str]:
+    """Every form ``requested_filing_types`` can list that ``company_list_forms()`` does not, in one
+    fixed order: the second refresh a filings visit queues when its ``?filing_types=`` asks for one
+    of them (``routers/filings.py``). With the list forms it is one of only two refresh payloads a
+    visit can produce; the worker fetches only the forms :func:`forms_to_refresh` keeps."""
+    from app.services.latest_filing_service import company_list_forms
+    listed = set(company_list_forms())
+    return [form.value for form in FilingType if form is not FilingType.UNKNOWN and form.value not in listed]
+
+
+def forms_to_refresh(db: Session, company_id: int, forms: List[str]) -> List[str]:
+    """The forms of a durable refresh's payload that the worker fetches: each one the company's list
+    serves by default, and each other one the company already has rows of. So a refresh keeps stored
+    rows fresh but never adds a form nobody stored, which would spend the fetch's row budget and
+    reach the pages that read every stored form (the watchlist, the dashboard, the digest)."""
+    from app.services.latest_filing_service import company_list_forms
+    kept = set(company_list_forms())
+    kept |= {form for (form,) in db.query(Filing.filing_type).filter(Filing.company_id == company_id).distinct()}
+    return [form for form in forms if form in kept]
 
 
 def cached_filings(
