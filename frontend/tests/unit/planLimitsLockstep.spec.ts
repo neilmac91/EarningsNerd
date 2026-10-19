@@ -22,7 +22,7 @@ import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
  * (backend/app/services/entitlements.py). Guest-facing copy cannot read the usage response, so
  * frontend/lib/planLimits.ts mirrors the two numbers — and this spec keeps the mirror honest:
  * (1) the mirrored values equal the backend constants; (2) no source file spells the caps out as
- * bare literals again ("5 summaries", "300 new summaries", "3 companies"), which is how the copy drifted before.
+ * bare literals again ("5 summaries", "3 companies"), which is how the copy drifted before.
  *
  * The Pro trial's length is a claim of the same kind, with one difference: the backend's
  * PRO_TRIAL_DAYS defaults to 0 (backend/app/config.py), so the trial exists only while the UI flag
@@ -63,9 +63,10 @@ const freeEntitlementField = (name: string): number => {
 }
 
 const SOURCE_ROOTS = ['app', 'features', 'components', 'lib', 'hooks']
-const SUMMARY_CAP_LABEL = 'a summary cap spelled out'
+const SUMMARY_CAP_LABEL = 'free summary cap spelled out'
 const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
-  // Copy: the caps written out in prose. "new" is the Pro ceiling's form ("300 new summaries", PRO_FAIR_USE_LINE).
+  // Copy: the caps written out in prose. The summary pattern also reads Pro's ceiling typed with "new" ("300 new
+  // summaries", PRO_FAIR_USE_LINE's form).
   { label: SUMMARY_CAP_LABEL, pattern: /\b\d+ (?:new )?(?:free )?(?:AI )?summar(?:y|ies)\b/i },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
   { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
@@ -146,6 +147,17 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     expect(() => capOverrides(settings + settings, [])).toThrow(/2 times/)
   })
 
+  it('reads a summary cap typed with or without "new", the Pro ceiling\'s form (planted forms)', () => {
+    const { pattern } = LITERAL_PATTERNS.find(({ label }) => label === SUMMARY_CAP_LABEL)!
+    for (const typed of ['5 summaries', '5 free summaries', '5 AI summaries', 'Pro accounts can generate up to 300 new summaries a month.']) {
+      expect(pattern.test(typed), typed).toBe(true)
+    }
+    // A read of the cap types no number: summaryPlanClaims.spec.ts fails a read of it outside lib/planLimits.ts.
+    for (const prose of ['Pro accounts can generate up to {PRO_SUMMARY_MONTHLY_CAP} new summaries a month.', 'New summaries are paused.', 'Unlimited summaries']) {
+      expect(pattern.test(prose), prose).toBe(false)
+    }
+  })
+
   it('mirrors the waitlist REFERRAL_BONUS, which the referral sentence reads', () => {
     const match = waitlistService.match(/^REFERRAL_BONUS\s*=\s*(\d+)/m)
     if (!match) throw new Error('REFERRAL_BONUS not found in backend/app/services/waitlist_service.py')
@@ -176,17 +188,6 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
       }
     }
     expect(offenders, 'use the mirrored constants (lib/planLimits; REFERRAL_BONUS from features/waitlist/lib/referral) instead').toEqual([])
-  })
-
-  it('reads a summary cap typed with or without "new", the Pro ceiling\'s form (planted forms)', () => {
-    const { pattern } = LITERAL_PATTERNS.find(({ label }) => label === SUMMARY_CAP_LABEL)!
-    for (const typed of ['5 summaries', '5 free summaries', '5 AI summaries', 'Pro accounts can generate up to 300 new summaries a month.']) {
-      expect(pattern.test(typed), typed).toBe(true)
-    }
-    // A read of the cap types no number: summaryPlanClaims.spec.ts fails a read of it outside lib/planLimits.ts.
-    for (const prose of ['Pro accounts can generate up to {PRO_SUMMARY_MONTHLY_CAP} new summaries a month.', 'New summaries are paused.', 'Unlimited summaries']) {
-      expect(pattern.test(prose), prose).toBe(false)
-    }
   })
 
   // Pro's Copilot questions are capped (COPILOT_MONTHLY_QUESTION_CAP, a fair-use 429 past it), so no copy
