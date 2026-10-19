@@ -74,9 +74,10 @@ function FeatureRow({
  * column, each pitch above the REAL product screen fed static sample data (Ask this Filing, Multi-Period Analysis,
  * Change Report), then the "Also in Pro" extras as a ruled list, two across from 40rem at the reader's text
  * size, never the four-up grid of tiles the template skeleton had (T4). The Pro chip marks the two features Pro
- * has in full (Free asks a few questions and sees the analysis demo); the Change Report carries none, since both
- * plans read the same report while production ships no wording diff (entitlements.py, ENABLE_SECTION_CHANGES;
- * tests/unit/changeReportPlanClaims.spec.ts). Multi-Period Analysis (its row, its
+ * has in full (Free asks a few questions and sees the analysis demo); the Change Report carries none, and its line
+ * names the metric deltas alone, since both plans read the same report, metric deltas only, while production ships
+ * no wording diff and omits the report's risk lines (entitlements.py, ENABLE_SECTION_CHANGES, change_report_service.py;
+ * tests/unit/changeReportPlanClaims.spec.tsx). Multi-Period Analysis (its row, its
  * CTA, the Excel extra and its mention in the lead) renders only while the analysis route exists
  * (ENABLE_ANALYSIS): the route 404s otherwise, so the page never sells a feature that ships off.
  */
@@ -120,7 +121,7 @@ export default function ProDepth() {
 
         <FeatureRow
           title="Change Report"
-          description="What changed against the prior filing: metric deltas computed from XBRL, risk factors that are new, and language no longer cited. Both plans include it."
+          description="What changed against the prior filing, metric by metric, computed from XBRL. Both plans include it."
         >
           <ChangeReportDemo />
         </FeatureRow>

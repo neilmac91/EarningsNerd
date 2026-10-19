@@ -60,11 +60,12 @@ const PLAN_ROWS: readonly PlanRow[] = [
   { label: { text: 'Company search and historical filings' }, free: INCLUDED, pro: INCLUDED },
   { label: { text: 'Ask this Filing' }, free: { text: `${FREE_COPILOT_QUESTIONS} questions` }, pro: INCLUDED },
   { label: ANALYSIS_LINES.landingRow, free: ANALYSIS_LINES.landingFree, pro: ANALYSIS_LINES.landingPro },
-  // Both plans read the same report in production. Its one plan difference is the Item 1A wording block
-  // (backend/app/services/entitlements.py: `section_changes`, and `section_changes_items` for the teaser), served only
-  // behind ENABLE_SECTION_CHANGES, which config.py defaults off and no deploy map sets; the metric changes and the
-  // risk-factor diff carry no plan gate. When the flag ships, this row changes with it
-  // (tests/unit/changeReportPlanClaims.spec.ts fails until it does).
+  // Both plans read the same report in production, metric deltas only: the XBRL metric changes carry no plan gate, and
+  // backend/app/services/change_report_service.py omits the report's risk lines for every reader. Its one plan
+  // difference is the Item 1A wording block (backend/app/services/entitlements.py: `section_changes`, and
+  // `section_changes_items` for the teaser), served only behind ENABLE_SECTION_CHANGES, which config.py defaults off and
+  // no deploy map sets. When the flag ships, this row changes with it (tests/unit/changeReportPlanClaims.spec.tsx fails
+  // until it does).
   { label: { text: 'Change Report' }, free: INCLUDED, pro: INCLUDED },
   { label: { text: 'Alerts' }, free: { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` }, pro: { text: 'Hourly filing alerts and 8-K alerts' } },
   { label: { text: 'Exports' }, free: null, pro: ANALYSIS_LINES.exports },
