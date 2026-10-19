@@ -59,22 +59,23 @@ held a connection through each of its welcome and referral sends, so eight joins
 4x200 then 4x500. Each is now a thread-pool unit (the join two: the insert, then the welcome flag
 after the send); their burst cases also hold every
 statement off the loop, and the join's own case holds both sends to no connection out (2026-10-19,
-E118). Its reviews found that five of those units had relied on the loop's order. Without a lock:
+E118). The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
+loop in its own body above that function's ceiling (on main before the fix it named both summaries
+routes). Neither half sees a session handed to a service that runs on the loop where the burst does
+not list the route (the rest of the analysis router, E119; the rest of the
+auth router and the checkout route, E121), or a background task's own session worked on the loop
+(E123), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
+evidence.
+
+E118's reviews found that five of its units had relied on the loop's order. Without a lock:
 - two joins lost a referral credit and took one place;
 - two alert enables put an account over its cap;
 - two adds, or an add and an enable, wrote two rows for one company;
 - two removes both succeeded;
 - a disable racing a remove failed on the deleted row.
 
-Each now holds a lock from its check to its commit (2026-10-19, E118's reviews). The gate is
-`backend/tests/unit/test_check_then_write_units_serialize.py`:
-- it meets two threads inside each unit after their checks, so the race happens without the lock
-  however loaded the host;
-- it fails any checkout made inside the watch-row lock. The file's AST ratchet reads every async router function and fails a session call on the
-loop in its own body above that function's ceiling (on main before the fix it named both summaries
-routes). Neither half sees a session handed to a service that runs on the loop where the burst does
-not list the route (the rest of the analysis router, E119; the rest of the
-auth router and the checkout route, E121), a background task's own session worked on the loop
-(E123), or a check-then-write unit other than the four above, such as the refresh token's
-rotation (E127), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
-evidence.
+Each now holds a lock from its check to its commit (2026-10-19). The gate is
+`backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two threads inside each unit
+after their checks, so without the lock the race happens however loaded the host, and it fails any
+checkout made inside the watch-row lock. It covers those five units only; any other check-then-write
+unit, such as the refresh token's rotation (E127), stays a review check.
