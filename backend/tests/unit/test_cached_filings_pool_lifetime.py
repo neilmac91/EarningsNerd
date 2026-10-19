@@ -982,9 +982,10 @@ async def test_waitlist_join_holds_no_connection_while_its_mails_send(monkeypatc
         engine.dispose()
 
 
-def _analysis_fixture(tmp_path, name: str, *, pro: bool):
+def _analysis_fixture(tmp_path, name: str, *, pro: bool, synced: bool = True):
     """A four-slot pool over one company with two fiscal years of revenue and net income, eight
-    readers (Pro or Free), and a saved annual analysis whose snapshot matches the current facts."""
+    readers (Pro or Free), and a saved annual analysis whose snapshot matches the current facts.
+    Unless ``synced``, the company's companyfacts were never synced, so coverage syncs them."""
     from app.models import TrendAnalysis, User
     from app.services import trend_analysis_service
 
@@ -1000,7 +1001,7 @@ def _analysis_fixture(tmp_path, name: str, *, pro: bool):
     sessions = sessionmaker(bind=engine)
     with sessions() as db:
         company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture",
-                          history_backfilled_at=utcnow(), facts_synced_at=utcnow())
+                          history_backfilled_at=utcnow(), facts_synced_at=utcnow() if synced else None)
         db.add(company)
         db.flush()
         for year, revenue, net_income in ((2024, 100, 10), (2025, 120, 15)):
@@ -1054,6 +1055,7 @@ _ANALYSIS_STATUS = {
 @pytest.mark.parametrize("method,path,body,case", [
     ("GET", "/api/analysis/CACHED/coverage", None, "coverage"),
     ("GET", "/api/analysis/CACHED/coverage", None, "coverage_handoff"),
+    ("GET", "/api/analysis/CACHED/coverage", None, "coverage_sync"),
     ("GET", "/api/analysis/NOSUCH/coverage", None, "coverage_missing"),
     ("POST", "/api/analysis/CACHED/dataset", _ANALYSIS_RANGE, "dataset"),
     ("POST", "/api/analysis/NOSUCH/dataset", _ANALYSIS_RANGE, "dataset_missing"),
@@ -1069,14 +1071,26 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
     awaits anything else (the companyfacts sync, a render), a refusal of each included, so eight Pro
     readers on four slots (Free for the PDF's plan refusal) leave nothing for the finalizer and run
     no checkout or statement on the loop. ``coverage_handoff`` is a first touch in durable mode: the
-    sync outlasts the wait, the route cancels it, hands it to the queue and reads what exists."""
+    sync outlasts the wait, the route cancels it, hands it to the queue and reads what exists. In
+    ``coverage_sync`` the sync is real but for its SEC fetch: one request leads it, the others follow,
+    and its sessions keep off the loop too (E129)."""
     from app.config import settings
     from app.routers import analysis, auth
+    from app.services import facts_service
 
-    engine, _ = _analysis_fixture(tmp_path, "analysis-routes.db", pro=case != "pdf_free")
+    engine, sessions = _analysis_fixture(tmp_path, "analysis-routes.db", pro=case != "pdf_free",
+                                         synced=case != "coverage_sync")
+    sec_fetches: list[str] = []
 
     async def render(_analysis, _company) -> bytes:
         return b"%PDF-test"
+
+    async def sec_fetch(cik: str) -> dict:
+        sec_fetches.append(cik)
+        return {"facts": {"us-gaap": {"RevenueFromContractWithCustomerExcludingAssessedTax": {"units": {"USD": [{
+            "val": 100, "start": "2024-01-01", "end": "2024-12-31", "accn": "0000000001-24-000001",
+            "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2025-02-01",
+        }]}}}}}
 
     _patch_analysis_edges(monkeypatch, workbook=lambda _dataset: b"xlsx-test", render=render)
     handoffs: list[tuple] = []
@@ -1092,6 +1106,17 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
         monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 0.05)
         monkeypatch.setattr(analysis, "_ingest_with_own_session", slow_sync)
         monkeypatch.setattr(analysis, "enqueue_task", enqueue)
+    facts_service._inflight_syncs.clear()  # the process-wide claim table; cleared again after
+    if case == "coverage_sync":
+        from app.services.facts import ingest
+
+        async def sync(company_id: int) -> dict:
+            # The real sync but for its SEC fetch, on plain sessions: the request-session tally
+            # below counts the eight requests', and the engine's listeners see the sync's as well.
+            return await facts_service.ingest_companyfacts_by_id(company_id, session_factory=sessions)
+
+        monkeypatch.setattr(analysis, "_ingest_with_own_session", sync)
+        monkeypatch.setattr(ingest, "_fetch_companyfacts_async", sec_fetch)
 
     request_sessions: list[Session] = []
 
@@ -1128,7 +1153,7 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
     try:
         responses = await asyncio.gather(*[send(i) for i in range(8)])
         assert [response.status_code for response in responses] == [_ANALYSIS_STATUS.get(case, 200)] * 8
-        if case in ("coverage", "coverage_handoff"):
+        if case in ("coverage", "coverage_handoff", "coverage_sync"):
             handed_off = case == "coverage_handoff"
             assert [
                 (payload["ticker"], payload["supported"], payload["syncing"], payload["synced_at"] is not None,
@@ -1165,7 +1190,12 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
         # Every checkout and every statement ran in the thread pool, none on the loop.
         assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
         assert loop_statements and loop_statements == [False] * len(loop_statements)
+        if case == "coverage_sync":
+            assert sec_fetches == ["0000000001"]  # one leader fetched; the others followed it
+            with sessions() as db:
+                assert db.get(Company, 1).facts_synced_at is not None
     finally:
+        facts_service._inflight_syncs.clear()
         engine.dispose()
 
 
