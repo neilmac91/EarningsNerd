@@ -423,11 +423,16 @@ jobs:
           set -euo pipefail
           [ -f scripts/relabel_filing_fy_facts.py ] || { echo "::error::relabel script not committed yet"; exit 1; }
           ARGS=()
-          if [ "$OP" = "relabel-fy-apply" ]; then ARGS+=(--apply)
+          READ_ONLY=on
+          if [ "$OP" = "relabel-fy-apply" ]; then ARGS+=(--apply); READ_ONLY=off
           else PGOPTIONS="$PGOPTIONS -c default_transaction_read_only=on"; fi
           if [ -n "$TICKERS" ]; then ARGS+=(--tickers "$TICKERS"); fi
-          # The settings a session gets through the proxy, read back so this log proves them.
-          psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')"
+          # The settings a session gets through the proxy, read back so this log proves them, and
+          # compared with this step's, so a lost or weakened guard stops the run before the script.
+          SESSION=$(psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')")
+          echo "$SESSION"
+          EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
+          [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
           python scripts/relabel_filing_fy_facts.py "${ARGS[@]}"
 
       # ------------------------------------------------------------------ internal jobs

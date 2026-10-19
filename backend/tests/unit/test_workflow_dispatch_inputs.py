@@ -8,8 +8,8 @@ text, and a value written to ``$GITHUB_OUTPUT`` as ``name=value`` lines can rede
 when it carries a line break, so an unused field must be bounded before anything is written. The ops
 workflow runs against production with the deployer identity, so it also runs only from ``main`` and
 never persists the checkout token. Its fiscal-year relabel step passes ``--apply`` only for the apply
-operation, runs every other operation read-only, reads the session's settings back before the script,
-and fails with the script.
+operation, runs every other operation read-only, reads the session's settings back and stops unless they
+are its own before the script runs, and fails with the script.
 """
 import os
 import subprocess
@@ -114,22 +114,32 @@ def test_resolve_step_rejects_a_malformed_or_oversized_relabel_ticker_list(tmp_p
     assert output == ""
 
 
-def _run_relabel_step(tmp_path, op, tickers, *, python_exit=0, psql_exit=0):
+def _readback(op, lock="10s", statement="2min"):
+    """The line Postgres prints for the step's guards, as the relabel step's readback query reads them."""
+    return f"session read_only={'off' if op == 'relabel-fy-apply' else 'on'} lock_timeout={lock} statement_timeout={statement}"
+
+
+def _run_relabel_step(tmp_path, op, tickers, *, python_exit=0, psql_exit=0, readback=None):
     """The relabel step's own script, run as GitHub runs it (`bash -e`) with stand-ins for `psql` and
-    `python` that record their arguments and the PGOPTIONS each sees."""
+    `python` that record their arguments and the PGOPTIONS each sees. The `psql` stand-in prints
+    ``readback`` as the session's settings: by default, the line Postgres prints for the step's own."""
     step = next(s for s in _workflow("ops.yml")["jobs"]["ops"]["steps"]
                 if s.get("name") == "Run fiscal-year relabel script")
     bin_dir, scripts = tmp_path / "bin", tmp_path / "scripts"
     bin_dir.mkdir()
     scripts.mkdir()
     (scripts / "relabel_filing_fy_facts.py").write_text("")
+    # psql answers only the readback query, which must read the three settings in this order.
+    answer = ('case "$*" in *"current_setting(\'default_transaction_read_only\')"*"current_setting(\'lock_timeout\')"*'
+              '"current_setting(\'statement_timeout\')"*) printf "%s\\n" "$READBACK" ;; *) echo "unexpected query" ;; esac\n')
     for tool, code in (("python", python_exit), ("psql", psql_exit)):
         stand_in = bin_dir / tool
         stand_in.write_text(f'#!/bin/sh\nprintf "%s %s\\n" {tool} "$*" >> "$CALLS"\n'
-                            f'printf "PGOPTIONS=%s\\n" "$PGOPTIONS" >> "$CALLS"\nexit {code}\n')
+                            f'printf "PGOPTIONS=%s\\n" "$PGOPTIONS" >> "$CALLS"\n{answer if tool == "psql" else ""}exit {code}\n')
         stand_in.chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "OP": op, "TICKERS": tickers,
-           "CALLS": str(tmp_path / "calls"), "PGOPTIONS": step["env"]["PGOPTIONS"]}
+           "CALLS": str(tmp_path / "calls"), "PGOPTIONS": step["env"]["PGOPTIONS"],
+           "READBACK": _readback(op) if readback is None else readback}
     result = subprocess.run(  # fixed argv; the script under test is repository content
         ["bash", "-e", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True, check=False
     )
@@ -166,4 +176,19 @@ def test_a_failed_relabel_run_fails_the_step(tmp_path):
 def test_no_relabel_runs_when_the_session_settings_cannot_be_read(tmp_path):
     _, result, calls = _run_relabel_step(tmp_path, "relabel-fy-apply", "", psql_exit=2)
     assert result.returncode == 2
+    assert not [call for call in calls if call.startswith("python ")]
+
+
+@pytest.mark.parametrize("op, readback", [
+    ("relabel-fy-dry-run", _readback("relabel-fy-apply")),  # a dry run whose transactions could write
+    ("relabel-fy-apply", _readback("relabel-fy-apply", lock="0")),  # no lock bound: a later -c 0 won
+    ("relabel-fy-apply", _readback("relabel-fy-apply", statement="0")),
+    ("relabel-fy-dry-run", ""),  # psql printed nothing
+])
+def test_no_relabel_runs_when_the_session_reports_other_settings_than_the_steps(tmp_path, op, readback):
+    """The readback is a check, not only a log line: a session whose settings are not the step's
+    stops the run before the script opens one."""
+    _, result, calls = _run_relabel_step(tmp_path, op, "", readback=readback)
+    assert result.returncode == 1
+    assert "the session's settings are not this step's" in result.stdout
     assert not [call for call in calls if call.startswith("python ")]

@@ -83,15 +83,17 @@ runner through the Cloud SQL proxy, so every line lands in the workflow run's lo
 Logging. Operation `relabel-fy-dry-run` runs the dry run in read-only transactions, so Postgres
 refuses any write; `relabel-fy-apply` runs the apply below. Before the script, the run prints the
 session's settings as Postgres reports them (`session read_only=on lock_timeout=10s
-statement_timeout=2min` for a dry run), so the log shows the guards took effect. Its `tickers` input
-passes `--tickers` (at most 50); there is no `--limit`. The workflow refuses to start while a CI run
-for a push to main is in flight, so dispatch after that run finishes. A failed company fails the run
-once, with no automatic retry: read its `error` line, then dispatch again. Dispatching the same
-apply again after such a failure is the retry Cloud Run would have made on its own, so it stands
-under the same sign-off; an apply over other tickers needs its own. The repository is public, so
-anyone can read the run's log. Its lines carry company ids, tickers, period ends and fiscal years,
-all public filing data, and an `error` line can quote the failing SQL and its parameters. The proxy
-step masks the database URL and password.
+statement_timeout=2min` for a dry run, `read_only=off` for the apply) and stops unless they are the
+step's own, so the log shows the guards took effect. Its `tickers` input passes `--tickers` (at most
+50); there is no `--limit`. The workflow refuses to start while a CI run for a push to main is in
+flight, so dispatch after that run finishes. A failed company fails the run once, with no automatic
+retry: read its `error` line, then dispatch again. Dispatching the same apply again after such a
+failure, up to three times (the retries Cloud Run would have made on its own), over the same tickers
+or only the companies that failed, stands under the same sign-off; an apply over other tickers needs
+its own. The repository is public, so anyone can read the run's log. Its lines carry company ids,
+tickers, period ends and fiscal years, all public filing data, and an `error` line can quote the
+failing SQL and its parameters. The proxy step masks the database URL and password, but a failed
+connection's error names the database user and the database.
 
 ## Apply (founder sign-off required)
 
