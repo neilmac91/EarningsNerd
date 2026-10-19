@@ -21,18 +21,23 @@ const SECTIONS = [
 const OUTLINE_NOTE = 'Up to nine parts'
 
 /**
- * "What a summary contains" as a ruled row (D-045): the contents as a navigation landmark, a hairline
- * list in the filing's own table-of-contents manner rather than a card, two across from 40rem at the
- * reader's text size, then the compact how-it-works steps beneath it.
+ * "What a summary contains" as a ruled row (D-045): the label column's line is one short sentence, and what follows
+ * from it opens the content column, above the contents as a navigation landmark, a hairline list in the filing's
+ * own table-of-contents manner rather than a card, two across from 40rem at the reader's text size, then the
+ * compact how-it-works steps beneath it.
  */
 export default function SummaryContents() {
   return (
     <LandingRow
       id="contents"
       title="Nine parts, in the order you would read them."
-      line="Every summary follows the same outline, so the second filing reads faster than the first, and a part the filing has nothing for is left out. A fresh summary appears part by part while it is written; a cached one loads at once."
+      line="Every summary follows the same outline."
       impression="summary_contents"
     >
+      <p className="mb-6 max-w-2xl text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+        The second filing reads faster than the first, and a part the filing has nothing for is left out. A fresh
+        summary appears part by part while it is written; a cached one loads at once.
+      </p>
       <nav aria-label="Summary sections">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2 pb-3">
           <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Contents</h3>
