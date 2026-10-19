@@ -29,9 +29,10 @@ const FOOTER_LINKS: Record<string, FooterLink[]> = {
 }
 
 // One recipe for the column links and for "Cookie settings", a button that reads as one of them (it opens a dialog
-// and goes nowhere), each with the brand focus ring.
+// and goes nowhere), each with the brand focus ring. `text-left` is for the button, which centres its text by
+// default, so a label that ever wraps lines up with the links; on an inline link it changes nothing.
 const FOOTER_LINK =
-  'text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
+  'text-left text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
 
 export default function Footer() {
   // Read where the footer renders, on the server and again in the browser. The two can disagree for a few hours

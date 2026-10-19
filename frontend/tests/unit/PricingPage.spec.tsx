@@ -159,9 +159,9 @@ describe('PricingPage', () => {
       expect(screen.queryByText(RETURNED)).not.toBeInTheDocument()
     })
 
-    // PostHogProvider renders <>{children}</> until cookie consent arrives and <PHProvider> after, so the page
-    // remounts in that commit; the flag already left the address, and the notice stays.
-    it('keeps the notice when a parent swaps its element type, as the PostHog provider does once consent arrives', async () => {
+    // Any parent that swaps its element type (here a Fragment for a component) remounts the page in that commit;
+    // the flag already left the address, and the notice stays.
+    it('keeps the notice when a parent swaps its element type and the page remounts in that commit', async () => {
       mockSearchParams.set('canceled', 'true')
       mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
