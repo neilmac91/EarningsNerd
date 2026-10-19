@@ -1,0 +1,111 @@
+broken   agrees   SpamAssassin: low contrast   the button's sage in the background shorthand, on white
+broken   agrees   SpamAssassin: low contrast   the button's sage in the background shorthand, on the page's cream
+broken   agrees   SpamAssassin: low contrast   a ground in the background shorthand on a div
+broken   agrees   SpamAssassin: low contrast   a cell's ground in its bgcolor alone
+broken   agrees   SpamAssassin: low contrast   a table's ground in its bgcolor alone
+broken   agrees   SpamAssassin: low contrast   a row's ground in its bgcolor alone
+broken   agrees   SpamAssassin: low contrast   a link's ground in a bgcolor
+broken   agrees   SpamAssassin: low contrast   a marquee's bgcolor, on a tag it reads none of
+broken   agrees   SpamAssassin: low contrast   a marquee left open in a cell, which a cell's start closes, as it reads no tag of one
+broken   agrees   SpamAssassin: low contrast   a body's ground in its style
+broken   agrees   SpamAssassin: low contrast   a body's ground in its bgcolor
+broken   agrees   SpamAssassin: low contrast   a heading's ground, whose style it does not read
+broken   agrees   SpamAssassin: low contrast   an emphasis's ground, whose style it does not read
+broken   agrees   SpamAssassin: low contrast   a background-color spaced before its colon
+broken   agrees   SpamAssassin: low contrast   a heading's ink, unread, on a dark ground it reads
+broken   agrees   SpamAssassin: low contrast   a color spaced before its colon, on a dark ground
+broken   agrees   SpamAssassin: low contrast   a big's style, which it does not read, on a dark ground
+broken   agrees   SpamAssassin: low contrast   a font's colour
+broken   agrees   SpamAssassin: low contrast   a body's text colour
+broken   agrees   SpamAssassin: low contrast   a basefont's colour, where it sets no size
+broken   agrees   SpamAssassin: low contrast   a header cell's ink, read as a cell's
+broken   agrees   SpamAssassin: low contrast   the page's cream as ink on white
+broken   agrees   SpamAssassin: low contrast   an ink just under 12 from its ground
+broken   agrees   SpamAssassin: low contrast   an ink of the ground's own colour
+broken   agrees   SpamAssassin: low contrast   a style's later color over its earlier
+broken   agrees   SpamAssassin: low contrast   a style's later background-color over its earlier
+broken   agrees   SpamAssassin: low contrast   inherit, which keeps the ink below
+broken   agrees   SpamAssassin: low contrast   !important alone, which keeps the ink below
+broken   agrees   SpamAssassin: low contrast   two styles, of which it reads the first
+broken   agrees   SpamAssassin: low contrast   a span written closed, which it holds open
+broken   agrees   SpamAssassin: low contrast   a span left open in a cell, which the next cell's start leaves open
+broken   agrees   SpamAssassin: low contrast   a row's start, which closes the cells and the row before it to the table's ground
+broken   agrees   SpamAssassin: low contrast   a body's ink, which its end tag leaves open
+broken   agrees   SpamAssassin: low contrast   a tag, an attribute and a declaration in capitals
+broken   agrees   SpamAssassin: low contrast   an unquoted style
+broken   agrees   SpamAssassin: low contrast   a style in curly quotes, which it reads as straight ones
+broken   agrees   SpamAssassin: low contrast   a declaration after a newline
+broken   agrees   SpamAssassin: low contrast   a zero-width space, which counts as text
+broken   agrees   SpamAssassin: low contrast   a no-break space by its number, which counts as text
+broken   agrees   SpamAssassin: low contrast   a no-break space as itself, which counts as text
+broken   agrees   SpamAssassin: low contrast   a no-break space by its name and then by its number, the second of which counts as text
+broken   agrees   SpamAssassin: low contrast   a name a browser decodes as a tab, which it reads as written
+broken   agrees   SpamAssassin: low contrast   a block Outlook's conditional comments reveal to every other client
+broken   agrees   SpamAssassin: low contrast   a noscript's markup, which it reads
+refused  refused  SpamAssassin: low contrast   a short hex
+refused  refused  SpamAssassin: low contrast   a colour's name
+refused  refused  SpamAssassin: low contrast   rgb()
+refused  refused  SpamAssassin: invalid colour a colour with !important after it, which it reads as an invalid colour
+refused  refused  SpamAssassin: clear          a ground's name
+refused  refused  SpamAssassin: low contrast   a font's colour by name
+refused  refused  SpamAssassin: low contrast   a body's text colour in a short hex
+refused  refused  SpamAssassin: low contrast   a style written with a character reference
+refused  refused  SpamAssassin: low contrast   a font's colour written with a character reference
+refused  refused  SpamAssassin: low contrast   a basefont's size written with a character reference, which the standard library decodes and it does not
+refused  refused  SpamAssassin: clear          a title
+refused  refused  SpamAssassin: clear          a textarea
+refused  refused  SpamAssassin: clear          an xmp
+refused  refused  SpamAssassin: clear          a plaintext
+refused  refused  SpamAssassin: clear          a listing
+refused  refused  SpamAssassin: clear          an iframe
+refused  refused  SpamAssassin: clear          a noembed
+refused  refused  SpamAssassin: clear          a noframes
+refused  refused  SpamAssassin: clear          a script written closed
+refused  refused  SpamAssassin: clear          a script, whose text it passes over
+refused  refused  SpamAssassin: clear          a style block, whose text it passes over
+refused  refused  SpamAssassin: low contrast   a no-break space in a style, which it reads as a space
+refused  refused  SpamAssassin: clear          a Kelvin sign in a property's name, which it reads as a k
+refused  refused  SpamAssassin: low contrast   a no-break space before the / that closes a span, which it reads as a space, so it holds the span open
+refused  refused  SpamAssassin: clear          an end tag whose name holds a no-break space
+refused  refused  SpamAssassin: clear          a basefont's size in a digit past ASCII, which it reads as a digit
+refused  refused  SpamAssassin: low contrast   a comment closed by -- >, where it ends one
+refused  refused  SpamAssassin: clear          a comment closed by --!>
+refused  refused  SpamAssassin: clear          an end tag holding an attribute
+refused  refused  SpamAssassin: low contrast   a vertical tab between a tag's name and its attribute
+refused  refused  SpamAssassin: clear          a / between a tag's name and its attribute
+refused  refused  SpamAssassin: clear          a reference by number with no semicolon
+refused  refused  SpamAssassin: low contrast   a reference by number past Unicode's last code point
+refused  refused  SpamAssassin: low contrast   a reference by number twenty digits long, past Unicode's last code point too
+refused  refused  SpamAssassin: clear          a bare ampersand before a word
+refused  refused  SpamAssassin: clear          a CDATA section
+refused  refused  SpamAssassin: low contrast   a block Outlook's marked section reveals
+kept     agrees   SpamAssassin: clear          the shell's own page
+kept     agrees   SpamAssassin: clear          the button's sage in background-color, on the page's cream
+kept     agrees   SpamAssassin: clear          the panel's ground in bgcolor and the shorthand, unread under its ink
+kept     agrees   SpamAssassin: clear          a body's ground, unread under the default ink
+kept     agrees   SpamAssassin: clear          a table's ground
+kept     agrees   SpamAssassin: clear          a row's ground
+kept     agrees   SpamAssassin: clear          a cell's ground
+kept     agrees   SpamAssassin: clear          a div's ground
+kept     agrees   SpamAssassin: clear          a paragraph's ground
+kept     agrees   SpamAssassin: clear          a span's ground
+kept     agrees   SpamAssassin: clear          a link's ground
+kept     agrees   SpamAssassin: clear          a ground in capitals
+kept     agrees   SpamAssassin: clear          an ink just over 12 from its ground
+kept     agrees   SpamAssassin: clear          a style's later color, clear of the ground
+kept     agrees   SpamAssassin: clear          inherit, which keeps a clear ink
+kept     agrees   SpamAssassin: clear          two styles, the first clear
+kept     agrees   SpamAssassin: clear          a cell's start, which closes the font and the cell before it
+kept     agrees   SpamAssassin: clear          a row's start, which closes the fonts, the cells and the row before it
+kept     agrees   SpamAssassin: clear          a header cell's end tag, which closes it as a cell's
+kept     agrees   SpamAssassin: clear          an end tag, which closes every element open above its own
+kept     agrees   SpamAssassin: clear          a stray end tag, which closes nothing
+kept     agrees   SpamAssassin: clear          a basefont that sets a size, and no colour
+kept     agrees   SpamAssassin: clear          a namespaced tag, which it passes over
+kept     agrees   SpamAssassin: clear          a no-break space by its name alone, which it reads as a space
+kept     agrees   SpamAssassin: clear          an A with a circumflex before a no-break space, which it takes out as one
+kept     agrees   SpamAssassin: clear          a tab by its number, which it reads as one
+kept     agrees   SpamAssassin: clear          whitespace alone
+kept     agrees   SpamAssassin: clear          a comment, which holds no text
+kept     agrees   SpamAssassin: clear          classic Outlook's conditional comment, which holds no text
+110 plants ({'broken': 44, 'refused': 37, 'kept': 29}); 0 where SpamAssassin's parser reads a broken or kept plant otherwise
