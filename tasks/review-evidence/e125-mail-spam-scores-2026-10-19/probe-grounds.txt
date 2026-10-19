@@ -1,0 +1,21 @@
+FLAGGED  table bgcolor
+FLAGGED  td bgcolor
+FLAGGED  tr bgcolor
+FLAGGED  body bgcolor
+FLAGGED  body style background-color
+clean    table style background-color
+clean    td style background-color
+FLAGGED  div style background shorthand
+clean    div style background-color
+FLAGGED  a style background shorthand
+clean    a style background-color
+FLAGGED  a style background-color with a space before the colon
+clean    a style BACKGROUND-COLOR in capitals
+FLAGGED  a bgcolor
+clean    em style background-color
+clean    span style background-color, ink from a
+clean    p style background-color
+FLAGGED  h1 style background-color
+FLAGGED  td style background-color, text after a closed span
+FLAGGED  control: pale words on no ground
+clean    control: dark words on no ground

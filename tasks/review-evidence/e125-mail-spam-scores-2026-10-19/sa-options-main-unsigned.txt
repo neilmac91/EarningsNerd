@@ -1,0 +1,9 @@
+current              sum  16.6 per-mail 0.1..0.8  added {}  removed {}
+inline_nested        sum  56.6 per-mail 1.1..1.8  added {'TO_NO_BRKTS_HTML_IMG(+1)': 40}  removed {}
+inline_related_top   sum  56.6 per-mail 1.1..1.8  added {'TO_NO_BRKTS_HTML_IMG(+1)': 40}  removed {}
+inline_mixed_top     sum  56.6 per-mail 1.1..1.8  added {'TO_NO_BRKTS_HTML_IMG(+1)': 40}  removed {}
+text_tile_url        sum  16.6 per-mail 0.1..0.8  added {}  removed {}
+header_home_link     sum  16.6 per-mail 0.1..0.8  added {'T_REMOTE_IMAGE(+0)': 37}  removed {}
+text_site_line       sum  16.6 per-mail 0.1..0.8  added {}  removed {}
+
+current tests: {'HTML_FONT_LOW_CONTRAST(+0.7)': 18, 'HTML_MESSAGE(+0)': 40, 'INVESTMENT_ADVICE(+0.1)': 40, 'NO_RECEIVED(-0)': 40, 'NO_RELAYS(-0)': 40}
