@@ -15,6 +15,7 @@ import logging
 import httpx
 
 from app.config import settings
+from app.services.password_utils import bcrypt_screen_texts
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +26,28 @@ _TIMEOUT_SECONDS = 2.5
 async def is_password_pwned(password: str) -> bool:
     """Return True only if ``password`` is known to appear in public breach corpora.
 
-    Returns False when the check is disabled, the password is empty, or the lookup fails for
-    any reason (fail-open).
+    A password longer than bcrypt's 72-byte limit authenticates with its first 72 bytes alone,
+    so the text bcrypt keys on is screened too (``password_utils.bcrypt_screen_texts``): a
+    breached password plus an unlisted tail must not pass as unbreached.
+
+    Returns False when the check is disabled, the password is empty, or a lookup fails for any
+    reason (fail-open). The first failed lookup ends the screen: a slow or unreachable HIBP costs one
+    timeout, not one per screened text.
     """
     if not settings.PWNED_PASSWORD_CHECK_ENABLED or not password:
         return False
+    for text in (password, *(t for t in bcrypt_screen_texts(password) if t != password)):
+        listed = await _is_listed(text)
+        if listed is None:
+            return False
+        if listed:
+            return True
+    return False
 
+
+async def _is_listed(password: str) -> bool | None:
+    """One range-API lookup for ``password``: True if listed, False if not, None if the lookup
+    failed (the caller fails open)."""
     # SHA-1 is mandated by the HIBP range API (the k-anonymity protocol hashes with SHA-1); it is
     # NOT used as a security primitive here — the protection comes from matching against the breach
     # corpus, not from SHA-1's collision resistance. usedforsecurity=False documents that intent and
@@ -63,4 +80,4 @@ async def is_password_pwned(password: str) -> bool:
         logger.warning(
             "Pwned-password check unavailable (%s); allowing password", exc.__class__.__name__
         )
-        return False
+        return None

@@ -61,15 +61,15 @@ ROUTER_ORM_CEILINGS: dict[str, int] = {
 
     "app/routers/feedback.py": 5,
 
-    "app/routers/internal.py": 18,
+    "app/routers/internal.py": 0,
 
     "app/routers/sitemap.py": 0,
 
-    "app/routers/subscriptions.py": 3,
+    "app/routers/subscriptions.py": 0,
 
     "app/routers/summaries.py": 31,
 
-    "app/routers/webhooks.py": 1,
+    "app/routers/webhooks.py": 0,
 }
 
 _SQLALCHEMY = "sqlalchemy"

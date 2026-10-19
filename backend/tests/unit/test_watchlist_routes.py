@@ -3,8 +3,8 @@
 These four routes had no route-level test. The suite pins their status codes, bodies, ordering and
 the insights summary-status mapping so the move of their queries into
 ``app/services/watchlist_service.py`` is provably behaviour-neutral. Rows live in the shared test
-DB (``get_generation_progress_snapshot`` opens its own ``SessionLocal``), so nothing is patched;
-only ``get_current_user`` is overridden. Every row this file creates is deleted afterwards.
+DB, and the insights read their generation-progress rows in the request's own session, so nothing
+is patched; only ``get_current_user`` is overridden. Every row this file creates is deleted afterwards.
 """
 import uuid
 from datetime import datetime, timedelta, timezone

@@ -5,8 +5,8 @@ import DashboardError from '@/app/dashboard/error'
 /**
  * app/dashboard/error.tsx is the only error boundary under app/dashboard, so it also catches a render error on
  * /dashboard/settings and /dashboard/watchlist: whatever its words, its generic state names no route (audit DSW-12,
- * UA-51). The words are copy, free to change (brandVoiceRules.spec.ts holds their case); the signed-out state waits
- * on the founder's sign-in verb (tasks/todo.md F44) and is not read here. Server markup, so no effect runs (no Sentry
+ * UA-51). The words are copy, free to change (brandVoiceRules.spec.ts holds their case); the signed-out state takes
+ * the product's verb with tasks/todo.md E107 (D-046) and is not read here. Server markup, so no effect runs (no Sentry
  * call, no redirect).
  */
 

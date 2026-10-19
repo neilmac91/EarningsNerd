@@ -344,7 +344,7 @@ describe('AskCopilotRail conversation controls replaced by the turn they start',
     act(() => handlers().onError('The connection dropped.'))
     textarea.focus()
     await user.tab({ shift: true })
-    const retry = screen.getByRole('button', { name: /retry/i })
+    const retry = screen.getByRole('button', { name: /try again/i })
     expect(document.activeElement).toBe(retry)
 
     await user.keyboard('{Enter}')

@@ -176,7 +176,7 @@ describe('ComparePeriodsCard', () => {
     renderCard()
     expect(await screen.findByText('Couldn’t load the comparison')).toBeInTheDocument()
     api.getWhatChanged.mockResolvedValue(REPORT)
-    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Retry' })))
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Try again' })))
     expect(await screen.findByRole('link', { name: 'Open change report' })).toBeInTheDocument()
     expect(api.getWhatChanged).toHaveBeenCalledTimes(2)
   })
