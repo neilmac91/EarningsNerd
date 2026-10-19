@@ -5,15 +5,17 @@ The coverage route runs ``ingest_companyfacts_by_id`` as a task on the API's eve
 freshness read and its follower's re-read checked a connection out there, and its persist (the
 normalize and the bulk upsert of every fact) ran there in full, blocking the loop for the whole run.
 
-- A leader and a follower work no session on the loop: every checkout and every statement runs on
-  the sync's own threads (``sync_threads._SYNC_THREADS``).
+- A leader and a follower work no session on the loop: every checkout, statement and checkin runs on
+  the sync's own threads (``sync_threads._SYNC_THREADS``), two of them, in a copy of the caller's
+  context (its correlation id), and a follower reads back what the leader left, a failure included.
 - Nor in the loop's default executor. A slot holder shaped like login keeps its connection checked
   out while it awaits a default-executor thread, so a sync waiting there for the slot would hold
   the thread the holder needs, and neither could move until the pool timed out
   (``copilot_chat._LOOKUP_THREADS`` keeps the Copilot's lookups off it for the same reason).
-- The leader claims the sync before its freshness read, which now waits on a thread, so a request
-  arriving meanwhile follows it; read first, a leader finishing during that read would leave it a
-  stale stamp and no claim to follow, and it would lead a second fetch.
+- The leader claims the sync in the loop step that found no claim, before its freshness read, which
+  now waits on a thread. Two first touches started together fetch once, and a request arriving
+  meanwhile follows it; read first, a leader finishing during that read would leave it a stale stamp
+  and no claim to follow, and it would lead a second fetch.
 - A leader cancelled during its persist (the coverage route cancels at its wait budget) keeps its
   claim until the persist thread finishes, so no follower wakes and no second leader starts while
   the facts are still being written. That holds under an anyio cancel scope too, which cancels the
@@ -33,7 +35,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from app.models import Base, Company
-from app.services import facts_service
+from app.services import facts_service, logging_service
 from app.services.facts import ingest, sync_threads
 
 SYNC_THREAD = "companyfacts_sync"
@@ -108,12 +110,21 @@ def _sync(engine, fetch):
     return facts_service.ingest_companyfacts_by_id(1, session_factory=sessionmaker(bind=engine), fetcher=fetch)
 
 
+def test_the_sync_keeps_to_two_threads():
+    """Half of an API instance's four pool slots, however many companies are first touched at once."""
+    assert sync_threads._SYNC_THREADS._max_workers == 2
+
+
 @pytest.mark.asyncio
 async def test_a_sync_and_its_follower_work_every_session_on_the_syncs_threads(engine, inflight):
-    seen: list[tuple[str, str]] = []
-    event.listen(engine, "checkout", lambda *_: seen.append(("checkout", threading.current_thread().name)))
-    event.listen(engine, "before_cursor_execute",
-                 lambda *_: seen.append(("statement", threading.current_thread().name)))
+    seen: list[tuple[str, str, object]] = []
+
+    def record(kind: str):
+        return lambda *_: seen.append((kind, threading.current_thread().name, logging_service.get_correlation_id()))
+
+    for name, kind in (("checkout", "checkout"), ("before_cursor_execute", "statement"), ("checkin", "checkin")):
+        event.listen(engine, name, record(kind))
+    logging_service.set_correlation_id("coverage-request")  # the tasks below copy it, and the units must too
     fetching = asyncio.Event()
     release = asyncio.Event()
     fetches = 0
@@ -134,11 +145,52 @@ async def test_a_sync_and_its_follower_work_every_session_on_the_syncs_threads(e
 
     assert (led["synced"], led["refreshed"], led["inserted"]) == (True, True, 1)
     assert (followed["synced"], followed.get("waited"), fetches) == (True, True, 1)
-    # The leader's read and persist and the follower's re-read each checked out and ran their
-    # statements on the sync's threads: none on the loop, none in its default executor.
-    assert {kind for kind, _ in seen} == {"checkout", "statement"}
-    assert [name.startswith(SYNC_THREAD) for _, name in seen] == [True] * len(seen), seen
+    # The leader's read and persist and the follower's re-read each checked out, ran their statements
+    # and checked in on the sync's threads: none on the loop, none in its default executor. Each ran in
+    # its caller's context, so the persist's log line keeps the request's correlation id.
+    assert {kind for kind, _, _ in seen} == {"checkout", "statement", "checkin"}
+    assert [name.startswith(SYNC_THREAD) for _, name, _ in seen] == [True] * len(seen), seen
+    assert {correlation_id for _, _, correlation_id in seen} == {"coverage-request"}
     assert engine.pool.checkedout() == 0
+
+
+@pytest.mark.asyncio
+async def test_two_first_touches_started_together_fetch_once(engine, inflight):
+    """Each checks for a claim in its first step; an await between that check and the claim would let
+    both find none and lead."""
+    fetches = 0
+
+    async def fetch(_cik):
+        nonlocal fetches
+        fetches += 1
+        await asyncio.sleep(0.05)
+        return _payload()
+
+    first, second = await asyncio.wait_for(asyncio.gather(_sync(engine, fetch), _sync(engine, fetch)), timeout=5.0)
+    assert (first["refreshed"], second["synced"], second.get("waited"), fetches) == (True, True, True, 1)
+
+
+@pytest.mark.asyncio
+async def test_a_follower_of_a_failed_fetch_reports_no_sync(engine, inflight):
+    """It reads back the stamp the leader left, none, so coverage hands off to durable delivery and the
+    durable worker retries, instead of either taking missing facts as a finished sync."""
+    fetching = asyncio.Event()
+    release = asyncio.Event()
+
+    async def failing_fetch(_cik):
+        fetching.set()
+        await release.wait()
+        return None
+
+    leader = asyncio.create_task(_sync(engine, failing_fetch))
+    await asyncio.wait_for(fetching.wait(), timeout=2.0)
+    follower = asyncio.create_task(_sync(engine, failing_fetch))
+    await asyncio.sleep(0.05)  # the follower's first step: it finds the claim and waits on it
+    release.set()
+    led, followed = await asyncio.wait_for(asyncio.gather(leader, follower), timeout=5.0)
+
+    assert (led["synced"], led.get("error")) == (False, "fetch_failed")
+    assert (followed["synced"], followed.get("waited")) == (False, True)
 
 
 @pytest.mark.asyncio

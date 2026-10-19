@@ -8,14 +8,15 @@ threads of their own instead (``copilot_chat._LOOKUP_THREADS``, ``facts.sync_thr
 
 The scan reads every module under ``app/`` and the backend's top-level modules (``main.py``,
 ``task_worker_main.py``) through ``ast`` and lists each call that hands work to the default executor:
-``asyncio.to_thread(...)`` under any name the module imports it by, and ``run_in_executor(None, ...)``
-on any loop. ``SITES`` names each one by file, the outermost function holding it and the work it hands
-over, with why that work never waits for a slot. A new site fails until it is listed, once its work has
+``asyncio.to_thread(...)`` under any name the module imports it by, from ``asyncio`` or
+``asyncio.threads``, and ``run_in_executor(None, ...)`` on any loop. ``SITES`` names each one by file,
+the outermost function holding it and the work it hands over, with why that work never waits for a slot. A new site fails until it is listed, once its work has
 been checked, and a listed site that is gone fails until its line is.
 
 Out of reach, so review holds them: the default executor reached any other way (an executor of ``None``
-held in a variable or passed by keyword, ``loop.getaddrinfo`` and the other loop methods that use it, a
-library that calls it), and a listed callable that later starts to open a session.
+held in a variable or passed by keyword, a callable passed by keyword, ``asyncio.threads.to_thread``
+called through its module path, ``loop.getaddrinfo`` and the other loop methods that use it, a library
+that calls it), and a listed callable that later starts to open a session.
 """
 
 from __future__ import annotations
@@ -55,7 +56,7 @@ def default_executor_sites(source: str, file: str = "probe.py") -> list[tuple[st
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             asyncio_names.update(alias.asname or alias.name for alias in node.names if alias.name == "asyncio")
-        elif isinstance(node, ast.ImportFrom) and node.module == "asyncio":
+        elif isinstance(node, ast.ImportFrom) and node.module in ("asyncio", "asyncio.threads"):
             to_thread_names.update(alias.asname or alias.name for alias in node.names if alias.name == "to_thread")
 
     def work(call: ast.Call) -> str | None:
@@ -109,6 +110,7 @@ import asyncio
 import asyncio as aio
 from asyncio import to_thread
 from asyncio import to_thread as off_loop
+from asyncio.threads import to_thread as threads_to_thread
 
 async def plain():
     await asyncio.to_thread(first)
@@ -119,6 +121,7 @@ async def aliased():
 async def imported():
     await to_thread(third)
     await off_loop(fourth)
+    await threads_to_thread(from_threads)
 
 async def on_a_loop(loop):
     await loop.run_in_executor(None, fifth)
@@ -138,6 +141,7 @@ async def own_threads(loop, threads):
         ("probe.py", "aliased", "second"),
         ("probe.py", "imported", "third"),
         ("probe.py", "imported", "fourth"),
+        ("probe.py", "imported", "from_threads"),
         ("probe.py", "on_a_loop", "fifth"),
         ("probe.py", "on_a_loop", "sixth"),
         ("probe.py", "nested", "seventh"),
