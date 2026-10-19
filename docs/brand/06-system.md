@@ -114,9 +114,10 @@ it is a 3 px `brand` bar on the left edge with the tint behind (`.en-marked`).
 **The margin** is a gutter of fixed width with a `brand-border` rule on its inner edge, holding
 bracketed marks (`[F1]`, `[1]`) in the data face at 11 px, `brand-strong` ink, each positioned on
 the line of the marker it twins (`.en-margin`, `.en-margin-mark`). The twin is decorative
-(`aria-hidden`). The in-text marker is the product's own citation marker and the accessible one:
+(`aria-hidden`), and so on screen is the in-text marker, the product's own citation marker:
 the data face, semibold, in brackets, at the provenance chip's 12 px (`EnRef` in
-`frontend/components/ui/MarkedCopy.tsx`).
+`frontend/components/ui/MarkedCopy.tsx`). Its number points at a twin assistive tech never reaches,
+and the chip beside the passage carries the claim, so a heading's name is its words alone.
 
 Rules:
 
@@ -124,7 +125,9 @@ Rules:
   never exceeds 38% of the line box. The margin is 44 px on desktop and 36 px on phones; in print
   it is 12 mm on A4 and 6 mm on a card. The in-text marker is never smaller than the provenance
   chip (12 px); its twin is 11 px, the one sub-12 px text beside copy, because it repeats a marker
-  the reader already has; 7 pt in print. The gutter and its twins show at every width.
+  the reader already has; 7 pt in print. The gutter and its twins show at every width at the default
+  text size; below a measure (a marked copy narrower than 13em at the reader's text size, as on a phone
+  under 200% text) they give way, and the marker stays in its heading.
 - **Placement.** The mark goes under one phrase of ours per surface (the hero's accent phrase, the
   social card's promise) or beside a located passage; the margin goes on the left of a marked copy
   surface only. On a public page that is one passage. Inside the product the device marks every
@@ -133,7 +136,9 @@ Rules:
   marked block; a row not located keeps the plain quotation and no marker), a quote in the summary
   whose evidence the server located takes the marked block alone (no marker and no twin: a quote has
   no heading to carry one; any other quote keeps the neutral hairline), and the Source pane paints
-  the passage it locates with the mark's tint and its 2 px hairline. One marker per row, so
+  a passage the server located with the mark's tint and its 2 px hairline (a jump it did not locate,
+  a summary chip's section heading or an XBRL fact's, lands in the reader's neutral sage find
+  highlight, with no hairline). One marker per row, so
   the twins never overprint; the one-highlight limit stays for a phrase of ours. Ask this Filing's
   answers and the Multi-Period narrative keep their citation chips: a cited line carries several
   markers, and their twins would overprint. Never both marks on a headline, never a mark on a figure

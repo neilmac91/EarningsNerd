@@ -1,5 +1,5 @@
 import React from 'react'
-import { EnRef, MarkedCopy, cx } from '@/components/ui'
+import { EnRef, MarkedCopy, cx, markedRowInsetClass } from '@/components/ui'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
 import type { RiskFactor } from '@/types/summary'
@@ -85,7 +85,7 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
         return (
           <li
             key={`${index}-${headings[index]}`}
-            className={cx('flex flex-col gap-2 border-b py-4 [overflow-wrap:anywhere]', HAIRLINE, marked && 'pl-3 sm:pl-3.5')}
+            className={cx('flex flex-col gap-2 border-b py-4 [overflow-wrap:anywhere]', HAIRLINE, marked && markedRowInsetClass)}
           >
             <h3 className="text-sm font-semibold">
               {headings[index]}

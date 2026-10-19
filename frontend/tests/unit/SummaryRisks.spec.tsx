@@ -51,8 +51,10 @@ describe('the device on the risk rows (D-044)', () => {
     // Each marker's twin, once, in the margin beside the list; the twins are decorative.
     expect(twinsOf(container)).toEqual(['[1]', '[2]'])
     expect(container.querySelector('.en-margin')!.getAttribute('aria-hidden')).toBe('true')
-    // The marker sits on its row's heading, the accessible one.
-    expect(screen.getByRole('heading', { level: 3, name: `${excerptHeadings(SPANS)[2]}[2]` })).toBeInTheDocument()
+    // The marker sits on its row's heading, hidden from assistive tech like its twin: the heading's name is its
+    // words alone, and the chip says what was located.
+    const heading = screen.getByRole('heading', { level: 3, name: excerptHeadings(SPANS)[2] })
+    expect(heading.querySelector('[data-en-ref]')!.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('draws no margin and no marked block when no row is located', () => {

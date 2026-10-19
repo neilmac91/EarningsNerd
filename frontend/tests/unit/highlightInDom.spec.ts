@@ -6,7 +6,9 @@ import postcss from 'postcss'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   CITATION_HIGHLIGHT_CSS,
+  FIND_HIGHLIGHT_CSS,
   __resetCitationHighlightStyleForTests,
+  clearCitationHighlight,
   highlightExcerptInDom,
 } from '@/features/filings/components/copilot/highlightInDom'
 
@@ -364,7 +366,7 @@ describe('highlightExcerptInDom', () => {
         place(intro, { top: 200, height: 30 })
         place(passage, { top: 600, height: 30 })
         try {
-          expect(highlightExcerptInDom(container, excerpt)).toBe(true)
+          expect(highlightExcerptInDom(container, excerpt, { located: true })).toBe(true)
           const highlight = highlights.get('copilot-citation') as { range: Range }
           expect(highlight.range.startContainer).toBe(text)
           expect(highlight.range.startOffset).toBe(0)
@@ -383,28 +385,36 @@ describe('highlightExcerptInDom', () => {
       },
     )
 
-    it('adopts the ::highlight stylesheet once and registers the highlight', () => {
+    it('adopts both highlights in one sheet once, and registers one of the two at a time', () => {
       const container = document.createElement('div')
       container.innerHTML =
         '<p>Net income rose on higher services revenue during the quarter.</p>' +
         '<p>Operating expenses declined as headcount stayed flat through the period.</p>'
       document.body.appendChild(container)
       try {
+        // A passage the server located takes the device's highlight.
         expect(
-          highlightExcerptInDom(container, 'Net income rose on higher services revenue during the quarter'),
+          highlightExcerptInDom(container, 'Net income rose on higher services revenue during the quarter', { located: true }),
         ).toBe(true)
-        expect(replaceSync).toHaveBeenCalledWith(CITATION_HIGHLIGHT_CSS)
+        expect(replaceSync).toHaveBeenCalledWith(`${CITATION_HIGHLIGHT_CSS}\n${FIND_HIGHLIGHT_CSS}`)
         expect(CITATION_HIGHLIGHT_CSS).toMatch(/^::highlight\(copilot-citation\) \{/)
+        expect(FIND_HIGHLIGHT_CSS).toMatch(/^::highlight\(copilot-find\) \{/)
         expect(doc.adoptedStyleSheets).toHaveLength(1)
         expect(doc.adoptedStyleSheets?.[0]).toBeInstanceOf(FakeSheet)
-        expect(highlights.has('copilot-citation')).toBe(true)
+        expect([...highlights.keys()]).toEqual(['copilot-citation'])
 
-        // Second highlight: same document, no second stylesheet.
+        // Second highlight: same document, no second stylesheet. A caller that does not say the server located
+        // the passage gets the neutral find highlight, which replaces the device's.
         expect(
           highlightExcerptInDom(container, 'Operating expenses declined as headcount stayed flat through the period'),
         ).toBe(true)
         expect(replaceSync).toHaveBeenCalledTimes(1)
         expect(doc.adoptedStyleSheets).toHaveLength(1)
+        expect([...highlights.keys()]).toEqual(['copilot-find'])
+
+        // Closing the reader clears whichever is registered.
+        clearCitationHighlight()
+        expect(highlights.size).toBe(0)
       } finally {
         document.body.removeChild(container)
       }
@@ -454,15 +464,17 @@ describe('highlightExcerptInDom', () => {
 })
 
 /**
- * The reader's located passage wears the brand device's mark (D-044): the tint and the 2px hairline of
- * `.en-mark` in app/globals.css, light and dark, so it looks the same in the reader as on the landing page,
- * and the passage in the primary ink (tailwind.config.js), as the landing's marked block sets it. The
- * paint is a constructed sheet the stylesheet cannot hold (see CITATION_HIGHLIGHT_CSS), so this reads both
- * and holds one to the other; tests/e2e/copilot-highlight-css.spec.ts reads what Chromium computes.
+ * The reader's two paints (D-044). A passage the server located wears the brand device's mark: the tint and
+ * the 2px hairline of `.en-mark` in app/globals.css, light and dark, so it looks the same in the reader as on
+ * the landing page, and the passage in the primary ink (tailwind.config.js), as the landing's marked block
+ * sets it. Any other jump lands in the neutral find paint, which never takes the device. The paints are a
+ * constructed sheet the stylesheet cannot hold (see CITATION_HIGHLIGHT_CSS), so this reads both and holds
+ * each to its source; which one a jump registers is tests/unit/sourcePanePaint.spec.tsx's, and
+ * tests/e2e/copilot-highlight-css.spec.ts reads what Chromium computes.
  */
-describe('the located passage takes the device mark (D-044)', () => {
+describe("the reader's two paints (D-044)", () => {
   const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-  const tokens = createRequire(import.meta.url)('../../tailwind.config.js').theme.extend.colors as { text: { primary: { light: string; dark: string } } }
+  const tokens = createRequire(import.meta.url)('../../tailwind.config.js').theme.extend.colors as { brand: { DEFAULT: string }; text: { primary: { light: string; dark: string } } }
   const colour = (value = '') => value.replace(/\s+/g, '').toLowerCase()
   /** A rule's declarations by property, the rule found by its whole selector. */
   const rule = (css: string, selector: string): Record<string, string> => {
@@ -517,6 +529,40 @@ describe('the located passage takes the device mark (D-044)', () => {
   ])('names a paint with %s', (_name, css, expected) => {
     expect(css).not.toBe(CITATION_HIGHLIGHT_CSS)
     expect(departures(css)).toEqual(expected)
+  })
+
+  /** The reader's neutral sage from before D-044: the brand fill (tailwind.config.js) at 22%. */
+  const sage = `rgba(${[1, 3, 5].map((i) => parseInt(tokens.brand.DEFAULT.slice(i, i + 2), 16)).join(',')},0.22)`
+  /** Where the find paint departs from that sage: in the reader's own ink, with no hairline (a text decoration) and no
+      bar (a border, or the marked block's class); in neither theme does it take the device's tint. */
+  const findDepartures = (css: string): string[] => {
+    const light = rule(css, '::highlight(copilot-find)')
+    const dark = rule(css, '.dark ::highlight(copilot-find)')
+    const tints = [device('.en-mark').tint, device('.dark .en-mark').tint]
+    const props = Object.keys({ ...light, ...dark })
+    const out: string[] = []
+    if (colour(light['background-color']) !== sage) out.push('the neutral sage')
+    if ([light, dark].some((paint) => tints.includes(colour(paint['background-color'])))) out.push("the device's tint")
+    if (light.color !== 'inherit') out.push("the reader's own ink")
+    if (props.some((prop) => /^text-(decoration|underline)/.test(prop))) out.push('no hairline')
+    if (props.some((prop) => prop.startsWith('border')) || /en-marked/.test(css)) out.push('no bar')
+    return out
+  }
+
+  it("a passage the server did not locate: the brand sage at 22% in the reader's own ink, no hairline, no bar", () => {
+    expect(sage, 'the sage reads the brand token (anti-vacuity)').toBe('rgba(79,122,99,0.22)')
+    expect(findDepartures(FIND_HIGHLIGHT_CSS)).toEqual([])
+  })
+
+  // Planted find paints, each departing in one way (the first is the device's paint under the find highlight's name).
+  it.each([
+    ["the device's paint", CITATION_HIGHLIGHT_CSS.replaceAll('copilot-citation', 'copilot-find'), ['the neutral sage', "the device's tint", "the reader's own ink", 'no hairline']],
+    ['a hairline under the sage', FIND_HIGHLIGHT_CSS.replace('color: inherit;', 'color: inherit; text-decoration: underline 2px #CFE0D6;'), ['no hairline']],
+    ["the device's dark tint in dark", `${FIND_HIGHLIGHT_CSS}\n.dark ::highlight(copilot-find) { background-color: rgba(127, 178, 149, 0.14); }`, ["the device's tint"]],
+    ["the marked block's bar", FIND_HIGHLIGHT_CSS.replace('color: inherit;', 'color: inherit; border-left: 3px solid #4F7A63;'), ['no bar']],
+  ])('names a find paint with %s', (_name, css, expected) => {
+    expect(css).not.toBe(FIND_HIGHLIGHT_CSS)
+    expect(findDepartures(css)).toEqual(expected)
   })
 })
 

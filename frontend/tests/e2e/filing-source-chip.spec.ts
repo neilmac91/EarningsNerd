@@ -124,13 +124,30 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     await expect(pane.getByText(/Couldn’t pinpoint the exact passage/)).toHaveCount(0)
   })
 
+  // D-044: the device means the server located the passage. A metric chip has no excerpt, so its jump lands on the
+  // section heading, a best-effort jump the reader marks in the neutral find highlight, whether the figure is Cited or
+  // matched to its XBRL fact (an XBRL fact has no passage). The located takeaway above takes the device.
+  for (const [metric, name] of [['Products net sales', 'Source: Cited'], ['Total net sales', /SEC XBRL$/]] as const) {
+    test(`the ${metric} chip (${String(name)}) lands on its section heading in the neutral find highlight`, async ({ page, baseURL }) => {
+      await openFiling(page, baseURL!, { who: 'pro', content: 'matched' })
+      await page.locator('tr', { hasText: metric }).getByRole('button', { name }).click()
+      const pane = page.locator(PANE)
+      await expect(pane.locator('.filing-reader')).toContainText('Item 8. Financial Statements')
+      await expect
+        .poll(() => page.evaluate(() => Array.from((CSS as unknown as { highlights: Map<string, Set<Range>> }).highlights, ([key, h]) => `${key}: ${Array.from(h)[0]?.toString()}`)))
+        .toEqual(['copilot-find: Item 8. Financial Statements'])
+      await expect(pane.getByText(/Couldn’t pinpoint the exact passage/)).toHaveCount(0)
+    })
+  }
+
   test('with filing text that lacks the excerpt, the reader says so and still offers the document', async ({ page, baseURL }) => {
     const chip = await openFiling(page, baseURL!, { content: 'unmatched' })
     await chip.click()
     const pane = page.locator(PANE)
     await expect(pane.getByText(/Couldn’t pinpoint the exact passage/)).toBeVisible()
     await expect(pane.getByRole('link', { name: 'Open original' }).first()).toHaveAttribute('href', DOCUMENT)
-    expect(await page.evaluate(() => (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights.get('copilot-citation')?.size ?? 0)).toBe(0)
+    // Neither the device's highlight nor the find highlight: nothing was found to mark.
+    expect(await page.evaluate(() => (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights.size)).toBe(0)
     await expect(pane.getByText(/source match found/i)).toHaveCount(0)
   })
 

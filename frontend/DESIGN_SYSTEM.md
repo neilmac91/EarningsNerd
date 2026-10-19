@@ -1140,16 +1140,26 @@ Evidence rows    <SummaryRisks>  (P-03; a marked copy since D-044): one hairline
                  lead line above and a data-face tally below ("3 of 4 excerpts located in the filing text · 1
                  withheld …"), both outside the margin. The brand device marks a row whose excerpt the server
                  located (source_verified, the chip's "Verified in filing", D-028): an EnRef on its heading
-                 ([1], [2] … in reading order among the located rows, the chip's 12px), the twin in the margin
-                 MarkedCopy draws beside the list (components/ui, 2.25rem, 2.75rem from sm; the rows take
-                 pl-3 sm:pl-3.5 inside it), and the excerpt as a marked block (`en-marked px-3.5 py-2.5
-                 font-editorial text-base leading-relaxed` in the primary ink, HeroExample's recipe). One
-                 marker per row, so the twins never overprint. A row not located keeps blockquote manners
-                 (border-l-2 hairline, no fill, no radius, 14px secondary) and no marker; a list with no
-                 located row draws no margin. No stripe, no trend glyph, no nested evidence box. The row
-                 wraps a long unbreakable token ([overflow-wrap:anywhere]); at 390px under 200% text a
-                 marked block's measure is about 171px of 32px serif, so a word longer than it breaks inside
-                 it rather than push the page sideways.
+                 ([1], [2] … in reading order among the located rows, the chip's 12px, `aria-hidden` like its
+                 twin, so the heading's name is its words alone and the chip carries the claim), the twin in
+                 the margin MarkedCopy draws beside the list (components/ui, 2.25rem, 2.75rem from sm; the
+                 rows take markedRowInsetClass, pl-3 sm:pl-3.5, inside it), and the excerpt as a marked block
+                 (`en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed` in the primary ink,
+                 HeroExample's recipe). One marker per row, so the twins never overprint. A row not located
+                 keeps blockquote manners (border-l-2 hairline, no fill, no radius, 14px secondary) and no
+                 marker; a list with no located row draws no margin. No stripe, no trend glyph, no nested
+                 evidence box. Below a measure the margin gives way: MarkedCopy is a query container in em
+                 (its own width at the reader's text size, which `sm:` and a rem column cannot follow), and
+                 narrower than 13em it drops the margin and its twins, and the rows their inset
+                 (components/ui/markedCopyLayout.ts); each marker stays in its heading. 13em is the middle of
+                 the measured window: the margin stays at the default size on a 320px phone (the copy is 18em
+                 wide on the filing page there, 15.4em in the landing's card) and goes under 200% text at
+                 390px and below (10.2em at 390, 8em at 320 on the filing page), where it left the excerpt
+                 171px and 101px of 32px serif and broke words mid-word; without it the excerpt keeps 267px
+                 and 197px and no word breaks. The marked block (`.en-marked`) takes `hyphens: auto` too
+                 (`<html lang="en">`), so a word still longer than its measure breaks at a hyphen where the
+                 browser hyphenates (CI's Chromium does not). The row wraps a long unbreakable token
+                 ([overflow-wrap:anywhere]) rather than push the page sideways.
                  Heading rule (riskHeadline.ts, inside excerptHeadings): a verbatim prefix of the excerpt, never
                  recased and never whitespace-normalised (one enclosing quote pair is dropped first, only when
                  it wraps the whole span). The first sentence stays whole when it fits in 100 characters; a
@@ -1158,9 +1168,12 @@ Evidence rows    <SummaryRisks>  (P-03; a marked copy since D-044): one hairline
                  date, name, bracket or quotation. Never at a comma or a dash. "…" whenever the excerpt goes
                  on; "Risk n" when no heading fits. Gates: riskHeadline.spec.ts (the rule, on the production,
                  backend-fixture and eval spans), riskTitle.spec.ts (what excerptHeadings adds around it),
-                 SummaryRisks.spec.tsx (the wiring and the device's rows), tests/e2e/risk-evidence-rows.spec.ts
-                 (layout: each twin on its marker's line, none overprinting, the margin's width, the marker,
-                 twin and excerpt at 4.5:1 or more, at 390 and 1440, both themes, default and 200% text),
+                 SummaryRisks.spec.tsx (the wiring and the device's rows, the marker out of the heading's
+                 name), tests/e2e/risk-evidence-rows.spec.ts (layout at 320, 390 and 1440, both themes,
+                 default and 200% text: where the margin shows, each twin on its marker's line, none
+                 overprinting, and its width; the margin and the rows' inset gone at 390px and below under
+                 200% text; no word of a marked block broken mid-word, read a character at a time; the
+                 marker, twin and excerpt at 4.5:1 or more),
                  brandCopyRules.spec.ts rule 3 (where the device renders, and only on located rows).
 
 Callout          <Callout label tone="neutral|caution">  (P-08; replaces SummaryBlock) — an inset well:
@@ -1229,23 +1242,37 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  before the reader. A citation jump (highlightInDom) scrolls the reader and the table's
                  box only, never the page (no scrollIntoView), and centres the passage in the reader's
                  on-screen part (above the fold and the consent bar, before the desktop pane sticks):
-                 smoothly, or in one jump under prefers-reduced-motion. The located passage wears the
-                 device's mark (D-044): `::highlight(copilot-citation)` (CITATION_HIGHLIGHT_CSS, a constructed
+                 smoothly, or in one jump under prefers-reduced-motion. A passage the server located wears
+                 the device's mark (D-044): `::highlight(copilot-citation)` (CITATION_HIGHLIGHT_CSS, a constructed
                  sheet) paints `.en-mark`'s tint and its 2px hairline, `.dark`'s pair in dark, the hairline an
                  unbroken underline where the tint ends (`text-underline-offset: calc(0.2632em - 2px)`,
                  Newsreader's descent below the baseline), and sets the passage in the primary ink, since the
                  reader's secondary ink is 4.49:1 on the dark tint over the slate panel. The Highlight API
                  paints colours and decorations only, so the tint fills the line's content area where
-                 `.en-mark` starts it at 62% of the line box. The block's `.citation-flash` stays the
-                 attention pulse, which fades; the mark is what stays. A box names itself only when it
+                 `.en-mark` starts it at 62% of the line box. Located means a verified citation of the
+                 filing's text: a summary chip's verified excerpt (SourceTrace sends `verified` only with
+                 the excerpt the server checked) or an Ask answer's passage. Any other jump lands in the
+                 neutral find highlight, `::highlight(copilot-find)` (FIND_HIGHLIGHT_CSS, in the same sheet):
+                 the brand sage at 22% in the reader's own ink, no hairline, one rule for both themes, the
+                 reader's paint before D-044, so the reader still sees where it landed: a summary chip's
+                 section heading (every metric chip, a verified XBRL figure's included, every Cited chip, and
+                 a verified chip whose excerpt is too short to anchor), an excerpt the server did not locate,
+                 and the text an Ask XBRL fact's jump finds (a fact has no passage). One of the two is
+                 registered at a time. The block's `.citation-flash` stays the attention pulse, which fades;
+                 the paint is what stays. A box names itself only when it
                  starts to overflow, never on every resize (the name scans the whole reader). The AI
-                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts (the paint
-                 equals `.en-mark`'s, read from globals.css), tests/unit/readerTableRegionName.spec.ts,
+                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts (each
+                 paint's look: the device's equals `.en-mark`'s, read from globals.css; the find paint is the
+                 sage with no hairline and never the device's tint, with planted paints for both),
+                 tests/unit/sourcePanePaint.spec.tsx (which paint each jump registers, through the real chip,
+                 context, viewer and highlight chain), tests/unit/readerTableRegionName.spec.ts,
                  tests/e2e/filing-reader-wide-tables.spec.ts
-                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
-                 tests/e2e/copilot-highlight-css.spec.ts (what Chromium computes for the passage against
-                 `.en-mark` on the same page, both themes; a far-right table cell revealed in its own box in
-                 real layout, the page unmoved).
+                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet),
+                 tests/e2e/filing-source-chip.spec.ts (a metric chip's heading, Cited or matched to its XBRL
+                 fact, in the find highlight on the real page) and
+                 tests/e2e/copilot-highlight-css.spec.ts (what Chromium computes for each paint, the device's
+                 against `.en-mark` on the same page, both themes; a far-right table cell revealed in its own
+                 box in real layout, the page unmoved).
 
 Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
@@ -1374,14 +1401,16 @@ loop).
 inset hairline at the baseline, `box-decoration-break: clone` so a wrapped phrase marks per line),
 `.en-marked` (a located passage: 3px `brand` bar on the left, tint behind, square corners because a
 stripe never sits on a rounded container, the filing's words inside it in `.filing-reader`'s face), `.en-margin` (a gutter with a hairline on its
-inner edge; `w-11` from `sm`, `w-9` on phones) and `.en-margin-mark` (an 11px data-face bracket,
+inner edge; `w-11` from `sm`, `w-9` on phones, giving way below a measure: Evidence rows, §4) and `.en-margin-mark` (an 11px data-face bracket,
 `brand-strong`, absolutely positioned on the line of the in-text marker it twins; the twin is
 measured by `components/ui/MarkedCopy.tsx`, never hard-coded). Rules: a mark means
 "located" and a bracket means "cited"; one `.en-mark` per surface may sit under a phrase of ours as
 the signature; none on a figure, a price, a status, a competitor's name or an unverified claim; no
 margin without a marker; the hairline never scales with the type. The 11px mark is the one
 sanctioned sub-12px text beside copy because it is a twin of a 12px marker, not copy; it still
-carries no claim and is `aria-hidden` (the in-text marker is the accessible one).
+carries no claim and is `aria-hidden`, as the in-text marker (`EnRef`) is: the number points at a twin
+assistive tech never reaches, and the chip beside the passage carries the claim, so a heading's name is
+its words alone.
 Inside the product the device marks every passage the server located, and nothing else (D-044): the
 filing page's Risks rows (Evidence rows, §4), the summary's quotes whose evidence the server located
 (Section ledger, §4: the marked block alone, no marker, no twin) and the Source pane's located passage
@@ -1398,13 +1427,15 @@ holding CopilotMessage, NarrativePane or CitationChip; its planted forms in
 Two forms, kept apart: `.en-marked` sets a located passage as a block (the 3px bar, the tint, square
 corners, the filing's words in Newsreader: a Risks excerpt, a located quote), and the tint and 2px
 hairline, `.en-mark`'s look, mark a located passage inside running text (the Source pane's
-::highlight paint). Nothing unlocated takes either form, a quote block never takes the tint and
+`copilot-citation` paint). Nothing unlocated takes either form (a jump the server did not locate lands in
+the reader's neutral find highlight, `copilot-find`), a quote block never takes the tint and
 hairline, the Source pane never takes `.en-marked`, and inside the product only the Risks rows carry a
 marker and its twin. Gates: brandCopyRules.spec.ts rule 3 (no `en-mark` on, in or around a quote
 block; the highlight's places, HIGHLIGHT_PLACES, an equality of one per surface; a class any string
-names counts as a part, so a Source pane module that adds `en-marked` fails DEVICE_PLACES) and
-highlightInDom.spec.ts (the reader's paint is `.en-mark`'s look, never the marked block's bar, with
-planted paints).
+names counts as a part, so a Source pane module that adds `en-marked` fails DEVICE_PLACES),
+highlightInDom.spec.ts (the reader's located paint is `.en-mark`'s look, never the marked block's bar,
+and its find paint never the device's, with planted paints) and sourcePanePaint.spec.tsx (a heading
+fallback, a Cited jump and an XBRL fact never register the device's highlight; a located excerpt does).
 
 ## 8. Theme mechanics
 

@@ -2,7 +2,7 @@ import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui/Badge'
-import { EnRef, MarkedCopy, cx } from '@/components/ui'
+import { EnRef, MarkedCopy, cx, markedRowInsetClass } from '@/components/ui'
 import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
@@ -179,7 +179,7 @@ function HeroExample({
             a marked block in the filing's face with its margin twin (the brand device). */}
         {evidence && (
           <MarkedCopy>
-            <div className="flex flex-col gap-2 pl-3 sm:pl-3.5">
+            <div className={cx('flex flex-col gap-2', markedRowInsetClass)}>
               <p className={cx('text-sm font-semibold', INK)}>
                 {excerptHeadings([evidence.excerpt])[0]}
                 <EnRef label="[1]" />

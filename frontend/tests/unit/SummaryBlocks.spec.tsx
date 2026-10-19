@@ -173,10 +173,10 @@ describe('SummaryBlocks', () => {
   it('renders the risks section with its evidence + trace-to-source provenance', () => {
     render(<SummaryBlocks sections={sections} summary={summary} />)
     // An evidence row (critique P-03): the start of the excerpt heads it, one level under the
-    // section's h2, with the device's marker on a located row (D-044), and the excerpt itself sits in a blockquote.
-    expect(
-      screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply[1]' }),
-    ).toBeInTheDocument()
+    // section's h2, with the device's marker on a located row (D-044), hidden from assistive tech so the
+    // heading's name is its words alone, and the excerpt itself sits in a blockquote.
+    const heading = screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply' })
+    expect(heading.textContent).toBe('We are substantially dependent on TSMC for wafer supply[1]')
     expect(screen.getByText(/substantially dependent on TSMC/, { selector: 'blockquote' })).toBeInTheDocument()
     // source_verified: true → the shared SourceTrace renders the "Verified in filing" affordance.
     expect(screen.getByText(/Verified in filing/i)).toBeInTheDocument()
