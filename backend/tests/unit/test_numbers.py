@@ -7,6 +7,7 @@ commas, ``%`` or currency symbols are NOT stripped — callers must strip those 
 Previously covered only incidentally by the deleted FMP/Stocktwits integration tests (WS-8a);
 the helper itself is still live in ``alpha_vantage.py`` and ``earnings_calendar_service.py``.
 """
+import hashlib
 import math
 from decimal import Decimal
 
@@ -154,25 +155,57 @@ def test_normalized_loss_changes_agree_with_shared_delta_direction():
         assert row_delta_fields({"current_period": current, "prior_period": "$0"}) == {}
 
 
+# ISO 4217 List One as of February 2026 (pycountry 26.2.16's iso4217.json), less its nine fund codes
+# and the 14 X-codes that name no national currency. When ISO changes the list, re-derive both.
+ISO_4217_COUNT = 155
+ISO_4217_SHA256 = "0b9d5f081d87f7714b2e30857b4cba0b350b5ffa26ffc0696f1d4abf8c33a8d3"
+
+
 def test_every_currency_a_money_label_can_carry_parses_and_names_its_code():
     """Rule 12 gate: ``money_prefix_for`` labels a figure with the filer's reporting currency, which
     comes from its XBRL units, so the display parser and the exact-delta currency reader read every
     ISO 4217 currency it can write. Before the full list, an AED, SAR or ILS figure parsed to
-    nothing and its row stored no change figure."""
-    from app.services.metric_delta_service import _display_currency
-    from app.utils.numbers import ISO_4217_CURRENCIES, money_prefix_for, parse_display_number
+    nothing and its row stored no change figure. The list itself is pinned, so dropping a code fails
+    here as well as one that stops reading."""
+    from app.utils.numbers import ISO_4217_CURRENCIES, display_currency, money_prefix_for, parse_display_number
 
-    assert {"AED", "SAR", "ILS", "XAF", "XCG", "ZWG"} <= ISO_4217_CURRENCIES
-    assert not {"XYZ", "XXX", "XTS", "XAU", "XDR", "CLF", "ANG", "HRK"} & ISO_4217_CURRENCIES
+    codes = " ".join(sorted(ISO_4217_CURRENCIES))
+    assert (len(ISO_4217_CURRENCIES), hashlib.sha256(codes.encode()).hexdigest()) == (
+        ISO_4217_COUNT, ISO_4217_SHA256), codes
+    assert not {"XYZ", "XXX", "XTS", "XAU", "XDR", "CLF", "ANG", "HRK", "BGN"} & ISO_4217_CURRENCIES
     for code in sorted(ISO_4217_CURRENCIES):
         label = f"{money_prefix_for(code)}30.6B"
         assert parse_display_number(label) == (Decimal("30600000000"), False), label
-        assert _display_currency(label) == (True, code), label
+        assert display_currency(label) == (True, code), label
 
     # A code reads in capitals, as money_prefix_for writes it, so a word never reads as a currency.
     # The 21 codes the parser read before the full list still read in any case.
     for text in ["aed 30.6B", "top 5", "all 5", "Try 5", "XYZ 5M", "XXX 5M", "XAU 5M", "CLF 5M"]:
         assert parse_display_number(text) == (None, False), text
     assert parse_display_number("usd 5m") == (Decimal("5000000"), False)
-    assert _display_currency("top 5 segments") == (False, None)
+    assert display_currency("top 5 segments") == (False, None)
+
+
+@pytest.mark.parametrize("text, named", [
+    ("AED 941.2B", (True, "AED")),
+    ("AED941.2B", (True, "AED")),  # glued to its figure: the exact-delta reader used to miss it
+    ("(AED 1.2B)", (True, "AED")),
+    ("US$941.2B", (True, "USD")),  # the exact-delta reader used to read "S$", Singapore's
+    ("S$5B", (True, "SGD")),
+    ("NT$5B", (True, "TWD")),
+    ("HK$5B", (True, "HKD")),
+    ("RMB 5B", (True, "CNY")),
+    ("usd 5m", (True, "USD")),
+    ("$941.2B", (True, "USD")),
+    ("-€5B", (True, "EUR")),
+    ("¥100.0B", (True, None)),  # JPY or CNY: no code, so exact binding refuses it
+    ("941.2B", (False, None)),
+    ("941.2B AED", (False, None)),  # not a figure the parser reads, so nothing binds to it
+    ("top 5 segments", (False, None)),
+    (None, (False, None)),
+])
+def test_a_figure_names_the_currency_of_the_prefix_the_parser_reads(text, named):
+    from app.utils.numbers import display_currency
+
+    assert display_currency(text) == named
 

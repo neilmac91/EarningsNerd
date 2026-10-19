@@ -132,8 +132,11 @@ def test_the_stored_fallback_backfills_a_zero_prior_in_the_filer_currency(curren
 @pytest.mark.parametrize("currency", ["EUR", "AED", "SAR", "ILS"])
 def test_the_stored_fallback_keeps_its_change_figure_in_any_reporting_currency(currency):
     """The stored fallback's revenue change, for a code the display parser read before (EUR) and
-    for codes it did not: an AED, SAR or ILS row stored no change figure before the full list."""
+    for codes it did not: an AED, SAR or ILS row stored no change figure before the full list. Each
+    fact carries its currency, as standardized XBRL does, so the exact-delta currency check runs."""
     metrics = _metrics(currency)
+    for period in ("current", "prior"):
+        metrics["revenue"][period]["currency"] = currency
     payload = generate_xbrl_summary(metrics, "Example", filing_type="20-F")
 
     _, raw_summary, _, _ = _finalize_summary_projection(payload, metrics, payload["status"])
