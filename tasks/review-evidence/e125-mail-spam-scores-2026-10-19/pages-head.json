@@ -1,0 +1,322 @@
+[
+ {
+  "name": "welcome[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "referral[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "verify[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "invite[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "reset[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "oauth[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "exists[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "alert[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "alert-wording[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest1[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest3[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings1[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings3[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "welcome[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "referral[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "verify[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "invite[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "reset[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "oauth[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "exists[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "alert[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "alert-wording[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest1[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest3[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings1[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings3[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "welcome[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "referral[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "verify[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "invite[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "reset[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "oauth[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "exists[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "alert[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "alert-wording[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest1[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest3[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings1[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings3[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "data-quality",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ }
+]
