@@ -4,9 +4,10 @@ name: Ops
 # execution log: docs/data-quality-remediation-log.md).
 #
 # The remediation is driven from an environment with no direct GCP/Cloud SQL access, so the
-# production operations the plan requires (detection SQL snapshots, the ticker repair and
-# fiscal-year relabel scripts, the companyfacts resync, env verification) run HERE, with the same
-# keyless WIF auth the deploy-backend job already uses. Design constraints:
+# production operations the plan requires (detection SQL snapshots, the ticker repair script, the
+# companyfacts resync, env verification) run HERE, with the same keyless WIF auth the deploy-backend
+# job already uses. So, since 2026-10-19, does the fiscal-year relabel (P6 of the 2026-10-15 bug
+# hunt, docs/fiscal-year-label-repair.md). Design constraints:
 #   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
 #     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
 #   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries);
@@ -59,7 +60,7 @@ on:
         required: false
         default: ""
       tickers:
-        description: 'Comma-separated tickers (sync-companyfacts / backfill-filing-history / relabel-fy-*, where empty means every company); a SINGLE ticker for reset-filing-summary'
+        description: 'Comma-separated tickers: sync-companyfacts; backfill-filing-history (empty = the watchlist cohort); relabel-fy-* (empty = every company). A SINGLE ticker for reset-filing-summary'
         required: false
         default: ''
       revision:
@@ -425,6 +426,8 @@ jobs:
           if [ "$OP" = "relabel-fy-apply" ]; then ARGS+=(--apply)
           else PGOPTIONS="$PGOPTIONS -c default_transaction_read_only=on"; fi
           if [ -n "$TICKERS" ]; then ARGS+=(--tickers "$TICKERS"); fi
+          # The settings a session gets through the proxy, read back so this log proves them.
+          psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')"
           python scripts/relabel_filing_fy_facts.py "${ARGS[@]}"
 
       # ------------------------------------------------------------------ internal jobs

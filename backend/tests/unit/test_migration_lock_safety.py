@@ -594,6 +594,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
     for step_name, statement_timeout in (
         ("Run committed detection SQL (read-only snapshots)", "600s"),
         ("Run ticker repair script", "120s"),
+        ("Run fiscal-year relabel script", "120s"),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
         assert "-c lock_timeout=10s" in opts and f"-c statement_timeout={statement_timeout}" in opts, (

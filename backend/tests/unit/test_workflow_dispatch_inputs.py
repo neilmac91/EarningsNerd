@@ -7,7 +7,9 @@ outputs (``${{ steps.*.outputs.* }}``, ``${{ needs.*.outputs.* }}``): an output 
 text, and a value written to ``$GITHUB_OUTPUT`` as ``name=value`` lines can redefine another output
 when it carries a line break, so an unused field must be bounded before anything is written. The ops
 workflow runs against production with the deployer identity, so it also runs only from ``main`` and
-never persists the checkout token.
+never persists the checkout token. Its fiscal-year relabel step passes ``--apply`` only for the apply
+operation, runs every other operation read-only, reads the session's settings back before the script,
+and fails with the script.
 """
 import os
 import subprocess
@@ -97,6 +99,7 @@ def test_resolve_step_rejects_shell_metacharacters_in_an_unused_input(tmp_path, 
 
 @pytest.mark.parametrize("op, tickers", [
     ("relabel-fy-dry-run", ""), ("relabel-fy-apply", ""), ("relabel-fy-dry-run", "TGT,JNJ"), ("relabel-fy-apply", "BRK.B"),
+    ("relabel-fy-dry-run", ",".join(f"T{i}" for i in range(50))),
 ])
 def test_resolve_step_accepts_a_relabel_over_every_company_or_a_ticker_list(tmp_path, op, tickers):
     code, output = _run_resolve(tmp_path, OP=op, TICKERS=tickers)
@@ -111,31 +114,56 @@ def test_resolve_step_rejects_a_malformed_or_oversized_relabel_ticker_list(tmp_p
     assert output == ""
 
 
-@pytest.mark.parametrize("op, tickers, argv", [
-    ("relabel-fy-dry-run", "", ["scripts/relabel_filing_fy_facts.py"]),
-    ("relabel-fy-dry-run", "TGT,JNJ", ["scripts/relabel_filing_fy_facts.py", "--tickers", "TGT,JNJ"]),
-    ("relabel-fy-apply", "", ["scripts/relabel_filing_fy_facts.py", "--apply"]),
-    ("relabel-fy-apply", "TGT", ["scripts/relabel_filing_fy_facts.py", "--apply", "--tickers", "TGT"]),
-])
-def test_only_the_relabel_apply_operation_passes_apply_and_a_dry_run_is_read_only(tmp_path, op, tickers, argv):
-    """The relabel script writes production data only with --apply, so the dry-run operation must
-    never pass it, and its transactions are read-only, so Postgres refuses a write it might attempt.
-    The step runs here with a stand-in python that records its arguments and PGOPTIONS."""
+def _run_relabel_step(tmp_path, op, tickers, *, python_exit=0, psql_exit=0):
+    """The relabel step's own script, run as GitHub runs it (`bash -e`) with stand-ins for `psql` and
+    `python` that record their arguments and the PGOPTIONS each sees."""
     step = next(s for s in _workflow("ops.yml")["jobs"]["ops"]["steps"]
                 if s.get("name") == "Run fiscal-year relabel script")
     bin_dir, scripts = tmp_path / "bin", tmp_path / "scripts"
     bin_dir.mkdir()
     scripts.mkdir()
     (scripts / "relabel_filing_fy_facts.py").write_text("")
-    stand_in = bin_dir / "python"
-    stand_in.write_text('#!/bin/sh\nprintf "%s\\n" "$@" "PGOPTIONS=$PGOPTIONS" > "$ARGV_OUT"\n')
-    stand_in.chmod(0o755)
+    for tool, code in (("python", python_exit), ("psql", psql_exit)):
+        stand_in = bin_dir / tool
+        stand_in.write_text(f'#!/bin/sh\nprintf "%s %s\\n" {tool} "$*" >> "$CALLS"\n'
+                            f'printf "PGOPTIONS=%s\\n" "$PGOPTIONS" >> "$CALLS"\nexit {code}\n')
+        stand_in.chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "OP": op, "TICKERS": tickers,
-           "ARGV_OUT": str(tmp_path / "argv"), "PGOPTIONS": step["env"]["PGOPTIONS"]}
+           "CALLS": str(tmp_path / "calls"), "PGOPTIONS": step["env"]["PGOPTIONS"]}
     result = subprocess.run(  # fixed argv; the script under test is repository content
-        ["bash", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True, check=False
+        ["bash", "-e", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True, check=False
     )
-    assert result.returncode == 0, result.stderr
-    read_only = " -c default_transaction_read_only=on" if op == "relabel-fy-dry-run" else ""
-    assert (tmp_path / "argv").read_text().splitlines() == [*argv, f"PGOPTIONS={step['env']['PGOPTIONS']}{read_only}"]
+    calls = (tmp_path / "calls").read_text().splitlines() if (tmp_path / "calls").exists() else []
+    return step, result, calls
 
+
+@pytest.mark.parametrize("op, tickers, args", [
+    ("relabel-fy-dry-run", "", ""),
+    ("relabel-fy-dry-run", "TGT,JNJ", " --tickers TGT,JNJ"),
+    ("relabel-fy-apply", "", " --apply"),
+    ("relabel-fy-apply", "TGT", " --apply --tickers TGT"),
+    # Any operation but the apply runs a read-only dry run, so a widened if: can never write.
+    ("repair-ticker-apply", "", ""),
+])
+def test_only_the_relabel_apply_operation_passes_apply_and_a_dry_run_is_read_only(tmp_path, op, tickers, args):
+    """The relabel script writes production data only with --apply, so only the apply operation may
+    pass it, and any other run's transactions are read-only, so Postgres refuses a write it might
+    attempt. The settings the session gets are read back through psql before the script runs."""
+    step, result, calls = _run_relabel_step(tmp_path, op, tickers)
+    assert result.returncode == 0, result.stderr
+    options = step["env"]["PGOPTIONS"] + ("" if op == "relabel-fy-apply" else " -c default_transaction_read_only=on")
+    assert [call for call in calls if call.startswith("python ")] == [f"python scripts/relabel_filing_fy_facts.py{args}"]
+    assert [call for call in calls if call.startswith("PGOPTIONS=")] == [f"PGOPTIONS={options}"] * 2
+    assert calls[0].startswith("psql "), "the readback runs before the script"
+
+
+def test_a_failed_relabel_run_fails_the_step(tmp_path):
+    """A company that fails makes the script exit non-zero, and the run must fail with it."""
+    _, result, _ = _run_relabel_step(tmp_path, "relabel-fy-apply", "", python_exit=3)
+    assert result.returncode == 3
+
+
+def test_no_relabel_runs_when_the_session_settings_cannot_be_read(tmp_path):
+    _, result, calls = _run_relabel_step(tmp_path, "relabel-fy-apply", "", psql_exit=2)
+    assert result.returncode == 2
+    assert not [call for call in calls if call.startswith("python ")]
