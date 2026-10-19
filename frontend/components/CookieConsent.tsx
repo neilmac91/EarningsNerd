@@ -201,11 +201,14 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           recording are off until you allow them here. Choose the ones you are comfortable with.
         </p>
 
+        {/* Each category row takes the Notice's recipe (components/ui/Notice.tsx): it wraps, and its text keeps
+            9rem beside the box or takes the card's width with the box under it, so at 200% text no box leaves
+            its card (tests/e2e/reflow-200.spec.ts). At the default size the box stays beside its text. */}
         <div className="space-y-4">
           {/* Essential cookies */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-essential-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
@@ -217,7 +220,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   security, and basic functionality. Cannot be disabled.
                 </p>
               </div>
-              <div className="ml-4">
+              <div>
                 <Checkbox
                   checked={true}
                   disabled
@@ -230,8 +233,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
           {/* Analytics cookies */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-analytics-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
@@ -244,7 +247,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   experience.
                 </p>
               </div>
-              <div className="ml-4">
+              <div>
                 <Checkbox
                   checked={preferences.analytics}
                   onChange={(e) =>
@@ -259,8 +262,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
           {/* Session recording */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-recording-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
@@ -273,7 +276,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   more invasive and is opt-in only.
                 </p>
               </div>
-              <div className="ml-4">
+              <div>
                 <Checkbox
                   checked={preferences.sessionRecording}
                   onChange={(e) =>
