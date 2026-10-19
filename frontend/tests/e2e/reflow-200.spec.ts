@@ -870,6 +870,8 @@ const formCodes = (page: Page) =>
           for (const rect of range.getClientRects()) {
             if (rect.width > 0 && !tops.some((top) => Math.abs(top - rect.top) < 2)) tops.push(rect.top)
           }
+          // A code no layout paints (inside a display:none twin) has no line to break.
+          if (tops.length === 0) continue
           found.push({
             where: `${root.id || 'close'}${el.closest('table') ? ' table' : ''}`,
             code: match[0],
