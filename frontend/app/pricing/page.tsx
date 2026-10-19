@@ -388,9 +388,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 
           {/* Billing Toggle — free users only. A card-trial user already holds a subscription
               (their buy CTA is disabled as current-plan), so the toggle would only move a
-              button they can't press. */}
+              button they can't press. The row wraps where it cannot fit (a 320px phone at 200%
+              text), the yearly label on a centred line of its own; on one line it pushed
+              "Monthly" past the screen's left edge. */}
           {!isPaidPro && !isTrialing && (
-            <div className="mt-8 flex items-center justify-center space-x-4">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
               </span>
