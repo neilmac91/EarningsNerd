@@ -89,6 +89,23 @@ class WaitlistJoin:
     total_signups: int
 
 
+@dataclass(frozen=True)
+class SignupView:
+    """The signup fields the join route reads after its unit has released the session."""
+
+    id: int
+    email: str
+    name: Optional[str]
+    position: int
+    priority_score: int
+    referral_code: str
+
+    @classmethod
+    def of(cls, signup: WaitlistSignup) -> "SignupView":
+        return cls(signup.id, signup.email, signup.name, signup.position, signup.priority_score,
+                   signup.referral_code)
+
+
 def find_signup_by_email(db: Session, email: str) -> Optional[WaitlistSignup]:
     return db.query(WaitlistSignup).filter(WaitlistSignup.email == email).first()
 
@@ -165,25 +182,13 @@ def create_signup(
     return WaitlistJoin(signup=signup, referrer=referrer, total_signups=total_signups)
 
 
-def mark_welcome_email_sent(db: Session, signup: WaitlistSignup) -> None:
-    signup.welcome_email_sent = True
-    db.commit()
-
-
-def rollback_after_welcome_failure(db: Session) -> None:
-    """Roll back the session after the join's welcome step fails (the send or the flag commit).
-
-    This ends the whole session transaction, not just the flag: it discards anything pending and
-    expires every loaded row, so the router's later ``signup.id`` and referrer reads re-select (the
-    signup and any referrer bump were already committed by ``create_signup``). After a failed flag
-    commit the rollback is required; without it those reads raise ``PendingRollbackError``.
-
-    Transaction ownership did not move here: the router's ``except Exception`` around the awaited
-    send still decides when to roll back, and this wrapper only keeps the session call out of the
-    router module. Moving the send, flag commit and rollback into one service function would change
-    where the failure is caught and logged, so that is left for a later PR.
-    """
-    db.rollback()
+def mark_welcome_email_sent(db: Session, signup_id: int) -> None:
+    """Flag the signup's welcome mail as sent. The join route calls it in its own unit after the
+    send, and that unit's release rolls back a flag commit that fails."""
+    signup = db.get(WaitlistSignup, signup_id)
+    if signup is not None:
+        signup.welcome_email_sent = True
+        db.commit()
 
 
 def mark_email_verified(db: Session, email: str) -> bool:

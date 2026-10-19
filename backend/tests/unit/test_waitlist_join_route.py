@@ -214,8 +214,9 @@ def test_failed_welcome_flag_commit_is_rolled_back_logged_and_still_200(
 ):
     """The flag commit shares the welcome try: a failed flush is rolled back, logged and swallowed.
 
-    The failed flush leaves the session needing a rollback and expires the loaded rows, so the
-    ``signup.id`` log read and the referrer read only work because the router rolls back first.
+    The flag is its own thread-pool unit, whose release rolls the failed flush back. The log line and
+    the referral send read the values the join's first unit copied out, so neither touches the
+    session after the failure.
     """
     referrer_email = _seed_referrer(session_factory, code="ref00001")
     email = _email()
