@@ -489,6 +489,59 @@ def test_durable_handoff_payloads_and_pool_release(tmp_path, monkeypatch):
     assert fetched == []
 
 
+def test_durable_miss_path_releases_the_company_persist_before_the_history_handoff(tmp_path, monkeypatch):
+    """A first view of a ticker the database does not hold persists the SEC company in its own unit
+    and, with durable tasks on (production's setting), hands the new company's history backfill to
+    the queue. The persist's own release is all that frees the connection before that control-plane
+    wait: the route releases nothing itself (lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'miss-handoff.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool, pool_size=1, max_overflow=0, pool_timeout=0.05,
+    )
+    Base.metadata.create_all(bind=engine)
+    testing_session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+    def override_get_db():
+        with testing_session() as db:
+            yield db
+
+    calls = []
+
+    async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
+        calls.append((kind, payload, engine.pool.checkedout()))
+        return f"task-{kind}"
+
+    async def search(_ticker):
+        return [dict(_HIT)]
+
+    async def primary(_cik):
+        return "MISS"
+
+    async def get_filings(cik, types):
+        return []
+
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "ENABLE_HISTORY_BACKFILL_ON_VISIT", True)
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", False)
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
+    monkeypatch.setattr(sec_edgar_service, "search_company", search)
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", primary)
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+    monkeypatch.setitem(main.app.dependency_overrides, get_db, override_get_db)
+    try:
+        resp = TestClient(main.app).get("/api/filings/company/miss")
+        with testing_session() as s:
+            company_id = s.query(Company).filter(Company.ticker == "MISS").one().id
+    finally:
+        engine.dispose()
+
+    assert resp.status_code == 200 and resp.json() == []
+    assert calls == [("history", {"company_id": company_id}, 0)]
+
+
 def test_durable_handoff_outage_serves_cached_rows_and_warns_from_the_router(
     client, sessions, monkeypatch, caplog
 ):

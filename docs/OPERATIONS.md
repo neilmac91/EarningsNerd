@@ -342,8 +342,11 @@ dedicated identity, IAM, secret, bucket lifecycle and recovery limits.
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 
 New-filing alerts and daily digests are persisted in `earningsnerd_delivery_batches` (one row per
-outbound email: frozen recipient/sender/subject/HTML, the provider `Idempotency-Key`, status,
-lease and attempt bookkeeping) and `earningsnerd_delivery_items` (the filings each batch owns).
+outbound email: frozen recipient/sender/subject/HTML and plain-text part, the provider
+`Idempotency-Key`, status, lease and attempt bookkeeping) and `earningsnerd_delivery_items` (the
+filings each batch owns). The plain-text part (`body_text`, E110) is covered by the batch's
+`payload_sha256`; a batch frozen before the column holds NULL there and replays as it was frozen,
+its page alone, under the digest it was frozen with.
 `accepted`, `suppressed` and `ambiguous` are terminal. `ambiguous` means the provider's answer
 was lost after bytes may have left (timeout, dropped connection, unparsable or non-object 5xx
 response, expired sending lease, exhausted attempts, payload drift): the job never dispatches it
@@ -386,9 +389,16 @@ earningsnerd-earnings-day-alerts`): the job only takes over `failed` rows whose 
 today, so after that day the alert lapses.
 
 Never re-send an `ambiguous` batch by hand under its old key, and never edit its frozen payload
-(`payload_sha256` would then park it as `payload_drift`). A `retryable` batch needs no action:
-the job retries it with backoff, re-keying it if the replay window closed. Historical
-`notification_log` rows are never replayed.
+(`payload_sha256` would then park it as `payload_drift`). Code from before E110 reads no
+`body_text`, so a drain it runs fails the digest of every due batch frozen with a text part and
+parks it as `payload_drift`, unsent: after a rollback past E110, and during the deploy that ships
+it, in a job execution that started on the old image and reaches its drain after the new image
+froze a batch. Such a batch was ready or retryable when that drain claimed it, so the provider
+never accepted it: at `attempts = 0` it never reached the provider, and a retryable batch's attempts
+each ended in a documented non-acceptance (the old drain re-keys one whose replay window closed
+before it parks it). Give its filings back to selection as above. Otherwise a `retryable` batch
+needs no action: the job retries it with backoff, re-keying it if the replay window closed.
+Historical `notification_log` rows are never replayed.
 
 ### Monitoring Alerts (Suggested Thresholds)
 

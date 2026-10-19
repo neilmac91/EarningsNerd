@@ -2,10 +2,10 @@
 
 Moved verbatim from the router (specific filing, its cached content, its fundamentals, recent
 filings) so it stays HTTP only. Each function is one synchronous unit on the request's session,
-run where the router used to run it (on the event loop): it reads, builds the response payload with
-the caller's converter, and closes the session in the same unit, so the pooled connection is back
-before the async route yields to the sync dependency's thread-pool finalizer
-(``lessons/ops-release-cached-filing-reads-before-yield.md``;
+which the router runs in the thread pool: it reads, builds the response payload with the caller's
+converter, and releases the session in the same unit, so the pooled connection is back before the
+async route yields to the sync dependency's thread-pool finalizer, and its checkout never waits on
+the event loop (``lessons/ops-release-cached-filing-reads-before-yield.md``;
 ``tests/unit/test_cached_filings_pool_lifetime.py``). The converters stay with the router's
 response models. A missing filing is a ``None`` return; the router raises its unchanged 404.
 """
@@ -15,6 +15,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Filing
+from app.services.filing_list_service import release_request_session
 
 T = TypeVar("T")
 
@@ -27,7 +28,7 @@ def filing_by_id(db: Session, filing_id: int, convert: Callable[[Filing], T]) ->
             return None
         return convert(filing)
     finally:
-        db.close()
+        release_request_session(db)
 
 
 def filing_content(db: Session, filing_id: int, build: Callable[[Optional[str]], T]) -> Optional[T]:
@@ -47,7 +48,7 @@ def filing_content(db: Session, filing_id: int, build: Callable[[Optional[str]],
         markdown = getattr(cache, "markdown_content", None) if cache else None
         return build(markdown)
     finally:
-        db.close()
+        release_request_session(db)
 
 
 def filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, Any]]:
@@ -57,7 +58,7 @@ def filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, Any]]
     try:
         return facts_service.get_filing_fundamentals(db, filing_id)
     finally:
-        db.close()
+        release_request_session(db)
 
 
 def recent_filings(db: Session, limit: int, convert: Callable[[Filing], T]) -> List[T]:
@@ -67,4 +68,4 @@ def recent_filings(db: Session, limit: int, convert: Callable[[Filing], T]) -> L
         filings = db.query(Filing).options(joinedload(Filing.company)).order_by(desc(Filing.filing_date)).limit(limit).all()
         return [convert(filing) for filing in filings]
     finally:
-        db.close()
+        release_request_session(db)
