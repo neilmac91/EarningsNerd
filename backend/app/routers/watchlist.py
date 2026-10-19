@@ -8,7 +8,7 @@ import jwt
 from app.database import get_db
 from app.models import User, Filing, Summary
 from app.routers.auth import get_current_user
-from app.services.summary_generation_service import get_generation_progress_snapshot
+from app.services.summary_generation_service import progress_as_dict
 from app.services.summary_placeholders import is_summary_placeholder
 from app.config import settings
 from app.services import filing_list_service, watchlist_service
@@ -221,6 +221,7 @@ async def get_watchlist_insights(
     latest_filing_by_company = rows.latest_filing_by_company
     filing_counts = rows.filing_counts
     summary_by_filing = rows.summary_by_filing
+    progress_by_filing = rows.progress_by_filing
 
     for item in rows.watchlist_items:
         company = item.company
@@ -235,7 +236,8 @@ async def get_watchlist_insights(
         if latest_filing:
             summary: Optional[Summary] = summary_by_filing.get(latest_filing.id)
 
-            progress_snapshot = get_generation_progress_snapshot(latest_filing.id)
+            progress_row = progress_by_filing.get(latest_filing.id)
+            progress_snapshot = progress_as_dict(progress_row) if progress_row else None
 
             summary_status = "missing"
             needs_regeneration = True

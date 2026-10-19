@@ -19,7 +19,6 @@ renders it and sends to ``settings.DATA_QUALITY_REPORT_EMAIL``.
 from __future__ import annotations
 
 import logging
-import html
 import math
 from collections import Counter
 from datetime import date
@@ -336,11 +335,7 @@ async def run_and_email(db: Session, *, weekly_readout: dict | None = None) -> d
     report = await build_report(db, weekly_readout=weekly_readout)
     html_body, text = email_service.render_data_quality_report(report)
     to = settings.DATA_QUALITY_REPORT_EMAIL
-    await resend_service.send_email(
-        to=[to],
-        subject="EarningsNerd data-quality report",
-        html=f'{html_body}<pre style="display:none">{html.escape(text)}</pre>',
-    )
+    await resend_service.send_email(to=[to], subject="EarningsNerd data-quality report", html=html_body, text=text)
     logger.info(
         "Data-quality report emailed to %s: %d ticker mismatches, %d coverage gaps, %d filing "
         "anomalies, %d partial-reason rows",

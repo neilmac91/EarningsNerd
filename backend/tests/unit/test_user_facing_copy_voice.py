@@ -138,7 +138,7 @@ EXEMPT: dict[str, tuple[int, str]] = {
     "app/routers/contact.py::send_contact_notifications": (12, "backend-mail-templates"),
     "app/routers/feedback.py::_notify_admin": (5, "backend-mail-templates"),
     "app/services/email_service.py": (
-        22,
+        20,
         "backend-mail-templates; also the verification mail's 'Verify your email address and you can start "
         "reading', which promises a gate the code does not have (only checkout checks email_verified)",
     ),
