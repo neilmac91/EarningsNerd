@@ -238,8 +238,8 @@ def requested_filing_types(filing_types: Optional[str]) -> List[str]:
 
 def other_filing_forms() -> List[str]:
     """Every form ``requested_filing_types`` can list that ``company_list_forms()`` does not, in one
-    fixed order: the second refresh a filings visit queues when its ``?filing_types=`` asks for one
-    of them (``routers/filings.py``). With the list forms it is one of only two refresh payloads a
+    fixed order: the second refresh a filings visit queues when it serves stored rows of one of
+    them (``routers/filings.py``). With the list forms it is one of only two refresh payloads a
     visit can produce; the worker fetches only the forms :func:`forms_to_refresh` keeps."""
     from app.services.latest_filing_service import company_list_forms
     listed = set(company_list_forms())
@@ -251,7 +251,7 @@ def forms_to_refresh(db: Session, company_id: int, forms: List[str]) -> List[str
     fetched whole, so a company's first 10-Q or 20-F arrives. It is recognised in either state of
     ``ENABLE_FPI_FILINGS``, because a queued task can outlive a change of the flag. Any other payload
     keeps only the forms the company already has rows of. So a refresh keeps stored rows fresh but
-    never adds a form nobody stored, which would spend the fetch's row budget and reach the pages
+    never adds another form nobody stored, which would spend the fetch's row budget and reach the pages
     that read every stored form (the watchlist, the dashboard, the digest)."""
     from app.services.latest_filing_service import company_list_forms
     if forms in (company_list_forms(fpi=False), company_list_forms(fpi=True)):

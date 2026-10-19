@@ -628,8 +628,8 @@ def _fake_cloud_tasks(monkeypatch):
 ])
 def test_filing_types_values_cannot_mint_durable_refresh_tasks(client, sessions, monkeypatch, values, refreshes):
     """Whatever ``?filing_types=`` says, the public route queues at most two background refreshes per
-    company per time bucket: one of the company's list forms, and, once a request asks for another
-    form, one of the other accepted forms. The refresh payload used to carry the caller's list, and
+    company per time bucket: one of the company's list forms, and, once a visit serves stored rows
+    of another form, one of the other accepted forms. The refresh payload used to carry the caller's list, and
     that payload names the Cloud Task (sha256 of key and body) and keys the router's per-process
     guard, so every distinct value queued a new task: a worker child process and an SEC fetch each,
     on the queue every durable job shares. Before the fix the 40 junk values queued 40 tasks."""
