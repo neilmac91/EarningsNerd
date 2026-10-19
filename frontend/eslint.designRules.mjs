@@ -166,6 +166,18 @@
 //                       names the one file allowed a factory, with its reason. Out of reach: an element a library
 //                       builds from data (react-markdown's tree, which lib/citationMarkers.tsx walks), and a module
 //                       named by a value the rule cannot read (`import(name)`).
+//   date-helpers-called-directly  The date rules in eslint.config.mjs (D-033, both directions) read a date helper's
+//                       call by its callee, so the helpers they name (Date, parseISO, formatInstant, formatLocalDate:
+//                       the config hands DATE_HELPERS in as the rule's option) are called by name where they format.
+//                       Any other reference, by name or as a member in any key spelling, is refused where it is held,
+//                       whatever calls it later: a binding under another name, a branch of a condition or a logical
+//                       operand (`flag ? formatInstant : fallback`), an argument (`.map(formatInstant)`), a return, an
+//                       object's or an array's entry, a spread, a prop, a cast, a member read off it (call, apply,
+//                       bind), an assignment or a default export. A call or a `new`, the helper's own import or export
+//                       specifier, `typeof`, a type, and a binding of its own name (`{ Date = globalThis.Date }`)
+//                       pass; the global Date keeps its statics and `instanceof`, and as a member it is the global
+//                       object's only, so a data row's key named Date is no helper. Its cases are planted beside the
+//                       date rules' own, through the repository config, in tests/unit/calendarFieldLint.spec.ts.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -1210,6 +1222,16 @@ export const ELEMENT_FACTORY_ALLOWLIST = new Map([
   ['lib/citationMarkers.tsx', new Set(['cloneElement'])],
 ])
 
+/** Whether the file binds `name` where `node` reads it: a global (the DOM's `document`, Node's `require`, the global
+ *  object's `globalThis`) has no declaration in the file. */
+const bindsName = (sourceCode, node, name) => {
+  for (let scope = sourceCode.getScope(node); scope; scope = scope.upper) {
+    const variable = scope.set.get(name)
+    if (variable) return variable.defs.length > 0
+  }
+  return false
+}
+
 /** The node a value reaches through TypeScript's wrappers, which change its type and not the value. */
 const outermostTs = (node) => {
   let at = node
@@ -1249,15 +1271,7 @@ export const elementsBuiltWithJsx = {
       if (!allowed.has(name)) report(node, 'factory', form)
     }
     const text = (node) => sourceCode.getText(node)
-    /** Whether the file binds `name` where `node` reads it: a global (the DOM's `document`, Node's `require`) has no
-        declaration in the file. */
-    const declared = (node, name) => {
-      for (let scope = sourceCode.getScope(node); scope; scope = scope.upper) {
-        const variable = scope.set.get(name)
-        if (variable) return variable.defs.length > 0
-      }
-      return false
-    }
+    const declared = (node, name) => bindsName(sourceCode, node, name)
     const isDocument = (node) => {
       const object = unwrapTs(node)
       return object?.type === 'Identifier' && object.name === 'document' && !declared(object, 'document')
@@ -1370,6 +1384,94 @@ export const elementsBuiltWithJsx = {
   },
 }
 
+/** The global object's names, through which the global Date is a member (`globalThis.Date`, `window['Date']`). */
+const GLOBAL_OBJECT = new Set(['globalThis', 'window', 'self', 'global'])
+/** How a date helper is held, by the node that holds it, for the message. */
+const HELD_AS = {
+  ConditionalExpression: 'held in a branch of a condition',
+  LogicalExpression: 'held in a logical operand',
+  VariableDeclarator: 'held in a binding under another name',
+  AssignmentExpression: 'assigned to a name',
+  AssignmentPattern: 'held as a default under another name',
+  CallExpression: 'handed to a call',
+  NewExpression: 'handed to a call',
+  ReturnStatement: 'returned',
+  ArrowFunctionExpression: 'returned',
+  Property: 'held in an object',
+  ArrayExpression: 'held in an array',
+  SpreadElement: 'spread',
+  JSXExpressionContainer: 'handed to a component',
+  MemberExpression: 'read for a member (call, apply or bind)',
+  ExportDefaultDeclaration: 'exported as a default',
+  TSAsExpression: 'held behind a cast',
+  TSSatisfiesExpression: 'held behind a cast',
+  TSNonNullExpression: 'held behind a cast',
+  TSTypeAssertion: 'held behind a cast',
+}
+
+/** The calendar-date and billing-instant rules (eslint.config.mjs) read a date helper's call by its callee, so a helper
+ *  used any other way hides the call it ends up in: `const held = flag ? formatInstant : fallback` then
+ *  `held(filing.filing_date)` (Codex on #1370's 08a94b87). This rule refuses every reference to a helper the config
+ *  names (its `helpers` option), by its name or as a member (`fmt.formatInstant`, `globalThis.Date`, any key
+ *  spelling), that is not one of the uses that keep the call in sight: the callee of a call or a `new`, its own export
+ *  specifier (a rename is the alias rule's), `typeof`, and the initializer or default of a binding of its own name
+ *  (`const { Date = globalThis.Date } = globalThis`). The global Date also keeps its statics (`Date.now()`) and a type
+ *  test (`x instanceof Date`); as a member it is the global object's only, so a data row's key named Date is no
+ *  helper. A type holds no value and passes. Anything else is refused where it is held, whatever calls it later: a
+ *  binding under another name, a branch of a condition or a logical operand, an argument, a return, an object's or an
+ *  array's entry, a spread, a prop, a cast, a member read off it (call, apply, bind), an assignment, a default
+ *  export. */
+export const dateHelpersCalledDirectly = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'A date helper is called by its name where it formats, never held or handed on as a value.' },
+    schema: [{ type: 'object', properties: { helpers: { type: 'array', items: { type: 'string' } } }, additionalProperties: false }],
+    messages: {
+      held:
+        "{{name}}, {{how}}: the calendar-date and billing-instant rules (eslint.config.mjs) read a date helper's call by " +
+        'its callee, so a helper held as a value hides what it is handed later. Call {{name}} directly, by its name ' +
+        'or as a namespace member, where the value is formatted.',
+    },
+  },
+  create(context) {
+    const helpers = new Set(context.options[0]?.helpers ?? [])
+    const { sourceCode } = context
+    /** Whether a helper's node (its name, or a member that reads it) keeps the call the rules read in sight. */
+    const inSight = (node, name) => {
+      const { parent } = node
+      if ((parent.type === 'CallExpression' || parent.type === 'NewExpression') && parent.callee === node) return true
+      if (parent.type === 'ExportSpecifier' || (parent.type === 'UnaryExpression' && parent.operator === 'typeof')) return true
+      const ownName = (target) => target.type === 'Identifier' && target.name === name
+      if (parent.type === 'VariableDeclarator' && parent.init === node && ownName(parent.id)) return true
+      if (parent.type === 'AssignmentPattern' && parent.right === node && ownName(parent.left)) return true
+      if (name !== 'Date') return false
+      return (parent.type === 'MemberExpression' && parent.object === node) ||
+        (parent.type === 'BinaryExpression' && parent.operator === 'instanceof' && parent.right === node)
+    }
+    const report = (node, name) => context.report({ node, messageId: 'held', data: { name, how: HELD_AS[node.parent.type] ?? 'used as a value' } })
+    return {
+      // Every reference to a helper by its name, in any scope: a declaration's own name and a type are not uses.
+      'Program:exit'() {
+        for (const scope of sourceCode.scopeManager.scopes) {
+          for (const reference of scope.references) {
+            const id = reference.identifier
+            if (id.type !== 'Identifier' || !helpers.has(id.name) || reference.init || reference.isValueReference === false) continue
+            if (id.parent.type === 'TSQualifiedName' || id.parent.type === 'TSTypeQuery') continue
+            if (!inSight(id, id.name)) report(id, id.name)
+          }
+        }
+      },
+      MemberExpression(node) {
+        const name = writtenKey(node.property, node.computed)
+        if (name === null || !helpers.has(name)) return
+        const object = unwrapTs(node.object)
+        if (name === 'Date' && !(object.type === 'Identifier' && GLOBAL_OBJECT.has(object.name) && !bindsName(sourceCode, object, object.name))) return
+        if (!inSight(node, name)) report(node, name)
+      },
+    }
+  },
+}
+
 const plugin = {
   rules: {
     'direction-text-tokens': directionTextTokens,
@@ -1379,6 +1481,7 @@ const plugin = {
     'locale-pinned-numbers': localePinnedNumbers,
     'no-hand-rolled-toggle-group': noHandRolledToggleGroup,
     'elements-built-with-jsx': elementsBuiltWithJsx,
+    'date-helpers-called-directly': dateHelpersCalledDirectly,
   },
 }
 export default plugin

@@ -90,9 +90,11 @@ const LOCAL_DATE_MESSAGE =
  *  syntactic. No further widening fixes it. The
  *  same holds for a same-file wrapper (`const day = (iso) => formatLocalDate(iso, …)`, as FilingIndex
  *  and ComparePeriodsCard write): the rules read the call inside it, not the field a caller hands it.
- *  So too for a helper reached through something other than its name or a member key: called through
- *  call, apply or bind, held behind a cast or `?.`, or handed to another function as a value.
- *  The behavioural spec and review cover what this cannot; do not read the rule as exhaustive. */
+ *  A helper reached through something other than its name or a member key (held in a binding under
+ *  another name, a branch of a condition or a logical operand, handed on as an argument, returned, held
+ *  in an object, behind a cast, or called through call, apply or bind) is refused where it is held, by
+ *  earningsnerd/date-helpers-called-directly (eslint.designRules.mjs), so a call the rules cannot read
+ *  never ships. The behavioural spec and review cover what this cannot; do not read the rule as exhaustive. */
 const CALENDAR_DATE_FIELDS =
   'filing_date|filed_date|period_end_date|earnings_date|event_date|transaction_date|last_transaction_date|report_date'
 const CALENDAR_FIELD_MESSAGE =
@@ -143,15 +145,16 @@ const BILLING_INSTANT_MESSAGE =
 /** The rules read a constructor by its callee's name, so it must keep that name: an import under
  *  another name (`formatInstant as formatDay`), a re-export or a destructuring that renames it (its key
  *  in any spelling, with or without a default, `{ ['formatInstant']: held }`, and Date's from globalThis
- *  among them), or a const that holds it would hide every call from them. A destructuring that keeps the
- *  name and adds a default (`{ formatInstant = fallback }`) renames nothing: its calls keep the name.
- *  Date's renames are keyed to no holder, so a data row's key named Date (`const { Date: first } = rows[0]`,
- *  `row.Date` held in a const) draws the message too: a false positive no live code meets, planted in
- *  tests/unit/calendarFieldLint.spec.ts. */
+ *  among them) would hide every call from them. A destructuring that keeps the name and adds a default
+ *  (`{ formatInstant = fallback }`) renames nothing: its calls keep the name. Date's destructured renames
+ *  are keyed to no holder, so a data row's key named Date taken out by a pattern (`const { Date: first } =
+ *  rows[0]`) draws the message too: a false positive no live code meets, planted in
+ *  tests/unit/calendarFieldLint.spec.ts. A helper held as a value, in a const or anywhere else, is
+ *  earningsnerd/date-helpers-called-directly's, which reads DATE_HELPERS as its option. */
 const DATE_HELPERS = ['Date', 'parseISO', 'formatInstant', 'formatLocalDate']
 const DATE_HELPER_ALIAS_MESSAGE =
   'Call Date, parseISO, formatInstant and formatLocalDate by their own names: the calendar-date and ' +
-  'billing-instant rules (eslint.config.mjs) read a call by its callee, so a renamed or held one hides it.'
+  'billing-instant rules (eslint.config.mjs) read a call by its callee, so a renamed one hides it.'
 const DATE_HELPER_RULES = [
   ...callsTo('formatLocalDate').flatMap((root) => fieldSelectors(root, BILLING_INSTANT_FIELDS, BILLING_INSTANT_MESSAGE)),
   // An import or a re-export under another name, either name quoted or not (Date, a global, travels by neither). Each
@@ -188,15 +191,6 @@ const DATE_HELPER_RULES = [
       },
     ]),
   ),
-  // A const that holds it, bare or as a member, its key in each spelling.
-  {
-    selector: `VariableDeclarator[init.type='Identifier'][init.name=/^(${DATE_HELPERS.join('|')})$/]`,
-    message: DATE_HELPER_ALIAS_MESSAGE,
-  },
-  ...KEY_NAME_PATHS.map((at) => ({
-    selector: `VariableDeclarator[init.type='MemberExpression'][init.property.${at}=/^(${DATE_HELPERS.join('|')})$/]`,
-    message: DATE_HELPER_ALIAS_MESSAGE,
-  })),
 ]
 
 // MIGRATION-v3 §c — design-token guardrails (CLAUDE.md rule 12: a "never do X again" rule lands as
@@ -354,7 +348,8 @@ const config = [
   // (P-09), and no hand-rolled single-choice toggle group outside the SegmentedControl (CO-15).
   // direction-text-tokens holds direction text to the 700-level gain/loss inks, never the 600
   // level or sage (D-030). elements-built-with-jsx refuses React's element factories, so every
-  // element the app renders is JSX the gates that read elements can see.
+  // element the app renders is JSX the gates that read elements can see. date-helpers-called-directly
+  // refuses a date helper held as a value, so every call the date rules above read is written by name.
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: TEST_FILES,
@@ -368,6 +363,7 @@ const config = [
       'earningsnerd/locale-pinned-numbers': 'error',
       'earningsnerd/no-hand-rolled-toggle-group': 'error',
       'earningsnerd/elements-built-with-jsx': 'error',
+      'earningsnerd/date-helpers-called-directly': ['error', { helpers: DATE_HELPERS }],
     },
   },
   // The password scan parses every script it finds (passwordRulesLockstep.spec.tsx), JavaScript included, so the rule
