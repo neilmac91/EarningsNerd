@@ -15,18 +15,22 @@ vector, a sample key, a fixture password, a made-up token at its real length), m
 gitleaks (version and SHA-256 in `.github/workflows/ci.yml`'s `secret-scan` job) over your new
 commits: `gitleaks git . --log-opts="origin/main..HEAD" --redact=100 --exit-code 1`. If a flagged
 commit is already pushed, rewrite it out of the branch at once (amend and `--force-with-lease` on a
-branch you created), then re-run the `secret-scan` jobs it failed. A pin in the flagged branch's own
-`.gitleaksignore` reaches only that branch's runs. Where a rewrite is not open to you (pushed history
-you may not rewrite, or a branch others build on), pin the fingerprints on main at once in a routine
-pull request, as #1342 and #1382 did: CI checks out each pull request merged into main, so main's file
-reaches every run. A fingerprint is commit-scoped (`<commit>:<path>:<rule>:<line>`); write the lines
-byte for byte as the branch's own `.gitleaksignore` writes them, so neither merge conflicts, and prove
-a pin by scanning without it from a checkout whose `.gitleaksignore` is main's, since gitleaks reads
-the scanned directory's own file as well as any `-i` path.
+branch you created), then re-run the `secret-scan` jobs it failed on other pull requests. A pin in the
+flagged branch's own `.gitleaksignore` reaches only that branch's runs. Where a rewrite is not open to
+you (pushed history you may not rewrite, or a branch others build on), pin the fingerprints on main at
+once in a routine pull request, as #1342 and #1382 did: CI checks out each pull request merged into
+main, so main's file reaches every pull request's run that an event starts after the pin. It does not
+reach a re-run: GitHub re-runs a pull request's run on the merge commit that run first built (the
+original event's `GITHUB_SHA`), whose file predates the pin, so while the flagged commit is on any
+branch, a pull request whose scan failed passes on its next push (a merge of main will do), not on a
+re-run. A fingerprint is commit-scoped (`<commit>:<path>:<rule>:<line>`); write the lines byte for byte
+as the branch's own `.gitleaksignore` writes them, so neither merge conflicts, and prove a pin by
+scanning without it from a checkout whose `.gitleaksignore` is main's, since gitleaks reads the scanned
+directory's own file as well as any `-i` path.
 
-**Evidence**: E20's commit 4ac900bb, amended to 2398f2af with the marker and force-pushed at
-09:53 UTC; #1310's `secret-scan` re-run afterwards. Partly gated: CI's `secret-scan` finds the
-literal, but only after the push, when every pull request already fails.
+**Evidence**: E20's commit 4ac900bb, amended to 2398f2af with the marker and force-pushed at 09:53 UTC;
+#1310's `secret-scan` re-run afterwards. Partly gated: CI's `secret-scan` finds the literal, but only
+after the push, when the next scan of each pull request fails.
 
 **Recurrence (2026-10-15 and 2026-10-17, pinned on main)**: #1340's branch carried a design-token
 name that the generic-api-key rule matched; main's run and every pull request's failed until #1342
@@ -39,10 +43,14 @@ both lines, and #1382 merged the same six lines on main (`cc071d4a`, 06:16 UTC).
 no other pull request ran CI in that window, so nothing was blocked.
 
 **Recurrence (2026-10-19, pinned on main)**: #1407's push at 09:15 UTC brought `41da420b` to the
-remote. Its E125 evidence holds a copy of E110's mail renderer (`render_mails.py.txt`), which sets CI's
-test `SECRET_KEY` and a made-up 43-character token: an evidence script, not a test, pushed without the
-scan this rule asks for. #1407's own run failed on the two (job 117981141804, `leaks found: 2`), and so
-did #1372's at 09:24 (job 117984774947). `3ed4198c` marked both lines and pinned them in #1407's own
+remote. Its E125 evidence holds a copy of E110's mail renderer (`render_mails.py.txt`), which sets the
+test suite's `SECRET_KEY` (`backend/tests/conftest.py`'s value) and a made-up 43-character token: an
+evidence script, not a test, pushed without the scan this rule asks for. #1407's own run failed on the
+two (job 117981141804, `leaks found: 2`), and so did three other pull requests' runs, each red on the
+scan alone: #1372's at 09:24 (job 117984774947), #1409's at 09:36 (job 117989883239) and #1410's at
+09:47 (job 117994135994). `3ed4198c` marked both lines and pinned them in #1407's own
 `.gitleaksignore`, which reached #1407's runs alone; another session's #1408 merged the same six lines
-on main (`4b2ae9d8`, 09:50 UTC), and every branch's scan passed again. Two pushes have skipped the scan
-since this rule was written (#1334 and #1407), so E126 proposes a gate before the push.
+on main (`4b2ae9d8`, 09:50 UTC), and the runs that started after it passed (main's on `4b2ae9d8`,
+#1372's on its merge of main, `896fa772`). #1409's and #1410's runs had started before it, so their
+next pushes clear them, not a re-run. Two pushes this lesson records have skipped the scan since the
+rule was written (#1334's and #1407's), so E126 proposes a gate before the push.
