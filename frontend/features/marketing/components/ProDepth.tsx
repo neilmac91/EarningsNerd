@@ -6,6 +6,7 @@ import { ANALYSIS_MAX_ANNUAL_PERIODS, ANALYSIS_MAX_QUARTERLY_PERIODS, FREE_COPIL
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 import AskFilingDemo from '@/features/marketing/components/AskFilingDemo'
 import ChangeReportDemo from '@/features/marketing/components/ChangeReportDemo'
+import FormCodeText from '@/features/marketing/components/FormCodeText'
 import LandingRow from '@/features/marketing/components/LandingRow'
 import MarketingCta from '@/features/marketing/components/MarketingCta'
 
@@ -151,7 +152,9 @@ export default function ProDepth() {
                   ))}
                 </span>
               </div>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{extra.description}</p>
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <FormCodeText text={extra.description} />
+              </p>
             </li>
           ))}
         </ul>

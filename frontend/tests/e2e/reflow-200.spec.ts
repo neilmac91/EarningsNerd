@@ -41,7 +41,9 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * the one-row check. There / reached 368px, the pricing section's billing toggle, and /login and /register
  * 369px, the auth shell's lockup. The toggle's segments now wrap whole inside its one shell, and each label
  * stays inside its segment with no line starting at its middot (at 360 and 390px; at both, the Annual label
- * ran onto three lines below its segment). Below a 12rem viewport the auth shell's wordmark yields to the
+ * ran onto three lines below its segment). Every form code in the landing's rows and its close paints on one line
+ * at 320 and 390px under 200% text and at 320px at the default size, where the plan table broke "10-Q" at its
+ * hyphen before each code became one nowrap run. Below a 12rem viewport the auth shell's wordmark yields to the
  * mark. The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
@@ -838,6 +840,77 @@ for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }
         expect(segment.lines.every((line) => line.split(/\s+/).every((token) => words.includes(token))), `${at}: the label breaks only between words`).toBe(true)
         expect(segment.lines.slice(0, -1).every((line) => line.endsWith('·')), `${at}: the label breaks only after its middot`).toBe(true)
       }
+    })
+  })
+}
+
+/** A form code is one unbroken run (lessons/frontend-check-brand-layouts-at-200-percent-text.md), so a line that wraps
+    never breaks it at its hyphen. Before, the plan table's Filings cells painted "10-K and 10-" over "Q filings" at
+    320px, at the default size and under 200% text, and at 390px under 200% text, and the claims row and How it works
+    split "10-Q" the same way at 320px under 200% text. FormCodeText now sets each code in a whitespace-nowrap span, as
+    the close and the Pro extras' file kinds already were. Each code painted in the landing's rows and its close (the
+    hero's are E81's), a plural or possessive included ("8-Ks"), is read with a Range over its own characters and must
+    paint on one line; the read must reach the table, the claims, How it works, the Pro row and the close. This read
+    keeps its own pattern rather than the component's, so a narrower one there cannot narrow it. */
+const FORM_CODE = /\b\d+-[A-Z]+(?:s|['’]s)?\b/
+const formCodes = (page: Page) =>
+  page.evaluate((source) => {
+    const pattern = new RegExp(source, 'g')
+    const found: { where: string; code: string; lines: number; text: string }[] = []
+    for (const root of document.querySelectorAll('main section[data-landing-row], main [data-landing-close]')) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+        const el = node.parentElement
+        if (!el || el.closest('.sr-only')) continue
+        for (const match of node.data.matchAll(pattern)) {
+          const range = document.createRange()
+          range.setStart(node, match.index ?? 0)
+          range.setEnd(node, (match.index ?? 0) + match[0].length)
+          const tops: number[] = []
+          for (const rect of range.getClientRects()) {
+            if (rect.width > 0 && !tops.some((top) => Math.abs(top - rect.top) < 2)) tops.push(rect.top)
+          }
+          found.push({
+            where: `${root.id || 'close'}${el.closest('table') ? ' table' : ''}`,
+            code: match[0],
+            lines: tops.length,
+            text: (el.closest('td, dd, p, li, a') ?? el).textContent?.replace(/\s+/g, ' ').trim().slice(0, 60) ?? '',
+          })
+        }
+      }
+    }
+    return found
+  }, FORM_CODE.source)
+
+for (const state of [
+  { width: 320, height: 640, doubled: true },
+  { width: 390, height: 844, doubled: true },
+  { width: 320, height: 640, doubled: false },
+]) {
+  const at = `${state.width}px${state.doubled ? ' and 200% text' : ' at the default text size'}`
+  test.describe(`a ${state.width}px phone${state.doubled ? ' at 200% text' : ''}, the landing's form codes`, () => {
+    test.use({ viewport: { width: state.width, height: state.height }, isMobile: true, hasTouch: true })
+    test(`home (/) paints every form code in its rows and its close on one line at ${at}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerGuest(page, baseURL!)
+      await page.goto('/')
+      await h1(page)
+      await expect(page.locator('#pricing table')).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      if (state.doubled) await doubleText(page)
+
+      const codes = await formCodes(page)
+      // Anti-vacuity: the read reaches every place on the landing that names a form.
+      for (const where of ['pricing table', 'claims', 'contents', 'pro', 'close']) {
+        expect(codes.filter((code) => code.where === where).length, `form codes read in ${where} at ${at}`).toBeGreaterThan(0)
+      }
+      const broken = codes.filter((code) => code.lines !== 1).map((code) => `${code.where}: "${code.code}" on ${code.lines} lines in "${code.text}"`)
+      expect(broken, `${at}: each form code paints on one line`).toEqual([])
     })
   })
 }

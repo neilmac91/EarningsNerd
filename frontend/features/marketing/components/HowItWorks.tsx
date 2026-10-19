@@ -1,3 +1,4 @@
+import FormCodeText from '@/features/marketing/components/FormCodeText'
 import { FileTextIcon, LightningIcon, MagnifyingGlassIcon } from '@/lib/icons'
 
 const STEPS = [
@@ -25,8 +26,9 @@ const STEPS = [
 
 /**
  * The compact three-step "how it works" row: icon tile, step number in the data face, title and
- * one line of description. It owns no section of its own; SummaryContents renders it beneath the
- * contents list in its ruled row, so headings here are h3 under that row's h2.
+ * one line of description, each form code in it one unbroken run. It owns no section of its own;
+ * SummaryContents renders it beneath the contents list in its ruled row, so headings here are h3
+ * under that row's h2.
  */
 export default function HowItWorks() {
   return (
@@ -47,7 +49,7 @@ export default function HowItWorks() {
               </div>
               <h3 className="mt-0.5 text-base leading-6">{step.title}</h3>
               <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                {step.description}
+                <FormCodeText text={step.description} />
               </p>
             </div>
           </li>

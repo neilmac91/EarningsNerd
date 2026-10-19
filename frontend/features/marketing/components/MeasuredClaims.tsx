@@ -1,3 +1,4 @@
+import FormCodeText from '@/features/marketing/components/FormCodeText'
 import LandingRow from '@/features/marketing/components/LandingRow'
 
 /**
@@ -19,7 +20,7 @@ const CLAIMS = [
  * The first ruled row after the hero (D-045): a definition list of subject + behaviour pairs, two
  * across from 40rem at the reader's text size and one above another below it, never the four-up strip
  * the template skeleton had (T4). No icons, no card chrome: the subject in the data face carries the
- * weight, and the label beneath it says what the product does with it.
+ * weight, and the label beneath it says what the product does with it, each form code in it one unbroken run.
  */
 export default function MeasuredClaims() {
   return (
@@ -30,7 +31,9 @@ export default function MeasuredClaims() {
             <dt className="font-data tnum text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               {claim.figure}
             </dt>
-            <dd className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{claim.label}</dd>
+            <dd className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              <FormCodeText text={claim.label} />
+            </dd>
           </div>
         ))}
       </dl>
