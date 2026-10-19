@@ -1,0 +1,4317 @@
+{
+ "zero_point_symbols": [
+  "ARC_NA",
+  "ASN_FAIL",
+  "BLOCKLISTDE_FAIL",
+  "DBL_FAIL",
+  "DMARC_DNSFAIL",
+  "FROM_EQ_ENVFROM",
+  "FROM_HAS_DN",
+  "MAILSPIKE_FAIL",
+  "MID_RHS_MATCH_FROM",
+  "MIME_TRACE",
+  "MISSING_XM_UA",
+  "MSBL_EBL_FAIL",
+  "RBL_SEM_FAIL",
+  "RBL_VIRUSFREE_UNKNOWN_FAIL",
+  "RCPT_COUNT_ONE",
+  "RCVD_COUNT_ZERO",
+  "RCVD_IN_DNSWL_FAIL",
+  "RDNS_DNSFAIL",
+  "RSPAMD_EMAILBL_FAIL",
+  "RSPAMD_URIBL_FAIL",
+  "R_DKIM_NA",
+  "R_SPF_DNSFAIL",
+  "SEM_URIBL_FRESH15_UNKNOWN_FAIL",
+  "SEM_URIBL_UNKNOWN_FAIL",
+  "SPAMHAUS_FAIL",
+  "SURBL_MULTI_FAIL",
+  "TO_DN_NONE",
+  "TO_DOM_EQ_FROM_DOM",
+  "URIBL_MULTI_FAIL",
+  "X_HIDDEN_CHARS",
+  "X_PARTS_DISTANCE",
+  "X_TRANSPARENT_CHARS"
+ ],
+ "current": {
+  "welcome[none]": {
+   "score": 5.55,
+   "bytes": 12553,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=7",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[none]": {
+   "score": 5.55,
+   "bytes": 12136,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[none]": {
+   "score": 4.55,
+   "bytes": 12804,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[none]": {
+   "score": 4.55,
+   "bytes": 11930,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[none]": {
+   "score": 4.55,
+   "bytes": 12818,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[none]": {
+   "score": 5.55,
+   "bytes": 11537,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=1",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[none]": {
+   "score": 5.55,
+   "bytes": 12155,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[none]": {
+   "score": 5.55,
+   "bytes": 13036,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[none]": {
+   "score": 5.55,
+   "bytes": 13406,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=7",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[none]": {
+   "score": 5.55,
+   "bytes": 14019,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[none]": {
+   "score": 5.55,
+   "bytes": 14438,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=9",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[none]": {
+   "score": 5.55,
+   "bytes": 13513,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[none]": {
+   "score": 5.55,
+   "bytes": 13854,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=9",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[short]": {
+   "score": 5.55,
+   "bytes": 12551,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=7",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[short]": {
+   "score": 5.55,
+   "bytes": 12134,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[short]": {
+   "score": 4.55,
+   "bytes": 12802,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[short]": {
+   "score": 4.55,
+   "bytes": 11928,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[short]": {
+   "score": 4.55,
+   "bytes": 12816,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[short]": {
+   "score": 5.55,
+   "bytes": 11535,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=1",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[short]": {
+   "score": 5.55,
+   "bytes": 12153,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[short]": {
+   "score": 5.55,
+   "bytes": 13034,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[short]": {
+   "score": 5.55,
+   "bytes": 13404,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=7",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[short]": {
+   "score": 5.55,
+   "bytes": 14017,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[short]": {
+   "score": 5.55,
+   "bytes": 14436,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=9",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[short]": {
+   "score": 5.55,
+   "bytes": 13511,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[short]": {
+   "score": 5.55,
+   "bytes": 13852,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=9",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[long]": {
+   "score": 5.55,
+   "bytes": 12605,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=7",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[long]": {
+   "score": 5.55,
+   "bytes": 12188,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[long]": {
+   "score": 4.55,
+   "bytes": 12856,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[long]": {
+   "score": 4.55,
+   "bytes": 11982,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[long]": {
+   "score": 4.55,
+   "bytes": 12870,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[long]": {
+   "score": 5.55,
+   "bytes": 11589,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=1",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[long]": {
+   "score": 5.55,
+   "bytes": 12207,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[long]": {
+   "score": 5.55,
+   "bytes": 13088,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[long]": {
+   "score": 5.55,
+   "bytes": 13458,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=7",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[long]": {
+   "score": 5.55,
+   "bytes": 14071,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[long]": {
+   "score": 5.55,
+   "bytes": 14490,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=9",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[long]": {
+   "score": 5.55,
+   "bytes": 13565,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[long]": {
+   "score": 5.55,
+   "bytes": 13906,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=9",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "data-quality": {
+   "score": 5.55,
+   "bytes": 21087,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=1",
+     "ct=multipart/alternative"
+    ]
+   }
+  }
+ },
+ "inline_nested": {
+  "welcome[none]": {
+   "score": 4.55,
+   "bytes": 17688,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[none]": {
+   "score": 4.55,
+   "bytes": 17271,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[none]": {
+   "score": 5.55,
+   "bytes": 17939,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[none]": {
+   "score": 5.55,
+   "bytes": 17065,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[none]": {
+   "score": 5.55,
+   "bytes": 17953,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[none]": {
+   "score": 4.55,
+   "bytes": 16672,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[none]": {
+   "score": 4.55,
+   "bytes": 17290,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[none]": {
+   "score": 4.55,
+   "bytes": 18171,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[none]": {
+   "score": 4.55,
+   "bytes": 18541,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[none]": {
+   "score": 4.55,
+   "bytes": 19154,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[none]": {
+   "score": 4.55,
+   "bytes": 19573,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[none]": {
+   "score": 4.55,
+   "bytes": 18648,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[none]": {
+   "score": 4.55,
+   "bytes": 18989,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[short]": {
+   "score": 4.55,
+   "bytes": 17686,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[short]": {
+   "score": 4.55,
+   "bytes": 17269,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[short]": {
+   "score": 5.55,
+   "bytes": 17937,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[short]": {
+   "score": 5.55,
+   "bytes": 17063,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[short]": {
+   "score": 5.55,
+   "bytes": 17951,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[short]": {
+   "score": 4.55,
+   "bytes": 16670,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[short]": {
+   "score": 4.55,
+   "bytes": 17288,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[short]": {
+   "score": 4.55,
+   "bytes": 18169,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[short]": {
+   "score": 4.55,
+   "bytes": 18539,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[short]": {
+   "score": 4.55,
+   "bytes": 19152,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[short]": {
+   "score": 4.55,
+   "bytes": 19571,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[short]": {
+   "score": 4.55,
+   "bytes": 18646,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[short]": {
+   "score": 4.55,
+   "bytes": 18987,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[long]": {
+   "score": 4.55,
+   "bytes": 17740,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[long]": {
+   "score": 4.55,
+   "bytes": 17323,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[long]": {
+   "score": 5.55,
+   "bytes": 17991,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[long]": {
+   "score": 5.55,
+   "bytes": 17117,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[long]": {
+   "score": 5.55,
+   "bytes": 18005,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[long]": {
+   "score": 4.55,
+   "bytes": 16724,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[long]": {
+   "score": 4.55,
+   "bytes": 17342,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[long]": {
+   "score": 4.55,
+   "bytes": 18223,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[long]": {
+   "score": 4.55,
+   "bytes": 18593,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[long]": {
+   "score": 4.55,
+   "bytes": 19206,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[long]": {
+   "score": 4.55,
+   "bytes": 19625,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[long]": {
+   "score": 4.55,
+   "bytes": 18700,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[long]": {
+   "score": 4.55,
+   "bytes": 19041,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "data-quality": {
+   "score": 4.55,
+   "bytes": 26222,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/alternative"
+    ]
+   }
+  }
+ },
+ "inline_related_top": {
+  "welcome[none]": {
+   "score": 4.55,
+   "bytes": 17707,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "referral[none]": {
+   "score": 4.55,
+   "bytes": 17290,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "verify[none]": {
+   "score": 4.55,
+   "bytes": 17958,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "invite[none]": {
+   "score": 4.55,
+   "bytes": 17084,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "reset[none]": {
+   "score": 4.55,
+   "bytes": 17972,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "oauth[none]": {
+   "score": 4.55,
+   "bytes": 16691,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "exists[none]": {
+   "score": 4.55,
+   "bytes": 17309,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "alert[none]": {
+   "score": 4.55,
+   "bytes": 18190,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "alert-wording[none]": {
+   "score": 4.55,
+   "bytes": 18560,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "digest1[none]": {
+   "score": 4.55,
+   "bytes": 19173,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "digest3[none]": {
+   "score": 4.55,
+   "bytes": 19592,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "earnings1[none]": {
+   "score": 4.55,
+   "bytes": 18667,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "earnings3[none]": {
+   "score": 4.55,
+   "bytes": 19008,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "welcome[short]": {
+   "score": 4.55,
+   "bytes": 17705,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "referral[short]": {
+   "score": 4.55,
+   "bytes": 17288,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "verify[short]": {
+   "score": 4.55,
+   "bytes": 17956,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "invite[short]": {
+   "score": 4.55,
+   "bytes": 17082,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "reset[short]": {
+   "score": 4.55,
+   "bytes": 17970,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "oauth[short]": {
+   "score": 4.55,
+   "bytes": 16689,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "exists[short]": {
+   "score": 4.55,
+   "bytes": 17307,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "alert[short]": {
+   "score": 4.55,
+   "bytes": 18188,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "alert-wording[short]": {
+   "score": 4.55,
+   "bytes": 18558,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "digest1[short]": {
+   "score": 4.55,
+   "bytes": 19171,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "digest3[short]": {
+   "score": 4.55,
+   "bytes": 19590,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "earnings1[short]": {
+   "score": 4.55,
+   "bytes": 18665,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "earnings3[short]": {
+   "score": 4.55,
+   "bytes": 19006,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "welcome[long]": {
+   "score": 4.55,
+   "bytes": 17759,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "referral[long]": {
+   "score": 4.55,
+   "bytes": 17342,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "verify[long]": {
+   "score": 4.55,
+   "bytes": 18010,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "invite[long]": {
+   "score": 4.55,
+   "bytes": 17136,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "reset[long]": {
+   "score": 4.55,
+   "bytes": 18024,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "oauth[long]": {
+   "score": 4.55,
+   "bytes": 16743,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "exists[long]": {
+   "score": 4.55,
+   "bytes": 17361,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "alert[long]": {
+   "score": 4.55,
+   "bytes": 18242,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "alert-wording[long]": {
+   "score": 4.55,
+   "bytes": 18612,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "digest1[long]": {
+   "score": 4.55,
+   "bytes": 19225,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "digest3[long]": {
+   "score": 4.55,
+   "bytes": 19644,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "earnings1[long]": {
+   "score": 4.55,
+   "bytes": 18719,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "earnings3[long]": {
+   "score": 4.55,
+   "bytes": 19060,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/related"
+    ]
+   }
+  },
+  "data-quality": {
+   "score": 4.55,
+   "bytes": 26241,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/related"
+    ]
+   }
+  }
+ },
+ "inline_mixed_top": {
+  "welcome[none]": {
+   "score": 4.55,
+   "bytes": 17703,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "referral[none]": {
+   "score": 4.55,
+   "bytes": 17286,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "verify[none]": {
+   "score": 4.55,
+   "bytes": 17954,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "invite[none]": {
+   "score": 4.55,
+   "bytes": 17080,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "reset[none]": {
+   "score": 4.55,
+   "bytes": 17968,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "oauth[none]": {
+   "score": 4.55,
+   "bytes": 16687,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "exists[none]": {
+   "score": 4.55,
+   "bytes": 17305,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "alert[none]": {
+   "score": 4.55,
+   "bytes": 18186,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "alert-wording[none]": {
+   "score": 4.55,
+   "bytes": 18556,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "digest1[none]": {
+   "score": 4.55,
+   "bytes": 19169,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "digest3[none]": {
+   "score": 4.55,
+   "bytes": 19588,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "earnings1[none]": {
+   "score": 4.55,
+   "bytes": 18663,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "earnings3[none]": {
+   "score": 4.55,
+   "bytes": 19004,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "welcome[short]": {
+   "score": 4.55,
+   "bytes": 17701,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "referral[short]": {
+   "score": 4.55,
+   "bytes": 17284,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "verify[short]": {
+   "score": 4.55,
+   "bytes": 17952,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "invite[short]": {
+   "score": 4.55,
+   "bytes": 17078,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "reset[short]": {
+   "score": 4.55,
+   "bytes": 17966,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "oauth[short]": {
+   "score": 4.55,
+   "bytes": 16685,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "exists[short]": {
+   "score": 4.55,
+   "bytes": 17303,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "alert[short]": {
+   "score": 4.55,
+   "bytes": 18184,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "alert-wording[short]": {
+   "score": 4.55,
+   "bytes": 18554,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "digest1[short]": {
+   "score": 4.55,
+   "bytes": 19167,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "digest3[short]": {
+   "score": 4.55,
+   "bytes": 19586,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "earnings1[short]": {
+   "score": 4.55,
+   "bytes": 18661,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "earnings3[short]": {
+   "score": 4.55,
+   "bytes": 19002,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "welcome[long]": {
+   "score": 4.55,
+   "bytes": 17755,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "referral[long]": {
+   "score": 4.55,
+   "bytes": 17338,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "verify[long]": {
+   "score": 4.55,
+   "bytes": 18006,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "invite[long]": {
+   "score": 4.55,
+   "bytes": 17132,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "reset[long]": {
+   "score": 4.55,
+   "bytes": 18020,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=3",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "oauth[long]": {
+   "score": 4.55,
+   "bytes": 16739,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "exists[long]": {
+   "score": 4.55,
+   "bytes": 17357,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "alert[long]": {
+   "score": 4.55,
+   "bytes": 18238,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "alert-wording[long]": {
+   "score": 4.55,
+   "bytes": 18608,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "digest1[long]": {
+   "score": 4.55,
+   "bytes": 19221,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "digest3[long]": {
+   "score": 4.55,
+   "bytes": 19640,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "earnings1[long]": {
+   "score": 4.55,
+   "bytes": 18715,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=4",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "earnings3[long]": {
+   "score": 4.55,
+   "bytes": 19056,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/mixed"
+    ]
+   }
+  },
+  "data-quality": {
+   "score": 4.55,
+   "bytes": 26237,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=0",
+     "ct=multipart/mixed"
+    ]
+   }
+  }
+ },
+ "text_tile_url": {
+  "welcome[none]": {
+   "score": 4.55,
+   "bytes": 12631,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[none]": {
+   "score": 4.55,
+   "bytes": 12214,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[none]": {
+   "score": 5.55,
+   "bytes": 12882,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[none]": {
+   "score": 5.55,
+   "bytes": 12008,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[none]": {
+   "score": 5.55,
+   "bytes": 12896,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[none]": {
+   "score": 4.55,
+   "bytes": 11615,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[none]": {
+   "score": 4.55,
+   "bytes": 12233,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[none]": {
+   "score": 4.55,
+   "bytes": 13114,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[none]": {
+   "score": 4.55,
+   "bytes": 13484,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[none]": {
+   "score": 4.55,
+   "bytes": 14097,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[none]": {
+   "score": 4.55,
+   "bytes": 14516,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[none]": {
+   "score": 4.55,
+   "bytes": 13591,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[none]": {
+   "score": 4.55,
+   "bytes": 13932,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[short]": {
+   "score": 4.55,
+   "bytes": 12629,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[short]": {
+   "score": 4.55,
+   "bytes": 12212,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[short]": {
+   "score": 5.55,
+   "bytes": 12880,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[short]": {
+   "score": 5.55,
+   "bytes": 12006,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[short]": {
+   "score": 5.55,
+   "bytes": 12894,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[short]": {
+   "score": 4.55,
+   "bytes": 11613,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[short]": {
+   "score": 4.55,
+   "bytes": 12231,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[short]": {
+   "score": 4.55,
+   "bytes": 13112,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[short]": {
+   "score": 4.55,
+   "bytes": 13482,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[short]": {
+   "score": 4.55,
+   "bytes": 14095,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[short]": {
+   "score": 4.55,
+   "bytes": 14514,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[short]": {
+   "score": 4.55,
+   "bytes": 13589,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[short]": {
+   "score": 4.55,
+   "bytes": 13930,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[long]": {
+   "score": 4.55,
+   "bytes": 12683,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[long]": {
+   "score": 4.55,
+   "bytes": 12266,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[long]": {
+   "score": 5.55,
+   "bytes": 12934,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[long]": {
+   "score": 5.55,
+   "bytes": 12060,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[long]": {
+   "score": 5.55,
+   "bytes": 12948,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[long]": {
+   "score": 4.55,
+   "bytes": 11667,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[long]": {
+   "score": 4.55,
+   "bytes": 12285,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[long]": {
+   "score": 4.55,
+   "bytes": 13166,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[long]": {
+   "score": 4.55,
+   "bytes": 13536,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[long]": {
+   "score": 4.55,
+   "bytes": 14149,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[long]": {
+   "score": 4.55,
+   "bytes": 14568,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[long]": {
+   "score": 4.55,
+   "bytes": 13643,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[long]": {
+   "score": 4.55,
+   "bytes": 13984,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "data-quality": {
+   "score": 4.55,
+   "bytes": 21165,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  }
+ },
+ "header_home_link": {
+  "welcome[none]": {
+   "score": 4.55,
+   "bytes": 12633,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[none]": {
+   "score": 4.55,
+   "bytes": 12216,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[none]": {
+   "score": 5.55,
+   "bytes": 12884,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[none]": {
+   "score": 5.55,
+   "bytes": 12010,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[none]": {
+   "score": 5.55,
+   "bytes": 12898,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[none]": {
+   "score": 4.55,
+   "bytes": 11617,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[none]": {
+   "score": 4.55,
+   "bytes": 12235,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[none]": {
+   "score": 4.55,
+   "bytes": 13116,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[none]": {
+   "score": 4.55,
+   "bytes": 13486,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[none]": {
+   "score": 4.55,
+   "bytes": 14099,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[none]": {
+   "score": 4.55,
+   "bytes": 14518,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[none]": {
+   "score": 4.55,
+   "bytes": 13593,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[none]": {
+   "score": 4.55,
+   "bytes": 13934,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[short]": {
+   "score": 4.55,
+   "bytes": 12631,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[short]": {
+   "score": 4.55,
+   "bytes": 12214,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[short]": {
+   "score": 5.55,
+   "bytes": 12882,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[short]": {
+   "score": 5.55,
+   "bytes": 12008,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[short]": {
+   "score": 5.55,
+   "bytes": 12896,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[short]": {
+   "score": 4.55,
+   "bytes": 11615,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[short]": {
+   "score": 4.55,
+   "bytes": 12233,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[short]": {
+   "score": 4.55,
+   "bytes": 13114,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[short]": {
+   "score": 4.55,
+   "bytes": 13484,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[short]": {
+   "score": 4.55,
+   "bytes": 14097,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[short]": {
+   "score": 4.55,
+   "bytes": 14516,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[short]": {
+   "score": 4.55,
+   "bytes": 13591,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[short]": {
+   "score": 4.55,
+   "bytes": 13932,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[long]": {
+   "score": 4.55,
+   "bytes": 12685,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[long]": {
+   "score": 4.55,
+   "bytes": 12268,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[long]": {
+   "score": 5.55,
+   "bytes": 12936,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[long]": {
+   "score": 5.55,
+   "bytes": 12062,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[long]": {
+   "score": 5.55,
+   "bytes": 12950,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[long]": {
+   "score": 4.55,
+   "bytes": 11669,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[long]": {
+   "score": 4.55,
+   "bytes": 12287,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[long]": {
+   "score": 4.55,
+   "bytes": 13168,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[long]": {
+   "score": 4.55,
+   "bytes": 13538,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[long]": {
+   "score": 4.55,
+   "bytes": 14151,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[long]": {
+   "score": 4.55,
+   "bytes": 14570,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[long]": {
+   "score": 4.55,
+   "bytes": 13645,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[long]": {
+   "score": 4.55,
+   "bytes": 13986,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "data-quality": {
+   "score": 4.55,
+   "bytes": 21167,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  }
+ },
+ "text_site_line": {
+  "welcome[none]": {
+   "score": 4.55,
+   "bytes": 12598,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[none]": {
+   "score": 4.55,
+   "bytes": 12181,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[none]": {
+   "score": 5.55,
+   "bytes": 12849,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[none]": {
+   "score": 5.55,
+   "bytes": 11975,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[none]": {
+   "score": 5.55,
+   "bytes": 12863,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[none]": {
+   "score": 4.55,
+   "bytes": 11582,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[none]": {
+   "score": 4.55,
+   "bytes": 12200,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[none]": {
+   "score": 4.55,
+   "bytes": 13081,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[none]": {
+   "score": 4.55,
+   "bytes": 13451,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[none]": {
+   "score": 4.55,
+   "bytes": 14064,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[none]": {
+   "score": 4.55,
+   "bytes": 14483,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[none]": {
+   "score": 4.55,
+   "bytes": 13558,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[none]": {
+   "score": 4.55,
+   "bytes": 13899,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[short]": {
+   "score": 4.55,
+   "bytes": 12596,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[short]": {
+   "score": 4.55,
+   "bytes": 12179,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[short]": {
+   "score": 5.55,
+   "bytes": 12847,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[short]": {
+   "score": 5.55,
+   "bytes": 11973,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[short]": {
+   "score": 5.55,
+   "bytes": 12861,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[short]": {
+   "score": 4.55,
+   "bytes": 11580,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[short]": {
+   "score": 4.55,
+   "bytes": 12198,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[short]": {
+   "score": 4.55,
+   "bytes": 13079,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[short]": {
+   "score": 4.55,
+   "bytes": 13449,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[short]": {
+   "score": 4.55,
+   "bytes": 14062,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[short]": {
+   "score": 4.55,
+   "bytes": 14481,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[short]": {
+   "score": 4.55,
+   "bytes": 13556,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[short]": {
+   "score": 4.55,
+   "bytes": 13897,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "welcome[long]": {
+   "score": 4.55,
+   "bytes": 12650,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "referral[long]": {
+   "score": 4.55,
+   "bytes": 12233,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "verify[long]": {
+   "score": 5.55,
+   "bytes": 12901,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "invite[long]": {
+   "score": 5.55,
+   "bytes": 12027,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "reset[long]": {
+   "score": 5.55,
+   "bytes": 12915,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "URI_COUNT_ODD": 1.0,
+    "X_URLS": [
+     "n=5",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "oauth[long]": {
+   "score": 4.55,
+   "bytes": 11634,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "exists[long]": {
+   "score": 4.55,
+   "bytes": 12252,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert[long]": {
+   "score": 4.55,
+   "bytes": 13133,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "alert-wording[long]": {
+   "score": 4.55,
+   "bytes": 13503,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=8",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest1[long]": {
+   "score": 4.55,
+   "bytes": 14116,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "digest3[long]": {
+   "score": 4.55,
+   "bytes": 14535,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings1[long]": {
+   "score": 4.55,
+   "bytes": 13610,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=6",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "earnings3[long]": {
+   "score": 4.55,
+   "bytes": 13951,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=10",
+     "ct=multipart/alternative"
+    ]
+   }
+  },
+  "data-quality": {
+   "score": 4.55,
+   "bytes": 21132,
+   "symbols": {
+    "HFILTER_HOSTNAME_UNKNOWN": 2.5,
+    "MANY_INVISIBLE_PARTS": 0.05,
+    "MIME_GOOD": -0.1,
+    "ONCE_RECEIVED": 0.1,
+    "RDNS_NONE": 2.0,
+    "X_URLS": [
+     "n=2",
+     "ct=multipart/alternative"
+    ]
+   }
+  }
+ }
+}

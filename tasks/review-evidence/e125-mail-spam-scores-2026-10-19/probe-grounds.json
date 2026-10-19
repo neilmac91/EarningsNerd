@@ -1,0 +1,140 @@
+{
+ "table bgcolor": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale words on a dark ground.]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "td bgcolor": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale words on a dark ground.]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "tr bgcolor": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale words on a dark ground.]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "body bgcolor": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale words on a dark ground.]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "body style background-color": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale words on a dark ground.]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "table style background-color": {
+  "low_contrast": false,
+  "report": [
+   "score=-0.001 tests=HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "td style background-color": {
+  "low_contrast": false,
+  "report": [
+   "score=-0.001 tests=HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "div style background shorthand": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale words on a dark ground.]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "div style background-color": {
+  "low_contrast": false,
+  "report": [
+   "score=-0.001 tests=HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "a style background shorthand": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale link]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "a style background-color": {
+  "low_contrast": false,
+  "report": [
+   "score=-0.001 tests=HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "a style background-color with a space before the colon": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale link]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "a style BACKGROUND-COLOR in capitals": {
+  "low_contrast": false,
+  "report": [
+   "score=-0.001 tests=HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "a bgcolor": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale link]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "em style background-color": {
+  "low_contrast": false,
+  "report": [
+   "score=-0.001 tests=HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "span style background-color, ink from a": {
+  "low_contrast": false,
+  "report": [
+   "score=-0.001 tests=HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "p style background-color": {
+  "low_contrast": false,
+  "report": [
+   "score=-0.001 tests=HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "h1 style background-color": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale words on a dark ground.]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "td style background-color, text after a closed span": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#000000 bg=#000000 text=[x]",
+   "score=1.313 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,HTML_OBFUSCATE_05_10,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "control: pale words on no ground": {
+  "low_contrast": true,
+  "report": [
+   "LOW CONTRAST: fg=#ffffff bg=#ffffff text=[Pale words on a dark ground.]",
+   "score=0.712 tests=HTML_FONT_LOW_CONTRAST,HTML_MESSAGE,NO_RECEIVED,NO_RELAYS"
+  ]
+ },
+ "control: dark words on no ground": {
+  "low_contrast": false,
+  "report": [
+   "score=2.245 tests=HTML_MESSAGE,MPART_ALT_DIFF,NO_RECEIVED,NO_RELAYS"
+  ]
+ }
+}

@@ -4,8 +4,8 @@ goes back to the pool before its async route yields to the dependency's finalize
 One rule, two halves in this one module:
 
 - Behaviour: an eight-request burst against a four-slot pool, per listed route, must answer every
-  request without a pool timeout, with no transaction left for the finalizer and, for the summaries,
-  peers and waitlist routes, no checkout on the event-loop thread; a six-reader what-changed burst
+  request without a pool timeout, with no transaction left for the finalizer and no checkout on the
+  event-loop thread; a six-reader what-changed burst
   with a slow wording diff must wait for its slots in the thread pool, not on the loop; the
   analysis stream must release its connection before its body streams, alone and in a burst; the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
@@ -217,12 +217,10 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open.
         assert [session.open_at_close[-1:] for session in request_sessions] == [[False]] * 8
-        # The filings reads run their unit on the loop and release it before yielding; the summaries,
-        # peers and waitlist routes run theirs in the thread pool, so none of their checkouts happens
-        # on the loop.
+        # Every listed route runs its unit in the thread pool and releases it before yielding, so
+        # none of their checkouts happens on the loop.
         assert len(loop_checkouts) >= 8
-        if path.startswith(("/api/summaries/", "/api/companies/", "/api/waitlist/")):
-            assert loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_checkouts == [False] * len(loop_checkouts)
         if payload_kind == "progress_stalled":
             with sessions() as db:
                 assert db.get(SummaryGenerationProgress, 1).stage == "error"
@@ -691,7 +689,8 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # explains. Lowering is therefore each fixing PR's job, checked in review.
 #
 # Out of reach, and left to the burst test above for the routes it lists and to review elsewhere: a
-# session handed to a service or helper that runs on the loop (``filing_read_service.filing_by_id(db, ...)``, E94),
+# session handed to a service or helper that runs on the loop
+# (``audit_service.log_login_success(db, ...)`` in login, E121),
 # a nested sync function or lambda called directly on the loop
 # instead of through the thread pool, a session reached through an attribute or a container, a
 # session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's

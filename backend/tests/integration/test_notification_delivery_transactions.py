@@ -62,7 +62,7 @@ def _seed_batch(engine) -> tuple[int, int, int]:
         db.add_all([filing, Watchlist(user_id=user.id, company_id=company.id, created_at=NOW),
                     NotificationPreferences(user_id=user.id, realtime=True)])
         db.commit()
-        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=user.id, subject="s", html="h",
+        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=user.id, subject="s", html="h", text="t",
                                       filing_ids=[filing.id], now=NOW)
         return user.id, filing.id, batch.id
 
