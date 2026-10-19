@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 import string
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -18,6 +19,13 @@ from app.models import WaitlistSignup
 REFERRAL_CODE_LENGTH = 8
 REFERRAL_BONUS = 5
 VERIFY_TOKEN_DAYS = 7
+
+# A join reads, then writes: the referrer's priority it bumps and the signup count its position comes
+# from. On the event loop the join ran them one at a time within the process; in the thread pool two
+# joins on one referral link could both read the same priority and lose a credit, and two joins could
+# take one position. ``create_signup`` holds this lock for its whole unit, taken before its first
+# query: a waiter holds no connection, so a holder's checkout never waits for one a waiter holds.
+_join_lock = threading.Lock()
 
 
 def generate_referral_code(length: int = REFERRAL_CODE_LENGTH) -> str:
@@ -89,6 +97,23 @@ class WaitlistJoin:
     total_signups: int
 
 
+@dataclass(frozen=True)
+class SignupView:
+    """The signup fields the join route reads after its unit has released the session."""
+
+    id: int
+    email: str
+    name: Optional[str]
+    position: int
+    priority_score: int
+    referral_code: str
+
+    @classmethod
+    def of(cls, signup: WaitlistSignup) -> "SignupView":
+        return cls(signup.id, signup.email, signup.name, signup.position, signup.priority_score,
+                   signup.referral_code)
+
+
 def find_signup_by_email(db: Session, email: str) -> Optional[WaitlistSignup]:
     return db.query(WaitlistSignup).filter(WaitlistSignup.email == email).first()
 
@@ -118,8 +143,23 @@ def create_signup(
 
     Moved from ``POST /api/waitlist/join``. An IntegrityError on the commit rolls back both the
     insert and the bump, then re-reads the email: a concurrent join of the same address raises
-    ``WaitlistAlreadyJoined`` like the up-front check does.
+    ``WaitlistAlreadyJoined`` like the up-front check does. Joins in one process run one at a time
+    (``_join_lock``).
     """
+    with _join_lock:
+        return _create_signup(
+            db, email=email, name=name, referral_code=referral_code, source=source,
+        )
+
+
+def _create_signup(
+    db: Session,
+    *,
+    email: str,
+    name: Optional[str],
+    referral_code: Optional[str],
+    source: Optional[str],
+) -> WaitlistJoin:
     existing = find_signup_by_email(db, email)
     if existing:
         raise WaitlistAlreadyJoined(existing)
@@ -165,25 +205,15 @@ def create_signup(
     return WaitlistJoin(signup=signup, referrer=referrer, total_signups=total_signups)
 
 
-def mark_welcome_email_sent(db: Session, signup: WaitlistSignup) -> None:
+def mark_welcome_email_sent(db: Session, signup_id: int) -> None:
+    """Flag the signup's welcome mail as sent. The join route calls it in its own unit after the
+    send, and that unit's release rolls back a flag commit that fails. A signup gone by then fails
+    the step as a failed flag commit does: the route logs it and answers ``email_sent`` false."""
+    signup = db.get(WaitlistSignup, signup_id)
+    if signup is None:
+        raise LookupError(f"Waitlist signup {signup_id} is gone")
     signup.welcome_email_sent = True
     db.commit()
-
-
-def rollback_after_welcome_failure(db: Session) -> None:
-    """Roll back the session after the join's welcome step fails (the send or the flag commit).
-
-    This ends the whole session transaction, not just the flag: it discards anything pending and
-    expires every loaded row, so the router's later ``signup.id`` and referrer reads re-select (the
-    signup and any referrer bump were already committed by ``create_signup``). After a failed flag
-    commit the rollback is required; without it those reads raise ``PendingRollbackError``.
-
-    Transaction ownership did not move here: the router's ``except Exception`` around the awaited
-    send still decides when to roll back, and this wrapper only keeps the session call out of the
-    router module. Moving the send, flag commit and rollback into one service function would change
-    where the failure is caught and logged, so that is left for a later PR.
-    """
-    db.rollback()
 
 
 def mark_email_verified(db: Session, email: str) -> bool:

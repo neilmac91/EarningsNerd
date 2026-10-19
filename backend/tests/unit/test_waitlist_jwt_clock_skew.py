@@ -5,6 +5,7 @@ from fastapi import HTTPException
 import jwt
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import Session
 
 from app.models import WaitlistSignup
@@ -32,7 +33,9 @@ async def test_waitlist_verification_persists_only_within_configured_clock_skew(
     monkeypatch.setattr(waitlist_service, "datetime", IssuerDatetime)
     monkeypatch.setattr(watchlist.settings, "JWT_LEEWAY_SECONDS", 10)
 
-    engine = create_engine("sqlite:///:memory:")
+    # One connection shared across threads: the route verifies in a thread-pool unit, and an
+    # in-memory database is private to its connection.
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     try:
         WaitlistSignup.__table__.create(engine)
         with Session(engine) as db:
@@ -46,9 +49,12 @@ async def test_waitlist_verification_persists_only_within_configured_clock_skew(
             )
             db.add_all([within, outside])
             db.commit()
+            # Plain values: the route's unit releases the session, which detaches these rows.
             within_id, outside_id = within.id, outside.id
+            within_email, within_code = within.email, within.referral_code
+            outside_email, outside_code = outside.email, outside.referral_code
 
-            token = waitlist_service.create_verification_token(within.email, within.referral_code)
+            token = waitlist_service.create_verification_token(within_email, within_code)
             assert await watchlist.verify_waitlist_email(token, db) == {
                 "success": True, "message": "Email verified.",
             }
@@ -56,7 +62,7 @@ async def test_waitlist_verification_persists_only_within_configured_clock_skew(
             assert db.get(WaitlistSignup, within_id).email_verified is True
 
             issuer_skew = 11
-            token = waitlist_service.create_verification_token(outside.email, outside.referral_code)
+            token = waitlist_service.create_verification_token(outside_email, outside_code)
             with pytest.raises(HTTPException) as caught:
                 await watchlist.verify_waitlist_email(token, db)
             assert caught.value.status_code == 400
