@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Company, Filing, Summary, Watchlist
+from app.models import Company, Filing, Summary, SummaryGenerationProgress, Watchlist
 
 
 class WatchlistCompanyNotFound(Exception):
@@ -86,6 +86,7 @@ class WatchlistInsightRows:
     latest_filing_by_company: Dict[int, Filing]
     filing_counts: Dict[int, int]
     summary_by_filing: Dict[int, Summary]
+    progress_by_filing: Dict[int, SummaryGenerationProgress]
 
 
 def load_insight_rows(db: Session, user_id: int) -> Optional[WatchlistInsightRows]:
@@ -144,9 +145,22 @@ def load_insight_rows(db: Session, user_id: int) -> Optional[WatchlistInsightRow
             if summary.filing_id not in summary_by_filing:
                 summary_by_filing[summary.filing_id] = summary
 
+    # Each latest filing's generation progress, read in this session. A helper that opens its own
+    # session per filing would need a second pooled connection while this one is held, and four such
+    # requests deadlock the four-slot pool (lessons/ops-one-connection-per-request-unit.md).
+    progress_by_filing: Dict[int, SummaryGenerationProgress] = {}
+    if latest_filing_ids:
+        progress_by_filing = {
+            progress.filing_id: progress
+            for progress in db.query(SummaryGenerationProgress)
+            .filter(SummaryGenerationProgress.filing_id.in_(latest_filing_ids))
+            .all()
+        }
+
     return WatchlistInsightRows(
         watchlist_items=watchlist_items,
         latest_filing_by_company=latest_filing_by_company,
         filing_counts=filing_counts,
         summary_by_filing=summary_by_filing,
+        progress_by_filing=progress_by_filing,
     )

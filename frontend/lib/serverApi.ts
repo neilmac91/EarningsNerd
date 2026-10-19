@@ -197,7 +197,7 @@ export interface NotableFilingsResponse {
 
 /** Market-wide notable filings (EDGAR-native). Server-rendered only — the section self-omits
  * when the list is empty, so there is no client query. Dormant since 2026-10-11: unmounted from
- * `/` until a curation rule exists (features/filings/components/NotableFilings.tsx); when it
+ * `/` until E90 remounts it under D-046's curation rule (features/filings/components/NotableFilings.tsx); when it
  * returns it renders nothing until NOTABLE_FILINGS_ENABLED is on, because the API answers 200
  * with an empty list.
  *

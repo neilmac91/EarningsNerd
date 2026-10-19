@@ -249,6 +249,7 @@ async def generate_summary_stream(
         # Check if summary already exists
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         refresh_unready = False
+        cleared_for_regeneration = False
         if summary:
             # The body this route would replay, judged by the filing page's readiness rule
             # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
@@ -297,7 +298,10 @@ async def generate_summary_stream(
                 if progress:
                     db.delete(progress)
 
-                db.commit()
+                # Committed below, once the stream's inputs are read: the commit expires the user and
+                # the filing, and a read of either after it refreshes its row with a fresh checkout on
+                # the event loop (lessons/ops-release-cached-filing-reads-before-yield.md).
+                cleared_for_regeneration = True
             else:
                 # Capture the response before closing the dependency's read transaction.
                 payload = {
@@ -336,6 +340,8 @@ async def generate_summary_stream(
         # Resolve missing subscription inputs in a separate worker-owned transaction; neither
         # the request session nor any ORM object crosses into that worker or the stream.
         generation_user = snapshot_generation_user(current_user, user_id)
+        if cleared_for_regeneration:
+            db.commit()
         db.close()
         generation_user = await run_in_threadpool(load_generation_user, generation_user)
 

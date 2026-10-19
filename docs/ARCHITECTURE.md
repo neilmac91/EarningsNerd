@@ -185,13 +185,14 @@ frontend/
 | `saved_summary_service.py` | Saved-summary bookmarks, notes, status and library row shaping; the router owns authentication, request validation and HTTP error mapping |
 | `user_notification_feed_service.py` | Sent-alert feed reads, unread counts and the seen-at write for the in-app bell; the users router owns authentication, request limits and response models |
 | `company_lookup_service.py` | Company lookups, search upserts/CIK-conflict recovery and response snapshots with session release; the companies router owns SEC/quote I/O and HTTP error mapping |
-| `filing_list_service.py` | Company filing-list freshness, cached reads, persistence, background refresh and on-visit history backfill; the filings router keeps request-path SEC awaits, task scheduling/handoff, response models and error mapping |
-| `filing_read_service.py` | Single/recent filing, cached-content and fundamentals reads, with payload construction and session release in one unit; the filings router owns response models/converters and missing-filing HTTP errors |
+| `filing_list_service.py` | Company filing-list freshness, cached reads, persistence, background refresh and on-visit history backfill, each request unit releasing its session; the filings router runs those units in the thread pool and keeps request-path SEC awaits, task scheduling/handoff, response models and error mapping |
+| `filing_read_service.py` | Single/recent filing, cached-content and fundamentals reads, with payload construction and session release in one unit, which the filings router runs in the thread pool; the router owns response models/converters and missing-filing HTTP errors |
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
 | `sitemap_service.py` | Eligible company/filing queries and bounded XML assembly; the sitemap router owns the hourly cache, single-flight lock and HTTP response |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
 | `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
 | `analysis_data_access.py` | Analysis record reads and short-session ingest/metering/release units; the router keeps HTTP policy, task/stream ownership and call-time collaborator seams |
+| `job_sessions.py` | Runs one job in a session of its own and closes it however the job ends, for work outside a request's `get_db` session: the internal triggers' flag-off background runs and the Resend click record; the callers keep their log lines and pass the job by an attribute resolved at call time |
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
 | `change_report_service.py` | Period-over-period change report (financial deltas; risk diffs withheld) plus, behind `ENABLE_SECTION_CHANGES`, the `section_changes` wording diff block |
@@ -335,12 +336,61 @@ unused since generation became account-required in #619; kept because migrations
 - Per-filing discrete-quarter facts retain fiscal labels anchored to the XBRL filing focus and
   their own distance from its report date. Comparative quarters move across fiscal years;
   non-calendar years do not use calendar-quarter labels. Missing/irregular metadata stays unknown.
+  Annual-report (10-K/20-F/40-F and their amendments) points take the issuer's fiscal year from the
+  same anchor (the DEI FY focus year less whole years back from the report date) wherever the
+  calendar year of the period end misnames it: a year ending 1 February 2025 is fiscal 2024, a
+  52-week year ending 1 January 2023 is fiscal 2022. The focus is trusted within the companyfacts
+  writer's year bound (the end year or the year before), and the year before only where most of the
+  year lies in it, so a December filer's lagging focus cannot move its years. One filing cannot
+  outvote a lagging focus on a year ending January to early July (Salesforce's 10-K for its fiscal
+  2026, ended 31 January 2026, says 2025), as the companyfacts year chain can, so the per-filing
+  writer moves an annual report's FY rows onto the years companyfacts already stores for its period
+  ends (`facts/fiscal_evidence`: FY rows from the fiscal-year-window writer that name one year and
+  include a duration), by one offset for the whole filing; offsets that disagree keep the filing's
+  labels, quarter labels never move, and a report opened before the first sync keeps its own (a
+  known limit). Without a trusted focus, or for a point more than 18 days off a whole number of
+  years from the report date (a transition period), the label is the calendar year of the end,
+  never NULL (a NULL year would drop the period from Multi-Period Analysis). The fact identity
+  leaves the year out, so this is what lets the per-filing and companyfacts writers name a period
+  alike whichever stores it first, wherever a timely annual report (filed within 180 days of its
+  end) anchors the companyfacts year chain, short of that limit. Where a contiguous chain holds
+  none, the companyfacts writer keeps calendar years, for the chain's quarters too, while the
+  per-filing labellers, which see no filing date, name the fiscal year. So a delinquent filer whose
+  fiscal year is named for the calendar year before its end (in practice a year ending in January
+  or February, a 52-week year ending in early January, or a March 20-F named by its start) carries
+  two labels for one period end when its report is opened before the sync; synced first, the
+  report takes the calendar years. A 10-Q filer's quarter rows were already mixed this way before
+  the annual labeller (a 20-F filer has none, so for it the annual mix is new); the open follow-up,
+  in the companyfacts writer, fixes both. The Multi-Period Analysis dataset reads current rows in
+  period-end order, so a label that two period ends carry resolves to the later one, the axis
+  bucket's own end.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
   deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
   company row and preserve a known newer accession. The per-filing writer also preserves untied
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
+- Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
+  A foreign list is read only when the USD list is its convenience translation (every USD
+  period the collector keeps, by period end and span, is also kept from the foreign list; an
+  item it drops counts on neither side); among such lists the per-filing extractor's
+  `_reporting_currency` rule picks. A foreign US-GAAP filer's history is therefore stored as
+  reported (CNY, JPY), never from its USD convenience translations. A filer with no USD list at
+  all, such as a 10-K filer that reports in CAD, is stored in its own currency too, since no USD
+  period then needs a twin; a USD-only read stored nothing for it. Any other shape keeps the USD
+  list: a stray foreign fact, whatever its date, and a currency switch in either direction. A
+  switcher's years reported in a non-USD currency are not ingested in that currency; after a
+  switch to USD, its earlier years come from the USD convenience translations, as before. Quarter
+  derivation works in any currency. Once the native row arrives, a sync demotes, never deletes,
+  any current USD row at the same concept, period end and fiscal period, whatever its source or
+  filing. The newer-accession rule above is per unit; across units the pick has already chosen
+  the series currency. A derived ratio (`pure`) keeps its unit, so where a known filing date kept
+  one computed from USD operands current, the sync demotes it and promotes the native
+  calculation. A ratio stored before operands were recorded (2026-10-10) counts as USD-derived
+  when it is derived and has no filing owner, because companyfacts was then read only in USD.
+  One stored under the native calculation's own identity (same filing) keeps its
+  USD operands, because ingestion never rewrites an identity; the journaled repair
+  (`docs/quarterly-data-repair.md`) recomputes it.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

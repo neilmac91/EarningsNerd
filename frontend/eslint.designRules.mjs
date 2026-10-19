@@ -142,8 +142,8 @@
 //                       own file is exempt. The one site the wider reading finds is WordingChanges.tsx's review
 //                       row (LabelToggle, features/filings): its toggle clears a label that is already set, so
 //                       "pressed nowhere" is a valid state, which the SegmentedControl (always one selected
-//                       value) cannot hold, and the group's line carries the disable with that reason; E62
-//                       (tasks/todo.md) holds the decision. A group of independent toggles (a multi-select
+//                       value) cannot hold, and the group's line carries the disable with that reason: a mark
+//                       a reader can clear stays a toggle group (D-046). A group of independent toggles (a multi-select
 //                       filter row) is not this control either: disable the rule on that line with the reason.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at

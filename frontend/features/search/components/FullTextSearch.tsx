@@ -251,21 +251,24 @@ export default function FullTextSearch() {
       </div>
 
       {failure.failed && (
-        // The message takes the line it needs (12rem at least, so it never thins to a word a line) and
-        // Retry wraps under it when the two do not fit; the glyph keeps its size.
         <div
           role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"
+          className="flex items-start gap-2 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"
         >
-          <span className="flex min-w-0 flex-[1_1_12rem] items-start gap-2">
-            <WarningIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            <span className="min-w-0 break-words">{errorText}</span>
-          </span>
-          {/* When the alert goes while Retry holds focus (the search lands), focus moves to the field,
-              except after a tap, which would raise the touch keyboard. */}
-          <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField>
-            Retry
-          </RetryButton>
+          <WarningIcon className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
+          <div className="min-w-0 flex-1">
+            {/* The backend's own words, which can hold a long token: it breaks inside the alert. */}
+            <p className="break-words">{errorText}</p>
+            {/* The Retry takes its own row under the message, as a Notice's action does: it keeps the room of
+                "Trying again…" at rest, and beside the message, in a row that could not wrap, that room pushed
+                it past the screen at 200% text on a phone. When the alert goes while Retry holds focus (the
+                search lands), focus moves to the field, except after a tap, which would raise the touch
+                keyboard. full-text-search.spec.tsx pins this layout; its browser case waits on E39 (CI's e2e
+                build leaves /search off). */}
+            <div className="mt-2.5 flex">
+              <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField />
+            </div>
+          </div>
         </div>
       )}
 
