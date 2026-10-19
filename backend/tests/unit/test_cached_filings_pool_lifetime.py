@@ -1072,8 +1072,9 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
     readers on four slots (Free for the PDF's plan refusal) leave nothing for the finalizer and run
     no checkout or statement on the loop. ``coverage_handoff`` is a first touch in durable mode: the
     sync outlasts the wait, the route cancels it, hands it to the queue and reads what exists. In
-    ``coverage_sync`` the sync is real but for its SEC fetch: one request leads it, the others follow,
-    and its sessions keep off the loop too (E129)."""
+    ``coverage_sync`` the route runs ``ingest_companyfacts_by_id`` itself, on the fixture's sessions and
+    with only its SEC fetch faked: one request leads it, the others follow, and its sessions keep off
+    the loop too (E129)."""
     from app.config import settings
     from app.routers import analysis, auth
     from app.services import facts_service
@@ -1111,8 +1112,8 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
         from app.services.facts import ingest
 
         async def sync(company_id: int) -> dict:
-            # The real sync but for its SEC fetch, on plain sessions: the request-session tally
-            # below counts the eight requests', and the engine's listeners see the sync's as well.
+            # In place of the route's SessionLocal binding, so the request-session tally below
+            # counts the eight requests' sessions while the engine's listeners see the sync's too.
             return await facts_service.ingest_companyfacts_by_id(company_id, session_factory=sessions)
 
         monkeypatch.setattr(analysis, "_ingest_with_own_session", sync)

@@ -1,4 +1,4 @@
-# Keep authentication and Copilot pool waits off the event loop
+# Keep pool waits off the event loop and out of its default executor
 
 Date: 2026-10-03, extended 2026-10-16 to Copilot lookups and 2026-10-19 to the companyfacts sync and
 every default-executor site · Area: ops / authentication / Copilot / facts
@@ -19,17 +19,18 @@ needing one waited on each other until the pool timed out, with the same uncited
 `run_in_lookup_thread` (`backend/app/services/ai/copilot_chat.py`), whose threads only Copilot
 lookups use, and never through `asyncio.to_thread`: the default executor is shared with work that
 may be holding a slot. The companyfacts sync (`backend/app/services/facts/ingest.py`) runs its
-freshness read, a follower's re-read and its persist on `_SYNC_THREADS`, threads of its own, for the
-same reason. Only work that never waits for a pool slot goes to the default executor
-(`asyncio.to_thread`, `run_in_executor(None, ...)`), and each such site is listed with why. The
+freshness read, a follower's re-read and its persist on threads of its own
+(`backend/app/services/facts/sync_threads.py`) for the same reason. Only work that never waits for a
+pool slot goes to the default executor (`asyncio.to_thread`, `run_in_executor(None, ...)`), and each
+such site is listed with why. The
 threaded work opens its own session, or uses one no other coroutine touches until the await
 returns. Preserve async dependency signatures, JWT and account checks,
 request-context monitoring, and the request-owned session lifecycle. Do not close or detach the
 user early, or increase pool sizes to hide event-loop starvation. The fix allows cleanup to
 progress; it does not establish safe fleet concurrency or guarantee that every busy pool can
 satisfy its timeout. The off-the-loop rule and its gates cover only these sites; the default-executor
-listing covers every site under `app/`. Other async code still makes
-blocking lookups on the loop (async route bodies such as `login`, the
+listing covers every site under `app/` and in the backend's top-level modules. Other async code still
+makes blocking lookups on the loop (async route bodies such as `login`, the
 `filing_list_service.refresh_company_filings` background task, the `/internal` trigger helpers);
 those are known and review-checked.
 
@@ -51,7 +52,8 @@ off-loop draft (E129, 2026-10-19) ran its units through `asyncio.to_thread`, the
 already ruled out, and passed its own tests: `backend/tests/unit/test_companyfacts_sync_off_the_loop.py`
 now holds the sync to its own threads and runs it against a one-slot pool whose holder needs the
 one-thread default executor, a case the draft fails at the pool timeout. Prose had not stopped it, so
-`backend/tests/unit/test_default_executor_allowlist.py` lists every default-executor call under `app/`,
-each with why its work never waits for a slot: bcrypt, the PDF and workbook renders and the Copilot's
-quotation check. The one site that does wait, the health check's `SELECT 1` in `metrics_service.py`,
-is listed against E130.
+`backend/tests/unit/test_default_executor_allowlist.py` lists every default-executor call under `app/`
+and in the backend's top-level modules, each with why its work never waits for a slot: bcrypt, the PDF
+and workbook renders, the Copilot's quotation check, and the startup connection check, which runs
+before the app serves a request. Its first scan also found a `SELECT 1` waiting there for a slot, in
+`metrics_service.get_health_summary`, which nothing had called since it was written; it is deleted.

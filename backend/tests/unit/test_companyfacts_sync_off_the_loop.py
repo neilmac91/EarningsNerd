@@ -6,7 +6,7 @@ freshness read and its follower's re-read checked a connection out there, and it
 normalize and the bulk upsert of every fact) ran there in full, blocking the loop for the whole run.
 
 - A leader and a follower work no session on the loop: every checkout and every statement runs on
-  the sync's own threads (``ingest._SYNC_THREADS``).
+  the sync's own threads (``sync_threads._SYNC_THREADS``).
 - Nor in the loop's default executor. A slot holder shaped like login keeps its connection checked
   out while it awaits a default-executor thread, so a sync waiting there for the slot would hold
   the thread the holder needs, and neither could move until the pool timed out
@@ -16,13 +16,17 @@ normalize and the bulk upsert of every fact) ran there in full, blocking the loo
   stale stamp and no claim to follow, and it would lead a second fetch.
 - A leader cancelled during its persist (the coverage route cancels at its wait budget) keeps its
   claim until the persist thread finishes, so no follower wakes and no second leader starts while
-  the facts are still being written.
+  the facts are still being written. That holds under an anyio cancel scope too, which cancels the
+  task again at every loop step, and a persist that fails meanwhile is logged: the route's gather
+  swallows the cancellation, the only outcome its caller sees.
 """
 
 import asyncio
+import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+import anyio
 import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
@@ -30,7 +34,7 @@ from sqlalchemy.pool import QueuePool
 
 from app.models import Base, Company
 from app.services import facts_service
-from app.services.facts import ingest
+from app.services.facts import ingest, sync_threads
 
 SYNC_THREAD = "companyfacts_sync"
 # Generous: the sync gets its slot as soon as the loop runs the holder. Only a sync waiting in the
@@ -68,11 +72,11 @@ def inflight():
 
 
 @pytest.fixture(autouse=True)
-def sync_threads(monkeypatch):
+def fresh_sync_threads(monkeypatch):
     """The sync's threads, of the production size and name and fresh for each test, so a thread a
     failing test leaves blocked cannot hold up the next one."""
-    threads = ThreadPoolExecutor(max_workers=ingest._SYNC_THREADS._max_workers, thread_name_prefix=SYNC_THREAD)
-    monkeypatch.setattr(ingest, "_SYNC_THREADS", threads)
+    threads = ThreadPoolExecutor(max_workers=sync_threads._SYNC_THREADS._max_workers, thread_name_prefix=SYNC_THREAD)
+    monkeypatch.setattr(sync_threads, "_SYNC_THREADS", threads)
     yield threads
     threads.shutdown(wait=False, cancel_futures=True)
 
@@ -231,34 +235,78 @@ async def test_a_request_arriving_during_the_leaders_sync_follows_it(engine, inf
     assert (followed["synced"], followed.get("waited"), fetches, fresh_checks) == (True, True, 1, 1)
 
 
-@pytest.mark.asyncio
-async def test_a_cancelled_leader_keeps_its_claim_until_its_persist_finishes(engine, inflight, monkeypatch):
-    persisting = threading.Event()
-    finish = threading.Event()
+def _persist_held_until(finish: threading.Event, persisting: threading.Event, *, fail: bool):
     real_persist = ingest._persist_companyfacts_payload
 
-    def slow_persist(db, company, payload):
+    def held_persist(db, company, payload):
         persisting.set()
         finish.wait(5)
+        if fail:
+            raise RuntimeError("the bulk upsert failed")
         return real_persist(db, company, payload)
 
-    monkeypatch.setattr(ingest, "_persist_companyfacts_payload", slow_persist)
+    return held_persist
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel", ["task_cancel", "cancel_scope"])
+async def test_a_cancelled_leader_keeps_its_claim_until_its_persist_finishes(engine, inflight, monkeypatch, cancel):
+    """Cancelled once by ``Task.cancel()``, as the coverage route does, or through an anyio cancel
+    scope, which cancels the task again at every loop step until it leaves the scope."""
+    persisting, finish = threading.Event(), threading.Event()
+    monkeypatch.setattr(ingest, "_persist_companyfacts_payload", _persist_held_until(finish, persisting, fail=False))
+
+    async def fetch(_cik):
+        return _payload()
+
+    scope = anyio.CancelScope()
+
+    async def lead_in_scope():
+        with scope:
+            return await _sync(engine, fetch)
+
+    leader = asyncio.create_task(lead_in_scope() if cancel == "cancel_scope" else _sync(engine, fetch))
+    assert await asyncio.wait_for(asyncio.to_thread(persisting.wait, 5), timeout=6.0)
+    claim = inflight[1]
+    if cancel == "cancel_scope":
+        scope.cancel()
+    else:
+        leader.cancel()
+    await asyncio.sleep(0.05)
+    # The persist is still writing: the claim holds and is unset, so nothing follows or leads yet.
+    assert (inflight.get(1) is claim, claim.is_set(), leader.done()) == (True, False, False)
+
+    finish.set()
+    if cancel == "cancel_scope":
+        assert await asyncio.wait_for(leader, timeout=5.0) is None  # the scope took its cancellation
+    else:
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(leader, timeout=5.0)
+    assert claim.is_set() and 1 not in inflight
+    with sessionmaker(bind=engine)() as db:
+        assert db.get(Company, 1).facts_synced_at is not None  # the persist committed
+    assert engine.pool.checkedout() == 0
+
+
+@pytest.mark.asyncio
+async def test_a_persist_failing_after_its_leader_was_cancelled_is_logged(engine, inflight, monkeypatch, caplog):
+    persisting, finish = threading.Event(), threading.Event()
+    monkeypatch.setattr(ingest, "_persist_companyfacts_payload", _persist_held_until(finish, persisting, fail=True))
 
     async def fetch(_cik):
         return _payload()
 
     leader = asyncio.create_task(_sync(engine, fetch))
     assert await asyncio.wait_for(asyncio.to_thread(persisting.wait, 5), timeout=6.0)
-    claim = inflight[1]
     leader.cancel()
     await asyncio.sleep(0.05)
-    # The persist is still writing: the claim holds and is unset, so nothing follows or leads yet.
-    assert (inflight.get(1) is claim, claim.is_set(), leader.done()) == (True, False, False)
-
     finish.set()
-    with pytest.raises(asyncio.CancelledError):
-        await asyncio.wait_for(leader, timeout=5.0)
-    assert claim.is_set() and 1 not in inflight
+    with caplog.at_level(logging.ERROR, logger="app.services.facts_service"):
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(leader, timeout=5.0)
+
+    failures = [record for record in caplog.records if "after its caller was cancelled" in record.getMessage()]
+    assert [type(record.exc_info[1]) for record in failures] == [RuntimeError]
+    assert 1 not in inflight
     with sessionmaker(bind=engine)() as db:
-        assert db.get(Company, 1).facts_synced_at is not None  # the persist committed
-    assert engine.pool.checkedout() == 0
+        assert db.get(Company, 1).facts_synced_at is None  # nothing committed, so a retry fetches again

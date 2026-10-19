@@ -2,11 +2,8 @@
 from __future__ import annotations
 
 import asyncio
-import contextvars
-import functools
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +11,7 @@ from app.models import Company, Filing
 from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import COMPANYFACTS_INFLIGHT_WAIT_SECONDS, _is_financial_sic
 from app.services.facts.currency import demote_convenience_rows
+from app.services.facts.sync_threads import run_to_completion, submit
 from app.services.facts.transport import _fetch_companyfacts_async, logger
 from app.services.facts.upsert import upsert_facts_bulk
 from app.utils.datetimes import ensure_utc, utcnow
@@ -21,41 +19,9 @@ from app.utils.datetimes import ensure_utc, utcnow
 
 # Per-company in-flight sync dedup (the summary_pipeline._claim_inflight pattern): concurrent
 # coverage requests for the same company collapse into one SEC fetch. Process-local, with Redis
-# off: each API instance (up to two) dedups its own requests, and a fetch repeated on the other
-# instance upserts the same facts.
+# off: each process (an API instance, of up to two, or a task-worker child) dedups its own syncs,
+# and a fetch repeated in another process upserts the same facts.
 _inflight_syncs: dict[int, asyncio.Event] = {}
-
-_T = TypeVar("_T")
-
-# ``ingest_companyfacts_by_id``'s database units (the freshness read, a follower's re-read, the
-# persist) wait for a pool slot in threads of their own, never on the event loop or in its default
-# executor. A slot holder can need a default-executor thread for its next step (login keeps its
-# connection checked out while it awaits bcrypt through ``asyncio.to_thread``), so units waiting
-# there could leave neither side able to move until the pool timed out; the Copilot's lookups keep
-# to threads of their own for the same reason (``copilot_chat._LOOKUP_THREADS``). A unit holds no
-# slot while it waits for a thread and needs no other thread while it holds one. Two threads keep
-# the sync to half of the API's four slots.
-_SYNC_THREADS = ThreadPoolExecutor(max_workers=2, thread_name_prefix="companyfacts_sync")
-
-
-def _submit(unit: Callable[[], _T]) -> asyncio.Future[_T]:
-    """``asyncio.to_thread`` on the sync's own threads: the same context copy."""
-    call = functools.partial(contextvars.copy_context().run, unit)
-    return asyncio.get_running_loop().run_in_executor(_SYNC_THREADS, call)
-
-
-async def _run_to_completion(unit: Callable[[], _T]) -> _T:
-    """Run ``unit`` on a sync thread and outlast a cancellation of the caller.
-
-    A thread cannot be stopped, so a cancelled caller waits for it before the cancellation goes on:
-    the leader's ``finally`` must not wake followers (or let another leader start) while its persist
-    is still writing. The coverage route cancels its sync task once, at the frontend's wait budget."""
-    work = _submit(unit)
-    try:
-        return await asyncio.shield(work)
-    except asyncio.CancelledError:
-        await asyncio.wait({work})
-        raise
 
 
 def _companyfacts_fresh_result(
@@ -170,10 +136,9 @@ async def ingest_companyfacts_by_id(
     ``ingest_companyfacts`` contract remains intact for batch jobs and tests that deliberately
     manage a larger transaction.
 
-    Each unit runs on the sync's own threads (``_SYNC_THREADS``): the coverage route runs this as a
-    task on the API's event loop, where a checkout would freeze the loop while the pool is full, and
-    the persist's normalize and bulk upsert would block it for their whole run
-    (lessons/ops-release-cached-filing-reads-before-yield.md).
+    Each unit runs on the sync's own threads (``sync_threads``), never on the event loop the coverage
+    route runs this on: a checkout there would freeze the loop while the pool is full, and the
+    persist would block it for its whole run (lessons/ops-release-cached-filing-reads-before-yield.md).
     """
 
     def read_freshness() -> tuple[Optional[dict[str, Any]], Optional[str]]:
@@ -196,7 +161,7 @@ async def ingest_companyfacts_by_id(
             await asyncio.wait_for(inflight.wait(), timeout=COMPANYFACTS_INFLIGHT_WAIT_SECONDS)
         except asyncio.TimeoutError:
             pass
-        synced_at = await _submit(read_synced_at)
+        synced_at = await submit(read_synced_at)
         return {
             "synced": synced_at is not None, "refreshed": False, "inserted": 0, "skipped": 0,
             "demoted": 0, "unsupported_ifrs": False, "waited": True,
@@ -205,11 +170,13 @@ async def ingest_companyfacts_by_id(
     # Claim the sync before the freshness read, in the same loop step as the check above. The read
     # waits on a sync thread, and a same-company request arriving meanwhile must follow this one:
     # read first, and a leader finishing during the read would leave it a stale stamp and no
-    # claim to follow, so it would lead a second fetch.
+    # claim to follow, so it would lead a second fetch. A forced sync arriving during the read (the
+    # companyfacts batch's, through ``ingest_companyfacts``) follows it too and fetches nothing if the
+    # company is fresh; in durable mode the batch runs in the task worker, apart from these claims.
     event = asyncio.Event()
     _inflight_syncs[company_id] = event
     try:
-        settled, cik = await _submit(read_freshness)
+        settled, cik = await submit(read_freshness)
         if settled is not None:
             return settled
         fetch = fetcher or _fetch_companyfacts_async
@@ -227,7 +194,7 @@ async def ingest_companyfacts_by_id(
                     return {"synced": False}
                 return _persist_companyfacts_payload(db, company, payload)
 
-        return await _run_to_completion(persist)
+        return await run_to_completion(persist)
     finally:
         if _inflight_syncs.get(company_id) is event:
             _inflight_syncs.pop(company_id, None)

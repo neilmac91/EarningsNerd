@@ -4,13 +4,14 @@ pool slot never runs on the event loop's default executor.
 The default executor is shared with work that may hold a slot: login keeps its connection checked out
 while it awaits bcrypt through ``asyncio.to_thread``. A unit waiting there for a slot could hold the
 thread such a holder needs, and neither could move until the pool timed out. Pool-waiting units run on
-threads of their own instead (``copilot_chat._LOOKUP_THREADS``, ``facts.ingest._SYNC_THREADS``).
+threads of their own instead (``copilot_chat._LOOKUP_THREADS``, ``facts.sync_threads._SYNC_THREADS``).
 
-The scan reads every module under ``app/`` through ``ast`` and lists each call that hands work to the
-default executor: ``asyncio.to_thread(...)`` under any name the module imports it by, and
-``run_in_executor(None, ...)`` on any loop. ``SITES`` names each one by file, the outermost function
-holding it and the work it hands over, with why that work never waits for a slot. A new site fails until
-it is listed, once its work has been checked, and a listed site that is gone fails until its line is.
+The scan reads every module under ``app/`` and the backend's top-level modules (``main.py``,
+``task_worker_main.py``) through ``ast`` and lists each call that hands work to the default executor:
+``asyncio.to_thread(...)`` under any name the module imports it by, and ``run_in_executor(None, ...)``
+on any loop. ``SITES`` names each one by file, the outermost function holding it and the work it hands
+over, with why that work never waits for a slot. A new site fails until it is listed, once its work has
+been checked, and a listed site that is gone fails until its line is.
 
 Out of reach, so review holds them: the default executor reached any other way (an executor of ``None``
 held in a variable or passed by keyword, ``loop.getaddrinfo`` and the other loop methods that use it, a
@@ -22,7 +23,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-APP_DIR = Path(__file__).resolve().parents[2] / "app"
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 _BCRYPT = "bcrypt over the request's own values; it opens no session"
 SITES: dict[tuple[str, str, str], str] = {
@@ -41,8 +42,8 @@ SITES: dict[tuple[str, str, str], str] = {
         "WeasyPrint over HTML already rendered; it opens no session",
     ("app/services/export_service.py", "export_analysis_pdf", "lambda: HTML(string=html_content).write_pdf()"):
         "WeasyPrint over HTML already rendered; it opens no session",
-    ("app/services/metrics_service.py", "get_health_summary", "_sync_db_check"):
-        "the one site that waits for a slot: the health check's SELECT 1 (E130 moves it to a thread of its own)",
+    ("main.py", "lifespan", "_validate_db_connection"):
+        "the startup connection check, before the app serves a request, so no other work holds a slot",
 }
 
 
@@ -88,8 +89,8 @@ def default_executor_sites(source: str, file: str = "probe.py") -> list[tuple[st
 
 def test_every_default_executor_site_is_listed_with_its_reason():
     found: list[tuple[str, str, str]] = []
-    for path in sorted(APP_DIR.rglob("*.py")):
-        file = path.relative_to(APP_DIR.parent).as_posix()
+    for path in sorted((BACKEND_DIR / "app").rglob("*.py")) + sorted(BACKEND_DIR.glob("*.py")):
+        file = path.relative_to(BACKEND_DIR).as_posix()
         found.extend(default_executor_sites(path.read_text(encoding="utf-8"), file))
     assert len(found) == len(set(found)), "two sites share a key; name the work apart"
     new = sorted(set(found) - set(SITES))
@@ -99,7 +100,7 @@ def test_every_default_executor_site_is_listed_with_its_reason():
         "on threads of its own (lessons/ops-auth-lookups-must-let-request-cleanup-progress.md); if it "
         "cannot, list it in SITES with the reason."
     )
-    assert not gone, f"Listed sites no longer in app/: {gone}. Remove their lines."
+    assert not gone, f"Listed sites no longer found: {gone}. Remove their lines."
 
 
 def test_the_scan_reads_each_form_it_claims():

@@ -7,7 +7,7 @@
     "app/services/facts/concepts.py": 244,
     "app/services/facts/derive.py": 102,
     "app/services/facts/fundamentals.py": 75,
-    "app/services/facts/ingest.py": 234,
+    "app/services/facts/ingest.py": 201,
     "app/services/facts/jobs.py": 407,
     "app/services/facts/lineage.py": 109,
     "app/services/facts/quarterly.py": 220,

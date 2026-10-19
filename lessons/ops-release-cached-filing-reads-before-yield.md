@@ -71,7 +71,8 @@ as a task on the loop read freshness, re-read a follower's stamp and persisted e
 unit now runs on the sync's own threads (`lessons/ops-auth-lookups-must-let-request-cleanup-progress.md`
 says why not the default executor); the leader claims the sync before its read, so a request arriving
 meanwhile follows it; a leader cancelled during its persist keeps its claim until the persist ends;
-and the burst's `coverage_sync` row runs the real sync with its sessions off the loop (2026-10-19, E129).
+and the burst's `coverage_sync` row runs `ingest_companyfacts_by_id` itself, only its SEC fetch faked,
+with its sessions off the loop (2026-10-19, E129).
 The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
