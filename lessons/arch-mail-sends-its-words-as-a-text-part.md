@@ -25,7 +25,9 @@ URL only the page carries (E125).
 2. A page hides one text, its preheader, and nothing else by any means a browser or a spam filter
    reads as hiding. The gate's reader reads a page both ways, a browser's and rspamd's, which differ
    (rspamd hides text under 4 px with em at 16 px, an opacity under 0.1, a box under a hidden one
-   whatever it sets): a form it learns is planted, and scored against rspamd and Chromium.
+   whatever it sets), and fails closed: it refuses a property, a value or an element it has not been
+   taught (`_READS`, `_TEXT_ELEMENTS` in `tests/support/mail_styles.py`). Teach it with the reason it
+   hides no text, or a model of how it does; plant the form, and score it against rspamd and Chromium.
 3. A text part says what its page says. Change both in the same edit.
 4. Plain text is never escaped: the reader's name goes in as typed, on one line (`_greeting_text`).
 

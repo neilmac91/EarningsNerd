@@ -330,13 +330,13 @@ async def send_waitlist_welcome_email(
     referral_link: str,
     verification_link: str,
 ) -> None:
-    html, text = render_welcome_email(
+    page, text = render_welcome_email(
         name=name,
         position=position,
         referral_link=referral_link,
         verification_link=verification_link,
     )
-    await send_email(to=[to_email], subject="You're on the EarningsNerd waitlist", html=html, text=text)
+    await send_email(to=[to_email], subject="You're on the EarningsNerd waitlist", html=page, text=text)
 
 
 async def send_referral_success_email(
@@ -346,12 +346,12 @@ async def send_referral_success_email(
     new_position: int,
     referral_link: str,
 ) -> None:
-    html, text = render_referral_success_email(
+    page, text = render_referral_success_email(
         name=name,
         new_position=new_position,
         referral_link=referral_link,
     )
-    await send_email(to=[to_email], subject="You moved up the EarningsNerd waitlist", html=html, text=text)
+    await send_email(to=[to_email], subject="You moved up the EarningsNerd waitlist", html=page, text=text)
 
 
 async def send_verification_email(
@@ -693,14 +693,14 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
                  "health": "STALE" if job["stale"] else "current"} for job in jobs]
     audits = report.get("summary_audits") or {}
     audit_rows = []
-    for name, family in audits.get("families", {}).items():
+    for family_name, family in audits.get("families", {}).items():
         counters = "; ".join(f"{key.replace('_', ' ')}={value}" for key, value in family["counts"].items())
         flag_label = {"figure_trace": "snapshots with untraceable figures",
                       "forward_quotes": "snapshots with unverified quotes",
                       "evidence_snap": "snapshots with unrepaired evidence",
-                      "machine_sections_only": "machine-only snapshots", "quality": "partial snapshots"}[name]
+                      "machine_sections_only": "machine-only snapshots", "quality": "partial snapshots"}[family_name]
         flag_rate = "unavailable" if family["flagged_pct"] is None else f"{family['flagged_pct']}% of recorded"
-        audit_rows.append({"family": name.replace("_", " "),
+        audit_rows.append({"family": family_name.replace("_", " "),
             "population": f"recorded {family['recorded']} / snapshots {audits['snapshot_population']}",
             "unavailable": f"unavailable {family['unavailable']} (missing {family['missing']}, malformed {family['malformed']})",
             "counts": f"{flag_label}: {family['flagged']} ({flag_rate}); {counters}" if family["recorded"] else "counts unavailable"})
@@ -832,13 +832,13 @@ async def send_earnings_day_alert(
     name: str | None,
     items: list[dict],
 ) -> None:
-    html, text = render_earnings_day_alert(name=name, items=items)
+    page, text = render_earnings_day_alert(name=name, items=items)
     n = len(items)
     if n == 1:
         subject = f"{items[0].get('ticker')} reports earnings today"
     else:
         subject = f"{n} companies you follow report earnings today"
-    await send_email(to=[to_email], subject=subject, html=html, text=text)
+    await send_email(to=[to_email], subject=subject, html=page, text=text)
 
 
 async def send_new_filing_alert(
@@ -853,7 +853,7 @@ async def send_new_filing_alert(
     filing_url: str | None = None,
     wording_changes: dict | None = None,
 ) -> None:
-    subject, html, text = build_new_filing_alert(
+    subject, page, text = build_new_filing_alert(
         name=name,
         company_name=company_name,
         ticker=ticker,
@@ -863,7 +863,7 @@ async def send_new_filing_alert(
         filing_url=filing_url,
         wording_changes=wording_changes,
     )
-    await send_email(to=[to_email], subject=subject, html=html, text=text)
+    await send_email(to=[to_email], subject=subject, html=page, text=text)
 
 
 def build_new_filing_alert(
@@ -881,7 +881,7 @@ def build_new_filing_alert(
     ``wording_changes`` (a Pro recipient's Item 1A comparison summary, when known at selection
     time) adds the wording line; the real-time pass usually precedes the extraction batch, so the
     digest and a rebuilt batch carry it more often than the first alert does."""
-    html, text = render_new_filing_alert(
+    page, text = render_new_filing_alert(
         name=name,
         company_name=company_name,
         ticker=ticker,
@@ -891,7 +891,7 @@ def build_new_filing_alert(
         filing_url=filing_url,
         wording_changes=wording_changes,
     )
-    return f"{ticker} filed a {filing_type}", html, text
+    return f"{ticker} filed a {filing_type}", page, text
 
 
 async def send_daily_digest(
@@ -900,13 +900,13 @@ async def send_daily_digest(
     name: str | None,
     items: list[dict],
 ) -> None:
-    subject, html, text = build_daily_digest(name=name, items=items)
-    await send_email(to=[to_email], subject=subject, html=html, text=text)
+    subject, page, text = build_daily_digest(name=name, items=items)
+    await send_email(to=[to_email], subject=subject, html=page, text=text)
 
 
 def build_daily_digest(*, name: str | None, items: list[dict]) -> tuple[str, str, str]:
     """The exact ``(subject, html, text)`` a digest sends; frozen on a delivery batch (E11b-1)."""
-    html, text = render_daily_digest(name=name, items=items)
+    page, text = render_daily_digest(name=name, items=items)
     count = len(items)
     subject = f"{count} new filing{'s' if count != 1 else ''} from your watchlist"
-    return subject, html, text
+    return subject, page, text
