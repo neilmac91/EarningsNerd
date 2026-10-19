@@ -110,3 +110,9 @@ ade6f8bbfe3c949d1718bb5bde7d14930d1c583b:frontend/features/research-evidence-pac
 # commit carries them after a squash merge.
 eec330cb5a12b2c2c40ad7589a2679dc82bf3383:backend/tests/unit/test_mail_rendered_addresses.py:generic-api-key:101
 eec330cb5a12b2c2c40ad7589a2679dc82bf3383:backend/tests/unit/test_mail_header_template.py:generic-api-key:251
+# 2026-10-19 #1407 (E125): the evidence copy of E110's mail renderer sets CI's test SECRET_KEY and a made-up
+# 43-character token for production-shaped links; reviewed by hand, no credential. These pins cover 41da420b, the
+# branch commit that introduced the bare lines; the lines now carry an inline gitleaks:allow, which covers whatever
+# commit carries them after a squash merge.
+41da420b8172b5764aed560ab5d929b57b1f7205:tasks/review-evidence/e125-mail-spam-scores-2026-10-19/render_mails.py.txt:generic-api-key:20
+41da420b8172b5764aed560ab5d929b57b1f7205:tasks/review-evidence/e125-mail-spam-scores-2026-10-19/render_mails.py.txt:generic-api-key:27

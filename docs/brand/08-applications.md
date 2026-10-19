@@ -128,10 +128,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the waitlist." or "This email is already on the waitlist.", without an exclamation mark. A code no
   signup holds comes back as the router's `invalid_referral` (a 400 with no `detail`), which the form
   routes by its code to its own sentence, "We can't find this referral code on the waitlist. Check the
-  link with whoever shared it.", where it printed axios's status line before. The link is set in the
-  data face, whose Geist Mono has no contextual alternates, so the x of a code reads as Copy copies it
-  (Inter's draws it as a multiplication sign between digits), and the share links wrap inside the card
-  at 200% text.
+  link with whoever shared it.", where it printed axios's status line before. The first sentence is the
+  Notice's title and the second its description, and under them "Join without the code" links to
+  `/waitlist` (F47, D-046): the visitor sees what happened and chooses. The page keeps what was typed
+  (search params do not remount it) and reads no code from the URL from then on, so the next submit
+  joins without one; focus goes back to the email field (`tests/unit/waitlistSuccessCard.spec.tsx`).
+  The success card's referral link is set in the data face, whose Geist Mono has no contextual
+  alternates, so the x of a code reads as Copy copies it (Inter's draws it as a multiplication sign
+  between digits), and the share links wrap inside the card at 200% text.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you logged in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent

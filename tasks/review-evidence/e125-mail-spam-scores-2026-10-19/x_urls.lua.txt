@@ -1,0 +1,23 @@
+
+-- E125 measurement: every URL URI_COUNT_ODD counts (its filter), with its count and flags, and the top-level type.
+rspamd_config.X_URLS = {
+  callback = function(task)
+    local ct = task:get_header('Content-Type') or ''
+    local urls = task:get_urls_filtered(nil, { 'subject', 'html_displayed', 'special' }) or {}
+    local n = 0
+    local opts = { 'ct=' .. (ct:match('^[^;]+') or ct) }
+    for _, u in ipairs(urls) do
+      n = n + u:get_count()
+      local flags = {}
+      for f, _ in pairs(u:get_flags()) do table.insert(flags, f) end
+      table.sort(flags)
+      table.insert(opts, string.format('%s x%d [%s]', u:get_text(), u:get_count(), table.concat(flags, ',')))
+    end
+    table.insert(opts, 1, 'n=' .. tostring(n))
+    task:insert_result('X_URLS', 0.0, opts)
+    return false
+  end,
+  score = 0.0,
+  description = 'measurement: URLs URI_COUNT_ODD counts',
+  group = 'measurement',
+}
