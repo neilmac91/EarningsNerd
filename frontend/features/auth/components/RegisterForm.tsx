@@ -140,7 +140,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
                 Creating an account needs an invite right now.{' '}
                 <Link
                   href="/waitlist"
-                  className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong underline dark:text-brand-strong-dark"
+                  className="box-decoration-clone rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong underline dark:text-brand-strong-dark"
                 >
                   Request an invite
                 </Link>

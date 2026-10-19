@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import RegisterForm from '@/features/auth/components/RegisterForm'
 import RegisterPage from '@/app/register/page'
 import type { SignupConfig } from '@/lib/serverApi'
@@ -81,6 +81,18 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
     expect(startOAuthWithInvite).toHaveBeenCalledWith('apple', invite)
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Request an invite' })).toBeNull()
+  })
+
+  it('a refused invited start names, under its own button, the provider it could not continue with', async () => {
+    searchParams.set('invite', 'tok')
+    render(<RegisterForm inviteOnly betaPromoActive={false} />)
+    for (const provider of ['Google', 'Apple'] as const) {
+      startOAuthWithInvite.mockRejectedValueOnce(new Error('start refused'))
+      const button = screen.getByRole('button', { name: `Continue with ${provider}` })
+      fireEvent.click(button)
+      const status = await within(button.parentElement as HTMLElement).findByRole('status')
+      expect(status).toHaveTextContent(`Couldn't continue with ${provider}. Please try again.`)
+    }
   })
 
   it('keeps the submit focusable while the request is in flight (aria-disabled, never native disabled)', async () => {
