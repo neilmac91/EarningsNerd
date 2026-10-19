@@ -197,15 +197,15 @@ for (const viewport of VIEWPORTS) {
           // Below a measure the margin gives way: it stays at the default size on a 320px phone and goes under 200% text
           // at 390px and below (a marked copy narrower than 13em of its own width).
           const marginShown = !(text === '200%' && viewport.width <= 390)
-          // The margin re-measures after layout settles (fonts, the text setting): wait for every twin to reach its marker,
-          // or, where the margin gives way, for it to go.
-          await expect
-            .poll(async () => {
-              const { markers, twins, marginShown: shown } = await measure(page)
-              if (!marginShown) return markers.length === RISKS.length && !shown
-              return markers.length === RISKS.length && twins.length === markers.length && markers.every((m, i) => Math.abs(twins[i].mid - m.mid) <= 1)
-            }, { message: marginShown ? 'each twin settles on its marker' : 'the margin gives way' })
-            .toBe(true)
+          // The margin re-measures after layout settles (fonts, the text setting): wait, up to 5s, for every twin to reach
+          // its marker or, where the margin gives way, for it to go. The wait asserts nothing: the checks below say what did
+          // not hold, a margin that stays where it should go and the words it breaks among them.
+          const settled = async () => {
+            const { markers, twins, marginShown: shown } = await measure(page)
+            if (!marginShown) return markers.length === RISKS.length && !shown
+            return markers.length === RISKS.length && twins.length === markers.length && markers.every((m, i) => Math.abs(twins[i].mid - m.mid) <= 1)
+          }
+          for (let i = 0; i < 50 && !(await settled()); i++) await page.waitForTimeout(100)
           const m = await measure(page)
           expect(m.dark).toBe(theme === 'dark')
           expect(m.rootPx).toBe(text === '200%' ? 32 : 16)
