@@ -116,6 +116,15 @@ def _get_or_create_company(db: Session, ticker: str) -> Company:
     return company
 
 
+def _watch_row_for_ticker(db: Session, user_id: int, ticker: str) -> Optional[Watchlist]:
+    return (
+        db.query(Watchlist)
+        .join(Company, Watchlist.company_id == Company.id)
+        .filter(Watchlist.user_id == user_id, func.upper(Company.ticker) == ticker)
+        .first()
+    )
+
+
 def set_earnings_alert(db: Session, user: User, ticker: str, enabled: bool) -> bool:
     """Enable/disable the earnings-day alert for ``ticker``. Enabling enforces the plan cap and
     ensures the company is on the user's watchlist. Disabling is always allowed. Returns the new
@@ -123,15 +132,13 @@ def set_earnings_alert(db: Session, user: User, ticker: str, enabled: bool) -> b
     ticker = ticker.upper()
 
     if not enabled:
-        row = (
-            db.query(Watchlist)
-            .join(Company, Watchlist.company_id == Company.id)
-            .filter(Watchlist.user_id == user.id, func.upper(Company.ticker) == ticker)
-            .first()
-        )
-        if row is not None and row.earnings_alert:
-            row.earnings_alert = False
-            db.commit()
+        # Under the watch-row lock too: a remove deleting the row between this read and the update
+        # would leave the update matching no row.
+        with watch_row_lock:
+            row = _watch_row_for_ticker(db, user.id, ticker)
+            if row is not None and row.earnings_alert:
+                row.earnings_alert = False
+                db.commit()
         return False
 
     ent = get_entitlements(user)

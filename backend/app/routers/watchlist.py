@@ -66,18 +66,18 @@ async def add_to_watchlist(
 
     def add() -> Dict[str, Any]:
         # Each watchlist route's session work is one unit in the thread pool: the reads and writes,
-        # the payload (here it reads rows the commit expired) and the release, so no checkout waits
-        # on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md).
+        # the payload and the release, so no checkout waits on the event loop
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
         try:
-            watchlist_item, company = watchlist_service.add_company(db, user_id, ticker)
+            added = watchlist_service.add_company(db, user_id, ticker)
             return {
-                "id": watchlist_item.id,
-                "company_id": watchlist_item.company_id,
-                "created_at": watchlist_item.created_at.isoformat() if watchlist_item.created_at else None,
+                "id": added.id,
+                "company_id": added.company_id,
+                "created_at": added.created_at.isoformat() if added.created_at else None,
                 "company": {
-                    "id": company.id,
-                    "ticker": company.ticker,
-                    "name": company.name,
+                    "id": added.company_id,
+                    "ticker": added.company_ticker,
+                    "name": added.company_name,
                 }
             }
         finally:

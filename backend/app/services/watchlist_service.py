@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from sqlalchemy import desc, func
@@ -28,12 +29,26 @@ class NotOnWatchlist(Exception):
 
 
 # Watch-row writes check, then write: the duplicate check before an add, the row lookup before a
-# remove, the cap check before an earnings alert is enabled (earnings_alert_service). On the event
-# loop the routes ran them one at a time within the process; in the thread pool two requests could
-# both pass a check (two rows for one company, an account over its alert cap), so each takes this
-# lock from its check to its commit. A holder takes it after its session's first query and makes no
-# new checkout inside it, so it never waits for a pool slot that a waiter holds.
+# remove, the row read before an earnings alert is toggled and the cap check before one is enabled
+# (earnings_alert_service). On the event loop the routes ran them one at a time within the process;
+# in the thread pool two requests could both pass a check (two rows for one company, an account over
+# its alert cap), so each takes this lock from its check to its commit. A holder takes it after its
+# session's first query and makes no new checkout inside it, so it never waits for a pool slot that
+# a waiter holds. A waiter's check then sees the holder's commit because each statement reads the
+# latest commit (READ COMMITTED, PostgreSQL's default and production's); under REPEATABLE READ its
+# snapshot, taken at that first query, would not.
 watch_row_lock = threading.Lock()
+
+
+@dataclass(frozen=True)
+class AddedWatch:
+    """What the add route answers with, copied before the commit expires the rows."""
+
+    id: int
+    company_id: int
+    created_at: Optional[datetime]
+    company_ticker: str
+    company_name: str
 
 
 def _watched(db: Session, user_id: int, company_id: int) -> Optional[Watchlist]:
@@ -50,7 +65,7 @@ def _company_by_ticker(db: Session, ticker: str) -> Company:
     return company
 
 
-def add_company(db: Session, user_id: int, ticker: str) -> tuple[Watchlist, Company]:
+def add_company(db: Session, user_id: int, ticker: str) -> AddedWatch:
     company = _company_by_ticker(db, ticker)
 
     with watch_row_lock:
@@ -62,9 +77,13 @@ def add_company(db: Session, user_id: int, ticker: str) -> tuple[Watchlist, Comp
             company_id=company.id
         )
         db.add(watchlist_item)
+        db.flush()
+        # The server-set created_at, read in the transaction the lock covers: after the commit a
+        # read would be a new checkout, and a concurrent remove could have deleted the row.
+        db.refresh(watchlist_item)
+        added = AddedWatch(watchlist_item.id, company.id, watchlist_item.created_at, company.ticker, company.name)
         db.commit()
-    db.refresh(watchlist_item)  # a new checkout, so outside the lock
-    return watchlist_item, company
+    return added
 
 
 def list_items(db: Session, user_id: int) -> List[Watchlist]:
