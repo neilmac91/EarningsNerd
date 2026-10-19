@@ -105,8 +105,8 @@ async def test_report_email_renders_html_and_text(seeded):
     assert "Ticker mismatches" in html and "Coverage gaps" in html
     assert "JPMX" in html and "JPM" in html  # the mismatch surfaces in the email
     assert "Automated weekly scan" in html  # our report body, wrapped in the brand chrome
-    # Text alternative carries the same signal for plain-text clients.
-    assert "Ticker mismatches: 1" in text
+    # The text part says what the page says, for a client that shows it in the page's place (E110).
+    assert "Ticker mismatches (stored ≠ SEC primary) (1)\nJPMX · → JPM · CIK 0000019617\n" in text
     assert "financial figures not grounded in SEC XBRL data" in text
 
 
@@ -117,4 +117,4 @@ def test_render_handles_an_all_clean_report():
     }
     html, text = email_service.render_data_quality_report(empty)
     assert "None — clean" in html
-    assert "Ticker mismatches: 0" in text
+    assert "Ticker mismatches (stored ≠ SEC primary) (0)\nNone — clean ✓" in text
