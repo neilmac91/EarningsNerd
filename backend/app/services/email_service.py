@@ -6,9 +6,11 @@ import re
 from app.config import settings
 from app.services.resend_service import send_email
 
-_LINE_BREAKS = re.compile(r"[\r\n]+")
-
+# Every character str.splitlines breaks a line at: a name's run of them becomes one space (_greeting_text).
+_LINE_SEPARATORS = re.compile("[\n\v\f\r\x1c-\x1e\x85\u2028\u2029]+")
 _DEFAULT_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
+# The footer line, below the panel on every page (D-043) and last in every text part.
+_FOOTER_LINE = "Filing data sourced from SEC EDGAR. Not investment advice."
 # Alert/digest emails are transactional opt-ins, not the waitlist — point recipients at prefs.
 _ALERT_FOOTER = (
     "You are receiving this because you track companies on EarningsNerd. "
@@ -155,7 +157,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Filing data sourced from SEC EDGAR. Not investment advice.</td>
+                  <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">{_FOOTER_LINE}</td>
                 </tr>
               </table>
               <!--[if mso]></td></tr></table><![endif]-->
@@ -167,25 +169,50 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
     """
 
 
-def _greeting(name: str | None) -> str:
-    """The salutation line of every template that addresses the recipient by name.
+def _greeting_text(name: str | None) -> str:
+    """The salutation line of every mail that addresses the recipient by name, as its text part prints it.
 
-    The display name is user-supplied text, so this is the ONLY place it may enter a template:
-    it is collapsed onto one line and HTML-escaped, so it can only ever render as literal text.
-    A missing or blank name falls back to the neutral greeting. Gate:
+    The display name is user-supplied text, so it enters a mail only here and through ``_greeting``, which
+    escapes this line for the page: each run of line separators in it (every one ``str.splitlines`` breaks a
+    line at, U+2028 and U+2029 among them) becomes one space, so it can never start a line of its own, and the
+    rest is kept as typed, its spaces among it, since plain text shows an ampersand or a bracket as itself. A
+    missing or blank name falls back to the neutral greeting. Gate:
     ``tests/unit/test_email_name_interpolation_allowlist.py``.
     """
-    cleaned = _LINE_BREAKS.sub(" ", name or "").strip()
-    return f"Hi {html.escape(cleaned)}," if cleaned else "Hi there,"
+    cleaned = _LINE_SEPARATORS.sub(" ", name or "").strip()
+    return f"Hi {cleaned}," if cleaned else "Hi there,"
 
 
-def _hidden_text(text: str) -> str:
-    """The plain-text copy appended to each HTML email (hidden from HTML clients).
+def _greeting(name: str | None) -> str:
+    """The salutation line of every page that addresses the recipient by name: ``_greeting_text``'s line,
+    HTML-escaped, so the name can only ever render as literal text."""
+    return html.escape(_greeting_text(name))
 
-    It sits inside the HTML document, so the whole text is escaped as a unit before embedding —
-    the same rule as the visible body: user-supplied text never becomes markup.
-    """
-    return f'<pre style="display:none">{html.escape(text)}</pre>'
+
+_LINK_TAG = re.compile(r'<a\b[^>]*\bhref="([^"]*)"[^>]*>(.*?)</a>', re.IGNORECASE | re.DOTALL)
+_ANY_TAG = re.compile(r"<[^>]*>")
+_SPACES = re.compile(r"\s+")
+
+
+def _plain(fragment: str) -> str:
+    """A footer's markup as the text part prints it: each link as its words with its address after them in
+    brackets, every other tag dropped, character references read and whitespace collapsed, as a client shows
+    the line. The footers are this module's own markup: text, links and character references."""
+    linked = _LINK_TAG.sub(lambda link: f"{link.group(2)} ({link.group(1)})", fragment)
+    return _SPACES.sub(" ", html.unescape(_ANY_TAG.sub("", linked))).strip()
+
+
+def _wrap_text(text: str, footer: str = _DEFAULT_FOOTER) -> str:
+    """The text part of every mail this module builds, the plain-text sibling of ``_wrap_html``: ``text``, the
+    mail's own words as the page says them, each link's address written out, then ``footer`` and the footer
+    line, as the page sets them below its body.
+
+    It goes to Resend as the mail's ``text``, the plain-text alternative a client shows in place of the page
+    (a text-only client, a watch) and a spam filter compares with it. Given none, Resend would build one from
+    the page, its preheader and header among it; and the page hides no copy of it, since a filter such as
+    rspamd scores 200 hidden characters or more as hidden text (E110). Gate:
+    tests/unit/test_mail_rendered_addresses.py holds every text part to its page."""
+    return f"{text}\n\n{_plain(footer)}\n\n{_FOOTER_LINE}"
 
 
 # What follows a preheader's line: the set React Email's preview component (Resend's, 6.11.3) repeats after its
@@ -205,8 +232,8 @@ def _preheader(text: str) -> str:
     carries no link, no address and not the reader's name, since an inbox shows it before the mail is
     opened, a phone's lock screen among them. It is hidden from the view (``display:none``, with React
     Email's other hiding properties, and classic Outlook's ``mso-hide:all``) and followed by
-    ``_PREHEADER_FILL``. Like ``_hidden_text``, it escapes the whole text as a unit: user-supplied text
-    never becomes markup. Gate: tests/unit/test_mail_rendered_addresses.py.
+    ``_PREHEADER_FILL``. It escapes the whole text as a unit: user-supplied text never becomes markup. It is
+    the one text a page hides (E110). Gate: tests/unit/test_mail_rendered_addresses.py.
     """
     fill = _PREHEADER_FILL * max(0, _PREVIEW_LENGTH - len(text))
     return (
@@ -253,16 +280,17 @@ def render_welcome_email(
     <p style="margin:0;">We'll keep you posted as we open up access.</p>
     """
     text_body = (
-        f"{greeting}\n\n"
-        "You're officially on the EarningsNerd waitlist!\n"
+        f"{_greeting_text(name)}\n\n"
+        "You're on the EarningsNerd waitlist.\n"
         f"Your current position: #{position}\n\n"
         "Share your referral link to move up the list. Each successful referral bumps you up 5 spots.\n"
         f"{referral_link}\n\n"
-        f"Verify your email to secure your place: {verification_link}\n\n"
+        "Please verify your email to secure your place:\n"
+        f"Verify email: {verification_link}\n\n"
         "We'll keep you posted as we open up access."
     )
     preheader = f"You're number {position} on the list. Share your referral link to move up."
-    return _wrap_html(html_body, preheader=preheader), text_body
+    return _wrap_html(html_body, preheader=preheader), _wrap_text(text_body)
 
 
 def render_referral_success_email(
@@ -283,7 +311,7 @@ def render_referral_success_email(
     <p style="margin:0;">Thanks for spreading the word.</p>
     """
     text_body = (
-        f"{greeting}\n\n"
+        f"{_greeting_text(name)}\n\n"
         "You moved up the EarningsNerd waitlist.\n"
         f"Your new position: #{new_position}\n\n"
         "Keep sharing your referral link to climb even faster:\n"
@@ -291,7 +319,7 @@ def render_referral_success_email(
         "Thanks for spreading the word."
     )
     preheader = f"Someone joined with your referral link. You're now number {new_position}."
-    return _wrap_html(html_body, preheader=preheader), text_body
+    return _wrap_html(html_body, preheader=preheader), _wrap_text(text_body)
 
 
 async def send_waitlist_welcome_email(
@@ -302,17 +330,13 @@ async def send_waitlist_welcome_email(
     referral_link: str,
     verification_link: str,
 ) -> None:
-    html, text = render_welcome_email(
+    page, text = render_welcome_email(
         name=name,
         position=position,
         referral_link=referral_link,
         verification_link=verification_link,
     )
-    await send_email(
-        to=[to_email],
-        subject="You're on the EarningsNerd waitlist",
-        html=f"{html}{_hidden_text(text)}",
-    )
+    await send_email(to=[to_email], subject="You're on the EarningsNerd waitlist", html=page, text=text)
 
 
 async def send_referral_success_email(
@@ -322,16 +346,12 @@ async def send_referral_success_email(
     new_position: int,
     referral_link: str,
 ) -> None:
-    html, text = render_referral_success_email(
+    page, text = render_referral_success_email(
         name=name,
         new_position=new_position,
         referral_link=referral_link,
     )
-    await send_email(
-        to=[to_email],
-        subject="You moved up the EarningsNerd waitlist",
-        html=f"{html}{_hidden_text(text)}",
-    )
+    await send_email(to=[to_email], subject="You moved up the EarningsNerd waitlist", html=page, text=text)
 
 
 async def send_verification_email(
@@ -351,14 +371,17 @@ async def send_verification_email(
     <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
     """
     text_body = (
-        f"{greeting}\n\nVerify your email address and you can start reading.\n\n"
-        f"{verification_link}\n\nThis link expires in 24 hours."
+        f"{_greeting_text(name)}\n\n"
+        "Thanks for creating an EarningsNerd account. Verify your email address and you can start reading.\n\n"
+        f"Verify my email: {verification_link}\n\n"
+        "This link expires in 24 hours. If you didn't create an account, you can safely ignore this email."
     )
     preheader = "Confirm your email address. The link works for 24 hours."
     await send_email(
         to=[to_email],
         subject="Verify your EarningsNerd email",
-        html=f"{_wrap_html(html_body, preheader=preheader)}{_hidden_text(text_body)}",
+        html=_wrap_html(html_body, preheader=preheader),
+        text=_wrap_text(text_body),
     )
 
 
@@ -381,14 +404,15 @@ async def send_invite_email(
     <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
     """
     text_body = (
-        f"{greeting}\n\nYou're invited to the EarningsNerd private beta. Full Pro access, on us.\n\n"
-        f"{magic_link}\n\nThis is a single-use invite link. No credit card required."
+        f"{_greeting_text(name)}\n\nYou're invited to the EarningsNerd private beta. Full Pro access, on us.\n\n"
+        f"Accept your invite: {magic_link}\n\nThis is a single-use invite link. No credit card required."
     )
     preheader = "The private beta, with full Pro access and no card needed. The link works once."
     await send_email(
         to=[to_email],
         subject="Your EarningsNerd beta invite",
-        html=f"{_wrap_html(html_body, invite_footer, preheader=preheader)}{_hidden_text(text_body)}",
+        html=_wrap_html(html_body, invite_footer, preheader=preheader),
+        text=_wrap_text(text_body, invite_footer),
     )
 
 
@@ -409,14 +433,16 @@ async def send_password_reset_email(
     <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
     """
     text_body = (
-        f"{greeting}\n\nReset your EarningsNerd password:\n\n"
-        f"{reset_link}\n\nThis link expires in 1 hour and can only be used once."
+        f"{_greeting_text(name)}\n\nWe received a request to reset your EarningsNerd password.\n\n"
+        f"Reset my password: {reset_link}\n\n"
+        "This link expires in 1 hour and can only be used once. If you didn't request a reset, no action is needed."
     )
     preheader = "Set a new password. The link works once, for one hour."
     await send_email(
         to=[to_email],
         subject="Reset your EarningsNerd password",
-        html=f"{_wrap_html(html_body, preheader=preheader)}{_hidden_text(text_body)}",
+        html=_wrap_html(html_body, preheader=preheader),
+        text=_wrap_text(text_body),
     )
 
 
@@ -438,15 +464,16 @@ async def send_oauth_linked_email(
     <p style="margin:0;font-size:14px;color:#B91C1C;">If this <strong>wasn&apos;t</strong> you, please reset your password immediately and contact support.</p>
     """
     text_body = (
-        f"{greeting}\n\nA {provider} sign-in was just linked to your EarningsNerd account.\n\n"
-        f"If this was you, no action is needed. If it wasn't, reset your password immediately "
-        f"and contact support."
+        f"{_greeting_text(name)}\n\nA {provider} sign-in was just linked to your EarningsNerd account.\n\n"
+        f"If this was you, no action is needed: you can now sign in with {provider}.\n\n"
+        "If this wasn't you, please reset your password immediately and contact support."
     )
     preheader = "If this was you, there's nothing to do. If it wasn't, reset your password now."
     await send_email(
         to=[to_email],
         subject=f"A {provider} sign-in was linked to your EarningsNerd account",
-        html=f"{_wrap_html(html_body, preheader=preheader)}{_hidden_text(text_body)}",
+        html=_wrap_html(html_body, preheader=preheader),
+        text=_wrap_text(text_body),
     )
 
 
@@ -470,14 +497,17 @@ async def send_account_exists_email(
       If this wasn&apos;t you, no action is needed.</p>
     """
     text_body = (
-        f"{greeting}\n\nSomeone tried to sign up with your email, but you already have an account.\n\n"
-        f"Log in: {login_link}\nReset password: {reset_link}\n\nIf this wasn't you, no action is needed."
+        f"{_greeting_text(name)}\n\n"
+        "Someone tried to create an EarningsNerd account using this email address, but you already have one.\n\n"
+        f"Log in to your account: {login_link}\n\n"
+        f"Forgot your password? Reset it here: {reset_link}\nIf this wasn't you, no action is needed."
     )
     preheader = "You already have an account. Log in, or ignore this if it wasn't you."
     await send_email(
         to=[to_email],
         subject="Someone tried to sign up with your EarningsNerd email",
-        html=f"{_wrap_html(html_body, preheader=preheader)}{_hidden_text(text_body)}",
+        html=_wrap_html(html_body, preheader=preheader),
+        text=_wrap_text(text_body),
     )
 
 
@@ -548,13 +578,14 @@ def render_new_filing_alert(
     <p style="margin:0;font-size:13px;color:#6B7280;">We summarise what changed so you don&apos;t have to read the whole filing.</p>
     """
     text_body = (
-        f"{greeting}\n\n{company_name} ({ticker}) just filed a {filing_type} with the SEC "
+        f"{_greeting_text(name)}\n\n{company_name} ({ticker}) just filed a {filing_type} with the SEC "
         f"({filing_date}).\n\n"
         + (f"{wording} Review the changes: {url}#what-changed\n\n" if wording else "")
-        + f"Read the AI summary: {url}"
+        + f"Read the AI summary: {url}\n\n"
+        "We summarise what changed so you don't have to read the whole filing."
     )
     preheader = f"{company_name} filed with the SEC on {filing_date}."
-    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
+    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), _wrap_text(text_body, _ALERT_FOOTER)
 
 
 def render_daily_digest(
@@ -587,19 +618,21 @@ def render_daily_digest(
     <p style="margin:0 0 16px;">New filings from companies you track:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
     """
-    def _text_wording(it: dict) -> str:
+    def _text_row(it: dict) -> str:
         line = wording_changes_line(it.get("wording_changes"), it["filing_type"])
-        return f" {line}" if line else ""
+        return "\n".join([
+            f"{it['company_name']} ({it['ticker']}) · {it['filing_type']} · {it['filing_date']}",
+            *([line] if line else []),
+            f"Read the summary: {_filing_url(it.get('filing_id'), it.get('filing_url'))}",
+        ])
 
-    text_lines = "\n".join(
-        f"- {it['company_name']} ({it['ticker']}) — {it['filing_type']} ({it['filing_date']}):{_text_wording(it)} "
-        f"{_filing_url(it.get('filing_id'), it.get('filing_url'))}"
-        for it in items
+    text_body = (
+        f"{_greeting_text(name)}\n\nNew filings from companies you track:\n\n"
+        + "\n\n".join(_text_row(it) for it in items)
     )
-    text_body = f"{greeting}\n\nNew filings from companies you track:\n{text_lines}"
     listed = [f"{it['ticker']} {it['filing_type']}" for it in items]
     preheader = f"{_listed(listed)}."
-    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
+    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), _wrap_text(text_body, _ALERT_FOOTER)
 
 
 _DQ_FOOTER = (
@@ -608,8 +641,12 @@ _DQ_FOOTER = (
 )
 
 
+# What a section with nothing to report shows, on the page and in the text part.
+_DQ_CLEAN = "None — clean ✓"
+
+
 def _dq_section(title: str, rows_html: str, count: int) -> str:
-    body = rows_html if count else '<p style="margin:0 0 8px;color:#3C6650;">None — clean ✓</p>'
+    body = rows_html if count else f'<p style="margin:0 0 8px;color:#3C6650;">{_DQ_CLEAN}</p>'
     return (
         f'<h3 style="margin:20px 0 8px;font-size:15px;color:#1A1A17;">{html.escape(title)} '
         f'<span style="color:#6B7280;font-weight:400;">({count})</span></h3>{body}'
@@ -632,6 +669,13 @@ def _dq_rows(items: list[dict], cols) -> str:
     )
 
 
+def _dq_text(title: str, items: list[dict], cols, note: str | None) -> str:
+    """A section as the text part prints it: its title and count, a line for each row with its columns as the
+    page joins them, or what a clean section shows, then the section's note."""
+    rows = [" · ".join(str(col(it)) for col in cols) for it in items] or [_DQ_CLEAN]
+    return "\n".join([f"{title} ({len(items)})", *rows, *([note] if note else [])])
+
+
 def render_data_quality_report(report: dict) -> tuple[str, str]:
     """Render the weekly data-quality report (P1-9) into (html, text). External values (tickers,
     reasons) are escaped by `_dq_rows`; every section shows its count so an all-zero report reads
@@ -649,14 +693,14 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
                  "health": "STALE" if job["stale"] else "current"} for job in jobs]
     audits = report.get("summary_audits") or {}
     audit_rows = []
-    for name, family in audits.get("families", {}).items():
+    for family_name, family in audits.get("families", {}).items():
         counters = "; ".join(f"{key.replace('_', ' ')}={value}" for key, value in family["counts"].items())
         flag_label = {"figure_trace": "snapshots with untraceable figures",
                       "forward_quotes": "snapshots with unverified quotes",
                       "evidence_snap": "snapshots with unrepaired evidence",
-                      "machine_sections_only": "machine-only snapshots", "quality": "partial snapshots"}[name]
+                      "machine_sections_only": "machine-only snapshots", "quality": "partial snapshots"}[family_name]
         flag_rate = "unavailable" if family["flagged_pct"] is None else f"{family['flagged_pct']}% of recorded"
-        audit_rows.append({"family": name.replace("_", " "),
+        audit_rows.append({"family": family_name.replace("_", " "),
             "population": f"recorded {family['recorded']} / snapshots {audits['snapshot_population']}",
             "unavailable": f"unavailable {family['unavailable']} (missing {family['missing']}, malformed {family['malformed']})",
             "counts": f"{flag_label}: {family['flagged']} ({flag_rate}); {counters}" if family["recorded"] else "counts unavailable"})
@@ -686,59 +730,36 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
         "reports do not satisfy the first-readout prerequisite. This report never activates guards."
     )
 
-    html_body = (
-        '<p style="margin:0 0 16px;">Automated weekly scan of the data-quality detections.</p>'
-        + _dq_section("Persisted summary audit snapshots", _dq_rows(
-            audit_rows, [lambda x: x["family"], lambda x: x["population"],
-                         lambda x: x["unavailable"], lambda x: x["counts"]]), len(audit_rows))
-        + f"<p>{html.escape(audit_note)}</p>"
-        + _dq_section("Weekly judged generation readout", _dq_rows(
-            readout_rows, [lambda x: x["metric"], lambda x: x["value"]]), len(readout_rows))
-        + f"<p>{html.escape(readout_note)}</p>"
-        + _dq_section("Universe coverage (any stored summary; stubs have no summary)", _dq_rows(
-            coverage_rows, [lambda x: x["metric"], lambda x: x["value"]]), len(coverage_rows))
-        + _dq_section("Job health (stale after twice maximum cadence)", _dq_rows(
-            job_rows, [lambda x: x["job"], lambda x: x["latest_status"],
-                       lambda x: x["last_success"], lambda x: x["health"]]), len(job_rows))
-        + _dq_section("Ticker mismatches (stored ≠ SEC primary)", _dq_rows(
-            mism, [lambda x: x["ticker"], lambda x: f'→ {x["primary"]}', lambda x: f'CIK {x["cik"]}']), len(mism))
-        + _dq_section("Coverage gaps (concept lags total assets ≥2y)", _dq_rows(
-            gaps, [lambda x: x["ticker"], lambda x: x["concept"],
-                   lambda x: f'last FY {x["last_fy"] or "—"} vs assets {x["last_total_assets_fy"]}']), len(gaps))
-        + _dq_section("Filing-count anomalies (deep facts, few 10-Ks)", _dq_rows(
-            anom, [lambda x: x["ticker"], lambda x: f'{x["first_fact_fy"]}–{x["last_fact_fy"]}',
-                   lambda x: f'{x["stored_10k_rows"]} 10-K rows']), len(anom))
-        + _dq_section("Partial-summary reasons by SIC", _dq_rows(
-            partials, [lambda x: f'SIC {x["sic_prefix"]}', lambda x: x["reason"], lambda x: f'×{x["count"]}']), len(partials))
-        + _dq_section("Tickers not in the SEC file (delisted — informational)", _dq_rows(
-            notf, [lambda x: x["ticker"], lambda x: f'CIK {x["cik"]}']), len(notf))
-    )
-
-    text_lines = [
-        "Persisted summary audit snapshots:",
-        *[f"  {r['family']}: {r['population']}; {r['unavailable']}; {r['counts']}" for r in audit_rows],
-        audit_note,
-        "Weekly judged generation readout:",
-        *[f"  {r['metric']}: {r['value']}" for r in readout_rows],
-        readout_note,
-        "Universe coverage (any stored summary; stubs have no summary):",
-        *[f"  {r['metric']}: {r['value']}" for r in coverage_rows],
-        "Job health (stale after twice maximum cadence):",
-        *[f"  {r['job']}: {r['latest_status']}; last success {r['last_success']}; {r['health']}" for r in job_rows],
-        f"Ticker mismatches: {len(mism)}",
-        *[f"  {m['ticker']} -> {m['primary']} (CIK {m['cik']})" for m in mism],
-        f"Coverage gaps: {len(gaps)}",
-        *[f"  {g['ticker']} {g['concept']}: last FY {g['last_fy'] or '-'} vs assets {g['last_total_assets_fy']}" for g in gaps],
-        f"Filing anomalies: {len(anom)}",
-        *[f"  {a['ticker']} {a['first_fact_fy']}-{a['last_fact_fy']}, {a['stored_10k_rows']} 10-K rows" for a in anom],
-        f"Partial reasons: {len(partials)}",
-        *[f"  SIC {p['sic_prefix']} | {p['reason']} x{p['count']}" for p in partials],
-        f"Not in SEC file (delisted): {len(notf)}",
-        *[f"  {n['ticker']} (CIK {n['cik']})" for n in notf],
+    intro = "Automated weekly scan of the data-quality detections."
+    # Each section once, as (title, rows, columns, note): the page and the text part both read this list, so the
+    # text says what the page says.
+    sections = [
+        ("Persisted summary audit snapshots", audit_rows,
+         [lambda x: x["family"], lambda x: x["population"], lambda x: x["unavailable"], lambda x: x["counts"]], audit_note),
+        ("Weekly judged generation readout", readout_rows, [lambda x: x["metric"], lambda x: x["value"]], readout_note),
+        ("Universe coverage (any stored summary; stubs have no summary)", coverage_rows,
+         [lambda x: x["metric"], lambda x: x["value"]], None),
+        ("Job health (stale after twice maximum cadence)", job_rows,
+         [lambda x: x["job"], lambda x: x["latest_status"], lambda x: x["last_success"], lambda x: x["health"]], None),
+        ("Ticker mismatches (stored ≠ SEC primary)", mism,
+         [lambda x: x["ticker"], lambda x: f'→ {x["primary"]}', lambda x: f'CIK {x["cik"]}'], None),
+        ("Coverage gaps (concept lags total assets ≥2y)", gaps,
+         [lambda x: x["ticker"], lambda x: x["concept"],
+          lambda x: f'last FY {x["last_fy"] or "—"} vs assets {x["last_total_assets_fy"]}'], None),
+        ("Filing-count anomalies (deep facts, few 10-Ks)", anom,
+         [lambda x: x["ticker"], lambda x: f'{x["first_fact_fy"]}–{x["last_fact_fy"]}',
+          lambda x: f'{x["stored_10k_rows"]} 10-K rows'], None),
+        ("Partial-summary reasons by SIC", partials,
+         [lambda x: f'SIC {x["sic_prefix"]}', lambda x: x["reason"], lambda x: f'×{x["count"]}'], None),
+        ("Tickers not in the SEC file (delisted — informational)", notf, [lambda x: x["ticker"], lambda x: f'CIK {x["cik"]}'], None),
     ]
-    text_body = "EarningsNerd data-quality report\n\n" + "\n".join(text_lines)
+    html_body = f'<p style="margin:0 0 16px;">{intro}</p>' + "".join(
+        _dq_section(title, _dq_rows(items, cols), len(items)) + (f"<p>{html.escape(note)}</p>" if note else "")
+        for title, items, cols, note in sections
+    )
+    text_body = "\n\n".join([intro, *(_dq_text(*section) for section in sections)])
     preheader = "This week's scan, each section with its count."
-    return _wrap_html(html_body, footer=_DQ_FOOTER, preheader=preheader), text_body
+    return _wrap_html(html_body, footer=_DQ_FOOTER, preheader=preheader), _wrap_text(text_body, _DQ_FOOTER)
 
 
 _TIME_LABEL = {"bmo": "before open", "amc": "after close", "dmh": "during market hours"}
@@ -775,12 +796,21 @@ def render_earnings_day_alert(
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
     <p style="margin:16px 0 0;font-size:13px;color:#6B7280;">We'll have the AI summary ready shortly after they file.</p>
     """
-    text_lines = "\n".join(
-        f"- {it.get('company_name') or it.get('ticker')} ({it.get('ticker')}) reports today"
-        + (f" ({_TIME_LABEL[(it.get('time') or '').lower()]})" if (it.get('time') or '').lower() in _TIME_LABEL else "")
-        for it in items
+    def _text_row(it: dict) -> str:
+        ticker = str(it.get("ticker", ""))
+        slot = _TIME_LABEL.get((it.get("time") or "").lower())
+        return (
+            f"{it.get('company_name') or it.get('ticker') or ''} ({ticker}) reports today"
+            + (f" · {slot}" if slot else "")
+            + (" (results are out)" if it.get("status") == "reported" else "")
+            + f"\nView {ticker}: {settings.FRONTEND_URL}/company/{ticker}"
+        )
+
+    text_body = (
+        f"{_greeting_text(name)}\n\nCompanies you follow report earnings today:\n\n"
+        + "\n\n".join(_text_row(it) for it in items)
+        + "\n\nWe'll have the AI summary ready shortly after they file."
     )
-    text_body = f"{greeting}\n\nCompanies you follow report earnings today:\n{text_lines}"
     if len(items) == 1:
         # The subject names one company's ticker, so the line names the company in full, and its slot where the
         # calendar gives one.
@@ -793,7 +823,7 @@ def render_earnings_day_alert(
             for it in items
         ]
         preheader = f"{_listed(listed)}."
-    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), text_body
+    return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), _wrap_text(text_body, _ALERT_FOOTER)
 
 
 async def send_earnings_day_alert(
@@ -802,17 +832,13 @@ async def send_earnings_day_alert(
     name: str | None,
     items: list[dict],
 ) -> None:
-    html_body, text = render_earnings_day_alert(name=name, items=items)
+    page, text = render_earnings_day_alert(name=name, items=items)
     n = len(items)
     if n == 1:
         subject = f"{items[0].get('ticker')} reports earnings today"
     else:
         subject = f"{n} companies you follow report earnings today"
-    await send_email(
-        to=[to_email],
-        subject=subject,
-        html=f"{html_body}{_hidden_text(text)}",
-    )
+    await send_email(to=[to_email], subject=subject, html=page, text=text)
 
 
 async def send_new_filing_alert(
@@ -827,7 +853,7 @@ async def send_new_filing_alert(
     filing_url: str | None = None,
     wording_changes: dict | None = None,
 ) -> None:
-    subject, html = build_new_filing_alert(
+    subject, page, text = build_new_filing_alert(
         name=name,
         company_name=company_name,
         ticker=ticker,
@@ -837,7 +863,7 @@ async def send_new_filing_alert(
         filing_url=filing_url,
         wording_changes=wording_changes,
     )
-    await send_email(to=[to_email], subject=subject, html=html)
+    await send_email(to=[to_email], subject=subject, html=page, text=text)
 
 
 def build_new_filing_alert(
@@ -850,12 +876,12 @@ def build_new_filing_alert(
     filing_id: int | None = None,
     filing_url: str | None = None,
     wording_changes: dict | None = None,
-) -> tuple[str, str]:
-    """The exact ``(subject, html)`` a new-filing alert sends; frozen on a delivery batch (E11b-1).
+) -> tuple[str, str, str]:
+    """The exact ``(subject, html, text)`` a new-filing alert sends; frozen on a delivery batch (E11b-1).
     ``wording_changes`` (a Pro recipient's Item 1A comparison summary, when known at selection
     time) adds the wording line; the real-time pass usually precedes the extraction batch, so the
     digest and a rebuilt batch carry it more often than the first alert does."""
-    html, text = render_new_filing_alert(
+    page, text = render_new_filing_alert(
         name=name,
         company_name=company_name,
         ticker=ticker,
@@ -865,7 +891,7 @@ def build_new_filing_alert(
         filing_url=filing_url,
         wording_changes=wording_changes,
     )
-    return f"{ticker} filed a {filing_type}", f"{html}{_hidden_text(text)}"
+    return f"{ticker} filed a {filing_type}", page, text
 
 
 async def send_daily_digest(
@@ -874,13 +900,13 @@ async def send_daily_digest(
     name: str | None,
     items: list[dict],
 ) -> None:
-    subject, html = build_daily_digest(name=name, items=items)
-    await send_email(to=[to_email], subject=subject, html=html)
+    subject, page, text = build_daily_digest(name=name, items=items)
+    await send_email(to=[to_email], subject=subject, html=page, text=text)
 
 
-def build_daily_digest(*, name: str | None, items: list[dict]) -> tuple[str, str]:
-    """The exact ``(subject, html)`` a digest sends; frozen on a delivery batch (E11b-1)."""
-    html, text = render_daily_digest(name=name, items=items)
+def build_daily_digest(*, name: str | None, items: list[dict]) -> tuple[str, str, str]:
+    """The exact ``(subject, html, text)`` a digest sends; frozen on a delivery batch (E11b-1)."""
+    page, text = render_daily_digest(name=name, items=items)
     count = len(items)
     subject = f"{count} new filing{'s' if count != 1 else ''} from your watchlist"
-    return subject, f"{html}{_hidden_text(text)}"
+    return subject, page, text

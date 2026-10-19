@@ -277,7 +277,9 @@ gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-r
 ```
 
 Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
-`--to-latest` deploy would otherwise route traffic straight back to the bad image).
+`--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
+E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
+`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back.
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
