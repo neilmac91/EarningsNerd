@@ -236,6 +236,14 @@ def requested_filing_types(filing_types: Optional[str]) -> List[str]:
     return company_list_forms()
 
 
+def accepted_filing_forms() -> List[str]:
+    """Every form ``requested_filing_types`` can list, in one fixed order: the refresh a filings
+    visit queues when its ``?filing_types=`` asks for a form outside ``company_list_forms()``, so
+    stored rows of that form keep refreshing. With the list forms it is one of only two refresh
+    payloads a visit can produce (``routers/filings.py``)."""
+    return [form.value for form in FilingType if form is not FilingType.UNKNOWN]
+
+
 def cached_filings(
     db: Session,
     company_id: int,

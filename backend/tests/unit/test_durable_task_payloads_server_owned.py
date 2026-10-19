@@ -13,7 +13,9 @@ dict literal with literal keys and the key a literal or f-string, built only fro
 ``SERVER_OWNED_NAMES`` (never a route parameter, and bound in the route only by plain assignment
 from a resolved row's ``.id``) and ``SERVER_OWNED_CALLS`` (fixed vocabularies called bare with no
 arguments, each bound in its module only by its import from the source named here, as Python's own
-symbol table resolves it, so a router cannot rebind one to return caller input).
+symbol table resolves it, so a router cannot rebind one to return caller input). A conditional
+expression is server-owned when both its branches are: its test only picks one of them, so a
+route may choose among fixed vocabularies, and each adds at most one task per bucket.
 Every such call passes a key, because a keyless task is named at random and so each request would
 queue a new one. Its window (``seconds``/``dedupe_seconds``) sets the time bucket appended to the
 key, so it is a literal or built only from module-level names and builtins, never from the route's
@@ -41,7 +43,10 @@ ENQUEUERS = {"enqueue_task"} | {name for _, name in PASS_THROUGH}
 ENQUEUER_SOURCES = {"enqueue_task": "app.services.durable_tasks"}  # a pass-through is never imported
 KEYS, WINDOWS = ("key", "dedupe_key"), ("seconds", "dedupe_seconds")
 SERVER_OWNED_NAMES = {"company_id"}
-SERVER_OWNED_CALLS = {"company_list_forms": "app.services.latest_filing_service"}
+SERVER_OWNED_CALLS = {
+    "company_list_forms": "app.services.latest_filing_service",
+    "accepted_filing_forms": "app.services.filing_list_service",
+}
 EXEMPT = {
     ("services/internal_task_runner.py", "enqueue_internal_job"): "operator routes (_require_internal_token)",
     ("services/internal_task_runner.py", "run_internal_task"): "worker-side fan-out of an operator job",
@@ -124,6 +129,8 @@ def _bound_only_by_import(text: str, name: str, origin: str) -> bool:
 
 
 def _server_owned(expr: ast.expr, fn: ast.AST) -> bool:
+    if isinstance(expr, ast.IfExp):
+        return _server_owned(expr.body, fn) and _server_owned(expr.orelse, fn)
     if isinstance(expr, ast.Call):
         return (isinstance(expr.func, ast.Name) and expr.func.id in SERVER_OWNED_CALLS
                 and not expr.args and not expr.keywords)
@@ -271,6 +278,15 @@ FORMS_IMPORT = "from app.services.latest_filing_service import company_list_form
 ])
 def test_a_fixed_vocabulary_is_bound_only_by_its_import(source, bound):
     assert _bound_only_by_import(source, "company_list_forms", SERVER_OWNED_CALLS["company_list_forms"]) is bound
+
+
+def test_a_conditional_is_server_owned_only_when_both_its_branches_are():
+    def expr(source):
+        return ast.parse(source, mode="eval").body
+    assert _server_owned(expr("company_list_forms() if asks_beyond else accepted_filing_forms()"), None)
+    assert not _server_owned(expr("company_list_forms() if asks_beyond else types_list"), None)
+    assert not _server_owned(expr("types_list if asks_beyond else accepted_filing_forms()"), None)
+    assert not _server_owned(expr("company_list_forms() if asks_beyond else accepted_filing_forms(types_list)"), None)
 
 
 def test_a_fixed_vocabulary_is_called_bare_with_no_arguments():

@@ -36,11 +36,14 @@ from app.routers import filings as filings_mod
 from app.services import durable_tasks as transport, filing_amendment_service, filing_list_service
 from app.services.durable_tasks import TaskUnavailable
 from app.services.edgar.compat import sec_edgar_service
+from app.services.edgar.config import FilingType
 from app.services.edgar.exceptions import EdgarError
 
 ROUTER_LOGGER = "app.routers.filings"
 PERSIST_LOGGER = "app.services.filing_list_service"  # the live-persistence skip warnings moved
 DEFAULT_TYPES = ["10-K", "10-Q", "10-K/A", "10-Q/A"]
+ACCEPTED_TYPES = ["10-K", "10-K/A", "10-Q", "10-Q/A", "8-K", "8-K/A", "20-F", "20-F/A", "40-F", "40-F/A",
+                  "6-K", "6-K/A", "3", "4", "5", "13F-HR", "13F-HR/A"]
 UNAVAILABLE = "SEC EDGAR is temporarily unavailable. Please retry shortly."
 SLOW = "SEC EDGAR is slow to respond and no cached data is available. Please retry in a moment."
 
@@ -615,17 +618,19 @@ def _fake_cloud_tasks(monkeypatch):
     return queue, creates
 
 
-@pytest.mark.parametrize("values", [
-    pytest.param([f"10-K,JUNK{i}" for i in range(40)], id="40-junk-values"),
+@pytest.mark.parametrize("values, refreshes", [
+    pytest.param([f"10-K,JUNK{i}" for i in range(40)], [DEFAULT_TYPES], id="40-junk-values"),
     # Known forms in other orders, subsets and spellings: validation alone cannot collapse these.
-    pytest.param(["10-Q", "10-Q,10-K", "8-K,10-K", "10k,10-q", "10-K/A,10-Q,8-K"], id="known-forms"),
+    pytest.param(["10-Q", "10-Q,10-K", "8-K,10-K", "10k,10-q", "10-K/A,10-Q,8-K"],
+                 [DEFAULT_TYPES, ACCEPTED_TYPES], id="known-forms"),
 ])
-def test_filing_types_values_cannot_mint_durable_refresh_tasks(client, sessions, monkeypatch, values):
-    """Whatever ``?filing_types=`` says, the public route queues one background refresh per company
-    per time bucket. The refresh payload used to carry the caller's list, and that payload names the
-    Cloud Task (sha256 of key and body) and keys the router's per-process guard, so every distinct
-    value queued a new task: a worker child process and an SEC fetch each, on the queue every
-    durable job shares. Before the fix the 40 junk values queued 40 tasks."""
+def test_filing_types_values_cannot_mint_durable_refresh_tasks(client, sessions, monkeypatch, values, refreshes):
+    """Whatever ``?filing_types=`` says, the public route queues at most two background refreshes per
+    company per time bucket: one of the company's list forms, and one of every accepted form once a
+    request asks for another. The refresh payload used to carry the caller's list, and that payload
+    names the Cloud Task (sha256 of key and body) and keys the router's per-process guard, so every
+    distinct value queued a new task: a worker child process and an SEC fetch each, on the queue
+    every durable job shares. Before the fix the 40 junk values queued 40 tasks."""
     with sessions() as s:
         company_id = _seed_company(s, ticker="DUR").id
         for n, form in enumerate(("10-K", "10-Q", "8-K"), start=1):
@@ -648,22 +653,22 @@ def test_filing_types_values_cannot_mint_durable_refresh_tasks(client, sessions,
         monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
         client.get("/api/filings/company/dur", params={"filing_types": value})
 
-    assert len(queue) == 1, f"{len(queue)} durable tasks queued for one company in one bucket"
-    assert list(queue.values()) == [
-        {"kind": "filings", "payload": {"company_id": company_id, "filing_types": DEFAULT_TYPES}},
+    assert len(queue) == len(refreshes), f"{len(queue)} durable tasks queued for one company in one bucket"
+    assert sorted(queue.values(), key=lambda task: len(task["payload"]["filing_types"])) == [
+        {"kind": "filings", "payload": {"company_id": company_id, "filing_types": forms}} for forms in refreshes
     ]
-    assert one_process_creates == 1
+    assert one_process_creates == len(refreshes)
     assert statuses == {200}
     assert fetched == []  # every value was served from the stored rows
 
 
-@pytest.mark.parametrize("value, served", [
-    ("10-K", ["10-K/A", "10-K"]),  # the amendment rides along
-    ("8-K", ["8-K"]),
-    ("10q,JUNK", ["10-Q"]),  # read as 10-Q; the unknown form is dropped
+@pytest.mark.parametrize("value, served, refresh", [
+    ("10-K", ["10-K/A", "10-K"], DEFAULT_TYPES),  # the amendment rides along
+    ("8-K", ["8-K"], ACCEPTED_TYPES),  # a form outside the list forms refreshes every accepted form
+    ("10q,JUNK", ["10-Q"], DEFAULT_TYPES),  # read as 10-Q; the unknown form is dropped
 ])
-def test_a_filing_types_filter_still_filters_the_served_rows(client, sessions, monkeypatch, value, served):
-    """The refresh no longer follows the caller's forms, but the response still does."""
+def test_a_filing_types_filter_still_filters_the_served_rows(client, sessions, monkeypatch, value, served, refresh):
+    """The refresh never follows the caller's own forms, but the response still does."""
     with sessions() as s:
         company_id = _seed_company(s, ticker="DUR").id
         for n, (form, year) in enumerate((("10-K/A", 2025), ("10-K", 2024), ("10-Q", 2023), ("8-K", 2022)), 1):
@@ -683,7 +688,15 @@ def test_a_filing_types_filter_still_filters_the_served_rows(client, sessions, m
 
     assert resp.status_code == 200
     assert [row["filing_type"] for row in resp.json()] == served
-    assert calls == [("filings", {"company_id": company_id, "filing_types": DEFAULT_TYPES})]
+    assert calls == [("filings", {"company_id": company_id, "filing_types": refresh})]
+
+
+def test_the_wider_refresh_covers_every_form_the_parameter_accepts():
+    """The second refresh vocabulary is every form ``?filing_types=`` can list, so a stored row of any
+    form a visit asks for is refreshed by one of the two."""
+    assert filing_list_service.accepted_filing_forms() == ACCEPTED_TYPES
+    for form in FilingType:
+        assert set(filing_list_service.requested_filing_types(form.value)) <= set(ACCEPTED_TYPES), form
 
 
 @pytest.mark.asyncio
