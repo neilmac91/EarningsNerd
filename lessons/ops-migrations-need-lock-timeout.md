@@ -47,8 +47,9 @@ Enforced by `backend/tests/unit/test_migration_lock_safety.py` (job knobs and pr
 `ci.yml`; PGOPTIONS, SQLSTATE-only retry, the blocker dump and the INVALID-index exit in `backend/scripts/apply_migrations.sh`,
 the only place migration SQL runs; `ops.yml` dispatch-only + per-step `PGOPTIONS`; the real-Postgres
 triple-apply job; and two frozen, shrink-only allow-lists: the 17 legacy unguarded-ALTER files and
-the 7 legacy unguarded-index files) and by `backend/tests/unit/test_ops_workflow_wiring.py` (every
-`ops.yml` step that can reach Cloud SQL bounds both timeouts, read as Postgres reads `PGOPTIONS`).
+the 7 legacy unguarded-index files). Its `ops.yml` check finds every step that can reach Cloud SQL by
+position and selection and reads `PGOPTIONS` as the Postgres backend parses it
+(`backend/tests/support/ops_workflow.py`).
 
 ## Evidence
 
