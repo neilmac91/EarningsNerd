@@ -86,8 +86,9 @@ def _apply_event(db: Session, event_type: str, obj: dict, user: Optional[User]) 
                 "stripe_subscription_id": obj.get("subscription"),
             }))
     elif event_type in ("customer.subscription.created", "customer.subscription.updated") and user is not None:
-        subscription_sync.apply_subscription_upsert(db, obj, user=user)
-        if event_type == "customer.subscription.created" and obj.get("status") == "trialing":
+        applied = subscription_sync.apply_subscription_upsert(db, obj, user=user)
+        # An ignored upsert (another subscription's non-entitling state) records no trial start.
+        if applied and event_type == "customer.subscription.created" and obj.get("status") == "trialing":
             analytics.append((str(user.id), EVENT_TRIAL_STARTED, {
                 "source": "stripe", "trial_end": obj.get("trial_end"),
             }))

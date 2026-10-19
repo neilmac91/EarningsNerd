@@ -48,7 +48,7 @@ describe('CompanyIdentity', () => {
     render(<CompanyIdentity company={COMPANY} latest={null} />)
     const facts = lineWith('CIK 0000320193')
     expect(facts.className).toContain('font-data')
-    expect(facts).toHaveTextContent(/NASDAQ\s*·\s*,\s*\$227\.52\s*\+1\.20%\s*·\s*,\s*CIK 0000320193/)
+    expect(facts).toHaveTextContent(/^NASDAQ\s*·\s*,\s*CIK 0000320193\s*·\s*,\s*Company on SEC EDGAR$/)
     const edgar = within(facts).getByRole('link', { name: 'Company on SEC EDGAR' })
     expect(edgar).toHaveAttribute('href', 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=320193')
     expect(edgar).toHaveAttribute('target', '_blank')
@@ -69,7 +69,18 @@ describe('CompanyIdentity', () => {
     expect(lineWith('Latest filing')).toHaveTextContent(/filed Oct 31, 2025\s*·\s*,\s*summary ready$/)
   })
 
-  it('drops what it does not have: no quote, no exchange, no latest filing, no actions', () => {
+  it('carries no market quote, though the company has one: no price and no change anywhere in the lead (D-046)', () => {
+    const quoted: Company = { ...COMPANY, stock_quote: { price: 227.52, change: 2.7, change_percent: 1.2, currency: 'USD' } }
+    const { container } = render(
+      <CompanyIdentity company={quoted} latest={LATEST} summaryReady actions={<button type="button">Open latest summary</button>} />,
+    )
+    expect(lineWith('CIK 0000320193')).toHaveTextContent(/^NASDAQ\s*·\s*,\s*CIK 0000320193\s*·\s*,\s*Company on SEC EDGAR$/)
+    // The one figure there no filing sources, in any form: a price, a signed change, a percent, a direction ink.
+    expect(container).not.toHaveTextContent(/\$|%|227|2\.70|1\.20?/)
+    expect(container.querySelector('[class*="text-gain"], [class*="text-loss"]')).toBeNull()
+  })
+
+  it('drops what it does not have: no exchange, no latest filing, no actions', () => {
     const { container } = render(<CompanyIdentity company={{ id: 2, cik: '1045810', ticker: 'NVDA', name: 'NVIDIA CORP' }} latest={null} />)
     expect(lineWith('CIK 0001045810')).toHaveTextContent(/^CIK 0001045810\s*·\s*,\s*Company on SEC EDGAR$/)
     expect(screen.queryByText('Latest filing', { exact: false })).toBeNull()

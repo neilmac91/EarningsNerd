@@ -3,9 +3,9 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import Link from 'next/link'
 import { PRO_PRICING } from '@/app/pricing/prices'
-import { Badge } from '@/components/ui/Badge'
 import { buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { cx } from '@/components/ui/cx'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
 import analytics from '@/lib/analytics'
@@ -13,10 +13,15 @@ import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { CheckIcon, SealCheckIcon } from '@/lib/icons'
 import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 import {
+  ANALYSIS_LINES,
+  FILING_FORMS_LINE,
   FREE_COPILOT_QUESTIONS,
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_HISTORY_RETENTION_DAYS,
   FREE_SUMMARY_LIMIT,
+  TRIAL_DAYS,
+  shipped,
+  type PlanLine,
 } from '@/lib/planLimits'
 
 /**
@@ -28,27 +33,29 @@ import {
  * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
  */
 
-// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts).
-const FREE_FEATURES = [
-  `${FREE_SUMMARY_LIMIT} AI summaries a month`,
-  'Supported 10-K, 10-Q and 20-F filings from SEC EDGAR',
-  'Company search and historical filings',
-  `${FREE_COPILOT_QUESTIONS} Ask this Filing questions`,
-  `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`,
-  'Multi-Period Analysis demo (locked)',
-  `${FREE_HISTORY_RETENTION_DAYS}-day summary history`,
-  'Unlimited watchlist',
+// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts). A line a flag decides
+// (Multi-Period Analysis and its Excel workbook, 20-F filings) is typed once in lib/planLimits.ts, in the
+// `{ text, flag, off }` shape, and both lists go through its one reader, shipped(), at render (D-033, D-040).
+const FREE_FEATURES: readonly PlanLine[] = [
+  { text: `${FREE_SUMMARY_LIMIT} AI summaries a month` },
+  FILING_FORMS_LINE,
+  { text: 'Company search and historical filings' },
+  { text: `${FREE_COPILOT_QUESTIONS} Ask this Filing questions` },
+  { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` },
+  ANALYSIS_LINES.landingFree,
+  { text: `${FREE_HISTORY_RETENTION_DAYS}-day summary history` },
+  { text: 'Unlimited watchlist' },
 ]
 
-const PRO_FEATURES = [
-  'Unlimited summaries',
-  'Unlimited Multi-Period Analysis',
-  'Ask this Filing',
-  'Change Report',
-  'Hourly filing alerts and 8-K alerts',
-  'PDF, CSV and Excel exports',
-  'Full summary history',
-  'Priority support',
+const PRO_FEATURES: readonly PlanLine[] = [
+  { text: 'Unlimited summaries' },
+  ANALYSIS_LINES.landingPro,
+  { text: 'Ask this Filing' },
+  { text: 'Change Report' },
+  { text: 'Hourly filing alerts and 8-K alerts' },
+  ANALYSIS_LINES.exports,
+  { text: 'Full summary history' },
+  { text: 'Priority support' },
 ]
 
 const BILLING_OPTIONS = ['monthly', 'annual'] as const
@@ -59,9 +66,11 @@ const PRICE_CLASS =
   // eslint-disable-next-line no-restricted-syntax -- the 40px display figure sets its own tracking; the ramp has no 40
   'font-data tnum text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary-light dark:text-text-primary-dark'
 const MUTED_CLASS = 'text-text-secondary-light dark:text-text-secondary-dark'
-// Design: 44px tall, full card width. buttonVariants' md size sets h-10; h-11 is emitted later in
-// the height scale, so it wins (verified against the built stylesheet, not assumed).
-const CTA_CLASS = 'mt-5 h-11 w-full'
+// Design: 44px tall, full card width. buttonVariants' md size sets h-10, and min-h-11 lifts the box to
+// 44px whatever the stylesheet order. min-h, not h: below a 24rem viewport the Button's narrow state sets
+// h-auto so a label can wrap, and a caller's own min-h is the one height it keeps
+// (tests/unit/buttonHeightIsAMinimum.spec.ts).
+const CTA_CLASS = 'mt-5 min-h-11 w-full'
 
 function FeatureList({ items }: { items: readonly string[] }) {
   return (
@@ -123,10 +132,12 @@ export default function PricingSection({
     select(next)
   }
 
+  // The ring sits on each radio's className itself, where the ring scan can read it. min-h, not h: a label that
+  // wraps grows its segment instead of spilling out of it. grow: once the segments wrap onto two rows each fills its
+  // row; on one row the group is as wide as its two labels, so there is nothing to grow into.
   const radioClass = (option: Billing) =>
     [
-      'h-9 rounded px-3.5 text-sm font-semibold transition-colors duration-fast motion-reduce:transition-none',
-      'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      'min-h-9 grow rounded px-3.5 py-1 text-sm font-semibold transition-colors duration-fast motion-reduce:transition-none',
       billing === option
         ? 'bg-brand-weak text-text-primary-light dark:bg-brand-weak-dark dark:text-text-primary-dark'
         : `bg-transparent ${MUTED_CLASS}`,
@@ -151,11 +162,14 @@ export default function PricingSection({
                 possible at this price.
               </p>
             </div>
+            {/* One control whose segments wrap whole onto a second row inside it when the two do not fit side by
+                side, as SegmentedControl's fullWidth does (DESIGN_SYSTEM.md): at 360px and 200% text the unwrapped
+                group ran to 368px, its Annual label on three lines below its segment. */}
             <div
               role="radiogroup"
               aria-label="Billing period"
               onKeyDown={onKeyDown}
-              className="inline-flex rounded-lg border border-border-light bg-panel-light p-1 shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+              className="inline-flex max-w-full flex-wrap gap-y-1 rounded-lg border border-border-light bg-panel-light p-1 shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
             >
               <button
                 ref={(el) => {
@@ -166,7 +180,7 @@ export default function PricingSection({
                 aria-checked={monthly}
                 tabIndex={monthly ? 0 : -1}
                 onClick={() => select('monthly')}
-                className={radioClass('monthly')}
+                className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('monthly'))}
               >
                 Monthly
               </button>
@@ -179,10 +193,11 @@ export default function PricingSection({
                 aria-checked={!monthly}
                 tabIndex={monthly ? -1 : 0}
                 onClick={() => select('annual')}
-                className={radioClass('annual')}
+                className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('annual'))}
               >
-                Annual{' '}
-                <span className="font-medium">· save {PRO_PRICING.annualSavingsPercent}%</span>
+                {/* No-break spaces hold the middot to "Annual" and "save" to its figure, so a label too long for its
+                    row breaks only after the middot: "Annual ·" over "save N%", never a line that starts "·". */}
+                Annual&nbsp;<span className="font-medium">· save&nbsp;{PRO_PRICING.annualSavingsPercent}%</span>
               </button>
             </div>
           </div>
@@ -200,7 +215,7 @@ export default function PricingSection({
               >
                 {access.cta}
               </Link>
-              <FeatureList items={FREE_FEATURES} />
+              <FeatureList items={shipped(FREE_FEATURES)} />
             </Card>
 
             {/* The design's brand border is a 1px inset ring here (the pricing page's Pro-card
@@ -211,10 +226,9 @@ export default function PricingSection({
               elevation="e3"
               className="flex flex-col p-5 ring-1 ring-inset ring-brand-border dark:ring-brand-border-dark sm:p-7"
             >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-xl">Pro</h3>
-                <Badge variant="solid">Most popular</Badge>
-              </div>
+              {/* No "Most popular" badge: the beta has no popularity figure behind one, and the brand ring
+                  already carries the emphasis. */}
+              <h3 className="text-xl">Pro</h3>
               <div className="mt-3 flex items-baseline gap-1.5">
                 <span className={PRICE_CLASS}>{proPrice}</span>
                 <span className={`text-sm ${MUTED_CLASS}`}>per month</span>
@@ -230,14 +244,14 @@ export default function PricingSection({
                 href={showBeta ? '/pricing' : pricingHref(cycleName(billing))}
                 className={buttonVariants({ variant: 'primary', size: 'md', className: CTA_CLASS })}
               >
-                {showTrial ? 'Start 7-day free trial' : 'Upgrade to Pro'}
+                {showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
               </Link>
               {showTrial && (
                 <p className={`mt-2 text-xs ${MUTED_CLASS}`}>
-                  Card required. One trial per account. Cancel any time in the 7 days at no charge.
+                  Card required. One trial per account. Cancel any time in the {TRIAL_DAYS} days at no charge.
                 </p>
               )}
-              <FeatureList items={PRO_FEATURES} />
+              <FeatureList items={shipped(PRO_FEATURES)} />
             </Card>
           </div>
         </SectionImpression>

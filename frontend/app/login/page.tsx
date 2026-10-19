@@ -20,6 +20,17 @@ import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice } from '@/components/ui'
 
+/**
+ * Google or Apple returned an email an existing EarningsNerd account holds, and the two were not linked
+ * (`backend/app/services/oauth_account_service.py`): the email is unverified on the account or at the
+ * provider, or this first sign-in lost a race to a parallel one that created the account. The account
+ * may have no password (made through a provider), so the sentence sends the reader back the way it was
+ * made. Verifying links nothing by itself: `resolve_google_user` / `resolve_apple_user` link on a later
+ * provider sign-in, once both sides have verified the email, so the sentence names that next step.
+ */
+const accountConflict = (provider: 'Google' | 'Apple') =>
+  `This email already has an EarningsNerd account, and the two could not be linked. Sign in the way you created that account and verify your email. Once the email is verified on EarningsNerd and ${provider}, try ${provider} again.`
+
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_denied: 'Google sign-in was cancelled.',
   google_invalid: 'Google sign-in failed. Please try again.',
@@ -27,11 +38,11 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_token_failed: 'Could not complete Google sign-in. Please try again.',
   google_userinfo_failed: 'Could not retrieve your Google account info. Please try again.',
   google_missing_claims: 'Google did not return an email address. Please try again.',
-  google_account_conflict: 'An account conflict occurred. Please contact support.',
+  google_account_conflict: accountConflict('Google'),
   apple_denied: 'Apple sign-in was cancelled.',
   apple_invalid: 'Apple sign-in failed. Please try again.',
   apple_missing_claims: 'Apple did not return an email address. Please try again.',
-  apple_account_conflict: 'An account conflict occurred. Please contact support.',
+  apple_account_conflict: accountConflict('Apple'),
   invite_required:
     'EarningsNerd is in private beta: creating an account needs an invite. Sign in with an existing account, or open your invite link to sign up.',
   email_unverified:
@@ -62,7 +73,7 @@ function LoginContent() {
     const explicitGeneration = getExplicitSessionGeneration()
     try {
       await login(email, password, turnstileToken)
-      // Cancel the old identity and remove both account snapshots before resolving this login.
+      // Cancel the old identity and remove every account family before resolving this login.
       // Reset leaves the active marker set by successful login intact.
       const acceptedGeneration = acceptLoginAndResetAccount(queryClient, explicitGeneration)
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.all() })
@@ -142,7 +153,7 @@ function LoginContent() {
             type="button"
             variant="ghost"
             onClick={() => setShowEmail(true)}
-            className="w-full py-3 active:scale-[0.99]"
+            className="w-full active:scale-[0.99]"
           >
             <EnvelopeSimpleIcon className="h-4 w-4" />
             Continue with email
@@ -177,7 +188,7 @@ function LoginContent() {
               labelAction={
                 <Link
                   href="/forgot-password"
-                  className="text-xs text-brand-strong hover:underline dark:text-brand-strong-dark"
+                  className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-xs text-brand-strong hover:underline dark:text-brand-strong-dark"
                 >
                   Forgot password?
                 </Link>
@@ -201,7 +212,7 @@ function LoginContent() {
 
       <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Don&apos;t have an account?{' '}
-        <Link href="/register" className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
+        <Link href="/register" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
           Sign up
         </Link>
       </p>

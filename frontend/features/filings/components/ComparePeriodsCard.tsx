@@ -64,9 +64,7 @@ export function ComparePeriodsCard({ filing }: { filing: Filing }) {
             title="Couldn’t load the comparison"
             description="The rest of this page is unaffected."
             action={
-              <RetryButton size="sm" failures={[failure]} focusTarget={headingRef}>
-                Retry
-              </RetryButton>
+              <RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />
             }
           />
         </div>

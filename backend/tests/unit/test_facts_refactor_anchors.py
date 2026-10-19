@@ -137,7 +137,8 @@ def _messages(caplog, prefix):
 
 
 def test_f0_1_backfill_default_fetcher_fetches_once_per_company_and_caches(sessions, app_loop, monkeypatch):
-    """F0.1 — ``backfill_facts(db)``, the call shape of ``app/routers/internal.py:175``, resolves the
+    """F0.1 — ``backfill_facts(db)``, the call shape of the internal trigger's flag-off run
+    (``app/routers/internal.py::_run_backfill_facts``, through ``job_sessions.run_in_own_session_sync``), resolves the
     default fetcher to the module's ``_fetch_companyfacts_sync`` (facts_service.py:763) and fetches
     companyfacts ONCE per company, caching the extracted authoritative map, or ``{}`` for a miss,
     by company (:804-809). Every existing test injects a fetcher or disables the cross-check.

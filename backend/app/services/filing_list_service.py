@@ -9,25 +9,31 @@ the error mapping and the fallback log lines; the skip and background-failure wa
 with their code, so they now log as ``app.services.filing_list_service``.
 
 The background tasks open their own short-lived sessions. Everything else is one synchronous unit
-on the request's session, run where the router used to run it (on the event loop). The request's
-pooled connection is released before every SEC and queue await and before the route returns
+on the request's session, which the router runs in the thread pool, so its checkout never waits on
+the event loop. Each unit releases the request's pooled connection before it returns, so nothing is
+held across an SEC or queue await or left for the dependency's finalizer
 (:func:`release_request_session`; ``tests/unit/test_cached_filings_pool_lifetime.py`` and
 ``tests/unit/test_filings_endpoint_db_first.py::test_sec_network_phases_do_not_retain_queuepool_connections``).
-A unit that ends the request's database work builds the response DTOs with the router's converter
-before it closes: after a commit the rows are expired, and a lazy read after the close would check
-a connection out again (``lessons/ops-release-cached-filing-reads-before-yield.md``).
+A unit hands back plain values: the response DTOs, built with the router's converter, or a
+:class:`CompanyIdentity`. After a commit the rows are expired, and a lazy read after the release
+would check a connection out again (``lessons/ops-release-cached-filing-reads-before-yield.md``).
 """
 import asyncio
 import logging
+import threading
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from itertools import chain
+from operator import attrgetter
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, TypeVar
 
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import SessionLocal
 from app.models import Company, Filing
 from app.services.company_resolution import resolve_or_create_company_by_cik
+from app.services.edgar.client import _take_recent
 from app.services.edgar.compat import sec_edgar_service
+from app.services.edgar.config import FilingType
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -36,7 +42,7 @@ T = TypeVar("T")
 
 # Constants for filings endpoint configuration
 SEC_REQUEST_TIMEOUT_SECONDS = 20.0  # Timeout for SEC EDGAR requests (within frontend's 30s limit)
-CACHED_FILINGS_LIMIT = 20  # Maximum number of cached filings to return as fallback
+CACHED_FILINGS_LIMIT = 20  # Rows the default list serves per group: the reports, and 6-Ks apart
 
 # B2: stale-within-TTL cache for the company filings list. The hot path already persists every SEC
 # fetch into the Filing table, so a recently-synced ticker can serve its list straight from the DB
@@ -47,6 +53,10 @@ CACHED_FILINGS_LIMIT = 20  # Maximum number of cached filings to return as fallb
 FILINGS_LIST_TTL = timedelta(hours=3)
 MAX_FILINGS_SYNC_ENTRIES = 2000  # bound memory; oldest (ticker,types) key is evicted past this
 _filings_synced_at: Dict[Tuple[str, Tuple[str, ...]], datetime] = {}
+# The live listing marks its key from a worker thread and the background refresh from the event loop,
+# so the evict-then-insert runs under a lock: an insert between the eviction's iter() and next() would
+# raise. A read is one dict lookup and needs none.
+_filings_synced_lock = threading.Lock()
 
 
 def filings_cache_fresh(ticker: str, types_list: List[str]) -> bool:
@@ -57,9 +67,10 @@ def filings_cache_fresh(ticker: str, types_list: List[str]) -> bool:
 
 def _mark_filings_synced(ticker: str, types_list: List[str]) -> None:
     """Record a successful live SEC sync for this (ticker, types), evicting the oldest if full."""
-    if len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
-        _filings_synced_at.pop(next(iter(_filings_synced_at)), None)  # insertion-ordered → oldest
-    _filings_synced_at[(ticker, tuple(types_list))] = utcnow()
+    with _filings_synced_lock:
+        if len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
+            _filings_synced_at.pop(next(iter(_filings_synced_at)), None)  # insertion-ordered → oldest
+        _filings_synced_at[(ticker, tuple(types_list))] = utcnow()
 
 
 # In-flight guard for the DB-first background refresh (below): collapses a burst of concurrent loads
@@ -137,9 +148,26 @@ async def run_history_backfill_on_visit(company_id: int) -> None:
         _history_backfilling_ids.discard(company_id)
 
 
-def company_by_ticker(db: Session, ticker_upper: str) -> Optional[Company]:
-    """The stored company for this (already upper-cased) ticker, or None on a miss."""
-    return db.query(Company).filter(Company.ticker == ticker_upper).first()
+class CompanyIdentity(NamedTuple):
+    """The company fields the filings route reads after its unit has released the session."""
+
+    id: int
+    cik: str
+    needs_history_backfill: bool
+
+    @classmethod
+    def of(cls, company: Company) -> "CompanyIdentity":
+        return cls(company.id, company.cik, company.history_backfilled_at is None)
+
+
+def stored_company_identity(db: Session, ticker_upper: str) -> Optional[CompanyIdentity]:
+    """The stored company for this (already upper-cased) ticker, or None on a miss; releases the
+    session either way, so the miss path's SEC awaits hold no connection."""
+    try:
+        company = db.query(Company).filter(Company.ticker == ticker_upper).first()
+        return None if company is None else CompanyIdentity.of(company)
+    finally:
+        release_request_session(db)
 
 
 def release_request_session(db: Session) -> None:
@@ -147,33 +175,53 @@ def release_request_session(db: Session) -> None:
     the route returns. The sync ``get_db`` finalizer runs in the thread pool only after the async
     route yields, so a completed read left open there can starve the pool
     (``lessons/ops-release-cached-filing-reads-before-yield.md``). The Session stays reusable for a
-    later short unit."""
-    db.close()
+    later short unit.
+
+    A close that fails is logged, not raised. Units call this in a ``finally``, where raising would
+    replace the unit's own outcome: a refresh whose rotation has committed would answer 500 and lose
+    the rotated token, and a refresh's 401 would become a 500. The logged traceback reaches Sentry.
+    When the rollback fails because the connection dropped after the unit's last statement, the
+    session has already let go of its transaction, and SQLAlchemy has invalidated the connection and
+    returned its pool slot, so the dependency's finalizer finds nothing left to release. A rollback
+    that fails for another reason holds the slot until garbage collection, as it did when the
+    finalizer closed."""
+    try:
+        db.close()
+    except Exception:
+        logger.exception("Releasing the request session failed; the unit's own outcome stands")
 
 
-def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional[str]) -> Company:
+def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional[str]) -> CompanyIdentity:
     """Create the Company row for an SEC search hit, or reuse the row already stored for its CIK
-    (self-healing a stale ticker to ``primary``), and commit it.
+    (self-healing a stale ticker to ``primary``), commit it and release the session.
 
     Called on the request session after the router's SEC awaits; any exception propagates to the
     router's miss-path handlers unchanged.
     """
-    company = resolve_or_create_company_by_cik(
-        db,
-        cik=sec_data["cik"],
-        ticker=primary or sec_data["ticker"],
-        name=sec_data["name"],
-        exchange=sec_data.get("exchange"),
-        path="filings.get_company_filings",
-        canonical_ticker=primary,  # self-heal a stale ticker → primary (P0-1)
-    )
-    db.commit()
-    db.refresh(company)
-    return company
+    try:
+        company = resolve_or_create_company_by_cik(
+            db,
+            cik=sec_data["cik"],
+            ticker=primary or sec_data["ticker"],
+            name=sec_data["name"],
+            exchange=sec_data.get("exchange"),
+            path="filings.get_company_filings",
+            canonical_ticker=primary,  # self-heal a stale ticker → primary (P0-1)
+        )
+        db.commit()
+        db.refresh(company)
+        return CompanyIdentity.of(company)
+    finally:
+        release_request_session(db)
 
 
 def requested_filing_types(filing_types: Optional[str]) -> List[str]:
-    """The form types to list for a ``?filing_types=`` value (None when absent), amendments added."""
+    """The form types to list for a ``?filing_types=`` value (None when absent), amendments added.
+
+    The caller's value is validated here, where it enters: each entry reads as its SEC form
+    (``10k`` lists ``10-K``) and an unknown one is dropped, as the SEC layer drops it, so a value
+    that names no known form lists nothing.
+    """
     # Parse filing types. Default to the domestic financial reports; when FPI support is enabled,
     # also discover foreign-issuer forms (20-F annual, 6-K interim, 40-F) so ADRs like Alibaba
     # ($BABA) list their filings instead of showing an empty state. An explicit ?filing_types=
@@ -183,8 +231,33 @@ def requested_filing_types(filing_types: Optional[str]) -> List[str]:
     from app.services.filing_amendment_service import expand_amendment_forms
     from app.services.latest_filing_service import company_list_forms
     if filing_types:
-        return expand_amendment_forms([t.strip() for t in filing_types.split(",")])
+        forms = (FilingType.from_string(t, strict=False) for t in filing_types.split(","))
+        return expand_amendment_forms([f.value for f in forms if f is not FilingType.UNKNOWN])
     return company_list_forms()
+
+
+def other_filing_forms() -> List[str]:
+    """Every form ``requested_filing_types`` can list that ``company_list_forms()`` does not, in one
+    fixed order: the second refresh a filings visit queues when it serves stored rows of one of
+    them (``routers/filings.py``). With the list forms it is one of only two refresh payloads a
+    visit can produce; the worker fetches only the forms :func:`forms_to_refresh` keeps."""
+    from app.services.latest_filing_service import company_list_forms
+    listed = set(company_list_forms())
+    return [form.value for form in FilingType if form is not FilingType.UNKNOWN and form.value not in listed]
+
+
+def forms_to_refresh(db: Session, company_id: int, forms: List[str]) -> List[str]:
+    """The forms of a durable refresh's payload that the worker fetches. The list-forms payload is
+    fetched whole, so a company's first 10-Q or 20-F arrives. It is recognised in either state of
+    ``ENABLE_FPI_FILINGS``, because a queued task can outlive a change of the flag. Any other payload
+    keeps only the forms the company already has rows of. So a refresh keeps stored rows fresh but
+    never adds another form nobody stored, which would spend the fetch's row budget and reach the pages
+    that read every stored form (the watchlist, the dashboard, the digest)."""
+    from app.services.latest_filing_service import company_list_forms
+    if forms in (company_list_forms(fpi=False), company_list_forms(fpi=True)):
+        return forms
+    stored = {form for (form,) in db.query(Filing.filing_type).filter(Filing.company_id == company_id).distinct()}
+    return [form for form in forms if form in stored]
 
 
 def cached_filings(
@@ -199,20 +272,30 @@ def cached_filings(
     joinedload(company) so the converter doesn't lazy-load the company per row (this is the primary
     serving path, not just a fallback).
     """
-    # Default serves the recent cap (unchanged behaviour); an explicit ?limit= (P1-6 "show full
-    # history") raises it so the deep-backfilled rows surface.
+    # Each group serves its newest `row_cap` rows: the reports, and the 6-Ks (FilingType.is_interim)
+    # apart, as on the live fetch (edgar/client.py RECENT_FILINGS_MATERIALIZE_CAP): an issuer that
+    # furnishes a 6-K most business days would otherwise fill the cap and hide its 20-F/40-F. The
+    # default cap is CACHED_FILINGS_LIMIT; an explicit ?limit= (P1-6 "show full history") raises it
+    # so the deep-backfilled rows surface. With no 6-K type requested, this is the one reports query.
     row_cap = limit or CACHED_FILINGS_LIMIT
+    six_k_types = [t for t in types_list if FilingType.from_string(t, strict=False).is_interim]
+    report_types = [t for t in types_list if t not in six_k_types]
     try:
-        cached = db.query(Filing).options(joinedload(Filing.company)).filter(
-            Filing.company_id == company_id,
-            Filing.filing_type.in_(types_list)
-        ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
+        newest_per_group = [
+            db.query(Filing).options(joinedload(Filing.company)).filter(
+                Filing.company_id == company_id,
+                Filing.filing_type.in_(types)
+            ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
+            for types in (report_types, six_k_types)
+            if types
+        ]
+        cached = sorted(chain.from_iterable(newest_per_group), key=lambda f: f.filing_date, reverse=True)
         return [convert(f) for f in cached]
     finally:
         # A sync dependency's finalizer runs in the thread pool after this async route yields.
-        # Release completed reads now so a competing synchronous checkout cannot block the
-        # event loop while waiting for those very finalizers to return the serving slots.
-        db.close()
+        # Release completed reads now so a competing checkout never waits for those very
+        # finalizers to return the serving slots.
+        release_request_session(db)
 
 
 def cached_filings_after_rollback(
@@ -222,7 +305,9 @@ def cached_filings_after_rollback(
     limit: Optional[int],
     convert: Callable[[Filing], T],
 ) -> List[T]:
-    """Roll back a failed live unit, then serve :func:`cached_filings` (the error fallbacks)."""
+    """Serve :func:`cached_filings` for the error fallbacks. The rollback first is a guard: every
+    earlier unit releases the session before it returns, a failed live persist included, so it
+    normally finds no transaction to roll back."""
     db.rollback()  # Ensure clean session state
     return cached_filings(db, company_id, types_list, limit, convert)
 
@@ -233,14 +318,17 @@ def persist_live_filings(
     types_list: List[str],
     company_id: int,
     sec_filings: List[Dict[str, Any]],
+    limit: Optional[int],
     convert: Callable[[Filing], T],
 ) -> List[T]:
     """Persist a live SEC listing and return it converted, in SEC order.
 
     New rows are inserted, existing rows on the old ``cgi-bin/viewer`` URL are rewritten, superseded
     filings are marked and everything commits in one transaction; the (ticker, types) is then
-    stamped fresh. The DTOs are built last, after the commit, while the session is still open: the
-    router's ``finally`` releases it. Any exception propagates to the router's fallbacks.
+    stamped fresh. Every listed row is persisted; an explicit ``limit`` caps each group of the
+    response (the 6-Ks, and every other form), as :func:`cached_filings` does. The DTOs are built
+    last, after the commit, while the session is still open: the router's unit releases it once
+    this returns or raises. Any exception propagates to the router's fallbacks.
     """
     filings = []
     new_filings = []  # Track newly added filings for batch refresh
@@ -324,5 +412,8 @@ def persist_live_filings(
     # Mark this (ticker, types) freshly synced so subsequent loads take the B2 fast path.
     _mark_filings_synced(ticker_upper, types_list)
 
-    # Convert to response models after commit
+    # Convert to response models after commit; ?limit= keeps the newest `limit` of each group with
+    # the live fetch's own per-group rule.
+    if limit is not None:
+        filings = _take_recent(filings, limit, six_k_apart=True, form=attrgetter("filing_type"))
     return [convert(f) for f in filings]

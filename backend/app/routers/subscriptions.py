@@ -7,10 +7,11 @@ import json
 import logging
 import stripe
 from app.database import get_db
-from app.models import User, Subscription
+from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
+from app.services import billing_account_service
 from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
@@ -108,7 +109,7 @@ async def get_subscription_status(
     Reads the local `subscriptions` row (kept authoritative by the webhook) so the common case
     needs no live Stripe round-trip. Falls back to the `is_pro` mirror when no row exists yet.
     """
-    sub = db.query(Subscription).filter(Subscription.user_id == current_user.id).first()
+    sub = billing_account_service.find_subscription(db, current_user.id)
     plan = get_plan(current_user).value
 
     return SubscriptionStatus(
@@ -203,8 +204,7 @@ async def create_checkout_session(
                 email=current_user.email,
                 metadata={"user_id": str(current_user.id)}
             )
-            current_user.stripe_customer_id = customer.id
-            db.commit()
+            billing_account_service.save_stripe_customer_id(db, current_user, customer.id)
         else:
             customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
         
@@ -254,7 +254,7 @@ async def create_checkout_session(
             not is_beta
             and billing_cycle == "monthly"
             and settings.PRO_TRIAL_DAYS > 0
-            and db.query(Subscription).filter(Subscription.user_id == current_user.id).first() is None
+            and billing_account_service.find_subscription(db, current_user.id) is None
         ):
             # First-time monthly subscriber → 7-day card-required trial. A prior Subscription row of
             # ANY status (canceled, expired reverse-trial, …) means this account already had its

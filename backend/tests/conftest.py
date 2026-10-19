@@ -1,7 +1,10 @@
 """
 Pytest configuration for EarningsNerd backend tests.
 
-Provides shared fixtures and markers for all test suites.
+Makes every pytest process hermetic and order-independent: a private temp database and EdgarTools
+directory per process (each xdist worker is one), pinned environment, the network gate, and autouse
+resets of process-wide state. Markers live in backend/pytest.ini; gates for all of this are in
+tests/unit/test_suite_isolation.py (lessons/ops-one-test-process-per-worktree.md).
 """
 
 import atexit
@@ -36,6 +39,23 @@ def _cleanup_test_database():
 atexit.register(_cleanup_test_database)
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_TEST_DB_DIR, "earningsnerd.db")
 
+# EdgarTools keeps its data (EDGAR_LOCAL_DATA_DIR, default ~/.edgar: the HTTP cache and the markers of
+# the cache migrations that importing it runs) and its caches (EDGAR_CACHE_DIR, default ~/.edgar_cache:
+# the pickled anchors TOC extraction reuses) under the home directory, which every run and worker would
+# share, and which a sandbox with a read-only home cannot write: TOC extraction then swallows the error
+# and picks an incomplete fallback (lessons/test-conftest-hermetic-env.md). So each process gets its own,
+# in the temp directory above, before any app import, and they go with it. A value set before pytest
+# started (a developer's) is kept. A value a parent test process assigned is not: xdist's controller and a
+# pytest started from a test pass theirs down in the environment, and EARNINGSNERD_TEST_EDGAR_DIRS names
+# what this file assigned, so each worker and child takes its own. Gate: test_suite_isolation.py.
+_INHERITED_EDGAR_DIRS = os.environ.get("EARNINGSNERD_TEST_EDGAR_DIRS", "").split(os.pathsep)
+_ASSIGNED_EDGAR_DIRS = []
+for _name, _subdir in (("EDGAR_LOCAL_DATA_DIR", "edgar"), ("EDGAR_CACHE_DIR", "edgar-cache")):
+    if not os.environ.get(_name) or os.environ[_name] in _INHERITED_EDGAR_DIRS:
+        os.environ[_name] = os.path.join(_TEST_DB_DIR, _subdir)
+        _ASSIGNED_EDGAR_DIRS.append(os.environ[_name])
+os.environ["EARNINGSNERD_TEST_EDGAR_DIRS"] = os.pathsep.join(_ASSIGNED_EDGAR_DIRS)
+
 # Set mock environment variables for all tests at module level to avoid Pydantic validation errors at import time
 os.environ["SECRET_KEY"] = "test-secret-key-must-be-long-enough-123"
 os.environ["OPENAI_API_KEY"] = "sk-test-key-for-mocking"
@@ -64,8 +84,7 @@ os.environ["TURNSTILE_SECRET_KEY"] = ""
 pytest_plugins = ("tests.support.network_gate",)
 
 # NOTE: custom markers are registered in backend/pytest.ini (single source of test config).
-# Shared fixtures are added below as the Wave 0 characterization anchors are written and a
-# fixture is repeated across ≥2 of them.
+# The characterization anchors' shared helpers live in tests/support/summary_stream_harness.py.
 
 
 
@@ -252,7 +271,8 @@ def _no_mock_left_on_generation_singletons():
     the harness mock back after the harness restored production, for the rest of the process
     (``test_sec_rate_limiter`` then read the mock's canned text). Undo such overrides first, with
     ``monkeypatch.context()`` inside the block. A leak fails the leaking test's teardown and is
-    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it.
+    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it. A method that
+    monkeypatch's undo left pinned on a singleton is cleared too, covered by an ordered probe pair there.
     """
     before = [(target, dict(vars(target))) for target in _generation_singletons()]
     seen = {id(target) for target, _ in before}
@@ -268,6 +288,7 @@ def _no_mock_left_on_generation_singletons():
                     setattr(target, name, snapshot[name])
                 else:
                     delattr(target, name)
+    _clear_pinned_methods()
     if leaked:
         pytest.fail(f"mock left on a shared generation singleton after the test: {', '.join(leaked)}", pytrace=False)
 
@@ -277,6 +298,28 @@ def _generation_singletons():
     if pipeline is None:
         return []
     return [pipeline, pipeline.sec_edgar_service, pipeline.xbrl_service, pipeline.openai_service]
+
+
+def _service_singletons():
+    """The shared service instances, looked up where they live: a test that imports them from
+    ``app.services.edgar.compat`` never imports ``summary_pipeline``."""
+    compat = sys.modules.get("app.services.edgar.compat")
+    ai = sys.modules.get("app.services.openai_service")
+    found = (getattr(compat, "sec_edgar_service", None), getattr(compat, "xbrl_service", None),
+             getattr(ai, "openai_service", None))
+    return [target for target in found if target is not None and not isinstance(target, NonCallableMock)]
+
+
+def _clear_pinned_methods():
+    # monkeypatch.setattr on an instance saves the old attribute with getattr, which returns a bound
+    # method, and its undo sets that back on the instance: the class's own method, pinned there, where
+    # it would shadow a later class-level patch in whichever tests ran after it; tests patch these
+    # singletons this way across dozens of files. A pin behaves exactly like the class's method, so it
+    # is cleared silently rather than failing the test.
+    for target in _service_singletons():
+        for name, value in list(vars(target).items()):
+            if getattr(value, "__self__", None) is target and getattr(value, "__func__", None) is getattr(type(target), name, None):
+                delattr(target, name)
 
 
 # Stream tests that drive the real ``stream_filing_summary`` with a mocked 10-K (CIK 1234567890)

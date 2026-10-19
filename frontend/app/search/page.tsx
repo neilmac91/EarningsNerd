@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import FullTextSearch from '@/features/search/components/FullTextSearch'
 
 export const metadata: Metadata = {
-  title: 'Search Filings | EarningsNerd',
+  title: 'Search filings | EarningsNerd',
   description:
-    'Full-text search across SEC filings and their exhibits since 2001. Find every filing that mentions a phrase, risk, or product.',
+    'Full-text search across SEC filings and their exhibits since 2001. Search a phrase, a risk or a product name.',
 }
 
 export default function SearchPage() {

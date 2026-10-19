@@ -1,6 +1,6 @@
 """A stored summary the filing page cannot show is regenerated in place, for any signed-in user.
 
-The filing page shows a stored row as its "Summary temporarily unavailable" card (with Retry) or as
+The filing page shows a stored row as its "This summary did not finish" card (with Retry) or as
 "generating" when the row fails the readiness rule (summary_placeholders.is_summary_ready): failure
 filler, a writer error, an empty body, or an earlier pipeline's in-progress marker. Before this, the
 route replayed such a row on every visit, and Retry sent force=true, which is Pro-only, so a Free
@@ -126,7 +126,7 @@ def test_free_user_visit_regenerates_an_unready_row_in_place(body, raw_summary):
 
 
 def test_free_user_retry_with_force_on_an_unready_row_is_not_forbidden():
-    # The page's Retry on the "Summary temporarily unavailable" card sends force=true.
+    # The page's Retry on the "This summary did not finish" card sends force=true.
     filing_id = seed_company_filing()
     stored_id = _seed_summary(filing_id, FAILURE_FILLER)
 

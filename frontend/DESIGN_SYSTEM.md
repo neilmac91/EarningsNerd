@@ -43,8 +43,26 @@ hairlines-as-meaning) ≥ 3:1.
 
 Every color on a surface that renders in **both** themes must be a light/dark **pair**:
 `bg-x-light dark:bg-x-dark`, `text-…-light dark:text-…-dark`. Never ship a single-theme color on a
-shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
+shared surface (it caused white-on-cream and dark-on-cream bugs across the app). Gate:
+`tests/unit/themePairs.spec.ts` holds the light half app-wide, stylesheets included: each colour class on a
+`-light` token, or on a token beside a `<name>-dark` (`brand-weak`, `gain`), needs a `dark:` colour class
+on the same property under the same variants, in the same class list. A twin under a condition, or one
+that is itself a light token, does not count, and a stylesheet rule block's `@apply` lines are one list.
+Tokens with no dark sibling (the chart palette, `overlay`, and the `-text` and `-emphasis` inks) are not
+read. Its residue is listed per file and class, with a cap equal to it, and every file under the scanned
+directories is read or listed as holding no class list. The same gate refuses the other half bare: a
+colour class on a `-dark` token with no `dark:` variant paints the dark theme's colour in the light theme
+(a stylesheet block whose every selector names `.dark` is the dark theme's), except on a surface dark in
+both themes on purpose, listed in its own residue (the logos' forced-dark mode, the debug payload panel).
 
+- **A state's colour pairs too, and a bare one is not harmless.** The brand tint's states take the dark
+  tokens the §1 table pairs with them: a hover hairline `hover:border-brand-border
+  dark:hover:border-brand-border-dark`, an outline `ring-brand-border dark:ring-brand-border-dark`, the
+  interactive Card's pressed fill `active:bg-brand-weak/60 dark:active:bg-brand-weak-dark`. Tailwind writes a
+  `dark:` class at the same specificity as a `hover:` or `active:` one and later in the sheet, so where the
+  element sets its resting colour under `dark:`, a bare light state colour loses to it and dark shows no hover
+  or pressed change at all; where it sets none, as a ring, the light colour paints on navy (the Copilot's user
+  bubble drew `#CFE0D6` on the panel at 10.7:1, where light's ring sits at 1.3:1).
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
@@ -60,10 +78,11 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 - **Body & UI:** `-apple-system → Inter` (system-first; Apple hardware renders SF Pro, everyone
   else falls through to Inter — Inter sits BEFORE generic `system-ui` on purpose).
 - **Data:** Geist Mono + `tabular-nums` — money, %, tickers, XBRL anchors, verbatim excerpts,
-  Ask-this-Filing output. `.tabular` = mono evidence register; `.tnum` = tabular figures in the
-  CURRENT (body) face — numerals inside prose/UI copy only. Data tables and KPI tiles are **not**
-  `.tnum` surfaces: their numerics render mono (DataTable numeric cells, StatCard figures — the
-  data-role rule).
+  Ask-this-Filing output, and a code a reader may retype (the waitlist referral link: Inter's
+  contextual alternates draw an x between digits, as in `p4x8n2wd`, as a multiplication sign).
+  `.tabular` = mono evidence register; `.tnum` = tabular figures in the CURRENT (body) face —
+  numerals inside prose/UI copy only. Data tables and KPI tiles are **not** `.tnum` surfaces: their
+  numerics render mono (DataTable numeric cells, StatCard figures — the data-role rule).
 - **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
   (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
   On a public page the serif appears only inside a quoted passage the product located (the hero
@@ -100,7 +119,10 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   headings take their tracking from the fontSize ramp.
 - 12px UI-type floor for running copy; `text-data-xs` (11px) for dense numeric annotations and in-card
   captions / uppercase micro-labels (v3 b8 maps every former `text-[10–11px]` text site to it). The
-  provenance chip that carries a verification claim is never one of them: it is 12px (P-10, §4). UPPERCASE
+  provenance chip that carries a verification claim is never one of them: it is 12px (P-10, §4), as are
+  the in-text citation marker (CitationChip, the analysis narrative's chip) and every source-check label
+  (gate: `tests/unit/dataXsAllowlist.spec.ts`, a shrink-only list of the files that use data-xs, its file and
+  site totals an equality cap that the PR shrinking the list lowers in the same commit). UPPERCASE
   tracked eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,
   14px/600 heading ink; it shipped as an eyebrow in v2 and was fixed in v2.1) and never document headings.
 - **Section title** (2026-10 critique P-05): the filing summary is a document, so its section headings are
@@ -114,8 +136,8 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
-the SHIPPED copilot data model — see below). Controls expose their applicable interaction and
+DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + the copilot answer renderer
+`features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
 
@@ -148,23 +170,58 @@ that carries `aria-disabled` or on a use of a shared control that renders one wi
 `<Button loading>`, RetryButton, AlertBell).
 
 A Retry of a failed query is
-`<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}>`, never a hand-rolled
+`<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef} />`, never a hand-rolled
 `<Button loading={isFetching}>`. `queryKey` is the key the query's own `useQuery` was given: it is the hold's
 identity, so a key change (another user, a new search term) never holds the old query's error (gated in
 `tests/unit/useRetainedFailure.spec.tsx`). The error UI stays up through any refetch until data replaces it;
-the Retry is busy while the query has a fetch in flight (paused offline included), reads "Retrying…" only
+the Retry is busy while the query has a fetch in flight (paused offline included), reads "Trying again…" only
 while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` heading, or a text field with
 `textField`) when it unmounts while focused. It lives beside its hook in `hooks/useRetainedFailure.tsx`, not in
 `components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
 chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
-A Retry that restarts a stream, not a query (the filing page's "Retry generation"), is RetryButton too, given the
+Its label is the product's one retry verb (D-032): "Try again", busy "Trying again…", RetryButton's own, so a
+call site passes none: TypeScript refuses a child, an aria-label and an aria-labelledby (RetryButtonProps declares
+each `never`), RetryButton drops each at run time (one a spread or a cast brings in), and the gate fails a call
+site that passes one, under any name an import gives RetryButton. It keeps the room of the spinner and "Trying
+again…" at rest (Button's `reserveLoadingText`, below; D-032), so the swap never resizes it or moves what sits
+beside it: without it, at 390px under 200% text the label wrapped and the card grew 22 to 24px (e2e
+`filing-source-chip.spec.ts` holds the box through the swap, in both themes at 390 and 1440px). That room must
+never cost reflow. So the Retry takes its own row under its message, as a Notice's action does, never a place
+beside its message or another control in a row that cannot wrap (GuidanceCard's action row wraps and centres
+two actions); a message carrying the backend's words breaks a long token (`break-words`); and where even its own
+row is narrower than the spinner beside "again…" (a Notice inside a card at 200% text), the spinner goes above
+the label (Button's reserve, below). Before, at 390px under 200% text, the homepage and full-text search alerts
+pushed their Retry past the screen (the page 445 and 472px wide), the dashboard's account card put its Retry's
+left edge off the screen at 320px, and the comparison card's Retry widened the page at 320px. A Notice inside a
+card keeps its Retry and its title inside its own border too: its row wraps, and its text column goes under the
+glyph where it cannot keep 9rem beside it (Inline notice, below). Before, under 200% text, the comparison card's
+Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at 360px
+the billing and ticker filings cards' Retry ran 15px past it. Gates: e2e `reflow-200.spec.ts`, "a failure's
+controls stay inside their card" (the homepage search alert at 320, 360 and 390px and with a long token, the
+dashboard's account card at 320, 360 and 390px, the route and dashboard error boundaries at 320px, and the
+comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at 360px and the
+comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
+the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
+`twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
+reserve's rows. Its limit: at 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the
+admin feedback and invites lists) leaves a Notice a 92px content box, narrower than the Retry's narrowest state
+(138px, its padding and "again…"), so there the Retry sits 13px past the Notice's border, inside the card, the
+page at its width. Main's resting Retry is 30px past it there, so the cards' padding causes it, not the reserve
+or the Notice (E120). Where one Notice holds two failed reads, one
+RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
+the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
+not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and
+so does the copy beside a Retry ("Try again in a moment."): the gate's one-verb clauses fail any other label, busy
+text or "retry" in copy, naming the file and line.
+A Retry that restarts a stream, not a query (the filing page's generation restart), is RetryButton too, given the
 stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no query to hold, and the press
 clears the error in the render that starts the stream, so the card leaves with the press when the run starts
 and its hand-off target is the progress card's heading. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
-imported name), and under RetryButton's own import aliases; what it cannot prove (a `let`, a JSX spread on
+imported name), and under any name an import of RetryButton's module gives it (an alias, a default import,
+`H.RetryButton`); what it cannot prove (a `let`, a JSX spread on
 RetryButton or into such a component, an empty list) fails as built by hand. A card that ends a run the user is
 waiting on (a failed generation, the monthly limit) takes focus when it appears, on its title
 (`GuidanceCard`'s `headingRef`: `tabIndex={-1}`, no outline, described by the card's description), and only when nobody holds focus (`useFocusOnArrival`,
@@ -195,10 +252,41 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
 Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
                  its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
                  Constrain width at the call site; never override its height or whitespace.
-                 Default buttons keep their fixed height; icon-sm stays a 32px square.
+                 Default buttons keep their fixed height above a 24rem viewport (below it, the Button
+                 size row); icon-sm stays a 32px square.
+
+Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> keeps a loading label's room at
+                 rest when it is longer than the resting one: what shows is laid over an invisible, aria-hidden
+                 copy of the loading state (the spinner's box and that label) in one grid cell, so the swap
+                 never resizes the button or moves what sits beside it. Each row wraps, its label based at its
+                 longest word, so where the button is narrower than the spinner beside that word the spinner
+                 goes above the label, and the room is never wider than that word with the padding.
+                 RetryButton's "Trying again…" is its one use (tests/unit/button-wrap.spec.tsx holds the cell
+                 and the rows; busyControlsStayFocusable.spec.ts holds RetryButton to reserving the busy text
+                 it shows).
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
+
+Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 and 48px) and one line
+                 (whitespace-nowrap) unless `wrap` is set (the row above); icon-sm is a fixed 32px square.
+                 Below a 24rem viewport every labelled size takes the wrap state on its own: h-auto, the
+                 size's min-h and vertical padding, whitespace-normal, centred on tight leading. A media
+                 query's rem is the browser's text size, so that is 384px at the default size (a 390px
+                 phone keeps one line) and 768px under a 200% text setting, where a 390px phone would
+                 otherwise scroll sideways. The variant is `[@media(max-width:24rem)]:`, since Tailwind
+                 drops `max-[24rem]:` while the screens are in px. In that state a caller's own min-h or
+                 vertical padding wins over the size's (the header's account link keeps its 44px target
+                 from min-h-11 on a 360px phone), through <Button className> and buttonVariants alike. A
+                 taller target is set with min-h, never a fixed h-, which h-auto would beat there, and a
+                 min-h or py goes through the factory's className option (<Button>, RetryButton and
+                 MarketingCta pass theirs through it), never beside its output in cx() or a template,
+                 where the narrow state cannot see it (tests/unit/buttonHeightIsAMinimum.spec.ts holds
+                 both). A `whitespace-normal` className still loses to the base `whitespace-nowrap`
+                 above 24rem (stylesheet order): use `wrap`.
+                 Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at both; a 768px
+                 and an 834px tablet at 200%), tests/unit/button-wrap.spec.tsx (the narrow state keeps a
+                 caller's min-h and py).
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
@@ -302,7 +390,23 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
 
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
-                 lib/financialTone.directionText IS this recipe — route delta text through it.
+                 lib/financialTone.directionText IS this recipe — route delta text through it; a
+                 direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
+                 a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
+                 600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
+                 the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,
+                 its import (any local name, a namespace member, Phosphor's unsuffixed name) or a binding
+                 the file writes one to (an alias, a ternary, a lookup in a map of glyphs, as the
+                 what-changed chip draws its `<Icon />`), on every element above it up to the first that
+                 gives it an ink on every render (a theme text colour with no variant, or a class part the
+                 rule cannot read, such as directionChip[tone]; a layout or type wrapper such as
+                 `flex gap-1` or `text-sm` passes the ink through), or in a map that pairs one with its
+                 classes; a glyph that reaches a binding as a parameter or a call's result, a glyph
+                 returned from a .map callback and a glyph passed as a JSX prop (`icon={…}`) are past it.
+                 A delta or a figure in sage with no glyph fails tests/unit/brandCopyRules.spec.ts rule 2
+                 (D-030), a figure field such as `display` included. tests/unit/whatChangedChip.spec.tsx
+                 renders the what-changed chip and holds its colour to directionChip for the server's
+                 tone, which no lint can see.
 
 Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
                  letter for its grouped data note. The letter is text-data-xs (11px minimum), zero
@@ -457,14 +561,139 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
                  tint chips vanish. <Badge variant="info"> = the info STATE tint
                  (light label ink = info.text), never a form category: a form code (10-K, 10-Q, 6-K …)
-                 is text in the data face, never a Badge (gate: earningsnerd/no-form-code-badge,
-                 eslint.designRules.mjs); <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
+                 is text in the data face, never a Badge and never a hand-rolled eyebrow chip (uppercase
+                 tracking-eyebrow around the code, its class written inline or held in a same-file
+                 constant; gate: earningsnerd/no-form-code-badge, eslint.designRules.mjs);
+                 <Badge variant="warning"> = warning tint
+                 (replaces raw-amber hand-rolls; "Superseded"). <Badge variant="success|error"> = a STATUS
+                 chip (a summary is ready, a run failed): the status ink on the quiet ground, since the
+                 success ink inside any tint of itself falls under 4.5:1 at 12px. In dark the chip
+                 carries no fill, its hairline only, so a hovered row's white/5 is the one layer under
+                 it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
+                 tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
+                 earnings-surprise direction with their ▲/▼ and never tell a status (gate:
+                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
+                 own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
+                 dot in that sage ink, static under reduced motion (D-032): a new filing is news, not a
+                 caution. Its label holds 5.8:1 in light and 5.9:1 on the dark card (6.1:1 pressed); its one
+                 use, the dashboard's What changed "New", strips the dot. Gates: tests/unit/badgeVariants.spec.tsx
+                 (its classes equal brand's, the dot in its ink, the label on the interactive Card at rest and
+                 pressed in both themes) and tests/unit/designSnapshotParity.spec.ts (DESIGN.md's badge-new
+                 paints what the variant paints).
+
+Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
+                 <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
+                 check (6.6:1); dark the Primary's recipe, brand-dark (6.1:1 on panel-dark) under a navy
+                 check (7.8:1), drawn by `dark:checked:[background-image:var(--check-navy)]`, the
+                 plugin's check path in #0B1120 declared in app/globals.css (white on brand-dark would be
+                 2.4:1). Each fill is stated as `checked:bg-*` because a `dark:bg-*` ground outranks the
+                 plugin's checked fill; the unchecked edge is the flat ink (4.6:1 / 5.8:1 on panel).
+                 Gate: tests/unit/checkboxRecipe.spec.tsx (the check read from the stylesheet; the dark
+                 state equal to the Primary's dark fill and label ink).
+
+Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx) with the theme from
+                 ThemeProvider (never "system", which reads the OS setting, not the site's toggle) and no
+                 richColors, for good: status shows in the icon only, the Separate Signals Rule applied
+                 to a toast. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e4
+                 light (the ladder's overlay step, as the popovers) and none in dark, each with `!` because
+                 Sonner's two-attribute surface rules outrank a utility; the description is secondary ink;
+                 a status toast (success, error, warning, info) keeps the panel and colours only its
+                 icon, in its status ink. The close button
+                 rests on the panel in secondary ink, and its hover takes `!` as its rest does (Sonner's
+                 own hover loses to a forced rest): the quiet controls' tint (hover:!bg-brand-weak) with
+                 the primary ink in light; in dark the primary ink over the panel it keeps, since the
+                 button overhangs the card's corner and a translucent tint (brand-weak-dark) would show
+                 the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
+                 card's e4 and dark none; the close button's hover, forced, on opaque fills).
+
+Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on
+                 STATUS_CHIP + STATUS_CHIP_INK[tone] from features/admin/lib/statusChip.ts, the one home
+                 of the recipe (tones info / success / warning / neutral). The status INK sits on the
+                 quiet ground, never the status tint. Light labels measure 5.0 to 7.1:1 on the white
+                 chip. Dark carries no fill, so the row's white/5 hover tint is the only layer: 5.77 to
+                 6.83:1 at rest, 4.97 to 5.89:1 on a hovered row (Badge's quiet white/5 on the chip as
+                 well would drop info-dark to 4.26:1 there). The old recipe, info-light in its own 10%
+                 tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
+                 FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
+                 same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
+                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). Badge's
+                 success and error status variants carry this dark recipe, no fill; E47 moves the admin
+                 chips onto Badge after the series, with info, warning and neutral status variants of
+                 their own (Badge's info, warning and neutral are the tints and the quiet chip).
+                 Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
+                 hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
+                 pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
+                 there carrying a bg- class fails; a chip colour under any variant but its theme's own
+                 (hover:, focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the
+                 <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
+                 it renders on FeedbackRow's grounds).
+
+Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
+                 TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
+                 containing block of what the rows position absolutely, their `sr-only` labels included, which were
+                 laid out against the page, outside the box's clip (FeedbackRow's took the page to 1090px at 390).
+                 While the table is wider than the box, "Scroll horizontally to read all columns." sits above it and
+                 the box is a named region in the Tab order ("Scrollable table: <the card's title>", the brand ring),
+                 through useOverflowRegion, as in SummaryBlocks' GenericTable. FeedbackRow's message column takes the
+                 width the others leave (`w-full` on its cell; the button's intrinsic width contained, with a 16rem
+                 floor), so the status select keeps its own at 1440. The reporter's address is never cut: it keeps
+                 its own width up to 14rem and wraps inside that past it (`w-max max-w-[14rem]` and
+                 `[overflow-wrap:anywhere]` on a block in the From cell; the message column holds the other columns at
+                 their narrowest, so wrapping the cell itself broke a short address every few letters), and the table
+                 keeps to its box at 1440 with a 50-character address (a nowrap cell took it to 1264px in 1214px).
+                 Gates: tests/unit/admin-invites-page.spec.tsx and tests/unit/admin-feedback-page.spec.tsx (the box,
+                 the cue while the table fits and while it overflows, the message column, the From cell) and
+                 tests/e2e/admin-invite-chip-reflow.spec.ts (at 1440 the table inside its box with a 50-character
+                 address shown whole, a short one and "Anonymous" on one line each). The section nav
+                 (app/admin/layout.tsx) wraps its tabs (`flex-wrap`):
+                 an unwrapped row took the page to 443px at 390 under 200% text. Gate:
+                 tests/unit/admin-layout.spec.tsx. Each card header's filter row is a `min-w-0` flex item that wraps
+                 its fields: a row that could not shrink took /admin/feedback to 336px at 320 under 200% text (its
+                 255px status select in a 158px header). A select capped at the card there clips its closed face, as
+                 the metric pickers' does (E34), and its open list shows every option whole. Gates:
+                 tests/unit/admin-feedback-page.spec.tsx (the class) and tests/e2e/admin-invite-chip-reflow.spec.ts
+                 (the page at 320px, at the default size and under a 200% root). An email chip (EmailChipsInput)
+                 puts its address and the "already invited" marker in one `min-w-0` wrapping group: when they do not
+                 fit on a line the marker goes under the address, which truncates, and the remove button stays the
+                 chip's last child, inside the card (a marker that could not shrink squeezed the address out at 200%
+                 text and pushed the button past the card). Its 16px radius (`rounded-xl`) is a pill on one line and
+                 a rounded box once it wraps, as SourceTrace's chip. The chip row is an inline-size query container,
+                 and below 8em of its own text size (`[@container(width<8em)]:`) that group is too narrow for
+                 "· already" (the dot is held to its word by a no-break space), so the group dissolves (`contents`),
+                 the chip wraps with no row gap and the address takes the first line whole (`order-first
+                 basis-full`), wrapping anywhere (`whitespace-normal [overflow-wrap:anywhere]`) instead of
+                 truncating: beside the remove button it kept 52px at 320px under 200% text ("al…", "bo…", a bare
+                 "n" for an invalid address), too little to tell the chips apart. The marker, the invalid glyph and
+                 the remove button follow on the lines under it. The marker is `flex-1`, so it wraps "invited" under
+                 "· already" to give the button its line wherever both fit (390px under 200% text; at 320px the
+                 button takes the line under the marker), and it never paints over the button (at 320px under 200%
+                 text it once ran across it). The button keeps its 48px and its ring and ends the chip on whatever
+                 line it lands (`ml-auto`), as it does above 8em. An invited chip needs about 9.6em on one line, so
+                 the narrow state never splits a chip that fits; at the default size it starts at a 128px row, so a
+                 chip that fits keeps the one-line pill from 320 up (a short address at 320, whose row is 14.9em, and
+                 alice@example.com at 390 and 1440). Reading and Tab order stay address, marker, button. The em is
+                 the text's actual size however it is enlarged (a media query's rem is only the browser's text
+                 setting), as in the Analysis KPI strip. Gates: tests/unit/admin-invites-page.spec.tsx (the classes)
+                 and tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and 1440px, at the
+                 default size and under a 200% root, in both themes, every address whole and every remove button
+                 ending its chip at 320 and 390px under 200%, a short chip on one line at 320px at the default size,
+                 and at every 10px from 320 to 480px under 200%).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
-                 Card; inside a Card, Notice is the right scale.
+                 Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
+                 centres two actions and sets the second under the first when they do not fit side by
+                 side, and its description, like a Notice's, breaks a long word
+                 (tests/unit/twoActionsWrap.spec.tsx). A Notice's own row wraps: its text column's
+                 basis is 9rem (about 20 characters: 144px at the default size, 288px under 200% text),
+                 so where it cannot keep that beside the glyph (a card on a phone at 200% text) it goes
+                 under the glyph at the Notice's whole inner width. The glyph then sits alone at the top
+                 left over the title, and the title, description and action share the full width; the
+                 title breaks a long word, as the description does. No container query: a
+                 container-type would collapse a Notice wherever a parent sizes it to its content. Gate:
+                 e2e reflow-200.spec.ts (the Retry and every text run inside the Notice's border).
+                 A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
@@ -505,7 +734,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
                  segment rounded (8), 600 weight — 12px labels at 26px (sm; adaptive from sm up), 14px at 36px
                  (md; adaptive below sm); selected = the primary colorway (bg-brand + white; dark NAVY ink on
-                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
+                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. The 26px height is
+                 1.625rem, so it scales with the root and holds its label at 200% text. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments), so every option stays visible; from sm up
@@ -515,6 +745,31 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
+                 A long option set is not a segmented control: the company page's peer and trend
+                 metric pickers (nine and up to 23 options) are a raw compact select beside a visible
+                 "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 options in sentence case; the insider window (three codes) keeps the control. At a
+                 32px root (200% text) on a 320px screen the select is capped at the card's inner width,
+                 so its closed face clips the name ("Revenue" shows four letters); the open list shows
+                 every name whole and nothing overflows (E34).
+                 A mark a reader can clear is not one either: the wording review's Reviewed and
+                 Follow up (WordingChanges.tsx) start unset and a second press clears them, so they
+                 stay a pair of aria-pressed toggles in a labelled group, behind the rule's disable on
+                 that line with its reason (D-046).
+                 Gate: earningsnerd/no-hand-rolled-toggle-group (eslint.designRules.mjs) fails a
+                 role="group" holding an aria-pressed <button> or <Button>, anywhere outside
+                 components/ui/SegmentedControl.tsx. It reads the button in the group's own markup,
+                 through a same-file wrapper component (one level) and through the DS Button imported
+                 under another name. WordingChanges' review row (LabelToggle) carries the rule's one
+                 disable: a second press clears its label, a state the control cannot hold (D-046). A row
+                 without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
+                 file and a wrapper that renders another wrapper are outside its reach (review-checked).
+                 Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
+                 more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
+                 cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
+                 plus the company's forms, at run time and renders it past five as the toolbar's compact
+                 select (the year filter's Select, density compact), so no SegmentedControl ever shows
+                 more than five.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
@@ -568,13 +823,27 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  role="group" named by its title and described by its message (an async failure is also
                  announced with role="alert") — on z-overlay, behind a transparent catcher so
                  an outside press closes only the popover; the panel is the Card recipe (dark:shadow-none).
-                 Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
-                 once per open, callbacks through a ref); Escape closes in window capture with preventDefault
-                 (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /
-                 Shift+Tab before the first close it and resume the page's order at the trigger; a scroll that
-                 moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
-                 scrolling behind a fixed dialog does not move it); every close returns focus to
-                 the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
+                 Placed where it fits, from its measured height, never an assumed one: 18.75rem wide (300px
+                 at the default text size) within 12px of the visible viewport (window.visualViewport: on a
+                 phone whose page is wider than the screen, Chromium widens the layout viewport and
+                 window.inner* to the page), below its trigger, above it when only that side holds it
+                 whole (capped at its own height, so text that grows scrolls rather than reach over the
+                 trigger), otherwise on the roomier side with its height capped there, scrolling inside
+                 (overflow-y-auto, scroll-py-4); a trigger out of view leaves it inside the area too. When
+                 neither side offers 6rem of the reader's text (96px at the default size; a landscape phone
+                 at large text, or with the keyboard up), it spans the visible height over its trigger and
+                 scrolls inside, the one placement that covers the trigger: a side that short would show
+                 little more than the panel's padding. Gate: placeBellPopover's cases and the rendered
+                 placement and width cases in BellPopover.spec.tsx (the width read at a 16px and a 32px root).
+                 Keyboard: focus moves to the first action, without scrolling the page (a capped panel
+                 scrolls itself to show that action and its ring), unless the user already moved it
+                 elsewhere (armed once per open, callbacks through a ref); Escape closes in window capture
+                 with preventDefault (stopPropagation alone still closes a native <dialog> beneath); Tab
+                 past the last action / Shift+Tab before the first close it and resume the page's order at
+                 the trigger; a scroll that moves the trigger, or a resize, closes it (fixed at its rect,
+                 it would detach; the page scrolling behind a fixed dialog does not move it); every close
+                 returns focus to the trigger unless the user moved on. While a native <dialog> is open, it
+                 portals into it.
                  The evidence popovers (SourceTrace's "Source detail", CitationChip's citation card) are the
                  hover/focus variant of this contract: they open on hover or focus, so focus stays on the chip
                  until the user asks for more, and the same hand-off applies from there — Tab on the open chip
@@ -598,12 +867,34 @@ Popover          An anchored, light-dismiss surface that explains one control (t
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
                  sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
                  workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
-                 z-header 50 (site header; its menus ride it) · z-overlay 60 (popovers incl. BellPopover, the
-                 selection pill) · z-modal 70 (dialogs + the source and viewer sheets — scrim AND panel) ·
+                 z-header 50 (site header; its menus ride it: the notification menu and the account menu
+                 sit on this one rung inside the header's stacking context, NotificationBell on the token
+                 and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
+                 z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
+                 source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
                  The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
                  sticky-cell layering is the one documented exemption.
+                 The header offset: the site header publishes its rendered height on <html> as
+                 `--site-header-h` (components/Header.tsx), the one offset under it. Sticky and fixed chrome
+                 below the header and every section's scroll margin read it, `top-[var(--site-header-h,4rem)]`
+                 or `scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)]`, never a fixed `top-16`, so a bar that
+                 wraps under enlarged text covers nothing. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts
+                 and tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text).
+                 The open mobile menu scrolls inside the viewport: the header is a column no taller than it
+                 (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
+                 with auto side margins is not stretched) and the menu panel takes the rest
+                 (`overflow-y-auto overscroll-contain`, its scroll padding the nav's inset, as the Modal
+                 panel's). The cap is the bar's own height, never `--site-header-h`, which counts the open
+                 menu. A sticky header taller than the viewport stays stuck to its top until the page's end,
+                 so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
+                 landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
+                 a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
+                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
+                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
+                 top-left place, which `w-full` holds.
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -785,8 +1076,9 @@ Wording changes  <WordingChanges block Heading context>  (features/filings, E27 
 Company identity <CompanyIdentity company latest summaryReady actions>  (features/companies, critique 1b) — the
                  Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
                  exported from FilingIdentity): breadcrumb Home / company, the h1 with logo and ticker pill,
-                 one data-face line of facts the API returns (exchange · quote · CIK as EDGAR prints it, ten
-                 digits · "Company on SEC EDGAR ↗"), then "Latest filing" form · period · filed date · "summary
+                 one data-face line of facts the API returns (exchange · CIK as EDGAR prints it, ten digits ·
+                 "Company on SEC EDGAR ↗"; no market quote, the one figure there no filing sources, D-046,
+                 though the search option keeps its own), then "Latest filing" form · period · filed date · "summary
                  ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
                  a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
                  filing ("Open latest summary" when ready, "Open latest filing" over a stored row that is
@@ -912,21 +1204,22 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
                  in real layout, the page unmoved).
 
-Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|done|error (this reference
-                 also draws a `streaming` caret state; the production renderer has none);
+Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
                  verified, fragment_url } — `verified` drives source attribution: checked sources show
                  “Source match found” with its scope (not whole-answer verification); unmatched sources
-                 stay “Cited” in legacy/reference rendering. New Ask-this-Filing responses wait for
+                 stay “Cited”. XBRL source rows carry the braces glyph and their tag. The done answer
+                 counts “{n} matched source(s)” once. A plan gate (a spent free allowance, a Pro-only
+                 403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
+                 sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
+                 is that status region already, so the sentence is announced when it lands. The error tint
+                 and role="alert" stay for real failures. New Ask-this-Filing responses wait for
                  an admitted completion; failed referenced citations and draft answer text are
                  withheld before reaching this renderer. Numeric/text grouping is not a separate
                  attestation. Never conflate source matching with support for every answer claim.
-                 REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
-                 The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
-                 which implements the same contract plus viewer deep-linking, popovers and follow-ups —
-                 change copilot rendering THERE, styled to this design. Its answers arrive whole: the
+                 It also carries viewer deep-linking, popovers and follow-ups. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
                  done or error; there is no streaming status, token text or caret.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
@@ -937,12 +1230,19 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
   cards 16 (`rounded-xl`). Config `md` (10px) is legacy off-scale — don't use in new code.
+  Chips are full while they keep to one line (Badge); a chip whose label can wrap takes 16
+  (`rounded-xl`) instead, a pill on one line and a rounded box once it wraps, since a 9999px radius
+  turns a wrapped chip into a capsule whose curve crosses its text (SourceTrace's provenance chip, the
+  admin email chip in EmailChipsInput).
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
-- **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph, as does a
-  provenance chip that cites a filing passage (braces for an XBRL figure); the Ask tab, the Ask callout and
-  the follow-up prompts use `chat-circle-text`, the Filing tab and the Source launcher `file-text`.
+- **Evidence identity:** a provenance chip that cites a filing passage uses the Phosphor `quotes` glyph
+  (braces for an XBRL figure, and on the Ask answer's XBRL source rows); the Ask tab, the Ask callout, the
+  standalone Ask launcher and header (and the landing's Ask demo, which draws that header), "Ask about this"
+  and the follow-up prompts use `chat-circle-text`,
+  the Filing tab and the Source launcher `file-text`; an upgrade button that carries a glyph uses `lightning`
+  (the rail's exhausted-state Upgrade and the taste line's text button carry none).
   `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
   to the enclosing header cell (`th`).
@@ -967,14 +1267,25 @@ plans, the analysis chart panels). `GuidanceCard` titles itself h3 by default, f
 h2 section; where the card stands in for the page's content directly under the h1, pass
 `headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
 summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
+A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
+error boundary, the providers' GlobalErrorBoundary; global-error.tsx writes its own h1; gate:
+tests/unit/errorBoundaryHeadings.spec.tsx).
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
-the 404, and four page-level card states (a filing without a summary for a guest and for a
-signed-in reader whose run fails, a writer error, an empty watchlist). Known exception, not
-visited: /waitlist when its example loads (the example has no heading, so the h1 is followed by the
-problem cards' h3).
+the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
+/login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
+which has no site footer; the two token pages are opened without their emailed token), /contact,
+/privacy, /terms, /security, /delete-account, /search while its flag is off (the 404), and four
+page-level card states (a filing without a summary for a guest and for a signed-in reader whose run
+fails, a writer error, an empty watchlist). Three census cases hold that list to its sources:
+`STATIC_ENTRIES` in `app/sitemap.ts`, `AUTH_ROUTES` in `lib/authShellRoutes.ts`, and every
+`page.tsx` under `app/`, static or dynamic (a dynamic route by a representative path, /company/AAPL
+for `/company/[ticker]`), which the spec must visit or name in `NOT_VISITED` with its reason (the
+admin pages, the API-rendered /analysis, /calendar and /dashboard/settings, the labs prototypes).
+Each fails, naming the path, when a route has no entry, and a reason for a page the spec visits, or
+that no longer exists, fails too.
 
 ## 6. Cards must *lift*, not tint
 
@@ -1001,6 +1312,19 @@ ground; copy the reader must read stays secondary, including the point-of-use AI
 `tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
 rendered ground.
 
+**Reflow at 200% text.** The pricing section's billing toggle (a radio group, not the
+SegmentedControl) wraps its two segments whole onto a second row inside its one shell when they do not
+fit side by side, each filling its row (`grow`), at `min-h-9` rather than a fixed height; no-break
+spaces hold "Annual ·" and "save 20%", so the label breaks only after its middot. At 360px and 200%
+text the unwrapped group took the page to 368px, its Annual label on three lines below its segment.
+The final CTA card and the site footer open their columns at md at the reader's text size,
+`[@media(min-width:48rem)]:` (768px at the default size, 1536px under a 200% text setting), not `md:`:
+their columns hold a one-line button and words that cannot break, and at md's 768px under 200% text
+the footer took every route to 812px and the card took / to 886px. The auth shell's lockup yields to
+the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
+at 360 and 390px, every line but the last ending at the middot; a 768px and an 834px tablet over its route
+loop).
+
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
 `.en-mark` (a phrase highlight: pale sage tint from 62% of the line box, a 2px `brand-border`
@@ -1018,18 +1342,27 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 
 ## 8. Theme mechanics
 
-- **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile). No page-level toggles.
+- **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile; below a 24rem viewport it sits in the mobile menu's first row, not the bar, so the bar keeps one row under enlarged text and the toggle opens in view directly under it: tests/e2e/reflow-200.spec.ts). No page-level toggles.
 - `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme`, else
   light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
   the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
 - Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`.
+  The auth shell's lockup (the 2rem mark and the text-lg wordmark, about 10rem, 1.5rem in) yields to the mark alone
+  below a 12rem viewport (384px under a 200% text setting, never at the default size), where it and its
+  clear space no longer fit; its link keeps the site header logo's name, `aria-label="EarningsNerd home"`,
+  with the wordmark `display: none` (sr-only text still lays out past the link, which the bar's checks
+  read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
+  200%, the bar's edge in the logo's clear space).
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
   see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
 
 ## 9. Exemptions
 
 - **Google / Apple sign-in buttons**: keep their brand-mandated surfaces (white / black). Only
-  their focus rings get rebranded.
+  their focus rings get rebranded. The exemption protects the provider's mandated look (Google: the
+  white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
+  not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
+  against Google's current guideline and record the values here.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**
@@ -1116,7 +1449,7 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 - **Count-up is `hooks/useCountUp`** (rAF, slow/standard, `format` per content fundamentals —
   `"$391.0B"` — render in `tnum font-data`) — the `animate-count-up` keyframe is retired; it was a fade.
 - **Skeleton→content**: `hooks/useContentIn(loading)` returns `animate-content-in motion-reduce:animate-none`
-  from the render where `loading` turns false (DataTable, AskFilingAnswer, the account settings and
+  from the render where `loading` turns false (DataTable, the account settings and
   watchlist pages) — never on first paint of never-loading views. It catches the flip during render, so
   the class lands on the same commit as the content it reveals.
 - **Loading**: a page never swaps itself for a full-page spinner. It renders its own frame and header, and

@@ -12,6 +12,18 @@ matched span and withheld otherwise. The same branch had already lost scope thre
 figure, search coverage, nine parts for every filing), each caught in review rather than at the
 keyboard.
 
+PR #1310 repeated it on the auth pages. The verification banner said "Verify your email to generate
+summaries and subscribe." though only checkout refuses an unverified email (the founder's review
+traced the gate). The fix round then wrote the opposite absolute into a comment and three records
+("only checkout checks email_verified", "signing in never waited on it"), though linking a Google or
+Apple sign-in to an existing account waits on both sides' verification, as the same PR's login
+sentence said. The verification dialog kept the first claim, and its "We sent a link to" on an
+action that sends nothing, because only its comment had been edited. The founder's review also found
+the account-conflict sentence sending every reader to a password, which an account created through
+Google or Apple does not have and which a lost first-sign-in race does not call for. Its rewrite
+then said "Google will link once both sides have verified it", which reads as automatic: verifying
+links nothing, and the provider links only on a later sign-in through it (the principal review).
+
 **Rule**:
 - Before writing "withheld", "verified", "the filing's own words", "every", "any company" or a
   count, list every surface the sentence covers and find, for each, the code that enforces it.
@@ -20,9 +32,25 @@ keyboard.
 - Scope the sentence to the enforced surfaces ("risk excerpts … or withheld"), in plain words, and
   add the scope to `frontend/tests/unit/brandCopyRules.spec.ts` in the same PR (CLAUDE.md rule 12).
 - When a flag is armed later, the claim may widen in that PR, with the gate's scope widened beside it.
+- An exclusive or negative claim ("only checkout", "never waits on it", "the one gate") is a promise
+  too, in a comment or a record as much as on a page: grep every read of the field or flag it names
+  (`email_verified`) and scope the claim to what those reads do.
+- When a correction rewrites one sentence, grep for the same claim elsewhere (another component, a
+  comment, a record, a mail) and fix or hand off every copy in the same change.
+- An error's remedy is a promise for every path that sends its code: read each raise site before
+  naming what the reader should do.
+- A remedy names the reader's next action. When the code acts only on a later request (a provider
+  links on the next sign-in through it), say that request ("try Google again"), never that the
+  change happens by itself.
 
 **Evidence**: founder review 5484603342 on PR #1226 (P2, quote guarantee);
 `backend/app/services/ai/forward_quote_gate.py`, `backend/app/config.py` (`AI_FORWARD_QUOTE_GATE`),
 `backend/app/services/provenance_service.py` (`_enrich_forward_quotes`, the risk projection);
 `frontend/features/marketing/components/MeasuredClaims.tsx`, `TrustStrip.tsx`, `EvidenceSection.tsx`;
-`brandCopyRules.spec.ts` rule 1c, which fails on the three reviewed sites.
+`brandCopyRules.spec.ts` rule 1c, which fails on the three reviewed sites. Founder review 5511059785 on
+PR #1310 (P2, the banner's generation gate; P3, the account-conflict remedy) and that PR's second
+review (the dialog's sentence, the "only checkout" records), and the principal review's P3 of
+2026-10-14 on the same PR (the conflict sentence's automatic linking); `backend/app/routers/subscriptions.py`
+(the one 403), `backend/app/services/oauth_account_service.py` (linking waits on both sides);
+`frontend/tests/unit/authPagesCopy.spec.tsx`, whose dialog and 403 cases hold the scoped lines to
+that route.

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { cx } from '@/components/ui/cx'
 import analytics from '@/lib/analytics'
 
 /**
@@ -19,10 +20,12 @@ export default function ExampleCtaLink({
   className?: string
   children: ReactNode
 }) {
+  // Every Tab stop carries the brand ring (DESIGN_SYSTEM.md §4), so the link brings its own, written out
+  // where the ring scan can read it; callers style the rest.
   return (
     <Link
       href={href}
-      className={className}
+      className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', className)}
       onClick={() => analytics.exampleCtaClicked(placement, href)}
     >
       {children}

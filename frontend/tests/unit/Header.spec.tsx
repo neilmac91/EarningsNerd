@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('next/link', () => ({
@@ -15,7 +15,10 @@ vi.mock('next/navigation', () => ({
 }))
 
 // Stub chrome/children so the test isolates Header's auth-state branching.
-vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
+// The toggle renders its className so the placement test below can read where it shows.
+vi.mock('@/components/ThemeToggle', () => ({
+  ThemeToggle: ({ className = '' }: { className?: string }) => <button type="button" data-testid="theme-toggle" className={className} aria-label="Switch theme" />,
+}))
 vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
 vi.mock('@/features/notifications/components/NotificationBell', () => ({
   default: () => <div data-testid="notification-bell" />,
@@ -30,7 +33,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({
 }))
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import Header from '@/components/Header'
+import Header, { SITE_HEADER_HEIGHT_PROPERTY } from '@/components/Header'
 import { ACCESS_COPY } from '@/features/marketing/lib/access'
 
 const mockUser = {
@@ -125,6 +128,93 @@ describe('Header auth state', () => {
       expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
+    }
+  })
+})
+
+// Below a 24rem viewport (a phone with enlarged text, or a 360px or 375px phone) the bar keeps one row:
+// the theme toggle, a preference rather than a next step, leaves the bar for the mobile menu's first row,
+// so the bar is the logo, the account link and the menu button. Above 24rem it stays in the bar and the
+// menu has none. jsdom applies no media query, so this reads the classes and the order that place it; the
+// geometry is tests/e2e/reflow-200.spec.ts's one-row and 390x664 cases.
+describe('Header theme toggle placement', () => {
+  const NARROW_HIDDEN = '[@media(max-width:24rem)]:hidden'
+  const NARROW_SHOWN = '[@media(max-width:24rem)]:flex'
+
+  it('sits in the bar above 24rem and inside the mobile menu below it', async () => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
+    renderHeader()
+    await screen.findByRole('link', { name: ACCESS_COPY.invite.ctaShort })
+
+    // Menu closed: the desktop group's toggle and the mobile bar's, which yields below 24rem.
+    const [desktop, bar] = screen.getAllByTestId('theme-toggle')
+    expect(screen.getAllByTestId('theme-toggle')).toHaveLength(2)
+    expect(desktop.className.split(' ')).not.toContain(NARROW_HIDDEN)
+    expect(bar.className.split(' ')).toContain(NARROW_HIDDEN)
+    expect(bar.parentElement).toContainElement(screen.getByRole('link', { name: ACCESS_COPY.invite.ctaShort }))
+
+    // Menu open: a third toggle inside the mobile navigation, in a row shown only below 24rem.
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    const menu = screen.getByRole('navigation', { name: 'Mobile navigation' })
+    const inMenu = within(menu).getByTestId('theme-toggle')
+    expect(inMenu.className.split(' ')).not.toContain(NARROW_HIDDEN)
+    const row = inMenu.parentElement!.className.split(' ')
+    expect(row).toContain('hidden')
+    expect(row).toContain(NARROW_SHOWN)
+    expect(screen.getAllByTestId('theme-toggle')).toHaveLength(3)
+  })
+
+  // The Theme row is the menu's first row, ahead of the nav links, so it opens directly under the bar, in
+  // view before the open menu is scrolled (the menu scrolls inside the viewport below the bar; the 390x664
+  // and 360x640 cases in tests/e2e/reflow-200.spec.ts), and its toggle is the menu's first Tab stop.
+  it.each([
+    ['a guest', null],
+    ['a signed-in reader', mockUser],
+  ] as const)('puts the Theme row first in the open menu, for %s', async (_who, user) => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(user)
+    renderHeader()
+    if (user) await screen.findByTestId('user-menu')
+    else await screen.findByRole('link', { name: ACCESS_COPY.invite.ctaShort })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    const menu = screen.getByRole('navigation', { name: 'Mobile navigation' })
+    const row = within(menu).getByTestId('theme-toggle').parentElement!
+    const items = [...menu.children]
+    const firstLink = within(menu).getAllByRole('link')[0]
+    expect(items.indexOf(row), "the Theme row is the menu's first row").toBe(0)
+    expect(items.indexOf(row), 'the Theme row precedes the first nav link').toBeLessThan(items.indexOf(firstLink))
+    expect(menu.querySelector('a[href], button')?.getAttribute('data-testid') ?? null, "the menu's first Tab stop is its theme toggle").toBe('theme-toggle')
+  })
+})
+
+// The header's rendered height is the one offset under it (DESIGN_SYSTEM.md §4 Stacking): published
+// on <html> as --site-header-h before the first paint, rounded up to a whole pixel, followed on
+// every resize, and cleared when the header leaves (the auth routes), so 4rem is the fallback.
+describe('Header publishes its height', () => {
+  it('sets --site-header-h from its own box, follows a resize and clears it on unmount', () => {
+    vi.mocked(getCurrentUserSafe).mockReturnValue(new Promise<never>(() => {}))
+    let height = 238.4
+    let resize: (() => void) | undefined
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { resize = callback }
+      observe() {}
+      disconnect() {}
+    })
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return { height: this.tagName === 'HEADER' ? height : 0 } as DOMRect
+    })
+    try {
+      const { unmount } = renderHeader()
+      const root = document.documentElement
+      expect(root.style.getPropertyValue(SITE_HEADER_HEIGHT_PROPERTY)).toBe('239px')
+      height = 151
+      resize?.()
+      expect(root.style.getPropertyValue(SITE_HEADER_HEIGHT_PROPERTY)).toBe('151px')
+      unmount()
+      expect(root.style.getPropertyValue(SITE_HEADER_HEIGHT_PROPERTY)).toBe('')
+    } finally {
+      rect.mockRestore()
+      vi.unstubAllGlobals()
     }
   })
 })

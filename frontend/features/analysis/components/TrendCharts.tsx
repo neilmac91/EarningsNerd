@@ -702,7 +702,7 @@ export default function TrendCharts({
   if (visiblePanels.length === 0) return null
 
   return (
-    <ChartErrorBoundary>
+    <ChartErrorBoundary noun={visiblePanels.length > 1 ? 'charts' : 'chart'}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {visiblePanels.map((panel) => (
           <PanelCard

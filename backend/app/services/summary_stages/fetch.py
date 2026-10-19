@@ -20,7 +20,7 @@ logger = logging.getLogger(pipeline.__name__)
 
 
 async def fetch_document(run: GenerationRun) -> AsyncIterator[dict]:
-    """Start XBRL/section tasks, record the fetching stage and obtain the filing text."""
+    """Start the XBRL task, record the fetching stage and obtain the filing text."""
     filing_id = run.filing_id
 
     enrichment.start_enrichment_tasks(run)

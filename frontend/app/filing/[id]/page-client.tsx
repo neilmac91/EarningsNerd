@@ -251,7 +251,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
         <div className="text-center">
           <h1 className="text-2xl font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Filing not found</h1>
-          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Go back home
           </Link>
         </div>
@@ -369,7 +369,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
             // gate is only reached when there's genuinely nothing to show; !summaryLoading stops it
             // flashing while the query loads. Deliberately NOT gated on !activeErrorMessage: a
             // transient getSummary error must keep the working gate for a guest, not fall through
-            // to the error card whose "Retry generation" dead-ends at "please sign in" for them
+            // to the error card whose "Try again" dead-ends at "please sign in" for them
             // (it self-heals on reload if a cached summary did exist).
             <div className="space-y-6">
               <GenerateSignupGate filing={filing} entryPoint={entryPoint} />

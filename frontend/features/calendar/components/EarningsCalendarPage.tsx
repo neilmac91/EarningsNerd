@@ -10,14 +10,20 @@
    Intl(America/New_York), and labels render through formatLocalDate.
 ============================================================================= */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Button, GuidanceCard, SegmentedControl, Skeleton, type SegmentedOption } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import { BellIcon, CaretLeftIcon, CaretRightIcon, ClockIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getRegistrationConfig } from '@/features/marketing/api/access-api'
+import { resolveAccessMode } from '@/features/marketing/lib/access'
 import { addDaysIso, addMonths, firstOfMonth, marketHolidayName, mondayOf, todayEasternIso } from '../lib/dates'
 import { indexByDate } from '../lib/lanes'
-import { useCalendarRange, useEarningsAlerts, useViewer, FREE_ALERT_LIMIT } from '../hooks/useCalendar'
+import { getCalendar, type CalendarRangeResult } from '../api/calendar-api'
+import { useEarningsAlerts, useViewer, FREE_ALERT_LIMIT } from '../hooks/useCalendar'
 import { WeekView, type DayBucket } from './WeekView'
 import { MonthView } from './MonthView'
 import { DayDetailDialog } from './DayDetailDialog'
@@ -46,9 +52,29 @@ export default function EarningsCalendarPage() {
     return { from, to: addDaysIso(from, 41) }
   }, [view, anchor])
 
-  const query = useCalendarRange(range.from, range.to)
+  const query = useQuery<CalendarRangeResult>({
+    queryKey: queryKeys.calendar(range.from, range.to),
+    queryFn: () => getCalendar(range.from, range.to),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  })
+  // The error card keeps its failure through any refetch until data replaces it (a focused "Try again"
+  // in it included); another range is another query, so navigating drops the old failure.
+  const failure = useRetainedFailure(query, queryKeys.calendar(range.from, range.to))
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const viewer = useViewer()
   const alerts = useEarningsAlerts(viewer)
+  // The signed-out bell's account action follows the one access decision (features/marketing/lib/
+  // access.ts): "Request an invite" while registration is invite-only, the free account when it is
+  // public. Asked only of a guest; until it answers, and when it cannot, it fails closed to the invite.
+  const { data: registration } = useQuery({
+    queryKey: queryKeys.registrationConfig(),
+    queryFn: getRegistrationConfig,
+    retry: false,
+    staleTime: 60 * 60 * 1000,
+    enabled: !viewer.identityPending && !viewer.signedIn,
+  })
+  const accessMode = resolveAccessMode(registration ?? null)
   // The bell's popover portals into the open day dialog, so it never outlives a change of that dialog:
   // one closing under it (its X from the keyboard fires no cancel) would orphan it, still holding
   // Escape; one opening over it would leave it inert beneath the top layer. Every day change goes here.
@@ -67,10 +93,17 @@ export default function EarningsCalendarPage() {
     })
   }, [anchor, eventsByDate, todayIso])
 
+  // Each date is one unbreakable run, and the dash keeps to the first, so a label too long for its line
+  // wraps after the dash, never inside a date or before the dash.
   const rangeLabel =
-    view === 'month'
-      ? formatLocalDate(firstOfMonth(anchor), 'MMMM yyyy')
-      : `${formatLocalDate(range.from, 'MMM d')} – ${formatLocalDate(addDaysIso(range.from, 4), 'MMM d, yyyy')}`
+    view === 'month' ? (
+      <span className="whitespace-nowrap">{formatLocalDate(firstOfMonth(anchor), 'MMMM yyyy')}</span>
+    ) : (
+      <>
+        <span className="whitespace-nowrap">{formatLocalDate(range.from, 'MMM d')}&nbsp;–</span>{' '}
+        <span className="whitespace-nowrap">{formatLocalDate(addDaysIso(range.from, 4), 'MMM d, yyyy')}</span>
+      </>
+    )
 
   const navigate = (dir: 1 | -1) => {
     setOpenDay(null)
@@ -84,9 +117,11 @@ export default function EarningsCalendarPage() {
       {/* Title row */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold sm:text-3xl">Earnings calendar</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none sm:text-3xl">
+            Earnings calendar
+          </h1>
           <p className="mt-1 max-w-[64ch] text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-            The most-anticipated U.S. reports, day by day. Dates are U.S. Eastern calendar days.
+            U.S. earnings reports, day by day. Dates are U.S. Eastern calendar days.
           </p>
           {/* Coverage caption — shown only when the backend confirms the index filter is active, so
               it never claims a curated universe while serving everything (accurate across flag states). */}
@@ -113,7 +148,8 @@ export default function EarningsCalendarPage() {
 
       {/* Toolbar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+        {/* The range label takes a line of its own when it does not fit beside the controls; it never truncates. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => { setOpenDay(null); setAnchor(todayIso) }}>
             Today
           </Button>
@@ -135,7 +171,7 @@ export default function EarningsCalendarPage() {
               <CaretRightIcon className="h-4 w-4" />
             </button>
           </div>
-          <h2 aria-live="polite" className="truncate text-base font-semibold sm:text-lg">
+          <h2 aria-live="polite" className="min-w-0 text-base font-semibold sm:text-lg">
             {rangeLabel}
           </h2>
         </div>
@@ -154,23 +190,22 @@ export default function EarningsCalendarPage() {
       </div>
 
       {/* System states */}
-      {query.isPending && <CalendarSkeleton />}
-      {query.isError && (
+      {query.isPending && !failure.failed && <CalendarSkeleton />}
+      {failure.failed && (
         <GuidanceCard
           variant="error"
           title="Couldn't load the calendar"
           description="The calendar service did not respond. Your alert subscriptions are unaffected."
           action={
-            <Button variant="secondary" size="sm" onClick={() => query.refetch()}>
-              Try again
-            </Button>
+            // When the card goes while "Try again" holds focus (the range loads), focus moves to the page heading.
+            <RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />
           }
         />
       )}
       {isEmpty && (
         <GuidanceCard
           title={view === 'week' ? 'A quiet week' : 'A quiet month'}
-          description="No earnings are scheduled in this range yet. Estimated dates appear as companies' reporting patterns firm up."
+          description="Nothing is on the calendar for this range yet. Estimated dates appear as the data provider publishes them."
           action={
             <Button variant="secondary" size="sm" onClick={() => navigate(1)}>
               {view === 'week' ? 'Jump to next week' : 'Jump to next month'}
@@ -186,8 +221,9 @@ export default function EarningsCalendarPage() {
       )}
 
       <p className="mt-4 px-1 text-xs leading-relaxed text-text-tertiary-light dark:text-text-secondary-dark">
-        Reported dates come from SEC EDGAR 8-K filings. Estimated dates come from each company&rsquo;s own reporting pattern and
-        provider data; &ldquo;usually&rdquo; marks a habitual, unconfirmed slot. Not investment advice.
+        Reported dates come from the company&rsquo;s 8-K results filing on SEC EDGAR. Estimated dates and EPS estimates come
+        from a market-data provider and can move; &ldquo;usually&rdquo; marks a time the company has not confirmed. Not
+        investment advice.
       </p>
 
       {openDay && (
@@ -199,45 +235,58 @@ export default function EarningsCalendarPage() {
           onClose={() => setOpenDay(null)}
         />
       )}
-      {alerts.blocked && <BellPopover blocked={alerts.blocked} onClose={alerts.clearBlocked} />}
+      {alerts.blocked && <BellPopover blocked={alerts.blocked} accessMode={accessMode} onClose={alerts.clearBlocked} />}
     </main>
   )
 }
 
-/** Five-column bone sheet mirroring the week layout (single-column on mobile).
+/** Five-column bone sheet mirroring the week layout, one column below it.
+    It switches where WeekView does, at 42.5em of the same width (a wrapper with
+    no border of its own, as WeekView's), so nothing jumps when the week lands:
+    not at 200% text on a desktop, and not between a 680px view and the md
+    viewport at the default size.
     Raw bones are aria-hidden, so the wrapper carries role="status" + sr-only
     label per the skeleton a11y rule (DESIGN_SYSTEM §4). */
 function CalendarSkeleton() {
   return (
-    <div
-      role="status"
-      aria-label="Loading calendar"
-      className="overflow-hidden rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
-    >
-      <div className="grid grid-cols-1 md:grid-cols-5">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className={cx('p-3.5', i > 0 && 'md:border-l md:border-border-light/60 dark:md:border-white/[0.06]', i > 0 && 'hidden md:block')}>
-            <Skeleton className="h-3 w-14" />
-            <div className="mt-4 flex flex-col gap-3.5">
-              <Skeleton className="h-2.5 w-2/5" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
-              </div>
-              <Skeleton className="h-2.5 w-2/5" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 flex-1" />
+    <div className="[container-type:inline-size]">
+      <div
+        role="status"
+        aria-label="Loading calendar"
+        className="overflow-hidden rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+      >
+        <div className="grid grid-cols-1 [@container(width>=42.5em)]:grid-cols-5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div
+              key={i}
+              className={cx(
+                'p-3.5',
+                i > 0 &&
+                  'hidden [@container(width>=42.5em)]:block [@container(width>=42.5em)]:border-l [@container(width>=42.5em)]:border-border-light/60 dark:[@container(width>=42.5em)]:border-white/[0.06]',
+              )}
+            >
+              <Skeleton className="h-3 w-14" />
+              <div className="mt-4 flex flex-col gap-3.5">
+                <Skeleton className="h-2.5 w-2/5" />
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
+                <Skeleton className="h-2.5 w-2/5" />
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <span className="sr-only">Loading calendar…</span>
       </div>
-      <span className="sr-only">Loading calendar…</span>
     </div>
   )
 }

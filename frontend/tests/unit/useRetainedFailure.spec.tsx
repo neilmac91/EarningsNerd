@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, keepPreviousData, onlineManager, useQuery } from '@tanstack/react-query'
 import { useRef, useState, type ReactNode } from 'react'
-import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { RetryButton, useRetainedFailure, type RetainedFailure, type RetryButtonProps } from '@/hooks/useRetainedFailure'
 import { useFocusHandoff, useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { bindingResolver, type Binding } from './astBindings'
 
@@ -98,6 +98,31 @@ describe('useRetainedFailure', () => {
     await waitFor(() => expect(result.current.failure.busy).toBe(false))
     expect(result.current.failure.failed).toBe(true)
     expect(fn).toHaveBeenCalledTimes(2)
+  })
+
+  // keepPreviousData (the search) reports a refetch of a failure that has no data as `success` with the
+  // previous key's data and `isPlaceholderData`: read raw, that ends the hold and unmounts a focused Retry.
+  it('a held failure stays failed and pending through a placeholder-backed refetch, until its own data lands', async () => {
+    const fn = vi.fn().mockResolvedValueOnce('a data').mockRejectedValueOnce(new Error('b down'))
+    const client = newClient()
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    const { result, rerender } = renderHook(({ k }: { k: string }) => {
+      const query = useQuery({ queryKey: ['t', k], queryFn: () => fn(k), placeholderData: keepPreviousData })
+      return { query, failure: useRetainedFailure(query, ['t', k]) }
+    }, { wrapper, initialProps: { k: 'a' } })
+    await waitFor(() => expect(result.current.query.data).toBe('a data'))
+    rerender({ k: 'b' })
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    const again = deferred<string>()
+    fn.mockReturnValueOnce(again.promise)
+    act(() => result.current.failure.retry())
+    await settle()
+    expect(result.current.query).toMatchObject({ status: 'success', isPlaceholderData: true, data: 'a data' })
+    expect(result.current.failure).toMatchObject({ failed: true, busy: true })
+    expect((result.current.failure.error as Error).message).toBe('b down')
+    await act(async () => again.resolve('b data'))
+    await waitFor(() => expect(result.current.failure.failed).toBe(false))
+    expect(result.current.query).toMatchObject({ data: 'b data', isPlaceholderData: false })
   })
 
   it("a new key's first load is pending, not the old key's failure", async () => {
@@ -551,7 +576,7 @@ describe('useFocusOnArrival', () => {
 })
 
 describe('RetryButton', () => {
-  /** A failed query's Retry over a text field, as CompanySearch's "Try again": it goes when data lands. */
+  /** A failed query's Retry over a text field, as CompanySearch's: it goes when data lands. */
   function FieldRetry({ fn }: { fn: () => Promise<string> }) {
     const query = useQuery({ queryKey: ['field'], queryFn: fn })
     const failure = useRetainedFailure(query, ['field'])
@@ -559,7 +584,7 @@ describe('RetryButton', () => {
     return (
       <div>
         <input ref={field} aria-label="Search" />
-        {failure.failed && <RetryButton failures={[failure]} focusTarget={field} textField>Try again</RetryButton>}
+        {failure.failed && <RetryButton failures={[failure]} focusTarget={field} textField />}
         <button>elsewhere</button>
       </div>
     )
@@ -578,6 +603,27 @@ describe('RetryButton', () => {
     act(() => el.focus())
     fireEvent.click(el, { detail: 1 })
   }
+
+  // TypeScript refuses all three (RetryButtonProps declares them never); a spread or a cast can still bring one in,
+  // and the drop keeps it off the button, so its name stays the one verb (D-032).
+  it.each([
+    ['an aria-label', { 'aria-label': 'Retry usage' }],
+    ['an aria-labelledby', { 'aria-labelledby': 'usage-title' }],
+    ['a child', { children: 'Retry' }],
+  ])('names itself: %s a caller brings in never reaches the button', (_how, extra) => {
+    const failure: RetainedFailure = { failed: true, error: null, busy: false, retry: () => {} }
+    const brought = extra as unknown as Partial<RetryButtonProps>
+    render(
+      <div>
+        <h2 id="usage-title">Retry usage</h2>
+        <RetryButton failures={[failure]} focusTarget={{ current: null }} {...brought} />
+      </div>,
+    )
+    const button = screen.getByRole('button', { name: 'Try again' })
+    expect(button).not.toHaveAttribute('aria-label')
+    expect(button).not.toHaveAttribute('aria-labelledby')
+    expect(button).not.toHaveTextContent('Retry')
+  })
 
   it('busy is focusable: aria-busy and aria-disabled, never native disabled, and a press while busy sends nothing', async () => {
     const { client, fn, retry } = await failedRetry()

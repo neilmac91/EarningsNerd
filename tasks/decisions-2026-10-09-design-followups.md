@@ -303,6 +303,13 @@ the merged stack had not been looked at in production.
    - offer the private regeneration to an excerpt under the floor, which today never gets one.
    Since #1111's retry, on PRs that change no Copilot code (37 runs, 111 draws of each question), the
    withhold message ended 5 BABA draws (about one in 22) and 2 ASML draws (about one in 55).
+   **Taken up on 2026-10-16 in #1360.** Those rates were measured on the regex fallback: SEC's 403 had removed
+   sections from every eval source since about 2026-10-06, until #1350. On the sections source production uses,
+   BABA withheld 3 of 3, each in a class that never retried. #1360 takes the first and third candidates (the
+   regeneration names the failure; a short excerpt or a twice-declared number buys the retry). Its first draw went
+   17/18, so under its pre-registration it adds the second as well (a whole-row rule in the first generation,
+   addendum 1). #1360 merged on 2026-10-16 as `dd31aa1b`, after two valid 18/18 draws. Evidence and the
+   measurements: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/`.
 2. **Change report EPS:** label the figure "EPS (basic)", or prefer diluted EPS
    (`facts_service` keys `earnings_per_share` to `EarningsPerShareBasic` first).
 3. **Dark-mode logos:** give a loaded logo a light chip in dark mode.
