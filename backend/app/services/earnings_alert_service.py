@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from app.models import Company, EarningsAlertLog, EarningsEvent, User, Watchlist
 from app.models.notifications import CHANNEL_EMAIL
 from app.services.entitlements import Plan, get_entitlements
+from app.services.watchlist_service import watch_row_lock
 
 logger = logging.getLogger(__name__)
 
@@ -135,24 +136,27 @@ def set_earnings_alert(db: Session, user: User, ticker: str, enabled: bool) -> b
 
     ent = get_entitlements(user)
     company = _get_or_create_company(db, ticker)
-    row = (
-        db.query(Watchlist)
-        .filter(Watchlist.user_id == user.id, Watchlist.company_id == company.id)
-        .first()
-    )
-    if row is not None and row.earnings_alert:
-        return True  # already on — idempotent, doesn't consume a new slot
+    # From the row read to the commit under the watch-row lock, so two enables can't both pass the
+    # cap check or both add the company's row (watchlist_service.watch_row_lock says why).
+    with watch_row_lock:
+        row = (
+            db.query(Watchlist)
+            .filter(Watchlist.user_id == user.id, Watchlist.company_id == company.id)
+            .first()
+        )
+        if row is not None and row.earnings_alert:
+            return True  # already on — idempotent, doesn't consume a new slot
 
-    # Cap check: count of currently-enabled alerts. Enabling a not-yet-enabled company adds one.
-    if count_enabled(db, user.id) >= ent.earnings_alert_limit:
-        raise EarningsAlertLimitError(plan_is_pro=ent.plan is Plan.PRO, limit=ent.earnings_alert_limit)
+        # Cap check: count of currently-enabled alerts. Enabling a not-yet-enabled company adds one.
+        if count_enabled(db, user.id) >= ent.earnings_alert_limit:
+            raise EarningsAlertLimitError(plan_is_pro=ent.plan is Plan.PRO, limit=ent.earnings_alert_limit)
 
-    if row is None:
-        row = Watchlist(user_id=user.id, company_id=company.id, earnings_alert=True)
-        db.add(row)
-    else:
-        row.earnings_alert = True
-    db.commit()
+        if row is None:
+            row = Watchlist(user_id=user.id, company_id=company.id, earnings_alert=True)
+            db.add(row)
+        else:
+            row.earnings_alert = True
+        db.commit()
     return True
 
 

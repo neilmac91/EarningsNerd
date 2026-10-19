@@ -18,7 +18,12 @@ no call on its session: a service called with the session on the loop checks out
 the route's own call does, and freezes it for the pool timeout once the pool is full. A route that
 returns a `StreamingResponse` releases its session before it returns, since the finalizer runs only
 once the stream ends. A route that awaits other I/O, such as an SEC fetch or a mail send, releases
-its session before that await, so no pool slot waits on it.
+its session before that await, so no pool slot waits on it. Moving a unit off the loop also ends
+the one-at-a-time order the loop gave it within the process: a check-then-write unit (a cap or
+duplicate check before an insert, a read-modify-write) holds a lock from its check to its commit, or
+writes with an atomic database operation. Take the lock before the session's first query, so no
+waiter holds a connection, or after it with no new checkout inside, so no holder waits for a pool
+slot that a waiter holds.
 
 **Evidence**: `backend/app/routers/filings.py` company, specific, recent, content and fundamentals
 read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed
@@ -53,10 +58,15 @@ held a connection through each of its welcome and referral sends, so eight joins
 4x200 then 4x500. Each is now a thread-pool unit (the join two: the insert, then the welcome flag
 after the send); their burst cases also hold every
 statement off the loop, and the join's own case holds both sends to no connection out (2026-10-19,
-E118). The file's AST ratchet reads every async router function and fails a session call on the
+E118). Its review found that four of those units had relied on the loop's order: without a lock, two
+joins on one referral link lost a credit, two plain joins took one place, two alert enables put an
+account over its cap and two adds wrote two rows for one company. Each now holds a lock from its
+check to its commit, and `backend/tests/unit/test_check_then_write_units_serialize.py` meets two
+threads inside each unit (2026-10-19, E118's review). The file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
 not list the route (the rest of the analysis router, E119; the rest of the
-auth router and the checkout route, E121), or a background task's own session worked on the loop
-(E123), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
+auth router and the checkout route, E121), a background task's own session worked on the loop
+(E123), or a check-then-write unit other than the four above, such as the refresh token's
+rotation (E127), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.

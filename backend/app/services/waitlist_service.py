@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 import string
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -18,6 +19,13 @@ from app.models import WaitlistSignup
 REFERRAL_CODE_LENGTH = 8
 REFERRAL_BONUS = 5
 VERIFY_TOKEN_DAYS = 7
+
+# A join reads, then writes: the referrer's priority it bumps and the signup count its position comes
+# from. On the event loop the join ran them one at a time within the process; in the thread pool two
+# joins on one referral link could both read the same priority and lose a credit, and two joins could
+# take one position. ``create_signup`` holds this lock for its whole unit, taken before its first
+# query: a waiter holds no connection, so a holder's checkout never waits for one a waiter holds.
+_join_lock = threading.Lock()
 
 
 def generate_referral_code(length: int = REFERRAL_CODE_LENGTH) -> str:
@@ -135,8 +143,23 @@ def create_signup(
 
     Moved from ``POST /api/waitlist/join``. An IntegrityError on the commit rolls back both the
     insert and the bump, then re-reads the email: a concurrent join of the same address raises
-    ``WaitlistAlreadyJoined`` like the up-front check does.
+    ``WaitlistAlreadyJoined`` like the up-front check does. Joins in one process run one at a time
+    (``_join_lock``).
     """
+    with _join_lock:
+        return _create_signup(
+            db, email=email, name=name, referral_code=referral_code, source=source,
+        )
+
+
+def _create_signup(
+    db: Session,
+    *,
+    email: str,
+    name: Optional[str],
+    referral_code: Optional[str],
+    source: Optional[str],
+) -> WaitlistJoin:
     existing = find_signup_by_email(db, email)
     if existing:
         raise WaitlistAlreadyJoined(existing)
