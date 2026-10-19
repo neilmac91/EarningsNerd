@@ -77,10 +77,18 @@ gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.co
 `--tickers TGT,JNJ` limits the run to a cohort (each named company gets a line, even with nothing
 to scan) and `--limit N` to the first N companies by id.
 
+The Ops workflow (`.github/workflows/ops.yml`, dispatched from main) runs the same script on its
+runner through the Cloud SQL proxy, so every line lands in the workflow run's log instead of Cloud
+Logging: operation `relabel-fy-dry-run` for the dry run, in read-only transactions, so Postgres
+refuses any write, and `relabel-fy-apply` for the apply below. Its `tickers` input passes
+`--tickers` (at most 50); there is no `--limit`. A failed company fails the run once, with no
+automatic retry; read its `error` line, then dispatch again.
+
 ## Apply (founder sign-off required)
 
 The apply rewrites stored financial data. Run it only after the founder has read the dry-run
-counts and signed off, with the same arguments plus `--apply`:
+counts and signed off, with the same arguments plus `--apply` (or the Ops workflow's
+`relabel-fy-apply`):
 
 ```bash
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \

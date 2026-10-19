@@ -93,3 +93,49 @@ def test_resolve_step_rejects_shell_metacharacters_in_an_unused_input(tmp_path, 
     code, output = _run_resolve(tmp_path, OP="describe-jobs", **{field: "$(id)"})
     assert code != 0
     assert output == ""
+
+
+@pytest.mark.parametrize("op, tickers", [
+    ("relabel-fy-dry-run", ""), ("relabel-fy-apply", ""), ("relabel-fy-dry-run", "TGT,JNJ"), ("relabel-fy-apply", "BRK.B"),
+])
+def test_resolve_step_accepts_a_relabel_over_every_company_or_a_ticker_list(tmp_path, op, tickers):
+    code, output = _run_resolve(tmp_path, OP=op, TICKERS=tickers)
+    assert code == 0
+    assert output.splitlines() == [f"operation={op}", f"tickers={tickers}", "revision="]
+
+
+@pytest.mark.parametrize("tickers", ["TGT;JNJ", "TGT,,JNJ", ",".join(f"T{i}" for i in range(51))])
+def test_resolve_step_rejects_a_malformed_or_oversized_relabel_ticker_list(tmp_path, tickers):
+    code, output = _run_resolve(tmp_path, OP="relabel-fy-apply", TICKERS=tickers)
+    assert code != 0
+    assert output == ""
+
+
+@pytest.mark.parametrize("op, tickers, argv", [
+    ("relabel-fy-dry-run", "", ["scripts/relabel_filing_fy_facts.py"]),
+    ("relabel-fy-dry-run", "TGT,JNJ", ["scripts/relabel_filing_fy_facts.py", "--tickers", "TGT,JNJ"]),
+    ("relabel-fy-apply", "", ["scripts/relabel_filing_fy_facts.py", "--apply"]),
+    ("relabel-fy-apply", "TGT", ["scripts/relabel_filing_fy_facts.py", "--apply", "--tickers", "TGT"]),
+])
+def test_only_the_relabel_apply_operation_passes_apply_and_a_dry_run_is_read_only(tmp_path, op, tickers, argv):
+    """The relabel script writes production data only with --apply, so the dry-run operation must
+    never pass it, and its transactions are read-only, so Postgres refuses a write it might attempt.
+    The step runs here with a stand-in python that records its arguments and PGOPTIONS."""
+    step = next(s for s in _workflow("ops.yml")["jobs"]["ops"]["steps"]
+                if s.get("name") == "Run fiscal-year relabel script")
+    bin_dir, scripts = tmp_path / "bin", tmp_path / "scripts"
+    bin_dir.mkdir()
+    scripts.mkdir()
+    (scripts / "relabel_filing_fy_facts.py").write_text("")
+    stand_in = bin_dir / "python"
+    stand_in.write_text('#!/bin/sh\nprintf "%s\\n" "$@" "PGOPTIONS=$PGOPTIONS" > "$ARGV_OUT"\n')
+    stand_in.chmod(0o755)
+    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "OP": op, "TICKERS": tickers,
+           "ARGV_OUT": str(tmp_path / "argv"), "PGOPTIONS": step["env"]["PGOPTIONS"]}
+    result = subprocess.run(  # fixed argv; the script under test is repository content
+        ["bash", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+    read_only = " -c default_transaction_read_only=on" if op == "relabel-fy-dry-run" else ""
+    assert (tmp_path / "argv").read_text().splitlines() == [*argv, f"PGOPTIONS={step['env']['PGOPTIONS']}{read_only}"]
+
