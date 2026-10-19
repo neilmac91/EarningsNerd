@@ -17,14 +17,14 @@ import sys
 backend = sys.argv[1]
 out_path = sys.argv[2]
 os.environ.update({
-    "SECRET_KEY": "test-secret-key-must-be-long-enough-123", "OPENAI_API_KEY": "sk-test", "SKIP_REDIS_INIT": "true",
+    "SECRET_KEY": "test-secret-key-must-be-long-enough-123", "OPENAI_API_KEY": "sk-test", "SKIP_REDIS_INIT": "true",  # CI's test values, not credentials  # gitleaks:allow
     "RESEND_API_KEY": "", "FRONTEND_URL": "https://www.earningsnerd.io", "DATABASE_URL": "sqlite:///:memory:",
 })
 sys.path.insert(0, backend)
 
 from app.services import email_service  # noqa: E402
 
-TOKEN = "Qx7v2LmN9pRtY4wZ8kHjB3cF6dGsA1eUoIyT5rVnMbX"  # 43 characters, as secrets.token_urlsafe(32)
+TOKEN = "Qx7v2LmN9pRtY4wZ8kHjB3cF6dGsA1eUoIyT5rVnMbX"  # 43 characters, as secrets.token_urlsafe(32); made up, not a credential  # gitleaks:allow
 assert len(TOKEN) == 43
 SITE = "https://www.earningsnerd.io"
 NAMES = {"none": None, "short": "Jane", "long": "Alexandra Montgomery-Fitzgerald"}
