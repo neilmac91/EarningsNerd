@@ -112,14 +112,14 @@ async def get_coverage(
         include_client_ip=False,
     )
 
-    def identify() -> tuple[int, str, str]:
+    def identify() -> Company:
         # The lookup and its release are one unit off the event loop, so no connection waits through
-        # the SEC wait below (or, on timeout, the continuing background task). Everything after it
-        # uses these identity fields plus fresh, short reads, each released in its own unit
+        # the SEC wait below (or, on timeout, the continuing background task). The row comes back
+        # detached with its columns loaded; everything after this reads only its identity fields,
+        # plus fresh, short reads, each released in its own unit
         # (lessons/ops-release-cached-filing-reads-before-yield.md).
         try:
-            company = _get_company(db, ticker)
-            return company.id, company.ticker, company.name
+            return _get_company(db, ticker)
         finally:
             filing_list_service.release_request_session(db)
 
@@ -131,7 +131,10 @@ async def get_coverage(
         finally:
             filing_list_service.release_request_session(db)
 
-    company_id, company_ticker, company_name = await run_in_threadpool(identify)
+    company = await run_in_threadpool(identify)
+    company_id = company.id
+    company_ticker = company.ticker
+    company_name = company.name
 
     task = asyncio.create_task(_ingest_with_own_session(company_id))
     if settings.DURABLE_TASKS_ENABLED:
