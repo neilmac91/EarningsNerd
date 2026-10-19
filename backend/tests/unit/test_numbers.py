@@ -7,8 +7,10 @@ commas, ``%`` or currency symbols are NOT stripped — callers must strip those 
 Previously covered only incidentally by the deleted FMP/Stocktwits integration tests (WS-8a);
 the helper itself is still live in ``alpha_vantage.py`` and ``earnings_calendar_service.py``.
 """
+import functools
 import hashlib
 import math
+import sys
 from decimal import Decimal
 
 import pytest
@@ -233,16 +235,93 @@ def test_every_currency_prefix_names_its_code_in_any_case(prefix):
         assert display_currency(f"{spelling}5B") == (True, PREFIX_CODES[prefix]), spelling
 
 
-@pytest.mark.parametrize("hostile", ["-" + " " * 400 + "Q", "5" + " " * 400 + "Q", "$" + " " * 300 + "(" + " " * 300])
-def test_the_display_grammar_never_backtracks_into_whitespace(hostile):
+@functools.cache
+def _whitespace() -> tuple[str, ...]:
+    return tuple(chr(point) for point in range(sys.maxunicode + 1) if chr(point).isspace())
+
+
+def _backtracking_whitespace_runs(pattern: str, flags: int) -> list[str]:
+    """Each repeat in ``pattern`` that can backtrack (greedy or lazy, over more than one character)
+    through an item that matches a whitespace character. It reads the parsed pattern (CPython's own
+    parser, ``re._parser``, private but stable since 3.11), so every spelling of such a run counts:
+    ``\\s{0,}``, ``[ \\t]*``, `` +``, ``(?:\\s)*``, ``[\\s,]*``."""
+    from re import _compiler, _constants as sre, _parser
+
+    found = []
+
+    def walk(items) -> None:
+        for op, av in items:
+            if op in (sre.MAX_REPEAT, sre.MIN_REPEAT):
+                low, high, item = av
+                if high > 1 and any(_compiler.compile(item, flags).fullmatch(space) for space in _whitespace()):
+                    found.append(f"{op} {{{low},{high}}} {item}")
+                walk(item)
+            elif op is sre.POSSESSIVE_REPEAT:
+                walk(av[2])
+            elif op is sre.SUBPATTERN:
+                walk(av[3])
+            elif op is sre.BRANCH:
+                for branch in av[1]:
+                    walk(branch)
+            elif op is sre.GROUPREF_EXISTS:
+                walk(av[1])
+                if av[2] is not None:
+                    walk(av[2])
+            elif op in (sre.ASSERT, sre.ASSERT_NOT):
+                walk(av[1])
+            elif op is sre.ATOMIC_GROUP:
+                walk(av)
+
+    walk(_parser.parse(pattern, flags))
+    return found
+
+
+def test_the_display_grammar_never_backtracks_into_whitespace():
     """Every whitespace run in the display grammar is possessive, so a cell with a long run of spaces
     is refused at once. A greedy run tried every split of it: "-" and 400 spaces before "Q" took about
-    55 s per pass, and the read path makes four passes over each cell."""
-    import re
+    55 s per pass, and the exact-delta check alone makes four passes over each cell. The possessive
+    runs accept exactly what greedy ones did because no token of the grammar begins with whitespace."""
+    from app.utils.numbers import _DISPLAY_SCALAR
 
-    from app.utils.numbers import _DISPLAY_SCALAR, display_currency, parse_display_number
+    assert _backtracking_whitespace_runs(_DISPLAY_SCALAR.pattern, _DISPLAY_SCALAR.flags) == [], _DISPLAY_SCALAR.pattern
 
-    assert not re.findall(r"\\s[*+](?![+])", _DISPLAY_SCALAR.pattern), _DISPLAY_SCALAR.pattern
+
+# Spellings of a run the gate must read as backtracking, and look-alikes it must let pass.
+BACKTRACKING_RUNS = [r"\s*", r"\s+", r"\s*?", r"\s+?", r"\s{0,}", r"\s{1,}", r"\s{2,}", r"\s{0,500}", r"[ \t]*", r" *",
+                     r" +", r"(?:\s)*", r"[^\S]*", r"[\s,]*", r"\x20*", "\u00a0*", r"(?: |\t)*"]
+SAFE_RUNS = [r"\s++", r"\s{0,}+", r"\s?", r"\s{0,1}", r"\S*", r"[0-9]+", r"(?:,[0-9]{3})+", r"[kmbt]*"]
+
+
+@pytest.mark.parametrize("run", BACKTRACKING_RUNS + SAFE_RUNS)
+def test_the_whitespace_gate_reads_every_spelling_of_a_run(run):
+    """The gate is as wide as its rule: each spelling, planted in place of the grammar's first run."""
+    from app.utils.numbers import _DISPLAY_SCALAR
+
+    planted = _DISPLAY_SCALAR.pattern.replace(r"\s*+", run, 1)
+    assert planted != _DISPLAY_SCALAR.pattern
+    before = len(_backtracking_whitespace_runs(_DISPLAY_SCALAR.pattern, _DISPLAY_SCALAR.flags))
+    after = len(_backtracking_whitespace_runs(planted, _DISPLAY_SCALAR.flags))
+    assert after - before == int(run in BACKTRACKING_RUNS), run
+
+
+@pytest.mark.parametrize("found, planted", [
+    (r"basis\s++points", r"basis\s+points"),  # inside the unit's capture group and its alternation
+    (r"basis\s++points", r"basis[ ]*points"),
+    (r"(?(paren)\))", r"(?(paren)\s*\))"),  # inside the closing parenthesis's conditional
+])
+def test_the_whitespace_gate_reads_runs_inside_groups(found, planted):
+    from app.utils.numbers import _DISPLAY_SCALAR
+
+    assert found in _DISPLAY_SCALAR.pattern
+    before = len(_backtracking_whitespace_runs(_DISPLAY_SCALAR.pattern, _DISPLAY_SCALAR.flags))
+    after = len(_backtracking_whitespace_runs(_DISPLAY_SCALAR.pattern.replace(found, planted), _DISPLAY_SCALAR.flags))
+    assert after > before, planted
+
+
+@pytest.mark.parametrize("hostile", ["-" + " " * 400 + "Q", "5" + " " * 400 + "Q", "$" + " " * 300 + "(" + " " * 300],
+                         ids=["sign-then-400-spaces", "digit-then-400-spaces", "prefix-paren-600-spaces"])
+def test_a_long_run_of_spaces_is_refused(hostile):
+    from app.utils.numbers import display_currency, parse_display_number
+
     assert parse_display_number(hostile) == (None, False)
     assert display_currency(hostile) == (False, None)
-
