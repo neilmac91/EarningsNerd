@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/Button'
-import { CheckCircleIcon, QuotesIcon } from '@/lib/icons'
+import { ChatCircleTextIcon, CheckCircleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip from '@/features/filings/components/copilot/CitationChip'
@@ -22,12 +22,13 @@ const CITATIONS: CopilotCitation[] = [...SAMPLE_ASK.citations]
 
 /**
  * The "Ask this Filing" product screen for the landing page: one question, one completed answer
- * whose `[F1]` / `[1]` markers are the REAL CitationChip (injected through the same
- * lib/citationMarkers walker CopilotMessage uses), and a footnote row per citation that names the
- * chip kind in plain words ("XBRL figure" / "Passage"). No FilingViewerProvider is mounted, so
- * each chip degrades to its EDGAR anchor, which keeps both reachable. The composer beneath is a
- * static shell, hidden from assistive tech because it accepts nothing. Server-rendered: only
- * CitationChip is a client boundary, and it receives plain citation data.
+ * whose `[1]` `[2]` `[3]` markers (numbered as the server numbers a live answer) are the REAL
+ * CitationChip, injected through the same lib/citationMarkers walker CopilotMessage uses, and a
+ * footnote row per citation that names the chip kind in plain words ("XBRL figure" / "Passage").
+ * No FilingViewerProvider is mounted, so each chip degrades to its EDGAR anchor, which keeps every
+ * chip reachable. The composer beneath is a static shell, hidden from assistive tech because it
+ * accepts nothing. Server-rendered: only CitationChip is a client boundary, and it receives plain
+ * citation data.
  */
 export default function AskFilingDemo() {
   const answer = injectCitationMarkers(SAMPLE_ASK.answer, CITATIONS, (citation, key) => (
@@ -41,7 +42,7 @@ export default function AskFilingDemo() {
           aria-hidden="true"
           className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand-weak text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark"
         >
-          <QuotesIcon className="h-4 w-4" />
+          <ChatCircleTextIcon className="h-4 w-4" />
         </span>
         <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
           Ask this Filing

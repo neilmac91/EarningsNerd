@@ -5,6 +5,7 @@ from app.utils.datetimes import utcnow
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
@@ -14,6 +15,8 @@ from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
 from app.services.durable_tasks import enqueue_task, TaskUnavailable
 from app.services import filing_list_service, filing_read_service
+from app.services.latest_filing_service import company_list_forms
+from app.services.filing_list_service import other_filing_forms
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -92,7 +95,7 @@ async def get_company_filings(
     ticker: str,
     background: BackgroundTasks,
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
-    limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings to return; default serves the recent cap"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings per form group (the 6-Ks, and every other form); default serves the recent cap"),
     db: Session = Depends(get_db, scope="function")
 ):
     """Get filings for a company.
@@ -103,22 +106,24 @@ async def get_company_filings(
     filings if SEC EDGAR is slow or unavailable.
     """
     ticker_upper = ticker.upper()
-    company = filing_list_service.company_by_ticker(db, ticker_upper)
+    # Every session unit below runs in the thread pool and releases the session before it returns, so
+    # no checkout waits on the event loop and no SEC or queue await holds a connection
+    # (lessons/ops-release-cached-filing-reads-before-yield.md). The session stays reusable for the
+    # next unit.
+    company = await run_in_threadpool(filing_list_service.stored_company_identity, db, ticker_upper)
 
     if not company:
         # Try to fetch company from SEC and create it
-        # The initial lookup opened a read transaction. Release it before SEC network I/O; this
-        # Session remains reusable for the short persistence unit after the await.
-        filing_list_service.release_request_session(db)
         try:
-            sec_results = await sec_edgar_service.search_company(ticker)
-            if sec_results:
-                sec_data = sec_results[0]
+            # Exact ticker only: a ticker missing from SEC's file is a 404, never its first partial
+            # name/ticker match (RTN once listed Enterprise Products Partners' filings).
+            sec_data = await sec_edgar_service.resolve_ticker(ticker)
+            if sec_data:
                 # CIK-first: reuse an existing row for this CIK (e.g. stored under a preferred
                 # ticker) instead of 500-ing on the unique-CIK insert (interim safeguard 1).
                 # New rows take the canonical primary ticker (P0-1).
                 primary = await sec_edgar_service.primary_ticker_for_cik(sec_data["cik"])
-                company = filing_list_service.persist_sec_company(db, sec_data, primary)
+                company = await run_in_threadpool(filing_list_service.persist_sec_company, db, sec_data, primary)
             else:
                 raise HTTPException(status_code=404, detail="Company not found")
         except HTTPException:
@@ -131,9 +136,10 @@ async def get_company_filings(
     types_list = filing_list_service.requested_filing_types(filing_types)
     company_id = company.id
     company_cik = company.cik
-    needs_history_backfill = company.history_backfilled_at is None
+    needs_history_backfill = company.needs_history_backfill
 
-    # Helpers to get cached filings from database; each builds its DTOs, then releases the session.
+    # The units the rest of the route hands to the thread pool; each builds its DTOs, then releases
+    # the session.
     def get_cached_filings() -> List[FilingResponse]:
         return filing_list_service.cached_filings(
             db, company_id, types_list, limit, FilingResponse.from_orm
@@ -144,14 +150,20 @@ async def get_company_filings(
             db, company_id, types_list, limit, FilingResponse.from_orm
         )
 
+    def persist_live_listing(sec_filings: List[dict]) -> List[FilingResponse]:
+        try:
+            return filing_list_service.persist_live_filings(
+                db, ticker_upper, types_list, company_id, sec_filings, limit, FilingResponse.from_orm
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
     # P1-6: enqueue a one-time deep-history backfill the first time this company is viewed. Guarded
     # by the stamp so it never re-walks a company; runs in the background so the page never waits on
     # the EFTS round-trips. Serving still uses whatever rows exist now; the backfill surfaces on the
     # next full-history fetch.
     if settings.ENABLE_HISTORY_BACKFILL_ON_VISIT and needs_history_backfill:
         if settings.DURABLE_TASKS_ENABLED:
-            # Release the serving read before any queue/control-plane wait.
-            filing_list_service.release_request_session(db)
             await _enqueue_visit_task(
                 "history", {"company_id": company_id}, key=f"history:{company_id}", seconds=300,
             )
@@ -162,7 +174,7 @@ async def get_company_filings(
     # prior live fetch) without the 3-5s SEC round-trip. Falls through to the DB-first / live paths
     # on a cold or stale key.
     if filing_list_service.filings_cache_fresh(ticker_upper, types_list):
-        cached = get_cached_filings()
+        cached = await run_in_threadpool(get_cached_filings)
         if cached:
             return cached
 
@@ -172,14 +184,25 @@ async def get_company_filings(
     # the user never waits on SEC. The refresh is bounded (QW2) and in-flight-deduped. Only a
     # first-ever view with an empty DB (the mega-filer cold case) falls through to a synchronous
     # fetch below.
-    cached = get_cached_filings()
+    cached = await run_in_threadpool(get_cached_filings)
     if cached:
         if settings.DURABLE_TASKS_ENABLED:
+            # The payload names the Cloud Task and keys the per-process guard, so it never carries
+            # the caller's ?filing_types=: each is one of two fixed vocabularies. Every visit refreshes
+            # the company's list forms; one that serves stored rows of another form (an 8-K, a Form 4)
+            # also refreshes the other accepted forms, of which the worker fetches only those already
+            # stored (filing_list_service.forms_to_refresh). At most two refreshes per company per bucket.
             await _enqueue_visit_task(
-                "filings", {"company_id": company_id, "filing_types": types_list},
+                "filings", {"company_id": company_id, "filing_types": company_list_forms()},
                 key=f"filings:{company_id}",
                 seconds=int(filing_list_service.FILINGS_LIST_TTL.total_seconds()),
             )
+            if any(row.filing_type not in company_list_forms() for row in cached):
+                await _enqueue_visit_task(
+                    "filings", {"company_id": company_id, "filing_types": other_filing_forms()},
+                    key=f"filings:{company_id}",
+                    seconds=int(filing_list_service.FILINGS_LIST_TTL.total_seconds()),
+                )
         else:
             background.add_task(
                 filing_list_service.refresh_company_filings,
@@ -189,23 +212,18 @@ async def get_company_filings(
 
     try:
         # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit
-        # Both DB reads above are complete. Do not retain their connection during the bounded fetch.
-        filing_list_service.release_request_session(db)
         sec_filings = await asyncio.wait_for(
             sec_edgar_service.get_filings(company_cik, types_list),
             timeout=filing_list_service.SEC_REQUEST_TIMEOUT_SECONDS
         )
 
-        # Persist and commit the listing, then convert it to response models (still inside this
-        # try, so the finally below releases the session only after the DTOs exist).
-        return filing_list_service.persist_live_filings(
-            db, ticker_upper, types_list, company_id, sec_filings, FilingResponse.from_orm
-        )
+        # Persist and commit the listing, then convert it to response models, in one unit.
+        return await run_in_threadpool(persist_live_listing, sec_filings)
 
     except asyncio.TimeoutError:
         # SEC EDGAR is slow, fall back to cached data
         logger.warning(f"SEC EDGAR timeout for {ticker_upper}, returning cached filings")
-        cached = get_cached_filings_after_rollback()  # Ensure clean session state
+        cached = await run_in_threadpool(get_cached_filings_after_rollback)  # Ensure clean session state
         if cached:
             return cached
         # No cached data available
@@ -216,27 +234,26 @@ async def get_company_filings(
     except SECEdgarServiceError as e:
         # SEC EDGAR error, try to return cached data
         logger.warning(f"SEC EDGAR error for {ticker_upper}: {e}, attempting to return cached filings")
-        cached = get_cached_filings_after_rollback()  # Ensure clean session state
+        cached = await run_in_threadpool(get_cached_filings_after_rollback)  # Ensure clean session state
         if cached:
             return cached
         raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
     except Exception as e:
         logger.exception(f"Unexpected error fetching filings for {ticker_upper}")
-        # Rollback any pending transaction to recover session state, then try to return cached
-        # data on any error
-        cached = get_cached_filings_after_rollback()
+        # Try to return cached data on any error; the unit that failed has already released the
+        # session
+        cached = await run_in_threadpool(get_cached_filings_after_rollback)
         if cached:
             logger.info(f"Returning {len(cached)} cached filings for {ticker_upper} after error")
             return cached
         raise HTTPException(status_code=500, detail=f"Error fetching filings: {str(e)}") from e
-    finally:
-        # Live results and error fallbacks also finish their DTOs before dependency cleanup.
-        filing_list_service.release_request_session(db)
 
 @router.get("/{filing_id}", response_model=FilingResponse)
 async def get_filing(filing_id: int, db: Session = Depends(get_db)):
     """Get a specific filing"""
-    filing = filing_read_service.filing_by_id(db, filing_id, FilingResponse.from_orm)
+    # Each filing read is one service unit in the thread pool: the read, the payload and the release,
+    # so its checkout never waits on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md).
+    filing = await run_in_threadpool(filing_read_service.filing_by_id, db, filing_id, FilingResponse.from_orm)
     if filing is None:
         raise HTTPException(status_code=404, detail="Filing not found")
     return filing
@@ -265,7 +282,7 @@ async def get_filing_content(filing_id: int, db: Session = Depends(get_db)):
             markdown_content=markdown or None,
         )
 
-    content = filing_read_service.filing_content(db, filing_id, build)
+    content = await run_in_threadpool(filing_read_service.filing_content, db, filing_id, build)
     if content is None:
         raise HTTPException(status_code=404, detail="Filing not found")
     return content
@@ -279,7 +296,7 @@ async def get_filing_fundamentals(filing_id: int, db: Session = Depends(get_db))
     immutable, document-faithful snapshot. A single indexed DB read, no live SEC calls. Returns empty
     `concepts` when the filing's facts aren't populated yet (they backfill when it's summarized).
     """
-    data = filing_read_service.filing_fundamentals(db, filing_id)
+    data = await run_in_threadpool(filing_read_service.filing_fundamentals, db, filing_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Filing not found")
     return data
@@ -291,4 +308,4 @@ async def get_recent_filings(
     db: Session = Depends(get_db)
 ):
     """Get recent filings across all companies"""
-    return filing_read_service.recent_filings(db, limit, FilingResponse.from_orm)
+    return await run_in_threadpool(filing_read_service.recent_filings, db, limit, FilingResponse.from_orm)

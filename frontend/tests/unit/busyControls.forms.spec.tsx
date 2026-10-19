@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import ContactForm from '@/features/contact/components/ContactForm'
@@ -7,6 +7,7 @@ import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import PricingPage from '@/app/pricing/page'
 import { queryKeys } from '@/lib/queryKeys'
+import { ApiError } from '@/lib/api/client'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 
 /**
@@ -54,8 +55,9 @@ vi.mock('@/lib/api/session', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/session')>()),
   hasActiveSession: () => true,
 }))
-// Deterministic flags: no Turnstile gate (its native `disabled` is a kept availability state), and
-// the feedback launcher on.
+// Deterministic flags: no Turnstile gate (the contact form's native `disabled` before a token is a kept availability
+// state; the waitlist's wait for a token is aria-disabled, held in waitlistSuccessCard.spec.tsx), and the feedback
+// launcher on.
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
   TURNSTILE_SITE_KEY: '',
@@ -101,11 +103,11 @@ describe('ContactForm', () => {
     render(<ContactForm />)
     fill()
 
-    const send = screen.getByRole('button', { name: 'Send Message' })
+    const send = screen.getByRole('button', { name: 'Send message' })
     const form = send.closest('form')!
     send.focus()
     fireEvent.click(send)
-    await waitFor(() => expect(send).toHaveTextContent('Sending...'))
+    await waitFor(() => expect(send).toHaveTextContent('Sending…'))
     expectBusyAndFocused(send)
     fireEvent.click(send)
     fireEvent.submit(form) // Enter in a field while the request is in flight
@@ -113,9 +115,9 @@ describe('ContactForm', () => {
     expect(api.submitContactForm).toHaveBeenCalledTimes(1)
     expect(document.activeElement).toBe(send)
 
-    await act(async () => post.reject(new Error('Server unavailable')))
-    expect(await screen.findByText('Server unavailable')).toBeInTheDocument()
-    expect(send).toHaveTextContent('Send Message')
+    await act(async () => post.reject(new ApiError(503, 'Server unavailable')))
+    expect(await screen.findByText("We couldn't send your message. Try again in a minute.")).toBeInTheDocument()
+    expect(send).toHaveTextContent('Send message')
     expect(send).not.toHaveAttribute('aria-disabled')
     expect(send).not.toHaveAttribute('aria-busy')
     expect(send).not.toBeDisabled()
@@ -128,7 +130,7 @@ describe('ContactForm', () => {
     fill()
 
     // The success panel replaces the form, and the focused Send with it: focus must not stay on <body>.
-    const send = screen.getByRole('button', { name: 'Send Message' })
+    const send = screen.getByRole('button', { name: 'Send message' })
     send.focus()
     fireEvent.click(send)
     const heading = await screen.findByRole('heading', { name: 'Message sent' })
@@ -151,7 +153,7 @@ describe('ContactForm', () => {
     fill()
 
     const name = screen.getByLabelText(/^Name/)
-    const send = screen.getByRole('button', { name: 'Send Message' })
+    const send = screen.getByRole('button', { name: 'Send message' })
     const form = send.closest('form')!
     name.focus()
     await user.keyboard('{Enter}')
@@ -173,8 +175,8 @@ describe('ContactForm', () => {
     expect(api.submitContactForm).toHaveBeenCalledTimes(1)
     expect(document.activeElement).toBe(name)
 
-    await act(async () => post.reject(new Error('Server unavailable')))
-    expect(await screen.findByText('Server unavailable')).toBeInTheDocument()
+    await act(async () => post.reject(new ApiError(503, 'Server unavailable')))
+    expect(await screen.findByText("We couldn't send your message. Try again in a minute.")).toBeInTheDocument()
     expect(name).not.toHaveAttribute('readonly')
     expect(document.activeElement).toBe(name)
   })
@@ -243,6 +245,8 @@ describe('WaitlistForm (already `loading` + submit guard — pinned so it cannot
 })
 
 describe('Pricing page Retry buttons (a failure keeps its Notice through any refetch until data replaces it)', () => {
+  // Every Retry reads the one verb (D-032), so a case is named for the read it retries: the account Notice's
+  // Retry, or the details Notice's one Retry over the subscription and usage reads.
   afterEach(() => onlineManager.setOnline(true))
   const user1 = { id: 1, email: 'ada@example.test' }
   const freeSub: SubscriptionStatus = {
@@ -272,7 +276,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
 
   const cases = [
     {
-      name: 'Retry account check',
+      name: 'the account check',
       request: api.getCurrentUserSafe,
       key: queryKeys.currentUser(),
       message: 'network down',
@@ -285,7 +289,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
       success: user1 as unknown,
     },
     {
-      name: 'Retry subscription',
+      name: 'the subscription read',
       request: api.getSubscriptionStatus,
       key: queryKeys.subscription.byUser(1),
       message: 'subscription unavailable',
@@ -298,7 +302,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
       success: freeSub as unknown,
     },
     {
-      name: 'Retry usage',
+      name: 'the usage read',
       request: api.getUsage,
       key: queryKeys.usage.byUser(1),
       message: 'usage unavailable',
@@ -315,12 +319,12 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
   // React Query puts a query with no data back to `pending` (error: null) the moment it refetches.
   // The Notice must not read that as "no longer failed": unmounting it removes the focused Retry
   // button before its `loading` renders, and focus falls to <body>.
-  it.each(cases)('$name keeps focus through its retry and a failed settle, and lands on the intro once it succeeds', async ({ name, request, message, arrange, success }) => {
+  it.each(cases)('the Retry of $name keeps focus through its retry and a failed settle, and lands on the intro once it succeeds', async ({ request, message, arrange, success }) => {
     const user = userEvent.setup()
     arrange()
     renderPricing()
 
-    const retry = await screen.findByRole('button', { name })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     expect(screen.getByText(message)).toBeInTheDocument()
     const first = deferred<unknown>()
     request.mockReturnValueOnce(first.promise)
@@ -360,7 +364,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     api.getUsage.mockResolvedValue(usage)
     renderPricing()
 
-    const retry = await screen.findByRole('button', { name: 'Retry subscription' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     const pending = deferred<unknown>()
     api.getSubscriptionStatus.mockReturnValueOnce(pending.promise)
     fireEvent.click(retry)
@@ -378,7 +382,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('subscription unavailable'))
     api.getUsage.mockResolvedValue(usage)
     const client = renderPricing()
-    const retry = await screen.findByRole('button', { name: 'Retry subscription' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
 
     // A refetch nobody pressed (reconnect, window focus, an invalidation) puts the data-less query back
@@ -403,7 +407,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     api.getSubscriptionStatus.mockResolvedValue(freeSub)
     api.getUsage.mockResolvedValue(usage)
     const client = renderPricing()
-    await screen.findByRole('button', { name: 'Retry subscription' })
+    await screen.findByRole('button', { name: 'Try again' })
     expect(document.activeElement).toBe(document.body)
 
     // A background refetch (window focus, reconnect) recovers the subscription on its own.
@@ -412,25 +416,25 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     expect(document.activeElement).toBe(document.body)
   })
 
-  it.each(cases)('$name pressed offline waits paused, busy and focused, and a second press sends nothing', async ({ name, request, arrange }) => {
+  it.each(cases)('the Retry of $name pressed offline waits paused, busy and focused, and a second press sends nothing', async ({ request, arrange }) => {
     arrange()
     renderPricing()
-    const retry = await screen.findByRole('button', { name })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     onlineManager.setOnline(false)
     fireEvent.click(retry)
     await settle()
     expectBusyAndFocused(retry)
-    expect(retry).toHaveAccessibleName('Retrying…')
+    expect(retry).toHaveAccessibleName('Trying again…')
     fireEvent.click(retry)
     await settle()
     expect(request).toHaveBeenCalledTimes(1)
   })
 
-  it.each(cases)('$name: after a press fails again and the user moves off, a recovery nobody pressed moves no focus', async ({ name, request, arrange, key, success }) => {
+  it.each(cases)('the Retry of $name: after a press fails again and the user moves off, a recovery nobody pressed moves no focus', async ({ request, arrange, key, success }) => {
     arrange()
     const client = renderPricing()
-    const retry = await screen.findByRole('button', { name })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     request.mockRejectedValueOnce(new Error('still down'))
     fireEvent.click(retry)
@@ -449,10 +453,10 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     expect(document.activeElement).toBe(document.body)
   })
 
-  it.each(cases)('$name: a refetch nobody pressed keeps it focused and busy under its own label; its success hands focus to the intro', async ({ name, request, arrange, key, success }) => {
+  it.each(cases)('the Retry of $name: a refetch nobody pressed keeps it focused and busy under its own label; its success hands focus to the intro', async ({ request, arrange, key, success }) => {
     arrange()
     const client = renderPricing()
-    const retry = await screen.findByRole('button', { name })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     const background = deferred<unknown>()
     request.mockReturnValueOnce(background.promise)
@@ -460,7 +464,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     await waitFor(() => expect(request).toHaveBeenCalledTimes(2))
     await settle()
     expectBusyAndFocused(retry)
-    expect(retry).toHaveAccessibleName(name)
+    expect(retry).toHaveAccessibleName('Try again')
     await act(async () => background.resolve(success))
     await waitFor(() => expect(retry.isConnected).toBe(false))
     await settle()
@@ -482,13 +486,15 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     api.getUsage.mockResolvedValue(usage)
     render(<QueryClientProvider client={client}><PricingPage /></QueryClientProvider>)
 
-    const accountRetry = await screen.findByRole('button', { name: 'Retry account check' })
+    const accountRetry = await screen.findByRole('button', { name: 'Try again' })
     accountRetry.focus()
     api.getCurrentUserSafe.mockResolvedValueOnce(user1)
     fireEvent.click(accountRetry, { detail: 0 })
     // The account resolves, and in the same render the cached plan failure shows the details Notice. Unkeyed,
-    // React reused the account Retry as "Retry subscription": the same focused node under another label.
-    const planRetry = await screen.findByRole('button', { name: 'Retry subscription' })
+    // React reused the account Retry as the details Notice's: the same focused node, still pressed (it read
+    // "Trying again…" there while the plan refreshed).
+    const details = (await screen.findByText("We couldn't refresh your plan details")).closest('[role="alert"]') as HTMLElement
+    const planRetry = within(details).getByRole('button', { name: 'Try again' })
     expect(planRetry).not.toBe(accountRetry)
     expect(accountRetry.isConnected).toBe(false)
     await settle()

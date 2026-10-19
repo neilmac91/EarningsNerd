@@ -238,12 +238,21 @@ for (const theme of ['light', 'dark'] as const) {
           const pane = page.locator(PANE)
           const retry = pane.getByRole('button', { name: 'Try again', exact: true })
           await expect(retry).toBeVisible()
+          const alert = pane.getByRole('alert').filter({ hasText: 'Could not load the filing text.' })
+          const atRest = { button: await retry.boundingBox(), alert: await alert.boundingBox() }
           await retry.focus()
           next = 'hold'
           await page.keyboard.press('Enter')
           await expect.poll(() => release !== undefined).toBe(true)
-          const busy = pane.getByRole('button', { name: 'Retrying…', exact: true })
+          const busy = pane.getByRole('button', { name: 'Trying again…', exact: true })
           await expect(busy).toBeFocused()
+          // The swap to "Trying again…" and the spinner keep the button's box, so nothing beside it moves
+          // (RetryButton keeps that room at rest: Button's reserveLoadingText).
+          const whileBusy = { button: await busy.boundingBox(), alert: await alert.boundingBox() }
+          for (const side of ['width', 'height'] as const) {
+            expect(whileBusy.button![side], `the busy Retry's ${side}`).toBeCloseTo(atRest.button![side], 0)
+            expect(whileBusy.alert![side], `the alert's ${side} while its Retry is busy`).toBeCloseTo(atRest.alert![side], 0)
+          }
           await expect(pane.getByText('Could not load the filing text.')).toBeVisible()
           await page.keyboard.press('Enter')
           expect(requests).toBe(2)

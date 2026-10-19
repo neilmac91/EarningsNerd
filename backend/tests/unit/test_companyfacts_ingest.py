@@ -2,14 +2,20 @@
 
 Covers the period classifier (duration windows, distance-anchored quarter labels, the fy/fp trap),
 Q4 derivation, same-period derived metrics, the bulk writer (identity skip, is_latest demotion,
-the D1 NULL-fiscal_period demotion), and the TTL/dedup semantics of ``ingest_companyfacts``.
+the D1 NULL-fiscal_period demotion), the TTL/dedup semantics of ``ingest_companyfacts``, and the
+reporting-currency pick for a foreign US-GAAP filer (its USD convenience rows demoted, never kept current).
 
 Payloads are built programmatically — companyfacts items are small dicts, and explicit builders
 keep each scenario's trap visible in the test itself.
 """
 
+import json
+import os
+import subprocess
+import sys
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -719,3 +725,398 @@ class TestIngestCompanyfacts:
         assert follower_result["waited"] is True
         db.close()
         db2.close()
+
+
+# --- Native reporting currency (P13): a US-GAAP filer that reports in CNY ----------------------
+#
+# The shape `facts/currency.py::_reporting_currency` documents: every 20-F tags this year and
+# its comparatives in the reporting currency, and this year again as a USD convenience translation
+# at that year's rate, so companyfacts holds a CNY list and a USD list for the same line. CNY fell
+# against the dollar over these years, so the convenience history shrinks while CNY revenue grows.
+
+_CNY_YEARS = (  # fiscal year, start, end, CNY per USD at that year's 20-F
+    (2022, "2021-04-01", "2022-03-31", 6.3393),
+    (2023, "2022-04-01", "2023-03-31", 6.8676),
+    (2024, "2023-04-01", "2024-03-31", 7.2203),
+)
+_CNY_REVENUE = (800_000e6, 814_400e6, 882_000e6)  # +1.8%, then +8.3%, as reported
+_CNY_EPS = (2.82, 3.46, 3.91)
+
+
+def _cny_units(values, *, instant=False, per_share=False):
+    """One tag's CNY list (each 20-F's year plus comparatives) and its USD convenience list."""
+    native, convenience = [], []
+    for i, (fy, start, end, rate) in enumerate(_CNY_YEARS):
+        accn, filed = f"20F-{fy}", f"{fy}-07-2{i}"
+        shown = list(zip(_CNY_YEARS, values))[max(0, i - (1 if instant else 2)): i + 1]
+        for (_fy, s, e, _rate), value in shown:
+            native.append(_item(value, e, start=None if instant else s, accn=accn, fy=fy,
+                                form="20-F", filed=filed))
+        convenience.append(_item(round(values[i] / rate, 2 if per_share else 0), end,
+                                 start=None if instant else start, accn=accn, fy=fy,
+                                 form="20-F", filed=filed))
+    suffix = "/shares" if per_share else ""
+    return {"units": {f"CNY{suffix}": native, f"USD{suffix}": convenience}}
+
+
+def _cny_payload():
+    return _payload({
+        REV_TAG: _cny_units(_CNY_REVENUE),
+        "NetIncomeLoss": _cny_units((60_000e6, 70_000e6, 80_000e6)),
+        "NetCashProvidedByUsedInOperatingActivities": _cny_units((140_000e6, 190_000e6, 180_000e6)),
+        "PaymentsToAcquirePropertyPlantAndEquipment": _cny_units((50_000e6, 35_000e6, 32_000e6)),
+        "Assets": _cny_units((1_690_000e6, 1_750_000e6, 1_760_000e6), instant=True),
+        "EarningsPerShareDiluted": _cny_units(_CNY_EPS, per_share=True),
+    })
+
+
+def _cny_quarterly(fy_value, q1, q2, q3, ytd9=None):
+    items = [
+        _item(fy_value, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-03-15"),
+        _item(q1, "2024-03-31", start="2024-01-01", accn="Q1-24", fp="Q1", form="10-Q",
+              filed="2024-05-05"),
+        _item(q2, "2024-06-30", start="2024-04-01", accn="Q2-24", fp="Q2", form="10-Q",
+              filed="2024-08-05"),
+        _item(q3, "2024-09-30", start="2024-07-01", accn="Q3-24", fp="Q3", form="10-Q",
+              filed="2024-11-05"),
+    ]
+    if ytd9 is not None:
+        items.append(_item(ytd9, "2024-09-30", start="2024-01-01", accn="Q3-24", fp="Q3",
+                           form="10-Q", filed="2024-11-05"))
+    usd = [_item(round(fy_value / 7.1), "2024-12-31", start="2024-01-01", accn="K24",
+                 filed="2025-03-15")]
+    return {"units": {"CNY": items, "USD": usd}}
+
+
+def _cny_quarterly_payload():
+    return _payload({
+        REV_TAG: _cny_quarterly(1200.0, 280.0, 300.0, 310.0, ytd9=895.0),
+        "NetIncomeLoss": _cny_quarterly(120.0, 28.0, 30.0, 31.0),
+    })
+
+
+class TestNativeReportingCurrency:
+    def test_cny_reporter_is_stored_as_reported_not_from_usd_convenience(self):
+        facts, meta = svc.normalize_companyfacts(1, _cny_payload())
+        by = _by_key(facts)
+        revenue = [by[("revenue", date(fy, 3, 31), "FY")] for fy in (2022, 2023, 2024)]
+        assert [(f["unit"], f["value"]) for f in revenue] == [("CNY", v) for v in _CNY_REVENUE]
+        assert {f["unit"] for f in facts} == {"CNY", "CNY/shares", "pure"}
+        assert by[("total_assets", date(2024, 3, 31), "FY")]["value"] == 1_760_000e6
+        assert by[("eps_diluted", date(2024, 3, 31), "FY")]["unit"] == "CNY/shares"
+        # A derived amount carries its operands' currency, never a USD default.
+        fcf = by[("free_cash_flow", date(2024, 3, 31), "FY")]
+        assert (fcf["unit"], fcf["value"]) == ("CNY", 148_000e6)
+        assert meta["unsupported_ifrs"] is False
+
+    def test_cny_quarters_derive_in_the_series_currency(self):
+        # A calendar-year filer whose 10-Qs report in CNY: Q4 = FY − YTD9 (revenue) and
+        # FY − ΣQ1–3 (net income, no YTD9) derive exactly as a USD series would.
+        facts, _ = svc.normalize_companyfacts(1, _cny_quarterly_payload())
+        by = _by_key(facts)
+        revenue_q4 = by[("revenue", date(2024, 12, 31), "Q4")]
+        assert (revenue_q4["unit"], revenue_q4["value"]) == ("CNY", pytest.approx(305.0))
+        assert revenue_q4["provenance"]["formula"] == "FY - YTD9"
+        income_q4 = by[("net_income", date(2024, 12, 31), "Q4")]
+        assert (income_q4["unit"], income_q4["value"]) == ("CNY", pytest.approx(31.0))
+        assert income_q4["provenance"]["formula"] == "FY - (Q1 + Q2 + Q3)"
+
+    def test_an_excluded_quarter_keeps_its_operands_currency(self):
+        # An independently restated FY (another accession) cannot pair with the 10-Q's YTD9, so
+        # Q4 is excluded; the operands quarterly_fact_repair reads stay in the series currency.
+        def ocf(value, end, accn, filed, fp="FY", form="10-K"):
+            return _item(value, end, start="2024-01-01", accn=accn, fp=fp, form=form, filed=filed)
+
+        payload = _payload({"NetCashProvidedByUsedInOperatingActivities": {"units": {"CNY": [
+            ocf(190.0, "2024-03-31", "Q1-24", "2024-05-05", fp="Q1", form="10-Q"),
+            ocf(380.0, "2024-06-30", "Q2-24", "2024-08-05", fp="Q2", form="10-Q"),
+            ocf(630.0, "2024-09-30", "Q3-24", "2024-11-05", fp="Q3", form="10-Q"),
+            ocf(910.0, "2024-12-31", "K24", "2025-03-15"),
+            ocf(1000.0, "2024-12-31", "K24A", "2025-04-01"),
+        ]}}})
+        facts, meta = svc.normalize_companyfacts(1, payload)
+        assert ("operating_cash_flow", date(2024, 12, 31), "Q4") not in _by_key(facts)
+        excluded = next(e for e in meta["quarterly_exclusions"] if e["fiscal_period"] == "Q4")
+        assert excluded["reason"] == "incompatible_vintages"
+        assert {operand["unit"] for operand in excluded["inputs"]} == {"CNY"}
+
+    def test_a_filer_that_switched_to_usd_keeps_its_usd_reading(self):
+        # CNY 20-Fs for FY2019-23 (each with two comparatives and a USD convenience year), then a
+        # FY2024 20-F that reports in USD with FY2022-23 restated. CNY covers more period-ends,
+        # but FY2024 has no CNY twin, so the USD list is no convenience translation and the
+        # history stays in USD as before; a CNY read would leave the stored FY2024 USD row current.
+        cny = {year: 500e9 + 50e9 * (year - 2017) for year in range(2017, 2024)}
+        cny_items, usd_items = [], []
+        for fy in range(2019, 2024):
+            accn, filed = f"20F-{fy}", f"{fy + 1}-04-20"
+            cny_items += [_item(cny[y], f"{y}-12-31", start=f"{y}-01-01", accn=accn, fy=fy,
+                                form="20-F", filed=filed) for y in (fy - 2, fy - 1, fy)]
+            usd_items.append(_item(round(cny[fy] / 7), f"{fy}-12-31", start=f"{fy}-01-01",
+                                   accn=accn, fy=fy, form="20-F", filed=filed))
+        restated = {2022: 105e9, 2023: 110e9, 2024: 118e9}
+        usd_items += [_item(value, f"{y}-12-31", start=f"{y}-01-01", accn="20F-2024", fy=2024,
+                            form="20-F", filed="2025-04-20") for y, value in restated.items()]
+        payload = _payload({REV_TAG: {"units": {"CNY": cny_items, "USD": usd_items}}})
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        revenue = {f["period_end"].year: (f["unit"], f["value"]) for f in facts
+                   if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+        assert {unit for unit, _value in revenue.values()} == {"USD"}
+        assert {year: revenue[year][1] for year in restated} == restated
+
+    def test_a_filer_that_switched_from_usd_keeps_its_usd_history(self):
+        # 10-Ks for FY2017-22 in USD (each with two comparatives), then FY2023-24 20-Fs in CNY with
+        # FY2021-22 restated and no USD convenience year. Only CNY reaches the latest period-end,
+        # but FY2015-20 have no CNY twin: a CNY read would leave the USD rows an earlier sync
+        # stored for them current beside the CNY years, so the history stays in USD as before.
+        usd = {year: 100e9 + 10e9 * (year - 2015) for year in range(2015, 2023)}
+        cny = {2021: 7 * usd[2021], 2022: 7 * usd[2022], 2023: 1_200e9, 2024: 1_300e9}
+        usd_items = [_item(usd[y], f"{y}-12-31", start=f"{y}-01-01", accn=f"10K-{fy}", fy=fy,
+                           filed=f"{fy + 1}-02-20")
+                     for fy in range(2017, 2023) for y in (fy - 2, fy - 1, fy)]
+        cny_items = [_item(cny[y], f"{y}-12-31", start=f"{y}-01-01", accn=f"20F-{fy}", fy=fy,
+                           form="20-F", filed=f"{fy + 1}-04-20")
+                     for fy in (2023, 2024) for y in (fy - 2, fy - 1, fy)]
+        payload = _payload({REV_TAG: {"units": {"USD": usd_items, "CNY": cny_items}}})
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        revenue = {f["period_end"].year: (f["unit"], f["value"]) for f in facts
+                   if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+        assert revenue == {year: ("USD", value) for year, value in usd.items()}
+
+    @pytest.mark.parametrize("stray", [
+        _item(900.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
+        # Dated after every USD period-end, so it alone reaches the latest one.
+        _item(900.0, "2025-09-30", start="2025-07-01", accn="Q3-25", fy=2025, fp="Q3", form="10-Q",
+              filed="2025-11-05"),
+    ], ids=["inside-the-usd-span", "after-every-usd-period"])
+    def test_usd_filer_ignores_a_stray_minority_currency_list(self, stray):
+        # The USD list translates no stray EUR value (its other period-ends have no EUR twin), so
+        # a domestic filer's history is read exactly as before, whatever the stray's date.
+        payload = _calendar_payload()
+        payload["facts"]["us-gaap"][REV_TAG]["units"]["EUR"] = [stray]
+        assert svc.normalize_companyfacts(1, payload) == svc.normalize_companyfacts(1, _calendar_payload())
+
+    @pytest.mark.parametrize("unusable", [
+        {"val": None}, {"val": float("nan")}, {"val": float("inf")}, {"start": None},
+        {"start": "2023-10-01"},  # six months: a cumulative slice ends there, not the fiscal year
+        {"start": "2023-12-01"},  # four months: no duration class at all
+    ], ids=["no-value", "nan", "infinite", "no-start", "six-month-span", "unclassified-span"])
+    def test_a_native_year_the_collector_drops_keeps_the_usd_reading(self, unusable):
+        # The CNY list's only FY2024 revenue item is one the collector drops, or keys as another
+        # span, so CNY does not keep every period USD keeps. A CNY read would lose FY2024 and leave
+        # the USD row an earlier sync stored there current inside a CNY series.
+        payload = _cny_payload()
+        payload["facts"]["us-gaap"][REV_TAG]["units"]["CNY"][-1].update(unusable)  # 20F-2024's own year
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        revenue = {f["period_end"].year: (f["unit"], f["value"]) for f in facts
+                   if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+        assert revenue == {fy: ("USD", round(value / rate, 0))
+                           for (fy, _start, _end, rate), value in zip(_CNY_YEARS, _CNY_REVENUE)}
+
+    def test_a_native_list_still_wins_on_the_periods_both_lists_keep(self):
+        # Unusable items count on neither side: a valueless, later-filed copy of the CNY FY2024
+        # item costs CNY nothing, and a USD item the collector drops (no start) needs no CNY twin.
+        payload = _cny_payload()
+        units = payload["facts"]["us-gaap"][REV_TAG]["units"]
+        units["CNY"].append({**units["CNY"][-1], "val": None, "filed": "2024-08-01"})
+        units["USD"].append(_item(130e9, "2025-03-31", accn="6K-2025", fy=2025, form="6-K", filed="2025-05-20"))
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        revenue = {f["period_end"].year: (f["unit"], f["value"]) for f in facts
+                   if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+        assert revenue == {fy: ("CNY", value) for (fy, *_rest), value in zip(_CNY_YEARS, _CNY_REVENUE)}
+
+    def test_the_normalizers_read_a_native_filer_without_settings_orm_or_edgar(self, tmp_path):
+        # A fresh interpreter with no Settings env (no SECRET_KEY): importing the pure normalizers
+        # and reading the annual and quarterly CNY shapes, where series_unit runs the currency
+        # ranking and the Q4 derivations match intervals, must load none of these, at import time
+        # or at call time. Only the interpreter's own PATH, HOME and library path are passed.
+        child = (
+            "import json, sys\n"
+            "from app.services.facts import companyfacts, concepts, currency, quarterly\n"
+            "runs = [companyfacts.normalize_companyfacts(1, payload)[0] for payload in json.load(sys.stdin)]\n"
+            "heavy = ('app.config', 'app.database', 'app.models', 'app.services.edgar', 'sqlalchemy')\n"
+            "print(json.dumps({\n"
+            "    'revenue': sorted([f['unit'], f['value']] for f in runs[0] if f['concept'] == 'revenue'),\n"
+            "    'q4': sorted([f['concept'], f['unit']] for f in runs[1]\n"
+            "                 if f['fiscal_period'] == 'Q4' and f['concept'] in ('revenue', 'net_income')),\n"
+            "    'loaded': sorted(m for m in sys.modules for h in heavy if m == h or m.startswith(h + '.')),\n"
+            "}))\n"
+        )
+        env = {"PATH": os.environ.get("PATH", os.defpath), "HOME": str(tmp_path)}
+        if os.environ.get("LD_LIBRARY_PATH"):  # setup-python's shared libpython on CI runners
+            env["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH"]
+        probe = subprocess.run(
+            [sys.executable, "-c", child], input=json.dumps([_cny_payload(), _cny_quarterly_payload()]),
+            capture_output=True, text=True, timeout=60, cwd=Path(__file__).resolve().parents[2], env=env,
+        )
+        assert probe.returncode == 0, probe.stderr[-1500:]
+        result = json.loads(probe.stdout)
+        assert result["revenue"] == [["CNY", value] for value in _CNY_REVENUE]
+        assert result["q4"] == [["net_income", "CNY"], ["revenue", "CNY"]]
+        assert result["loaded"] == []
+
+
+@pytest.mark.requires_db
+class TestNativeReportingCurrencySync:
+    def test_sync_supersedes_usd_convenience_rows_and_stays_out_of_usd_peer_ranking(self):
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+        from app.services import trend_analysis_service
+        from app.services.peers_service import get_peers
+
+        db = SessionLocal()
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
+        fpi, usd_peer = _new_company(db, sic=sic), _new_company(db, sic=sic)
+        for company in (fpi, usd_peer):  # get_peers resolves a ticker in the worker's shared DB
+            company.ticker = f"T{uuid.uuid4().hex.upper()}"
+        db.commit()
+        # The USD peer shares the FPI's period end, so only the company scope keeps it current.
+        svc.upsert_facts_bulk(db, [_fact_dict(usd_peer.id, end=date(2024, 3, 31), value=120_000e6,
+                                              accession="US-K24")])
+        # What a sync stored before it read the reporting currency: each year's convenience rows.
+        legacy = [_fact_dict(fpi.id, concept, unit=unit, end=date(fy, 3, 31),
+                             value=round(native / rate, digits), accession=f"20F-{fy}")
+                  for concept, unit, values, digits in (("revenue", "USD", _CNY_REVENUE, 0),
+                                                        ("eps_diluted", "USD/shares", _CNY_EPS, 2))
+                  for (fy, _start, _end, rate), native in zip(_CNY_YEARS, values)]
+        # A USD row at another key (a legacy NULL-fiscal_period twin) has no native twin.
+        other_key = _fact_dict(fpi.id, fp=None, end=date(2024, 3, 31), value=1.0, accession="Q-2024")
+        svc.upsert_facts_bulk(db, [*legacy, other_key])
+
+        result = svc._persist_companyfacts_payload(db, fpi, _cny_payload())
+        dataset = trend_analysis_service.build_dataset(db, fpi, "annual", "FY2022", "FY2024")
+        series = next(s for s in dataset["series"] if s["concept"] == "revenue")
+        assert series["unit"] == "CNY"
+        assert [p["value"] for p in series["points"]] == list(_CNY_REVENUE)
+        assert [p.get("yoy") for p in series["points"]] == [
+            None,
+            pytest.approx(_CNY_REVENUE[1] / _CNY_REVENUE[0] - 1),
+            pytest.approx(_CNY_REVENUE[2] / _CNY_REVENUE[1] - 1),
+        ]
+
+        usd_panel = get_peers(db, usd_peer.ticker, "revenue")
+        assert usd_panel["unit"] == "USD"
+        assert fpi.ticker not in [p["ticker"] for p in usd_panel["peers"]]
+        assert get_peers(db, fpi.ticker, "revenue")["unit"] == "CNY"
+
+        assert result["demoted"] == len(legacy)
+        rows = db.query(FinancialFact).filter(
+            FinancialFact.company_id.in_((fpi.id, usd_peer.id))).all()
+
+        def states(concept, fp="FY", company_id=fpi.id):
+            return {(r.unit, r.is_latest) for r in rows
+                    if (r.company_id, r.concept, r.fiscal_period) == (company_id, concept, fp)}
+
+        assert states("revenue") == {("USD", False), ("CNY", True)}
+        assert states("eps_diluted") == {("USD/shares", False), ("CNY/shares", True)}
+        assert states("revenue", fp=None) == {("USD", True)}  # another key: left alone
+        assert states("revenue", company_id=usd_peer.id) == {("USD", True)}  # another company
+        usd_rows = [r for r in rows if r.company_id == fpi.id and r.unit.startswith("USD")]
+        assert len(usd_rows) == len(legacy) + 1  # demoted, never deleted
+
+        # A re-sync of the same payload is a no-op.
+        before = sorted((r.id, r.unit, r.value, r.is_latest)
+                        for r in db.query(FinancialFact).filter_by(company_id=fpi.id))
+        again = svc._persist_companyfacts_payload(db, fpi, _cny_payload())
+        assert (again["inserted"], again["demoted"]) == (0, 0)
+        assert again["skipped"] == result["inserted"]
+        after = sorted((r.id, r.unit, r.value, r.is_latest)
+                       for r in db.query(FinancialFact).filter_by(company_id=fpi.id))
+        assert after == before
+        db.close()
+
+    @pytest.mark.parametrize("recorded", [True, False], ids=["recorded-operands", "before-provenance"])
+    def test_sync_promotes_native_ratios_over_usd_ones_a_known_older_filing_kept_current(self, recorded):
+        # A pre-fix sync read only the USD lists, so it stored each year's net margin from that
+        # year's USD operands, under that year's 20-F. With 20F-2022 stored locally and 20F-2024
+        # not, the upsert keeps the FY2022 margin current (a known filing date outranks an unknown
+        # one) and stores the native one, from 20F-2024, behind it. A newer native calculation
+        # stored locally (20F-2025) is not USD-derived, so it stays the FY2023 margin. FY2024's
+        # native margin has the stored row's own identity, so the upsert skips it; ingestion never
+        # rewrites an identity, and the journaled repair recomputes that row. A sync before
+        # 2026-10-10 recorded no operands, and its derived ratios with no filing owner read USD lists.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+        from app.services import trend_analysis_service
+        from app.services.quarterly_fact_repair import repair_company
+
+        db = SessionLocal()
+        fpi, other = _new_company(db), _new_company(db)
+        fpi.cik = str(uuid.uuid4().int % 10**10)  # the repair matches the payload's CIK
+        tag = f"-{uuid.uuid4().hex[:8]}"  # accession numbers are unique across companies
+
+        def payload(units=("CNY", "CNY/shares", "USD", "USD/shares")):
+            data = {**_cny_payload(), "cik": int(fpi.cik)}
+            for node in data["facts"]["us-gaap"].values():
+                node["units"] = {unit: items for unit, items in node["units"].items() if unit in units}
+                for item in (item for items in node["units"].values() for item in items):
+                    item["accn"] += tag
+            return data
+
+        filings = {fy: Filing(company_id=fpi.id, accession_number=f"20F-{fy}{tag}", filing_type="20-F",
+                              filing_date=datetime(fy, 7, 20, tzinfo=timezone.utc),
+                              document_url="https://example.com/d", sec_url="https://example.com/s")
+                   for fy in (2022, 2023, 2025)}
+        db.add_all(filings.values())
+        db.commit()
+        usd_only = svc.normalize_companyfacts(fpi.id, payload(("USD", "USD/shares")))[0]
+        svc.upsert_facts_bulk(db, [f if recorded else {**f, "provenance": None} for f in usd_only])
+        native = {f["fiscal_year"]: f for f in svc.normalize_companyfacts(fpi.id, payload())[0]
+                  if f["concept"] == "net_margin"}
+        newer = {**native[2023], "accession": f"20F-2025{tag}", "value": 8.6}
+        if not recorded:  # then only the per-filing path stored one, in the filing's own currency
+            newer.update(source="edgar_xbrl", filing_id=filings[2025].id, provenance=None)
+        # An earlier native calculation from a filing not stored locally: behind the legacy row,
+        # and not this batch's own.
+        svc.upsert_facts_bulk(db, [newer, {**native[2022], "accession": f"20F-2023A{tag}", "value": 7.4}])
+        # Another company's rows that the session has not committed yet are not this sync's.
+        usd_margin = next(f for f in usd_only if (f["concept"], f["fiscal_year"]) == ("net_margin", 2022))
+        svc.upsert_facts_bulk(db, [{**usd_margin, "company_id": other.id}], commit=False)
+
+        svc._persist_companyfacts_payload(db, fpi, payload())
+        dataset = trend_analysis_service.build_dataset(db, fpi, "annual", "FY2022", "FY2024")
+        margin = next(s for s in dataset["series"] if s["concept"] == "net_margin")
+        points = [(p["value"], {i["unit"] for i in p["provenance"]["inputs"]}) for p in margin["points"][:2]]
+        assert points == [(7.5, {"CNY"}), (8.6, {"CNY"} if recorded else set())]  # USD-derived: 7.4999999997
+        rows = db.query(FinancialFact).filter_by(company_id=fpi.id, concept="net_margin").all()
+        assert sorted((r.period_end.year, r.accession.removesuffix(tag), r.is_latest) for r in rows) == [
+            (2022, "20F-2022", False), (2022, "20F-2023A", False), (2022, "20F-2024", True),
+            (2023, "20F-2023", False), (2023, "20F-2024", False), (2023, "20F-2025", True),
+            (2024, "20F-2024", True),
+        ]  # demoted, never deleted
+        same_filing = next(r for r in rows if r.period_end.year == 2024)
+        stored = {i["unit"] for i in (same_filing.provenance or {}).get("inputs", ())}
+        assert stored == ({"USD"} if recorded else set())  # never rewritten
+        assert [r.is_latest for r in db.query(FinancialFact).filter_by(company_id=other.id)] == [True]
+
+        plan = repair_company(db, fpi.id, payload(), dry_run=True)
+        fixed = next(c["after"] for c in plan["changes"] if c["fact_id"] == same_filing.id)
+        assert {i["unit"] for i in fixed["provenance"]["inputs"]} == {"CNY"}
+
+        again = svc._persist_companyfacts_payload(db, fpi, payload())
+        assert (again["inserted"], again["demoted"]) == (0, 0)
+        usd_filer = _new_company(db)  # ratios from USD operands are the upsert's alone
+        assert svc._persist_companyfacts_payload(db, usd_filer, payload(("USD", "USD/shares")))["demoted"] == 0
+        db.close()
+
+    def test_a_native_year_the_collector_drops_leaves_the_stored_usd_series_current(self):
+        # Over the USD revenue a pre-fix sync stored, the CNY list's only FY2024 item has no value.
+        # Revenue stays on the USD list, so the sync demotes none of those rows, and the Multi-Period
+        # series stays USD rather than CNY with a USD FY2024 point (a YoY of -85.0%).
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+        from app.services import trend_analysis_service
+
+        db = SessionLocal()
+        fpi = _new_company(db)
+        usd = [round(value / rate, 0) for (_fy, _start, _end, rate), value in zip(_CNY_YEARS, _CNY_REVENUE)]
+        svc.upsert_facts_bulk(db, [_fact_dict(fpi.id, end=date(fy, 3, 31), value=value, accession=f"20F-{fy}")
+                                   for (fy, *_rest), value in zip(_CNY_YEARS, usd)])
+        payload = _cny_payload()
+        payload["facts"]["us-gaap"][REV_TAG]["units"]["CNY"][-1]["val"] = None
+        svc._persist_companyfacts_payload(db, fpi, payload)
+        dataset = trend_analysis_service.build_dataset(db, fpi, "annual", "FY2022", "FY2024")
+        series = next(s for s in dataset["series"] if s["concept"] == "revenue")
+        assert (series["unit"], [p["value"] for p in series["points"]]) == ("USD", usd)
+        rows = db.query(FinancialFact).filter_by(company_id=fpi.id, concept="revenue").all()
+        assert {(r.unit, r.is_latest) for r in rows} == {("USD", True)}
+        db.close()

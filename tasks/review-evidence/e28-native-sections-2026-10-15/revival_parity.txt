@@ -1,0 +1,34 @@
+AAPL   10-K  0000320193-25-000079  revived dfa1fbf6509b  pre-switch native dfa1fbf6509b  identical
+AMZN   10-K  0001018724-26-000004  revived 325868836bd0  pre-switch native 325868836bd0  identical
+ASML   20-F  0001628280-26-011378  revived None          pre-switch native -             no sections, as before (regex)
+BA     10-K  0001628280-26-004357  revived 5938be154354  pre-switch native 5938be154354  identical
+BABA   20-F  0001193125-26-231755  revived 5387d3a77820  pre-switch native 5387d3a77820  identical
+BRK.B  10-K  0001193125-26-083899  revived d4a2e2e4259c  pre-switch native d4a2e2e4259c  identical
+BYND   10-Q  0001655210-26-000037  revived f1b570e44272  pre-switch native f1b570e44272  identical
+COIN   10-Q  0001679788-26-000054  revived 56a62db08972  pre-switch native 56a62db08972  identical
+COST   10-Q  0000909832-26-000051  revived 16af92436b2c  pre-switch native 16af92436b2c  identical
+F      10-Q  0000037996-26-000086  revived c01bf0c2cabf  pre-switch native c01bf0c2cabf  identical
+FIGS   10-Q  0001628280-26-054342  revived 7e6c85de3f4e  pre-switch native 7e6c85de3f4e  identical
+GPRO   10-K  0001500435-26-000006  revived 9589fe772dd8  pre-switch native 9589fe772dd8  identical
+INTC   10-Q  0000050863-26-000079  revived 3f3cd2619f30  pre-switch native 3f3cd2619f30  identical
+JD     20-F  0001193125-26-157870  revived 39bd48032cd1  pre-switch native 39bd48032cd1  identical
+JPM    10-K  0001628280-26-008131  revived 0eb585c15287  pre-switch native 0eb585c15287  identical
+KO     10-Q  0001628280-26-028802  revived e3ae3569f70b  pre-switch native e3ae3569f70b  identical
+MELI   10-K  0001099590-26-000006  revived f426e9f88ea6  pre-switch native f426e9f88ea6  identical
+MSFT   10-K  0000950170-25-100235  revived 1a68ae488350  pre-switch native 1a68ae488350  identical
+NEE    10-Q  0000753308-26-000060  revived 0b4f85750145  pre-switch native 0b4f85750145  identical
+NVDA   10-Q  0001045810-26-000052  revived 5064f0672a5d  pre-switch native 5064f0672a5d  identical
+NVO    20-F  0000353278-26-000012  revived 896fec3ca236  pre-switch native 896fec3ca236  identical
+PDD    20-F  0001104659-26-050727  revived bf86e9e03b65  pre-switch native bf86e9e03b65  identical
+PFE    10-Q  0000078003-26-000054  revived 071c1e13c214  pre-switch native 071c1e13c214  identical
+PGR    10-K  0000080661-26-000086  revived 5d3093c2c3e4  pre-switch native 5d3093c2c3e4  identical
+PLD    10-K  0001193125-26-051453  revived 2054c50233e8  pre-switch native 2054c50233e8  identical
+PLTR   10-Q  0001321655-26-000028  revived ec9b60144ae7  pre-switch native ec9b60144ae7  identical
+RIVN   10-K  0001874178-26-000008  revived 11884363f8ad  pre-switch native 11884363f8ad  identical
+SE     20-F  0001140361-26-015366  revived 7694e07c35a5  pre-switch native 7694e07c35a5  identical
+TSLA   10-K  0001628280-26-003952  revived 44300b8bc6c9  pre-switch native 44300b8bc6c9  identical
+TSM    20-F  0001628280-26-025362  revived 84be2cfba0ad  pre-switch native 84be2cfba0ad  identical
+WMT    10-K  0000104169-26-000055  revived 9dc278401d95  pre-switch native 9dc278401d95  identical
+XOM    10-K  0000034088-26-000045  revived df0a0fdf0001  pre-switch native df0a0fdf0001  identical
+
+32 of 32 excerpts match the pre-switch reports (31 native)

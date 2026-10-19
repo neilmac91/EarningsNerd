@@ -11,9 +11,10 @@ class RefreshToken(Base):
 
     Only the SHA-256 hash of the raw token is stored, so a database leak does not
     expose usable credentials. Tokens are single-use and rotated on every refresh:
-    presenting a token mints a new one and revokes the old. Presenting an
-    already-revoked token is treated as a reuse/theft signal and revokes the whole
-    chain for that user (see refresh_token_service.rotate_refresh_token).
+    presenting a token mints a new one and revokes the old. Presenting a token that
+    was already rotated away (``replaced_by_id`` set) is treated as a reuse/theft
+    signal and revokes the whole chain for that user; a token revoked without
+    rotation is simply refused (see refresh_token_service.rotate_refresh_token).
 
     ``expires_at``/``revoked_at`` are stored as naive UTC to match the ``datetime.utcnow()``
     convention used elsewhere in auth and to avoid timezone-comparison pitfalls on SQLite.

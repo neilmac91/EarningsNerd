@@ -73,8 +73,8 @@ const RAW_FETCH_RULES = [
 const LOCAL_DATE_MESSAGE =
   'Do not format a Date built from an API value — an API calendar date is a UTC-midnight instant, so ' +
   'this renders the previous day for viewers behind UTC. Use formatLocalDate from lib/format.ts. ' +
-  '(A genuine timestamp — created_at, updated_at — should be assigned to a variable first, which ' +
-  'documents that the local-time render is intended.)'
+  '(A genuine timestamp, such as created_at or Stripe\'s trial_end, goes through formatInstant from ' +
+  'lib/format.ts, which renders the day it falls on in the viewer\'s zone.)'
 /** The API's calendar-date fields. Each is a UTC-midnight instant on the wire, so constructing a
  *  Date from one is the root of the whole defect class — banning the construction catches the
  *  indirect form that no shape-based selector can see. Adding a new calendar-date field to the API
@@ -91,17 +91,20 @@ const LOCAL_DATE_MESSAGE =
 const CALENDAR_DATE_FIELDS =
   'filing_date|filed_date|period_end_date|earnings_date|event_date|transaction_date|last_transaction_date|report_date'
 const CALENDAR_FIELD_MESSAGE =
-  'Do not build a Date from an API calendar-date field — it is a UTC-midnight instant, so any ' +
-  'later render shows the previous day for viewers behind UTC. Pass the raw string to ' +
-  'formatLocalDate from lib/format.ts instead. (Comparing two of them as instants is fine; ' +
+  'Do not build a Date from an API calendar-date field, directly or through formatInstant — it is a ' +
+  'UTC-midnight instant, so any later render shows the previous day for viewers behind UTC. Pass the ' +
+  'raw string to formatLocalDate from lib/format.ts instead. (Comparing two of them as instants is fine; ' +
   'features/filings/lib/recommendedFiling.ts is allow-listed for exactly that.)'
 /** Three access shapes, because one selector cannot see all of them:
  *   - `f.filing_date`      -> the property is an Identifier
  *   - `f['filing_date']`   -> computed, so the name lives on Literal.value, not Identifier.name
  *   - `const { filing_date } = f` then `new Date(filing_date)` -> a bare Identifier, no member at all
- *  The Identifier selector covers the first and third together. */
-const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
-  const root = ctor === 'Date' ? `NewExpression[callee.name='Date']` : `CallExpression[callee.name='parseISO']`
+ *  The Identifier selector covers the first and third together.
+ *  formatInstant (lib/format.ts) is a constructor here too: it runs parseISO inside the helper, where
+ *  no selector at the call site sees it, so `formatInstant(filing.filing_date, …)` would render the
+ *  previous day behind UTC while passing every rule above. Its gate is this list. */
+const CALENDAR_FIELD_RULES = ['Date', 'parseISO', 'formatInstant'].flatMap((ctor) => {
+  const root = ctor === 'Date' ? `NewExpression[callee.name='Date']` : `CallExpression[callee.name='${ctor}']`
   return [
     { selector: `${root} Identifier[name=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
     { selector: `${root} Literal[value=/^(${CALENDAR_DATE_FIELDS})$/]`, message: CALENDAR_FIELD_MESSAGE },
@@ -123,9 +126,16 @@ const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
 // with `${…}` is held to the same rules. A class name assembled from fragments at runtime is not.
 // aria-hidden glyphs below the type scale (Badge ▲▼, DataTable ▲▼) and the 40px pricing display
 // figure (its own tracking-[…]) carry an eslint-disable with a reason.
+// The raw-colour rule reads a 6-digit hex (8-digit included) and an rgb(), rgba(), hsl() or hsla()
+// call in either case (`RGB(` is the same colour to a browser), in a string, a template chunk or an
+// arbitrary utility (`shadow-[0_20px_50px_rgba(…)]`), since each is a colour no token governs (BG-19).
+// A 3- or 4-digit hex is read only where it can be nothing but a colour: inside an arbitrary utility or
+// property, at its start or after a colon, an underscore, a parenthesis or a comma (`bg-[#fff]`,
+// `[color:#fff]`, `shadow-[0_0_0_1px_#abc]`), or as the whole literal (`'#000a'`); inside copy
+// ("PR #619") it is not. The mirrors above keep their exemption.
 const DESIGN_HEX_RULE = {
-  selector: 'Literal[value=/#[0-9a-fA-F]{6}/]',
-  message: 'Raw hex — use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
+  selector: 'Literal[value=/#[0-9a-f]{6}|(?:rgba?|hsla?)\\(|\\[(?:[^\\]\\s]*[:_(,])?#[0-9a-f]{3,4}(?![0-9a-f])[^\\]\\s]*\\]|^#[0-9a-f]{3,4}$/i]',
+  message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
 }
 const DESIGN_PALETTE_RULE = {
   selector:
@@ -248,17 +258,22 @@ const config = [
   // branch with that text only) and parses variant prefixes. It is its own rule, so it covers the
   // design-exempt files too. The 2026-10 critique's gates ride the same plugin and the same class-
   // string walker (eslint.designRules.mjs): no side-tab stripe on a rounded container (P-08), no
-  // form code inside a Badge (P-04), and no animation utility that keeps moving under reduced motion
-  // (P-09).
+  // form code inside a Badge (P-04), no animation utility that keeps moving under reduced motion
+  // (P-09), and no hand-rolled single-choice toggle group outside the SegmentedControl (CO-15).
+  // direction-text-tokens holds direction text to the 700-level gain/loss inks, never the 600
+  // level or sage (D-030).
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: TEST_FILES,
     plugins: { earningsnerd: { rules: { ...gridBaseTrackPlugin.rules, ...designRulesPlugin.rules } } },
     rules: {
       'earningsnerd/responsive-grid-base-track': 'error',
+      'earningsnerd/direction-text-tokens': 'error',
       'earningsnerd/no-side-stripe': 'error',
       'earningsnerd/no-form-code-badge': 'error',
       'earningsnerd/no-unguarded-animation': 'error',
+      'earningsnerd/locale-pinned-numbers': 'error',
+      'earningsnerd/no-hand-rolled-toggle-group': 'error',
     },
   },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.

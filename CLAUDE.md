@@ -46,9 +46,9 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000   # Dev server
 pip install -r requirements-dev.txt                    # Pinned lint toolchain + pytest-xdist (same versions as CI)
 ruff check . && bandit -r app -ll && python -m pytest  # FULL local gate — run before every push
 python -m pytest              # Fast lane, parallel (`-n auto`); deselects performance (real sleeps)
-python -m pytest -n 0 tests/unit/test_x.py             # Serial: one file, a debugger, or a leaker-then-victim repro
+python -m pytest -n 0 -p no:randomly <leaker> <victim>  # Serial, in the order given: a debugger or a leaker-then-victim repro
 python -m pytest -m ""        # Everything, including the performance suite
-python -m pytest -o addopts= -m performance tests/performance  # Performance suite alone, serial (CI's step)
+python -m pytest -o addopts= -m performance tests/performance  # Performance suite alone, serial (CI's second backend step)
 python3 scripts/deploy_check.py                        # Pre-deploy validation
 ```
 
@@ -103,9 +103,12 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    to symbols deleted in the same PR, or under a pre-approved, PR-body-documented contract change.
    Anything else: stop and surface it first.
 7. **datetime:** timezone-aware UTC via `app/utils/datetimes.py` (`utcnow()`, `iso_z()`); never
-   `datetime.utcnow()`. The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced
-   by `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity).
-   Serialized timestamps use `iso_z()`; never hand-append `"Z"`.
+   `datetime.utcnow()`/`utcfromtimestamp()`, nor a local-clock read (`datetime.now()` without a zone,
+   `today()`). The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced by
+   `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity) and
+   the SEC tickers-cache TTL pinned by `backend/tests/unit/test_naive_local_now_allowlist.py`.
+   Serialized timestamps use `iso_z()`; never hand-append `"Z"` (gate:
+   `backend/tests/unit/test_datetimes.py`).
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
    Sole sanctioned exception: pre-Settings infra-bootstrap constants in `database.py`,
    `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity) plus `Settings.__init__`
@@ -124,12 +127,15 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     Dialogs only via `ui/Modal`; z from the ladder; eyebrows = `tracking-eyebrow`; chip/delta text = the
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`,
-    a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`)
+    a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`,
+    chip/delta text off the 700 level: `earningsnerd/direction-text-tokens`; a figure in sage, with a glyph
+    or none, also fails `tests/unit/brandCopyRules.spec.ts` rule 2)
     `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
     outranks the workspace layers; the consent bar's inset), `tests/e2e/text-floors.spec.ts` (muted text clears
-    4.5:1 on what is behind it; no checked route skips a heading level) and
-    `tests/unit/siteChromeFocusRing.spec.ts` (every site-chrome Tab stop carries the brand ring); the 700-level
-    and surface clauses are review-checked.
+    4.5:1 on what is behind it; no checked route skips a heading level), `tests/e2e/reflow-200.spec.ts` (no
+    checked route scrolls sideways at 390px under a 200% text setting) and
+    `tests/unit/siteChromeFocusRing.spec.ts` (every site-chrome Tab stop carries the brand ring); the surface
+    clause is review-checked.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the
     machine enforcement in the same PR (ESLint rule, allowlist spec, AST test, CI grep). Prose-only
     rules rot — see `lessons/arch-structural-gates-over-prose-rules.md`.

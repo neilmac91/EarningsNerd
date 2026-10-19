@@ -34,7 +34,7 @@ import { API_ORIGIN, DOCUMENT, EXCERPT, PANE, SUMMARY, answerApi, type Theme } f
 
 const COACH_TEXT = 'New: ask this filing anything'
 const SAVED_TEXT = 'Cookie preferences saved'
-const CONSENT_CHOICES = ['Accept All', 'Reject All', 'Customize'] as const
+const CONSENT_CHOICES = ['Allow analytics', 'Essential only', 'Customize'] as const
 
 type Rect = { x: number; y: number; w: number; h: number }
 
@@ -121,6 +121,9 @@ const hitsScrim = (loc: Locator) =>
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return !!at && at !== el && !el.contains(at) && at.classList.contains('bg-overlay')
   })
+/** The site header's bottom edge: the desktop pane sticks there (`lg:top-[var(--site-header-h,4rem)]`), at
+    the header's measured height (61px at 1440 at the default text size), not at a fixed 4rem. */
+const headerBottom = (page: Page) => page.evaluate(() => Math.round(document.querySelector('header')!.getBoundingClientRect().bottom))
 const viewport = (page: Page) => page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 const inside = (r: Rect, vp: { w: number; h: number }) => r.x >= 0 && r.y >= 0 && r.x + r.w <= vp.w + 0.5 && r.y + r.h <= vp.h + 0.5
@@ -208,7 +211,8 @@ for (const theme of ['light', 'dark'] as const) {
         const pane = page.locator(PANE)
         await expect(pane.getByRole('tab', { name: 'Filing', exact: true })).toHaveAttribute('aria-selected', 'true')
         expect(await page.evaluate(() => window.scrollY), 'opening a citation scrolls the page').toBe(0)
-        expect((await rectOf(pane)).y, 'the first check must exercise the unstuck pane').toBeGreaterThan(64)
+        const stuckAt = await headerBottom(page)
+        expect((await rectOf(pane)).y, 'the first check must exercise the unstuck pane').toBeGreaterThan(stuckAt)
 
         const expectFooterClear = async () => {
           const vp = await viewport(page)
@@ -223,7 +227,7 @@ for (const theme of ['light', 'dark'] as const) {
         }
         await expectFooterClear()
         await page.evaluate(() => window.scrollTo({ top: 400, behavior: 'instant' }))
-        await expect.poll(() => rectOf(pane).then((rect) => Math.round(rect.y))).toBe(64)
+        await expect.poll(() => rectOf(pane).then((rect) => Math.round(rect.y))).toBe(stuckAt)
         await expectFooterClear()
         await page.setViewportSize({ width: 1440, height: 640 })
         await expectFooterClear()
@@ -253,9 +257,9 @@ for (const theme of ['light', 'dark'] as const) {
 
       // The settings dialog is a real modal: everything beneath is inert, and operable again on Escape.
       await page.getByRole('button', { name: 'Customize' }).click()
-      await expect(page.getByRole('dialog', { name: 'Cookie Preferences' })).toBeVisible()
+      await expect(page.getByRole('dialog', { name: 'Cookie preferences' })).toBeVisible()
       expect(await hitsItself(launcher(page))).toBe(false)
-      expect(await hitsItself(page.getByRole('button', { name: 'Accept All' }))).toBe(false)
+      expect(await hitsItself(page.getByRole('button', { name: 'Allow analytics' }))).toBe(false)
       await page.keyboard.press('Escape')
       await expect(page.getByRole('dialog')).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Customize' })).toBeFocused()
@@ -263,10 +267,10 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await consentEvents(page)).toEqual([])
       await expectBothControlSetsUsable(page)
 
-      // Accept All: persisted exactly as before, one event, the layer cleared, the chrome back at its
+      // Allow analytics: persisted exactly as before, one event, the layer cleared, the chrome back at its
       // normal offset, the confirmation toast away from the launcher corner, and the deferred coachmark
       // now pointing at a visible launcher.
-      await page.getByRole('button', { name: 'Accept All' }).click()
+      await page.getByRole('button', { name: 'Allow analytics' }).click()
       await expect(bar(page)).toHaveCount(0)
       expect(await layer(page)).toEqual({ visible: false, inset: '' })
       expect(await stored(page)).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
@@ -288,7 +292,7 @@ for (const theme of ['light', 'dark'] as const) {
       await openFiling(page, baseURL!, { theme })
       await expect(bar(page)).toBeVisible()
       await expectCoachmarkDeferred(page)
-      await page.getByRole('button', { name: 'Accept All' }).click()
+      await page.getByRole('button', { name: 'Allow analytics' }).click()
       await expect(bar(page)).toHaveCount(0)
       await expect(coachmark(page)).toBeVisible()
       const launcherRect = await rectOf(launcher(page))
@@ -319,15 +323,15 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.locator(PANE)).toBeHidden()
       await expectBothControlSetsUsable(page)
 
-      // Keyboard: Enter opens the settings dialog, Escape returns to Customize, Tab reaches Reject All,
+      // Keyboard: Enter opens the settings dialog, Escape returns to Customize, Tab reaches Essential only,
       // Space activates it. The choice is stored and announced exactly as a click would be.
       await page.getByRole('button', { name: 'Customize' }).focus()
       await page.keyboard.press('Enter')
-      await expect(page.getByRole('dialog', { name: 'Cookie Preferences' })).toBeVisible()
+      await expect(page.getByRole('dialog', { name: 'Cookie preferences' })).toBeVisible()
       await page.keyboard.press('Escape')
       await expect(page.getByRole('button', { name: 'Customize' })).toBeFocused()
       await page.keyboard.press('Tab')
-      await expect(page.getByRole('button', { name: 'Reject All' })).toBeFocused()
+      await expect(page.getByRole('button', { name: 'Essential only' })).toBeFocused()
       await page.keyboard.press('Space')
       await expect(bar(page)).toHaveCount(0)
       expect(await stored(page)).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
@@ -346,8 +350,8 @@ for (const theme of ['light', 'dark'] as const) {
       await launcher(page).tap()
       await expect(page.locator(PANE)).toBeVisible()
       await expectComposerClear(page)
-      const accept = page.getByRole('button', { name: 'Accept All', exact: true })
-      expect(await hitsScrim(accept), 'Accept All is not under the sheet scrim').toBe(true)
+      const accept = page.getByRole('button', { name: 'Allow analytics', exact: true })
+      expect(await hitsScrim(accept), 'Allow analytics is not under the sheet scrim').toBe(true)
       expect(await hitsItself(feedbackLauncher(page)), 'the feedback launcher is not under the sheet scrim').toBe(false)
       // A real touch at the choice's centre lands on the scrim: the sheet closes and consent is untouched.
       const r = await rectOf(accept)
@@ -373,7 +377,7 @@ for (const theme of ['light', 'dark'] as const) {
       await openFiling(page, baseURL!, { theme })
       await expect(bar(page)).toBeVisible()
       await expectCoachmarkDeferred(page)
-      await page.getByRole('button', { name: 'Reject All' }).tap()
+      await page.getByRole('button', { name: 'Essential only' }).tap()
       await expect(bar(page)).toHaveCount(0)
       await expect(coachmark(page)).toBeVisible()
       const launcherRect = await rectOf(launcher(page))

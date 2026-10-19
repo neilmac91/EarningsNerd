@@ -2,8 +2,9 @@
 
 Refresh tokens are opaque random strings. Only their SHA-256 hash is stored, so the
 database never holds a usable credential. Every refresh rotates the token (the old one is
-revoked and points at its replacement); presenting an already-revoked token is treated as a
-reuse/theft signal and revokes the user's entire active chain.
+revoked and points at its replacement); presenting a token that was already rotated away is
+treated as a reuse/theft signal and revokes the user's entire active chain. A token revoked any
+other way (logout, logout-all, a password change or reset, or that theft sweep) is simply refused.
 """
 from __future__ import annotations
 
@@ -26,7 +27,7 @@ class RefreshTokenError(Exception):
 
 
 class RefreshTokenReuseError(RefreshTokenError):
-    """Raised when an already-revoked refresh token is replayed (reuse/theft signal).
+    """Raised when a rotated-away refresh token is replayed (reuse/theft signal).
 
     Distinct from the base error because handling it modifies the database (the user's
     active token chain is revoked), so the caller must commit — whereas a missing/expired/
@@ -83,8 +84,9 @@ def rotate_refresh_token(
 
     Single-use rotation: the presented token is revoked and superseded by a fresh one.
     Raises :class:`RefreshTokenError` if the token is unknown, expired, or already revoked.
-    Reuse of a revoked token revokes the user's entire active chain (theft mitigation).
-    The caller is responsible for committing the session.
+    Replaying a token that was already rotated away revokes the user's entire active chain and
+    raises :class:`RefreshTokenReuseError` (theft mitigation); a token revoked without rotation
+    writes nothing. The caller is responsible for committing the session.
     """
     if not raw_token:
         raise RefreshTokenError("Missing refresh token")
@@ -100,8 +102,16 @@ def rotate_refresh_token(
     now = datetime.utcnow()
 
     if token.revoked_at is not None:
-        # A revoked token is being replayed — the legitimate holder already rotated it, so
-        # this is a stolen/leaked copy. Revoke every active token for the user.
+        if token.replaced_by_id is None:
+            # Revoked without rotation (logout, logout-all, a password change or reset, or the
+            # theft sweep below): its holder was signed out, nobody holds a successor, and the
+            # token grants nothing. Refusing it is enough; sweeping would only revoke the sessions
+            # the user signed in to since.
+            raise RefreshTokenError("Refresh token has been revoked")
+        # A rotated-away token is being replayed — the legitimate holder already rotated it, so
+        # this is a stolen/leaked copy. Revoke every active token for the user. The sweep is
+        # user-wide, so it also ends sessions minted after a later reset or logout-all
+        # (lessons/arch-only-a-rotated-refresh-token-signals-theft.md).
         revoked = revoke_all_for_user(db, token.user_id)
         logger.warning(
             "Refresh token reuse detected for user_id=%s; revoked %s active token(s)",
@@ -189,7 +199,7 @@ def rotate_and_commit(
 ) -> Tuple[User, str]:
     """Rotate ``raw_token`` and commit; return ``(user, new_raw_token)``.
 
-    A replayed token's chain revocation is committed before the same
+    A replayed rotated-away token's chain revocation is committed before the same
     :class:`RefreshTokenReuseError` propagates. Any other :class:`RefreshTokenError` made no writes
     and commits nothing.
     """

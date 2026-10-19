@@ -17,6 +17,14 @@ bracket, never with punctuation that must touch the visible label (`(10-K, filed
 not `: 10-K …`); (c) keep the visible label at the start of the name (label in name), and assert the
 whole name in the browser with `toHaveAccessibleName` rather than reading `textContent`.
 
+**Recurrence (2026-10-14, the ticker route, #1293)**: the /filing/AAPL picker's row link showed "Open
+filing" and carried `aria-label="Open 10-K 0000320193-25-000079"`, so the visible words were not in
+its name (WCAG 2.5.3, label in name); the founder's design review caught it. An `aria-label` replaces
+a control's text, so a control with visible words takes none: it keeps them and extends its name
+with a hidden tail, here `Open filing{' '}<span className="sr-only">(10-K, accession …)</span>`.
+`frontend/tests/unit/filing-supersession.spec.tsx` asserts both rows' whole names with
+`toHaveAccessibleName`; the app-wide gate, which needs a residue list, is tasks/todo.md E68.
+
 **Evidence**: found on this branch's CLEAN-R2 links (`e97f70ff`, in
 `frontend/app/company/[ticker]/page-client.tsx`, since replaced by #1147's filings index): the first
 run of `tests/e2e/company-filing-rows.spec.ts` against the colon tail found no link named "Open

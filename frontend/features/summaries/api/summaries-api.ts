@@ -188,7 +188,7 @@ export const generateSummaryStream = async (
     }
 
     console.warn(`[summary] ${filingId} stream attempt ${attempt} failed (${result.error}); retrying once...`)
-    onProgress('initializing', 'Connection interrupted. Retrying...')
+    onProgress('initializing', 'Connection interrupted. Trying again…')
     await new Promise((resolve) => setTimeout(resolve, STREAM_RETRY_BACKOFF_MS))
   }
 }
@@ -326,7 +326,7 @@ const runStreamAttempt = async (
       onProgress(stageName, message, progressData)
     } else if (data.type === 'complete' || data.type === 'partial') {
       if (!Number.isSafeInteger(data.summary_id) || data.summary_id <= 0) {
-        streamErrorMessage = 'The summary stream returned an invalid completion. Please try again.'
+        streamErrorMessage = 'The summary ended with an invalid completion. Try again.'
         return
       }
       completed = true
@@ -348,18 +348,23 @@ const runStreamAttempt = async (
     // Keep the existing silent 401 refresh/replay owner, with a bounded handshake.
     const response = await untilAborted(postStreamWithRefresh(postStream))
     if (!response.ok) {
+      // The reader's sentence when the response carries no detail of its own. A 401 is never retried
+      // whatever its text (retryable is set only for a 5xx below); its sentence says what to do.
       let errorMessage = response.status === 401
-        ? 'Authentication error occurred.'
-        : `Request failed with status ${response.status}`
+        ? 'Sign in again to generate this summary.'
+        : 'The summary could not start. Try again.'
       try {
         const errorData = await untilAborted(response.json())
         if (typeof errorData?.detail === 'string') errorMessage = errorData.detail
         else if (typeof errorData?.message === 'string') errorMessage = errorData.message
       } catch (error) {
         if (controller.signal.aborted) throw error
-        if (response.status === 403) errorMessage = 'You do not have permission to perform this action.'
-        else if (response.status === 429) errorMessage = 'Rate limit exceeded. Please try again later.'
-        else if (response.status >= 500) errorMessage = 'Server error. Please try again later.'
+        // "permission" stays in the 403 sentence: it is the one place the word isNonRetryableStreamError tests
+        // for is written (no backend message on this route says it), and the matcher gates hold each of its
+        // phrases to a writer (tests/unit/streamErrorCopy.spec.ts). A 403 is never retried in any case.
+        if (response.status === 403) errorMessage = 'Your account does not have permission to generate this summary.'
+        else if (response.status === 429) errorMessage = 'Too many summary requests just now. Try again shortly.'
+        else if (response.status >= 500) errorMessage = 'The server could not start the summary. Try again in a moment.'
       }
       return { ok: false, retryable: response.status >= 500, error: errorMessage }
     }
@@ -368,7 +373,7 @@ const runStreamAttempt = async (
       `[summary] ${filingId} stream opened in ${(performance.now() - streamStart).toFixed(1)} ms`
     )
     reader = response.body?.getReader()
-    if (!reader) return { ok: false, retryable: true, error: 'No reader available' }
+    if (!reader) return { ok: false, retryable: true, error: 'The connection dropped before the summary started. Try again.' }
 
     const decoder = new TextDecoder()
     let buffer = ''
@@ -395,20 +400,24 @@ const runStreamAttempt = async (
       return {
         ok: false,
         retryable: true,
-        error: 'The connection closed before the summary finished. Please try again.',
+        error: 'The connection closed before the summary finished. Try again.',
       }
     }
     return { ok: true, retryable: false, error: '' }
   } catch (error: unknown) {
+    // The card prints this result's error, so it is a sentence in the product voice, never the transport's
+    // own text ("Failed to fetch", "Load failed", "NetworkError when attempting to fetch resource."); the
+    // transport's text goes to the console. Both are retryable, so no matcher phrase is involved.
     const errObj = error as { name?: string; message?: string }
     if (errObj?.name === 'AbortError') {
       return {
         ok: false,
         retryable: true,
-        error: `Request timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without activity.`,
+        error: `The summary timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without progress. Try again.`,
       }
     }
-    return { ok: false, retryable: true, error: errObj?.message || 'Failed to generate summary stream.' }
+    console.warn(`[summary] ${filingId} stream transport failed: ${errObj?.message ?? String(error)}`)
+    return { ok: false, retryable: true, error: 'The connection dropped before the summary finished. Try again.' }
   } finally {
     clearTimeoutSafely()
     controller.abort()

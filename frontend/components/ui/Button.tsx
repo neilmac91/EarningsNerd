@@ -19,6 +19,8 @@
    States: default / hover / active / focus-visible / disabled / loading.
    Loading is NOT the disabled look — it keeps the resting fill, shows a
    spinner, sets aria-busy, and refuses activation until the work settles.
+   reserveLoadingText keeps a longer loading label's room at rest, so the
+   swap never resizes the button (RetryButton's "Trying again…").
 ============================================================================= */
 
 import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
@@ -53,6 +55,30 @@ const SIZE: Record<ButtonSize, string> = {
 
 const HEIGHT: Record<ButtonSize, string> = { sm: 'h-8', md: 'h-10', lg: 'h-12', 'icon-sm': 'h-8' }
 const WRAP_SIZE = { sm: 'min-h-8 py-1.5', md: 'min-h-10 py-2', lg: 'min-h-12 py-2.5' }
+// Below a 24rem viewport a labelled button takes the wrap state on its own: a media query's rem is the
+// browser's text size, so that is 384px at the default size (a 390px phone keeps one line) and 768px
+// under a 200% text setting (a 390px phone wraps the label instead of scrolling the page sideways).
+// The wrapped lines centre on tight leading. Written as an arbitrary variant: Tailwind drops
+// `max-[24rem]:` because the screens are in px. Gate: tests/e2e/reflow-200.spec.ts.
+// Each class is written out whole: Tailwind generates only the class names it finds in the source.
+const NARROW_WRAP = '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight'
+const NARROW_MIN_H: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
+  sm: '[@media(max-width:24rem)]:min-h-8',
+  md: '[@media(max-width:24rem)]:min-h-10',
+  lg: '[@media(max-width:24rem)]:min-h-12',
+}
+const NARROW_PY: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
+  sm: '[@media(max-width:24rem)]:py-1.5',
+  md: '[@media(max-width:24rem)]:py-2',
+  lg: '[@media(max-width:24rem)]:py-2.5',
+}
+/** The narrow state, keeping a caller's own min-h and py. The media block sits after every base
+    utility in the stylesheet, so the size's narrow min-h would otherwise beat a caller's min-h-11 and
+    shrink a 44px touch target to the size's height on a 360px or 375px phone at the default text size. */
+function wrapWhenNarrow(size: Exclude<ButtonSize, 'icon-sm'>, className?: string): string {
+  const own = (utility: string) => new RegExp(`(^|\\s)${utility}`).test(className ?? '')
+  return cx(NARROW_WRAP, !own('min-h-') && NARROW_MIN_H[size], !own('py-') && NARROW_PY[size])
+}
 
 const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
   primary: cx(
@@ -117,7 +143,9 @@ export interface ButtonVariantsOptions {
     <Button> itself composes this same factory — one source of truth. */
 export function buttonVariants({ variant = 'primary', size = 'md', wrap = false, className }: ButtonVariantsOptions = {}): string {
   return cx(BASE, SIZE[size],
-    wrap && size !== 'icon-sm' ? cx(WRAP_SIZE[size], 'whitespace-normal') : cx(HEIGHT[size], 'whitespace-nowrap'),
+    size === 'icon-sm' ? cx(HEIGHT[size], 'whitespace-nowrap')
+      : wrap ? cx(WRAP_SIZE[size], 'whitespace-normal')
+      : cx(HEIGHT[size], 'whitespace-nowrap', wrapWhenNarrow(size, className)),
     VARIANT[resolveVariant(variant)], className)
 }
 
@@ -145,6 +173,12 @@ export const secondaryUnavailableClass = cx(
   'dark:aria-disabled:bg-transparent dark:aria-disabled:border-brand-weak-dark dark:aria-disabled:text-brand-strong-dark/50',
 )
 
+/** A row of reserveLoadingText's cell, and its label: the row wraps, and the label's flex basis is its longest word
+    (it grows into any room left), so the row breaks above the label only when that word cannot sit beside the
+    spinner. tests/unit/button-wrap.spec.tsx pins both. */
+export const RESERVE_ROW = 'col-start-1 row-start-1 inline-flex flex-wrap items-center justify-center [gap:inherit]'
+export const RESERVE_LABEL = 'grow basis-[min-content]'
+
 function Spinner({ className }: { className?: string }) {
   return (
     <svg
@@ -167,12 +201,18 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
   /** Optional label swap while loading, e.g. "Generating…" */
   loadingText?: string
+  /** A loading label to keep room for at rest, for a swap to a label longer than the resting one (RetryButton's
+      "Trying again…"): the content is laid out in one cell over an invisible, aria-hidden copy of the loading
+      state (the spinner's box and this label), so the larger of the two sizes the button in every state and
+      neither the spinner nor the label swap resizes it or moves what is around it. What shows still follows
+      `loading` and `loadingText`. */
+  reserveLoadingText?: string
   leftIcon?: ReactNode
   rightIcon?: ReactNode
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', wrap = false, loading = false, loadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
+  { variant = 'primary', size = 'md', wrap = false, loading = false, loadingText, reserveLoadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
   ref,
 ) {
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
@@ -182,6 +222,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     }
     onClick?.(e)
   }
+
+  const content = (
+    <>
+      {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}
+      {loading && loadingText ? loadingText : children}
+      {!loading && rightIcon}
+    </>
+  )
 
   return (
     <button
@@ -193,12 +241,31 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       onClick={handleClick}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
-      className={cx(buttonVariants({ variant, size, wrap }), loading && 'cursor-progress', className)}
+      // className goes through buttonVariants so the narrow state can see a caller's own min-h or py.
+      className={cx(buttonVariants({ variant, size, wrap, className }), loading && 'cursor-progress')}
       {...rest}
     >
-      {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}
-      {loading && loadingText ? loadingText : children}
-      {!loading && rightIcon}
+      {reserveLoadingText === undefined ? (
+        content
+      ) : (
+        // One grid cell: what shows, over the loading state laid out invisibly (hidden from assistive tech, its
+        // spinner a still box of the spinner's size). Both rows take the button's own gap and centring, and the
+        // narrow state's wrapping reaches them as inherited text styles, so each state fills the same cell.
+        // Each row may wrap, its label based at its longest word: the spinner keeps its place beside the label
+        // while that word fits there, and goes above it only where it does not, so the room kept at rest is never
+        // wider than the busy label's longest word with the button's padding (a cramped card at 200% text).
+        <span className="grid place-items-center [gap:inherit]">
+          <span className={RESERVE_ROW}>
+            {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}
+            <span className={RESERVE_LABEL}>{loading && loadingText ? loadingText : children}</span>
+            {!loading && rightIcon}
+          </span>
+          <span aria-hidden="true" className={cx('invisible', RESERVE_ROW)}>
+            <span className={cx('inline-block shrink-0', SPINNER_SIZE[size])} />
+            <span className={RESERVE_LABEL}>{reserveLoadingText}</span>
+          </span>
+        </span>
+      )}
     </button>
   )
 })

@@ -23,7 +23,7 @@ import { queryKeys } from '@/lib/queryKeys'
  * `disabled`. It stays pending until the refetch drops the row, since the kept focus could otherwise
  * send a second DELETE (lessons/frontend-busy-controls-stay-focusable.md, rules (f) and (g)).
  *
- * Manage subscription stays pending until the page leaves for Stripe, as BillingPanel's Manage billing.
+ * Manage billing stays pending until the page leaves for Stripe, as BillingPanel's Manage billing.
  */
 
 const api = vi.hoisted(() => ({
@@ -173,7 +173,7 @@ describe('Dashboard Retry (the account could not load)', () => {
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('Server unavailable')).mockReturnValueOnce(refetched.promise)
     renderDashboard()
 
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(api.getCurrentUserSafe).toHaveBeenCalledTimes(2))
@@ -198,7 +198,7 @@ describe('Dashboard Retry (the account could not load)', () => {
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('Server unavailable')).mockReturnValueOnce(refetched.promise)
     renderDashboard()
 
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
@@ -216,7 +216,7 @@ describe('Dashboard Retry (the account could not load)', () => {
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('Server unavailable')).mockRejectedValueOnce(new Error('Still unavailable'))
     const { client } = renderDashboard()
 
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await screen.findByText('Still unavailable')
@@ -239,14 +239,14 @@ describe('Plan and usage Retry', () => {
     renderDashboard()
 
     const alert = await screen.findByRole('alert')
-    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const retry = within(alert).getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(api.getUsage).toHaveBeenCalledTimes(2))
     await settle()
     // The dashboard stays up (no page-wide skeleton), and Retry is busy, focused, and inert.
     expect(screen.getByText('Unable to load plan details')).toBeInTheDocument()
-    expect(screen.getByText('Jump to any company')).toBeInTheDocument()
+    expect(screen.getByText('Find a company by name or ticker')).toBeInTheDocument()
     expectBusyAndFocused(retry)
     fireEvent.click(retry)
     await settle()
@@ -264,7 +264,7 @@ describe('Plan and usage Retry', () => {
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('billing down')).mockReturnValueOnce(refetched.promise)
     renderDashboard()
 
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
@@ -282,7 +282,7 @@ describe('Plan and usage Retry', () => {
     api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockReturnValueOnce(refetched.promise)
     renderDashboard()
 
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     const subscriptionCalls = api.getSubscriptionStatus.mock.calls.length
     retry.focus()
     fireEvent.click(retry)
@@ -305,7 +305,7 @@ describe('Plan and usage Retry', () => {
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('billing down')).mockReturnValueOnce(subscriptionRefetched.promise)
     renderDashboard()
 
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
@@ -328,7 +328,7 @@ describe('Plan and usage Retry', () => {
     api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockReturnValueOnce(refetched.promise)
     renderDashboard()
 
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     fireEvent.click(retry)
     const logOut = screen.getByRole('button', { name: 'Log out' })
     logOut.focus()
@@ -343,7 +343,7 @@ describe('Plan and usage Retry', () => {
     api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockRejectedValueOnce(new Error('usage still down'))
     const { client } = renderDashboard()
 
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(api.getUsage).toHaveBeenCalledTimes(2))
@@ -374,7 +374,7 @@ describe('Saved summaries Retry and unresolved plan', () => {
     const response = deferred<SavedSummary[]>()
     api.getSavedSummaries.mockRejectedValueOnce(new Error('saved down')).mockReturnValueOnce(response.promise)
     renderDashboard()
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(api.getSavedSummaries).toHaveBeenCalledTimes(2))
@@ -391,7 +391,7 @@ describe('Saved summaries Retry and unresolved plan', () => {
     healthyApi()
     api.getSavedSummaries.mockRejectedValue(new Error('saved down'))
     renderDashboard()
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await waitFor(() => expect(api.getSavedSummaries).toHaveBeenCalledTimes(2))
@@ -404,7 +404,7 @@ describe('Saved summaries Retry and unresolved plan', () => {
 describe('Your companies Retry', () => {
   const errorCard = async () => {
     await screen.findByText('Unable to load your companies')
-    return screen.getByRole('button', { name: 'Retry' })
+    return screen.getByRole('button', { name: 'Try again' })
   }
 
   it('keeps the error card and its focused Retry through the retry, then hands focus to "Your companies"', async () => {
@@ -508,7 +508,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
     renderDashboard()
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     onlineManager.setOnline(false)
     fireEvent.click(retry)
@@ -531,7 +531,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
     const { client } = renderDashboard()
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     const background = deferred<CurrentUser>()
     api.getCurrentUserSafe.mockReturnValueOnce(background.promise)
@@ -549,7 +549,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
     renderDashboard()
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     act(() => onlineManager.setOnline(false))
     const background = deferred<CurrentUser>()
@@ -567,7 +567,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
     const { client } = renderDashboard()
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     onlineManager.setOnline(false)
     fireEvent.click(retry)
@@ -587,7 +587,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getUsage.mockRejectedValueOnce(new Error('usage down'))
     renderDashboard()
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     act(() => onlineManager.setOnline(false))
     const background = deferred<Usage>()
@@ -595,7 +595,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     act(() => onlineManager.setOnline(true))
     await waitFor(() => expect(api.getUsage).toHaveBeenCalledTimes(2))
     expectBusyAndFocused(retry)
-    expect(screen.getByText('Jump to any company')).toBeInTheDocument()
+    expect(screen.getByText('Find a company by name or ticker')).toBeInTheDocument()
     await act(async () => background.resolve(usage))
     await waitFor(() => expect(retry.isConnected).toBe(false))
     await settle()
@@ -606,7 +606,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getUsage.mockRejectedValueOnce(new Error('usage down'))
     renderDashboard()
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     onlineManager.setOnline(false)
     fireEvent.click(retry)
@@ -624,7 +624,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     const resumed = deferred<Usage>()
     api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockReturnValueOnce(resumed.promise).mockResolvedValue(usage)
     const { client } = renderDashboard()
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     act(() => onlineManager.setOnline(false))
     fireEvent.click(retry)
@@ -647,7 +647,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down'))
     const { client } = renderDashboard()
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     const background = deferred<unknown[]>()
     api.getWatchlistInsights.mockReturnValueOnce(background.promise)
@@ -665,7 +665,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down'))
     renderDashboard()
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     onlineManager.setOnline(false)
     fireEvent.click(retry)
@@ -677,7 +677,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     healthyApi()
     api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down'))
     const { client } = renderDashboard()
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     onlineManager.setOnline(false)
     fireEvent.click(retry)
@@ -701,7 +701,7 @@ describe('Dashboard Retry through refetches nobody pressed, and offline', () => 
     onlineManager.setOnline(false)
     api.getWatchlistInsights.mockReset()
     api.getWatchlistInsights.mockImplementation(() => Promise.reject(new Error('again')))
-    const retry = screen.getByRole('button', { name: /^Retry$/ })
+    const retry = screen.getByRole('button', { name: /^Try again$/ })
     retry.focus()
     fireEvent.click(retry)
     await settle3()
@@ -739,7 +739,7 @@ describe('Retry announcements', () => {
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
     const { client } = renderDashboard()
     const alert = await screen.findByRole('alert')
-    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const retry = within(alert).getByRole('button', { name: 'Try again' })
     const said = alert.textContent
     const background = deferred<CurrentUser>()
     api.getCurrentUserSafe.mockReturnValueOnce(background.promise)
@@ -748,7 +748,7 @@ describe('Retry announcements', () => {
     // Busy in every way but its words: aria-busy, aria-disabled, the spinner, a refused press.
     expect(retry).toHaveAttribute('aria-disabled', 'true')
     expect(retry.querySelector('svg')).not.toBeNull()
-    expect(retry).toHaveAccessibleName('Retry')
+    expect(retry).toHaveAccessibleName('Try again')
     expect(alert.textContent).toBe(said)
     fireEvent.click(retry)
     await settle()
@@ -759,31 +759,31 @@ describe('Retry announcements', () => {
     expect(alert.textContent).toBe(said)
   })
 
-  it('its own press reads "Retrying…" while the press runs and "Retry" when it fails again; a later refetch nobody pressed keeps "Retry"', async () => {
+  it('its own press reads "Trying again…" while the press runs and "Try again" when it fails again; a later refetch nobody pressed keeps "Try again"', async () => {
     healthyApi()
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
     const { client } = renderDashboard()
-    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Try again' })
     retry.focus()
     const pressed = deferred<CurrentUser>()
     api.getCurrentUserSafe.mockReturnValueOnce(pressed.promise)
     fireEvent.click(retry)
-    expect(retry).toHaveAccessibleName('Retrying…')
+    expect(retry).toHaveAccessibleName('Trying again…')
     await act(async () => pressed.reject(new Error('account down')))
     await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
-    expect(retry).toHaveAccessibleName('Retry')
+    expect(retry).toHaveAccessibleName('Try again')
 
     const background = deferred<CurrentUser>()
     api.getCurrentUserSafe.mockReturnValueOnce(background.promise)
     act(() => { void client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
     await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
-    expect(retry).toHaveAccessibleName('Retry')
+    expect(retry).toHaveAccessibleName('Try again')
     await act(async () => background.resolve(user))
     await waitFor(() => expect(retry.isConnected).toBe(false))
   })
 })
 
-describe('Manage subscription', () => {
+describe('Manage billing', () => {
   it('stays busy while the page leaves for the portal, and is live again after a back-forward restore', async () => {
     healthyApi()
     api.getSubscriptionStatus.mockResolvedValue({ ...subscription, is_pro: true, plan: 'pro', status: 'active' })
@@ -793,7 +793,7 @@ describe('Manage subscription', () => {
     Object.defineProperty(window, 'location', { value: { href: '' }, writable: true, configurable: true })
     try {
       renderDashboard()
-      const manage = await screen.findByRole('button', { name: 'Manage subscription' })
+      const manage = await screen.findByRole('button', { name: 'Manage billing' })
       manage.focus()
       fireEvent.click(manage)
       await waitFor(() => expect(window.location.href).toBe('https://billing.stripe.com/p/session_1'))
@@ -820,7 +820,7 @@ describe('Manage subscription', () => {
     api.createPortalSession.mockResolvedValue({ url: '' })
     renderDashboard()
 
-    const manage = await screen.findByRole('button', { name: 'Manage subscription' })
+    const manage = await screen.findByRole('button', { name: 'Manage billing' })
     manage.focus()
     fireEvent.click(manage)
     await waitFor(() => expect(api.toastError).toHaveBeenCalledWith('Could not open the billing portal. Please try again.'))
@@ -932,5 +932,24 @@ describe('Saved summary Delete', () => {
     elsewhere.focus()
     await waitFor(() => expect(deleteApple.isConnected).toBe(false))
     expect(document.activeElement).toBe(elsewhere)
+  })
+})
+
+describe('Monthly limit banner', () => {
+  // DSW-22: the banner states the account's own numbers from the usage response, not a plan pitch.
+  // It makes no claim about Pro's limit (PRO_SUMMARY_MONTHLY_CAP is enforced; the founder decided F41 on
+  // 2026-10-15, D-040: "Unlimited" stays on the plan cards, the guardrail is E58's): the banner's whole text is asserted (the title, the count line and
+  // the Upgrade link), so a second sentence anywhere in the banner fails it.
+  it.each([
+    [4, 'Almost at your limit', 'You have 1 summary left this month.'],
+    [5, 'Limit reached', "You've used all 5 summaries this month."],
+  ])('with %i of 5 used it reads "%s"', async (used, title, line) => {
+    healthyApi()
+    api.getUsage.mockResolvedValue({ ...usage, summaries_used: used, summaries_limit: 5 })
+    renderDashboard()
+
+    const banner = (await screen.findByText(title)).closest('[role="status"]') as HTMLElement
+    expect(within(banner).getByText(line)).toBeInTheDocument()
+    expect(banner.textContent).toBe(`${title}${line}Upgrade to Pro`)
   })
 })

@@ -40,7 +40,7 @@ from markdown_it import MarkdownIt  # noqa: F401 - preserve the facade import su
 
 from app.config import settings
 from app.services import citation_markers, copilot_tools
-from app.services.ai.copilot_chat import chat_deadline
+from app.services.ai.copilot_chat import chat_deadline, run_in_lookup_thread
 from app.services.openai_service import (
     STREAM_ACTIVITY_SENTINEL,
     STREAM_ERROR_SENTINEL,
@@ -160,7 +160,7 @@ from app.services.copilot.prompt import (
     SYSTEM_PROMPT, _CITATIONS_SENTINEL, _NOT_DISCLOSED_SENTINEL, _SENTINEL_TAIL,
     _FOLLOWUPS_SENTINEL, _EVIDENCE_RETRY_GUIDANCE, _select_source_text, snapshot_filing,
     _without_source_durations, _compact_xbrl_block, _build_context_message,
-    _merge_consecutive_roles, _build_messages,
+    _merge_consecutive_roles, _build_messages, _retry_guidance,
 )
 
 __all__ = [
@@ -262,11 +262,12 @@ async def answer_filing_question(
         usage_sink: dict[str, Any] = {}
         deadline = chat_deadline()
         provider_started = False
+        retry_guidance = ""
         for attempt in range(2):
             candidate = _answer_filing_question_attempt(
                 filing=filing, question=question, history=history,
                 source_text=source_text, normalized_source=normalized_source,
-                usage_sink=usage_sink, deadline=deadline, evidence_retry=bool(attempt),
+                usage_sink=usage_sink, deadline=deadline, retry_guidance=retry_guidance,
             )
             try:
                 async for event in candidate:
@@ -279,9 +280,8 @@ async def answer_filing_question(
             except _UnpublishableAnswer as exc:
                 # Fixed owned reasons only. The discarded answer is never put into a new prompt.
                 logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
-                if (attempt == 0 and (str(exc) in _RETRYABLE_QUOTATION_FAILURES
-                                     or isinstance(exc, _RegenerableEvidenceMismatch))
-                        and asyncio.get_running_loop().time() < deadline):
+                retry_guidance = _retry_guidance(exc, _RETRYABLE_QUOTATION_FAILURES) if attempt == 0 else ""
+                if retry_guidance and asyncio.get_running_loop().time() < deadline:
                     continue
                 yield {"type": "error", "message": _PUBLICATION_ERROR}
                 return
@@ -297,7 +297,7 @@ class _FactRegistry:
 
     def __init__(self, filing: Any) -> None:
         # P5/P6b numeric tool-use: bind tools to this filing's company, accession and native currency. ``run_tool`` opens its own
-        # DB session per call (the request session is gone by now). Each distinct successful fact is
+        # DB session per call, in a Copilot lookup thread (the request session is gone by now). Each distinct successful fact is
         # assigned a stable ``F#`` citation marker (deduped by exact provenance and expression operands) that
         # is fed back to the model via the tool result's ``cite`` field, so the model can cite the
         # figure inline as ``[F1]`` — rendering an inline chip, not just a Sources row.
@@ -505,10 +505,10 @@ async def _admit_answer(
     # an unrelated original [1]. Leading-zero markers keep their original identity.
     unresolved_literals = {key for key in referenced if not key.startswith("F")
                            and key not in text_citations_by_marker}
-    full_answer, verified_citations, grounded, misplaced = _resolve_answer(
-        full_answer, filing, text_citations_by_marker, facts.accession, facts.currency,
-        facts.used_facts, facts.register,
-    )
+    # Claim-repair lookups can wait for a pool slot, so resolve in a Copilot lookup thread, off the loop.
+    full_answer, verified_citations, grounded, misplaced = await run_in_lookup_thread(
+        _resolve_answer, full_answer, filing, text_citations_by_marker, facts.accession,
+        facts.currency, facts.used_facts, facts.register)
     if not full_answer:
         raise _UnpublishableAnswer("Empty resolved answer")
     if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
@@ -545,7 +545,7 @@ async def _admit_answer(
 
 async def _answer_filing_question_attempt(
     *, filing: Any, question: str, history: Optional[list[dict]], source_text: str,
-    normalized_source: str, usage_sink: dict[str, Any], deadline: float, evidence_retry: bool,
+    normalized_source: str, usage_sink: dict[str, Any], deadline: float, retry_guidance: str,
 ) -> AsyncGenerator[dict, None]:
     """Stream a grounded answer to ``question`` about ``filing`` as event dicts.
 
@@ -563,8 +563,8 @@ async def _answer_filing_question_attempt(
     provider_stream = None
     try:
         messages = _build_messages(filing, source_text, question, history)
-        if evidence_retry:
-            messages[0]["content"] += "\n\n" + _EVIDENCE_RETRY_GUIDANCE
+        if retry_guidance:
+            messages[0]["content"] += "\n\n" + retry_guidance
         facts = _FactRegistry(filing)
 
         # This generator owns every stream suspension and the provider close.

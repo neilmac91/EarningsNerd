@@ -115,7 +115,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       href={secUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline"
+      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       Open original <ArrowSquareOutIcon className="h-3 w-3" />
     </a>
@@ -125,7 +125,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   const inner = (
     <>
       {(status === 'idle' || status === 'loading') && (
-        // SkeletonText carries its own role="status" — the wrapper stays role-less.
+        // SkeletonText carries its own role="status": the wrapper stays role-less.
         <div className="flex-1 space-y-3 px-6 py-8">
           <SkeletonText lines={6} mono />
         </div>
@@ -140,9 +140,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {status === 'error' && (
-              <RetryButton failures={[failure]} focusTarget={contentRef} variant="secondary" size="sm" leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
-                Try again
-              </RetryButton>
+              <RetryButton failures={[failure]} focusTarget={contentRef} variant="secondary" size="sm" leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />} />
             )}
             {isHttpUrl(secUrl) && (
               <a href={secUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
@@ -164,13 +162,13 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
             <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-xs text-warning-light dark:text-warning-dark">
               Couldn’t pinpoint the exact passage, so this is the full filing.{' '}
               {isHttpUrl(secUrl) && (
-                <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">
+                <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                   Open original
                 </a>
               )}
             </p>
           )}
-          {/* .filing-reader is the serif's ONE surface — the filing's own words
+          {/* .filing-reader is the serif's ONE surface: the filing's own words
               (Newsreader 19/1.7, 68ch measure, reader tables). It replaces the
               Tailwind prose stack per MIGRATION v2.1 §e.1: the two must never
               coexist (double margins), and the class carries its own measure and
@@ -209,7 +207,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     <div
       role="dialog"
       aria-label={`${filingLabel} · filing text`}
-      className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-16 lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r"
+      className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-[var(--site-header-h,4rem)] lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r"
     >
       <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -222,7 +220,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
             type="button"
             onClick={close}
             aria-label="Close filing viewer"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <XIcon className="h-4 w-4" />
           </button>

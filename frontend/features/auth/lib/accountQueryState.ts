@@ -2,6 +2,33 @@ import type { QueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
 import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurrent, subscribeSessionLoss, getExplicitSessionGeneration, isExplicitSessionGenerationCurrent, assertExplicitSessionGeneration } from '@/lib/api/session'
 
+/** Every query family that holds one account's data, by key prefix. Most are unkeyed by the reader,
+ * so after a logout or login in this tab the next account would read the previous one's snapshot
+ * until a refetch; the reset removes them all. `savedSummaries` covers `savedSummaryStatus`, which
+ * shares its prefix. tests/unit/accountQueryState.spec.tsx classifies every family in queryKeys as
+ * account-owned or shared, and every member of an owned family under its one prefix, so a new family
+ * or member cannot escape this list.
+ */
+export const ACCOUNT_QUERY_FAMILIES = [
+  queryKeys.subscription.all(),
+  queryKeys.usage.all(),
+  queryKeys.wordingReview.all(), // the reader's own labels and receipts
+  // Keyed by the reader, but a reader whose /me failed reads under the anonymous key with their own
+  // session, so a Pro reader's full report can sit in the entry the next anonymous viewer reads.
+  queryKeys.whatChanged.all(),
+  queryKeys.savedSummaries(),
+  queryKeys.watchlist(),
+  queryKeys.watchlistInsights(),
+  queryKeys.earningsAlertTickers(),
+  queryKeys.dashboardFeed(),
+  queryKeys.dashboardCalendar(),
+  queryKeys.notifications(),
+  queryKeys.notificationPreferences(),
+  queryKeys.authConnections(),
+  queryKeys.adminInvites(),
+  queryKeys.adminFeedback.all(),
+] as const
+
 /** Drop identity-derived snapshots before a replacement identity can be accepted.
  * cancelQueries starts cancellation synchronously. No post-await cleanup may erase the next
  * account. Do not clear the active-session marker: successful login already established it.
@@ -14,14 +41,10 @@ export function resetAccountQueries(
   if (!isSessionGenerationCurrent(generation)) return
   advanceSessionGeneration(reason)
   void queryClient.cancelQueries({ queryKey: queryKeys.currentUser() })
-  void queryClient.cancelQueries({ queryKey: queryKeys.subscription.all() })
-  void queryClient.cancelQueries({ queryKey: queryKeys.usage.all() })
-  void queryClient.cancelQueries({ queryKey: queryKeys.wordingReview.all() })
+  for (const queryKey of ACCOUNT_QUERY_FAMILIES) void queryClient.cancelQueries({ queryKey })
   queryClient.setQueryData(queryKeys.currentUser(), null)
-  queryClient.removeQueries({ queryKey: queryKeys.subscription.all() })
-  queryClient.removeQueries({ queryKey: queryKeys.usage.all() })
-  // The reader's own labels and receipts: another account in this tab starts from its own read.
-  queryClient.removeQueries({ queryKey: queryKeys.wordingReview.all() })
+  // Another account in this tab starts from its own reads.
+  for (const queryKey of ACCOUNT_QUERY_FAMILIES) queryClient.removeQueries({ queryKey })
 }
 
 export function subscribeAccountQueryReset(queryClient: QueryClient): () => void {

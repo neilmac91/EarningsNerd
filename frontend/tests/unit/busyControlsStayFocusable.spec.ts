@@ -34,14 +34,19 @@ import { bindingResolver, type Binding } from './astBindings'
  *
  * A second gate in this file holds every Retry of a query to `<RetryButton>` (hooks/useRetainedFailure.tsx),
  * seen two ways: by its wiring (`loading` fed by a fetching flag, a handler that refetches, invalidates or
- * retries; the same binding resolver) and by what the user reads (a "Retrying…" loadingText, a label starting
- * Retry or Try again, a same-file string const included). Each has its own shrink-only, capped allowlist with
- * reasons: ALLOW_RETRY and ALLOW_RETRY_LABEL. RetryButton's own definition is the one exemption from both
- * Retry clauses (it is the sanctioned wiring and label); the busy-disabled clause still scans it. Every Retry
- * converted in the retry-hardening follow-up fails both at its pre-conversion version (026d6df). A third clause
- * holds what RetryButton is given: each of its `failures` is `useRetainedFailure(…)`'s (in this file, or in the
- * module of a hook it was destructured from), or a failure built by hand that ALLOW_HAND_BUILT_FAILURE pins (a
- * stream restart, which has no query to hold).
+ * retries; the same binding resolver) and by what the user reads (a busy loadingText, "Retrying…" or "Trying
+ * again…", a label starting Retry or Try again, a same-file string const included). Each has its own
+ * shrink-only, capped allowlist with reasons: ALLOW_RETRY and ALLOW_RETRY_LABEL. RetryButton's own definition is
+ * the one exemption from both Retry clauses (it is the sanctioned wiring and label); the busy-disabled clause
+ * still scans it. Every Retry converted in the retry-hardening follow-up fails both at its pre-conversion version
+ * (026d6df). A third clause holds what RetryButton is given: each of its `failures` is `useRetainedFailure(…)`'s
+ * (in this file, or in the module of a hook it was destructured from), or a failure built by hand that
+ * ALLOW_HAND_BUILT_FAILURE pins (a stream restart, which has no query to hold).
+ *
+ * A third gate holds the one retry verb (D-032), "Try again", busy "Trying again…": a RetryButton call site
+ * passes no label, and RetryButtonProps declares each label prop `never` (neverProps), every retry control
+ * (RetryButton's own definition included, with no exemption) reads exactly the one verb, and no copy says
+ * "retry" (oneVerbSites and retryWordSites, with ALLOW_RETRY_WORD).
  */
 const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|refetching|fetching|mutating|deleting|removing|inflight/i
 /** Flags a control's own success sets, which leave it unavailable while it still holds focus. */
@@ -88,11 +93,11 @@ const MAX_PINNED_SITES = 9
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
 
-function walk(dir: string, out: string[]): string[] {
+function walk(dir: string, out: string[], file = /\.tsx$/): string[] {
   for (const name of readdirSync(dir)) {
     const p = path.join(dir, name)
-    if (statSync(p).isDirectory()) walk(p, out)
-    else if (p.endsWith('.tsx')) out.push(p)
+    if (statSync(p).isDirectory()) walk(p, out, file)
+    else if (file.test(p)) out.push(p)
   }
   return out
 }
@@ -221,13 +226,16 @@ function outsideRetryButton(source: string, fileName: string, sites: Site[]): Si
 
 /**
  * The same rule by what the user reads, so a Retry wired through other names is still seen: any JSX element
- * other than `<RetryButton>` whose `loadingText` starts with "Retrying", or whose own label starts with
- * "Retry" or "Try again". The label is the element's text children and string-literal children (each
- * branch of a `cond ? 'a' : 'b'` child counts on its own), whitespace collapsed; a nested element's text is
- * that element's own label. `expr` is `Tag "label"`, which ALLOW_RETRY_LABEL pins.
+ * other than `<RetryButton>` whose `loadingText` starts with "Retrying" or "Trying again", or whose own label
+ * starts with "Retry" or "Try again". The label is the element's text children and string-literal children (each
+ * branch of a `cond ? 'a' : 'b'` child counts on its own), whitespace collapsed, or a `children` attribute read
+ * the same way; a nested element's text is that element's own label. `expr` is `Tag "label"`, which
+ * ALLOW_RETRY_LABEL pins.
  */
 const RETRY_LABEL = /^(retry|try again)\b/i
-const RETRY_LOADING_TEXT = /^Retrying/
+const RETRY_LOADING_TEXT = /^(Retrying|Trying again)/
+/** The attributes that carry a button's busy text: the one it shows, and the one whose room it keeps at rest. */
+const BUSY_TEXT_ATTRS = new Set(['loadingText', 'reserveLoadingText'])
 function retryLabelSites(source: string, fileName: string): Site[] {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const visible = bindingResolver(sf)
@@ -255,11 +263,14 @@ function retryLabelSites(source: string, fileName: string): Site[] {
       const tag = opening.tagName.getText(sf)
       const labels: string[] = []
       for (const attr of opening.attributes.properties) {
-        if (!ts.isJsxAttribute(attr) || attr.name.getText(sf) !== 'loadingText' || !attr.initializer) continue
+        if (!ts.isJsxAttribute(attr) || !attr.initializer) continue
+        const name = attr.name.getText(sf)
+        // A `children` attribute is the element's label, as its text children are.
+        if (!BUSY_TEXT_ATTRS.has(name) && name !== 'children') continue
         const value = ts.isStringLiteral(attr.initializer)
           ? [attr.initializer.text]
           : attr.initializer.expression ? literals(attr.initializer.expression) : []
-        labels.push(...value.map(collapse).filter((text) => RETRY_LOADING_TEXT.test(text)))
+        labels.push(...value.map(collapse).filter((text) => (name === 'children' ? RETRY_LABEL : RETRY_LOADING_TEXT).test(text)))
       }
       if (ts.isJsxElement(node)) {
         let text = ''
@@ -282,6 +293,282 @@ function retryLabelSites(source: string, fileName: string): Site[] {
   }
   visit(sf)
   return outsideRetryButton(source, fileName, sites)
+}
+
+/**
+ * The one retry verb (docs/brand/decisions-log.md D-032): the product says "Try again" for the act and
+ * "Trying again…" (U+2026) while it runs. Two clauses hold it.
+ *
+ * oneVerbSites, on controls. A RetryButton call site passes no label of its own: the label is RetryButton's, so the
+ * verb has one source. Any child (text, an expression, an element; whitespace and a `{/* comment *\/}` aside), a
+ * `children`, `aria-label` or `aria-labelledby` attribute, or a JSX spread (whose props the scan cannot read) fails.
+ * RetryButton is matched by its own name and by every name an import of its module gives it (`{ RetryButton as Again
+ * }`, a default import, `H.RetryButton` under `import * as H`); any other use of it fails as a form whose label the
+ * scan cannot read: the name anywhere but a JSX tag, an import or a type (an alias, a prop, a createElement
+ * argument, an export of it), an `export *` of its module or an `import()` of it. This clause is the third of three
+ * holds on the label: RetryButtonProps declares the three label props `never`, so TypeScript refuses each at a call
+ * site, and RetryButton drops each at run time, for one a spread or a cast brings in. Every other element is a retry
+ * control when its label (its text, or a `children` attribute), its aria-label or its busy text reads as one
+ * (RETRY_LABEL, any text that starts "Retry", or a busy text that starts "Retrying" or "Trying again"), a template's
+ * text before its first substitution included (an icon-only Button's ``aria-label={`Try again for ${name}`}``),
+ * RetryButton's own definition included: each label it can show is exactly "Try again" (or "Trying again…", a busy
+ * branch), its busy text exactly "Trying again…", its aria-label exactly "Try again", and any of them that starts
+ * "Retry" fails whatever follows. The label is read as the label scan reads it (text children, string children, each
+ * branch of a conditional apart), plus `&&`'s rendered side alone, a `||` or `??` both sides and a same-file
+ * `const`; a part of a retry control it cannot read (a parameter, a `let`, a call, a member, a template with a
+ * substitution, an aria-labelledby, whose name is another element's text) fails as unread instead of passing. Its
+ * limit: a label split across elements (`Try <b>again</b>`) is read per element; a control no text marks as a retry
+ * (a "Reload" wired to a refetch) is the wiring clause's and the label pins' to see; and the text an aria-labelledby
+ * points to is read only by the copy clause, which fails a "retry" in it.
+ *
+ * retryWordSites, on copy: no string literal, template text or JSX text in any .ts or .tsx under the scanned roots
+ * says "retry", "retrying", "retries" or "retried", in any case: a description beside the control says "try again"
+ * too, and a status line "Trying again…". Code is not copy: a console call's arguments, an import or export
+ * specifier, an object key, a string type, a code attribute (CODE_ATTRS) and the header name Retry-After are
+ * skipped. ALLOW_RETRY_WORD pins, with a reason, the code strings that carry the word (backend tokens the app
+ * matches and never shows). Text the server sends at run time (a 503's detail) is outside any source scan. Its
+ * limit, planted as a gap in the self-check: a word split across JSX text and an expression (`Please re{''}try`) is
+ * read a part at a time, so neither clause sees it (the one-verb clause joins the parts, but prose like this does
+ * not start with the verb); review catches it.
+ */
+const ONE_VERB = 'Try again'
+const ONE_BUSY_TEXT = 'Trying again…'
+const STARTS_RETRY = /^retry/i
+const RETRY_BUSY_TEXT = /^(retrying|trying again)/i
+const LABEL_ATTRS = new Set(['children', 'aria-label', 'aria-labelledby'])
+
+/**
+ * The texts an expression can render, a same-file const followed, and the parts the scan cannot read; for a template
+ * with a substitution, which it cannot read, also the text before the first substitution (its head), so a label
+ * such as `Try again for ${name}` still marks its control a retry.
+ */
+type Read = { texts: string[]; unread: string[]; heads: string[] }
+function readTexts(e: ts.Expression, visible: (ref: ts.Identifier) => Binding | undefined, seen = new Set<Binding>()): Read {
+  const none: Read = { texts: [], unread: [], heads: [] }
+  if (ts.isStringLiteralLike(e)) return { ...none, texts: [e.text] }
+  if (ts.isNumericLiteral(e)) return { ...none, texts: [e.text] }
+  if (e.kind === ts.SyntaxKind.NullKeyword || e.kind === ts.SyntaxKind.TrueKeyword || e.kind === ts.SyntaxKind.FalseKeyword) return none
+  if (ts.isParenthesizedExpression(e)) return readTexts(e.expression, visible, seen)
+  const both = (a: ts.Expression, b: ts.Expression): Read => {
+    const left = readTexts(a, visible, seen)
+    const right = readTexts(b, visible, seen)
+    return { texts: [...left.texts, ...right.texts], unread: [...left.unread, ...right.unread], heads: [...left.heads, ...right.heads] }
+  }
+  if (ts.isConditionalExpression(e)) return both(e.whenTrue, e.whenFalse)
+  if (ts.isBinaryExpression(e)) {
+    const op = e.operatorToken.kind
+    // `cond && 'text'` renders its right side or nothing a reader sees.
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken) return readTexts(e.right, visible, seen)
+    if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return both(e.left, e.right)
+  }
+  if (ts.isIdentifier(e)) {
+    if (e.text === 'undefined') return none
+    const binding = visible(e)
+    const isConst =
+      !!binding && ts.isVariableDeclaration(binding.decl) && (ts.getCombinedNodeFlags(binding.decl) & ts.NodeFlags.Const) !== 0
+    if (binding?.init && isConst && !seen.has(binding)) return readTexts(binding.init, visible, new Set([...seen, binding]))
+  }
+  const unread = [e.getText().replace(/\s+/g, ' ')]
+  return ts.isTemplateExpression(e) ? { ...none, unread, heads: [e.head.text] } : { ...none, unread }
+}
+
+function oneVerbSites(source: string, fileName: string): Site[] {
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const visible = bindingResolver(sf)
+  const retryNames = retryButtonNames(sf, fileName)
+  const isHome = (specifier: ts.Node | undefined) =>
+    !!specifier && ts.isStringLiteralLike(specifier) && withoutExtension(resolveModule(fileName, specifier.text)) === withoutExtension(RETRY_BUTTON.file)
+  const collapse = (text: string) => text.replace(/\s+/g, ' ').trim()
+  const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+  const sites: Site[] = []
+  /** A name in a place that renders nothing: an import, a declaration's own name, a type, a member's name. */
+  const inert = (node: ts.Node): boolean => {
+    const parent = node.parent
+    if (ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isNamespaceImport(parent)) return true
+    if ('name' in parent && (parent as { name?: ts.Node }).name === node && !ts.isShorthandPropertyAssignment(parent) && !ts.isExportSpecifier(parent)) return true
+    for (let up: ts.Node | undefined = parent; up; up = up.parent) if (ts.isTypeNode(up)) return true
+    return false
+  }
+  const isTag = (node: ts.Node) =>
+    (ts.isJsxOpeningElement(node.parent) || ts.isJsxSelfClosingElement(node.parent) || ts.isJsxClosingElement(node.parent)) && node.parent.tagName === node
+  const visit = (node: ts.Node): void => {
+    // `export * from` its module, or `export * as`, hands RetryButton on under a name no import of its module
+    // gives it; an `import()` of its module (next/dynamic's) loads it under one.
+    if (ts.isExportDeclaration(node) && isHome(node.moduleSpecifier) && (!node.exportClause || ts.isNamespaceExport(node.exportClause))) {
+      sites.push({ line: lineOf(node), expr: `${collapse(node.getText(sf))}: re-exports RetryButton under a name the scan cannot follow` })
+    }
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && isHome(node.arguments[0])) {
+      sites.push({ line: lineOf(node), expr: `${collapse(node.getText(sf))}: loads RetryButton under a name the scan cannot follow` })
+    }
+    // RetryButton named as a value, not a tag (an alias, a prop, a createElement argument, an export): its label
+    // is then set where the scan cannot read it.
+    if ((ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) && retryNames.has(node.getText(sf)) && !isTag(node) && !inert(node)) {
+      sites.push({ line: lineOf(node), expr: `${node.getText(sf)} used other than as a JSX tag: a label the scan cannot read` })
+    }
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const opening = ts.isJsxElement(node) ? node.openingElement : node
+      const tag = opening.tagName.getText(sf)
+      const at = lineOf(node)
+      const flag = (what: string) => sites.push({ line: at, expr: `${tag} ${what}` })
+      const children = ts.isJsxElement(node) ? node.children : ts.factory.createNodeArray<ts.JsxChild>()
+      if (retryNames.has(tag)) {
+        for (const attr of opening.attributes.properties) {
+          if (ts.isJsxSpreadAttribute(attr)) flag(`${attr.getText(sf)}: a spread whose label the scan cannot read`)
+          else if (LABEL_ATTRS.has(attr.name.getText(sf))) flag(`${collapse(attr.getText(sf))}: a label of its own`)
+        }
+        for (const child of children) {
+          if (ts.isJsxText(child) ? collapse(child.text) === '' : ts.isJsxExpression(child) && !child.expression) continue
+          flag(`"${collapse(child.getText(sf))}": a label of its own`)
+        }
+      } else {
+        const labels: string[] = []
+        const busy: string[] = []
+        const aria: string[] = []
+        const unread: string[] = []
+        // The heads of templates it cannot read: they tell a retry control, never pass as its words.
+        const heads: string[] = []
+        const busyHeads: string[] = []
+        let text = ''
+        for (const child of children) {
+          if (ts.isJsxText(child)) text += child.text
+          else if (ts.isJsxExpression(child) && child.expression) {
+            const read = readTexts(child.expression, visible)
+            unread.push(...read.unread.map((part) => `{${part}}`))
+            heads.push(...read.heads.map(collapse))
+            if (read.texts.length === 1 && !read.unread.length) text += read.texts[0]
+            else labels.push(...read.texts.map(collapse))
+          }
+        }
+        if (collapse(text)) labels.unshift(collapse(text))
+        for (const attr of opening.attributes.properties) {
+          if (!ts.isJsxAttribute(attr) || !attr.initializer) continue
+          const name = attr.name.getText(sf)
+          // aria-labelledby names the control with another element's text, which the scan does not read here.
+          if (name === 'aria-labelledby') {
+            unread.push(collapse(attr.getText(sf)))
+            continue
+          }
+          if (!BUSY_TEXT_ATTRS.has(name) && name !== 'aria-label' && name !== 'children') continue
+          const read: Read = ts.isStringLiteral(attr.initializer)
+            ? { texts: [attr.initializer.text], unread: [], heads: [] }
+            : attr.initializer.expression ? readTexts(attr.initializer.expression, visible) : { texts: [], unread: [], heads: [] }
+          ;(BUSY_TEXT_ATTRS.has(name) ? busy : name === 'children' ? labels : aria).push(...read.texts.map(collapse))
+          ;(BUSY_TEXT_ATTRS.has(name) ? busyHeads : heads).push(...read.heads.map(collapse))
+          unread.push(...read.unread.map((part) => `${name}={${part}}`))
+        }
+        const isRetry =
+          [...labels, ...aria, ...heads].some((t) => RETRY_LABEL.test(t) || STARTS_RETRY.test(t)) ||
+          [...busy, ...busyHeads].some((t) => RETRY_BUSY_TEXT.test(t))
+        if (isRetry) {
+          for (const label of labels) {
+            // A label branch shown while busy is held to the busy form, any other to the verb.
+            const want = RETRY_BUSY_TEXT.test(label) ? ONE_BUSY_TEXT : ONE_VERB
+            if (label !== want) flag(`label "${label}" is not "${want}"`)
+          }
+          for (const t of busy) if (t !== ONE_BUSY_TEXT) flag(`busy text "${t}" is not "${ONE_BUSY_TEXT}"`)
+          for (const t of aria) if (t !== ONE_VERB) flag(`aria-label "${t}" is not "${ONE_VERB}"`)
+          for (const part of unread) flag(`text it cannot read: ${part}`)
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return sites
+}
+
+/**
+ * RetryButton's own label and busy texts, read from its definition: the element inside it that renders them, its
+ * label, the busy text it shows (`loadingText`) and the busy text whose room it keeps at rest (`reserveLoadingText`).
+ */
+function retryButtonOwnText(source: string): { labels: string[]; loadingText: string[]; reserveLoadingText: string[] }[] {
+  const sf = ts.createSourceFile(RETRY_BUTTON.file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const visible = bindingResolver(sf)
+  const definition = sf.statements.find((s) => ts.isFunctionDeclaration(s) && s.name?.text === RETRY_BUTTON.name)
+  const out: { labels: string[]; loadingText: string[]; reserveLoadingText: string[] }[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxElement(node)) {
+      const texts = (name: string): string[] => {
+        const attr = node.openingElement.attributes.properties.find(
+          (a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && a.name.getText(sf) === name,
+        )
+        if (!attr?.initializer) return []
+        if (ts.isStringLiteral(attr.initializer)) return [attr.initializer.text]
+        return attr.initializer.expression ? readTexts(attr.initializer.expression, visible).texts : []
+      }
+      const labels = node.children.filter(ts.isJsxText).map((child) => child.text.replace(/\s+/g, ' ').trim()).filter(Boolean)
+      out.push({ labels, loadingText: texts('loadingText'), reserveLoadingText: texts('reserveLoadingText') })
+    }
+    ts.forEachChild(node, visit)
+  }
+  if (definition) visit(definition)
+  return out
+}
+
+/**
+ * The props RetryButtonProps declares `never`, read from its definition: the ones TypeScript refuses at a call
+ * site. Leaving a name out of the props would not do for a hyphenated one: JSX never checks an undeclared
+ * attribute such as aria-label against the props.
+ */
+function neverProps(source: string): string[] {
+  const sf = ts.createSourceFile(RETRY_BUTTON.file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const props = sf.statements.find((s): s is ts.InterfaceDeclaration => ts.isInterfaceDeclaration(s) && s.name.text === `${RETRY_BUTTON.name}Props`)
+  return (props?.members ?? []).flatMap((member) =>
+    ts.isPropertySignature(member) && member.type?.kind === ts.SyntaxKind.NeverKeyword && (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name))
+      ? [member.name.text]
+      : [],
+  )
+}
+
+/** Attributes whose string is code, not copy: what the word scan skips. */
+const CODE_ATTRS = new Set(['className', 'class', 'id', 'key', 'href', 'src', 'type', 'role', 'name', 'htmlFor', 'rel', 'target', 'variant', 'size', 'as'])
+const RETRY_WORD = /\bretr(?:y|ying|ies|ied)\b(?!-after)/i
+
+function retryWordSites(source: string, fileName: string): Site[] {
+  const kind = fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, kind)
+  const sites: Site[] = []
+  const isCode = (node: ts.Node): boolean => {
+    const parent = node.parent
+    if (!parent) return false
+    if ('name' in parent && (parent as { name?: ts.Node }).name === node) return true // an object key, a member name
+    if (ts.isLiteralTypeNode(parent)) return true
+    // An attribute's value, written bare or inside `{…}` (a conditional's branch, a fallback), is its attribute's.
+    let at: ts.Node = node
+    while (
+      at.parent &&
+      (ts.isJsxExpression(at.parent) || ts.isParenthesizedExpression(at.parent) || ts.isConditionalExpression(at.parent) || ts.isBinaryExpression(at.parent))
+    ) {
+      at = at.parent
+    }
+    if (at.parent && ts.isJsxAttribute(at.parent)) {
+      const name = at.parent.name.getText(sf)
+      return CODE_ATTRS.has(name) || name.startsWith('data-')
+    }
+    return false
+  }
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return
+    if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression) && node.expression.expression.text === 'console'))
+    ) {
+      return
+    }
+    const text = ts.isJsxText(node)
+      ? node.text
+      : ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
+        ? node.text
+        : null
+    if (text !== null && RETRY_WORD.test(text) && !isCode(node)) {
+      const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
+      sites.push({ line: line + 1, expr: `"${text.replace(/\s+/g, ' ').trim()}"` })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return sites
 }
 
 /**
@@ -485,10 +772,24 @@ function resolveModule(fileName: string, specifier: string): string {
 }
 const withoutExtension = (file: string) => file.replace(/\.(tsx?|jsx?)$/, '').replace(/\/index$/, '')
 
-/** RetryButton's local names in this file: its own, and any an import from its module gives it. */
+/**
+ * RetryButton's tag names in this file, for the one-verb and failures clauses: its own; any name an import of its
+ * module gives it (`{ RetryButton as Again }`, and a default import: the module has none today, so TypeScript
+ * refuses one, and one it gains later is read as RetryButton until this says otherwise); and `H.RetryButton` for
+ * a namespace import of its module (`import * as H`). Any other way to reach it (an alias, a prop, a
+ * createElement argument, a re-export, an `import()`) fails the one-verb clause as a form the scan cannot read.
+ */
 function retryButtonNames(sf: ts.SourceFile, fileName: string): Set<string> {
   const home = withoutExtension(RETRY_BUTTON.file)
-  return new Set([RETRY_BUTTON.name, ...importedNames(sf, fileName, (m) => withoutExtension(m) === home, RETRY_BUTTON.name, false)])
+  const fromHome = (m: string) => withoutExtension(m) === home
+  const names = new Set([RETRY_BUTTON.name, ...importedNames(sf, fileName, fromHome, RETRY_BUTTON.name, true)])
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    if (!fromHome(resolveModule(fileName, statement.moduleSpecifier.text))) continue
+    const bindings = statement.importClause?.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings)) names.add(`${bindings.name.text}.${RETRY_BUTTON.name}`)
+  }
+  return names
 }
 
 /** The component a destructured prop belongs to, the prop's name, and whether it is its module's default export. */
@@ -624,57 +925,61 @@ const ALLOW_RETRY: Record<string, { sites: string[]; reason: string }> = {
       'list; activating the button unmounts it), and it is not a Retry. Its focus through that refetch and its ' +
       'hand-off to the "SEC filings" heading are pinned in busyControls.watchlist.spec.tsx.',
   },
-  'features/calendar/components/EarningsCalendarPage.tsx': {
-    sites: ['() => query.refetch()'],
-    reason: '"Try again" on the calendar error card: open in rule (h).',
-  },
-  'features/search/components/FullTextSearch.tsx': {
-    sites: ['() => refetch()'],
-    reason: 'The full-text search Retry: open in rule (h).',
-  },
 }
-const MAX_RETRY_ALLOWLIST_SIZE = 3
-const MAX_RETRY_PINNED_SITES = 3
+const MAX_RETRY_ALLOWLIST_SIZE = 1
+const MAX_RETRY_PINNED_SITES = 1
 
 /**
  * Every element the label scan sees that is not a RetryButton, pinned by `Tag "label"`, with a reason.
- * Shrink-only and capped: converting one to RetryButton removes its pin, and a new one fails.
+ * Shrink-only, and its two caps are equalities (lessons/test-allowlist-caps-are-equalities.md): converting
+ * one to RetryButton removes its pin and lowers both caps in the same commit, and a new one fails.
  */
 const ERROR_BOUNDARY_RESET =
   "A React error boundary's reset: it re-renders the crashed subtree, with no query to hold a failure for or to " +
   'retry, and nothing it refetches can swap it for a skeleton.'
 const STREAM_RESTART =
   'Restarts a streamed generation or answer (SSE), not a query refetch, so there is no query to hold. Not yet ' +
-  "converted: converting one makes it RetryButton with a failure built by hand, as the filing page's Retry " +
-  'generation is, moving its pin (and one from each cap) from this list to ALLOW_HAND_BUILT_FAILURE. '
+  "converted: converting one makes it RetryButton with a failure built by hand, as the filing page's generation " +
+  'restart is, moving its pin (and one from each cap) from this list to ALLOW_HAND_BUILT_FAILURE. '
 const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
   'app/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'app/global-error.tsx': { sites: ['button "Try again"'], reason: ERROR_BOUNDARY_RESET },
-  'app/dashboard/error.tsx': { sites: ['Button "Try Again"'], reason: ERROR_BOUNDARY_RESET },
+  'app/dashboard/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'components/GlobalErrorBoundary.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'features/summaries/components/SummaryDisplay.tsx': {
-    sites: ['Button "Retry"'],
+    sites: ['Button "Try again"'],
     reason: STREAM_RESTART + "The filing page's summary Retry regenerates it; open in rule (h).",
   },
   'features/filings/components/copilot/CopilotMessage.tsx': {
-    sites: ['Button "Retry"'],
+    sites: ['Button "Try again"'],
     reason: STREAM_RESTART + 'Re-asks a copilot question whose answer stream failed.',
   },
-  'features/filings/components/AskFilingAnswer.tsx': {
-    sites: ['Button "Retry"'],
-    reason: STREAM_RESTART + "The design system's reference copilot answer (0 importers), as CopilotMessage.",
+}
+const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 6
+const MAX_RETRY_LABEL_PINNED_SITES = 6
+
+/**
+ * Code strings that carry the old verb, pinned by their text with a reason: tokens the app matches against what
+ * the server stores and never shows. Shrink-only, and its two caps are equalities
+ * (lessons/test-allowlist-caps-are-equalities.md); a string a reader can see is never pinned here.
+ */
+const ALLOW_RETRY_WORD: Record<string, { sites: string[]; reason: string }> = {
+  'lib/formatters.ts': {
+    sites: ['"retry"'],
+    reason:
+      "PLACEHOLDER_PATTERNS mirrors the backend's summary_sections.PLACEHOLDER_PATTERNS: a substring isPlaceholderText " +
+      'matches to hide filler text from the page, never text the page shows.',
   },
-  'features/calendar/components/EarningsCalendarPage.tsx': {
-    sites: ['Button "Try again"'],
-    reason: '"Try again" on the calendar error card: open in rule (h) (also in ALLOW_RETRY).',
-  },
-  'features/search/components/FullTextSearch.tsx': {
-    sites: ['button "Retry"'],
-    reason: 'The full-text search Retry: open in rule (h) (also in ALLOW_RETRY).',
+  'features/summaries/lib/summaryPlaceholder.ts': {
+    sites: ['"Summary temporarily unavailable. Please retry."'],
+    reason:
+      "SUMMARY_FALLBACK_MESSAGE is the backend's stored failure body, matched as a failure token " +
+      '(summaryPlaceholder.spec.ts holds the tokens equal to the backend\'s); the filing page shows its error card in ' +
+      'its place, never this text.',
   },
 }
-const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 9
-const MAX_RETRY_LABEL_PINNED_SITES = 9
+const MAX_RETRY_WORD_FILES = 2
+const MAX_RETRY_WORD_SITES = 2
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {
@@ -694,6 +999,8 @@ const found = new Map<string, Site[]>()
 const foundRetry = new Map<string, Site[]>()
 const foundRetryLabel = new Map<string, Site[]>()
 const foundHandBuilt = new Map<string, Site[]>()
+const foundOneVerb = new Map<string, Site[]>()
+const foundRetryWord = new Map<string, Site[]>()
 const failureProps: (FailureProp & { file: string })[] = []
 const sources = new Map<string, string>()
 const scanned: string[] = []
@@ -711,6 +1018,16 @@ for (const abs of ROOTS.flatMap((root) => walk(path.join(frontendRoot, root), []
   if (handBuilt.length) foundHandBuilt.set(rel, handBuilt)
   failureProps.push(...props.map((prop) => ({ ...prop, file: rel })))
   sources.set(rel, source)
+  const verbs = oneVerbSites(source, rel)
+  if (verbs.length) foundOneVerb.set(rel, verbs)
+}
+// The copy clause reads every .ts module too: a status line or a fallback sentence lives in an api or hook file.
+const wordScanned: string[] = []
+for (const abs of ROOTS.flatMap((root) => walk(path.join(frontendRoot, root), [], /\.tsx?$/))) {
+  const rel = path.relative(frontendRoot, abs).split(path.sep).join('/')
+  wordScanned.push(rel)
+  const words = retryWordSites(readFileSync(abs, 'utf8'), rel)
+  if (words.length) foundRetryWord.set(rel, words)
 }
 // A failure that arrives as a prop: its value at every call site, and a prop no scanned file passes.
 const passedProps = new Set<string>()
@@ -870,7 +1187,7 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
 const RETRY_GATE_MESSAGE =
   'A Retry of a query is <RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}> ' +
   '(hooks/useRetainedFailure.tsx): busy from fetchStatus (isFetching is false while a fetch waits paused), the ' +
-  'failure held through any refetch, "Retrying…" only for its own press, and a focus hand-off when it unmounts ' +
+  'failure held through any refetch, "Trying again…" only for its own press, and a focus hand-off when it unmounts ' +
   'while focused. See lessons/frontend-busy-controls-stay-focusable.md (d), (g).'
 
 describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
@@ -963,7 +1280,7 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
     expect(scanned.some((file) => file.startsWith('lib/'))).toBe(true)
   })
 
-  it('sees a Retry by its label or its "Retrying…" text on anything but RetryButton, and nothing else', () => {
+  it('sees a Retry by its label or its busy text ("Retrying…" or "Trying again…") on anything but RetryButton, and nothing else', () => {
     const fixture = [
       'export function X() {',
       '  return (<>',
@@ -983,6 +1300,9 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '    <Button onClick={go}>{retryLabel}</Button>', // a same-file const
       '    <Button loading={busy} loadingText={pressedText} onClick={go}>Load</Button>', // a const, conditional
       '    <Button onClick={go}>{label}</Button>', // a parameter: not resolved
+      '    <Button loading={busy} loadingText="Trying again…" onClick={go}>Load</Button>', // the one busy form, a Retry's too
+      '    <Button loading={busy} reserveLoadingText="Trying again…" onClick={go}>Load</Button>', // its room kept at rest
+      '    <Button onClick={go} children="Try again" />', // a children attribute is a label
       '  </>)',
       '}',
       "const retryLabel = 'Try again'",
@@ -1002,6 +1322,9 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '10: Button "Retry account check"',
       '16: Button "Try again"',
       '17: Button "Retrying…"',
+      '19: Button "Trying again…"',
+      '20: Button "Trying again…"',
+      '21: Button "Try again"',
     ])
   })
 
@@ -1246,8 +1569,8 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       Object.values(allow).reduce((sum, { sites }) => sum + sites.length, 0)
     expect(Object.keys(ALLOW_RETRY).length).toBeLessThanOrEqual(MAX_RETRY_ALLOWLIST_SIZE)
     expect(pinned(ALLOW_RETRY)).toBeLessThanOrEqual(MAX_RETRY_PINNED_SITES)
-    expect(Object.keys(ALLOW_RETRY_LABEL).length).toBeLessThanOrEqual(MAX_RETRY_LABEL_ALLOWLIST_SIZE)
-    expect(pinned(ALLOW_RETRY_LABEL)).toBeLessThanOrEqual(MAX_RETRY_LABEL_PINNED_SITES)
+    expect(Object.keys(ALLOW_RETRY_LABEL).length).toBe(MAX_RETRY_LABEL_ALLOWLIST_SIZE)
+    expect(pinned(ALLOW_RETRY_LABEL)).toBe(MAX_RETRY_LABEL_PINNED_SITES)
     expect(Object.keys(ALLOW_HAND_BUILT_FAILURE).length).toBeLessThanOrEqual(MAX_HAND_BUILT_FAILURE_FILES)
     expect(pinned(ALLOW_HAND_BUILT_FAILURE)).toBeLessThanOrEqual(MAX_HAND_BUILT_FAILURE_SITES)
     for (const [file, { reason }] of [
@@ -1267,5 +1590,265 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
   it.each(Object.keys(ALLOW_RETRY_LABEL))('%s still has every pinned Retry label (remove the pins of converted ones)', (file) => {
     const actual = (foundRetryLabel.get(file) ?? []).map((site) => site.expr).sort()
     expect(actual).toEqual([...ALLOW_RETRY_LABEL[file].sites].sort())
+  })
+})
+
+const ONE_VERB_MESSAGE =
+  'The product has one retry verb (docs/brand/decisions-log.md D-032): "Try again", busy "Trying again…". A ' +
+  "RetryButton call site passes no label (the label is RetryButton's own); any other retry control reads exactly " +
+  '"Try again" and, busy, "Trying again…"; copy beside it says "try again", never "retry", and a status line ' +
+  '"Trying again…". See frontend/DESIGN_SYSTEM.md §4 and lessons/frontend-busy-controls-stay-focusable.md (d).'
+
+describe('the one retry verb, "Try again" (D-032; rule-12 gate)', () => {
+  it('fails a RetryButton that names itself and every form of a retry control that reads another verb, and nothing else', () => {
+    const fixture = [
+      "import { RetryButton as Again } from '@/hooks/useRetainedFailure'",
+      'export function X({ label, busyText }: Props) {',
+      '  return (<>',
+      '    <RetryButton failures={[f]} focusTarget={ref} />', // the label is RetryButton's
+      '    <RetryButton failures={[f]} focusTarget={ref} leftIcon={<Icon />} />', // an icon is no label
+      '    <RetryButton failures={[f]} focusTarget={ref}>', // whitespace and a comment are no label
+      "      {/* the label is RetryButton's */}",
+      '    </RetryButton>',
+      '    <RetryButton failures={[f]} focusTarget={ref}>Retry</RetryButton>', // a label of its own
+      '    <RetryButton failures={[f]} focusTarget={ref}>Try again</RetryButton>', // even the verb: one source
+      "    <RetryButton failures={[f]} focusTarget={ref}>{'Retry generation'}</RetryButton>", // an expression
+      '    <RetryButton failures={[f]} focusTarget={ref}>{label}</RetryButton>', // a parameter
+      '    <RetryButton failures={[f]} focusTarget={ref}><Icon /></RetryButton>', // an element
+      '    <RetryButton failures={[f]} focusTarget={ref} aria-label="Retry account check" />',
+      '    <RetryButton failures={[f]} focusTarget={ref} aria-labelledby="usage-title" />',
+      '    <RetryButton failures={[f]} focusTarget={ref} children="Retry usage" />',
+      '    <RetryButton {...props} />', // a spread could carry a label
+      '    <Again failures={[f]} focusTarget={ref}>Retry subscription</Again>', // under an import alias
+      '    <Button onClick={reset}>Try again</Button>', // the one verb
+      '    <Button onClick={go}>Retry</Button>',
+      '    <button onClick={go}><Icon /> Retry account check</button>', // after an icon
+      '    <Button onClick={go}>Try again later</Button>', // words after the verb
+      '    <Button onClick={go}>Retrying is not a word here</Button>', // any text that starts "Retry"
+      '    <Button loading={b} loadingText="Retrying…" onClick={go}>Try again</Button>', // the old busy form
+      '    <Button loading={b} loadingText="Trying again..." onClick={go}>Try again</Button>', // three dots
+      '    <Button loading={b} loadingText="Trying again…" onClick={go}>Try again</Button>', // the one busy form
+      '    <Button loading={b} loadingText={busyText} onClick={go}>Try again</Button>', // busy text it cannot read
+      "    <Button onClick={go}>{busy ? 'Retrying…' : 'Try again'}</Button>", // a busy branch
+      "    <Button onClick={go}>{busy ? 'Trying again…' : 'Try again'}</Button>", // both forms right
+      '    <Button onClick={go}>{retryLabel}</Button>', // a same-file const
+      '    <Button aria-label="Retry" onClick={go}>Reload</Button>', // an aria-label marks it a retry
+      "    <Button onClick={go}>{failed ? 'Try again' : label}</Button>", // a branch it cannot read
+      "    <Button onClick={go}>{failed && 'Try again'}</Button>", // && renders its right side
+      '    <p>Please try again later.</p>', // prose: the label does not start with the verb
+      '    <Button onClick={go}>Reload</Button>', // nothing here marks it a retry (the wiring clause and the pins do)
+      '    <Button onClick={go}>{`Retry`}</Button>', // a template
+      "    <Button loading={b} loadingText={pressed ? 'Retrying…' : undefined} onClick={go}>Load</Button>", // busy text marks it
+      '    <Button onClick={go}>{mutable}</Button>', // a let it cannot read, and no retry text: the copy clause sees its string
+      "    <Button onClick={go}>{'Try again'}{' '}</Button>", // the one verb, from expressions
+      '    {/* <Button>Retry</Button> */}',
+      "    <Button loading={b} loadingText={pressed ? 'Trying again…' : undefined} reserveLoadingText=\"Retrying…\" onClick={go}>Try again</Button>", // the room kept at rest
+      '  </>)',
+      '}',
+      "const retryLabel = 'Retry'",
+      "let mutable = 'Retry'",
+      'function Y() {',
+      "  return <Button onClick={go}>{mutable ? 'Try again' : mutable}</Button>", // a let it cannot read on a retry control
+      '}',
+    ].join('\n')
+    expect(oneVerbSites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '9: RetryButton "Retry": a label of its own',
+      '10: RetryButton "Try again": a label of its own',
+      "11: RetryButton \"{'Retry generation'}\": a label of its own",
+      '12: RetryButton "{label}": a label of its own',
+      '13: RetryButton "<Icon />": a label of its own',
+      '14: RetryButton aria-label="Retry account check": a label of its own',
+      '15: RetryButton aria-labelledby="usage-title": a label of its own',
+      '16: RetryButton children="Retry usage": a label of its own',
+      '17: RetryButton {...props}: a spread whose label the scan cannot read',
+      '18: Again "Retry subscription": a label of its own',
+      '20: Button label "Retry" is not "Try again"',
+      '21: button label "Retry account check" is not "Try again"',
+      '22: Button label "Try again later" is not "Try again"',
+      '23: Button label "Retrying is not a word here" is not "Trying again…"',
+      '24: Button busy text "Retrying…" is not "Trying again…"',
+      '25: Button busy text "Trying again..." is not "Trying again…"',
+      '27: Button text it cannot read: loadingText={busyText}',
+      '28: Button label "Retrying…" is not "Trying again…"',
+      '30: Button label "Retry" is not "Try again"',
+      '31: Button label "Reload" is not "Try again"',
+      '31: Button aria-label "Retry" is not "Try again"',
+      '32: Button text it cannot read: {label}',
+      '36: Button label "Retry" is not "Try again"',
+      '37: Button label "Load" is not "Try again"',
+      '37: Button busy text "Retrying…" is not "Trying again…"',
+      '41: Button busy text "Retrying…" is not "Trying again…"',
+      '47: Button text it cannot read: {mutable}',
+    ])
+  })
+
+  it('reads RetryButton under every name an import of its module gives it, fails any other use of it, and reads aria-labelledby and children on any retry control', () => {
+    const fixture = [
+      "import * as H from '@/hooks/useRetainedFailure'",
+      "import Again, { RetryButton, type RetryButtonProps } from '../hooks/useRetainedFailure'", // a default import, a relative path
+      "import { createElement } from 'react'",
+      "export * from '@/hooks/useRetainedFailure'", // an importer of this file gets it under any name
+      "export * as Retained from '@/hooks/useRetainedFailure'",
+      "export { RetryButton as Retry, useRetainedFailure } from '@/hooks/useRetainedFailure'", // renamed; the hook is not it
+      'const Alias = RetryButton',
+      "const Lazy = dynamic(() => import('@/hooks/useRetainedFailure').then((m) => m.RetryButton))",
+      'type Props = RetryButtonProps & { as?: typeof RetryButton | typeof H.RetryButton }', // a type renders nothing
+      'export function X({ label }: { label: string }) {',
+      '  const { RetryButton: Renamed } = H',
+      '  return (<>',
+      '    <H.RetryButton failures={[f]} focusTarget={ref} />', // a namespace member, no label of its own
+      '    <H.RetryButton failures={[f]} focusTarget={ref} aria-labelledby="usage-title" />',
+      '    <H.RetryButton failures={[f]} focusTarget={ref}>Retry</H.RetryButton>',
+      '    <Again failures={[f]} focusTarget={ref} aria-label="Retry usage" />',
+      '    {createElement(RetryButton, { failures: [f], focusTarget: ref })}',
+      '    <Slot as={H.RetryButton} render={{ RetryButton }} />',
+      '    <Button onClick={go} aria-labelledby="usage-title">Try again</Button>', // named by text the scan does not read
+      '    <Button onClick={go} aria-labelledby="usage-title">Reload</Button>', // nothing marks it a retry
+      '    <Button onClick={go} children="Retry" />',
+      '    <Button onClick={go} children={label} aria-label="Try again" />',
+      '  </>)',
+      '}',
+      'export default RetryButton',
+    ].join('\n')
+    expect(oneVerbSites(fixture, 'components/fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      "4: export * from '@/hooks/useRetainedFailure': re-exports RetryButton under a name the scan cannot follow",
+      "5: export * as Retained from '@/hooks/useRetainedFailure': re-exports RetryButton under a name the scan cannot follow",
+      '6: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '7: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      "8: import('@/hooks/useRetainedFailure'): loads RetryButton under a name the scan cannot follow",
+      '11: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '14: H.RetryButton aria-labelledby="usage-title": a label of its own',
+      '15: H.RetryButton "Retry": a label of its own',
+      '16: Again aria-label="Retry usage": a label of its own',
+      '17: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '18: H.RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '18: RetryButton used other than as a JSX tag: a label the scan cannot read',
+      '19: Button text it cannot read: aria-labelledby="usage-title"',
+      '21: Button label "Retry" is not "Try again"',
+      '22: Button text it cannot read: children={label}',
+      '25: RetryButton used other than as a JSX tag: a label the scan cannot read',
+    ])
+    // The failures clause matches it by the same names: each `f` here is built by hand.
+    expect(failureScan(fixture, 'components/fixture.tsx').handBuilt.map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '13: f',
+      '14: f',
+      '15: f',
+      '16: f',
+    ])
+  })
+
+  it("reads RetryButton's own definition, with no exemption: its label is the one verb and its busy text the one busy form", () => {
+    const real = readFileSync(path.join(frontendRoot, RETRY_BUTTON.file), 'utf8')
+    // The busy text it shows is the one whose room it keeps at rest, so the swap never resizes it.
+    expect(retryButtonOwnText(real)).toEqual([{ labels: [ONE_VERB], loadingText: [ONE_BUSY_TEXT], reserveLoadingText: [ONE_BUSY_TEXT] }])
+    expect(oneVerbSites(real, RETRY_BUTTON.file)).toEqual([])
+    // The old busy form inside the definition fails the app-wide clause too: nothing exempts it.
+    const old = real.replace(`'${ONE_BUSY_TEXT}'`, "'Retrying…'")
+    expect(old).not.toBe(real)
+    expect(oneVerbSites(old, RETRY_BUTTON.file).map((site) => site.expr)).toEqual([
+      'Button busy text "Retrying…" is not "Trying again…"',
+      'Button busy text "Retrying…" is not "Trying again…"',
+    ])
+  })
+
+  it("reads a template's head to tell a retry control, and fails the template it cannot read", () => {
+    const fixture = [
+      'export function X({ name, n }: { name: string; n: number }) {',
+      '  return (<>',
+      '    <Button onClick={go} aria-label={`Try again for ${name}`}><Icon /></Button>', // an icon-only retry control
+      '    <Button onClick={go}>{`Retry ${n} more`}</Button>',
+      '    <Button loading={b} loadingText={`Retrying ${name}…`} onClick={go}>Load</Button>', // busy text marks it
+      '    <Button onClick={go} aria-label={`Open ${name}`}><Icon /></Button>', // a head that is no retry
+      '    <Button onClick={go} aria-label={`${name}: try again`}><Icon /></Button>', // not at the start: as in prose
+      '  </>)',
+      '}',
+    ].join('\n')
+    expect(oneVerbSites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '3: Button text it cannot read: aria-label={`Try again for ${name}`}',
+      '4: Button text it cannot read: {`Retry ${n} more`}',
+      '5: Button label "Load" is not "Try again"',
+      '5: Button text it cannot read: loadingText={`Retrying ${name}…`}',
+    ])
+  })
+
+  it('RetryButtonProps declares each label prop `never`, so TypeScript refuses one at a call site', () => {
+    const real = readFileSync(path.join(frontendRoot, RETRY_BUTTON.file), 'utf8')
+    expect(neverProps(real).sort()).toEqual([...LABEL_ATTRS].sort())
+  })
+
+  it('no RetryButton call site passes a label, and every retry control reads the one verb', () => {
+    const offenders = [...foundOneVerb].flatMap(([file, sites]) => sites.map((site) => `${file}:${site.line}: ${site.expr}`))
+    expect(offenders, ONE_VERB_MESSAGE).toEqual([])
+  })
+
+  it('reads every form of the old verb in copy, and leaves code alone', () => {
+    const fixture = [
+      "import { thing } from './retry'",
+      "export * from './retrying'",
+      "type Mode = 'retry' | 'idle'",
+      "const codes = { 'retry': 1, retrying: 2 }",
+      "const msg = 'Retry to refresh it.'",
+      'const later = "Please retry in a moment."',
+      'const tpl = `Retrying ${n} of ${m} times`',
+      'const tail = `${a} retried`',
+      'const mid = `${a} then retries ${b} more`',
+      'console.warn(`[summary] attempt failed; retrying once...`)',
+      "console.error('retry failed', err)",
+      "const header = response.headers.get('Retry-After')",
+      "const ok = 'Try again'",
+      "const able = 'isRetryable'",
+      '// retry in a comment is not copy',
+      'export function X() {',
+      '  return (<>',
+      '    <p>Please retry.</p>',
+      '    <Notice description="Retry to generate it again." />',
+      "    <Notice description={failed ? 'Please retry.' : 'Done.'} />",
+      '    <div className="retry-row" data-testid="retry" id="retry" />',
+      '    <Button onClick={go}>Try again</Button>',
+      "    <Status text={'Connection interrupted. Retrying...'} />",
+      '  </>)',
+      '}',
+      "const lazy = import('./retry')",
+    ].join('\n')
+    expect(retryWordSites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '5: "Retry to refresh it."',
+      '6: "Please retry in a moment."',
+      '7: "Retrying"',
+      '8: "retried"',
+      '9: "then retries"',
+      '18: "Please retry."',
+      '19: "Retry to generate it again."',
+      '20: "Please retry."',
+      '23: "Connection interrupted. Retrying..."',
+    ])
+    // Out of reach, planted as the gap the header names: a word split across JSX text and an expression is read a
+    // part at a time, so neither clause sees it.
+    const gap = "export const P = () => <p>Please re{''}try in a moment.</p>"
+    expect(retryWordSites(gap, 'features/probe/Gap.tsx'), 'the gap is out of reach of the copy clause, as the header says').toEqual([])
+    expect(oneVerbSites(gap, 'features/probe/Gap.tsx'), 'the gap is out of reach of the one-verb clause, as the header says').toEqual([])
+  })
+
+  it('reads every .ts and .tsx module under the roots for copy, a status line in an api module included', () => {
+    expect(wordScanned).toContain('features/summaries/api/summaries-api.ts')
+    expect(wordScanned).toContain(RETRY_BUTTON.file)
+    expect(wordScanned.length).toBeGreaterThan(scanned.length)
+  })
+
+  it('no copy says "retry" outside the pinned code strings', () => {
+    expect(unpinned(foundRetryWord, ALLOW_RETRY_WORD), ONE_VERB_MESSAGE).toEqual([])
+  })
+
+  it.each(Object.keys(ALLOW_RETRY_WORD))('%s still has its pinned code string (remove the pin when it goes)', (file) => {
+    const actual = (foundRetryWord.get(file) ?? []).map((site) => site.expr).sort()
+    expect(actual).toEqual([...ALLOW_RETRY_WORD[file].sites].sort())
+  })
+
+  it('ALLOW_RETRY_WORD is shrink-only: its caps equal the list, and every entry has a reason', () => {
+    const pinned = Object.values(ALLOW_RETRY_WORD).reduce((sum, { sites }) => sum + sites.length, 0)
+    expect(Object.keys(ALLOW_RETRY_WORD).length).toBe(MAX_RETRY_WORD_FILES)
+    expect(pinned).toBe(MAX_RETRY_WORD_SITES)
+    for (const [file, { reason }] of Object.entries(ALLOW_RETRY_WORD)) {
+      expect(reason.trim().length, `${file} needs a reason`).toBeGreaterThan(0)
+    }
   })
 })

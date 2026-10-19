@@ -101,8 +101,16 @@ the business card, the footer and the merch; it is the positioning in six words.
 - **En-dashes (–) stay** in genuine numeric or date ranges: Q1–Q4, 30–60s, FY2019–FY2024.
 - **The bare `—` null-value token stays.** Tables and detail rows render `—` for missing
   data (see `MISSING_TOKENS` in `frontend/lib/format.ts`). That is a data convention, not
-  prose. It is the only sanctioned em-dash and the CI gate
-  (`frontend/tests/unit/no-em-dash-copy.spec.ts`) allowlists exactly the bare `'—'` literal.
+  prose. It is the only sanctioned em-dash, and it stands alone, in a cell or an element of
+  its own: never with a unit after it, a sign before it or a middot joining it to a label. A
+  figure that sits in a line of copy and can be missing gets words, or the token in its own
+  element; the insider panel and What changed give that element the word "unavailable" for
+  assistive tech, the word the analysis evidence uses for a missing figure. The CI gate
+  (`frontend/tests/unit/no-em-dash-copy.spec.ts`) exempts the bare `'—'` only where it stands
+  alone, reads a same-file formatter's fallback where the formatter is called, and reads a
+  fragment as its contents. An element is one value to it, so the token inside an element set
+  beside a unit (`{count ?? <Missing />} sh`, which still reads "— sh") passes the gate and is
+  review-checked, as are the other forms the gate's header lists out of reach.
 
 ## House conventions
 
@@ -118,6 +126,9 @@ the business card, the footer and the merch; it is the positioning in six words.
   casing everywhere they are named, including on the sales page.
 - "AI-powered", lowercase p, except at the start of a sentence or in title-case page titles.
 - Ellipsis character `…` on loading states ("Signing in…") is fine.
+- One retry verb ([D-032](brand/decisions-log.md)): "Try again", and "Trying again…" while it runs, on every
+  retry control and in the copy beside it ("Try again in a moment."); never "Retry" or "please retry".
+  `frontend/tests/unit/busyControlsStayFocusable.spec.ts` fails another label, busy text or "retry" in copy.
 - Buzzwords to avoid: unlock, seamless(ly), empower, effortless(ly), supercharge, transform,
   actionable insights, decision-ready, game-changing, "in today's fast-paced world". Say what
   the thing does instead. Add: "signal" as a noun for the product's output, "edge", "clarity"

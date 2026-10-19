@@ -8,6 +8,7 @@ a slot is not added to the chat's wall-clock budget. Requests are offline (mock 
 the real SDK).
 """
 import asyncio
+from types import SimpleNamespace
 
 import httpx2
 import pytest
@@ -149,31 +150,63 @@ async def test_chat_wait_is_bounded_by_its_own_deadline_and_leaks_no_slot(monkey
 async def test_time_spent_waiting_for_a_slot_is_not_added_to_the_chat_budget(monkeypatch):
     """A stream admitted after waiting W seconds is still cut at its original deadline, not at
     deadline + W: otherwise contention would extend slot occupancy, which extends contention.
-    One task consumes the waiter throughout, as one request task does in production. The short
-    budget is patched only once the holder streams (the SDK's cold first call can cost 0.4 s)."""
-    calls = []
+    One task consumes the waiter throughout, as one request task does in production.
+
+    The test compares deadlines, not elapsed wall-clock time. It records the deadline the call
+    fixed and the deadline the chat path cuts the stream at (the `asyncio.timeout_at` it enters).
+    A wall-clock bound (`elapsed < 1.2`) failed at 1.22 s under parallel load, because the event
+    loop's lateness counts toward elapsed time but not toward the deadline. Nor does a real budget
+    race the 0.4 s wait for the slot (a 1 s one expired the wait whenever the loop ran 0.6 s late):
+    the waiter's budget is a hang guard, and once it streams the test expires the timeout it
+    entered by rescheduling it."""
+    calls, fixed, cutoffs = [], [], []
+    budget = 30.0  # the waiter's; patched only once the holder streams, so the holder keeps its own
     async with service_for(_handler(calls, [Trickle(), Trickle()])) as service:
         holder = service.stream_chat(MESSAGES)
         assert await _first(holder) == "first"
-        monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 1.0)  # the waiter's budget only
+        monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", budget)
+        real_chunks = service._chat_chunks
+
+        def recording_chunks(kwargs, usage_sink, deadline, **options):
+            fixed.append(deadline)  # what the call fixed, before it waits for a slot
+            return real_chunks(kwargs, usage_sink, deadline, **options)
+
+        def recording_timeout_at(when):
+            timeout = asyncio.timeout_at(when)
+            cutoffs.append((asyncio.get_running_loop().time(), when, timeout))  # (admitted at, cut at, it)
+            return timeout
+
+        monkeypatch.setattr(service, "_chat_chunks", recording_chunks)
+        monkeypatch.setattr(copilot_chat, "asyncio", SimpleNamespace(
+            **{**vars(asyncio), "timeout_at": recording_timeout_at}
+        ))
 
         async def consume():
-            started = asyncio.get_running_loop().time()
             waiter = service.stream_chat(MESSAGES)
             try:
                 first = await waiter.__anext__()
+                if cutoffs:  # the stream is under way: its deadline passes now, not on the wall clock
+                    cutoffs[0][2].reschedule(asyncio.get_running_loop().time())
                 second = await waiter.__anext__()
             finally:
                 await waiter.aclose()
-            return first, second, asyncio.get_running_loop().time() - started
+            return first, second
 
         task = asyncio.create_task(consume())
-        await asyncio.sleep(0.4)
-        await holder.aclose()  # the slot frees at ~0.4 s; the waiter's deadline is at 1.0 s
-        first, second, elapsed = await asyncio.wait_for(task, timeout=3.0)
+        async with asyncio.timeout(10):  # a hang guard only; nothing below races it
+            while not (fixed and provider_admission.snapshot()["waiting"] == 1):
+                await asyncio.sleep(0.01)
+        called_at = fixed[0] - budget
+        # Free the slot 0.4 s after the call on the loop's own clock, however late the loop runs.
+        await asyncio.sleep(max(0.0, called_at + 0.4 - asyncio.get_running_loop().time()))
+        await holder.aclose()
+        first, second = await asyncio.wait_for(task, timeout=10)
         assert first == "first"
         assert second.startswith(copilot_chat.STREAM_ERROR_SENTINEL)
-        assert elapsed < 1.2, f"stream ran past its original deadline: {elapsed:.2f}s"  # the bug gives >= 1.4
+        [(admitted_at, cut_at, _)] = cutoffs  # the waiter's one attempt; the holder entered before the patch
+        # 0.3, not 0.4: the loop may run a timer up to its clock resolution early.
+        assert admitted_at >= called_at + 0.3, "the waiter never waited for the slot, so this proves nothing"
+        assert cut_at == fixed[0], f"cut {cut_at - fixed[0]:+.3f}s from the deadline it was given"  # the bug: +W
     assert provider_admission.snapshot()["in_flight"] == 0
 
 

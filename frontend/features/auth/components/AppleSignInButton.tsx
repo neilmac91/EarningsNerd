@@ -19,7 +19,7 @@ export default function AppleSignInButton({
   label?: string
 }) {
   return (
-    <OAuthStartControl apiBase={apiBase} provider="apple" invite={invite} className="flex w-full items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-black/90 active:scale-[0.99] focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:bg-white dark:text-black dark:hover:bg-white/90">
+    <OAuthStartControl apiBase={apiBase} provider="apple" invite={invite} className="flex w-full items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-black/90 active:scale-[0.99] dark:bg-white dark:text-black dark:hover:bg-white/90">
       <AppleLogo />
       {label}
     </OAuthStartControl>

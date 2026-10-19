@@ -21,6 +21,7 @@ from app.config import settings
 from app.services import filing_scan_service, retention_service
 from app.services.durable_tasks import TaskUnavailable
 from app.services.internal_task_runner import enqueue_internal_job
+from app.services.job_sessions import run_in_own_session, run_in_own_session_sync
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -52,29 +53,19 @@ def _require_internal_token(x_internal_token: Optional[str] = Header(None)) -> N
 
 
 async def _run_filing_scan() -> None:
-    from app.database import SessionLocal
-
-    db = SessionLocal()
     try:
-        stats = await filing_scan_service.run_filing_scan(db)
+        stats = await run_in_own_session(filing_scan_service.run_filing_scan)
         logger.info("Filing scan (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Filing scan (internal trigger) failed")
-    finally:
-        db.close()
 
 
 async def _run_daily_digest() -> None:
-    from app.database import SessionLocal
-
-    db = SessionLocal()
     try:
-        stats = await filing_scan_service.run_daily_digest(db)
+        stats = await run_in_own_session(filing_scan_service.run_daily_digest)
         logger.info("Daily digest (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Daily digest (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/filing-scan", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
@@ -96,16 +87,11 @@ async def trigger_filing_digest(background: BackgroundTasks):
 
 
 def _run_retention_purge(dry_run: bool) -> None:
-    from app.database import SessionLocal
-
-    db = SessionLocal()
     try:
-        stats = retention_service.run_retention_purge(db, dry_run=dry_run)
+        stats = run_in_own_session_sync(retention_service.run_retention_purge, dry_run=dry_run)
         logger.info("Retention purge (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Retention purge (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/retention-purge", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
@@ -119,31 +105,23 @@ async def trigger_retention_purge(background: BackgroundTasks, dry_run: bool = F
 
 
 async def _run_earnings_refresh() -> None:
-    from app.database import SessionLocal
     from app.services import earnings_calendar_service
 
-    db = SessionLocal()
     try:
-        stats = await earnings_calendar_service.run_refresh(db)
+        stats = await run_in_own_session(earnings_calendar_service.run_refresh)
         logger.info("Earnings-calendar refresh (internal trigger) complete: %s", stats.as_dict())
     except Exception:
         logger.exception("Earnings-calendar refresh (internal trigger) failed")
-    finally:
-        db.close()
 
 
 async def _run_earnings_alerts() -> None:
-    from app.database import SessionLocal
     from app.services import earnings_alert_service
 
-    db = SessionLocal()
     try:
-        stats = await earnings_alert_service.send_earnings_day_alerts(db)
+        stats = await run_in_own_session(earnings_alert_service.send_earnings_day_alerts)
         logger.info("Earnings-day alerts (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Earnings-day alerts (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/earnings-calendar-refresh", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
@@ -168,17 +146,13 @@ async def trigger_earnings_alerts(background: BackgroundTasks):
 
 def _run_backfill_facts() -> None:
     # Sync (CPU/DB-bound) → FastAPI runs it in a threadpool, off the event loop.
-    from app.database import SessionLocal
     from app.services import facts_service
 
-    db = SessionLocal()
     try:
-        stats = facts_service.backfill_facts(db)
+        stats = run_in_own_session_sync(facts_service.backfill_facts)
         logger.info("Facts backfill (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Facts backfill (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/backfill-facts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
@@ -202,17 +176,13 @@ class NotableFilingsScanRequest(BaseModel):
 
 
 async def _run_notable_filings_scan(days: Optional[int]) -> None:
-    from app.database import SessionLocal
     from app.services import notable_filings_service
 
-    db = SessionLocal()
     try:
-        stats = await notable_filings_service.run_scan(db, days=days)
+        stats = await run_in_own_session(notable_filings_service.run_scan, days=days)
         logger.info("Notable-filings scan (internal trigger) complete: %s", stats.as_dict())
     except Exception:
         logger.exception("Notable-filings scan (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/notable-filings-scan", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
@@ -244,19 +214,16 @@ class SyncCompanyfactsRequest(BaseModel):
 async def _run_sync_companyfacts(
     tickers: list[str], watchlist_only: bool, limit: Optional[int], force: bool
 ) -> None:
-    from app.database import SessionLocal
     from app.services import facts_service
 
-    db = SessionLocal()
     try:
-        stats = await facts_service.sync_companyfacts_batch(
-            db, tickers=tickers or None, watchlist_only=watchlist_only, limit=limit, force=force
+        stats = await run_in_own_session(
+            facts_service.sync_companyfacts_batch,
+            tickers=tickers or None, watchlist_only=watchlist_only, limit=limit, force=force,
         )
         logger.info("Companyfacts sync (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Companyfacts sync (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/sync-companyfacts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
@@ -297,19 +264,16 @@ class BackfillFilingHistoryRequest(BaseModel):
 async def _run_backfill_filing_history(
     tickers: list[str], watchlist_only: bool, limit: Optional[int]
 ) -> None:
-    from app.database import SessionLocal
     from app.services import filing_history_service
 
-    db = SessionLocal()
     try:
-        stats = await filing_history_service.batch_backfill(
-            db, tickers=tickers or None, watchlist_only=watchlist_only, limit=limit
+        stats = await run_in_own_session(
+            filing_history_service.batch_backfill,
+            tickers=tickers or None, watchlist_only=watchlist_only, limit=limit,
         )
         logger.info("Filing-history backfill (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Filing-history backfill (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/backfill-filing-history", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])

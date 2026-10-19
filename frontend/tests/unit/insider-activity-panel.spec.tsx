@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -71,7 +71,7 @@ describe('InsiderActivityPanel', () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()
 
-    expect(await screen.findByText('Insider Activity')).toBeInTheDocument()
+    expect(await screen.findByText('Insider activity')).toBeInTheDocument()
     expect(screen.getByText(/Net insider buying/)).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
     // The 10b5-1 sale row carries the badge.
@@ -88,12 +88,94 @@ describe('InsiderActivityPanel', () => {
     expect(await screen.findByText(/pre-scheduled 10b5-1 plans/)).toBeInTheDocument()
   })
 
+  it('signs the discretionary net, so a net sale never reads as a purchase (CO-21)', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: -1_200_000 },
+    })
+    renderPanel()
+    expect(await screen.findByText(/pre-scheduled 10b5-1 plans/)).toHaveTextContent('discretionary net \u22121.2M shares')
+  })
+
+  // E76: the summary reads share counts the API always sends, so a missing dollar value falls back to them and no
+  // line joins the missing-value token with a unit, a sign or a middot. A trade's missing share count, value or date
+  // is the token alone in its cell, which assistive tech reads as "unavailable".
+  it('never joins the missing-value dash with copy: missing dollar values fall back to shares, a missing cell reads as unavailable', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, buy_value: null, sell_value: null, net_value: null, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: -1_200_000 },
+      transactions: [txn({ shares: null, value: null, transaction_date: null })],
+    })
+    renderPanel()
+
+    expect(await screen.findByText(/Net insider buying/)).toHaveTextContent(/^Net insider buying · 10\.0K shares$/)
+    expect(screen.getByText(/pre-scheduled 10b5-1 plans/)).toHaveTextContent(
+      /^Excludes 50\.0K shares sold under pre-scheduled 10b5-1 plans · discretionary net −1\.2M shares$/,
+    )
+    expect(screen.getByText('15.0K sh')).toBeInTheDocument()
+    expect(screen.getByText('5.0K sh')).toBeInTheDocument()
+    expect(screen.getByText('+10.0K shares')).toBeInTheDocument()
+
+    const [, , sharesCell, valueCell, dateCell] = within(screen.getByRole('row', { name: /Jane Doe/ })).getAllByRole('cell')
+    for (const cell of [sharesCell, valueCell, dateCell]) {
+      expect(cell).toHaveAccessibleName('unavailable')
+      expect(within(cell).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+      expect(cell).toHaveTextContent(/^—unavailable$/)
+    }
+  })
+
+  // Three fixed tracks left each tile about 13px for its figure at 200% text on a 390px phone, and content-sized tiles
+  // made the tinted row change shape with the data. The tiles take equal tracks of at least 5.5rem, as many as fit, so
+  // they stay one width and stack when enlarged text leaves no room; the figures are in the data face (DESIGN_SYSTEM.md §3).
+  it('lays the buy, sell and net tiles in equal tracks with a rem minimum, figures in the data face', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const row = (await screen.findByText(/^Buys \(2\)$/)).parentElement!.parentElement!
+    expect(row).toHaveClass('grid', 'grid-cols-[repeat(auto-fit,minmax(min(5.5rem,100%),1fr))]')
+    expect(row.className).not.toMatch(/\bflex\b|flex-wrap|grid-cols-3/)
+    expect(row.children).toHaveLength(3)
+    for (const tile of Array.from(row.children)) {
+      expect(tile).toHaveClass('min-w-0')
+      expect(tile.className).not.toMatch(/flex-auto|flex-1/)
+      expect(tile.lastElementChild).toHaveClass('break-words', 'font-data', 'tabular-nums')
+    }
+  })
+
+  it('marks each trade type with a hidden ▲/▼ beside its label, and names the 10b5-1 badge plainly', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const buy = await screen.findByText('Purchase', { exact: false })
+    expect(buy.closest('td')).toHaveTextContent('▲ Purchase')
+    expect(screen.getByText('Sale', { exact: false }).closest('td')).toHaveTextContent('▼ Sale')
+    for (const glyph of screen.getAllByText(/^[▲▼]\s*$/)) expect(glyph).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText(/10b5-1 marks a trade scheduled in advance under a trading plan\./)).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
+  })
+
+  // The company page reaches phones and 200% text, so both segment heights are rem and grow with the root:
+  // below sm h-9 (2.25rem) with text-sm, the touch size; from sm up 1.625rem (26px at the default root) with
+  // text-xs, whose line box (32px at a 32px root) a fixed 26px could not hold. size="sm" would hold the phone
+  // at the desktop size. FilingIndex's filter does the same.
+  it('sizes the time window with the text: adaptive segments, 2.25rem below sm and 1.625rem from sm up', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const group = await screen.findByRole('group', { name: 'Time window' })
+    const segments = within(group).getAllByRole('button')
+    expect(segments.map((segment) => segment.textContent)).toEqual(['90D', '180D', '1Y'])
+    for (const segment of segments) {
+      const classes = segment.className.split(/\s+/)
+      expect(classes).toEqual(expect.arrayContaining(['h-9', 'text-sm', 'sm:h-[1.625rem]', 'sm:text-xs']))
+      expect(classes).not.toContain('h-[26px]')
+      expect(classes).not.toContain('text-xs')
+    }
+  })
+
   it('refetches with a new window when the window is changed', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     const user = userEvent.setup()
     renderPanel('AAPL')
 
-    await screen.findByText('Insider Activity')
+    await screen.findByText('Insider activity')
     await user.click(screen.getByRole('button', { name: '1Y' }))
     await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledWith('AAPL', 365))
   })
@@ -106,7 +188,7 @@ describe('InsiderActivityPanel', () => {
     })
     renderPanel()
 
-    await waitFor(() => expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Insider activity')).not.toBeInTheDocument())
   })
 
   it('shows the FPI note and skips the live SEC read for foreign private issuers', async () => {
@@ -131,6 +213,6 @@ describe('InsiderActivityPanel', () => {
     )
 
     await waitFor(() => expect(getInsiderActivity).not.toHaveBeenCalled())
-    expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument()
+    expect(screen.queryByText('Insider activity')).not.toBeInTheDocument()
   })
 })

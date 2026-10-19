@@ -6,14 +6,21 @@ unexpected-error fallbacks with and without rows to fall back on, the skip warni
 cgi-bin URL rewrite in the live persistence, filing-type parsing, and the durable-task handoff
 payloads with their release-before-enqueue ordering and their outage warning (still logged from
 the router). This suite pins them so moving the route's database work into ``app/services/`` is
-provably behaviour-neutral. SEC calls are patched on the shared ``sec_edgar_service`` singleton;
-every test runs on a private SQLite engine.
+provably behaviour-neutral. It also pins that ``?filing_types=`` is validated where it enters and
+never reaches the durable refresh, so a caller cannot queue one task per distinct value (the gate
+for ``lessons/arch-caller-input-never-names-a-durable-task.md``). SEC calls are patched on the
+shared ``sec_edgar_service`` singleton; every test runs on a private SQLite engine.
 """
 import asyncio
+import base64
+import json
 import logging
+import time
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -26,14 +33,19 @@ from app.config import settings
 from app.database import Base, get_db
 from app.models import Company, Filing
 from app.routers import filings as filings_mod
-from app.services import filing_amendment_service, filing_list_service
-from app.services.durable_tasks import TaskUnavailable
+from app.services import background_task_runner, durable_tasks as transport, filing_amendment_service, filing_list_service
+from app.services.durable_tasks import TaskEnvelope, TaskUnavailable
 from app.services.edgar.compat import sec_edgar_service
+from app.services.edgar.config import FilingType
 from app.services.edgar.exceptions import EdgarError
+from app.services.latest_filing_service import company_list_forms
 
 ROUTER_LOGGER = "app.routers.filings"
 PERSIST_LOGGER = "app.services.filing_list_service"  # the live-persistence skip warnings moved
 DEFAULT_TYPES = ["10-K", "10-Q", "10-K/A", "10-Q/A"]
+ACCEPTED_TYPES = ["10-K", "10-K/A", "10-Q", "10-Q/A", "8-K", "8-K/A", "20-F", "20-F/A", "40-F", "40-F/A",
+                  "6-K", "6-K/A", "3", "4", "5", "13F-HR", "13F-HR/A"]
+OTHER_TYPES = [form for form in ACCEPTED_TYPES if form not in DEFAULT_TYPES]  # with ENABLE_FPI_FILINGS off
 UNAVAILABLE = "SEC EDGAR is temporarily unavailable. Please retry shortly."
 SLOW = "SEC EDGAR is slow to respond and no cached data is available. Please retry in a moment."
 
@@ -402,6 +414,9 @@ def test_live_persistence_skips_incomplete_rows_and_rewrites_viewer_urls(client,
 
 @pytest.mark.parametrize("params, fpi, expected", [
     ({"filing_types": " 10-K, 8-K"}, False, ["10-K", "8-K", "10-K/A"]),
+    # Validated where it enters: spellings read as the SEC form, unknown forms and blanks dropped.
+    ({"filing_types": "10k, 10-q/a,JUNK,"}, False, ["10-K", "10-Q/A", "10-K/A"]),
+    ({"filing_types": "JUNK,"}, False, []),  # names no known form: lists nothing
     ({}, True, ["10-K", "10-Q", "20-F", "6-K", "40-F", "10-K/A", "10-Q/A"]),
     ({}, False, DEFAULT_TYPES),
 ])
@@ -479,6 +494,59 @@ def test_durable_handoff_payloads_and_pool_release(tmp_path, monkeypatch):
     assert fetched == []
 
 
+def test_durable_miss_path_releases_the_company_persist_before_the_history_handoff(tmp_path, monkeypatch):
+    """A first view of a ticker the database does not hold persists the SEC company in its own unit
+    and, with durable tasks on (production's setting), hands the new company's history backfill to
+    the queue. The persist's own release is all that frees the connection before that control-plane
+    wait: the route releases nothing itself (lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'miss-handoff.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool, pool_size=1, max_overflow=0, pool_timeout=0.05,
+    )
+    Base.metadata.create_all(bind=engine)
+    testing_session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+    def override_get_db():
+        with testing_session() as db:
+            yield db
+
+    calls = []
+
+    async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
+        calls.append((kind, payload, engine.pool.checkedout()))
+        return f"task-{kind}"
+
+    async def search(_ticker):
+        return [dict(_HIT)]
+
+    async def primary(_cik):
+        return "MISS"
+
+    async def get_filings(cik, types):
+        return []
+
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "ENABLE_HISTORY_BACKFILL_ON_VISIT", True)
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", False)
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
+    monkeypatch.setattr(sec_edgar_service, "search_company", search)
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", primary)
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+    monkeypatch.setitem(main.app.dependency_overrides, get_db, override_get_db)
+    try:
+        resp = TestClient(main.app).get("/api/filings/company/miss")
+        with testing_session() as s:
+            company_id = s.query(Company).filter(Company.ticker == "MISS").one().id
+    finally:
+        engine.dispose()
+
+    assert resp.status_code == 200 and resp.json() == []
+    assert calls == [("history", {"company_id": company_id}, 0)]
+
+
 def test_durable_handoff_outage_serves_cached_rows_and_warns_from_the_router(
     client, sessions, monkeypatch, caplog
 ):
@@ -513,6 +581,214 @@ def test_durable_handoff_outage_serves_cached_rows_and_warns_from_the_router(
         (logging.WARNING, "On-visit task handoff unavailable kind=filings"),
     ]
     assert fetched == []
+
+
+def _fake_cloud_tasks(monkeypatch):
+    """Configure durable tasks and run the real ``enqueue_task`` with only the Cloud Tasks HTTP call
+    faked. The fake queue keeps one task per name and answers 409 for a name it already holds, as
+    Cloud Tasks does. Both bucket clocks, the task name's and the router guard's, are pinned so a
+    run cannot straddle a dedupe bucket."""
+    for key, value in {
+        "DURABLE_TASKS_ENABLED": True, "TASKS_PROJECT_ID": "test-project",
+        "TASKS_LOCATION": "us-west1", "TASKS_QUEUE": "background",
+        "TASKS_WORKER_URL": "https://worker-xyz-uw.a.run.app",
+        "TASKS_INVOKER_EMAIL": "task-worker@test-project.iam.gserviceaccount.com",
+    }.items():
+        monkeypatch.setattr(settings, key, value)
+    queue: dict[str, dict] = {}
+    creates: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        task = json.loads(request.content)["task"]
+        creates.append(task["name"])
+        if task["name"] in queue:
+            return httpx.Response(409, request=request, json={})
+        queue[task["name"]] = json.loads(base64.b64decode(task["httpRequest"]["body"]))
+        return httpx.Response(200, request=request, json={})
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(transport, "_access_token", AsyncMock(return_value="metadata-only-token"))
+    monkeypatch.setattr(
+        transport.httpx, "AsyncClient",
+        lambda **kwargs: real_client(transport=httpx.MockTransport(respond), **kwargs),
+    )
+    monkeypatch.setattr(
+        transport, "time", SimpleNamespace(time=lambda: 1_800_000_000.0, monotonic=time.monotonic),
+    )
+    monkeypatch.setattr(filings_mod, "utcnow", lambda: datetime.fromtimestamp(1_800_000_000, timezone.utc))
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    return queue, creates
+
+
+@pytest.mark.parametrize("values, refreshes", [
+    pytest.param([f"10-K,JUNK{i}" for i in range(40)], [DEFAULT_TYPES], id="40-junk-values"),
+    # Known forms in other orders, subsets and spellings: validation alone cannot collapse these.
+    pytest.param(["10-Q", "10-Q,10-K", "8-K,10-K", "10k,10-q", "10-K/A,10-Q,8-K"],
+                 [DEFAULT_TYPES, OTHER_TYPES], id="known-forms"),
+])
+def test_filing_types_values_cannot_mint_durable_refresh_tasks(client, sessions, monkeypatch, values, refreshes):
+    """Whatever ``?filing_types=`` says, the public route queues at most two background refreshes per
+    company per time bucket: one of the company's list forms, and, once a visit serves stored rows
+    of another form, one of the other accepted forms. The refresh payload used to carry the caller's list, and
+    that payload names the Cloud Task (sha256 of key and body) and keys the router's per-process
+    guard, so every distinct value queued a new task: a worker child process and an SEC fetch each,
+    on the queue every durable job shares. Before the fix the 40 junk values queued 40 tasks."""
+    with sessions() as s:
+        company_id = _seed_company(s, ticker="DUR").id
+        for n, form in enumerate(("10-K", "10-Q", "8-K"), start=1):
+            _seed_filing(s, company_id, "0000000002", f"0000000002-25-00000{n}", form)
+    queue, creates = _fake_cloud_tasks(monkeypatch)
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append(types)
+        return []
+
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    # One process: the router's per-process guard admits a single handoff.
+    statuses = {client.get("/api/filings/company/dur", params={"filing_types": v}).status_code
+                for v in values}
+    one_process_creates = len(creates)
+    # Every request on a fresh instance: each create names the one task, which the queue holds.
+    for value in values:
+        monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+        client.get("/api/filings/company/dur", params={"filing_types": value})
+
+    assert len(queue) == len(refreshes), f"{len(queue)} durable tasks queued for one company in one bucket"
+    assert sorted(queue.values(), key=lambda task: len(task["payload"]["filing_types"])) == [
+        {"kind": "filings", "payload": {"company_id": company_id, "filing_types": forms}} for forms in refreshes
+    ]
+    assert one_process_creates == len(refreshes)
+    assert statuses == {200}
+    assert fetched == []  # every value was served from the stored rows
+
+
+@pytest.mark.parametrize("value, served, refreshes", [
+    ("10-K", ["10-K/A", "10-K"], [DEFAULT_TYPES]),  # the amendment rides along
+    ("8-K", ["8-K"], [DEFAULT_TYPES, OTHER_TYPES]),  # a form outside the list forms adds the other forms
+    ("10q,JUNK", ["10-Q"], [DEFAULT_TYPES]),  # read as 10-Q; the unknown form is dropped
+])
+def test_a_filing_types_filter_still_filters_the_served_rows(client, sessions, monkeypatch, value, served, refreshes):
+    """The refresh never follows the caller's own forms, but the response still does."""
+    with sessions() as s:
+        company_id = _seed_company(s, ticker="DUR").id
+        for n, (form, year) in enumerate((("10-K/A", 2025), ("10-K", 2024), ("10-Q", 2023), ("8-K", 2022)), 1):
+            _seed_filing(s, company_id, "0000000002", f"0000000002-25-00000{n}", form, year=year)
+    calls = []
+
+    async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
+        calls.append((kind, payload))
+        return f"task-{kind}"
+
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    monkeypatch.setattr(sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
+
+    resp = client.get("/api/filings/company/dur", params={"filing_types": value})
+
+    assert resp.status_code == 200
+    assert [row["filing_type"] for row in resp.json()] == served
+    assert calls == [("filings", {"company_id": company_id, "filing_types": forms}) for forms in refreshes]
+
+
+@pytest.mark.parametrize("stored, value, refreshes", [
+    pytest.param(["10-K"], "10-K,8-K", [DEFAULT_TYPES], id="asks-for-an-8-K-it-does-not-hold"),
+    pytest.param(["10-K", "8-K"], "10-K,8-K", [DEFAULT_TYPES, OTHER_TYPES], id="serves-a-stored-8-K"),
+    pytest.param(["10-K", "4"], "10-K,8-K", [DEFAULT_TYPES], id="holds-a-Form-4-it-was-not-asked-for"),
+])
+def test_the_other_forms_refresh_follows_the_rows_a_visit_serves(client, sessions, monkeypatch, stored, value,
+                                                                  refreshes):
+    """A visit queues the other-forms refresh only when it serves stored rows of a form outside the
+    list forms, the rows that would otherwise go stale. A request that merely names such a form, with
+    none of it stored, refreshes the list forms alone, so it costs no second task."""
+    with sessions() as s:
+        company_id = _seed_company(s, ticker="DUR").id
+        for n, form in enumerate(stored, start=1):
+            _seed_filing(s, company_id, "0000000002", f"0000000002-25-00000{n}", form, year=2025 - n)
+    calls = []
+
+    async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
+        calls.append((kind, payload))
+        return f"task-{kind}"
+
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    monkeypatch.setattr(sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
+
+    assert client.get("/api/filings/company/dur", params={"filing_types": value}).status_code == 200
+    assert calls == [("filings", {"company_id": company_id, "filing_types": forms}) for forms in refreshes]
+
+
+@pytest.mark.parametrize("fpi", [False, True])
+def test_the_two_refresh_vocabularies_split_every_form_the_parameter_accepts(monkeypatch, fpi):
+    """Between them the two refresh payloads hold each form ``?filing_types=`` can list exactly once,
+    so a stored row of any form a visit asks for is refreshed by one of them."""
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", fpi)
+    listed, other = company_list_forms(), filing_list_service.other_filing_forms()
+    assert sorted(listed + other) == sorted(ACCEPTED_TYPES)
+    for form in FilingType:
+        assert set(filing_list_service.requested_filing_types(form.value)) <= set(listed + other), form
+
+
+def _sec_row(n, form):
+    accession = f"0000000002-26-{n:06d}"
+    return {"filing_type": form, "filing_date": "2026-10-01", "report_date": None, "cik": "0000000002",
+            "accession_number": accession, "sec_url": _archive("0000000002", accession),
+            "document_url": _archive("0000000002", accession) + "primary.htm"}
+
+
+FPI_LIST_TYPES = ["10-K", "10-Q", "20-F", "6-K", "40-F", "10-K/A", "10-Q/A"]  # with ENABLE_FPI_FILINGS on
+FPI_OTHER_TYPES = [form for form in ACCEPTED_TYPES if form not in FPI_LIST_TYPES]
+
+
+@pytest.mark.parametrize("stored, payload, fpi, fetched", [
+    # The list refresh fetches every list form, stored or not, so a company's first 10-Q arrives.
+    pytest.param(["10-K"], DEFAULT_TYPES, False, DEFAULT_TYPES, id="list-forms"),
+    # The other refresh fetches only the other forms the company already has rows of.
+    pytest.param(["10-K", "8-K"], OTHER_TYPES, False, ["8-K"], id="stored-8-K"),
+    pytest.param(["10-K", "4", "8-K"], OTHER_TYPES, False, ["8-K", "4"], id="stored-8-K-and-Form-4"),
+    # None stored: no SEC call and nothing written.
+    pytest.param(["10-K"], OTHER_TYPES, False, [], id="none-stored"),
+    # A task can outlive a change of ENABLE_FPI_FILINGS. Each payload keeps the meaning it was
+    # queued with: the other forms queued with the flag off include 20-F, 6-K and 40-F, which are
+    # list forms once it is on, and still fetch only the forms the company has.
+    pytest.param(["10-K", "8-K"], OTHER_TYPES, True, ["8-K"], id="other-forms-queued-before-the-flag-went-on"),
+    pytest.param(["10-K"], FPI_LIST_TYPES, False, FPI_LIST_TYPES, id="list-forms-queued-before-the-flag-went-off"),
+    pytest.param(["10-K"], DEFAULT_TYPES, True, DEFAULT_TYPES, id="list-forms-queued-before-the-flag-went-on"),
+    pytest.param(["20-F", "6-K/A"], FPI_OTHER_TYPES, False, ["6-K/A"], id="other-forms-queued-before-the-flag-went-off"),
+])
+@pytest.mark.asyncio
+async def test_a_refresh_fetches_list_forms_and_only_other_forms_already_stored(sessions, monkeypatch, stored,
+                                                                                payload, fpi, fetched):
+    """The worker fetches a list-forms payload whole and keeps any other payload to the forms the
+    company already has rows of, so the wider refresh keeps stored rows fresh without adding a form
+    nobody stored. Fetching every other form instead, one visit asking for an 8-K wrote up to 50 of
+    the newest rows across all of them: Forms 3/4/5 could crowd the 8-K out of that budget and showed
+    as the company's latest filing on its watchers' pages."""
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", fpi)
+    with sessions() as s:
+        company_id = _seed_company(s, ticker="WRK").id
+        for n, form in enumerate(stored, start=1):
+            _seed_filing(s, company_id, "0000000002", f"0000000002-24-00000{n}", form, year=2024)
+    calls = []
+
+    async def get_filings(cik, forms):
+        calls.append(forms)
+        return [_sec_row(n, form) for n, form in enumerate(forms, start=1)]
+
+    monkeypatch.setattr(background_task_runner, "SessionLocal", sessions)
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    await background_task_runner.run_background_task(
+        TaskEnvelope(kind="filings", payload={"company_id": company_id, "filing_types": payload}))
+
+    assert calls == ([fetched] if fetched else [])
+    with sessions() as s:
+        written = [f.filing_type for f in s.query(Filing).filter(Filing.filing_date >= datetime(2026, 1, 1))]
+    assert sorted(written) == sorted(fetched)
 
 
 @pytest.mark.asyncio
