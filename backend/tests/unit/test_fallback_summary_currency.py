@@ -129,6 +129,19 @@ def test_the_stored_fallback_backfills_a_zero_prior_in_the_filer_currency(curren
         assert "$" not in json.dumps(table)
 
 
+@pytest.mark.parametrize("currency", ["EUR", "AED", "SAR", "ILS"])
+def test_the_stored_fallback_keeps_its_change_figure_in_any_reporting_currency(currency):
+    """The stored fallback's revenue change, for a code the display parser read before (EUR) and
+    for codes it did not: an AED, SAR or ILS row stored no change figure before the full list."""
+    metrics = _metrics(currency)
+    payload = generate_xbrl_summary(metrics, "Example", filing_type="20-F")
+
+    _, raw_summary, _, _ = _finalize_summary_projection(payload, metrics, payload["status"])
+
+    revenue = raw_summary["sections"]["results_that_matter"]["table"][0]
+    assert (revenue["current_period"], revenue.get("change_display")) == (f"{currency} 941.2B", "+8.3%")
+
+
 def test_the_primary_path_backfill_labels_a_blank_prior_in_the_filer_currency():
     """The same backfill runs on the primary path when the model leaves a prior cell blank; a CNY
     filer's prior revenue must not come back as "$868,687,000,000" (about 7x too large)."""

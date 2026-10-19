@@ -22,11 +22,24 @@ _DISPLAY_UNITS = {
     "k": 3, "thousand": 3, "m": 6, "mn": 6, "million": 6,
     "b": 9, "bn": 9, "billion": 9, "t": 12, "trillion": 12,
 }
-_CURRENCY = (
-    r"(?:US\$|NT\$|HK\$|S\$|A\$|C\$|R\$|"
-    r"USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|"
-    r"SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD|[$€£¥₹₩])"
-)
+# Every code a money label can carry. ``money_prefix_for`` labels a figure with the filer's reporting
+# currency, which comes from its XBRL units, so any ISO 4217 currency can appear: List One as of
+# February 2026 (pycountry 26.2.16), without the fund codes and the X-codes that name no national
+# currency (precious metals, bond-market units, the SDR, units of account, XTS and XXX). A code ISO
+# has withdrawn, or none at all ("XYZ 5M"), stays unknown.
+ISO_4217_CURRENCIES = frozenset("""
+    AED AFN ALL AMD AOA ARS AUD AWG AZN BAM BBD BDT BHD BIF BMD BND BOB BRL BSD BTN BWP BYN BZD CAD CDF CHF
+    CLP CNY COP CRC CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF GTQ GYD HKD
+    HNL HTG HUF IDR ILS INR IQD IRR ISK JMD JOD JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL
+    LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MYR MZN NAD NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP
+    PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SOS SRD SSP STN SVC SYP SZL THB TJS TMT
+    TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VED VES VND VUV WST XAF XCD XCG XOF XPF YER ZAR ZMW ZWG
+""".split())
+# These read in any case, as they did before the full list. The rest read in capitals only, as
+# ``money_prefix_for`` writes them, so a word such as "all", "top" or "try" never reads as a currency.
+_ANY_CASE_CODES = "USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD"
+CURRENCY_CODE = rf"(?:{_ANY_CASE_CODES}|(?-i:{'|'.join(sorted(ISO_4217_CURRENCIES))}))"
+_CURRENCY = rf"(?:US\$|NT\$|HK\$|S\$|A\$|C\$|R\$|{CURRENCY_CODE}|[$€£¥₹₩])"
 _UNIT = r"(?:thousand|million|billion|trillion|mn|bn|[kmbt]|%|percent|bps|basis\s+points|x|×)"
 _DISPLAY_SCALAR = re.compile(
     rf"(?P<sign1>[+−-])?\s*(?:{_CURRENCY})?\s*(?P<sign2>[+−-])?\s*"

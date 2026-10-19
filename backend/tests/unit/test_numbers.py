@@ -152,3 +152,27 @@ def test_normalized_loss_changes_agree_with_shared_delta_direction():
         assert fact.delta_value == fact.current_value
         assert fact.delta_percent is None
         assert row_delta_fields({"current_period": current, "prior_period": "$0"}) == {}
+
+
+def test_every_currency_a_money_label_can_carry_parses_and_names_its_code():
+    """Rule 12 gate: ``money_prefix_for`` labels a figure with the filer's reporting currency, which
+    comes from its XBRL units, so the display parser and the exact-delta currency reader read every
+    ISO 4217 currency it can write. Before the full list, an AED, SAR or ILS figure parsed to
+    nothing and its row stored no change figure."""
+    from app.services.metric_delta_service import _display_currency
+    from app.utils.numbers import ISO_4217_CURRENCIES, money_prefix_for, parse_display_number
+
+    assert {"AED", "SAR", "ILS", "XAF", "XCG", "ZWG"} <= ISO_4217_CURRENCIES
+    assert not {"XYZ", "XXX", "XTS", "XAU", "XDR", "CLF", "ANG", "HRK"} & ISO_4217_CURRENCIES
+    for code in sorted(ISO_4217_CURRENCIES):
+        label = f"{money_prefix_for(code)}30.6B"
+        assert parse_display_number(label) == (Decimal("30600000000"), False), label
+        assert _display_currency(label) == (True, code), label
+
+    # A code reads in capitals, as money_prefix_for writes it, so a word never reads as a currency.
+    # The 21 codes the parser read before the full list still read in any case.
+    for text in ["aed 30.6B", "top 5", "all 5", "Try 5", "XYZ 5M", "XXX 5M", "XAU 5M", "CLF 5M"]:
+        assert parse_display_number(text) == (None, False), text
+    assert parse_display_number("usd 5m") == (Decimal("5000000"), False)
+    assert _display_currency("top 5 segments") == (False, None)
+

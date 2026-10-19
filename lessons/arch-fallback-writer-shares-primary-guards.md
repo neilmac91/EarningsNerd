@@ -16,7 +16,10 @@ found a third writer of the same cells: the prior-period backfill both paths run
 cells labels money with `app/utils/numbers.py` `money_prefix_for`, never with an inline "$" or a
 copy of the rule. When you change how the primary writer labels money, change the helper, so the
 fallback and the backfill follow, and keep the parity test passing. Test each writer with
-foreign-filer inputs as well as USD ones. No currency maps to "$" here. That is the backend's
+foreign-filer inputs as well as USD ones. A label is read back as well: the display parser
+(`parse_display_number`) and the change-figure reader (`metric_delta_service._display_currency`)
+take their codes from `ISO_4217_CURRENCIES` in the same module, so every code a label can carry
+reads back, in capitals as the helper writes it; a new reader of money cells takes them from there too. No currency maps to "$" here. That is the backend's
 domestic default for XBRL that names no currency. The frontend's rule for a payload without a
 currency is different: it shows no symbol (`lessons/frontend-xbrl-amounts-carry-their-own-currency.md`).
 
@@ -37,5 +40,8 @@ and `test_the_primary_path_backfill_labels_a_blank_prior_in_the_filer_currency` 
 A pasted copy of the rule passes those output tests, so
 `test_every_writer_takes_its_money_label_from_the_shared_helper` there reads the three writers'
 source: each must call the shared helper, and neither it nor its formatter may carry a "$"-led or
-"USD" literal. A new writer is review-checked. The same one-shared-predicate pattern for
+"USD" literal. A new writer is review-checked. The readers are gated by
+`backend/tests/unit/test_numbers.py::test_every_currency_a_money_label_can_carry_parses_and_names_its_code`,
+and the stored fallback's change figure for AED, SAR and ILS (none before the full list) by
+`test_the_stored_fallback_keeps_its_change_figure_in_any_reporting_currency`. The same one-shared-predicate pattern for
 model-facing surfaces: `lessons/arch-guard-every-model-facing-surface.md`.

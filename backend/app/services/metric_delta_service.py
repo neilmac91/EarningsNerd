@@ -22,7 +22,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
-from app.utils.numbers import parse_display_number
+from app.utils.numbers import CURRENCY_CODE, parse_display_number
 
 _MINUS = "−"  # U+2212 MINUS SIGN — byte-identical to the existing chip rendering
 
@@ -64,10 +64,7 @@ _NUMBER_TOKEN = re.compile(
     r"(?:(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.(?P<decimals>[0-9]+))?"
     r"|\.(?P<leading_decimals>[0-9]+))"
 )
-_CURRENCY_CODE = re.compile(
-    r"\b(USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD)\b",
-    re.IGNORECASE,
-)
+_CURRENCY_CODE = re.compile(rf"\b({CURRENCY_CODE})\b", re.IGNORECASE)  # the display parser's codes
 _SYMBOL_CURRENCY: dict[str, Optional[str]] = {
     "$": "USD", "€": "EUR", "£": "GBP", "¥": None, "₹": "INR", "₩": "KRW",
 }
