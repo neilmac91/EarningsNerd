@@ -502,6 +502,7 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     ("Stripe transaction", "test_subscription_event_transactions.py", "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
     ("usage counter", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
     ("login failure", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
+    ("refresh token rotation", "test_refresh_rotation_transactions.py", "REFRESH_CONCURRENCY_TEST_DATABASE_URL"),
 ])
 def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home, url_name):
     """The ordinary SQLite lane cannot establish PostgreSQL row-lock behavior."""

@@ -5,6 +5,10 @@ database never holds a usable credential. Every refresh rotates the token (the o
 revoked and points at its replacement); presenting a token that was already rotated away is
 treated as a reuse/theft signal and revokes the user's entire active chain. A token revoked any
 other way (logout, logout-all, a password change or reset, or that theft sweep) is simply refused.
+
+Each write of a user's tokens (a rotation, a revocation, the sweep) first takes the account's users
+row lock and reads what it writes under it, so two of them for one user run one after the other, on
+one API instance or across both (``_lock_user_tokens``).
 """
 from __future__ import annotations
 
@@ -33,6 +37,21 @@ class RefreshTokenReuseError(RefreshTokenError):
     active token chain is revoked), so the caller must commit — whereas a missing/expired/
     unknown token makes no writes and must not trigger a commit on unauthenticated traffic.
     """
+
+
+def _lock_user_tokens(db: Session, user_id: int) -> None:
+    """Take ``user_id``'s users row lock for the rest of the caller's transaction.
+
+    Every writer of a user's refresh tokens takes it before it reads the tokens it writes. Two
+    refreshes with one cookie both read the token live otherwise, and both mint a successor. A
+    refresh racing a logout or logout-all writes on its stale read, leaving a live successor. A
+    guarded UPDATE alone would not stop the logout-all case: its bulk UPDATE sees only rows committed
+    when it starts, so a successor committed after that survives it. The lock makes the second
+    writer wait for the first's commit, and the reads it then makes see that commit (READ
+    COMMITTED). FOR NO KEY UPDATE: it serializes these writers but not the foreign-key checks of
+    inserts elsewhere that name the user. Unbounded, as the holders are short transactions, and a
+    timeout would turn a moment's wait into a failed refresh. SQLite ignores it."""
+    db.query(User.id).filter(User.id == user_id).with_for_update(key_share=True).first()
 
 
 def _hash_token(raw_token: str) -> str:
@@ -98,6 +117,8 @@ def rotate_refresh_token(
     )
     if token is None:
         raise RefreshTokenError("Unknown refresh token")
+    _lock_user_tokens(db, token.user_id)
+    db.refresh(token)  # read again under the lock: a rotation or revocation committed since shows here
 
     now = datetime.utcnow()
 
@@ -149,14 +170,22 @@ def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> bool:
         .filter(RefreshToken.token_hash == _hash_token(raw_token))
         .first()
     )
-    if token is None or token.revoked_at is not None:
+    if token is None:
+        return False
+    _lock_user_tokens(db, token.user_id)
+    db.refresh(token)  # read again under the lock, as a rotation does
+    if token.revoked_at is not None:
         return False
     token.revoked_at = datetime.utcnow()
     return True
 
 
 def revoke_all_for_user(db: Session, user_id: int) -> int:
-    """Revoke all of a user's active refresh tokens. Returns the number revoked."""
+    """Revoke all of a user's active refresh tokens. Returns the number revoked.
+
+    Under the users row lock, so the bulk UPDATE starts after any rotation of this user's has committed
+    and revokes its successor too."""
+    _lock_user_tokens(db, user_id)
     now = datetime.utcnow()
     count = (
         db.query(RefreshToken)
