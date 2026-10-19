@@ -45,14 +45,16 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [referralRefused, setReferralRefused] = useState(false)
+  // The code "Join without the code" dropped (joinWithoutCode), so a submit before the URL loses it sends none.
+  const [droppedReferral, setDroppedReferral] = useState<string | null>(null)
   const [success, setSuccess] = useState<WaitlistSuccess | null>(null)
   const [copied, setCopied] = useState(false)
 
-  // Derived during render from the URL — referralCode is read-only (only ever
-  // submitted, never user-edited), so no state/effect is needed (per PR review).
-  // Guard on the raw param (like the prior effect) so a blank ref stays null.
+  // Derived during render from the URL: the code is only ever submitted, never typed. Guard on the raw param so a
+  // blank ref stays null. A code the reader dropped is not sent, even while the URL still holds it.
   const refParam = searchParams.get('ref')
-  const referralCode = refParam ? refParam.trim().toLowerCase() : null
+  const urlReferral = refParam ? refParam.trim().toLowerCase() : null
+  const referralCode = urlReferral === droppedReferral ? null : urlReferral
   const emailRef = useRef<HTMLInputElement>(null)
   // With Turnstile on, a join waits for a token: on the first load, while a new one is issued after each join the
   // form sends (handleSubmit's finally), and after one expires.
@@ -147,11 +149,13 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   }
 
   // "Join without the code" navigates to /waitlist, with no ?ref=. Search params do not remount a page in the App
-  // Router, so the form keeps what was typed and reads no code from the URL from then on. The refusal clears, and
-  // the focused link with it, so focus goes to the email field, where Enter submits. Link runs this as onNavigate,
-  // only for a navigation in this tab: a Ctrl or Cmd click opens /waitlist in a new tab and leaves this one, and its
-  // ?ref=, as they were.
+  // Router, so the form keeps what was typed. It drops the code here, as the link is followed: the URL keeps its
+  // ?ref= until the router commits the navigation, and Enter in the email field can come first. The refusal clears,
+  // and the focused link with it, so focus goes to the email field, where Enter submits. Link runs this as
+  // onNavigate, only for a navigation in this tab: a Ctrl or Cmd click opens /waitlist in a new tab and leaves this
+  // one, and its ?ref=, as they were.
   const joinWithoutCode = () => {
+    setDroppedReferral(urlReferral)
     setReferralRefused(false)
     emailRef.current?.focus()
   }

@@ -18,7 +18,8 @@ import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
  * face, so its code reads as typed, and the share links wrap inside the card at 200% text. A code no
  * signup holds is answered 400 with the router's code and no `detail`: the form routes on the code to its
  * own sentence, never on the router's words, and never prints axios's "Request failed with status code 400".
- * Under it, "Join without the code" links to /waitlist (F47, D-046), and the submit after it carries no code.
+ * Under it, "Join without the code" links to /waitlist (F47, D-046), and the submit after it carries no code,
+ * even one that comes before the router commits the navigation and the URL loses its ?ref=.
  * A Ctrl or Cmd click opens the link in a new tab and leaves this one as it was. A Turnstile token verifies
  * once, so a join that does not land renews the widget, and the next submit carries a new token. While a token
  * comes, the button keeps focus and is aria-disabled, never natively disabled, and a press sends nothing.
@@ -28,18 +29,37 @@ const api = vi.hoisted(() => ({ joinWaitlist: vi.fn() }))
 vi.mock('@/features/waitlist/api/waitlist-api', () => ({ joinWaitlist: api.joinWaitlist }))
 // The page's URL, which the form reads its code from. A client-side navigation (the next/link stand-in below)
 // changes it and re-renders the hook's readers without remounting them, as the App Router does for search params.
+// The router changes it only when it commits the navigation, once the new route is ready: while a case holds the
+// navigation (hold), the URL keeps its old search until the case commits it.
 const url = vi.hoisted(() => {
   const opened = 'ref=ABC12345'
   let search = opened
+  let held = false
+  let pending: string | null = null
   const listeners = new Set<() => void>()
+  const set = (next: string) => {
+    search = next
+    listeners.forEach((listener) => listener())
+  }
   return {
     read: () => search,
     go(href: string) {
-      search = new URL(href, 'https://earningsnerd.io').search.slice(1)
-      listeners.forEach((listener) => listener())
+      const next = new URL(href, 'https://earningsnerd.io').search.slice(1)
+      if (held) pending = next
+      else set(next)
+    },
+    hold: () => {
+      held = true
+    },
+    commit() {
+      held = false
+      if (pending !== null) set(pending)
+      pending = null
     },
     reset: () => {
       search = opened
+      held = false
+      pending = null
     },
     subscribe(listener: () => void) {
       listeners.add(listener)
@@ -242,6 +262,20 @@ describe('waitlist join refused', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
     expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent("You're on the waitlist.")
     expect(api.joinWaitlist).toHaveBeenLastCalledWith(expect.objectContaining({ referral_code: null }), undefined)
+  })
+
+  it('sends no referral code on a submit that comes before the navigation commits', async () => {
+    const alert = await joinRefused()
+    url.hold()
+    fireEvent.click(within(alert).getByRole('link', { name: 'Join without the code' }))
+    // The URL still holds the code, and Enter in the email field, where focus went, submits now.
+    expect(new URLSearchParams(url.read()).get('ref')).toBe('ABC12345')
+    expect(screen.getByLabelText('Email address')).toHaveFocus()
+    api.joinWaitlist.mockResolvedValueOnce({ success: true, message: "You're on the waitlist.", position: 43, referral_code: 'new00002', referral_link: link })
+    fireEvent.submit(screen.getByLabelText('Email address').closest('form')!)
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent("You're on the waitlist.")
+    expect(api.joinWaitlist).toHaveBeenLastCalledWith(expect.objectContaining({ referral_code: null }), undefined)
+    act(() => url.commit())
   })
 
   it('keeps the refusal on a Ctrl or Cmd click, which opens the link in a new tab and leaves this one on its ?ref=', async () => {
