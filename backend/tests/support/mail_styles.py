@@ -41,7 +41,10 @@
   reads it or in classic Outlook's view, and each declaration, attribute or element that can hide text in a way the
   reader does not model or resolve, any property or element it has not been taught among them (E110); the gate
   sets the preheader aside, the one text a page may hide;
-- ``shown_text``: the text a page shows below its header, a line for each block, which a mail's text part says too.
+- ``shown_text``: the text a page shows below its header, a line for each block, which a mail's text part says too;
+- ``spamassassin_contrast_problems``: no text a page holds is one SpamAssassin 4.0 reads in an ink too like its
+  ground, as its own HTML parser reads a text's colours (a port of it, on the tags the standard library's parser
+  reads, not on ``tinyhtml5``'s tree), and each part of a page the port does not read as it does (E125).
 
 A page is read as a browser builds it, by ``tinyhtml5``, the WHATWG tree builder (``requirements.in``): an end tag
 a browser implies is implied, a ``/>`` on an element that is not void is ignored, the first of two same-named
@@ -242,7 +245,7 @@ from bisect import bisect_right
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from functools import cache
-from html.entities import html5
+from html.entities import html5, name2codepoint
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -250,6 +253,8 @@ import tinycss2
 import tinyhtml5
 from tinycss2.ast import Node
 from tinycss2.color4 import parse_color
+from tinyhtml5.constants import Token
+from tinyhtml5.tokenizer import HTMLTokenizer
 
 # A run this long, with nowhere to break, can fill the panel's text column on the narrowest phone. In
 # Chromium's phone view at 320 px, where the mail's font stacks resolve to Inter here, the shortest runs of a
@@ -3684,3 +3689,267 @@ def shown_text(page: str) -> str:
     texts, _refused = _texts(page, outlook=False)
     joined = "".join(text for reason, text, header in texts if reason is None and not header)
     return "\n".join(line for line in (" ".join(part.split()) for part in joined.split(_BLOCK_EDGE)) if line)
+
+
+# SpamAssassin 4.0's HTML parser (Mail::SpamAssassin::HTML: text_style, close_table_tag, close_tag, html_text and
+# html_font_invisible) reads a text's colours off a stack of the elements whose tags change them, and these are they, a
+# <th> read as a <td>. It reads a style's colours on a table, a row, a cell, a span, a p, a div and a link alone, and an
+# ink off these attributes; a ground nowhere else. The bgcolor attribute it takes in on a table, a row, a cell and a
+# body sets nothing, and it reads no tag of a marquee, whose attributes it lists all the same (measured with
+# SpamAssassin 4.0.0, E125).
+_SPAMASSASSIN_STACKED = frozenset({"body", "font", "basefont", "table", "tr", "td", "big", "small", "span", "p", "div", "a"})
+_SPAMASSASSIN_STYLED = frozenset({"table", "tr", "td", "span", "p", "div", "a"})
+_SPAMASSASSIN_INKS = {"body": "text", "font": "color", "basefont": "color"}
+# A declaration of a style split at each ";" that sets a text's ink, or after "background-" its ground: the colon right
+# after the name, in any case. The reader matches it in ASCII and refuses a style past ASCII (``_SpamAssassinColours``).
+# The values that keep the colour below, and the colours below them all.
+_SPAMASSASSIN_COLOUR = re.compile(r"\s*(background-)?color:\s*(.+?)\s*$", re.IGNORECASE | re.ASCII)
+_SPAMASSASSIN_KEEPS = frozenset({"inherit", "!important"})
+_SPAMASSASSIN_DEFAULT = ("default", "#000000", "#ffffff")
+# What it takes out of a text before it asks whether the text holds a character (html_text): ASCII whitespace, and the
+# two characters its pattern for UTF-8's no-break space matches in a mail's text, which it reads decoded to characters
+# (Message::Node::rendered, under normalize_charset's default): a capital A with a circumflex (U+00C2), then a no-break
+# space. A no-break space alone is a character; "&nbsp;" it reads as a space before it parses the page.
+_SPAMASSASSIN_BLANK = re.compile("[ \t\n\r\f\x0b]|\u00c2\u00a0")
+# The names HTML::Parser decodes in a text (HTML::Entities' table, HTML 4's and "apos"); any other stays text.
+_SPAMASSASSIN_ENTITIES = {**name2codepoint, "apos": 0x27}
+# The elements whose content it (HTML::Parser) or the standard library's parser, in one Python release or another,
+# reads as raw text, each on terms of its own.
+_SPAMASSASSIN_RAW = frozenset({
+    "script", "style", "title", "textarea", "xmp", "plaintext", "listing", "iframe", "noembed", "noframes",
+})
+_SIX_DIGITS = re.compile(r"#[0-9a-f]{6}")
+
+
+def _spamassassin_too_alike(ink: str, ground: str) -> bool:
+    """Whether SpamAssassin reads an ink as too like its ground (html_font_invisible): the same six digits, or a distance
+    under 12 between them, each channel's difference weighted by its share of brightness, computed as it computes it."""
+    if ink[-6:] == ground[-6:]:
+        return True
+    (r1, g1, b1), (r2, g2, b2) = ((int(colour[1:3], 16), int(colour[3:5], 16), int(colour[5:7], 16)) for colour in (ink, ground))
+    return ((0.2126 * (r1 - r2)) ** 2 + (0.7152 * (g1 - g2)) ** 2 + (0.0722 * (b1 - b2)) ** 2) ** 0.5 < 12
+
+
+def _token_errors(page: str) -> list[str]:
+    """Each parse error a browser's tokenizer reports on a page (tinyhtml5's), once, but two attributes of one name,
+    which SpamAssassin's parser reads as a browser does (the first)."""
+    errors = (token["data"] for token in HTMLTokenizer(page) if token["type"] is Token.PARSE_ERROR)
+    return list(dict.fromkeys(error for error in errors if error != "duplicate-attribute"))
+
+
+class _SpamAssassinColours(HTMLParser):
+    """The colours SpamAssassin's HTML parser reads each text of a page in, on the tags the standard library's parser
+    reads off it (``spamassassin_contrast_problems``): ``too_alike`` holds each text it reads too like its ground, with
+    the ink and the ground it reads, and ``refused`` each part of the page the reader does not read as it does."""
+
+    def __init__(self, page: str) -> None:
+        super().__init__(convert_charrefs=False)
+        self.stack = [_SPAMASSASSIN_DEFAULT]
+        self.text: list[str] = []
+        self.too_alike: list[tuple[str, str, str]] = []
+        self.refused: list[str] = []
+        # SpamAssassin reads "&nbsp;" as a space and a curly double quote as a straight one before it parses a page.
+        self.feed(page.replace("&nbsp;", " ").replace("\u201c", '"').replace("\u201d", '"'))
+        self.close()
+        self._read_text()
+
+    def set_cdata_mode(self, elem: str, **kwargs: object) -> None:
+        pass  # every element whose content a parser reads as raw text is refused, so the reader reads none so
+
+    def _read_text(self) -> None:
+        """Read the text since the last tag, comment or declaration as SpamAssassin reads a text: one it asks about
+        where anything is left once its blanks are taken out."""
+        text, self.text = "".join(self.text), []
+        if _SPAMASSASSIN_BLANK.sub("", text):
+            _tag, ink, ground = self.stack[-1]
+            if _spamassassin_too_alike(ink, ground):
+                self.too_alike.append((" ".join(text.split()), ink, ground))
+
+    def handle_data(self, data: str) -> None:
+        self.text.append(data)
+
+    def handle_entityref(self, name: str) -> None:
+        code = _SPAMASSASSIN_ENTITIES.get(name)
+        self.text.append(f"&{name};" if code is None else chr(code))
+
+    def handle_charref(self, name: str) -> None:
+        digits, base = (name[1:], 16) if name[:1] in "xX" else (name, 10)
+        digits = digits.lstrip("0") or "0"
+        # Past Unicode's last code point (seven digits hold every one in either base) a browser's tokenizer reads an
+        # error, which refuses the page, and a browser reads the replacement character, as the reader does to read on.
+        code = int(digits, base) if len(digits) <= 7 else 0x110000
+        self.text.append(chr(code) if code <= 0x10FFFF else "\ufffd")
+
+    def handle_comment(self, data: str) -> None:
+        self._read_text()
+
+    def handle_decl(self, decl: str) -> None:
+        self._read_text()
+
+    def handle_pi(self, data: str) -> None:
+        self._read_text()
+
+    def unknown_decl(self, data: str) -> None:
+        self._read_text()
+        self.refused.append(
+            f"a marked section (<![{data[:20]}) holds what SpamAssassin's HTML parser reads on terms of its own (a CDATA "
+            "section's markup as text): leave it out of the page"
+        )
+
+    def _ascii_name(self, tag: str) -> None:
+        """Refuse a tag whose name, as the standard library's parser reads it, holds a character past ASCII."""
+        if not tag.isascii():
+            self.refused.append(
+                f"a tag's name, {tag!r}, holds a character past ASCII, which SpamAssassin, reading a mail's text as "
+                "characters, reads on terms of its own (before the \"/\" that closes a start tag, a no-break space as a "
+                "space, so it holds the tag open): write the tag's name in ASCII"
+            )
+
+    def _colour(self, tag: str, where: str, value: str, keeps: bool) -> str | None:
+        """The colour SpamAssassin reads off ``value``, as six-digit hex in small letters: None where it keeps the colour
+        below (``keeps``, in a style alone) or where the reader refuses the value."""
+        value = value.strip(" \t\n\r\f\v").translate(_ASCII_LOWER)
+        if keeps and value in _SPAMASSASSIN_KEEPS:
+            return None
+        if _SIX_DIGITS.fullmatch(value):
+            return value
+        self.refused.append(
+            f"<{tag}>'s {where} is {value!r}, which the reader does not read as SpamAssassin reads it (a name, a short hex "
+            "and rgb() as colours of its own, a value with !important after it as an invalid colour): write it as "
+            "six-digit hex, as colour_problems asks"
+        )
+        return None
+
+    def _referenced(self, names: set[str]) -> list[str]:
+        """The attributes of ``names`` that the start tag being read writes with an ampersand, the first of each name."""
+        written, seen, found = self.get_starttag_text() or "", set(), []
+        position = _START_TAG.match(written).end()
+        while (attribute := _ATTRIBUTE.match(written, position)).group(1):
+            name = attribute.group(1).translate(_ASCII_LOWER)
+            if name in names and name not in seen and "&" in (attribute.group(2) or ""):
+                found.append(name)
+            seen.add(name)
+            position = attribute.end()
+        return found
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._read_text()
+        self._ascii_name(tag)
+        if tag in _SPAMASSASSIN_RAW:
+            self.refused.append(
+                f"<{tag}> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, "
+                "in one Python release or another, each on terms of its own: leave it out of the page"
+            )
+        tag = "td" if tag == "th" else tag
+        if tag not in _SPAMASSASSIN_STACKED:
+            return
+        first: dict[str, str] = {}
+        for name, value in attrs:
+            first.setdefault(name, value or "")  # HTML::Parser keeps the first of two same-named attributes, as a browser does
+        ink_from, styled = _SPAMASSASSIN_INKS.get(tag), tag in _SPAMASSASSIN_STYLED
+        for name in self._referenced({ink_from or "", "style" if styled else "", "size" if tag == "basefont" else ""} - {""}):
+            self.refused.append(
+                f"<{tag}>'s {name} attribute is written with a character reference, which SpamAssassin's HTML parser "
+                "(HTML::Parser) decodes on terms of its own: write the characters themselves"
+            )
+        style = first.get("style", "") if styled else ""
+        if not style.isascii():
+            self.refused.append(
+                f"<{tag}>'s style holds a character past ASCII, and SpamAssassin, which reads a mail's text as characters, "
+                "matches a colour's declaration in Unicode (a no-break space as a space, a Kelvin sign as a k): write the "
+                "style in ASCII"
+            )
+        size = first.get("size", "") if tag == "basefont" else ""
+        if not size.isascii():
+            self.refused.append(
+                "<basefont>'s size holds a character past ASCII, and SpamAssassin, which reads a mail's text as "
+                "characters, matches its digits and spaces in Unicode (a digit of another script as a digit, a no-break "
+                "space as a space): write the size in ASCII"
+            )
+        if re.match(r"\s*\d", size, re.ASCII):
+            return  # it reads a basefont's size alone where the basefont sets one
+        if tag in ("td", "tr") and any(entry[0] == tag for entry in self.stack):
+            closing = ("font", "td") if tag == "td" else ("font", "td", "tr")
+            while self.stack[-1][0] in closing:
+                self.stack.pop()
+        ink, ground = self.stack[-1][1:]
+        if tag not in ("big", "small"):
+            if ink_from in first:
+                ink = self._colour(tag, f"{ink_from} attribute", first[ink_from], keeps=False) or ink
+            for part in style.split(";"):
+                if declared := _SPAMASSASSIN_COLOUR.match(part):
+                    name = "background-color" if declared.group(1) else "color"
+                    colour = self._colour(tag, f"style's {name}", declared.group(2), keeps=True)
+                    ink, ground = (ink, colour or ground) if declared.group(1) else (colour or ink, ground)
+        self.stack.append((tag, ink, ground))
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)  # SpamAssassin holds a tag written closed open, its "/" read as nothing
+
+    def handle_endtag(self, tag: str) -> None:
+        self._read_text()
+        self._ascii_name(tag)
+        tag = "td" if tag == "th" else tag
+        if tag in _SPAMASSASSIN_STACKED and tag != "body" and any(entry[0] == tag for entry in self.stack):
+            while self.stack.pop()[0] != tag:
+                pass
+
+
+def spamassassin_contrast_problems(page: str) -> list[str]:
+    """Each text of a page that SpamAssassin 4.0 reads in an ink too like its ground, which it scores as hidden text
+    (HTML_FONT_LOW_CONTRAST: 0.713 where a receiver runs neither network tests nor Bayes, 0.786 with Bayes alone, 0.001
+    wherever it runs network tests, and two of its published metas build on it), and each part of the page the reader
+    does not read as it does (E125).
+
+    The reader is a port of SpamAssassin's own reading as it reads a mail (Mail::SpamAssassin::HTML: text_style,
+    close_table_tag, close_tag, html_text and html_font_invisible, on a mail's text decoded to characters, as
+    Message::Node::rendered hands it over under normalize_charset's default; measured with SpamAssassin 4.0.0), on the
+    tags the standard library's parser reads off the page once "&nbsp;" is a space and a curly double quote a straight
+    one, as SpamAssassin reads them. It keeps a stack of the elements whose tags change a text's colours
+    (``_SPAMASSASSIN_STACKED``), black on white below them all, each opening on the colours of the one below it: it
+    reads a text's ink off a body's ``text``, a font's or a basefont's ``color``, and the style of a table, a row, a cell
+    (a ``<th>`` read as a ``<td>``), a span, a p, a div or a link, and its ground off that style alone. A style is split
+    at each ";", and a declaration sets a colour where it reads ``color:`` or ``background-color:``, in any case, the
+    colon right after the name: the last in a style is read, and ``inherit`` or ``!important`` alone keeps the colour
+    below. So it reads no ``bgcolor`` attribute, though it takes one in on a table, a row, a cell and a body, no
+    ``background`` shorthand, no style on a body, a heading, an ``<em>`` or any element but those, and no ``color :``
+    spaced before its colon; it reads no tag of a marquee, a basefont that sets a size sets no colour, and a big or a
+    small reads no attribute. A cell's start tag first closes the cells and fonts open at the top of the stack where a
+    cell is open, and a row's the rows too, but nothing past them, so a span left open in a cell outlasts the cell, where
+    a browser closes it; an end tag closes every element open above the innermost of its name, and nothing where none is
+    open; a body's end tag closes nothing; a tag written closed is held open; and of two same-named attributes the first
+    is read. A text runs to the next tag, comment or declaration, and counts where it holds anything but ASCII
+    whitespace and a capital A with a circumflex followed by a no-break space (``_SPAMASSASSIN_BLANK``): a no-break space
+    alone counts, and so does a zero-width space. A name HTML 4 defines it decodes in a text, and any other
+    (``&Tab;``) it reads as written. A comment holds no text, so what classic Outlook's conditional comments hold is
+    unread. Too alike is the same six digits, or a distance under 12, each channel's difference weighted by its share of
+    brightness (0.2126, 0.7152 and 0.0722).
+
+    The reader fails closed. It reads markup a browser's tokenizer reads without error, two attributes of one name aside
+    (``_token_errors``), and refuses any other: a comment closed by ``-- >``, where HTML::Parser ends it, or by ``--!>``,
+    an end tag holding an attribute, a ``/`` or a control character between a tag's name and its attributes, a bare
+    ``&`` or a reference left unclosed, which the parsers tokenize each on terms of its own. It reads a colour as
+    six-digit hex alone, which ``colour_problems`` holds every page to, and refuses any other value SpamAssassin reads
+    as a text's ink or ground; a style or a basefont's size past ASCII, which SpamAssassin matches in Unicode; a tag's
+    name past ASCII, since SpamAssassin reads a no-break space before the "/" that closes a start tag as a space and
+    holds the tag open, where the standard library's parser reads the space into the name; an attribute it reads (a
+    style, an ink, a basefont's size) that is written with a character reference, which HTML::Parser decodes on terms
+    of its own; an element whose content one parser or the other reads as raw text (a script, a style, a title, a
+    textarea, an xmp, a plaintext, a listing, an iframe, a noembed, a noframes); and a marked section, a CDATA
+    section's markup among them, which SpamAssassin reads as text."""
+    colours = _SpamAssassinColours(page)
+    too_alike = [
+        f"SpamAssassin reads {text[:60]!r} in {ink} on {ground}, too like its ground, and scores it as hidden text "
+        "(HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the "
+        "style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin "
+        "reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around "
+        "a text sets a ground it reads"
+        for text, ink, ground in dict.fromkeys(colours.too_alike)
+    ]
+    refused = [
+        f"a browser's tokenizer reads the page's markup with an error ({error}), and SpamAssassin's HTML parser "
+        "(HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms "
+        "of its own: write the markup without it (a bare & as &amp;)"
+        for error in _token_errors(page)
+    ]
+    return too_alike + sorted(set(colours.refused + refused))

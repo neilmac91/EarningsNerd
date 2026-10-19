@@ -13,7 +13,7 @@ vi.mock('posthog-js', async (original) => ({ ...await original<object>(), defaul
 vi.mock('posthog-js/react', () => ({ PostHogProvider: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock('@/components/CookieConsent', () => ({ getCookiePreferences: () => consent.current }))
 vi.mock('next/navigation', () => ({ usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }))
-vi.mock('@vercel/analytics/next', () => ({ Analytics: () => null }))
+vi.mock('@vercel/analytics/next', () => ({ Analytics: () => <span data-testid="vercel-analytics" /> }))
 
 const TOKEN = 'synthetic-auth-value-never-a-real-token'
 const JWT = ['eyJhbGciOiJub25lIn0', 'eyJzdWIiOiJmaXh0dXJlIn0', 'c3ludGhldGlj'].join('.')
@@ -206,6 +206,8 @@ describe('authentication credentials never enter telemetry', () => {
   it('honors analytics consent and recording consent at startup, updates and attempted resume after auth', async () => {
     const guard = await import('@/lib/telemetryPrivacy')
     const { PostHogProvider } = await import('@/app/posthog-provider')
+    // Vercel Web Analytics obeys the same choice at each step (D-046).
+    const { PrivateAnalytics } = await import('@/app/private-analytics')
     let config: Partial<PostHogConfig> | undefined
     mockPostHog.init.mockImplementation((_key, supplied: Partial<PostHogConfig>) => {
       config = supplied
@@ -213,11 +215,13 @@ describe('authentication credentials never enter telemetry', () => {
       supplied.loaded?.(mockPostHog as unknown as PostHog)
     })
     consent.current = null
-    const view = render(<PostHogProvider><span>App remains available</span></PostHogProvider>)
+    const view = render(<><PostHogProvider><span>App remains available</span></PostHogProvider><PrivateAnalytics /></>)
     expect(mockPostHog.init).not.toHaveBeenCalled()
+    expect(view.queryByTestId('vercel-analytics')).toBeNull()
     consent.current = { analytics: true, sessionRecording: true }
     act(() => window.dispatchEvent(new CustomEvent('cookieConsentChanged', { detail: consent.current })))
     expect(config?.before_send).toBeTypeOf('function')
+    expect(view.getByTestId('vercel-analytics')).toBeInTheDocument()
     expect(config?.enable_recording_console_log).toBe(false)
     expect(mockPostHog.startSessionRecording).toHaveBeenCalled()
     guard.protectTelemetryRoute('/reset-password')
@@ -228,6 +232,7 @@ describe('authentication credentials never enter telemetry', () => {
     consent.current = { analytics: false, sessionRecording: false }
     act(() => window.dispatchEvent(new CustomEvent('cookieConsentChanged', { detail: consent.current })))
     expect(mockPostHog.opt_out_capturing).toHaveBeenCalled()
+    expect(view.queryByTestId('vercel-analytics')).toBeNull()
     view.unmount()
   })
 
