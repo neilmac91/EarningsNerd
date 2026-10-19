@@ -15,19 +15,26 @@ import { PRO_FAIR_USE_LINE, PRO_SUMMARY_MONTHLY_CAP } from '@/lib/planLimits'
  *    backend/app/services/entitlements.py declares it as forward-looking, and no code ages out, hides or deletes a
  *    Free account's summaries. The first case lists every read of that field in backend/app (an attribute read
  *    anywhere, or the name in any module but entitlements.py, where the dataclass declares it and the plan blocks
- *    set it) and every summary model the scheduled purge (services/retention_service.py) imports, in any import form
- *    (planted); both lists are empty. A PR that enforces a retention through either fails it, and states the claim in
- *    that PR with this gate moved beside it. Out of reach: a retention with its window hardcoded in another module.
+ *    set it) and every summary model the scheduled purge (services/retention_service.py) imports, in each import
+ *    form the self-check plants, at the module's top or indented inside a function (precompute_service.py imports
+ *    Summary that way); both lists are empty. A PR that enforces a retention through either fails it, and states
+ *    the claim in that PR with this gate moved beside it. Out of reach: a retention with its window hardcoded in
+ *    another module, and a model reached through a module object (`import app.models`, `from app import models`), a
+ *    star import or a relative one, none of which backend/app uses for app.models.
  *    The second reads every copy literal (a string, a template with each substitution read as `{x}`, JSX text) of
  *    every tracked module under app, components, features, hooks and lib, and fails one that claims a summary
- *    history, its length or that summaries are kept (HISTORY_CLAIMS). The company page's filing history ("Show
- *    full history", "Full history on SEC EDGAR") and a company's "reporting history" are about filings, so the
- *    feature's bare name counts only as a whole literal ("Full history"). The planted forms score the reach; out of
- *    reach, planted as gaps: a claim split across literals or around an expression, and one said in other words.
+ *    history, its length or window, or that summaries are kept, "kept" after "summary" or "keeps" before it
+ *    (HISTORY_CLAIMS). The company page's filing history ("Show full history", "Full history on SEC EDGAR") and a
+ *    company's "reporting history" are about filings, so the feature's bare name counts only as a whole literal
+ *    ("Full history"); the dashboard's "Saved summaries" are the ones a reader saves, and name no window. The planted
+ *    forms score the reach; out of reach, planted as gaps: a claim split across literals or around an expression,
+ *    and one said in other words.
  * 2. Pro's fair-use guardrail is one sentence (E58): PRO_FAIR_USE_LINE in lib/planLimits.ts, built from
  *    PRO_SUMMARY_MONTHLY_CAP (which planLimitsLockstep.spec.ts holds to backend/app/config.py), placed by the /pricing
  *    FAQ and the filing page's monthly-limit card, and typed nowhere else: no other copy literal names a fair-use
- *    ceiling on summaries. PricingPage.spec.tsx and StreamingSummaryDisplay.spec.tsx see the sentence rendered.
+ *    ceiling on summaries, and no module but lib/planLimits.ts reads PRO_SUMMARY_MONTHLY_CAP, so the number reaches
+ *    copy only through the sentence (a typed "300 new summaries" is planLimitsLockstep.spec.ts's to fail).
+ *    PricingPage.spec.tsx and StreamingSummaryDisplay.spec.tsx see the sentence rendered.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -36,9 +43,11 @@ const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 
 const HISTORY_CLAIMS: Array<[string, RegExp]> = [
   ['a summary history', /\bsummary history\b/i],
-  ['a history length', /(?:\b\d+|\{x\})-day (?:summary )?history\b/i],
+  ['a history length', /(?:\b\d+|\{x\})-day (?:summary )?history\b|(?:\b\d+|\{x\}) days of (?:\w+ )?summar(?:y|ies)\b/i],
   ['days kept', /\bkeeps? (?:\d+|\{x\}) days\b/i],
-  ['summaries kept', /\bsummar(?:y|ies)\b[^.]{0,60}\bkept\b/i],
+  ['summaries kept', /\bsummar(?:y|ies)\b[^.]{0,60}\bkept\b|\b(?:keeps?|keeping|kept)\b[^.]{0,60}\bsummar(?:y|ies)\b/i],
+  // A window needs a verb that holds or ends the summary: "unlimited summaries for {x} days" (a trial) is not one.
+  ['a retention window', /\bsummar(?:y|ies)\b[^.]{0,60}\b(?:saved|stored|held|available|expire[sd]?|deleted|removed)\b[^.]{0,20}?(?:\b\d+|\{x\}) days\b/i],
   ['a history of summaries', /\bhistory of (?:your |the )?summaries\b/i],
   ['a retention', /\b(?:history|summary|summaries) retention\b|\bretain(?:s|ed)? (?:your )?summaries\b/i],
   ['the feature by name', /^\s*(?:full|unlimited|complete)(?: summary)? history\s*$/i],
@@ -77,16 +86,17 @@ const MODULES = execFileSync('git', ['ls-files', '--', ...SCAN_DIRS], { cwd: FRO
   .filter((rel) => /\.tsx?$/.test(rel) && !/\.(spec|test)\.tsx?$|\.d\.ts$/.test(rel))
 const LITERALS = MODULES.flatMap((rel) => literals(readFileSync(path.join(FRONTEND, rel), 'utf8'), rel))
 
-/** Every module and name a Python file imports from app.models, in any form: one line or a parenthesised list,
- * every import statement, a submodule (`from app.models.summary import ...`, `import app.models.summary`), an alias. */
+/** Every module and name a Python file imports from app.models: one line or a parenthesised list, every import
+ * statement, a submodule (`from app.models.summary import ...`, `import app.models.summary`), an alias, each at the
+ * module's top or indented inside a function body. */
 function modelImports(source: string): string[] {
   const names: string[] = []
-  for (const m of source.matchAll(/^from (app\.models(?:\.\w+)*) import (\([^)]*\)|[^\n]+)$/gm)) {
+  for (const m of source.matchAll(/^[ \t]*from (app\.models(?:\.\w+)*) import (\([^)]*\)|[^\n]+)$/gm)) {
     if (m[1] !== 'app.models') names.push(m[1])
     const list = m[2].replace(/#[^\n]*/g, '').replace(/[()]/g, '')
     names.push(...list.split(',').map((name) => name.trim().split(/\s+as\s+/)[0]).filter(Boolean))
   }
-  for (const m of source.matchAll(/^import (app\.models(?:\.\w+)*)/gm)) names.push(m[1])
+  for (const m of source.matchAll(/^[ \t]*import (app\.models(?:\.\w+)*)/gm)) names.push(m[1])
   return names
 }
 
@@ -119,6 +129,10 @@ describe('no summary-history claim while no retention is enforced (D-046)', () =
       ['from app.models.summary import SummaryArchive as Archive', true],
       ['from app.models import Summary as S', true],
       ['import app.models.summary', true],
+      // Imports inside a function body, the form precompute_service.py uses for Summary.
+      ['def purge(db):\n    from app.models import Summary\n    db.query(Summary).delete()', true],
+      ['def purge(db):\n\timport app.models.summary\n\tdb.query(app.models.summary.Summary).delete()', true],
+      ['def purge(db):\n    from app.models import LoginAttempt\n    db.query(LoginAttempt).delete()', false],
     ]
     expect(planted.map(([source]) => modelImports(source).some((name) => /summar/i.test(name)))).toEqual(planted.map(([, flag]) => flag))
   })
@@ -142,6 +156,11 @@ describe('no summary-history claim while no retention is enforced (D-046)', () =
       ['export const H = () => <li>Unlimited history</li>', true],
       ["export const I = 'The history of your summaries, for good'", true],
       ["export const J = 'Summary retention: 90 days'", true],
+      // Chief design's forms on c96ba0b0: "keeps" before the summary, a window, and days of summaries.
+      ["export const T = 'Pro keeps every summary you read.'", true],
+      ['export const U = `Summaries saved for ${N} days`', true],
+      ['export const V = `Free summaries expire after ${N} days`', true],
+      ['export const W = `${N} days of summaries`', true],
       ['export const K = () => <button>Show full history</button>', false],
       ['export const L = () => <a href="/x">Full history on SEC EDGAR</a>', false],
       ["export const M = (t: string) => `Fetching ${t}'s full SEC reporting history.`", false],
@@ -149,6 +168,8 @@ describe('no summary-history claim while no retention is enforced (D-046)', () =
       ["export const P = () => window.history.replaceState({}, '', '/x')", false],
       ['// Free keeps 90 days: a comment is not copy', false],
       ["export const Q = 'Your existing summaries remain accessible.'", false],
+      ['export const X = () => <h2>Saved summaries</h2>', false],
+      ['export const Y = `Unlimited summaries for ${N} days on the trial`', false],
       ["export const R = () => <p>Full{' '}history</p>", 'gap'],
       ["export const S = 'We hold on to everything you read.'", 'gap'],
     ]
@@ -187,4 +208,44 @@ describe("Pro's fair-use guardrail is one sentence, read at the FAQ and the limi
     expect(elsewhere.map((l) => `${l.rel}:${l.line} ${JSON.stringify(l.text)}`)).toEqual([])
     expect(LITERALS.filter((l) => l.rel === 'lib/planLimits.ts' && SUMMARY_FAIR_USE.test(l.text))).toHaveLength(1)
   })
+
+  it('no module but lib/planLimits.ts reads PRO_SUMMARY_MONTHLY_CAP, so the number reaches copy only through the sentence', () => {
+    const reads = MODULES.filter((rel) => rel !== 'lib/planLimits.ts').flatMap((rel) =>
+      capReads(readFileSync(path.join(FRONTEND, rel), 'utf8'), rel).map((line) => `${rel}:${line}`),
+    )
+    expect(reads, "state Pro's ceiling by placing PRO_FAIR_USE_LINE, never by reading the cap").toEqual([])
+    expect(capReads(readFileSync(path.join(FRONTEND, 'lib/planLimits.ts'), 'utf8'), 'lib/planLimits.ts').length, 'the read finds the declaration').toBeGreaterThan(0)
+  })
+
+  it('reads the cap under any name a module gives it, and passes the sentence and a comment (a self-check on planted forms)', () => {
+    const flagged: Record<string, string> = {
+      'a named import read in JSX': "import { PRO_SUMMARY_MONTHLY_CAP } from '@/lib/planLimits'\nexport const A = () => <p>Pro accounts can generate up to {PRO_SUMMARY_MONTHLY_CAP} new summaries a month.</p>",
+      'a renamed import': "import { PRO_SUMMARY_MONTHLY_CAP as CAP } from '@/lib/planLimits'\nexport const B = `${CAP} a month`",
+      'a namespace member': "import * as plan from '@/lib/planLimits'\nexport const C = plan.PRO_SUMMARY_MONTHLY_CAP",
+      'a string key': "import * as plan from '@/lib/planLimits'\nexport const D = plan['PRO_SUMMARY_MONTHLY_CAP']",
+    }
+    const passing: Record<string, string> = {
+      'the sentence': "import { PRO_FAIR_USE_LINE } from '@/lib/planLimits'\nexport const E = () => <p>{PRO_FAIR_USE_LINE}</p>",
+      'a comment': '// PRO_SUMMARY_MONTHLY_CAP reaches copy only through PRO_FAIR_USE_LINE\nexport const F = null',
+    }
+    expect(Object.keys(flagged).filter((name) => capReads(flagged[name], 'probe.tsx').length === 0), 'a read the check missed').toEqual([])
+    expect(Object.keys(passing).filter((name) => capReads(passing[name], 'probe.tsx').length > 0), 'a look-alike the check flagged').toEqual([])
+  })
 })
+
+/** The lines on which a module names PRO_SUMMARY_MONTHLY_CAP in code: an identifier (an import under any local name, a
+ * reference, a namespace member, a destructured key) or a string key (`plan['PRO_SUMMARY_MONTHLY_CAP']`). A comment
+ * is not a read. Out of reach: a name the module computes (`plan[`PRO_${kind}`]`). */
+function capReads(source: string, rel: string): number[] {
+  if (!source.includes('PRO_SUMMARY_MONTHLY_CAP')) return []
+  const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  const lines = new Set<number>()
+  const visit = (node: ts.Node) => {
+    if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) && node.text === 'PRO_SUMMARY_MONTHLY_CAP') {
+      lines.add(sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return [...lines]
+}
