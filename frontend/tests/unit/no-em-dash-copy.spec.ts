@@ -28,7 +28,7 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  * every place it is read. It is joined into copy, and fails there, as an operand
  * of `+`, either side of `+=`, a template's substitution, a child beside
  * sibling children (JSX's; those React's element calls hand an element, under
- * any local name: `createElement`'s and `cloneElement`'s from the third
+ * an import or alias name: `createElement`'s and `cloneElement`'s from the third
  * argument, or else the `children` of its props, which the JSX runtime's
  * `jsx`, `jsxs` and `jsxDEV` always use; and an array's elements written as
  * children, which React renders beside each other: a child is held to the JSX
@@ -99,11 +99,21 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  * may be React's re-exported, and an imported component, whose return the
  * reading cannot see); React state; a class's field read through `this` (a
  * class component's render among them); a promise's `then`; and a generator's
- * `yield`. Two over-reads fail closed: a clone handed children keeps its
- * element's own in this reading, and a component's element holds what every
- * element of it in the file is handed (the shared reading's parameter is not
- * told apart by call), so a pass-through handed the token in one place fails
- * beside a unit in another.
+ * `yield`. A same-file method under a maker's name, read through an alias
+ * (`const make = formatters.createElement`, then `make(v)`), is known by the
+ * maker's name, so the gate takes its call for React's element call, an
+ * element of its own, and the fallback it returns passes beside a unit.
+ * React's maker handed through a same-file parameter
+ * (`const make = (h) => h(Fragment, null, '—')`, then `make(createElement)`)
+ * is known by the parameter's name, so its call is not read as an element
+ * call and the fragment it makes beside a unit goes unread. Beyond the
+ * element calls this gate reads by name, an element built by a factory is
+ * outside its reach and is the subject of the lint rule recommended on #1370,
+ * which refuses React's element factories in app code. Two over-reads fail
+ * closed: a clone handed children keeps its element's own in this reading,
+ * and a component's element holds what every element of it in the file is
+ * handed (the shared reading's parameter is not told apart by call), so a
+ * pass-through handed the token in one place fails beside a unit in another.
  *
  * If you're writing copy and want a dash: restructure the sentence (split it,
  * use a colon, or a middot separator for compact labels). En-dashes (–) in
@@ -675,6 +685,11 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       "const cells = { jsx: (v?: string) => v ?? '—' }",
       "export const GF = ({ v }: { v?: string }) => <p>{cells['jsx'](v)} sh</p>",
       "export const GG = () => <p>{React.createElement('span', null, '—')} shares</p>",
+      "const shareFormats = { createElement(v?: number) { return v ?? '—' } }",
+      'const formatShares = shareFormats.createElement',
+      'export const GH = ({ v }: { v?: number }) => <p>{formatShares(v)} shares</p>',
+      "const fragmentOf = (build: typeof createElement) => build(Fragment, null, '—')",
+      'export const GI = () => <p>{fragmentOf(createElement)} shares</p>',
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
     // attribute's value) and 18 to 19 hold the token where nothing joins it (a name no line reads, a comparison, a
@@ -764,7 +779,10 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // is the file's own, so its fallback fails where its call is joined, written as Codex's `formatters.createElement`
     // (261, at 262) or by a literal key (263, at 264). React's own member call stays React's: a span it makes beside a
     // unit is an element of its own and passes (265, the element gap at 108), where a call read as the file's own would
-    // hold its arguments and fail.
+    // hold its arguments and fail. Planted gaps, Codex's two factory forms, each beside a unit and passing (the header
+    // leaves the family to the element-factory lint rule): a same-file method under a maker's name read through an
+    // alias (266, aliased at 267, at 268) is taken for React's element call, an element of its own, and React's maker
+    // handed through a parameter (269, at 270) is known by the parameter's name, so the fragment it makes goes unread.
     expect(violationsIn(src, file)).toEqual(
       [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205, 209, 212, 214, 216, 218, 220, 222, 224, 226, 228, 231, 235, 236, 237, 238, 239, 241, 243, 245, 246, 249, 255, 259, 260, 262, 264].map(
         (line) => `features/zzprobe/Probe.tsx:${line} —`,
