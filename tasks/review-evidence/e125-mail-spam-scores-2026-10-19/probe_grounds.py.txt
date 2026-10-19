@@ -1,0 +1,56 @@
+"""E125: which grounds SpamAssassin 4.0's HTML parser reads under a text (offline probe, each case its own mail)."""
+import json
+import subprocess
+import sys
+from email.message import EmailMessage
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+PROBE = HERE.parent / "sa_contrast.pl"
+LIGHT = '<span style="color:#ffffff">Pale words on a dark ground.</span>'
+CASES = {
+    "table bgcolor": f'<table bgcolor="#000000"><tr><td>{LIGHT}</td></tr></table>',
+    "td bgcolor": f'<table><tr><td bgcolor="#000000">{LIGHT}</td></tr></table>',
+    "tr bgcolor": f'<table><tr bgcolor="#000000"><td>{LIGHT}</td></tr></table>',
+    "body bgcolor": f'</head><body bgcolor="#000000">{LIGHT}',
+    "body style background-color": f'</head><body style="background-color:#000000">{LIGHT}',
+    "table style background-color": f'<table style="background-color:#000000"><tr><td>{LIGHT}</td></tr></table>',
+    "td style background-color": f'<table><tr><td style="background-color:#000000">{LIGHT}</td></tr></table>',
+    "div style background shorthand": f'<div style="background:#000000">{LIGHT}</div>',
+    "div style background-color": f'<div style="background-color:#000000">{LIGHT}</div>',
+    "a style background shorthand": '<a href="https://e.test/x" style="background:#000000;color:#ffffff">Pale link</a>',
+    "a style background-color": '<a href="https://e.test/x" style="background-color:#000000;color:#ffffff">Pale link</a>',
+    "a style background-color with a space before the colon": '<a href="https://e.test/x" style="background-color :#000000;color:#ffffff">Pale link</a>',
+    "a style BACKGROUND-COLOR in capitals": '<a href="https://e.test/x" style="BACKGROUND-COLOR:#000000;color:#ffffff">Pale link</a>',
+    "a bgcolor": '<a href="https://e.test/x" bgcolor="#000000" style="color:#ffffff">Pale link</a>',
+    "em style background-color": '<em style="background-color:#000000;color:#ffffff">Pale words.</em>',
+    "span style background-color, ink from a": '<a href="https://e.test/x" style="color:#ffffff"><span style="background-color:#000000">Pale link</span></a>',
+    "p style background-color": f'<p style="background-color:#000000">{LIGHT}</p>',
+    "h1 style background-color": f'<h1 style="background-color:#000000">{LIGHT}</h1>',
+    "td style background-color, text after a closed span": f'<table><tr><td style="background-color:#000000"><span>x</span>{LIGHT}</td></tr></table>',
+    "control: pale words on no ground": LIGHT,
+    "control: dark words on no ground": '<span style="color:#1a1a17">Dark words.</span>',
+}
+
+
+def mail(fragment: str) -> bytes:
+    message = EmailMessage()
+    message["From"] = "EarningsNerd <alerts@earningsnerd.io>"
+    message["To"] = "reader@example.com"
+    message["Subject"] = "A probe"
+    message["Message-ID"] = "<e125-grounds@earningsnerd.io>"
+    message["Date"] = "Mon, 19 Oct 2026 08:00:00 +0000"
+    message["DKIM-Signature"] = "v=1; a=rsa-sha256; d=earningsnerd.io; s=resend; h=from; bh=x; b=dGVzdA=="
+    message.set_content("Pale words on a dark ground.")
+    head = "<!doctype html><html><head><title>t</title>"
+    page = head + fragment if fragment.startswith("</head>") else head + "</head><body>" + fragment
+    message.add_alternative(page + "</body></html>", subtype="html")
+    return message.as_bytes()
+
+
+results = {}
+for name, fragment in CASES.items():
+    out = subprocess.run(["perl", str(PROBE)], input=mail(fragment), capture_output=True, check=True).stdout.decode()
+    results[name] = {"low_contrast": "LOW CONTRAST" in out, "report": out.strip().splitlines()}
+    print(f"{'FLAGGED' if results[name]['low_contrast'] else 'clean  '}  {name}")
+(HERE / "probe-results.json").write_text(json.dumps(results, indent=1) + "\n")

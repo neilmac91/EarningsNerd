@@ -5,7 +5,9 @@ are small exceptions defined here; the router maps each to its unchanged ``HTTPE
 """
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from sqlalchemy import desc, func
@@ -26,6 +28,36 @@ class NotOnWatchlist(Exception):
     """The user does not watch this company (router: 404 "Company not in watchlist")."""
 
 
+# Watch-row writes check, then write: the duplicate check before an add, the row lookup before a
+# remove, the row read before an earnings alert is toggled and the cap check before one is enabled
+# (earnings_alert_service). On the event loop the routes ran them one at a time within the process;
+# in the thread pool two requests could both pass a check (two rows for one company, an account over
+# its alert cap), so each takes this lock from its check to its commit. A holder takes it after its
+# session's first query and makes no new checkout inside it, so it never waits for a pool slot that
+# a waiter holds. A waiter's check then sees the holder's commit because each statement reads the
+# latest commit (READ COMMITTED, PostgreSQL's default and production's); under REPEATABLE READ its
+# snapshot, taken at that first query, would not.
+watch_row_lock = threading.Lock()
+
+
+@dataclass(frozen=True)
+class AddedWatch:
+    """What the add route answers with, copied before the commit expires the rows."""
+
+    id: int
+    company_id: int
+    created_at: Optional[datetime]
+    company_ticker: str
+    company_name: str
+
+
+def _watched(db: Session, user_id: int, company_id: int) -> Optional[Watchlist]:
+    return db.query(Watchlist).filter(
+        Watchlist.user_id == user_id,
+        Watchlist.company_id == company_id
+    ).first()
+
+
 def _company_by_ticker(db: Session, ticker: str) -> Company:
     company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
     if not company:
@@ -33,26 +65,25 @@ def _company_by_ticker(db: Session, ticker: str) -> Company:
     return company
 
 
-def add_company(db: Session, user_id: int, ticker: str) -> tuple[Watchlist, Company]:
+def add_company(db: Session, user_id: int, ticker: str) -> AddedWatch:
     company = _company_by_ticker(db, ticker)
 
-    # Check if already in watchlist
-    existing = db.query(Watchlist).filter(
-        Watchlist.user_id == user_id,
-        Watchlist.company_id == company.id
-    ).first()
+    with watch_row_lock:
+        if _watched(db, user_id, company.id):
+            raise AlreadyOnWatchlist(ticker)
 
-    if existing:
-        raise AlreadyOnWatchlist(ticker)
-
-    watchlist_item = Watchlist(
-        user_id=user_id,
-        company_id=company.id
-    )
-    db.add(watchlist_item)
-    db.commit()
-    db.refresh(watchlist_item)
-    return watchlist_item, company
+        watchlist_item = Watchlist(
+            user_id=user_id,
+            company_id=company.id
+        )
+        db.add(watchlist_item)
+        db.flush()
+        # The server-set created_at, read in the transaction the lock covers: after the commit a
+        # read would be a new checkout, and a concurrent remove could have deleted the row.
+        db.refresh(watchlist_item)
+        added = AddedWatch(watchlist_item.id, company.id, watchlist_item.created_at, company.ticker, company.name)
+        db.commit()
+    return added
 
 
 def list_items(db: Session, user_id: int) -> List[Watchlist]:
@@ -68,16 +99,13 @@ def list_items(db: Session, user_id: int) -> List[Watchlist]:
 def remove_company(db: Session, user_id: int, ticker: str) -> None:
     company = _company_by_ticker(db, ticker)
 
-    watchlist_item = db.query(Watchlist).filter(
-        Watchlist.user_id == user_id,
-        Watchlist.company_id == company.id
-    ).first()
+    with watch_row_lock:
+        watchlist_item = _watched(db, user_id, company.id)
+        if not watchlist_item:
+            raise NotOnWatchlist(ticker)
 
-    if not watchlist_item:
-        raise NotOnWatchlist(ticker)
-
-    db.delete(watchlist_item)
-    db.commit()
+        db.delete(watchlist_item)
+        db.commit()
 
 
 @dataclass(frozen=True)
