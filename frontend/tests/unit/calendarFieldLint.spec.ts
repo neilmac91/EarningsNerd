@@ -13,9 +13,11 @@ import { describe, expect, it } from 'vitest'
  * Stripe billing date (trial_end, current_period_end) through formatLocalDate is an error: it names the instant's
  * UTC day, not the reader's. Each helper is read by its own name and as a namespace member, its key dotted,
  * bracketed or a template (`fmt.formatInstant(…)`, `fmt['formatInstant'](…)`, `new globalThis['Date'](…)`), and
- * going by another name is an error of its own: an import or an export alias (either name quoted or not), a
- * destructuring that renames it (its key in any spelling, with or without a default, Date's from globalThis
- * included), a const that holds it. A field is read in each spelling too (`f.filing_date`, `f['filing_date']`, a
+ * going by another name is an error of its own: an import, an export or a re-export alias (either name quoted or
+ * not, each selector planted), a destructuring that renames it (its key in any spelling, with or without a default,
+ * Date's from globalThis included), a const that holds it. Since Date's renames are keyed to no holder, a data row's
+ * key named Date taken out by a pattern or held in a const draws the rename message too: a false positive no live
+ * code meets, planted as such. A field is read in each spelling too (`f.filing_date`, `f['filing_date']`, a
  * template with no substitution); a template with one names no field the lint can be sure of. A genuine instant
  * through formatInstant, a calendar date through formatLocalDate, a destructuring that keeps the name (a default
  * added or not), a nested pattern of a helper's members and an export that keeps the name as a string pass,
@@ -39,6 +41,8 @@ const PROBE: Array<[string, Said]> = [
   ["import { formatInstant, formatLocalDate } from '@/lib/format'", null],
   ["import * as fmt from '@/lib/format'", null],
   ["import { formatInstant as formatDay } from '@/lib/format'", 'alias'],
+  // The imported name quoted (the re-review of 8fb22fbe: this selector and the re-export ones below were unplanted).
+  ["import { 'formatLocalDate' as quotedDay } from '@/lib/format'", 'alias'],
   [
     'export function probe(filing: { filing_date: string }, sub: { trial_end: string; current_period_end: string }, row: Record<string, string>, prefix: string, suffix: string) {',
     null,
@@ -82,7 +86,8 @@ const PROBE: Array<[string, Said]> = [
   ['  const { formatInstant: heldWithDefault = formatLocalDate } = fmt', 'alias'],
   ['  return [built, parsed, wrapped, namespaced, bracketed, parsedBracketed, builtBracketed, templated, templatedField, prefixed,', null],
   ['    suffixed, heldKey, renews, ends, renewsBracketed, endsTemplated, endsTemplatedField, instant, day, instantBracketed,', null],
-  ['    dayBracketed, formatDay, held, heldInstant, heldLocal, heldParse, HeldDate, HeldDateComputed, local, picked, heldWithDefault]', null],
+  ['    dayBracketed, formatDay, quotedDay, held, heldInstant, heldLocal, heldParse, HeldDate, HeldDateComputed, local, picked,', null],
+  ['    heldWithDefault]', null],
   ['}', null],
   // A destructuring that keeps the name renames nothing.
   ['export function ownNames() {', null],
@@ -104,9 +109,22 @@ const PROBE: Array<[string, Said]> = [
   ['  const { formatLocalDate: [first] = [] } = fmt', null],
   ['  return [length, first]', null],
   ['}', null],
+  // A false positive, named as a limit (the review of 8fb22fbe, 2a): a data row's key named Date, taken out by a
+  // pattern or held in a const, draws the rename message, since the rule keys Date's renames to no holder. No live
+  // code meets it.
+  ['export function dataRows(rows: Array<{ Date: string }>) {', null],
+  ['  const { Date: firstRowDate } = rows[0]', 'alias'],
+  ['  const lastRowDate = rows[rows.length - 1].Date', 'alias'],
+  ['  return rows.map(({ Date: when }) => when).concat(firstRowDate, lastRowDate)', 'alias'],
+  ['}', null],
   // An export named by a string keeps the name, or renames it.
   ["export { formatInstant as 'formatInstant' }", null],
   ["export { formatLocalDate as 'heldExport' }", 'alias'],
+  // A re-export renames it too, each name quoted or not; one that keeps the name passes.
+  ["export { formatInstant as instantAs } from '@/lib/format'", 'alias'],
+  ["export { 'parseISO' as parseAs } from 'date-fns'", 'alias'],
+  ["export { 'formatLocalDate' as 'localAs' } from '@/lib/format'", 'alias'],
+  ["export { 'parseISO' as parseISO } from 'date-fns'", null],
   ['', null],
 ]
 

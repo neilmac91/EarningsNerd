@@ -144,7 +144,10 @@ const BILLING_INSTANT_MESSAGE =
  *  another name (`formatInstant as formatDay`), a re-export or a destructuring that renames it (its key
  *  in any spelling, with or without a default, `{ ['formatInstant']: held }`, and Date's from globalThis
  *  among them), or a const that holds it would hide every call from them. A destructuring that keeps the
- *  name and adds a default (`{ formatInstant = fallback }`) renames nothing: its calls keep the name. */
+ *  name and adds a default (`{ formatInstant = fallback }`) renames nothing: its calls keep the name.
+ *  Date's renames are keyed to no holder, so a data row's key named Date (`const { Date: first } = rows[0]`,
+ *  `row.Date` held in a const) draws the message too: a false positive no live code meets, planted in
+ *  tests/unit/calendarFieldLint.spec.ts. */
 const DATE_HELPERS = ['Date', 'parseISO', 'formatInstant', 'formatLocalDate']
 const DATE_HELPER_ALIAS_MESSAGE =
   'Call Date, parseISO, formatInstant and formatLocalDate by their own names: the calendar-date and ' +

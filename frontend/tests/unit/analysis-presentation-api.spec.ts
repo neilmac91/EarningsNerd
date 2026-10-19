@@ -127,6 +127,7 @@ describe('analysis presentation API admission', () => {
   ] as const
 
   it.each(invalidEnvelopes)('reports %s before making the SSE stream terminal', async (_, envelope) => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const reader = serve({ type: 'complete', ...completion, narrative_presentation: envelope })
     const handlers = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() }
     await streamAnalysis('META', range, handlers, undefined, dataset)
@@ -134,6 +135,9 @@ describe('analysis presentation API admission', () => {
     expect(handlers.onError).toHaveBeenCalledTimes(1)
     // One reader-facing sentence for every decode failure, the data-notes decoder's included.
     expect(handlers.onError.mock.calls[0][0]).toBe('The analysis evidence could not be read consistently. Run analysis again to reload the report.')
+    // A rejection is the decoder refusing the envelope, not a defect, so the stream logs none (the data-notes decoder
+    // logs its own rejection for diagnostics, as the next case pins).
+    expect(log.mock.calls.map(([first]) => first).filter((first) => first !== '[analysis] data notes rejected:')).toEqual([])
     expect(reader.cancel).toHaveBeenCalledTimes(1)
   })
 
@@ -160,7 +164,8 @@ describe('analysis presentation API admission', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     // The decoder trusts the dataset it is handed (CLAUDE.md rule 9). One whose own data_notes was left
     // undefined upstream makes its report read take a property of undefined: the engine's plain
-    // TypeError, which surfaces as itself, never as the reader's recovery sentence.
+    // TypeError, which the decoder throws as itself, not as its rejection. Its caller tells the two apart:
+    // the stream logs the defect and gives the reader the recovery sentence (the next case).
     const defective: AnalysisDataset = { ...dataset, data_notes: undefined }
     expect(() => decodeNarrativePresentation(presentation, completion, defective))
       .toThrow(/^Cannot read properties of undefined \(reading 'notes'\)$/)

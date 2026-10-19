@@ -351,7 +351,9 @@ function textsIn(meta: Metadata | undefined) {
 
 /**
  * The globals a value reads the environment through: process (each flag in lib/featureFlags.ts reads
- * process.env), the browser's window and document, and the global object under each of its names.
+ * process.env), the browser's window and document, and the global object as globalThis, global or self.
+ * A limit: its other names and the browser's other environment globals (`top`, `parent`, `frames`,
+ * `navigator`, `location`) are not read, so a metadata text that reads one passes.
  */
 const ENV_GLOBALS = new Set(['process', 'window', 'document', 'globalThis', 'global', 'self'])
 

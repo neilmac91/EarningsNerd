@@ -19,8 +19,9 @@ import { describe, expect, it } from 'vitest'
  * one find, so an icon put inside that heading, another icon beside it, or a second heading with the same words
  * fails.
  *
- * Limits: a wrapper two deep on either side, an icon passed as a prop or built in another file, and a heading
- * written as a component rather than an <h2>/<h3> are not read; review reads them.
+ * Limits: a wrapper two deep on either side, an icon passed as a prop or built in another file, a heading
+ * written as a component rather than an <h2>/<h3>, and an icon after the heading (`<h3>Notifications</h3><BellIcon />`,
+ * though D-033 says "beside it") are not read; review reads them.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app/dashboard', 'features/settings', 'features/subscriptions', 'features/dashboard']

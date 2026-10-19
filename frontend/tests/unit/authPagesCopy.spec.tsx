@@ -88,7 +88,9 @@ function siteAt(rel: string, lines: string[], line: number): string {
 }
 
 /** A Python source's string literals as Python reads them: each run of adjacent literals (implicit concatenation,
-    over lines or a backslash) one string, with the line it starts on; comments are no string. */
+    over lines or a backslash) one string, with the line it starts on; comments are no string. Literals joined by `+`
+    (`"Please verify " + "your email first."`) stay two strings, so the words scan misses a sentence split that way
+    (a limit: the email_verified read scan below still finds the gate). */
 function pythonStrings(source: string): Array<{ text: string; line: number }> {
   const toks = pythonTokens(source).filter((t) => !(t.kind === 'op' && t.text === '\\'))
   const out: Array<{ text: string; line: number }> = []

@@ -30,7 +30,9 @@ import { describe, expect, it } from 'vitest'
  * tinted the light band with the dark amber. Such a class fails wherever it is, unless its surface is dark in
  * both themes on purpose, listed in BARE_DARK_RESIDUE. In a stylesheet, a rule block whose every selector
  * names `.dark` (the config's `darkMode: 'class'`) outside a `:not(…)` or `:has(…)`, or that sits inside one,
- * is the dark theme's: `html:not(.dark) .x` is the light theme's.
+ * is the dark theme's: `html:not(.dark) .x` is the light theme's. A limit: `.dark` beside another selector in an
+ * `:is(…)` or `:where(…)` counts too, so `:is(.dark, .card) .x { @apply bg-panel-dark; }` reads as the dark
+ * theme's though it also paints `.card .x` in the light theme.
  *
  * A class list is the strings that always render together: one string, the static parts of one template, or
  * the unconditional strings of one call to the class joiners (`cx`, `clsx`, `cn`), one inline `[…].join(…)`
