@@ -91,5 +91,15 @@ E118's reviews found that five of its units had relied on the loop's order. With
 Each now holds a lock from its check to its commit (2026-10-19). The gate is
 `backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two threads inside each unit
 after their checks, so without the lock the race happens however loaded the host, and it fails any
-checkout made inside the watch-row lock. It covers those five units only; any other check-then-write
-unit, such as the refresh token's rotation (E127), stays a review check.
+checkout made inside the watch-row lock. It covers those five units only.
+
+The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
+marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or
+logout-all left a live successor. That race also spans the API's two instances, which no process lock
+reaches. Every writer of a user's tokens (rotation, logout, logout-all and the theft sweep) now takes
+the account's users row lock and re-reads under it. A guarded UPDATE alone would not have served:
+logout-all's bulk UPDATE sees only rows committed when it starts, so a successor committed after that
+survives it (2026-10-19, E127). `backend/tests/integration/test_refresh_rotation_transactions.py` runs
+each interleaving on PostgreSQL in CI's migrations-postgres job, holding the first writer's commit
+until the second is blocked; on the old code all four cases fail. Any other check-then-write unit stays
+a review check.
