@@ -49,6 +49,7 @@ import re
 import string
 import sys
 import traceback
+import warnings
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -2363,7 +2364,8 @@ def test_the_resend_smoke_prints_no_key(monkeypatch, capsys):
     monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)  # never a developer's .env
     monkeypatch.setattr(sys, "path", list(sys.path))
     monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
-    monkeypatch.delitem(sys.modules, "smoke_resend", raising=False)
+    monkeypatch.setitem(sys.modules, "smoke_resend", None)  # then del: teardown drops the fresh module (see below)
+    del sys.modules["smoke_resend"]
     smoke = importlib.import_module("smoke_resend")
     key = "re_" + _fabricated("RESEND_API_KEY")
 
@@ -2451,16 +2453,25 @@ def test_a_database_url_with_one_at_is_accepted(monkeypatch, shape):
     assert database.engine.url.password in (password, f"{password}@{password}", None)
 
 
+def _import_benchmark(monkeypatch):
+    """Import a fresh scripts/validate_db_performance.py that never reads a developer's .env; teardown restores
+    sys.modules."""
+    import dotenv
+
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
+    # setitem records what sys.modules held (nothing, the first time), so teardown drops the fresh module again;
+    # delitem records nothing for an absent key and would leave it loaded after the test.
+    monkeypatch.setitem(sys.modules, "validate_db_performance", None)
+    del sys.modules["validate_db_performance"]
+    return importlib.import_module("validate_db_performance")
+
+
 def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
     # The operator's benchmark reads DATABASE_URL itself: a malformed URL stops it with the parse error's type, and a
     # well-formed one is printed masked. 127.0.0.1:1 refuses the connection at once; nothing leaves the machine.
-    import dotenv
-
-    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)  # never a developer's .env
-    monkeypatch.setattr(sys, "path", list(sys.path))
-    monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
-    monkeypatch.delitem(sys.modules, "validate_db_performance", raising=False)
-    script = importlib.import_module("validate_db_performance")
+    script = _import_benchmark(monkeypatch)
     password = _fabricated("benchmark password")
     digits = _fabricated("benchmark all-digit password", string.digits)
     urls = (
@@ -2484,6 +2495,48 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
     assert out.count("FAILED (connection error): OperationalError (message withheld") == 4  # each connect failed
     leaked = _fragments(password, out) + _fragments(digits, out, width=6)
     assert not leaked, f"{leaked} fragments of the fabricated passwords were printed"
+
+
+def test_the_at_refusal_advises_what_the_deploy_can_read(monkeypatch, capfd, caplog):
+    # #1281's second review (D-5): both refusals advised percent-encoding the "@", which the app decodes but the
+    # deploy's migration step and the Ops proxy step do not (they split DATABASE_URL at its first "@" and ":" and hand
+    # both parts to psql as written, docs/CONFIGURATION.md), so a URL fixed that way failed the next deploy. Each now
+    # advises characters that need no encoding, in the same words, and neither advises encoding: both refusals are
+    # pinned whole on the channels this case reads (the error's text, notes and chain; the benchmark's exit status;
+    # file descriptors 1 and 2, so sys.__stderr__ too; warnings; logs at INFO and above), and any rewording must pass
+    # the no-encoding check below. A DEBUG log and a write to a file or a terminal stay out of reach.
+    caplog.set_level(logging.INFO)
+    password = _fabricated("DATABASE_URL password")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(RuntimeError) as info:
+            _import_database(monkeypatch, f"postgresql://app:{password}@{password}@db.invalid/app")
+        script = _import_benchmark(monkeypatch)
+        monkeypatch.setenv("DATABASE_URL", f"postgresql://app:{password}@{password}@127.0.0.1:1/app")
+        with pytest.raises(SystemExit) as stop:
+            script.run_validation()
+    captured = capfd.readouterr()
+    texts = [str(info.value), captured.out]
+    problems = [text.split("could not be parsed (", 1)[1].split("; message withheld", 1)[0] for text in texts]
+    assert problems[0] == problems[1], problems  # the same words at both sites
+    reason = ("more than one '@'; keep the user name and password to characters that need no percent-encoding: the "
+              "deploy's migration step and the Ops proxy step read them undecoded")
+    refusal = f"DATABASE_URL could not be parsed ({reason}; message withheld: it can quote the password)"
+    banner = "=" * 60 + "\nPostgreSQL Performance Validation\n" + "=" * 60 + "\n\n"
+    assert texts == [refusal, f"{banner}ERROR: {refusal}\n"], texts  # each refusal whole: nothing added elsewhere,
+    assert captured.err == "" and not caplog.records, (captured.err, caplog.text)  # on stderr or in a log,
+    assert traceback.format_exception_only(info.value) == [f"RuntimeError: {refusal}\n"]  # in a note on the error,
+    assert info.value.__cause__ is None and info.value.__context__ is None  # in an error chained to it,
+    assert stop.value.code == 1 and not caught, (stop.value.code, [str(w.message) for w in caught])  # or elsewhere
+    # A rewording changes the pins above and must still advise no encoding in any form: beside the phrase that rules
+    # encoding out and the withheld message's reason, no "encod", "escap", "quot" or "percent" word and no "%" (a
+    # rewording that names an unescaped or encoded "@" only to warn fails too, closed). A paraphrase that avoids all
+    # five stems stays out of reach; the pins make any rewording a reviewed diff.
+    for text in texts:
+        rest = text.replace("need no percent-encoding", "").replace("it can quote the password", "")
+        assert not re.search(r"encod|escap|quot|percent|%", rest, re.IGNORECASE), text
+    leaked = _fragments(password, "".join(texts))
+    assert not leaked, f"{leaked} four-character fragments of the fabricated password were printed"
 
 
 # Settings fields that hold a secret, by name: keys, secrets, tokens, salts, passwords and the DSN, and the two
