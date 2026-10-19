@@ -10,10 +10,10 @@ One rule, two halves in this one module:
   analysis stream must release its connection before its body streams, alone and in a burst; the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
   in the thread pool; each auth session route (logout signed in, with only the refresh cookie and
-  with a dead one, logout-all, refresh), each watchlist and analysis route (their refusals
-  included) and the waitlist join and verification must answer an eight-request burst with no
-  checkout on the loop and nothing left for the finalizer; and the join must send its mails, and
-  the analysis exports render, with no connection out.
+  with a dead one, logout-all, refresh), each watchlist route and its refusals, each analysis route
+  and a refusal of each, and the waitlist join and verification must answer an eight-request burst
+  with no checkout on the loop and nothing left for the finalizer; and the join must send its
+  mails, and the analysis exports render, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails a session call on the loop in the route's own body above that route's ceiling, so a route
   the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
@@ -1053,6 +1053,7 @@ _ANALYSIS_STATUS = {
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method,path,body,case", [
     ("GET", "/api/analysis/CACHED/coverage", None, "coverage"),
+    ("GET", "/api/analysis/CACHED/coverage", None, "coverage_handoff"),
     ("GET", "/api/analysis/NOSUCH/coverage", None, "coverage_missing"),
     ("POST", "/api/analysis/CACHED/dataset", _ANALYSIS_RANGE, "dataset"),
     ("POST", "/api/analysis/NOSUCH/dataset", _ANALYSIS_RANGE, "dataset_missing"),
@@ -1065,10 +1066,12 @@ _ANALYSIS_STATUS = {
 ])
 async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, body, case):
     """Each analysis route runs its session work in thread-pool units and releases before it
-    awaits anything else (the companyfacts sync, a render), its refusals included, so eight Pro
+    awaits anything else (the companyfacts sync, a render), a refusal of each included, so eight Pro
     readers on four slots (Free for the PDF's plan refusal) leave nothing for the finalizer and run
-    no checkout or statement on the loop."""
-    from app.routers import auth
+    no checkout or statement on the loop. ``coverage_handoff`` is a first touch in durable mode: the
+    sync outlasts the wait, the route cancels it, hands it to the queue and reads what exists."""
+    from app.config import settings
+    from app.routers import analysis, auth
 
     engine, _ = _analysis_fixture(tmp_path, "analysis-routes.db", pro=case != "pdf_free")
 
@@ -1076,6 +1079,19 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
         return b"%PDF-test"
 
     _patch_analysis_edges(monkeypatch, workbook=lambda _dataset: b"xlsx-test", render=render)
+    handoffs: list[tuple] = []
+    if case == "coverage_handoff":
+        async def slow_sync(_company_id: int) -> dict:
+            await asyncio.sleep(10)  # outlasts the wait; the route cancels it at the handoff
+            return {"synced": True}
+
+        async def enqueue(kind: str, payload: dict, **kwargs: Any) -> None:
+            handoffs.append((kind, payload, kwargs))
+
+        monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+        monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 0.05)
+        monkeypatch.setattr(analysis, "_ingest_with_own_session", slow_sync)
+        monkeypatch.setattr(analysis, "enqueue_task", enqueue)
 
     request_sessions: list[Session] = []
 
@@ -1112,12 +1128,16 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
     try:
         responses = await asyncio.gather(*[send(i) for i in range(8)])
         assert [response.status_code for response in responses] == [_ANALYSIS_STATUS.get(case, 200)] * 8
-        if case == "coverage":
+        if case in ("coverage", "coverage_handoff"):
+            handed_off = case == "coverage_handoff"
             assert [
                 (payload["ticker"], payload["supported"], payload["syncing"], payload["synced_at"] is not None,
                  [period["key"] for period in payload["annual"]])
                 for payload in (response.json() for response in responses)
-            ] == [("CACHED", True, False, True, ["FY2024", "FY2025"])] * 8
+            ] == [("CACHED", True, handed_off, not handed_off, ["FY2024", "FY2025"])] * 8
+            assert handoffs == [(
+                "companyfacts", {"company_id": 1}, {"dedupe_key": "companyfacts:1", "dedupe_seconds": 60},
+            )] * (8 if handed_off else 0)
         elif case in ("coverage_missing", "dataset_missing"):
             assert [response.json() for response in responses] == [{"detail": "Company not found"}] * 8
         elif case == "dataset":

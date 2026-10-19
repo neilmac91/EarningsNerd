@@ -89,7 +89,8 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
     monkeypatch.setattr(ingest, "_fetch_companyfacts_async", stalled_fetch)
     monkeypatch.setattr(ingest, "_companyfacts_fresh_result", counted_fresh_check)
     monkeypatch.setattr(analysis, "enforce_rate_limit", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 1.0)
+    # Longer than the poll below can take, so the leader's wait never fires before the release.
+    monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 5.0)
     facts_service._inflight_syncs.clear()
 
     request = SimpleNamespace(client=None)
@@ -110,6 +111,7 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
             if fresh_checks == 2 and engine.pool.checkedout() == 0:
                 break
             await asyncio.sleep(0.01)
+        assert fresh_checks == 2  # the follower found the leader's claim and waits on it
 
         assert fetch_calls == 1
         assert engine.pool.checkedout() == 0
