@@ -145,6 +145,27 @@
 //                       value) cannot hold, and the group's line carries the disable with that reason: a mark
 //                       a reader can clear stays a toggle group (D-046). A group of independent toggles (a multi-select
 //                       filter row) is not this control either: disable the rule on that line with the reason.
+//   elements-built-with-jsx  The app builds its elements in JSX alone, and the gates that read its elements (the
+//                       password, preference and em-dash scans) read JSX, so an element built any other way is one
+//                       no gate reads. Outside tests the rule refuses React's element factories: createElement,
+//                       cloneElement and createFactory imported from React under any name (named, aliased or quoted,
+//                       or read off its default or a namespace import: `React.createElement`, `R.cloneElement` under
+//                       `import * as R`, `React['createElement']`, a key a pattern takes out of it), any value import
+//                       from a JSX runtime (react/jsx-runtime and react/jsx-dev-runtime, whose jsx, jsxs and jsxDEV
+//                       build elements), a re-export of any of these, and a createElement member, or a createElement
+//                       key a pattern takes, whose object is not the DOM's global `document` (the key dotted,
+//                       bracketed or a template). React's module is `react` at any entry, and the copy Next bundles
+//                       (`next/dist/compiled/react`). The rule reads syntax and scopes, not data, so a use of React
+//                       whose reach it cannot tell is refused too: its default or namespace import used other than
+//                       through a member with a written key (held under another name, handed to a call, spread,
+//                       returned or exported), a member by a key held in a name (`React[key]`), a pattern's rest or a
+//                       key it cannot read, a `require` or a dynamic `import()` of React's module, and TypeScript's
+//                       `import R = require('react')` (its `import h = React.createElement` is read as a member). A
+//                       type-only import builds nothing and passes. It reads every
+//                       script the gates parse, JavaScript included (eslint.config.mjs). ELEMENT_FACTORY_ALLOWLIST
+//                       names the one file allowed a factory, with its reason. Out of reach: an element a library
+//                       builds from data (react-markdown's tree, which lib/citationMarkers.tsx walks), and a module
+//                       named by a value the rule cannot read (`import(name)`).
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -155,6 +176,7 @@
 
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   branchTexts,
   classUnitVisitors,
@@ -1167,6 +1189,187 @@ export const noHandRolledToggleGroup = {
   },
 }
 
+/** React's element factories: each builds an element with no JSX, where no gate that reads elements sees it. */
+const ELEMENT_FACTORIES = new Set(['createElement', 'cloneElement', 'createFactory'])
+/** React's module at any entry (`react`, `react/index.js`, a file inside the package), and the copy Next bundles, which
+ *  `react` resolves to in its app router. */
+const REACT_MODULE = /^(?:next\/dist\/compiled\/)?react(?:-experimental)?(?:\/|$)/
+/** A JSX runtime among React's entries (react/jsx-runtime, react/jsx-dev-runtime, a build of either inside the package):
+ *  every value it exports builds an element (jsx, jsxs, jsxDEV) or is Fragment. */
+const JSX_RUNTIME = /jsx-(?:dev-)?runtime/
+/** The frontend's root, which the allowlist's paths start from: this file's directory. */
+const FRONTEND_ROOT = path.dirname(fileURLToPath(import.meta.url))
+
+/** The files allowed one of React's element factories, by their path from the frontend root, each with the factories it
+ *  may use, and why it needs one above the entry. tests/unit/designRules.spec.ts holds each entry to its file: the rule
+ *  must find each factory there with the entry set aside, so an entry its file no longer needs fails. */
+export const ELEMENT_FACTORY_ALLOWLIST = new Map([
+  // injectCitationMarkers walks the tree react-markdown builds from a model's answer and gives each element back with
+  // the citation chips set into its children: an element whose type and props the library wrote, which JSX cannot
+  // rebuild without knowing them.
+  ['lib/citationMarkers.tsx', new Set(['cloneElement'])],
+])
+
+/** The node a value reaches through TypeScript's wrappers, which change its type and not the value. */
+const outermostTs = (node) => {
+  let at = node
+  while (/^TS(?:As|Satisfies|NonNull)Expression$|^TSTypeAssertion$/.test(at.parent?.type ?? '') && at.parent.expression === at) at = at.parent
+  return at
+}
+
+export const elementsBuiltWithJsx = {
+  meta: {
+    type: 'problem',
+    docs: { description: "Elements are built in JSX: React's element factories build one no gate reads." },
+    schema: [],
+    messages: {
+      factory:
+        "{{form}}: React's element factories build an element without JSX, which the gates that read the app's " +
+        'elements cannot see (they read JSX). Write the element in JSX; a file that must rebuild an element it did ' +
+        'not write goes in ELEMENT_FACTORY_ALLOWLIST (eslint.designRules.mjs) with its reason.',
+      unreadable:
+        "{{form}}: the rule cannot tell whether this reaches React's element factories (createElement, " +
+        'cloneElement, createFactory), which build an element no gate reads. Import React statically, and read it ' +
+        'through the names you import or a member with a written key (React.useState).',
+    },
+  },
+  create(context) {
+    const { sourceCode } = context
+    const relative = path.relative(FRONTEND_ROOT, context.filename).split(path.sep).join('/')
+    const allowed = ELEMENT_FACTORY_ALLOWLIST.get(relative) ?? new Set()
+    // A form two readings reach (`React.createElement` is a member of React's import and a createElement member) is
+    // reported once.
+    const reported = new WeakSet()
+    const report = (node, messageId, form) => {
+      if (reported.has(node)) return
+      reported.add(node)
+      context.report({ node, messageId, data: { form } })
+    }
+    const factory = (node, name, form) => {
+      if (!allowed.has(name)) report(node, 'factory', form)
+    }
+    const text = (node) => sourceCode.getText(node)
+    /** Whether the file binds `name` where `node` reads it: a global (the DOM's `document`, Node's `require`) has no
+        declaration in the file. */
+    const declared = (node, name) => {
+      for (let scope = sourceCode.getScope(node); scope; scope = scope.upper) {
+        const variable = scope.set.get(name)
+        if (variable) return variable.defs.length > 0
+      }
+      return false
+    }
+    const isDocument = (node) => {
+      const object = unwrapTs(node)
+      return object?.type === 'Identifier' && object.name === 'document' && !declared(object, 'document')
+    }
+    /** The keys a pattern takes out of React's default or namespace import: a factory's is the factory, and a rest or
+        a key the rule cannot read may hold one. */
+    const takenOut = (pattern, from) => {
+      for (const property of pattern.properties) {
+        const key = property.type === 'RestElement' ? null : writtenKey(property.key, property.computed)
+        if (key === null) report(property, 'unreadable', `${text(property)}, taken out of ${from}`)
+        else if (ELEMENT_FACTORIES.has(key)) factory(property, key, `${key}, taken out of ${from}`)
+      }
+    }
+    /** Every use of React's default or namespace import: a member by a written key, or a pattern over it. A type names
+        no value (`React.ReactNode`, `typeof React.createElement` in a type), and the reference typescript-eslint makes
+        to the import's own name for a file's JSX (its jsxPragma) is no use; any other use is one the rule cannot
+        follow. TypeScript's `import h = React.createElement` aliases a member's value, as a const would. */
+    const readNamespace = (specifier) => {
+      for (const variable of sourceCode.getDeclaredVariables(specifier)) {
+        for (const reference of variable.references) {
+          if (reference.isValueReference === false || variable.identifiers.includes(reference.identifier)) continue
+          const at = outermostTs(reference.identifier)
+          const parent = at.parent
+          if (parent.type === 'TSQualifiedName' && parent.left === at) {
+            let name = parent
+            while (name.parent?.type === 'TSQualifiedName') name = name.parent
+            const alias = name.parent?.type === 'TSImportEqualsDeclaration' && name.parent.moduleReference === name
+            if (alias && ELEMENT_FACTORIES.has(parent.right.name)) factory(parent, parent.right.name, text(name.parent))
+            continue
+          }
+          if (parent.type === 'TSTypeQuery') continue
+          if ((parent.type === 'MemberExpression' || parent.type === 'JSXMemberExpression') && parent.object === at) {
+            const key = parent.type === 'JSXMemberExpression' ? parent.property.name : writtenKey(parent.property, parent.computed)
+            if (key === null) report(parent, 'unreadable', `${text(parent)}, a member of ${variable.name} by a key held in a name`)
+            else if (ELEMENT_FACTORIES.has(key)) factory(parent, key, text(parent))
+          } else if (parent.type === 'VariableDeclarator' && parent.init === at && parent.id.type === 'ObjectPattern') {
+            takenOut(parent.id, variable.name)
+          } else if (/^Assignment(?:Expression|Pattern)$/.test(parent.type) && parent.right === at && parent.left.type === 'ObjectPattern') {
+            takenOut(parent.left, variable.name)
+          } else {
+            report(reference.identifier, 'unreadable', `${variable.name}, React's import, used other than through a member with a written key`)
+          }
+        }
+      }
+    }
+    const fromReact = (node) => !!node.source && REACT_MODULE.test(String(node.source.value))
+    return {
+      ImportDeclaration(node) {
+        if (!fromReact(node) || node.importKind === 'type') return
+        const source = String(node.source.value)
+        const values = node.specifiers.filter((specifier) => specifier.importKind !== 'type')
+        if (JSX_RUNTIME.test(source)) {
+          if (values.length || !node.specifiers.length) report(node, 'factory', `An import from ${source}`)
+          return
+        }
+        for (const specifier of values) {
+          // A default or a namespace import, or `{ default as React }`, is React's object: every use of it is read.
+          const imported = specifier.type === 'ImportSpecifier' ? (specifier.imported.name ?? specifier.imported.value) : 'default'
+          if (ELEMENT_FACTORIES.has(imported)) factory(specifier, imported, `${imported}, imported from ${source}`)
+          else if (imported === 'default') readNamespace(specifier)
+        }
+      },
+      ExportNamedDeclaration(node) {
+        if (!fromReact(node) || node.exportKind === 'type') return
+        const source = String(node.source.value)
+        if (JSX_RUNTIME.test(source)) return report(node, 'factory', `A re-export from ${source}`)
+        for (const specifier of node.specifiers) {
+          if (specifier.exportKind === 'type') continue
+          const local = specifier.local.name ?? specifier.local.value
+          if (ELEMENT_FACTORIES.has(local)) factory(specifier, local, `${local}, re-exported from ${source}`)
+          else if (local === 'default') report(specifier, 'unreadable', `React's default import, re-exported from ${source}`)
+        }
+      },
+      ExportAllDeclaration(node) {
+        if (fromReact(node) && node.exportKind !== 'type') report(node, 'factory', `${text(node)}, which re-exports every factory`)
+      },
+      ImportExpression(node) {
+        const source = staticKey(node.source)
+        if (source !== undefined && REACT_MODULE.test(source)) report(node, 'unreadable', `${text(node)}, a dynamic import of React`)
+      },
+      CallExpression(node) {
+        if (node.callee.type !== 'Identifier' || node.callee.name !== 'require' || declared(node.callee, 'require')) return
+        const source = staticKey(node.arguments[0])
+        if (source !== undefined && REACT_MODULE.test(source)) report(node, 'unreadable', `${text(node)}, a require of React`)
+      },
+      TSImportEqualsDeclaration(node) {
+        const reference = node.moduleReference
+        const source = reference.type === 'TSExternalModuleReference' ? staticKey(reference.expression) : undefined
+        if (node.importKind !== 'type' && source !== undefined && REACT_MODULE.test(source)) {
+          report(node, 'unreadable', `${text(node)}, a require of React`)
+        }
+      },
+      // The DOM's own `document.createElement` builds a DOM node, not an element; any other object's createElement
+      // member is React's under another name, or may be.
+      MemberExpression(node) {
+        if (writtenKey(node.property, node.computed) === 'createElement' && !isDocument(node.object)) factory(node, 'createElement', text(node))
+      },
+      'ObjectPattern > Property'(node) {
+        if (writtenKey(node.key, node.computed) !== 'createElement') return
+        const holder = node.parent.parent
+        const source =
+          holder.type === 'VariableDeclarator' && holder.id === node.parent ? holder.init
+            : /^Assignment(?:Expression|Pattern)$/.test(holder.type) && holder.left === node.parent ? holder.right
+              : undefined
+        if (!source || !isDocument(source)) {
+          factory(node, 'createElement', `createElement, taken out of ${source ? text(source) : "a value the rule cannot tell is the DOM's document"}`)
+        }
+      },
+    }
+  },
+}
+
 const plugin = {
   rules: {
     'direction-text-tokens': directionTextTokens,
@@ -1175,6 +1378,7 @@ const plugin = {
     'no-unguarded-animation': noUnguardedAnimation,
     'locale-pinned-numbers': localePinnedNumbers,
     'no-hand-rolled-toggle-group': noHandRolledToggleGroup,
+    'elements-built-with-jsx': elementsBuiltWithJsx,
   },
 }
 export default plugin

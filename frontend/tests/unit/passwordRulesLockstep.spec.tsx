@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ESLint } from 'eslint'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -106,8 +107,12 @@ import { bindingEscape, bindingReferences, bindingResolver, containerEscape, wri
  *    as JSX requires) through one that can fails loudly. One forwarded
  *    from a function the reader cannot name (a callback, a render prop) fails loudly, every forwarding
  *    component is rendered by a file the scan reads, and the scan must find the app's new-password fields,
- *    so a field it cannot read fails instead of passing unseen. Not read, each planted as a gap: a clone's
- *    override (`cloneElement`), an `as` prop of a component no file the scan reads declares, a component
+ *    so a field it cannot read fails instead of passing unseen. Not read, each planted as a gap: an element
+ *    built by a factory, which lint refuses (eslint.designRules.mjs's elements-built-with-jsx refuses React's
+ *    element factories in app code under any name, so the scan reads `createElement`, `jsx`, `jsxs` and
+ *    `jsxDEV` called by those names and follows no other: `h('input', …)` with `createElement as h`, and a
+ *    clone's override, `cloneElement`, are lint's, planted with the rule's finding), an `as` prop of a
+ *    component no file the scan reads declares, a component
  *    loaded by a `.then`, destructured by a computed key, out of a `let`, out of a call or out of an array's
  *    rest, a `type` forwarded under another prop's name or carried only by a spread the reader cannot
  *    follow, a value written to the DOM, a write into a container another module declares (an import is named
@@ -1929,9 +1934,10 @@ describe('the password rule moves in lockstep with the backend', () => {
       '  )',
       '}',
     ].join('\n')
-    // Not read, each a limit the header states: a clone's override, an `as` prop of a component no file read declares, a
-    // component loaded by a `.then`, a `type` forwarded under another prop's name or carried only by a spread the reader
-    // cannot follow, and a value written to the DOM.
+    // Not read, each a limit the header states: a clone's override (lint's: elements-built-with-jsx refuses
+    // cloneElement outside its one allowlisted file), an `as` prop of a component no file read declares, a component
+    // loaded by a `.then`, a `type` forwarded under another prop's name or carried only by a spread the reader cannot
+    // follow, and a value written to the DOM.
     const gaps = [
       "import { cloneElement } from 'react'",
       "import { Plain } from './secret'",
@@ -1975,6 +1981,25 @@ describe('the password rule moves in lockstep with the backend', () => {
     // A forwarding component nothing renders is a field no caller's value reaches: it fails (the plants' own, so a
     // component the app adds never reads as unrendered here).
     expect(unrenderedForwarders(sources, forwardingComponents(sources))).toEqual(['BadFallback'])
+  })
+
+  it('leaves an element built by a factory to lint, which refuses it: elements-built-with-jsx (Codex on 44229515)', { timeout: 30_000 }, async () => {
+    // Codex's form: createElement imported under another name builds a password input with no JSX. The scan reads JSX,
+    // and createElement or jsx called by those names; it follows no other name of a factory, since the lint rule
+    // elements-built-with-jsx (eslint.designRules.mjs) refuses every one in app code, this one included.
+    const factory = [
+      "import { createElement as h } from 'react'",
+      'export default function FactoryField() {',
+      "  return h('input', { id: 'factory', type: 'password', autoComplete: 'off' })",
+      '}',
+      '',
+    ].join('\n')
+    const rel = 'app/factory-field.tsx'
+    expect(passwordFields(factory, rel, forwardersFor(factory, rel)), 'not reached by the scan').toEqual([])
+    const [linted] = await new ESLint({ cwd: frontendDir }).lintText(factory, { filePath: path.join(frontendDir, rel) })
+    expect(linted.messages.filter((m) => m.ruleId === 'earningsnerd/elements-built-with-jsx').map((m) => `${m.line} ${m.message.split(':')[0]}`), 'refused by lint').toEqual([
+      '1 createElement, imported from react',
+    ])
   })
 
   it('follows a component reached through a binding pattern, a lookup or a prop its callers hand it', () => {

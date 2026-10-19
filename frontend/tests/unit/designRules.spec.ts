@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { ESLint, RuleTester } from 'eslint'
 import { describe, expect, it } from 'vitest'
 import {
+  ELEMENT_FACTORY_ALLOWLIST,
+  elementsBuiltWithJsx,
   localePinnedNumbers,
   noFormCodeBadge,
   noHandRolledToggleGroup,
@@ -34,6 +36,10 @@ import {
  *    composed from components/ui, never rebuilt in a feature (the primitive's own file is exempt). The pressed
  *    button is read in the group's own markup, through a same-file wrapper component (one level) and through
  *    the DS Button imported under another name; an imported wrapper and a wrapper of a wrapper stay unread.
+ *  - elements-built-with-jsx: the app builds its elements in JSX, which the gates that read elements see, so React's
+ *    element factories are refused under any name (Codex's two forms on #1370's 44229515 among them), a use of React
+ *    the rule cannot follow is refused as unreadable, and the DOM's document.createElement, JSX, a type and the one
+ *    allowlisted file pass. Each allowlist entry is held to its file: set aside, the rule finds its factories there.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -442,6 +448,74 @@ ruleTester.run('no-hand-rolled-toggle-group', noHandRolledToggleGroup, {
   ],
 })
 
+const CITATION_MARKERS = path.join(frontendRoot, 'lib/citationMarkers.tsx')
+ruleTester.run('elements-built-with-jsx', elementsBuiltWithJsx, {
+  valid: [
+    // An element in JSX, and the DOM's own createElement, dotted, bracketed, optional or taken out by a pattern.
+    'const field = <input type="password" autoComplete="new-password" />',
+    "const link = document.createElement('a')",
+    "const box = document?.['createElement']('div')",
+    'const { createElement } = document',
+    // A helper of the DOM's under the same name is no React factory.
+    "const createElement = (tag) => document.createElement(tag)\nconst made = createElement('a')",
+    // React's other members, imported, dotted or taken out of its default or a namespace import.
+    "import React, { useState, Children } from 'react'\nconst [on] = useState(false)\nconst n = React.Children.count(kids) + Children.count(kids)\nconst { Fragment, memo } = React",
+    "import * as R from 'react'\nR.useEffect(() => {}, [])",
+    // The allowlisted file and its factory.
+    { code: "import { cloneElement } from 'react'\nexport const marked = (el) => cloneElement(el, undefined, 'x')", filename: CITATION_MARKERS },
+  ],
+  invalid: [
+    { code: "import { createElement } from 'react'", errors: [{ messageId: 'factory', data: { form: 'createElement, imported from react' } }] },
+    // Codex on 44229515, passwordRulesLockstep: createElement under another name.
+    {
+      code: "import { createElement as h } from 'react'\nconst field = h('input', { type: 'password', autoComplete: 'off' })",
+      errors: [{ messageId: 'factory', line: 1, data: { form: 'createElement, imported from react' } }],
+    },
+    { code: "import { 'cloneElement' as clone } from 'react'", errors: [{ messageId: 'factory', data: { form: 'cloneElement, imported from react' } }] },
+    { code: "import { createFactory } from 'react'", errors: [{ messageId: 'factory' }] },
+    // Codex on 44229515, notificationPreferencesConsumed: a member of React's default import.
+    {
+      code: "import React from 'react'\nconst row = React.createElement(Reader, { source: prefs })",
+      errors: [{ messageId: 'factory', line: 2, data: { form: 'React.createElement' } }],
+    },
+    { code: "import * as R from 'react'\nR.cloneElement(el, { autoComplete: 'off' })", errors: [{ messageId: 'factory', data: { form: 'R.cloneElement' } }] },
+    { code: "import React from 'react'\nReact['createElement']('input')", errors: [{ messageId: 'factory', data: { form: "React['createElement']" } }] },
+    { code: "import React from 'react'\nReact[`cloneElement`](el)", errors: [{ messageId: 'factory' }] },
+    { code: "import { default as React } from 'react'\nReact.createFactory('input')", errors: [{ messageId: 'factory' }] },
+    { code: "import React from 'react'\nconst { createElement: h, useState } = React", errors: [{ messageId: 'factory', data: { form: 'createElement, taken out of React' } }] },
+    // The JSX runtimes, whatever is taken from them; a re-export of a factory or of every export.
+    { code: "import { jsx } from 'react/jsx-runtime'", errors: [{ messageId: 'factory', data: { form: 'An import from react/jsx-runtime' } }] },
+    { code: "import * as dev from 'react/jsx-dev-runtime'", errors: [{ messageId: 'factory' }] },
+    {
+      code: "import { jsx } from 'react/cjs/react-jsx-runtime.production.js'",
+      errors: [{ messageId: 'factory', data: { form: 'An import from react/cjs/react-jsx-runtime.production.js' } }],
+    },
+    { code: "export { cloneElement as clone } from 'react'", errors: [{ messageId: 'factory', data: { form: 'cloneElement, re-exported from react' } }] },
+    { code: "export * from 'react'", errors: [{ messageId: 'factory' }] },
+    // React at another entry, and the copy Next bundles.
+    { code: "import { createElement } from 'react/index.js'", errors: [{ messageId: 'factory' }] },
+    { code: "import { createElement } from 'next/dist/compiled/react'", errors: [{ messageId: 'factory' }] },
+    // A createElement member or key whose object is not the DOM's global document, a document the file binds included.
+    { code: "const el = ui.createElement('input')", errors: [{ messageId: 'factory', data: { form: 'ui.createElement' } }] },
+    { code: "const el = kit?.['createElement']('input')", errors: [{ messageId: 'factory' }] },
+    { code: "function make({ createElement }) { return createElement('input') }", errors: [{ messageId: 'factory' }] },
+    { code: "function make(document) { return document.createElement('input') }", errors: [{ messageId: 'factory' }] },
+    // A use of React whose reach the rule cannot tell.
+    { code: "import React from 'react'\nconst R = React", errors: [{ messageId: 'unreadable', line: 2 }] },
+    { code: "import React from 'react'\nrender(React)", errors: [{ messageId: 'unreadable', line: 2 }] },
+    { code: "import React from 'react'\nReact[name]('input')", errors: [{ messageId: 'unreadable', data: { form: 'React[name], a member of React by a key held in a name' } }] },
+    { code: "import React from 'react'\nconst { ...all } = React", errors: [{ messageId: 'unreadable', data: { form: '...all, taken out of React' } }] },
+    { code: "export { default } from 'react'", errors: [{ messageId: 'unreadable' }] },
+    { code: "const R = require('react')", errors: [{ messageId: 'unreadable', data: { form: "require('react'), a require of React" } }] },
+    {
+      code: "const { createElement: h } = await import('react')",
+      errors: [{ messageId: 'factory', column: 9 }, { messageId: 'unreadable', data: { form: "import('react'), a dynamic import of React" } }],
+    },
+    // The allowlist names a file's factory, not every factory.
+    { code: "import { createElement } from 'react'", filename: CITATION_MARKERS, errors: [{ messageId: 'factory' }] },
+  ],
+})
+
 describe('unguardedAnimation', () => {
   it('passes motion-safe:, a same-variant guard, globals.css classes that guard themselves, and animate-none', () => {
     expect(unguardedAnimation('h-4 w-4 animate-spin motion-reduce:animate-none')).toBeNull()
@@ -725,5 +799,58 @@ describe('the repository config', SLOW, () => {
     expect(
       result.messages.filter((m) => m.ruleId === 'earningsnerd/no-hand-rolled-toggle-group').map((m) => m.line),
     ).toEqual([11, 12, 13])
+  })
+
+  const factoryFindings = (messages: ESLint.LintResult['messages']) =>
+    messages.filter((m) => m.ruleId === 'earningsnerd/elements-built-with-jsx').map((m) => `${m.line} ${m.message.slice(0, m.message.indexOf(': '))}`)
+
+  it('refuses an element factory on app code through the app parser, in TypeScript and JavaScript, and passes a type, the DOM and JSX (typescript-eslint)', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const [result] = await eslint.lintText(
+      [
+        "import React, { type ReactNode } from 'react'",
+        "import type { createElement as Typed } from 'react'",
+        "import { createElement as h } from 'react'",
+        'export function Probe({ children }: { children: ReactNode }): React.ReactNode {',
+        "  const made: ReturnType<typeof React.createElement> = h('input', { type: 'password', autoComplete: 'off' })",
+        "  const link = (document as Document).createElement('a')",
+        '  return <React.Fragment>{made}{(React as typeof React).cloneElement(<b />)}{link.href}{children}</React.Fragment>',
+        '}',
+        "import R = require('react')",
+        'export type Made = Typed',
+        "import * as Ns from 'react'",
+        'import alias = Ns.createElement',
+        'export const aliased = alias',
+        '',
+      ].join('\n'),
+      { filePath: path.join(frontendRoot, 'app/element-factory-probe.tsx') },
+    )
+    expect(result.messages.filter((m) => m.fatal)).toEqual([])
+    // A type-only import, a type, JSX, the import JSX makes typescript-eslint reference and the DOM behind a cast pass;
+    // TypeScript's two import forms are read, `import x = require()` refused and `import x = Ns.member` as a member.
+    expect(factoryFindings(result.messages)).toEqual([
+      '3 createElement, imported from react',
+      '7 (React as typeof React).cloneElement',
+      "9 import R = require('react'), a require of React",
+      '12 import alias = Ns.createElement',
+    ])
+    expect(result.messages.every((m) => m.ruleId !== 'earningsnerd/elements-built-with-jsx' || m.severity === 2)).toBe(true)
+    // The password scan parses JavaScript too, so the rule reads it.
+    const [script] = await eslint.lintText("import { createElement as h } from 'react'\nexport const field = h('input', { type: 'password' })\n", {
+      filePath: path.join(frontendRoot, 'features/auth/components/element-factory-probe.jsx'),
+    })
+    expect(factoryFindings(script.messages)).toEqual(['1 createElement, imported from react'])
+  })
+
+  it('holds each allowlisted file to its factories: it passes as itself, and anywhere else the rule finds them there', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    expect([...ELEMENT_FACTORY_ALLOWLIST.keys()]).toEqual(['lib/citationMarkers.tsx'])
+    for (const [file, factories] of ELEMENT_FACTORY_ALLOWLIST) {
+      const source = readFileSync(path.join(frontendRoot, file), 'utf8')
+      const [own] = await eslint.lintText(source, { filePath: path.join(frontendRoot, file) })
+      expect(factoryFindings(own.messages), file).toEqual([])
+      const [elsewhere] = await eslint.lintText(source, { filePath: path.join(frontendRoot, path.dirname(file), 'element-factory-allowlist-probe.tsx') })
+      expect(factoryFindings(elsewhere.messages).map((finding) => finding.split(',')[0].replace(/^\d+ /, '')), `${file} still needs its entry`).toEqual([...factories])
+    }
   })
 })

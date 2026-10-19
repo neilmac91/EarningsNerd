@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ESLint } from 'eslint'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingResolver, containerEscape } from './astBindings'
@@ -42,10 +43,12 @@ import { bindingResolver, containerEscape } from './astBindings'
  * copy made another way (a JSON round trip), an array's rest, a field named by a computed key or enumerated
  * (`prefs[key]`, `Object.entries(prefs)`), a function called through call, apply or bind or held in an array, a save
  * sent by hand (`fetch`), and an object a same-file hook returns, written after the call (read as the hook writes it);
- * a component that writes the options array it is handed is not read either. A field the API fills from the account's
- * entitlements (`_prefs_response` in backend/app/routers/users.py assigns it from `ent.`, and the update model does not
- * take it) is gating the user cannot set, not a preference, so a read of it there is not held to the jobs; read
- * directly as a control's state (`checked={prefs.x}`), as main read it, any field is.
+ * a component that writes the options array it is handed is not read either. Nor is an element built by a factory,
+ * which lint refuses (eslint.designRules.mjs's elements-built-with-jsx): `React.createElement(Rows, { source: prefs })`
+ * hands the prefs value to no prop the scan follows (planted with the rule's finding). A field the API fills from the
+ * account's entitlements (`_prefs_response` in backend/app/routers/users.py assigns it from `ent.`, and the update
+ * model does not take it) is gating the user cannot set, not a preference, so a read of it there is not held to the
+ * jobs; read directly as a control's state (`checked={prefs.x}`), as main read it, any field is.
  *
  * The values the form offers are read where they are written, in each form a choice takes: any element's
  * `value="…"` or `value={'…'}` (an <option>, a radio input, a custom item; `value={prefs.x}` is the control's
@@ -976,6 +979,26 @@ describe('Notification preferences the form offers are read by the alert jobs', 
     expect([...DERIVED], 'the response fills the two gates from the entitlements').toEqual(expect.arrayContaining(['eightk_available', 'realtime_available']))
     expect([...DERIVED].filter((field) => SETTABLE.has(field)), 'a field the user can set is a preference, never gating').toEqual([])
     expect(SETTABLE.has('digest'), 'the update model is read').toBe(true)
+  })
+
+  it('leaves a prop an element factory hands to lint, which refuses the factory: elements-built-with-jsx (Codex on 44229515)', { timeout: 30_000 }, async () => {
+    // Codex's form: React.createElement hands the prefs value to a same-file component, whose field the scan never
+    // reads. The scan follows a prop a tag hands (`<Rows source={prefs} />`); it does not read a factory, since the
+    // lint rule elements-built-with-jsx (eslint.designRules.mjs) refuses every factory in app code, this one included.
+    const factory = [
+      "import React from 'react'",
+      'export default function Form() {',
+      '  const { data: prefs } = useQuery(q)',
+      '  return <div>{React.createElement(Reader, { source: prefs })}</div>',
+      '}',
+      'function Reader({ source }: { source: { f_factory: boolean } }) { return <Toggle checked={source.f_factory} /> }',
+      '',
+    ].join('\n')
+    expect([...formPreferences('fixture.tsx', factory).fields.keys()], 'not reached by the scan').toEqual([])
+    const [linted] = await new ESLint({ cwd: frontendDir }).lintText(factory, { filePath: path.join(frontendDir, FORM) })
+    expect(linted.messages.filter((m) => m.ruleId === 'earningsnerd/elements-built-with-jsx').map((m) => `${m.line} ${m.message.split(':')[0]}`), 'refused by lint').toEqual([
+      '4 React.createElement',
+    ])
   })
 
   it('every field the form renders or saves is read as prefs.<field> by the jobs', () => {

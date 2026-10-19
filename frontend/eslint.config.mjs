@@ -266,6 +266,9 @@ const DESIGN_COLOR_EXEMPT = [
 const DESIGN_HEX_EXEMPT = ['app/manifest.ts', 'app/layout.tsx']
 const DESIGN_Z_EXEMPT = ['components/ui/DataTable.tsx']
 
+/** The repository's own rules as one object: two config blocks name it, and flat config refuses a plugin redefined. */
+const EARNINGSNERD_PLUGIN = { rules: { ...gridBaseTrackPlugin.rules, ...designRulesPlugin.rules } }
+
 const DATE_RULES = [
   {
     // format(new Date(x), …). `new Date()` with no argument (meaning "now") is deliberately allowed.
@@ -347,11 +350,12 @@ const config = [
   // form code inside a Badge (P-04), no animation utility that keeps moving under reduced motion
   // (P-09), and no hand-rolled single-choice toggle group outside the SegmentedControl (CO-15).
   // direction-text-tokens holds direction text to the 700-level gain/loss inks, never the 600
-  // level or sage (D-030).
+  // level or sage (D-030). elements-built-with-jsx refuses React's element factories, so every
+  // element the app renders is JSX the gates that read elements can see.
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: TEST_FILES,
-    plugins: { earningsnerd: { rules: { ...gridBaseTrackPlugin.rules, ...designRulesPlugin.rules } } },
+    plugins: { earningsnerd: EARNINGSNERD_PLUGIN },
     rules: {
       'earningsnerd/responsive-grid-base-track': 'error',
       'earningsnerd/direction-text-tokens': 'error',
@@ -360,7 +364,16 @@ const config = [
       'earningsnerd/no-unguarded-animation': 'error',
       'earningsnerd/locale-pinned-numbers': 'error',
       'earningsnerd/no-hand-rolled-toggle-group': 'error',
+      'earningsnerd/elements-built-with-jsx': 'error',
     },
+  },
+  // The password scan parses every script it finds (passwordRulesLockstep.spec.tsx), JavaScript included, so the rule
+  // that leaves an element built by a factory to lint reads JavaScript too. The other design rules read TypeScript.
+  {
+    files: ['**/*.js', '**/*.jsx', '**/*.mjs', '**/*.cjs', '**/*.mts', '**/*.cts'],
+    ignores: TEST_FILES,
+    plugins: { earningsnerd: EARNINGSNERD_PLUGIN },
+    rules: { 'earningsnerd/elements-built-with-jsx': 'error' },
   },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.
   {
