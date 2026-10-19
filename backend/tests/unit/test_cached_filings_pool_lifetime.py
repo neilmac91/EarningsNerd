@@ -9,9 +9,10 @@ One rule, two halves in this one module:
   with a slow wording diff must wait for its slots in the thread pool, not on the loop; the
   analysis stream must release its connection before its body streams, alone and in a burst; the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
-  in the thread pool; and each auth session route (logout signed in, with only the refresh cookie
-  and with a dead one, logout-all, refresh) must answer an eight-request burst with no checkout on
-  the loop and nothing left for the finalizer.
+  in the thread pool; each auth session route (logout signed in, with only the refresh cookie and
+  with a dead one, logout-all, refresh), each watchlist route (its refusals included) and the
+  waitlist join and verification must answer an eight-request burst with no checkout on the loop
+  and nothing left for the finalizer; and the join must send its mails with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails a session call on the loop in the route's own body above that route's ceiling, so a route
   the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
@@ -633,6 +634,349 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
         assert original.revoked_at is not None and original.replaced_by_id == replacement.id
         assert refresh_token_service._hash_token(
             response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
+    finally:
+        engine.dispose()
+
+
+_WATCHLIST_STATUS = {
+    "add_missing": 404, "add_duplicate": 400, "remove_missing": 404, "remove_unwatched": 404,
+    "enable_capped": 403, "enable_unresolvable": 404,
+}
+# Each reader's watch row for CACHED after the burst, by case: its earnings_alert flag, or no row.
+_WATCHLIST_ROW_AFTER = {
+    "list": False, "insights": False, "add": False, "add_duplicate": False, "alert_tickers": True,
+    "enable": True, "disable": False,
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,case", [
+    ("GET", "/api/watchlist/", "list"),
+    ("GET", "/api/watchlist/insights", "insights"),
+    ("POST", "/api/watchlist/CACHED", "add"),
+    ("POST", "/api/watchlist/NOSUCH", "add_missing"),
+    ("POST", "/api/watchlist/CACHED", "add_duplicate"),
+    ("DELETE", "/api/watchlist/CACHED", "remove"),
+    ("DELETE", "/api/watchlist/NOSUCH", "remove_missing"),
+    ("DELETE", "/api/watchlist/CACHED", "remove_unwatched"),
+    ("GET", "/api/watchlist/earnings-alerts", "alert_tickers"),
+    ("POST", "/api/watchlist/CACHED/earnings-alert", "enable"),
+    ("POST", "/api/watchlist/CACHED/earnings-alert", "enable_capped"),
+    ("POST", "/api/watchlist/NOSUCH/earnings-alert", "enable_unresolvable"),
+    ("DELETE", "/api/watchlist/CACHED/earnings-alert", "disable"),
+])
+async def test_watchlist_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
+    """Each watchlist route runs its session work, its payload and the release in one thread-pool
+    unit, its refusals included, so eight readers on four slots leave nothing for the finalizer and
+    make no checkout on the loop."""
+    from app.models import User, Watchlist
+    from app.routers import auth
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'watchlist-routes.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture",
+                          history_backfilled_at=utcnow())
+        db.add(company)
+        # Three companies each reader already has an alert on, for the cap case (Free allows 3).
+        capped = [Company(cik=f"{i + 2:010d}", ticker=f"CAP{i}", name=f"Capped {i}") for i in range(3)]
+        db.add_all(capped)
+        db.flush()
+        db.add(Filing(company_id=company.id, accession_number="0000000001-26-000001",
+                      filing_type="10-K", filing_date=utcnow(),
+                      sec_url="https://example.test/filing/", document_url="https://example.test/filing.htm"))
+        for i in range(8):
+            reader = User(email=f"watch-reader-{i}@example.com", is_active=True)
+            db.add(reader)
+            db.flush()
+            if case in ("list", "insights", "add_duplicate", "remove", "alert_tickers", "disable"):
+                db.add(Watchlist(user_id=reader.id, company_id=company.id,
+                                 earnings_alert=case in ("alert_tickers", "disable")))
+            if case == "enable_capped":
+                db.add_all(Watchlist(user_id=reader.id, company_id=other.id, earnings_alert=True)
+                           for other in capped)
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # A statement on the loop blocks it even on a connection the thread pool checked out (the auth
+    # lookup's, which the route's session keeps).
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"watch-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.request(method, path)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert [response.status_code for response in responses] == [_WATCHLIST_STATUS.get(case, 200)] * 8
+        payloads = [response.json() for response in responses]
+        if case == "list":
+            assert [[row["company"]["ticker"] for row in payload] for payload in payloads] == [["CACHED"]] * 8
+        elif case == "insights":
+            assert [
+                [(row["company"]["ticker"], row["total_filings"], row["latest_filing"]["summary_status"])
+                 for row in payload]
+                for payload in payloads
+            ] == [[("CACHED", 1, "missing")]] * 8
+        elif case == "add":
+            # The payload reads the company row the commit expired, inside the unit.
+            assert [(payload["company"]["ticker"], payload["created_at"] is not None)
+                    for payload in payloads] == [("CACHED", True)] * 8
+        elif case in ("add_missing", "remove_missing"):
+            assert payloads == [{"detail": "Company not found"}] * 8
+        elif case == "add_duplicate":
+            assert payloads == [{"detail": "Company already in watchlist"}] * 8
+        elif case == "remove":
+            assert payloads == [{"status": "success"}] * 8
+        elif case == "remove_unwatched":
+            assert payloads == [{"detail": "Company not in watchlist"}] * 8
+        elif case == "alert_tickers":
+            assert payloads == [{"tickers": ["CACHED"]}] * 8
+        elif case == "enable":
+            assert payloads == [{"status": "enabled", "ticker": "CACHED"}] * 8
+        elif case == "enable_capped":
+            # The cap check reads the user's plan, a lazy load of its subscription, inside the unit.
+            assert payloads == [{
+                "detail": "Free includes earnings alerts for 3 companies. Upgrade to Pro for more.",
+                "code": "earnings_alert_limit",
+            }] * 8
+        elif case == "enable_unresolvable":
+            assert payloads == [{"detail": "We can't set an alert for NOSUCH yet."}] * 8
+        else:
+            assert payloads == [{"status": "disabled", "ticker": "CACHED"}] * 8
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement
+        # ran there: none on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        with sessions() as db:
+            rows = (db.query(Watchlist.user_id, Watchlist.earnings_alert)
+                    .filter(Watchlist.company_id == 1).order_by(Watchlist.user_id).all())
+        # Each write landed once per reader, and each refusal wrote nothing.
+        assert [tuple(row) for row in rows] == (
+            [(user_id, _WATCHLIST_ROW_AFTER[case]) for user_id in range(1, 9)]
+            if case in _WATCHLIST_ROW_AFTER else []
+        )
+    finally:
+        engine.dispose()
+
+
+_WAITLIST_STATUS = {"join_bad_referral": 400, "verify_missing": 404}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", [
+    "join", "join_referred", "join_existing", "join_bad_referral", "verify", "verify_missing",
+])
+async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch, tmp_path, case):
+    """The waitlist join and the email verification run their session work in thread-pool units, the
+    join's refusals included, so eight joiners on four slots leave nothing for the finalizer and
+    make no checkout on the loop. The join releases before its mails go out (its own case below)."""
+    from app.services import turnstile, waitlist_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'waitlist-writes.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    WaitlistSignup.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        for i in range(8):
+            # A referrer per joiner, so no two joins credit one row.
+            db.add(WaitlistSignup(email=f"referrer-{i}@example.com", referral_code=f"refcode{i}",
+                                  position=i + 1, priority_score=0))
+            if case in ("join_existing", "verify"):
+                db.add(WaitlistSignup(email=f"joiner-{i}@example.com", referral_code=f"joincod{i}",
+                                      position=i + 9, priority_score=0))
+        db.commit()
+
+    sent: dict[str, list[str]] = {"welcome": [], "referral": []}
+
+    async def welcome(**kwargs: Any) -> None:
+        sent["welcome"].append(kwargs["to_email"])
+
+    async def referral(**kwargs: Any) -> None:
+        sent["referral"].append(kwargs["to_email"])
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # A statement on the loop blocks it even on a connection the thread pool checked out (the auth
+    # lookup's, which the route's session keeps).
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(watchlist, "send_waitlist_welcome_email", welcome)
+    monkeypatch.setattr(watchlist, "send_referral_success_email", referral)
+    # The join's per-IP limiter is process-wide; each burst starts with a fresh window.
+    monkeypatch.setattr(watchlist, "WAITLIST_JOIN_LIMITER", RateLimiter(limit=100, window_seconds=3600))
+    monkeypatch.setattr(turnstile.settings, "TURNSTILE_SECRET_KEY", "")
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        email = f"joiner-{i}@example.com"
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            if case.startswith("verify"):
+                token = waitlist_service.create_verification_token(email, f"joincod{i}")
+                return await client.post(f"/api/waitlist/verify/{token}")
+            body = {"email": email}
+            if case == "join_referred":
+                body["referral_code"] = f"refcode{i}"
+            elif case == "join_bad_referral":
+                body["referral_code"] = f"nosuch{i}"
+            return await client.post("/api/waitlist/join", json=body)
+
+    joiners = [f"joiner-{i}@example.com" for i in range(8)]
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert [response.status_code for response in responses] == [_WAITLIST_STATUS.get(case, 200)] * 8
+        payloads = [response.json() for response in responses]
+        if case in ("join", "join_referred"):
+            assert [(payload["success"], payload["email_sent"]) for payload in payloads] == [(True, True)] * 8
+        elif case == "join_existing":
+            assert [(payload["error"], payload["referral_code"]) for payload in payloads] == [
+                ("already_registered", f"joincod{i}") for i in range(8)]
+        elif case == "join_bad_referral":
+            assert payloads == [{
+                "success": False, "error": "invalid_referral", "message": "Referral code not recognized.",
+            }] * 8
+        elif case == "verify":
+            assert payloads == [{"success": True, "message": "Email verified."}] * 8
+        else:
+            assert payloads == [{"detail": "Waitlist entry not found."}] * 8
+        assert engine.pool.checkedout() == 0
+        # Each unit released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        # Every checkout waited in the thread pool, and every statement ran there: none on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert sorted(sent["welcome"]) == (joiners if case in ("join", "join_referred") else [])
+        assert sorted(sent["referral"]) == (
+            [f"referrer-{i}@example.com" for i in range(8)] if case == "join_referred" else [])
+        with sessions() as db:
+            rows = {row.email: row for row in db.query(WaitlistSignup).all()}
+            if case in ("join", "join_referred"):
+                assert [rows[email].welcome_email_sent for email in joiners] == [True] * 8
+            if case == "join_referred":
+                assert [rows[f"referrer-{i}@example.com"].priority_score for i in range(8)] == [1] * 8
+            if case == "join_bad_referral":
+                assert sorted(rows) == [f"referrer-{i}@example.com" for i in range(8)]
+            if case == "verify":
+                assert [rows[email].email_verified for email in joiners] == [True] * 8
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("welcome_fails", [False, True])
+async def test_waitlist_join_holds_no_connection_while_its_mails_send(monkeypatch, tmp_path, welcome_fails):
+    """The join copies what its mails need, releases its session, and only then sends: no pool slot
+    waits on the mail provider. The welcome flag is its own unit after the send, and a failed send
+    writes nothing."""
+    from app.services import turnstile
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'waitlist-sends.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    WaitlistSignup.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        db.add(WaitlistSignup(email="referrer@example.com", referral_code="refcode0", position=1, priority_score=0))
+        db.commit()
+
+    held: dict[str, int] = {}
+
+    async def welcome(**kwargs: Any) -> None:
+        held["welcome"] = engine.pool.checkedout()
+        if welcome_fails:
+            raise RuntimeError("mail provider down")
+
+    async def referral(**kwargs: Any) -> None:
+        held["referral"] = engine.pool.checkedout()
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(watchlist, "send_waitlist_welcome_email", welcome)
+    monkeypatch.setattr(watchlist, "send_referral_success_email", referral)
+    monkeypatch.setattr(watchlist, "WAITLIST_JOIN_LIMITER", RateLimiter(limit=100, window_seconds=3600))
+    monkeypatch.setattr(turnstile.settings, "TURNSTILE_SECRET_KEY", "")
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/waitlist/join", json={"email": "joiner@example.com", "referral_code": "refcode0"},
+            )
+        assert response.status_code == 200
+        assert (response.json()["success"], response.json()["email_sent"]) == (True, not welcome_fails)
+        # Neither send held a connection: the join's unit had released the session before the first.
+        assert held == {"welcome": 0, "referral": 0}
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            rows = {row.email: row for row in db.query(WaitlistSignup).all()}
+        assert rows["joiner@example.com"].welcome_email_sent is (not welcome_fails)
+        assert rows["referrer@example.com"].priority_score == 1
     finally:
         engine.dispose()
 

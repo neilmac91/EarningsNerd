@@ -145,6 +145,7 @@ from tests.support.mail_styles import (
     outlook_width_problems,
     reach_problems,
     shown_text,
+    spamassassin_contrast_problems,
     text_size_problems,
     viewports,
 )
@@ -1312,6 +1313,152 @@ def test_every_page_sent_takes_its_colours_from_the_tokens(rendered):
     assert not problems, "\n".join(sorted(set(problems)))
 
 
+def test_spamassassin_reads_no_text_on_a_page_sent_as_too_like_its_ground(rendered):
+    problems = [f"{name}: {problem}" for name, page in _pages(rendered) for problem in spamassassin_contrast_problems(page)]
+    assert not problems, (
+        "SpamAssassin reads a text on a page in an ink too like its ground, which it scores as hidden text "
+        "(HTML_FONT_LOW_CONTRAST) though its reader sees it plainly; it reads a ground from a style's background-color "
+        "alone (E125):\n" + "\n".join(sorted(set(problems)))
+    )
+
+
+def _contrast_page(fragment: str) -> str:
+    """A page around ``fragment``, which opens its own <body> where it starts with one, and is a page itself where it
+    starts with a doctype."""
+    if fragment.lstrip().startswith("<!doctype"):
+        return fragment
+    return f"<!doctype html><html><head></head>{'' if fragment.startswith('<body') else '<body>'}{fragment}</body></html>"
+
+
+# Each way SpamAssassin can read a text in an ink too like its ground, each form the reader refuses, and the look-alikes
+# it reads as clear of the ground. Each broken and kept page is scored with SpamAssassin 4.0.0's own HTML parser
+# (tasks/review-evidence/e125-mail-spam-scores-2026-10-19/), which reads each as the reader does.
+CONTRASTS = [
+    # Broken.
+    ("the button's sage in the background shorthand, on white", '<a href="https://e.test/v" style="display:inline-block;background:#4F7A63;color:#FFFFFF;">Verify my email</a>', "too like its ground"),
+    ("the button's sage in the background shorthand, on the page's cream", '<table role="presentation" bgcolor="#F4F3EE" style="background-color:#F4F3EE;"><tr><td><a href="https://e.test/v" style="background:#4F7A63;color:#FFFFFF;">Verify my email</a></td></tr></table>', "too like its ground"),
+    ("a ground in the background shorthand on a div", '<div style="background:#1A1A17;"><span style="color:#FBFAF6;">Pale words.</span></div>', "too like its ground"),
+    ("a cell's ground in its bgcolor alone", '<table><tr><td bgcolor="#1A1A17"><span style="color:#FBFAF6;">Pale words.</span></td></tr></table>', "too like its ground"),
+    ("a table's ground in its bgcolor alone", '<table bgcolor="#1A1A17"><tr><td><span style="color:#FBFAF6;">Pale words.</span></td></tr></table>', "too like its ground"),
+    ("a row's ground in its bgcolor alone", '<table><tr bgcolor="#1A1A17"><td><span style="color:#FBFAF6;">Pale words.</span></td></tr></table>', "too like its ground"),
+    ("a link's ground in a bgcolor", '<a href="https://e.test/v" bgcolor="#4F7A63" style="color:#FFFFFF;">Verify</a>', "too like its ground"),
+    ("a marquee's bgcolor, on a tag it reads none of", '<marquee bgcolor="#1A1A17"><span style="color:#FBFAF6;">Pale words.</span></marquee>', "too like its ground"),
+    ("a marquee left open in a cell, which a cell's start closes, as it reads no tag of one", '<table style="color:#FFFFFF;"><tr><td style="background-color:#000000;"><marquee>Pale on black.<td>Pale on white.</td></tr></table>', "too like its ground"),
+    ("a body's ground in its style", '<body style="background-color:#1A1A17;"><p style="color:#FBFAF6;">Pale words.</p>', "too like its ground"),
+    ("a body's ground in its bgcolor", '<body bgcolor="#1A1A17"><p style="color:#FBFAF6;">Pale words.</p>', "too like its ground"),
+    ("a heading's ground, whose style it does not read", '<h2 style="background-color:#1A1A17;"><span style="color:#FBFAF6;">Pale heading.</span></h2>', "too like its ground"),
+    ("an emphasis's ground, whose style it does not read", '<em style="background-color:#1A1A17;"><span style="color:#FBFAF6;">Pale words.</span></em>', "too like its ground"),
+    ("a background-color spaced before its colon", '<div style="background-color :#1A1A17;"><span style="color:#FBFAF6;">Pale words.</span></div>', "too like its ground"),
+    ("a heading's ink, unread, on a dark ground it reads", '<div style="background-color:#000000;"><h2 style="color:#FFFFFF;">Pale heading.</h2></div>', "too like its ground"),
+    ("a color spaced before its colon, on a dark ground", '<div style="background-color:#000000;"><span style="color :#FFFFFF;">Pale words.</span></div>', "too like its ground"),
+    ("a big's style, which it does not read, on a dark ground", '<div style="background-color:#000000;"><big style="color:#FFFFFF;">Pale words.</big></div>', "too like its ground"),
+    ("a font's colour", '<font color="#FFFFFF">Pale words.</font>', "too like its ground"),
+    ("a body's text colour", '<body text="#FFFFFF"><p>Pale words.</p>', "too like its ground"),
+    ("a basefont's colour, where it sets no size", '<basefont color="#FFFFFF"><p>Pale words.</p>', "too like its ground"),
+    ("a header cell's ink, read as a cell's", '<table><tr><th style="color:#FFFFFF;">Pale heading.</th></tr></table>', "too like its ground"),
+    ("the page's cream as ink on white", '<span style="color:#F4F3EE;">Cream words.</span>', "too like its ground"),
+    ("an ink just under 12 from its ground", '<div style="background-color:#000000;"><span style="color:#0F0F0F;">Near-black words.</span></div>', "too like its ground"),
+    ("an ink of the ground's own colour", '<div style="background-color:#4F7A63;"><span style="color:#4F7A63;">Sage on sage.</span></div>', "too like its ground"),
+    ("a style's later color over its earlier", '<div style="background-color:#000000;"><span style="color:#FFFFFF;color:#000000;">Black words.</span></div>', "too like its ground"),
+    ("a style's later background-color over its earlier", '<div style="background-color:#000000;background-color:#FFFFFF;"><span style="color:#FFFFFF;">Pale words.</span></div>', "too like its ground"),
+    ("inherit, which keeps the ink below", '<span style="color:#FFFFFF;"><span style="color:inherit;">Pale words.</span></span>', "too like its ground"),
+    ("!important alone, which keeps the ink below", '<div style="background-color:#000000;"><span style="color:!important;">Black words.</span></div>', "too like its ground"),
+    ("two styles, of which it reads the first", '<span style="color:#FFFFFF;" style="color:#1A1A17;">Pale words.</span>', "too like its ground"),
+    ("a span written closed, which it holds open", '<span style="color:#FFFFFF;"/><p>Pale words.</p>', "too like its ground"),
+    ("a span left open in a cell, which the next cell's start leaves open", '<table><tr><td style="background-color:#000000;"><span style="color:#FFFFFF;">Pale on black.<td style="background-color:#FFFFFF;">Pale on white.</td></tr></table>', "too like its ground"),
+    ("a row's start, which closes the cells and the row before it to the table's ground", '<table style="background-color:#000000;"><tr><td style="background-color:#FFFFFF;">Black on white.<tr><td>Black on black.</td></tr></table>', "too like its ground"),
+    ("a body's ink, which its end tag leaves open", '<body text="#FFFFFF"></body><p>Pale words after the body.</p>', "too like its ground"),
+    ("a tag, an attribute and a declaration in capitals", '<SPAN STYLE="COLOR:#FFFFFF;">Pale words.</SPAN>', "too like its ground"),
+    ("an unquoted style", "<span style=color:#FFFFFF>Pale words.</span>", "too like its ground"),
+    ("a style in curly quotes, which it reads as straight ones", "<span style=\u201ccolor:#FFFFFF;\u201d>Pale words.</span>", "too like its ground"),
+    ("a declaration after a newline", '<span style="\ncolor:#FFFFFF;">Pale words.</span>', "too like its ground"),
+    ("a zero-width space, which counts as text", '<span style="color:#FFFFFF;">&#8203;</span>', "too like its ground"),
+    ("a no-break space by its number, which counts as text", '<span style="color:#FFFFFF;">&#160;</span>', "too like its ground"),
+    ("a no-break space as itself, which counts as text", '<span style="color:#FFFFFF;">\u00a0</span>', "too like its ground"),
+    ("a no-break space by its name and then by its number, the second of which counts as text", '<span style="color:#FFFFFF;">&nbsp;&#160;</span>', "too like its ground"),
+    ("a name a browser decodes as a tab, which it reads as written", '<span style="color:#FFFFFF;">&Tab;</span>', "too like its ground"),
+    ("a block Outlook's conditional comments reveal to every other client", '<!--[if !mso]><!--><span style="color:#FFFFFF;">Pale words.</span><!--<![endif]-->', "too like its ground"),
+    ("a noscript's markup, which it reads", '<noscript><span style="color:#FFFFFF;">Pale words.</span></noscript>', "too like its ground"),
+    # Refused.
+    ("a short hex", '<span style="color:#FFF;">Pale words.</span>', "does not read as SpamAssassin reads it"),
+    ("a colour's name", '<span style="color:white;">Pale words.</span>', "does not read as SpamAssassin reads it"),
+    ("rgb()", '<span style="color:rgb(255,255,255);">Pale words.</span>', "does not read as SpamAssassin reads it"),
+    ("a colour with !important after it, which it reads as an invalid colour", '<span style="color:#FFFFFF !important;">Pale words.</span>', "does not read as SpamAssassin reads it"),
+    ("a ground's name", '<div style="background-color:black;"><span style="color:#FFFFFF;">Pale on black.</span></div>', "does not read as SpamAssassin reads it"),
+    ("a font's colour by name", '<font color="white">Pale words.</font>', "does not read as SpamAssassin reads it"),
+    ("a body's text colour in a short hex", '<body text="#FFF"><p>Words.</p>', "does not read as SpamAssassin reads it"),
+    ("a style written with a character reference", '<span style="color:&#35;FFFFFF;">Pale words.</span>', "written with a character reference"),
+    ("a font's colour written with a character reference", '<font color="&#35;FFFFFF">Pale words.</font>', "written with a character reference"),
+    ("a basefont's size written with a character reference, which the standard library decodes and it does not", '<basefont size="&Tab;3" color="#FFFFFF"><p>Pale words.</p>', "written with a character reference"),
+    ("a title", "<title>A title.</title><p>Words.</p>", "reads as raw text"),
+    ("a textarea", "<textarea>Words.</textarea>", "reads as raw text"),
+    ("an xmp", '<xmp><span style="color:#FFFFFF;">Pale words.</span></xmp>', "reads as raw text"),
+    ("a plaintext", "<plaintext>Words.", "reads as raw text"),
+    ("a listing", "<listing>Words.</listing>", "reads as raw text"),
+    ("an iframe", "<iframe>Words.</iframe>", "reads as raw text"),
+    ("a noembed", "<noembed>Words.</noembed>", "reads as raw text"),
+    ("a noframes", "<noframes>Words.</noframes>", "reads as raw text"),
+    ("a script written closed", "<script/><p>Words.</p>", "raw text"),
+    ("a script, whose text it passes over", '<span style="color:#FFFFFF;"><script>var words = 1;</script></span>', "raw text"),
+    ("a style block, whose text it passes over", '<span style="color:#FFFFFF;"><style>p { margin: 0; }</style></span>', "raw text"),
+    ("a no-break space in a style, which it reads as a space", '<div style="background-color:#1A1A17;"><span style="color:#FBFAF6;\u00a0color:#1A1A17;">Words.</span></div>', "past ASCII"),
+    ("a Kelvin sign in a property's name, which it reads as a k", '<div style="bac\u212aground-color:#000000;"><span style="color:#FFFFFF;">Pale on black.</span></div>', "past ASCII"),
+    ("a no-break space before the / that closes a span, which it reads as a space, so it holds the span open", '<span style="color:#FFFFFF;"><span\u00a0/></span>Pale words.</span>', "tag's name"),
+    ("an end tag whose name holds a no-break space", '<span style="color:#1A1A17;">Ink words.</span\u00a0><p>Words.</p>', "tag's name"),
+    ("a basefont's size in a digit past ASCII, which it reads as a digit", '<basefont size="\u0663" color="#FFFFFF"><p>Pale words.</p>', "size holds a character past ASCII"),
+    ("a comment closed by -- >, where it ends one", '<p>Words.</p><!-- a note -- > <span style="color:#FFFFFF;">Pale words.</span> -->', "with an error"),
+    ("a comment closed by --!>", '<p>Words.</p><!-- a note --!> <span style="color:#FFFFFF;">Pale words.</span> -->', "with an error"),
+    ("an end tag holding an attribute", '<span style="color:#1A1A17;">Ink words.</span class="x"><p>Words.</p>', "with an error"),
+    ("a vertical tab between a tag's name and its attribute", '<span\x0bstyle="color:#FFFFFF;">Pale words.</span>', "with an error"),
+    ("a / between a tag's name and its attribute", '<span/style="color:#FFFFFF;">Pale words.</span>', "with an error"),
+    ("a reference by number with no semicolon", '<span style="color:#FFFFFF;">&#32 </span>', "with an error"),
+    ("a reference by number past Unicode's last code point", '<span style="color:#FFFFFF;">&#x110000;</span>', "with an error"),
+    ("a reference by number twenty digits long, past Unicode's last code point too", '<span style="color:#FFFFFF;">&#99999999999999999999;</span>', "with an error"),
+    ("a bare ampersand before a word", '<p>R&D words.</p>', "with an error"),
+    ("a CDATA section", '<![CDATA[<span style="color:#FFFFFF;">Pale words.</span>]]>', "a marked section"),
+    ("a block Outlook's marked section reveals", '<![if !mso]><span style="color:#FFFFFF;">Pale words.</span><![endif]>', "a marked section"),
+    # Kept.
+    ("the shell's own page", email_service._wrap_html("<p>Body</p>", preheader="The mail's own line."), None),
+    ("the button's sage in background-color, on the page's cream", '<table role="presentation" bgcolor="#F4F3EE" style="background-color:#F4F3EE;"><tr><td><a href="https://e.test/v" style="display:inline-block;background-color:#4F7A63;color:#FFFFFF;">Verify my email</a></td></tr></table>', None),
+    ("the panel's ground in bgcolor and the shorthand, unread under its ink", '<table bgcolor="#FBFAF6" style="background:#FBFAF6;color:#1A1A17;"><tr><td>Ink on the panel.</td></tr></table>', None),
+    ("a body's ground, unread under the default ink", '<body style="background-color:#F4F3EE;"><p>Black on the page.</p>', None),
+    ("a table's ground", '<table style="background-color:#000000;"><tr><td><span style="color:#FFFFFF;">Pale on black.</span></td></tr></table>', None),
+    ("a row's ground", '<table><tr style="background-color:#000000;"><td><span style="color:#FFFFFF;">Pale on black.</span></td></tr></table>', None),
+    ("a cell's ground", '<table><tr><td style="background-color:#000000;"><span style="color:#FFFFFF;">Pale on black.</span></td></tr></table>', None),
+    ("a div's ground", '<div style="background-color:#000000;"><span style="color:#FFFFFF;">Pale on black.</span></div>', None),
+    ("a paragraph's ground", '<p style="background-color:#000000;"><span style="color:#FFFFFF;">Pale on black.</span></p>', None),
+    ("a span's ground", '<span style="background-color:#000000;color:#FFFFFF;">Pale on black.</span>', None),
+    ("a link's ground", '<a href="https://e.test/v" style="background-color:#000000;color:#FFFFFF;">Pale on black.</a>', None),
+    ("a ground in capitals", '<div style="BACKGROUND-COLOR:#000000;"><span style="color:#FFFFFF;">Pale on black.</span></div>', None),
+    ("an ink just over 12 from its ground", '<div style="background-color:#000000;"><span style="color:#111111;">Near-black words.</span></div>', None),
+    ("a style's later color, clear of the ground", '<div style="background-color:#000000;"><span style="color:#000000;color:#FFFFFF;">Pale on black.</span></div>', None),
+    ("inherit, which keeps a clear ink", '<div style="background-color:#000000;"><span style="color:#FFFFFF;"><span style="color:inherit;">Pale on black.</span></span></div>', None),
+    ("two styles, the first clear", '<span style="color:#1A1A17;" style="color:#FFFFFF;">Ink words.</span>', None),
+    ("a cell's start, which closes the font and the cell before it", '<table><tr><td style="background-color:#000000;"><font color="#FFFFFF">Pale on black.<td style="background-color:#FFFFFF;">Black on white.</td></tr></table>', None),
+    ("a row's start, which closes the fonts, the cells and the row before it", '<table><tr style="background-color:#000000;"><td><font color="#FFFFFF">Pale on black.<tr style="background-color:#FFFFFF;"><td>Black on white.</td></tr></table>', None),
+    ("a header cell's end tag, which closes it as a cell's", '<table><tr><th style="background-color:#000000;"><span style="color:#FFFFFF;">Pale on black.</th><td style="background-color:#FFFFFF;">Black on white.</td></tr></table>', None),
+    ("an end tag, which closes every element open above its own", '<div style="color:#FFFFFF;"><span style="background-color:#000000;">Pale on black.</div><p style="background-color:#FFFFFF;">Black on white.</p>', None),
+    ("a stray end tag, which closes nothing", '<div style="background-color:#000000;"></span><span style="color:#FFFFFF;">Pale on black.</span></div>', None),
+    ("a basefont that sets a size, and no colour", '<div style="background-color:#000000;color:#FFFFFF;"><basefont size="3" color="#000000"><p>Pale on black.</p></div>', None),
+    ("a namespaced tag, which it passes over", '<div style="background-color:#000000;color:#FFFFFF;"><o:p style="color:#000000;">Pale on black.</o:p></div>', None),
+    ("a no-break space by its name alone, which it reads as a space", '<span style="color:#FFFFFF;">&nbsp;&nbsp;</span>', None),
+    ("an A with a circumflex before a no-break space, which it takes out as one", '<span style="color:#FFFFFF;">\u00c2\u00a0</span>', None),
+    ("a tab by its number, which it reads as one", '<span style="color:#FFFFFF;">&#9;</span>', None),
+    ("whitespace alone", '<span style="color:#FFFFFF;"> \t\n\f </span>', None),
+    ("a comment, which holds no text", '<span style="color:#FFFFFF;"><!-- Pale words. --></span>', None),
+    ("classic Outlook's conditional comment, which holds no text", '<span style="color:#FFFFFF;"><!--[if mso]>Pale words.<![endif]--></span>', None),
+]
+
+
+@pytest.mark.parametrize("page, expected", [(_contrast_page(case[1]), case[2]) for case in CONTRASTS], ids=[case[0] for case in CONTRASTS])
+def test_the_contrast_check_scores_every_planted_page(page, expected):
+    problems = spamassassin_contrast_problems(page)
+    if expected is None:
+        assert not problems, problems
+    else:
+        assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
+
+
 # The preheader, as email_service._preheader opens <body> with it: the line an inbox lists beside the subject.
 _OPENS_BODY = re.compile(r'<body\b[^>]*>\s*<div style="([^"]*)">(.*?)</div>', re.IGNORECASE | re.DOTALL)
 _HIDDEN_DIV = re.compile(r'<div\b[^>]*\bstyle="[^"]*display\s*:\s*none', re.IGNORECASE)
@@ -2420,14 +2567,15 @@ def test_the_planted_lists_keep_their_counts():
         "HIDDEN_TEXTS": (sum(isinstance(case[-1], str) for case in HIDDEN_TEXTS), sum(case[-1] is None for case in HIDDEN_TEXTS)),
         "HIDDEN_ROOTS": (sum(isinstance(case[-1], str) for case in HIDDEN_ROOTS), sum(case[-1] is None for case in HIDDEN_ROOTS)),
         "TEXT_PARTS": (sum(isinstance(case[-1], str) for case in TEXT_PARTS), sum(case[-1] is None for case in TEXT_PARTS)),
+        "CONTRASTS": (sum(isinstance(case[-1], str) for case in CONTRASTS), sum(case[-1] is None for case in CONTRASTS)),
     }
     assert counts == {
         "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (11, 1), "PREHEADERS": (21, 7),
-        "HIDDEN_TEXTS": (400, 105), "HIDDEN_ROOTS": (18, 4), "TEXT_PARTS": (11, 3),
+        "HIDDEN_TEXTS": (400, 105), "HIDDEN_ROOTS": (18, 4), "TEXT_PARTS": (11, 3), "CONTRASTS": (81, 29),
     }, "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     for name, cases in (
         ("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT), ("PREHEADERS", PREHEADERS),
-        ("HIDDEN_TEXTS", HIDDEN_TEXTS), ("HIDDEN_ROOTS", HIDDEN_ROOTS), ("TEXT_PARTS", TEXT_PARTS),
+        ("HIDDEN_TEXTS", HIDDEN_TEXTS), ("HIDDEN_ROOTS", HIDDEN_ROOTS), ("TEXT_PARTS", TEXT_PARTS), ("CONTRASTS", CONTRASTS),
     ):
         labels = [case[0] for case in cases]
         assert len(set(labels)) == len(labels), f"each case {name} plants has a name of its own"
