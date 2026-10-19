@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 from app.routers.auth import get_current_user
-from app.services import calendar_service, dashboard_feed_service
+from app.services import calendar_service, dashboard_feed_service, filing_list_service
 from app.services.filing_section_service import section_changes_access
 
 router = APIRouter()
@@ -99,9 +99,13 @@ async def get_dashboard_feed(
         # Sync SQLAlchemy off the event loop, the viewer's access included: resolving it reads
         # the subscription row (a lazy load the auth dependency does not make); the feed is a
         # handful of queries plus, for a Pro viewer, the cached diffs their review progress is
-        # reconciled against.
-        access = section_changes_access(current_user)
-        return dashboard_feed_service.compose_feed(db, current_user.id, limit=limit, section_access=access)
+        # reconciled against. The unit releases the session before the route returns
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            access = section_changes_access(current_user)
+            return dashboard_feed_service.compose_feed(db, current_user.id, limit=limit, section_access=access)
+        finally:
+            filing_list_service.release_request_session(db)
 
     items = await run_in_threadpool(feed_for_viewer)
     return {"items": items}

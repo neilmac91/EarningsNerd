@@ -314,7 +314,7 @@ async def run_filing_scan(
                     continue  # historical rows are never replayed
                 if delivery.already_owned(db, user.id, filing.id, CHANNEL_EMAIL):
                     continue  # owned by a durable batch (any state)
-                subject, html = email_service.build_new_filing_alert(
+                subject, html, text = email_service.build_new_filing_alert(
                     name=user.full_name,
                     company_name=company.name,
                     ticker=company.ticker,
@@ -325,7 +325,7 @@ async def run_filing_scan(
                     wording_changes=alert_wording_changes(db, ent, [filing.id]).get(filing.id),
                 )
                 delivery.create_batch(
-                    db, kind=KIND_FILING_REALTIME, user_id=user.id, subject=subject, html=html,
+                    db, kind=KIND_FILING_REALTIME, user_id=user.id, subject=subject, html=html, text=text,
                     filing_ids=[filing.id], now=now,
                 )
             db.commit()
@@ -409,9 +409,9 @@ async def run_daily_digest(
         wording = alert_wording_changes(db, ent, [filing.id for _watch, filing in to_log])
         for (_watch, filing), item in zip(to_log, items):
             item["wording_changes"] = wording.get(filing.id)
-        subject, html = email_service.build_daily_digest(name=user.full_name, items=items)
+        subject, html, text = email_service.build_daily_digest(name=user.full_name, items=items)
         created = delivery.create_batch(
-            db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html,
+            db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html, text=text,
             filing_ids=[filing.id for _watch, filing in to_log], now=now,
         )
         if created is None:
@@ -420,9 +420,9 @@ async def run_daily_digest(
             kept = [(watch, filing, item) for (watch, filing), item in zip(to_log, items)
                     if not delivery.already_owned(db, uid, filing.id, CHANNEL_EMAIL)]
             if kept:
-                subject, html = email_service.build_daily_digest(name=user.full_name, items=[i for _, _, i in kept])
+                subject, html, text = email_service.build_daily_digest(name=user.full_name, items=[i for _, _, i in kept])
                 delivery.create_batch(
-                    db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html,
+                    db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html, text=text,
                     filing_ids=[filing.id for _watch, filing, _item in kept], now=now,
                 )
 

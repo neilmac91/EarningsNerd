@@ -476,6 +476,8 @@ LONG_RUNS = [
     ("a run across an acronym and an output", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 10}<acronym>{'x' * 5}</acronym><output>{'x' * 5}</output></p>"),), _NOWHERE),
     ("a run across an element the page hides", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<span style="display:none">y</span>{_UNDER}</p>'),), _NOWHERE),
     ("a run across an element the hidden attribute hides", ((_COPY_LINE, _COPY_LINE + f"<p>{_UNDER}<span hidden>y</span>{_UNDER}</p>"),), _NOWHERE),
+    ("a run across a popover that sets no display, which no script opens", ((_COPY_LINE, _COPY_LINE + f"<div>{_UNDER}<div popover>y</div>{_UNDER}</div>"),), _NOWHERE),
+    ("a popover a page gives a display, a block between two short runs", ((_COPY_LINE, _COPY_LINE + f'<div>{_UNDER}<div popover style="display:block">y</div>{_UNDER}</div>'),), None),
     ("a run across a span the hidden attribute marks and its display shows", ((_COPY_LINE, _COPY_LINE + f'<p>{"x" * 10}<span hidden style="display:inline">{"x" * 10}</span></p>'),), _NOWHERE),
     ("a run across a div set display:initial, which is inline", ((_COPY_LINE, _COPY_LINE + f'<div>{_UNDER}<div style="display:initial">{_UNDER}</div></div>'),), _NOWHERE),
     ("a run across a span with a display no engine takes", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<span style="display:banana">{_UNDER}</span></p>'),), _NOWHERE),
@@ -1304,7 +1306,7 @@ def test_the_planted_lists_keep_their_counts():
     }
     assert counts == {
         "TEXT_SIZES": (40, 20),
-        "LONG_RUNS": (91, 50),
+        "LONG_RUNS": (92, 51),
         "WIDTHS": (270, 169),
         "LENDS": (6, 4),
         "REACHES": (6, 4),
