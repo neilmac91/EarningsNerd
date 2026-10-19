@@ -65,6 +65,14 @@ def db(factory):
         yield session
 
 
+@pytest.fixture
+def writer_before_1364(monkeypatch):
+    """The per-filing writer as it stored rows before #1364: it kept each annual fact's own label rather
+    than adopting the year companyfacts already names. Those stored rows are what this script repairs."""
+    from app.services.facts import upsert
+    monkeypatch.setattr(upsert, "adopt_trusted_fiscal_years", lambda db, form, facts: None)
+
+
 def _day(text):
     return date.fromisoformat(text)
 
@@ -443,7 +451,7 @@ def test_only_filing_owned_fy_rows_are_relabelled(db):
     assert result["relabels"][-1] == {"period_end": end, "from": 2025, "to": 2024, "rows": 2}
 
 
-def test_a_filing_row_the_cross_check_sourced_from_companyfacts_is_relabelled_and_is_no_evidence(db, capsys):
+def test_a_filing_row_the_cross_check_sourced_from_companyfacts_is_relabelled_and_is_no_evidence(db, capsys, writer_before_1364):
     """``backfill_facts`` cross-checks headline values against companyfacts: a corrected value is
     stored with source ``companyfacts`` but keeps its filing owner and calendar label."""
     company, filing = _company(db, "TGT")
@@ -587,7 +595,7 @@ def test_a_failing_company_rolls_back_alone_and_fails_the_exit_code(db, factory,
         assert {r.company_id for r in fresh.query(FinancialFactRevision)} == {jnj.id}
 
 
-def test_unlabelled_annual_points_from_the_production_writers_are_repaired(db):
+def test_unlabelled_annual_points_from_the_production_writers_are_repaired(db, writer_before_1364):
     """Production writers: a stale companyfacts sync, then the newest 10-K opened, then a resync."""
     company, filing = _company(db, "TGT")
     db.commit()
