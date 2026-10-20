@@ -1,6 +1,6 @@
 import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 /**
@@ -11,6 +11,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
  * no exclamation mark, no "Please", and never the transport's own text ("Failed to fetch", "Request
  * failed with status 500", an API URL). A 401 is never retried whatever its text; a 5xx, a dropped or
  * closed stream, a fetch that throws and the idle timeout are retried once, then shown.
+ *
+ * The card offers Retry by the words it prints (StreamingSummaryDisplay runs isNonRetryableStreamError on
+ * them), so each status fallback and the hook's signed-out sentence are held to that matcher here too: a 401
+ * or a 403 with no detail of its own and a press made signed out ask the reader to log in or name a missing
+ * permission, which a Retry press cannot change, so the card offers none. backendMessageMatches.spec.ts
+ * cannot tie a phrase to these sentences, since a backend module it reads writes the same words
+ * (routers/auth.py says "log in" and "Sign In").
  */
 
 const getSummary = vi.hoisted(() => vi.fn())
@@ -19,7 +26,7 @@ vi.mock('@/features/summaries/api/summaries-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/summaries/api/summaries-api')>()),
   getSummary,
 }))
-import { generateSummaryStream } from '@/features/summaries/api/summaries-api'
+import { generateSummaryStream, isNonRetryableStreamError } from '@/features/summaries/api/summaries-api'
 import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGeneration'
 import { ApiError } from '@/lib/api/client'
 import type { Filing } from '@/features/filings/api/filings-api'
@@ -69,16 +76,18 @@ describe('the summary stream client prints its own fallbacks in the voice', () =
     vi.restoreAllMocks()
   })
 
+  // The last column: whether the card offers Retry for the sentence.
   it.each([
-    [401, 'Log in again to generate this summary.', 1],
-    [400, 'The summary could not start. Try again.', 1],
-    [403, 'Your account does not have permission to generate this summary.', 1],
-    [429, 'Too many summary requests just now. Try again shortly.', 1],
-    [500, 'The server could not start the summary. Try again in a moment.', 2],
-  ])('a %i with no detail of its own reads "%s"', async (status, sentence, requests) => {
+    [401, 'Log in again to generate this summary.', 1, false],
+    [400, 'The summary could not start. Try again.', 1, true],
+    [403, 'Your account does not have permission to generate this summary.', 1, false],
+    [429, 'Too many summary requests just now. Try again shortly.', 1, true],
+    [500, 'The server could not start the summary. Try again in a moment.', 2, true],
+  ])('a %i with no detail of its own reads "%s"', async (status, sentence, requests, offersRetry) => {
     const result = await failureOf(async () => new Response(null, { status }))
     expect(result).toEqual({ shown: sentence, requests })
     inTheVoice(sentence)
+    expect(isNonRetryableStreamError(result.shown), `the card ${offersRetry ? 'offers' : 'drops'} its Retry for "${result.shown}"`).toBe(!offersRetry)
   })
 
   it('a response with no body to read', async () => {
@@ -144,5 +153,17 @@ describe('the summary hook prints its own fallbacks in the voice', () => {
     getSummary.mockRejectedValue(written)
     const backend = read()
     await waitFor(() => expect(backend.result.current.activeErrorMessage).toBe('Summary unavailable for this filing.'))
+  })
+
+  it('a press made signed out starts no run, and its sentence drops the card’s Retry', async () => {
+    getSummary.mockResolvedValue(null)
+    const guest = read()
+    await act(async () => {
+      await guest.result.current.handleGenerateSummary()
+    })
+    const shown = guest.result.current.generationError
+    expect(shown).toBe('Log in to generate this summary.')
+    inTheVoice(shown!)
+    expect(isNonRetryableStreamError(shown!), `the card drops its Retry for "${shown}"`).toBe(true)
   })
 })
