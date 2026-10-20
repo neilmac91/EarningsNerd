@@ -909,8 +909,9 @@ const ALLOW_HAND_BUILT_FAILURE: Record<string, { sites: string[]; reason: string
     reason:
       'Retry generation restarts the SSE stream, not a query: there is no query to hold. Its press clears the ' +
       'error in the render that starts the stream, so the card never shows a run in flight (busy is false) and ' +
-      'leaves with the press when the run starts (a signed-out press starts none: the card stays, Retry focused); ' +
-      'RetryButton is there for the hand-off to the progress heading (EN-05).',
+      'leaves with the press when the run starts (a signed-out press starts none: the card stays with a sign-in ' +
+      'sentence no retry can help, so the Retry leaves); RetryButton is there for the hand-off to the progress ' +
+      "heading, or to the card's own heading when the card stays (EN-05).",
   },
 }
 const MAX_HAND_BUILT_FAILURE_FILES = 1

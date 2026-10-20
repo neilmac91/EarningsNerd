@@ -44,6 +44,7 @@ const BACKEND = {
   dependencies: 'backend/app/dependencies.py',
   admission: 'backend/app/services/summary_stages/admission.py',
   summaries: 'backend/app/routers/summaries.py',
+  auth: 'backend/app/routers/auth.py',
   analysis: 'backend/app/routers/analysis.py',
   subscriptions: 'backend/app/routers/subscriptions.py',
 }
@@ -64,10 +65,13 @@ const MATCHERS: Matcher[] = [
     fn: 'isNonRetryableStreamError',
     // The summary stream's own sources only. Its 401 comes from get_current_user (routers/auth.py),
     // "Could not validate credentials", which summaries-api.ts surfaces as the detail in place of its
-    // fallback ("Sign in again to generate this summary.", the source of "sign in"); the matcher never sees
-    // a 401, which comes back retryable: false by status. auth.py's other messages (sign-in configuration, login) never reach
-    // the stream, and useSummaryGeneration's guest message is set beside the stream, never matched.
-    backend: [BACKEND.summaries, BACKEND.admission],
+    // fallback ("Sign in again to generate this summary.", the source of "sign in"). The stream never
+    // retries a 401 (retryable: false by status), and the card keeps its Retry, since a retry after a refresh
+    // or a sign-in can help (streamErrorCopy.spec.ts holds both). The same check's 403, "User account is
+    // inactive", is matched on its words, so auth.py is a source; its other messages (sign-in configuration,
+    // login) never reach the stream, and useSummaryGeneration's guest message is set beside the stream, never
+    // matched.
+    backend: [BACKEND.summaries, BACKEND.admission, BACKEND.auth],
     frontend: ['features/summaries/api/summaries-api.ts'],
   },
   { file: 'features/filings/api/copilot-api.ts', fn: 'isCopilotFairUseLimit', backend: [BACKEND.summaries], frontend: ['features/filings/api/copilot-api.ts'] },

@@ -17,7 +17,6 @@ import {
   FILING_FORMS_LINE,
   FREE_COPILOT_QUESTIONS,
   FREE_EARNINGS_ALERT_LIMIT,
-  FREE_HISTORY_RETENTION_DAYS,
   FREE_SUMMARY_LIMIT,
   TRIAL_DAYS,
   shipped,
@@ -43,7 +42,6 @@ const FREE_FEATURES: readonly PlanLine[] = [
   { text: `${FREE_COPILOT_QUESTIONS} Ask this Filing questions` },
   { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` },
   ANALYSIS_LINES.landingFree,
-  { text: `${FREE_HISTORY_RETENTION_DAYS}-day summary history` },
   { text: 'Unlimited watchlist' },
 ]
 
@@ -54,7 +52,6 @@ const PRO_FEATURES: readonly PlanLine[] = [
   { text: 'Change Report' },
   { text: 'Hourly filing alerts and 8-K alerts' },
   ANALYSIS_LINES.exports,
-  { text: 'Full summary history' },
   { text: 'Priority support' },
 ]
 
