@@ -42,6 +42,12 @@ links nothing, and the provider links only on a later sign-in through it (the pr
 - A remedy names the reader's next action. When the code acts only on a later request (a provider
   links on the next sign-in through it), say that request ("try Google again"), never that the
   change happens by itself.
+- A visual signal that means a server fact is a promise too (the device means "the server located
+  this", D-044). Trace every path that paints it, a fallback riding the same channel included, and
+  carry the fact with the fallback rather than the chip's own flag: a chip with no excerpt sent its
+  section heading as the request's passage under the chip's `verified`, so the reader painted a
+  heading the server never located. The request now says located only with the excerpt the server
+  checked, and the reader paints anything else in a neutral find highlight.
 
 **Evidence**: founder review 5484603342 on PR #1226 (P2, quote guarantee);
 `backend/app/services/ai/forward_quote_gate.py`, `backend/app/config.py` (`AI_FORWARD_QUOTE_GATE`),
@@ -53,4 +59,8 @@ review (the dialog's sentence, the "only checkout" records), and the principal r
 2026-10-14 on the same PR (the conflict sentence's automatic linking); `backend/app/routers/subscriptions.py`
 (the one 403), `backend/app/services/oauth_account_service.py` (linking waits on both sides);
 `frontend/tests/unit/authPagesCopy.spec.tsx`, whose dialog and 403 cases hold the scoped lines to
-that route.
+that route. Chief design's review 6255015740 on PR #1396 (the blocker: the Source pane painted the
+device on a Cited metric chip's heading, a verified XBRL chip's and a Cited quote's);
+`frontend/features/filings/components/SourceTrace.tsx` (`jumpToSource`), `FilingViewer.tsx`
+(`isLocated`), and `frontend/tests/unit/sourcePanePaint.spec.tsx`, which holds the paint each jump
+registers.
