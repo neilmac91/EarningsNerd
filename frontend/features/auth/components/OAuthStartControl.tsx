@@ -5,6 +5,9 @@ import { startOAuthWithInvite } from '@/features/auth/api/auth-api'
 import { oauthStartHref } from '@/features/auth/lib/oauthStart'
 import { cx } from '@/components/ui'
 
+/** The provider as the buttons name it ("Continue with Google"), so a failed start says what did not continue. */
+const PROVIDER_NAME = { google: 'Google', apple: 'Apple' } as const
+
 /**
  * The clickable surface shared by the brand sign-in buttons. Without an invite it is a plain link
  * to the redirecting backend start (works without JS). With an invite it is a button: the token is
@@ -56,7 +59,7 @@ export default function OAuthStartControl({
       </button>
       {failed && (
         <p role="status" className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Couldn&apos;t start sign-in. Please try again.
+          Couldn&apos;t continue with {PROVIDER_NAME[provider]}. Please try again.
         </p>
       )}
     </div>

@@ -200,7 +200,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
       <ModalBody>
         <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
-          Essential cookies keep you signed in and the site working. Analytics cookies and session
+          Essential cookies keep you logged in and the site working. Analytics cookies and session
           recording are off until you allow them here. Choose the ones you are comfortable with.
         </p>
 
@@ -334,7 +334,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   Cookies on this site
                 </h3>
                 <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Essential cookies keep you signed in. Analytics cookies and session recording stay
+                  Essential cookies keep you logged in. Analytics cookies and session recording stay
                   off until you allow them.{' '}
                   <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                     Learn more

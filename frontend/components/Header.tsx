@@ -169,7 +169,7 @@ export default function Header({
             // slow/cold backend never flashes the "Log in" CTAs to a user who is actually signed
             // in. Once the query *settles* — `null` (logged out) or `isError` (gave up) — one of
             // the branches above renders, so the user is never trapped on this placeholder.
-            <span role="status" aria-label="Checking sign-in">
+            <span role="status" aria-label="Checking whether you are logged in">
               <Skeleton className="h-9 w-9 rounded-full" />
             </span>
           )}
@@ -286,7 +286,7 @@ export default function Header({
                 // bordered container empty (a stray divider + gap), matching the desktop header's
                 // loading state. A settled error falls through to the Log in / account CTA links
                 // above (via `isError`), so the mobile menu is never stuck on this placeholder.
-                <span role="status" aria-label="Checking sign-in" className="block">
+                <span role="status" aria-label="Checking whether you are logged in" className="block">
                   <Skeleton className="h-9 w-full rounded-lg" />
                 </span>
               )}
