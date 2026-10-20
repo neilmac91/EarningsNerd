@@ -29,8 +29,9 @@ in any case. It scans
   its comments. The push runs in the event's working directory as the line's `cd` and `pushd` to a directory it names
   literally move it (a subshell's move ends with the subshell; a command substitution's text is read after the rest of
   its line), then `git -C`. A move counts only where it certainly runs in the line's own shell: first in its and-or
-  list (after nothing, `;`, `&`, a newline or a subshell's `(`), in no pipeline or background job, and in a line with
-  no if, while, until, for, select, case or function; any other leaves the push's directory unknown. The scan is
+  list (after nothing, `;`, `&`, a newline or a subshell's `(`, with any assignments and redirections before it as its
+  prefixes), in no pipeline or background job, and in a line with no if, while, until, for, select, case or function;
+  any other leaves the push's directory unknown. The scan is
   `gitleaks git .` with GIT_DIR=<that repository's git directory> and
   `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable from what the push
   sends and from no remote-tracking ref of the remote it pushes to, which it finds as git does (the one the line names,
@@ -54,10 +55,11 @@ in any case. It scans
   repository the hook cannot resolve (a variable, a substitution, `cd -`, popd, a move that may not run, --git-dir,
   --work-tree, GIT_DIR=, a directory no repository holds yet); one with a long option push does not take as written,
   since git takes a unique prefix of one for the whole option (`--mirr` for --mirror); and one in a line that also runs
-  a git checkout, switch, reset, branch, update-ref, worktree, tag, symbolic-ref or stash, before or after it (a
-  command substitution runs before its command, though the hook reads its text after the line), since the hook
-  resolves sources before the line moves HEAD or a branch. Each refusal says what to name literally, or to push in a
-  call of its own.
+  any other git command but a read (READS: status, log, show, diff, rev-parse and their like), before or after it,
+  since a checkout, a reset, a fetch, a remote or config change, a bisect step, an alias or a subcommand the shell
+  expands may change what the push sends or where it goes, and the hook resolves the push before the line runs (a
+  command substitution runs before its command, though the hook reads its text after the line). Each refusal says
+  what to name literally, or to push in a call of its own.
 - a line that pushes and also makes commits anywhere (git am, cherry-pick, commit, commit-tree, merge, pull, rebase
   or revert): refused, since a hook runs before the line and cannot read a commit the line has yet to make. The
   commits go in one call and the push in the next.
@@ -130,9 +132,15 @@ UNREAD_OPTION = "\x00option "  # a source that marks a push naming a long option
 CONTROL = ("if", "then", "else", "elif", "fi", "while", "until", "for", "select", "do", "done", "case", "esac",
            "function")
 COMMITTERS = ("am", "cherry-pick", "commit", "commit-tree", "merge", "pull", "rebase", "revert")
-# Subcommands that can move HEAD, a branch or a tag: a push after one in the same line sends what the hook cannot resolve.
-MOVERS = ("checkout", "switch", "reset", "branch", "update-ref", "worktree", "tag", "symbolic-ref", "stash")
+# Git subcommands that only read the repository, which a line that pushes may run beside its push. Any other may change
+# what the push sends or where it goes after the hook has resolved it (a checkout, a reset, a fetch, a remote or config
+# change, a bisect step, an alias, a subcommand the shell expands), so a push beside one is refused.
+READS = ("status", "log", "show", "diff", "rev-parse", "rev-list", "ls-files", "ls-tree", "ls-remote", "cat-file",
+         "describe", "shortlog", "blame", "annotate", "grep", "show-ref", "show-branch", "for-each-ref", "merge-base",
+         "name-rev", "cherry", "range-diff", "diff-tree", "diff-index", "diff-files", "whatchanged", "check-ignore",
+         "check-attr", "check-ref-format", "verify-commit", "verify-tag", "count-objects", "var", "version", "help")
 MOVED = "\x00moved"  # a source that marks such a push, which is refused: the hook cannot tell what it sends
+ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\[[^]]*\])?\+?=")  # `NAME=value` before a command, a prefix
 LEADERS = ("{", "!", "if", "then", "else", "elif", "do", "while", "until", "time", "command", "builtin")
 REDIRECTS = ("<", ">", ">>", ">&", "<&", "&>", ">|")
 EXPANDED = ("$", "`", "*", "?", "[", "\x00")  # a word holding one is expanded as the line runs, or names no file
@@ -458,8 +466,11 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
     branching = any(_branches(words) for _operator, words in commands)
     for at, (operator, words) in enumerate(commands):
         after = commands[at + 1][0] if at + 1 < len(commands) else None
-        start, first = True, operator in (None, ";", "&")  # whether it begins its and-or list
+        start, first, skip = True, operator in (None, ";", "&"), 0  # whether it begins its and-or list
         for index, word in enumerate(words):
+            if skip:  # a prefix redirection's target
+                skip -= 1
+                continue
             if word == "(":  # a subshell or a process substitution: a move inside it ends with it
                 stack.append(here)
                 first = True
@@ -467,7 +478,11 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
             if word == ")":
                 here = stack.pop() if stack else here
                 continue
-            if start and word in LEADERS:
+            if start and (word in LEADERS or ASSIGNMENT.match(word)):
+                continue
+            if start and (word in REDIRECTS or (
+                    word.isdigit() and index + 1 < len(words) and words[index + 1] in REDIRECTS)):
+                skip = 1 if word in REDIRECTS else 2  # `>file cd ...`, `2>/dev/null cd ...`: the command comes after
                 continue
             if word in ("cd", "pushd", "popd") and (start or branching):
                 # A move that may not run where it stands (after && or ||, in a pipeline or a background job, or in a
@@ -479,11 +494,11 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                 subcommand, global_options, rest = _global_options(words, index + 1)
                 if subcommand in COMMITTERS:
                     commits = True
-                elif subcommand in MOVERS:
-                    moved = True
                 elif subcommand == "push":
                     options, sources, remote = _sent(rest)
                     pushes.append((_repository(here, global_options, words[:index]), options, sources, remote))
+                elif subcommand is not None and subcommand not in READS:
+                    moved = True
     for _directory, options, sources, _remote in pushes if moved else []:  # wherever the move stands in the line
         if options or sources:
             sources.append(MOVED)
@@ -570,8 +585,9 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str],
                 "push would send.", SOURCE_REMEDY)
         revisions.append(commit)
     if MOVED in sources:
-        return _reason("this line both moves HEAD or a branch and pushes, and the hook resolves what a push sends "
-                       "before the line runs, so it cannot tell what this push would send.", MOVED_REMEDY)
+        return _reason("this line runs another git command beside its push, one that may change what the push sends or "
+                       "where it goes (anything but a read such as status, log, show or diff), and the hook resolves "
+                       "the push before the line runs, so it cannot tell what this push would send.", MOVED_REMEDY)
     destination = _destination(top, remote)
     held = _held(top, destination)
     log_range = " ".join([*LOG_FLAGS, *dict.fromkeys(revisions), *(["--not", f"--remotes={held}"] if held else [])])

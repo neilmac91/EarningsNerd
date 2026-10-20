@@ -357,6 +357,7 @@ PRECISE = {
     "git's global options": ("git -c push.default=current --no-pager push origin main", "repo"),
     "push options that take values": ("git push -o ci.skip --repo origin --force-with-lease origin main", "repo"),
     "every branch, taken back": ("git push --all --no-all origin", "repo"),
+    "reads beside the push": ("git status --short && git push origin main && git log --oneline -1", "repo"),
     "every ref, taken back": ("git push --mirror --no-mirror origin", "repo"),
     "a line whose here-document text names another push": (
         "cat > /dev/null <<'EOF'\ngit push origin side\nEOF\ngit push origin main", "repo"),
@@ -470,6 +471,10 @@ def test_a_long_option_push_does_not_take_as_written_is_refused(scanner: Scanner
     ("false && cd {repo}; cd {other} && git push origin main", "found"),  # a later move that certainly runs
     ("true && (cd {repo} && git push origin main)", None),  # first in its subshell's list
     ("false && (cd {repo}); git push origin main", "found"),  # the subshell's move ends with it
+    # Assignments and redirections before a cd are its prefixes, and it runs in the line's own shell (Codex's).
+    ("X=1 cd {repo}; git push origin main", None),
+    (">/dev/null cd {repo}; git push origin main", None),
+    ("2>/dev/null cd {repo}; git push origin main", None),
 ])
 def test_the_push_runs_in_the_directory_the_line_moves_to(scanner: Scanner, repo: Path, tmp_path: Path,
                                                          command: str, outcome: str | None) -> None:
@@ -605,7 +610,16 @@ MOVES = {
     # A substitution runs before the command it is part of, though the reader reads its text after the line (Codex's).
     "a reset in a command substitution": "x=$(git reset --hard side); git push origin HEAD",
     "a move after the push": "git push origin main && git checkout side",
-    # Read as moves though they move nothing, since the hook reads no mover's arguments.
+    # Any git command but a read may change what the push sends or where it goes once the hook has resolved it (Codex's
+    # fetch into the pushed branch among them).
+    "a fetch into the pushed branch": "git fetch . side:cleanbr; git push origin cleanbr",
+    "a plain fetch": "git fetch origin && git push origin main",
+    "a remote change": "git remote set-url --push origin ../elsewhere.git && git push origin main",
+    "a config change": "git config push.default matching && git push",
+    "a bisect step": "git bisect start side main && git push origin HEAD",
+    "a subcommand the shell expands": 'git "$CMD" side && git push origin HEAD',
+    "an alias": "git co side && git push origin HEAD",
+    # Read as moves though they move nothing, since the hook reads no other command's arguments.
     "a checkout of a file": "git checkout -- base.txt && git push origin main",
     "stash": "git stash && git push origin main",
     "branch --show-current": "git branch --show-current && git push origin main",
@@ -616,7 +630,7 @@ MOVES = {
 def test_a_line_that_moves_head_or_a_branch_and_pushes_is_refused(scanner: Scanner, repo: Path,
                                                                 command: str) -> None:
     _git(repo, "branch", "cleanbr", "main")  # clean as it stands: the line points it, or HEAD, at side first
-    _refused(_bash(scanner, command, repo), "both moves HEAD or a branch and pushes",
+    _refused(_bash(scanner, command, repo), "runs another git command beside its push",
              "Run the line without its push, then push in a call of its own")
     assert scanner.calls() == []
 
