@@ -1482,13 +1482,13 @@ def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, re
 
 def _capture_every_structure(caplog) -> None:
     """One capture of the structures the SDK builds under main's options, on every channel, as far as the design and
-    delta checks of #1297 read the SDK (2.71.0): an error with a chained exception (its frames and mechanism), an
-    exception group (its mechanism's links), a log record with its thread's stack, breadcrumbs from a log line and by
-    hand, a user, a request that continues a trace and a log entry; then, past max_breadcrumbs (the SDK's length note),
-    transactions with nested spans, a database query, an outbound HTTP call and an error after it inside the
-    transaction heading its trace, a gen-AI span and a response status; check-ins inside the request, inside a span and
-    with a monitor config (the SDK's MonitorConfig fields, written out here by hand); a log; a counter and a
-    distribution."""
+    delta checks of #1297 read the SDK (2.71.0, re-checked under 2.72.0): an error with a chained exception (its
+    frames and mechanism), an exception group (its mechanism's links), a log record with its thread's stack,
+    breadcrumbs from a log line and by hand, a user, a request that continues a trace and a log entry; then, past
+    max_breadcrumbs (the SDK's length note), transactions with nested spans, a database query, an outbound HTTP call
+    and an error after it inside the transaction heading its trace, a gen-AI span and a response status; check-ins
+    inside the request, inside a span and with a monitor config (the SDK's MonitorConfig fields, written out here by
+    hand); a log; a counter and a distribution."""
     import sentry_sdk
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -1657,10 +1657,10 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
 
     import main
 
-    # The capture reaches the structures the design checks of #1297 found this SDK builds under main's options (not a
-    # subprocess span, errno mechanism data or a gauge); an upgrade can add one it does not reach, so it fails here
-    # until the capture is checked again.
-    assert sentry_sdk.VERSION == "2.71.0"
+    # The capture reaches the structures the design checks of #1297 found the SDK builds under main's options (not a
+    # subprocess span, errno mechanism data or a gauge); re-checked for 2.72.0, which adds keys inside user data only.
+    # An upgrade can add one it does not reach, so it fails here until the capture is checked again.
+    assert sentry_sdk.VERSION == "2.72.0"
 
     received = []
     value_scrubber = main._value_scrubber

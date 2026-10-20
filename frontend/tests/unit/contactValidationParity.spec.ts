@@ -51,7 +51,7 @@ function validatorFloor(field: string): number {
 
 /**
  * Addresses and the verdict the backend's `EmailStr` gives each (true = accepted). The verdicts come
- * from email-validator 2.3.0 under pydantic 2.14.0, the pins in backend/requirements.txt (VERDICT_PINS,
+ * from email-validator 2.3.0 under pydantic 2.14.1, the pins in backend/requirements.txt (VERDICT_PINS,
  * asserted below, so a bump of either re-derives the table in the same PR), produced in the backend's
  * venv as pydantic runs it: `TypeAdapter(EmailStr).validate_python(address)`, which calls
  * `validate_email(address, check_deliverability=False)`, each address checked with the refusal caught. The table samples the typo shapes;
@@ -80,7 +80,7 @@ const EMAIL_SAMPLES: ReadonlyArray<readonly [string, boolean]> = [
   ['ada@example.', false],
 ]
 
-const VERDICT_PINS = { 'email-validator': '2.3.0', pydantic: '2.14.0' } as const
+const VERDICT_PINS = { 'email-validator': '2.3.0', pydantic: '2.14.1' } as const
 
 const api = vi.hoisted(() => ({ submitContactForm: vi.fn() }))
 vi.mock('@/features/contact/api/contact-api', () => ({ submitContactForm: api.submitContactForm }))
