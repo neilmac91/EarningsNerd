@@ -71,6 +71,7 @@ registers. The high-tier review of PR #1397 (2026-10-19): /security said a refre
 and that logging out of all devices ends every session within 30 minutes, while
 `backend/app/services/refresh_token_service.py` (`rotate_refresh_token`, a plain `.first()` and the
 rotation written after the successor) let two overlapping renewals both succeed and a renewal racing
-a logout keep a live token (`tasks/todo.md` E127, E96); `legalTruth.spec.tsx` (`E127_PROMISES`)
-holds the two items to what still holds on every run: #1422 fixed E127's race, and E121 still records a
-login that straddles a password reset, so the stronger wording returns only with the founder's go-ahead.
+a logout keep a live token (E127, fixed by #1422; `tasks/todo.md` E96); `legalTruth.spec.tsx`
+(`E127_PROMISES`) holds the two items to what still holds on every run, timed or not: #1431 then
+fixed a login that straddled a password reset, but a session token already issued runs to its
+expiry and E96 and E133 are open, so the stronger wording returns only with the founder's go-ahead.

@@ -169,6 +169,11 @@ describe('a choice stored before the account-id clause (CONSENT_VERSION)', () =>
     expect(again).toHaveBeenCalledWith(expect.objectContaining({ analytics: true, version: CONSENT_VERSION }))
   })
 
+  it('an allow stored under an earlier version than the current one reads as no choice, so a later bump asks again', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...EARLIER, version: CONSENT_VERSION - 1 }))
+    expect(getCookiePreferences()).toBeNull()
+  })
+
   it('a refusal made before it stands: no bar, and the stored choice is read as it is', () => {
     const refused: CookiePreferences = { ...EARLIER, analytics: false }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(refused))

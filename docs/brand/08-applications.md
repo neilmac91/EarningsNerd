@@ -212,20 +212,23 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   one the browser sends, logging out of all devices revokes every refresh token the account holds at
   that moment, as a password change or reset does, and none of these revokes a session token already
   issued. `tests/unit/legalTruth.spec.tsx` fails on each removed claim's family, on /security (its
-  text, each list item and paragraph on its own, and its metadata) and in the waitlist page's copy
-  (its planted forms name the gaps: a claim split across sentences or said in other words), and on an
+  text, each list item and paragraph on its own, and its metadata), on /privacy and /terms, and in the
+  waitlist page's copy (its planted forms name the gaps: a claim split across sentences or said in
+  other words), and on an
   analytics-consent promise not scoped to the browser; holds the consent dialog's analytics clause and
   /privacy's analytics cookies line to one constant (`ANALYTICS_CONSENT_CLAUSE` in
   `frontend/lib/consentCopy.ts`), with no copy calling the analytics anonymous or anonymised; holds
   the account-events sentence (`ACCOUNT_EVENTS_DISCLOSURE`, the same module) to the backend's callers
   that key an event on the account id and read no consent, the sourced bullets to their section's
-  steps, the audit-log item to the backend's audit writers, and the page's numbers to the backend's
-  defaults; fails on a refresh token that works once, a reused one revoking the account, or a session
-  that ends within a time after logging out, on every run, since E121 still records a login that
-  straddles a password reset; and pins each legal page's rendered
+  steps, the audit-log item to the backend's audit writers, and the page's numbers and schedules to
+  the repository's facts (the backend's defaults, the breach check's prefix, the export's day of the
+  month and Dependabot's week); fails on a refresh token that works once, a reused one revoking the account, or a session
+  that ends after logging out, within a time or with none named, on every run, until the founder's
+  go-ahead on the stronger wording (`tasks/todo.md` F53); and pins each legal page's rendered
   text, by hash, to a ledger row under its date, main's published text first, so a text or date
   change fails until the last row records it (a row on the day of the row before it names the pull
-  request that shares the day; a row edited in place passes, and is review-checked). Its five links carry the brand focus ring, the site chrome's triple;
+  request that shares the day; a row edited in place passes, and is review-checked, as is whether a
+  row's date is the day main's history gives its merge). Its five links carry the brand focus ring, the site chrome's triple;
   `siteChromeFocusRing.spec.ts` holds them, and its residue no longer lists the page. Its two
   addresses break anywhere, as /privacy's four do, so neither page scrolls sideways at 390px under
   200% text (`reflow-200.spec.ts`).

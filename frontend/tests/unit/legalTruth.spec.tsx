@@ -31,7 +31,8 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    the browser in its own sentence, the analytics named on either side of "only after you allow" or "only with your
  *    consent" (the API sends account events whatever the reader chose: D-051). The scan reads /security's rendered
  *    tree, as one text (a heading runs into the body under it) and block by block (blockTexts: a list item or a
- *    paragraph on its own, so a provider's item is not read through the PostHog line's "in your browser"), the page
+ *    paragraph on its own, so a provider's item is not read through the PostHog line's "in your browser"), /privacy's
+ *    and /terms' rendered trees the same way (/privacy carries the account-events sentence too), the page
  *    module's literals (its metadata, which no render shows) and the waitlist page's copy (strings, JSX text and each
  *    element's run across its inline elements, outside className), sentence by sentence, a sentence ending only at
  *    ".", "!" or "?", so a `<strong>Label:</strong> body` item is read whole. The planted forms run through the same
@@ -75,7 +76,8 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    changed the page that day is review-checked; and LEGAL_DATES, the pages rendered here and the ledger list the
  *    same pages (checked at run time, since CI does not type-check the specs). Out of reach,
  *    review-checked: the last row edited in place (a new hash, a new date or both written over it instead of
- *    appended), which passes; the diff shows the row rewritten.
+ *    appended), which passes, since the diff shows the row rewritten; and whether a row's date is the day main's
+ *    history gives the merge that shipped it (lib/legalDates.ts), since no run reads the clock or the history.
  * 5. A /security claim that stands on a document, not the code, names it in a comment beside the claim,
  *    `{/* Source: <path> §<n>, "<heading>" ... *\/}`, and the document must exist, hold that numbered section, and
  *    say each word the claim names in a numbered step of it, its label, its text or a line that carries it on
@@ -90,16 +92,20 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests
  *    overlap (E127_PROMISES): a refresh token that works once, a reused one revoking the account, or a session that
- *    ends within a time after logging out. The page is read on every run, whatever tasks/todo.md records: E127's race
- *    is fixed (#1422), but E121 still records a login that straddles a password reset keeping a token the reset
- *    cannot reach, and the stronger wording returns only in a pull request that carries the founder's go-ahead and
- *    changes this check. Each family is read in one list item or paragraph (blockTexts). Planted forms score the
- *    reach; out of reach, planted as a gap: a promise split across two items.
- * 8. /security's numbers repeat the backend's defaults (NUMBERS): the session token's 30 minutes
+ *    ends after logging out or a password change, within a time or with none named (every session, everywhere, a
+ *    session token revoked). The page is read on every run, whatever tasks/todo.md records: E127's race is fixed
+ *    (#1422) and so is a login that straddled a password reset (#1431), but a session token already issued runs to
+ *    its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout that does not wait for an in-flight
+ *    renewal) are open; the stronger wording returns only in a pull request that carries the founder's go-ahead
+ *    (tasks/todo.md F53) and changes this check. Each family is read in one list item or paragraph (blockTexts).
+ *    Planted forms score the reach; out of reach, planted as a gap: a promise split across two items.
+ * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
- *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), and HSTS's year (main.py's max-age), so a change to
- *    either side fails until the two agree. The deploy overrides none of them; a value set by hand on the service is
- *    out of reach.
+ *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
+ *    first five characters (pwned_passwords.py's prefix) and the export on the first of each month (its workflow's
+ *    cron), so a change to either side fails until the two agree; and Dependabot's weekly checks of npm, pip and the
+ *    GitHub Actions (dependabot.yml) stand beside "every week". The deploy overrides none of the backend's defaults; a
+ *    value set by hand on the service is out of reach.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -116,7 +122,8 @@ const PAGES: Record<LegalPage, () => ReactElement> = {
 
 /**
  * Each legal page's texts as readers see them, oldest first: the first row is the text main published before D-046,
- * under its date, and each later row a text a merge ships, under the date it took. Append a row in the commit that
+ * under its date, and each later row a text a merge ships, under the day main's history gives that merge
+ * (lib/legalDates.ts). Append a row in the commit that
  * changes a page's text, with the page's LEGAL_DATES key moved to that row's date; while a pull request is open, its
  * later round's row takes the place of an earlier round's, which no reader saw (review-checked). The hash is the first
  * 16 hex digits of the SHA-256 of pageText() with the page's date read as {date}.
@@ -128,11 +135,11 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
   privacy: [
     { date: 'June 22, 2026', sha256: '455802b5d59fad8f' },
     { date: 'October 20, 2026', sha256: 'c1bc2d9daec940d1' },
-    { date: 'October 20, 2026', sha256: '865b53735c88175d', sameDay: '#1399 changed /privacy that day too' },
+    { date: 'October 21, 2026', sha256: '865b53735c88175d' },
   ],
   security: [
     { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },
-    { date: 'October 20, 2026', sha256: 'f01e686b3c5afee8' },
+    { date: 'October 21, 2026', sha256: 'f01e686b3c5afee8' },
   ],
 }
 
@@ -216,22 +223,36 @@ const inASentence = (re: RegExp) => (block: string) => sentencesOf(block).some((
 
 /**
  * What /security does not promise of refresh tokens and logging out, on every run. E127's race (two renewals with one
- * refresh token both succeeding, a renewal racing a logout leaving a live token) is fixed by #1422, but E121 still
- * records a login that straddles a password reset and mints a token the reset cannot reach, so "changing or resetting
- * your password ... ends every session" stays untrue. The stronger wording returns only in a pull request that carries
- * the founder's go-ahead and changes this check. Each family is read in one block (a list item or a paragraph), so a
- * promise split across the sentences of one item is read whole.
+ * refresh token both succeeding, a renewal racing a logout leaving a live token) is fixed by #1422, and a login that
+ * straddled a password reset by #1431, but nothing revokes a session token already issued (get_current_user keeps no
+ * list of revoked ones), so "logging out of all devices ends every session" is untrue as said, and E96 (how a reused
+ * token's sweep reads) and E133 (a logout that does not wait for an in-flight renewal) are open. The stronger wording
+ * returns only in a pull request that carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each
+ * family is read in one block (a list item or a paragraph), so a promise split across the sentences of one item is
+ * read whole.
  */
+const SESSION_END_TIMED =
+  /\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b.*(?:\b(?:within|after|in)\s+(?:\d+|a|an|one|ten|fifteen|thirty|sixty)\s+(?:seconds?|minutes?|hours?|days?)\b|\b(?:immediately|at once|instantly|right away)\b)/i
+
+/** The same promise with no time named: every, all, each, any or other sessions ended, you signed out everywhere or of
+    every device, or a session token revoked. A verb with a negation at most three words before it ("None of these
+    revokes a session token") promises nothing. */
+const SESSION_END_UNTIMED = new RegExp(
+  String.raw`(?<!\b(?:none of (?:these|them|this)|not|never|no longer|cannot|can't|does not|doesn't|do not|don't|won't|will not)\s+(?:\S+\s+){0,3})` +
+    String.raw`\b(?:(?:ends?|ended|closes?|closed|terminates?|terminated|stops?|stopped|revokes?|revoked|invalidates?|invalidated|kills?|killed)\b.*\b(?:every|all|each|any|other)\b(?:\s+\w+)?\s+sessions?\b` +
+    String.raw`|(?:signs?|logs?|signed|logged)\s+you\s+out\s+(?:of\s+)?(?:everywhere|every|all|each|other|any)\b` +
+    String.raw`|(?:ends?|ended|revokes?|revoked|invalidates?|invalidated|kills?|killed)\b[^.;]*\bsession tokens?\b)`,
+  'i',
+)
+
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
-  ['a refresh token that works once', inASentence(/\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?once\b|\bonly once\b/i)],
+  ['a refresh token that works once', inASentence(/\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?(?:once|one time)\b|\bonly once\b|\bone time only\b/i)],
   ['a reused refresh token revoking the account', inASentence(/^(?=.*\brevok).*\b(?:a second time|again|twice|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?)\b/i)],
   [
-    'a session that ends within a time after logging out',
+    'a session that ends after logging out, within a time or with none named',
     (block) =>
       /\b(?:log(?:ging|s)? out|sign(?:ing|s)? out|all (?:of your )?devices|everywhere|password)\b/i.test(block) &&
-      inASentence(
-        /\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b.*(?:\b(?:within|after|in)\s+(?:\d+|a|an|one|ten|fifteen|thirty|sixty)\s+(?:seconds?|minutes?|hours?|days?)\b|\b(?:immediately|at once|instantly|right away)\b)/i,
-      )(block),
+      (inASentence(SESSION_END_TIMED)(block) || inASentence(SESSION_END_UNTIMED)(block)),
   ],
 ]
 
@@ -554,8 +575,9 @@ const pinnedRow = (rows: LedgerRow[]) => {
   return { date, sha256 }
 }
 
-/** /security's numbers, each beside the backend default it repeats (the deploy overrides none of them), so a change to
-    either fails until the two agree. A number the page writes as a word reads through NUMBER_WORDS. */
+/** /security's numbers, each beside the repository fact it repeats: a backend default (the deploy overrides none of
+    them), the breach check's hash prefix or the export's day of the month. A change to either side fails until the two
+    agree. A number the page writes as a word reads through NUMBER_WORDS, the day of the month as "first". */
 const NUMBERS: Array<{ says: RegExp; file: string; value: RegExp; per: number }> = [
   { says: /\bThe session token expires after (\w+) minutes\b/, file: 'backend/app/config.py', value: /^\s*ACCESS_TOKEN_EXPIRE_MINUTES: int = (\d+)\b/m, per: 1 },
   { says: /\ba refresh token that lasts (\w+) days\b/, file: 'backend/app/config.py', value: /^\s*REFRESH_TOKEN_EXPIRE_DAYS: int = (\d+)\b/m, per: 1 },
@@ -563,20 +585,31 @@ const NUMBERS: Array<{ says: RegExp; file: string; value: RegExp; per: number }>
   { says: /\beach within (\w+) minutes of the last\b/, file: 'backend/app/services/login_lockout.py', value: /^LOCKOUT_SECONDS = (\d+)\b/m, per: 60 },
   { says: /\bblock password logins for that address for (\w+) minutes\b/, file: 'backend/app/services/login_lockout.py', value: /^LOCKOUT_SECONDS = (\d+)\b/m, per: 60 },
   { says: /\bonly over HTTPS for (\w+) years? \(HSTS\)/, file: 'backend/main.py', value: /"Strict-Transport-Security", "max-age=(\d+)\b/, per: 365 * 24 * 3600 },
+  { says: /\bsending only the first (\w+) characters of its SHA-1 hash\b/, file: 'backend/app/services/pwned_passwords.py', value: /^\s*prefix, suffix = sha1\[:(\d+)\], sha1\[\1:\]/m, per: 1 },
+  { says: /\bbucket on the (\w+) of each month\b/, file: '.github/workflows/monthly-sql-export.yml', value: /^\s*- cron: '\d+ \d+ (\d+) \* \*'/m, per: 1 },
 ]
 
-const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, five: 5, ten: 10, fifteen: 15, twenty: 20, thirty: 30 }
+const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, first: 1, two: 2, three: 3, five: 5, ten: 10, fifteen: 15, twenty: 20, thirty: 30 }
 
 /** A page number as a value: digits, or a word NUMBER_WORDS reads. */
 const numberOf = (word: string) => (/^\d+$/.test(word) ? Number(word) : NUMBER_WORDS[word.toLowerCase()])
 
 describe("/security says what the code and the hosting do (D-046)", () => {
-  it('names none of the claims D-046 removed, and neither does the waitlist page', () => {
+  it('names none of the claims D-046 removed, and neither do /privacy, /terms or the waitlist page', () => {
     const { container, unmount } = render(<SecurityPage />)
     const text = pageText(container)
     const page = claimsInTree('/security', container)
     unmount()
     expect(text.length).toBeGreaterThan(4000)
+    // /privacy carries the account-events sentence too, so an unscoped consent promise there contradicts it as it would
+    // on /security; /terms is read for the same families.
+    const others = (['privacy', 'terms'] as const).flatMap((key) => {
+      const { container: other, unmount: close } = render(PAGES[key]())
+      expect(pageText(other).length, `/${key} renders`).toBeGreaterThan(4000)
+      const found = claimsInTree(`/${key}`, other)
+      close()
+      return found
+    })
     const security = literals('app/security/page.tsx')
     expect(security).toContain('Security practices and data protection at EarningsNerd.') // the metadata, which no render shows
     const waitlist = literals('app/waitlist/page.tsx')
@@ -584,6 +617,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(waitlist.some((l) => /\bmt-\d|\bgrid\b/.test(l))).toBe(false) // and none of its class names
     expect([
       ...page,
+      ...others,
       ...security.flatMap((l) => claimsInText('app/security/page.tsx', l)),
       ...waitlist.flatMap((l) => claimsInText('app/waitlist/page.tsx', l)),
     ]).toEqual([])
@@ -634,6 +668,17 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Our hosting comes with an availability guarantee.</p>', true],
       ['<p>Hosted with 99.9 per cent uptime.</p>', true],
       ['<p>We follow industry standards to keep your data safe.</p>', true],
+      // One form apiece for the branches no other form reaches alone (round 6's review): an SLA, "available" after a
+      // figure and after a guarantee, "level", the other two forms of vetting, tracking as the analytics, and a heading
+      // read into the body under it, which only the whole-text reading sees.
+      ['<p>Our SLA covers 99.9% of each month.</p>', true],
+      ['<p>The site is 99.9% available.</p>', true],
+      ['<p>We guarantee the site stays available.</p>', true],
+      ['<p>We use bank-level encryption.</p>', true],
+      ['<p>Every provider is vetted.</p>', true],
+      ['<p>We keep vetting our providers.</p>', true],
+      ['<p>Tracking runs only after you allow it.</p>', true],
+      ['<h3>Content Security Policy</h3><p>It blocks XSS attacks.</p>', true],
       // A provider item in the list beside the PostHog line: list items carry no full stop, so the list's text runs
       // on as one sentence and the PostHog line's "in your browser" covered the item; each block is read on its own.
       ['<ul><li><strong>Vercel:</strong> Hosts the site, and counts page views only after you allow analytics</li><li><strong>PostHog:</strong> Usage statistics: PostHog in your browser runs only after you allow analytics, and records sessions only if you allow that too</li></ul>', true],
@@ -677,6 +722,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     const [, , lockout, , block] = NUMBERS
     expect(numberOf('Five failed logins for one email address'.match(lockout.says)?.[1] ?? '')).toBe(5)
     expect(Number('LOCKOUT_SECONDS = 1800\n'.match(block.value)?.[1]) / block.per).toBe(30)
+    // A schedule the page states in words: Dependabot checks npm, pip and the GitHub Actions every week.
+    expect(text).toMatch(/\bDependabot checks\b[^.]*\bGitHub Actions, for updates every week\./)
+    const dependabot = readFileSync(path.join(REPO, '.github/dependabot.yml'), 'utf8')
+    expect([...dependabot.matchAll(/package-ecosystem: "([\w-]+)"/g)].map((m) => m[1]).sort()).toEqual(['github-actions', 'npm', 'pip'])
+    expect([...dependabot.matchAll(/^\s*interval: "(\w+)"/gm)].map((m) => m[1])).toEqual(['weekly', 'weekly', 'weekly'])
   })
 
   it('the PostHog line scopes the consent to the browser', () => {
@@ -701,11 +751,21 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of all devices signs you out everywhere within 30 minutes.</li>', true],
       ['<li>Changing your password ends every other session immediately.</li>', true],
       ['<li><strong>Logging out:</strong> Logging out of all devices revokes your refresh tokens. Each session then ends within 30 minutes.</li>', true],
+      // Untimed: every session ended, signed out everywhere, a session token revoked, a token usable one time.
+      ['<li>Logging out of all devices ends every session.</li>', true],
+      ['<li><strong>Logging out:</strong> Logging out of all devices signs you out everywhere.</li>', true],
+      ['<li>Changing your password signs you out of every device.</li>', true],
+      ['<li><strong>Logging out:</strong> Logging out revokes your session tokens.</li>', true],
+      ['<li>Resetting your password ends all your other sessions, with no delay.</li>', true],
+      ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. Each of these ends every session.</li>', true],
+      ['<li>A refresh token can be used one time.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
       ['<li><strong>Failed logins:</strong> Ten failed logins for one email address, each within 15 minutes of the last, block password logins for that address for 15 minutes.</li>', false],
       ['<li>Log out of your account when using shared or public computers</li>', false],
+      ['<li>Log out of all devices, in your account settings, revokes every refresh token your account holds.</li>', false],
+      ['<li><strong>Logging out:</strong> None of these revokes a session token already issued; a session open elsewhere keeps working until its session token expires.</li>', false],
       // Out of reach: a promise split across two items.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
     ]
@@ -939,6 +999,8 @@ describe('the consent clause and /privacy say the same thing, from one constant 
       ['We collect anonymized usage statistics.', true],
       ['Analytics data is anonymised.', true],
       ['Anonymised analytics help us improve the site.', true],
+      ['We use anonymous tracking.', true],
+      ['Our telemetry is anonymised.', true],
       ['Anonymous', false],
       ['anonymous', false],
       ['Anonymous visitors can read any summary.', false],
