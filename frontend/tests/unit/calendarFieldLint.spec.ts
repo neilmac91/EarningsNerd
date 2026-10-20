@@ -22,7 +22,14 @@ import { describe, expect, it } from 'vitest'
  * const holding `fmt['formatInstant']`), a branch of a condition (`flag ? formatInstant : fallback`, in both
  * directions), a logical operand, an argument (`.map(formatLocalDate)`), an object's entry, a return, and a default
  * under another name. A call, an import, an export or a re-export, `typeof` and a type pass, and so do the global
- * Date's statics, `instanceof Date` and a data row's `row.Date`. A field is read in each spelling too (`f.filing_date`,
+ * Date's statics, `instanceof Date` and a data row's `row.Date`. What holds a helper fails closed rather than have its
+ * key resolved (Codex on 5f548e18, chief design's ruling): Codex's `const key = 'formatInstant'; const held = fmt[key]`
+ * fails at the member, and so do a member called by a key the rule cannot read, the global object's
+ * (`new globalThis[name](…)`), a date module's namespace held, handed to `Object.values` or `Reflect.get`, or taken
+ * apart by a computed key or a rest, a require, a dynamic import and an `export * as` of a date module, and
+ * `import fi = fmt.formatInstant`, a helper held under another name. A written key, a member that names no helper
+ * (`fmt.fmtPercent`), `typeof`, a test of the global object and a re-export by name pass; the global object held under
+ * another name is out of reach, planted as a gap. A field is read in each spelling too (`f.filing_date`,
  * `f['filing_date']`, a template with no substitution); a template with one names no field the lint can be sure of. A
  * genuine instant through formatInstant, a calendar date through formatLocalDate, a destructuring that keeps the name
  * (a default added or not), a nested pattern of a helper's members and an export that keeps the name as a string pass
@@ -37,10 +44,11 @@ const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 /** Building ESLint from the real config takes 2-3.5s warm and over 7s cold or on a loaded runner; 5s is too tight. */
 const SLOW = { timeout: 30_000 }
 
-/** What the lint must say of a line: one of its four messages (the held helper's is date-helpers-called-directly's, and
-    a line may draw two), nothing (null), or nothing though the line breaks the rule, out of the lint's reach as
-    eslint.config.mjs's residual note says ('gap'). */
-type Said = 'calendar' | 'billing' | 'alias' | 'held' | 'gap' | null
+/** What the lint must say of a line: one of its five messages (date-helpers-called-directly gives two, a helper held
+    as a value ('held') and a holder of helpers read other than by a written key ('unreadable'), and a line may draw
+    two), nothing (null), or nothing though the line breaks the rule, out of the lint's reach as the rules' notes say
+    ('gap'). */
+type Said = 'calendar' | 'billing' | 'alias' | 'held' | 'unreadable' | 'gap' | null
 const PROBE: Array<[string, Said | Said[]]> = [
   ["import { parseISO } from 'date-fns'", null],
   ["import * as dateFns from 'date-fns'", null],
@@ -49,6 +57,11 @@ const PROBE: Array<[string, Said | Said[]]> = [
   ["import { formatInstant as formatDay } from '@/lib/format'", 'alias'],
   // The imported name quoted (the re-review of 8fb22fbe: this selector and the re-export ones below were unplanted).
   ["import { 'formatLocalDate' as quotedDay } from '@/lib/format'", 'alias'],
+  // TypeScript's import-equals takes a member's value under the alias's name: a helper off a date module's namespace or
+  // the global object is held under another name (chief design on 5f548e18); a member that names no helper passes.
+  ['import instantAlias = fmt.formatInstant', 'held'],
+  ['import BuiltDate = globalThis.Date', 'held'],
+  ['import percentAlias = fmt.fmtPercent', null],
   [
     'export function probe(filing: { filing_date: string }, sub: { trial_end: string; current_period_end: string }, row: Record<string, string>, prefix: string, suffix: string) {',
     null,
@@ -139,6 +152,40 @@ const PROBE: Array<[string, Said | Said[]]> = [
   ["  return [chosen(filing.filing_date, 'MMM d, yyyy'), chosenLocal(sub.current_period_end, 'MMM d, yyyy'), either, labels, kit,", null],
   ["    later, stamp, formatInstant(sub.current_period_end, 'MMM d, yyyy') as ReturnType<Formatter>]", null],
   ['}', null],
+  // A namespace or object that holds a date helper, read by a key the rule cannot read (Codex on 5f548e18, whose form
+  // comes first): chief design's ruling is to fail closed rather than resolve the key, so the member fails where it
+  // stands, held or called, the global object's too. A date module's namespace used other than through a member with a
+  // written key fails the same way (held, handed to Object.values or Reflect.get, a computed or a rest destructuring),
+  // and so do a require and a dynamic import of a date module. A written key, a member that names no helper, typeof and
+  // a test of the global object pass. The global object held under another name is out of the rule's reach, planted as
+  // a gap.
+  ['export function computedKeys(filing: { filing_date: string }, sub: { current_period_end: string }, name: string) {', null],
+  ["  const key = 'formatInstant'", null],
+  ['  const held = fmt[key]', 'unreadable'],
+  ["  const day = held(filing.filing_date, 'MMM d, yyyy')", null],
+  ["  const called = fmt[name](filing.filing_date, 'MMM d, yyyy')", 'unreadable'],
+  ['  const parsed = dateFns[name](sub.current_period_end)', 'unreadable'],
+  ['  const built = new globalThis[name](filing.filing_date)', 'unreadable'],
+  ['  const kit = fmt', 'unreadable'],
+  ['  const values = Object.values(fmt)', 'unreadable'],
+  ['  const reflected = Reflect.get(fmt, key)', 'unreadable'],
+  ['  const { [name]: picked } = fmt', 'unreadable'],
+  ['  const { ...rest } = fmt', 'unreadable'],
+  ['  const { [name]: pickedDate } = globalThis', 'unreadable'],
+  ["  const required = require('@/lib/format')", 'unreadable'],
+  ["  const loaded = import('@/lib/format')", 'unreadable'],
+  ["  const written = fmt.formatInstant(sub.current_period_end, 'MMM d, yyyy')", null],
+  ['  const percent = fmt.fmtPercent(0.25)', null],
+  ["  const kinds = [typeof fmt, typeof globalThis, 'doNotTrack' in window]", null],
+  ['  const globalHeld = globalThis', null],
+  ['  const builtHeld = new globalHeld[name](filing.filing_date)', 'gap'],
+  ['  return [day, called, parsed, built, kit, values, reflected, picked, rest, pickedDate, required, loaded, written, percent, kinds,', null],
+  ["    builtHeld, instantAlias(filing.filing_date, 'MMM d, yyyy'), new BuiltDate(filing.filing_date), percentAlias(0.25)]", null],
+  ['}', null],
+  // Its namespace exported is a date module held where the rule cannot read it; a re-export by name passes, and the
+  // namespace of the module that makes it is out of reach.
+  ["export * as dates from '@/lib/format'", 'unreadable'],
+  ["export * from '@/lib/format'", null],
   // An export named by a string keeps the name, or renames it.
   ["export { formatInstant as 'formatInstant' }", null],
   ["export { formatLocalDate as 'heldExport' }", 'alias'],
@@ -151,7 +198,7 @@ const PROBE: Array<[string, Said | Said[]]> = [
 ]
 
 describe('the calendar-field lint', SLOW, () => {
-  it('errors on a calendar-date field through new Date, parseISO and formatInstant, a billing instant through formatLocalDate, a renamed helper and a helper held as a value, each key in any spelling, and passes an instant and formatLocalDate', async () => {
+  it('errors on a calendar-date field through new Date, parseISO and formatInstant, a billing instant through formatLocalDate, a renamed helper, a helper held as a value and a holder of helpers read by a key it cannot read, each key in any spelling, and passes an instant and formatLocalDate', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const [result] = await eslint.lintText(PROBE.map(([code]) => code).join('\n'), {
       filePath: path.join(frontendRoot, 'app/calendar-field-probe.ts'),
@@ -162,8 +209,11 @@ describe('the calendar-field lint', SLOW, () => {
     expect(lines(/calendar-date field/), 'a calendar-date field through a Date constructor').toEqual(said('calendar'))
     expect(lines(/Stripe billing date/), 'a billing instant through formatLocalDate').toEqual(said('billing'))
     expect(lines(/by their own names/), 'a helper under another name').toEqual(said('alias'))
-    const held = result.messages.filter((m) => m.ruleId === 'earningsnerd/date-helpers-called-directly')
-    expect(held.map((m) => m.line), 'a helper held as a value').toEqual(said('held'))
+    const rule = result.messages.filter((m) => m.ruleId === 'earningsnerd/date-helpers-called-directly')
+    const told = (messageId: string) => rule.filter((m) => m.messageId === messageId).map((m) => m.line)
+    expect(told('held'), 'a helper held as a value').toEqual(said('held'))
+    expect(told('unreadable'), 'a holder of helpers read other than by a written key').toEqual(said('unreadable'))
+    expect(rule.length, 'each of the rule\'s findings is one of its two messages').toBe(told('held').length + told('unreadable').length)
     expect(result.messages.filter((m) => m.ruleId === 'no-restricted-syntax' || m.ruleId === 'earningsnerd/date-helpers-called-directly').every((m) => m.severity === 2)).toBe(true)
   })
 })

@@ -176,8 +176,26 @@
 //                       bind), an assignment or a default export. A call or a `new`, the helper's own import or export
 //                       specifier, `typeof`, a type, and a binding of its own name (`{ Date = globalThis.Date }`)
 //                       pass; the global Date keeps its statics and `instanceof`, and as a member it is the global
-//                       object's only, so a data row's key named Date is no helper. Its cases are planted beside the
-//                       date rules' own, through the repository config, in tests/unit/calendarFieldLint.spec.ts.
+//                       object's only, so a data row's key named Date is no helper. What holds a helper fails closed
+//                       rather than have its key resolved (chief design on Codex's finding on 5f548e18, the stance
+//                       elements-built-with-jsx takes on React's import): a namespace import of a date module (the
+//                       config hands DATE_HELPER_MODULES in: date-fns's barrels and parseISO's own entries, and
+//                       lib/format by its alias or a relative path) is used only through a member with a written key
+//                       (`fmt.formatInstant(…)`, `fmt['formatInstant'](…)`, `fmt.fmtPercent`) or `typeof`. Any other
+//                       use fails where it stands, the binding named: a member by a key the rule cannot read
+//                       (`fmt[key]`, held or called: a key held in a const is not resolved, since the namespace is
+//                       what escapes), the namespace held, handed to a call (`Object.values(fmt)`,
+//                       `Reflect.get(fmt, key)`), spread, returned or exported, and a pattern's rest or a key it
+//                       cannot read. The global object holds Date, so a member of it by a key the rule cannot read
+//                       (`globalThis[key]`), and such a pattern over it, fail too; its other uses pass. A `require`
+//                       or a dynamic `import()` of a date module and an `export * as` of one fail, and TypeScript's
+//                       `import fi = fmt.formatInstant` is a helper held under another name. Out of reach: the global
+//                       object under another name (held, handed on, or one of its own members: `window.self`), a
+//                       helper re-exported through another app module (`export { formatInstant } from …`,
+//                       `export * from …`), whose namespace the rule does not know as a date module's, and a module
+//                       named by a value the rule cannot read. tsc refuses a date module's default export (none
+//                       declares one) and `import x = require(…)`. Its cases are planted beside the date rules' own,
+//                       through the repository config, in tests/unit/calendarFieldLint.spec.ts.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -1420,22 +1438,56 @@ const HELD_AS = {
  *  helper. A type holds no value and passes. Anything else is refused where it is held, whatever calls it later: a
  *  binding under another name, a branch of a condition or a logical operand, an argument, a return, an object's or an
  *  array's entry, a spread, a prop, a cast, a member read off it (call, apply, bind), an assignment, a default
- *  export. */
+ *  export.
+ *  What holds a helper fails closed rather than have its key resolved (chief design on Codex's finding on 5f548e18, as
+ *  elements-built-with-jsx reads React's import). A namespace import of a date module (the `modules` option) is used
+ *  only through a member with a written key, so the helper's own checks read it, or by `typeof`; any other use fails
+ *  where it stands, the binding named: a member by a key the rule cannot read (`fmt[key]`, held or called), the
+ *  namespace held, handed to a call (`Object.values(fmt)`, `Reflect.get(fmt, key)`), spread, returned or exported,
+ *  and a pattern's rest or a key it cannot read. The global object holds Date, so a member of it by a key the rule
+ *  cannot read, and such a pattern over it, fail too; its other uses pass (the app tests it: `'doNotTrack' in
+ *  window`). A `require` or a dynamic `import()` of a date module and an `export * as` of one fail, and TypeScript's
+ *  `import fi = fmt.formatInstant` is a helper held under another name. */
 export const dateHelpersCalledDirectly = {
   meta: {
     type: 'problem',
     docs: { description: 'A date helper is called by its name where it formats, never held or handed on as a value.' },
-    schema: [{ type: 'object', properties: { helpers: { type: 'array', items: { type: 'string' } } }, additionalProperties: false }],
+    schema: [
+      {
+        type: 'object',
+        properties: { helpers: { type: 'array', items: { type: 'string' } }, modules: { type: 'array', items: { type: 'string' } } },
+        additionalProperties: false,
+      },
+    ],
     messages: {
       held:
         "{{name}}, {{how}}: the calendar-date and billing-instant rules (eslint.config.mjs) read a date helper's call by " +
         'its callee, so a helper held as a value hides what it is handed later. Call {{name}} directly, by its name ' +
         'or as a namespace member, where the value is formatted.',
+      unreadable:
+        '{{form}}: a module or an object that holds a date helper is read only through a member with a written key ' +
+        "(`fmt.formatInstant(…)`, `fmt['formatInstant'](…)`), since the calendar-date and billing-instant rules " +
+        '(eslint.config.mjs) read a helper by its name or a written key, and a key the rule cannot read is not ' +
+        'followed. Write the key, or import the helper by its own name.',
     },
   },
   create(context) {
     const helpers = new Set(context.options[0]?.helpers ?? [])
+    const modules = new Set(context.options[0]?.modules ?? [])
     const { sourceCode } = context
+    const text = (node) => sourceCode.getText(node)
+    /** Whether an import names a date module as the `modules` option names it: an app file by its `@/` alias, whether
+        the import writes the alias or a path relative to the file, with or without an extension or an index file; a
+        package as written. */
+    const dateModule = (source) => {
+      if (typeof source !== 'string') return false
+      const app = source.startsWith('@/')
+        ? path.posix.normalize(source.slice(2))
+        : /^\.\.?(?:\/|$)/.test(source)
+          ? path.relative(FRONTEND_ROOT, path.resolve(path.dirname(context.filename), source)).split(path.sep).join('/')
+          : null
+      return modules.has(app === null ? source : `@/${app.replace(/\.[cm]?[jt]sx?$/, '').replace(/\/index$/, '')}`)
+    }
     /** Whether a helper's node (its name, or a member that reads it) keeps the call the rules read in sight. */
     const inSight = (node, name) => {
       const { parent } = node
@@ -1449,16 +1501,90 @@ export const dateHelpersCalledDirectly = {
         (parent.type === 'BinaryExpression' && parent.operator === 'instanceof' && parent.right === node)
     }
     const report = (node, name) => context.report({ node, messageId: 'held', data: { name, how: HELD_AS[node.parent.type] ?? 'used as a value' } })
+    const unreadable = (node, form) => context.report({ node, messageId: 'unreadable', data: { form } })
+    /** One use of `who`, which holds date helpers: a namespace import of a date module (`strict`), or the global
+        object, which holds Date. A member by a written key and a pattern's written keys pass, for the helper's own
+        checks and the rename selectors to read; a member by a key the rule cannot read, and a pattern's rest or a key
+        it cannot read, fail. A namespace's every other use fails too; the global object's pass. */
+    const readHolder = (identifier, who, strict) => {
+      const at = outermostTs(identifier)
+      const { parent } = at
+      if (parent.type === 'TSQualifiedName' && parent.left === at) {
+        // A type names no value (`typeof fmt.formatInstant`); TypeScript's `import fi = fmt.formatInstant` holds the
+        // member's value under the alias's name, so a helper it names keeps the name or is held under another.
+        let name = parent
+        while (name.parent?.type === 'TSQualifiedName') name = name.parent
+        const alias = name.parent?.type === 'TSImportEqualsDeclaration' && name.parent.moduleReference === name ? name.parent : null
+        const key = parent.right.name
+        if (alias && helpers.has(key) && (name !== parent || alias.id.name !== key)) {
+          context.report({ node: alias, messageId: 'held', data: { name: key, how: `aliased by ${text(alias)}` } })
+        }
+        return
+      }
+      if (parent.type === 'TSTypeQuery' || (parent.type === 'UnaryExpression' && parent.operator === 'typeof')) return
+      if ((parent.type === 'MemberExpression' || parent.type === 'JSXMemberExpression') && parent.object === at) {
+        const key = parent.type === 'JSXMemberExpression' ? parent.property.name : writtenKey(parent.property, parent.computed)
+        if (key === null) unreadable(parent, `${text(parent)}, a member of ${who} by a key the rule cannot read`)
+        return
+      }
+      const pattern =
+        parent.type === 'VariableDeclarator' && parent.init === at
+          ? parent.id
+          : /^Assignment(?:Expression|Pattern)$/.test(parent.type) && parent.right === at
+            ? parent.left
+            : null
+      if (pattern?.type === 'ObjectPattern') {
+        for (const property of pattern.properties) {
+          if (property.type === 'RestElement') unreadable(property, `${text(property)}, the rest of ${who}`)
+          else if (writtenKey(property.key, property.computed) === null) {
+            unreadable(property, `${text(property)}, taken out of ${who} by a key the rule cannot read`)
+          }
+        }
+        return
+      }
+      if (strict) unreadable(identifier, `${who}, ${parent.type === 'ExportSpecifier' ? 'exported' : (HELD_AS[parent.type] ?? 'used as a value')}`)
+    }
     return {
-      // Every reference to a helper by its name, in any scope: a declaration's own name and a type are not uses.
+      // Every reference to a helper by its name, in any scope: a declaration's own name and a type are not uses. A
+      // reference to the global object, by a name the file does not bind, is read as a holder of Date.
       'Program:exit'() {
         for (const scope of sourceCode.scopeManager.scopes) {
           for (const reference of scope.references) {
             const id = reference.identifier
-            if (id.type !== 'Identifier' || !helpers.has(id.name) || reference.init || reference.isValueReference === false) continue
-            if (id.parent.type === 'TSQualifiedName' || id.parent.type === 'TSTypeQuery') continue
-            if (!inSight(id, id.name)) report(id, id.name)
+            if (id.type !== 'Identifier' || reference.init || reference.isValueReference === false) continue
+            if (helpers.has(id.name)) {
+              if (id.parent.type !== 'TSQualifiedName' && id.parent.type !== 'TSTypeQuery' && !inSight(id, id.name)) report(id, id.name)
+            } else if (GLOBAL_OBJECT.has(id.name) && !reference.resolved?.defs.length) {
+              readHolder(id, `${id.name} (the global object)`, false)
+            }
           }
+        }
+      },
+      // A namespace import of a date module, read through every use; a type-only import holds no value.
+      ImportDeclaration(node) {
+        const source = String(node.source.value)
+        if (node.importKind === 'type' || !dateModule(source)) return
+        for (const specifier of node.specifiers) {
+          if (specifier.type !== 'ImportNamespaceSpecifier') continue
+          for (const variable of sourceCode.getDeclaredVariables(specifier)) {
+            for (const reference of variable.references) {
+              if (reference.isValueReference === false || variable.identifiers.includes(reference.identifier)) continue
+              readHolder(reference.identifier, `${variable.name} (${source}'s namespace)`, true)
+            }
+          }
+        }
+      },
+      // A date module held where the rule cannot read it: a dynamic import, a require, its namespace exported.
+      ImportExpression(node) {
+        if (dateModule(staticKey(node.source))) unreadable(node, `${text(node)}, a dynamic import of a date module`)
+      },
+      CallExpression(node) {
+        if (node.callee.type !== 'Identifier' || node.callee.name !== 'require' || bindsName(sourceCode, node.callee, 'require')) return
+        if (dateModule(staticKey(node.arguments[0]))) unreadable(node, `${text(node)}, a require of a date module`)
+      },
+      ExportAllDeclaration(node) {
+        if (node.exported && node.exportKind !== 'type' && dateModule(String(node.source.value))) {
+          unreadable(node, `${text(node)}, a date module's namespace exported`)
         }
       },
       MemberExpression(node) {

@@ -90,11 +90,14 @@ const LOCAL_DATE_MESSAGE =
  *  syntactic. No further widening fixes it. The
  *  same holds for a same-file wrapper (`const day = (iso) => formatLocalDate(iso, …)`, as FilingIndex
  *  and ComparePeriodsCard write): the rules read the call inside it, not the field a caller hands it.
- *  A helper reached through something other than its name or a member key (held in a binding under
- *  another name, a branch of a condition or a logical operand, handed on as an argument, returned, held
- *  in an object, behind a cast, or called through call, apply or bind) is refused where it is held, by
+ *  A helper reached through something other than its name or a written member key (held in a binding
+ *  under another name, a branch of a condition or a logical operand, handed on as an argument, returned,
+ *  held in an object, behind a cast, called through call, apply or bind, or taken off a date module's
+ *  namespace or the global object by a key held in a name: `fmt[key]`) is refused where it stands, by
  *  earningsnerd/date-helpers-called-directly (eslint.designRules.mjs), so a call the rules cannot read
- *  never ships. The behavioural spec and review cover what this cannot; do not read the rule as exhaustive. */
+ *  never ships. A helper's key is never resolved: its member fails closed (chief design). A FIELD's key
+ *  held in a const stays the residual above. The behavioural spec and review cover what this cannot; do
+ *  not read the rule as exhaustive. */
 const CALENDAR_DATE_FIELDS =
   'filing_date|filed_date|period_end_date|earnings_date|event_date|transaction_date|last_transaction_date|report_date'
 const CALENDAR_FIELD_MESSAGE =
@@ -150,8 +153,14 @@ const BILLING_INSTANT_MESSAGE =
  *  are keyed to no holder, so a data row's key named Date taken out by a pattern (`const { Date: first } =
  *  rows[0]`) draws the message too: a false positive no live code meets, planted in
  *  tests/unit/calendarFieldLint.spec.ts. A helper held as a value, in a const or anywhere else, is
- *  earningsnerd/date-helpers-called-directly's, which reads DATE_HELPERS as its option. */
+ *  earningsnerd/date-helpers-called-directly's, which reads DATE_HELPERS and DATE_HELPER_MODULES as its
+ *  options, and so is a namespace of a date module used other than through a member with a written key. */
 const DATE_HELPERS = ['Date', 'parseISO', 'formatInstant', 'formatLocalDate']
+/** The modules a date helper comes from, as an import names them: date-fns's barrels and parseISO's own
+ *  entry in each (the package's exports map opens no other path to it), and lib/format by its `@/` alias
+ *  (the rule reads a path relative to the importing file as the same module). A namespace of each is read
+ *  only through members with a written key. A helper from another module means adding that module here. */
+const DATE_HELPER_MODULES = ['date-fns', 'date-fns/fp', 'date-fns/parseISO', 'date-fns/fp/parseISO', '@/lib/format']
 const DATE_HELPER_ALIAS_MESSAGE =
   'Call Date, parseISO, formatInstant and formatLocalDate by their own names: the calendar-date and ' +
   'billing-instant rules (eslint.config.mjs) read a call by its callee, so a renamed one hides it.'
@@ -349,7 +358,8 @@ const config = [
   // direction-text-tokens holds direction text to the 700-level gain/loss inks, never the 600
   // level or sage (D-030). elements-built-with-jsx refuses React's element factories, so every
   // element the app renders is JSX the gates that read elements can see. date-helpers-called-directly
-  // refuses a date helper held as a value, so every call the date rules above read is written by name.
+  // refuses a date helper held as a value, and a namespace or object that holds one read other than by a
+  // written key, so every call the date rules above read is written by name or by a written key.
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: TEST_FILES,
@@ -363,7 +373,7 @@ const config = [
       'earningsnerd/locale-pinned-numbers': 'error',
       'earningsnerd/no-hand-rolled-toggle-group': 'error',
       'earningsnerd/elements-built-with-jsx': 'error',
-      'earningsnerd/date-helpers-called-directly': ['error', { helpers: DATE_HELPERS }],
+      'earningsnerd/date-helpers-called-directly': ['error', { helpers: DATE_HELPERS, modules: DATE_HELPER_MODULES }],
     },
   },
   // The password scan parses every script it finds (passwordRulesLockstep.spec.tsx), JavaScript included, so the rule
