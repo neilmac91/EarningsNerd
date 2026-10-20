@@ -14,7 +14,7 @@ import { Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
-import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, TRIAL_DAYS, shipped } from '@/lib/planLimits'
+import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, PRO_FAIR_USE_LINE, TRIAL_DAYS, shipped } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
@@ -388,9 +388,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 
           {/* Billing Toggle — free users only. A card-trial user already holds a subscription
               (their buy CTA is disabled as current-plan), so the toggle would only move a
-              button they can't press. */}
+              button they can't press. The row wraps where it cannot fit (a 320px phone at 200%
+              text), the yearly label on a centred line of its own; on one line it pushed
+              "Monthly" past the screen's left edge. */}
           {!isPaidPro && !isTrialing && (
-            <div className="mt-8 flex items-center justify-center space-x-4">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
               </span>
@@ -548,6 +550,14 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
               <p className="text-text-secondary-light dark:text-text-secondary-dark">
                 You&apos;ll need to upgrade to Pro to generate more summaries. Your existing summaries remain accessible.
               </p>
+            </div>
+            {/* The Pro fair-use guardrail, stated once app-wide (lib/planLimits.ts PRO_FAIR_USE_LINE, E58): the plan
+                cards keep "Unlimited", and this answer says what bounds it. */}
+            <div>
+              <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
+                Are Pro summaries unlimited?
+              </h3>
+              <p className="text-text-secondary-light dark:text-text-secondary-dark">{PRO_FAIR_USE_LINE}</p>
             </div>
             {ENABLE_PRO_TRIAL && (
               <div>

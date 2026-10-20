@@ -42,7 +42,10 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * 369px, the auth shell's lockup. The toggle's segments now wrap whole inside its one shell, and each label
  * stays inside its segment with no line starting at its middot (at 360 and 390px; at both, the Annual label
  * ran onto three lines below its segment). Below a 12rem viewport the auth shell's wordmark yields to the
- * mark. The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
+ * mark. At 320x640 with the text doubled /pricing passes the same checks: its billing switch's row wraps, the
+ * yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge and
+ * the page to 333px. The other routes join it at 320px with E81 (/ reaches 356px there). The open menu scrolls
+ * inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
  * On a 768px and an 834px tablet at 200% every route passes the same checks too: the footer's columns and
@@ -815,11 +818,15 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
 })
 
 /** At 360x780 with the browser's text doubled, every route in the loop passes the width, bar and clear-space checks
-    too. The header's wrap at 360px is its named fallback, so the one-row check stays at 390px. */
-test.describe('a 360px phone at 200% text', () => {
-  test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true })
-  for (const route of ROUTES) {
-    test(`${route.name} (${route.path}) does not scroll sideways at 360px and 200% text`, async ({ page, baseURL }) => {
+    too. The header's wrap at 360px is its named fallback, so the one-row check stays at 390px. At 320x640 /pricing
+    does too, its billing switch's row wrapped; the rest of the loop joins it there with E81. */
+for (const { width, height, routes } of [
+  { width: 360, height: 780, routes: ROUTES },
+  { width: 320, height: 640, routes: ROUTES.filter(({ path }) => path === '/pricing') },
+]) test.describe(`a ${width}px phone at 200% text`, () => {
+  test.use({ viewport: { width, height }, isMobile: true, hasTouch: true })
+  for (const route of routes) {
+    test(`${route.name} (${route.path}) does not scroll sideways at ${width}px and 200% text`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
           localStorage.setItem('theme', 'light')
@@ -836,9 +843,9 @@ test.describe('a 360px phone at 200% text', () => {
       await doubleText(page)
 
       const enlarged = await measure(page)
-      expect(enlarged.scrollWidth, `${route.path} at 360px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
-      expect(await collisions(route.bar(page)), `${route.path} at 360px and 200% text: the bar's controls`).toEqual([])
-      expect(await logoClearSpace(route.bar(page)), `${route.path} at 360px and 200% text: the logo's clear space`).toEqual([])
+      expect(enlarged.scrollWidth, `${route.path} at ${width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
+      expect(await collisions(route.bar(page)), `${route.path} at ${width}px and 200% text: the bar's controls`).toEqual([])
+      expect(await logoClearSpace(route.bar(page)), `${route.path} at ${width}px and 200% text: the logo's clear space`).toEqual([])
     })
   }
 })
