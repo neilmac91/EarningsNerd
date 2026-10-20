@@ -114,6 +114,15 @@ const hitsItself = (loc: Locator) =>
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return at === el || el.contains(at)
   })
+/** document.elementFromPoint at the element's centre is in the site header (the first `header`, as headerBottom reads
+    it), not a page's own header: the element lies under the open mobile menu. */
+const hitsHeader = (loc: Locator) =>
+  loc.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+    const site = document.querySelector('header')
+    return !!at && !!site && !el.contains(at) && site.contains(at)
+  })
 /** document.elementFromPoint at the element's centre is a sheet scrim: the element is inert under a real modal. */
 const hitsScrim = (loc: Locator) =>
   loc.evaluate((el) => {
@@ -126,6 +135,9 @@ const hitsScrim = (loc: Locator) =>
 const headerBottom = (page: Page) => page.evaluate(() => Math.round(document.querySelector('header')!.getBoundingClientRect().bottom))
 const viewport = (page: Page) => page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+/** The box's centre lies inside `area`: the point hitsItself and hitsHeader read. */
+const centreIn = (r: Rect, area: Rect) =>
+  r.x + r.w / 2 >= area.x && r.x + r.w / 2 <= area.x + area.w && r.y + r.h / 2 >= area.y && r.y + r.h / 2 <= area.y + area.h
 const inside = (r: Rect, vp: { w: number; h: number }) => r.x >= 0 && r.y >= 0 && r.x + r.w <= vp.w + 0.5 && r.y + r.h <= vp.h + 0.5
 const layer = (page: Page) =>
   page.evaluate(() => ({
@@ -135,8 +147,12 @@ const layer = (page: Page) =>
 const stored = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('cookie_consent') ?? 'null'))
 const consentEvents = (page: Page) => page.evaluate(() => window.__consentEvents ?? [])
 
-/** Every consent choice and both launchers hit themselves, sit inside the viewport and clear the bar. */
-async function expectBothControlSetsUsable(page: Page) {
+/** Every consent choice and both launchers hit themselves, sit inside the viewport and clear the bar. With the mobile
+    menu open (`menu`, the header's box), a launcher whose centre the menu covers lies under the menu instead, and
+    under nothing else: the header ranks above the workspace chrome (DESIGN_SYSTEM §4), and the reader closes the menu
+    to reach it. The branch reads the centre, the point both hit checks read, so a menu that only grazes a launcher's
+    edge still leaves the launcher to hit itself. */
+async function expectBothControlSetsUsable(page: Page, menu?: Rect) {
   const vp = await viewport(page)
   await expect.poll(async () => ({ ...(await layer(page)), height: Math.ceil((await rectOf(bar(page))).h) })).toMatchObject({ visible: true })
   const barRect = await rectOf(bar(page))
@@ -148,7 +164,8 @@ async function expectBothControlSetsUsable(page: Page) {
   }
   for (const [label, loc] of [['launcher', launcher(page)], ['feedback launcher', feedbackLauncher(page)]] as const) {
     const r = await rectOf(loc)
-    expect(await hitsItself(loc), `${label} is covered`).toBe(true)
+    if (menu && centreIn(r, menu)) expect(await hitsHeader(loc), `${label} is covered by something other than the open menu`).toBe(true)
+    else expect(await hitsItself(loc), `${label} is covered`).toBe(true)
     expect(inside(r, vp), `${label} is outside the viewport`).toBe(true)
     expect(overlaps(r, barRect), `${label} overlaps the bar`).toBe(false)
     expect(r.y + r.h, `${label} is not above the bar`).toBeLessThanOrEqual(barRect.y + 0.5)
@@ -159,11 +176,12 @@ async function expectBothControlSetsUsable(page: Page) {
 
 /**
  * The site header (z-50, top-anchored) ranks above the bar by design; its mobile menu opens in flow
- * inside the header. Where the open menu ends above the bar (390x844: 427px of header against a bar
- * at 667) every choice stays operable with it open; on a short phone (320x568) the open menu reaches
- * the bar's region and covers a choice until the user closes it — a user-opened, user-closed surface,
- * documented in DESIGN_SYSTEM §4 (before this change the bar covered the menu's lower items instead).
- * Either way the choices are operable again once the menu is closed.
+ * inside the header. Where the open menu ends above the bar (390x844: a signed-in reader's menu, with the
+ * Search and Calendar links CI's e2e build turns on, ends at 607px against a bar at 615) every choice
+ * stays operable with it open, and both launchers lie under the menu until it closes; on a short phone
+ * (320x568) the open menu reaches the bar's region and covers a choice until the user closes it — a
+ * user-opened, user-closed surface, documented in DESIGN_SYSTEM §4 (before this change the bar covered
+ * the menu's lower items instead). Either way the choices are operable again once the menu is closed.
  */
 async function expectMenuYields(page: Page, menuClearsBar: boolean) {
   await page.getByRole('button', { name: 'Open menu' }).click()
@@ -172,7 +190,7 @@ async function expectMenuYields(page: Page, menuClearsBar: boolean) {
   const barTop = (await rectOf(bar(page))).y
   if (menuClearsBar) {
     expect(header.y + header.h, 'the open menu reaches the bar').toBeLessThanOrEqual(barTop + 0.5)
-    await expectBothControlSetsUsable(page)
+    await expectBothControlSetsUsable(page, header)
   } else {
     expect(header.y + header.h, 'the open menu was expected to reach the bar on this short viewport').toBeGreaterThan(barTop)
   }

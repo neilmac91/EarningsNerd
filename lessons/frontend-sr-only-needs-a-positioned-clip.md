@@ -31,7 +31,10 @@ and the `/` case of `frontend/tests/e2e/reflow-200.spec.ts` at 390px and 200% te
 `frontend/features/admin/components/TableScroll.tsx`, `relative overflow-x-auto`, and its
 `frontend/tests/unit/admin-feedback-page.spec.tsx` pins that pair on the box beside a row's sr-only
 label. Gate: the reflow-200 spec's page-width check on the routes it visits (/, /pricing, /waitlist,
-/login, /register, the 404 and /filing/3, at 390px at both text sizes). Its report now walks past the
+/login, /register, the 404, /filing/3, /calendar and /search, at 390px at both text sizes). On /search
+the results list clips its rows, so that check cannot see a row's sr-only commas escape it;
+`frontend/tests/unit/full-text-search.spec.tsx` pins the list's `relative overflow-hidden` classes,
+which proves the classes, not the clip. Its report now walks past the
 ancestors an absolutely positioned box escapes and names the box (dac23622: "past the edge: 395px span
 ", XBRL concept us-gaap:EarningsPerShareD""). #1344's admin spec pins its site once it lands. No static
 scan reads this rule: the clip and the sr-only box can sit in different components (TableScroll clips
