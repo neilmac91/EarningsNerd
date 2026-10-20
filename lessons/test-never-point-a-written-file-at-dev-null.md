@@ -40,9 +40,11 @@ and say so in the hand-off.
   imported, refuses on any runner a start through `subprocess`, `os.system`, `os.posix_spawn` or `os.spawn*`,
   from a test or a fixture of any scope, whose environment, shell line or git config file option (`--file`,
   `-f`, attached or not) gives git the device, however it was built (byte strings, an `env` by position, a
-  shell line in a list), and an `os.putenv` that would set it for later starts; a child run in
+  shell line in a list), or leaves it to a shell expansion that may name it (`git config -f "$TARGET"`),
+  and an `os.putenv` that would set it for later starts; a child run in
   `test_suite_isolation.py` proves each.
-  `backend/tests/unit/test_null_device_write_targets.py` fails on any tracked code file that names
+  `backend/tests/unit/test_null_device_write_targets.py` fails on any tracked program (a code file, a
+  Makefile or Dockerfile, a dotenv file, or one in the executable mode or opening with `#!`) that names
   `/dev/null` or `os.devnull` in git's `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG` or `GIT_INDEX_FILE`,
   or as git config's file, on every runner (CI runs as a non-root user, where nothing can replace the device).
   The null-device checks in `backend/tests/conftest.py` fail the test during whose setup, body or teardown

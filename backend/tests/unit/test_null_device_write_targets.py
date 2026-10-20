@@ -12,7 +12,9 @@ a keyword or a pair of call arguments that gives one of those variables the devi
 gives it as the file, where the device is `os.devnull`, "/dev/null", a name the file binds to either (plainly,
 annotated, by unpacking or with `:=`) or imports under a name of its own (`from os import devnull as NULL`), or any
 of those inside calls (`str(os.devnull)`), an f-string or a conditional; and a string, literal or built with an
-f-string or `+`, that holds the shell form. Other code files are searched for the shell form, whatever whitespace
+f-string or `+`, that holds the shell form. Every other tracked program is searched for the shell form: a code
+file by its suffix, a build or container file by its name (`Makefile`, `Dockerfile`), a dotenv file, and any file
+in the executable mode or opening with `#!`, whatever whitespace
 separates its parts and whatever comes between `config` and its file option in one command. The file option is read
 as git's option parser reads it: `--file` or its abbreviation `--fil`, and `-f` alone or after other short options,
 the file after `=`, attached or next. A device that reaches git from another module, a string built any other way
@@ -43,6 +45,9 @@ SHELL_FORM = re.compile(
 # `=` or in the next word; `-f` alone or after other short options (`-zf`), the file attached or in the next word.
 CONFIG_FILE_OPTION = re.compile(r"--fil(?:e)?(?:=(?P<long>.*))?|-[a-eg-zA-Z]*f(?P<short>.*)")
 CODE = {".py", ".sh", ".bash", ".yml", ".yaml", ".toml", ".cfg", ".ini", ".json", ".js", ".mjs", ".cjs", ".ts", ".tsx"}
+# Files that run commands or set their environment by name rather than by suffix.
+PROGRAM_NAMES = {"Dockerfile", "Containerfile", "Makefile", "GNUmakefile", "makefile", "Justfile", "justfile",
+                 "Procfile"}
 
 
 class _NullTargets(ast.NodeVisitor):
@@ -186,13 +191,44 @@ def _hits(path: Path, text: str) -> list[int]:
     return [text.count("\n", 0, match.start()) + 1 for match in SHELL_FORM.finditer(text)]
 
 
+def _is_program(path: Path, mode: str, head: bytes) -> bool:
+    """Whether a tracked file is a program the gate reads: a code suffix, a build or container file by name, a
+    `.mk` file, a dotenv file, the executable mode (`git ls-files -s`'s 100755) or a `#!` line. Prose and records
+    (Markdown, text, logs) may describe the pattern."""
+    return (path.suffix in CODE or path.name in PROGRAM_NAMES or path.suffix == ".mk" or path.name.startswith(".env")
+            or mode == "100755" or head.startswith(b"#!"))
+
+
 def _tracked_code() -> list[Path]:
-    """Every tracked code file but this one, whose cases name the pattern on purpose. Prose (Markdown) may
-    describe it."""
-    listed = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True).stdout
-    paths = [ROOT / name for name in listed.decode("utf-8").split("\0") if name]
-    return [path for path in paths if (path.suffix in CODE or path.name == "Dockerfile")
-            and path.resolve() != Path(__file__).resolve() and path.is_file()]
+    """Every tracked program but this file, whose cases name the pattern on purpose."""
+    listed = subprocess.run(["git", "ls-files", "-s", "-z"], cwd=ROOT, capture_output=True, check=True).stdout
+    found = []
+    for entry in listed.decode("utf-8").split("\0"):
+        info, _, name = entry.partition("\t")  # <mode> <object> <stage>, then the path
+        path = ROOT / name
+        if not name or path.resolve() == Path(__file__).resolve() or not path.is_file():
+            continue
+        with path.open("rb") as handle:
+            head = handle.read(2)
+        if _is_program(path, info.split(" ", 1)[0], head):
+            found.append(path)
+    return found
+
+
+@pytest.mark.parametrize(("name", "mode", "head", "program"), [
+    ("tools/run", "100755", b"set -e\n", True),  # executable, without a suffix or a #! line
+    ("tools/run", "100644", b"#!/bin/sh\n", True),
+    ("Makefile", "100644", b"all:\n", True),
+    ("build/rules.mk", "100644", b"x:\n", True),
+    ("frontend/.env.local", "100644", b"A=1\n", True),
+    ("backend/Dockerfile", "100644", b"FROM x\n", True),
+    ("scripts/sync.sh", "100644", b"set -e\n", True),
+    ("tasks/notes", "100644", b"plain\n", False),
+    ("lessons/a.md", "100644", b"# a\n", False),
+    ("tasks/run.log", "100644", b"$ git\n", False),
+])
+def test_the_gate_reads_every_tracked_program(name, mode, head, program):
+    assert _is_program(Path(name), mode, head) is program
 
 
 def test_no_tracked_code_gives_git_the_null_device_to_write():

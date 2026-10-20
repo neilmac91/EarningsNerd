@@ -423,7 +423,8 @@ def _install_git_null_guard():
     environment or arguments were built, on any runner: an environment whose ``GIT_CONFIG_GLOBAL``,
     ``GIT_CONFIG_SYSTEM``, ``GIT_CONFIG`` or ``GIT_INDEX_FILE`` names the device, a ``NAME=/dev/null`` word in
     a shell line, or git config's file option naming it (``--file``, ``-f``, attached or not; ``git config`` or
-    the ``git-config`` program git runs for it), in strings or
+    the ``git-config`` program git runs for it), or, in a shell line, a word there that the shell expands as
+    the line runs (``"$TARGET"``, a substitution), which may name it, in strings or
     byte strings, given by keyword or by position, a shell line alone or in a list. A path is read
     from the test's own directory; one that reaches the device only from another (a ``cwd=``, ``git -C``) is
     outside it. It is installed when conftest is imported, so a fixture of any
@@ -496,6 +497,12 @@ def _names_git_config(word):
     return word == "config" or os.path.basename(word) == "git-config"
 
 
+def _expands(word):
+    """Whether a shell expands this word as its line runs (a variable, a substitution), so that it may name any
+    file, the device included."""
+    return bool(word) and ("$" in word or "`" in word)
+
+
 def _refuse_git_null_target(args, env, shell=False, what="a process started here"):
     given = _git_null_target(args, env, shell)
     if given:
@@ -522,13 +529,13 @@ def _git_null_target(args, env, shell=False):
                  for word in (shlex.split(os.fsdecode(item)) if shell_lines else [os.fsdecode(item)])]
         for index, word in enumerate(words):
             name, equals, value = word.partition("=")
-            if equals and name in _GIT_WRITE_TARGETS and names_null(value):
+            if equals and name in _GIT_WRITE_TARGETS and (names_null(value) or shell_lines and _expands(value)):
                 return word
             option = _CONFIG_FILE_OPTION.fullmatch(word) if any(map(_names_git_config, words[:index])) else None
             if option:
                 attached = option["long"] or option["short"]
                 given = attached or (words[index + 1] if index + 1 < len(words) else None)
-                if names_null(given):
+                if names_null(given) or shell_lines and _expands(given):
                     return f"config {word}" + ("" if attached else f" {given}")
     except (TypeError, ValueError, OSError):
         return None

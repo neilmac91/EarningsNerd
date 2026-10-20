@@ -447,10 +447,17 @@ _GIT_NULL_PROBE = (
     "    os.system(NAME + '=' + os.devnull + ' git --version')\n\n"
     "def test_starts_it_through_posix_spawn():\n"
     "    os.posix_spawn(shutil.which('git'), ['git', '--version'], {**os.environ, NAME: os.devnull})\n\n"
+    "def test_names_it_through_a_variable_its_shell_line_expands():\n"
+    "    subprocess.run('git config -f \"$TARGET\" --list', shell=True, env={**os.environ, 'TARGET': os.devnull},\n"
+    "                   capture_output=True)\n\n"
+    "def test_sets_git_s_variable_through_a_variable_its_shell_line_expands():\n"
+    "    subprocess.run(NAME + '=\"$TARGET\" git --version', shell=True, env={**os.environ, 'TARGET': os.devnull},\n"
+    "                   capture_output=True)\n\n"
     "def test_uses_a_session_fixture_that_starts_it(git_set_up_for_the_session):\n"
     "    pass\n\n"
     "def test_starts_git_plainly():\n"
     "    subprocess.run(['git', '--version'], capture_output=True, check=True)\n"
+    "    subprocess.run(['git', 'config', '-f', '$LITERAL', '--list'], capture_output=True)  # no shell expands it\n"
 )
 
 
@@ -459,12 +466,12 @@ def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
     probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
     summary = result.stdout.strip().splitlines()[-1]
-    # Twelve starts or settings fail their tests; the session fixture's start errors the test that uses it.
-    assert result.returncode == 1 and all(count in summary for count in ("12 failed", "1 passed", "1 error")), (
+    # Fourteen starts or settings fail their tests; the session fixture's start errors the test that uses it.
+    assert result.returncode == 1 and all(count in summary for count in ("14 failed", "1 passed", "1 error")), (
         result.stdout[-3000:])
     failed = [line for line in result.stdout.splitlines() if line.startswith(("FAILED ", "ERROR "))]
     assert not any("test_starts_git_plainly" in line for line in failed), failed
-    assert result.stdout.count("a process started here would give git the null device") >= 12, result.stdout[-3000:]
+    assert result.stdout.count("a process started here would give git the null device") >= 14, result.stdout[-3000:]
     assert "the environment set here would give git the null device" in result.stdout, result.stdout[-3000:]
 
 
