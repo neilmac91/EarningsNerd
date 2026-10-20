@@ -3,7 +3,12 @@ import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type { DataNotesWire } from '@/features/analysis/lib/dataNotes'
 import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
-import { decodeNarrativePresentation, type NarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
+import {
+  decodeNarrativePresentation,
+  EVIDENCE_RECOVERY,
+  EvidenceRejection,
+  type NarrativePresentation,
+} from '@/features/analysis/lib/narrativePresentation'
 
 // Idle timeout for the SSE stream — mirrors copilot-api.ts: any activity resets the clock.
 const STREAM_TIMEOUT_MS = 120000
@@ -345,7 +350,7 @@ export const streamAnalysis = async (
     if (!response.ok) {
       let errorMessage: string
       if (response.status === 401) {
-        errorMessage = 'Sign in to run an analysis.'
+        errorMessage = 'Log in to run an analysis.'
       } else if (response.status === 403) {
         errorMessage = await parseErrorDetail(response, 'Multi-Period Analysis is a Pro feature.')
       } else if (response.status === 429) {
@@ -420,7 +425,15 @@ export const streamAnalysis = async (
               n_periods: typeof data.n_periods === 'number' ? data.n_periods : 0,
             }
             if (Object.hasOwn(data, 'narrative_presentation')) {
-              completion.narrative_presentation = decodeNarrativePresentation(data.narrative_presentation, completion, dataset)
+              try {
+                completion.narrative_presentation = decodeNarrativePresentation(data.narrative_presentation, completion, dataset)
+              } catch (error) {
+                // The decoder's own refusal carries the recovery sentence. Anything else is a defect inside it: it
+                // goes to the console as itself, and the reader gets the same sentence, never the engine's text.
+                if (!(error instanceof EvidenceRejection)) console.error('[analysis] narrative presentation decoder failed:', error)
+                fail(EVIDENCE_RECOVERY)
+                return
+              }
             }
             terminal = true
             handlers.onComplete(completion)

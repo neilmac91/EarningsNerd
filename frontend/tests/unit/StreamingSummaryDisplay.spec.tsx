@@ -346,14 +346,14 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
   })
 
   it('a press that starts no run keeps the card, drops its Retry and hands focus to the card heading', async () => {
-    // Signed out, useSummaryGeneration sets its sign-in sentence and starts nothing: the card stays, and no retry
+    // Signed out, useSummaryGeneration sets its log-in sentence and starts nothing: the card stays, and no retry
     // can help that sentence, so the Retry leaves while it holds focus. The progress heading is not there.
-    render(<Page start={FAILED} pressed={{ stage: 'error', error: 'Sign in to generate this summary.' }} />)
+    render(<Page start={FAILED} pressed={{ stage: 'error', error: 'Log in to generate this summary.' }} />)
     await settle()
     retry().focus()
     fireEvent.click(retry(), { detail: 0 })
     await settle()
-    expect(screen.getByText('Sign in to generate this summary.')).toBeInTheDocument()
+    expect(screen.getByText('Log in to generate this summary.')).toBeInTheDocument()
     expect(within(screen.getByRole('alert')).queryByRole('button')).toBeNull()
     expect(document.activeElement).toBe(heading('Generation interrupted'))
   })

@@ -417,7 +417,10 @@ function SourceTraceInner({
         n: 0,
         excerpt: highlightTarget,
         section_ref: header,
-        verified: isVerified,
+        // Located only with the excerpt the server checked: a heading fallback (every metric chip, a
+        // verified XBRL figure's included, and every Cited chip) is a best-effort section jump, never a
+        // passage the server located, so the reader paints it without the device (D-044).
+        verified: isVerified && highlightTarget === excerpt,
         fragment_url: url,
       },
       triggerRef.current,

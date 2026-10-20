@@ -2,7 +2,7 @@ import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui/Badge'
-import { cx } from '@/components/ui'
+import { EnRef, MarkedCopy, cx, markedBlockInsetClass, markedRowInsetClass } from '@/components/ui'
 import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
@@ -10,7 +10,6 @@ import { Sep } from '@/features/filings/components/FilingIdentity'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
 import { AAPL_FY25_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
-import MarkedCopy, { EnRef } from '@/features/marketing/components/MarkedCopy'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
 
 /**
@@ -180,13 +179,13 @@ function HeroExample({
             a marked block in the filing's face with its margin twin (the brand device). */}
         {evidence && (
           <MarkedCopy>
-            <div className="flex flex-col gap-2 pl-3 sm:pl-3.5">
+            <div className={cx('flex flex-col gap-2', markedRowInsetClass)}>
               <p className={cx('text-sm font-semibold', INK)}>
                 {excerptHeadings([evidence.excerpt])[0]}
                 <EnRef label="[1]" />
               </p>
               {/* The filing's words, so they wear quotation marks; the closing one follows the ellipsis. */}
-              <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>
+              <blockquote className={cx('en-marked py-2.5 font-editorial text-base leading-relaxed', markedBlockInsetClass, INK)}>
                 “{clip(evidence.excerpt)}”
               </blockquote>
               {evidence.url && (

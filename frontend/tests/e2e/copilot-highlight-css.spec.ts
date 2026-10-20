@@ -14,8 +14,12 @@ import { test, expect } from '@playwright/test'
 // on the shipped filing page, then driven exactly as CitationChip does. Its one framework import is
 // React's useSyncExternalStore in hooks/usePrefersReducedMotion.ts, stubbed here: the helper calls
 // only that file's framework-free prefersReducedMotion(), which runs for real.
-// Observable contract: after a highlight, `document.adoptedStyleSheets` carries a sheet whose rules
-// include `::highlight(copilot-citation)`, and `CSS.highlights.get('copilot-citation')` exists.
+// Observable contract: after a highlight, `document.adoptedStyleSheets` carries one sheet whose rules
+// include `::highlight(copilot-citation)` and `::highlight(copilot-find)`, and one of the two is registered
+// in `CSS.highlights`. What Chromium computes for a passage the server located is the device's mark
+// (D-044): `.en-mark`'s tint and 2px hairline as this page's stylesheet paints them, light and dark, the
+// hairline unbroken, the passage in the primary ink. Any other passage takes the neutral find paint: the
+// brand sage at 22% with no hairline, in both themes.
 
 const FRONTEND = path.resolve(__dirname, '../..')
 
@@ -58,7 +62,7 @@ test.describe('Copilot citation highlight', () => {
     const result = await page.evaluate(() => {
       const m = (window as unknown as {
         __copilotHighlight: {
-          highlightExcerptInDom: (c: HTMLElement, e: string) => boolean
+          highlightExcerptInDom: (c: HTMLElement, e: string, o?: { located?: boolean }) => boolean
           clearCitationHighlight: () => void
         }
       }).__copilotHighlight
@@ -74,27 +78,77 @@ test.describe('Copilot citation highlight', () => {
       const flashedParas = () =>
         Array.from(container.querySelectorAll<HTMLElement>('.citation-flash')).map((el) => el.dataset.para ?? el.tagName)
 
-      const found = m.highlightExcerptInDom(container, 'Net income rose on higher services revenue during the quarter')
+      // A passage the server located.
+      const found = m.highlightExcerptInDom(container, 'Net income rose on higher services revenue during the quarter', { located: true })
       const flashedAfterFirst = flashedParas()
-      const rule = document.adoptedStyleSheets
+      // The paint Chromium computes for the highlighted paragraph, beside the device's own mark and the primary ink
+      // as this page's stylesheet paints them, in each theme.
+      const para = container.querySelector('[data-para="1"]')!
+      const mark = document.createElement('span')
+      mark.className = 'en-mark'
+      const ink = document.createElement('span')
+      ink.className = 'text-text-primary-light dark:text-text-primary-dark'
+      document.body.append(mark, ink)
+      const paint = () => {
+        const h = getComputedStyle(para, '::highlight(copilot-citation)')
+        const d = getComputedStyle(mark)
+        return {
+          tint: h.backgroundColor,
+          hairline: h.textDecorationColor,
+          line: h.textDecorationLine,
+          width: h.textDecorationThickness,
+          skipInk: h.textDecorationSkipInk,
+          ink: h.color,
+          device: {
+            tint: /,\s*(rgba?\([^)]*\))\s+62%\)$/.exec(d.backgroundImage)?.[1],
+            hairline: /^(rgba?\([^)]*\))\s/.exec(d.boxShadow)?.[1],
+            width: /\s-(\d+px)\s/.exec(d.boxShadow)?.[1],
+            ink: getComputedStyle(ink).color,
+          },
+        }
+      }
+      const light = paint()
+      document.documentElement.classList.add('dark')
+      const dark = paint()
+      document.documentElement.classList.remove('dark')
+      mark.remove()
+      ink.remove()
+      const ruleOf = (selector: string) => document.adoptedStyleSheets
         .flatMap((s) => Array.from(s.cssRules))
-        .find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === '::highlight(copilot-citation)')
+        .find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === selector)
+      const rule = ruleOf('::highlight(copilot-citation)')
       const registered = highlights.get('copilot-citation')
 
+      // A passage the server did not locate (the caller does not say it did): the find paint replaces the device's.
       const foundSecond = m.highlightExcerptInDom(container, 'Operating expenses declined as headcount stayed flat through the period')
       const flashedAfterSecond = flashedParas()
       const sheetsAfterSecond = document.adoptedStyleSheets.length
+      const second = container.querySelector('[data-para="2"]')!
+      const findPaint = () => {
+        const h = getComputedStyle(second, '::highlight(copilot-find)')
+        return { tint: h.backgroundColor, line: h.textDecorationLine }
+      }
+      const findLight = findPaint()
+      document.documentElement.classList.add('dark')
+      const findDark = findPaint()
+      document.documentElement.classList.remove('dark')
+      const afterFind = { device: highlights.has('copilot-citation'), find: highlights.get('copilot-find')?.size ?? null }
 
       m.clearCitationHighlight()
-      const clearedStillRegistered = highlights.has('copilot-citation')
+      const clearedStillRegistered = highlights.has('copilot-citation') || highlights.has('copilot-find')
       document.body.removeChild(container)
 
       return {
         found,
         foundSecond,
         ruleText: rule?.cssText ?? null,
-        background: rule?.style.backgroundColor ?? null,
+        findRuleText: ruleOf('::highlight(copilot-find)')?.cssText ?? null,
+        light,
+        dark,
+        findLight,
+        findDark,
         registeredRanges: registered?.size ?? null,
+        afterFind,
         sheetsAfterSecond,
         clearedStillRegistered,
         flashedAfterFirst,
@@ -105,9 +159,22 @@ test.describe('Copilot citation highlight', () => {
     expect(result.found).toBe(true)
     expect(result.foundSecond).toBe(true)
     expect(result.ruleText).toContain('::highlight(copilot-citation)')
-    expect(result.background).toBe('rgba(79, 122, 99, 0.22)')
+    expect(result.findRuleText).toContain('::highlight(copilot-find)')
+    // The device's mark in both themes: its tint, its 2px hairline unbroken, the passage in the primary ink.
+    expect(result.light.device).toEqual({ tint: 'rgb(236, 242, 238)', hairline: 'rgb(207, 224, 214)', width: '2px', ink: 'rgb(26, 26, 23)' })
+    expect(result.dark.device).toEqual({ tint: 'rgba(127, 178, 149, 0.14)', hairline: 'rgba(127, 178, 149, 0.28)', width: '2px', ink: 'rgb(215, 218, 220)' })
+    for (const theme of [result.light, result.dark]) {
+      expect({ tint: theme.tint, hairline: theme.hairline, width: theme.width, ink: theme.ink }).toEqual(theme.device)
+      expect({ line: theme.line, skipInk: theme.skipInk }).toEqual({ line: 'underline', skipInk: 'none' })
+    }
     // One Highlight holding exactly the matched Range.
     expect(result.registeredRanges).toBe(1)
+    // The find paint, in both themes: the brand sage at 22% with no hairline (its ink is the rule's `inherit`, held in
+    // tests/unit/highlightInDom.spec.ts). It replaced the device's highlight rather than joining it.
+    for (const find of [result.findLight, result.findDark]) {
+      expect(find).toEqual({ tint: 'rgba(79, 122, 99, 0.22)', line: 'none' })
+    }
+    expect(result.afterFind).toEqual({ device: false, find: 1 })
     // A second highlight reuses the adopted sheet rather than adding another.
     expect(result.sheetsAfterSecond).toBe(1)
     expect(result.clearedStillRegistered).toBe(false)

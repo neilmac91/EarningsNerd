@@ -79,7 +79,7 @@ describe('FilingViewer (embedded)', () => {
 
     expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
     await waitFor(() =>
-      expect(highlightExcerptInDom).toHaveBeenCalledWith(expect.anything(), 'Revenue grew strongly'),
+      expect(highlightExcerptInDom).toHaveBeenCalledWith(expect.anything(), 'Revenue grew strongly', { located: true }),
     )
   })
 
