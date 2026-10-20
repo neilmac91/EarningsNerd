@@ -490,6 +490,37 @@ def test_the_push_runs_in_the_directory_the_line_moves_to(scanner: Scanner, repo
         assert scanner.calls() == []
 
 
+# Bash looks for a relative directory in CDPATH's directories first, so a cd or pushd to one, when CDPATH is set in the
+# hook's environment or anywhere in the line, may push from another repository than the hook would read (Codex's): the
+# push is refused before any scan. One that starts with `.`, `/` or `~`, which CDPATH skips, keeps working.
+@pytest.mark.parametrize(("command", "cdpath", "refused"), [
+    ("CDPATH={secret} cd repo; git push origin main", None, True),
+    ("CDPATH={secret}; cd repo && git push origin main", None, True),
+    ("export CDPATH={secret}; cd repo && git push origin main", None, True),
+    ("cd repo && git push origin main", "{secret}", True),
+    ("pushd repo && git push origin main", "{secret}", True),
+    ("cd ./repo && git push origin main", "{secret}", False),
+    ("cd {start}/repo && git push origin main", "{secret}", False),
+    ("cd repo && git push origin main", None, False),
+], ids=["a prefix assignment", "an earlier assignment", "an export", "the environment's", "pushd", "./ skips it",
+        "an absolute path skips it", "no CDPATH"])
+def test_a_relative_cd_that_cdpath_may_redirect_leaves_the_push_unresolved(scanner: Scanner, tmp_path: Path,
+                                                                          command: str, cdpath: str | None,
+                                                                          refused: bool) -> None:
+    start, secret = tmp_path / "start", tmp_path / "secret"
+    start.mkdir()
+    secret.mkdir()
+    _commit(_new_repo(start / "repo"), "clean.txt", "nothing to see\n")  # where the hook would read
+    _commit(_new_repo(secret / "repo"), "settings.py", LEAKY)  # where bash goes under CDPATH
+    fill = lambda text: text.format(secret=secret, start=start)  # noqa: E731
+    decision = _decision(scanner, "Bash", {"command": fill(command)}, start, {"CDPATH": fill(cdpath)} if cdpath else {})
+    if refused:
+        _refused(decision, "pushes from a repository the hook cannot resolve as the line stands", "CDPATH")
+        assert scanner.calls() == []
+    else:
+        assert decision is None and len(scanner.calls()) == 1
+
+
 @pytest.mark.parametrize("committed", [True, False], ids=["committed", "uncommitted"])
 def test_a_pin_on_the_pushed_branch_gets_nothing_past_the_scan(scanner: Scanner, repo: Path, committed: bool) -> None:
     leak = _commit(repo, "settings.py", LEAKY)
@@ -1023,6 +1054,31 @@ def test_a_relative_body_file_in_a_line_that_changes_directory_is_refused(scanne
 def test_an_absolute_body_file_after_a_cd_is_read_where_it_is(scanner: Scanner, payloads: Path) -> None:
     command = f"cd {payloads} && gh api repos/o/r/git/blobs --input {payloads / 'payload.json'}"
     _refused(_bash(scanner, command, payloads.parent), "decoded-content-1:1 (stub-rule)")
+
+
+# A GraphQL commit whose mutation stands only in its body file (Codex's) is scanned as one named on the line is; a
+# GraphQL call whose body commits nothing runs no scan, and one whose body the hook cannot read is refused.
+MUTATION = ("mutation { createCommitOnBranch(input: {branch: {repositoryNameWithOwner: \"o/r\", branchName: \"b\"}, "
+            "message: {headline: \"m\"}, expectedHeadOid: \"0\", fileChanges: {additions: [{path: \"a.py\", "
+            "contents: \"%s\"}]}}) { commit { oid } } }")
+
+
+@pytest.mark.parametrize("command", [
+    "gh api graphql --input mutation.json",
+    "gh api graphql -F query=@mutation.graphql",
+    "curl -X POST https://api.github.com/graphql -d @mutation.json",
+], ids=["--input", "a query field read from a file", "curl"])
+def test_a_graphql_commit_in_a_body_file_is_scanned(scanner: Scanner, payloads: Path, command: str) -> None:
+    (payloads / "mutation.graphql").write_text(MUTATION % _b64(LEAKY), encoding="utf-8")
+    (payloads / "mutation.json").write_text(json.dumps({"query": MUTATION % _b64(LEAKY)}), encoding="utf-8")
+    _refused(_bash(scanner, command, payloads), "decoded-content-1:1 (stub-rule)")
+
+
+def test_a_graphql_call_whose_body_commits_nothing_runs_no_scan(scanner: Scanner, payloads: Path) -> None:
+    (payloads / "read.graphql").write_text("query { viewer { login } }", encoding="utf-8")
+    assert _bash(scanner, "gh api graphql -F query=@read.graphql", payloads) is None
+    assert scanner.calls() == []
+    _refused(_bash(scanner, "gh api graphql --input later.json", payloads), "the hook cannot read it as the line stands")
 
 
 def test_a_call_that_writes_no_repository_content_may_name_a_missing_file(scanner: Scanner, payloads: Path) -> None:

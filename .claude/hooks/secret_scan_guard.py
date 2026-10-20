@@ -31,7 +31,9 @@ in any case. It scans
   its line), then `git -C`. A move counts only where it certainly runs in the line's own shell: first in its and-or
   list (after nothing, `;`, `&`, a newline or a subshell's `(`, with any assignments and redirections before it as its
   prefixes), in no pipeline or background job, and in a line with no if, while, until, for, select, case or function;
-  any other leaves the push's directory unknown. The scan is
+  any other leaves the push's directory unknown, as does a relative directory that CDPATH may find elsewhere (CDPATH set
+  in the hook's environment or named anywhere in the line), unless it starts with `.`, `/` or `~`, which CDPATH skips.
+  The scan is
   `gitleaks git .` with GIT_DIR=<that repository's git directory> and
   `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable from what the push
   sends and from no remote-tracking ref of the remote it pushes to, which it finds as git does (the one the line names,
@@ -69,7 +71,8 @@ in any case. It scans
 - the GitHub MCP tools push_files and create_or_update_file: each file's content, written under its path into a new
   temporary subdirectory (a path that leaves it refuses the call), with `gitleaks dir`.
 - a Bash line naming a repository's contents or git data endpoint (`repos/<owner>/<repo>/contents`, `git/blobs`,
-  `git/trees`, `git/commits`) or GraphQL's createCommitOnBranch, through `gh api` or api.github.com, a read included:
+  `git/trees`, `git/commits`) or GraphQL's createCommitOnBranch, through `gh api` or api.github.com, a read included,
+  and a GraphQL call through either whose body files name createCommitOnBranch (whose body files are read for it):
   the line as written, the files its GitHub writes send (codex_mention_guard.py's detection), and, decoded, each
   base64 `content` value in either and each such file that is base64 whole, with `gitleaks dir`. A file it sends
   that the hook cannot read as the line stands (one the line itself makes, one over the reader's 1 MiB, one that is
@@ -88,7 +91,8 @@ means to get past it, which can always push from a script, so it does not read f
 Not checked: a push or write that another shell or program makes (`bash -c '...'`, a here-document fed to a shell, a
 script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in the
 same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, git
-configuration the line sets through the environment (`GIT_CONFIG_COUNT=` before the push, an export), a
+configuration the line sets through the environment (`GIT_CONFIG_COUNT=` before the push, an export), a CDPATH the
+session's shell sets that the hook's environment lacks, a
 remote-tracking ref whose branch the remote has since deleted (`git fetch --prune` drops it), whose commits the scan
 still counts as held, a file whose text git leaves out of `git log -p` as binary because of the repository's or the
 user's settings (a `-diff` attribute in info/attributes or core.attributesFile, a diff driver set `binary = true`,
@@ -156,7 +160,8 @@ REDIRECTS = ("<", ">", ">>", ">&", "<&", "&>", ">|")
 EXPANDED = ("$", "`", "*", "?", "[", "\x00")  # a word holding one is expanded as the line runs, or names no file
 CONTENT_WRITE = re.compile(r"\brepos/[^/\s]+/[^/\s]+/(?:contents\b|git/(?:blobs|trees|commits)\b)|\bcreateCommitOnBranch\b")
 GH_API = re.compile(r"(?:^|\s)(?:\S*/)?gh\s+api\b")
-CONTENT = re.compile(r"""\bcontents?["']?\s*[:=]\s*["']?([A-Za-z0-9+/=\\]{8,})""")  # a JSON wrap arrives as \n
+# A `content` value: a JSON wrap arrives as \n, and a quote inside a JSON string as \" (a GraphQL query sent as JSON).
+CONTENT = re.compile(r"""\bcontents?\\?["']?\s*[:=]\s*\\?["']?([A-Za-z0-9+/=\\]{8,})""")
 LOG_LINE = re.compile(r"^(?:\S+\s+)?(?=(?:INF|WRN|ERR|FTL|DBG|TRC)\b)")  # gitleaks' time stamp before its level
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 WRITE_TOOLS = ("push_files", "create_or_update_file")
@@ -366,14 +371,17 @@ def _join(here: Path | None, target: str) -> Path | None:
     return Path(os.path.normpath(path))
 
 
-def _moved(here: Path | None, verb: str, args: list[str]) -> Path | None:
-    """Where `cd`, `pushd` or `popd` with these words leaves the shell; None when the line cannot say."""
+def _moved(here: Path | None, verb: str, args: list[str], cdpath: bool) -> Path | None:
+    """Where `cd`, `pushd` or `popd` with these words leaves the shell; None when the line cannot say, as for a relative
+    directory that CDPATH may find elsewhere when `cdpath` (the environment or the line sets it)."""
     for arg in args if verb != "popd" else []:
         if arg in REDIRECTS or arg in (")", "}"):
             break
         if arg == "-" or arg.startswith("+"):  # the previous directory; a pushd stack entry
             return None
         if not arg.startswith("-"):
+            if cdpath and not arg.startswith(("/", ".", "~")):  # bash looks for it in CDPATH's directories first
+                return None
             return _join(here, arg)
     return Path.home() if verb == "cd" else None
 
@@ -486,6 +494,7 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
     here: Path | None = base
     stack: list[Path | None] = []
     pushes, commits, moved = [], False, False
+    cdpath = bool(os.environ.get("CDPATH")) or "CDPATH" in script
     commands = shell._commands(shell._command_tokens(_uncommented(script)))
     branching = any(_branches(words) for _operator, words in commands)
     for at, (operator, words) in enumerate(commands):
@@ -512,7 +521,7 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                 # A move that may not run where it stands (after && or ||, in a pipeline or a background job, or in a
                 # line that branches) leaves the directory unknown: the shell may run what follows from either.
                 certain = start and first and not branching and after not in ("|", "|&", "&")
-                here = _moved(here, word, words[index + 1:]) if certain else None
+                here = _moved(here, word, words[index + 1:], cdpath) if certain else None
             start = False
             if word == "git" or word.endswith("/git"):
                 subcommand, global_options, rest = _global_options(words, index + 1)
@@ -599,8 +608,9 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str], r
     if top is None or gitdir is None:
         return _reason(
             "this line pushes from a repository the hook cannot resolve as the line stands (a variable, a "
-            "substitution, `cd -`, popd, a cd or pushd that may not run where it stands, --git-dir, --work-tree, "
-            "GIT_DIR=, or a directory no repository holds yet), so it cannot tell what the push would send.",
+            "substitution, `cd -`, popd, a cd or pushd that may not run where it stands, a relative one that CDPATH "
+            "may take elsewhere, --git-dir, --work-tree, GIT_DIR=, or a directory no repository holds yet), so it "
+            "cannot tell what the push would send.",
             REPOSITORY_REMEDY)
     destination, configured = _destination(top, remote, config), []
     if _git(top, *config, "config", "--type=bool", "--get", f"remote.{destination}.mirror") == "true":
@@ -658,7 +668,9 @@ def _scan_files(files: list[tuple[str, bytes]], where: str, remedy: str) -> str 
 
 def _decoded(value: str) -> bytes | None:
     """A base64 `content` value decoded, its JSON string escapes (`\\/`, `\\n`, `\\u002f`) read first, as GitHub
-    reads them; a value that is no JSON string is read as written."""
+    reads them; a value that is no JSON string is read as written. A backslash it ends on starts the escaped quote that
+    closes it inside a JSON string, and is left out."""
+    value = value.rstrip("\\")
     if "\\" in value:
         try:
             value = json.loads(f'"{value}"')
@@ -673,7 +685,7 @@ def _decoded(value: str) -> bytes | None:
 
 def _api_refusal(command: str, script: str, cwd: object) -> str | None:
     words = " ".join(shell._tokens(script))
-    if CONTENT_WRITE.search(words) is None or (GH_API.search(words) is None and "api.github.com" not in words.lower()):
+    if GH_API.search(words) is None and "api.github.com" not in words.lower():
         return None
     texts, moved = [command], _changes_directory(script)
     for name in shell._names_sent(script):
@@ -687,6 +699,8 @@ def _api_refusal(command: str, script: str, cwd: object) -> str | None:
                            "(the line itself makes it, it is over 1 MiB, or it is no regular file), so what the "
                            "write sends cannot be scanned.", UNREAD_REMEDY)
         texts.append(text)
+    if not any(CONTENT_WRITE.search(text) for text in [words, *texts[1:]]):  # a GraphQL call whose body commits nothing
+        return None
     files = [(name, text.encode("utf-8", "replace")) for name, text in
              [("command-line", command), *((f"sent-file-{n}", text) for n, text in enumerate(texts[1:], 1))]]
     decoded = []
@@ -706,7 +720,8 @@ def _changes_directory(script: str) -> bool:
 
 def _bash_refusal(command: str, cwd: object) -> str | None:
     plain = command.replace("\\\n", "").translate(shell.UNQUOTE)  # no quotes, backslashes or continuations
-    if "push" not in plain and CONTENT_WRITE.search(plain) is None:
+    graphql = "graphql" in plain.lower()  # a GraphQL call, whose body files may hold a commit
+    if "push" not in plain and CONTENT_WRITE.search(plain) is None and not graphql:
         return None
     script = shell._script(command)
     base = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
@@ -735,7 +750,7 @@ def _bash_refusal(command: str, cwd: object) -> str | None:
             return _reason(f"{LATE}: it read every commit the push sends, since no remote's fetched refs show what "
                            f"{unheld!r} holds.", LATE_UNHELD)
         return _reason(f"{LATE}.", LATE_PUSH)
-    return _api_refusal(command, script, cwd) if CONTENT_WRITE.search(plain) else None
+    return _api_refusal(command, script, cwd) if CONTENT_WRITE.search(plain) or graphql else None
 
 
 def _mcp_refusal(tool: str, tool_input: dict) -> str | None:

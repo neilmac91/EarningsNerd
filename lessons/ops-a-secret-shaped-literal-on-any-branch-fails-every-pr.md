@@ -44,13 +44,13 @@ replace ref, `log.showRoot`) or change its fingerprint (`format.pretty`, `log.da
 `diff.noprefix`). It refuses the call on a
 finding, naming each finding's file, line, rule and commit fingerprint, never the literal, and before any
 scan when it cannot tell what the push sends (a source or a repository it cannot resolve as the line
-stands, a `cd` that may not run where it stands, a long option `git push` does not take as written, which
-git may complete (`--mirr` for `--mirror`), or a line that also runs another git command but a read, such as
-a checkout or a fetch), saying what to name literally, or to push in a call of its own. It reads the push's
-options in order, as git does, so a later `--no-dry-run` takes a dry run back, and a push that names
-nothing to send reads git's config as git does (a remote's push refspecs, `push.default=matching`, a
-mirror remote, with the pushing git's own `-c`). Every scan reads main's pins
-and config (`origin/main`'s `.gitleaksignore` and `.gitleaks.toml`, as
+stands, a `cd` that may not run where it stands or that `CDPATH` may redirect, a long option `git push`
+does not take as written, which git may complete (`--mirr` for `--mirror`), or a line that also runs
+another git command but a read, such as a checkout or a fetch), saying what to name literally, or to push
+in a call of its own. It reads the push's options in order, as git does, so a later `--no-dry-run` takes
+a dry run back, and a push that names nothing to send reads git's config as git does (a remote's push
+refspecs, `push.default=matching`, a mirror remote, with the pushing git's own `-c`). Every scan reads
+main's pins and config (`origin/main`'s `.gitleaksignore` and `.gitleaks.toml`, as
 last fetched; no pins when it cannot read them, and gitleaks' own default config, which the job runs,
 while main has no `.gitleaks.toml`), never the pushing checkout's, its git directory's, a call's or one
 that `GITLEAKS_CONFIG` or `GITLEAKS_CONFIG_TOML` names, since every other pull request's `secret-scan`
@@ -59,12 +59,12 @@ main and been fetched (a commit's, or a global `path:rule:line` one), and a pin 
 past it. It refuses a line that makes commits and pushes them, since a hook runs before the line and
 cannot read a commit the line has yet to make: commit in one call, push in the next. Before the GitHub MCP
 `push_files` and `create_or_update_file` tools, and a `gh api` (or api.github.com) call naming a
-repository's contents or git data, it scans the files the call sends, a base64 `content` value decoded,
-and refuses the call when a file it sends cannot be read as the line stands (the line itself makes it,
-it is over 1 MiB, it is no regular file, or a relative path names it in a line that changes
-directory); it reads them under a staging directory, not at the repository paths pins name, so a
-reviewed false positive there takes the marker, or a commit pushed with git, whose scan reads main's
-pins. The binary is the one
+repository's contents or git data, or a GraphQL call whose body commits, it scans the files the call
+sends, a base64 `content` value decoded, and refuses the call when a file it sends cannot be read as the
+line stands (the line itself makes it, it is over 1 MiB, it is no regular file, or a relative path names
+it in a line that changes directory); it reads them under a staging directory, not at the repository
+paths pins name, so a reviewed false positive there takes the marker, or a commit pushed with git, whose
+scan reads main's pins. The binary is the one
 `.claude/hooks/secret_scan_setup.py`, a SessionStart hook, extracts from the archive the job pins (version
 and SHA-256 read from `.github/workflows/ci.yml`) into
 `~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/`, with its own SHA-256 recorded beside it;
