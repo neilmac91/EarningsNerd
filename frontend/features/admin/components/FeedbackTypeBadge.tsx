@@ -8,9 +8,9 @@ import type { FeedbackType } from '@/features/admin/api/admin-api'
  * Neutral, icon+label chip for the kind of feedback. Type is not a status, so it stays neutral
  * (theme-paired neutral surface) rather than borrowing semantic status colors: only the status
  * badge carries semantic meaning. Each variant pairs an icon with its label. Dark carries no fill,
- * as the status chip beside it does (features/admin/lib/statusChip.ts): a white/5 fill under the
- * row's own white/5 hover tint drops the label to 4.27:1 on a hovered row. The hairline stays, and
- * tests/unit/statusChipContrast.spec.ts measures the label on FeedbackRow's grounds.
+ * as the status chip beside it does (Badge's status set, components/ui/Badge.tsx): a white/5 fill
+ * under the row's own white/5 hover tint drops the label to 4.27:1 on a hovered row. The hairline
+ * stays, and tests/unit/statusChipContrast.spec.ts measures the label on FeedbackRow's grounds.
  */
 const TYPE_CONFIG: Record<
   FeedbackType,

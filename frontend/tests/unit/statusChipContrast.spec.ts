@@ -1,4 +1,4 @@
-import { createElement, type FunctionComponent } from 'react'
+import { createElement, type FunctionComponent, type ReactElement } from 'react'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -6,12 +6,23 @@ import { render } from '@testing-library/react'
 import type { Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { Badge, type BadgeProps, type BadgeVariant } from '@/components/ui'
 import InviteStatusBadge from '@/features/admin/components/InviteStatusBadge'
 import FeedbackStatusBadge from '@/features/admin/components/FeedbackStatusBadge'
 import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
 import type { FeedbackStatus, FeedbackType, InviteStatus } from '@/features/admin/api/admin-api'
-import { STATUS_CHIP, STATUS_CHIP_INK, type StatusChipTone } from '@/features/admin/lib/statusChip'
+
+/**
+ * Badge, marked: every chip Badge renders in this file carries `data-badge`, the variant it was given, and nothing
+ * else changes, so the case that holds both admin badges to Badge's status set can tell a chip Badge rendered from a
+ * copy of its classes by hand.
+ */
+vi.mock('@/components/ui/Badge', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/Badge')>()
+  const Marked = (props: BadgeProps) => createElement(actual.Badge, { ...props, 'data-badge': props.variant ?? 'neutral' } as BadgeProps)
+  return { ...actual, Badge: Marked }
+})
 
 /**
  * The admin chips' labels clear 4.5:1 on what is behind them, in both themes (audit ADM-16a, ADM-16b;
@@ -24,12 +35,16 @@ import { STATUS_CHIP, STATUS_CHIP_INK, type StatusChipTone } from '@/features/ad
  * spec. A <tr> or <tbody> it cannot find, a chip it cannot find or one with no <tr> above it, a component
  * between a chip and its row, a className that is not a plain string (a layer may carry none) or a layer
  * with props spread into it, a tbody with no ground it can resolve or a translucent one, and a ground
- * under a variant it does not model all fail; nothing falls back to a literal. The status chip recipe has
- * one home, features/admin/lib/statusChip.ts: each tone is measured there once per theme on every one of
- * those grounds, from its classes resolved through tailwind.config.js, so a token, recipe or row change is
- * read as it ships: the label ink over the chip's ground, composited over the row. Both status badges are
- * then held to that recipe, status by status, and FeedbackTypeBadge, the chip beside FeedbackRow's status
- * chip, is measured as it renders on that row's grounds. A text- colour this spec cannot resolve fails, and
+ * under a variant it does not model all fail; nothing falls back to a literal. The status chips are Badge's
+ * status set (components/ui/Badge.tsx), read from Badge itself: the members of its BadgeStatusVariant type,
+ * from its source, each rendered through Badge and measured once per theme on every one of those grounds,
+ * from its classes resolved through tailwind.config.js, so a token, variant or row change is read as it
+ * ships: the label ink over the chip's ground, composited over the row. A member that is not a string
+ * literal, or no such type, fails. Both status badges are then held to that set, status by status: each
+ * renders a chip Badge rendered with one of the set's variants and no class of its own, so a chip that
+ * hand-rolls its classes (a copy of Badge's included), adds one to Badge's or takes a tint fails; and
+ * FeedbackTypeBadge, the chip beside FeedbackRow's status chip, is measured as it renders on that row's
+ * grounds. A text- colour this spec cannot resolve fails, and
  * so does a bg- or text- arbitrary value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it
  * can read, or a chip's text- or bg- colour under the important modifier, which this spec does not rank
  * against the plain ones. A chip's text- or bg- colour under any variant but its theme's own (bare in
@@ -324,8 +339,39 @@ function chipColours(className: string, theme: Theme) {
   return found
 }
 
-const TONES = Object.keys(STATUS_CHIP_INK) as StatusChipTone[]
-const recipe = (tone: StatusChipTone) => `${STATUS_CHIP} ${STATUS_CHIP_INK[tone]}`
+/** The first element a component renders, read and unmounted: its className, and the variant Badge marked it with when Badge rendered it. */
+function chipOf(element: ReactElement): { className: string; badge: string | null } {
+  const { container, unmount } = render(element)
+  const chip = container.firstElementChild as HTMLElement
+  const read = { className: chip.className, badge: chip.getAttribute('data-badge') }
+  unmount()
+  return read
+}
+
+/**
+ * Badge's status set, from its source: the members of its BadgeStatusVariant type, each a string literal. A member it
+ * cannot read, or no such type, is a failure that every case reading the set reports.
+ */
+function statusSet(source: string, file: string, failures: string[]): string[] {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === 'BadgeStatusVariant')
+  if (!alias) {
+    failures.push(`${file}: no BadgeStatusVariant type, so this spec cannot read Badge's status set`)
+    return []
+  }
+  return (ts.isUnionTypeNode(alias.type) ? alias.type.types : [alias.type]).flatMap((member) => {
+    if (ts.isLiteralTypeNode(member) && ts.isStringLiteral(member.literal)) return [member.literal.text]
+    failures.push(`${file}: ${member.getText(sf)} in BadgeStatusVariant is not a string literal this spec can read`)
+    return []
+  })
+}
+
+const BADGE = 'components/ui/Badge.tsx'
+/** Why Badge's status set could not be read; every case that reads it fails on any of them. */
+const SET_FAILURES: string[] = []
+const STATUS_VARIANTS = statusSet(readFileSync(path.join(ROOT, BADGE), 'utf8'), BADGE, SET_FAILURES)
+/** A variant's classes, as Badge renders them. */
+const badgeClasses = (variant: string) => chipOf(createElement(Badge, { variant: variant as BadgeVariant }, 'x')).className
 
 /** A chip's label ratio on each ground, in both themes, with any class the reader could not read. */
 function measure(name: string, className: string, grounds: Grounds, failures: string[]): number {
@@ -356,35 +402,70 @@ const CHIPS: Array<[string, FunctionComponent<{ status: never }>, string[]]> = [
 ]
 
 const classSet = (className: string) => [...new Set(className.split(/\s+/).filter(Boolean))].sort().join(' ')
+
+/**
+ * Why a chip is not Badge's chip for one member of its status set, as Badge renders it, or null when it is: one Badge
+ * did not render (its classes hand-rolled, a copy of Badge's included), Badge's chip for a variant outside the set,
+ * or Badge's chip with a class of the caller's added.
+ */
+function offTheSet(name: string, { className, badge }: { className: string; badge: string | null }): string | null {
+  const chip = classSet(className)
+  if (badge === null) return `${name}: "${chip}" is no chip Badge rendered, so its classes are hand-rolled`
+  if (!STATUS_VARIANTS.includes(badge)) return `${name}: Badge's ${badge}, which is not in its status set`
+  const own = classSet(badgeClasses(badge))
+  return chip === own ? null : `${name}: "${chip}" is not Badge's ${badge} as it renders, "${own}"`
+}
+
 /** The self-checks' own <tr> and <tbody>: their grounds come from class strings written in each case, not from the code. */
 const PROBE = { row: 'probe <tr>', body: 'probe <tbody>' }
 
 describe('admin status chips: the label clears 4.5:1 on its actual ground, both themes (ADM-16a, ADM-16b)', () => {
-  it('every tone of the status chip recipe, on the rows of both tables at rest and hovered', () => {
-    const failures = [...GROUND_FAILURES]
+  it("every member of Badge's status set, on the rows of both tables at rest and hovered", () => {
+    const failures = [...GROUND_FAILURES, ...SET_FAILURES]
     let measured = 0
-    for (const tone of TONES) measured += measure(`status chip ${tone}`, recipe(tone), EVERY_GROUND, failures)
+    for (const variant of STATUS_VARIANTS) measured += measure(`Badge ${variant}`, badgeClasses(variant), EVERY_GROUND, failures)
     expect(failures).toEqual([])
-    // Four tones, two themes, two tables, each row at rest and hovered: a reader that found no ground must not pass.
-    expect(measured).toBe(32)
+    // Five status variants, two themes, two tables, each row at rest and hovered: a reader that found no ground, or a
+    // set read short, must not pass.
+    expect(measured).toBe(40)
   })
 
-  it('both badges render every status on the recipe, so the measurement above is what ships', () => {
-    const failures: string[] = []
-    let rendered = 0
-    for (const [name, Badge, statuses] of CHIPS) {
+  it("both badges render every status as Badge's chip for one member of its status set, so the measurement above is what ships", () => {
+    const failures = [...SET_FAILURES]
+    let read = 0
+    for (const [name, Chip, statuses] of CHIPS) {
       for (const status of statuses) {
-        const { container, unmount } = render(createElement(Badge, { status: status as never }))
-        const chip = classSet((container.firstElementChild as HTMLElement).className)
-        rendered += 1
-        if (!TONES.some((tone) => classSet(recipe(tone)) === chip)) {
-          failures.push(`${name} ${status}: "${chip}" is not STATUS_CHIP plus one STATUS_CHIP_INK tone`)
-        }
-        unmount()
+        const why = offTheSet(`${name} ${status}`, chipOf(createElement(Chip, { status: status as never })))
+        read += 1
+        if (why) failures.push(why)
       }
     }
     expect(failures).toEqual([])
-    expect(rendered).toBe(7)
+    expect(read).toBe(7)
+  })
+
+  it("reads Badge's status set from its type, fails on one it cannot read, and tells Badge's chip from a copy, a tint and an added class", () => {
+    const lost: string[] = []
+    statusSet("export type BadgeVariant = 'pro'", 'probe.tsx', lost)
+    expect(statusSet("export type BadgeStatusVariant = 'success' | Other | (typeof SET)[number]", 'probe.tsx', lost)).toEqual(['success'])
+    expect(lost).toEqual([
+      "probe.tsx: no BadgeStatusVariant type, so this spec cannot read Badge's status set",
+      'probe.tsx: Other in BadgeStatusVariant is not a string literal this spec can read',
+      'probe.tsx: (typeof SET)[number] in BadgeStatusVariant is not a string literal this spec can read',
+    ])
+    const own = classSet(badgeClasses('info-status'))
+    const planted: Array<[string, ReactElement]> = [
+      ['a copy of its classes', createElement('span', { className: badgeClasses('info-status') }, 'x')],
+      ['the info tint', createElement(Badge, { variant: 'info' }, 'x')],
+      ['a class added', createElement(Badge, { variant: 'info-status', className: 'gap-1' }, 'x')],
+      ['info-status itself', createElement(Badge, { variant: 'info-status' }, 'x')],
+    ]
+    expect(planted.map(([name, element]) => offTheSet(name, chipOf(element)))).toEqual([
+      `a copy of its classes: "${own}" is no chip Badge rendered, so its classes are hand-rolled`,
+      "the info tint: Badge's info, which is not in its status set",
+      `a class added: "${classSet(`${own} gap-1`)}" is not Badge's info-status as it renders, "${own}"`,
+      null,
+    ])
   })
 
   it('the feedback type chip, every type as it renders, on FeedbackRow at rest and hovered', () => {
@@ -457,8 +538,8 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     // The second review's mutation: InviteRow's dark hover at white/10.
     const hovered: string[] = []
     const grounds = tableGrounds('probe', 'hover:bg-background-light dark:hover:bg-white/10', 'bg-panel-light dark:bg-panel-dark', PROBE, hovered)
-    measure('status chip info', recipe('info'), grounds, hovered)
-    expect(hovered).toEqual(['status chip info (dark, probe hovered row): 4.23:1'])
+    measure('Badge info-status', badgeClasses('info-status'), grounds, hovered)
+    expect(hovered).toEqual(['Badge info-status (dark, probe hovered row): 4.23:1'])
     // With no dark tint of its own, a hovered dark row shows the light hover tint; a row's dark:bg- outranks it.
     expect(tableGrounds('probe', 'hover:bg-background-light', 'bg-panel-light dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(colour('background-light'))
     expect(tableGrounds('probe', 'hover:bg-background-light dark:bg-white/5', 'dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(over(colour('white/5')!, colour('panel-dark')!))
@@ -466,8 +547,8 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     // row over the plain dark:hover:bg-white/5, as the cascade paints it.
     const important: string[] = []
     const marked = tableGrounds('probe', 'hover:bg-background-light dark:hover:bg-white/5 dark:!bg-white/10', 'bg-panel-light dark:bg-panel-dark', PROBE, important)
-    measure('status chip info', recipe('info'), marked, important)
-    expect(important).toEqual(['status chip info (dark, probe row): 4.23:1', 'status chip info (dark, probe hovered row): 4.23:1'])
+    measure('Badge info-status', badgeClasses('info-status'), marked, important)
+    expect(important).toEqual(['Badge info-status (dark, probe row): 4.23:1', 'Badge info-status (dark, probe hovered row): 4.23:1'])
     const lost: string[] = []
     oneClassName('<tbody className={cx("bg-panel-light")} />', 'probe.tsx', 'tbody', lost)
     oneClassName('<tr><td /></tr>', 'probe.tsx', 'tr', lost)
