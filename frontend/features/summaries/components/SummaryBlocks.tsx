@@ -265,22 +265,35 @@ function BlockView({ block, tableLabel }: { block: RenderedBlock; tableLabel?: s
       // A 14/600 heading under the section's h2, in sentence register: never an uppercase eyebrow.
       return block.text ? <h3 className="text-sm font-semibold">{block.text}</h3> : null
 
-    case 'quote':
-      return block.text ? (
-        <blockquote className={`border-l-2 pl-3.5 italic ${HAIRLINE} ${MUTED}`}>
+    case 'quote': {
+      if (!block.text) return null
+      const quote = (
+        <>
           <p>“{block.text}”</p>
           {(block.speaker || block.evidence) && (
-            <div className="mt-1 flex items-center gap-2">
+            // Wraps, so the chip drops under the speaker where the line cannot hold both (the marked block's padding
+            // narrows it: at 390 under 200% text the chip ran 4px past the page).
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {/* The speaker is attribution, not the filing's words: the body face, inside a marked block too. */}
               {block.speaker && (
-                <cite className="block text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
+                <cite className="block font-sans text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
                   {block.speaker}
                 </cite>
               )}
               <EvidenceChip evidence={block.evidence} />
             </div>
           )}
-        </blockquote>
-      ) : null
+        </>
+      )
+      // The device marks a quote whose evidence the server located (D-044): the marked block, the quote in the
+      // filing's face, and no marker or twin, since a quote block has no heading to carry one. Any other quote
+      // keeps the neutral hairline.
+      return block.evidence?.verified === true ? (
+        <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>{quote}</blockquote>
+      ) : (
+        <blockquote className={`border-l-2 pl-3.5 italic ${HAIRLINE} ${MUTED}`}>{quote}</blockquote>
+      )
+    }
 
     case 'bullets':
       return block.items && block.items.length > 0 ? (

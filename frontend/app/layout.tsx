@@ -21,8 +21,9 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
 const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--font-inter' })
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
 // axes: opsz — the editorial role promises optical sizing (font-optical-sizing: auto);
-// preload: false — the serif is opt-in for long-form filing reading only, so ~120KB of
-// woff2 must not ride the critical path of every route.
+// preload: false — the serif is opt-in for the filing's own words (long-form filing reading,
+// and inside the product a passage the server located, set as a marked block: D-044), so
+// ~120KB of woff2 must not ride the critical path of every route.
 const newsreader = Newsreader({
   subsets: ['latin'],
   style: ['normal', 'italic'],

@@ -130,7 +130,8 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     const pane = page.locator(PANE)
     await expect(pane.getByText(/Couldn’t pinpoint the exact passage/)).toBeVisible()
     await expect(pane.getByRole('link', { name: 'Open original' }).first()).toHaveAttribute('href', DOCUMENT)
-    expect(await page.evaluate(() => (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights.get('copilot-citation')?.size ?? 0)).toBe(0)
+    // Neither the device's highlight nor the find highlight: nothing was found to mark.
+    expect(await page.evaluate(() => (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights.size)).toBe(0)
     await expect(pane.getByText(/source match found/i)).toHaveCount(0)
   })
 
