@@ -191,7 +191,7 @@ frontend/
 | `sitemap_service.py` | Eligible company/filing queries and bounded XML assembly; the sitemap router owns the hourly cache, single-flight lock and HTTP response |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
 | `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
-| `analysis_data_access.py` | Analysis record reads and short-session ingest/metering/release units; the router keeps HTTP policy, task/stream ownership and call-time collaborator seams |
+| `analysis_data_access.py` | Analysis record reads and short-session ingest, metering and reservation-release units; the analysis router runs its request-session work in thread-pool units that release through `filing_list_service.release_request_session`, and keeps HTTP policy, task/stream ownership and call-time collaborator seams |
 | `job_sessions.py` | Runs one job in a session of its own and closes it however the job ends, for work outside a request's `get_db` session: the internal triggers' flag-off background runs and the Resend click record; the callers keep their log lines and pass the job by an attribute resolved at call time |
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
@@ -445,7 +445,8 @@ unused since generation became account-required in #619; kept because migrations
   `GET /metrics` (breaker/cache/thread-pool/DB-pool stats) — details in docs/OPERATIONS.md.
 - Sentry (backend + frontend), PostHog product analytics + inference-cost telemetry
   (`copilot_inference_cost`, `analysis_inference_cost` with grounding counters),
-  Vercel Analytics on the frontend (auto-enabled via `@vercel/analytics` in `app/layout.tsx`).
+  Vercel Analytics on the frontend (`@vercel/analytics`, mounted from `app/layout.tsx` by
+  `app/private-analytics.tsx` only once the visitor allows analytics, D-046).
 - The eval harness (`backend/evals/`) pins summary quality (`baseline_scores.json`) with a
   CI regression gate on AI-relevant PRs.
 
