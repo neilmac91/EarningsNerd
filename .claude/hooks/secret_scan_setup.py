@@ -4,8 +4,8 @@
 reads GITLEAKS_VERSION and GITLEAKS_SHA256 from .github/workflows/ci.yml, the env of the `secret-scan` job and the one
 place they are pinned (each must appear there exactly once, or nothing is provisioned). That SHA-256 is the linux x64
 archive's, the one the job runs; CHECKSUMS below pins the same release's darwin arm64, darwin x64 and linux arm64
-archives as the release's checksums file lists them, and test_secret_scan_guard.py fails when ci.yml's version moves
-and they do not. On a platform PLATFORMS maps (platform.system() and platform.machine()), it downloads that platform's
+archives as the release's checksums file lists them, with its linux x64 line too, and test_secret_scan_guard.py fails
+when ci.yml's version moves and they do not, or when that line and ci.yml's SHA-256 part. On a platform PLATFORMS maps (platform.system() and platform.machine()), it downloads that platform's
 archive from GitHub once, by the job's URL, checks it against its SHA-256 before it opens it, extracts only the
 `gitleaks` member into ~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/, and records the binary's own
 SHA-256 beside it in `gitleaks.sha256`. A binary already there that matches its record means nothing is downloaded.
@@ -45,13 +45,15 @@ PLATFORMS = {
     ("Darwin", "arm64"): "darwin_arm64",
     ("Darwin", "x86_64"): "darwin_x64",
 }
-# The other platforms' archives of ci.yml's release, as its checksums file (gitleaks_<version>_checksums.txt) lists
-# them. To add a platform, map it in PLATFORMS and copy its line from that file here; to move to another release, move
-# all of them with ci.yml.
+# ci.yml's release's archives, as its checksums file (gitleaks_<version>_checksums.txt) lists them. ci.yml's own
+# GITLEAKS_SHA256 stays what linux_x64 is checked against; its line here is the gate's tie between this copied block and
+# the value CI checks on every run. To add a platform, map it in PLATFORMS and copy its line from that file here; to
+# move to another release, move every line with ci.yml.
 CHECKSUMS = {
     "gitleaks_8.24.3_darwin_arm64.tar.gz": "b90f13bb8c90ab72083d9b0c842e39dafb82c0e5c3f872f407366b7a58909013",
     "gitleaks_8.24.3_darwin_x64.tar.gz": "41c44ae8ad1d6eef57d4526ad0fd67d8129eee9a856f55c2b3b9395fd3d9ec0f",
     "gitleaks_8.24.3_linux_arm64.tar.gz": "5f2edbe1f49f7b920f9e06e90759947d3c5dfc16f752fb93aaafc17e9d14cf07",
+    "gitleaks_8.24.3_linux_x64.tar.gz": "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c",
 }
 MAX_ARCHIVE_BYTES = 64 << 20
 MAX_BINARY_BYTES = 128 << 20

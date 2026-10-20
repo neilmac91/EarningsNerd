@@ -32,11 +32,15 @@ directory's own file as well as any `-i` path.
 Bash command and every call to an MCP server whose name contains "github" in any case
 (`backend/tests/unit/test_secret_scan_guard.py`). Before a `git push` it runs the job's pinned gitleaks,
 with the job's flags, over the commits the push would add (those reachable from what it sends and from no
-remote-tracking ref), in the repository's top level so its `.gitleaksignore` applies, and refuses the call
-on a finding, naming each finding's file, line, rule and commit fingerprint, never the literal; when it
-cannot resolve what the push sends, it widens the scan to every unpushed local branch and says so. It
-refuses a line that makes commits and pushes them, since a hook runs before the line and cannot read a
-commit the line has yet to make: commit in one call, push in the next. Before the GitHub MCP `push_files` and
+remote-tracking ref of the remote it pushes to), and refuses the call on a finding, naming each finding's
+file, line, rule and commit fingerprint, never the literal; when it cannot resolve what the push sends, or
+the line moves HEAD or a branch first, it widens the scan to every unpushed local branch and says so. Every
+scan reads main's pins and config (`origin/main`'s `.gitleaksignore` and `.gitleaks.toml`, as last fetched;
+none when it cannot read them), never the pushing checkout's or a call's, since every other pull request's
+`secret-scan` reads main's: a reviewed false positive takes `# gitleaks:allow` on its line, or a pin that
+has landed on main and been fetched, and a pin on the branch gets nothing past it. It refuses a line that
+makes commits and pushes them, since a hook runs before the line and cannot read a commit the line has yet
+to make: commit in one call, push in the next. Before the GitHub MCP `push_files` and
 `create_or_update_file` tools, and a `gh api` (or api.github.com) call naming a repository's contents or
 git data, it scans the files the call sends, a base64 `content` value decoded. The binary is the one
 `.claude/hooks/secret_scan_setup.py`, a SessionStart hook, extracts from the archive the job pins (version
@@ -47,8 +51,10 @@ and x64 and linux arm64 archives from its checksums file, and the gate fails whe
 without them. Without a verified binary, or on a platform with no pin, the guard refuses every call it
 would scan and says what to do (the setup command; how to add a pin). Not gated: a push or write
 another shell or program makes (`bash -c '...'`, a script, an alias), text a command builds as it runs, a
-session that loads no repository hooks (Codex, Astra), a person's own push, and every clause above about
-a literal already pushed.
+repository the hook cannot resolve (`cd "$VAR" && git push`), whose widened scan reads the event's working
+directory's repository and not the one pushed, a push that configuration widens beyond its current branch
+(`push.default=matching`, a remote's push refspec), a session that loads no repository hooks (Codex,
+Astra), a person's own push, and every clause above about a literal already pushed.
 
 **Evidence**: E20's commit 4ac900bb, amended to 2398f2af with the marker and force-pushed at 09:53 UTC;
 #1310's `secret-scan` re-run afterwards. Partly gated: the hook above refuses a session's push before it

@@ -48,7 +48,9 @@ standard input unasked, the body files of a command another shell runs (`bash -c
 here-document fed to a shell), the commit messages `gh pr create --fill` copies, a GitHub MCP server
 registered under a name without "github", a session that loads no repository hooks, and a person's
 own write.
-Tests: backend/tests/unit/test_codex_mention_guard.py.
+Tests: backend/tests/unit/test_codex_mention_guard.py. Imported by .claude/hooks/secret_scan_guard.py, which reads a line
+with this reader (`_script`, `_command_tokens`, `_commands`, `_tokens`, `_files_sent`, UNQUOTE and WORD_START), so a
+change to them also runs backend/tests/unit/test_secret_scan_guard.py.
 """
 from __future__ import annotations
 

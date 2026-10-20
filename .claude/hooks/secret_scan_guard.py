@@ -12,26 +12,37 @@ command; on a platform with no pin the refusal names the platform and how to add
 let through unscanned is the failure it exists to stop. The registered command (`python3 -I -S`) uses the standard
 library only; the script imports its two neighbours in .claude/hooks/ by path.
 
+Every scan reads main's pins and config, as every other pull request's `secret-scan` does, never the pushing
+checkout's: gitleaks runs from a new empty directory with `-i` holding `git show origin/main:.gitleaksignore` (empty when
+main or the file cannot be read, the strictest reading) and `-c` holding main's `.gitleaks.toml`, or gitleaks' own
+rules (`[extend] useDefault = true`) while main has none. A push's scan reads the repository's git directory, which
+holds neither file, and a write's files are staged under a subdirectory of the directory scanned, so no
+`.gitleaksignore` or `.gitleaks.toml` of the checkout's, or one a call sends, is honoured: a pin on a branch counts for
+nothing until it lands on main and is fetched, and a reviewed false positive otherwise takes `# gitleaks:allow`.
+
 .claude/settings.json runs it before every Bash command and every call to an MCP server whose name contains "github"
 in any case. It scans
 - each `git push` a Bash command line runs: a word `git`, or a path ending in `/git`, wherever it stands, then git's
-  global options, then `push`, in a line read as the shell reads it (codex_mention_guard.py's reader, imported). The
-  push runs in the event's working directory as the line's `cd` and `pushd` to a directory it names literally move
-  it (a subshell's move ends with the subshell; a command substitution's text is read after the rest of its line),
-  then `git -C`. The scan is `gitleaks git <that repository's top level> --log-opts="<what it sends> --not
-  --remotes"`, run in that top level so its .gitleaksignore applies: the commits reachable from what the push sends
-  and from no remote-tracking ref. What it sends: each refspec's source (`tag <name>` too; a deletion or a negative
-  refspec sends nothing), HEAD when it names none, every branch for --all or --branches, every ref for --mirror and
-  every tag for --tags; a dry run and --delete send nothing. A source it cannot resolve (a variable, a substitution, a
-  wildcard, one that does not exist yet) widens the scan to every local branch's commits and HEAD's that no
-  remote-tracking ref holds, and a refusal says so. A repository it cannot resolve (a variable, a substitution,
-  `cd -`, popd, --git-dir, --work-tree, GIT_DIR=), or a directory that is in none, widens it the same way in the
-  event's working directory's repository; with no repository there, an unresolved one refuses.
+  global options, then `push`, in a line read as the shell reads it (codex_mention_guard.py's reader, imported), less
+  its comments. The push runs in the event's working directory as the line's `cd` and `pushd` to a directory it names
+  literally move it (a subshell's move ends with the subshell; a command substitution's text is read after the rest of
+  its line), then `git -C`. The scan is `gitleaks git <that repository's git directory> --log-opts="<what it sends>
+  --not --remotes=<remote>"`: the commits reachable from what the push sends and from no remote-tracking ref of the
+  remote it pushes to (the one it names, when that is a configured remote; else the pushed branch's upstream remote;
+  else origin; a URL or a path names none, so every remote's refs count). What it sends: each refspec's source
+  (`tag <name>` too; a deletion or a negative refspec sends nothing), HEAD when it names none, every branch for --all
+  or --branches, every ref for --mirror and every tag for --tags; a dry run and --delete send nothing. A source it
+  cannot resolve (a variable, a substitution, a wildcard, one that does not exist yet) widens the scan to every local
+  branch's commits and HEAD's that no such ref holds, and a refusal says so and why. So does a git checkout, switch,
+  reset, branch, update-ref, worktree, tag, symbolic-ref or stash earlier in the line, since the hook resolves sources
+  before the line moves HEAD or a branch. A repository it cannot resolve (a variable, a substitution, `cd -`, popd,
+  --git-dir, --work-tree, GIT_DIR=), or a directory that is in none, widens the scan the same way in the event's
+  working directory's repository; with no repository there, an unresolved one refuses.
 - a line that pushes and also makes commits anywhere (git am, cherry-pick, commit, commit-tree, merge, pull, rebase
   or revert): refused, since a hook runs before the line and cannot read a commit the line has yet to make. The
   commits go in one call and the push in the next.
 - the GitHub MCP tools push_files and create_or_update_file: each file's content, written under its path into a new
-  temporary directory (a path that leaves it refuses the call), with `gitleaks dir`.
+  temporary subdirectory (a path that leaves it refuses the call), with `gitleaks dir`.
 - a Bash line naming a repository's contents or git data endpoint (`repos/<owner>/<repo>/contents`, `git/blobs`,
   `git/trees`, `git/commits`) or GraphQL's createCommitOnBranch, through `gh api` or api.github.com, a read included:
   the line as written, the files its GitHub writes send (codex_mention_guard.py's detection), and, decoded, each
@@ -43,8 +54,10 @@ A crash exits 1, which Claude Code reports as a hook error and lets through.
 
 Not checked: a push or write that another shell or program makes (`bash -c '...'`, a here-document fed to a shell, a
 script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in
-the same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, a push
-that configuration widens beyond its current branch (push.default=matching, a remote's push refspec), text a command
+the same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, a
+repository the hook cannot resolve (`cd "$VAR" && git push`), whose widened scan reads the event's working directory's
+repository and not the one pushed, a push that configuration widens beyond its current branch (push.default=matching, a
+remote's push refspec), a commit that a move earlier in the line reaches outside every branch, text a command
 builds as it runs (`content="$(base64 -w0 file)"`), a word an ANSI-C escape spells (`$'pu\\x73h'`), a GitHub MCP
 server registered under a name without "github", a session that loads no repository hooks, and a person's own push.
 Tests: backend/tests/unit/test_secret_scan_guard.py.
@@ -76,23 +89,37 @@ GIT_VALUE_OPTIONS = ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--c
 PUSH_VALUE_OPTIONS = ("--repo", "--receive-pack", "--exec", "--push-option", "--recurse-submodules")
 SENDS_NOTHING = {"-n", "--dry-run", "-d", "--delete"}
 COMMITTERS = ("am", "cherry-pick", "commit", "commit-tree", "merge", "pull", "rebase", "revert")
+# Subcommands that can move HEAD, a branch or a tag: a push after one in the same line sends what the hook cannot resolve.
+MOVERS = ("checkout", "switch", "reset", "branch", "update-ref", "worktree", "tag", "symbolic-ref", "stash")
+MOVED = "\x00moved"  # a source that marks such a push
 LEADERS = ("{", "!", "if", "then", "else", "elif", "do", "while", "until", "time", "command", "builtin")
 REDIRECTS = ("<", ">", ">>", ">&", "<&", "&>", ">|")
 EXPANDED = ("$", "`", "*", "?", "[", "\x00")  # a word holding one is expanded as the line runs, or names no file
 CONTENT_WRITE = re.compile(r"\brepos/[^/\s]+/[^/\s]+/(?:contents\b|git/(?:blobs|trees|commits)\b)|\bcreateCommitOnBranch\b")
 GH_API = re.compile(r"(?:^|\s)(?:\S*/)?gh\s+api\b")
-CONTENT = re.compile(r"""\bcontents?["']?\s*[:=]\s*["']?([A-Za-z0-9+/=\\\s]{8,})""")
+CONTENT = re.compile(r"""\bcontents?["']?\s*[:=]\s*["']?([A-Za-z0-9+/=\\]{8,})""")  # a JSON wrap arrives as \n
 LOG_LINE = re.compile(r"^(?:\S+\s+)?(?=(?:INF|WRN|ERR|FTL|DBG|TRC)\b)")  # gitleaks' time stamp before its level
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 WRITE_TOOLS = ("push_files", "create_or_update_file")
+MAIN = "refs/remotes/origin/main"  # main as the repository last fetched it, whose pins every pull request's scan reads
+DEFAULT_CONFIG = "[extend]\nuseDefault = true\n"  # gitleaks' own rules, what CI runs while main has no .gitleaks.toml
+PROJECT = Path(__file__).resolve().parents[2]  # the repository whose main a write's scan takes its pins from
 PUSH_REMEDY = (
-    "Rewrite the commit so the literal is gone (amend it, or rebase and edit it) and push again; for a reviewed false "
-    "positive, mark the line `# gitleaks:allow` with its reason, or pin the fingerprint in .gitleaksignore"
+    "Rewrite the commit so the literal is gone (amend it, or rebase and edit it) and push again. For a reviewed false "
+    "positive, mark the line `# gitleaks:allow` with its reason, or get its fingerprint pinned on main first (a pull "
+    "request to main's .gitleaksignore, then `git fetch origin main`); a pin on this branch does not count, since every "
+    "other pull request's `secret-scan` reads main's pins, not this branch's"
 )
 WRITE_REMEDY = (
-    "Take the literal out and send the call again; for a reviewed false positive, mark the line `# gitleaks:allow` with "
-    "its reason (a .gitleaksignore fingerprint names a commit, and this call's commit does not exist yet)"
+    "Take the literal out and send the call again. For a reviewed false positive, mark the line `# gitleaks:allow` with "
+    "its reason; no .gitleaksignore pin can cover it, since a pin names a commit, this call's commit does not exist yet, "
+    "and every other pull request's `secret-scan` reads main's pins alone"
 )
+LATE = "the scan did not finish inside the hook's time limit"
+LATE_PUSH = ("Push fewer commits at a time (`git push origin <older-sha>:refs/heads/<branch>`, then the rest), or ask the "
+             "founder to push from their own terminal")
+LATE_WIDENED = "Name the source and the repository literally (`git -C <dir> push origin <branch>`) and send the call again"
+LATE_WRITE = "Send fewer files per call"
 COMMIT_REMEDY = "Commit in one call and push in the next, so the push's scan reads the new commits"
 SCAN_ERROR_REMEDY = "Fix what gitleaks names (a missing ref, an unreadable repository or file) and send the call again"
 STAGE_REMEDY = "Send each file under a path that names one regular file, and send the call again"
@@ -170,16 +197,30 @@ def _findings(report: Path, relative_to: Path | None) -> list[str]:
     return places
 
 
-def _gitleaks(args: list[str], cwd: Path, where: str, remedy: str, relative_to: Path | None = None) -> str | None:
-    """Run the provisioned gitleaks with the job's flags in `cwd`; why the call must not run, or None."""
+def _main_file(repository: Path, name: str) -> str | None:
+    """`name` as main holds it in `repository`, or None when main or the file cannot be read."""
+    try:
+        proc = _run(["git", "show", f"{MAIN}:{name}"], repository)
+    except OSError:
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def _gitleaks(args: list[str], where: str, remedy: str, pins_from: Path, relative_to: Path | None = None) -> str | None:
+    """Run the provisioned gitleaks with the job's flags, from a new empty directory, with main's pins (`-i`) and config
+    (`-c`) as `pins_from` holds them; why the call must not run, or None."""
     binary, problem = _binary()
     if binary is None:
         return problem
     env = {key: value for key, value in os.environ.items() if key not in ("GITLEAKS_CONFIG", "GITLEAKS_CONFIG_TOML")}
-    with tempfile.TemporaryDirectory() as reports:
-        report = Path(reports) / "report.json"
+    with tempfile.TemporaryDirectory() as temporary:
+        work = Path(temporary)
+        ignore, config, report = work / ".gitleaksignore", work / "config.toml", work / "report.json"
+        ignore.write_text(_main_file(pins_from, ".gitleaksignore") or "", encoding="utf-8")
+        config.write_text(_main_file(pins_from, ".gitleaks.toml") or DEFAULT_CONFIG, encoding="utf-8")
         try:
-            proc = _run([str(binary), *args, *FLAGS, "--report-format", "json", "--report-path", str(report)], cwd, env)
+            proc = _run([str(binary), *args, *FLAGS, "-i", str(ignore), "-c", str(config), "--report-format", "json",
+                         "--report-path", str(report)], work, env)
         except OSError as error:
             return _reason(f"the pinned gitleaks could not run on {where} ({error}).",
                            f"Provision it again with `python3 {setup.SETUP}` and send the call again")
@@ -195,6 +236,29 @@ def _gitleaks(args: list[str], cwd: Path, where: str, remedy: str, relative_to: 
     tail = "; ".join([line for line in lines if line][-3:])[:600]
     return _reason(f"the pinned gitleaks could not finish scanning {where} (exit {proc.returncode}: {tail}).",
                    SCAN_ERROR_REMEDY)
+
+
+def _uncommented(script: str) -> str:
+    """codex_mention_guard._script's output (each quoted string one single-quoted word) less its comments. That reader
+    keeps a comment's words, so a commented-out GitHub write still counts there; a push named in a comment runs nothing."""
+    out, index, boundary = [], 0, True
+    while index < len(script):
+        char = script[index]
+        if char == "'":  # a single-quoted word, copied whole
+            end = script.find("'", index + 1)
+            end = len(script) if end < 0 else end
+            out.append(script[index:end + 1])
+            index, boundary = end + 1, False
+        elif char == "\\":  # an escape, copied whole
+            out.append(script[index:index + 2])
+            index, boundary = index + 2, False
+        elif char == "#" and boundary:  # a comment, to the end of its line
+            end = script.find("\n", index)
+            index = len(script) if end < 0 else end
+        else:
+            out.append(char)
+            index, boundary = index + 1, char in shell.WORD_START
+    return "".join(out)
 
 
 def _join(here: Path | None, target: str) -> Path | None:
@@ -249,8 +313,9 @@ def _repository(here: Path | None, options: list[tuple[str, str | None]], before
     return here
 
 
-def _sent(args: list[str]) -> tuple[list[str], list[str]]:
-    """What a push with these words sends: rev-list options (--branches, --all, --tags) and sources to resolve."""
+def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
+    """What a push with these words sends: rev-list options (--branches, --all, --tags) and sources to resolve; and the
+    repository it names to push to, if any."""
     words, index = [], 0
     while index < len(args):  # its words less redirections and the shell's grouping
         if args[index] in REDIRECTS:
@@ -278,7 +343,7 @@ def _sent(args: list[str]) -> tuple[list[str], list[str]]:
                     break
                 flags.add("-" + letter)
     if flags & SENDS_NOTHING:
-        return [], []
+        return [], [], None
     options = ["--branches"] * bool(flags & {"--all", "--branches"}) + ["--all"] * ("--mirror" in flags)
     options += ["--tags"] * ("--tags" in flags)
     specs, sources, index = positional[1:], [], 0  # the first is the repository it pushes to
@@ -292,16 +357,16 @@ def _sent(args: list[str]) -> tuple[list[str], list[str]]:
             sources.append(source)
     if not specs and not flags & {"--all", "--branches", "--mirror"}:
         sources.append("HEAD")
-    return options, sources
+    return options, sources, positional[0] if positional else None
 
 
-def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str], list[str]]], bool]:
-    """Each `git push` the script runs, as (its directory or None, rev-list options, sources), and whether the script
-    makes commits too."""
+def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str], list[str], str | None]], bool]:
+    """Each `git push` the script runs, as (its directory or None, rev-list options, sources, the repository it names),
+    and whether the script makes commits too. A push after a command that can move HEAD or a branch carries MOVED."""
     here: Path | None = base
     stack: list[Path | None] = []
-    pushes, commits = [], False
-    for _operator, words in shell._commands(shell._command_tokens(script)):
+    pushes, commits, moved = [], False, False
+    for _operator, words in shell._commands(shell._command_tokens(_uncommented(script))):
         start = True
         for index, word in enumerate(words):
             if word == "(":  # a subshell or a process substitution: a move inside it ends with it
@@ -316,11 +381,16 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                 here = _moved(here, word, words[index + 1:])
             start = False
             if word == "git" or word.endswith("/git"):
-                subcommand, options, rest = _global_options(words, index + 1)
+                subcommand, global_options, rest = _global_options(words, index + 1)
                 if subcommand in COMMITTERS:
                     commits = True
+                elif subcommand in MOVERS:
+                    moved = True
                 elif subcommand == "push":
-                    pushes.append((_repository(here, options, words[:index]), *_sent(rest)))
+                    options, sources, remote = _sent(rest)
+                    if moved and (options or sources):
+                        sources.append(MOVED)
+                    pushes.append((_repository(here, global_options, words[:index]), options, sources, remote))
     return pushes, commits
 
 
@@ -330,10 +400,21 @@ def _top(directory: Path) -> Path | None:
     return Path(found) if found else None
 
 
-def _scan_push(directory: Path | None, options: list[str], sources: list[str],
-               base: Path) -> tuple[Path, str, bool] | str | None:
-    """The repository and log range a push's scan reads, and whether it widened to every unpushed branch; a refusal
-    when there is none to read; None for nothing."""
+def _target(top: Path, remote: str | None) -> str | None:
+    """The remote whose remote-tracking refs hold what a push need not send: the one it names, when that is a
+    configured remote; else the pushed branch's upstream remote; else origin. None when it names a URL or a path."""
+    configured = (_git(top, "remote") or "").split()
+    if remote is not None:
+        return remote if remote in configured else None
+    branch = _git(top, "symbolic-ref", "--quiet", "--short", "HEAD")
+    upstream = _git(top, "config", "--get", f"branch.{branch}.remote") if branch else None
+    return upstream if upstream in configured else "origin"
+
+
+def _scan_push(directory: Path | None, options: list[str], sources: list[str], remote: str | None,
+               base: Path) -> tuple[Path, Path, str, str | None] | str | None:
+    """The repository, its git directory and the log range a push's scan reads, and why it widened to every unpushed
+    branch, if it did; a refusal when there is none to read; None for nothing."""
     top = _top(directory) if directory is not None else None
     if top is None:
         top, sources = _top(base), [""]  # read as unresolved: every branch of the working directory's repository
@@ -350,12 +431,18 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str],
             _git(top, "rev-parse", "--verify", "--quiet", f"{source}^{{commit}}"))
         unresolved |= commit is None
         revisions += [commit] if commit else []
+    why = None
     if unresolved:
         head = _git(top, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
         revisions += ["--branches", *([head] if head else [])]
-    if not revisions:
+        why = ("the line moves HEAD or a branch before it pushes" if MOVED in sources
+               else "the line names a source or a repository the hook cannot resolve")
+    gitdir = _git(top, "rev-parse", "--absolute-git-dir")
+    if not revisions or gitdir is None:
         return None
-    return top, " ".join([*dict.fromkeys(revisions), "--not", "--remotes"]), unresolved
+    target = _target(top, remote)
+    held = f"--remotes={target}" if target else "--remotes"
+    return top, Path(gitdir), " ".join([*dict.fromkeys(revisions), "--not", held]), why
 
 
 def _scan_files(files: list[tuple[str, bytes]], where: str, remedy: str) -> str | None:
@@ -365,17 +452,21 @@ def _scan_files(files: list[tuple[str, bytes]], where: str, remedy: str) -> str 
         return problem
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary).resolve()
+        staged = root / "files"  # under the directory scanned: a sent .gitleaksignore or .gitleaks.toml is only content
         for path, data in files:
             try:
-                target = (root / path).resolve()
-                if root not in target.parents:
+                target = (staged / path).resolve()
+                if staged not in target.parents:
                     return _reason(f"the path {path!r} in {where} leaves the directory it would be scanned in.",
                                    "Name each file by a path inside the repository and send the call again")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(data)
             except (OSError, ValueError) as error:
                 return _reason(f"{where} could not be staged for the scan ({path!r}: {error}).", STAGE_REMEDY)
-        return _gitleaks(["dir", str(root)], root, where, remedy, relative_to=root)
+        try:
+            return _gitleaks(["dir", str(root)], where, remedy, PROJECT, relative_to=staged)
+        except Late:
+            return _reason(f"{LATE}.", LATE_WRITE)
 
 
 def _decoded(value: str) -> bytes | None:
@@ -412,21 +503,26 @@ def _bash_refusal(command: str, cwd: object) -> str | None:
         return _reason(
             "this line commits and pushes in one call, and a hook runs before the line, so a commit the same line "
             "makes cannot be scanned.", COMMIT_REMEDY)
-    scans = []
-    for directory, options, sources in pushes:
-        scan = _scan_push(directory, options, sources, base)
-        if isinstance(scan, str):
-            return scan
-        if scan is not None and scan not in scans:
-            scans.append(scan)
-    for top, log_range, widened in scans:
-        where = f"the commits this push would add to {top} (`--log-opts=\"{log_range}\"`)"
-        if widened:
-            where += (", widened to every local branch's and HEAD's because the line names a source or a repository "
-                      "the hook cannot resolve; name them literally to narrow it")
-        refusal_reason = _gitleaks(["git", str(top), f"--log-opts={log_range}"], top, where, PUSH_REMEDY)
-        if refusal_reason is not None:
-            return refusal_reason
+    scans, why = [], None
+    try:
+        for directory, options, sources, remote in pushes:
+            scan = _scan_push(directory, options, sources, remote, base)
+            if isinstance(scan, str):
+                return scan
+            if scan is not None and scan not in scans:
+                scans.append(scan)
+        for top, gitdir, log_range, why in scans:
+            where = f"the commits this push would add to {top} (`--log-opts=\"{log_range}\"`)"
+            if why:
+                where += f", widened to every local branch's and HEAD's because {why}; name them literally to narrow it"
+            refusal_reason = _gitleaks(["git", str(gitdir), f"--log-opts={log_range}"], where, PUSH_REMEDY, top)
+            if refusal_reason is not None:
+                return refusal_reason
+    except Late:
+        if why:
+            return _reason(f"{LATE}: it was widened to every local branch's commits and HEAD's, because {why}.",
+                           LATE_WIDENED)
+        return _reason(f"{LATE}.", LATE_PUSH)
     return _api_refusal(command, script, cwd) if CONTENT_WRITE.search(plain) else None
 
 
@@ -456,11 +552,8 @@ def refusal(event: object) -> str | None:
             command = tool_input.get("command")
             return _bash_refusal(command, event.get("cwd")) if isinstance(command, str) else None
         return _mcp_refusal(tool, tool_input)
-    except Late:
-        return _reason(
-            "the scan did not finish inside the hook's time limit.",
-            "Push fewer new commits at a time, or scan them by hand with the provisioned gitleaks and the job's flags "
-            "before pushing")
+    except Late:  # past the push and write scans, which say what to do themselves
+        return _reason(f"{LATE}.", LATE_PUSH if tool == "Bash" else LATE_WRITE)
 
 
 def main() -> int:
