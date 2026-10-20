@@ -639,9 +639,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  bg- class fails; a chip colour under any variant but its theme's own (hover:,
                  focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the <tr> or the
                  <tbody> fail too; both badges held to the set, every status a chip Badge rendered for one
-                 member with no class added, so a hand-rolled chip, a copy of Badge's classes included, a
-                 tint or an added class fails; the type chip measured as it renders on FeedbackRow's
-                 grounds).
+                 member with no class added and nothing on it or inside it that paints (a class inside but
+                 the icon's size, an inline style, an SVG fill or stroke that is not currentColor), so a
+                 hand-rolled chip, a copy of Badge's classes included, a tint, an added class or a label in
+                 a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the

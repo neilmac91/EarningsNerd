@@ -42,7 +42,10 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
  * ships: the label ink over the chip's ground, composited over the row. A member that is not a string
  * literal, or no such type, fails. Both status badges are then held to that set, status by status: each
  * renders a chip Badge rendered with one of the set's variants and no class of its own, so a chip that
- * hand-rolls its classes (a copy of Badge's included), adds one to Badge's or takes a tint fails; and
+ * hand-rolls its classes (a copy of Badge's included), adds one to Badge's or takes a tint fails, and
+ * nothing inside the chip paints: a class on anything inside it but the icon's size (`h-3.5 w-3.5`), an
+ * inline style on the chip or inside it, or an SVG paint attribute that is not currentColor or none fails,
+ * so a label wrapped in a tint of its own is refused and the ink measured is the ink that ships; and
  * FeedbackTypeBadge, the chip beside FeedbackRow's status chip, is measured as it renders on that row's
  * grounds. A text- colour this spec cannot resolve fails, and
  * so does a bg- or text- arbitrary value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it
@@ -53,7 +56,8 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
  * below 100 under any variant (`opacity-`, `text-opacity-` or `bg-opacity-`, an arbitrary value included),
  * or an arbitrary one it cannot read, fails on the chip, on a layer between it and its row, and on the <tr>
  * and the <tbody>: every colour here is measured at full opacity. A plain unknown token name is skipped,
- * since Tailwind emits no CSS for it either. Out of reach: an inline style or a stylesheet rule; an
+ * since Tailwind emits no CSS for it either. Out of reach: a stylesheet rule, and an inline style on what
+ * is measured (Badge's own chips set none; on an admin chip, or inside it, one fails, as above); an
  * arbitrary property (`[background-color:...]`, `[opacity:...]`); anything above the <tbody>, so an opacity
  * on the <table> or a page wrapper, which fades the chip and its ground together, is not measured; and a
  * utility that changes what is painted without setting a colour or an opacity (a gradient, a blend mode, a
@@ -339,11 +343,36 @@ function chipColours(className: string, theme: Theme) {
   return found
 }
 
-/** The first element a component renders, read and unmounted: its className, and the variant Badge marked it with when Badge rendered it. */
-function chipOf(element: ReactElement): { className: string; badge: string | null } {
+/** What an element inside a chip may carry: the icon's size, as the admin badges fill Badge's icon slot, which paints nothing. */
+const ICON_SIZE = new Set(['h-3.5', 'w-3.5'])
+/** The SVG presentation attributes that paint, and the values that leave the chip's ink in charge. */
+const PAINT_ATTRIBUTES = ['fill', 'stroke', 'color', 'opacity', 'fill-opacity', 'stroke-opacity']
+const INHERITS_INK = new Set(['currentColor', 'none'])
+
+type Chip = { className: string; badge: string | null; inner: string[] }
+
+/**
+ * The first element a component renders, read and unmounted: its className, the variant Badge marked it with when
+ * Badge rendered it, and whatever on it or inside it could paint over what its classes say: its own inline style, and
+ * inside it any class but the icon's size, any inline style, and an SVG paint attribute that does not inherit the ink.
+ */
+function chipOf(element: ReactElement): Chip {
   const { container, unmount } = render(element)
   const chip = container.firstElementChild as HTMLElement
-  const read = { className: chip.className, badge: chip.getAttribute('data-badge') }
+  const inner: string[] = []
+  if (chip.hasAttribute('style')) inner.push(`its own style "${chip.getAttribute('style')}"`)
+  for (const node of chip.querySelectorAll('*')) {
+    const tag = `<${node.tagName.toLowerCase()}>`
+    for (const cls of (node.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)) {
+      if (!ICON_SIZE.has(cls)) inner.push(`${tag} class ${cls}`)
+    }
+    if (node.hasAttribute('style')) inner.push(`${tag} style "${node.getAttribute('style')}"`)
+    for (const attribute of PAINT_ATTRIBUTES) {
+      const value = node.getAttribute(attribute)
+      if (value !== null && !INHERITS_INK.has(value)) inner.push(`${tag} ${attribute}="${value}"`)
+    }
+  }
+  const read = { className: chip.className, badge: chip.getAttribute('data-badge'), inner }
   unmount()
   return read
 }
@@ -406,14 +435,16 @@ const classSet = (className: string) => [...new Set(className.split(/\s+/).filte
 /**
  * Why a chip is not Badge's chip for one member of its status set, as Badge renders it, or null when it is: one Badge
  * did not render (its classes hand-rolled, a copy of Badge's included), Badge's chip for a variant outside the set,
- * or Badge's chip with a class of the caller's added.
+ * Badge's chip with a class of the caller's added, or Badge's chip with something on it or inside it that may paint
+ * over what the measurement reads (an inline style, a class inside it but the icon's size, an SVG fill of its own).
  */
-function offTheSet(name: string, { className, badge }: { className: string; badge: string | null }): string | null {
+function offTheSet(name: string, { className, badge, inner }: Chip): string | null {
   const chip = classSet(className)
   if (badge === null) return `${name}: "${chip}" is no chip Badge rendered, so its classes are hand-rolled`
   if (!STATUS_VARIANTS.includes(badge)) return `${name}: Badge's ${badge}, which is not in its status set`
   const own = classSet(badgeClasses(badge))
-  return chip === own ? null : `${name}: "${chip}" is not Badge's ${badge} as it renders, "${own}"`
+  if (chip !== own) return `${name}: "${chip}" is not Badge's ${badge} as it renders, "${own}"`
+  return inner.length === 0 ? null : `${name}: Badge's ${badge} with ${inner.join(', ')}, which may paint over what is measured`
 }
 
 /** The self-checks' own <tr> and <tbody>: their grounds come from class strings written in each case, not from the code. */
@@ -444,7 +475,7 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     expect(read).toBe(7)
   })
 
-  it("reads Badge's status set from its type, fails on one it cannot read, and tells Badge's chip from a copy, a tint and an added class", () => {
+  it("reads Badge's status set from its type, fails on one it cannot read, and tells Badge's chip from a copy, a tint, an added class and a chip with something painted on it or inside it", () => {
     const lost: string[] = []
     statusSet("export type BadgeVariant = 'pro'", 'probe.tsx', lost)
     expect(statusSet("export type BadgeStatusVariant = 'success' | Other | (typeof SET)[number]", 'probe.tsx', lost)).toEqual(['success'])
@@ -459,11 +490,21 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
       ['the info tint', createElement(Badge, { variant: 'info' }, 'x')],
       ['a class added', createElement(Badge, { variant: 'info-status', className: 'gap-1' }, 'x')],
       ['info-status itself', createElement(Badge, { variant: 'info-status' }, 'x')],
+      ['a tint on its label', createElement(Badge, { variant: 'info-status' }, createElement('span', { className: 'bg-info-light/10 text-info-light' }, 'x'))],
+      ['its own style', createElement(Badge, { variant: 'info-status', style: { opacity: 0.5 } }, 'x')],
+      ['a style on its icon', createElement(Badge, { variant: 'info-status', icon: createElement('svg', { className: 'h-3.5 w-3.5', style: { color: 'red' } }) }, 'x')],
+      ['a fill of its icon\'s own', createElement(Badge, { variant: 'info-status', icon: createElement('svg', { className: 'h-3.5 w-3.5', fill: '#ff0000' }) }, 'x')],
+      ['its icon as the admin badges give it', createElement(Badge, { variant: 'info-status', icon: createElement('svg', { className: 'h-3.5 w-3.5', fill: 'currentColor' }, createElement('path', { d: 'M0 0h1v1H0z' })) }, 'x')],
     ]
     expect(planted.map(([name, element]) => offTheSet(name, chipOf(element)))).toEqual([
       `a copy of its classes: "${own}" is no chip Badge rendered, so its classes are hand-rolled`,
       "the info tint: Badge's info, which is not in its status set",
       `a class added: "${classSet(`${own} gap-1`)}" is not Badge's info-status as it renders, "${own}"`,
+      null,
+      "a tint on its label: Badge's info-status with <span> class bg-info-light/10, <span> class text-info-light, which may paint over what is measured",
+      'its own style: Badge\'s info-status with its own style "opacity: 0.5;", which may paint over what is measured',
+      'a style on its icon: Badge\'s info-status with <svg> style "color: red;", which may paint over what is measured',
+      'a fill of its icon\'s own: Badge\'s info-status with <svg> fill="#ff0000", which may paint over what is measured',
       null,
     ])
   })
