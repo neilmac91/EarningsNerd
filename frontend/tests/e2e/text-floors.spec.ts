@@ -27,7 +27,7 @@ import { STATIC_ENTRIES } from '../../app/sitemap'
  * Heading outline (DET-OVL-1, DESIGN_SYSTEM §5): no visited route or state skips a level, in DOM
  * order (how the Impeccable detector reads it) and in the accessibility tree. The footer's column
  * titles (h3) sit under the footer's own visually hidden h2, so a page whose content ends at h1 (the
- * 404, /analysis, /search) no longer jumps from h1 to h3; a GuidanceCard that stands in for a page's
+ * 404, /search, /analysis before a run) no longer jumps from h1 to h3; a GuidanceCard that stands in for a page's
  * content under the h1 titles itself h2 (the four page-level card states below).
  *
  * Body text (DET-OVL-2): regression checks for the detector's two rules, not a documented design
