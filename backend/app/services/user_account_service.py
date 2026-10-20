@@ -22,7 +22,7 @@ def delete_user(db: Session, current_user: User) -> None:
     """Delete the account row and commit; the ORM cascade removes the rows it owns.
 
     The account's row lock comes first, as every rotation and revocation of its refresh tokens takes
-    it before their rows (``refresh_token_service._lock_user_tokens``). The cascade deletes those rows
+    it before their rows (``refresh_token_service.lock_user_tokens``). The cascade deletes those rows
     before the account's, so in the other order a logout or refresh racing the deletion deadlocks with
     it, and PostgreSQL aborts one of the two."""
     db.query(User.id).filter(User.id == current_user.id).with_for_update().first()

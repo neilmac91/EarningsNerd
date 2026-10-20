@@ -2,11 +2,11 @@
 
 ``ingest_companyfacts_by_id``'s database units (the freshness read, a follower's re-read, the
 persist) wait for a pool slot here. A slot holder can need a default-executor thread for its next
-step (login keeps its connection checked out while it awaits bcrypt through ``asyncio.to_thread``),
-so units waiting there could leave neither side able to move until the pool timed out; the Copilot's
-lookups keep to threads of their own for the same reason (``copilot_chat._LOOKUP_THREADS``). A unit
-holds no slot while it waits for a thread and needs no other thread while it holds one. Two threads
-keep the sync to half of the API's four slots.
+step (a password change or reset keeps its connection checked out while it awaits bcrypt through
+``asyncio.to_thread``), so units waiting there could leave neither side able to move until the pool
+timed out; the Copilot's lookups keep to threads of their own for the same reason
+(``copilot_chat._LOOKUP_THREADS``). A unit holds no slot while it waits for a thread and needs no
+other thread while it holds one. Two threads keep the sync to half of the API's four slots.
 """
 from __future__ import annotations
 

@@ -9,7 +9,7 @@ out, the tool reports ``tool_failed`` and the figure ships uncited.
 
 Here a one-slot ``QueuePool`` is held by another "request". One holder returns its connection as
 soon as the event loop runs one callback (the ``test_auth_pool_progress.py`` shape). The other is
-shaped like login: it keeps its connection checked out while it awaits bcrypt through
+shaped like a password change or reset: it keeps its connection checked out while it awaits bcrypt through
 ``asyncio.to_thread``, so it needs a default-executor thread before it can give the slot back. The
 loop's default executor has one thread here, so a lookup waiting for the slot in that executor would
 hold the only thread the holder needs, and neither could move until the pool timed out. The real
@@ -63,7 +63,8 @@ async def _release_on_the_next_loop_turn() -> None:
 
 
 async def _release_after_a_default_executor_step() -> None:
-    """Login's shape: ``await asyncio.to_thread(verify_password, ...)`` while its session holds the slot."""
+    """A password change's shape: ``await asyncio.to_thread(verify_password, ...)`` while its session
+    holds the slot."""
     await asyncio.to_thread(lambda: None)
 
 
@@ -113,7 +114,7 @@ async def test_waiting_copilot_lookup_lets_the_slot_holder_finish(monkeypatch, t
 
     loop = asyncio.get_running_loop()
     # One default-executor thread stands in for a default executor whose threads are all taken: a
-    # lookup waiting there would hold the thread a login-shaped holder needs. The test's loop closes
+    # lookup waiting there would hold the thread a change-shaped holder needs. The test's loop closes
     # this executor at teardown.
     loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
     loop_thread = threading.get_ident()

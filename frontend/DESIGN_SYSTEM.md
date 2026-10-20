@@ -820,6 +820,21 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  dialog over the copilot sheet never lets a key reach the sheet — and content inside a panel
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
+                 The header's icon and title are one group that wraps beside the ✕, as a Notice's glyph and
+                 text column do (Inline notice): the title's basis is 9rem (144px at the default size, 288px
+                 under 200% text), so where it cannot keep that beside the icon (a phone at 200% text) it goes
+                 under the icon at the group's whole width, the column gap below it (gap-y-1 and the title's
+                 pt-2). The ✕ keeps its own column, the row's last control at the top right: the title never
+                 sits under it or runs past the panel, and it breaks a word only when the word is wider than
+                 the group (at 320px under 200% text the email verification prompt's title has 94px, so
+                 "Verify" breaks). At the default size nothing moves: at 1440 and 390px the icon, the title
+                 and the ✕ keep their boxes, in both themes. Before, at 390px under 200% text, the icon and the
+                 ✕ left the title 60px: "Cookie preferences" painted under the ✕ and 26px past the panel's
+                 edge, and "Verify your email to continue" under the ✕. No container query, as for the
+                 Notice. Gate: e2e reflow-200.spec.ts (the consent dialog and the email verification prompt
+                 at 390, 360 and 320px: the title beside the icon at the default size and under it at 200%
+                 text, every painted line inside the panel and left of the ✕, a word broken only when it is
+                 wider than the title, the page not scrolling sideways, nor the prompt's panel).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's

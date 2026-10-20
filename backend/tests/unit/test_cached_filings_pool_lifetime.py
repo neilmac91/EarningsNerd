@@ -10,7 +10,8 @@ One rule, two halves in this one module:
   analysis stream must release its connection before its body streams, alone and in a burst; the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
   in the thread pool; each auth session route (logout signed in, with only the refresh cookie and
-  with a dead one, logout-all, refresh), each watchlist route and its refusals, each analysis route
+  with a dead one, logout-all, refresh, and a password login with the right password and a wrong
+  one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
   and a refusal of each, and the waitlist join and verification must answer an eight-request burst
   with no checkout on the loop and nothing left for the finalizer; and the join must send its
   mails, and the analysis exports render, with no connection out.
@@ -564,6 +565,109 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
             ] == [hash_by_id[token.replaced_by_id] for token in originals]
         else:
             assert minted == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["right_password", "wrong_password", "locked_out"])
+async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_loop(
+    monkeypatch, tmp_path, outcome,
+):
+    """The login runs its lockout peek and account read as one unit in the thread pool, releases the
+    session before bcrypt, and runs its writes (the session, or the failure's count and audit row) as a
+    second unit released before it returns. On the loop it kept its connection checked out across
+    bcrypt, and each of its reads and writes checked out there (E121). A locked-out account's login
+    answers 429 from the first unit, which releases its session on that path too, with no bcrypt."""
+    from app.models import AuditLog, LoginAttempt, RefreshToken, User
+    from app.routers import auth
+    from app.services import login_lockout
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'login.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken, AuditLog, LoginAttempt):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    password = "Sup3rSecretPassw0rd"  # gitleaks:allow - test fixture, not a credential
+    emails = [f"login-{i}@example.com" for i in range(9)]
+    with sessions() as db:
+        hashed = auth.get_password_hash(password)
+        db.add_all(User(email=email, is_active=True, hashed_password=hashed) for email in emails)
+        if outcome == "locked_out":
+            db.add_all(
+                LoginAttempt(
+                    email_hash=login_lockout._email_hash(email),
+                    failed_count=login_lockout.LOCKOUT_THRESHOLD,
+                    locked_until=utcnow() + timedelta(seconds=login_lockout.LOCKOUT_SECONDS),
+                )
+                for email in emails
+            )
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    held_during_bcrypt: list[int] = []
+    verify = auth.verify_password
+
+    def verify_and_count(plain: str, hashed: str) -> bool:
+        held_during_bcrypt.append(engine.pool.checkedout())
+        return verify(plain, hashed)
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(auth, "verify_password", verify_and_count)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    sent = "not-the-password" if outcome == "wrong_password" else password  # gitleaks:allow
+
+    async def send(email: str) -> httpx.Response:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post("/api/auth/login", json={"email": email, "password": sent})
+
+    try:
+        # One login alone first: no connection is checked out while it hashes.
+        responses = [await send(emails[0])]
+        assert held_during_bcrypt == ([] if outcome == "locked_out" else [0])
+        responses += await asyncio.gather(*[send(email) for email in emails[1:]])
+        status = {"right_password": 200, "wrong_password": 401, "locked_out": 429}[outcome]
+        assert [response.status_code for response in responses] == [status] * 9
+        assert engine.pool.checkedout() == 0
+        # Each login released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 9
+        # Every checkout waited in the thread pool, none on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        with sessions() as db:
+            stamped = db.query(User).filter(User.last_login_at.is_not(None)).count()
+            tokens = db.query(RefreshToken).count()
+            counted = db.query(LoginAttempt).count()
+            audits = sorted(action for (action,) in db.query(AuditLog.action))
+        if outcome == "right_password":
+            assert (stamped, tokens, counted, audits) == (9, 9, 0, ["login_success"] * 9)
+        elif outcome == "wrong_password":
+            assert (stamped, tokens, counted, audits) == (0, 0, 9, ["login_failed"] * 9)
+        else:  # the lockout rows it found, and nothing written
+            assert (stamped, tokens, counted, audits) == (0, 0, 9, [])
     finally:
         engine.dispose()
 
@@ -1293,7 +1397,7 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 #
 # Out of reach, and left to the burst test above for the routes it lists and to review elsewhere: a
 # session handed to a service or helper that runs on the loop
-# (``audit_service.log_login_success(db, ...)`` in login, E121),
+# (``auth_account_service.complete_password_reset(db, ...)`` in reset_password, E121),
 # a nested sync function or lambda called directly on the loop
 # instead of through the thread pool, a session reached through an attribute or a container, a
 # session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
