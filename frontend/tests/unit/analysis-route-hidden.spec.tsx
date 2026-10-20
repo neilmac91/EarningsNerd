@@ -73,9 +73,9 @@ describe('The public pages follow NEXT_PUBLIC_ENABLE_ANALYSIS', () => {
     // The Excel export is the analysis workbook, so the Pro list drops it with the route.
     expect(pricingText).not.toMatch(/Multi-Period|Excel|XLSX/i)
     expect(pricingText).toContain('PDF and CSV exports')
-    // Anti-vacuity: both surfaces rendered their lists.
+    // Anti-vacuity: both surfaces rendered their lists (the landing's plan table, D-045, its rows).
     expect(proText).toContain('Change Report')
-    expect(pricingText).toContain('Unlimited summaries')
+    expect(pricingText).toContain('Priority support')
   })
 
   it('names it on both while the flag is on', () => {
@@ -83,8 +83,8 @@ describe('The public pages follow NEXT_PUBLIC_ENABLE_ANALYSIS', () => {
     const { proText, pricingText } = surfaces()
     expect(proText).toContain('Multi-Period Analysis')
     expect(proText).toContain('Excel export')
-    expect(pricingText).toContain('Multi-Period Analysis demo (locked)')
-    expect(pricingText).toContain('Unlimited Multi-Period Analysis')
+    // The plan table gives the feature a row of its own: its label, then its Free and Pro cells, each an entry.
+    expect(pricingText).toContain(`${ANALYSIS_LINES.landingRow.text}${ANALYSIS_LINES.landingFree.text}${ANALYSIS_LINES.landingPro.text}`)
     expect(pricingText).toContain('PDF, CSV and Excel exports')
   })
 })
@@ -95,8 +95,8 @@ describe('The public pages follow NEXT_PUBLIC_ENABLE_ANALYSIS', () => {
  * reads its lines through shipped(), which lists a flagged line's text only while NEXT_PUBLIC_ENABLE_ANALYSIS
  * ships the feature (the route 404s while it is off) and its `off` reading, if any, otherwise. The upgrade
  * dialog's list is the shared sentence proIncludes(); the /pricing Pro card, its Product JSON-LD and the
- * landing's two plan cards take ANALYSIS_LINES entries into theirs. Each surface renders both ways: the dialog
- * below, the landing cards above, /pricing and its JSON-LD in PricingPage.spec.tsx; READERS pins the modules
+ * landing's plan table take ANALYSIS_LINES entries into theirs. Each surface renders both ways: the dialog
+ * below, the landing's table above, /pricing and its JSON-LD in PricingPage.spec.tsx; READERS pins the modules
  * that take the entries to those surfaces, so a new reader comes with its render case.
  *
  * The scan fails on a string or JSX text naming the feature anywhere else in the source, so a second
@@ -141,7 +141,7 @@ const ALLOWED: Array<{ file: string; text: string; why: string }> = [
 const READERS: Record<string, string> = {
   'app/pricing/layout.tsx': "the /pricing Product JSON-LD's description (PricingPage.spec.tsx, both ways)",
   'app/pricing/page.tsx': 'the /pricing plan cards (PricingPage.spec.tsx, both ways)',
-  'features/marketing/components/PricingSection.tsx': "the landing's two plan cards (the describe above, both ways)",
+  'features/marketing/components/PricingSection.tsx': "the landing's plan table, its Multi-Period row and exports cell (the describe above, both ways)",
 }
 
 /** Every string literal, template piece and JSX text in a source that names the feature, with its line and span. */

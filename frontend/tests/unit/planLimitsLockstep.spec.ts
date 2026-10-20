@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingResolver } from './astBindings'
+import { declaredDefault, executableLines, readConfig, workflowFiles, type Workflow } from './deployMaps'
 import {
   ANALYSIS_MAX_ANNUAL_PERIODS,
   ANALYSIS_MAX_QUARTERLY_PERIODS,
@@ -141,9 +142,7 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
   })
 
   it('finds no deploy map that overrides PRO_SUMMARY_MONTHLY_CAP, so production runs the default the page states', () => {
-    const workflows = readdirSync(WORKFLOWS)
-      .filter((file) => /\.ya?ml$/.test(file))
-      .map((file) => [file, readFileSync(path.join(WORKFLOWS, file), 'utf8')] as const)
+    const workflows = workflowFiles()
     // Anti-vacuity: the read reaches the deploy's maps (ci.yml's service and job maps among them).
     const ci = workflows.find(([file]) => file === 'ci.yml')?.[1] ?? ''
     expect((ci.match(/--update-env-vars=/g) ?? []).length).toBeGreaterThanOrEqual(3)
@@ -428,7 +427,7 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
  * a hole. Model-written text is not copy: the demo payload's sample narrative
  * (features/analysis/demo/demo-analysis.json) states its own window, "six fiscal years", as a model would.
  */
-const config = readFileSync(path.resolve(frontendDir, '../backend/app/config.py'), 'utf8')
+const config = readConfig()
 const settingDefault = (name: string): number => {
   const match = config.match(new RegExp(`^\\s+${name}\\s*:\\s*int\\s*=\\s*(\\d+)`, 'm'))
   if (!match) throw new Error(`${name} not found in backend/app/config.py`)
@@ -445,10 +444,10 @@ const settingDefault = (name: string): number => {
  * line) and whatever its value (the default's own value too: the map would keep it when the default moves). Its
  * planted forms score the read. Out of reach: a value set by hand on the Cloud Run service, which no file records,
  * an env file a deploy names (`--env-vars-file`, none today) and an image's own ENV (backend/Dockerfile sets
- * none of it).
+ * none of it). The read is deployMaps.ts's, shared with changeReportPlanClaims.spec.tsx; the rule and its message
+ * are this spec's.
  */
 const CAP = 'PRO_SUMMARY_MONTHLY_CAP'
-const WORKFLOWS = path.resolve(frontendDir, '../.github/workflows')
 const CAP_STAYS_DEFAULT =
   `The /pricing FAQ and the filing page's limit card state config.py's ${CAP} default (lib/planLimits.ts mirrors ` +
   'it), so a deploy map that sets it leaves the page stating a ceiling the backend does not enforce. Change the ' +
@@ -456,12 +455,9 @@ const CAP_STAYS_DEFAULT =
 
 /** The executable workflow lines that name PRO_SUMMARY_MONTHLY_CAP, as `file:line text`. Throws unless config.py
     declares the cap's default once, so a renamed or moved field cannot leave the read holding nothing. */
-function capOverrides(configSource: string, workflows: ReadonlyArray<readonly [string, string]>): string[] {
-  const defaults = configSource.match(new RegExp(`^\\s*${CAP}\\s*:\\s*int\\s*=\\s*\\d+`, 'gm')) ?? []
-  if (defaults.length !== 1) throw new Error(`config.py declares ${CAP}'s default ${defaults.length} times, not once`)
-  return workflows.flatMap(([file, text]) =>
-    text.split('\n').flatMap((line, i) => (line.trimStart().startsWith('#') || !line.includes(CAP) ? [] : [`${file}:${i + 1} ${line.trim()}`])),
-  )
+function capOverrides(configSource: string, workflows: readonly Workflow[]): string[] {
+  declaredDefault(configSource, CAP, 'int')
+  return executableLines(workflows, CAP).map(({ file, number, text }) => `${file}:${number} ${text.trim()}`)
 }
 
 const NUMBER_WORDS = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve'

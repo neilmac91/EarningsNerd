@@ -6,13 +6,17 @@ import { describe, expect, it } from 'vitest'
 import {
   ELEMENT_FACTORY_ALLOWLIST,
   elementsBuiltWithJsx,
+  fourUpGrid,
+  LANDING_GRID_FILES,
   localePinnedNumbers,
   noFormCodeBadge,
+  noFourUpGrid,
   noHandRolledToggleGroup,
   noSideStripe,
   noUnguardedAnimation,
   SELF_GUARDED_ANIMATIONS,
   sideStripe,
+  templateTrackCount,
   unguardedAnimation,
 } from '../../eslint.designRules.mjs'
 
@@ -21,6 +25,11 @@ import {
  *  - no-side-stripe (P-08): a thick left border on a rounded container is the side-tab stripe card.
  *    Evaluated on whole class strings, so a stripe split across template chunks or cx() arguments
  *    is caught, while a quotation's unrounded 2px bar and the Callout's full hairline pass.
+ *  - no-four-up-grid (D-045): the landing lays nothing out four across. A token that sets four column tracks or
+ *    more, under any variant, fails: grid-cols-N with N of 4 or more, an arbitrary template or grid shorthand whose
+ *    tracks count to 4 or more (repeat() counted out, line names not; the shorthand's columns after its slash), a
+ *    template the width or a variable decides, a column flow, and CSS multi-column by its count or column width.
+ *    It runs on the landing's own files only (LANDING_GRID_FILES), never on the product screens the landing demos.
  *  - no-form-code-badge (P-04): a form code is text in the data face, never a <Badge> or a hand-rolled eyebrow chip.
  *  - no-unguarded-animation (P-09): every animation utility stops under reduced motion, through
  *    motion-safe: or a motion-reduce:animate-none with the same variants that always renders with it.
@@ -92,6 +101,74 @@ ruleTester.run('no-side-stripe', noSideStripe, {
     // Card rounds itself (its recipe sets the radius), so the stripe alone is the stripe card.
     { code: '<Card className="border-l-4 border-l-warning-light p-4" />', errors: [{ messageId: 'stripe' }] },
     { code: "<ui.Card className={cx('p-4', flagged && 'border-l-4')} />", errors: [{ messageId: 'stripe' }] },
+  ],
+})
+
+describe('fourUpGrid', () => {
+  it('counts a template the way a browser lays it out: repeat() counted out, line names not', () => {
+    expect(templateTrackCount('14rem_minmax(0,1fr)')).toBe(2)
+    expect(templateTrackCount('repeat(4,minmax(0,1fr))')).toBe(4)
+    expect(templateTrackCount('repeat(2,1fr_2fr)')).toBe(4)
+    expect(templateTrackCount('[full-start]_1fr_[full-end]')).toBe(1)
+    expect(templateTrackCount('auto_repeat(3,_1fr)')).toBe(4)
+    expect(templateTrackCount('repeat(auto-fill,minmax(10rem,1fr))')).toBe(Infinity)
+    expect(templateTrackCount('var(--cols)')).toBe(Infinity)
+  })
+
+  it('flags four tracks or more under any variant, at any breakpoint and on any element a variant styles', () => {
+    expect(fourUpGrid('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4')).toBe('lg:grid-cols-4')
+    expect(fourUpGrid('grid grid-cols-4')).toBe('grid-cols-4')
+    expect(fourUpGrid('md:grid-cols-6')).toBe('md:grid-cols-6')
+    expect(fourUpGrid('[@media(min-width:48rem)]:grid-cols-[repeat(4,minmax(0,1fr))]')).toBe('[@media(min-width:48rem)]:grid-cols-[repeat(4,minmax(0,1fr))]')
+    expect(fourUpGrid('lg:[grid-template-columns:1fr_1fr_1fr_1fr]')).toBe('lg:[grid-template-columns:1fr_1fr_1fr_1fr]')
+    expect(fourUpGrid('lg:[&>div>dl]:!grid-cols-4')).toBe('lg:[&>div>dl]:!grid-cols-4')
+    expect(fourUpGrid('grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]')).toBe('grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]')
+    expect(fourUpGrid('grid-cols-(--landing-cols)')).toBe('grid-cols-(--landing-cols)')
+    // The grid shorthands: the columns after the slash, or the cells of the first area string.
+    expect(fourUpGrid('[grid-template:auto/repeat(4,1fr)]')).toBe('[grid-template:auto/repeat(4,1fr)]')
+    expect(fourUpGrid('lg:[grid:auto-flow/1fr_1fr_1fr_1fr]')).toBe('lg:[grid:auto-flow/1fr_1fr_1fr_1fr]')
+    expect(fourUpGrid("[grid-template:'a_b_c_d']")).toBe("[grid-template:'a_b_c_d']")
+    // A column flow gives every item a column of its own.
+    expect(fourUpGrid('grid grid-flow-col')).toBe('grid-flow-col')
+    expect(fourUpGrid('[grid:auto/auto-flow]')).toBe('[grid:auto/auto-flow]')
+    expect(fourUpGrid('[grid-auto-flow:column_dense]')).toBe('[grid-auto-flow:column_dense]')
+    // CSS multi-column: a count of four or more, or a column width the container's width turns into a count.
+    expect(fourUpGrid('columns-1 md:columns-4')).toBe('md:columns-4')
+    expect(fourUpGrid('columns-xs')).toBe('columns-xs')
+    expect(fourUpGrid('columns-[18rem]')).toBe('columns-[18rem]')
+    expect(fourUpGrid('[column-count:5]')).toBe('[column-count:5]')
+    expect(fourUpGrid('[columns:4_10rem]')).toBe('[columns:4_10rem]')
+  })
+
+  it('passes three tracks or fewer, and utilities that set no tracks of their own', () => {
+    expect(fourUpGrid('grid grid-cols-1 [@media(min-width:40rem)]:grid-cols-2 lg:grid-cols-3')).toBeNull()
+    expect(fourUpGrid('[@media(min-width:64rem)]:grid-cols-[14rem_minmax(0,1fr)]')).toBeNull()
+    expect(fourUpGrid('lg:[&>div>dl]:grid-cols-3 grid-cols-[auto_1fr] grid-cols-none grid-cols-subgrid col-span-4 gap-4')).toBeNull()
+    expect(fourUpGrid('[grid-template:auto/1fr_1fr] [grid:repeat(2,auto)/repeat(3,1fr)] [grid-template:none] grid-flow-row [grid-auto-flow:row]')).toBeNull()
+    expect(fourUpGrid('columns-3 columns-auto [column-count:2] [columns:auto] [grid-template-rows:repeat(4,auto)]')).toBeNull()
+  })
+})
+
+ruleTester.run('no-four-up-grid', noFourUpGrid, {
+  valid: [
+    '<dl className="grid grid-cols-1 gap-6 [@media(min-width:40rem)]:grid-cols-2" />',
+    "<ol className={cx('grid grid-cols-1 sm:grid-cols-2', wide && 'lg:grid-cols-3')} />",
+    // A span of four columns is not four columns.
+    '<div className="col-span-4 lg:col-span-4" />',
+    '<div className="grid [grid-template:auto/repeat(2,1fr)] columns-2" />',
+  ],
+  invalid: [
+    { code: '<dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10" />', errors: [{ messageId: 'fourUp' }] },
+    // Either arm of a ternary renders on some visit.
+    { code: "<ul className={cx('grid grid-cols-1 sm:grid-cols-2', analysis ? 'lg:grid-cols-4' : 'lg:grid-cols-3')} />", errors: [{ messageId: 'fourUp' }] },
+    // A template chunk, a class constant and an arbitrary template are read as class text.
+    { code: '<div className={`grid ${gap} md:grid-cols-4`} />', errors: [{ messageId: 'fourUp' }] },
+    { code: "const TILES = 'grid grid-cols-2 md:grid-cols-4'", errors: [{ messageId: 'fourUp' }] },
+    { code: '<div className="grid grid-cols-1 lg:grid-cols-[repeat(4,minmax(0,1fr))]" />', errors: [{ messageId: 'fourUp' }] },
+    // The grid shorthands and multi-column lay items out across as grid-cols does.
+    { code: '<div className="grid [grid-template:auto/repeat(4,1fr)]" />', errors: [{ messageId: 'fourUp' }] },
+    { code: '<div className="grid lg:[grid:auto-flow/repeat(4,minmax(0,1fr))]" />', errors: [{ messageId: 'fourUp' }] },
+    { code: '<ul className="columns-2 lg:columns-4" />', errors: [{ messageId: 'fourUp' }] },
   ],
 })
 
@@ -851,6 +928,22 @@ describe('the repository config', SLOW, () => {
       expect(factoryFindings(own.messages), file).toEqual([])
       const [elsewhere] = await eslint.lintText(source, { filePath: path.join(frontendRoot, path.dirname(file), 'element-factory-allowlist-probe.tsx') })
       expect(factoryFindings(elsewhere.messages).map((finding) => finding.split(',')[0].replace(/^\d+ /, '')), `${file} still needs its entry`).toEqual([...factories])
+    }
+  })
+
+  it('runs no-four-up-grid on the landing\'s own files (LANDING_GRID_FILES) and on no product screen', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    // A class constant, so the same probe parses as .ts and as .tsx.
+    const probe = "export const TILES = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'\n"
+    const rules = async (file: string) =>
+      (await eslint.lintText(probe, { filePath: path.join(frontendRoot, file) }))[0].messages.map((m) => m.ruleId)
+    expect(LANDING_GRID_FILES).toEqual(['app/page.tsx', 'features/marketing/**/*.{ts,tsx}', 'features/calendar/components/ReportingThisWeek.tsx'])
+    for (const file of ['app/page.tsx', 'features/marketing/components/Probe.tsx', 'features/marketing/lib/probe.ts', 'features/calendar/components/ReportingThisWeek.tsx']) {
+      expect(await rules(file), file).toEqual(['earningsnerd/no-four-up-grid'])
+    }
+    // The analysis page's KPI strip is four-up on its own page; the landing demos it inside a three-column override.
+    for (const file of ['features/analysis/components/Probe.tsx', 'features/calendar/components/MonthView.tsx', 'app/pricing/page.tsx']) {
+      expect(await rules(file), file).toEqual([])
     }
   })
 })
