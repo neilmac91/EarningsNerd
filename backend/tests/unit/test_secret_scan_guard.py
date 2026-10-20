@@ -571,20 +571,22 @@ def test_git_configuration_ci_lacks_hides_no_added_line_from_the_scan(scanner: S
     assert call["env"]["GIT_NO_REPLACE_OBJECTS"] == "1"
 
 
-@pytest.mark.parametrize("config", [
-    {},
-    {"branch.feature.remote": "backup", "remote.pushDefault": "origin"},
-    {"branch.feature.remote": "backup", "remote.pushDefault": "backup", "branch.feature.pushRemote": "origin"},
-], ids=["named on the line", "by remote.pushDefault over the upstream", "by the branch's pushRemote over pushDefault"])
+@pytest.mark.parametrize(("command", "config"), [
+    ("git push -u origin feature", {}),
+    ("git push", {"branch.feature.remote": "backup", "remote.pushDefault": "origin"}),
+    ("git push", {"branch.feature.remote": "backup", "remote.pushDefault": "backup", "branch.feature.pushRemote": "origin"}),
+    ("git push --repo origin", {"branch.feature.remote": "backup", "branch.feature.pushRemote": "backup"}),
+], ids=["named on the line", "by remote.pushDefault over the upstream", "by the branch's pushRemote over pushDefault",
+        "named by --repo over pushRemote"])
 def test_commits_another_remote_holds_are_scanned_on_their_way_to_origin(scanner: Scanner, repo: Path, tmp_path: Path,
-                                                                        config: dict[str, str]) -> None:
+                                                                        command: str, config: dict[str, str]) -> None:
     _git(repo, "remote", "add", "backup", str(tmp_path / "backup.git"))
     _git(repo, "checkout", "-q", "-b", "feature")
     leak = _commit(repo, "feature.txt", LEAKY)
     _git(repo, "update-ref", "refs/remotes/backup/feature", "feature")  # backup holds it; origin does not
     for key, value in config.items():
         _git(repo, "config", key, value)
-    _refused(_bash(scanner, "git push" if config else "git push -u origin feature", repo), "feature.txt:1 (stub-rule)")
+    _refused(_bash(scanner, command, repo), "feature.txt:1 (stub-rule)")
     [call] = scanner.calls()
     assert call["args"][2] == f"--log-opts={LOG_OPTIONS} {leak} --not --remotes=origin"
 

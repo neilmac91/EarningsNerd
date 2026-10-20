@@ -31,20 +31,20 @@ in any case. It scans
   its line), then `git -C`. The scan is `gitleaks git .` with GIT_DIR=<that repository's git directory> and
   `--log-opts="--no-color --no-textconv --no-ext-diff <what it sends> --not --remotes=<remote>"`: the commits reachable
   from what the push sends and from no remote-tracking ref of the remote it pushes to, which it finds as git does (the
-  one the line names; else the current branch's pushRemote, remote.pushDefault, the current branch's remote, then
-  origin; a name that is no configured remote, such as a URL or a path, names none, so every remote's refs count). A
-  remote's pushurl changes nothing here: what origin's refs hold is on GitHub already, where CI scans it. The three log
-  options and GIT_NO_REPLACE_OBJECTS=1 in gitleaks' environment keep colour, a textconv driver and a replace ref, which
-  the user's or the repository's git config can set and CI has none of, from hiding an added line. What it sends: each
-  refspec's source (`tag <name>` too; a deletion or a negative refspec sends nothing), HEAD when it names none, every
-  branch for --all or --branches, every ref for --mirror and every tag for --tags; a dry run and --delete send nothing.
-  A source it cannot resolve (a variable, a substitution, a wildcard, one that does not exist yet) widens the scan to
-  every local branch's commits and HEAD's that no such ref holds, and a refusal says so, why, and to name them
-  literally. So does a git checkout, switch, reset, branch, update-ref, worktree, tag, symbolic-ref or stash earlier in
-  the line, since the hook resolves sources before the line moves HEAD or a branch; that refusal says to push in a call
-  of its own. A repository it cannot resolve (a variable, a substitution, `cd -`, popd, --git-dir, --work-tree,
-  GIT_DIR=), or a directory that is in none, widens the scan the same way in the event's working directory's
-  repository; with no repository there, an unresolved one refuses.
+  one the line names, by its first word or --repo; else the current branch's pushRemote, remote.pushDefault, the
+  current branch's remote, then origin; a name that is no configured remote, such as a URL or a path, names none, so
+  every remote's refs count). A remote's pushurl changes nothing here: what origin's refs hold is on GitHub already,
+  where CI scans it. The three log options and GIT_NO_REPLACE_OBJECTS=1 in gitleaks' environment keep colour, a textconv
+  driver and a replace ref, which the user's or the repository's git config can set and CI has none of, from hiding an
+  added line. What it sends: each refspec's source (`tag <name>` too; a deletion or a negative refspec sends nothing),
+  HEAD when it names none, every branch for --all or --branches, every ref for --mirror and every tag for --tags; a dry
+  run and --delete send nothing. A source it cannot resolve (a variable, a substitution, a wildcard, one that does not
+  exist yet) widens the scan to every local branch's commits and HEAD's that no such ref holds, and a refusal says so,
+  why, and to name them literally. So does a git checkout, switch, reset, branch, update-ref, worktree, tag,
+  symbolic-ref or stash earlier in the line, since the hook resolves sources before the line moves HEAD or a branch;
+  that refusal says to push in a call of its own. A repository it cannot resolve (a variable, a substitution, `cd -`,
+  popd, --git-dir, --work-tree, GIT_DIR=), or a directory that is in none, widens the scan the same way in the event's
+  working directory's repository; with no repository there, an unresolved one refuses.
 - a line that pushes and also makes commits anywhere (git am, cherry-pick, commit, commit-tree, merge, pull, rebase
   or revert): refused, since a hook runs before the line and cannot read a commit the line has yet to make. The
   commits go in one call and the push in the next.
@@ -345,7 +345,7 @@ def _repository(here: Path | None, options: list[tuple[str, str | None]], before
 
 def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
     """What a push with these words sends: rev-list options (--branches, --all, --tags) and sources to resolve; and the
-    repository it names to push to, if any."""
+    repository it names to push to, if any: its first word that is no option, else --repo's value, as git takes it."""
     words, index = [], 0
     while index < len(args):  # its words less redirections and the shell's grouping
         if args[index] in REDIRECTS:
@@ -355,7 +355,7 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
             if args[index] not in ("(", ")", "{", "}"):
                 words.append(args[index])
         index += 1
-    positional, flags, ended, index = [], set(), False, 0
+    positional, flags, ended, index, repo = [], set(), False, 0, None
     while index < len(words):
         word = words[index]
         index += 1
@@ -364,8 +364,12 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
         elif word == "--":
             ended = True
         elif word.startswith("--"):
-            flags.add(word.split("=", 1)[0])
-            index += word in PUSH_VALUE_OPTIONS  # its value is the next word
+            name, _, value = word.partition("=")
+            flags.add(name)
+            if word in PUSH_VALUE_OPTIONS:  # its value is the next word
+                value = words[index] if index < len(words) else ""
+                index += 1
+            repo = value if name == "--repo" else repo
         else:  # short options, bundled as -fu; -o takes the rest of the word or the next one
             for at, letter in enumerate(word[1:], 2):
                 if letter == "o":
@@ -387,7 +391,7 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
             sources.append(source)
     if not specs and not flags & {"--all", "--branches", "--mirror"}:
         sources.append("HEAD")
-    return options, sources, positional[0] if positional else None
+    return options, sources, positional[0] if positional else repo
 
 
 def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str], list[str], str | None]], bool]:
