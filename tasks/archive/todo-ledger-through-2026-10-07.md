@@ -6723,10 +6723,10 @@ Full local and hosted verification plus independent exact-head review precede re
   ledger event. Chief defects 17 and 18. Founder row F52. Closure 186.
 - 2026-10-20 (record 36, `runtime/control/DECISIONS-36.md`): PR #1434 (record 35) merged `00962b01` on the founder's
   word (thirty-first deploy-skip proof), with no classifier refusal. Closure 187 registers record 35's fact-check and
-  its reviewer and pre-registers the founder's check of the other pull requests. Four wording corrections to record
-  35. Eleven main merges; three other writers' backend deploys, each verified healthy by its deploy job; production
-  not read live. No CODE RED spend; no ledger event. No chief defect and no classifier denial. Founder row F52
-  closed by the founder's answer. Closure 187.
+  its reviewer and pre-registers the founder's check of the other pull requests, this record's fact-check and record
+  37's reviewer. Four wording corrections to record 35. Eleven main merges; three other writers' backend deploys,
+  each verified healthy by its deploy job; production not read live. No CODE RED spend; no ledger event. No chief
+  defect and no classifier denial. Founder row F52 closed by the founder's answer. Closure 187.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
