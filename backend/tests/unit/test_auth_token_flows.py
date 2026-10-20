@@ -534,9 +534,16 @@ def _failed_login_audits(email: str) -> int:
 
 
 @pytest.mark.requires_db
-def test_a_login_for_an_unknown_email_still_runs_bcrypt(client, monkeypatch):
-    """bcrypt runs whether or not the email has an account, against a fixed dummy hash for an unknown
-    one, so the answer's timing does not tell which emails are registered; the answer is the generic 401."""
+@pytest.mark.parametrize("account", ["unknown_email", "no_password"])
+def test_a_login_with_no_password_to_check_still_runs_bcrypt(client, mail, monkeypatch, account):
+    """bcrypt runs whether or not the email has an account with a password, against a fixed dummy hash
+    when it has none (an unknown email, or an account that signs in only through Google or Apple), so
+    the answer's timing does not tell which emails are registered; the answer is the generic 401."""
+    if account == "unknown_email":
+        email = _email()
+    else:
+        email, _ = _register(client, mail)
+        _update_user(email, hashed_password=None)
     hashes_checked: list[str] = []
     real_verify = auth_module.verify_password
 
@@ -545,7 +552,7 @@ def test_a_login_for_an_unknown_email_still_runs_bcrypt(client, monkeypatch):
         return real_verify(password, hashed)
 
     monkeypatch.setattr(auth_module, "verify_password", recording_verify)
-    resp = _login(client, _email(), PASSWORD)
+    resp = _login(client, email, PASSWORD)
     assert resp.status_code == 401 and resp.json() == {"detail": "Incorrect email or password"}
     assert hashes_checked == [auth_module._DUMMY_PASSWORD_HASH]
 

@@ -27,6 +27,7 @@ its check if nothing stops it, while the first's writes are uncommitted:
 - a password reset and a password change that verified the old password, in either order, and two such
   changes: a change writes only while the hash it verified is the account's (E121), so the reset's
   password stands with no live token, and of two changes the first's password and session;
+- two first passwords set at once on an account that had none: the first stands, with its session;
 - two password logins of one account: the second waits for the first's commit, and both mint.
 Without the users-row lock each writer takes first, the second request writes on what it read before
 the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
@@ -85,10 +86,10 @@ def postgres_engine():
             engine.dispose()
 
 
-def _signed_in(engine) -> tuple[int, str]:
+def _signed_in(engine, password_hash: Optional[str] = OLD_PASSWORD_HASH) -> tuple[int, str]:
     """A user with one live refresh token; returns ``(user_id, raw_token)``."""
     with Session(engine) as db:
-        user = User(email=f"reader-{uuid.uuid4().hex}@example.com", is_active=True, hashed_password=OLD_PASSWORD_HASH)
+        user = User(email=f"reader-{uuid.uuid4().hex}@example.com", is_active=True, hashed_password=password_hash)
         db.add(user)
         db.flush()
         user_id = user.id
@@ -121,6 +122,12 @@ _OPERATIONS = {
     "change_password_again": lambda db, user_id, raw: _change_password(
         db, db.get(User, user_id), "another changed password's hash",
     ),
+    "set_first_password": lambda db, user_id, raw: _change_password(
+        db, db.get(User, user_id), "a first password's hash", verified_hash=None,
+    ),
+    "set_first_password_again": lambda db, user_id, raw: _change_password(
+        db, db.get(User, user_id), "another first password's hash", verified_hash=None,
+    ),
     "password_login": lambda db, user_id, raw: _password_login(db, db.get(User, user_id)),
     "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, db.get(User, user_id)),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
@@ -138,18 +145,22 @@ def _password_login(db: Session, user: User) -> Optional[str]:
     return login[1] if login is not None else None
 
 
-def _change_password(db: Session, user: User, new_hash: str = "a changed password's hash") -> Optional[str]:
-    """The change-password route's writes, for a current password that matched OLD_PASSWORD_HASH before
-    the race: the new hash and every token revoked, then the acting device's new session minted, all in
-    the mint's one commit; or None when the change is refused. The account is loaded first, as the
-    route's session holds it from ``get_current_user``."""
-    if not auth_account_service.stage_password_change(db, user, new_hash, OLD_PASSWORD_HASH):
+def _change_password(
+    db: Session, user: User, new_hash: str = "a changed password's hash",
+    verified_hash: Optional[str] = OLD_PASSWORD_HASH,
+) -> Optional[str]:
+    """The change-password route's writes, for a current password that matched ``verified_hash`` before
+    the race (None: an account with no password sets its first): the new hash and every token revoked,
+    then the acting device's new session minted, all in the mint's one commit; or None when the change
+    is refused. The account is loaded first, as the route's session holds it from ``get_current_user``."""
+    if not auth_account_service.stage_password_change(db, user, new_hash, verified_hash):
         return None
     return tokens.mint_refresh_token(db, user)
 
 
 def _race(
     engine, first: str, second: str, *, second_starts: str = "after_first_write", second_cookie_behind: bool = False,
+    password_hash: Optional[str] = OLD_PASSWORD_HASH,
 ) -> tuple[object, object, int, str]:
     """Run ``first`` and ``second`` on one user's token, and return each one's result (or the exception it
     raised), the user's live tokens after both, and what let ``first`` commit: ``"blocked"`` (``second``
@@ -157,12 +168,13 @@ def _race(
     written a token row, or with ``after_first_lock`` once ``first`` holds the users row lock, where
     ``first`` then waits until ``second`` is blocked on a lock or has written. With
     ``second_cookie_behind``, another tab has rotated the token once before either starts: ``first``
-    carries the new cookie and ``second`` the one before it.
+    carries the new cookie and ``second`` the one before it. ``password_hash`` is the account's at the
+    start; None for one that signs in only through Google or Apple.
 
     Those waits run inside engine events, which must not raise: an exception there would leave the first
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
     records itself instead, and the race fails once both requests have ended."""
-    user_id, raw = _signed_in(engine)
+    user_id, raw = _signed_in(engine, password_hash)
     # Production's session settings, bound to this case's engine. An autoflushing session would flush a
     # pending write at the request's next query, where production waits for its commit, and could
     # serialize two requests that production does not.
@@ -383,6 +395,17 @@ def test_a_reset_and_a_password_change_leave_the_resets_password_and_no_live_tok
         "NoneType", "NoneType" if first == "reset" else "str", 0, "blocked",
     )
     assert _stored_hashes(postgres_engine) == ["a new password's hash"]
+
+
+def test_two_first_passwords_set_at_once_leave_the_first(postgres_engine):
+    """An account with no password (it signs in only through Google or Apple) sets one in two requests at
+    once. Each found no password to check; the one that waits for the other's lock finds a hash now and
+    writes nothing (E121), so the first password and its session stand."""
+    first, second, live, released = _race(
+        postgres_engine, "set_first_password", "set_first_password_again", password_hash=None,
+    )
+    assert (_kind(first), second, live, released) == ("str", None, 1, "blocked")
+    assert _stored_hashes(postgres_engine) == ["a first password's hash"]
 
 
 def test_a_password_change_that_verified_the_old_password_writes_nothing_once_another_commits(postgres_engine):
