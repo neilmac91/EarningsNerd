@@ -38,7 +38,9 @@ dispatch.
 `inputs[...]` and `outputs[...]` index syntax, which these checks would not see, is refused.
 """
 import ast
+import os
 import re
+import subprocess
 
 from tests.support.ops_workflow import (
     BY_NAME, DEPS, INPUTS, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, RELABEL, RESOLVE, ROOT, STEPS,
@@ -184,6 +186,9 @@ def test_every_apply_operation_waits_for_the_founders_approval():
     at = names.index("Refuse an apply that no one approved in this run")
     request_at = next(index for index, step in enumerate(STEPS) if step.get("id") == "request")
     assert selected(STEPS[at]) == applies and request_at < at < names.index("Authenticate to Google Cloud")
+    # Its refusal stops the job: no continue-on-error, no extra condition (its script runs in
+    # test_workflow_dispatch_inputs.py).
+    assert set(STEPS[at]) == {"name", "if", "env", "run"}
     # A re-run skips the operations job, which GitHub would mark green: refuse-rerun fails it instead,
     # for the approval job's operations, on every attempt but the first.
     assert set(rerun) == {"needs", "if", "runs-on", "timeout-minutes", "permissions", "steps"}  # no environment
@@ -193,7 +198,12 @@ def test_every_apply_operation_waits_for_the_founders_approval():
     assert rerun["if"] == (
         "${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' "
         f"&& contains('{approval_listed}', inputs.operation) }}}}")
-    assert rerun["steps"][0]["run"].rstrip().endswith("exit 1"), "the refusal must fail the run"
+    assert set(rerun["steps"][0]) == {"name", "env", "run"}, "the refusal runs unconditionally and fails the job"
+    refusal = subprocess.run(  # fixed argv; the script under test is repository content
+        ["bash", "-e", "-c", rerun["steps"][0]["run"]], env={**os.environ, "OP": "relabel-fy-apply"},
+        capture_output=True, text=True, check=False,
+    )
+    assert (refusal.returncode, "::error::" in refusal.stdout) == (1, True), "the refusal must fail the run"
 
 
 def test_every_script_step_pins_the_sec_budgets():

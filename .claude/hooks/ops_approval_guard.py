@@ -20,8 +20,8 @@ goes through. Reading those paths is refused too; the run's own status shows it 
 that makes no API call passes whatever it names (a commit message, a here-document written to a file,
 `gh pr comment --body-file`). On a line that makes one, a name anywhere refuses the line, in a
 comment's text or in a here-document that writes the file the call sends, so the refusal says how to
-send such text instead: from a file an earlier command or the Write tool wrote, with the API call a
-command of its own.
+send such text instead: write the file in an earlier Bash call or with the Write tool, then send it
+in a Bash call of its own.
 
 A refusal is a JSON deny on stdout; anything else exits 0 with no output. A crash exits 1, which
 Claude Code reports as a hook error and lets the call through, as for codex_mention_guard.py.
@@ -52,9 +52,9 @@ REASON = (
     "Refused by .claude/hooks/ops_approval_guard.py: this command calls GitHub's deployment-review or "
     "environment API, which approves or rejects a run waiting on an environment or changes who must approve. "
     "Only the founder approves an Ops apply (the ops-apply environment in .github/workflows/ops.yml), on the "
-    "run's page: ask them to. If this line only names the API in text, send that text from a file written "
-    "by an earlier command or by the Write tool (`gh api … -F body=@file.md`, `gh pr comment --body-file`), "
-    "or through a GitHub MCP tool, and make the API call a command of its own."
+    "run's page: ask them to. If this line only names the API in text, write that text to a file in an "
+    "earlier Bash call or with the Write tool, then send it in a Bash call of its own (`gh api … -F "
+    "body=@file.md`, `gh pr comment --body-file`), or send it through a GitHub MCP tool."
 )
 
 

@@ -65,6 +65,9 @@ def test_the_guard_runs_before_every_bash_command():
     # So is a here-document that writes the body file, with the call that sends it, on one line.
     "cat > reply.md <<'EOF' && gh api repos/o/r/issues/1/comments -F body=@reply.md\n"
     "Only the founder answers pending_deployments.\nEOF",
+    # The same pair on two lines of one Bash call is still one call.
+    "cat > reply.md <<'EOF'\nOnly the founder answers pending_deployments.\nEOF\n"
+    "gh api repos/o/r/issues/1/comments -F body=@reply.md",
 ])
 def test_a_call_to_the_deployment_review_api_is_refused(command):
     decision = _decision("Bash", {"command": command})
@@ -73,8 +76,8 @@ def test_a_call_to_the_deployment_review_api_is_refused(command):
     reason = decision["permissionDecisionReason"]
     assert "Only the founder approves an Ops apply" in reason
     # The way out works in the form a session reaches for: the file written first, the call on its own.
-    assert "send that text from a file written by an earlier command or by the Write tool" in reason
-    assert "make the API call a command of its own" in reason
+    assert "write that text to a file in an earlier Bash call or with the Write tool" in reason
+    assert "send it in a Bash call of its own" in reason
 
 
 # gh sends all three to the GraphQL endpoint: `/graphql` as a REST path, which names the same URL.
