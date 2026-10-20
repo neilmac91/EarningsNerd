@@ -15,9 +15,15 @@ FY row there (source ``companyfacts``, a raw tag, no filing owner, not retired b
 as ``validation: unavailable``) that the fiscal-year-window writer stored or a repair corrected
 (provenance version 1: #1191 brought those labels and versioned provenance together), current or
 not. A row stored before #1191 (NULL provenance) names every FY period by the calendar year of its
-end, so it is no evidence:
-  - no evidence, only pre-#1191 rows  -> skipped ``legacy_companyfacts_only``
-  - no companyfacts row at all        -> skipped ``no_companyfacts_fy``
+end, so it is no evidence. Where no stored row is evidence at a period end, the evidence is the FY
+rows the same writer names from the company's companyfacts as read from SEC on this run, which
+nothing stores. A resync rarely helps: a sync skips every identity already stored, whichever writer
+stored it, and never rewrites a stored row's label or provenance, so a pre-#1191 row or a period the
+per-filing writer stored first gains a current twin only when a later report re-reports the period
+under an accession not yet stored. Where a stored row vouches for a period end its year is the one
+used; the read can still clear, or cause, a neighbour's ``label_collision``:
+  - no evidence, only pre-#1191 rows    -> skipped ``legacy_companyfacts_only``
+  - no companyfacts row, stored or read -> skipped ``no_companyfacts_fy``
   - they name more than one year      -> skipped ``companyfacts_disagree`` (never pick one)
   - they are all instants (balances)  -> skipped ``untrusted_instant_only``: the companyfacts
     writer names an instant older than every fiscal year it knows (its oldest opening balance) by
@@ -28,7 +34,9 @@ end, so it is no evidence:
     NULL), not by the defect, and is never overwritten: ``not_calendar_default``. The rest relabel,
     unless the new label is one another period end of the same filing and concept carries, or one
     another current row of the concept carries (readers index current annual rows by year and
-    concept): ``label_collision``, re-checked until none is left, since a held row keeps its label.
+    concept): ``label_collision``. The whole period end then holds, every concept and filing at it,
+    so no end is left on two fiscal years; re-checked until none is left, since a held row keeps
+    its label. The read is not used where a current pre-#1191 row keeps the calendar label.
 The evidence and trust rule is ``app/services/facts/fiscal_evidence.py`` (``evidence_kind``,
 ``trusted_year``), the rule #1364's per-filing writer adopts years by, so the two cannot drift.
 Durations and instants are both relabelled: an FY balance closes the year that ends on its date.
@@ -40,11 +48,15 @@ its chart may skip a year. The identity (company, concept, period_end,
 fiscal_period, unit, accession) and every index on ``financial_fact`` leave ``fiscal_year`` out, so a
 relabel cannot collide. Re-running is safe: a relabelled row agrees on the next run.
 
-DRY RUN BY DEFAULT: nothing is written and each company's read is rolled back. ``--apply`` re-plans
-each company from live data in its own transaction under the company lock both fact writers take,
-and journals every changed row in ``financial_fact_revision`` (action ``apply``), so
-``scripts/repair_quarterly_facts.py --tickers T --rollback-run RUN_ID [--apply]`` reverts one
-company's run. Output: one JSON line per company scanned, then one summary line. No network.
+DRY RUN BY DEFAULT: nothing is written and each company's transaction is rolled back. ``--apply``
+re-plans each company from live data and a fresh SEC read, in its own transaction under the company
+lock both fact writers take, and journals every changed row in ``financial_fact_revision`` (action
+``apply``), so ``scripts/repair_quarterly_facts.py --tickers T --rollback-run RUN_ID [--apply]``
+reverts one company's run. Output: one JSON line per company scanned (``sec_evidence`` counts its rows judged on
+the read), then one summary line. Network: one companyfacts read per company through
+``facts/transport`` (the shared SEC limiter; its backoff may retry a 429), before the company's
+session opens; a failed read, or one with no ``facts`` object, fails that company and changes nothing,
+and for a failed read the transport's warning on standard error says why.
 
 Founder commands (the DB is only reachable from Cloud Run; runbook docs/fiscal-year-label-repair.md):
   gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \\
@@ -97,13 +109,16 @@ def _collisions(rows: list[FinancialFact], planned: dict[FinancialFact, int]) ->
     )]
 
 
-def plan_company(rows: Iterable[FinancialFact]) -> dict[str, Any]:
-    """Split one company's FY rows into relabels and skips; reads attributes only."""
+def plan_company(rows: Iterable[FinancialFact], read: Iterable[Any] = ()) -> dict[str, Any]:
+    """Split one company's FY rows into relabels and skips; reads attributes only. ``read`` holds the
+    FY facts the companyfacts writer names from this run's SEC read: evidence where no stored row is."""
     from app.services.facts.fiscal_evidence import evidence_kind, trusted_year
 
     rows = [row for row in rows if row.fiscal_period == "FY"]
     evidence: dict[date, list[tuple[int, bool]]] = defaultdict(list)
+    from_read: dict[date, list[tuple[int, bool]]] = defaultdict(list)
     legacy: set[date] = set()
+    legacy_current: set[date] = set()  # a pre-#1191 row readers still pick keeps its calendar label here
     targets = []
     for row in rows:
         kind = evidence_kind(row)
@@ -111,8 +126,13 @@ def plan_company(rows: Iterable[FinancialFact]) -> dict[str, Any]:
             evidence[row.period_end].append((row.fiscal_year, row.period_start is not None))
         elif kind == "legacy":
             legacy.add(row.period_end)
+            if row.is_latest:
+                legacy_current.add(row.period_end)
         elif row.filing_id is not None:
             targets.append(row)
+    for fact in read:
+        if fact.fiscal_period == "FY" and evidence_kind(fact) == "current":
+            from_read[fact.period_end].append((fact.fiscal_year, fact.period_start is not None))
     skipped = Counter({reason: 0 for reason in SKIP_REASONS})
     held: dict[str, set[str]] = defaultdict(set)
     held_rows: list[FinancialFact] = []
@@ -124,8 +144,15 @@ def plan_company(rows: Iterable[FinancialFact]) -> dict[str, Any]:
 
     planned: dict[FinancialFact, int] = {}
     agreeing: list[FinancialFact] = []
+    sec_evidence = 0
     for row in targets:
-        year, reason = trusted_year(evidence.get(row.period_end, []), row.period_end in legacy)
+        stored = evidence.get(row.period_end)
+        # The read stands in only where no stored row vouches, and not where a current pre-#1191 row would
+        # keep the calendar label beside the relabelled rows (readers pick current rows by year and concept).
+        read_here = [] if stored or row.period_end in legacy_current else from_read.get(row.period_end, [])
+        if read_here:
+            sec_evidence += 1
+        year, reason = trusted_year(stored or read_here, row.period_end in legacy)
         if reason is not None:
             hold(row, reason)
         elif year == row.fiscal_year:
@@ -135,9 +162,11 @@ def plan_company(rows: Iterable[FinancialFact]) -> dict[str, Any]:
             hold(row, "not_calendar_default")
         else:
             planned[row] = year
-    # A held row keeps its label, so holding one relabel can make another collide: repeat.
+    # A held row keeps its label, so holding one relabel can make another collide: repeat. The whole
+    # period end holds, every concept and filing at it, so no end is left on two fiscal years.
     while clashing := _collisions(rows, planned):
-        for row in clashing:
+        ends = {row.period_end for row in clashing}
+        for row in [row for row in planned if row.period_end in ends]:
             del planned[row]
             hold(row, "label_collision")
     # A filing whose verified fiscal years (relabelled now, or agreeing from an earlier run) sit
@@ -147,14 +176,18 @@ def plan_company(rows: Iterable[FinancialFact]) -> dict[str, Any]:
         row.accession for row in held_rows if row.fiscal_year == row.period_end.year
     }
     return {
-        "scanned": len(targets), "relabel": list(planned.items()), "skipped": dict(sorted(skipped.items())),
+        "scanned": len(targets), "sec_evidence": sec_evidence, "relabel": list(planned.items()),
+        "skipped": dict(sorted(skipped.items())),
         "held": {reason: sorted(ends) for reason, ends in sorted(held.items())},
         "partial_filings": sorted(partial),
     }
 
 
-def relabel_company(db: Session, company_id: int, *, apply: bool, run_id: str) -> dict[str, Any]:
-    """Plan one company's relabels; with ``apply`` also write and journal them. The caller commits."""
+def relabel_company(
+    db: Session, company_id: int, *, apply: bool, run_id: str, read: Iterable[Any] = (),
+) -> dict[str, Any]:
+    """Plan one company's relabels (``read``: see ``plan_company``); with ``apply`` also write and
+    journal them. The caller commits."""
     from app.models import Company, FinancialFact
     from app.models.financial_fact_revision import FinancialFactRevision
     from app.services import facts_service
@@ -166,7 +199,7 @@ def relabel_company(db: Session, company_id: int, *, apply: bool, run_id: str) -
     query = db.query(FinancialFact).filter(
         FinancialFact.company_id == company_id, FinancialFact.fiscal_period == "FY",
     ).order_by(FinancialFact.id)
-    plan = plan_company(query.with_for_update().all() if apply else query.all())
+    plan = plan_company(query.with_for_update().all() if apply else query.all(), read)
     pairs = Counter((row.period_end.isoformat(), row.fiscal_year, year) for row, year in plan["relabel"])
     revisions = 0
     if apply and plan["relabel"]:
@@ -186,7 +219,8 @@ def relabel_company(db: Session, company_id: int, *, apply: bool, run_id: str) -
     company = db.get(Company, company_id)
     return {
         "company_id": company_id, "ticker": company.ticker if company else None, "run_id": run_id,
-        "dry_run": not apply, "scanned": plan["scanned"], "relabel_rows": len(plan["relabel"]),
+        "dry_run": not apply, "scanned": plan["scanned"], "sec_evidence": plan["sec_evidence"],
+        "relabel_rows": len(plan["relabel"]),
         "relabels": [
             {"period_end": end, "from": old, "to": new, "rows": count}
             for (end, old, new), count in sorted(pairs.items(), key=lambda item: (item[0][0], str(item[0][1])))
@@ -194,6 +228,26 @@ def relabel_company(db: Session, company_id: int, *, apply: bool, run_id: str) -
         "skipped": plan["skipped"], "held": plan["held"], "partial_filings": plan["partial_filings"],
         "revisions": revisions,
     }
+
+
+def companyfacts_read(company_id: int, cik: str, sic: str | None) -> list[Any]:
+    """The facts the companyfacts writer names from the company's companyfacts as read from SEC now,
+    through ``facts/transport`` (the shared limiter and backoff); nothing stores them, and
+    ``plan_company`` keeps the FY rows. A failed read, or a payload with no ``facts`` object, raises,
+    so the company fails and changes nothing rather than being planned without it."""
+    from types import SimpleNamespace
+
+    from app.services import facts_service
+
+    payload = facts_service._fetch_companyfacts_sync(cik)
+    if payload is None:
+        raise RuntimeError("companyfacts read from SEC failed; company unchanged")
+    if not isinstance(payload.get("facts"), dict):
+        raise RuntimeError("companyfacts read from SEC had no facts object; company unchanged")
+    facts, _meta = facts_service.normalize_companyfacts(
+        company_id, payload, financial_sic=facts_service._is_financial_sic(sic),
+    )
+    return [SimpleNamespace(**fact) for fact in facts]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -214,7 +268,7 @@ def run(args: argparse.Namespace, emit: Callable[[dict[str, Any]], None]) -> dic
         raise ValueError("--limit must be at least 1")
     # This short read session lists the cohort; each company then gets its own transaction.
     with SessionLocal() as db:
-        query = db.query(Company.id, Company.ticker).order_by(Company.id)
+        query = db.query(Company.id, Company.ticker, Company.cik, Company.sic).order_by(Company.id)
         if tickers:
             known = {t for (t,) in db.query(Company.ticker).filter(Company.ticker.in_(tickers))}
             if set(tickers) - known:
@@ -229,13 +283,14 @@ def run(args: argparse.Namespace, emit: Callable[[dict[str, Any]], None]) -> dic
     run_id = str(uuid4())
     summary: dict[str, Any] = {
         "summary": True, "run_id": run_id, "dry_run": not args.apply, "companies": len(companies),
-        "companies_with_relabels": 0, "scanned": 0, "relabel_rows": 0, "revisions": 0,
+        "companies_with_relabels": 0, "scanned": 0, "sec_evidence": 0, "relabel_rows": 0, "revisions": 0,
         "skipped": dict.fromkeys(SKIP_REASONS, 0), "partial_filings": 0, "failed": 0,
     }
-    for company_id, ticker in companies:
+    for company_id, ticker, cik, sic in companies:
         try:
+            read = companyfacts_read(company_id, cik, sic)  # before the company's session opens
             with SessionLocal() as db:
-                result = relabel_company(db, company_id, apply=args.apply, run_id=run_id)
+                result = relabel_company(db, company_id, apply=args.apply, run_id=run_id, read=read)
                 if args.apply:
                     db.commit()
                 else:
@@ -245,7 +300,7 @@ def run(args: argparse.Namespace, emit: Callable[[dict[str, Any]], None]) -> dic
             emit({"company_id": company_id, "ticker": ticker, "error": str(exc)})
             continue
         summary["companies_with_relabels"] += bool(result["relabel_rows"])
-        for key in ("scanned", "relabel_rows", "revisions"):
+        for key in ("scanned", "sec_evidence", "relabel_rows", "revisions"):
             summary[key] += result[key]
         for reason, count in result["skipped"].items():
             summary["skipped"][reason] += count
