@@ -715,7 +715,9 @@ async def test_analysis_pdf_refuses_stale_or_replaced_snapshots(monkeypatch, cha
     elif changed == "prompt":
         record.prompt_version = "older-prompt"
     company = TestAnalysisPdfHtml()._company()
-    db = SimpleNamespace(get=lambda model, identifier: record if model is TrendAnalysis else company)
+    # The route releases its session after its checks; a fake session closes as a no-op.
+    db = SimpleNamespace(get=lambda model, identifier: record if model is TrendAnalysis else company,
+                         close=lambda: None)
     monkeypatch.setattr(entitlements, "get_entitlements", lambda user: SimpleNamespace(can_export=True))
     monkeypatch.setattr(router.trend_analysis_service, "build_dataset", lambda *args: current)
     render = AsyncMock(return_value=b"%PDF-test")

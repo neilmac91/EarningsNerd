@@ -59,10 +59,24 @@ held a connection through each of its welcome and referral sends, so eight joins
 4x200 then 4x500. Each is now a thread-pool unit (the join two: the insert, then the welcome flag
 after the send); their burst cases also hold every
 statement off the loop, and the join's own case holds both sends to no connection out (2026-10-19,
-E118). The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
+E118). The analysis router's other routes did the same: coverage looked its company up on the loop
+and, after the companyfacts wait, checked a fresh connection out there for its period reads, so
+eight coverage reads on four slots answered 500 to two, three and four of them in three runs; the
+dataset route built its dataset (reads and CPU work) on the loop; and the xlsx and PDF exports held
+their transaction through the render. Each is now a thread-pool unit (coverage two: the lookup, then
+the reads after the wait), released before any wait or render that follows; their burst cases hold
+every statement off the loop, the first-touch handoff to the queue included, and a single export
+renders with no connection out (2026-10-19, E119). The companyfacts sync the coverage route runs
+as a task on the loop read freshness, re-read a follower's stamp and persisted every fact there. Each
+unit now runs on the sync's own threads (`lessons/ops-auth-lookups-must-let-request-cleanup-progress.md`
+says why not the default executor); the leader claims the sync before its read, so a request arriving
+meanwhile follows it; a leader cancelled during its persist keeps its claim until the persist ends;
+and the burst's `coverage_sync` row runs `ingest_companyfacts_by_id` itself, only its SEC fetch faked,
+with its sessions off the loop (2026-10-19, E129).
+The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
-not list the route (the rest of the analysis router, E119; the rest of the
+not list the route (the rest of the
 auth router and the checkout route, E121), or a background task's own session worked on the loop
 (E123), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.

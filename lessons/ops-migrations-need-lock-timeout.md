@@ -23,8 +23,8 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
    permission error is final), and on final failure prints `pg_stat_activity` (unfiltered — other
    roles' rows are NULL without `pg_read_all_stats`) plus a `pg_locks ⨝ pg_class` dump so the
    blocker and the relation are visible from the CI log. Every other workflow step that reaches
-   Cloud SQL (`ops.yml`) sets the same `lock_timeout`; its `statement_timeout` is scoped per step
-   (write path 120 s, read-only snapshots 600 s).
+   Cloud SQL (`ops.yml`) sets a `lock_timeout` of at most 10 s; its `statement_timeout` is scoped per
+   step, at most 600 s (the write paths 120 s, the read-only snapshots 600 s, the capacity ledger 15 s).
 2. Every deploy job carries `timeout-minutes` well under GitHub's 360-minute default.
 3. New migration files never issue a top-level `ALTER TABLE` on a pre-existing table. Wrap it in
    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns …) THEN ALTER … END IF; END $$;`
@@ -47,7 +47,9 @@ Enforced by `backend/tests/unit/test_migration_lock_safety.py` (job knobs and pr
 `ci.yml`; PGOPTIONS, SQLSTATE-only retry, the blocker dump and the INVALID-index exit in `backend/scripts/apply_migrations.sh`,
 the only place migration SQL runs; `ops.yml` dispatch-only + per-step `PGOPTIONS`; the real-Postgres
 triple-apply job; and two frozen, shrink-only allow-lists: the 17 legacy unguarded-ALTER files and
-the 7 legacy unguarded-index files).
+the 7 legacy unguarded-index files). Its `ops.yml` check finds every step that can reach Cloud SQL by
+position and selection and reads `PGOPTIONS` as the Postgres backend parses it
+(`backend/tests/support/ops_workflow.py`).
 
 ## Evidence
 

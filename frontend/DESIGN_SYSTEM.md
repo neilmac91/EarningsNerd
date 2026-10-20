@@ -216,7 +216,10 @@ text or "retry" in copy, naming the file and line.
 A Retry that restarts a stream, not a query (the filing page's generation restart), is RetryButton too, given the
 stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no query to hold, and the press
 clears the error in the render that starts the stream, so the card leaves with the press when the run starts
-and its hand-off target is the progress card's heading. A failure built by hand like this is pinned, with its
+and its hand-off target is the progress card's heading. The card offers it only for a failure a retry can help
+(`isNonRetryableStreamError`: Pro's fair-use pause, a sign-in or a permission error keeps its sentence and no
+Retry), so a press that starts no run (signed out) keeps the card without it, and the target falls back to the
+card's own heading. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
@@ -1076,8 +1079,9 @@ Wording changes  <WordingChanges block Heading context>  (features/filings, E27 
 Company identity <CompanyIdentity company latest summaryReady actions>  (features/companies, critique 1b) — the
                  Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
                  exported from FilingIdentity): breadcrumb Home / company, the h1 with logo and ticker pill,
-                 one data-face line of facts the API returns (exchange · quote · CIK as EDGAR prints it, ten
-                 digits · "Company on SEC EDGAR ↗"), then "Latest filing" form · period · filed date · "summary
+                 one data-face line of facts the API returns (exchange · CIK as EDGAR prints it, ten digits ·
+                 "Company on SEC EDGAR ↗"; no market quote, the one figure there no filing sources, D-046,
+                 though the search option keeps its own), then "Latest filing" form · period · filed date · "summary
                  ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
                  a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
                  filing ("Open latest summary" when ready, "Open latest filing" over a stored row that is

@@ -12,13 +12,20 @@ number but not the currency, served it with an SEC-verified chip. A bug hunt fou
 found a third writer of the same cells: the prior-period backfill both paths run before storing
 (`schemas/summary.py` `attach_normalized_facts`) also hardcoded "$".
 
-**Rule:** The timeout fallback is a summary writer too. Every writer of a summary's P&L table
-cells labels money with `app/utils/numbers.py` `money_prefix_for`, never with an inline "$" or a
-copy of the rule. When you change how the primary writer labels money, change the helper, so the
-fallback and the backfill follow, and keep the parity test passing. Test each writer with
-foreign-filer inputs as well as USD ones. No currency maps to "$" here. That is the backend's
-domestic default for XBRL that names no currency. The frontend's rule for a payload without a
-currency is different: it shows no symbol (`lessons/frontend-xbrl-amounts-carry-their-own-currency.md`).
+**Rule:** The timeout fallback is a summary writer too. Every writer of a summary's P&L table cells
+labels money with `app/utils/numbers.py` `money_prefix_for`, never with an inline "$" or a copy of
+the rule. When you change how the primary writer labels money, change the helper, so the fallback
+and the backfill follow, and keep the parity test passing. Test each writer with foreign-filer
+inputs as well as USD ones. A label is read back as well, by one grammar: the display parser
+(`parse_display_number`) reads a figure's prefix, and the change-figure reader asks it which
+currency that prefix names (`display_currency`), so the two cannot disagree. Its codes are
+`ISO_4217_CURRENCIES` in the same module: every current national currency in ISO 4217 (List One less
+its fund codes and the X-codes that name no currency) reads back, in capitals as the helper writes
+it. The XBRL units choose the label, so a code outside that set, such as a withdrawn one (HRK, BGN),
+is still written; its cell does not parse, so its row keeps no change figure. A new reader of money
+cells uses the same two functions. No currency maps to "$" here. That is the backend's domestic
+default for XBRL that names no currency. The frontend's rule for a payload without a currency is
+different: it shows no symbol (`lessons/frontend-xbrl-amounts-carry-their-own-currency.md`).
 
 Out of scope, and known: the fallback and the primary filler still differ on scale, on missing
 values and on row labels. The primary has a K tier ("950.0K") where the fallback prints "950,000".
@@ -33,9 +40,16 @@ copies of the prefix expression. They behave the same today; do not add another.
 `schemas/summary.py` `attach_normalized_facts`; parity gate
 `backend/tests/unit/test_fallback_summary_currency.py::test_the_fallback_labels_money_by_the_primary_path_rule`,
 with the backfill pinned by `test_the_stored_fallback_backfills_a_zero_prior_in_the_filer_currency`
-and `test_the_primary_path_backfill_labels_a_blank_prior_in_the_filer_currency` in the same file.
-A pasted copy of the rule passes those output tests, so
+and `test_the_primary_path_backfill_labels_a_blank_prior_in_the_filer_currency` in the same file. A
+pasted copy of the rule passes those output tests, so
 `test_every_writer_takes_its_money_label_from_the_shared_helper` there reads the three writers'
 source: each must call the shared helper, and neither it nor its formatter may carry a "$"-led or
-"USD" literal. A new writer is review-checked. The same one-shared-predicate pattern for
-model-facing surfaces: `lessons/arch-guard-every-model-facing-surface.md`.
+"USD" literal. The readers are gated by
+`backend/tests/unit/test_numbers.py::test_every_currency_a_money_label_can_carry_parses_and_names_its_code`,
+which also pins the list itself by its count and digest, by
+`backend/tests/unit/test_metric_delta_service.py::test_an_exact_change_binds_only_to_cells_in_the_facts_currency`
+(a code glued to its figure, and "US$", which the change-figure reader once read as Singapore's
+"S$"), and, for the stored fallback's change figure in AED, SAR and ILS (none before the full list),
+by `test_the_stored_fallback_keeps_its_change_figure_in_any_reporting_currency`. A new writer or
+reader is review-checked. The same one-shared-predicate pattern for model-facing surfaces:
+`lessons/arch-guard-every-model-facing-surface.md`.
