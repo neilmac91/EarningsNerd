@@ -1,0 +1,7 @@
+#!/bin/sh
+# git's pre-push hook (E134), in a clone whose core.hooksPath is .claude/hooks/git: `git config core.hooksPath
+# .claude/hooks/git` once per clone, which a cloud session sets as it starts. git runs it before a push sends
+# anything, whoever runs the push, and it scans the commits the push would add with CI's pinned gitleaks, the scan
+# the PreToolUse hook runs (.claude/hooks/secret_scan_guard.py), stopping the push on a finding. git skips a hook it
+# cannot execute, so this file stays executable (backend/tests/unit/test_secret_scan_guard.py holds its mode).
+exec python3 -I -S "$(dirname "$0")/../secret_scan_guard.py" --pre-push "$@"

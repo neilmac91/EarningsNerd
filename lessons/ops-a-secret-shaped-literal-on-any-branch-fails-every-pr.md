@@ -63,9 +63,10 @@ conflicts, and prove a pin by scanning without it from a checkout whose `.gitlea
 since gitleaks reads the scanned directory's own file as well as any `-i` path.
 
 **Gate**: `.claude/hooks/secret_scan_guard.py`, which `.claude/settings.json` runs before every Bash
-command and every call to an MCP server whose name contains "github" in any case
+command and every call to an MCP server whose name contains "github" in any case, and which git runs
+as its pre-push hook (`.claude/hooks/git/pre-push`) in a clone that turns that hook on
 (`backend/tests/unit/test_secret_scan_guard.py`). It runs the `secret-scan` job's gitleaks over the
-commits a call would add to GitHub, and refuses the call on a finding. The binary is the version and
+commits a call or a push would add to GitHub, and refuses the call, or stops the push, on a finding. The binary is the version and
 archive SHA-256 in `ci.yml`, installed once per machine and pin with
 `python3 .claude/hooks/secret_scan_guard.py --install`, which checks the linux x64 archive against
 that SHA-256 and another platform's against the release's checksums file once that file lists the pin.
@@ -122,7 +123,18 @@ that SHA-256 and another platform's against the release's checksums file once th
   repository (a `.git` or a `commondir` file in it, or a HEAD git cannot read, sends git elsewhere). A
   failed scan's refusal names the errors gitleaks logged. An error the hook does not expect in reading a
   Bash call that names git or gh refuses it too; any other crash lets the call through.
-- **What it cannot see.**
+- **git's pre-push hook.** `git config core.hooksPath .claude/hooks/git` turns it on in a clone, once,
+  and a cloud session's start does it for the session's clone (`.claude/settings.json`'s SessionStart
+  command), unless a hooks path is set at any level or the clone has hooks of its own, which it leaves
+  as they are and names to the session. git runs it before a push sends anything, whoever runs the
+  push, and hands it the refs the push sends: it scans the commits each one reaches and no ref under
+  `refs/remotes/origin` holds, with the scan above, and stops the push on a finding, wherever the scan
+  fails closed (that refusal names `git push --no-verify`, which skips git's hooks; a finding's does
+  not) and on any error. A delete, and a commit GitHub holds as last fetched, send it nothing to scan.
+  git skips a hook it cannot execute, so the suite holds the hook's tracked mode. In a Claude Code
+  session a push passes both: the PreToolUse hook before the call, git's as git sends it.
+- **What it cannot see.** Before a call, the PreToolUse hook cannot see these; git's pre-push hook
+  stops each push among them as git sends it, in a clone that turns it on:
   - a push a script, a program (`env -S`'s string among them) or a shell's standard input runs;
   - a git that a variable, a substitution, an escape, a brace expansion, a glob or a shell alias or
     function names;
@@ -134,7 +146,17 @@ that SHA-256 and another platform's against the release's checksums file once th
   - a command substitution inside an unquoted here-document's text, or a `$((` that bash reads as one;
   - the commits a git command it does not know makes as it runs, or a program the repository's own
     configuration has a git read run (an fsmonitor, a textconv or clean filter);
-  - the commits a push sends to submodules;
+  - a push in a trap (on EXIT or a signal) when the shell may stop before its end, under `set -e` or
+    `set -u`, at a `${x?}`, at a signal, or at a syntax error: the hook reads the trap from where the
+    shell would end normally, not from where it stopped;
+  - a push in a session that loads no repository hooks;
+  - a person's own push.
+
+  Neither hook sees these:
+  - a push with `--no-verify`, from a clone whose `core.hooksPath` is unset or names other hooks (or
+    that the push's own `-c core.hooksPath=` moves), or from a checkout without
+    `.claude/hooks/git/pre-push`: only the PreToolUse hook, before a Claude Code call, stands there;
+  - the commits a push sends to submodules, which run their own repositories' hooks;
   - a commit a stale ref under `refs/remotes/origin` still holds, or an MCP write to a branch fetched
     before it changed;
   - the attributes the repository's own `info/attributes` sets;
@@ -142,12 +164,8 @@ that SHA-256 and another platform's against the release's checksums file once th
     mark such a line inline, as the Rule says);
   - content other programs send through GitHub's API, a URL a variable holds, or a GraphQL mutation
     read from standard input or a variable;
-  - a GitHub MCP server named without "github";
-  - a push in a trap (on EXIT or a signal) when the shell may stop before its end, under `set -e` or
-    `set -u`, at a `${x?}`, at a signal, or at a syntax error: the hook reads the trap from where the
-    shell would end normally, not from where it stopped;
-  - a session that loads no repository hooks;
-  - a person's own push.
+  - a GitHub MCP server named without "github", and an MCP write in a session that loads no repository
+    hooks.
 
   CI's `secret-scan` still reads each of them that reaches this repository, after the push.
 

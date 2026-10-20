@@ -1,5 +1,5 @@
-"""PreToolUse hook: refuse a push or a GitHub content write when CI's pinned gitleaks finds a secret-shaped
-literal in the commits it would add (E126).
+"""PreToolUse hook, and git's pre-push hook: refuse a push or a GitHub content write when CI's pinned gitleaks finds
+a secret-shaped literal in the commits it would add (E126, E134).
 
 The gate for lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md. CI's `secret-scan` job reads
 every branch, so a secret-shaped literal pushed to any branch fails every pull request's scan until it leaves
@@ -142,21 +142,39 @@ file in it, or a HEAD git cannot read, sends git elsewhere). So does an error th
 a Bash call that names git or gh. Any other error exits 1, which Claude Code reports as a hook error and lets the
 call through, as it does for codex_mention_guard.py: a guardrail, not a boundary.
 
-Not checked: a push a script, a program (env -S's string among them) or a shell's standard input runs; a git that
-a variable, a substitution, an escape, a brace expansion, a glob or a shell alias or function names (`$GIT push`,
-`$(which git) push`, `$'\\x67it' push`, `{g..g}it push`, `/usr/bin/[g]it push`, `g push`); a GIT_DIR, HOME or
-CDPATH the shell's profile sets; a break in a function that an older bash compatibility level (BASH_COMPAT,
+git's pre-push hook. .claude/hooks/git/pre-push runs this file with --pre-push. git runs it before a push sends
+anything, in a clone whose core.hooksPath is .claude/hooks/git (`git config core.hooksPath .claude/hooks/git`, once
+per clone), and hands it each ref the push sends, whoever runs the push: a script, a program, a person, a session
+that loads no repository hooks. It scans the commits each one reaches (a tag's, peeled) that no ref under
+refs/remotes/origin holds, in the repository the push runs from, with the scan above, and stops the push (the reason
+on stderr, exit 1) on a finding, wherever a call that adds commits fails closed (that refusal names
+`git push --no-verify`, which skips git's hooks; a finding's does not), on a line from git it cannot read and on an
+error it does not expect. A delete sends nothing. git skips a hook it cannot execute, so the file is tracked
+executable. With --session-start, which .claude/settings.json runs as a session starts, it sets that core.hooksPath
+in a cloud session's clone (CLAUDE_CODE_REMOTE=true), unless a hooks path is set at any level or the clone has hooks
+of its own, either of which it leaves as it is and names to the session; it changes nothing in any other session
+and never fails a session's start.
+
+Not checked before a call, though git's pre-push hook stops each push among them as git sends it, in a clone that
+turns that hook on: a push a script, a program (env -S's string among them) or a shell's standard input runs; a git
+that a variable, a substitution, an escape, a brace expansion, a glob or a shell alias or function names
+(`$GIT push`, `$(which git) push`, `$'\\x67it' push`, `{g..g}it push`, `/usr/bin/[g]it push`, `g push`); a GIT_DIR,
+HOME or CDPATH the shell's profile sets; a break in a function that an older bash compatibility level (BASH_COMPAT,
 `shopt -s compat43`) lets leave its caller's loop; an assignment that set -k makes of a command's argument, and a
 variable an arithmetic expression assigns outside `$((...))` (in `$[...]`, a subscript, an offset, [[ ]]'s -eq);
 a command substitution inside an unquoted here-document's text, and a `$((` that bash reads as a command
 substitution; the commits a git command the hook does not know makes as it runs, and a program the repository's
-own configuration has a git read run (an fsmonitor, a textconv or clean filter); the commits a push sends to
-submodules (--recurse-submodules); a commit a stale ref under refs/remotes/origin still holds (one a force-push
-took off GitHub), and an MCP write to a branch fetched before it changed; attributes the repository's own
+own configuration has a git read run (an fsmonitor, a textconv or clean filter); a push in a session that loads no
+repository hooks; and a person's own push.
+Not checked by either: a push with --no-verify, from a clone whose core.hooksPath is unset or names other hooks (or
+that the push's own `-c core.hooksPath=` moves), or from a checkout without .claude/hooks/git/pre-push, where only
+the reading before a Claude Code call stands; the commits a push sends to submodules (--recurse-submodules), which
+run their own repositories' hooks; a commit a stale ref under refs/remotes/origin still holds (one a force-push took
+off GitHub), and an MCP write to a branch fetched before it changed; attributes the repository's own
 info/attributes sets; a squash or rebase merge of a pull request whose net change still holds a line pinned only
 by its branch commit; content another program sends through GitHub's API, a URL a variable holds, and a GraphQL
-mutation read from standard input or a variable; a GitHub MCP server registered under a name without "github"; a
-session that loads no repository hooks; and a person's own push.
+mutation read from standard input or a variable; a GitHub MCP server registered under a name without "github"; and
+an MCP write in a session that loads no repository hooks.
 Tests: backend/tests/unit/test_secret_scan_guard.py.
 """
 from __future__ import annotations
@@ -190,6 +208,12 @@ MIN_GIT = (2, 43)  # the first git to read attr.tree (GIT_CONFIG_COUNT, which ca
 GIT_VERSION = re.compile(r"git version (\d+)\.(\d+)")
 REMOTE = "origin"  # the remote that stands for GitHub: its refs are GitHub's branches as last fetched
 MAIN_REFS = (f"refs/remotes/{REMOTE}/HEAD", f"refs/remotes/{REMOTE}/main", f"refs/remotes/{REMOTE}/master")
+HOOKS_PATH = ".claude/hooks/git"  # the core.hooksPath whose pre-push runs this file as git's pre-push hook
+# A line git hands its pre-push hook: the local ref (`(delete)` or HEAD where none is named), its object, the
+# remote ref and the object the remote holds there, each object all zeros where there is none.
+PUSHED_REF = re.compile(r"(\S+) ([0-9a-f]{40}|[0-9a-f]{64}) (\S+) ([0-9a-f]{40}|[0-9a-f]{64})")
+SKIP_HOOK = (" To push without this scan, `git push --no-verify` skips git's hooks; CI's secret-scan still reads every "
+             "branch once the push lands")
 MAX_FINDINGS = 10  # listed in a refusal; the rest are counted
 MAX_DEPTH = 5  # levels of shells, evals, traps, functions, `!` aliases and process substitutions; a deeper line is
 # refused, and a longer chain of plain aliases is read whole
@@ -1196,7 +1220,7 @@ def _heredoc_in_word(command: str) -> bool:
 
 def _split_brace(command: str) -> bool:
     """Whether a double-quoted `${...}` nests a quote or a backquote the shell reader reads as the outer quote's end
-    (`"${x:-"a"}"`, `"${x:-\}"it's"}"`, `"${x:-`cmd`}"`), so the reader splits the line where bash reads one word.
+    (`"${x:-"a"}"`, `"${x:-\\}"it's"}"`, `"${x:-`cmd`}"`), so the reader splits the line where bash reads one word.
     An apostrophe bash reads literally there (`"${x:-'a'}"`, valid) does not, and an unpaired one bash rejects as a
     bad substitution (`"${x:-it's}"`) the reader reads as a word that bash never runs."""
     i, n, dquote, depth = 0, len(command), False, 0  # depth: open `${` inside the current double quote
@@ -2653,8 +2677,6 @@ def _its_own_repository(git_dir: str, env: dict, deadline: float) -> None:
 
 def _scan_pushes(pushes: list[_Push], deadline: float) -> str | None:
     """Scan the commits each push would add, one gitleaks run per repository."""
-    import tempfile
-
     repos: dict[str, list] = {}
     for push in pushes:
         # What a push sends is read where it runs, with the configuration its git reads.
@@ -2675,33 +2697,127 @@ def _scan_pushes(pushes: list[_Push], deadline: float) -> str | None:
             entry[1] |= broad
     env = _scan_env()
     for git_dir, (revs, broad) in repos.items():
-        # The commits it adds, main's pins and the scan are read in the git directory gitleaks reads, as it does.
-        _its_own_repository(git_dir, env, deadline)  # before any read there, which could answer from another
-        scan = _Where(git_dir, None)
-        revs = [*dict.fromkeys(revs), "--not", f"--remotes={REMOTE}"]
-        proc = _git(scan, ["rev-list", "--count", *revs], deadline, env=env)
-        if proc.returncode != 0:
-            raise _Unscannable(f"git could not list the commits this push adds ({_tail(proc.stderr)})")
-        count = _out(proc)
-        if count == "0":
-            continue
-        version, binary = _binary()
-        _new_enough(scan, env, deadline)
-        tip = _main(scan, deadline, env)
-        with tempfile.TemporaryDirectory(prefix="secret-scan-") as tmp:
-            findings = _gitleaks(binary, git_dir, revs, (scan, tip) if tip else None, Path(tmp), env, deadline)
-        if findings:
-            plural = "s" if count != "1" else ""
-            if broad:
-                return _found(version, findings, f"the {count} commit{plural} not on GitHub that this push may send",
-                              True, tip is None,
-                              "The hook read this push as sending more than literal refspecs name (a source no ref "
-                              "names, a word holding `$`, backquotes in the call, words another command adds, "
-                              "settings that push matching or mirrored branches, a git command it does not know), "
-                              "so it scanned HEAD and every local branch and tag; push literal refspecs to scan only "
-                              "what they send")
-            return _found(version, findings, f"the {count} commit{plural} this push would add", True, tip is None)
+        reason = _scan_commits(git_dir, revs, broad, env, deadline)
+        if reason:
+            return reason
     return None
+
+
+def _scan_commits(git_dir: str, revs: list[str], broad: bool, env: dict, deadline: float) -> str | None:
+    """The scan both hooks run on a push: gitleaks over the commits `revs` reach and no ref under refs/remotes/origin
+    holds, in the repository whose git directory is `git_dir`. A refusal naming what it finds, or None. `broad`: the
+    PreToolUse reading took the push for more than literal refspecs name, and the refusal says so."""
+    import tempfile
+
+    # The commits it adds, main's pins and the scan are read in the git directory gitleaks reads, as it does.
+    _its_own_repository(git_dir, env, deadline)  # before any read there, which could answer from another
+    scan = _Where(git_dir, None)
+    revs = [*dict.fromkeys(revs), "--not", f"--remotes={REMOTE}"]
+    proc = _git(scan, ["rev-list", "--count", *revs], deadline, env=env)
+    if proc.returncode != 0:
+        raise _Unscannable(f"git could not list the commits this push adds ({_tail(proc.stderr)})")
+    count = _out(proc)
+    if count == "0":
+        return None
+    version, binary = _binary()
+    _new_enough(scan, env, deadline)
+    tip = _main(scan, deadline, env)
+    with tempfile.TemporaryDirectory(prefix="secret-scan-") as tmp:
+        findings = _gitleaks(binary, git_dir, revs, (scan, tip) if tip else None, Path(tmp), env, deadline)
+    if not findings:
+        return None
+    plural = "s" if count != "1" else ""
+    if broad:
+        return _found(version, findings, f"the {count} commit{plural} not on GitHub that this push may send",
+                      True, tip is None,
+                      "The hook read this push as sending more than literal refspecs name (a source no ref "
+                      "names, a word holding `$`, backquotes in the call, words another command adds, "
+                      "settings that push matching or mirrored branches, a git command it does not know), "
+                      "so it scanned HEAD and every local branch and tag; push literal refspecs to scan only "
+                      "what they send")
+    return _found(version, findings, f"the {count} commit{plural} this push would add", True, tip is None)
+
+
+def pre_push(refs: str, deadline: float, cwd: str | None = None) -> str | None:
+    """Why git must not send a push, or None (`--pre-push`, which .claude/hooks/git/pre-push runs as git's pre-push
+    hook). git hands the hook each ref the push sends on its standard input, `<local ref> <local object> <remote ref>
+    <remote object>` a line, once the commits exist, whoever runs the push. The scan reads the commits each local
+    object reaches (a tag's, peeled) that no ref under refs/remotes/origin holds, in the repository the push runs
+    from; a delete, whose local object is all zeros, sends nothing."""
+    sent: list[str] = []
+    for line in refs.splitlines():
+        if not line.strip():
+            continue
+        parts = PUSHED_REF.fullmatch(line)
+        if parts is None:
+            raise _Unscannable(f"git handed its pre-push hook a line the hook cannot read ({line[:100]!r}), so it "
+                               "cannot tell which commits the push sends")
+        if parts.group(2).strip("0"):
+            sent.append(parts.group(2))
+    if not sent:
+        return None
+    # git runs the hook at the top of the worktree the push runs from, and exports GIT_DIR where that worktree's
+    # git directory is elsewhere (a linked worktree's), so this read finds the repository the push reads.
+    where = _Where(cwd or os.getcwd(), None)
+    proc = _git(where, ["rev-parse", "--git-common-dir"], deadline)
+    if proc.returncode != 0:
+        raise _Unscannable(f"git cannot read the repository this push runs from ({where.dir}: {_tail(proc.stderr)}), "
+                           "so the hook cannot tell which commits it sends")
+    git_dir = os.path.realpath(os.path.join(where.dir, _out(proc)))
+    return _scan_commits(git_dir, sent, False, _scan_env(), deadline)
+
+
+def _pre_push_main() -> int:
+    """git's pre-push hook: the reason on stderr and exit 1 to stop the push, else exit 0."""
+    deadline = time.monotonic() + DEADLINE
+    skip = ""
+    try:
+        reason = pre_push(sys.stdin.read(), deadline)
+    except _Unscannable as error:
+        reason, skip = str(error), SKIP_HOOK
+    except Exception as error:  # the push adds commits: an error the hook does not expect stops it
+        reason, skip = f"the scan hit an error the hook does not expect ({type(error).__name__}: {error})", SKIP_HOOK
+    if reason is None:
+        return 0
+    print(f"Refused by .claude/hooks/secret_scan_guard.py, git's pre-push hook: {reason} ({LESSON}).{skip}",
+          file=sys.stderr)
+    return 1
+
+
+def session_start() -> int:
+    """Run as a session starts (`--session-start`, which .claude/settings.json registers): in a cloud session's clone
+    (CLAUDE_CODE_REMOTE=true), set core.hooksPath to HOOKS_PATH, so git runs the pre-push hook on every push. A hooks
+    path already configured, at any level, or a hook of the clone's own in the directory git runs hooks from stays as
+    it is, and the session is told the pre-push scan is off. Nothing changes in any other session, and the session's
+    start never fails here."""
+    if os.environ.get("CLAUDE_CODE_REMOTE") != "true":
+        return 0
+    project = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", "-C", project, *args], capture_output=True, text=True, timeout=10)
+
+    off = f"the secret-scan pre-push hook is off in this clone: {{}}. `git config core.hooksPath {HOOKS_PATH}` turns it on"
+    try:
+        if git("rev-parse", "--git-dir").returncode != 0:  # no repository here: nothing to set
+            return 0
+        configured = git("config", "--get", "core.hooksPath").stdout.strip()
+        if configured:
+            if configured != HOOKS_PATH:
+                print(off.format(f"core.hooksPath is {configured}, which this leaves as it is"))
+            return 0
+        hooks = Path(project, git("rev-parse", "--git-path", "hooks").stdout.strip())
+        own = sorted(path.name for path in hooks.iterdir()
+                     if path.is_file() and not path.name.endswith(".sample") and os.access(path, os.X_OK)
+                     ) if hooks.is_dir() else []
+        if own:
+            print(off.format(f"it has hooks of its own in {hooks} ({', '.join(own)}), which a hooks path would stop"))
+            return 0
+        if git("config", "--local", "core.hooksPath", HOOKS_PATH).returncode != 0:
+            print(off.format("git could not set core.hooksPath"))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return 0
 
 
 def _before(write: _Step, w: int, push: _Step, p: int) -> bool:
@@ -2997,6 +3113,10 @@ def install() -> int:
 def main() -> int:
     if sys.argv[1:] == ["--install"]:
         return install()
+    if sys.argv[1:2] == ["--pre-push"]:  # git passes the remote's name and location after it, which the scan needs not
+        return _pre_push_main()
+    if sys.argv[1:] == ["--session-start"]:
+        return session_start()
     deadline = time.monotonic() + DEADLINE
     try:
         reason = refusal(json.load(sys.stdin.buffer), deadline)

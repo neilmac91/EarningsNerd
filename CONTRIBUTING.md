@@ -87,6 +87,13 @@ them); its header lists every case. Install the
 binary once per machine and pin, a new cloud container included, with
 `python3 .claude/hooks/secret_scan_guard.py --install`.
 
+The same scan runs as git's pre-push hook, `.claude/hooks/git/pre-push`, before any push leaves a
+clone, yours and a script's included. Turn it on once per clone with
+`git config core.hooksPath .claude/hooks/git`; a cloud session's start does it for its clone, unless
+a hooks path or hooks of the clone's own are already set, which it leaves as they are. It stops a
+push on a finding and whenever it cannot scan (it needs the binary above and `python3`), naming why;
+`git push --no-verify` skips it, and CI's `secret-scan` still reads every branch after the push.
+
 ## Workflow
 
 1. Branch off `main`.

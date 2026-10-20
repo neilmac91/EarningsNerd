@@ -33,6 +33,17 @@ that build a scratch project skip on a git that this file reads as older than 2.
 on CI they run, so a git too old there fails the suite. With the pinned binary installed (`--install`), the cases
 that turn on how gitleaks reads its files and git's output run against it as well; CI installs none and skips them.
 
+git's pre-push hook, .claude/hooks/git/pre-push, runs this file with --pre-push in a clone whose core.hooksPath names
+its directory (E134), a path .claude/settings.json's SessionStart command sets in a cloud session's clone. Its cases
+push for real, outside any Claude Code hook, with origin's pushes sent to a bare repository beside the project, so
+git itself runs the hook on the refs it sends: the pushes the PreToolUse reading cannot see (a script's, a program's,
+a git a variable names) and the forms a push takes (a branch, HEAD under another name, every branch, a mirror, a tag,
+a force push), each stopped before git sends any ref; a clean push, scanned and sent; a delete and a commit GitHub
+holds, sent unscanned; a push from a linked worktree; a missing binary; and a line git hands the hook that it cannot
+read. `--no-verify`, which skips git's hooks, and a hook git cannot execute are planted as pushes that go through, so
+the hook's tracked mode is held. The session's start sets the path in a cloud session only, and keeps a hooks path
+set at any level and a clone's own hooks.
+
 Planted below: the forms a push takes; the pushes the hook must read precisely, which name the clean branch from the
 planted one, so a push read whole would be refused; the commands that may and may not come before a push or run
 beside it, redirections among them; the moves of the shell's directory and the variables it follows, the ones bash
@@ -76,6 +87,9 @@ CI = ROOT / ".github" / "workflows" / "ci.yml"
 COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_guard.py" || exit 1'
 MATCHER = "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$"
 LESSON = "lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md"
+PRE_PUSH = ROOT / ".claude" / "hooks" / "git" / "pre-push"
+SESSION_COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_guard.py" --session-start || exit 1'
+STOPPED = "Refused by .claude/hooks/secret_scan_guard.py, git's pre-push hook: "
 
 
 def _load():
@@ -303,6 +317,32 @@ class Project:
             return []
         return [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines()]
 
+    def remote(self) -> Path:
+        """Send origin's pushes to a bare repository beside the project, which stands for GitHub receiving them."""
+        remote = self.root.parent / "remote.git"
+        self.git("init", "-q", "--bare", str(remote))
+        self.git("remote", "set-url", "--push", "origin", str(remote))
+        return remote
+
+    def enable(self) -> Path:
+        """Turn git's pre-push hook on, as a cloud session's start does, with origin's pushes sent to `remote`."""
+        remote = self.remote()
+        self.git("config", "core.hooksPath", SCAN.HOOKS_PATH)
+        return remote
+
+    def push(self, command: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+        """Run a command that pushes as a person or a script does, outside any Claude Code hook: git runs its own."""
+        env = {**_plain_env(), "XDG_CACHE_HOME": str(self.cache), "STUB_LOG": str(self.log)}
+        return subprocess.run(["sh", "-c", command], cwd=cwd or self.root, capture_output=True, text=True, env=env,
+                              timeout=120)
+
+    def received(self, rev: str) -> bool:
+        """Whether the bare repository the pushes reach holds the object `rev` names."""
+        remote = self.root.parent / "remote.git"
+        proc = subprocess.run(["git", "--git-dir", str(remote), "cat-file", "-e", rev], capture_output=True,
+                              env=_plain_env())
+        return proc.returncode == 0
+
 
 def _event(tool: str, tool_input: object, cwd: Path) -> dict:
     return {"session_id": "s", "transcript_path": "/dev/null", "cwd": str(cwd), "permission_mode": "default",
@@ -314,7 +354,9 @@ def _make(tmp_path: Path, binary: str = "stub", objects: str = "sha1") -> Projec
     if OLD_GIT and not os.environ.get("CI"):  # never on CI, where a git too old fails the suite
         pytest.skip(f"the hook's scans need git 2.43 or later, and this machine's git reports {GIT!r}")
     root = tmp_path / "project"
-    for source, folder in ((HOOK, ".claude/hooks"), (GUARD, ".claude/hooks"), (CI, ".github/workflows")):
+    # shutil.copy keeps the pre-push hook's mode, and git runs only a hook it can execute
+    for source, folder in ((HOOK, ".claude/hooks"), (GUARD, ".claude/hooks"), (PRE_PUSH, ".claude/hooks/git"),
+                           (CI, ".github/workflows")):
         (root / folder).mkdir(parents=True, exist_ok=True)
         shutil.copy(source, root / folder)
     project = Project(root, tmp_path / "cache", tmp_path / "stub.log")
@@ -1615,7 +1657,8 @@ API_FILES = {
         "cd sub && curl -sS https://api.github.com/graphql --data-binary @body.json", True),
     "a query in the file -F names": ({"q.graphql": "{ viewer { login } }"}, "gh api graphql -F query=@q.graphql", False),
 }
-# The stated gaps, which pass through with the planted line on `work`.
+# The stated gaps, which pass through with the planted line on `work`. They are the PreToolUse reading's: git's
+# pre-push hook stops each push among them as git sends it, in a clone that turns it on (PRE_PUSHES, below).
 GAPS = {
     "a push a script runs": "./push.sh",
     "a push under a shell alias or function": "g push",
@@ -3097,6 +3140,239 @@ def test_the_real_binary_s_failed_scan_is_refused_with_the_error_it_logged(tmp_p
     project = _make(tmp_path, binary="real")
     _graft(project)
     _failed_for_the_graft(project.bash("git push origin work"))
+
+
+# --- git's pre-push hook -------------------------------------------------------------------------------------
+# .claude/hooks/git/pre-push runs this file with --pre-push once a clone's core.hooksPath names its directory. Each
+# case pushes for real, outside any Claude Code hook, with origin's pushes sent to a bare repository beside the
+# project, so git itself runs the hook on the refs the push sends, whoever runs it.
+
+def _stopped(proc: subprocess.CompletedProcess[str], project: Project, *also: str) -> None:
+    """git sent nothing: the hook stopped the push on the planted line, and the remote holds no commit of it."""
+    assert proc.returncode != 0, "git sent the push"
+    # git adds its own line after the hook's (`error: failed to push some refs ...`)
+    reason = proc.stderr[proc.stderr.find(STOPPED):]
+    assert STOPPED in proc.stderr and f"({LESSON})." in reason, proc.stderr
+    assert "b.py:1 (generic-api-key)" in reason and _value(1) not in proc.stderr, proc.stderr
+    assert "--no-verify" not in proc.stderr  # a finding's refusal names no way around the scan
+    for rev in (project.leak, *also):
+        assert not project.received(rev), f"the remote received {rev}"
+
+
+# Pushes that send the planted commit, each stopped as git sends it: (command, files it names, git steps first).
+# The PreToolUse hook lets the first three through, as stated gaps; git runs this hook whoever runs the push.
+PRE_PUSHES = {
+    "a push a script runs": ("sh push.sh", {"push.sh": "git push origin work\n"}, []),
+    "a push a program runs": (
+        """python3 -c 'import subprocess, sys; sys.exit(subprocess.run(["git", "push", "origin", "work"]).returncode)'""",
+        {}, []),
+    "a git a variable names": ("GIT=git; $GIT push origin work", {}, []),
+    "a push of the branch": ("git push origin work", {}, []),
+    "HEAD under a new name": ("git push origin HEAD:refs/heads/renamed", {}, [["checkout", "-q", "work"]]),
+    "every branch": ("git push --all origin", {}, []),
+    "a mirror": ("git push --mirror origin", {}, []),
+    "an annotated tag of the commit": ("git push origin planted", {}, [["tag", "-a", "planted", "-m", "t", "work"]]),
+    "a lightweight tag of the commit": ("git push origin light", {}, [["tag", "light", "work"]]),
+    "a force push over a branch GitHub holds": ("git push origin clean && git push -f origin work:clean", {}, []),
+}
+
+
+@pytest.mark.parametrize(("command", "files", "steps"), PRE_PUSHES.values(), ids=PRE_PUSHES.keys())
+def test_git_s_pre_push_hook_stops_each_push_of_the_planted_commit(project: Project, command: str,
+                                                                   files: dict[str, str], steps: list) -> None:
+    project.enable()
+    project.write(files)
+    _setup(project, steps)
+    _stopped(project.push(command), project)
+
+
+def test_a_push_the_hook_stops_sends_none_of_its_refs(project: Project) -> None:
+    project.enable()
+    _stopped(project.push("git push origin clean work"), project, project.git("rev-parse", "clean"))
+
+
+def test_git_s_pre_push_hook_scans_a_clean_push_and_lets_it_through(project: Project) -> None:
+    project.enable()
+    proc = project.push("git push origin clean")
+    assert proc.returncode == 0, proc.stderr
+    assert project.received(project.git("rev-parse", "clean"))
+    assert len(project.scans()) == 1  # it ran the scan, over the one commit GitHub does not hold
+
+
+def test_git_s_pre_push_hook_reads_a_push_from_a_linked_worktree(project: Project) -> None:
+    # git runs the hook at the linked worktree's top, its relative hooks path read there, with GIT_DIR exported.
+    project.enable()
+    linked = project.root.parent / "linked"
+    project.git("worktree", "add", "-q", "-b", "linked", str(linked), "work")
+    _stopped(project.push("git push origin linked", cwd=linked), project)
+
+
+def test_a_delete_and_a_commit_github_holds_are_not_scanned(project: Project) -> None:
+    project.enable()
+    assert project.push("git push --no-verify origin work").returncode == 0  # the remote holds the planted commit
+    proc = project.push("git push origin :work")  # a delete sends nothing
+    assert proc.returncode == 0, proc.stderr
+    project.publish("work")  # GitHub holds `work`, as last fetched
+    proc = project.push("git push origin work")
+    assert proc.returncode == 0, proc.stderr
+    assert project.scans() == []
+
+
+def test_no_verify_skips_git_s_hooks_a_stated_gap(project: Project) -> None:
+    project.enable()
+    proc = project.push("git push --no-verify origin work")
+    assert proc.returncode == 0 and project.received(project.leak), proc.stderr
+
+
+def test_git_skips_a_pre_push_hook_it_cannot_execute(project: Project) -> None:
+    # Why the tracked hook's mode is held below: git runs no hook it cannot execute, and sends the push.
+    project.enable()
+    (project.root / SCAN.HOOKS_PATH / "pre-push").chmod(0o644)
+    proc = project.push("git push origin work")
+    assert proc.returncode == 0 and project.received(project.leak), proc.stderr
+    assert project.scans() == []
+
+
+def test_the_pre_push_hook_is_tracked_executable_and_runs_the_scan() -> None:
+    listed = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-s", "--", ".claude/hooks/git/pre-push"],
+                            capture_output=True, text=True, env=_plain_env(), check=True).stdout
+    assert listed.startswith("100755 "), listed or "the hook is not tracked"
+    assert os.access(PRE_PUSH, os.X_OK)
+    text = PRE_PUSH.read_text(encoding="utf-8")
+    assert text.startswith("#!/bin/sh\n")
+    assert text.rstrip().endswith('exec python3 -I -S "$(dirname "$0")/../secret_scan_guard.py" --pre-push "$@"')
+    assert PRE_PUSH.parent == ROOT / SCAN.HOOKS_PATH
+
+
+def test_the_pre_push_hook_fails_closed_without_the_binary(project: Project) -> None:
+    project.enable()
+    project.binary().unlink()
+    for branch in ("work", "clean"):
+        proc = project.push(f"git push origin {branch}")
+        assert proc.returncode != 0 and STOPPED in proc.stderr, proc.stderr
+        assert "is not installed" in proc.stderr and "--install" in proc.stderr, proc.stderr
+        assert "`git push --no-verify` skips git's hooks" in proc.stderr, proc.stderr
+    assert not project.received(project.leak)
+    proc = project.push("git push origin main")  # it adds no commit GitHub lacks, so there is nothing to scan
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_the_pre_push_hook_reads_git_s_lines_and_refuses_one_it_cannot(project: Project,
+                                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    _in_process(project, monkeypatch)
+    deadline, here, zero = time.monotonic() + 30, str(project.root), "0" * 40
+    assert SCAN.pre_push("", deadline, here) is None
+    assert SCAN.pre_push(f"(delete) {zero} refs/heads/work {project.leak}\n", deadline, here) is None
+    _found(SCAN.pre_push(f"refs/heads/work {project.leak} refs/heads/work {zero}\n", deadline, here))
+    for line in ("refs/heads/work", f"refs/heads/work {project.leak} refs/heads/work",
+                 f"refs/heads/work {project.leak[:12]} refs/heads/work {zero}",
+                 f"refs/heads/work  {project.leak} refs/heads/work {zero}"):
+        with pytest.raises(SCAN._Unscannable, match="a line the hook cannot read"):
+            SCAN.pre_push(line + "\n", deadline, here)
+
+
+def test_an_error_the_pre_push_hook_does_not_expect_stops_the_push(project: Project, monkeypatch: pytest.MonkeyPatch,
+                                                                   capsys: pytest.CaptureFixture[str]) -> None:
+    _in_process(project, monkeypatch)
+
+    def broken(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("planted")
+
+    monkeypatch.setattr(SCAN, "pre_push", broken)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(f"refs/heads/work {project.leak} refs/heads/work {'0' * 40}\n"))
+    assert SCAN._pre_push_main() == 1
+    err = capsys.readouterr().err
+    assert err.startswith(STOPPED) and "an error the hook does not expect (RuntimeError: planted)" in err, err
+    assert "`git push --no-verify` skips git's hooks" in err
+
+
+def test_the_real_binary_stops_a_pre_push_of_the_planted_commit(tmp_path: Path) -> None:
+    project = _make(tmp_path, binary="real")
+    project.enable()
+    _stopped(project.push("git push origin work"), project)
+
+
+# --- a session's start ---------------------------------------------------------------------------------------
+
+def _session_registered() -> list[dict]:
+    """The SessionStart entries of .claude/settings.json that run this file."""
+    settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    return [entry for entry in settings["hooks"].get("SessionStart", [])
+            if any("secret_scan_guard.py" in hook.get("command", "") for hook in entry["hooks"])]
+
+
+def _session_start(project: Project, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    """Run the command .claude/settings.json registers for a session's start, as Claude Code does."""
+    [hook] = [hook for entry in _session_registered() for hook in entry["hooks"]]
+    # A cloud session running this suite has CLAUDE_CODE_REMOTE set; a case gives it only where it means one.
+    plain = {key: value for key, value in _plain_env().items() if key != "CLAUDE_CODE_REMOTE"}
+    full = {**plain, "CLAUDE_PROJECT_DIR": str(project.root), **(env or {})}
+    event = json.dumps({"session_id": "s", "hook_event_name": "SessionStart", "source": "startup",
+                        "cwd": str(project.root)})
+    return subprocess.run(["sh", "-c", hook["command"]], input=event, capture_output=True, text=True, env=full,
+                          timeout=hook["timeout"])
+
+
+def _hooks_path(project: Project) -> str | None:
+    proc = subprocess.run(["git", "-C", str(project.root), "config", "--get", "core.hooksPath"], capture_output=True,
+                          text=True, env=_plain_env())
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+CLOUD = {"CLAUDE_CODE_REMOTE": "true"}
+
+
+def test_a_cloud_session_s_start_turns_the_pre_push_hook_on(project: Project) -> None:
+    project.remote()
+    proc = _session_start(project, CLOUD)
+    assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
+    assert _hooks_path(project) == SCAN.HOOKS_PATH
+    _stopped(project.push("git push origin work"), project)
+    again = _session_start(project, CLOUD)
+    assert (again.returncode, again.stdout) == (0, "") and _hooks_path(project) == SCAN.HOOKS_PATH
+
+
+def test_a_session_start_outside_the_cloud_changes_nothing(project: Project) -> None:
+    proc = _session_start(project)
+    assert (proc.returncode, proc.stdout) == (0, "") and _hooks_path(project) is None
+
+
+def test_a_session_start_keeps_a_hooks_path_set_at_any_level(project: Project, tmp_path: Path) -> None:
+    project.git("config", "core.hooksPath", ".husky")
+    proc = _session_start(project, CLOUD)
+    assert proc.returncode == 0 and _hooks_path(project) == ".husky"
+    assert "pre-push hook is off in this clone: core.hooksPath is .husky" in proc.stdout, proc.stdout
+    project.git("config", "--unset", "core.hooksPath")
+    machine = tmp_path / "machine.gitconfig"  # the machine's own settings: a hooks path every clone reads
+    machine.write_text("[core]\n\thooksPath = /etc/githooks\n", encoding="utf-8")
+    proc = _session_start(project, {**CLOUD, "GIT_CONFIG_GLOBAL": str(machine)})
+    assert proc.returncode == 0 and _hooks_path(project) is None
+    assert "core.hooksPath is /etc/githooks" in proc.stdout, proc.stdout
+
+
+def test_a_session_start_keeps_a_clone_s_own_hooks(project: Project) -> None:
+    own = project.root / ".git" / "hooks" / "pre-commit"
+    own.write_text("#!/bin/sh\n", encoding="utf-8")
+    own.chmod(0o755)
+    proc = _session_start(project, CLOUD)
+    assert proc.returncode == 0 and _hooks_path(project) is None
+    assert "it has hooks of its own" in proc.stdout and "(pre-commit)" in proc.stdout, proc.stdout
+    own.chmod(0o644)  # a file git would not run is no hook of its own
+    proc = _session_start(project, CLOUD)
+    assert (proc.returncode, proc.stdout) == (0, "") and _hooks_path(project) == SCAN.HOOKS_PATH
+
+
+def test_a_session_start_outside_a_repository_does_nothing(tmp_path: Path) -> None:
+    folder = tmp_path / "plain"
+    (folder / ".claude" / "hooks").mkdir(parents=True)
+    shutil.copy(HOOK, folder / ".claude" / "hooks")
+    project = Project(folder, tmp_path / "cache", tmp_path / "stub.log")
+    proc = _session_start(project, CLOUD)
+    assert (proc.returncode, proc.stdout) == (0, "")
+
+
+def test_session_start_is_registered() -> None:
+    assert _session_registered() == [{"hooks": [{"type": "command", "command": SESSION_COMMAND, "timeout": 10}]}]
 
 
 # --- the registration ----------------------------------------------------------------------------------------
