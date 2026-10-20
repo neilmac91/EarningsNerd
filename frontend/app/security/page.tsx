@@ -162,7 +162,8 @@ export default function SecurityPage() {
             <li>
               <strong>Framing:</strong> The site sends X-Frame-Options DENY and a Content-Security-Policy of
               frame-ancestors &apos;none&apos;, so other sites cannot show its pages in a frame. The API&apos;s
-              responses under /api carry a Content-Security-Policy of default-src &apos;none&apos;.
+              responses under /api carry a Content-Security-Policy of default-src &apos;none&apos;, except its
+              replies to a request that times out or fails with an unexpected error.
             </li>
             <li>
               <strong>Rate limits:</strong> The API caps how often logins, new accounts, password-reset and
@@ -188,8 +189,8 @@ export default function SecurityPage() {
             <li>The Privacy Policy says what we collect and why</li>
             <li>You can download your data and delete your account from your account settings</li>
             <li>
-              Registrations, logins, failed logins, logouts, data exports and account deletions are written to an
-              audit log, and so are administrators&apos; invites, feedback status changes and new free accounts
+              Registrations, logins, failed logins, data exports and account deletions are written to an audit log,
+              and so are administrators&apos; invites, feedback status changes and new free accounts
             </li>
           </ul>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
