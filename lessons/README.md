@@ -152,6 +152,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - test-judge-context-parity.md — Give an LLM judge the same (or a superset of the) grounding the generator used
 - test-layout-numbers-are-one-environments-run.md — Accept a layout measurement on its invariants, never on equal pixels; one pinned browser still measures differently on another machine
 - test-leave-the-tree-alone-during-a-background-suite.md — Leave the working tree untouched while a background full-suite run reads it
+- test-never-point-a-written-file-at-dev-null.md — Never give a tool /dev/null as a file it writes (git's global config or index, an atomic writer, a linker's output); as root a rename or unlink over it destroys the null device, and `ld` only finishes off one already broken (partly gated by `_null_device_survives` in `backend/tests/conftest.py`, which fails the test during which a root session loses the device; the pattern itself is review-checked)
 - test-parser-callback-positions.md — Match whole-input callbacks to exact raw-source positions before accepting event capacity
 - test-persistent-sqlite-db-goes-stale.md — The dev SQLite DB (backend/earningsnerd.db) is persistent — rm it after a schema change; the test suite never uses it
 - test-pin-a-row-lock-with-a-statement-spy.md — Pin a row lock with a statement spy; a race test under SQLite cannot see FOR UPDATE

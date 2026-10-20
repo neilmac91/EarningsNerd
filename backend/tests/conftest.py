@@ -2,14 +2,16 @@
 Pytest configuration for EarningsNerd backend tests.
 
 Makes every pytest process hermetic and order-independent: a private temp database and EdgarTools
-directory per process (each xdist worker is one), pinned environment, the network gate, and autouse
-resets of process-wide state. Markers live in backend/pytest.ini; gates for all of this are in
-tests/unit/test_suite_isolation.py (lessons/ops-one-test-process-per-worktree.md).
+directory per process (each xdist worker is one), pinned environment, the network gate, autouse
+resets of process-wide state, and a check that no test destroys /dev/null. Markers live in
+backend/pytest.ini; gates for all of this are in tests/unit/test_suite_isolation.py
+(lessons/ops-one-test-process-per-worktree.md).
 """
 
 import atexit
 import os
 import shutil
+import stat
 import sys
 import tempfile
 from copy import deepcopy
@@ -320,6 +322,34 @@ def _clear_pinned_methods():
         for name, value in list(vars(target).items()):
             if getattr(value, "__self__", None) is target and getattr(value, "__func__", None) is getattr(type(target), name, None):
                 delattr(target, name)
+
+
+@pytest.fixture(autouse=True)
+def _null_device_survives():
+    """A test must leave ``/dev/null`` the null device.
+
+    A session that runs as root (cloud sessions do) lets a tool given /dev/null as a file it writes replace
+    it: a git config write through ``GIT_CONFIG_GLOBAL=/dev/null`` renames its lock file over it, and once
+    it is an ordinary file every failed ``ld -o /dev/null`` (``ctypes.util.find_library``'s last fallback,
+    which importing WeasyPrint reaches) unlinks it. Git and ``subprocess.DEVNULL`` then fail across the
+    container. The test during which it stopped being a character device fails here; under ``-n auto`` a
+    test in another worker may share the blame. A child run in ``tests/unit/test_suite_isolation.py``
+    replaces a stand-in to prove it (lessons/test-never-point-a-written-file-at-dev-null.md).
+    """
+    path = os.devnull
+    was_device = _is_character_device(path)
+    yield
+    if was_device and not _is_character_device(path):
+        pytest.fail(f"{path} stopped being the null device during this test (or one in another worker): a tool "
+                    "replaced or removed it. Restore it before trusting this run; see "
+                    "lessons/test-never-point-a-written-file-at-dev-null.md", pytrace=False)
+
+
+def _is_character_device(path):
+    try:
+        return stat.S_ISCHR(os.stat(path).st_mode)
+    except OSError:
+        return False
 
 
 # Stream tests that drive the real ``stream_filing_summary`` with a mocked 10-K (CIK 1234567890)

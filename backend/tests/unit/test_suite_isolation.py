@@ -19,7 +19,8 @@ twice; SQLite's default max(rowid)+1 re-issues a deleted test's id to the next t
 the first test left behind (SQLite here enforces no foreign keys) silently joins the new parent.
 
 Conftest's autouse resets are pinned by probe pairs: one test leaves the state dirty, the next asserts
-the clean default (the mock-leak guard instead by a child run that leaks a mock). Under ``-n auto`` and random order a pair can land on two workers or run reversed,
+the clean default (the mock-leak guard instead by a child run that leaks a mock, and the null-device check by a
+child run that replaces a stand-in for /dev/null). Under ``-n auto`` and random order a pair can land on two workers or run reversed,
 which proves nothing, so ``test_ordered_probes_hold_in_a_fresh_serial_process`` runs every probe in
 a fixed order in one fresh process.
 """
@@ -283,6 +284,44 @@ def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
     assert result.returncode == 1 and "2 passed" in summary and "1 error" in summary, result.stdout[-3000:]
     assert "mock left on a shared generation singleton after the test: " in result.stdout
     assert "get_filing_document" in result.stdout
+
+
+# The child watches a symlink to the null device in place of /dev/null, and the probe replaces only that
+# symlink, so the real /dev/null is never at stake, whether the run is root or not.
+_NULL_DEVICE_PROBE = (
+    "import os\n"
+    "from pathlib import Path\n\n"
+    "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
+    "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
+    "os.devnull = str(STAND_IN)  # the null device conftest's check watches in this process\n\n"
+    "def test_writes_into_the_null_device():\n"
+    "    with open(os.devnull, 'w', encoding='utf-8') as sink:\n"
+    "        sink.write('discarded')\n\n"
+    "def test_renames_a_lock_file_over_it_like_a_git_config_write():\n"
+    "    lock = STAND_IN.with_name(STAND_IN.name + '.lock')\n"
+    "    lock.write_text('[probe]\\n\\tkey = value\\n', encoding='utf-8')\n"
+    "    os.replace(lock, STAND_IN)\n"
+)
+
+
+def test_a_test_that_replaces_the_null_device_fails(tmp_path):
+    # As root, a git config write through GIT_CONFIG_GLOBAL=/dev/null renames its lock file over the device.
+    real = os.stat(os.devnull)
+    assert stat.S_ISCHR(real.st_mode), f"{os.devnull} is not the null device before this test: restore it first"
+    stand_in = tmp_path / "null"
+    stand_in.symlink_to(os.devnull)
+    probe = tmp_path / "test_null_device_probe.py"
+    probe.write_text(_NULL_DEVICE_PROBE, encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe),
+                           extra_env={"NULL_STAND_IN": str(stand_in)})
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1 and "2 passed" in summary and "1 error" in summary, result.stdout[-3000:]
+    [error] = [line for line in result.stdout.splitlines() if line.startswith("ERROR ")]
+    assert "::test_renames_a_lock_file_over_it_like_a_git_config_write" in error, error
+    assert f"{stand_in} stopped being the null device during this test" in result.stdout
+    assert not stand_in.is_symlink() and stand_in.read_text(encoding="utf-8").startswith("[probe]")
+    now = os.stat(os.devnull)
+    assert (now.st_ino, now.st_mode, now.st_rdev) == (real.st_ino, real.st_mode, real.st_rdev)
 
 
 _EDGAR_DIRS = ("EDGAR_LOCAL_DATA_DIR", "EDGAR_CACHE_DIR")
