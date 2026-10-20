@@ -56,7 +56,9 @@ in any case. It scans
 - a Bash line naming a repository's contents or git data endpoint (`repos/<owner>/<repo>/contents`, `git/blobs`,
   `git/trees`, `git/commits`) or GraphQL's createCommitOnBranch, through `gh api` or api.github.com, a read included:
   the line as written, the files its GitHub writes send (codex_mention_guard.py's detection), and, decoded, each
-  base64 `content` value in either and each such file that is base64 whole, with `gitleaks dir`.
+  base64 `content` value in either and each such file that is base64 whole, with `gitleaks dir`. A file it sends
+  that the hook cannot read as the line stands (one the line itself makes, one over the reader's 1 MiB, one that is
+  no regular file) refuses the call, since what the write sends would go unscanned.
 A finding, a scan that fails (its refusal names gitleaks' error lines first) and one that outlasts the hook's time each
 refuse the call. A refusal is a JSON deny on stdout naming the scan, where it found something (file, line and rule;
 for a commit, its fingerprint) and what to do next, never the secret (gitleaks runs with --redact and without
@@ -149,6 +151,8 @@ LATE_WRITE = "Send fewer files per call"
 COMMIT_REMEDY = "Commit in one call and push in the next, so the push's scan reads the new commits"
 SCAN_ERROR_REMEDY = "Fix what gitleaks names (a missing ref, an unreadable repository or file) and send the call again"
 STAGE_REMEDY = "Send each file under a path that names one regular file, and send the call again"
+UNREAD_REMEDY = ("Write the body in an earlier call, keep it to 1 MiB, and send it in a call of its own; for a larger "
+                 "file, commit it and push it with git, whose scan reads commits of any size")
 
 
 class Late(Exception):
@@ -526,7 +530,14 @@ def _api_refusal(command: str, script: str, cwd: object) -> str | None:
     words = " ".join(shell._tokens(script))
     if CONTENT_WRITE.search(words) is None or (GH_API.search(words) is None and "api.github.com" not in words.lower()):
         return None
-    texts = [command, *shell._files_sent(script, cwd)]
+    texts = [command]
+    for name in shell._names_sent(script):
+        text = shell._read_sent(name, cwd)
+        if text is None:  # a body the scan cannot read would go unscanned
+            return _reason(f"this command sends {name!r} as a body, and the hook cannot read it as the line stands "
+                           "(the line itself makes it, it is over 1 MiB, or it is no regular file), so what the "
+                           "write sends cannot be scanned.", UNREAD_REMEDY)
+        texts.append(text)
     files = [(name, text.encode("utf-8", "replace")) for name, text in
              [("command-line", command), *((f"sent-file-{n}", text) for n, text in enumerate(texts[1:], 1))]]
     decoded = []

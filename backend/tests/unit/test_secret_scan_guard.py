@@ -809,6 +809,24 @@ def test_a_clean_gh_api_contents_call_passes(scanner: Scanner, payloads: Path, c
     assert call["args"][0] == "dir" and call["files"]["files/command-line"] == command
 
 
+@pytest.mark.parametrize("command", [
+    "gh api repos/o/r/git/blobs --input big.json",
+    "gh api repos/o/r/git/blobs --input later.json",
+    "printf '{}' > made.json && gh api repos/o/r/git/blobs --input made.json",
+    "gh api -X PUT repos/o/r/contents/a.py -f message=m -F content=@folder",
+], ids=["over the reader's 1 MiB", "not there", "made by the same line", "no regular file"])
+def test_a_repository_write_whose_body_the_hook_cannot_read_is_refused(scanner: Scanner, payloads: Path,
+                                                                       command: str) -> None:
+    (payloads / "big.json").write_text(json.dumps({"content": _b64(LEAKY) + "=" * (1 << 20)}), encoding="utf-8")
+    (payloads / "folder").mkdir()
+    _refused(_bash(scanner, command, payloads), "the hook cannot read it as the line stands", "1 MiB")
+    assert scanner.calls() == []  # refused before any scan
+
+
+def test_a_call_that_writes_no_repository_content_may_name_a_missing_file(scanner: Scanner, payloads: Path) -> None:
+    assert _bash(scanner, "gh api repos/o/r/issues/1/comments -F body=@later.md", payloads) is None
+
+
 def test_content_a_command_builds_as_it_runs_is_a_stated_gap(scanner: Scanner, payloads: Path) -> None:
     command = 'gh api -X PUT repos/o/r/contents/a.py -f message=m -f content="$(base64 -w0 secret.txt)"'
     assert _bash(scanner, command, payloads) is None

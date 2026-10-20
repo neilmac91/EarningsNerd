@@ -158,6 +158,7 @@ REFUSED_FILE_COMMANDS = {
     "gh pr create --body-file": "gh pr create --title x --body-file body.md",
     "gh pr create --body-file=": "gh pr create --title x --body-file=body.md",
     "gh pr comment -F": "gh pr comment 1 -F body.md",
+    "gh pr create -F, a word api in its title": "gh pr create --title api -F body.md",  # only gh api's -F is a field
     "gh api --input": "gh api repos/o/r/issues/1/comments --input payload.json",
     "gh api -F body=@file": "gh api repos/o/r/issues/1/comments -F body=@body.md",
     "curl -d @file": "curl -X POST https://api.github.com/repos/o/r/issues/1/comments -d @payload.json",

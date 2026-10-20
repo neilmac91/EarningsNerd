@@ -49,8 +49,8 @@ here-document fed to a shell), the commit messages `gh pr create --fill` copies,
 registered under a name without "github", a session that loads no repository hooks, and a person's
 own write.
 Tests: backend/tests/unit/test_codex_mention_guard.py. Imported by .claude/hooks/secret_scan_guard.py, which reads a line
-with this reader (`_script`, `_command_tokens`, `_commands`, `_tokens`, `_files_sent`, UNQUOTE and WORD_START), so a
-change to them also runs backend/tests/unit/test_secret_scan_guard.py.
+with this reader (`_script`, `_command_tokens`, `_commands`, `_tokens`, `_names_sent`, `_read_sent`, UNQUOTE and
+WORD_START), so a change to them also runs backend/tests/unit/test_secret_scan_guard.py.
 """
 from __future__ import annotations
 
@@ -435,16 +435,24 @@ def _commands(tokens: list[str]) -> list[tuple[str | None, list[str]]]:
     return commands
 
 
+def _gh_api(words: list[str]) -> bool:
+    """Whether this command runs `gh api`: gh as a word or a path to it, then `api` (gh takes no -R before it)."""
+    return any((word == "gh" or word.endswith("/gh")) and words[index + 1:index + 2] == ["api"]
+               for index, word in enumerate(words))
+
+
 def _files_named(words: list[str], gh: bool) -> tuple[list[str], bool]:
     """The files a GitHub-writing command sends as a body, and whether it reads one from stdin."""
     options, attached = (GH_FILE_OPTIONS, "-F") if gh else (OTHER_FILE_OPTIONS, "-T")
+    if gh and _gh_api(words):  # gh api's -F is a field, which reads a file only as key=@file (read below)
+        options, attached = ("--input",), None
     names, redirects, stdin = [], [], not gh and any(word.rsplit("/", 1)[-1] in HTTPIE for word in words)
     for index, word in enumerate(words):
         values = []
         if word in options and index + 1 < len(words):
             values.append(words[index + 1])
         values += [word[len(option) + 1:] for option in options if word.startswith(option + "=")]
-        if word.startswith(attached) and len(word) > 2 and word[2] != "=":
+        if attached and word.startswith(attached) and len(word) > 2 and word[2] != "=":
             values.append(word[2:])  # an attached -Fbody.md or -Tpayload.json; -Fkey=@file is read below
         at_file = AT_FILE.match(word)
         if at_file:
@@ -461,8 +469,31 @@ def _files_named(words: list[str], gh: bool) -> tuple[list[str], bool]:
 
 def _files_sent(script: str, cwd: object):
     """The text of each regular file, up to 1 MiB, that a GitHub write in this script sends as a body."""
+    for name in _names_sent(script):
+        text = _read_sent(name, cwd)
+        if text is not None:
+            yield text
+
+
+def _read_sent(name: str, cwd: object) -> str | None:
+    """The text of the file `name` names, from the event's working directory as it stands before the command
+    runs, or None when it is no regular file up to 1 MiB, lies under /proc, /sys or /dev, or cannot be read."""
     from pathlib import Path
 
+    base = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
+    try:
+        path = (base / Path(name).expanduser()).resolve()
+        if str(path).startswith(("/proc/", "/sys/", "/dev/")):  # a kernel file can block a read
+            return None
+        if path.is_file() and path.stat().st_size <= MAX_FILE_BYTES:
+            return path.read_text(encoding="utf-8", errors="replace")
+    except (OSError, RuntimeError, ValueError):  # a ~user that does not exist; a NUL in the name
+        pass
+    return None
+
+
+def _names_sent(script: str) -> list[str]:
+    """The files a GitHub write in this script sends as a body, each once, as the script names them."""
     commands = _commands(_command_tokens(script))
     names = []
     for index, (operator, words) in enumerate(commands):
@@ -478,16 +509,7 @@ def _files_sent(script: str, cwd: object):
         names += files
         if stdin and operator in ("|", "|&") and commands[index - 1][1][:1] == ["cat"]:
             names += [word for word in commands[index - 1][1][1:] if not word.startswith("-")]
-    base = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
-    for name in dict.fromkeys(names):  # each file once
-        try:
-            path = (base / Path(name).expanduser()).resolve()
-            if str(path).startswith(("/proc/", "/sys/", "/dev/")):  # a kernel file can block a read
-                continue
-            if path.is_file() and path.stat().st_size <= MAX_FILE_BYTES:
-                yield path.read_text(encoding="utf-8", errors="replace")
-        except (OSError, RuntimeError, ValueError):  # a ~user that does not exist; a NUL in the name
-            continue
+    return list(dict.fromkeys(names))
 
 
 def _is_review_request_command(command: str) -> bool:

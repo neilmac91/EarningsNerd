@@ -52,9 +52,11 @@ main and been fetched (a commit's, or a global `path:rule:line` one), and a pin 
 past it. It refuses a line that makes commits and pushes them, since a hook runs before the line and
 cannot read a commit the line has yet to make: commit in one call, push in the next. Before the GitHub MCP
 `push_files` and `create_or_update_file` tools, and a `gh api` (or api.github.com) call naming a
-repository's contents or git data, it scans the files the call sends, a base64 `content` value decoded; it
-reads them under a staging directory, not at the repository paths pins name, so a reviewed false positive
-there takes the marker, or a commit pushed with git, whose scan reads main's pins. The binary is the one
+repository's contents or git data, it scans the files the call sends, a base64 `content` value decoded,
+and refuses the call when a file it sends cannot be read as the line stands (the line itself makes it,
+it is over 1 MiB, or it is no regular file); it reads them under a staging directory, not at the
+repository paths pins name, so a reviewed false positive there takes the marker, or a commit pushed
+with git, whose scan reads main's pins. The binary is the one
 `.claude/hooks/secret_scan_setup.py`, a SessionStart hook, extracts from the archive the job pins (version
 and SHA-256 read from `.github/workflows/ci.yml`) into
 `~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/`, with its own SHA-256 recorded beside it;
