@@ -36,7 +36,8 @@ const STORAGE_KEY = 'cookie_consent'
  * a logged-in reader's statistics are tied to an internal account id; a choice stored before it carries no version,
  * made while the dialog called them anonymous usage statistics. An allow made under an earlier clause reads as no
  * choice, so the bar asks again, once; a refusal stands, since nothing is collected on it. A clause that changes what
- * an allow covers moves this in the same commit (tests/unit/legalTruth.spec.tsx pins the two together).
+ * an allow covers moves this in the same commit. tests/unit/legalTruth.spec.tsx pins the two side by side, but whether
+ * a change to the clause calls for the bump is review-checked.
  */
 export const CONSENT_VERSION = 2
 

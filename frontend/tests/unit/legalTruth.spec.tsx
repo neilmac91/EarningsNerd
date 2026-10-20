@@ -59,16 +59,18 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    components, features, hooks or lib calls the analytics anonymous or anonymised, a word an inline element sets
  *    apart read in its element's run (literalsOf). The clause is pinned beside CONSENT_VERSION
  *    (components/CookieConsent.tsx), the clause a stored choice was made under: an allow made under an earlier one
- *    reads as no choice, so the bar asks again, and a change to what the clause covers moves the version in the same
- *    commit (CookieConsent.spec.tsx plants the stored choices).
+ *    reads as no choice, so the bar asks again (CookieConsent.spec.tsx plants the stored choices). The pin fails on any
+ *    change to the clause, but whether a change widens what an allow covers, and so moves the version, is
+ *    review-checked: updating the pinned clause alone passes, as an in-place ledger row does.
  * 4. A legal page's date moves with its text. LEGAL_TEXT lists, per page, the texts readers see, oldest first (main's
  *    published text before D-046 first), each with its date and the hash of the text the page rendered under it (the
  *    "Last updated" date itself read as {date}). The gate
  *    holds: the last row is the page as it renders now, under its LEGAL_DATES date, so a changed text or a moved date
  *    fails until the last row says so; each row's hash differs from the row before it, so a row appended for a date
  *    moved with no text change fails, and a later return to an earlier text is recorded by appending; dates never
- *    fall, and a row on the day of the row before it names the pull request that shares the day (sameDay), since the
- *    page shows a day and two pull requests can each change it on one day, while a later change moves the date: a row
+ *    fall, and a row on the day of the row before it names the pull request that shares the day (sameDay), which the
+ *    pin leaves out (pinnedRow), since the page shows a day and two pull requests can each change it on one day,
+ *    while a later change moves the date: a row
  *    written under an old date for a later change fails unless it names one, and whether the named pull request
  *    changed the page that day is review-checked; and LEGAL_DATES, the pages rendered here and the ledger list the
  *    same pages (checked at run time, since CI does not type-check the specs). Out of reach,
@@ -86,11 +88,13 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    the backend writes, read from each create_audit_log call and each audit_service helper another module calls.
  *    Administrator actions are named one by one, since six of them write a log line and no row
  *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
- * 7. While E127 is open (tasks/todo.md), /security promises nothing of refresh tokens and logging out that the code
- *    does not enforce under concurrent requests (E127_PROMISES): a refresh token that works once, a reused one revoking
- *    the account, or a session that ends within a time after logging out. Each family is read in one list item or
- *    paragraph (blockTexts), and E127's row names /security, so the writer who lands it can bring the wording back.
- *    Planted forms score the reach; out of reach, planted as a gap: a promise split across two items.
+ * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests
+ *    overlap (E127_PROMISES): a refresh token that works once, a reused one revoking the account, or a session that
+ *    ends within a time after logging out. The page is read on every run, whatever tasks/todo.md records: E127's race
+ *    is fixed (#1422), but E121 still records a login that straddles a password reset keeping a token the reset
+ *    cannot reach, and the stronger wording returns only in a pull request that carries the founder's go-ahead and
+ *    changes this check. Each family is read in one list item or paragraph (blockTexts). Planted forms score the
+ *    reach; out of reach, planted as a gap: a promise split across two items.
  * 8. /security's numbers repeat the backend's defaults (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), and HSTS's year (main.py's max-age), so a change to
@@ -210,10 +214,12 @@ const claimsInTree = (where: string, container: HTMLElement) => [
 const inASentence = (re: RegExp) => (block: string) => sentencesOf(block).some((sentence) => re.test(sentence))
 
 /**
- * What /security does not promise while E127 is open (tasks/todo.md): rotate_refresh_token reads its row with no lock
- * and writes after it, so two renewals with one refresh token can both succeed, and a renewal racing a logout or a
- * logout of all devices can leave a live refresh token behind. Each family is read in one block (a list item or a
- * paragraph), so a promise split across the sentences of one item is read whole.
+ * What /security does not promise of refresh tokens and logging out, on every run. E127's race (two renewals with one
+ * refresh token both succeeding, a renewal racing a logout leaving a live token) is fixed by #1422, but E121 still
+ * records a login that straddles a password reset and mints a token the reset cannot reach, so "changing or resetting
+ * your password ... ends every session" stays untrue. The stronger wording returns only in a pull request that carries
+ * the founder's go-ahead and changes this check. Each family is read in one block (a list item or a paragraph), so a
+ * promise split across the sentences of one item is read whole.
  */
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   ['a refresh token that works once', inASentence(/\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?once\b|\bonly once\b/i)],
@@ -540,6 +546,13 @@ function ledgerFaults(rows: LedgerRow[]): string[] {
   return faults
 }
 
+/** What the page as it renders is pinned to: its ledger's last row, its date and hash. A same-day row's sameDay names
+    the other change that day for the forward rule, and is not part of the pin. */
+const pinnedRow = (rows: LedgerRow[]) => {
+  const { date, sha256 } = rows[rows.length - 1]
+  return { date, sha256 }
+}
+
 /** /security's numbers, each beside the backend default it repeats (the deploy overrides none of them), so a change to
     either fails until the two agree. A number the page writes as a word reads through NUMBER_WORDS. */
 const NUMBERS: Array<{ says: RegExp; file: string; value: RegExp; per: number }> = [
@@ -670,16 +683,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(sentence, 'the PostHog line scopes the consent to the browser').toBeDefined()
   })
 
-  it('promises nothing of refresh tokens or logging out that the code does not enforce while E127 is open (a self-check on planted forms)', () => {
-    const e127 = readFileSync(path.join(REPO, 'tasks/todo.md'), 'utf8').match(/^- \[ \] E127 — .*$/m)?.[0]
-    if (e127) {
-      expect(e127, "E127's row tells the writer who lands it that /security's wording can return").toMatch(/\/security\b/)
-      const { container, unmount } = render(<SecurityPage />)
-      const blocks = blockTexts(container)
-      unmount()
-      expect(blocks.some((block) => block.startsWith('Logging out:'))).toBe(true)
-      expect(blocks.flatMap((block) => e127PromisesIn('/security', block))).toEqual([])
-    }
+  it('promises nothing of refresh tokens or logging out that the code does not enforce, whatever the todo records (a self-check on planted forms)', () => {
+    const { container, unmount } = render(<SecurityPage />)
+    const blocks = blockTexts(container)
+    unmount()
+    expect(blocks.some((block) => block.startsWith('Logging out:'))).toBe(true)
+    expect(blocks.flatMap((block) => e127PromisesIn('/security', block))).toEqual([])
     const planted: Array<[string, boolean | 'gap']> = [
       // Round 3's two items.
       ["<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each refresh token works once and is stored only as a hash; one presented a second time revokes all of that account's refresh tokens.</li>", true],
@@ -958,8 +967,8 @@ describe('a legal page’s date moves with its text (D-046)', () => {
       const rows = LEGAL_TEXT[page]
       expect(
         { date, sha256: textHash(text, date) },
-        `the ${page} page's text or date changed: move LEGAL_DATES.${page} to the date of the change and append that date and this hash to LEGAL_TEXT.${page}, in the same commit`,
-      ).toEqual(rows[rows.length - 1])
+        `the ${page} page's text or date changed: move LEGAL_DATES.${page} to the date of the change and append that date and this hash to LEGAL_TEXT.${page}, in the same commit; a row on the day of the row before it names the pull request that shares the day in sameDay`,
+      ).toEqual(pinnedRow(rows))
     })
   }
 
@@ -980,6 +989,16 @@ describe('a legal page’s date moves with its text (D-046)', () => {
     ])
     expect(ledgerFaults([{ date: 'June 16, 2026', sha256: A }, { date: 'November 2, 2026', sha256: A }])).toEqual(['row 2 repeats the text of the row before it'])
     expect(ledgerFaults([{ date: 'October 19, 2026', sha256: A }, { date: 'October 19, 2026', sha256: A, sameDay: '#1399' }])).toEqual(['row 2 repeats the text of the row before it'])
+    // A same-day last row through the pin, as the page renders it: one that names the pull request sharing the day
+    // passes both the pin and the forward rule; one that names none passes the pin and fails the forward rule.
+    const C = 'cccccccccccccccc'
+    const today = { date: 'October 20, 2026', sha256: C }
+    const named: LedgerRow[] = [{ date: 'October 19, 2026', sha256: A }, { date: 'October 20, 2026', sha256: B }, { date: 'October 20, 2026', sha256: C, sameDay: '#1399 changed the page that day too' }]
+    expect(today).toEqual(pinnedRow(named))
+    expect(ledgerFaults(named)).toEqual([])
+    const unnamed: LedgerRow[] = [{ date: 'October 19, 2026', sha256: A }, { date: 'October 20, 2026', sha256: B }, { date: 'October 20, 2026', sha256: C }]
+    expect(today).toEqual(pinnedRow(unnamed))
+    expect(ledgerFaults(unnamed)).toEqual(['row 3 shares the day of the row before it and names no pull request that changed the page that day (sameDay)'])
     expect(ledgerFaults([{ date: 'November 2, 2026', sha256: A }, { date: 'June 16, 2026', sha256: B }])).toEqual(['row 2 is dated before the row above it'])
     expect(ledgerFaults([{ date: 'Someday', sha256: A }])).toEqual(['row 1 has no readable date'])
   })
