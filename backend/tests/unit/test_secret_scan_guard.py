@@ -814,7 +814,10 @@ def test_a_clean_gh_api_contents_call_passes(scanner: Scanner, payloads: Path, c
     "gh api repos/o/r/git/blobs --input later.json",
     "printf '{}' > made.json && gh api repos/o/r/git/blobs --input made.json",
     "gh api -X PUT repos/o/r/contents/a.py -f message=m -F content=@folder",
-], ids=["over the reader's 1 MiB", "not there", "made by the same line", "no regular file"])
+    "gh api -X PUT repos/o/r/contents/a.py -f message=m --field=content=@later.b64",
+    "gh api -X PUT repos/o/r/contents/a.py -f message=m -Fcontent=@later.b64",
+], ids=["over the reader's 1 MiB", "not there", "made by the same line", "no regular file", "a --field= value",
+        "an attached -F value"])
 def test_a_repository_write_whose_body_the_hook_cannot_read_is_refused(scanner: Scanner, payloads: Path,
                                                                        command: str) -> None:
     (payloads / "big.json").write_text(json.dumps({"content": _b64(LEAKY) + "=" * (1 << 20)}), encoding="utf-8")
@@ -825,6 +828,16 @@ def test_a_repository_write_whose_body_the_hook_cannot_read_is_refused(scanner: 
 
 def test_a_call_that_writes_no_repository_content_may_name_a_missing_file(scanner: Scanner, payloads: Path) -> None:
     assert _bash(scanner, "gh api repos/o/r/issues/1/comments -F body=@later.md", payloads) is None
+
+
+@pytest.mark.parametrize("command", [
+    "gh api repos/o/r/git/blobs -f content=@hello -f encoding=utf-8",
+    "gh api repos/o/r/git/blobs --raw-field content=@hello -f encoding=utf-8",
+], ids=["-f", "--raw-field"])
+def test_a_raw_field_that_starts_with_at_names_no_file(scanner: Scanner, payloads: Path, command: str) -> None:
+    assert _bash(scanner, command, payloads) is None  # gh sends the text `@hello` and reads no file
+    [call] = scanner.calls()
+    assert call["files"]["files/command-line"] == command
 
 
 def test_content_a_command_builds_as_it_runs_is_a_stated_gap(scanner: Scanner, payloads: Path) -> None:

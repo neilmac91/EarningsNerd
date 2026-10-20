@@ -444,7 +444,8 @@ def _gh_api(words: list[str]) -> bool:
 def _files_named(words: list[str], gh: bool) -> tuple[list[str], bool]:
     """The files a GitHub-writing command sends as a body, and whether it reads one from stdin."""
     options, attached = (GH_FILE_OPTIONS, "-F") if gh else (OTHER_FILE_OPTIONS, "-T")
-    if gh and _gh_api(words):  # gh api's -F is a field, which reads a file only as key=@file (read below)
+    api = gh and _gh_api(words)
+    if api:  # gh api's -F/--field reads a file only as key=@file (read below); -f/--raw-field never reads one
         options, attached = ("--input",), None
     names, redirects, stdin = [], [], not gh and any(word.rsplit("/", 1)[-1] in HTTPIE for word in words)
     for index, word in enumerate(words):
@@ -454,7 +455,11 @@ def _files_named(words: list[str], gh: bool) -> tuple[list[str], bool]:
         values += [word[len(option) + 1:] for option in options if word.startswith(option + "=")]
         if attached and word.startswith(attached) and len(word) > 2 and word[2] != "=":
             values.append(word[2:])  # an attached -Fbody.md or -Tpayload.json; -Fkey=@file is read below
-        at_file = AT_FILE.match(word)
+        field = word
+        if api:  # only a -F/--field value names a file there: the word after it, or attached to it
+            field = (word if words[index - 1:index] in (["-F"], ["--field"]) else word[2:] if word.startswith("-F")
+                     else word[len("--field="):] if word.startswith("--field=") else "")
+        at_file = AT_FILE.match(field)
         if at_file:
             values.append(at_file.group(1))
         for value in values:
