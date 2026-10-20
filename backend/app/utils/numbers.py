@@ -22,18 +22,48 @@ _DISPLAY_UNITS = {
     "k": 3, "thousand": 3, "m": 6, "mn": 6, "million": 6,
     "b": 9, "bn": 9, "billion": 9, "t": 12, "trillion": 12,
 }
-_CURRENCY = (
-    r"(?:US\$|NT\$|HK\$|S\$|A\$|C\$|R\$|"
-    r"USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|"
-    r"SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD|[$€£¥₹₩])"
-)
-_UNIT = r"(?:thousand|million|billion|trillion|mn|bn|[kmbt]|%|percent|bps|basis\s+points|x|×)"
+# Every code a money label can carry. ``money_prefix_for`` labels a figure with the filer's reporting
+# currency, which comes from its XBRL units, so any ISO 4217 currency can appear: List One as of
+# February 2026 (pycountry 26.2.16), without the fund codes and the X-codes that name no national
+# currency (precious metals, bond-market units, the SDR, units of account, XTS and XXX). A code ISO
+# has withdrawn (HRK, BGN), or none at all ("XYZ 5M"), stays unknown.
+ISO_4217_CURRENCIES = frozenset("""
+    AED AFN ALL AMD AOA ARS AUD AWG AZN BAM BBD BDT BHD BIF BMD BND BOB BRL BSD BTN BWP BYN BZD CAD CDF CHF
+    CLP CNY COP CRC CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF GTQ GYD HKD
+    HNL HTG HUF IDR ILS INR IQD IRR ISK JMD JOD JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL
+    LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MYR MZN NAD NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP
+    PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SOS SRD SSP STN SVC SYP SZL THB TJS TMT
+    TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VED VES VND VUV WST XAF XCD XCG XOF XPF YER ZAR ZMW ZWG
+""".split())
+# These read in any case, as they did before the full list. The rest read in capitals only, as
+# ``money_prefix_for`` writes them, so a word such as "all", "top" or "try" never reads as a currency.
+_ANY_CASE_CODES = "USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD"
+CURRENCY_CODE = rf"(?:{_ANY_CASE_CODES}|(?-i:{'|'.join(sorted(ISO_4217_CURRENCIES))}))"
+_CURRENCY = rf"(?:US\$|NT\$|HK\$|S\$|A\$|C\$|R\$|{CURRENCY_CODE}|[$€£¥₹₩])"
+_UNIT = r"(?:thousand|million|billion|trillion|mn|bn|[kmbt]|%|percent|bps|basis\s++points|x|×)"
+# Every whitespace run is possessive (``\s*+``): no token here begins with whitespace, so it accepts
+# exactly what a greedy run would, and a long run of spaces fails at once instead of backtracking
+# through every split of it ("-" and 400 spaces before "Q" took about 55 s to refuse).
 _DISPLAY_SCALAR = re.compile(
-    rf"(?P<sign1>[+−-])?\s*(?:{_CURRENCY})?\s*(?P<sign2>[+−-])?\s*"
-    rf"(?P<paren>\()?\s*(?P<number>(?:[0-9]{{1,3}}(?:,[0-9]{{3}})+|[0-9]+)(?:\.[0-9]+)?|\.[0-9]+)"
-    rf"\s*(?P<unit>{_UNIT})?\s*(?(paren)\))\s*(?P<outer_unit>{_UNIT})?",
+    rf"(?P<sign1>[+−-])?\s*+(?P<currency>{_CURRENCY})?\s*+(?P<sign2>[+−-])?\s*+"
+    rf"(?P<paren>\()?\s*+(?P<number>(?:[0-9]{{1,3}}(?:,[0-9]{{3}})+|[0-9]+)(?:\.[0-9]+)?|\.[0-9]+)"
+    rf"\s*+(?P<unit>{_UNIT})?\s*+(?(paren)\))\s*+(?P<outer_unit>{_UNIT})?",
     re.IGNORECASE,
 )
+# The ISO code each prefix names. A bare "¥" is JPY or CNY, so it names none.
+_PREFIX_CURRENCY = {
+    "US$": "USD", "NT$": "TWD", "HK$": "HKD", "S$": "SGD", "A$": "AUD", "C$": "CAD", "R$": "BRL",
+    "$": "USD", "€": "EUR", "£": "GBP", "¥": None, "₹": "INR", "₩": "KRW", "RMB": "CNY",
+}
+
+
+def _scalar_match(text: str) -> tuple[Optional[re.Match], bool]:
+    """The displayed scalar's match, and whether accounting parentheses wrap all of ``text``."""
+    text = text.strip()
+    outer_negative = text.startswith("(") and text.endswith(")")
+    if outer_negative:
+        text = text[1:-1].strip()
+    return _DISPLAY_SCALAR.fullmatch(text), outer_negative
 
 
 def parse_display_number(value: object) -> tuple[Optional[Decimal], bool]:
@@ -54,11 +84,7 @@ def parse_display_number(value: object) -> tuple[Optional[Decimal], bool]:
         return (number, False) if number.is_finite() else (None, False)
     if not isinstance(value, str):
         return None, False
-    text = value.strip()
-    outer_negative = text.startswith("(") and text.endswith(")")
-    if outer_negative:
-        text = text[1:-1].strip()
-    match = _DISPLAY_SCALAR.fullmatch(text)
+    match, outer_negative = _scalar_match(value)
     if not match:
         return None, False
     sign1, sign2 = match.group("sign1", "sign2")
@@ -75,6 +101,21 @@ def parse_display_number(value: object) -> tuple[Optional[Decimal], bool]:
     if outer_negative or parenthesized or (sign1 or sign2) in ("-", "−"):
         number = -number
     return number, unit in ("%", "percent")
+
+
+def display_currency(value: object) -> tuple[bool, Optional[str]]:
+    """Whether a displayed scalar names its currency, and the ISO code it names, read from the prefix
+    :func:`parse_display_number` itself reads. So a code glued to its figure ("AED941.2B") counts, and
+    "US$" is USD, never "S$"; a bare "¥" names no code. Text the parser's grammar does not match names
+    none. A match the parser then refuses ("-$-941.2B") still names its prefix's code, but no exact
+    change figure binds to it, since binding needs a figure that parses."""
+    if not isinstance(value, str):
+        return False, None
+    match, _ = _scalar_match(value)
+    token = match.group("currency") if match else None
+    if not token:
+        return False, None
+    return True, _PREFIX_CURRENCY.get(token.upper(), token.upper())
 
 
 def money_prefix_for(reporting_currency: object) -> str:

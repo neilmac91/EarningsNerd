@@ -22,7 +22,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
-from app.utils.numbers import parse_display_number
+from app.utils.numbers import display_currency, parse_display_number
 
 _MINUS = "−"  # U+2212 MINUS SIGN — byte-identical to the existing chip rendering
 
@@ -64,13 +64,6 @@ _NUMBER_TOKEN = re.compile(
     r"(?:(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.(?P<decimals>[0-9]+))?"
     r"|\.(?P<leading_decimals>[0-9]+))"
 )
-_CURRENCY_CODE = re.compile(
-    r"\b(USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD)\b",
-    re.IGNORECASE,
-)
-_SYMBOL_CURRENCY: dict[str, Optional[str]] = {
-    "$": "USD", "€": "EUR", "£": "GBP", "¥": None, "₹": "INR", "₩": "KRW",
-}
 _DISPLAY_SCALE = {
     "k": Decimal("1e3"), "thousand": Decimal("1e3"),
     "m": Decimal("1e6"), "mn": Decimal("1e6"), "million": Decimal("1e6"),
@@ -204,27 +197,6 @@ def _display_matches_exact(text: Any, exact: Decimal) -> bool:
     return abs(displayed - exact) <= resolution / 2 + epsilon
 
 
-def _display_currency(text: Any) -> tuple[bool, Optional[str]]:
-    """Return whether a currency token is present and its unambiguous ISO code, if any."""
-    if not isinstance(text, str):
-        return False, None
-    code = _CURRENCY_CODE.search(text)
-    if code:
-        value = code.group(1).upper()
-        return True, "CNY" if value == "RMB" else value
-    # Compound dollar symbols must be checked before the plain "$" fallback.
-    for prefix, currency in (("A$", "AUD"), ("C$", "CAD"), ("HK$", "HKD"),
-                             ("S$", "SGD"), ("NT$", "TWD"), ("R$", "BRL")):
-        if prefix in text:
-            return True, currency
-    for symbol, currency in _SYMBOL_CURRENCY.items():
-        if symbol in text:
-            # A bare yen/yuan symbol is not enough to distinguish JPY from CNY. Keep its explicit
-            # presence so exact binding rejects it rather than treating it as an unlabeled scalar.
-            return True, currency
-    return False, None
-
-
 def _matching_duration_scopes(current: dict, prior: dict) -> bool:
     """Reject an annual/quarterly/YTD context mix when both facts expose duration metadata."""
     current_start, prior_start = current.get("period_start"), prior.get("period_start")
@@ -287,7 +259,8 @@ def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[Me
     currency = current.get("currency") or prior.get("currency")
     if isinstance(currency, str):
         for text in (current_text, prior_text):
-            has_currency, displayed_currency = _display_currency(text)
+            # The parser's own prefix: a bare "¥" names no code, so exact binding refuses it.
+            has_currency, displayed_currency = display_currency(text)
             if has_currency and displayed_currency != currency.upper():
                 return None
     if not _display_matches_exact(current_text, current_value):

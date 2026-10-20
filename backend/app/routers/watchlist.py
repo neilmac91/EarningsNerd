@@ -2,13 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from pydantic import BaseModel, EmailStr, Field, field_validator
 import jwt
 from app.database import get_db
 from app.models import User, Filing, Summary
 from app.routers.auth import get_current_user
-from app.services.summary_generation_service import get_generation_progress_snapshot
+from app.services.summary_generation_service import progress_as_dict
 from app.services.summary_placeholders import is_summary_placeholder
 from app.config import settings
 from app.services import filing_list_service, watchlist_service
@@ -30,7 +30,7 @@ from app.services.waitlist_service import (
     find_signup_by_email,
     mark_email_verified,
     mark_welcome_email_sent,
-    rollback_after_welcome_failure,
+    SignupView,
 )
 from app.services.email_service import (
     send_referral_success_email,
@@ -62,23 +62,33 @@ async def add_to_watchlist(
     db: Session = Depends(get_db)
 ):
     """Add company to watchlist"""
+    user_id = current_user.id
+
+    def add() -> Dict[str, Any]:
+        # Each watchlist route's session work is one unit in the thread pool: the reads and writes,
+        # the payload and the release, so no checkout waits on the event loop
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            added = watchlist_service.add_company(db, user_id, ticker)
+            return {
+                "id": added.id,
+                "company_id": added.company_id,
+                "created_at": added.created_at.isoformat() if added.created_at else None,
+                "company": {
+                    "id": added.company_id,
+                    "ticker": added.company_ticker,
+                    "name": added.company_name,
+                }
+            }
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        watchlist_item, company = watchlist_service.add_company(db, current_user.id, ticker)
+        return await run_in_threadpool(add)
     except watchlist_service.WatchlistCompanyNotFound:
         raise HTTPException(status_code=404, detail="Company not found")
     except watchlist_service.AlreadyOnWatchlist:
         raise HTTPException(status_code=400, detail="Company already in watchlist")
-
-    return {
-        "id": watchlist_item.id,
-        "company_id": watchlist_item.company_id,
-        "created_at": watchlist_item.created_at.isoformat() if watchlist_item.created_at else None,
-        "company": {
-            "id": company.id,
-            "ticker": company.ticker,
-            "name": company.name,
-        }
-    }
 
 @router.get("/", response_model=List[WatchlistResponse])
 async def get_watchlist(
@@ -86,24 +96,29 @@ async def get_watchlist(
     db: Session = Depends(get_db)
 ):
     """Get user's watchlist"""
-    watchlist_items = watchlist_service.list_items(db, current_user.id)
+    user_id = current_user.id
 
-    result = []
-    for item in watchlist_items:
-        company = item.company
-        if company:
-            result.append({
-                "id": item.id,
-                "company_id": item.company_id,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-                "company": {
-                    "id": company.id,
-                    "ticker": company.ticker,
-                    "name": company.name,
-                }
-            })
-    
-    return result
+    def list_for_reader() -> List[Dict[str, Any]]:
+        try:
+            result = []
+            for item in watchlist_service.list_items(db, user_id):
+                company = item.company
+                if company:
+                    result.append({
+                        "id": item.id,
+                        "company_id": item.company_id,
+                        "created_at": item.created_at.isoformat() if item.created_at else None,
+                        "company": {
+                            "id": company.id,
+                            "ticker": company.ticker,
+                            "name": company.name,
+                        }
+                    })
+            return result
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(list_for_reader)
 
 @router.delete("/{ticker}")
 async def remove_from_watchlist(
@@ -112,8 +127,16 @@ async def remove_from_watchlist(
     db: Session = Depends(get_db)
 ):
     """Remove company from watchlist"""
+    user_id = current_user.id
+
+    def remove() -> None:
+        try:
+            watchlist_service.remove_company(db, user_id, ticker)
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        watchlist_service.remove_company(db, current_user.id, ticker)
+        await run_in_threadpool(remove)
     except watchlist_service.WatchlistCompanyNotFound:
         raise HTTPException(status_code=404, detail="Company not found")
     except watchlist_service.NotOnWatchlist:
@@ -131,7 +154,15 @@ async def get_earnings_alert_tickers(
 ):
     """Tickers the user has earnings-day alerts enabled for (feeds the calendar's bell state)."""
     from app.services.earnings_alert_service import enabled_tickers
-    return {"tickers": enabled_tickers(db, current_user.id)}
+    user_id = current_user.id
+
+    def tickers_for_reader() -> List[str]:
+        try:
+            return enabled_tickers(db, user_id)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return {"tickers": await run_in_threadpool(tickers_for_reader)}
 
 
 @router.post("/{ticker}/earnings-alert")
@@ -150,8 +181,17 @@ async def enable_earnings_alert(
         EarningsAlertLimitError,
         set_earnings_alert,
     )
+
+    def enable() -> None:
+        # The user row is the request session's own (the auth dependency loaded it there), and the
+        # cap check reads its plan inside this unit.
+        try:
+            set_earnings_alert(db, current_user, ticker, enabled=True)
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        set_earnings_alert(db, current_user, ticker, enabled=True)
+        await run_in_threadpool(enable)
     except EarningsAlertLimitError as exc:
         if exc.plan_is_pro:
             return JSONResponse(
@@ -178,7 +218,14 @@ async def disable_earnings_alert(
 ):
     """Disable the earnings-day alert for a company. Always allowed."""
     from app.services.earnings_alert_service import set_earnings_alert
-    set_earnings_alert(db, current_user, ticker, enabled=False)
+
+    def disable() -> None:
+        try:
+            set_earnings_alert(db, current_user, ticker, enabled=False)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    await run_in_threadpool(disable)
     return {"status": "disabled", "ticker": ticker.upper()}
 
 
@@ -213,87 +260,100 @@ async def get_watchlist_insights(
     db: Session = Depends(get_db)
 ):
     """Return enriched status information for the user's watchlist."""
-    rows = watchlist_service.load_insight_rows(db, current_user.id)
+    user_id = current_user.id
 
-    insights: List[WatchlistInsightResponse] = []
-    if rows is None:
-        return insights
-    latest_filing_by_company = rows.latest_filing_by_company
-    filing_counts = rows.filing_counts
-    summary_by_filing = rows.summary_by_filing
+    def insights_for_reader() -> List[WatchlistInsightResponse]:
+        # The rows, the payload built from them and the release, in one unit; the progress rows come
+        # with the insight rows, so the unit needs no second connection
+        # (lessons/ops-one-connection-per-request-unit.md).
+        try:
+            rows = watchlist_service.load_insight_rows(db, user_id)
 
-    for item in rows.watchlist_items:
-        company = item.company
-        if not company:
-            continue
+            insights: List[WatchlistInsightResponse] = []
+            if rows is None:
+                return insights
+            latest_filing_by_company = rows.latest_filing_by_company
+            filing_counts = rows.filing_counts
+            summary_by_filing = rows.summary_by_filing
+            progress_by_filing = rows.progress_by_filing
 
-        latest_filing: Optional[Filing] = latest_filing_by_company.get(company.id)
-        total_filings = int(filing_counts.get(company.id, 0))
+            for item in rows.watchlist_items:
+                company = item.company
+                if not company:
+                    continue
 
-        filing_snapshot: Optional[WatchlistFilingSnapshot] = None
+                latest_filing: Optional[Filing] = latest_filing_by_company.get(company.id)
+                total_filings = int(filing_counts.get(company.id, 0))
 
-        if latest_filing:
-            summary: Optional[Summary] = summary_by_filing.get(latest_filing.id)
+                filing_snapshot: Optional[WatchlistFilingSnapshot] = None
 
-            progress_snapshot = get_generation_progress_snapshot(latest_filing.id)
+                if latest_filing:
+                    summary: Optional[Summary] = summary_by_filing.get(latest_filing.id)
 
-            summary_status = "missing"
-            needs_regeneration = True
-            summary_id: Optional[int] = None
-            summary_created_at: Optional[str] = None
-            summary_updated_at: Optional[str] = None
+                    progress_row = progress_by_filing.get(latest_filing.id)
+                    progress_snapshot = progress_as_dict(progress_row) if progress_row else None
 
-            if summary:
-                summary_id = summary.id
-                summary_created_at = summary.created_at.isoformat() if summary.created_at else None
-                summary_updated_at = summary.updated_at.isoformat() if summary.updated_at else None
-
-                has_placeholder = is_summary_placeholder(summary.business_overview)
-
-                if has_placeholder:
-                    summary_status = "placeholder"
+                    summary_status = "missing"
                     needs_regeneration = True
-                else:
-                    summary_status = "ready"
-                    needs_regeneration = False
-            elif progress_snapshot:
-                stage = progress_snapshot.get("stage", "generating")
-                if stage == "error":
-                    summary_status = "error"
-                    needs_regeneration = True
-                else:
-                    summary_status = f"generating:{stage}"
-                    needs_regeneration = False
-            else:
-                summary_status = "missing"
-                needs_regeneration = True
+                    summary_id: Optional[int] = None
+                    summary_created_at: Optional[str] = None
+                    summary_updated_at: Optional[str] = None
 
-            filing_snapshot = WatchlistFilingSnapshot(
-                id=latest_filing.id,
-                filing_type=latest_filing.filing_type,
-                filing_date=latest_filing.filing_date.isoformat() if latest_filing.filing_date else None,
-                period_end_date=latest_filing.period_end_date.isoformat() if latest_filing.period_end_date else None,
-                summary_id=summary_id,
-                summary_status=summary_status,
-                summary_created_at=summary_created_at,
-                summary_updated_at=summary_updated_at,
-                needs_regeneration=needs_regeneration,
-                progress=progress_snapshot,
-            )
+                    if summary:
+                        summary_id = summary.id
+                        summary_created_at = summary.created_at.isoformat() if summary.created_at else None
+                        summary_updated_at = summary.updated_at.isoformat() if summary.updated_at else None
 
-        insights.append(
-            WatchlistInsightResponse(
-                company=WatchlistCompany(
-                    id=company.id,
-                    ticker=company.ticker,
-                    name=company.name,
-                ),
-                latest_filing=filing_snapshot,
-                total_filings=total_filings,
-            )
-        )
+                        has_placeholder = is_summary_placeholder(summary.business_overview)
 
-    return insights
+                        if has_placeholder:
+                            summary_status = "placeholder"
+                            needs_regeneration = True
+                        else:
+                            summary_status = "ready"
+                            needs_regeneration = False
+                    elif progress_snapshot:
+                        stage = progress_snapshot.get("stage", "generating")
+                        if stage == "error":
+                            summary_status = "error"
+                            needs_regeneration = True
+                        else:
+                            summary_status = f"generating:{stage}"
+                            needs_regeneration = False
+                    else:
+                        summary_status = "missing"
+                        needs_regeneration = True
+
+                    filing_snapshot = WatchlistFilingSnapshot(
+                        id=latest_filing.id,
+                        filing_type=latest_filing.filing_type,
+                        filing_date=latest_filing.filing_date.isoformat() if latest_filing.filing_date else None,
+                        period_end_date=latest_filing.period_end_date.isoformat() if latest_filing.period_end_date else None,
+                        summary_id=summary_id,
+                        summary_status=summary_status,
+                        summary_created_at=summary_created_at,
+                        summary_updated_at=summary_updated_at,
+                        needs_regeneration=needs_regeneration,
+                        progress=progress_snapshot,
+                    )
+
+                insights.append(
+                    WatchlistInsightResponse(
+                        company=WatchlistCompany(
+                            id=company.id,
+                            ticker=company.ticker,
+                            name=company.name,
+                        ),
+                        latest_filing=filing_snapshot,
+                        total_filings=total_filings,
+                    )
+                )
+
+            return insights
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(insights_for_reader)
 
 
 class WaitlistJoinRequest(BaseModel):
@@ -362,24 +422,28 @@ async def join_waitlist(
             detail="Invalid submission.",
         )
 
+    def create() -> Tuple[str, SignupView, Optional[SignupView], Optional[int]]:
+        # One unit in the thread pool: the insert and every value the rest of the route reads,
+        # released before the welcome and referral mails go out, so neither send holds a connection
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            try:
+                joined = create_signup(
+                    db,
+                    email=payload.email,
+                    name=payload.name,
+                    referral_code=payload.referral_code,
+                    source=payload.source,
+                )
+            except WaitlistAlreadyJoined as exc:
+                return "already_registered", SignupView.of(exc.signup), None, None
+            referrer = SignupView.of(joined.referrer) if joined.referrer else None
+            return "joined", SignupView.of(joined.signup), referrer, joined.total_signups
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        joined = create_signup(
-            db,
-            email=payload.email,
-            name=payload.name,
-            referral_code=payload.referral_code,
-            source=payload.source,
-        )
-    except WaitlistAlreadyJoined as exc:
-        existing = exc.signup
-        return {
-            "success": False,
-            "error": "already_registered",
-            "message": "This email is already on the waitlist.",
-            "position": calculate_waitlist_position(existing.position, existing.priority_score),
-            "referral_code": existing.referral_code,
-            "referral_link": build_referral_link(existing.referral_code),
-        }
+        outcome, signup, referrer, total_signups = await run_in_threadpool(create)
     except WaitlistReferralNotFound:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -395,12 +459,27 @@ async def join_waitlist(
             detail="Unable to create waitlist signup.",
         )
 
-    signup, referrer, total_signups = joined.signup, joined.referrer, joined.total_signups
+    if outcome == "already_registered":
+        return {
+            "success": False,
+            "error": "already_registered",
+            "message": "This email is already on the waitlist.",
+            "position": calculate_waitlist_position(signup.position, signup.priority_score),
+            "referral_code": signup.referral_code,
+            "referral_link": build_referral_link(signup.referral_code),
+        }
 
     position = calculate_waitlist_position(signup.position, signup.priority_score)
     referral_link = build_referral_link(signup.referral_code)
     verification_token = create_verification_token(signup.email, signup.referral_code)
     verification_link = build_verification_link(verification_token)
+
+    def mark_sent() -> None:
+        # Its own unit after the send; the release rolls back a flag commit that fails.
+        try:
+            mark_welcome_email_sent(db, signup.id)
+        finally:
+            filing_list_service.release_request_session(db)
 
     email_sent = False
     try:
@@ -411,10 +490,9 @@ async def join_waitlist(
             referral_link=referral_link,
             verification_link=verification_link,
         )
-        mark_welcome_email_sent(db, signup)
+        await run_in_threadpool(mark_sent)
         email_sent = True
     except Exception:
-        rollback_after_welcome_failure(db)
         logger.exception("Waitlist welcome email failed for signup %s", signup.id)
 
     if referrer:
@@ -517,7 +595,13 @@ async def verify_waitlist_email(token: str, db: Session = Depends(get_db)):
             detail="Invalid verification token.",
         )
 
-    if not mark_email_verified(db, email):
+    def verify() -> bool:
+        try:
+            return mark_email_verified(db, email)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    if not await run_in_threadpool(verify):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Waitlist entry not found.",

@@ -6680,6 +6680,34 @@ Full local and hosted verification plus independent exact-head review precede re
   profiles, the floor); #1281 merged `378c6e63` and deployed healthy (`earningsnerd-backend-00507-dwb`). E23's draws
   recorded (event 67, USD 0.189836); #1281's D-5 follow-up is E30. Twenty-two main runs classified; two deploys read
   back (healthy; every pin in place); production read live. Classifier denial 13; chief defect 16. Closure 178.
+- 2026-10-14 to 2026-10-19 (record 28, `runtime/control/DECISIONS-28.md`): PR #1314 (record 27) merged `c2c936a1`
+  (twenty-third deploy-skip proof). On the founder's go (2026-10-14T22:58:13Z), the Sentry startup check
+  (`optional-addons-pr-01`) built as PR #1333 in three rounds with no blocker and merged `a59b7fc4`: Sentry started on
+  every API-service revision created in the seven days the probe read, and the task worker starts none (founder). E30
+  (`database-url-advice-pr-01`, PR #1332): both `DATABASE_URL` '@' refusals advise characters the deploy can read; five
+  review rounds with no blocker, three of them during a provider outage, then a pause of four and a half days and main
+  merged in; merged `b9c69808` and deployed healthy (`earningsnerd-backend-00551-8jb`). Ninety-three main runs
+  classified; E30's deploy read back (healthy; every pin in place); production read live. Ledger events 68–75 (USD
+  1.603888). Closure 179.
+- 2026-10-19 to 2026-10-20 (record 29, `runtime/control/DECISIONS-29.md`): PR #1330 (record 28) merged `fc5aa352`
+  (twenty-fourth deploy-skip proof). Closure 180 registers record 28's window's launches (E30's six check workflows,
+  the add-on's three, record 28's fact-check and its reviewer). Another writer's #1414 (backend dependency updates,
+  `sentry-sdk` 2.72.0 among them) deployed healthy (`earningsnerd-backend-00552-w9z`); production read live, Sentry
+  starting on that revision. No CODE RED spend; no ledger event. Classifier denial 14. Closure 180.
+- 2026-10-20 (record 30, `runtime/control/DECISIONS-30.md`): PR #1415 (record 29) merged `cd04cbe7` (twenty-fifth
+  deploy-skip proof). Closure 181 registers record 29's fact-check and its reviewer. Other writers' #1418 (fastapi,
+  the OpenAI client and posthog) and #1420 (the fiscal-year relabel's evidence) deployed healthy
+  (`earningsnerd-backend-00554-fr2`, then `00555-9dh`); production not read live. No CODE RED spend; no ledger
+  event. Classifier denial 15. Founder row F51. Closure 181.
+- 2026-10-20 (record 31, `runtime/control/DECISIONS-31.md`): PR #1423 (record 30) merged `f4c3354d` (twenty-sixth
+  deploy-skip proof). Closure 182 registers record 30's fact-check and its reviewer. Another writer's #1422
+  (refresh-token rotation and revocation under the users row lock, E127) deployed healthy
+  (`earningsnerd-backend-00556-cp4`); production not read live. No CODE RED spend; no ledger event. No classifier
+  denial of the chief's. Closure 182.
+- 2026-10-20 (record 32, `runtime/control/DECISIONS-32.md`): PR #1424 (record 31) merged `02b55b46` (twenty-seventh
+  deploy-skip proof). Closure 183 registers record 31's fact-check and its reviewer. Another writer's #1398 (the
+  landing page) deployed nothing to the backend; production unchanged since #1422's deploy, not read live. No CODE
+  RED spend; no ledger event. No classifier denial of the chief's. Closure 183.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

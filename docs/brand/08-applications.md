@@ -12,20 +12,23 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 
 | Section | File | What changed |
 |---|---|---|
+| Composition (D-045) | `frontend/app/page.tsx`, `LandingRow.tsx` (new) | The two-column hero stays; every section after it is one ruled row: a hairline across the hero's container, a label column with the section's number (a CSS counter, so a section that omits itself takes none and leaves no gap), its title as the section's h2 and one line, one short sentence (a second opens the content column), and the content beside it, opening at 64rem at the reader's text size. No row alternates and nothing lays out four across (`earningsnerd/no-four-up-grid`); `tests/unit/landing-sections-mounted.spec.ts` holds the order, each row to the primitive and the close to one line. A form code in a row's copy is one unbroken run (`FormCodeText`), so no line breaks "10-Q" at its hyphen (`tests/e2e/reflow-200.spec.ts`, at 320 and 390px). The label column is the margin of a 10-K, so the page reads as a filing's items (tell T4, `09-stress-test.md` §2). |
 | Hero headline | `frontend/features/marketing/components/HeroHeadline.tsx`, `lib/headline.ts` | The accent phrase carries the mark (`.en-mark`) on the primary ink instead of sage text. Variant A ("Read the filing faster. Keep the source in view.") survives as the served default, with the mark under "the source" so it never breaks across lines; B and C become "Read it faster. Check it anyway." and "The summary that shows its work." |
 | Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." The scope is the server's: it checks a figure only when the metric maps to an XBRL concept of at least $1M (`backend/app/services/provenance_service.py`). The access line is unchanged ("Private beta · request an invite"). |
 | Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. The excerpt wears quotation marks, the closing one after the clip's ellipsis. A live figure carries no XBRL hover and the link reads "Source filing · check the figures on SEC EDGAR", since a live figure is the summary's highlight, which the hero cannot vouch for as an XBRL match; only the checked fallback names its XBRL concepts and reads "Figures from the company's XBRL · check them on SEC EDGAR" (one verb on both links). Each fallback concept is text inside its term, visually hidden, so every reader reaches it; the hover repeats it for a mouse. The link carries the brand focus ring (`tests/unit/hero-example-surface.spec.tsx`). |
 | Founder slot | Retired | The empty component, configuration and hero mount have been removed (see §6). |
 | Trust strip | `TrustStrip.tsx` | Four statements the product keeps, no hedges: sourced from SEC EDGAR; risk excerpts are the filing's own words (main said "quoted excerpts"; a Forward Signals quote can stand unmatched, so the founder's review narrowed it); one summary per filing, generated once and shared; not investment advice. |
-| Claims strip | `MeasuredClaims.tsx` | "Figures / Risks / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics; the figures line says the server checks them where it can, and the risks line that unmatched excerpts are withheld and counted. |
-| Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table (the two totals read SEC XBRL; the per-share row reads Cited, as a real payload's would) and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`; the two amounts share a line while they fit and stack when they do not, at 200% text and in the desktop column (`tests/e2e/catch-card-reflow.spec.ts`). The table's footer explains its one Cited row, "Diluted EPS reads Cited: per-share figures are not matched to XBRL.", instead of repeating the lead, and the net income chip reads "Net income", not the concept name `NetIncomeLoss`. |
-| Contents | `SummaryContents.tsx` | The nine parts the live schema produces, from The Print to Notable Footnotes, in reading order. The card's note reads "Up to nine parts": the list is the schema's outline, and the Apple sample's own page omits Segments. |
+| Claims strip | `MeasuredClaims.tsx` | "Figures / Risks / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics; the figures line says the server checks them where it can, and the risks line that unmatched excerpts are withheld and counted. The first row, "What a summary does", two across (D-045). |
+| Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table (the two totals read SEC XBRL; the per-share row reads Cited, as a real payload's would) and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`; the two amounts share a line while they fit and stack when they do not, at 200% text and in the desktop column (`tests/e2e/catch-card-reflow.spec.ts`). The label column's line is "Each row in the highlights carries a label."; what each label means opens the content column, above the table. The table's footer explains its one Cited row, "Diluted EPS reads Cited: per-share figures are not matched to XBRL.", instead of repeating that paragraph, and the net income chip reads "Net income", not the concept name `NetIncomeLoss`. |
+| Contents | `SummaryContents.tsx` | The nine parts the live schema produces, from The Print to Notable Footnotes, in reading order, as a hairline list rather than a card (D-045). The list's note reads "Up to nine parts": the list is the schema's outline, and the Apple sample's own page omits Segments. |
 | How it works | `HowItWorks.tsx` | Three steps without "supported" or "selected": search any company with a ticker on SEC EDGAR (the coverage search has: SEC's ticker file), pick a filing, read the summary. |
-| Pro section | `ProDepth.tsx`, `ChangeReportDemo.tsx` | "More ways to read one filing." with the Ask, Multi-Period and Change Report demos; the Change Report sample is FY2025 against FY2024. The Multi-Period row, its call to action, the Excel tile and the lead's "read its periods side by side" render only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships the route, which 404s otherwise (`tests/unit/analysis-route-hidden.spec.tsx`). |
-| Pricing section | `PricingSection.tsx` | No "Most popular" badge: the beta has no popularity figure behind one, and the Pro card's brand ring carries the emphasis. The two Multi-Period lines list only while the flag ships it, and the exports line reads "PDF, CSV and Excel exports" only then ("PDF and CSV exports" otherwise), since the Excel export is the analysis workbook. Each line keyed to a flag names it in a field (`flag: 'analysis'`), not by its wording. The Free card reads "10-K, 10-Q and 20-F filings from SEC EDGAR", with no "Supported" hedge, 20-F only while `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's flag (`flag: 'fpi'`; "10-K and 10-Q filings from SEC EDGAR" otherwise). The billing radios carry the brand ring on their own className. |
-| Reader quote | `ReaderQuoteSlot.tsx`, `lib/readerQuote.ts` (new) | Mounted under the pricing section; renders nothing while `READER_QUOTE` is `null`, so no placeholder testimonial ships and the reader-quote slot stays unrendered (§6; 01-interview.md §2; `tests/unit/readerQuoteSlot.spec.tsx`). It fills only with a real reader's words and the naming they approved in writing; the voice rules of #1288 (`brandVoiceRules.spec.ts`) gate the shipped value once that PR merges. The placeholder strings are gone. |
+| Pro section | `ProDepth.tsx`, `ChangeReportDemo.tsx` | "More ways to read one filing." with the Ask, Multi-Period and Change Report demos, one under another, each pitch above its screen (D-045: no alternating rows); the Change Report sample is FY2025 against FY2024. The Pro chip sits on Ask this Filing and Multi-Period Analysis alone, and the Change Report's line names the metric deltas alone, "What changed against the prior filing, metric by metric, computed from XBRL. Both plans include it.": every reader gets the same report, metric deltas only, since `change_report_service.py` omits its risk lines and production serves no wording diff. Its risk and language clauses come back with `ENABLE_SECTION_CHANGES` (E27); until then `tests/unit/changeReportPlanClaims.spec.tsx` fails the row when it names either, or wears the chip. The extras are a ruled list, two across, with their file kinds and forms as text in the data face, no icon tiles and no chips: Excel export (with the analysis route), Summary export and Filing alerts, and no history extra while no retention is enforced (D-046). The Multi-Period row, its call to action, the Excel extra and the lead's "read its periods side by side" render only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships the route, which 404s otherwise (`tests/unit/analysis-route-hidden.spec.tsx`). |
+| Pricing section | `PricingSection.tsx` | One table since D-045, not two cards: the plans as columns, what each includes as rows (price, summaries, filings, search, Ask this Filing, Multi-Period Analysis, Change Report, alerts, exports, watchlist, priority support; no summary-history row, since nothing enforces `history_retention_days` and the history claims leave until a retention is enforced, D-046), each cell a plan line read through `shipped()` from `lib/planLimits.ts`, a dash read as "Not included" where a plan has none, and the two calls to action in the last row. No "Most popular" badge: the beta has no popularity figure behind one. The Multi-Period row (its label and cells are `ANALYSIS_LINES` entries) lists only while the flag ships it, and the exports cell reads "PDF, CSV and Excel exports" only then ("PDF and CSV exports" otherwise), since the Excel export is the analysis workbook. Each line keyed to a flag names it in a field (`flag: 'analysis'`), not by its wording. The Filings row reads "10-K, 10-Q and 20-F filings from SEC EDGAR" for both plans, with no "Supported" hedge, 20-F only while `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's flag (`flag: 'fpi'`; "10-K and 10-Q filings from SEC EDGAR" otherwise). The Change Report row reads "Included" for both plans: the report's one plan difference, the Item 1A wording block (`entitlements.py`, `section_changes_items`), is served only behind `ENABLE_SECTION_CHANGES`, which `config.py` defaults off and no deploy map sets, and `tests/unit/changeReportPlanClaims.spec.tsx` fails when the flag can ship until the row says what the plans then get. The table fits a 390px phone at the default size and scrolls inside a named region, never the page, when it is wider (`tests/unit/pricing-section.spec.tsx`). `/pricing` keeps its two cards. The billing radios carry the brand ring on their own className. |
+| Reader quote | `ReaderQuoteSlot.tsx`, `lib/readerQuote.ts` (new) | Mounted under the pricing section; renders nothing while `READER_QUOTE` is `null`, so no placeholder testimonial ships, the reader-quote slot stays unrendered and it takes no number among the rows; once filled it is a ruled row (§6; 01-interview.md §2; `tests/unit/readerQuoteSlot.spec.tsx`). It fills only with a real reader's words and the naming they approved in writing; the voice rules of #1288 (`brandVoiceRules.spec.ts`) gate the shipped value once that PR merges. The placeholder strings are gone. |
 | Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). The Ask demo answers "How much did net sales grow, and what drove Services?" as a live run would: total net sales of $416.2B [1] and its 6.4% growth [2], two XBRL chips written as `copilot_tools.fact_to_citation` writes them (a fact the tool can fetch, and the growth `compute_metric` derives from it), then the Item 7 sentence on Services [3]. The markers are numbered as the server numbers them, never [F1]. `tests/unit/landingSamplesVerified.spec.ts` holds every figure, chip label and marker on the page's samples and the hero fallback to the verified set, ties each XBRL chip's label and figure to the concept its section ref names, and ties the answer's figure before each marker to that chip. The Copilot teaser's blurred sample (`CopilotTeaser.tsx`, #1295) answers a Services question instead: its Services figures are a dimensioned fact the tool cannot fetch, so its citations are passages from the filing, not XBRL facts; the two answers differ for that reason, and the spec's teaser clause holds that citation kind: the sample states only the verified Services pair, names the drivers the Item 7 sentence names, and runs markers [1] and [2] with one matched source each and no XBRL marker, locator, tag or braces glyph. |
-| Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | Unmounted (see §7). |
+| Reporting this week | `features/calendar/components/ReportingThisWeek.tsx` | A ruled row of hairline lines (mark, ticker, the day it reports, name), two across, in place of the four-up tiles (D-045); it renders only with live data, so it takes no number without it. |
+| Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | Unmounted (see §7); E90 remounts it as a row after Reporting this week. |
+| Close | `ClosingLine.tsx` (was `CtaBanner.tsx`) | One line under the last row's rule, not a banner (D-045): "Start with a real filing: read the Apple 10-K summary first, then read your own." with the live example as a text link (the funnel's `cta_banner` placement) and the access mode's call to action as a button at its end. |
 | Footer | `components/Footer.tsx` | The tagline, "The summary that shows its work." |
 | Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts`, `lib/socialCard.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). Titles put the page first and the brand last ("Read the filing faster. Keep the source in view \| EarningsNerd"); the root default is "AI summaries of SEC filings \| EarningsNerd", and the root's social preview carries no title or description of its own, so Next fills both from each page (D-038). |
 
@@ -75,7 +78,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   everyone, invited or not. That invite-path Pro line is a founder claim, like the pricing pages'
   "Unlimited" line (the founder's review filed both under F32, later F41): this one is conditional on
   the server's promo config, and D-040 keeps "Unlimited" on the plan cards, with the fair-use guardrail
-  stated once after the series (E58). Every page link and button on these routes carries the brand
+  stated once, in the /pricing FAQ and the filing page's monthly-limit card (D-046). Every page link and button on these routes carries the brand
   focus ring.
 - **Pricing** (`frontend/app/pricing/page.tsx`): the free plan's call to action reads the
   registration mode (`features/marketing/api/access-api.ts`, the client twin of the server's
@@ -93,9 +96,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
   export is the analysis workbook). The check marks are in the brand ink and hidden from
-  assistive tech. "Unlimited" stays; the fair-use guardrail is to be stated once where it is read
-  (pub/F05, D-040, E58), and the history lines are to leave until entitlements enforce a retention
-  (pub/F03, D-046, E58).
+  assistive tech. "Unlimited" stays, with the fair-use guardrail stated once where it is read
+  (pub/F05, D-040, E58); the history lines leave until entitlements enforce a retention (pub/F03,
+  D-046, E58).
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as
@@ -123,15 +126,22 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the waitlist." or "This email is already on the waitlist.", without an exclamation mark. A code no
   signup holds comes back as the router's `invalid_referral` (a 400 with no `detail`), which the form
   routes by its code to its own sentence, "We can't find this referral code on the waitlist. Check the
-  link with whoever shared it.", where it printed axios's status line before. The link is set in the
-  data face, whose Geist Mono has no contextual alternates, so the x of a code reads as Copy copies it
-  (Inter's draws it as a multiplication sign between digits), and the share links wrap inside the card
-  at 200% text.
+  link with whoever shared it.", where it printed axios's status line before. The first sentence is the
+  Notice's title and the second its description, and under them "Join without the code" links to
+  `/waitlist` (F47, D-046): the visitor sees what happened and chooses. The page keeps what was typed
+  (search params do not remount it) and reads no code from the URL from then on, so the next submit
+  joins without one; focus goes back to the email field (`tests/unit/waitlistSuccessCard.spec.tsx`).
+  The success card's referral link is set in the data face, whose Geist Mono has no contextual
+  alternates, so the x of a code reads as Copy copies it (Inter's draws it as a multiplication sign
+  between digits), and the share links wrap inside the card at 200% text.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
-  (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
-  visitor, which is why the clause names analytics cookies. The bar's two choices say what they set:
+  (`frontend/app/posthog-provider.tsx`). Vercel Web Analytics is cookieless, which is why the clause
+  names analytics cookies, and since D-046 it too loads only after the visitor allows analytics, read
+  from the same stored choice (`frontend/app/private-analytics.tsx`;
+  `tests/unit/privateAnalytics.spec.tsx`, `tests/e2e/analytics-consent.spec.ts`). The bar's two
+  choices say what they set:
   "Essential only" and "Allow analytics" (session recording stays off until it is chosen under
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
@@ -206,6 +216,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `features/summaries/hooks/useSummaryGeneration.ts`: a status with no detail, a dropped or closed
   stream, the idle timeout, a failed summary read) are sentences in the voice, never the browser's
   or the API client's transport text, pinned path by path in `tests/unit/summaryStreamFallbacks.spec.tsx`.
+  The error card offers its Retry only for a failure a retry can help (`isNonRetryableStreamError`,
+  which also stops the stream's automatic retry): Pro's fair-use pause, a sign-in or a permission error
+  keeps its sentence and no Retry.
   At 200% text the progress card's header row wraps, the percent keeping to the right on a line of
   its own, and the form code in its meta line ("10-K · Processing…") never breaks at its hyphen.
 - **Signup gate** (`frontend/features/summaries/components/GenerateSignupGate.tsx`): it follows the
@@ -290,7 +303,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   companies you follow."), the limit banner states the account's own count and nothing about
   Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
   and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
-  "Unlimited" among them, and the fair-use guardrail is to be stated once, app-wide, after the series, E58),
+  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide: `PRO_FAIR_USE_LINE` in
+  `frontend/lib/planLimits.ts`, built from `PRO_SUMMARY_MONTHLY_CAP` (the backend's `config.py` default), read by
+  the /pricing FAQ and the filing page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face.
@@ -589,9 +604,9 @@ The section is unmounted from `app/page.tsx` and its fetcher removed from the pa
 component carries a DORMANT note: the week's list read as microcap 8-Ks under a "high-signal"
 heading (audit T7). The fetcher, the card and its spec stay for its return. The curation rule is
 decided (D-046, §8): 10-K and 10-Q filings only, from companies that hold a full summary, newest
-first, at most six. The section is to return under it with E90, placed in D-045's labelled rows
-(E113); until then the mount gate (`tests/unit/landing-sections-mounted.spec.ts`) records the
-omission as deliberate.
+first, at most six. The section is to return under it with E90, as a ruled row after Reporting
+this week (D-045, §1); until then the mount gate (`tests/unit/landing-sections-mounted.spec.ts`)
+records the omission as deliberate.
 
 ## 8. Decided by the founder
 
@@ -601,7 +616,7 @@ omission as deliberate.
 - §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
   first, at most six (D-046, E90).
 
-The landing composition (tell T4) is decided too: labelled rows after the hero (D-045, E113).
+The landing composition (tell T4) is decided too, and landed: ruled rows after the hero (D-045, #1398).
 
 ## 9. Gates touched
 

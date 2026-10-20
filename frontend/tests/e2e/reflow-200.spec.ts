@@ -41,14 +41,20 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * the one-row check. There / reached 368px, the pricing section's billing toggle, and /login and /register
  * 369px, the auth shell's lockup. The toggle's segments now wrap whole inside its one shell, and each label
  * stays inside its segment with no line starting at its middot (at 360 and 390px; at both, the Annual label
- * ran onto three lines below its segment). Below a 12rem viewport the auth shell's wordmark yields to the
- * mark. The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
+ * ran onto three lines below its segment). Every form code in the landing's rows and its close paints on one line
+ * at 320 and 390px under 200% text and at 320px at the default size, where the plan table broke "10-Q" at its
+ * hyphen before each code became one nowrap run. Below a 12rem viewport the auth shell's wordmark yields to the
+ * mark. At 320x640 with the text doubled /pricing passes the same checks: its billing switch's row wraps, the
+ * yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge and
+ * the page to 333px. The other routes join it at 320px with E81 (/ reaches 337px there). The open menu scrolls
+ * inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
  * On a 768px and an 834px tablet at 200% every route passes the same checks too: the footer's columns and
- * the final CTA card's open at md at the reader's text size (48rem), where at md's 768px they took pages to
- * 812-886px. At 1440x900 at the default size the site header's bar spans its container and the logo keeps
- * its top-left place, which the bar's w-full holds.
+ * the final CTA card's opened at md at the reader's text size (48rem), where at md's 768px they took pages to
+ * 812-886px; the card is the landing's one-line close since D-045, and the landing's rows open their label
+ * column at 64rem the same way. At 1440x900 at the default size the site header's bar spans its container and
+ * the logo keeps its top-left place, which the bar's w-full holds.
  *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
@@ -744,11 +750,15 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
 })
 
 /** At 360x780 with the browser's text doubled, every route in the loop passes the width, bar and clear-space checks
-    too. The header's wrap at 360px is its named fallback, so the one-row check stays at 390px. */
-test.describe('a 360px phone at 200% text', () => {
-  test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true })
-  for (const route of ROUTES) {
-    test(`${route.name} (${route.path}) does not scroll sideways at 360px and 200% text`, async ({ page, baseURL }) => {
+    too. The header's wrap at 360px is its named fallback, so the one-row check stays at 390px. At 320x640 /pricing
+    does too, its billing switch's row wrapped; the rest of the loop joins it there with E81. */
+for (const { width, height, routes } of [
+  { width: 360, height: 780, routes: ROUTES },
+  { width: 320, height: 640, routes: ROUTES.filter(({ path }) => path === '/pricing') },
+]) test.describe(`a ${width}px phone at 200% text`, () => {
+  test.use({ viewport: { width, height }, isMobile: true, hasTouch: true })
+  for (const route of routes) {
+    test(`${route.name} (${route.path}) does not scroll sideways at ${width}px and 200% text`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
           localStorage.setItem('theme', 'light')
@@ -765,9 +775,9 @@ test.describe('a 360px phone at 200% text', () => {
       await doubleText(page)
 
       const enlarged = await measure(page)
-      expect(enlarged.scrollWidth, `${route.path} at 360px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
-      expect(await collisions(route.bar(page)), `${route.path} at 360px and 200% text: the bar's controls`).toEqual([])
-      expect(await logoClearSpace(route.bar(page)), `${route.path} at 360px and 200% text: the logo's clear space`).toEqual([])
+      expect(enlarged.scrollWidth, `${route.path} at ${width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
+      expect(await collisions(route.bar(page)), `${route.path} at ${width}px and 200% text: the bar's controls`).toEqual([])
+      expect(await logoClearSpace(route.bar(page)), `${route.path} at ${width}px and 200% text: the logo's clear space`).toEqual([])
     })
   }
 })
@@ -837,6 +847,79 @@ for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }
         expect(segment.lines.every((line) => line.split(/\s+/).every((token) => words.includes(token))), `${at}: the label breaks only between words`).toBe(true)
         expect(segment.lines.slice(0, -1).every((line) => line.endsWith('·')), `${at}: the label breaks only after its middot`).toBe(true)
       }
+    })
+  })
+}
+
+/** A form code is one unbroken run (lessons/frontend-check-brand-layouts-at-200-percent-text.md), so a line that wraps
+    never breaks it at its hyphen. Before, the plan table's Filings cells painted "10-K and 10-" over "Q filings" at
+    320px, at the default size and under 200% text, and at 390px under 200% text, and the claims row and How it works
+    split "10-Q" the same way at 320px under 200% text. FormCodeText now sets each code in a whitespace-nowrap span, as
+    the close and the Pro extras' file kinds already were. Each code painted in the landing's rows and its close (the
+    hero's are E81's), a plural or possessive included ("8-Ks"), is read with a Range over its own characters and must
+    paint on one line; the read must reach the table, the claims, How it works, the Pro row and the close. This read
+    keeps its own pattern rather than the component's, so a narrower one there cannot narrow it. */
+const FORM_CODE = /\b\d+-[A-Z]+(?:s|['’]s)?\b/
+const formCodes = (page: Page) =>
+  page.evaluate((source) => {
+    const pattern = new RegExp(source, 'g')
+    const found: { where: string; code: string; lines: number; text: string }[] = []
+    for (const root of document.querySelectorAll('main section[data-landing-row], main [data-landing-close]')) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+        const el = node.parentElement
+        if (!el || el.closest('.sr-only')) continue
+        for (const match of node.data.matchAll(pattern)) {
+          const range = document.createRange()
+          range.setStart(node, match.index ?? 0)
+          range.setEnd(node, (match.index ?? 0) + match[0].length)
+          const tops: number[] = []
+          for (const rect of range.getClientRects()) {
+            if (rect.width > 0 && !tops.some((top) => Math.abs(top - rect.top) < 2)) tops.push(rect.top)
+          }
+          // A code no layout paints (inside a display:none twin) has no line to break.
+          if (tops.length === 0) continue
+          found.push({
+            where: `${root.id || 'close'}${el.closest('table') ? ' table' : ''}`,
+            code: match[0],
+            lines: tops.length,
+            text: (el.closest('td, dd, p, li, a') ?? el).textContent?.replace(/\s+/g, ' ').trim().slice(0, 60) ?? '',
+          })
+        }
+      }
+    }
+    return found
+  }, FORM_CODE.source)
+
+for (const state of [
+  { width: 320, height: 640, doubled: true },
+  { width: 390, height: 844, doubled: true },
+  { width: 320, height: 640, doubled: false },
+]) {
+  const at = `${state.width}px${state.doubled ? ' and 200% text' : ' at the default text size'}`
+  test.describe(`a ${state.width}px phone${state.doubled ? ' at 200% text' : ''}, the landing's form codes`, () => {
+    test.use({ viewport: { width: state.width, height: state.height }, isMobile: true, hasTouch: true })
+    test(`home (/) paints every form code in its rows and its close on one line at ${at}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerGuest(page, baseURL!)
+      await page.goto('/')
+      await h1(page)
+      await expect(page.locator('#pricing table')).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      if (state.doubled) await doubleText(page)
+
+      const codes = await formCodes(page)
+      // Anti-vacuity: the read reaches every place on the landing that names a form.
+      for (const where of ['pricing table', 'claims', 'contents', 'pro', 'close']) {
+        expect(codes.filter((code) => code.where === where).length, `form codes read in ${where} at ${at}`).toBeGreaterThan(0)
+      }
+      const broken = codes.filter((code) => code.lines !== 1).map((code) => `${code.where}: "${code.code}" on ${code.lines} lines in "${code.text}"`)
+      expect(broken, `${at}: each form code paints on one line`).toEqual([])
     })
   })
 }
@@ -965,8 +1048,9 @@ for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 640 }
 
 /** A tablet at 200% text. At 768px with the text doubled, the footer's four columns took every route with the footer to
     812px (an fr column never shrinks below its longest word, here the Legal column's), and from 780 to 880px the final
-    CTA card's two columns ran its one-line "See a live example" past its half, taking / to 886px. Both now open their
-    columns at md at the reader's text size, 48rem: 768px at the default size, 1536px with the text doubled. At 768 and
+    CTA card's two columns ran its one-line "See a live example" past its half, taking / to 886px. The footer opens its
+    columns at md at the reader's text size, 48rem: 768px at the default size, 1536px with the text doubled; the card
+    is the landing's one-line close since D-045, and the landing's rows open their columns at 64rem. At 768 and
     834px every route in the loop passes the width, bar and clear-space checks; the 200% setting is confirmed by the
     root's 32px and by the 48rem query not matching. */
 async function doubleTextOnATablet(page: Page) {

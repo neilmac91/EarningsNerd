@@ -361,8 +361,8 @@ Chart series follow the configured order: **Teal → Honey → Cornflower → Co
 | Role | Implemented treatment | Use |
 | --- | --- | --- |
 | Display | 600; 36px base, 48px from `sm`, 60px from `lg`; live desktop sample 60/63px | Homepage headline; responsive sizes belong to this surface |
-| Headline | 600; 30/36px with −0.016em tracking; marketing section headings step up to 36/40px (−0.02em) from `lg` | Large section/page heading role |
-| Title | 600; 24/32px; tighter tracking | Section headings; smaller component titles follow their own recipe |
+| Headline | 600; 30/36px with −0.016em tracking | Large section/page heading role |
+| Title | 600; 24/32px; tighter tracking | Section headings, the landing's row titles among them; smaller component titles follow their own recipe |
 | Section title | 600; 20/28px, −0.012em; a 12px data-face index (`01`) beside it that the table of contents repeats | The filing summary's section headings, set on the page without a card; subheadings under them are 14/600 |
 | Card title | 600; 14/20px; sentence case | Compact container headings |
 | Body | 400; root browser sample 16/24px; `text-base` explicitly sets 16/25.6px | General prose; local leading utilities can override the scale |
@@ -384,8 +384,9 @@ In the filing reader, prose children have a 68ch measure and tables/figures can 
 
 Use shared page grounds around distinct content panels. Controls and tables are compact; reading and marketing sections use larger gaps. There is no single universal column count or container width for every route.
 
-- The homepage hero and site header use a 1280px maximum container with 16px horizontal padding, then 24px from `sm` and 32px from `lg`. Other marketing sections use the established 1024px maximum convention.
+- The homepage hero, the site header and the landing's rows after the hero share a 1280px maximum container with 16px horizontal padding, then 24px from `sm` and 32px from `lg`, so every row's rule runs the width of the hero's trust strip and the label column starts under the logo.
 - The hero stacks until `lg`, then uses two columns with a 64px gap; its stacked gap is 40px. The headline, CTA and search sit beside the filing example. This is a homepage composition, not a system-wide requirement.
+- After the hero, every landing section is one ruled row ([`LandingRow`](frontend/features/marketing/components/LandingRow.tsx), D-045): a hairline across the container, then a 14rem label column (the section's number in the data face, counted in CSS so a section that omits itself takes none; its title in the Title role, the section's h2; one line in secondary ink) beside the content. The columns open at 64rem at the reader's text size, and below it the label stacks above the content. No row alternates and none lays its items out four across; pricing is one table, the plans as columns and what each includes as rows; the page closes with one line, not a banner. The label column is the margin of a 10-K, so the page reads as a filing's items.
 - The shared responsive conventions use `sm` at 640px, `md` at 768px and `lg` at 1024px. Desktop header navigation appears at `lg`; the mobile menu occupies the smaller range.
 - Spacing follows Tailwind's base scale plus the configured 18px, 52px, 72px and 24px gutter additions. Frontmatter records frequently used steps and the named gutter; component padding is recorded separately.
 - Comfortable table rows use 10px vertical cell padding; compact rows use 4px. Numeric columns align right and use tabular figures. Wide tables scroll within their container.
