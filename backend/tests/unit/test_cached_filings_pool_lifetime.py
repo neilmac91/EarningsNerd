@@ -570,16 +570,18 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("password_matches", [True, False])
+@pytest.mark.parametrize("outcome", ["right_password", "wrong_password", "locked_out"])
 async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_loop(
-    monkeypatch, tmp_path, password_matches,
+    monkeypatch, tmp_path, outcome,
 ):
     """The login runs its lockout peek and account read as one unit in the thread pool, releases the
     session before bcrypt, and runs its writes (the session, or the failure's count and audit row) as a
     second unit released before it returns. On the loop it kept its connection checked out across
-    bcrypt, and each of its reads and writes checked out there (E121)."""
+    bcrypt, and each of its reads and writes checked out there (E121). A locked-out account's login
+    answers 429 from the first unit, which releases its session on that path too, with no bcrypt."""
     from app.models import AuditLog, LoginAttempt, RefreshToken, User
     from app.routers import auth
+    from app.services import login_lockout
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'login.db'}",
@@ -597,6 +599,15 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
     with sessions() as db:
         hashed = auth.get_password_hash(password)
         db.add_all(User(email=email, is_active=True, hashed_password=hashed) for email in emails)
+        if outcome == "locked_out":
+            db.add_all(
+                LoginAttempt(
+                    email_hash=login_lockout._email_hash(email),
+                    failed_count=login_lockout.LOCKOUT_THRESHOLD,
+                    locked_until=utcnow() + timedelta(seconds=login_lockout.LOCKOUT_SECONDS),
+                )
+                for email in emails
+            )
         db.commit()
 
     request_sessions: list[Session] = []
@@ -628,7 +639,7 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
     monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=100, window_seconds=60))
     monkeypatch.setattr(auth, "verify_password", verify_and_count)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
-    sent = password if password_matches else "not-the-password"  # gitleaks:allow
+    sent = "not-the-password" if outcome == "wrong_password" else password  # gitleaks:allow
 
     async def send(email: str) -> httpx.Response:
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -637,9 +648,10 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
     try:
         # One login alone first: no connection is checked out while it hashes.
         responses = [await send(emails[0])]
-        assert held_during_bcrypt == [0]
+        assert held_during_bcrypt == ([] if outcome == "locked_out" else [0])
         responses += await asyncio.gather(*[send(email) for email in emails[1:]])
-        assert [response.status_code for response in responses] == [200 if password_matches else 401] * 9
+        status = {"right_password": 200, "wrong_password": 401, "locked_out": 429}[outcome]
+        assert [response.status_code for response in responses] == [status] * 9
         assert engine.pool.checkedout() == 0
         # Each login released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 9
@@ -650,10 +662,12 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
             tokens = db.query(RefreshToken).count()
             counted = db.query(LoginAttempt).count()
             audits = sorted(action for (action,) in db.query(AuditLog.action))
-        if password_matches:
+        if outcome == "right_password":
             assert (stamped, tokens, counted, audits) == (9, 9, 0, ["login_success"] * 9)
-        else:
+        elif outcome == "wrong_password":
             assert (stamped, tokens, counted, audits) == (0, 0, 9, ["login_failed"] * 9)
+        else:  # the lockout rows it found, and nothing written
+            assert (stamped, tokens, counted, audits) == (0, 0, 9, [])
     finally:
         engine.dispose()
 

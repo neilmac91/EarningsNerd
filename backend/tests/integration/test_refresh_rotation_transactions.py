@@ -26,7 +26,8 @@ its check if nothing stops it, while the first's writes are uncommitted:
   reset leaves no live token and the change only its own;
 - a password reset and a password change that verified the old password, in either order, and two such
   changes: a change writes only while the hash it verified is the account's (E121), so the reset's
-  password stands with no live token, and of two changes the first's password and session.
+  password stands with no live token, and of two changes the first's password and session;
+- two password logins of one account: the second waits for the first's commit, and both mint.
 Without the users-row lock each writer takes first, the second request writes on what it read before
 the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
 change leaves the refresh's successor live.
@@ -35,7 +36,8 @@ The account's deletion takes the same lock before its cascade deletes the tokens
 once a token writer holds the lock, and hold the writer there until the deletion is blocked or has
 deleted something: taking the lock last, the deletion would delete the tokens first, and the writer's
 token write and the deletion's own row delete would wait on each other until PostgreSQL aborted one. A
-writer that waits out a deletion finds its token gone and writes nothing.
+writer that waits out a deletion finds its token, or a login or change the account, gone and writes
+nothing.
 """
 import os
 import threading
@@ -319,10 +321,14 @@ def test_an_account_deletion_waits_for_a_token_writer_holding_the_lock(postgres_
     assert (_result(first), _kind(deletion), live, released) == (result, "NoneType", 0, "blocked")
 
 
-@pytest.mark.parametrize("writer,result", [("refresh", "RefreshTokenError"), ("logout", False), ("logout_all", 0)])
+@pytest.mark.parametrize("writer,result", [
+    ("refresh", "RefreshTokenError"), ("logout", False), ("logout_all", 0), ("password_login", None),
+    ("change_password", None),
+])
 def test_a_token_writer_that_waits_out_an_account_deletion_writes_nothing(postgres_engine, writer, result):
     deletion, second, live, released = _race(postgres_engine, "delete_account", writer)
-    # Its read again under the lock finds the token gone: a refusal, as for any unknown token.
+    # Its read again under the lock finds the token, or the account, gone: a refusal, as for any
+    # unknown token or a password that no longer matches.
     assert (_kind(deletion), _result(second), live, released) == ("NoneType", result, 0, "blocked")
 
 
@@ -342,6 +348,14 @@ def test_a_password_login_that_verified_the_old_password_mints_nothing_once_it_c
     and the change only the changer's."""
     first, login, live, released = _race(postgres_engine, revocation, "password_login")
     assert (_kind(first), login, live, released) == (result, None, live_after, "blocked")
+
+
+def test_two_password_logins_of_one_account_wait_for_each_other_and_both_mint(postgres_engine):
+    """A login holds the account's lock from its re-check to its commit, so a second login of the same
+    account waits, then finds the hash unchanged and mints too: their users UPDATEs never deadlock, and
+    both sessions are live beside the one from before."""
+    first, second, live, released = _race(postgres_engine, "password_login", "password_login")
+    assert (_kind(first), _kind(second), live, released) == ("str", "str", 3, "blocked")
 
 
 @pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])

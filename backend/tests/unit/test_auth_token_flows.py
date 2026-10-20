@@ -521,6 +521,28 @@ def _refresh_tokens(user_id: int) -> int:
         return db.query(RefreshToken).filter(RefreshToken.user_id == user_id).count()
 
 
+def _failed_login_audits(email: str) -> int:
+    with SessionLocal() as db:
+        return db.query(AuditLog).filter(AuditLog.action == "login_failed", AuditLog.user_email == email).count()
+
+
+@pytest.mark.requires_db
+def test_a_login_for_an_unknown_email_still_runs_bcrypt(client, monkeypatch):
+    """bcrypt runs whether or not the email has an account, against a fixed dummy hash for an unknown
+    one, so the answer's timing does not tell which emails are registered; the answer is the generic 401."""
+    hashes_checked: list[str] = []
+    real_verify = auth_module.verify_password
+
+    def recording_verify(password: str, hashed: str) -> bool:
+        hashes_checked.append(hashed)
+        return real_verify(password, hashed)
+
+    monkeypatch.setattr(auth_module, "verify_password", recording_verify)
+    resp = _login(client, _email(), PASSWORD)
+    assert resp.status_code == 401 and resp.json() == {"detail": "Incorrect email or password"}
+    assert hashes_checked == [auth_module._DUMMY_PASSWORD_HASH]
+
+
 @pytest.mark.requires_db
 def test_a_successful_login_resets_the_failed_login_count(client, mail):
     """THRESHOLD-1 failures, a success, THRESHOLD-1 more failures: without the reset the second run
@@ -590,7 +612,7 @@ def test_a_login_whose_account_changed_while_it_hashed_is_refused(client, mail, 
     assert _cookies(resp) == []
     assert _refresh_tokens(user_id) == 0
     assert _lockout_rows(email) == 1 and _user(email).last_login_at is None
-    assert _audit_actions(user_id, "login_success") == []
+    assert _audit_actions(user_id, "login_success") == [] and _failed_login_audits(email) == 1
 
 
 @pytest.mark.requires_db
