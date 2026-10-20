@@ -128,6 +128,17 @@ def test_a_limit_above_six_is_served_six(client, db, monkeypatch):
     assert [f["ticker"] for f in resp.json()["filings"]] == [f"TK{n}" for n in range(1, 7)]
 
 
+def test_no_limit_is_served_six(client, db, monkeypatch):
+    """With no ``limit`` the route serves D-046's six, the count the homepage shows once its fetch
+    stops asking for eight."""
+    monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
+    for days_ago in range(1, 8):
+        _seed(db, f"TK{days_ago}", days_ago=days_ago)
+    resp = client.get("/api/notable_filings")
+    assert resp.status_code == 200
+    assert [f["ticker"] for f in resp.json()["filings"]] == [f"TK{n}" for n in range(1, 7)]
+
+
 def test_limit_bounds(client):
     assert client.get("/api/notable_filings?limit=0").status_code == 422
     assert client.get("/api/notable_filings?limit=13").status_code == 422

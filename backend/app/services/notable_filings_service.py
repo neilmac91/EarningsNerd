@@ -34,7 +34,7 @@ import logging
 import math
 import threading
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from sqlalchemy import func
@@ -492,7 +492,8 @@ class NotableFilingsService:
         # Single flight (ReportingThisWeekService's fill lock, a thread lock here because requests
         # run in the thread pool): concurrent misses queue here and recheck, so one read fills the
         # cache instead of one pooled connection each. A waiter holds no connection: its session
-        # has run no query yet.
+        # has run no query yet. A failed read fills nothing, so the next waiter reads again
+        # (lessons/arch-cache-only-reads-that-succeeded.md).
         self._fill_lock = threading.Lock()
 
     def _cached(
@@ -512,7 +513,7 @@ class NotableFilingsService:
 
         Synchronous SQLAlchemy: the route runs it in the thread pool and releases the session in
         the same unit (``lessons/ops-release-cached-filing-reads-before-yield.md``)."""
-        now = datetime.now(timezone.utc)
+        now = utcnow()
         today = today_eastern()
 
         if not settings.NOTABLE_FILINGS_ENABLED:
@@ -521,11 +522,15 @@ class NotableFilingsService:
         hit = None if force_refresh else self._cached(today, now)
         if hit is None:
             with self._fill_lock:
-                now = datetime.now(timezone.utc)
+                now = utcnow()
                 hit = None if force_refresh else self._cached(today, now)
                 if hit is None:
-                    hit = (today, now, self._fetch(db, today))
-                    self._cache = hit
+                    fetched = self._fetch(db, today)
+                    if fetched is None:  # a failed read serves this request only; the next retries
+                        hit = (today, now, [])
+                    else:
+                        hit = (today, now, fetched)
+                        self._cache = hit
         _, filled_at, served = hit
 
         status = "ok" if len(served) >= MIN_COMPANIES else "empty"
@@ -535,12 +540,12 @@ class NotableFilingsService:
             "timestamp": filled_at.isoformat(),
         }
 
-    def _fetch(self, db: Session, today: date) -> List[Dict[str, Any]]:
+    def _fetch(self, db: Session, today: date) -> Optional[List[Dict[str, Any]]]:
         """D-046's list: the window's ``SERVED_FORMS`` rows from companies holding a summary the
         filing page shows, newest first (the stored score, then the accession number, breaking a
         tie, as ``ops/detection/notable_homepage_candidates.sql`` orders the window), a company's
         newest row standing for it, at most ``MAX_FILINGS``. Two queries for the whole window.
-        Empty on any failure."""
+        ``None`` when a read failed, so the caller can tell it from an empty window."""
         window_start = today - timedelta(days=SERVE_WINDOW_DAYS)
         try:
             rows = (
@@ -556,7 +561,7 @@ class NotableFilingsService:
             summarized = _issuers_with_ready_summary(db, {_issuer(row) for row in rows if _issuer(row)})
         except Exception as exc:  # never let a query hiccup break the homepage
             logger.warning("Notable-filings fetch failed: %s", exc)
-            return []
+            return None
 
         served: List[NotableFiling] = []
         seen: Set[str] = set()

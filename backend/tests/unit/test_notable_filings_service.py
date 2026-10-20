@@ -349,6 +349,18 @@ def _served(db, **kwargs):
     return [(f["ticker"], f["form"]) for f in NotableFilingsService().get_notable_filings(db, **kwargs)["filings"]]
 
 
+def _tickers(service, db):
+    """The tickers one request to ``service`` serves."""
+    return [f["ticker"] for f in service.get_notable_filings(db)["filings"]]
+
+
+class _BrokenDB:
+    """A session whose every query fails, as it does while the database is down."""
+
+    def query(self, *args, **kwargs):
+        raise RuntimeError("db down")
+
+
 def test_serve_flag_off_returns_empty(serve_db):
     _ready(serve_db, "AAA", "BBB", "CCC")
     for days_ago, ticker in enumerate(("AAA", "BBB", "CCC"), start=1):
@@ -407,6 +419,38 @@ def test_serve_counts_a_ready_summary_of_any_filing(serve_db, enabled):
     assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-K")]
 
 
+def test_serve_counts_a_summary_graded_partial(serve_db, enabled):
+    """D-046's summary is one the filing page shows (``is_summary_ready``), and the page shows a
+    summary the quality grader marked Partial, so it counts. Leaving it out would be one more
+    condition on the rule, which is the founder's to add (#1437's Founder actions)."""
+    graded = {"quality": {"tier": "partial", "reasons": ["The segment table could not be read."]}}
+    _company(serve_db, "PRT", (READY, graded))
+    _ready(serve_db, "AAA", "BBB", "CCC")
+    _candidate(serve_db, "PRT", 0, form="10-K")
+    for days_ago, ticker in enumerate(("AAA", "BBB", "CCC"), start=1):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    assert _served(serve_db) == [("PRT", "10-K"), ("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-Q")]
+
+
+def test_serve_reads_the_summaries_of_the_windows_issuers_only(serve_db, enabled, monkeypatch):
+    """The summary read is held to the window's issuers, so a fill reads none of a stored company's
+    summaries when that company has no candidate this week, rather than every summary stored."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers, "IDLE")
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    tested = []
+    ready = svc.is_summary_ready
+
+    def counted(overview, writer_error=None):
+        tested.append(overview)
+        return ready(overview, writer_error)
+
+    monkeypatch.setattr(svc, "is_summary_ready", counted)
+    assert _served(serve_db) == [(ticker, "10-Q") for ticker in tickers]
+    assert len(tested) == len(tickers)
+
+
 @pytest.mark.parametrize("case", [
     pytest.param("reused", id="an older issuer holds the ticker"),
     pytest.param("moved", id="its issuer is stored under another ticker"),
@@ -455,6 +499,30 @@ def test_serve_orders_newest_first_with_the_score_breaking_a_tie(serve_db, enabl
     _candidate(serve_db, "BBB", 2, form="10-Q", score=45.0)
     _candidate(serve_db, "OLD", SERVE_WINDOW_DAYS + 3, form="10-K", score=99.0)
     assert _served(serve_db) == [("CCC", "10-Q"), ("AAA", "10-Q"), ("BBB", "10-Q"), ("DDD", "10-K")]
+
+
+@pytest.mark.parametrize("order", [("AAA", "BBB", "CCC"), ("CCC", "BBB", "AAA")],
+                         ids=["seeded in accession order", "seeded in reverse"])
+def test_serve_breaks_a_tie_of_day_and_score_by_accession_number(serve_db, enabled, order):
+    """Filings of one day and one score (every unwatched 10-Q stores 45.0) keep their accession
+    numbers' order, so each fill picks the same companies for the six places. Seeded both ways,
+    since without the key a database returns tied rows in an order of its own."""
+    _ready(serve_db, *order)
+    for ticker in order:
+        _candidate(serve_db, ticker, 1, form="10-Q", score=45.0)
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-Q")]
+
+
+def test_serve_keeps_a_filing_exactly_a_week_old(serve_db, enabled, monkeypatch):
+    """The window is the past week with its first day: a filing dated seven days ago is served. New
+    York's day is held still, so a midnight between seeding and serving cannot move the edge."""
+    today = svc.today_eastern()
+    monkeypatch.setattr(svc, "today_eastern", lambda: today)
+    tickers = ["AAA", "BBB", "CCC", "EDGE"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in zip((1, 2, 3, SERVE_WINDOW_DAYS), tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    assert _served(serve_db) == [(ticker, "10-Q") for ticker in tickers]
 
 
 def test_serve_caps_at_six_and_slices_within_the_cap(serve_db, enabled):
@@ -530,6 +598,61 @@ def test_a_miss_during_a_fill_waits_for_it_and_reads_nothing(serve_db, enabled, 
     assert len(statements) == 2, statements
 
 
+def test_a_failed_read_lets_the_next_waiter_read_again(serve_db, enabled, monkeypatch):
+    """A request waiting behind a fill whose read fails reads again rather than serve that failure,
+    and its success fills the cache for the request after it
+    (lessons/arch-cache-only-reads-that-succeeded.md). The first read is held until the second
+    request reaches the lock, then fails as a database outage does."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    service = NotableFilingsService()
+    fetch, lock = service._fetch, service._fill_lock
+    filling, waiting, release = threading.Event(), threading.Event(), threading.Event()
+    calls = {"fetch": 0, "lock": 0}
+
+    def failing_first(db, today):
+        calls["fetch"] += 1
+        if calls["fetch"] > 1:
+            return fetch(db, today)
+        filling.set()
+        assert release.wait(5)
+        return fetch(_BrokenDB(), today)
+
+    class _Watched:
+        """The service's lock, telling the case when a second request reaches it."""
+
+        def __enter__(self):
+            calls["lock"] += 1
+            if calls["lock"] == 2:
+                waiting.set()
+            return lock.__enter__()
+
+        def __exit__(self, *exc):
+            return lock.__exit__(*exc)
+
+    monkeypatch.setattr(service, "_fetch", failing_first)
+    monkeypatch.setattr(service, "_fill_lock", _Watched())
+    served = {}
+
+    def request(name):
+        served[name] = _tickers(service, serve_db)
+
+    first = threading.Thread(target=request, args=("first",))
+    first.start()
+    assert filling.wait(5)
+    second = threading.Thread(target=request, args=("second",))
+    second.start()
+    assert waiting.wait(5)
+    release.set()
+    first.join(5)
+    second.join(5)
+    request("third")
+    assert served == {"first": [], "second": tickers, "third": tickers}
+    assert calls == {"fetch": 2, "lock": 2}
+
+
 def test_serve_below_min_companies_is_empty(serve_db, enabled):
     tickers = ["AAA", "BBB"][: MIN_COMPANIES - 1]
     _ready(serve_db, *tickers)
@@ -541,10 +664,71 @@ def test_serve_below_min_companies_is_empty(serve_db, enabled):
 
 
 def test_serve_never_raises_on_query_error(enabled):
-    class _BrokenDB:
-        def query(self, *args, **kwargs):
-            raise RuntimeError("db down")
-
     result = NotableFilingsService().get_notable_filings(_BrokenDB())
     assert result["status"] == "empty"
     assert result["filings"] == []
+
+
+def test_a_failed_summary_read_is_caught_and_not_cached(serve_db, enabled, monkeypatch):
+    """The summary read sits inside the window read's guard: when it fails, the request is served
+    the empty section, not a 500, and the next request reads again."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    service = NotableFilingsService()
+    ready = svc._issuers_with_ready_summary
+
+    def down(db, issuers):
+        raise RuntimeError("summary read down")
+
+    monkeypatch.setattr(svc, "_issuers_with_ready_summary", down)
+    failed = service.get_notable_filings(serve_db)
+    assert (failed["status"], failed["filings"]) == ("empty", [])
+    monkeypatch.setattr(svc, "_issuers_with_ready_summary", ready)
+    assert _tickers(service, serve_db) == tickers
+
+
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+def test_a_failed_read_is_not_cached(serve_db, enabled, monkeypatch, warm):
+    """A failed read serves its own request the empty section and leaves the cache as it was, so the
+    next request reads again (lessons/arch-cache-only-reads-that-succeeded.md). Warm: a success is
+    still inside the TTL when New York's day turns, so only the day key sends the read that fails
+    to the database."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    service = NotableFilingsService()
+    if warm:
+        assert _tickers(service, serve_db) == tickers
+        tomorrow = svc.today_eastern() + timedelta(days=1)
+        monkeypatch.setattr(svc, "today_eastern", lambda: tomorrow)
+    failed = service.get_notable_filings(_BrokenDB())
+    assert (failed["status"], failed["filings"]) == ("empty", [])
+    assert _tickers(service, serve_db) == tickers
+
+
+def test_a_successful_empty_read_is_cached(serve_db, enabled):
+    """An empty window is a read that succeeded: it is read once and then served from the cache."""
+    statements = []
+    event.listen(serve_db.get_bind(), "before_cursor_execute", lambda *args: statements.append(args[2]))
+    service = NotableFilingsService()
+    for _ in range(2):
+        result = service.get_notable_filings(serve_db)
+        assert (result["status"], result["filings"]) == ("empty", [])
+    assert len(statements) == 1, statements
+
+
+def test_a_cached_answer_carries_the_time_of_its_fill(serve_db, enabled):
+    """``timestamp`` is when the list was read: an answer from the cache reports its fill's time, not
+    the time of the request it answers."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    service = NotableFilingsService()
+    filled = service.get_notable_filings(serve_db)
+    cached = service.get_notable_filings(serve_db)
+    assert [f["ticker"] for f in cached["filings"]] == tickers
+    assert cached["timestamp"] == filled["timestamp"]
