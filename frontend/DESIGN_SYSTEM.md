@@ -39,6 +39,13 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 text on a tinted bg is measured against the mixed tint; non-text UI (bars, sparklines,
 hairlines-as-meaning) ≥ 3:1.
 
+**The device's tint is a ground like any other** (`brand-weak` light, `brand-weak-dark` mixed over what
+is behind it). The words on it are the primary ink pair: a marked block's excerpt is 15.4:1 on the light
+tint and 10.7:1 on the dark tint over navy, and the Source pane's located passage takes the primary ink
+too, since the reader's secondary ink measures 4.49:1 on the dark tint over the slate panel (D-044). The
+marker and its twin sit beside the tint, not on it, in `brand-strong` (5.9:1 on cream, 9.8:1 on navy).
+Gate: tests/e2e/risk-evidence-rows.spec.ts measures the marker, the twin and the excerpt in both themes.
+
 ## 2. Theme-responsiveness is mandatory
 
 Every color on a surface that renders in **both** themes must be a light/dark **pair**:
@@ -83,10 +90,16 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
   `.tabular` = mono evidence register; `.tnum` = tabular figures in the CURRENT (body) face —
   numerals inside prose/UI copy only. Data tables and KPI tiles are **not** `.tnum` surfaces: their
   numerics render mono (DataTable numeric cells, StatCard figures — the data-role rule).
-- **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
-  (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
-  On a public page the serif appears only inside a quoted passage the product located (the hero
-  example's evidence row, the social card's excerpt), never for a headline, tagline or a claim of ours.
+- **Editorial serif (Newsreader)** is wired to the filing's own words alone: the real filing viewer
+  (**`.filing-reader`**, 19/1.7, opsz auto: Item 1A, MD&A, notes) and a passage the server located,
+  set as a marked block (`.en-marked`, 16/26). Serif = the filing's own words. Inside the product the
+  marked blocks are the filing page's Risks rows and the summary's located quotes (D-044), a quote's
+  speaker staying in the body face (`font-sans`); on a public page the serif appears only inside
+  a quoted passage the product located (the hero example's evidence row, the social card's excerpt),
+  never for a headline, tagline or a claim of ours. Gate: tests/unit/designSystemDoneGate.spec.ts
+  (EDITORIAL_SURFACES, an equality: the reader, the hero example, the Risks rows and the quote blocks;
+  outside the reader the face sits only in a marked block's class list, scored on the planted forms of
+  `tests/unit/fixtures/sourceVoiceForms.tsx`; globals.css sets it on `.filing-reader` alone).
   **`.markdown-body` is NOT serif**: it carries the reader's list + heading + table manners on the
   **body sans**, but FILLS its pane with no measure cap (it renders inside a card/pane, where any
   capped measure reads as dead space — field-tested twice) — its app consumer is
@@ -197,11 +210,12 @@ card keeps its Retry and its title inside its own border too: its row wraps, and
 glyph where it cannot keep 9rem beside it (Inline notice, below). Before, under 200% text, the comparison card's
 Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at 360px
 the billing and ticker filings cards' Retry ran 15px past it. Gates: e2e `reflow-200.spec.ts`, "a failure's
-controls stay inside their card" (the homepage search alert at 320, 360 and 390px and with a long token, the
+controls stay inside their card" (the homepage search alert and the full-text search alert on /search, each at 320,
+360 and 390px and with a long token, the
 dashboard's account card at 320, 360 and 390px, the route and dashboard error boundaries at 320px, and the
 comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at 360px and the
 comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
-the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
+the full-text search alert's layout;
 `twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
 reserve's rows. Its limit: at 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the
 admin feedback and invites lists) leaves a Notice a 92px content box, narrower than the Retry's narrowest state
@@ -568,12 +582,16 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  tracking-eyebrow around the code, its class written inline or held in a same-file
                  constant; gate: earningsnerd/no-form-code-badge, eslint.designRules.mjs);
                  <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls; "Superseded"). <Badge variant="success|error"> = a STATUS
-                 chip (a summary is ready, a run failed): the status ink on the quiet ground, since the
-                 success ink inside any tint of itself falls under 4.5:1 at 12px. In dark the chip
-                 carries no fill, its hairline only, so a hovered row's white/5 is the one layer under
-                 it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
-                 tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
+                 (replaces raw-amber hand-rolls; "Superseded"). Badge's status set, BadgeStatusVariant
+                 (<Badge variant="success|error|info-status|warning-status|neutral-status">) = a STATUS chip
+                 (a summary is ready, a run failed, an invite pending): the status ink on the quiet ground,
+                 since the success ink inside any tint of itself falls under 4.5:1 at 12px. info, warning
+                 and neutral are the tints and the quiet chip, so their status forms take names of their
+                 own. In dark the chip carries no fill, its hairline only, so a hovered row's white/5 is the
+                 one layer under it: error-dark holds 4.6:1 there, where a fill of its own would take it to
+                 3.9:1 (gates: tests/unit/badgeVariants.spec.tsx, success and error on the card and on a
+                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows, Status
+                 chip below). beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
@@ -609,27 +627,39 @@ Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx)
                  the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
                  card's e4 and dark none; the close button's hover, forced, on opaque fills).
 
-Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on
-                 STATUS_CHIP + STATUS_CHIP_INK[tone] from features/admin/lib/statusChip.ts, the one home
-                 of the recipe (tones info / success / warning / neutral). The status INK sits on the
-                 quiet ground, never the status tint. Light labels measure 5.0 to 7.1:1 on the white
-                 chip. Dark carries no fill, so the row's white/5 hover tint is the only layer: 5.77 to
-                 6.83:1 at rest, 4.97 to 5.89:1 on a hovered row (Badge's quiet white/5 on the chip as
-                 well would drop info-dark to 4.26:1 there). The old recipe, info-light in its own 10%
-                 tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
-                 FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
-                 same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
-                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). Badge's
-                 success and error status variants carry this dark recipe, no fill; E47 moves the admin
-                 chips onto Badge after the series, with info, warning and neutral status variants of
-                 their own (Badge's info, warning and neutral are the tints and the quiet chip).
-                 Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
-                 hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
-                 pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
-                 there carrying a bg- class fails; a chip colour under any variant but its theme's own
-                 (hover:, focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the
-                 <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
-                 it renders on FeedbackRow's grounds).
+Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label, a
+                 <Badge> of its status set (components/ui/Badge.tsx, BadgeStatusVariant; the Badge entry
+                 under Solid chip): pending and new on info-status, used and resolved on success, expired
+                 and triaged on warning-status, revoked on neutral-status, the icon in Badge's `icon` slot.
+                 The status INK sits on the quiet ground, never the status tint. Light labels measure 5.0
+                 to 7.1:1 on the white chip. Dark carries no fill, so the row's white/5 hover tint is the
+                 only layer: the four the admin chips use hold 5.77 to 6.83:1 at rest and 4.97 to 5.89:1 on
+                 a hovered row, and error, the set's fifth, 5.31:1 and 4.57:1 (a quiet white/5 fill on the
+                 chip as well would drop error-dark to 3.92:1 there, info-dark to 4.26:1 and the neutral
+                 ink to 4.27:1). The old recipe, info-light in its own 10% tint, is 4.32:1. The chips take
+                 Badge's metrics, 600 with a 6px gap where the hand-rolled recipe was 500 with 4px, and
+                 Badge's whitespace-nowrap, which the status cells already set: each chip is 2.2 to 2.7px
+                 wider (4.4 to 5.4px under 200% text), one line, inside its cell at 1440 and 390px and at
+                 390px under 200% text, and no page scrolls sideways (the tables scroll in their box,
+                 Admin pages below). FeedbackTypeBadge, the neutral type chip beside the status chip in
+                 FeedbackRow, takes Badge's metrics too (600, a 6px gap, whitespace-nowrap), so the row's
+                 two chips share one weight, and keeps a ground and an ink of its own: its light ground
+                 (black/[0.04]: 9.04:1, 8.50:1 hovered), and the status set's dark one: no fill, its
+                 white/10 hairline kept, text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row
+                 (its old white/5 fill measured 4.27:1 there).
+                 Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, read from
+                 Badge's source and rendered through Badge, on both tables' rows, at rest and hovered, both
+                 themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the pages' <tbody>;
+                 every layer between a chip and its <tr> read too, and a cell or wrapper there carrying a
+                 bg- class fails; a chip colour under any variant but its theme's own (hover:,
+                 focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the <tr> or the
+                 <tbody> fail too; both badges held to the set, every status a chip Badge rendered for one
+                 member with no class added and nothing on it or inside it that paints (a class inside but
+                 the icon's size, an inline style, an SVG fill or stroke that is not currentColor), so a
+                 hand-rolled chip, a copy of Badge's classes included, a tint, an added class or a label in
+                 a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds, and
+                 held to Badge's metrics: every class of Badge's BASE, with only a ground and an ink of its
+                 own beside them, so a weight, a gap or a size of its own fails).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
@@ -807,6 +837,21 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  dialog over the copilot sheet never lets a key reach the sheet — and content inside a panel
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
+                 The header's icon and title are one group that wraps beside the ✕, as a Notice's glyph and
+                 text column do (Inline notice): the title's basis is 9rem (144px at the default size, 288px
+                 under 200% text), so where it cannot keep that beside the icon (a phone at 200% text) it goes
+                 under the icon at the group's whole width, the column gap below it (gap-y-1 and the title's
+                 pt-2). The ✕ keeps its own column, the row's last control at the top right: the title never
+                 sits under it or runs past the panel, and it breaks a word only when the word is wider than
+                 the group (at 320px under 200% text the email verification prompt's title has 94px, so
+                 "Verify" breaks). At the default size nothing moves: at 1440 and 390px the icon, the title
+                 and the ✕ keep their boxes, in both themes. Before, at 390px under 200% text, the icon and the
+                 ✕ left the title 60px: "Cookie preferences" painted under the ✕ and 26px past the panel's
+                 edge, and "Verify your email to continue" under the ✕. No container query, as for the
+                 Notice. Gate: e2e reflow-200.spec.ts (the consent dialog and the email verification prompt
+                 at 390, 360 and 320px: the title beside the icon at the default size and under it at 200%
+                 text, every painted line inside the panel and left of the ✕, a word broken only when it is
+                 wider than the title, the page not scrolling sideways, nor the prompt's panel).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
@@ -917,7 +962,9 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  must not paint over a choice. The site header (z-50, top-anchored) stays above it: on a
                  short phone (320x568) its open mobile menu reaches the bar's region and covers a choice
                  until the user closes the menu (user-opened, user-closed; before, the bar covered the menu's
-                 lower items instead).
+                 lower items instead). On a 390x844 phone a signed-in reader's open menu, with the Search and
+                 Calendar links, ends just above the bar and can cover the Ask and feedback launchers until it
+                 closes, since the header outranks them too (tests/e2e/consent-bar-yields.spec.ts).
                  New fixed bottom chrome joins this band, never above it: a floating control takes
                  `BOTTOM_CHROME_OFFSET` (a sheet takes `bottom-[var(--consent-inset,0px)]` and subtracts the
                  inset from its vh cap) and is pinned in the gate with its reason — the pin list is
@@ -994,6 +1041,15 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  text glyph for the arithmetic direction (aria-hidden; sr-only words state it where no signed
                  string does), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
+                 A quote block whose evidence the server located (`evidence.verified`) is a marked block
+                 (`en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed`, primary ink, the speaker
+                 in the body face, `font-sans`), with no marker and no twin, since a quote has no heading to
+                 carry one (D-044); any other quote keeps the neutral hairline (border-l-2, italic, secondary
+                 ink). The speaker's line wraps (`flex-wrap`), so the evidence chip drops under the speaker
+                 where the line cannot hold both. Gates: SummaryBlocks.spec.tsx, brandCopyRules.spec.ts rule 3
+                 (the quote blocks take the block alone), tests/e2e/risk-evidence-rows.spec.ts (the located
+                 quote's face, tint and ink, its words unbroken mid-word, and each quote's words, speaker and
+                 chip inside its block at 320 and 390 under 200% text).
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
                  honoured once its section renders (features/summaries/hooks/useSectionArrival); later
                  renders never move the reader. Where the page has no structured summary to hold it, the
@@ -1028,7 +1084,7 @@ Wording changes  <WordingChanges block Heading context>  (features/filings, E27 
                  counts and the first `entitlements.section_changes_items` items) closes with one line ("N more
                  changes in this section. Pro shows every change."), a sm primary Button "Upgrade to Pro" that
                  opens UpgradeModal (feature "Risk factor wording review") and, signed out, the text link "Already
-                 Pro? Sign in" to /login. Events: `wording_changes_viewed` once per form served (not while the
+                 Pro? Log in" to /login. Events: `wording_changes_viewed` once per form served (not while the
                  anonymous seed stands in for a signed-in reader's own read: `context.provisional`), and the
                  paywall pair with entry_point `wording_changes`. The read is per viewer
                  (features/summaries/hooks/useWhatChanged: the key carries the signed-in reader's id; the
@@ -1116,13 +1172,41 @@ Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain s
                  the implementation establishes ("where a match is found"); "generated" stays distinct from
                  "the filing's own words".
 
-Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
-                 opening words of the row's own verbatim excerpt, unique per row via excerptHeadings — the
-                 server withholds model titles), the excerpt in blockquote manners (border-l-2 hairline, no
-                 fill, no radius, 14px secondary) and the provenance chip; a lead line above and a data-face
-                 tally below ("3 of 4 excerpts located in the filing text · 1 withheld …"). No stripe, no
-                 trend glyph, no nested evidence box. The row wraps a long unbreakable token
-                 ([overflow-wrap:anywhere]).
+Evidence rows    <SummaryRisks>  (P-03; a marked copy since D-044): one hairline list inside the section: a
+                 row is an h3 (14/600, the opening words of the row's own verbatim excerpt, unique per row via
+                 excerptHeadings, since the server withholds model titles), the excerpt and the provenance chip; a
+                 lead line above and a data-face tally below ("3 of 4 excerpts located in the filing text · 1
+                 withheld …"), both outside the margin. The brand device marks a row whose excerpt the server
+                 located (source_verified, the chip's "Verified in filing", D-028): an EnRef on its heading
+                 ([1], [2] … in reading order among the located rows, the chip's 12px, `aria-hidden` like its
+                 twin, so the heading's name is its words alone and the chip carries the claim), the twin in
+                 the margin MarkedCopy draws beside the list (components/ui, 2.25rem, 2.75rem from sm; the
+                 rows take markedRowInsetClass, pl-3 sm:pl-3.5, inside it), and the excerpt as a marked block
+                 (`en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed` in the primary ink,
+                 HeroExample's recipe). One marker per row, so the twins never overprint. A row not located
+                 keeps blockquote manners (border-l-2 hairline, no fill, no radius, 14px secondary) and no
+                 marker; a list with no located row draws no margin. No stripe, no trend glyph, no nested
+                 evidence box. Below a measure the margin gives way: MarkedCopy is a query container in em
+                 (its own width at the reader's text size, which `sm:` and a rem column cannot follow), and
+                 narrower than 13em it drops the margin and its twins, and the rows their inset
+                 (components/ui/markedCopyLayout.ts); each marker stays in its heading. 13em is the middle of
+                 the measured window: the margin stays at the default size on a 320px phone (the copy is 18em
+                 wide on the filing page there, 15.4em in the landing's card) and goes under 200% text at
+                 390px and below (10.2em at 390, 8em at 320 on the filing page), where it left the excerpt
+                 171px and 101px of 32px serif and broke words mid-word; without it, and with the marked
+                 block's side padding narrowed from 0.875rem to 0.5rem below the same measure
+                 (markedBlockInsetClass), the excerpt keeps 291px and 221px and no word breaks, a filing's date
+                 joined by a no-break space ("September 27,", 199px in CI's Chromium) included. The marked
+                 block (`.en-marked`) keeps a word still longer than
+                 its measure inside itself: `overflow-wrap: anywhere` breaks it inside the block, never past
+                 it. The block never hyphenates (`hyphens: manual`): it quotes the filing, and CI's Chromium,
+                 which carries a hyphenation dictionary, hyphenated ordinary words at every width under
+                 `hyphens: auto` ("re-sults" at 1440px). The landing's evidence row needs the break: its card
+                 left the block 115px of 32px serif at 320px under 200% text (about 139px with the narrowed
+                 padding), and seven words ran up to 49px past it (gates: markedCopy.spec.tsx reads the rules,
+                 since CI renders the landing with no
+                 evidence row; risk-evidence-rows.spec.ts reads the painted words on the filing page). The row
+                 wraps a long unbreakable token ([overflow-wrap:anywhere]) rather than push the page sideways.
                  Heading rule (riskHeadline.ts, inside excerptHeadings): a verbatim prefix of the excerpt, never
                  recased and never whitespace-normalised (one enclosing quote pair is dropped first, only when
                  it wraps the whole span). The first sentence stays whole when it fits in 100 characters; a
@@ -1131,7 +1215,13 @@ Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section
                  date, name, bracket or quotation. Never at a comma or a dash. "…" whenever the excerpt goes
                  on; "Risk n" when no heading fits. Gates: riskHeadline.spec.ts (the rule, on the production,
                  backend-fixture and eval spans), riskTitle.spec.ts (what excerptHeadings adds around it),
-                 SummaryRisks.spec.tsx (the wiring), tests/e2e/risk-evidence-rows.spec.ts (layout).
+                 SummaryRisks.spec.tsx (the wiring and the device's rows, the marker out of the heading's
+                 name), tests/e2e/risk-evidence-rows.spec.ts (layout at 320, 390 and 1440, both themes,
+                 default and 200% text: where the margin shows, each twin on its marker's line, none
+                 overprinting, and its width; the margin and the rows' inset gone at 390px and below under
+                 200% text; no word of a marked block broken mid-word, read a character at a time; the
+                 marker, twin and excerpt at 4.5:1 or more),
+                 brandCopyRules.spec.ts rule 3 (where the device renders, and only on located rows).
 
 Callout          <Callout label tone="neutral|caution">  (P-08; replaces SummaryBlock) — an inset well:
                  `rounded border bg-panel-light px-4 py-3.5` (dark: white/10 hairline on panel-dark), no
@@ -1199,13 +1289,35 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  before the reader. A citation jump (highlightInDom) scrolls the reader and the table's
                  box only, never the page (no scrollIntoView), and centres the passage in the reader's
                  on-screen part (above the fold and the consent bar, before the desktop pane sticks):
-                 smoothly, or in one jump under prefers-reduced-motion. A box names itself only when it
+                 smoothly, or in one jump under prefers-reduced-motion. A passage the server located wears
+                 the device's mark (D-044): `::highlight(copilot-citation)` (CITATION_HIGHLIGHT_CSS, a constructed
+                 sheet) paints `.en-mark`'s tint and its 2px hairline, `.dark`'s pair in dark, the hairline an
+                 unbroken underline where the tint ends (`text-underline-offset: calc(0.2632em - 2px)`,
+                 Newsreader's descent below the baseline), and sets the passage in the primary ink, since the
+                 reader's secondary ink is 4.49:1 on the dark tint over the slate panel. The Highlight API
+                 paints colours and decorations only, so the tint fills the line's content area where
+                 `.en-mark` starts it at 62% of the line box. Located means a verified citation of the
+                 filing's text: a summary chip's verified excerpt (SourceTrace sends `verified` only with
+                 the excerpt the server checked) or an Ask answer's passage. Any other jump lands in the
+                 neutral find highlight, `::highlight(copilot-find)` (FIND_HIGHLIGHT_CSS, in the same sheet):
+                 the brand sage at 22% in the reader's own ink, no hairline, one rule for both themes, the
+                 reader's paint before D-044, so the reader still sees where it landed: a summary chip's
+                 section heading (every metric chip, a verified XBRL figure's included, every Cited chip, and
+                 a verified chip whose excerpt is too short to anchor), an excerpt the server did not locate,
+                 and the text an Ask XBRL fact's jump finds (a fact has no passage). One of the two is
+                 registered at a time. The block's `.citation-flash` stays the attention pulse, which fades;
+                 the paint is what stays. A box names itself only when it
                  starts to overflow, never on every resize (the name scans the whole reader). The AI
-                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts,
-                 tests/unit/readerTableRegionName.spec.ts, tests/e2e/filing-reader-wide-tables.spec.ts
+                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts (each
+                 paint's look: the device's equals `.en-mark`'s, read from globals.css; the find paint is the
+                 sage with no hairline and never the device's tint, with planted paints for both),
+                 tests/unit/sourcePanePaint.spec.tsx (which paint each jump registers, through the real chip,
+                 context, viewer and highlight chain), tests/unit/readerTableRegionName.spec.ts,
+                 tests/e2e/filing-reader-wide-tables.spec.ts
                  (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
-                 tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
-                 in real layout, the page unmoved).
+                 tests/e2e/copilot-highlight-css.spec.ts (what Chromium computes for each paint, the device's
+                 against `.en-mark` on the same page, both themes; a far-right table cell revealed in its own
+                 box in real layout, the page unmoved).
 
 Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
@@ -1280,13 +1392,15 @@ accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a s
 the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
 /login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
 which has no site footer; the two token pages are opened without their emailed token), /contact,
-/privacy, /terms, /security, /delete-account, /search while its flag is off (the 404), and four
+/privacy, /terms, /security, /delete-account, /calendar and /search (CI's e2e build turns both on:
+the calendar reads its own fixtures with the clock pinned to one week, the search is answered and
+run), a finished Multi-Period Analysis run on /analysis, and four
 page-level card states (a filing without a summary for a guest and for a signed-in reader whose run
 fails, a writer error, an empty watchlist). Three census cases hold that list to its sources:
 `STATIC_ENTRIES` in `app/sitemap.ts`, `AUTH_ROUTES` in `lib/authShellRoutes.ts`, and every
 `page.tsx` under `app/`, static or dynamic (a dynamic route by a representative path, /company/AAPL
 for `/company/[ticker]`), which the spec must visit or name in `NOT_VISITED` with its reason (the
-admin pages, the API-rendered /analysis, /calendar and /dashboard/settings, the labs prototypes).
+admin pages, /dashboard/settings and the labs prototypes).
 Each fails, naming the path, when a route has no entry, and a reason for a page the spec visits, or
 that no longer exists, fails too.
 
@@ -1376,14 +1490,41 @@ and an 834px tablet over its route loop).
 inset hairline at the baseline, `box-decoration-break: clone` so a wrapped phrase marks per line),
 `.en-marked` (a located passage: 3px `brand` bar on the left, tint behind, square corners because a
 stripe never sits on a rounded container, the filing's words inside it in `.filing-reader`'s face), `.en-margin` (a gutter with a hairline on its
-inner edge; `w-11` from `sm`, `w-9` on phones) and `.en-margin-mark` (an 11px data-face bracket,
+inner edge; `w-11` from `sm`, `w-9` on phones, giving way below a measure: Evidence rows, §4) and `.en-margin-mark` (an 11px data-face bracket,
 `brand-strong`, absolutely positioned on the line of the in-text marker it twins; the twin is
-measured by `features/marketing/components/MarkedCopy.tsx`, never hard-coded). Rules: a mark means
+measured by `components/ui/MarkedCopy.tsx`, never hard-coded). Rules: a mark means
 "located" and a bracket means "cited"; one `.en-mark` per surface may sit under a phrase of ours as
 the signature; none on a figure, a price, a status, a competitor's name or an unverified claim; no
 margin without a marker; the hairline never scales with the type. The 11px mark is the one
 sanctioned sub-12px text beside copy because it is a twin of a 12px marker, not copy; it still
-carries no claim and is `aria-hidden` (the in-text marker is the accessible one).
+carries no claim and is `aria-hidden`, as the in-text marker (`EnRef`) is: the number points at a twin
+assistive tech never reaches, and the chip beside the passage carries the claim, so a heading's name is
+its words alone.
+Inside the product the device marks every passage the server located, and nothing else (D-044): the
+filing page's Risks rows (Evidence rows, §4), the summary's quotes whose evidence the server located
+(Section ledger, §4: the marked block alone, no marker, no twin) and the Source pane's located passage
+(Filing reader, §4).
+One marker per row, so the twins never overprint; the one-`.en-mark` limit stays for a phrase of ours.
+Ask this Filing's answers and the Multi-Period narrative keep their citation chips: a cited line carries
+several markers there, and their twins would overprint. Gate: brandCopyRules.spec.ts rule 3
+(DEVICE_PLACES, an equality of places and their parts: the hero example's evidence row and the Risks
+rows with the margin, the marker and the block, the quote blocks with the block alone; on a list's row a
+marker or a marked block only under a test of its located flag, a risk's `source_verified` or an
+evidence's `verified`; one marker per row and per line, and none inside a marked block; no margin
+holding CopilotMessage, NarrativePane or CitationChip; its planted forms in
+`tests/unit/fixtures/brandRule3Forms.tsx`).
+Two forms, kept apart: `.en-marked` sets a located passage as a block (the 3px bar, the tint, square
+corners, the filing's words in Newsreader: a Risks excerpt, a located quote), and the tint and 2px
+hairline, `.en-mark`'s look, mark a located passage inside running text (the Source pane's
+`copilot-citation` paint). Nothing unlocated takes either form (a jump the server did not locate lands in
+the reader's neutral find highlight, `copilot-find`), a quote block never takes the tint and
+hairline, the Source pane never takes `.en-marked`, and inside the product only the Risks rows carry a
+marker and its twin. Gates: brandCopyRules.spec.ts rule 3 (no `en-mark` on, in or around a quote
+block; the highlight's places, HIGHLIGHT_PLACES, an equality of one per surface; a class any string
+names counts as a part, so a Source pane module that adds `en-marked` fails DEVICE_PLACES),
+highlightInDom.spec.ts (the reader's located paint is `.en-mark`'s look, never the marked block's bar,
+and its find paint never the device's, with planted paints) and sourcePanePaint.spec.tsx (a heading
+fallback, a Cited jump and an XBRL fact never register the device's highlight; a located excerpt does).
 
 ## 8. Theme mechanics
 

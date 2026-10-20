@@ -54,7 +54,7 @@ export default function ConnectedAccounts() {
     },
     onError: (err: unknown) => {
       setError(
-        isApiError(err) ? getErrorMessage(err) : 'Could not unlink that sign-in method.',
+        isApiError(err) ? getErrorMessage(err) : 'Could not unlink that login method.',
       )
     },
   })
@@ -67,7 +67,7 @@ export default function ConnectedAccounts() {
     },
     onError: (err: unknown) => {
       setError(
-        isApiError(err) ? getErrorMessage(err) : 'Could not sign out of all devices.',
+        isApiError(err) ? getErrorMessage(err) : 'Could not log out of all devices.',
       )
     },
   })
@@ -89,7 +89,7 @@ export default function ConnectedAccounts() {
         </h2>
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
-        Manage how you sign in. You can&apos;t remove your only sign-in method.
+        Manage how you log in. You can&apos;t remove your only login method.
       </p>
 
       {isLoading ? (
@@ -145,7 +145,7 @@ export default function ConnectedAccounts() {
                   }}
                   aria-disabled={isLast || pending || undefined}
                   aria-busy={pending || undefined}
-                  title={isLast ? 'Set a password first so you keep a way to sign in' : undefined}
+                  title={isLast ? 'Set a password first so you keep a way to log in' : undefined}
                   className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark aria-disabled:cursor-not-allowed aria-disabled:text-error-light/40 aria-disabled:no-underline dark:aria-disabled:text-error-dark/40"
                 >
                   {pending ? 'Unlinking…' : 'Unlink'}
@@ -156,7 +156,7 @@ export default function ConnectedAccounts() {
 
           {providers.length === 0 && (
             <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-              No social sign-ins linked.
+              No social logins linked.
             </p>
           )}
 
@@ -179,7 +179,7 @@ export default function ConnectedAccounts() {
               loading={logoutAllMutation.isPending}
               leftIcon={<SignOutIcon className="h-4 w-4 shrink-0" />}
             >
-              Sign out of all devices
+              Log out of all devices
             </Button>
           </div>
         </div>

@@ -48,6 +48,12 @@ standard input unasked, the body files of a command another shell runs (`bash -c
 here-document fed to a shell), the commit messages `gh pr create --fill` copies, a GitHub MCP server
 registered under a name without "github", a session that loads no repository hooks, and a person's
 own write.
+secret_scan_guard.py reads a Bash command with this module's shell reader (_scan, _substitution,
+_command_tokens, _Input, OPERATORS), so a change to them changes that hook too: run
+backend/tests/unit/test_secret_scan_guard.py as well. ops_approval_guard.py imports this module's shell
+reader (`_script`, `_command_tokens`, `_commands`, `_read_sent`) and patterns (`AT_FILE`, `STDIN`, `HTTPIE`,
+`HEREDOC_WORD`, `PAREN_END`, `WORD_START`, `UNQUOTE`, `GITHUB_API`), so a change here also runs
+backend/tests/unit/test_ops_approval_guard.py.
 Tests: backend/tests/unit/test_codex_mention_guard.py.
 """
 from __future__ import annotations
@@ -457,10 +463,25 @@ def _files_named(words: list[str], gh: bool) -> tuple[list[str], bool]:
     return names + (redirects if stdin else []), stdin
 
 
-def _files_sent(script: str, cwd: object):
-    """The text of each regular file, up to 1 MiB, that a GitHub write in this script sends as a body."""
+def _read_sent(name: str, cwd: object) -> str | None:
+    """The text of the file `name` names, from the event's working directory as it stands before the command
+    runs, or None when it is no regular file up to 1 MiB, lies under /proc, /sys or /dev, or cannot be read."""
     from pathlib import Path
 
+    base = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
+    try:
+        path = (base / Path(name).expanduser()).resolve()
+        if str(path).startswith(("/proc/", "/sys/", "/dev/")):  # a kernel file can block a read
+            return None
+        if path.is_file() and path.stat().st_size <= MAX_FILE_BYTES:
+            return path.read_text(encoding="utf-8", errors="replace")
+    except (OSError, RuntimeError, ValueError):  # a ~user that does not exist; a NUL in the name
+        pass
+    return None
+
+
+def _files_sent(script: str, cwd: object):
+    """The text of each regular file, up to 1 MiB, that a GitHub write in this script sends as a body."""
     commands = _commands(_command_tokens(script))
     names = []
     for index, (operator, words) in enumerate(commands):
@@ -476,16 +497,10 @@ def _files_sent(script: str, cwd: object):
         names += files
         if stdin and operator in ("|", "|&") and commands[index - 1][1][:1] == ["cat"]:
             names += [word for word in commands[index - 1][1][1:] if not word.startswith("-")]
-    base = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
     for name in dict.fromkeys(names):  # each file once
-        try:
-            path = (base / Path(name).expanduser()).resolve()
-            if str(path).startswith(("/proc/", "/sys/", "/dev/")):  # a kernel file can block a read
-                continue
-            if path.is_file() and path.stat().st_size <= MAX_FILE_BYTES:
-                yield path.read_text(encoding="utf-8", errors="replace")
-        except (OSError, RuntimeError, ValueError):  # a ~user that does not exist; a NUL in the name
-            continue
+        text = _read_sent(name, cwd)
+        if text is not None:
+            yield text
 
 
 def _is_review_request_command(command: str) -> bool:

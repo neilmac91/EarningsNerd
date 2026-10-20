@@ -83,6 +83,6 @@ describe('signup-before-generation gate (useSummaryGeneration auto-generate)', (
       await result.current.handleGenerateSummary()
     })
     expect(generateSummaryStream).not.toHaveBeenCalled()
-    await waitFor(() => expect(result.current.generationError).toMatch(/sign in/i))
+    await waitFor(() => expect(result.current.generationError).toMatch(/log in/i))
   })
 })

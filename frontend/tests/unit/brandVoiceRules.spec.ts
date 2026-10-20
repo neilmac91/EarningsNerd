@@ -53,19 +53,54 @@ import { isIconModule } from './iconModules'
  *    `then` and a generator's `yield`.
  *  - developerWording: copy in lib/ and hooks/ (the fallback errors a user reads) never names the
  *    backend, an API path, a "reader" or an HTTP status number.
+ *  - signInVerb: the product's verb is "Log in" (docs/brand/decisions-log.md D-046, F44), so copy never says "sign in"
+ *    or "sign out": no inflection of either (signs, signed, signing, "sign into"), no hyphenated or closed-up noun
+ *    ("sign-in", "sign-ins", "signin", "sign-out"), in any case. Its two words may be parted by whitespace of any kind
+ *    (a line break and a no-break space included), a hyphen or dash of any kind or the minus sign, and by the words
+ *    English puts inside the verb (INSIDE_THE_VERB): "back", "right" or "straight", and an object pronoun, a reflexive
+ *    one or one for a person, which may take "all", "both" or "each" ("Signing you back in…", "Sign them all out"). A
+ *    character reference is read as HTML reads it (`Sign&nbsp;in`, `Sign&#8209;in`, `Sign&ensp;in`; jsdom's decoder
+ *    knows every name JSX and Next's compiler decode, and HTML's newer ones), a compatibility form as its letter (NFKC:
+ *    a fullwidth `Ｓｉｇｎ ｉｎ`), and an invisible character anywhere in the words as nothing (Unicode's
+ *    default-ignorable set: a soft hyphen, a zero-width space or joiner, a word joiner). "Sign up" is registering, not
+ *    this verb, and passes, as do "log in", "logged in", "logging in", "log out" and "login" as a noun ("the login
+ *    page"). The clause reads copy by its context as the other clauses do (below): JSX text, an attribute that is not
+ *    code (an aria-label, a title, a placeholder, a component's label or loadingText), a string or template literal that
+ *    is not code's own, so an identifier (`signedIn`, `ENABLE_APPLE_SIGNIN`), a comment, an href, a class attribute and
+ *    a comparison are never read. Unlike them, it reads a string no context claims whatever its shape, since the
+ *    verb's own noun is hyphenated (`setError('could not complete sign-in.')`, `throw new Error('sign-in expired')`, a
+ *    constant rendered later), except in a class list, where the verb counts only as words of its own, a sentence's
+ *    punctuation, brackets or a possessive around it (`'[sign-in] failed'`, `"your sign-in's link"`), and a token that
+ *    joins it to a class's other parts is a class (`'sign-in-link underline'`, `'md:signin'`). A `kind` property's value
+ *    is a tag (`{ kind: 'signin' }`), code as a `type`'s is. Markup a module builds (an `innerHTML`, an `__html`) is read
+ *    by its text and by each attribute of its elements that is not code (CODE_ATTRS_ANY_CASE: an aria-label, an alt, a
+ *    title, a placeholder), each read alone, its tags and code attributes (a class, an href, an id, a `for`, a `style`)
+ *    left out. Out of reach, eight forms planted as gaps in its self-check: the two words split across two literals,
+ *    around an expression or around an element (`Sign{' '}in`, `'Sign ' + 'in'`, `Sign<br />in`), each part read
+ *    alone; a noun object between them (`Sign other devices out`; "Sign your name in the box" is the other verb); a
+ *    letter from another script (a Cyrillic `і`); and in a class-shaped string no context claims, the verb joined into
+ *    a longer token by a hyphen, a slash or a colon, each a class's shape (`group/name`, `md:name`):
+ *    `'sign-in-related issues'`, `'sign-in/sign-up required'`, `'auth:sign-in failed'`. Its false positives are the
+ *    other senses of "sign" before these words ("signed back in May", "signed into law", "a sign right in front of
+ *    you"), a tag in a place no context names as code (`useState('sign-in')`) and, in markup, a code attribute
+ *    CODE_ATTRS_ANY_CASE does not name (an SVG's `xlink:href`, a `clip-path`'s `url(#…)`): one goes to the residue
+ *    with its reason.
  *
  * Copy is a JSX text node, or a string or template literal outside the places code keeps its own
  * strings (imports, class lists, comparisons, identifiers such as hrefs and keys; see isCodeString). A
  * `createElement` call is read as JSX is: its type is code, a prop is read by the attribute's rule and a
  * child is copy (the literal clauses; the label clauses read JSX elements only). What `replace` puts in a
- * pattern's place, and the value `setAttribute` gives an attribute that is not code, are read by their context. An
+ * pattern's place, and the value `setAttribute` gives an attribute that is not code, are read by their context. A
+ * call whose string arguments are code (CODE_CALLS) claims those arguments, not the body of a function handed to it,
+ * which is read as a block body is (`queryFn: () => Promise.reject(new Error('…'))`). An
  * attribute that is not code (CODE_ATTRS) is copy, so a placeholder, an aria-label, an alt or a title is
  * read by the exclamation, emoji and buzzword clauses (and by no-em-dash-copy.spec.ts, which reads every
  * literal), whatever its shape (a lone `'!'` or `'🚀'` included), and so is an expression rendered as an
  * element's child; a string with no context that says copy or code is code when it has no letter (a
  * separator, a symbol) and is read as a class list when it is shaped like one (lowercase tokens, one with a
  * hyphen, a colon or a bracket), so a lowercase phrase or a lone symbol held in a variable or an object
- * property of another name (`const SUBHEAD = 'decision-ready insights'`) is the scan's limit and review-checked. A JSON module the app imports is data this scan does not read, so the copy it holds
+ * property of another name (`const SUBHEAD = 'decision-ready insights'`) is the scan's limit and review-checked (the
+ * signInVerb clause reads such a phrase, above). A JSON module the app imports is data this scan does not read, so the copy it holds
  * (features/analysis/demo/demo-analysis.json, the landing's samples) is review-checked
  * (tests/unit/importWalk.ts).
  *
@@ -84,7 +119,7 @@ import { isIconModule } from './iconModules'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 
-type Clause = 'sentenceCase' | 'exclamation' | 'emoji' | 'buzzword' | 'headingIcon' | 'developerWording'
+type Clause = 'sentenceCase' | 'exclamation' | 'emoji' | 'buzzword' | 'headingIcon' | 'developerWording' | 'signInVerb'
 
 /** Names that keep their capitals mid-phrase: the product's names, the regulator and its systems, the
     nine parts of the summary outline (backend/app/services/summary_schema.py SECTION_META), months and
@@ -126,6 +161,41 @@ const EMOJI = /\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F/u
 const EMOJI_ALL = new RegExp(EMOJI.source, 'gu')
 const EXCLAMATION = /!/u
 const DEVELOPER_WORDING = /\bbackend\b|\/api\/|\breader\b|\b[45]\d\d\b/i
+/** What parts the verb's two words once a text is readable (below): whitespace of any kind, a line break and a no-break
+    space included, a hyphen or dash of any kind, and the minus sign. */
+const PARTED = String.raw`[\p{White_Space}\p{Pd}\u2212]`
+/** The words English puts inside the phrasal verb, between "sign" and its particle ("Signing you back in…", "Sign them
+    all out"): "back" and the "right" and "straight" that lean on it or on the particle, and an object pronoun, a reflexive
+    one or one for a person, which may take a floating "all", "both" or "each". A closed set, so a noun object stays out
+    (a gap: `Sign other devices out`), as it must: "Sign your name in the box" is the other verb, signing. */
+const INSIDE_THE_VERB = `(?:back|right|straight|(?:me|you|him|her|it|us|them|myself|yourself|himself|herself|itself|ourselves|yourselves|themselves|oneself|everyone|everybody|someone|somebody|anyone|anybody|nobody|no${PARTED}+one)(?:${PARTED}+(?:all|both|each))?)`
+/** The other verb (D-046): "sign" in any inflection, then "in", "ins", "into", "out" or "outs", the words closed up,
+    parted (PARTED), or parted around the words inside the verb (INSIDE_THE_VERB). Global, so read only by matchAll. */
+const SIGN_IN_VERB = new RegExp(String.raw`\bsign(?:s|ed|ing)?(?:${PARTED}+${INSIDE_THE_VERB})*${PARTED}*(?:in(?:s|to)?|outs?)\b`, 'giu')
+
+/** A literal's texts as a reader gets them, for the verb: a character reference decoded as HTML decodes it (jsdom's
+    decoder, which knows every name JSX and Next's compiler decode), markup read by its text and by each attribute of its
+    elements that is not code (CODE_ATTRS_ANY_CASE: an aria-label, an alt, a title, a placeholder), each read alone, its
+    tags left out, a compatibility form folded to its letter (NFKC) and the invisible characters taken out
+    (Default_Ignorable_Code_Point: a soft hyphen, a zero-width space, joiner or non-joiner, a word joiner, a direction
+    mark). */
+function readable(text: string, markup: boolean): string[] {
+  let read = [text]
+  if (markup) {
+    const holder = document.createElement('template')
+    holder.innerHTML = text
+    const copyAttributes = [...holder.content.querySelectorAll('*')].flatMap((element) =>
+      [...element.attributes].filter((attr) => !CODE_ATTRS_ANY_CASE.test(attr.name)).map((attr) => attr.value),
+    )
+    read = [holder.content.textContent ?? '', ...copyAttributes]
+  } else if (/&#?\w/.test(text)) {
+    // A textarea's content is text and character references, never tags (HTML's RCDATA).
+    const holder = document.createElement('textarea')
+    holder.innerHTML = text
+    read = [holder.value]
+  }
+  return read.map((piece) => piece.normalize('NFKC').replace(/\p{Default_Ignorable_Code_Point}/gu, ''))
+}
 const HEADINGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
 /** Components whose title prop is a visible title. UpgradeModal is named because its title reaches its
     ModalHeader through a local (`const heading = title ?? …`), which discoverReach does not follow. */
@@ -137,8 +207,9 @@ const BUTTONS = new Set(['Button', 'button'])
 const CONTROLS = new Set(['Button', 'button', 'a', 'Link'])
 /** Attributes that hold code, not copy. */
 const CODE_ATTRS = /^(?:className|class|href|src|srcSet|id|key|type|role|name|rel|target|variant|size|as|method|action|htmlFor|autoComplete|inputMode|enterKeyHint|lang|viewBox|d|fill|stroke|strokeWidth|strokeLinecap|strokeLinejoin|xmlns|mode|side|align|tone|tabIndex|pattern|form|scope|dateTime|sizes|crossOrigin|referrerPolicy|layout|data-[\w-]+|aria-(?:controls|labelledby|describedby|haspopup|live|current|expanded|hidden|selected|pressed|checked|disabled|modal|orientation|sort|atomic|relevant|busy|invalid|required|owns|activedescendant))$/
-/** CODE_ATTRS for a DOM attribute's name, which is lowercase (`tabindex`, `for`). */
-const CODE_ATTRS_ANY_CASE = new RegExp(CODE_ATTRS.source.replace('htmlFor|', 'htmlFor|for|'), 'i')
+/** CODE_ATTRS for a DOM attribute's name, which is lowercase (`tabindex`, `for`), and a `style`, whose value is CSS there
+    (JSX's is an object). */
+const CODE_ATTRS_ANY_CASE = new RegExp(CODE_ATTRS.source.replace('htmlFor|', 'htmlFor|for|style|'), 'i')
 /** Calls whose string arguments are code: class lists, keys, selectors, patterns, event names. Two positions are read
     by their context instead (isCodeString): what `replace` and `replaceAll` put in a pattern's place, and the value
     `setAttribute` gives an attribute that is not code; `createElement` is read as JSX is. */
@@ -183,26 +254,37 @@ const callName = (call: ts.CallExpression) =>
     called as `styles()` is the DS button factory and a renamed `createElement` or `cx` is what it is. */
 const calleeNames = (call: ts.CallExpression): string[] => [callName(call), ...namesOf(call.expression, new Set())]
 
-/** Whether a string literal is code's own string, not copy: an import, a key, a comparison, a code attribute or
-    argument, or, with no context that says either, a string with no letter (a separator, a symbol) or a class list by
-    its shape. Context is read first, so a copy attribute (a title, an aria-label, the one setAttribute names) and an
-    expression rendered as an element's child are copy whatever their shape ("decision-ready insights" reads as a class
-    list by shape alone, and `'🚀'` or `'!'` has no letter). */
+/** Markup a module builds (an SVG for an export). */
+const isMarkup = (text: string) => /<\/?[a-z][\w-]*[\s>/]/.test(text)
+
+/** Whether a string literal is code's own string, not copy: markup a module builds, an import, a key, a comparison, a code
+    attribute or argument, or, with no context that says either, a string with no letter (a separator, a symbol) or a
+    class list by its shape. Context is read first, so a copy attribute (a title, an aria-label, the one setAttribute names)
+    and an expression rendered as an element's child are copy whatever their shape ("decision-ready insights" reads as a
+    class list by shape alone, and `'🚀'` or `'!'` has no letter). */
 function isCodeString(node: ts.Node, text: string): boolean {
   if (ts.isJsxText(node)) return false
-  // Markup a module builds (an SVG for an export) is code.
-  if (/<\/?[a-z][\w-]*[\s>/]/.test(text)) return true
+  if (isMarkup(text)) return true
+  return contextOf(node) ?? (!/\p{L}/u.test(text) || looksLikeClasses(text))
+}
+
+/** What a string literal's context says it is: code's own string (true), copy (false: JSX text, a copy attribute, an
+    expression rendered as an element's child), or nothing either way (undefined). */
+function contextOf(node: ts.Node): boolean | undefined {
+  if (ts.isJsxText(node)) return false
   const parent = node.parent
   if (!parent) return true
   if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent) || ts.isExternalModuleReference(parent) || ts.isLiteralTypeNode(parent)) return true
   if ((ts.isPropertyAssignment(parent) || ts.isPropertyDeclaration(parent) || ts.isMethodDeclaration(parent)) && parent.name === node) return true
   if (ts.isElementAccessExpression(parent) || ts.isCaseClause(parent)) return true
   if (ts.isBinaryExpression(parent) && [ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken, ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.InKeyword].includes(parent.operatorToken.kind)) return true
-  // The outermost property passed on the way up, for a createElement call's props.
+  // The outermost property passed on the way up, for a createElement call's props, and whether the way up left a function.
   let prop: string | undefined
+  let leftFunction = false
   for (let n: ts.Node | undefined = parent, from: ts.Node = node; n; from = n, n = n.parent) {
     if (ts.isJsxAttribute(n)) return CODE_ATTRS.test(n.name.getText())
-    if (ts.isPropertyAssignment(n) && /^(?:className|classNames|href|key|queryKey|id|type|variant)$/.test(n.name.getText())) return true
+    // A tag's property holds code (`{ kind: 'signin' }`, as a `type` does), like a class list's, a key's and an href's.
+    if (ts.isPropertyAssignment(n) && /^(?:className|classNames|href|key|queryKey|id|type|kind|variant)$/.test(n.name.getText())) return true
     if (ts.isPropertyAssignment(n)) prop = ts.isIdentifier(n.name) || ts.isStringLiteral(n.name) ? n.name.text : n.name.getText()
     // createElement(type, props, ...children) reads as JSX does: the type is code (a DOM node's tag too, as in
     // `document.createElement('a')`), a prop is read by the attribute's rule, and a child is copy.
@@ -211,6 +293,9 @@ function isCodeString(node: ts.Node, text: string): boolean {
       return at === 1 ? prop === undefined || CODE_ATTRS.test(prop) : at < 2
     }
     if (ts.isCallExpression(n) && calleeNames(n).some((name) => CODE_CALLS.has(name))) {
+      // Such a call claims its own arguments, not the body of a function handed to it, which is read as a block body is
+      // (`queryFn: () => Promise.reject(new Error('…'))` as `queryFn: () => { throw new Error('…') }`).
+      if (leftFunction) break
       // A replacement is read by its context (`<p>{note.replace('x', 'Wow!')}</p>` renders it), and so is an attribute's
       // value when the attribute is not code (`el.setAttribute('aria-label', …)`).
       const at = n.arguments.indexOf(from as ts.Expression)
@@ -227,8 +312,30 @@ function isCodeString(node: ts.Node, text: string): boolean {
     // An expression rendered as an element's child is copy, whatever its shape.
     if (ts.isJsxExpression(n) && (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))) return false
     if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isBlock(n) || ts.isSourceFile(n)) break
+    if (ts.isFunctionLike(n)) leftFunction = true
   }
-  return !/\p{L}/u.test(text) || looksLikeClasses(text)
+  return undefined
+}
+
+/** Whether a literal says the other verb (D-046), read as the header's signInVerb says: by its context first; a string no
+    context claims whatever its shape, but for a class list's token that joins the verb to a class's other parts; markup
+    by its text and its copy attributes; each through `readable`. */
+function saysTheOtherVerb(node: ts.Node, raw: string): boolean {
+  const context = contextOf(node)
+  if (context === true) return false
+  const markup = !ts.isJsxText(node) && isMarkup(raw)
+  const asWords = context === undefined && !markup && looksLikeClasses(raw)
+  for (const text of readable(raw, markup)) {
+    for (const match of text.matchAll(SIGN_IN_VERB)) {
+      if (!asWords) return true
+      // In a class list the verb counts where it stands as words of its own: a sentence's punctuation around it, brackets
+      // included, and a possessive after it (`'[sign-in] failed'`, `"your sign-in's link"`).
+      const before = text.slice(0, match.index).split(/\s/).pop() ?? ''
+      const after = text.slice(match.index + match[0].length).split(/\s/)[0] ?? ''
+      if (/^[(\["'“‘]*$/.test(before) && /^(?:['’]s)?[.,;:!?…)\]"'”’]*$/.test(after)) return true
+    }
+  }
+  return false
 }
 
 /** A word as it is spelled: the punctuation that opens or closes it (`More…`, `Again!`, `(Beta)`) is not its spelling. */
@@ -554,6 +661,8 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
       for (const [word, re] of BUZZWORDS) if (re.test(text)) add(node, 'buzzword', `${word}: ${text}`)
       if (devScope && /\s/.test(text.trim()) && DEVELOPER_WORDING.test(text)) add(node, 'developerWording', text)
     }
+    // The other verb reads further than copy's shape (saysTheOtherVerb).
+    if (text !== null && saysTheOtherVerb(node, text)) add(node, 'signInVerb', text)
     // Headings, titles, buttons: their rendered text; headings: no icon inside.
     if (ts.isJsxElement(node)) {
       const tag = tagsOf(node.openingElement).find((name) => HEADINGS.has(name))
@@ -1159,5 +1268,123 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     ).toEqual(['sentenceCase Filing Summary'])
     expect(voiceFindings("export const msg = 'The backend returned 503. Try again.'", 'lib/api/probe.ts').map((f) => f.clause)).toEqual(['developerWording'])
     expect(voiceFindings("export const msg = 'The backend returned 503. Try again.'", 'features/probe/msg.ts')).toEqual([])
+  })
+
+  it('finds the other verb in every form copy takes, and never in code (D-046; a self-check on a fixed source)', () => {
+    // Each plant is marked: true, a form of the verb in copy the clause must flag; false, a look-alike or code it must
+    // pass; 'gap', a form the header names as out of reach, which passes until the clause reads it. The count of each
+    // mark is held below, so no plant leaves, whatever its mark, without a failure.
+    const planted: Array<[string, boolean | 'gap']> = [
+      ['export const A = () => <Button>Sign in</Button>', true],
+      ['export const B = ({ name }: { name: string }) => <p>You are signed in as {name}.</p>', true],
+      ['export const C = () => <Button loading loadingText="Signing in…">Go</Button>', true],
+      ['export const D = () => <button aria-label="Sign out of every device" />', true],
+      ['export const E = () => <a href="/help" title="Sign-in help">Help</a>', true],
+      ['export const F = () => <Notice title="Sign-in failed" />', true],
+      ["const NOTICE = 'Please sign in again.'", true],
+      ['export const G = ({ t }: { t: string }) => <p>{`Sign in to follow ${t}`}</p>', true],
+      ['export const H = () => <p>SIGN OUT</p>', true],
+      ['export const I = () => <p>Signs out of every device</p>', true],
+      ['export const J = () => <p>Readers who are signed-out see the teaser</p>', true],
+      ['export const K = () => <p>Sign into your account</p>', true],
+      ['export const L = () => <p>Signin failed</p>', true],
+      ['export const M = () => <p>Sign&nbsp;in to continue</p>', true],
+      ['export const N = () => <input placeholder="Sign in email" />', true],
+      ['export const O = () => <p>Sign‑out</p>', true],
+      ['export const P = () => <p>No social sign-ins linked.</p>', true],
+      ['export const Q = () => <p>Already have an account? Sign\n  in</p>', true],
+      ["export const R = () => createElement('button', null, 'Sign in')", true],
+      ["export const S = (el: HTMLElement) => el.setAttribute('aria-label', 'Sign out')", true],
+      ["export const metadata = { title: 'Sign in | EarningsNerd' }", true],
+      // The verb with the words English puts inside it (INSIDE_THE_VERB): an object pronoun where "Logging in…" stands,
+      // "back", a reflexive pronoun, one for a person, a pronoun with "back" and with a floating quantifier, and "right".
+      ['export const AF = () => <Button loading loadingText="Signing you in…">Go</Button>', true],
+      ['export const AG = () => <p>Sign back in to continue.</p>', true],
+      ['export const AH = () => <p>Sign yourself out on shared devices.</p>', true],
+      ['export const AI = () => <p>We signed everyone out of this account.</p>', true],
+      ['export const AJ = () => <p>Signing you back in…</p>', true],
+      ['export const AK = () => <p>Sign them all out</p>', true],
+      ['export const AL = () => <p>Sign right in with your email.</p>', true],
+      // A character reference read as HTML reads it: decimal, hex, a space's name, a soft hyphen's name inside a word, an
+      // attribute's, and in markup a name only HTML knows.
+      ['export const AM = () => <p>Sign&#8209;in to continue</p>', true],
+      ['export const AN = () => <p>Sign&#x2011;out of every device</p>', true],
+      ['export const AO = () => <p>Sign&ensp;in</p>', true],
+      ['export const AP = () => <p>Si&shy;gn in</p>', true],
+      ['export const AQ = () => <a href="/help" title="Sign&ndash;in help">Help</a>', true],
+      ["export const AR = (el: HTMLElement) => { el.innerHTML = '<p>Sign&ZeroWidthSpace;in</p>' }", true],
+      // An invisible character as itself, between the words (a soft hyphen, a zero-width space) or inside one (a word
+      // joiner), and a fullwidth form.
+      ['export const AS = () => <p>Sign\u00adin</p>', true],
+      ['export const AT = () => <p>Sign\u200bout</p>', true],
+      ['export const AU = () => <p>Si\u2060gn in</p>', true],
+      ['export const AV = () => <p>\uff33\uff49\uff47\uff4e \uff49\uff4e</p>', true],
+      // A lowercase string no context claims, read whatever its shape: handed to a setter, a toast and an Error, held and
+      // rendered, built in a template, markup a module builds, and a lone word held and rendered.
+      ["export const AW = (setError: (m: string) => void) => setError('could not complete sign-in.')", true],
+      ["export const AX = () => toast.error('sign-in expired, try again')", true],
+      ["export const AY = () => { throw new Error('sign-in expired') }", true],
+      ["const EXPIRED = 'sign-in expired, try again'; export const AZ = () => <p>{EXPIRED}</p>", true],
+      ['export const BA = (x: string) => `sign-in ${x}`', true],
+      ["export const BB = (el: HTMLElement) => { el.innerHTML = '<p>Sign in to continue</p>' }", true],
+      ["const LABEL = 'signin'; export const BC = () => <p>{LABEL}</p>", true],
+      // Markup a module builds, by each attribute of its elements that is not code: an aria-label, an alt, a title and a
+      // placeholder in an innerHTML, and an aria-label in an __html.
+      ["export const BK = (el: HTMLElement) => { el.innerHTML = '<button aria-label=\"Sign in\"></button>' }", true],
+      ["export const BL = (el: HTMLElement) => { el.innerHTML = '<img alt=\"Sign out\" src=\"x.png\">' }", true],
+      ["export const BM = (el: HTMLElement) => { el.innerHTML = '<a title=\"Sign in help\" href=\"/h\">Help</a>' }", true],
+      ["export const BN = (el: HTMLElement) => { el.innerHTML = '<input placeholder=\"Sign in email\">' }", true],
+      ["export const BO = () => <div dangerouslySetInnerHTML={{ __html: '<button aria-label=\"Sign in\"></button>' }} />", true],
+      // In a class-shaped string, the verb in brackets and with a possessive; and a message in a function handed to a call
+      // whose arguments are code, read as the block body (AY) is.
+      ["export const BP = () => toast.error('[sign-in] failed, try again')", true],
+      ["export const BQ = (setError: (m: string) => void) => setError(\"your sign-in's link has expired\")", true],
+      ["export const BR = () => useQuery({ queryKey: ['x'], queryFn: () => Promise.reject(new Error('Please sign in')) })", true],
+      // A `kind` property's value is a tag, code (useCalendar.ts's `kind: 'signin'`).
+      ["export const T = (set: (b: { kind: string }) => void) => set({ kind: 'signin' })", false],
+      ['export const U = () => <Button>Sign up with email</Button>', false],
+      ['export const V = () => <p>Design in progress, assigned out of band, a signal in the noise, a sign on the door</p>', false],
+      ['export const W = ({ signedIn }: { signedIn: boolean }) => (signedIn ? <p>Log out</p> : <p>Log in</p>)', false],
+      ['// Sign in: a comment says it, and a comment is not copy', false],
+      ['export const X = () => <a href="/signin" className="sign-in-link" data-cta="sign-in">Log in</a>', false],
+      ["const Y = (kind: string) => kind === 'signin'", false],
+      ["type Z = 'signin' | 'upsell'", false],
+      ['export const AA = () => <p>Logged in, logging in, logged out: the login page and its logins</p>', false],
+      ["export const ENABLE_APPLE_SIGNIN = process.env.NEXT_PUBLIC_ENABLE_APPLE_SIGNIN === 'true'", false],
+      ["export const AB = (m: string) => m.includes('sign in')", false],
+      ['export const AC = () => <AppleSignInButton apiBase="" />', false],
+      // The other "sign" before the same words, the verb inside a class token, and markup's code attributes (a DOM
+      // attribute's name in its own case: `for`, not `htmlFor`).
+      ['export const BD = () => <p>Sign your name in the box</p>', false],
+      ['export const BE = () => <p>There is no sign of it in the filing</p>', false],
+      ['export const BF = () => <p>Signs you up in a minute</p>', false],
+      ["const LINK = 'sign-in-link underline'", false],
+      ["const NAV = 'md:signin hover:underline'", false],
+      ["export const BG = (el: HTMLElement) => { el.innerHTML = '<a class=\"sign-in-link\" href=\"/signin\">Log in</a>' }", false],
+      ["export const BS = (el: HTMLElement) => { el.innerHTML = '<label for=\"signin-email\" id=\"sign-in-label\" style=\"background: url(/sign-in.svg)\">Email</label><input id=\"signin-email\" name=\"signin\" type=\"email\" data-cta=\"sign-in\">' }", false],
+      // Out of reach, the gaps the header names: the words split around an expression, across two literals and around an
+      // element, a noun object between them, a letter from another script, and in a class-shaped string no context
+      // claims, the verb joined into a longer token by a hyphen, a slash or a colon, as a class joins its parts.
+      ["export const AD = () => <p>Sign{' '}in</p>", 'gap'],
+      ["export const AE = () => <p>{'Sign ' + 'in'}</p>", 'gap'],
+      ['export const BH = () => <p>Sign<br />in</p>', 'gap'],
+      ['export const BI = () => <p>Sign other devices out</p>', 'gap'],
+      ['export const BJ = () => <p>S\u0456gn in</p>', 'gap'],
+      ["const NOTE = 'sign-in-related issues'", 'gap'],
+      ["export const BT = (setError: (m: string) => void) => setError('sign-in/sign-up required')", 'gap'],
+      ["export const BU = () => toast.error('auth:sign-in failed')", 'gap'],
+    ]
+    let line = 1
+    const expected: number[] = []
+    for (const [code, flag] of planted) {
+      if (flag === true) expected.push(line)
+      line += code.split('\n').length
+    }
+    const src = planted.map(([code]) => code).join('\n')
+    const found = voiceFindings(src, 'features/probe/Verb.tsx').filter((f) => f.clause === 'signInVerb')
+    expect(found.map((f) => f.line)).toEqual(expected)
+    // Every plant is held, whatever its mark: 53 forms flagged, 19 look-alikes and code passing, 8 named gaps.
+    const marked = (mark: boolean | 'gap') => planted.filter(([, flag]) => flag === mark).length
+    expect([marked(true), marked(false), marked('gap')]).toEqual([53, 19, 8])
   })
 })

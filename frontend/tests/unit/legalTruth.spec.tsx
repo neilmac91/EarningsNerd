@@ -127,7 +127,8 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
   terms: [{ date: 'June 16, 2026', sha256: '82ecb15a746bee66' }],
   privacy: [
     { date: 'June 22, 2026', sha256: '455802b5d59fad8f' },
-    { date: 'October 19, 2026', sha256: '40cc493ae300e1db' },
+    { date: 'October 20, 2026', sha256: 'c1bc2d9daec940d1' },
+    { date: 'October 20, 2026', sha256: '865b53735c88175d', sameDay: '#1399 changed /privacy that day too' },
   ],
   security: [
     { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },

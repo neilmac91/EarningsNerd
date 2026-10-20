@@ -263,8 +263,8 @@ export default function FullTextSearch() {
                 "Trying again…" at rest, and beside the message, in a row that could not wrap, that room pushed
                 it past the screen at 200% text on a phone. When the alert goes while Retry holds focus (the
                 search lands), focus moves to the field, except after a tap, which would raise the touch
-                keyboard. full-text-search.spec.tsx pins this layout; its browser case waits on E39 (CI's e2e
-                build leaves /search off). */}
+                keyboard. full-text-search.spec.tsx pins this layout, and tests/e2e/reflow-200.spec.ts holds it at
+                200% text on a phone. */}
             <div className="mt-2.5 flex">
               <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField />
             </div>
