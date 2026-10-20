@@ -352,9 +352,12 @@ def test_a_password_login_that_verified_the_old_password_mints_nothing_once_it_c
 
 def test_two_password_logins_of_one_account_wait_for_each_other_and_both_mint(postgres_engine):
     """A login holds the account's lock from its re-check to its commit, so a second login of the same
-    account waits, then finds the hash unchanged and mints too: their users UPDATEs never deadlock, and
-    both sessions are live beside the one from before."""
-    first, second, live, released = _race(postgres_engine, "password_login", "password_login")
+    account, started once the first holds it, waits, then finds the hash unchanged and mints too, and
+    both sessions are live beside the one from before. A lock two logins could share (FOR SHARE) would
+    let both reach their users UPDATE and deadlock there."""
+    first, second, live, released = _race(
+        postgres_engine, "password_login", "password_login", second_starts="after_first_lock",
+    )
     assert (_kind(first), _kind(second), live, released) == ("str", "str", 3, "blocked")
 
 
