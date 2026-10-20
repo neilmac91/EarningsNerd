@@ -21,7 +21,8 @@ Three layers, mirroring ``earnings_calendar_service``:
 3. **Serve** (``get_notable_filings``): D-046's rule (``docs/brand/decisions-log.md``, F3). From the
    ≤7-day window it serves 10-K and 10-Q filings only (``SERVED_FORMS``, matched exactly;
    ``base_signal`` keeps any form ending in "/A" out of the table), from companies that hold a
-   summary the filing page shows (``summary_placeholders.is_summary_ready``), newest first with the
+   summary the filing page shows (``summary_placeholders.is_summary_ready``; the company is the
+   candidate's issuer, the stored company holding its CIK and its ticker), newest first with the
    stored score breaking a tie, one filing per company, at most ``MAX_FILINGS``. The scan's other
    forms stay stored and are not served. Fewer than ``MIN_COMPANIES`` distinct companies → empty
    (ReportingThisWeek's self-omission contract). Gated on ``settings.NOTABLE_FILINGS_ENABLED`` so the
@@ -433,27 +434,46 @@ def _search_counts(db: Session, *, days: int = 7) -> Dict[str, int]:
 
 # ---------------------------------------------------------------------------- serve
 
-def _tickers_with_ready_summary(db: Session, tickers: Set[str]) -> Set[str]:
-    """The tickers among ``tickers`` whose stored company holds a summary the filing page shows.
+def _cik_key(cik: Optional[str]) -> Optional[str]:
+    """A CIK with its leading zeros stripped, the one form its spellings share; None for none."""
+    return str(cik or "").strip().lstrip("0") or None
 
-    A candidate is an EDGAR row, not an ingested filing, so the test is at the company: the
-    candidate's ticker is matched to ``Company.ticker`` exactly, the lookup ``/company/{ticker}``
-    makes (``filing_list_service.stored_company_identity``), so a card opens the company this found;
-    any of that company's filings counts. Readiness is ``is_summary_ready``, the filing page's rule,
-    with ``raw_summary.writer_error`` read in the database as ``latest_filing_service`` reads it, so
-    no ``raw_summary`` is loaded. One query for the whole window, never one per candidate.
+
+def _issuer(row: NotableFiling) -> Optional[Tuple[str, str]]:
+    """A candidate's issuer as ``(CIK, ticker)``; None when the scan stored no CIK or ticker."""
+    cik = _cik_key(row.cik)
+    return (cik, row.ticker) if cik and row.ticker else None
+
+
+def _issuers_with_ready_summary(db: Session, issuers: Set[Tuple[str, str]]) -> Set[Tuple[str, str]]:
+    """The ``(CIK, ticker)`` pairs among ``issuers`` whose stored company holds a summary the
+    filing page shows.
+
+    A candidate is an EDGAR row, not an ingested filing, so the test is at its issuer: the stored
+    company holding the candidate's CIK, since ``Company.cik`` is unique and ``Company.ticker`` is
+    not (a reused ticker can name an older issuer). That company must also carry the candidate's
+    ticker, the lookup ``/company/{ticker}`` makes (``filing_list_service.stored_company_identity``),
+    so a card opens the company this found; any of its filings counts. A CIK is matched in its
+    zero-padded and stripped spellings, as ``company_resolution`` matches it. Readiness is
+    ``is_summary_ready``, the filing page's rule, with ``raw_summary.writer_error`` read in the
+    database as ``latest_filing_service`` reads it, so no ``raw_summary`` is loaded. One query for
+    the whole window, never one per candidate.
     """
-    if not tickers:
+    if not issuers:
         return set()
+    spellings = sorted({spelling for cik, _ in issuers for spelling in (cik, cik.zfill(10))})
     writer_error = Summary.raw_summary["writer_error"].as_string()
     rows = (
-        db.query(Company.ticker, Summary.business_overview, writer_error)
+        db.query(Company.cik, Company.ticker, Summary.business_overview, writer_error)
         .join(Filing, Filing.company_id == Company.id)
         .join(Summary, Summary.filing_id == Filing.id)
-        .filter(Company.ticker.in_(sorted(tickers)))
+        .filter(Company.cik.in_(spellings))
         .all()
     )
-    return {ticker for ticker, overview, failed in rows if is_summary_ready(overview, failed)}
+    ready = {
+        (_cik_key(cik), ticker) for cik, ticker, overview, failed in rows if is_summary_ready(overview, failed)
+    }
+    return ready & issuers
 
 
 class NotableFilingsService:
@@ -516,7 +536,7 @@ class NotableFilingsService:
                 )
                 .all()
             )
-            summarized = _tickers_with_ready_summary(db, {row.ticker for row in rows if row.ticker})
+            summarized = _issuers_with_ready_summary(db, {_issuer(row) for row in rows if _issuer(row)})
         except Exception as exc:  # never let a query hiccup break the homepage
             logger.warning("Notable-filings fetch failed: %s", exc)
             return []
@@ -524,7 +544,7 @@ class NotableFilingsService:
         served: List[NotableFiling] = []
         seen: Set[str] = set()
         for row in rows:  # newest first, so a company's first row is its newest
-            if row.ticker not in summarized or row.ticker in seen:
+            if _issuer(row) not in summarized or row.ticker in seen:
                 continue
             seen.add(row.ticker)
             served.append(row)

@@ -77,6 +77,7 @@ def _seed(db, ticker, *, days_ago=1, score=55):
     db.add(NotableFiling(
         accession_number=f"{ticker}-router-test",
         ticker=ticker,
+        cik=cik,
         company_name=f"{ticker} Inc",
         form="10-K",
         reason="annual_report",

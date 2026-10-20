@@ -293,11 +293,21 @@ def enabled(monkeypatch):
     monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
 
 
-def _candidate(db, ticker, days_ago, *, form="10-K", score=50.0):
+_OWN_CIK = object()
+
+
+def _cik(ticker):
+    """The CIK this file gives a ticker's issuer, built from its letters' code points, so a candidate
+    and its stored company agree unless a case gives one of them another."""
+    return "".join(str(ord(c)) for c in ticker).zfill(10)
+
+
+def _candidate(db, ticker, days_ago, *, form="10-K", score=50.0, cik=_OWN_CIK):
     """A stored EDGAR candidate as the scan writes one, with no ingested filing behind it."""
     db.add(NotableFiling(
         accession_number=f"{ticker}-{form}-{days_ago}",
         ticker=ticker,
+        cik=_cik(ticker) if cik is _OWN_CIK else cik,
         company_name=f"{ticker} Inc",
         form=form,
         reason=_REASON_BY_FORM[form],
@@ -308,15 +318,15 @@ def _candidate(db, ticker, days_ago, *, form="10-K", score=50.0):
     db.commit()
 
 
-def _company(db, ticker, *filings):
+def _company(db, ticker, *filings, cik=None):
     """A stored company with one filing per entry: a ``(body, raw_summary)`` pair for a filing with
-    that summary, or ``None`` for a filing with none."""
-    cik = f"{db.query(Company).count() + 1001:010d}"
+    that summary, or ``None`` for a filing with none. Its CIK is the ticker's own unless given."""
+    cik = cik or _cik(ticker)
     company = Company(cik=cik, ticker=ticker, name=f"{ticker} Inc")
     db.add(company)
     db.flush()
     for i, summary in enumerate(filings):
-        accession = f"{cik}-26-{i:06d}"
+        accession = f"{cik.zfill(10)}-26-{i:06d}"
         url = build_sec_archive_url(cik, accession)
         filing = Filing(company_id=company.id, accession_number=accession, filing_type="10-K",
                         filing_date=utcnow(), sec_url=url, document_url=f"{url}doc.htm")
@@ -392,6 +402,43 @@ def test_serve_counts_a_ready_summary_of_any_filing(serve_db, enabled):
     _ready(serve_db, "CCC")
     _candidate(serve_db, "AAA", 1, form="10-Q")
     _candidate(serve_db, "BBB", 2, form="10-Q")
+    _candidate(serve_db, "CCC", 3, form="10-K")
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-K")]
+
+
+@pytest.mark.parametrize("case", [
+    pytest.param("reused", id="an older issuer holds the ticker"),
+    pytest.param("moved", id="its issuer is stored under another ticker"),
+    pytest.param("no cik", id="the scan stored no CIK"),
+])
+def test_serve_matches_a_candidate_to_its_own_issuer(serve_db, enabled, case):
+    """The test is at the candidate's issuer, the stored company holding its CIK, which must carry
+    its ticker too. A reused ticker's older issuer lends no summary (``Company.ticker`` is not
+    unique); an issuer stored under another ticker is not the company the card opens; a candidate
+    with no CIK has no issuer to test."""
+    if case == "reused":
+        _company(serve_db, "NEW", (READY, None), cik="0000000777")
+        _company(serve_db, "NEW", None)
+        _candidate(serve_db, "NEW", 0)
+    elif case == "moved":
+        _company(serve_db, "WAS", (READY, None), cik=_cik("NEW"))
+        _candidate(serve_db, "NEW", 0)
+    else:
+        _ready(serve_db, "NEW")
+        _candidate(serve_db, "NEW", 0, cik=None)
+    _ready(serve_db, "AAA", "BBB", "CCC")
+    for days_ago, ticker in enumerate(("AAA", "BBB", "CCC"), start=1):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-Q")]
+
+
+def test_serve_matches_a_cik_in_either_spelling(serve_db, enabled):
+    """A CIK matches zero-padded or stripped, on the candidate or the stored company, as
+    ``company_resolution`` matches one."""
+    _company(serve_db, "AAA", (READY, None), cik=_cik("AAA").lstrip("0"))
+    _ready(serve_db, "BBB", "CCC")
+    _candidate(serve_db, "AAA", 1, form="10-Q")
+    _candidate(serve_db, "BBB", 2, form="10-Q", cik=_cik("BBB").lstrip("0"))
     _candidate(serve_db, "CCC", 3, form="10-K")
     assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-K")]
 

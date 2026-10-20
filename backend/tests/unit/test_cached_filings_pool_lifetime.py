@@ -121,8 +121,8 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
             db.add(Summary(filing_id=filing.id, business_overview="## Overview", raw_summary={}))
         if payload_kind == "notable":
             # A 10-K candidate from the stored company, whose filing above holds a summary to open.
-            db.add(NotableFiling(accession_number=accession, ticker="CACHED", company_name="Cached fixture",
-                                 form="10-K", reason="annual_report", score=55,
+            db.add(NotableFiling(accession_number=accession, ticker="CACHED", cik="0000000001",
+                                 company_name="Cached fixture", form="10-K", reason="annual_report", score=55,
                                  filed_date=notable_filings_service.today_eastern(),
                                  sec_url="https://example.test/filing/"))
         if payload_kind == "progress_stalled":
