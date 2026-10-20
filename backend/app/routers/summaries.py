@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
 from sqlalchemy.orm import Session, joinedload
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 from contextlib import aclosing
 from collections.abc import AsyncGenerator
 from uuid import UUID
@@ -26,6 +26,7 @@ from app.models import (
 )
 from app.routers.auth import get_current_user, get_current_user_optional
 from app.dependencies import copilot_taste_exhausted_detail, require_copilot_or_taste
+from app.services import filing_list_service
 from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -54,7 +55,8 @@ from app.services.summary_pipeline import (
     stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
 )
 from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
-from app.services.change_report_service import build_change_report
+from app.services.change_report_service import change_report_for_filing
+from app.services.filing_section_service import section_changes_access
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -149,29 +151,40 @@ async def get_summary_progress(
     filing_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get progress status for summary generation"""
-    # Check if summary already exists
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if summary:
-        # Summary exists, return completed status
-        return {
-            "stage": "completed",
-            "elapsedSeconds": 0
-        }
+    """Get progress status for summary generation.
 
-    progress = (
-        db.query(SummaryGenerationProgress)
-        .filter(SummaryGenerationProgress.filing_id == filing_id)
-        .first()
-    )
-    if progress:
-        # Surface orphaned/stalled generations as a retryable error instead of an
-        # eternal "generating" state if the background task died without finishing.
-        if mark_stale_progress_as_error(progress):
-            db.commit()
-        return progress_as_dict(progress)
+    The lookups, the stalled-row write and the session release are one unit off the event loop, so
+    the pooled connection is back before the route yields to the dependency's finalizer
+    (``lessons/ops-release-cached-filing-reads-before-yield.md``).
+    """
+    def progress_for_reader() -> dict[str, Any]:
+        try:
+            # Check if summary already exists
+            summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+            if summary:
+                # Summary exists, return completed status
+                return {
+                    "stage": "completed",
+                    "elapsedSeconds": 0
+                }
 
-    return {"stage": "pending", "elapsedSeconds": 0}
+            progress = (
+                db.query(SummaryGenerationProgress)
+                .filter(SummaryGenerationProgress.filing_id == filing_id)
+                .first()
+            )
+            if progress:
+                # Surface orphaned/stalled generations as a retryable error instead of an
+                # eternal "generating" state if the background task died without finishing.
+                if mark_stale_progress_as_error(progress):
+                    db.commit()
+                return progress_as_dict(progress)
+
+            return {"stage": "pending", "elapsedSeconds": 0}
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(progress_for_reader)
 
 @router.post("/filing/{filing_id}/generate-stream")
 async def generate_summary_stream(
@@ -236,6 +249,7 @@ async def generate_summary_stream(
         # Check if summary already exists
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         refresh_unready = False
+        cleared_for_regeneration = False
         if summary:
             # The body this route would replay, judged by the filing page's readiness rule
             # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
@@ -284,7 +298,10 @@ async def generate_summary_stream(
                 if progress:
                     db.delete(progress)
 
-                db.commit()
+                # Committed below, once the stream's inputs are read: the commit expires the user and
+                # the filing, and a read of either after it refreshes its row with a fresh checkout on
+                # the event loop (lessons/ops-release-cached-filing-reads-before-yield.md).
+                cleared_for_regeneration = True
             else:
                 # Capture the response before closing the dependency's read transaction.
                 payload = {
@@ -323,6 +340,8 @@ async def generate_summary_stream(
         # Resolve missing subscription inputs in a separate worker-owned transaction; neither
         # the request session nor any ORM object crosses into that worker or the stream.
         generation_user = snapshot_generation_user(current_user, user_id)
+        if cleared_for_regeneration:
+            db.commit()
         db.close()
         generation_user = await run_in_threadpool(load_generation_user, generation_user)
 
@@ -637,57 +656,78 @@ async def get_summary(filing_id: int, db: Session = Depends(get_db)):
     Risk factors are enriched with Trace-to-Source provenance (a deep link to the original SEC
     filing plus an honest verified/cited label) at serialization time, so every existing summary
     gains provenance without a migration or regeneration.
+
+    The lookups, the enrichment (CPU work over the cached filing text) and the session release are
+    one unit off the event loop, so the pooled connection is back before the route yields to the
+    dependency's finalizer (``lessons/ops-release-cached-filing-reads-before-yield.md``).
     """
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-
-    if not summary:
-        # Return empty summary instead of 404 to allow frontend to trigger generation
-        return {
-            "id": 0,
-            "filing_id": filing_id,
-            "business_overview": None,
-            "financial_highlights": None,
-            "risk_factors": None,
-            "management_discussion": None,
-            "key_changes": None,
-            "raw_summary": None
-        }
-
-    # Load the filing (with its cached content) to verify excerpts and build EDGAR deep links.
-    filing = (
-        db.query(Filing)
-        .options(joinedload(Filing.content_cache))
-        .filter(Filing.id == filing_id)
-        .first()
-    )
-
-    # SEC-verified XBRL values, used to mark financial metrics as "verified". Best-effort: any
-    # extraction issue must never break the summary response.
-    xbrl_standardized = None
-    if filing is not None and getattr(filing, "xbrl_data", None):
+    def summary_for_reader() -> dict[str, Any]:
         try:
-            from app.services.edgar.compat import xbrl_service
-            xbrl_standardized = xbrl_service.extract_standardized_metrics(filing.xbrl_data)
-        except Exception:
-            logger.warning(
-                f"[summary:{filing_id}] XBRL standardization for provenance failed; continuing",
-                exc_info=True,
+            summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+
+            if not summary:
+                # Return empty summary instead of 404 to allow frontend to trigger generation
+                return {
+                    "id": 0,
+                    "filing_id": filing_id,
+                    "business_overview": None,
+                    "financial_highlights": None,
+                    "risk_factors": None,
+                    "management_discussion": None,
+                    "key_changes": None,
+                    "raw_summary": None
+                }
+
+            # Load the filing (with its cached content) to verify excerpts and build EDGAR deep links.
+            filing = (
+                db.query(Filing)
+                .options(joinedload(Filing.content_cache))
+                .filter(Filing.id == filing_id)
+                .first()
             )
 
-    return enrich_summary_provenance(summary, filing, xbrl_standardized)
+            # SEC-verified XBRL values, used to mark financial metrics as "verified". Best-effort: any
+            # extraction issue must never break the summary response.
+            xbrl_standardized = None
+            if filing is not None and getattr(filing, "xbrl_data", None):
+                try:
+                    from app.services.edgar.compat import xbrl_service
+                    xbrl_standardized = xbrl_service.extract_standardized_metrics(filing.xbrl_data)
+                except Exception:
+                    logger.warning(
+                        f"[summary:{filing_id}] XBRL standardization for provenance failed; continuing",
+                        exc_info=True,
+                    )
+
+            return enrich_summary_provenance(summary, filing, xbrl_standardized)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(summary_for_reader)
 
 @router.get("/filing/{filing_id}/what-changed")
-async def get_what_changed(filing_id: int, db: Session = Depends(get_db)):
+async def get_what_changed(
+    filing_id: int,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
     """Deterministic period-over-period change report for a filing vs its prior same-form filing.
 
-    Reports financial-metric deltas, new/resolved risk factors, and management's key-changes
-    narrative. DB-only, no LLM — cheap to serve. Returns ``has_changes: false`` when there's no
-    prior filing to compare against.
+    Reports financial-metric deltas and, behind ENABLE_SECTION_CHANGES, the Item 1A wording diff
+    (``section_changes``: a teaser for anonymous and Free readers, the full list for Pro). DB-only,
+    no LLM — cheap to serve. Returns ``has_changes: false`` when there's no prior filing to compare
+    against. The viewer's access, the lookup, the report and the session release are one unit off
+    the event loop: resolving the access reads the viewer's subscription row (a lazy load the auth
+    dependency does not make), the wording diff is CPU work (about 150 ms on the largest pair), and
+    the pooled connection is back before the route yields to the dependency's finalizer.
     """
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
+    def report_for_viewer():
+        return change_report_for_filing(db, filing_id, section_access=section_changes_access(current_user))
+
+    report = await run_in_threadpool(report_for_viewer)
+    if report is None:
         raise HTTPException(status_code=404, detail="Filing not found")
-    return build_change_report(db, filing)
+    return report
 
 
 @router.get("/filing/{filing_id}/export/pdf")

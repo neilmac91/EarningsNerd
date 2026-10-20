@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
 import type { Filing } from '@/features/filings/api/filings-api'
 import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
+import { queryKeys } from '@/lib/queryKeys'
 
 /**
  * What changed is in the FIRST render (2026-10 review of the critique PR): the filing page reads the
@@ -26,6 +27,11 @@ vi.mock('@/features/summaries/api/summaries-api', async (importOriginal) => ({
 }))
 vi.mock('@/features/summaries/hooks/useSummaryExports', () => ({
   useSummaryExports: () => ({ exportPdf: vi.fn(), exportCsv: vi.fn() }),
+}))
+// The report's read is per viewer and waits for /me (useWhatChanged); every reader here is anonymous.
+vi.mock('@/features/auth/api/auth-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/auth/api/auth-api')>()),
+  getCurrentUserSafe: () => Promise.resolve(null),
 }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
@@ -86,7 +92,9 @@ const REPORT: ChangeReport = {
 function display(initialChangeReport?: ChangeReport, summary: Summary = SUMMARY) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  return render(
+  return {
+    client,
+    ...render(
     <SummaryDisplay
       summary={summary}
       filing={FILING}
@@ -98,7 +106,8 @@ function display(initialChangeReport?: ChangeReport, summary: Summary = SUMMARY)
       initialChangeReport={initialChangeReport}
     />,
     { wrapper },
-  )
+    ),
+  }
 }
 
 const tocTitles = () =>
@@ -112,20 +121,24 @@ afterEach(() => {
 })
 
 describe('What changed in the first render', () => {
-  it('renders the seeded report as section 03 at once, with no client fetch', () => {
+  it('renders the seeded report as section 03 at once, with no client fetch, before and after /me settles', async () => {
     api.getWhatChanged.mockReturnValue(new Promise(() => {}))
-    display(REPORT)
+    const { client } = display(REPORT)
     expect(screen.getByRole('region', { name: 'What changed' })).toBeInTheDocument()
     expect(tocTitles()).toEqual(['01Executive assessment', '02Financial highlights', '03What changed', '04Risks'])
     expect(api.getWhatChanged).not.toHaveBeenCalled()
+    // Settled as anonymous (/me answered null): the seed is that reader's fresh entry, so still no read.
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toBeNull())
+    expect(screen.getByRole('region', { name: 'What changed' })).toBeInTheDocument()
+    expect(api.getWhatChanged).not.toHaveBeenCalled()
   })
 
-  it('without a seed it can only arrive later (the client fetch the server read replaces)', () => {
+  it('without a seed it can only arrive later (the client fetch the server read replaces, once /me has settled)', async () => {
     api.getWhatChanged.mockReturnValue(new Promise(() => {}))
     display(undefined)
     expect(screen.queryByRole('region', { name: 'What changed' })).toBeNull()
     expect(tocTitles()).toEqual(['01Executive assessment', '02Financial highlights', '03Risks'])
-    expect(api.getWhatChanged).toHaveBeenCalledWith(42)
+    await waitFor(() => expect(api.getWhatChanged).toHaveBeenCalledWith(42))
   })
 
   it('the page reads it on the server beside the filing and summary, and seeds the client', async () => {
@@ -194,7 +207,7 @@ describe('as a card, where the summary has no sections to hold it', () => {
   it('shows a real summary that mentions generating summaries as the summary, not the error card', () => {
     api.getWhatChanged.mockReturnValue(new Promise(() => {}))
     display(REPORT, { ...LEGACY, business_overview: 'Apple reworked its revenue-generating summary reports.' } as Summary)
-    expect(screen.queryByRole('heading', { name: 'Summary temporarily unavailable' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'This summary did not finish' })).toBeNull()
     expect(screen.getByText('Apple reworked its revenue-generating summary reports.')).toBeInTheDocument()
   })
 
@@ -205,7 +218,7 @@ describe('as a card, where the summary has no sections to hold it', () => {
   ])('stays under a stored summary that failed (%s)', (_, failed) => {
     api.getWhatChanged.mockReturnValue(new Promise(() => {}))
     display(REPORT, failed as Summary)
-    expect(screen.getByRole('heading', { name: 'Summary temporarily unavailable' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'This summary did not finish' })).toBeInTheDocument()
     // The error card, never the stored text: "requires OpenAI API key" is operator configuration.
     expect(screen.queryByText(/OPENAI_API_KEY/)).toBeNull()
     expect(screen.queryByRole('navigation', { name: 'Summary sections' })).toBeNull()

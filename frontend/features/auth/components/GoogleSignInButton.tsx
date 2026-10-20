@@ -6,19 +6,11 @@ import OAuthStartControl from './OAuthStartControl'
  * Google sign-in button. White surface + official multicolor "G", per Google's
  * brand guidelines (https://developers.google.com/identity/branding-guidelines).
  */
-export default function GoogleSignInButton({
-  apiBase,
-  invite,
-  label = 'Continue with Google',
-}: {
-  apiBase: string
-  invite?: string
-  label?: string
-}) {
+export default function GoogleSignInButton({ apiBase, invite }: { apiBase: string; invite?: string }) {
   return (
-    <OAuthStartControl apiBase={apiBase} provider="google" invite={invite} className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-light bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.99] focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+    <OAuthStartControl apiBase={apiBase} provider="google" invite={invite} className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-light bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.99]">
       <GoogleLogo />
-      {label}
+      Continue with Google
     </OAuthStartControl>
   )
 }

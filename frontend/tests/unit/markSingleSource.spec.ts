@@ -181,3 +181,29 @@ describe('the EN monogram has one source and is never redrawn', () => {
     }
   })
 })
+
+/**
+ * The social card (public/og-image.png, rendered from og-template.html by `npm run brand:assets`) carries
+ * the highlight as well as the mark, so its template keeps the highlight's two measured rules
+ * (docs/brand/06-system.md §6): the hairline under the tint is 2px whatever the type size, and the
+ * highlight never runs across a line break, so the headline breaks before the marked phrase rather
+ * than letting it wrap at 84px (OG-01, BG-18).
+ */
+describe('the social card template keeps the highlight whole and its hairline at 2px', () => {
+  const template = readFileSync(path.join(FRONTEND, 'scripts/brand/og-template.html'), 'utf8')
+  const markRule = template.match(/\.mark\s*\{([^}]*)\}/)?.[1] ?? ''
+  const headline = template.match(/<div class="headline">([\s\S]*?)<\/div>/)?.[1] ?? ''
+  const marked = [...headline.matchAll(/<span class="mark">([\s\S]*?)<\/span>/g)]
+
+  it('draws the hairline at 2px', () => {
+    expect(markRule, 'the .mark rule is missing').not.toBe('')
+    expect(markRule.match(/box-shadow:\s*inset 0 (-?\d+(?:\.\d+)?)px 0/)?.[1], 'the .mark hairline').toBe('-2')
+  })
+
+  it('starts the marked phrase on its own line and never breaks inside it', () => {
+    expect(marked.length, 'the headline carries one marked phrase').toBe(1)
+    const [whole, phrase] = marked[0]
+    expect(phrase, 'a line break inside the marked phrase').not.toMatch(/<br/i)
+    expect(headline.slice(0, headline.indexOf(whole)), 'the headline breaks before the marked phrase').toMatch(/<br\s*\/?>\s*$/i)
+  })
+})

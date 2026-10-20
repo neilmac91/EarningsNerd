@@ -1,13 +1,13 @@
 'use client'
 
 import { useMemo, type Ref } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import type { Filing } from '@/features/filings/api/filings-api'
-import { getWhatChanged, type ChangeReport, type Summary } from '@/features/summaries/api/summaries-api'
+import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
+import type { WordingContext } from '@/features/filings/components/WordingChanges'
 import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCallout'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
@@ -15,11 +15,11 @@ import { Button } from '@/components/ui/Button'
 import { Badge, Card, CardBody, GuidanceCard } from '@/components/ui'
 import { ChatCircleTextIcon } from '@/lib/icons'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
-import { queryKeys } from '@/lib/queryKeys'
 import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
 import { useSummaryExports } from '../hooks/useSummaryExports'
-import { SUMMARY_FALLBACK_MESSAGE, cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
+import { useWhatChanged } from '../hooks/useWhatChanged'
+import { cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
 // a company-wide trend (it would "refresh" on every new filing rather than reflect this document).
@@ -93,18 +93,21 @@ export function SummaryDisplay({
 
   const { exportPdf, exportCsv } = useSummaryExports(filing)
 
-  // A5 "What Changed": deterministic period-over-period diff (metric deltas, risk changes, key
-  // changes). DB-only/cheap on the backend; only renders when there's something material to report.
-  // Seeded from the server read, so the section is in the first render: a late insert pushed every
-  // later section down and renumbered the table of contents.
-  const { data: changeReport } = useQuery({
-    queryKey: queryKeys.whatChanged(filing.id),
-    queryFn: () => getWhatChanged(filing.id),
-    staleTime: 10 * 60 * 1000,
-    initialData: initialChangeReport,
-  })
+  // A5 "What Changed": deterministic period-over-period diff (metric deltas, and the Item 1A wording
+  // comparison the viewer is entitled to). DB-only/cheap on the backend; only renders when there's
+  // something material to report. Seeded from the server read, so the section is in the first
+  // render: a late insert pushed every later section down and renumbered the table of contents.
+  const { report: changeReport, provisional: changeReportProvisional } = useWhatChanged(filing.id, initialChangeReport)
+  const ticker = filing.company?.ticker ?? null
+  const wordingIdentity = useMemo<Omit<WordingContext, 'provisional'>>(
+    () => ({ filingId: filing.id, ticker, filingType: filing.filing_type, isAuthenticated }),
+    [filing.id, ticker, filing.filing_type, isAuthenticated],
+  )
+  const whatChangedContext = useMemo<WordingContext>(
+    () => ({ ...wordingIdentity, provisional: changeReportProvisional }),
+    [wordingIdentity, changeReportProvisional],
+  )
 
-  const fallbackMessage = SUMMARY_FALLBACK_MESSAGE
   const writerFallback = rawSummary?.writer?.fallback_used === true
   // A stored summary that failed (placeholder filler, a writer error, the fallback body, nothing left
   // once the notices are stripped) shows the error card, not its body. The company page's "summary
@@ -144,6 +147,7 @@ export function SummaryDisplay({
         isSaved={isSaved}
         saveMutation={saveMutation}
         isPro={isPro}
+        summaryFinished={!isError}
         onExportPdf={exportPdf}
         onExportCsv={exportCsv}
       />
@@ -152,19 +156,22 @@ export function SummaryDisplay({
         <>
           <GuidanceCard
             variant="error"
-            title="Summary temporarily unavailable"
+            title="This summary did not finish"
             headingLevel="h2"
-            description={fallbackMessage}
+            // The card's own sentence: SUMMARY_FALLBACK_MESSAGE is the backend's stored body (the
+            // failure detector's token), and the failure stays until a retry, so "temporarily" promised
+            // a timing the code does not keep.
+            description="The last attempt for this filing did not finish. Try again to generate it."
             action={
               onRetry ? (
                 <Button variant="secondary" onClick={onRetry}>
-                  Retry
+                  Try again
                 </Button>
               ) : undefined
             }
           />
           {/* A stored summary that failed holds no sections, but the change report needs none. */}
-          <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+          <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} context={wordingIdentity} />
         </>
       ) : (
         <>
@@ -202,7 +209,13 @@ export function SummaryDisplay({
               numbered section (2026-10 critique P-07); a legacy markdown summary keeps it as a card
               under the markdown, the card the page shows wherever no section holds it. */}
           {hasSections ? (
-            <SummaryBlocks sections={renderedSections} summary={summary} whatChanged={changeReport} firstHeadingRef={headingRef} />
+            <SummaryBlocks
+              sections={renderedSections}
+              summary={summary}
+              whatChanged={changeReport}
+              whatChangedContext={whatChangedContext}
+              firstHeadingRef={headingRef}
+            />
           ) : hasPolishedMarkdown ? (
             <>
               <Card as="section" className="overflow-hidden">
@@ -213,7 +226,7 @@ export function SummaryDisplay({
                   </ReactMarkdown>
                 </CardBody>
               </Card>
-              <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+              <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} context={wordingIdentity} />
             </>
           ) : null}
 
@@ -250,14 +263,14 @@ export function SummaryDisplay({
         <Card as="section" className="p-6">
           {/* h2, like the summary's sections: it follows them as a sibling, not inside the last one. */}
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h2>
-          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask the Copilot.</p>
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask this filing.</p>
           <ul className="space-y-2">
             {metadata.action_items.map((item: string, index: number) => (
               <li key={index}>
                 <button
                   type="button"
                   onClick={() => onAsk(item, 'followup')}
-                  className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                  className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:border-brand-border-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
                   <ChatCircleTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
                   <span>{item}</span>

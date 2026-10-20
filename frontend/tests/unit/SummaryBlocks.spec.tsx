@@ -173,10 +173,10 @@ describe('SummaryBlocks', () => {
   it('renders the risks section with its evidence + trace-to-source provenance', () => {
     render(<SummaryBlocks sections={sections} summary={summary} />)
     // An evidence row (critique P-03): the start of the excerpt heads it, one level under the
-    // section's h2, and the excerpt itself sits in a blockquote.
-    expect(
-      screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply' }),
-    ).toBeInTheDocument()
+    // section's h2, with the device's marker on a located row (D-044), hidden from assistive tech so the
+    // heading's name is its words alone, and the excerpt itself sits in a blockquote.
+    const heading = screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply' })
+    expect(heading.textContent).toBe('We are substantially dependent on TSMC for wafer supply[1]')
     expect(screen.getByText(/substantially dependent on TSMC/, { selector: 'blockquote' })).toBeInTheDocument()
     // source_verified: true → the shared SourceTrace renders the "Verified in filing" affordance.
     expect(screen.getByText(/Verified in filing/i)).toBeInTheDocument()
@@ -187,6 +187,31 @@ describe('SummaryBlocks', () => {
     for (const leak of [/Headline:/, /Key Points:/, /Tone:/, /Source Section Ref:/, /Guidance:/]) {
       expect(screen.queryByText(leak)).not.toBeInTheDocument()
     }
+  })
+
+  it('marks a quote whose evidence the server located (D-044): the marked block in the filing\'s face, no marker, no twin', () => {
+    const evidence = (verified: boolean) => ({ excerpt: 'We expect double-digit growth.', section_ref: 'Item 7. MD&A', verified, fragment_url: 'https://www.sec.gov/x.htm' })
+    const quotes: RenderedSection[] = [{
+      id: 'forward-signals',
+      title: 'Forward Signals',
+      blocks: [
+        { kind: 'quote', text: 'We expect double-digit growth.', speaker: 'CEO', evidence: evidence(true) },
+        { kind: 'quote', text: 'Demand may soften.', speaker: 'CFO', evidence: evidence(false) },
+        { kind: 'quote', text: 'Free cash flow is defined as operating cash flow less capital expenditures.', speaker: 'Filing statement' },
+      ],
+    }]
+    const { container } = render(<SummaryBlocks sections={quotes} summary={summary} />)
+    const [located, cited, plain] = Array.from(container.querySelectorAll('blockquote'))
+    // Located: the marked block, in the filing's face on the primary ink; the speaker stays in the body face.
+    expect(located.className.split(' ')).toEqual(expect.arrayContaining(['en-marked', 'font-editorial', 'text-text-primary-light']))
+    expect(located.querySelector('cite')!.className.split(' ')).toContain('font-sans')
+    // Cited or uncited: today's neutral hairline, the body face.
+    for (const quote of [cited, plain]) {
+      expect(quote.className.split(' ')).toEqual(expect.arrayContaining(['border-l-2', 'italic']))
+      expect(quote.className).not.toMatch(/en-marked|font-editorial/)
+    }
+    // A quote block has no heading to carry a marker: no marker, no margin, no twin anywhere.
+    expect(container.querySelector('[data-en-ref], .en-margin, .en-margin-mark')).toBeNull()
   })
 
   it('renders Trace-to-Source chips on cited quotes, footnotes, and metric takeaways (T4)', () => {
@@ -243,7 +268,7 @@ describe('SummaryBlocks', () => {
     expect(screen.getByText(/No summary found/i)).toBeInTheDocument()
   })
 
-  it('renders tone as a header Badge, not a prose sentence', () => {
+  it('renders tone as a neutral header Badge that names what it is, not a prose sentence', () => {
     const toneSections: RenderedSection[] = [
       {
         id: 'executive-assessment',
@@ -251,10 +276,73 @@ describe('SummaryBlocks', () => {
         tone: 'positive',
         blocks: [{ kind: 'paragraph', text: 'Record quarter driven by AI demand.' }],
       },
+      {
+        id: 'forward-signals',
+        title: 'Forward Signals',
+        tone: 'Cautious',
+        blocks: [{ kind: 'paragraph', text: 'Guidance was held.' }],
+      },
     ]
     render(<SummaryBlocks sections={toneSections} summary={summary} />)
-    expect(screen.getByText('positive')).toBeInTheDocument()
+    const classes = (el: HTMLElement) => el.className.split(/\s+/)
+    for (const label of ['Management tone: positive', 'Management tone: cautious']) {
+      const badge = screen.getByText(label).parentElement!
+      // A tone is a reading, not a status: the neutral Badge's quiet ink and hairline, exactly, so neither
+      // the brand nor a warning colour nor the gain or loss data colours (info, beat, miss) can stand in.
+      expect(classes(badge)).toEqual(expect.arrayContaining(['border-border-light', 'bg-white', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+      expect(badge.className).not.toMatch(/brand|warning|info|gain|loss/)
+      expect(badge.className).not.toContain('capitalize')
+    }
     expect(screen.queryByText(/tone was/i)).not.toBeInTheDocument()
+  })
+
+  it('lets the tone badge move beneath its heading and wrap its label, never squeeze the heading or widen the page', () => {
+    const toneSections: RenderedSection[] = [
+      {
+        id: 'executive-assessment',
+        title: 'Executive Assessment',
+        tone: 'cautious',
+        blocks: [{ kind: 'paragraph', text: 'Margins narrowed.' }],
+      },
+    ]
+    render(<SummaryBlocks sections={toneSections} summary={summary} />)
+    const label = screen.getByText('Management tone: cautious')
+    const badge = label.parentElement!
+    const group = screen.getByRole('heading', { level: 2, name: 'Executive Assessment' }).parentElement!
+    const row = group.parentElement!
+    const classes = (el: HTMLElement) => el.className.split(/\s+/)
+    // The founder's review (320px, and 390px at 200% text): a row that cannot wrap squeezed the heading
+    // and pushed the page wider. The row wraps, the badge is its only other item (so only the badge moves
+    // beneath), the badge may shrink to its container, and the label's own span lets its words wrap inside
+    // the Badge (whose base recipe is nowrap).
+    expect([...row.children]).toEqual([group, badge])
+    expect(classes(row)).toContain('flex-wrap')
+    expect(classes(row)).not.toContain('flex-nowrap')
+    expect(classes(badge)).not.toContain('shrink-0')
+    expect(classes(badge)).toContain('max-w-full')
+    expect(classes(label)).toContain('whitespace-normal')
+    expect(classes(label).filter((c) => /nowrap|shrink-0|truncate/.test(c))).toEqual([])
+  })
+
+  // The principal review of #1293: a wrapping row of index, heading and badge dropped a long heading beneath
+  // its index on every section (a flex line places items at their whole width before shrinking them). The
+  // index and the heading are one group that never wraps, on toned sections and plain ones alike.
+  it('keeps every heading beside its index: the two are one group that never wraps', () => {
+    const plainAndToned: RenderedSection[] = [
+      { id: 'earnings-quality', title: 'Earnings Quality & Cash Conversion', blocks: [{ kind: 'paragraph', text: 'Cash tracked earnings.' }] },
+      { id: 'forward-signals', title: 'Forward Signals', tone: 'positive', blocks: [{ kind: 'paragraph', text: 'Guidance was raised.' }] },
+    ]
+    render(<SummaryBlocks sections={plainAndToned} summary={summary} />)
+    const classes = (el: HTMLElement) => el.className.split(/\s+/)
+    const headings = screen.getAllByRole('heading', { level: 2 })
+    expect(headings.map((h) => h.textContent)).toEqual(['Earnings Quality & Cash Conversion', 'Forward Signals'])
+    headings.forEach((heading, i) => {
+      const group = heading.parentElement!
+      expect([...group.children].map((child) => child.textContent)).toEqual([String(i + 1).padStart(2, '0'), heading.textContent])
+      expect(classes(group)).toEqual(expect.arrayContaining(['flex', 'min-w-0', 'items-baseline']))
+      expect(classes(group).filter((c) => /wrap/.test(c))).toEqual([])
+      expect(classes(heading)).toContain('min-w-0')
+    })
   })
 
   it('renders a compact mobile jump-nav whose anchors mirror the desktop TOC', () => {

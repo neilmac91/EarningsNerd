@@ -1,0 +1,17 @@
+"""E125: summarise score_options.py's rspamd results: per option, the mails URI_COUNT_ODD fires on and the scores."""
+import json
+import sys
+
+out = json.load(open(sys.argv[1]))
+for option, rows in out.items():
+    fired = sorted(n for n, r in rows.items() if "URI_COUNT_ODD" in r["symbols"])
+    kinds = sorted({n.split("[")[0] for n in fired})
+    scores = [r["score"] for r in rows.values()]
+    print(f"{option:20s} URI_COUNT_ODD on {len(fired):2d} of {len(rows)}  score {min(scores):+.2f}..{max(scores):+.2f}  "
+          f"(sum {sum(scores):+.2f})  {', '.join(kinds) or '-'}")
+print()
+current = out["current"]
+for name, row in current.items():
+    urls = row["symbols"].get("X_URLS", [0, []])[1]
+    print(f"{name:24s} {row['score']:+.2f}  {urls[0] if urls else ''}  " + ", ".join(
+        f"{k}({v[0]:+g})" for k, v in row["symbols"].items() if v[0] and k != "X_URLS"))

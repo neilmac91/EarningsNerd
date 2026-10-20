@@ -3,15 +3,15 @@
 import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircleIcon, KeyIcon } from '@/lib/icons'
+import { CheckCircleIcon } from '@/lib/icons'
 import { changePassword, getConnections } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button, primaryUnavailableClass } from '@/components/ui/Button'
+import { cx } from '@/components/ui/cx'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
-
-const MIN_LENGTH = 12
+import { PASSWORD_MIN_LENGTH } from '@/lib/passwordRules'
 
 export default function ChangePasswordForm() {
   const queryClient = useQueryClient()
@@ -42,8 +42,8 @@ export default function ChangePasswordForm() {
 
   const submit = () => {
     setClientError('')
-    if (next.length < MIN_LENGTH) {
-      setClientError(`New password must be at least ${MIN_LENGTH} characters.`)
+    if (next.length < PASSWORD_MIN_LENGTH) {
+      setClientError(`New password must be at least ${PASSWORD_MIN_LENGTH} characters.`)
       return
     }
     if (next !== confirm) {
@@ -75,15 +75,14 @@ export default function ChangePasswordForm() {
   return (
     <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
-        <KeyIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           {hasPassword ? 'Change password' : 'Set a password'}
         </h2>
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         {hasPassword
-          ? 'Update the password you use to sign in with email.'
-          : 'Set a password to sign in with email, in addition to your linked social accounts.'}
+          ? 'Update the password you use to log in with email.'
+          : 'Set a password to log in with email, in addition to your linked social accounts.'}
       </p>
 
       <form
@@ -140,15 +139,16 @@ export default function ChangePasswordForm() {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* aria-disabled, never native `disabled`: the button holds focus while its request is in
               flight AND when a successful save clears the fields (incomplete) right after. A focused
               button that turns disabled is blurred to <body> in Chromium. */}
           <Button
             type="submit"
+            wrap
             loading={mutation.isPending}
             aria-disabled={mutation.isPending || incomplete || undefined}
-            className={incomplete && !mutation.isPending ? primaryUnavailableClass : undefined}
+            className={cx('max-w-full', incomplete && !mutation.isPending && primaryUnavailableClass)}
           >
             {hasPassword ? 'Update password' : 'Set password'}
           </Button>

@@ -2,6 +2,7 @@ import logging
 import os
 
 from sqlalchemy import create_engine, inspect as sa_inspect, text
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
@@ -21,16 +22,41 @@ DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "10"))
 # hung request. Overridable per-process so the Cloud Run Jobs (serial, tiny pools) can tune it.
 DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "10"))
 
+
+def _database_url() -> URL:
+    """settings.DATABASE_URL, parsed. The parser's message is withheld: a URL missing its `@host` puts the
+    password where the port goes, and the int() that reads the port quotes it into a startup traceback. A URL holding
+    more than one "@" is refused too: an unescaped "@" in the password ends the password there, and the rest becomes
+    the host, the database or a query key, which a driver's connection error quotes. The refusal does not advise
+    encoding the "@": the app decodes one, but the deploy's migration step and the Ops workflow's Cloud SQL proxy step
+    split the URL at its first "@" and ":" and hand both parts to psql as written (docs/CONFIGURATION.md)."""
+    try:
+        url = make_url(settings.DATABASE_URL)
+    except Exception as exc:  # noqa: BLE001 — any parse failure
+        problem = type(exc).__name__
+    else:
+        if settings.DATABASE_URL.count("@") <= 1:
+            return url
+        problem = (
+            "more than one '@'; keep the user name and password to characters that need no percent-encoding: the "
+            "deploy's migration step and the Ops proxy step read them undecoded"
+        )
+    # Raised after the handler, so no traceback chains the parser's error.
+    raise RuntimeError(f"DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
+
+
+_DATABASE_URL = _database_url()
+
 # SQLite requires check_same_thread=False for async operations
 if settings.DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
-        settings.DATABASE_URL,
+        _DATABASE_URL,
         connect_args={"check_same_thread": False},
         pool_pre_ping=True,
     )
 else:
     engine = create_engine(
-        settings.DATABASE_URL,
+        _DATABASE_URL,
         pool_pre_ping=True,
         pool_size=DB_POOL_SIZE,
         max_overflow=DB_MAX_OVERFLOW,
@@ -76,6 +102,8 @@ _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     ("filing_content_cache", "risk_source_text", "TEXT"),
     # Invite hash carried through a social sign-in under REGISTRATION_MODE=invite_only.
     ("oauth_states", "invite_code_hash", "VARCHAR(64)"),
+    # A delivery batch's frozen plain-text part (E110); NULL on a batch frozen before it, which replays as frozen.
+    ("earningsnerd_delivery_batches", "body_text", "TEXT"),
 ]
 
 

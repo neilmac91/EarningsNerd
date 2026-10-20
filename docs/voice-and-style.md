@@ -101,8 +101,16 @@ the business card, the footer and the merch; it is the positioning in six words.
 - **En-dashes (–) stay** in genuine numeric or date ranges: Q1–Q4, 30–60s, FY2019–FY2024.
 - **The bare `—` null-value token stays.** Tables and detail rows render `—` for missing
   data (see `MISSING_TOKENS` in `frontend/lib/format.ts`). That is a data convention, not
-  prose. It is the only sanctioned em-dash and the CI gate
-  (`frontend/tests/unit/no-em-dash-copy.spec.ts`) allowlists exactly the bare `'—'` literal.
+  prose. It is the only sanctioned em-dash, and it stands alone, in a cell or an element of
+  its own: never with a unit after it, a sign before it or a middot joining it to a label. A
+  figure that sits in a line of copy and can be missing gets words, or the token in its own
+  element; the insider panel and What changed give that element the word "unavailable" for
+  assistive tech, the word the analysis evidence uses for a missing figure. The CI gate
+  (`frontend/tests/unit/no-em-dash-copy.spec.ts`) exempts the bare `'—'` only where it stands
+  alone, reads a same-file formatter's fallback where the formatter is called, and reads a
+  fragment as its contents. An element is one value to it, so the token inside an element set
+  beside a unit (`{count ?? <Missing />} sh`, which still reads "— sh") passes the gate and is
+  review-checked, as are the other forms the gate's header lists out of reach.
 
 ## House conventions
 
@@ -117,7 +125,10 @@ the business card, the footer and the merch; it is the positioning in six words.
   "The Print", "Results That Matter", "Forward Signals", "Notable Footnotes" …) and keep their
   casing everywhere they are named, including on the sales page.
 - "AI-powered", lowercase p, except at the start of a sentence or in title-case page titles.
-- Ellipsis character `…` on loading states ("Signing in…") is fine.
+- Ellipsis character `…` on loading states ("Logging in…") is fine.
+- One retry verb ([D-032](brand/decisions-log.md)): "Try again", and "Trying again…" while it runs, on every
+  retry control and in the copy beside it ("Try again in a moment."); never "Retry" or "please retry".
+  `frontend/tests/unit/busyControlsStayFocusable.spec.ts` fails another label, busy text or "retry" in copy.
 - Buzzwords to avoid: unlock, seamless(ly), empower, effortless(ly), supercharge, transform,
   actionable insights, decision-ready, game-changing, "in today's fast-paced world". Say what
   the thing does instead. Add: "signal" as a noun for the product's output, "edge", "clarity"
@@ -125,6 +136,18 @@ the business card, the footer and the merch; it is the positioning in six words.
 - Vocabulary the product owns, use it as the product does: "located in the filing",
   "matched the company's XBRL", "withheld", "checkable", "cited", "the filing's own words",
   "Full summary". Never "verified" without a match behind it.
+- The account verb is "Log in": "Log out", "logged in", "logging in" (D-046). "Login" is the noun
+  ("the login page", "Login failed"), and "sign up" is registering, so it stays. Never "sign in" or
+  "sign out" in any form, "Signing you in…" and "Sign back in" included.
+  `frontend/tests/unit/brandVoiceRules.spec.ts` fails it in copy, a lowercase message, a character
+  reference and the copy attributes of markup a module builds (an aria-label, an alt, a title, a
+  placeholder) included, except eight forms its header names as gaps: the two words split around an
+  expression, across literals joined with `+` or around an element; a noun between them ("Sign other
+  devices out"); a letter from another script; and, in a lowercase string shaped like a class list,
+  the verb joined into a longer word by a hyphen, a slash or a colon ("sign-in-related",
+  "sign-in/sign-up", "auth:sign-in"), as a class joins its parts. Copy in a JSON module stays
+  review-checked. The backend's own messages follow in their voice pass (E45), and the OAuth-linked
+  mail in E46's.
 
 ## Claims
 

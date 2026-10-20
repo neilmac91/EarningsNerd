@@ -16,6 +16,7 @@ import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice } from '@/components/ui'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
 
 export interface RegisterFormProps {
   /**
@@ -24,9 +25,15 @@ export interface RegisterFormProps {
    * what to offer an uninvited visitor.
    */
   inviteOnly: boolean
+  /**
+   * True only while the closed beta runs with the server's 100%-off Pro promo configured
+   * (`betaPricingActive` in features/marketing/lib/access.ts, from the same /api/auth/registration
+   * read). An invited visitor is promised Pro only then. Presentation only: billing is unchanged.
+   */
+  betaPromoActive: boolean
 }
 
-function RegisterContent({ inviteOnly }: RegisterFormProps) {
+function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   // Closed-beta magic link: /register?invite=<token>. Present → open the email form straight away
@@ -68,6 +75,17 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
 
+  // Pro is promised only while the beta promo is configured. Invite-only and uninvited: no subhead,
+  // the private-beta Notice below carries the message.
+  const subhead =
+    isInvited && betaPromoActive
+      ? 'Finish setting up to get full Pro. No credit card required.'
+      : !inviteOnly
+        ? `${FREE_SUMMARY_LIMIT} free AI summaries a month. No credit card required.`
+        : isInvited
+          ? 'Your invite opens an account during the private beta.'
+          : null
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     // In flight: the submit stays focusable (DS Button `loading` sets aria-disabled, never native
@@ -97,11 +115,9 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
       <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         Create your account
       </h1>
-      <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {isInvited
-          ? 'Finish setting up to get full Pro. No credit card required.'
-          : `${FREE_SUMMARY_LIMIT} free AI summaries a month. No credit card required.`}
-      </p>
+      {subhead && (
+        <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">{subhead}</p>
+      )}
 
       {isInvited && (
         <div className="mt-6 rounded-xl border border-brand-strong/20 bg-brand-strong/5 p-4 dark:border-brand-strong-dark/25 dark:bg-brand-strong-dark/10">
@@ -109,7 +125,7 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
             You&apos;re invited to the private beta
           </p>
           <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Your invite includes full Pro access. Create your account below.
+            {betaPromoActive ? 'Your invite includes full Pro access. Create your account below.' : 'Create your account below.'}
           </p>
         </div>
       )}
@@ -124,11 +140,11 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
                 Creating an account needs an invite right now.{' '}
                 <Link
                   href="/waitlist"
-                  className="font-medium text-brand-strong underline dark:text-brand-strong-dark"
+                  className="box-decoration-clone rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong underline dark:text-brand-strong-dark"
                 >
                   Request an invite
                 </Link>
-                , or sign in if you already have an account.
+                , or log in if you already have an account.
               </>
             }
           />
@@ -147,8 +163,6 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
             <SocialAuthButtons
               apiBase={apiBase}
               invite={inviteToken || undefined}
-              appleLabel="Sign up with Apple"
-              googleLabel="Sign up with Google"
             />
             <AuthDivider />
           </>
@@ -159,7 +173,7 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
             type="button"
             variant="ghost"
             onClick={() => setShowEmail(true)}
-            className="w-full py-3 active:scale-[0.99]"
+            className="w-full active:scale-[0.99]"
           >
             <EnvelopeSimpleIcon className="h-4 w-4" />
             Sign up with email
@@ -207,9 +221,9 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
               onChange={setPassword}
               autoComplete="new-password"
               required
-              minLength={12}
+              minLength={PASSWORD_MIN_LENGTH}
               showStrength
-              hint="At least 12 characters. A longer passphrase is stronger. Breached passwords are rejected."
+              hint={PASSWORD_RULE}
             />
 
             <TurnstileWidget onToken={setTurnstileToken} className="flex justify-center" />
@@ -229,11 +243,11 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
 
       <p className="mt-6 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         By creating an account you agree to our{' '}
-        <Link href="/terms" className="underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
+        <Link href="/terms" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
           Terms
         </Link>{' '}
         and{' '}
-        <Link href="/privacy" className="underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
+        <Link href="/privacy" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
           Privacy Policy
         </Link>
         .
@@ -243,19 +257,19 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
         Already have an account?{' '}
         <Link
           href={loginHrefWithRedirect(redirect)}
-          className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark"
+          className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong hover:underline dark:text-brand-strong-dark"
         >
-          Sign in
+          Log in
         </Link>
       </p>
     </AuthShell>
   )
 }
 
-export default function RegisterForm(props: RegisterFormProps) {
+export default function RegisterForm({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   return (
     <Suspense>
-      <RegisterContent {...props} />
+      <RegisterContent inviteOnly={inviteOnly} betaPromoActive={betaPromoActive} />
     </Suspense>
   )
 }

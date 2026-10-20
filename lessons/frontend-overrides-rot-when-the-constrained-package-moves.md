@@ -32,15 +32,20 @@ install quiet.
 The machine-checkable half is directional, and the direction is the whole point:
 
 - Pushing a package **forward**, past a floor a dependent declares, is the deliberate case.
-  This repo has six of them — the `@lhci/cli` security bumps, and `postcss`, which `next`
-  pins to an exact older patch. A gate that flagged every unsatisfied range would flag all
-  six and be worthless.
+  Every override this repo carries raises a floor, and all but one push past a declared
+  range — the `@lhci/cli` security bumps, `postcss`, which `next` pins to an exact older
+  patch, and the security bumps that reach transitive packages such as `basic-ftp`
+  (`ip-address` is the exception: its floor sits inside `socks`'s own range). A gate that
+  flagged every unsatisfied range would flag most of them and be worthless.
 - Holding a package **back**, below a dependent's declared floor, is never intentional.
   That is this bug, and it is the only case worth failing on.
 
 `frontend/tests/unit/overrideDirectionGate.spec.ts` walks the committed lockfile with real
 node resolution (up the nesting chain, so a nested copy is judged against its own dependent
-rather than the hoisted one) and fails on any backward override.
+rather than the hoisted one) and fails on any backward override. It does not judge scope: an
+override at the root of the block applies to every future dependent of its target, not only
+the chain it was written for, so when a new dependent of an overridden package appears,
+re-derive the override for that dependent too.
 
 Review of that gate found three more ways to be narrower than the rule, and each is worth
 keeping in mind when writing the next one:
@@ -60,6 +65,7 @@ keeping in mind when writing the next one:
 
 **Evidence**: `frontend/tests/unit/overrideDirectionGate.spec.ts`;
 `frontend/package.json` overrides block; PR #852, and the review comment recorded on #751.
-Measured on the committed tree: 7 declared-range violations, 6 forward and deliberate, 0
-backward. The historical state (`jsdom@30.0.1` declaring `undici ^8.9.0`, resolved 7.29.1)
+Measured on the committed tree when the gate landed (#852, September 2026): 7 declared-range
+violations, 6 forward and deliberate, 0 backward; later overrides add forward edges, and the
+gate re-measures the whole tree on every run. The historical state (`jsdom@30.0.1` declaring `undici ^8.9.0`, resolved 7.29.1)
 is pinned as a fixture in that spec so the detector is proven to fire.

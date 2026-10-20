@@ -6,6 +6,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ArrowClockwiseIcon, ArrowSquareOutIcon, FileTextIcon, XIcon } from '@/lib/icons'
 import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
+import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { clearCitationHighlight, highlightExcerptInDom } from './highlightInDom'
@@ -17,6 +18,15 @@ import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 // The reader's own markdown renderers: each table scrolls sideways in a box of its own (EN-04).
 // Module-level, so ReactMarkdown sees the same object on every render.
 const READER_COMPONENTS: Components = { table: ReaderTable }
+
+/**
+ * Whether the server located the passage a request jumps to (D-044), so the reader may paint it with the
+ * device: a verified citation of the filing's own text. A summary chip's heading fallback arrives
+ * unverified (SourceTrace sends `verified` only with the excerpt the server checked), and an XBRL fact
+ * ([F1]) has no passage, so the text its jump finds is a best effort. Anything else takes the neutral
+ * find highlight (highlightInDom).
+ */
+const isLocated = (citation: CopilotCitation) => citation.verified === true && !isXbrlCitation(citation)
 
 interface FilingViewerProps {
   filingId: number
@@ -85,8 +95,10 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     if (failedRef.current) void refetch({ cancelRefetch: false })
   }, [request, refetch, embedded])
 
-  // Once content is rendered and a citation is pending, locate + highlight the passage.
+  // Once content is rendered and a citation is pending, find + highlight the passage: in the device's
+  // paint only where the server located it, in the neutral find paint otherwise (D-044).
   const activeExcerpt = request?.citation.excerpt
+  const activeLocated = request ? isLocated(request.citation) : false
   const activeNonce = request?.nonce
   // The "Showing" line names the cited passage the reader scrolled to (2026-10 critique P-06).
   const showingLabel = request ? request.citation.section_ref?.trim() || 'Cited passage' : null
@@ -95,12 +107,12 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     // Defer a frame so ReactMarkdown has painted before we walk its text nodes.
     const raf = window.requestAnimationFrame(() => {
       const found = contentRef.current
-        ? highlightExcerptInDom(contentRef.current, activeExcerpt)
+        ? highlightExcerptInDom(contentRef.current, activeExcerpt, { located: activeLocated })
         : false
       setPassageMissing(!found)
     })
     return () => window.cancelAnimationFrame(raf)
-  }, [active, status, activeExcerpt, activeNonce, content])
+  }, [active, status, activeExcerpt, activeLocated, activeNonce, content])
 
   // Tear down any lingering highlight when the viewer unmounts (pane closed / page left).
   useEffect(() => () => clearCitationHighlight(), [])
@@ -115,7 +127,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       href={secUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline"
+      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       Open original <ArrowSquareOutIcon className="h-3 w-3" />
     </a>
@@ -125,7 +137,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   const inner = (
     <>
       {(status === 'idle' || status === 'loading') && (
-        // SkeletonText carries its own role="status" — the wrapper stays role-less.
+        // SkeletonText carries its own role="status": the wrapper stays role-less.
         <div className="flex-1 space-y-3 px-6 py-8">
           <SkeletonText lines={6} mono />
         </div>
@@ -140,9 +152,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {status === 'error' && (
-              <RetryButton failures={[failure]} focusTarget={contentRef} variant="secondary" size="sm" leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
-                Try again
-              </RetryButton>
+              <RetryButton failures={[failure]} focusTarget={contentRef} variant="secondary" size="sm" leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />} />
             )}
             {isHttpUrl(secUrl) && (
               <a href={secUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
@@ -156,7 +166,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       {status === 'ready' && (
         <div className="flex min-h-0 flex-1 flex-col">
           {showingLabel && !passageMissing && (
-            <p className="px-4 pt-3 font-data text-xs text-brand-strong dark:text-brand-strong-dark">
+            <p className="px-4 pt-3 font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
               Showing · {showingLabel}
             </p>
           )}
@@ -164,14 +174,16 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
             <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-xs text-warning-light dark:text-warning-dark">
               Couldn’t pinpoint the exact passage, so this is the full filing.{' '}
               {isHttpUrl(secUrl) && (
-                <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">
+                <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                   Open original
                 </a>
               )}
             </p>
           )}
-          {/* .filing-reader is the serif's ONE surface — the filing's own words
-              (Newsreader 19/1.7, 68ch measure, reader tables). It replaces the
+          {/* .filing-reader is the serif's long-form surface: the filing's own words
+              (Newsreader 19/1.7, 68ch measure, reader tables). Inside the product
+              the serif also sets a passage the server located, as a marked block in
+              the summary (.en-marked, D-044). It replaces the
               Tailwind prose stack per MIGRATION v2.1 §e.1: the two must never
               coexist (double margins), and the class carries its own measure and
               width (as wide as this pane, never wider: EN-04).
@@ -209,7 +221,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     <div
       role="dialog"
       aria-label={`${filingLabel} · filing text`}
-      className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-16 lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r"
+      className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-[var(--site-header-h,4rem)] lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r"
     >
       <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -222,7 +234,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
             type="button"
             onClick={close}
             aria-label="Close filing viewer"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <XIcon className="h-4 w-4" />
           </button>

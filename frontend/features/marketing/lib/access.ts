@@ -3,7 +3,7 @@ import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 /**
  * The landing page's ONE access decision (the design's `access` tweak). Every account CTA, the
- * access line under the hero and final CTA, the header CTA and the Free pricing card read from
+ * access line under the hero, the closing line, the header CTA and the Free pricing column read from
  * here. The truthful state is the backend's REGISTRATION_MODE (read via fetchSignupConfig): in
  * `invite_only` mode /api/auth/register rejects any email signup without an invite, so advertising
  * "Create a free account" would be a lie.
@@ -24,7 +24,7 @@ export const betaPricingActive = (config: SignupConfig | null): boolean =>
   config?.mode === 'invite_only' && config.beta_promo_enabled
 
 export interface AccessCopy {
-  /** Full account CTA (header desktop, hero-adjacent cards, final CTA, Free plan). */
+  /** Full account CTA (header desktop, hero-adjacent cards, the closing line, Free plan). */
   cta: string
   /** Short CTA for the mobile header bar. */
   ctaShort: string

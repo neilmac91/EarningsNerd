@@ -46,7 +46,7 @@ The proposal replaces label-per-instance with **note-per-issue**:
 8. A **period selector** of presets, two compact selects and one summary line, in place of 61 equally
    weighted chips.
 9. One vocabulary across web, PDF, Excel and PNG: the same letters, the same note sentences, the same
-   counts; the narrative stays readable, the Sources & Methods appendix keeps full precision.
+   counts; the narrative stays readable, the Sources & methods appendix keeps full precision.
 
 Measured on the prototype with the real Meta Platforms 12-quarter dataset in its production-like
 state, with probes that read the rendered text and visit every scroll rest position (§2.3): no page
@@ -550,7 +550,8 @@ corrections of §11:
   option that stays focusable and carries its reason ("Quarterly data isn't available for this company"),
   the established unavailable recipe, never native `disabled` (#1203 shipped a native `disabled` option;
   §11).
-- Presets as plain actions, `Button variant="ghost" size="sm"`: Last 4 · Last 8 · Last 12 (Last 5 ·
+- Presets as plain actions in the secondary ink with Button sm's shape (not the ghost Button, whose sage
+  label D-030 keeps off a count): Last 4 · Last 8 · Last 12 (Last 5 ·
   Last 10 in annual mode), without `aria-pressed` and without a selected tint: the mode control is the
   one single-choice group in this toolbar, and the summary line already states the range (#1203 shipped
   tinted `aria-pressed` pills; §11).
@@ -573,8 +574,8 @@ corrections of §11:
 | Surface | Affected value | Comparison built on it | Unavailable value | Summary | Full precision |
 |---|---|---|---|---|---|
 | Web | `26.1%†ᵃ` | `−9.7ppᵃ` | `—ᵇ` | Data notes strip (counts + grouped notes) | evidence dialog, Sources list |
-| PDF | the same letters as `<sup>` footnote marks in the grid and after narrative citations (never the U+1D43 modifier letter, which the bundled fonts may lack) | on the appendix YoY/QoQ rows, the only place the PDF prints comparisons | `—ᵇ` | "Data notes" list in the same order under the grid, replacing "[note n]" / "[unreconciled]" | Sources & Methods appendix (unchanged, with a Note column appended as column 17; columns 1–16 are positional and pinned) |
-| Excel | the letter in the cell's number format (`#,##0" (a)"`), so the cell stays numeric, sorts and prints; the sentence in the cell comment | the same on the growth cells the workbook has (window and top-line YoY) | empty cell with the comment | "Data notes" block on the cover sheet with the same counts | Sources & Methods sheet (unchanged, with the Note column) |
+| PDF | the same letters as `<sup>` footnote marks in the grid and after narrative citations (never the U+1D43 modifier letter, which the bundled fonts may lack) | on the appendix YoY/QoQ rows, the only place the PDF prints comparisons | `—ᵇ` | "Data notes" list in the same order under the grid, replacing "[note n]" / "[unreconciled]" | Sources & methods appendix (unchanged, with a Note column appended as column 17; columns 1–16 are positional and pinned) |
+| Excel | the letter in the cell's number format (`#,##0" (a)"`), so the cell stays numeric, sorts and prints; the sentence in the cell comment | the same on the growth cells the workbook has (window and top-line YoY) | empty cell with the comment | "Data notes" block on the cover sheet with the same counts | Sources & methods sheet (unchanged, with the Note column) |
 | PNG | hollow marker / filled bar + letter | letter on the growth line | gap | "Note a: …" lines under the plot | not applicable |
 
 Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
@@ -863,7 +864,7 @@ tabs, and the web replaces its exact spans with evidence disclosures.
    copy; "calculated" and † everywhere ("derived Q4", "(marked Computed)" retire).
 3. **Exports** (M): §4.10; the PDF grid holds values only, so comparison letters go on the appendix
    YoY/QoQ rows; Excel growth comments exist only on the window and top-line YoY cells; the Note column
-   is column 17 of Sources & Methods (columns 1–16 are positional and pinned in `test_excel_export.py`);
+   is column 17 of Sources & methods (columns 1–16 are positional and pinned in `test_excel_export.py`);
    letters as `<sup>` in the PDF; one compact money formatter matching `Intl`. Tests:
    `test_export_service.py`, `test_excel_export.py`, `test_data_completeness.py`'s export pins.
 4. **Narrative rendering** (M): compact amounts, "Q2 2026" periods and the relation-safe rule of §4.8

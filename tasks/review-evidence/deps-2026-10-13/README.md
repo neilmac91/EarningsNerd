@@ -137,6 +137,61 @@ security items do not reach this deployment.
 - Dependabot #1282, #1283 and #1284 closed as superseded with a pointer to each replacement; #1285
   stays open as the edgartools tracker under #1063.
 
+## Second sweep, 14 October (from 19:54 UTC)
+
+A read-only triage of all 29 open pull requests (one agent per PR, two adversarial refuters on every
+merge, close or supersede call) and a dependency audit, with main at `d69bc69`:
+
+- **Dependabot:** no PR opened since 12 October. `.github/dependabot.yml` runs all three ecosystems
+  weekly on Monday (05:00 UTC default), so the next batch is due 2026-10-19; only a security update
+  would arrive mid-week. #1285 is the only open `fix(deps)` PR; its head was force-updated to
+  `74de260b` (still 5.61.1) and edgartools 5.62.0 was replayed and held
+  ([addendum](../edgartools-5.61.1-hold-2026-10-13/README.md#addendum-2026-10-14-head-rebased-5620-replayed)).
+- **Security alerts:** GitHub's push response on 13 October named 4 Dependabot alerts on main (3 high,
+  1 moderate); the session has no alerts API. CI's advisory steps (main run 38625718789):
+  `pip-audit -r requirements.txt` finds nothing; `npm audit --omit=dev --audit-level=high` reports 7
+  (5 high, 2 moderate). A full-tree `npm audit --json` over the lockfile
+  ([`npm-audit-full-tree-2026-10-14.txt`](npm-audit-full-tree-2026-10-14.txt), Node 22.23.2) resolves
+  all 19 nodes (17 high, 2 moderate) to four advisory roots, which match GitHub's count and
+  severities by package (Dependabot counts per advisory and extract-zip carries two, so one of its two
+  may postdate the 13 October count; unconfirmed): `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm, high, reached through tailwindcss 3 and
+  eslint-config-next; 3.0.3 is the latest release, so no fixed version exists), `extract-zip` 2.0.1
+  (GHSA-jmr9-qjv8-65gv and GHSA-7pqw-9j4j-h8q3, high, dev-only through @lhci/cli, lighthouse,
+  puppeteer-core and @puppeteer/browsers; 2.0.1 is the latest release, no fixed version), `basic-ftp` 5.3.1 (GHSA-c475-qrg2-pj4r,
+  high, dev-only through @lhci/cli, proxy-agent and get-uri; fixed in 6.2.1, 6.2.3 released) and
+  `postcss-selector-parser` 6.1.4 (GHSA-rj75-hqrm-r3gf, moderate, through tailwindcss 3 and
+  postcss-nested; fixed in 7.1.6). npm's suggested remedies in that run are tailwindcss 4 (a major that
+  `dependabot.yml` keeps off) and a downgrade of @lhci/cli to 0.13.0. The backend manifests CI does
+  not audit are clean ([`pip-audit-dev-eval-2026-10-14.txt`](pip-audit-dev-eval-2026-10-14.txt)).
+  Dispositions: the two roots with fixed releases go to E53 (forward `overrides` in
+  `frontend/package.json`, the pattern the @lhci/cli chain already uses, proven by the
+  override-direction gate and a byte comparison of the built CSS; closed by #1329, see
+  [E53 outcome](#e53-outcome-14-october-1329) below); the two without go to F27.
+- **Other PRs:** 20 are drafts or branches another session pushed or answered within the last
+  12–24 hours (the brand series, #1278, #1265, #1314, #1286) and were left alone; #1286 merged at 20:22 UTC (`df8b519`), after the
+  sweep's read; #1307 now targets main and #1308 is stacked on #1307; #1035 and #1121 are held by the founder's earlier comments;
+  #1223 is superseded by #1287 (merged 2026-10-13, both research files recreated on main) and only
+  its closure is open, the founder's call; #1323 and #1324 were merged by their own session at
+  20:13 UTC while the sweep ran, and #1325 received a principal review with a should-fix at 20:15 UTC,
+  so none of the three was touched here.
+
+## E53 outcome, 14 October (#1329)
+
+The two roots with fixed releases are closed by #1329: forward `overrides` for `basic-ftp`
+(`^6.2.3`) and `postcss-selector-parser` (`^7.1.6`), both at the root of the `overrides` block
+rather than nested under their dependents. Nested, the two forms behave differently under CI's
+npm 10.9.8 and the npm 11 that wrote main's lockfile
+([`e53-override-shape-2026-10-14.txt`](e53-override-shape-2026-10-14.txt)): `@lhci/cli > basic-ftp`
+gives a lockfile npm 10.9.8 rejects (`npm ci`: "Missing: basic-ftp@5.3.1 from lock file"), and
+`tailwindcss > postcss-selector-parser` installs but `npm ls --all` exits 1 on postcss-nested's
+edge (the six `extraneous` markers for sharp's wasm32 fallback in that run's stderr appear in stdout
+on main too and do not fail the command by themselves). At the root one copy of each resolves under both versions, `npm ci` passes and `npm ls --all`
+exits 0, as on main. The built CSS is byte-identical to main's (three stylesheets, same digests),
+so the postcss-selector-parser half did not fall to F27. Full-tree `npm audit` 19 → 13 (all high;
+roots `braces` and `extract-zip`, F27); production tree 7 → 5. A root override reaches every future
+dependent of its target and the direction gate fails only the backward case, so a new dependent of
+either package is a reason to re-derive the override (the lesson now says so).
+
 ## Open follow-ups
 
 - Founder, after #1305's deploy (F23): open the monthly and the yearly Checkout preview as the free
@@ -147,4 +202,4 @@ security items do not reach this deployment.
   for `setupIntents.create`; v16 no longer declares it on SetupIntent or PaymentIntent create (E22).
 - React 19 before Next 17 (react, react-dom, @types/react), as a deliberate PR (E21).
 - edgartools: #1285 stays held under #1063 until the Outlook and table-seam regressions are fixed
-  upstream.
+  upstream; 5.62.0 does not fix them, so the next replay is 6.0 (announced for 2026-11-09).

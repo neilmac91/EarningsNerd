@@ -139,13 +139,23 @@ export const isPaywallStreamError = (message: string): boolean => {
   return m.includes('monthly limit') || m.includes('upgrade to pro')
 }
 
-// Errors that must NOT be auto-retried: retrying can't help and would waste the user's time.
-const isNonRetryableStreamError = (message: string): boolean => {
+// Errors a retry cannot help: the stream makes no automatic second attempt (generateSummaryStream below), and
+// the filing page's card offers no Retry (StreamingSummaryDisplay). Each backend sentence is matched on its own
+// words. Pro's fair-use pause (admission.py: "We've temporarily paused new summary generation on your
+// account …") holds until the month turns. The stream route's 403s hold whatever the reader retries: a Free
+// reader's force regeneration of a summary the page shows ("Regenerating an analysis is a Pro feature.", the
+// route itself) and an inactive account ("User account is inactive", get_current_user). A retry of any of them
+// only repeats the blocked request. tests/unit/streamErrorCopy.spec.ts reads the pause from admission.py and
+// every 403 the stream endpoint returns, and holds this matcher to each.
+export const isNonRetryableStreamError = (message: string): boolean => {
   const m = (message || '').toLowerCase()
   return (
     isPaywallStreamError(message) ||
+    m.includes('paused new summary generation') ||
+    m.includes('is a pro feature') ||
+    m.includes('account is inactive') ||
     m.includes('permission') ||
-    m.includes('sign in') ||
+    m.includes('log in') ||
     m.includes('authentication')
   )
 }
@@ -188,7 +198,7 @@ export const generateSummaryStream = async (
     }
 
     console.warn(`[summary] ${filingId} stream attempt ${attempt} failed (${result.error}); retrying once...`)
-    onProgress('initializing', 'Connection interrupted. Retrying...')
+    onProgress('initializing', 'Connection interrupted. Trying again…')
     await new Promise((resolve) => setTimeout(resolve, STREAM_RETRY_BACKOFF_MS))
   }
 }
@@ -326,7 +336,7 @@ const runStreamAttempt = async (
       onProgress(stageName, message, progressData)
     } else if (data.type === 'complete' || data.type === 'partial') {
       if (!Number.isSafeInteger(data.summary_id) || data.summary_id <= 0) {
-        streamErrorMessage = 'The summary stream returned an invalid completion. Please try again.'
+        streamErrorMessage = 'The summary ended with an invalid completion. Try again.'
         return
       }
       completed = true
@@ -348,18 +358,23 @@ const runStreamAttempt = async (
     // Keep the existing silent 401 refresh/replay owner, with a bounded handshake.
     const response = await untilAborted(postStreamWithRefresh(postStream))
     if (!response.ok) {
+      // The reader's sentence when the response carries no detail of its own. A 401 is never retried
+      // whatever its text (retryable is set only for a 5xx below); its sentence says what to do.
       let errorMessage = response.status === 401
-        ? 'Authentication error occurred.'
-        : `Request failed with status ${response.status}`
+        ? 'Log in again to generate this summary.'
+        : 'The summary could not start. Try again.'
       try {
         const errorData = await untilAborted(response.json())
         if (typeof errorData?.detail === 'string') errorMessage = errorData.detail
         else if (typeof errorData?.message === 'string') errorMessage = errorData.message
       } catch (error) {
         if (controller.signal.aborted) throw error
-        if (response.status === 403) errorMessage = 'You do not have permission to perform this action.'
-        else if (response.status === 429) errorMessage = 'Rate limit exceeded. Please try again later.'
-        else if (response.status >= 500) errorMessage = 'Server error. Please try again later.'
+        // "permission" stays in the 403 sentence: it is the one place the word isNonRetryableStreamError tests
+        // for is written (no backend message on this route says it), and the matcher gates hold each of its
+        // phrases to a writer (tests/unit/streamErrorCopy.spec.ts). A 403 is never retried in any case.
+        if (response.status === 403) errorMessage = 'Your account does not have permission to generate this summary.'
+        else if (response.status === 429) errorMessage = 'Too many summary requests just now. Try again shortly.'
+        else if (response.status >= 500) errorMessage = 'The server could not start the summary. Try again in a moment.'
       }
       return { ok: false, retryable: response.status >= 500, error: errorMessage }
     }
@@ -368,7 +383,7 @@ const runStreamAttempt = async (
       `[summary] ${filingId} stream opened in ${(performance.now() - streamStart).toFixed(1)} ms`
     )
     reader = response.body?.getReader()
-    if (!reader) return { ok: false, retryable: true, error: 'No reader available' }
+    if (!reader) return { ok: false, retryable: true, error: 'The connection dropped before the summary started. Try again.' }
 
     const decoder = new TextDecoder()
     let buffer = ''
@@ -395,20 +410,24 @@ const runStreamAttempt = async (
       return {
         ok: false,
         retryable: true,
-        error: 'The connection closed before the summary finished. Please try again.',
+        error: 'The connection closed before the summary finished. Try again.',
       }
     }
     return { ok: true, retryable: false, error: '' }
   } catch (error: unknown) {
+    // The card prints this result's error, so it is a sentence in the product voice, never the transport's
+    // own text ("Failed to fetch", "Load failed", "NetworkError when attempting to fetch resource."); the
+    // transport's text goes to the console. Both are retryable, so no matcher phrase is involved.
     const errObj = error as { name?: string; message?: string }
     if (errObj?.name === 'AbortError') {
       return {
         ok: false,
         retryable: true,
-        error: `Request timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without activity.`,
+        error: `The summary timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without progress. Try again.`,
       }
     }
-    return { ok: false, retryable: true, error: errObj?.message || 'Failed to generate summary stream.' }
+    console.warn(`[summary] ${filingId} stream transport failed: ${errObj?.message ?? String(error)}`)
+    return { ok: false, retryable: true, error: 'The connection dropped before the summary finished. Try again.' }
   } finally {
     clearTimeoutSafely()
     controller.abort()
@@ -514,6 +533,73 @@ export interface PriorFilingRef {
   period_end_date: string | null
 }
 
+/** One word-level edit inside a modified paragraph; equal segments carry the later filing's typography.
+ *  Segments carry no edge spaces: join them with one space to read the paragraph. */
+export type WordOp = ['equal' | 'delete' | 'insert', string]
+
+/** One change of Item 1A against the prior same-form original, in the later filing's reading order.
+ *  `id` is content-addressed (a stable key; repeated content is numbered). A modified paragraph
+ *  carries only its word ops: the later text is the equal and insert segments, the prior text the
+ *  equal and delete segments. */
+export type SectionChange =
+  | { id: string; kind: 'modified'; index: number; prior_index: number; similarity: number; moved: boolean; ops: WordOp[] }
+  | { id: string; kind: 'added'; index: number; after: string }
+  | { id: string; kind: 'removed'; prior_index: number; before: string }
+  | { id: string; kind: 'moved'; index: number; prior_index: number; after: string }
+
+export interface SectionSide {
+  status: string
+  extracted_at: string | null
+  /** A 10-Q whose Item 1A only refers back to the annual report's risk factors (nothing restated). */
+  reference_only: boolean
+  char_count: number | null
+  paragraph_count: number | null
+}
+
+export interface SectionChangesFilingRef extends PriorFilingRef {
+  accession_number: string
+}
+
+interface SectionChangesBase {
+  section: 'item_1a'
+  section_label: string
+  /** What this viewer got: the counts and the first items (`truncated`), or every item. */
+  access: 'teaser' | 'full'
+  engine_version: number
+  /** The filing the section is compared against, whenever one exists. */
+  prior_filing: SectionChangesFilingRef | null
+}
+
+export interface SectionChangesOk extends SectionChangesBase {
+  status: 'ok'
+  reason: null
+  current: SectionSide
+  prior: SectionSide
+  paragraphs: { prior: number; later: number; prior_excluded: number; later_excluded: number }
+  counts: { unchanged: number; modified: number; added: number; removed: number; moved: number }
+  words: { later_total: number; inserted: number; deleted: number; changed_ratio: number }
+  has_changes: boolean
+  items: SectionChange[]
+  items_total: number
+  truncated: boolean
+}
+
+export interface SectionChangesNotOk extends SectionChangesBase {
+  /** `pending`: a side is not extracted yet and the hourly batch will extract it; `no_prior`: no earlier
+   *  same-form original; `unavailable`: nothing to compare as things stand (`reason` says why:
+   *  form_not_supported, current_<status>, prior_<status>, or a side with no row that the batch will not
+   *  select: current_outside_window / prior_outside_window, current_outside_cohort / prior_outside_cohort). */
+  status: 'pending' | 'no_prior' | 'unavailable'
+  reason: string
+  current?: SectionSide
+  prior?: SectionSide
+}
+
+/** The filing-text wording diff of the change report (Item 1A against the prior same-form original),
+ *  served behind ENABLE_SECTION_CHANGES: null while the feature is off, and absent from a sample or
+ *  an older backend. */
+export type SectionChanges = SectionChangesOk | SectionChangesNotOk
+
 export interface ChangeReport {
   has_prior: boolean
   comparison_basis: string | null
@@ -525,11 +611,74 @@ export interface ChangeReport {
   risks: RiskDiff | null
   /** @deprecated T1.6: always null — the What-changed lead is now metrics.headline; kept for API compat. */
   key_changes: string | null
+  /** XBRL deltas exist (the metrics block); the wording diff has its own state in `section_changes`. */
   has_changes: boolean
+  section_changes?: SectionChanges | null
 }
 
 export const getWhatChanged = async (filingId: number): Promise<ChangeReport> => {
   const response = await api.get(`/api/summaries/filing/${filingId}/what-changed`)
+  return response.data
+}
+
+// --- The Pro review of the wording changes (E27, PR B) -----------------------------------------
+// A reader labels each change of the section_changes list `reviewed` or `follow_up`; the review is
+// complete when every change carries a label, and the server then freezes a receipt naming the
+// two texts compared. Both endpoints are Pro-only (403 otherwise); labels hang on the changes'
+// content-addressed ids. Read through features/summaries/hooks/useWordingReview.
+
+export type WordingLabel = 'reviewed' | 'follow_up'
+
+export interface WordingReceipt {
+  version: number
+  completed_at: string
+  section: 'item_1a'
+  section_label: string
+  filing: SectionChangesFilingRef
+  prior_filing: SectionChangesFilingRef
+  texts: {
+    current: { sha256: string | null; extractor_version: number | null; extracted_at: string | null }
+    prior: { sha256: string | null; extractor_version: number | null; extracted_at: string | null }
+  }
+  engine_version: number
+  app_version: string
+  paragraphs: SectionChangesOk['paragraphs']
+  counts: SectionChangesOk['counts']
+  words: SectionChangesOk['words']
+  items_total: number
+  labels: { reviewed: number; follow_up: number }
+  follow_up_ids: string[]
+}
+
+export interface WordingReviewState {
+  filing_id: number
+  section: 'item_1a'
+  section_label: string
+  /** `unavailable`: nothing to review yet (no comparison, or the feature is off); no items then. */
+  status: 'ok' | 'unavailable'
+  engine_version: number
+  items_total: number
+  /** Change id to label, for the changes of the current comparison only. */
+  labels: Record<string, WordingLabel>
+  counts: { reviewed: number; follow_up: number; unlabeled: number }
+  /** Set while every change is labelled and the receipt still describes the live comparison. */
+  completed_at: string | null
+  receipt: WordingReceipt | null
+  /** On a label's answer only: this label completed the queue (the transition the completion event counts). */
+  completed_now?: boolean
+}
+
+export const getWordingReview = async (filingId: number): Promise<WordingReviewState> => {
+  const response = await api.get(`/api/summaries/filing/${filingId}/wording-review`)
+  return response.data
+}
+
+export const setWordingLabel = async (
+  filingId: number,
+  itemId: string,
+  label: WordingLabel | null,
+): Promise<WordingReviewState> => {
+  const response = await api.put(`/api/summaries/filing/${filingId}/wording-review/labels`, { item_id: itemId, label })
   return response.data
 }
 

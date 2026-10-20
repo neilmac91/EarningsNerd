@@ -10,6 +10,7 @@ import { getSummary } from '@/features/summaries/api/summaries-api'
 import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { ApiError } from '@/lib/api/client'
 import { ArrowRightIcon, CircleNotchIcon, FileTextIcon, StarIcon } from '@/lib/icons'
 import { Button, buttonVariants, cx, GuidanceCard } from '@/components/ui'
 import { toast } from 'sonner'
@@ -28,7 +29,7 @@ import { groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
 // UTC-midnight instants; local-TZ rendering would shift the day west of UTC and mismatch hydration).
 import { FilingIndex } from '@/features/filings/components/FilingIndex'
 import { ComparePeriodsCard } from '@/features/filings/components/ComparePeriodsCard'
-import { useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 // How many filings to request once the visitor asks for the full backfilled history (vs the
 // backend's default recent cap). P1-6: deep 10-K/10-Q history since 2001 is well under this.
@@ -65,17 +66,38 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   const [showFullHistory, setShowFullHistory] = useState(false)
   const hasTrackedCompanyView = useRef(false)
   const filingsHeadingRef = useRef<HTMLHeadingElement>(null)
+  // Where the company Retry's focus goes when its card leaves: the filings heading when the page loads,
+  // or the not-found card's title when the retry finds no such ticker. Resolved after the commit.
+  const companyCardHeadingRef = useRef<HTMLHeadingElement>(null)
+  const companyRetryTarget = useMemo(() => ({
+    get current() { return filingsHeadingRef.current ?? companyCardHeadingRef.current },
+  }), [])
 
-  // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale, so the client refetches
-  // on mount and live fields (stock quote) catch up — the seed only guarantees the first paint.
-  const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
-    queryKey: queryKeys.company(normalizedTicker),
+  // initialDataUpdatedAt: 0 marks the ISR-cached seed (up to 30 minutes old, page.tsx's revalidate) as already
+  // stale, so the client refetches the company on mount: the seed only guarantees the first paint. The lead shows
+  // no live field since D-046 dropped its market quote.
+  const companyKey = queryKeys.company(normalizedTicker)
+  const companyQuery = useQuery<Company>({
+    queryKey: companyKey,
     queryFn: () => getCompany(normalizedTicker),
     retry: 1,
     enabled: !!normalizedTicker,
     initialData: initialCompany,
     initialDataUpdatedAt: 0,
   })
+  const { data: company } = companyQuery
+  // A failed load keeps its card, and a focused Retry in it, through the Retry's refetch: the query has
+  // no data, so the refetch goes back to pending, and the spinner would otherwise replace the card.
+  const companyFailure = useRetainedFailure(companyQuery, companyKey)
+  // A first load paused offline (fetchStatus 'paused': the default networkMode 'online' holds the fetch until
+  // the network returns) is neither loading nor failed to TanStack, yet it has no answer, so it reads as loading
+  // and never as the not-found card. A paused refetch over data is not pending and keeps the page.
+  const companyPaused = companyQuery.isPending && companyQuery.fetchStatus === 'paused'
+  const companyLoading = (companyQuery.isLoading || companyPaused) && !companyFailure.failed
+  // A 404 is an answer (no such ticker), not a failure: it gets the not-found card, without a Retry. It
+  // reads the held error, not the query's own: a refetch (a reconnect, an invalidation) clears that to
+  // null while it runs, and the 404 card would turn into the load-failure card until the answer lands.
+  const companyNotFound = companyFailure.error instanceof ApiError && companyFailure.error.status === 404
 
   // Default view serves the backend's recent cap; "Show full history" refetches with a high limit
   // so the deep-backfilled 10-K/10-Q history (P1-6) surfaces. The limit is part of the query key so
@@ -228,7 +250,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     retry: false,
   })
   // Ready means the filing page will show the summary: a placeholder ("Generating summary…") or a
-  // stored failure (its "Summary temporarily unavailable" card) is a row, not a summary to open. The
+  // stored failure (its "This summary did not finish" card) is a row, not a summary to open. The
   // company search's `summary_ready` applies the same rule, so a result and this lead agree.
   const summaryReady = isSummaryReady(latestSummary)
   // The primary action promises only what the filing page does: open a ready summary, start one where
@@ -270,21 +292,30 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   }
 
   if (!company) {
+    // A load failure says so and offers a Retry; it never prints the raw error. Only a 404 (or no
+    // answer at all) reads as "not found", and a 404 is an answer: the empty variant, like the
+    // coverage card below, so the error tint means something broke.
+    const loadFailed = companyFailure.failed && !companyNotFound
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <GuidanceCard
-            variant="error"
-            title="Company not found"
+            variant={loadFailed ? 'error' : 'empty'}
+            headingRef={companyCardHeadingRef}
+            title={loadFailed ? 'Couldn’t load this company' : 'Company not found'}
             description={
-              companyError
-                ? `Error: ${companyError instanceof Error ? companyError.message : 'Failed to load company'}`
-                : `Could not find company with ticker "${normalizedTicker}"`
+              loadFailed
+                ? 'Try again in a moment.'
+                : `No company with a ticker on SEC EDGAR matches "${normalizedTicker}".`
             }
             action={
-              <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
-                Go back home
-              </Link>
+              loadFailed ? (
+                <RetryButton failures={[companyFailure]} focusTarget={companyRetryTarget} />
+              ) : (
+                <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
+                  Go back home
+                </Link>
+              )
             }
           />
         </div>
@@ -302,6 +333,9 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
           {/* Honest coverage-unavailable state — an empty, not an error. */}
           <GuidanceCard
             variant="empty"
+            // The company Retry's last hand-off target: a retry that answers with an unsupported issuer
+            // renders this card and no filings heading.
+            headingRef={companyCardHeadingRef}
             icon={<FileTextIcon className="h-5 w-5" />}
             title={formatCompanyName(company.name) || normalizedTicker}
             description={
@@ -361,7 +395,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                         <StarIcon
                           aria-hidden="true"
                           weight={isInWatchlist ? 'fill' : 'regular'}
-                          className={cx('h-4 w-4', isInWatchlist && 'text-warning-light dark:text-warning-dark')}
+                          className="h-4 w-4"
                         />
                       }
                     >

@@ -4,7 +4,7 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { SparkleIcon, XIcon } from '@/lib/icons'
+import { ChatCircleTextIcon, XIcon } from '@/lib/icons'
 import {
   askFilingStream,
   isCopilotPaywallError,
@@ -22,8 +22,10 @@ import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import UpgradeModal from '@/features/subscriptions/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
 import { starterQuestions } from './starterQuestions'
+import { COPILOT_CLAIM } from './copilotClaim'
 import { queryKeys } from '@/lib/queryKeys'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
+import { fmtCount } from '@/lib/format'
 
 // Below lg the standalone overlay is a modal bottom-sheet; at lg+ it docks as a static side pane.
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
@@ -58,7 +60,7 @@ const PANEL_BASE =
   'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(80vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
 const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   overlay:
-    'lg:inset-x-auto lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
+    'lg:inset-x-auto lg:right-0 lg:top-[var(--site-header-h,4rem)] lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
   pane: 'lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none',
 }
 
@@ -96,9 +98,12 @@ export default function AskCopilotRail({
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  // The standalone overlay panel container — owns the mobile focus trap (when !embedded).
+  // The conversation's column (messages, composer, usage line): it scrolls as one only when an enlarged
+  // text size makes the composer outgrow what the conversation leaves it.
+  const columnRef = useRef<HTMLDivElement>(null)
+  // The standalone overlay panel container: owns the mobile focus trap (when !embedded).
   const panelRef = useRef<HTMLDivElement>(null)
-  // The standalone launcher (closed state) — focus returns here when the sheet closes.
+  // The standalone launcher (closed state): focus returns here when the sheet closes.
   const launcherRef = useRef<HTMLButtonElement>(null)
   // Keep the last asked question so the Retry button can re-run it.
   const lastQuestionRef = useRef<string | null>(null)
@@ -145,7 +150,7 @@ export default function AskCopilotRail({
   const { data: usage } = useQuery({
     queryKey: queryKeys.usage.byUser(user?.id),
     queryFn: getUsage,
-    // /usage is auth-gated — never fire it for an anon user (a guaranteed 401 from a public page).
+    // /usage is auth-gated: never fire it for an anon user (a guaranteed 401 from a public page).
     enabled: !!user && isAuthenticated && open,
     staleTime: 60_000,
   })
@@ -157,13 +162,16 @@ export default function AskCopilotRail({
   const canAsk = isPro || freeHasTaste
 
   // Anchor each turn ONCE, at ask time: the question + "Reading…" placeholder scroll into view,
-  // which is exactly where the answer will start. Deliberately NOT bottom-following the stream —
+  // which is exactly where the answer will start. Deliberately NOT bottom-following the stream:
   // that parked the reader at the sources list when the answer completed, forcing a scroll back
   // up to read from the start (field report). The reader scrolls at their own pace. One initial
   // scroll still runs when a restored history hydrates, so reopening shows the latest exchange.
+  // The anchor keys on the reading turn's id: a progress heartbeat (every few seconds while the
+  // model works) patches that turn in place, and must not pull a reader who scrolled away back.
   const didInitialScrollRef = useRef(false)
+  const anchoredTurnRef = useRef<string | null>(null)
   const lastMessage = messages[messages.length - 1]
-  const lastStatus = lastMessage?.role === 'assistant' ? lastMessage.status : undefined
+  const readingTurnId = lastMessage?.role === 'assistant' && lastMessage.status === 'reading' ? lastMessage.id : null
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -173,11 +181,21 @@ export default function AskCopilotRail({
       didInitialScrollRef.current = false
       return
     }
-    if (lastStatus === 'reading' || !didInitialScrollRef.current) {
+    const newTurn = readingTurnId !== null && readingTurnId !== anchoredTurnRef.current
+    if (newTurn || !didInitialScrollRef.current) {
+      if (newTurn) anchoredTurnRef.current = readingTurnId
       el.scrollTop = el.scrollHeight
       didInitialScrollRef.current = true
+      // A question asked from a composer scrolled into view brings the conversation back to the top. Keyboard focus
+      // stays in the composer (its field or Send; runQuestion hands it there from a starter, a follow-up or Retry), so
+      // the composer then comes back to the column's nearest edge, its focus ring whole: an enlarged text size or a
+      // short sheet never leaves the focused control out of view.
+      if (columnRef.current) {
+        columnRef.current.scrollTop = 0
+        composerRef.current?.revealFocus()
+      }
     }
-  }, [messages, lastStatus])
+  }, [messages, readingTurnId])
 
   // In the embedded layout the Copilot shares the pane with the filing view; only focus the composer
   // when the Copilot view is actually active (focusing it while the Filing tab is shown would steal
@@ -326,7 +344,7 @@ export default function AskCopilotRail({
           })
           setIsStreaming(false)
           abortRef.current = null
-          // A question was metered server-side on completion — refresh the "N of M left" pill.
+          // A question was metered server-side on completion: refresh the "N of M left" pill.
           queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
         onError: (msg) => {
@@ -339,6 +357,9 @@ export default function AskCopilotRail({
           analytics.copilotAnswerErrored({ filingId, message: msg })
           setIsStreaming(false)
           abortRef.current = null
+          // A plan gate (the spent allowance's 403, a Pro-only 403, the fair-use 429) says the counts the
+          // usage line shows are stale: refetch them, so the line agrees with the plan card above it.
+          if (isCopilotPaywallError(msg)) queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
       },
       controller.signal
@@ -347,7 +368,7 @@ export default function AskCopilotRail({
 
   const handleSubmit = (question: string) => {
     // Guard on canAsk too (not just the disabled composer) so a starter-question click can't slip
-    // past an exhausted FREE taste — the server would 403 anyway, but fail fast client-side.
+    // past an exhausted FREE taste: the server would 403 anyway, but fail fast client-side.
     if (isStreaming || !canAsk) return
     runQuestion(question, messagesRef.current)
   }
@@ -372,10 +393,12 @@ export default function AskCopilotRail({
     setUpgradeOpen(true)
   }
 
-  // Need a summary to cite against — don't render the rail at all without one.
+  // Need a summary to cite against: don't render the rail at all without one.
   if (!summaryAvailable) return null
 
-  const subjectLabel = ticker || companyName || 'this filing'
+  // "AAPL’s 10-K" when the issuer is known, else "this 10-K" (never "this filing’s 10-K").
+  const subjectName = ticker || companyName
+  const subjectFiling = subjectName ? `${subjectName}’s ${filingType}` : `this ${filingType}`
 
   // Who sees the conversation vs the teaser (roadmap 2.2): PRO and FREE-with-taste get the composer.
   // An authed FREE user who exhausts mid-session keeps the conversation (messages.length > 0) with
@@ -395,14 +418,18 @@ export default function AskCopilotRail({
       onUpgrade={() => handleUpgrade('copilot_rail')}
     />
   ) : (
-    <>
+    // At an enlarged text size the composer, its note and the usage line can outgrow the sheet: the
+    // conversation keeps min(40vh, 12rem) of it, and past that the column scrolls as one, the composer
+    // below. 12rem scales with the text: at a 32px root the floor is 40vh, and at the default size it is
+    // 192px, so a sheet the consent bar and a bottom inset have shortened still fits the composer above
+    // the bar (tests/e2e/consent-bar-yields.spec.ts).
+    <div ref={columnRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       {/* Messages / empty state */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="min-h-[min(40vh,12rem)] flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
-              cite the excerpts they came from.
+              Ask anything about {subjectFiling}. {COPILOT_CLAIM}
             </p>
             <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
               Try asking
@@ -413,7 +440,7 @@ export default function AskCopilotRail({
                   key={q}
                   type="button"
                   onClick={() => handleSubmit(q)}
-                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-white/10"
+                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
                   {q}
                 </button>
@@ -438,16 +465,18 @@ export default function AskCopilotRail({
         )}
       </div>
 
-      {/* Composer — Send locked (aria-disabled, still focusable) while streaming, or once a FREE
+      {/* Composer: Send locked (aria-disabled, still focusable) while streaming, or once a FREE
           user has spent their taste. */}
       <CopilotComposer ref={composerRef} onSubmit={handleSubmit} locked={isStreaming || !canAsk} />
 
       {/* Honest usage line. PRO: a calm monthly count. FREE: the lifetime taste balance, then a
-          gentle upsell at exhaustion (the conversation above stays put). */}
+          gentle upsell at exhaustion (the conversation above stays put). Pro's questions are capped
+          too, so no line promises an uncapped plan; the cap comes from the usage response
+          (planLimitsLockstep.spec.ts holds that word out of this directory). */}
       {isPro && usage && (
         <p className="px-4 pb-2 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
-          {Math.max(usage.qa_limit - usage.qa_used, 0).toLocaleString()} of{' '}
-          {usage.qa_limit.toLocaleString()} questions left this month
+          {fmtCount(Math.max(usage.qa_limit - usage.qa_used, 0))} of{' '}
+          {fmtCount(usage.qa_limit)} questions left this month
         </p>
       )}
       {!isPro && usage && freeTasteTotal > 0 && (
@@ -457,30 +486,35 @@ export default function AskCopilotRail({
             <button
               type="button"
               onClick={() => handleUpgrade('copilot_free_taste')}
-              className="font-semibold text-brand-strong hover:underline dark:text-brand-strong-dark"
+              className="font-semibold text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
-              Upgrade for unlimited
+              Upgrade to Pro
             </button>
           </p>
         ) : (
           <div className="px-4 pb-3 pt-1 text-center">
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              You’ve used your {freeTasteTotal} free Copilot question{freeTasteTotal === 1 ? '' : 's'}.
+              You’ve used your {freeTasteTotal} free question{freeTasteTotal === 1 ? '' : 's'}.
             </p>
+            {usage.qa_limit > 0 && (
+              <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {`Pro includes ${fmtCount(usage.qa_limit)} questions a month.`}
+              </p>
+            )}
             <Button size="sm" className="mt-1" onClick={() => handleUpgrade('copilot_free_taste_exhausted')}>
-              Upgrade to Pro for unlimited questions
+              Upgrade to Pro
             </Button>
           </div>
         )
       )}
-    </>
+    </div>
   )
 
   const upgradeModal = (
     <UpgradeModal
       open={upgradeOpen}
       onClose={() => setUpgradeOpen(false)}
-      feature="The filing Copilot"
+      feature="Ask this Filing"
     />
   )
 
@@ -508,7 +542,7 @@ export default function AskCopilotRail({
         className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         aria-label="Ask this Filing"
       >
-        <SparkleIcon className="h-4 w-4" />
+        <ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />
         Ask this Filing
         <kbd className="ml-1 hidden rounded border border-black/25 bg-black/10 px-1.5 py-0.5 text-data-xs font-semibold leading-none sm:inline-block">
           ⌘K
@@ -540,7 +574,7 @@ export default function AskCopilotRail({
         {/* Header */}
         <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <SparkleIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
+            <ChatCircleTextIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Ask this Filing</h2>
             <Badge
               variant="brand"
@@ -554,7 +588,7 @@ export default function AskCopilotRail({
             type="button"
             onClick={() => onOpenChange(false)}
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <XIcon className="h-4 w-4" />
           </button>

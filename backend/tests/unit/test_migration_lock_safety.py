@@ -57,6 +57,7 @@ outside the "only the script applies SQL" pin below (they run ops SQL, never mig
 
 Everything here is text-level and runs in the hermetic unit suite (no Postgres needed).
 """
+import ast
 import re
 import shutil
 import subprocess
@@ -66,6 +67,8 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+from tests.support.ops_workflow import cloud_sql_reach, pg_settings, setting_ms
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_DIR.parent
@@ -496,13 +499,50 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     )
 
 
+# Homes whose requests still run in autoflushing sessions, until E132 gives them production's settings.
+_AUTOFLUSHING_HOMES = {
+    "test_usage_counter_transactions.py",
+    "test_login_lockout_transactions.py",
+    "test_notification_delivery_transactions.py",
+}
+
+
 @pytest.mark.parametrize("label,test_home,url_name", [
     ("Stripe transaction", "test_subscription_event_transactions.py", "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
     ("usage counter", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
     ("login failure", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
+    ("alert delivery claim", "test_notification_delivery_transactions.py", "DELIVERY_CONCURRENCY_TEST_DATABASE_URL"),
+    ("refresh token rotation", "test_refresh_rotation_transactions.py", "REFRESH_CONCURRENCY_TEST_DATABASE_URL"),
 ])
 def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home, url_name):
     """The ordinary SQLite lane cannot establish PostgreSQL row-lock behavior."""
+    # The test home must read the variable its step sets: renamed on one side only, its cases skip and
+    # the required step passes with nothing run.
+    home = ast.parse((BACKEND_DIR / "tests" / "integration" / test_home).read_text(encoding="utf-8"))
+    read = {
+        node.args[0].value for node in ast.walk(home)
+        if isinstance(node, ast.Call) and ast.unparse(node.func) in ("os.environ.get", "os.getenv")
+        and node.args and isinstance(node.args[0], ast.Constant)
+    }
+    assert url_name in read, f"{test_home} must read {url_name}, the variable its step sets, or its cases skip"
+    # Its requests run with production's session settings, which do not autoflush: an autoflushing session
+    # flushes a pending write at the request's next query, and can serialize two requests that production
+    # does not (E127's gate hid a lock moved out of a password reset's revocation that way).
+    production_sessions = any(
+        isinstance(node, ast.Attribute) and node.attr == "kw" and ast.unparse(node.value) == "SessionLocal"
+        for node in ast.walk(home)
+    ) or any(
+        isinstance(node, ast.keyword) and node.arg == "autoflush"
+        and isinstance(node.value, ast.Constant) and node.value.value is False
+        for node in ast.walk(home)
+    )
+    if test_home in _AUTOFLUSHING_HOMES:
+        assert not production_sessions, f"{test_home} takes production's session settings now: drop it from _AUTOFLUSHING_HOMES"
+    else:
+        assert production_sessions, (
+            f"{test_home} must run its requests in sessions with production's settings: a sessionmaker built "
+            "from SessionLocal.kw, or autoflush=False"
+        )
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]
     step = _step(job, f"Verify {label} concurrency on PostgreSQL")
@@ -587,17 +627,37 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         f"ops.yml must fire only from workflow_dispatch; its push trigger pointed at a branch that no "
         f"longer exists on origin (audit 2026-09). Found: {sorted(triggers)}"
     )
-    # PGOPTIONS is scoped per step: the read-only detection snapshots full-scan financial_fact and
-    # get a larger statement budget; the write path matches the deploy migration step exactly.
+    # PGOPTIONS is scoped per step and read as the Postgres backend parses it (tests/support/ops_workflow.py:
+    # the last setting wins, a name's `-` reads as `_` and its case does not count). Every step that can
+    # reach Cloud SQL, found by position and selection rather than by its command text, bounds its locks
+    # (at most 10 s) and its statements (at most 600 s), and its run: script may only append to PGOPTIONS,
+    # never a timeout. The read-only detection snapshots full-scan financial_fact and get the larger
+    # statement budget; the write paths match the deploy migration step exactly.
     proxy_run = _executable(_step(job, "Start Cloud SQL proxy and export connection env")["run"])
     assert "PGOPTIONS" not in proxy_run, "do not export PGOPTIONS globally — scope it per Cloud SQL step"
-    for step_name, statement_timeout in (
-        ("Run committed detection SQL (read-only snapshots)", "600s"),
-        ("Run ticker repair script", "120s"),
+    reach = cloud_sql_reach()
+    assert len(reach) >= 4  # the capacity ledger, detection SQL, the ticker repair, the FY relabel
+    for _, reach_step in reach:
+        name, options = reach_step["name"], (reach_step.get("env") or {}).get("PGOPTIONS", "")
+        for match in re.finditer(r"(?<!\$)(?<!\$\{)\bPGOPTIONS\b", reach_step["run"]):
+            line = reach_step["run"][match.start():].split("\n", 1)[0]
+            append = re.match(r'PGOPTIONS="\$PGOPTIONS ([^"$`]*)"', line)
+            assert append and not {"lock_timeout", "statement_timeout"} & {key for key, _ in pg_settings(append.group(1))}, (
+                f"{name!r}: its run: script sets PGOPTIONS ({line.strip()!r}); only an append that leaves the bounds alone may"
+            )
+        lock, statement = setting_ms(options, "lock_timeout"), setting_ms(options, "statement_timeout")
+        assert lock and lock <= 10_000, f"{name!r} must set env PGOPTIONS lock_timeout to 1ms..10s (found {options!r})"
+        assert statement and statement <= 600_000, (
+            f"{name!r} must set env PGOPTIONS statement_timeout to 1ms..600s (found {options!r})"
+        )
+    for step_name, statement_ms in (
+        ("Run committed detection SQL (read-only snapshots)", 600_000),
+        ("Run ticker repair script", 120_000),
+        ("Run fiscal-year relabel script", 120_000),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
-        assert "-c lock_timeout=10s" in opts and f"-c statement_timeout={statement_timeout}" in opts, (
-            f"{step_name!r} must set env PGOPTIONS with lock_timeout=10s and statement_timeout={statement_timeout} "
+        assert (setting_ms(opts, "lock_timeout"), setting_ms(opts, "statement_timeout")) == (10_000, statement_ms), (
+            f"{step_name!r} must set env PGOPTIONS with lock_timeout=10s and statement_timeout={statement_ms // 1000}s "
             f"(found {opts!r})"
         )
     # A prose "do not dispatch while a deploy is in flight" rotted into an incident risk; the job

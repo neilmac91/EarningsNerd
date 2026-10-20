@@ -19,6 +19,7 @@ vi.mock('@/lib/analytics', () => ({
 
 import CompanySearch from '@/features/companies/components/CompanySearch'
 import { searchCompanies, type Company } from '@/features/companies/api/companies-api'
+import analytics from '@/lib/analytics'
 
 const company = (over: Partial<Company>): Company => ({
   id: 1,
@@ -63,18 +64,34 @@ const WITH_FILING = company({
     summary_ready: true,
   },
 })
+// A name that is ticker-shaped ("nike"), and a ticker ("aap") that is the start of another (AAPL).
+const NIKE = company({ id: 5, cik: '0000320187', ticker: 'NKE', name: 'Nike, Inc.' })
+const ADVANCE_AUTO = company({ id: 6, cik: '0001158449', ticker: 'AAP', name: 'Advance Auto Parts, Inc.' })
 
-const renderSearch = () => {
+const renderSearch = (props: React.ComponentProps<typeof CompanySearch> = {}) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <CompanySearch />
+      <CompanySearch {...props} />
     </QueryClientProvider>,
   )
 }
 
 const type = (value: string) =>
   fireEvent.change(screen.getByRole('combobox'), { target: { value } })
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+/** The search fails, and fails its one automatic retry, so the alert shows. */
+const failSearch = () =>
+  vi.mocked(searchCompanies)
+    .mockRejectedValueOnce(new Error('Search is down'))
+    .mockRejectedValueOnce(new Error('Search is down'))
 
 describe('CompanySearch dropdown', () => {
   beforeEach(() => {
@@ -176,6 +193,203 @@ describe('CompanySearch dropdown', () => {
     fireEvent.click(screen.getByRole('option'))
     expect(push).toHaveBeenCalledWith('/company/AAPL')
   })
+
+  it('rings a result row that takes keyboard focus, inset so the listbox does not clip it (CO-11)', async () => {
+    vi.mocked(searchCompanies).mockResolvedValue([APPLE])
+    renderSearch()
+    type('apple')
+
+    const option = await screen.findByRole('option', {}, { timeout: 3000 })
+    expect(option.className).toContain('focus-visible:shadow-ring-brand-inset')
+    expect(option.className).toContain('dark:focus-visible:shadow-ring-brand-inset-dark')
+  })
+
+  it('states its scope when nothing matches: a company with a ticker on SEC EDGAR (CO-09)', async () => {
+    vi.mocked(searchCompanies).mockResolvedValue([])
+    renderSearch()
+    type('zzzz')
+
+    expect(await screen.findByText('No company with a ticker on SEC EDGAR matches "zzzz".', {}, { timeout: 3000 })).toBeInTheDocument()
+  })
+})
+
+// Enter before the results: the field binds a typed ticker exactly, as the server does (#1356). Short names
+// are ticker-shaped, and opening one at once sent "nike" to /company/NIKE, now a 404.
+describe('CompanySearch Enter before its results', () => {
+  beforeEach(() => {
+    push.mockReset()
+    vi.mocked(searchCompanies).mockReset()
+    vi.mocked(analytics.companySearchResultClicked).mockClear()
+    vi.mocked(analytics.companySearched).mockClear()
+  })
+  const enter = () => fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' })
+  /** The search's answer for `term` has rendered, and that commit's effects (the Enter's included) have run. */
+  const answered = (term: string, count: number) =>
+    waitFor(() => expect(analytics.companySearched).toHaveBeenCalledWith(term, count))
+
+  it('opens nothing for a name: the list its search brings stays, for the user to pick from', async () => {
+    const search = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(search.promise)
+    renderSearch()
+    type('nike')
+    enter()
+    await settle()
+    expect(push).not.toHaveBeenCalled()
+    // The Enter flushed the debounce: the search starts now, not 300 ms later.
+    expect(searchCompanies).toHaveBeenCalledWith('nike')
+    await act(async () => search.resolve([NIKE]))
+    expect(within(await screen.findByRole('listbox')).getByRole('option')).toHaveTextContent('Nike, Inc.')
+    await answered('nike', 1)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('opens a typed ticker once its search lands, as a click on that result would, and only once', async () => {
+    const search = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(search.promise)
+    renderSearch()
+    type('aapl')
+    enter()
+    await settle()
+    expect(push).not.toHaveBeenCalled()
+    await act(async () => search.resolve([APPLE]))
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/company/AAPL'))
+    expect(analytics.companySearchResultClicked).toHaveBeenCalledWith('aapl', 'AAPL', 0)
+    // A later render, and the debounce landing on the same text, neither open it again nor search again.
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)) })
+    expect(push).toHaveBeenCalledTimes(1)
+    expect(searchCompanies).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens nothing when nothing matches, and the empty state stays', async () => {
+    const search = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(search.promise)
+    renderSearch()
+    type('zzzz')
+    enter()
+    await act(async () => search.resolve([]))
+    expect(await screen.findByText('No company with a ticker on SEC EDGAR matches "zzzz".')).toBeInTheDocument()
+    await answered('zzzz', 0)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('is dropped when the text changes: the old text\'s exact hit is not opened when its search lands', async () => {
+    const first = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(first.promise).mockResolvedValueOnce([APPLE])
+    renderSearch()
+    type('aap')
+    enter()
+    await settle()
+    expect(push).not.toHaveBeenCalled()
+    type('aapl')
+    // AAP is a ticker: had the Enter survived the edit, this answer would open /company/AAP.
+    await act(async () => first.resolve([ADVANCE_AUTO, APPLE]))
+    await answered('aap', 2)
+    expect(push).not.toHaveBeenCalled()
+    // The new text's own search lands after the debounce, and no Enter was pressed on it.
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(1), { timeout: 3000 })
+    expect(searchCompanies).toHaveBeenLastCalledWith('aapl')
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('is dropped by Escape', async () => {
+    const search = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(search.promise)
+    renderSearch()
+    type('aapl')
+    enter()
+    await settle()
+    expect(push).not.toHaveBeenCalled()
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' })
+    await act(async () => search.resolve([APPLE]))
+    await answered('aapl', 1)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('is dropped when the search unmounts', async () => {
+    const search = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(search.promise)
+    const { unmount } = renderSearch()
+    type('aapl')
+    enter()
+    unmount()
+    await act(async () => search.resolve([APPLE]))
+    await settle()
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('opens a ticker-shaped text as typed once a failed search has spent its retry, and never a name', async () => {
+    const first = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(first.promise).mockRejectedValueOnce(new Error('Search is down'))
+    renderSearch()
+    type('AAPL')
+    enter()
+    await settle()
+    expect(push).not.toHaveBeenCalled()
+    await act(async () => first.reject(new Error('Search is down')))
+    await settle()
+    // The first attempt failed; the component's own retry, 1 s later, has not answered yet.
+    expect(push).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/company/AAPL'), { timeout: 4000 })
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+
+    failSearch()
+    type('apple inc')
+    enter()
+    await waitFor(() => expect(searchCompanies).toHaveBeenCalledTimes(4), { timeout: 4000 })
+    await screen.findByRole('alert')
+    await settle()
+    expect(push).toHaveBeenCalledTimes(1)
+  }, 10_000)
+
+  it('with the failure already showing, still opens a ticker-shaped text at once', async () => {
+    failSearch()
+    renderSearch()
+    type('AAPL')
+    await screen.findByRole('alert', {}, { timeout: 4000 })
+    enter()
+    expect(push).toHaveBeenCalledWith('/company/AAPL')
+  }, 10_000)
+
+  it('in picker mode (onSelect) picks the exact hit as a click would, and picks nothing for a name', async () => {
+    const onSelect = vi.fn()
+    const aapl = deferred<Company[]>()
+    const nike = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(aapl.promise).mockReturnValueOnce(nike.promise)
+    renderSearch({ onSelect })
+    type('aapl')
+    enter()
+    await settle()
+    expect(onSelect).not.toHaveBeenCalled()
+    await act(async () => aapl.resolve([APPLE]))
+    await waitFor(() => expect(onSelect).toHaveBeenCalledWith('AAPL'))
+    expect(screen.getByRole('combobox')).toHaveValue('')
+    // The pick cleared the field; its list goes with the debounce.
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
+
+    type('nike')
+    enter()
+    await act(async () => nike.resolve([NIKE]))
+    expect(within(await screen.findByRole('listbox')).getByRole('option')).toHaveTextContent('Nike, Inc.')
+    await answered('nike', 1)
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('with results showing, still opens the highlighted result, or the first', async () => {
+    vi.mocked(searchCompanies).mockResolvedValue([APPLE, TESLA])
+    renderSearch()
+    type('a')
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(2), { timeout: 3000 })
+    enter()
+    expect(push).toHaveBeenLastCalledWith('/company/AAPL')
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' })
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' })
+    enter()
+    expect(push).toHaveBeenLastCalledWith('/company/TSLA')
+    expect(push).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('CompanySearch accessible name', () => {
@@ -197,6 +411,11 @@ describe('CompanySearch accessible name', () => {
     renderSearch()
     expect(screen.getByRole('combobox', { name: 'Search for a company' })).toBeInTheDocument()
   })
+
+  it("defaults to the landing hero's placeholder, which promises no particular company (CO-09)", () => {
+    renderSearch()
+    expect(screen.getByRole('combobox')).toHaveAttribute('placeholder', 'Search company or ticker')
+  })
 })
 
 // "Try Again" stays mounted while the retry it started runs: an errored search has no data, so its
@@ -210,18 +429,6 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
   })
   afterEach(() => onlineManager.setOnline(true))
 
-  const deferred = <T,>() => {
-    let resolve!: (value: T) => void
-    let reject!: (reason: unknown) => void
-    const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
-    return { promise, resolve, reject }
-  }
-  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
-  /** The search fails, and fails its one automatic retry, so the alert shows. */
-  const failSearch = () =>
-    vi.mocked(searchCompanies)
-      .mockRejectedValueOnce(new Error('Search is down'))
-      .mockRejectedValueOnce(new Error('Search is down'))
   let user: ReturnType<typeof userEvent.setup>
   beforeEach(() => { user = userEvent.setup() })
   async function failedTryAgain() {
@@ -243,7 +450,7 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     expect(tryAgain.isConnected).toBe(true)
     expect(tryAgain).toHaveAttribute('aria-busy', 'true')
     expect(tryAgain).toHaveAttribute('aria-disabled', 'true')
-    expect(tryAgain).toHaveAccessibleName('Retrying…')
+    expect(tryAgain).toHaveAccessibleName('Trying again…')
     expect(document.activeElement).toBe(tryAgain)
     expect(screen.getByText('Search is down')).toBeInTheDocument()
     await user.keyboard('{Enter}')

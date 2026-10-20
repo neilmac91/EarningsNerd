@@ -168,6 +168,29 @@ def test_valid_referral_bumps_referrer_priority_and_sends_referral_email(client,
     assert emails["referral"][0]["new_position"] == watchlist_router.calculate_waitlist_position(1, 1)
 
 
+def test_duplicate_join_with_a_valid_code_credits_the_referrer_once(client, session_factory, emails):
+    """The same email joining twice with a valid referral code is answered already_registered the
+    second time and credits the referrer once: the existing-email check runs before the referral
+    lookup, so no priority bump and no second referral mail."""
+    referrer_email = _seed_referrer(session_factory, code="ref00001")
+    email = _email()
+    first = _join(client, email=email, referral_code="ref00001")
+    assert first.status_code == 200 and first.json()["success"] is True
+
+    again = _join(client, email=email, referral_code="ref00001")
+    assert again.status_code == 200, again.text
+    body = again.json()
+    assert body["success"] is False and body["error"] == "already_registered"
+    assert body["referral_code"] == first.json()["referral_code"]
+
+    with session_factory() as s:
+        referrer = s.query(WaitlistSignup).filter_by(email=referrer_email).one()
+        assert referrer.priority_score == 1
+        assert s.query(WaitlistSignup).filter_by(email=email).count() == 1
+    assert [r["to_email"] for r in emails["referral"]] == [referrer_email]
+    assert len(emails["welcome"]) == 1
+
+
 def test_welcome_email_sent_flag_tracks_the_send(client, session_factory, emails):
     ok_email = _email()
     ok = _join(client, email=ok_email)
@@ -191,8 +214,9 @@ def test_failed_welcome_flag_commit_is_rolled_back_logged_and_still_200(
 ):
     """The flag commit shares the welcome try: a failed flush is rolled back, logged and swallowed.
 
-    The failed flush leaves the session needing a rollback and expires the loaded rows, so the
-    ``signup.id`` log read and the referrer read only work because the router rolls back first.
+    The flag is its own thread-pool unit, whose release rolls the failed flush back. The log line and
+    the referral send read the values the join's first unit copied out, so neither touches the
+    session after the failure.
     """
     referrer_email = _seed_referrer(session_factory, code="ref00001")
     email = _email()
@@ -218,6 +242,31 @@ def test_failed_welcome_flag_commit_is_rolled_back_logged_and_still_200(
     assert [r.getMessage() for r in caplog.records if r.name == "app.routers.watchlist"] == [
         f"Waitlist welcome email failed for signup {signup_id}"
     ]
+
+
+def test_a_signup_gone_before_its_welcome_flag_is_logged_and_still_200(
+    client, session_factory, emails, caplog, monkeypatch
+):
+    """A signup deleted while its welcome mail goes out (an admin's delete, say) fails the welcome
+    step as a failed flag commit does: logged, ``email_sent`` false, and still 200. Before the flag
+    had a unit of its own, the flag's update matched no row, and the log line's re-read of the
+    deleted row raised, so the join answered 500."""
+    email = _email()
+
+    async def _welcome_then_delete(**kwargs):
+        emails["welcome"].append(kwargs)
+        with session_factory() as s:
+            s.query(WaitlistSignup).filter_by(email=email).delete()
+            s.commit()
+
+    monkeypatch.setattr(watchlist_router, "send_waitlist_welcome_email", _welcome_then_delete)
+    caplog.set_level(logging.ERROR, logger="app.routers.watchlist")
+    resp = _join(client, email=email)
+
+    assert resp.status_code == 200, resp.text
+    assert (resp.json()["success"], resp.json()["email_sent"]) == (True, False)
+    [logged] = [r.getMessage() for r in caplog.records if r.name == "app.routers.watchlist"]
+    assert logged.startswith("Waitlist welcome email failed for signup ")
 
 
 def test_join_total_signups_position_and_stats_count_existing_rows(client):
@@ -291,7 +340,7 @@ class TestCommitTimeConflicts:
         assert resp.json() == {
             "success": False,
             "error": "already_registered",
-            "message": "This email is already on the waitlist!",
+            "message": "This email is already on the waitlist.",
             "position": 2,  # 7 - 1 * REFERRAL_BONUS
             "referral_code": "rival001",
             "referral_link": waitlist_service.build_referral_link("rival001"),

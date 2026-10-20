@@ -214,20 +214,27 @@ export interface ModalHeaderProps extends HTMLAttributes<HTMLDivElement> {
   onClose?: () => void
 }
 
+// The icon and the title are one group that wraps, beside the close button, as a Notice's glyph and text do: the
+// title's basis is 9rem, so where it cannot keep that beside the icon (a phone at 200% text) it goes under the icon,
+// at the group's whole width. The ✕ stays the row's last control, at the top right, and the title never runs under
+// it or past the panel; it breaks a word only when the word is wider than the group. The row gap (4px) and the
+// title's pt-2 put a title under the icon the column gap (12px) below it. At the default size nothing moves.
 export function ModalHeader({ id, icon, tone = 'brand', onClose, className, children, ...rest }: ModalHeaderProps) {
   return (
     <div className={cx('flex items-start gap-3 px-6 pt-6', className)} {...rest}>
-      {icon ? (
-        <span
-          aria-hidden="true"
-          className={cx('flex h-10 w-10 flex-none items-center justify-center rounded-full border', ICON_TONE[tone])}
-        >
-          {icon}
-        </span>
-      ) : null}
-      <h2 id={id} className={cx('min-w-0 flex-1 text-lg', icon ? 'pt-2' : undefined)}>
-        {children}
-      </h2>
+      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-1">
+        {icon ? (
+          <span
+            aria-hidden="true"
+            className={cx('flex h-10 w-10 flex-none items-center justify-center rounded-full border', ICON_TONE[tone])}
+          >
+            {icon}
+          </span>
+        ) : null}
+        <h2 id={id} className={cx('min-w-0 flex-[1_1_9rem] break-words text-lg', icon ? 'pt-2' : undefined)}>
+          {children}
+        </h2>
+      </div>
       {onClose ? (
         <button
           type="button"

@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import AiDisclaimer from '@/components/AiDisclaimer'
-import { Badge, Button, Card, Notice } from '@/components/ui'
+import { Badge, Button, Card, Notice, countControlClass, cx } from '@/components/ui'
 import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
@@ -48,7 +48,7 @@ function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation
       onClick={() => flashAndScrollToSource(citation.n)}
       title={`${display}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
       aria-label={`Citation ${citation.n}: ${label}. ${display}${note ? `, ${dataNoteDescription(note)}` : ''}`}
-      className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-data-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+      className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       [{citation.n}]<DataNoteMark note={note} />
     </button>
@@ -94,7 +94,7 @@ function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { ope
   const noteKeys = new Set(figures.map((figure) => notes.noteForQuality(figure.source)?.key))
   const letters = notes.notes.filter((note) => noteKeys.has(note.key)).map((note) => note.letter)
   return <details className="my-3 text-sm">
-    <summary className="cursor-pointer rounded text-text-secondary-light hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
+    <summary className={cx('cursor-pointer rounded', countControlClass('summary'))}>
       Show the {figures.length} source figures behind this{letters.length > 0 && <> · figures carry {letters.length === 1 ? 'note' : 'notes'} {letters.join(', ')}</>}
     </summary>
     <ul role="list" className="mt-2 list-none !pl-0" aria-label="Figures behind this finding">
@@ -162,7 +162,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
             className="tnum font-data flex items-baseline gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark"
           >
             <span className="shrink-0 rounded bg-brand-weak px-1.5 py-0.5 font-semibold text-brand-strong dark:bg-white/10 dark:text-brand-strong-dark">
-              {citation.n}
+              [{citation.n}]
             </span>
             {/* min-w-0 lets this flex child shrink; break-words keeps long unbroken tokens
                 (us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax) inside the card
@@ -274,9 +274,13 @@ export default function NarrativePane({
           )}
           {state.status === 'done' && <DataNotesLink notes={citedNotes} />}
           {state.status === 'done' && completion?.cached && !sample && (
-            <Badge title="Served from a previous run of this exact period range. It regenerates automatically when new filings arrive.">
-              Cached
-            </Badge>
+            // The explanation is a visible line, not a title tooltip: a phone or a keyboard never shows a title.
+            <>
+              <Badge>Cached</Badge>
+              <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                Served from an earlier run · regenerates if these figures change
+              </span>
+            </>
           )}
         </div>
         {state.status === 'done' && !notEnoughData && (

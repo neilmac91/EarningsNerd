@@ -7,9 +7,9 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 
 
 import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { fmtCurrency, fmtPercent, ordinal, sentenceCase } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
+import { Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
@@ -120,36 +120,32 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Sector Peers</h2>
+            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Sector peers</h2>
             {hasUnverified && (
               <SourceCheckBadge reconciled={false} />
             )}
           </div>
           {meaningful && subject?.rank != null && (
             <p className="mt-1 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-              Ranks <span className="font-semibold text-brand-strong dark:text-brand-strong-dark">#{subject.rank}</span>{' '}
+              Ranks <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">#{subject.rank}</span>{' '}
               of {data!.peer_count} on {label}
-              {subject.percentile != null ? ` · ${Math.round(subject.percentile)}th percentile` : ''}
+              {subject.percentile != null ? ` · ${ordinal(Math.round(subject.percentile))} percentile` : ''}
             </p>
           )}
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Select metric">
-          {METRICS.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => setMetric(m.key)}
-              aria-pressed={m.key === metric}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                m.key === metric
-                  ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
-                  : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        {/* Nine metrics: a compact select sized to its content beside its label, never a segmented row. */}
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+          Metric
+          <select
+            className={inputClasses({ select: true, density: 'compact', autoWidth: true })}
+            value={metric}
+            onChange={(event) => setMetric(event.target.value)}
+          >
+            {METRICS.map((m) => (
+              <option key={m.key} value={m.key}>{sentenceCase(m.label)}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {isLoading ? (

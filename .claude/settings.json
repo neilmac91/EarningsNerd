@@ -10,6 +10,30 @@
       "Bash(/home/user/fable-judging/venv/bin/python -m unittest:*)"
     ]
   },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/codex_mention_guard.py\" || exit 1",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_guard.py\" || exit 1",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  },
   "env": {
     "CLAUDE_CODE_SUBAGENT_MODEL": "opus"
   },

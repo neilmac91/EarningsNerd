@@ -1,7 +1,8 @@
 # Earnings calendar — feature pack (`features/calendar/` + `app/calendar/`)
 
-Implements **tasks/earnings-calendar-strategy.md §3.7** (PR #524 branch): the
-anticipated-earnings week/month calendar with per-company earnings-day alerts.
+Implements **tasks/earnings-calendar-strategy.md §3.7** (PR #524 branch): a
+week/month calendar of U.S. earnings dates, estimated or reported, with
+per-company earnings-day alerts.
 Live design spec with every state exercisable: **`Earnings Calendar.dc.html`**
 (project root — Tweaks simulate plan and data states).
 
@@ -13,7 +14,7 @@ Live design spec with every state exercisable: **`Earnings Calendar.dc.html`**
 | `api/calendar-fixtures.ts` | ⚠ Isolated mock (dynamic-import only, `NEXT_PUBLIC_CALENDAR_FIXTURES='true'`); exercises both cap 403s |
 | `lib/dates.ts` | ET-honest calendar-day math + computed NYSE holidays (no `new Date(iso)` shift bug) |
 | `lib/lanes.ts` | Top-5 ranking, BMO/AMC/during·unspecified lanes, "usually after close" wording |
-| `hooks/useCalendar.ts` | Range query, viewer (session/plan/alert count), optimistic alert toggle with rollback |
+| `hooks/useCalendar.ts` | Viewer (session/plan/alert count), optimistic alert toggle with rollback (the range query and its retained failure live in the page, beside its `RetryButton`) |
 | `components/` | `EarningsCalendarPage` (route body), `WeekView` (desktop sheet + mobile day list), `MonthView`, `DayDetailDialog` (native `<dialog>`), `EventRow`/`StatusChip`/`EpsFigure`, `AlertBell` + `BellPopover`, `laneHeader` |
 | `app/calendar/page.tsx` | Route, 404-gated on `NEXT_PUBLIC_ENABLE_CALENDAR` (same pattern as `ENABLE_ANALYSIS`) |
 
@@ -38,13 +39,30 @@ Weighed three layouts:
   month/week renders honestly (e.g. Fri Jul 3 2026 = Independence Day observed).
 - **Top 5 per day** by `anticipation_score` desc; `+N more` opens the day
   dialog (desktop/month) or expands in place (mobile). Day cells never overflow.
+- **Only what fits whole, at any text size.** Each view picks its layout by its
+  own width in em (container queries), so 200% text gets the narrow layout
+  rather than a clipped one: the week shows the five-column sheet from 42.5em
+  and the day list below it; a list or dialog row narrower than 16em drops its
+  decorative logo and stacks (the bell beside the ticker alone, the status chip,
+  name, note and EPS full width under it, so no chip runs under the bell); a
+  month day lists tickers with their session glyph and follow bell from 42em,
+  the tickers alone from 21em, and below that the count of companies
+  reporting, under one-letter weekday heads, with a caption that says so; there
+  a holiday drops its "Closed" and its date takes the weekend's muted ink.
+  Today's marker is sized in rem, so it holds its digits at any text size.
+  Names wrap, never truncate, and the range label wraps between whole dates.
+  `tests/unit/calendarReflow.spec.tsx` and `calendarEventRow.spec.tsx`.
 - **Status ladder:** `Est.` (dashed chip, tentative by design) → `Confirmed`
   (brand tint) → `Reported` (quiet chip; EPS actual + calm ▲/▼ in the
   gain/loss *text* tokens). Estimated rows with a habitual slot say
-  "usually before open / after close" (§3.3 — right ~3 times in 4).
+  "usually before open / after close" (§3.3: right about 3 times in 4), on a line
+  of their own after the lane's glyph, in every row kind (the week sheet, the
+  day list, the day dialog), since the page's footer explains "usually".
 - **Alerts:** bell on every row (the subscription is per *company*, so it
   shows on reported rows too — it arms the next quarter).
-  - Signed-out → sign-in popover.
+  - Signed-out → sign-in popover; its second action follows the registration
+    mode (`ACCESS_COPY`): "Request an invite" while invite-only, the free
+    account when registration is public.
   - **Free**: visible "N of 3" chip; the 4th enable short-circuits to the
     upsell popover (deliberate conversion surface). A server 403 with
     `code='earnings_alert_limit'` lands on the same surface.
@@ -54,8 +72,9 @@ Weighed three layouts:
     special-casing, per spec.
   - Toggles are optimistic with rollback; `aria-pressed` carries state.
 - **States:** shimmer skeleton (role="status" wrapper, aria-hidden bones),
-  `GuidanceCard` error with retry, `GuidanceCard` empty range, per-day
-  "No reports" / "Market closed — {holiday}".
+  `GuidanceCard` error with `RetryButton`, `GuidanceCard` empty range, per-day
+  "No reports" / "Market closed" over the holiday's name (desktop column),
+  "Market closed · {holiday}" (mobile list).
 - **A11y:** semantic day `<section>`s + `<ul>` rows; rows are real links to
   `/company/[ticker]`; bell is a sibling button (never a link-in-link); native
   `<dialog>` for the day detail (focus trap + Esc for free, focus restored);
@@ -63,7 +82,11 @@ Weighed three layouts:
   role: nothing is inert and Tab is not trapped — its transparent catcher only
   turns an outside press into a close; the async error is also a `role="alert"`) with
   Esc, outside-click, Tab-out, bell-moving scroll and resize dismissal and focus return,
-  rendered inside the day `<dialog>` while one is open;
+  rendered inside the day `<dialog>` while one is open, and placed from its measured
+  height inside the visible viewport (below the bell, above it, or capped on the
+  roomier side and scrolling inside; when neither side offers 6rem of the reader's
+  text, over the bell at the visible height), a capped panel scrolling its focused
+  action into view, never the page;
   `aria-live` on the range heading; every numeral/ticker is `font-data tabular-nums`.
 - **Motion:** token-timed only — `animate-content-in` on the skeleton→content
   flip, shimmer at `duration-ambient`, `motion-safe:` guards. No decorative motion.

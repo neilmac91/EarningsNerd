@@ -1,21 +1,71 @@
 <!doctype html>
 <!--
-  Email header and footer line, 600px wide: table layout with inline styles, as mail clients need.
+  Email header and footer line, a fluid column up to 600px: table layout with inline styles, as mail
+  clients need.
 
-  Where the real thing renders today: backend/app/services/email_service.py, _wrap_html, which
-  wraps every email body in a cream page and a 600px panel and currently shows a text-only
-  wordmark. This block is what its first row would become (lockup, hairline, marked tagline) and
-  the line its footer row would carry. Port the markup into _wrap_html; do not link this file.
+  Where the real thing renders: backend/app/services/email_service.py, _wrap_html, which wraps the
+  body of every mail that module builds in a cream page and a panel, with this header (lockup,
+  hairline, marked tagline) above the panel and this footer line below it. Its markup is this file's,
+  ported: backend/tests/unit/test_mail_header_template.py holds the two to the same tags and text,
+  cell by cell, the tile's cell aside, so a change to one is a change to the other. Do not link this
+  file. The page around them is _wrap_html's own. Its head sets the charset, this file's viewport and
+  the light-only colour scheme. Its body opens with the mail's preheader, the line an inbox lists
+  beside the subject, hidden from the view and from classic Outlook's (display:none; mso-hide:all)
+  and followed by React Email's fill, characters that print as a blank or as nothing, so most inboxes
+  list each mail by its own words and not by this header's. The header, the panel and the footer line
+  each take the screen's
+  width up to 600px (width:100%;max-width:600px), so a phone lays the page out at its own width and
+  shows the text at its set size, in portrait at least. Classic Outlook reads no max-width, so each
+  sits in a 600px table that only Outlook's conditional comments show. The header sets
+  -webkit-text-size-adjust:100%, so a view that enlarges text leaves its proportions alone, and the
+  panel's text and this footer line's are left to the view: the header can show smaller than the
+  body, as it does where Blink's text autosizer applies a reader's larger font scale. A text zoom,
+  which an Android WebView sets from the phone's font size unless its app sets its own, scales every
+  line, the header's too. The panel pads its cells, not its table, since classic Outlook ignores a
+  table's padding. The footer line names filing data, since an earnings-day alert carries a
+  provider's report dates (D-043). Under a text zoom the wordmark may wrap between its two words, at
+  the zero-width space (&#8203;) between Earnings and its italic Nerd, and nowhere else, and the
+  tagline's mark, an inline-block, wraps inside itself only where its words do not fit (D-048): the
+  lockup then shows Nerd under Earnings, beside the tile, and this page fits a 320px screen at
+  Android's largest font size, 200%. frontend/tests/e2e/mail-header-reflow.spec.ts holds this file to
+  320 and 390px at 200%, in Inter's text cut, with the raster below in the svg's place, as the mail
+  draws it; this file styles nothing but its font faces, the repository's Inter as it is, and its
+  frame is the mail's, which the parity test holds. The mail's panel, and the body it holds, are not
+  in this file: a long word in a body would widen the mail's page, which no gate holds yet (E116).
 
-  Client notes. Gmail and Outlook drop inline SVG: the mark is wrapped so Outlook skips it, and
-  where it is dropped the text wordmark carries the brand alone (a hosted PNG of the mark would
-  replace the <svg> if the mark must show everywhere; none is published at a fixed URL today).
-  The @font-face rule points at the repository's Inter for this preview only (the email uses no
-  data face); a sent email falls back through the inline font stacks. The highlight under "shows its work" is two nested spans:
+  Client notes. The header's mark is the app tile (earningsnerd-appicon.svg, the cream mark on a
+  sage squircle), not the bare mark (D-035). Gmail's and Outlook's apps darken a light-only message,
+  recolouring its text but leaving its images alone, so the bare sage mark on transparent would fall
+  from 5.9:1 on this cream to about 2.5:1 on their dark grey; the tile brings its own ground, and
+  its mark keeps 4.4:1 on either. Gmail and Outlook also drop inline SVG, so this preview's svg sits
+  in a cell wrapped for Outlook to skip; _wrap_html puts the hosted raster in its place and drops
+  that [if !mso] conditional, since Outlook shows a PNG:
+    <img src="{base}/assets/earningsnerd-appicon.png" width="32" height="32" alt=""
+      style="display:block;border:0;">
+  The raster is 128 px square, written from the SVG by frontend/scripts/generate-brand-assets.mjs.
+  Its alt is empty because the text wordmark beside it names the brand, and carries it alone where
+  images are blocked. Build base from settings.FRONTEND_URL, as the mail's links are built, with any
+  trailing slash stripped (base = settings.FRONTEND_URL.rstrip("/"), as
+  backend/app/services/waitlist_service.py does): a doubled slash answers 308. Sent mail keeps the
+  whole address, so the origin is published along with the path: use the origin that answers without
+  a redirect (https://www.earningsnerd.io today; the apex answers 308 to it) and keep it answering.
+  FRONTEND_URL defaults to https://www.earningsnerd.io (backend/app/config.py), and production
+  sets none, so it runs on that default. The path never moves
+  (frontend/public/assets/LOGO_README.md; the register, frontend/tests/unit/publishedAssetUrls.json,
+  with publishedAssetUrls.spec.ts and the backend gates it names). It is a
+  raster under /assets/, not the PWA's /icons/icon-192.png: /assets/ lies outside the middleware's
+  matcher, so no branch of it can move the file, and the manifest is free to change its icons.
+  The @font-face rules point at the repository's Inter, upright and italic, for this preview and
+  its reflow check only (the email loads no font); a sent email falls back through the inline font
+  stacks. The highlight under "shows its work" is two nested spans:
   the outer span's own font box is the lower 38% of the tagline's line box (tint, with the 2px
   hairline as its bottom border), lowered onto it; the inner span restores the ink. At 18px:
     tint 5.187px = (0.45978 × 18 - 2) / 1.20996, lowered 1.091px = 0.24121 × 18 - 2 - 0.24121 × 5.187
-  Outlook gets the plain phrase through the conditional comment.
+  A view with a minimum font size draws the tint taller: an Android WebView's is 8px unless its app
+  sets another, which lifts the tint from 8 to about 12px tall at the set size; the ink keeps its place.
+  An inline-block holds the two spans and the full stop, so the phrase moves to the next line whole
+  where it does not fit after "The summary that", and breaks inside itself only where it does not fit
+  a line at all. Outlook gets the plain phrase and its full stop through the conditional comment.
 -->
 <html lang="en">
 <head>
@@ -31,29 +81,40 @@
     font-weight: 100 900;
     src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-latin.woff2') format('woff2');
   }
+  @font-face {
+    font-family: 'Inter';
+    font-style: italic;
+    font-weight: 100 900;
+    src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-Italic-latin.woff2') format('woff2');
+  }
 </style>
 </head>
-<body style="margin:0;padding:0;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background-color:#F4F3EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <!-- Preheader: _wrap_html opens <body> with the mail's own line here, hidden, before the header. -->
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="background-color:#F4F3EE;">
     <tr>
       <td align="center" style="padding:32px 12px 0 12px;">
         <!-- Header block -->
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;background-color:#F4F3EE;">
+        <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:100%;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
           <tr>
             <td style="padding:0 32px 20px 32px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <!--[if !mso]><!-->
-                  <td style="vertical-align:middle;padding:0;line-height:0;">
-                    <svg width="39" height="30" viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;margin-right:10px;">
-                      <g transform="translate(0,-14.8)">
-                        <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z" fill="#3C6650"></path>
-                        <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z" fill="#3C6650"></path><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z" fill="#3C6650"></path></g>
+                  <td style="vertical-align:middle;padding:0 10px 0 0;line-height:0;">
+                    <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;">
+                      <path d="M50 0C13 0 0 13 0 50C0 87 13 100 50 100C87 100 100 87 100 50C100 13 87 0 50 0Z" fill="#4F7A63"></path>
+                      <g transform="translate(16,23.7) scale(0.7188)">
+                        <g transform="translate(0,-14.8)">
+                          <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z" fill="#F4F3EE"></path>
+                          <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z" fill="#F4F3EE"></path><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z" fill="#F4F3EE"></path></g>
+                        </g>
                       </g>
                     </svg>
                   </td>
                   <!--<![endif]-->
-                  <td style="vertical-align:middle;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.44px;color:#1A1A17;">Earnings<em style="font-style:italic;color:#3C6650;">Nerd</em></td>
+                  <td style="vertical-align:middle;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.44px;color:#1A1A17;">Earnings&#8203;<em style="font-style:italic;color:#3C6650;">Nerd</em></td>
                 </tr>
               </table>
             </td>
@@ -66,16 +127,18 @@
             </td>
           </tr>
           <tr>
-            <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work<![endif]--><!--[if !mso]><!--><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;white-space:nowrap;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span><!--<![endif]-->.</td>
+            <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span style="display:inline-block;"><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span>.</span><!--<![endif]--></td>
           </tr>
         </table>
+        <!--[if mso]></td></tr></table><![endif]-->
       </td>
     </tr>
-    <!-- Body: _wrap_html's panel and its {body} sit in this row, unchanged. -->
+    <!-- Body: _wrap_html puts its panel, which holds {body} and {footer}, in a row of its own here. -->
     <tr>
       <td align="center" style="padding:0 12px 32px 12px;">
         <!-- Footer line -->
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+        <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
           <tr>
             <td style="padding:0 32px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -84,9 +147,10 @@
             </td>
           </tr>
           <tr>
-            <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Data sourced from SEC EDGAR. Not investment advice.</td>
+            <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Filing data sourced from SEC EDGAR. Not investment advice.</td>
           </tr>
         </table>
+        <!--[if mso]></td></tr></table><![endif]-->
       </td>
     </tr>
   </table>

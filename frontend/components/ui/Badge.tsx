@@ -14,20 +14,45 @@
                      10% tint is 4.3:1 — icon/graphic only there, fails AA at 12px.
      - warning (v2.2): warning-token tint — replaces raw-amber hand-rolls
                      (UnverifiedBadge).
+     - the status set (BadgeStatusVariant): success, error, info-status,
+                     warning-status and neutral-status are STATUS chips (a
+                     summary is ready, a run failed, an invite is pending,
+                     expired or revoked): the status ink on one quiet ground
+                     (STATUS), white with a hairline in light and the bare
+                     hairline in dark. info, warning and neutral are the tints
+                     and the quiet chip, so their status forms take names of
+                     their own. Not a tint: the success ink inside any tint of
+                     itself falls under 4.5:1 at 12px (4.2:1 in 10% on panel);
+                     on the quiet ground it holds 5.0:1, error 6.5:1. No fill
+                     in dark: on a row hovered with white/5 a fill of its own
+                     would take error to 3.9:1, info to 4.26:1 and neutral to
+                     4.27:1; with none, error, the lowest, holds 4.6:1 there
+                     (5.3:1 on the card at rest). The admin lists' status chips
+                     render the set (InviteStatusBadge, FeedbackStatusBadge),
+                     and tests/unit/statusChipContrast.spec.ts measures every
+                     member on their rows.
+                     Status is never told with beat/miss: those are data
+                     colours.
      - beat / miss:  earnings surprise — gain/loss DATA colors (kept distinct
-                     from the brand accent), soft tint bg, auto ▲/▼.
-     - new:          new-filing pulse — warning tint + a calm pulsing dot
-                     (respects prefers-reduced-motion).
+                     from the brand accent), soft tint bg, auto ▲/▼. A
+                     direction only, never a status.
+     - new:          new-filing pulse — the brand tint (TINT, as brand) + a
+                     calm pulsing dot in its sage ink (respects
+                     prefers-reduced-motion). A new filing is news, not a
+                     caution, so it takes no warning tint (D-032). Its label
+                     holds 5.8:1 in light, 5.9:1 on the dark card.
    Casing: `pro` UPPERCASES its label; brand and every other variant stay
-   sentence case. icon={null} strips a variant's automatic affordance —
-   beat/miss/new double as plain TONAL RECIPES that way (e.g. a delta chip
-   with no glyph, or `new`'s warning tint without the pulse).
+   sentence case. icon={null} strips a variant's automatic affordance (the
+   ▲ / ▼ glyph or the pulse dot).
    v3: pro's uppercase tracking moved off the 0.05em wider utility onto the
    one eyebrow token (`tracking-eyebrow` = --track-eyebrow 0.08em).
 ============================================================================= */
 
 import { type HTMLAttributes, type ReactNode } from 'react'
 import { cx } from './cx'
+
+/** Badge's status set: a status ink on the one status ground (DESIGN_SYSTEM.md §4, "Status chip"). */
+export type BadgeStatusVariant = 'success' | 'error' | 'info-status' | 'warning-status' | 'neutral-status'
 
 export type BadgeVariant =
   | 'pro'
@@ -37,6 +62,7 @@ export type BadgeVariant =
   | 'neutral'
   | 'info'
   | 'warning'
+  | BadgeStatusVariant
   | 'beat'
   | 'miss'
   | 'new'
@@ -51,6 +77,8 @@ const QUIET = cx(
   'border border-border-light bg-white text-text-secondary-light',
   'dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark',
 )
+/** The status set's ground: QUIET's, with no fill in dark (the header above). */
+const STATUS = cx('border border-border-light bg-white', 'dark:border-border-dark dark:bg-transparent')
 
 const VARIANT: Record<BadgeVariant, string> = {
   pro: cx(TINT, 'uppercase tracking-eyebrow'),
@@ -62,9 +90,14 @@ const VARIANT: Record<BadgeVariant, string> = {
   neutral: QUIET,
   info: 'bg-info-light/10 text-info-text dark:bg-info-dark/15 dark:text-info-dark',
   warning: 'bg-warning-light/10 text-warning-light dark:bg-warning-dark/15 dark:text-warning-dark',
+  success: cx(STATUS, 'text-success-light dark:text-success-dark'),
+  error: cx(STATUS, 'text-error-light dark:text-error-dark'),
+  'info-status': cx(STATUS, 'text-info-text dark:text-info-dark'),
+  'warning-status': cx(STATUS, 'text-warning-light dark:text-warning-dark'),
+  'neutral-status': cx(STATUS, 'text-text-tertiary-light dark:text-text-secondary-dark'),
   beat: 'bg-gain-soft text-gain-text dark:bg-gain-soft-dark dark:text-gain-dark',
   miss: 'bg-loss-soft text-loss-text dark:bg-loss-soft-dark dark:text-loss-dark',
-  new: 'bg-warning-light/10 text-warning-light dark:bg-warning-dark/15 dark:text-warning-dark',
+  new: TINT,
 }
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {

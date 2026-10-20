@@ -154,8 +154,8 @@ API service's own describe included, prints only its closed class (`permission_d
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
 host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
 
-The Cloud SQL proxy step used by `capacity-readout`, `detection-sql` and the repair-ticker
-operations captures the `DATABASE_URL` secret read's stderr, including success-path warnings.
+The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, the repair-ticker and the
+fiscal-year relabel (`relabel-fy-*`) operations captures the `DATABASE_URL` secret read's stderr, including success-path warnings.
 A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
 The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
@@ -245,8 +245,19 @@ The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 
 `logs-probe: logging.read DENIED (rc=N)` followed by
 `logs-probe: failure class <class> (gcloud's error text withheld)` (`permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, classified as `describe-service` classifies), then the number
-of `company_upsert_conflict` entries in the last seven days when that read succeeds. It never prints
-gcloud's own error text, which names the acting principal, and never fails the step.
+of `company_upsert_conflict` entries in the last seven days when that read succeeds. Then, for each of
+the four lines `main.py` prints as Sentry starts or does not, it names the API service's revisions that
+printed it in the last seven days, with a count from the newest 500 entries per kind:
+`sentry startup (7d) initialized: <revision> x<n> ...`, and likewise `failed`, `dsn-unset` (no
+`SENTRY_DSN`) and `sdk-missing`, or `none`; a read that fails prints
+`sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above,
+and the step adds one `::warning::` that names those kinds and the remedy for each class.
+The task worker runs `task_worker_main.py`, which never imports `main.py` and starts no Sentry, so its
+revisions appear under no kind. After a deploy, the API service's new revision should appear under
+`initialized` and nowhere else, with none of the four lines `UNVERIFIED`. Without the SDK, each start
+would count twice under `sdk-missing`, as `app/routers/users.py` logs the same words. It never prints a
+log line (the failure line can quote an exception) or gcloud's own error text, which names the acting
+principal, and never fails the step.
 
 ### Rollback (when a bad revision is live)
 
@@ -266,7 +277,9 @@ gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-r
 ```
 
 Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
-`--to-latest` deploy would otherwise route traffic straight back to the bad image).
+`--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
+E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
+`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back.
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
@@ -363,6 +376,7 @@ printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_PUBLISHABLE_KEY --data-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_WEBHOOK_SECRET --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_API_KEY        --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_FROM_EMAIL     --data-file=-
+printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_WEBHOOK_SECRET --data-file=-   # the webhook's whsec_ signing secret
 ```
 
 ### 5. Grant the runtime service account access
@@ -386,7 +400,7 @@ gcloud run deploy earningsnerd-backend \
   --region=us-west1 --allow-unauthenticated \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
-  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest \
   --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 
@@ -477,6 +491,15 @@ gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --sc
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
+
+`ENABLE_SECTION_CHANGES` ("what changed" wording diff) goes on **both** the scan job and the
+service: the job's real-time pass stores the Item 1A text (its own `section-extraction` job record;
+`SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter)
+and the service's what-changed endpoint serves the diff. Neither `$ENVV` above nor the service's
+`--update-env-vars` in `ci.yml` sets it, so add it to both when it flips, and add `section-extraction`
+to `JOB_CADENCES`. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
+warms the `filing_section_text` table by hand before the flip, under its own
+`section-extraction-manual` record; `docs/CONFIGURATION.md` lists the three settings.
 
 Smoke-test each before trusting the schedule:
 ```bash
@@ -644,9 +667,10 @@ check whether separately managed database routines need their own backup coverag
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next
 scheduled run is unaffected. Do not use `gcloud run jobs update --args=…` for one-shot work. The
 backend deploy owns the persistent `earningsnerd-backfill-facts` contract and restores
-`python scripts/backfill_facts.py --only-new` while updating its image. Since the DB is only
-reachable from Cloud Run, execution-scoped arguments are also the way to run any
-`backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
+`python scripts/backfill_facts.py --only-new` while updating its image. The DB is reachable only
+from Cloud Run and through the Ops workflow's Cloud SQL proxy, so apart from the Ops workflow's
+committed script operations (`repair-ticker-*`, `relabel-fy-*`), execution-scoped arguments are the
+way to run a `backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
 with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
 so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
 false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement

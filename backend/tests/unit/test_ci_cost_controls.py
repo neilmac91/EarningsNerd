@@ -31,8 +31,11 @@ def workflow():
 def history(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
+    # An empty global config of its own, never /dev/null: a config write would rename git's lock file over it.
+    global_config = tmp_path / "gitconfig"
+    global_config.write_text("", encoding="utf-8")
     env = {
-        **os.environ, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+        **os.environ, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": str(global_config),
         "GIT_AUTHOR_NAME": "CI scope test", "GIT_AUTHOR_EMAIL": "ci@example.invalid",
         "GIT_COMMITTER_NAME": "CI scope test", "GIT_COMMITTER_EMAIL": "ci@example.invalid",
     }

@@ -19,6 +19,11 @@ vi.mock('@/features/summaries/api/summaries-api', async importOriginal => ({
 vi.mock('@/features/summaries/hooks/useSummaryExports', () => ({
   useSummaryExports: () => ({ exportPdf: actions.pdf, exportCsv: actions.csv }),
 }))
+// The change report's read waits for /me (useWhatChanged); no network under vitest.
+vi.mock('@/features/auth/api/auth-api', async importOriginal => ({
+  ...await importOriginal<typeof import('@/features/auth/api/auth-api')>(),
+  getCurrentUserSafe: async () => null,
+}))
 
 const filing: Filing = {
   id: 42, filing_type: '20-F', filing_date: '2026-02-11', accession_number: 'test-accession',
@@ -70,9 +75,9 @@ describe('canonical filing link action', () => {
     expect(screen.getByText('A source-owned excerpt.')).toBeInTheDocument()
     expect(!!screen.queryByText('Full summary')).toBe(tier === 'full')
     expect(!!screen.queryByText('Partial')).toBe(tier === 'partial')
-    expect(!!screen.queryByRole('button', { name: 'Save Summary' })).toBe(authenticated)
+    expect(!!screen.queryByRole('button', { name: 'Save summary' })).toBe(authenticated)
     expect(!!screen.queryByRole('button', { name: 'Export PDF' })).toBe(pro)
-    if (authenticated) { fireEvent.click(screen.getByRole('button', { name: 'Save Summary' })); expect(actions.save).toHaveBeenCalledWith(91) }
+    if (authenticated) { fireEvent.click(screen.getByRole('button', { name: 'Save summary' })); expect(actions.save).toHaveBeenCalledWith(91) }
     if (pro) { fireEvent.click(screen.getByRole('button', { name: 'Export PDF' })); fireEvent.click(screen.getByRole('button', { name: 'Export CSV' })); expect(actions.pdf).toHaveBeenCalledOnce(); expect(actions.csv).toHaveBeenCalledOnce() }
   })
 
@@ -96,6 +101,40 @@ describe('canonical filing link action', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(write).toHaveBeenCalledTimes(2)
     expect(posthog.capture).toHaveBeenCalledExactlyOnceWith('filing_link_copied', { filing_id: 42 })
+  })
+
+  // The capture review: a stored summary that did not finish showed Save summary, Export PDF and Export CSV
+  // above its "This summary did not finish" card, offering to save and export a summary that is not there.
+  // Those act on a summary; the filing link is the filing's, and stays.
+  it.each([
+    ['its fallback body', { business_overview: 'Summary temporarily unavailable. Please retry.', raw_summary: {} }],
+    ['a writer error', { business_overview: '## Overview\n\nText.', raw_summary: { writer_error: 'timeout' } }],
+  ])('offers neither Save nor an export above a stored summary that did not finish (%s)', (_, failed) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    clients.push(client)
+    render(
+      <QueryClientProvider client={client}>
+        <SummaryDisplay filing={filing} summary={{ id: 91, filing_id: filing.id, rendered_sections: [], ...failed }}
+          isAuthenticated isPro isSaved={false}
+          saveMutation={{ mutate: actions.save, isPending: false }} onAsk={vi.fn()} />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByRole('heading', { name: 'This summary did not finish' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save summary' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Export PDF' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Export CSV' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy filing link' })).toBeInTheDocument()
+  })
+
+  // The capture review at 200% text on a 320px phone: "Save summary" and "Copy filing link" ran past the
+  // reading column (to 344 and 347px). Each action's label wraps inside its button.
+  it('lets every action\u2019s label wrap inside its button', () => {
+    render(view(true, true, 'full'))
+    for (const name of ['Save summary', 'Copy filing link', 'Export PDF', 'Export CSV']) {
+      const classes = screen.getByRole('button', { name }).className.split(/\s+/)
+      expect(classes, name).toEqual(expect.arrayContaining(['whitespace-normal', 'max-w-full']))
+      expect(classes, name).not.toContain('whitespace-nowrap')
+    }
   })
 
   it('offers the manual canonical link when the Clipboard API is absent', async () => {

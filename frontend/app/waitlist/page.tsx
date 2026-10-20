@@ -10,7 +10,7 @@ import WaitlistExample, { WaitlistExamplePending } from '@/features/waitlist/com
 // While the waitlist gate is up, this page is the de-facto homepage — it needs
 // its own metadata and a self-canonical so search engines index something real.
 export const metadata: Metadata = {
-  title: 'EarningsNerd | The 10-K, read for you, with receipts',
+  title: 'The 10-K, read for you, with receipts | EarningsNerd',
   description:
     'Join the EarningsNerd waitlist. AI summaries of SEC filings: financials, risks, and trends, sourced directly from SEC EDGAR.',
   alternates: {
@@ -58,7 +58,7 @@ export default function WaitlistPage() {
               <ExampleCtaLink
                 href={exampleFilingHref('waitlist_example')}
                 placement="waitlist"
-                className="inline-flex items-center gap-1 font-semibold text-brand-strong underline underline-offset-4 transition-colors hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
+                className="inline-flex items-center gap-1 rounded-sm font-semibold text-brand-strong underline underline-offset-4 transition-colors hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
               >
                 Try a live example summary
                 <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -77,7 +77,7 @@ export default function WaitlistPage() {
           {[
             {
               title: 'Filings are long.',
-              body: 'A 10-K runs past a hundred pages, and the part you want is spread across six of its sections.',
+              body: 'A 10-K is long, and the part you want is spread across its sections.',
             },
             {
               title: 'Checking takes an afternoon.',
@@ -92,9 +92,11 @@ export default function WaitlistPage() {
               key={item.title}
               className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
             >
-              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
+              {/* h2: the first headings under the page h1 (the example beside the form has none), at
+                  the card scale; an h3 here skipped a level (text-floors.spec.ts visits /waitlist). */}
+              <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {item.title}
-              </h3>
+              </h2>
               <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">{item.body}</p>
             </div>
           ))}
@@ -113,10 +115,12 @@ export default function WaitlistPage() {
               </p>
             </div>
             {/* Server component — buttonVariants() can't be called here (it's a client export),
-                so this CTA stays a token-clean hand-rolled secondary pill. */}
+                so this CTA stays a token-clean hand-rolled secondary pill. It has no hover colour: the
+                hover hairline it carried equalled its resting one in light and lost to the resting dark
+                border in dark, so it painted nothing in either theme. */}
             <a
               href="#waitlist"
-              className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-border dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark"
+              className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               Join the waitlist
             </a>
@@ -198,11 +202,9 @@ export default function WaitlistPage() {
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl border border-border-light bg-panel-light p-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-10">
           <h2 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Built for trust and transparency
+            Before you join
           </h2>
-          <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Data is sourced directly from SEC EDGAR. We focus on clarity, not hype.
-          </p>
+          {/* No lead: the tiles say it, and the first already names the source. */}
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               {
@@ -210,12 +212,12 @@ export default function WaitlistPage() {
                 body: 'Official filings, cited and traceable back to the primary source.',
               },
               {
-                title: 'Security-first approach',
+                title: 'Security',
                 body: 'Encrypted data in transit and at rest. No personal financial data stored.',
               },
               {
                 title: 'A numbered spot',
-                body: 'Join the list and get a position. Each referral moves you up 5 spots.',
+                body: 'You get a number when you join, and your link moves you up.',
               },
             ].map((item) => (
               <div

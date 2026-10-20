@@ -246,6 +246,6 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     global.fetch = async () => new Response(JSON.stringify({ detail: 'Monthly cap reached. Upgrade to Pro.' }), { status })
     const h = handlers()
     await askFilingStream(1, 'q', [], h)
-    expect(h.onError).toHaveBeenCalledExactlyOnceWith(status === 401 ? 'Sign in to use the Copilot.' : 'Monthly cap reached. Upgrade to Pro.')
+    expect(h.onError).toHaveBeenCalledExactlyOnceWith(status === 401 ? 'Log in to ask this filing a question.' : 'Monthly cap reached. Upgrade to Pro.')
   })
 })

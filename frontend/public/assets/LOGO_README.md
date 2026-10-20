@@ -7,7 +7,7 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 
 | File | Use |
 |------|-----|
-| `earningsnerd-appicon.svg` | The app tile: sage `#4F7A63` squircle + cream mark. Source for favicon.ico, PWA icons, and the SVG favicon (self-backgrounded — legible on light AND dark tab chrome). |
+| `earningsnerd-appicon.svg` | The app tile: sage `#4F7A63` squircle + cream mark. Source for favicon.ico, PWA icons, the SVG favicon and `earningsnerd-appicon.png` (self-backgrounded — legible on light AND dark tab chrome). |
 | `earningsnerd-icon-light.svg` | Bare mark in `#3C6650` (brand.strong) — light surfaces. |
 | `earningsnerd-icon-dark.svg` | Bare mark in `#7FB295` (brand.dark) — navy surfaces. |
 | `earningsnerd-logo-light.svg` | Full lockup: mark + wordmark ("Earnings" ink `#1A1A17`, italic "Nerd" `#3C6650`) — light surfaces. |
@@ -21,6 +21,8 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 | `earningsnerd-logo-stacked-dark.svg` | Stacked lockup for navy. |
 | `earningsnerd-logo-stacked-mono.svg` | Stacked lockup in `currentColor`. |
 | `earningsnerd-mask-icon.svg` | Safari pinned-tab mask: the mark letterboxed in a square, black on transparent (Safari recolours it; `app/layout.tsx` declares it with the sage colour). |
+| `earningsnerd-mark-sage.png` | The sage mark rasterized at 256 px wide on transparent, byte-identical to the backend's Excel raster. Served at `/assets/earningsnerd-mark-sage.png`: first offered as the mail header's mark, kept at its URL since the header took the tile (D-035), though no mail references it; generated, never edited, and held to the published-URL rule (see Rules). |
+| `earningsnerd-appicon.png` | The app tile rasterized at 128 px square, transparent outside the squircle. Served at `/assets/earningsnerd-appicon.png` for the transactional mail header, which shows it at 32 px beside the text wordmark: mail clients drop inline SVG, and the apps that darken a message leave its images alone, so the mark comes on its own ground; generated, never edited, and a published URL (see Rules). |
 
 ## In-app usage
 
@@ -30,8 +32,10 @@ Never inline the mark by hand — compose the components:
   (`mode="auto"` = `text-brand-strong dark:text-brand-dark`). Single source of
   the geometry, kept in sync with `earningsnerd-mark-mono.svg`.
 - `components/EarningsNerdLogo.tsx` — the ONE source of the two-tone wordmark:
-  `variant="full"` (mark + wordmark; AuthShell), `"icon-only"` (Footer; Header
-  below `sm`) or `"wordmark"` (Header at `sm`+, beside its icon-only mark).
+  `variant="full"` (mark + wordmark; AuthShell, whose wordmark yields to the
+  mark below a 12rem viewport, `frontend/DESIGN_SYSTEM.md` §8), `"icon-only"`
+  (Footer; Header below `sm`) or `"wordmark"` (Header at `sm`+, beside its
+  icon-only mark).
   "Earnings" in the primary ink + italic "Nerd" in `text-brand-strong
   dark:text-brand-strong-dark`; size it with scale classes via
   `wordmarkClassName`. Never hand-compose the wordmark at a call site
@@ -42,8 +46,12 @@ Never inline the mark by hand — compose the components:
 `npm run brand:assets` (see `scripts/generate-brand-assets.mjs`) regenerates the
 committed binaries from this directory: `favicon.ico`, `apple-touch-icon.png`
 (180, full-bleed — Apple applies its own corner mask), `icons/icon-{192,512}.png`
-(+ `-maskable` full-bleed variants, mark at 0.62 for the r=40% safe zone), and
-`og-image.png` (deterministic Playwright render with the committed Inter woff2).
+(+ `-maskable` full-bleed variants, mark at 0.62 for the r=40% safe zone),
+`og-image.png` (deterministic Playwright render with the committed Inter woff2),
+`assets/earningsnerd-appicon.png` (the tile at 128 px, served at a fixed URL for the mail header),
+and the sage mark raster, written twice from one buffer: `assets/earningsnerd-mark-sage.png`
+(served at a fixed URL) and `backend/app/assets/brand/earningsnerd-mark.png` (embedded in the
+Excel export).
 
 ## Rules
 
@@ -63,9 +71,45 @@ committed binaries from this directory: `favicon.ico`, `apple-touch-icon.png`
   64 px wide on screen, 16 mm in print. Embroidery: 60 mm wide and above (the thinnest stroke is
   about 6 mm there, the E's open counters 2.9 mm; the E and the N kiss, which a satin stitch joins
   and the mark survives). Evidence: `docs/brand/05-mark.md`.
+- **Published URLs stay put.** A path that sent mail references is published: a message keeps its
+  image addresses for as long as it is kept, and nobody can edit it after sending. The register,
+  `frontend/tests/unit/publishedAssetUrls.json`, names the origin mail addresses these paths on and
+  holds two paths: `/assets/earningsnerd-appicon.png`, the app tile in the transactional mail header
+  (`backend/app/services/email_service.py`, `_wrap_html`), and `/assets/earningsnerd-mark-sage.png`,
+  the bare mark's raster, first offered as the header's mark and kept at its URL when the header
+  took the tile (D-035); no mail references it, and the rule holds it all the same. Each file stays
+  at its path for good and stays served: never rename, move, remove or replace it, never redirect or
+  rewrite its path, and keep it the same image, byte for byte (regenerating it is fine while it
+  comes back identical); a new rendition takes a new name. Mail addresses these paths on the origin
+  that answers without a redirect (`https://www.earningsnerd.io`), so that origin keeps serving them
+  without one. A change that puts a new path in mail adds it to the register in the same PR. Gates:
+  `frontend/tests/unit/publishedAssetUrls.spec.ts` checks that each registered file is present and
+  is the file that was published (its sha256), that it lies outside `middleware.ts`'s matcher (which
+  leaves out `/assets/`), so the middleware never runs on it, and that no redirect, rewrite or
+  basePath in `next.config.js` or `vercel.json` reaches it, read in a production build's
+  environment; that the register's paths are the list the spec writes out, so no path leaves it;
+  and that the register's origin is the root layout's `metadataBase`. Two gates hold the backend to
+  the rule. `backend/tests/unit/test_mail_rendered_addresses.py` renders every public mail function
+  of `email_service.py`, the module that builds the mail, with `FRONTEND_URL` keeping a trailing
+  slash and inputs that pass each of its parameters and run every line a render can reach. It reads
+  the addresses in what is sent, in each form its header lists: one into a file the site serves from
+  `frontend/public` is a whole registered path on `FRONTEND_URL`, the slash stripped, however the
+  code derived it. Its header names what it cannot see, mail built outside `email_service.py` among
+  it. `backend/tests/unit/test_mail_published_assets.py` reads the code, every file in
+  `backend/app`: a string that addresses such a file spells a whole registered path, with nothing
+  filled in after it and no origin of the site's, second slash or unstripped `FRONTEND_URL` in front
+  of it, and a registered path is used whole where the scan can see it. It cannot follow a value
+  through the code, and its header names what it cannot see. The header's tile is built on
+  `FRONTEND_URL` with any trailing slash stripped, and `FRONTEND_URL`'s default is the register's
+  origin. Whether the origin answers without a redirect, the response headers a route or a headers
+  rule sets on these paths (a Content-Type that stops a mail client showing the image), and anything
+  set only in the Vercel dashboard (a variable a rule reads, or a redirect) are review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
-  OG card, the PDF masthead, the email shell, the business card front); the stacked lockup is for
-  square placements; never centre the horizontal lockup as a hero.
+  OG card, the PDF masthead, the email shell, the business card front); the email shell carries it
+  as the app tile, which brings its own ground into mail apps that darken a message, and under a
+  phone's text zoom its wordmark wraps between its two words, Nerd under Earnings beside the tile,
+  and nowhere else (D-048); the stacked lockup is for square placements; never centre the horizontal
+  lockup as a hero.
 - **Misuse.** Never on a photograph, never recoloured outside this table, never with a drop shadow,
   outline or gradient, never rotated, never with the arrow pointing anywhere but up-right, never
   beside a competitor's mark at a different size.

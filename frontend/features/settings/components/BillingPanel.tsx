@@ -4,17 +4,16 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { useRef } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { CreditCardIcon, SparkleIcon } from '@/lib/icons'
+import { LightningIcon } from '@/lib/icons'
 import {
   getSubscriptionStatus,
   getUsage,
   createPortalSession,
 } from '@/features/subscriptions/api/subscriptions-api'
-import { formatLocalDate } from '@/lib/format'
-// NOTE: current_period_end / trial_end are genuine Stripe INSTANTS, not calendar dates, so
-// formatLocalDate here reports their UTC calendar day. That is the intended read for a billing
-// boundary (it matches what Stripe shows), but it is the mirror image of the filing-date rule —
-// do not cite these two lines as precedent for rendering a calendar date.
+import { formatInstant } from '@/lib/format'
+// current_period_end and trial_end are Stripe INSTANTS, so both lines name the day each falls on in the
+// reader's own time zone: the day the plan renews or the trial ends where they are. A calendar date
+// (filing_date) keeps its own day through formatLocalDate instead.
 import { Button, buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -23,13 +22,6 @@ import { SkeletonText } from '@/components/ui/Skeleton'
 import { queryKeys } from '@/lib/queryKeys'
 import { untilPageReturns } from '@/lib/untilPageReturns'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
-
-function daysUntil(value: string | null): number | null {
-  if (!value) return null
-  const end = new Date(value).getTime()
-  if (Number.isNaN(end)) return null
-  return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)))
-}
 
 export default function BillingPanel() {
   const identityQuery = useQuery({
@@ -70,8 +62,7 @@ export default function BillingPanel() {
   if (identityUnavailable || subscriptionUnavailable) {
     return (
       <Card className="p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+        <div className="mb-4">
           <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
         </div>
         <Notice
@@ -79,9 +70,7 @@ export default function BillingPanel() {
           title="Failed to load billing information"
           description="Please try again."
           action={
-            <RetryButton size="sm" failures={[identityUnavailable ? identityFailure : subscriptionFailure]} focusTarget={headingRef}>
-              Retry
-            </RetryButton>
+            <RetryButton size="sm" failures={[identityUnavailable ? identityFailure : subscriptionFailure]} focusTarget={headingRef} />
           }
         />
       </Card>
@@ -95,13 +84,13 @@ export default function BillingPanel() {
   const isPro = Boolean(sub?.is_pro)
   // The API resolves expired trial rows to Free even while their raw status stays trialing.
   const isTrialing = isPro && sub?.status === 'trialing'
-  const trialDays = isTrialing ? daysUntil(sub?.trial_end ?? null) : null
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
+  // An unreadable trial_end formats to '', and the line then shows nothing, as TrialBanner does.
+  const trialEndsOn = isTrialing ? formatInstant(sub?.trial_end, 'MMM d, yyyy') : ''
 
   return (
     <Card className="p-6 mb-6">
-      <div className="flex items-center gap-3 mb-4">
-        <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+      <div className="mb-4">
         <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
       </div>
 
@@ -115,9 +104,7 @@ export default function BillingPanel() {
               title="Couldn't refresh billing details"
               description="Showing your last loaded details."
               action={
-                <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={headingRef}>
-                  Retry
-                </RetryButton>
+                <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={headingRef} />
               }
             />
           )}
@@ -130,7 +117,7 @@ export default function BillingPanel() {
                   carries state text like "Pro (trial)" that must stay sentence case. */}
               <Badge
                 variant={isPro ? 'brand' : 'free'}
-                icon={isPro ? <SparkleIcon className="h-3.5 w-3.5" /> : null}
+                icon={isPro ? <LightningIcon className="h-3.5 w-3.5" /> : null}
               >
                 {planLabel}
               </Badge>
@@ -155,17 +142,16 @@ export default function BillingPanel() {
                   {sub.cancel_at_period_end ? 'Access until' : 'Renews on'}
                 </span>
                 <span className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
-                  {formatLocalDate(sub.current_period_end, 'MMM d, yyyy')}
+                  {formatInstant(sub.current_period_end, 'MMM d, yyyy')}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Trial countdown */}
-          {isTrialing && trialDays !== null && (
+          {/* Trial end: the date, never a countdown (docs/voice-and-style.md: patient). */}
+          {trialEndsOn && (
             <div className="rounded-lg border border-brand-border bg-brand-weak dark:border-white/10 dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              <strong>{trialDays} {trialDays === 1 ? 'day' : 'days'} left</strong> in your Pro trial
-              {sub?.trial_end ? ` · ends ${formatLocalDate(sub.trial_end, 'MMM d, yyyy')}` : ''}.
+              Pro trial ends {trialEndsOn}.
             </div>
           )}
 
@@ -185,6 +171,8 @@ export default function BillingPanel() {
                  that turns natively disabled is blurred to <body> in Chromium. */
               <Button
                 variant="secondary"
+                wrap
+                className="max-w-full"
                 onClick={() => portal.mutate()}
                 loading={portal.isPending}
               >
@@ -193,7 +181,7 @@ export default function BillingPanel() {
             ) : (
               <Link
                 href="/pricing"
-                className={buttonVariants({ variant: 'primary' })}
+                className={buttonVariants({ variant: 'primary', wrap: true, className: 'max-w-full text-center' })}
               >
                 {isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro'}
               </Link>

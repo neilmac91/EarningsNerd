@@ -18,6 +18,19 @@ export interface WhatChanged {
   data_quality: 'ok' | 'partial'
 }
 
+/** The Item 1A wording-change counts of the filing's cached comparison, served behind
+ *  ENABLE_SECTION_CHANGES to a viewer with access (null otherwise, and while the filing has no
+ *  comparison yet); `review` is the viewer's own progress, for a Pro reader only. */
+export interface WordingChangesSummary {
+  items_total: number
+  has_changes: boolean
+  /** The filing's own section only refers back to the annual report: nothing to compare. */
+  reference_only: boolean
+  /** The prior filing's section only referred back, so every paragraph reads as new. */
+  prior_reference_only: boolean
+  review: { labeled: number; completed_at: string | null } | null
+}
+
 export interface FeedItem {
   filing_id: number
   accession_number: string | null
@@ -28,6 +41,7 @@ export interface FeedItem {
   summary_id: number | null
   summary_status: string
   what_changed: WhatChanged | null
+  wording_changes?: WordingChangesSummary | null
 }
 
 export interface CalendarEvent {

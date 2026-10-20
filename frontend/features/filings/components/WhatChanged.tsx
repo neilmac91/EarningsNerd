@@ -4,6 +4,8 @@ import { CaretRightIcon } from '@/lib/icons'
 import { Card, cx } from '@/components/ui'
 import type { ChangeReport, WhatChangedMetricItem } from '@/features/summaries/api/summaries-api'
 import { periodKind } from '@/features/filings/lib/filingPeriod'
+import { WordingChanges, type WordingContext } from '@/features/filings/components/WordingChanges'
+import { wordingHasContent } from '@/features/filings/lib/sectionChanges'
 import { directionText } from '@/lib/financialTone'
 import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
 
@@ -11,7 +13,7 @@ import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
  * A5 "What Changed": a calm, deterministic period-over-period change report — a numbered section of
  * the filing summary (`bare`, under the section's own heading) and, fed static samples, the landing
  * page's Change Report screen (its own Card). Renders nothing unless there is something material to
- * report (has_changes).
+ * report: metric deltas (has_changes) or an Item 1A wording comparison (reportHasContent).
  *
  * Rebuilt 2026-10 (docs/design/filings-index-review.md, then the 2026-10 critique's P-07):
  *  - the Card recipe (`<Card as="section">`, 16 / e2) with a sentence-case heading, or, `bare`, no
@@ -27,11 +29,21 @@ import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
  *    CSS alone, like the metric cards (the inactive layout is display:none);
  *  - the risk diff with sentence-case subheads, counts, and neutral +/− glyphs (brand never signals a
  *    state). The backend withholds risk lines today (model-authored labels — change_report_service),
- *    so this block renders only when the payload carries them.
+ *    so this block renders only when the payload carries them;
+ *  - the Item 1A wording block (E27, PR B: WordingChanges), the filing's own risk-factor text against
+ *    the prior same-form original, last, under its own subheading: the one part of the report that is
+ *    served per viewer (a teaser, or every change for Pro), which `context` tells it about.
  */
 
 /** The report's fragment id: the company page's "Open change report" links to /filing/{id}#what-changed. */
 export const WHAT_CHANGED_ID = 'what-changed'
+
+/** Whether the report has anything to show: metric deltas, or an Item 1A wording comparison (a
+ *  state line at the least). Every surface that mounts the report decides by this, so the section
+ *  and its links appear and disappear together. */
+export function reportHasContent(report: ChangeReport | null | undefined): boolean {
+  return Boolean(report && (report.has_changes || wordingHasContent(report.section_changes)))
+}
 
 const TONE_TEXT: Record<WhatChangedMetricItem['tone'], string> = {
   gain: directionText.up,
@@ -66,13 +78,24 @@ const HAIRLINE = 'border-border-light dark:border-white/10'
 /** Formatting only (no client math), in the filer's own reporting currency: "$394.3B", "¥37.2T";
  *  per-share figures keep cents ("$6.11"). The amounts are raw XBRL values in that currency (a
  *  foreign filer reports in its own), so an unknown currency shows them unlabelled ("394.3B"),
- *  never as dollars. */
-function figure(item: WhatChangedMetricItem, value: number | null, currency: string | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return '—'
+ *  never as dollars. A missing value has no figure: the caller shows UNAVAILABLE in its place. */
+function figure(item: WhatChangedMetricItem, value: number | null, currency: string | null | undefined): string | null {
+  if (value == null || !Number.isFinite(value)) return null
   const perShare = PER_SHARE.test(item.metric)
   if (currency) return perShare ? fmtCurrency(value, { currency, digits: 2, compact: false }) : fmtCurrency(value, { currency })
   return perShare ? fmtScale(value, { digits: 2 }) : fmtScale(value)
 }
+
+/** A missing prior or current figure, in either layout: the missing-value token in an element of its own (in the
+ *  phone rows it sits beside the sr-only "Prior" and "current" and the arrow), which assistive tech reads as
+ *  "unavailable". `relative` keeps the sr-only word inside the table's scroll box
+ *  (lessons/frontend-sr-only-needs-a-positioned-clip.md). */
+const UNAVAILABLE = (
+  <span className="relative">
+    <span aria-hidden="true">—</span>
+    <span className="sr-only">unavailable</span>
+  </span>
+)
 
 /** The served change: its direction glyph, then the display string, both in the tone's ink. Shared
  *  with the company page's Compare periods card, so a change reads the same in both places. A zero
@@ -100,6 +123,7 @@ export function WhatChanged({
   headingLevel: Heading = 'h2',
   bare = false,
   id,
+  context,
 }: {
   report: ChangeReport
   /** Heading element for "What changed"; the landing page nests the report under an h3. When `bare`,
@@ -109,9 +133,11 @@ export function WhatChanged({
   bare?: boolean
   /** The Card's id, when a link can name it (WHAT_CHANGED_ID under a legacy markdown summary). */
   id?: string
+  /** Who is reading, for the wording block's events and teaser; absent on the landing page's sample. */
+  context?: WordingContext
 }) {
-  if (!report.has_changes) return null
-  const { metrics, risks, comparison_basis: basis, prior_filing: prior, reporting_currency: currency } = report
+  if (!reportHasContent(report)) return null
+  const { metrics, risks, comparison_basis: basis, prior_filing: prior, reporting_currency: currency, section_changes: wording } = report
   const Sub = SUBHEADING[Heading]
   const priorEnded = prior?.period_end_date ? formatLocalDate(prior.period_end_date, 'MMM d, yyyy') : ''
 
@@ -166,8 +192,8 @@ export function WhatChanged({
                 {metrics.items.map((item) => (
                   <tr key={item.metric} className={cx('border-t', HAIRLINE)}>
                     <th scope="row" className={cx('py-2.5 pr-4 text-left font-medium', INK)}>{item.label}</th>
-                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', MUTED)}>{figure(item, item.prior, currency)}</td>
-                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', INK)}>{figure(item, item.current, currency)}</td>
+                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', MUTED)}>{figure(item, item.prior, currency) ?? UNAVAILABLE}</td>
+                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', INK)}>{figure(item, item.current, currency) ?? UNAVAILABLE}</td>
                     <td className="whitespace-nowrap py-2.5 pl-4 text-right font-data font-semibold tabular-nums">
                       <Change item={item} />
                     </td>
@@ -190,10 +216,10 @@ export function WhatChanged({
                 <div className={cx('flex flex-wrap items-baseline justify-between gap-x-3 text-xs', MUTED)}>
                   <span className="font-data tabular-nums">
                     <span className="sr-only">Prior </span>
-                    {figure(item, item.prior, currency)}
+                    {figure(item, item.prior, currency) ?? UNAVAILABLE}
                     <span aria-hidden="true"> → </span>
                     <span className="sr-only">, current </span>
-                    {figure(item, item.current, currency)}
+                    {figure(item, item.current, currency) ?? UNAVAILABLE}
                   </span>
                   <span>{READ_AS[item.tone] ?? READ_AS.flat}</span>
                 </div>
@@ -224,6 +250,15 @@ export function WhatChanged({
           {risks.carried_count} risk factor{risks.carried_count === 1 ? '' : 's'} carried over unchanged.
         </p>
       )}
+
+      {wordingHasContent(wording) && (
+        <WordingChanges
+          block={wording}
+          Heading={Sub}
+          context={context}
+          className={cx(report.has_changes ? 'mt-5 border-t pt-5' : 'mt-4', HAIRLINE)}
+        />
+      )}
     </>
   )
 
@@ -242,7 +277,7 @@ export function WhatChanged({
   }
 
   return (
-    <Card as="section" id={id} aria-label="What changed" className="scroll-mt-32 p-6 lg:scroll-mt-24">
+    <Card as="section" id={id} aria-label="What changed" className="scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)] p-6 lg:scroll-mt-[calc(var(--site-header-h,4rem)_+_2rem)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <Heading className={cx('text-lg font-semibold', INK)}>What changed</Heading>

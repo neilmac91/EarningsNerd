@@ -84,7 +84,7 @@ export default function DeleteAccountPage() {
         />
       ) : isLoading ? (
         <div className="mt-6 flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none" /> Checking your sign-in status…
+          <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none" /> Checking whether you are logged in…
         </div>
       ) : user ? (
         /* Signed in — confirm + delete. Danger emphasis via ring (not a border override): cx is a
@@ -92,7 +92,7 @@ export default function DeleteAccountPage() {
            Card's own hairline. */
         <Card as="section" className="mt-6 p-6 ring-1 ring-inset ring-error-light/30 dark:ring-error-dark/30">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Signed in as <strong className="text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
+            Logged in as <strong className="text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
             To confirm, type <strong>{CONFIRM_PHRASE}</strong> below.
           </p>
           <Input
@@ -135,18 +135,18 @@ export default function DeleteAccountPage() {
           <div className="flex items-start gap-3">
             <ShieldWarningIcon className="mt-0.5 h-5 w-5 shrink-0 text-warning-light dark:text-warning-dark" />
             <div>
-              <h2 className="font-semibold text-text-primary-light dark:text-text-primary-dark">Sign in to delete your account</h2>
+              <h2 className="font-semibold text-text-primary-light dark:text-text-primary-dark">Log in to delete your account</h2>
               <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                For your security, you need to sign in before we can delete your account.
+                For your security, you need to log in before we can delete your account.
               </p>
               <Link
                 href="/login?redirect=/delete-account"
                 className={`${buttonVariants({ variant: 'primary' })} mt-3`}
               >
-                Sign in to continue
+                Log in to continue
               </Link>
               <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                Can&apos;t sign in? Email{' '}
+                Can&apos;t log in? Email{' '}
                 <a href="mailto:privacy@earningsnerd.io" className="underline">privacy@earningsnerd.io</a>{' '}
                 from your account email address and we&apos;ll process your deletion request.
               </p>

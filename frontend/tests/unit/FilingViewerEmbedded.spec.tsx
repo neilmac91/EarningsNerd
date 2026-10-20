@@ -79,7 +79,7 @@ describe('FilingViewer (embedded)', () => {
 
     expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
     await waitFor(() =>
-      expect(highlightExcerptInDom).toHaveBeenCalledWith(expect.anything(), 'Revenue grew strongly'),
+      expect(highlightExcerptInDom).toHaveBeenCalledWith(expect.anything(), 'Revenue grew strongly', { located: true }),
     )
   })
 
@@ -112,7 +112,7 @@ describe('FilingViewer (embedded)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'cite' }))
     expect(fetchFilingContent).toHaveBeenCalledTimes(2)
     expect(screen.getByText('Could not load the filing text.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /retrying/i })).toBe(retry)
+    expect(screen.getByRole('button', { name: /trying again/i })).toBe(retry)
     await act(async () => rejectRead(new Error('still unavailable')))
     expect(await screen.findByRole('button', { name: /try again/i })).toBe(retry)
     expect(retry).toHaveFocus()

@@ -14,7 +14,8 @@
      Roboto shadow it on Windows/Android.
    - data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim
      excerpts, Ask-this-Filing output. Columns must never jitter.
-   Editorial serif (Newsreader) is opt-in for long-form filing reading only.
+   Editorial serif (Newsreader) is opt-in for the filing's own words: long-form filing reading, and
+   inside the product a passage the server located, set as a marked block (D-044).
 ============================================================================= */
 :root {
   /* next/font self-hosts under HASHED family names exposed ONLY as CSS vars
@@ -35,6 +36,13 @@
   /* Heading ink: ONE value — same espresso as body text (hierarchy comes from
      size + weight, not a second ink). Walnut #3A2E26 retired. */
   --heading-color: #1A1A17;
+
+  /* The checked Checkbox's check in dark (components/ui/Checkbox.tsx): the forms plugin's own check
+     path, drawn in navy #0B1120 (background.dark), the ink every dark primary state puts on Light Sage.
+     Navy on brand-dark is 7.8:1; the plugin's white check on it would be 2.4:1. Applied as
+     dark:checked:[background-image:var(--check-navy)]; tests/unit/checkboxRecipe.spec.tsx reads the
+     fill from here. */
+  --check-navy: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='%230B1120' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
 
   /* Tracking ramp — SF-style dynamic tracking: tracked OUT at caption sizes,
      progressively tighter as display sizes grow. Sign flips near 20px.
@@ -183,7 +191,10 @@
    The product's own behaviour made visible: a located passage is highlighted, a cited figure
    carries a bracketed marker, and the marker's twin sits in a margin on the line it belongs to.
    Theme pairs switch on .dark (DESIGN_SYSTEM.md §2). A mark never sits on a figure (the Separate
-   Signals Rule); the tint is a surface, never a text fill. */
+   Signals Rule); the tint is a surface, never a text fill. Inside the product the device marks every
+   passage the server located (D-044): the filing page's Risks rows (a marker, its twin and a marked
+   block) and the Source pane's located passage, whose ::highlight paint takes .en-mark's tint and
+   hairline (highlightInDom.ts, below the reader rules). */
 .en-mark {
   background: linear-gradient(transparent 62%, #ECF2EE 62%); /* brand-weak */
   box-shadow: inset 0 -2px 0 #CFE0D6; /* brand-border */
@@ -200,13 +211,23 @@
   background: #ECF2EE; /* brand-weak */
   /* Square corners: a stripe never sits on a rounded container (DESIGN.md, the side-tab stripe). */
   border-radius: 0;
+  /* The block quotes the filing, so the browser adds no hyphen to its words: a Chromium that carries
+     a hyphenation dictionary (CI's does, the container's does not) hyphenated ordinary words at every
+     width under auto hyphenation, "re-sults" at 1440px. A word longer than the block's measure (a
+     phone under 200% text) breaks inside the block, never past it: on the landing's card at 320px
+     under 200% text the measure was 115px, and seven words ran up to 49px past the block. Below a
+     measure MarkedCopy's margin gives way first, and the block's side padding narrows
+     (markedBlockInsetClass), which leaves that card about 139px. */
+  -webkit-hyphens: manual;
+  hyphens: manual;
+  overflow-wrap: anywhere;
 }
 .dark .en-marked {
   border-left-color: #7FB295; /* brand-dark */
   background: rgba(127, 178, 149, 0.14); /* brand-weak-dark */
 }
 /* The margin: a gutter with a hairline on its inner edge; marks are absolutely positioned on
-   the line of the marker they twin (features/marketing/components/MarkedCopy.tsx measures them). */
+   the line of the marker they twin (components/ui/MarkedCopy.tsx measures them). */
 .en-margin {
   position: relative;
   border-right: 1px solid #CFE0D6; /* brand-border */
@@ -296,12 +317,13 @@
    "Filing Reader" spec DC. TWO classes, ONE layout:
 
    - .filing-reader — the REAL filing viewer (Item 1A, MD&A, notes). The
-     editorial serif's ONE surface: Newsreader 19/1.7, opsz auto. Serif =
-     the filing's own words.
+     editorial serif's long-form surface: Newsreader 19/1.7, opsz auto.
+     Serif = the filing's own words.
    - .markdown-body — markdown that is NOT the filing's own words (its only
      app consumer today is the AI-generated summary). Body sans, default
-     size — UI, AI summaries and Ask output never render serif, so the
-     serif register stays unambiguous.
+     size — UI, AI summaries and Ask output stay sans, except a passage the
+     server located, which the summary sets as a marked block in the serif
+     (D-044), so the serif still means the filing's own words.
 
    SHARED LAYOUT (both classes):
    - MEASURE lives on the CHILDREN (68ch), never globally; tables, figures
@@ -423,10 +445,25 @@
 
 /* links — Tailwind preflight strips BOTH anchor color and underline, so links
    inside the reader/summary rendered indistinguishable from body text (caught
-   by review on #497). Accent ink + 4px-offset underline, both themes. */
-:is(.markdown-body, .filing-reader) a {
-  @apply text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark;
+   by review on #497). A prose link prints words the product does not write
+   (the filing's own, the model's), a figure or a date among them, so it rests
+   in its prose's own ink, marked by a quiet underline (the tertiary ink; the
+   secondary on navy), and takes sage, its underline with it, only under the
+   pointer, keyboard focus drawing the brand ring (D-030: sage never colours a
+   number at rest). The whole label turns: an emphasis inside it set in an ink
+   of its own (the Copilot's bold, in the primary ink) takes the link's sage
+   too. The Copilot's answers (.copilot-answer) take the same rule.
+   A citation chip there ([data-citation-kind], CitationChip's anchor when no
+   viewer is mounted, as in the homepage's Ask demo) is no prose link and keeps
+   its own chip. A link that wraps draws its ring around each of its lines
+   (box-decoration-clone). Gates: brandCopyRules.spec.ts rule 2, its stylesheet
+   check; tests/e2e/prose-links.spec.ts, what the cascade paints. */
+:is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]) {
+  @apply rounded-sm underline decoration-text-tertiary-light underline-offset-4 box-decoration-clone transition-colors duration-fast;
+  @apply hover:text-brand-strong hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand;
+  @apply dark:decoration-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-current dark:focus-visible:shadow-ring-brand-dark;
 }
+:is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]):hover * { color: inherit; }
 
 :is(.markdown-body, .filing-reader) blockquote {
   @apply border-brand-border dark:border-brand-border-dark text-text-secondary-light dark:text-text-secondary-dark;
@@ -484,7 +521,9 @@
    in features/filings/components/copilot/highlightInDom.ts (CITATION_HIGHLIGHT_CSS). lightningcss
    (Next 16.3's CSS pipeline) does not know the ::highlight() pseudo-element: it emits a SelectorError
    warning and, with error recovery, keeps the rule, but Next's build surfaces that as "Parsing CSS
-   source code failed" on every build. Keep its colour in step with .citation-flash below. */
+   source code failed" on every build. It is the device's mark (D-044): .en-mark's tint and 2px
+   hairline above, light and dark, held to them by tests/unit/highlightInDom.spec.ts. .citation-flash
+   below is the block's attention pulse, which fades; the mark is what stays. */
 @keyframes citation-flash {
   0% { background-color: rgba(79, 122, 99, 0.30); }
   100% { background-color: transparent; }

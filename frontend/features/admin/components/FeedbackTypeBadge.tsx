@@ -6,8 +6,14 @@ import type { FeedbackType } from '@/features/admin/api/admin-api'
 
 /**
  * Neutral, icon+label chip for the kind of feedback. Type is not a status, so it stays neutral
- * (theme-paired neutral surface) rather than borrowing semantic status colors — only the
- * status badge carries semantic meaning. Each variant pairs an icon with its label.
+ * (theme-paired neutral surface) rather than borrowing semantic status colors: only the status
+ * badge carries semantic meaning. Each variant pairs an icon with its label. It takes Badge's
+ * metrics (600, a 6px gap, whitespace-nowrap), so FeedbackRow's two chips share one weight, and
+ * keeps a ground and an ink of its own. Dark carries no fill, as the status chip beside it does
+ * (Badge's status set, components/ui/Badge.tsx): a white/5 fill under the row's own white/5 hover
+ * tint drops the label to 4.27:1 on a hovered row. The hairline stays, and
+ * tests/unit/statusChipContrast.spec.ts measures the label on FeedbackRow's grounds and holds the
+ * chip to Badge's metrics.
  */
 const TYPE_CONFIG: Record<
   FeedbackType,
@@ -24,9 +30,9 @@ export default function FeedbackTypeBadge({ type }: { type: FeedbackType }) {
   return (
     <span
       className={clsx(
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold',
         'border-border-light bg-black/[0.04] text-text-secondary-light',
-        'dark:border-white/10 dark:bg-white/5 dark:text-text-secondary-dark',
+        'dark:border-white/10 dark:bg-transparent dark:text-text-secondary-dark',
       )}
     >
       <Icon className="h-3.5 w-3.5" />
