@@ -15,17 +15,17 @@
    (backend/app/services/summary_pipeline.py), not here.
 ============================================================================= */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
-import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
+import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
-import { TRIAL_DAYS } from '@/lib/planLimits'
+import { PRO_FAIR_USE_LINE, TRIAL_DAYS } from '@/lib/planLimits'
 import { useCountUp } from '@/hooks/useCountUp'
 import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { RetryButton } from '@/hooks/useRetainedFailure'
@@ -180,6 +180,12 @@ export default function StreamingSummaryDisplay({
   // hand-off), the failure card's heading takes focus nobody holds when it appears.
   const progressHeadingRef = useRef<HTMLHeadingElement>(null)
   const failureHeadingRef = useRef<HTMLHeadingElement>(null)
+  // Where the card's Retry hands focus when it leaves while holding it, resolved after the commit: the progress
+  // card's heading when its press starts the run, or this card's own heading when the card stays without its
+  // Retry (a signed-out press starts no run, and its sign-in sentence is one no retry can help).
+  const retryFocusTarget = useMemo(() => ({
+    get current() { return progressHeadingRef.current ?? failureHeadingRef.current },
+  }), [])
 
   const isError = stage === 'error' || !!error
   // A failed generation (or the monthly limit) ends the run the user is waiting on, often from page load
@@ -401,16 +407,20 @@ export default function StreamingSummaryDisplay({
           the brand-tinted upgrade card (retry can't help; the quota resets monthly). The trial
           pitch renders ONLY for trial-eligible users — a churned ex-Pro hitting this card gets a
           plain upgrade CTA, because checkout would charge them immediately (staff review, #619).
-          Everything else keeps the honest error + retry. */}
+          Everything else keeps the honest error, and a retry where one can help. */}
       {isError && isPaywallStreamError(error || message || '') ? (
         <GuidanceCard
           title="You've hit this month's free limit"
           headingLevel="h2"
           headingRef={failureHeadingRef}
           description={
-            showTrial
-              ? `Your free summaries reset next month. Or go unlimited now with a ${TRIAL_DAYS}-day free trial of Pro: cancel anytime during the trial and you won’t be charged.`
-              : 'Your free summaries reset next month. Or go unlimited now with Pro.'
+            <>
+              {showTrial
+                ? `Your free summaries reset next month. Or go unlimited now with a ${TRIAL_DAYS}-day free trial of Pro: cancel anytime during the trial and you won’t be charged.`
+                : 'Your free summaries reset next month. Or go unlimited now with Pro.'}
+              {/* What "unlimited" holds, stated once app-wide (lib/planLimits.ts PRO_FAIR_USE_LINE, E58). */}
+              <span className="mt-2 block">{PRO_FAIR_USE_LINE}</span>
+            </>
           }
           action={
             <Link href={showTrial ? pricingHref('monthly') : '/pricing'} className={buttonVariants()}>
@@ -426,17 +436,20 @@ export default function StreamingSummaryDisplay({
           headingRef={failureHeadingRef}
           description={failureReason}
           action={
-            onRetry ? (
+            // Only for a failure a retry can help. The raw message decides, read by the matcher that also stops
+            // the stream's automatic retry: Pro's fair-use pause, a sign-in or a permission error keeps its
+            // sentence and offers no Retry, since a press would only repeat the blocked request.
+            onRetry && !isNonRetryableStreamError(error || message || '') ? (
               // RetryButton (secondary by default: an error retry is never the page's primary action).
               // It restarts the SSE stream, not a query, so its failure is the stream's own state, not
               // useRetainedFailure's hold: a press clears the error in the render that starts the stream,
               // so this card never shows a run in flight (busy stays false) and leaves with the press when
               // the run starts; focus then goes to the progress card's heading, in the branch that replaced
-              // this one. A signed-out press starts no run: the card stays, with the sign-in message, and
-              // its Retry keeps focus.
+              // this one. A signed-out press starts no run: the card stays with the sign-in sentence, which
+              // no retry can help, so the Retry leaves and focus goes to this card's heading.
               <RetryButton
                 failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
-                focusTarget={progressHeadingRef}
+                focusTarget={retryFocusTarget}
               />
             ) : undefined
           }
