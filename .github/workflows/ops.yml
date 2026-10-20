@@ -18,7 +18,8 @@ name: Ops
 #     waits for the founder's approval before any step runs: the approve-apply job runs in the
 #     `ops-apply` environment, whose required reviewer is the founder (Settings > Environments). The
 #     ops job runs an -apply only after that job has passed, and only in a run's first attempt: any
-#     re-run of an apply writes nothing, so a retry is a fresh dispatch the founder approves again.
+#     re-run of an apply writes nothing and fails visibly (the refuse-rerun job), so a retry is a
+#     fresh dispatch the founder approves again.
 #     A rejected, cancelled or expired approval runs nothing. The run executes the commit main had
 #     at dispatch, so an approval given after main has moved is a reason to reject and re-dispatch.
 #     The ops job keeps its own OIDC subject: no environment on it. Ungated on purpose:
@@ -26,10 +27,11 @@ name: Ops
 #     backfill-filing-history (writes the app makes on its own).
 #     Known limits: the gate binds main's ops.yml, not the credential (WIF trusts every ref, so a
 #     workflow on another branch could write unapproved; docs/data-quality-remediation-log.md);
-#     an environment without a required reviewer would let approve-apply pass at once, so the ops
-#     job refuses an apply unless the environment names one (fail closed); and sessions act
-#     through the founder's account, so .claude/hooks/ops_approval_guard.py refuses a Claude Code
-#     session the approval and environment calls, while Codex and Astra load no hooks (AGENTS.md §5).
+#     approve-apply passes at once when the environment requires no reviewer, so the ops job
+#     refuses an apply unless this run records an approval of `ops-apply` (fail closed); and
+#     sessions act through the founder's account, so .claude/hooks/ops_approval_guard.py refuses a
+#     Claude Code session the approval and environment calls, while Codex and Astra load no hooks
+#     (AGENTS.md §5).
 #   - The ops job's `concurrency: ops` serializes operations; the approval job sits outside the
 #     group, so an apply waiting for approval holds up no other dispatch. Once approved, an apply
 #     queues like any dispatch, and GitHub holds ONE pending run per group, so a later pending
@@ -118,8 +120,8 @@ jobs:
   ops:
     # Operations run against production, so only the reviewed definition on main may run: a
     # dispatch from another ref is skipped before any step executes. An -apply operation runs only
-    # after approve-apply passes, and only in the run's first attempt; any other operation runs when
-    # approve-apply is skipped.
+    # after approve-apply passes, and only in the run's first attempt (refuse-rerun fails a later
+    # one); any other operation runs when approve-apply is skipped.
     needs: approve-apply
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
     concurrency:
@@ -189,23 +191,25 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Requested operation: $OP"
 
-      - name: Refuse an apply unless the ops-apply environment requires a reviewer
-        # The approval job only waits while the environment names a required reviewer. Before the
-        # founder adds one (F51), or after anyone removes it or deletes the environment, it would pass
-        # at once, so an apply stops here instead: the gate fails closed.
+      - name: Refuse an apply that no one approved in this run
+        # approve-apply passes at once while the ops-apply environment requires no reviewer: before the
+        # founder adds one (F51), or after anyone removes it or deletes the environment. So an apply
+        # stops here unless this run's review history records an approval of ops-apply: the gate fails
+        # closed. It reads the run's approvals, not the environment's settings, which a reviewer added
+        # while this job queued behind another dispatch would satisfy with no one having approved.
         if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', steps.request.outputs.operation)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          REVIEWERS="$(gh api "repos/$GITHUB_REPOSITORY/environments/ops-apply" \
-            --jq '[.protection_rules[]? | select(.type == "required_reviewers")] | length' 2>/dev/null || true)"
-          case "$REVIEWERS" in ''|*[!0-9]*) REVIEWERS=0 ;; esac  # an unreadable answer counts as none
-          if [ "$REVIEWERS" -lt 1 ]; then
-            echo "::error::the ops-apply environment requires no reviewer, so this apply was not approved by the founder; see tasks/todo.md F51"
+          APPROVED="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
+            --jq '[.[] | select(.state == "approved") | .environments[]? | select(.name == "ops-apply")] | length' 2>/dev/null || true)"
+          case "$APPROVED" in ''|*[!0-9]*) APPROVED=0 ;; esac  # an unreadable or non-numeric answer counts as none
+          if [ "$APPROVED" -lt 1 ]; then
+            echo "::error::no approval of ops-apply is recorded for this run (none was given, or the answer could not be read), so this apply stops; see tasks/todo.md F51"
             exit 1
           fi
-          echo "ops-apply requires a reviewer; the approval stands."
+          echo "This run records an approval of ops-apply; the apply proceeds."
 
       - name: Refuse to run while a main push (deploy) is in flight
         # deploy-backend (ci.yml) applies migrations to the same database and re-images the jobs this
@@ -593,3 +597,22 @@ jobs:
           gcloud run services update-traffic "$SERVICE" --region="$REGION" \
             --to-revisions="${REVISION}=100"
           echo "traffic pinned to ${REVISION} — remember to re-run update-traffic --to-latest after the fix deploys"
+
+  refuse-rerun:
+    # A re-run of an -apply writes nothing: the ops job runs an apply only in a run's first attempt,
+    # so a re-run skips it, and GitHub would then mark the run green, which is easy to report as done.
+    # This job fails such a re-run instead, so it reads as a refusal, not a success. GitHub re-runs a
+    # job's dependents with it, so "Re-run failed jobs" re-runs this job with ops; a first attempt,
+    # and every other operation, skips it.
+    needs: ops
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', inputs.operation) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Refuse a re-run of an apply
+        env:
+          OP: ${{ inputs.operation }}
+        run: |
+          echo "::error::a re-run of $OP writes nothing: an apply runs only in a run's first attempt, so dispatch it again and approve the new run"
+          exit 1

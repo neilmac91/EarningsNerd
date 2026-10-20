@@ -26,10 +26,14 @@ connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a g
 script would replace them, so none may exist.
 
 Every -apply operation waits for the founder's approval: an approval job in the `ops-apply`
-environment, whose required reviewer is the founder, runs for exactly those operations, and the
-operations job runs only once it has passed or been skipped. The operations job keeps no environment,
-so its OIDC subject is unchanged, and the `ops` concurrency group is its own, so a wait for approval
-holds up no other dispatch.
+environment, whose required reviewer is the founder, runs for exactly those operations. The
+operations job runs an -apply only once that job has passed, and only in the run's first attempt,
+and runs every other operation when that job is skipped. Before the cloud sign-in, and after the
+resolve step names the operation, an apply stops unless the run records an approval of `ops-apply`
+(what that step does is run in `test_workflow_dispatch_inputs.py`). A re-run of an apply fails in its
+own job rather than reading green. The operations job keeps no environment, so its OIDC subject is
+unchanged, and the `ops` concurrency group is its own, so a wait for approval holds up no other
+dispatch.
 
 `inputs[...]` and `outputs[...]` index syntax, which these checks would not see, is refused.
 """
@@ -155,8 +159,10 @@ def test_every_apply_operation_waits_for_the_founders_approval():
     environment, with no token and nothing that could turn a rejection into a pass (no
     `continue-on-error`, no concurrency group). The operations job needs it, runs an -apply only once
     it has passed and only in the run's first attempt, runs every other operation when it is skipped,
-    carries no environment of its own and holds the `ops` concurrency group alone."""
-    approve, ops = OPS["jobs"]["approve-apply"], OPS["jobs"]["ops"]
+    carries no environment of its own and holds the `ops` concurrency group alone. Its approval check
+    runs for every apply after the resolve step and before the cloud sign-in, and the refuse-rerun job
+    fails a later attempt of an apply, with no token, no action and no environment."""
+    approve, ops, rerun = OPS["jobs"]["approve-apply"], OPS["jobs"]["ops"], OPS["jobs"]["refuse-rerun"]
     applies = {op for op in OPTIONS if op.endswith("-apply")}
     assert selected(approve) == applies != set()
     assert set(approve) == {"if", "runs-on", "timeout-minutes", "environment", "permissions", "steps"}
@@ -170,11 +176,21 @@ def test_every_apply_operation_waits_for_the_founders_approval():
         f"&& !contains('{listed}', inputs.operation)) || (needs.approve-apply.result == 'success' "
         "&& github.run_attempt == '1')) }}")
     assert "concurrency" not in OPS and ops["concurrency"] == {"group": "ops", "cancel-in-progress": "false"}
-    # The approval only waits while the environment names a reviewer, so an apply also stops unless it
-    # does: before the founder adds one, or after anyone removes it. Checked before the cloud sign-in.
+    # approve-apply passes at once while the environment requires no reviewer, so an apply also stops
+    # unless the run records an approval. The check reads the resolved operation, so it comes after the
+    # step that writes it (before, the operation reads '', which contains() finds in any list), and
+    # before the cloud sign-in.
     names = [step.get("name") for step in STEPS]
-    at = names.index("Refuse an apply unless the ops-apply environment requires a reviewer")
-    check = STEPS[at]
-    assert selected(check) == applies and at < names.index("Authenticate to Google Cloud")
-    assert "environments/ops-apply" in check["run"] and '"required_reviewers"' in check["run"]
-    assert "REVIEWERS=0" in check["run"] and 'exit 1' in check["run"], "an unreadable answer must count as no reviewer"
+    at = names.index("Refuse an apply that no one approved in this run")
+    request_at = next(index for index, step in enumerate(STEPS) if step.get("id") == "request")
+    assert selected(STEPS[at]) == applies and request_at < at < names.index("Authenticate to Google Cloud")
+    # A re-run skips the operations job, which GitHub would mark green: refuse-rerun fails it instead,
+    # for the approval job's operations, on every attempt but the first.
+    assert set(rerun) == {"needs", "if", "runs-on", "timeout-minutes", "permissions", "steps"}  # no environment
+    assert (rerun["needs"], rerun["permissions"]) == ("ops", {})
+    assert [step.get("uses") for step in rerun["steps"]] == [None], "the refusal runs no action"
+    approval_listed = re.search(r"contains\('([^']*)', inputs\.operation\)", approve["if"]).group(1)
+    assert rerun["if"] == (
+        "${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' "
+        f"&& contains('{approval_listed}', inputs.operation) }}}}")
+    assert rerun["steps"][0]["run"].rstrip().endswith("exit 1"), "the refusal must fail the run"

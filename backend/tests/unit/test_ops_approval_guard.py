@@ -4,7 +4,8 @@ in `.github/workflows/ops.yml`).
 
 Each case runs the hook as `.claude/settings.json` registers it: the registered command, through the
 shell, with CLAUDE_PROJECT_DIR set, on the event Claude Code sends. A refusal is a JSON deny on stdout
-with exit 0; a call let through exits 0 with no output. Text that only names the API passes.
+with exit 0; a call let through exits 0 with no output. Text that names the API passes when it
+travels by a route that is not an API call on the same line.
 """
 from __future__ import annotations
 
@@ -61,18 +62,35 @@ def test_the_guard_runs_before_every_bash_command():
     "gh api graphql -f query='mutation { deleteEnvironment(input: {id: \"x\"}) { clientMutationId } }'",
     # Text that names the API on a line that calls it: refused, and the reason says how to send it instead.
     "gh api repos/o/r/pulls/1415/comments/1/replies -f body='Only the founder answers pending_deployments.'",
+    # So is a here-document that writes the body file, with the call that sends it, on one line.
+    "cat > reply.md <<'EOF' && gh api repos/o/r/issues/1/comments -F body=@reply.md\n"
+    "Only the founder answers pending_deployments.\nEOF",
 ])
 def test_a_call_to_the_deployment_review_api_is_refused(command):
     decision = _decision("Bash", {"command": command})
     assert decision == {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                         "permissionDecisionReason": decision["permissionDecisionReason"]}
-    assert "Only the founder approves an Ops apply" in decision["permissionDecisionReason"]
-    assert "send that text from a file" in decision["permissionDecisionReason"]
+    reason = decision["permissionDecisionReason"]
+    assert "Only the founder approves an Ops apply" in reason
+    # The way out works in the form a session reaches for: the file written first, the call on its own.
+    assert "send that text from a file written by an earlier command or by the Write tool" in reason
+    assert "make the API call a command of its own" in reason
 
 
-def test_a_mutation_in_a_file_the_api_call_sends_is_refused(tmp_path):
+# gh sends all three to the GraphQL endpoint: `/graphql` as a REST path, which names the same URL.
+@pytest.mark.parametrize("path", ["graphql", "/graphql", "https://api.github.com/graphql"])
+def test_a_mutation_in_a_file_the_api_call_sends_is_refused(tmp_path, path):
     (tmp_path / "q.graphql").write_text("mutation { rejectDeployments(input: {}) { clientMutationId } }")
-    assert _decision("Bash", {"command": "gh api graphql -F query=@q.graphql"}, cwd=tmp_path) is not None
+    assert _decision("Bash", {"command": f"gh api {path} -F query=@q.graphql"}, cwd=tmp_path) is not None
+
+
+def test_a_graphql_reply_whose_body_file_names_the_review_api_passes(tmp_path):
+    """A file a GraphQL call sends is searched for the mutations only: a reply may name the REST paths."""
+    (tmp_path / "reply.md").write_text("Only the founder answers pending_deployments on /environments/ops-apply.")
+    query = ("mutation($body: String!) { addPullRequestReviewThreadReply(input: "
+             "{pullRequestReviewThreadId: \"PRRT_x\", body: $body}) { comment { id } } }")
+    command = f"gh api graphql -f query='{query}' -F body=@reply.md"
+    assert _decision("Bash", {"command": command}, cwd=tmp_path) is None
 
 
 @pytest.mark.parametrize("tool,tool_input", [
@@ -87,7 +105,8 @@ def test_text_that_only_names_the_api_passes(tool, tool_input):
 
 
 @pytest.mark.parametrize("command", [
-    "gh api repos/o/r/issues/1/comments -F body=@reply.md",  # a REST call's file: no path comes from it
+    # The refused here-document's call alone, its file already written: a REST call's file gives no path.
+    "gh api repos/o/r/issues/1/comments -F body=@reply.md",
     "gh pr comment 1 --body-file reply.md",  # no API call on the line
 ])
 def test_text_that_names_the_api_passes_from_a_file(tmp_path, command):
