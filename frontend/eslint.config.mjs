@@ -1,7 +1,7 @@
 import next from 'eslint-config-next'
 import { RAW_FETCH_ALLOWLIST_FILES } from './eslint.rawFetchAllowlist.mjs'
 import gridBaseTrackPlugin from './eslint.gridBaseTrack.mjs'
-import designRulesPlugin from './eslint.designRules.mjs'
+import designRulesPlugin, { LANDING_GRID_FILES } from './eslint.designRules.mjs'
 
 // Flat config (ESLint 9). Replaces the legacy .eslintrc.json:
 //   extends ["next/core-web-vitals", "next/typescript"]  ->  ...next
@@ -274,6 +274,17 @@ const config = [
       'earningsnerd/no-unguarded-animation': 'error',
       'earningsnerd/locale-pinned-numbers': 'error',
       'earningsnerd/no-hand-rolled-toggle-group': 'error',
+    },
+  },
+  // D-045: the landing page lays nothing out four across (no-four-up-grid, the same plugin and class-string walker).
+  // It reads the landing's own composition, LANDING_GRID_FILES (the route, the marketing modules and the sections the
+  // route mounts from other features, held to the route's imports by tests/unit/landing-sections-mounted.spec.ts);
+  // the product screens the landing demos keep their own layouts.
+  {
+    files: LANDING_GRID_FILES,
+    ignores: TEST_FILES,
+    rules: {
+      'earningsnerd/no-four-up-grid': 'error',
     },
   },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.
