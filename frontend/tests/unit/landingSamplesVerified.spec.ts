@@ -336,8 +336,8 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
   it("lets the landing's three series count their own data notes, never the whole run's", () => {
     const landing = samples.SAMPLE_ANALYSIS_DATASET
     expect(landing.series.map((series) => series.concept)).toEqual(['revenue', 'net_income', 'net_margin'])
-    expect(Object.hasOwn(landing, 'data_notes')).toBe(false)
-    expect(resolveDataNotes(landing).totals.total).toBe(landing.series.length * landing.periods.length)
+    expect(Object.hasOwn(landing, 'data_notes'), 'the landing view carries notes counted over every series of the run').toBe(false)
+    expect(resolveDataNotes(landing).totals.total, 'figures the landing counts').toBe(landing.series.length * landing.periods.length)
     // The reading the landing relies on, over the whole run, gives the pipeline's own notes.
     const { data_notes: pipelineNotes, ...withoutNotes } = dataset
     const { notes, totals } = resolveDataNotes(withoutNotes)
