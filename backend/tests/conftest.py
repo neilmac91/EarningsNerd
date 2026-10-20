@@ -491,10 +491,16 @@ def _checked_os_spawn(spawn):
     return checked
 
 
-def _names_git_config(word):
-    """Whether a word of a start is git's config command: `config` after git, or the `git-config` program git
-    keeps in its exec path for it."""
-    return word == "config" or os.path.basename(word) == "git-config"
+def _runs_git_config(words):
+    """Whether these words of a start run git's config command: `config` after a word naming git, or the
+    `git-config` program git keeps in its exec path for it."""
+    git = False
+    for word in words:
+        program = os.path.basename(word)
+        if program == "git-config" or git and word == "config":
+            return True
+        git = git or program == "git"
+    return False
 
 
 def _expands(word):
@@ -531,7 +537,7 @@ def _git_null_target(args, env, shell=False):
             name, equals, value = word.partition("=")
             if equals and name in _GIT_WRITE_TARGETS and (names_null(value) or shell_lines and _expands(value)):
                 return word
-            option = _CONFIG_FILE_OPTION.fullmatch(word) if any(map(_names_git_config, words[:index])) else None
+            option = _CONFIG_FILE_OPTION.fullmatch(word) if _runs_git_config(words[:index]) else None
             if option:
                 attached = option["long"] or option["short"]
                 given = attached or (words[index + 1] if index + 1 < len(words) else None)
@@ -543,6 +549,45 @@ def _git_null_target(args, env, shell=False):
 
 
 _install_git_null_guard()
+
+
+def _install_null_device_path_guard():
+    """No call in this pytest process may rename over, move or remove the null device.
+
+    ``os.rename``, ``os.replace``, ``os.unlink`` and ``os.remove`` (``shutil.move`` and ``pathlib`` go through them)
+    fail the test before the call when a path they would replace, move or remove is ``os.devnull``: an atomic writer
+    handed the device as its target, a cleanup that removes it, or a test that breaks it and puts it back within one
+    phase, which the phase checks above, reading the device at each phase's end, cannot see. A path is compared as
+    written, so a call on a link to the device, which replaces the link, passes. A call given a ``dir_fd`` is outside
+    it, as is a program the test starts, whose git starts the process guard above reads.
+    """
+    if getattr(os.replace, "checks_null_device", False):
+        return  # installed already in this process
+    for name, count in (("rename", 2), ("replace", 2), ("unlink", 1), ("remove", 1)):
+        setattr(os, name, _checked_null_device_path(getattr(os, name), count))
+
+
+def _checked_null_device_path(call, count):
+    def checked(*args, **options):
+        if not any(key.endswith("dir_fd") and value is not None for key, value in options.items()):
+            paths = [*args[:count], *(options[key] for key in ("src", "dst", "path") if key in options)]
+            for path in paths:
+                try:
+                    named = os.path.abspath(os.fsdecode(os.fspath(path))) == os.path.abspath(os.devnull)
+                except (TypeError, ValueError):
+                    named = False
+                if named:
+                    pytest.fail(f"os.{call.__name__} would replace or remove the null device ({os.devnull}): as root, "
+                                "it is gone for every process until someone restores it. Give the call a file in the "
+                                "test's temp directory instead "
+                                "(lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
+        return call(*args, **options)
+
+    checked.checks_null_device = True
+    return checked
+
+
+_install_null_device_path_guard()
 
 
 # Stream tests that drive the real ``stream_filing_summary`` with a mocked 10-K (CIK 1234567890)

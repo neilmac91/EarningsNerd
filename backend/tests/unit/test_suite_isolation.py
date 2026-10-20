@@ -290,22 +290,21 @@ def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
 # symlink, so the real /dev/null is never at stake, whether the run is root or not. A case that replaces it
 # puts the symlink back in its teardown, so the next case starts with the device.
 _NULL_DEVICE_PROBE = (
-    "import os\n"
+    "import os, subprocess\n"
     "from pathlib import Path\n\n"
     "import pytest\n\n"
     "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
     "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
     "DEVICE = os.readlink(STAND_IN)\n"
     "os.devnull = str(STAND_IN)  # the null device conftest's checks watch in this process\n\n"
-    "def replace():  # as a git config write does: a lock file renamed over its target\n"
+    "def replace():  # as a git config write does: a program renames a lock file over its target\n"
     "    lock = STAND_IN.with_name(STAND_IN.name + '.lock')\n"
     "    lock.write_text('[probe]\\n\\tkey = value\\n', encoding='utf-8')\n"
-    "    os.replace(lock, STAND_IN)\n\n"
+    "    subprocess.run(['mv', '-f', str(lock), str(STAND_IN)], check=True)\n\n"
     "@pytest.fixture\n"
     "def put_back():\n"
     "    yield\n"
-    "    STAND_IN.unlink()\n"
-    "    STAND_IN.symlink_to(DEVICE)\n\n"
+    "    subprocess.run(['ln', '-sfn', DEVICE, str(STAND_IN)], check=True)\n\n"
     "@pytest.fixture(scope='session')\n"
     "def replaced_by_a_session_fixture():\n"
     "    replace()\n\n"
@@ -362,12 +361,12 @@ def test_a_test_that_replaces_the_null_device_fails(tmp_path):
 
 
 _NULL_DEVICE_IMPORT_PROBE = (
-    "import os\n"
+    "import os, subprocess\n"
     "from pathlib import Path\n\n"
     "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
     "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
     "os.devnull = str(STAND_IN)\n"
-    "STAND_IN.unlink()\n"
+    "subprocess.run(['rm', '-f', str(STAND_IN)], check=True)\n"
     "STAND_IN.write_text('[probe]\\n', encoding='utf-8')  # lost as the module is imported, outside every test\n\n"
     "def test_passes():\n"
     "    pass\n"
@@ -384,6 +383,55 @@ def test_a_run_that_loses_the_null_device_outside_every_test_fails(tmp_path):
     summary = result.stdout.strip().splitlines()[-1]
     assert result.returncode == 1 and "1 passed" in summary and "error" not in summary, result.stdout[-3000:]
     assert f"{stand_in} stopped being the null device during this run -- session FAILED" in result.stdout
+
+
+# Each test renames over, moves or removes the null device in its own process, as an atomic writer or a cleanup
+# would. The first breaks it and puts it back within its call, which no check at a phase's end can see (Codex's case).
+_NULL_DEVICE_CALL_PROBE = (
+    "import os, shutil\n"
+    "from pathlib import Path\n\n"
+    "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
+    "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
+    "os.devnull = str(STAND_IN)\n\n"
+    "def written(name):\n"
+    "    path = STAND_IN.with_name(name)\n"
+    "    path.write_text('x', encoding='utf-8')\n"
+    "    return path\n\n"
+    "def test_replaces_it_and_puts_it_back_within_its_call():\n"
+    "    device = os.readlink(STAND_IN)\n"
+    "    os.replace(written('a'), STAND_IN)\n"
+    "    os.remove(STAND_IN)\n"
+    "    os.symlink(device, STAND_IN)\n\n"
+    "def test_renames_a_file_over_it():\n"
+    "    os.rename(written('b'), os.devnull)\n\n"
+    "def test_moves_it_away():\n"
+    "    os.rename(os.devnull, STAND_IN.with_name('moved'))\n\n"
+    "def test_moves_it_away_by_keyword():\n"
+    "    os.replace(src=os.devnull, dst=str(STAND_IN.with_name('moved')))\n\n"
+    "def test_removes_it():\n"
+    "    os.unlink(os.devnull)\n\n"
+    "def test_removes_it_through_pathlib():\n"
+    "    Path(os.devnull).unlink()\n\n"
+    "def test_moves_a_file_over_it_with_shutil():\n"
+    "    shutil.move(str(written('c')), os.devnull)\n\n"
+    "def test_replaces_another_file():\n"
+    "    os.replace(written('d'), STAND_IN.with_name('e'))\n"
+)
+
+
+def test_a_test_that_renames_over_or_removes_the_null_device_in_its_process_fails(tmp_path):
+    stand_in = tmp_path / "null"
+    stand_in.symlink_to(os.devnull)
+    probe = tmp_path / "test_null_device_call_probe.py"
+    probe.write_text(_NULL_DEVICE_CALL_PROBE, encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe),
+                           extra_env={"NULL_STAND_IN": str(stand_in)})
+    summary = result.stdout.strip().splitlines()[-1]
+    # Each call fails its test before it runs, so the stand-in is never touched and no check at a phase's end fires.
+    assert result.returncode == 1 and all(count in summary for count in ("7 failed", "1 passed")), result.stdout[-3000:]
+    assert result.stdout.count("would replace or remove the null device") >= 7, result.stdout[-3000:]
+    assert "stopped being the null device" not in result.stdout, result.stdout[-3000:]
+    assert stand_in.is_symlink() and os.readlink(stand_in) == os.devnull
 
 
 # A plugin the child loads before conftest, so the device its run starts with is already an ordinary file.
@@ -412,7 +460,7 @@ def test_a_run_that_starts_with_a_broken_null_device_fails(tmp_path):
 
 # The probe builds git's variable name and option from parts, as the source gate would refuse them whole.
 _GIT_NULL_PROBE = (
-    "import os, shutil, subprocess\n"
+    "import os, shutil, subprocess, sys\n"
     "import pytest\n\n"
     "NAME = 'GIT_CONFIG_' + 'GLOBAL'\n"
     "FILE = '--' + 'file'\n\n"
@@ -458,6 +506,7 @@ _GIT_NULL_PROBE = (
     "def test_starts_git_plainly():\n"
     "    subprocess.run(['git', '--version'], capture_output=True, check=True)\n"
     "    subprocess.run(['git', 'config', '-f', '$LITERAL', '--list'], capture_output=True)  # no shell expands it\n"
+    "    subprocess.run([sys.executable, '-c', 'pass', 'config', '-' + 'f', os.devnull], check=True)  # no git runs\n"
 )
 
 

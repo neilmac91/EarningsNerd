@@ -12,15 +12,18 @@ a keyword or a pair of call arguments that gives one of those variables the devi
 gives it as the file, where the device is `os.devnull`, "/dev/null", a name the file binds to either (plainly,
 annotated, by unpacking or with `:=`) or imports under a name of its own (`from os import devnull as NULL`), or any
 of those inside calls (`str(os.devnull)`), an f-string or a conditional; and a string, literal or built with an
-f-string or `+`, that holds the shell form. Every other tracked program is searched for the shell form: a code
-file by its suffix, a build or container file by its name (`Makefile`, `Dockerfile`), a dotenv file, and any file
-in the executable mode or opening with `#!`, whatever whitespace
-separates its parts and whatever comes between `config` and its file option in one command. The file option is read
+f-string or `+`, that holds the shell form. Every other tracked text file but Markdown is searched for the shell
+form, whatever its name or mode (a file is text when its first 8 KiB hold no NUL byte, git's own test), whatever
+whitespace separates its parts and whatever comes between git's `config` and its file option in one command, and a
+shell variable the file binds to the device (`TARGET=/dev/null`, `TARGET: /dev/null` in YAML, or through another
+such variable) counts as the device there. `config` counts after a word naming git, or as the `git-config`
+program, in Python and in text alike. The file option is read
 as git's option parser reads it: `--file` or its abbreviation `--fil`, and `-f` alone or after other short options,
 the file after `=`, attached or next. A device that reaches git from another module, a string built any other way
-(`%`, `str.format`, a join) or out of variables, a linker's `-o` and an atomic writer's target stay review-checked,
-with conftest's process guard and null-device checks behind them; curl's `-o` writes in place and leaves the device
-alone.
+(`%`, `str.format`, a join) or out of variables, a linker's `-o` and an atomic writer that another program runs
+stay review-checked, with conftest's process guard and null-device checks behind them; an atomic writer in the
+test's own process, which renames over its target, is conftest's path guard's to refuse, and curl's `-o` writes
+in place and leaves the device alone.
 """
 from __future__ import annotations
 
@@ -35,19 +38,29 @@ ROOT = Path(__file__).resolve().parents[3]
 GIT_VARIABLES = {"GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG", "GIT_INDEX_FILE"}
 NULL_PATH = "/dev/null"
 NULL = r"(?:[\w.]+\(\s*['\"]?)*(?:os\.devnull|/dev/null)"  # wrapped in calls or not: str(os.devnull)
-SHELL_FORM = re.compile(
-    # A variable naming a file git writes: `NAME=`, `NAME: ` (YAML, JSON), `"NAME", ` (an argument pair).
-    rf"GIT_(?:CONFIG(?:_GLOBAL|_SYSTEM)?|INDEX_FILE)[\s\"'\])]*[:=,][\s\"'(\[]*{NULL}"
-    # git config's file option later in the same command (a continued line counts; `;`, `&` or `|` ends it).
-    rf"|\bconfig\b(?:[^\n;&|]|\\\n)*?(?<![\w-])(?:--fil(?:e)?(?:=|[\s\"',]+)|-[a-eg-zA-Z]*f[\s\"',]*)[\"'(]*{NULL}"
-)
+
+
+def _shell_form(device: str) -> re.Pattern[str]:
+    """The shell form, where `device` is the pattern of what names the null device."""
+    return re.compile(
+        # A variable naming a file git writes: `NAME=`, `NAME: ` (YAML, JSON), `"NAME", ` (an argument pair).
+        rf"GIT_(?:CONFIG(?:_GLOBAL|_SYSTEM)?|INDEX_FILE)[\s\"'\])]*[:=,][\s\"'(\[]*{device}"
+        # git's config command (`git config`, the `git-config` program), then its file option, in one command (a
+        # continued line counts; `;`, `&` or `|` ends it).
+        rf"|\bgit\b(?:[^\n;&|]|\\\n)*?\bconfig\b(?:[^\n;&|]|\\\n)*?(?<![\w-])"
+        rf"(?:--fil(?:e)?(?:=|[\s\"',]+)|-[a-eg-zA-Z]*f[\s\"',]*)[\"'(]*{device}"
+    )
+
+
+SHELL_FORM = _shell_form(NULL)
+# A shell variable a file binds to the device or to another such variable: `NAME=/dev/null`, or `NAME: /dev/null`
+# in YAML (a workflow's env).
+SHELL_BINDING = re.compile(r"(?<![\w$])([A-Za-z_]\w*)[ \t]*[:=][ \t]*([\"']?)"
+                           r"(/dev/null|\$\{?[A-Za-z_]\w*\}?)\2(?![\w/.-])")
 # One word of git config's file option, as conftest's process guard reads it: `--file` or `--fil`, the file after
 # `=` or in the next word; `-f` alone or after other short options (`-zf`), the file attached or in the next word.
 CONFIG_FILE_OPTION = re.compile(r"--fil(?:e)?(?:=(?P<long>.*))?|-[a-eg-zA-Z]*f(?P<short>.*)")
-CODE = {".py", ".sh", ".bash", ".yml", ".yaml", ".toml", ".cfg", ".ini", ".json", ".js", ".mjs", ".cjs", ".ts", ".tsx"}
-# Files that run commands or set their environment by name rather than by suffix.
-PROGRAM_NAMES = {"Dockerfile", "Containerfile", "Makefile", "GNUmakefile", "makefile", "Justfile", "justfile",
-                 "Procfile"}
+PROSE = {".md", ".mdx"}  # read by people, never run; the lesson describes the pattern
 
 
 class _NullTargets(ast.NodeVisitor):
@@ -173,7 +186,7 @@ class _NullTargets(ast.NodeVisitor):
         """`git config`, or the `git-config` program git keeps for it, given the device as its file in a sequence
         of arguments."""
         words = [self._text(item) for item in items]
-        if not any(word == "config" or word.rsplit("/", 1)[-1] == "git-config" for word in words):
+        if not _runs_git_config(words):
             return
         for index, word in enumerate(words):
             option = CONFIG_FILE_OPTION.fullmatch(word)
@@ -182,53 +195,66 @@ class _NullTargets(ast.NodeVisitor):
                 self.lines.append(items[index].lineno)
 
 
+def _runs_git_config(words: list[str]) -> bool:
+    """Whether a sequence of words runs git's config command: `config` after a word naming git, or the `git-config`
+    program, as conftest's process guard reads a start."""
+    git = False
+    for word in words:
+        program = word.rsplit("/", 1)[-1]
+        if program == "git-config" or git and word == "config":
+            return True
+        git = git or program == "git"
+    return False
+
+
 def _hits(path: Path, text: str) -> list[int]:
     if path.suffix == ".py":
         try:
             return _NullTargets(ast.parse(text)).lines
         except SyntaxError:
             pass  # read it as text instead
-    return [text.count("\n", 0, match.start()) + 1 for match in SHELL_FORM.finditer(text)]
+    bindings, bound, found = SHELL_BINDING.findall(text), set(), True
+    while found:  # a variable bound to the device, or to such a variable, however long the chain
+        found = {name for name, _, value in bindings
+                 if name not in bound and (value == NULL_PATH or value.strip("${}") in bound)}
+        bound |= found
+    form = _shell_form(rf"(?:{NULL}|\$\{{?(?:{'|'.join(sorted(bound))})\}}?(?!\w))") if bound else SHELL_FORM
+    return [text.count("\n", 0, match.start()) + 1 for match in form.finditer(text)]
 
 
-def _is_program(path: Path, mode: str, head: bytes) -> bool:
-    """Whether a tracked file is a program the gate reads: a code suffix, a build or container file by name, a
-    `.mk` file, a dotenv file, the executable mode (`git ls-files -s`'s 100755) or a `#!` line. Prose and records
-    (Markdown, text, logs) may describe the pattern."""
-    return (path.suffix in CODE or path.name in PROGRAM_NAMES or path.suffix == ".mk" or path.name.startswith(".env")
-            or mode == "100755" or head.startswith(b"#!"))
+def _is_read(path: Path, head: bytes) -> bool:
+    """Whether the gate reads a tracked file: any text file (no NUL byte in its first 8 KiB, git's own test for a
+    binary file), whatever its name or mode, since `bash <file>` runs it all the same, but Markdown, which is prose."""
+    return path.suffix not in PROSE and b"\0" not in head
 
 
 def _tracked_code() -> list[Path]:
-    """Every tracked program but this file, whose cases name the pattern on purpose."""
-    listed = subprocess.run(["git", "ls-files", "-s", "-z"], cwd=ROOT, capture_output=True, check=True).stdout
+    """Every tracked text file the gate reads but this one, whose cases name the pattern on purpose."""
+    listed = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True).stdout
     found = []
-    for entry in listed.decode("utf-8").split("\0"):
-        info, _, name = entry.partition("\t")  # <mode> <object> <stage>, then the path
+    for name in listed.decode("utf-8").split("\0"):
         path = ROOT / name
         if not name or path.resolve() == Path(__file__).resolve() or not path.is_file():
             continue
         with path.open("rb") as handle:
-            head = handle.read(2)
-        if _is_program(path, info.split(" ", 1)[0], head):
+            head = handle.read(8192)
+        if _is_read(path, head):
             found.append(path)
     return found
 
 
-@pytest.mark.parametrize(("name", "mode", "head", "program"), [
-    ("tools/run", "100755", b"set -e\n", True),  # executable, without a suffix or a #! line
-    ("tools/run", "100644", b"#!/bin/sh\n", True),
-    ("Makefile", "100644", b"all:\n", True),
-    ("build/rules.mk", "100644", b"x:\n", True),
-    ("frontend/.env.local", "100644", b"A=1\n", True),
-    ("backend/Dockerfile", "100644", b"FROM x\n", True),
-    ("scripts/sync.sh", "100644", b"set -e\n", True),
-    ("tasks/notes", "100644", b"plain\n", False),
-    ("lessons/a.md", "100644", b"# a\n", False),
-    ("tasks/run.log", "100644", b"$ git\n", False),
+@pytest.mark.parametrize(("name", "head", "read"), [
+    ("tools/run", b"set -e\n", True),  # no suffix, mode or #! line: `bash tools/run` runs it all the same
+    ("Makefile", b"all:\n", True),
+    ("frontend/.env.local", b"A=1\n", True),
+    ("tasks/run.log", b"$ git\n", True),
+    ("scripts/sync.sh", b"set -e\n", True),
+    ("lessons/a.md", b"# a\n", False),
+    ("docs/b.mdx", b"# b\n", False),
+    ("frontend/public/logo.png", b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR", False),
 ])
-def test_the_gate_reads_every_tracked_program(name, mode, head, program):
-    assert _is_program(Path(name), mode, head) is program
+def test_the_gate_reads_every_tracked_text_file_but_markdown(name, head, read):
+    assert _is_read(Path(name), head) is read
 
 
 def test_no_tracked_code_gives_git_the_null_device_to_write():
@@ -293,6 +319,7 @@ def test_the_gate_finds_each_python_form(code):
     'os.system("git status > " + os.devnull)',  # a redirect
     'def f():\n    """GIT_CONFIG_GLOBAL=/dev/null would replace the device."""\n',  # a docstring describes it
     "# GIT_CONFIG_GLOBAL=/dev/null in a comment\nx = 1",
+    'subprocess.run([sys.executable, "-c", "pass", "config", "-f", os.devnull])',  # config, but no git
 ])
 def test_the_gate_passes_python_that_leaves_the_device_alone(code):
     assert not _NullTargets(ast.parse(code)).lines, code
@@ -333,6 +360,21 @@ def test_the_gate_finds_each_shell_form(text):
     "git config -f ./c a.b c 2>/dev/null",  # a redirect after a file of its own
     "git config a.b c && ln -sf /dev/null x",  # another command on the line
     "git config alias.x-f /dev/null",  # a key that ends in -f, given the device as its value
+    "python -c pass config -f /dev/null",  # config, but no git
 ])
 def test_the_gate_passes_shell_that_leaves_the_device_alone(text):
     assert not SHELL_FORM.search(text)
+
+
+@pytest.mark.parametrize(("text", "found"), [
+    ('TARGET=/dev/null\ngit config -f "$TARGET" a.b c', True),
+    ('export SINK=/dev/null\nOTHER=$SINK\ngit config --file="${OTHER}" a.b c', True),
+    ('TARGET=/dev/null\nGIT_CONFIG_GLOBAL=$TARGET git config --global a.b c', True),
+    ('env:\n  TARGET: /dev/null\nrun: git config -f "$TARGET" a.b c', True),
+    ('TARGET=/tmp/c\ngit config -f "$TARGET" a.b c', False),
+    ('TARGET=/dev/null\ncurl -sS -o "$TARGET" https://example.com', False),
+    ('TARGET=/dev/nullx\ngit config -f "$TARGET" a.b c', False),
+], ids=["bound to the device", "through another variable", "as git's variable", "in a workflow's env",
+        "bound to a file of its own", "curl writing in place", "another path"])
+def test_the_gate_follows_a_shell_variable_bound_to_the_device(text, found):
+    assert bool(_hits(Path("script.sh"), text)) is found

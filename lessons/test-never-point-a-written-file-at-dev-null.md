@@ -36,20 +36,23 @@ and say so in the hand-off.
 - Production runs the same lookups on its first PDF export: `backend/Dockerfile` has no `USER`, its `gcc`
   pulls in binutils' `ld`, and `export_service.py` imports WeasyPrint at request time. Its `/dev/null` is a
   device, so `ld` leaves it alone.
-- Gated three times. `_install_git_null_guard` in `backend/tests/conftest.py`, installed when conftest is
+- Gated four times. `_install_git_null_guard` in `backend/tests/conftest.py`, installed when conftest is
   imported, refuses on any runner a start through `subprocess`, `os.system`, `os.posix_spawn` or `os.spawn*`,
   from a test or a fixture of any scope, whose environment, shell line or git config file option (`--file`,
   `-f`, attached or not) gives git the device, however it was built (byte strings, an `env` by position, a
   shell line in a list), or leaves it to a shell expansion that may name it (`git config -f "$TARGET"`),
   and an `os.putenv` that would set it for later starts; a child run in
-  `test_suite_isolation.py` proves each.
-  `backend/tests/unit/test_null_device_write_targets.py` fails on any tracked program (a code file, a
-  Makefile or Dockerfile, a dotenv file, or one in the executable mode or opening with `#!`) that names
-  `/dev/null` or `os.devnull` in git's `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG` or `GIT_INDEX_FILE`,
-  or as git config's file, on every runner (CI runs as a non-root user, where nothing can replace the device).
+  `test_suite_isolation.py` proves each. `_install_null_device_path_guard` beside it fails a test before an
+  `os.rename`, `os.replace`, `os.unlink` or `os.remove` (`shutil.move` and `pathlib` go through them) that
+  would replace, move or remove the device in the test's own process: an atomic writer handed it as its
+  target, a cleanup that removes it, or a test that breaks it and restores it within one phase.
+  `backend/tests/unit/test_null_device_write_targets.py` fails on any tracked text file but Markdown,
+  whatever its name or mode, that names `/dev/null` or `os.devnull`, or a shell variable it binds to
+  either, in git's `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG` or `GIT_INDEX_FILE`, or as git
+  config's file, on every runner (CI runs as a non-root user, where nothing can replace the device).
   The null-device checks in `backend/tests/conftest.py` fail the test during whose setup, body or teardown
   `/dev/null` stops being a character device (a fixture of any scope included), which can happen only in a
   root session, and fail the run for a loss outside every test or a device already broken when it starts; three
-  child runs in `backend/tests/unit/test_suite_isolation.py` prove it on a stand-in. An atomic writer's target
-  and a linker's `-o` stay review-checked: curl's `-o /dev/null` writes in place and is safe, so no pattern
-  tells them apart.
+  child runs in `backend/tests/unit/test_suite_isolation.py` prove it on a stand-in. An atomic writer that
+  another program runs and a linker's `-o` stay review-checked: curl's `-o /dev/null` writes in place and is
+  safe, so no pattern tells them apart.
