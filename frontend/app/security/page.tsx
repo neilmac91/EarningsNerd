@@ -85,18 +85,18 @@ export default function SecurityPage() {
             </li>
             <li>
               <strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh
-              token that lasts 30 days. Each refresh token works once and is stored only as a hash; one presented a
-              second time revokes all of that account&apos;s refresh tokens.
+              token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens
+              are stored only as hashes.
             </li>
             <li>
               <strong>Access:</strong> Administrator tools need an administrator account, and the API checks Pro
               features against your plan.
             </li>
             <li>
-              <strong>Logging out:</strong> Logging out revokes that browser&apos;s refresh token. Logging out of all
-              devices, from your account settings, revokes all of your refresh tokens, and so does changing or
-              resetting your password; a session open elsewhere then ends within 30 minutes, when its session token
-              expires.
+              <strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging
+              out of all devices, from your account settings, revokes every refresh token your account holds at that
+              moment, and so does changing or resetting your password. None of these revokes a session token already
+              issued.
             </li>
             <li>
               <strong>Failed logins:</strong> Ten failed logins for one email address, each within 15 minutes of the

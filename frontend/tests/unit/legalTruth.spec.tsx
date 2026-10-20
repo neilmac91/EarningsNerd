@@ -65,6 +65,11 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    the backend writes, read from each create_audit_log call and each audit_service helper another module calls.
  *    Administrator actions are named one by one, since six of them write a log line and no row
  *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
+ * 7. While E127 is open (tasks/todo.md), /security promises nothing of refresh tokens and logging out that the code
+ *    does not enforce under concurrent requests (E127_PROMISES): a refresh token that works once, a reused one revoking
+ *    the account, or a session that ends within a time after logging out. Each family is read in one list item or
+ *    paragraph (blockTexts), and E127's row names /security, so the writer who lands it can bring the wording back.
+ *    Planted forms score the reach; out of reach, planted as a gap: a promise split across two items.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -93,6 +98,7 @@ const LEGAL_TEXT: Record<LegalPage, Array<{ date: string; sha256: string }>> = {
   security: [
     { date: 'October 18, 2026', sha256: 'b07e688cfb36da50' },
     { date: 'October 19, 2026', sha256: 'b0d7d5339d1fd802' },
+    { date: 'October 20, 2026', sha256: 'f01e686b3c5afee8' },
   ],
 }
 
@@ -102,6 +108,22 @@ function pageText(container: HTMLElement): string {
   const parts: string[] = []
   for (let node = walker.nextNode(); node; node = walker.nextNode()) parts.push(node.nodeValue ?? '')
   return parts.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+/** The block elements a rendered tree's text is grouped by: an inline element is read with its block. */
+const BLOCKS = 'p, li, h1, h2, h3, h4, h5, h6, dt, dd, td, th, caption, figcaption, blockquote, div, section, main, ul, ol, dl, table'
+
+/** A rendered tree's blocks: each paragraph, list item, heading or cell's own text, its inline elements read with it
+    (so a `<strong>Label:</strong> body` item is one block) and a nested block read on its own, so no sentence runs
+    from one list item into the next. */
+function blockTexts(container: HTMLElement): string[] {
+  const groups = new Map<Element, string[]>()
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const block = node.parentElement?.closest(BLOCKS) ?? container
+    groups.set(block, [...(groups.get(block) ?? []), node.nodeValue ?? ''])
+  }
+  return [...groups.values()].map((parts) => parts.join(' ').replace(/\s+/g, ' ').trim()).filter(Boolean)
 }
 
 const textOf = (element: ReactElement) => {
@@ -148,6 +170,30 @@ const claimsIn = (where: string, text: string) =>
 
 /** Every removed claim in a text, read sentence by sentence. */
 const claimsInText = (where: string, text: string) => sentencesOf(text).flatMap((sentence) => claimsIn(where, sentence))
+
+const inASentence = (re: RegExp) => (block: string) => sentencesOf(block).some((sentence) => re.test(sentence))
+
+/**
+ * What /security does not promise while E127 is open (tasks/todo.md): rotate_refresh_token reads its row with no lock
+ * and writes after it, so two renewals with one refresh token can both succeed, and a renewal racing a logout or a
+ * logout of all devices can leave a live refresh token behind. Each family is read in one block (a list item or a
+ * paragraph), so a promise split across the sentences of one item is read whole.
+ */
+const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
+  ['a refresh token that works once', inASentence(/\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?once\b|\bonly once\b/i)],
+  ['a reused refresh token revoking the account', inASentence(/^(?=.*\brevok).*\b(?:a second time|again|twice|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?)\b/i)],
+  [
+    'a session that ends within a time after logging out',
+    (block) =>
+      /\b(?:log(?:ging|s)? out|sign(?:ing|s)? out|all (?:of your )?devices|everywhere|password)\b/i.test(block) &&
+      inASentence(
+        /\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b.*(?:\b(?:within|after|in)\s+(?:\d+|a|an|one|ten|fifteen|thirty|sixty)\s+(?:seconds?|minutes?|hours?|days?)\b|\b(?:immediately|at once|instantly|right away)\b)/i,
+      )(block),
+  ],
+]
+
+const e127PromisesIn = (where: string, block: string) =>
+  E127_PROMISES.filter(([, holds]) => holds(block)).map(([label]) => `${where} (${label}): ${JSON.stringify(block)}`)
 
 /** Every copy literal of a module: strings, templates (`{x}` for each substitution) and JSX text, class names skipped. */
 function literals(rel: string): string[] {
@@ -426,6 +472,44 @@ describe("/security says what the code and the hosting do (D-046)", () => {
   it('the PostHog line scopes the consent to the browser', () => {
     const sentence = sentencesOf(rendered('security')).find((s) => /\bPostHog in your browser runs only after you allow analytics\b/i.test(s))
     expect(sentence, 'the PostHog line scopes the consent to the browser').toBeDefined()
+  })
+
+  it('promises nothing of refresh tokens or logging out that the code does not enforce while E127 is open (a self-check on planted forms)', () => {
+    const e127 = readFileSync(path.join(REPO, 'tasks/todo.md'), 'utf8').match(/^- \[ \] E127 — .*$/m)?.[0]
+    if (e127) {
+      expect(e127, "E127's row tells the writer who lands it that /security's wording can return").toMatch(/\/security\b/)
+      const { container, unmount } = render(<SecurityPage />)
+      const blocks = blockTexts(container)
+      unmount()
+      expect(blocks.some((block) => block.startsWith('Logging out:'))).toBe(true)
+      expect(blocks.flatMap((block) => e127PromisesIn('/security', block))).toEqual([])
+    }
+    const planted: Array<[string, boolean | 'gap']> = [
+      // Round 3's two items.
+      ["<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each refresh token works once and is stored only as a hash; one presented a second time revokes all of that account's refresh tokens.</li>", true],
+      ['<li><strong>Logging out:</strong> Logging out revokes that browser’s refresh token. Logging out of all devices, from your account settings, revokes all of your refresh tokens, and so does changing or resetting your password; a session open elsewhere then ends within 30 minutes, when its session token expires.</li>', true],
+      // Close rewordings.
+      ['<li>Refresh tokens are single-use.</li>', true],
+      ['<li>A refresh token can be used only once.</li>', true],
+      ['<p>Reusing a refresh token revokes every session on the account.</p>', true],
+      ['<li>Logging out of all devices signs you out everywhere within 30 minutes.</li>', true],
+      ['<li>Changing your password ends every other session immediately.</li>', true],
+      ['<li><strong>Logging out:</strong> Logging out of all devices revokes your refresh tokens. Each session then ends within 30 minutes.</li>', true],
+      // The items as they read now, and look-alikes, which pass.
+      ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
+      ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
+      ['<li><strong>Failed logins:</strong> Ten failed logins for one email address, each within 15 minutes of the last, block password logins for that address for 15 minutes.</li>', false],
+      ['<li>Log out of your account when using shared or public computers</li>', false],
+      // Out of reach: a promise split across two items.
+      ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
+    ]
+    const flagged = planted.map(([html]) => {
+      const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
+      const found = blockTexts(container).flatMap((block) => e127PromisesIn('planted', block))
+      unmount()
+      return found.length > 0
+    })
+    expect(flagged).toEqual(planted.map(([, expected]) => expected === true))
   })
 
   it('a claim that stands on a document names it beside the claim, and the document holds the section and its steps (a self-check on planted documents)', () => {
