@@ -44,7 +44,7 @@ replace ref, `log.showRoot`) or change its fingerprint (`format.pretty`, `log.da
 `diff.noprefix`). It refuses the call on a
 finding, naming each finding's file, line, rule and commit fingerprint, never the literal, and before any
 scan when it cannot tell what the push sends (a source or a repository it cannot resolve as the line
-stands, or a line that moves HEAD or a branch first), saying what to name literally, or to push in a
+stands, or a line that also moves HEAD or a branch), saying what to name literally, or to push in a
 call of its own. Every scan reads main's pins and config (`origin/main`'s `.gitleaksignore` and `.gitleaks.toml`, as
 last fetched; no pins when it cannot read them, and gitleaks' own default config, which the job runs,
 while main has no `.gitleaks.toml`), never the pushing checkout's, its git directory's, a call's or one

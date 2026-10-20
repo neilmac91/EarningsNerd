@@ -47,9 +47,10 @@ in any case. It scans
   too), every ref for --mirror and every tag for --tags; a dry run and --delete send nothing. A push the hook cannot pin down is refused before any scan, since it could send any commit in
   the repository: one whose source does not resolve to a commit as the line stands (a variable, a substitution, a
   wildcard, a name that does not exist yet), one from a repository the hook cannot resolve (a variable, a substitution,
-  `cd -`, popd, --git-dir, --work-tree, GIT_DIR=, a directory no repository holds yet), and one after a git checkout,
-  switch, reset, branch, update-ref, worktree, tag, symbolic-ref or stash earlier in the line, since the hook resolves
-  sources before the line moves HEAD or a branch. Each refusal says what to name literally, or to push in a call of its
+  `cd -`, popd, --git-dir, --work-tree, GIT_DIR=, a directory no repository holds yet), and one in a line that also
+  runs a git checkout, switch, reset, branch, update-ref, worktree, tag, symbolic-ref or stash, before or after it (a
+  command substitution runs before its command, though the hook reads its text after the line), since the hook
+  resolves sources before the line moves HEAD or a branch. Each refusal says what to name literally, or to push in a call of its
   own.
 - a line that pushes and also makes commits anywhere (git am, cherry-pick, commit, commit-tree, merge, pull, rebase
   or revert): refused, since a hook runs before the line and cannot read a commit the line has yet to make. The
@@ -417,7 +418,9 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
 
 def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str], list[str], str | None]], bool]:
     """Each `git push` the script runs, as (its directory or None, rev-list options, sources, the repository it names),
-    and whether the script makes commits too. A push after a command that can move HEAD or a branch carries MOVED."""
+    and whether the script makes commits too. A push in a script that runs a command that can move HEAD or a branch,
+    anywhere, carries MOVED: a command substitution runs before the command it is part of, though its text is read
+    after the line, so the order the reader sees is not the order the shell runs."""
     here: Path | None = base
     stack: list[Path | None] = []
     pushes, commits, moved = [], False, False
@@ -443,9 +446,10 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                     moved = True
                 elif subcommand == "push":
                     options, sources, remote = _sent(rest)
-                    if moved and (options or sources):
-                        sources.append(MOVED)
                     pushes.append((_repository(here, global_options, words[:index]), options, sources, remote))
+    for _directory, options, sources, _remote in pushes if moved else []:  # wherever the move stands in the line
+        if options or sources:
+            sources.append(MOVED)
     return pushes, commits
 
 
@@ -497,9 +501,6 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str],
     what the push sends, which could then be any commit in the repository; None when it sends nothing."""
     if not options and not sources:
         return None
-    if MOVED in sources:
-        return _reason("this line moves HEAD or a branch before it pushes, and the hook resolves what a push sends "
-                       "before the line runs, so it cannot tell what this push would send.", MOVED_REMEDY)
     top = _top(directory) if directory is not None else None
     gitdir = _git(top, "rev-parse", "--absolute-git-dir") if top is not None else None
     if top is None or gitdir is None:
@@ -508,7 +509,7 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str],
             "substitution, `cd -`, popd, --git-dir, --work-tree, GIT_DIR=, or a directory no repository holds yet), so "
             "it cannot tell what the push would send.", REPOSITORY_REMEDY)
     revisions = list(options)
-    for source in sources:
+    for source in (source for source in sources if source != MOVED):
         commit = None if source.startswith("-") or any(char in source for char in EXPANDED) else (
             _git(top, "rev-parse", "--verify", "--quiet", f"{source}^{{commit}}"))
         if commit is None:
@@ -517,6 +518,9 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str],
                 "variable, a substitution, a wildcard, or a name that does not exist yet), so it cannot tell what the "
                 "push would send.", SOURCE_REMEDY)
         revisions.append(commit)
+    if MOVED in sources:
+        return _reason("this line both moves HEAD or a branch and pushes, and the hook resolves what a push sends "
+                       "before the line runs, so it cannot tell what this push would send.", MOVED_REMEDY)
     destination = _destination(top, remote)
     held = _held(top, destination)
     log_range = " ".join([*LOG_FLAGS, *dict.fromkeys(revisions), *(["--not", f"--remotes={held}"] if held else [])])
@@ -549,6 +553,13 @@ def _scan_files(files: list[tuple[str, bytes]], where: str, remedy: str) -> str 
 
 
 def _decoded(value: str) -> bytes | None:
+    """A base64 `content` value decoded, its JSON string escapes (`\\/`, `\\n`, `\\u002f`) read first, as GitHub
+    reads them; a value that is no JSON string is read as written."""
+    if "\\" in value:
+        try:
+            value = json.loads(f'"{value}"')
+        except ValueError:
+            pass
     compact = re.sub(r"\\n|\s", "", value)
     try:
         return base64.b64decode(compact, validate=True) if len(compact) >= 8 else None

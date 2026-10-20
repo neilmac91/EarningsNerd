@@ -566,6 +566,9 @@ MOVES = {
     "checkout": "git checkout side && git push",
     "reset": "git reset --hard side && git push -f origin HEAD:cleanbr",
     "branch -f": "git branch -f cleanbr side && git push -f origin cleanbr",
+    # A substitution runs before the command it is part of, though the reader reads its text after the line (Codex's).
+    "a reset in a command substitution": "x=$(git reset --hard side); git push origin HEAD",
+    "a move after the push": "git push origin main && git checkout side",
     # Read as moves though they move nothing, since the hook reads no mover's arguments.
     "a checkout of a file": "git checkout -- base.txt && git push origin main",
     "stash": "git stash && git push origin main",
@@ -574,10 +577,10 @@ MOVES = {
 
 
 @pytest.mark.parametrize("command", MOVES.values(), ids=MOVES.keys())
-def test_a_line_that_moves_head_or_a_branch_before_it_pushes_is_refused(scanner: Scanner, repo: Path,
-                                                                       command: str) -> None:
+def test_a_line_that_moves_head_or_a_branch_and_pushes_is_refused(scanner: Scanner, repo: Path,
+                                                                command: str) -> None:
     _git(repo, "branch", "cleanbr", "main")  # clean as it stands: the line points it, or HEAD, at side first
-    _refused(_bash(scanner, command, repo), "moves HEAD or a branch before it pushes",
+    _refused(_bash(scanner, command, repo), "both moves HEAD or a branch and pushes",
              "Run the line without its push, then push in a call of its own")
     assert scanner.calls() == []
 
@@ -859,6 +862,15 @@ API_WRITES = {
         "gh api -X PUT repos/o/r/contents/a.py -f message=m -F content=@content.b64", "decoded-content-1:1"),
     "a tree sent to api.github.com": (
         "curl -X POST https://api.github.com/repos/o/r/git/trees -d @tree.json", "sent-file-1:1"),
+    # JSON escapes GitHub reads before the base64: an escaped slash (Codex's), and the same slash as \u002f.
+    "an inline JSON body with an escaped slash": (
+        "curl -X PUT https://api.github.com/repos/o/r/contents/a.py -d "
+        f"'{{\"message\":\"m\",\"content\":\"{_b64(LEAKY + '???').replace('/', chr(92) + '/')}\"}}'",
+        "decoded-content-1:1"),
+    "an inline JSON body with a unicode escape": (
+        "curl -X PUT https://api.github.com/repos/o/r/contents/a.py -d "
+        f"'{{\"message\":\"m\",\"content\":\"{_b64(LEAKY + '???').replace('/', chr(92) + 'u002f')}\"}}'",
+        "decoded-content-1:1"),
     "a GraphQL commit": (
         "gh api graphql -f query='mutation { createCommitOnBranch(input: {fileChanges: {additions: "
         f"[{{path: \"a.py\", contents: \"{_b64(LEAKY)}\"}}]}}}}) {{ commit {{ oid }} }} }}'", "decoded-content-1:1"),
