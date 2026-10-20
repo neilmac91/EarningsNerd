@@ -38,10 +38,11 @@ from sqlalchemy.pool import QueuePool
 
 from app import database
 from app.models import (
-    Company, Filing, FilingContentCache, FinancialFact, Summary, SummaryGenerationProgress, WaitlistSignup,
+    Company, Filing, FilingContentCache, FinancialFact, NotableFiling, Summary, SummaryGenerationProgress,
+    WaitlistSignup,
 )
-from app.routers import filings, watchlist
-from app.services import filing_list_service
+from app.routers import filings, notable_filings, watchlist
+from app.services import filing_list_service, notable_filings_service
 from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
@@ -72,6 +73,7 @@ from main import app
     ("/api/waitlist/stats", "waitlist_stats"),
     ("/api/waitlist/status/reader@example.com", "waitlist_status"),
     ("/api/waitlist/status/nobody@example.com", "waitlist_missing"),
+    ("/api/notable_filings", "notable"),
 ])
 async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch, tmp_path, path, payload_kind
@@ -94,6 +96,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     Summary.__table__.create(engine)
     SummaryGenerationProgress.__table__.create(engine)
     WaitlistSignup.__table__.create(engine)
+    NotableFiling.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     accession = "0000000001-26-000001"
     with sessions() as db:
@@ -114,8 +117,14 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                 period_end=date(2025, 12, 31), fiscal_year=2025, fiscal_period="FY", value=123,
                 form="10-K", accession=accession, reconciled=True,
             ))
-        if payload_kind in ("summary", "progress_completed"):
+        if payload_kind in ("summary", "progress_completed", "notable"):
             db.add(Summary(filing_id=filing.id, business_overview="## Overview", raw_summary={}))
+        if payload_kind == "notable":
+            # A 10-K candidate from the stored company, whose filing above holds a summary to open.
+            db.add(NotableFiling(accession_number=accession, ticker="CACHED", company_name="Cached fixture",
+                                 form="10-K", reason="annual_report", score=55,
+                                 filed_date=notable_filings_service.today_eastern(),
+                                 sec_url="https://example.test/filing/"))
         if payload_kind == "progress_stalled":
             stalled_at = utcnow() - timedelta(hours=1)
             db.add(SummaryGenerationProgress(filing_id=filing.id, stage="analyzing",
@@ -155,6 +164,16 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch.setattr(filings.sec_edgar_service, "get_filings", unexpected_upstream)
     # The status read's per-IP limiter is process-wide; each burst starts with a fresh window.
     monkeypatch.setattr(watchlist, "WAITLIST_STATUS_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    if payload_kind == "notable":
+        from app.config import settings
+
+        # The feed on, one company enough to serve it, and a cache that never holds, so each of the
+        # eight requests reads.
+        reader = notable_filings_service.NotableFilingsService()
+        reader._cache_ttl = timedelta(0)
+        monkeypatch.setattr(notable_filings, "notable_filings_service", reader)
+        monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
+        monkeypatch.setattr(notable_filings_service, "MIN_COMPANIES", 1)
     filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]))
     try:
         async with httpx.AsyncClient(
@@ -215,6 +234,9 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                 assert payload == {"position": 2, "referrals_count": 1, "positions_gained": 5}
             elif payload_kind == "waitlist_missing":
                 assert payload == {"detail": "Email not found on the waitlist."}
+            elif payload_kind == "notable":
+                # The feed: its window and summary reads and the release in one unit off the event loop.
+                assert [(row["ticker"], row["form"]) for row in payload["filings"]] == [("CACHED", "10-K")]
             else:
                 assert payload == {"detail": "Filing not found"}
         assert engine.pool.checkedout() == 0

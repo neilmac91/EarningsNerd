@@ -9,19 +9,23 @@ serves ONLY from Postgres (provider blips can never blank the homepage; the sect
 
 Three layers, mirroring ``earnings_calendar_service``:
 
-1. **Pure scoring** (no I/O, ``pulse_service``-style): form/item weights, reason derivation, and a
-   serve-time recency decay. The stored score is deliberately decay-free so it can't go stale
-   between scans (weekends); freshness is applied at read time.
+1. **Pure scoring** (no I/O, ``pulse_service``-style): form/item weights and reason derivation.
+   The stored score (base signal plus owned demand) breaks a tie between filings of one day when
+   the feed is served.
 2. **Scan** (``run_scan``): EFTS query plan generalizing ``_sweep_edgar_2_02`` — phrase queries
    narrow high-volume forms server-side (the definitive filter is client-side on ``hit.items``),
    query-less first-page listings cover the low-volume forms (EFTS 500s on query-less pagination,
    so those are page-0 only, per-day). Upserts on ``accession_number``; prunes rows older than
    14 days. Runs as a dedicated Cloud Run job (``scripts/notable_filings_job.py``) — recurring
    work must not ride the ``/internal/jobs/*`` BackgroundTasks (see DEPLOYMENT.md).
-3. **Serve** (``get_notable_filings``): ≤7-day window, decay-ranked, one filing per company,
-   fewer than ``MIN_COMPANIES`` distinct companies → empty (ReportingThisWeek's self-omission
-   contract). Gated on ``settings.NOTABLE_FILINGS_ENABLED`` so the surface ships dark. Never
-   raises.
+3. **Serve** (``get_notable_filings``): D-046's rule (``docs/brand/decisions-log.md``, F3). From the
+   ≤7-day window it serves 10-K and 10-Q filings only (``SERVED_FORMS``, matched exactly;
+   ``base_signal`` keeps any form ending in "/A" out of the table), from companies that hold a
+   summary the filing page shows (``summary_placeholders.is_summary_ready``), newest first with the
+   stored score breaking a tie, one filing per company, at most ``MAX_FILINGS``. The scan's other
+   forms stay stored and are not served. Fewer than ``MIN_COMPANIES`` distinct companies → empty
+   (ReportingThisWeek's self-omission contract). Gated on ``settings.NOTABLE_FILINGS_ENABLED`` so the
+   surface ships dark. Never raises.
 """
 from __future__ import annotations
 
@@ -29,14 +33,15 @@ import logging
 import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import Company, NotableFiling, UserSearch, Watchlist
+from app.models import Company, Filing, NotableFiling, Summary, UserSearch, Watchlist
 from app.services.earnings_calendar_service import today_eastern
+from app.services.summary_placeholders import is_summary_ready
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -51,9 +56,10 @@ SERVE_WINDOW_DAYS = 7
 # Rows older than this are pruned by the scan — nothing serves them anymore.
 RETENTION_DAYS = 14
 
-# Recency half-life for the serve-time decay (days): yesterday's earnings 8-K (80 → ~66) outranks
-# a 6-day-old bankruptcy (95 → ~29).
-DECAY_HALF_LIFE_DAYS = 3.5
+# D-046 (docs/brand/decisions-log.md, F3): the feed serves annual and quarterly reports only, at
+# most six. The scan keeps scoring and storing its other forms; the serve path leaves them out.
+SERVED_FORMS: Tuple[str, ...] = ("10-K", "10-Q")
+MAX_FILINGS = 6
 
 # ---------------------------------------------------------------------------- pure scoring
 
@@ -121,11 +127,6 @@ def demand_boost(watch_count: int, search_count: int) -> float:
     but can never lift a routine 10-Q (45) over an unwatched bankruptcy (95)."""
     raw = 10.0 * math.log1p(max(0, watch_count)) + 4.0 * math.log1p(max(0, search_count))
     return min(_DEMAND_BOOST_CAP, raw)
-
-
-def effective_score(score: float, age_days: float) -> float:
-    """Serve-time recency decay: half-life ``DECAY_HALF_LIFE_DAYS`` days."""
-    return float(score) * 0.5 ** (max(0.0, float(age_days)) / DECAY_HALF_LIFE_DAYS)
 
 
 # ---------------------------------------------------------------------------- scan
@@ -432,78 +433,103 @@ def _search_counts(db: Session, *, days: int = 7) -> Dict[str, int]:
 
 # ---------------------------------------------------------------------------- serve
 
+def _tickers_with_ready_summary(db: Session, tickers: Set[str]) -> Set[str]:
+    """The tickers among ``tickers`` whose stored company holds a summary the filing page shows.
+
+    A candidate is an EDGAR row, not an ingested filing, so the test is at the company: the
+    candidate's ticker is matched to ``Company.ticker`` exactly, the lookup ``/company/{ticker}``
+    makes (``filing_list_service.stored_company_identity``), so a card opens the company this found;
+    any of that company's filings counts. Readiness is ``is_summary_ready``, the filing page's rule,
+    with ``raw_summary.writer_error`` read in the database as ``latest_filing_service`` reads it, so
+    no ``raw_summary`` is loaded. One query for the whole window, never one per candidate.
+    """
+    if not tickers:
+        return set()
+    writer_error = Summary.raw_summary["writer_error"].as_string()
+    rows = (
+        db.query(Company.ticker, Summary.business_overview, writer_error)
+        .join(Filing, Filing.company_id == Company.id)
+        .join(Summary, Summary.filing_id == Filing.id)
+        .filter(Company.ticker.in_(sorted(tickers)))
+        .all()
+    )
+    return {ticker for ticker, overview, failed in rows if is_summary_ready(overview, failed)}
+
+
 class NotableFilingsService:
     """Serve-from-Postgres read path with an L1 cache (Redis is off in prod, ADR-0004)."""
 
     _cache_ttl = timedelta(minutes=15)
 
     def __init__(self) -> None:
-        # Caches the FULL ranked list so different `limit` values within one cache window each
-        # get correctly sliced results (ReportingThisWeekService's cache rationale).
-        self._cache_rows: Optional[List[Dict[str, Any]]] = None
-        self._cache_timestamp: Optional[datetime] = None
-        self._cache_day: Optional[date] = None
+        # The served list (at most MAX_FILINGS, unsliced by `limit`) with its New York day and fill
+        # time, so different `limit` values within one cache window each get correctly sliced
+        # results (ReportingThisWeekService's cache rationale). Requests read it from worker
+        # threads, so a fill replaces the whole snapshot in one assignment: a reader sees one fill
+        # or the next, never a mix. Concurrent misses may each read; the last fill stays.
+        self._cache: Optional[Tuple[date, datetime, List[Dict[str, Any]]]] = None
 
-    async def get_notable_filings(
-        self, db: Session, *, limit: int = 8, force_refresh: bool = False
+    def get_notable_filings(
+        self, db: Session, *, limit: int = MAX_FILINGS, force_refresh: bool = False
     ) -> Dict[str, Any]:
-        """Ranked notable filings, one per company, ≤``SERVE_WINDOW_DAYS`` old. Always returns a
-        dict with a ``filings`` list (possibly empty) and ``status`` (``ok`` | ``empty``). Never
-        raises."""
+        """D-046's notable filings, ≤``SERVE_WINDOW_DAYS`` old. Always returns a dict with a
+        ``filings`` list (possibly empty) and ``status`` (``ok`` | ``empty``). Never raises.
+
+        Synchronous SQLAlchemy: the route runs it in the thread pool and releases the session in
+        the same unit (``lessons/ops-release-cached-filing-reads-before-yield.md``)."""
         now = datetime.now(timezone.utc)
         today = today_eastern()
 
         if not settings.NOTABLE_FILINGS_ENABLED:
             return {"filings": [], "status": "empty", "timestamp": now.isoformat()}
 
-        if (
-            not force_refresh
-            and self._cache_rows is not None
-            and self._cache_timestamp is not None
-            and self._cache_day == today
-            and now - self._cache_timestamp < self._cache_ttl
-        ):
-            ranked = self._cache_rows
+        cached = None if force_refresh else self._cache
+        if cached is not None and cached[0] == today and now - cached[1] < self._cache_ttl:
+            _, filled_at, served = cached
         else:
-            ranked = self._fetch(db, today)
-            self._cache_rows = ranked
-            self._cache_timestamp = now
-            self._cache_day = today
+            served = self._fetch(db, today)
+            filled_at = now
+            self._cache = (today, filled_at, served)
 
-        distinct = len(ranked)
-        status = "ok" if distinct >= MIN_COMPANIES else "empty"
-        sliced = ranked[:limit] if status == "ok" else []
+        status = "ok" if len(served) >= MIN_COMPANIES else "empty"
         return {
-            "filings": sliced,
+            "filings": served[:limit] if status == "ok" else [],
             "status": status,
-            "timestamp": (self._cache_timestamp or now).isoformat(),
+            "timestamp": filled_at.isoformat(),
         }
 
     def _fetch(self, db: Session, today: date) -> List[Dict[str, Any]]:
-        """Window query + decay ranking + one-per-company. Empty on any failure."""
+        """D-046's list: the window's ``SERVED_FORMS`` rows from companies holding a summary the
+        filing page shows, newest first (the stored score, then the accession number, breaking a
+        tie, as ``ops/detection/notable_homepage_candidates.sql`` orders the window), a company's
+        newest row standing for it, at most ``MAX_FILINGS``. Two queries for the whole window.
+        Empty on any failure."""
         window_start = today - timedelta(days=SERVE_WINDOW_DAYS)
         try:
             rows = (
                 db.query(NotableFiling)
-                .filter(NotableFiling.filed_date >= window_start)
-                .order_by(NotableFiling.filed_date.desc(), NotableFiling.score.desc())
+                .filter(NotableFiling.filed_date >= window_start, NotableFiling.form.in_(SERVED_FORMS))
+                .order_by(
+                    NotableFiling.filed_date.desc(),
+                    NotableFiling.score.desc(),
+                    NotableFiling.accession_number,
+                )
                 .all()
             )
+            summarized = _tickers_with_ready_summary(db, {row.ticker for row in rows if row.ticker})
         except Exception as exc:  # never let a query hiccup break the homepage
             logger.warning("Notable-filings fetch failed: %s", exc)
             return []
 
-        best_per_ticker: Dict[str, Tuple[float, NotableFiling]] = {}
-        for row in rows:
-            if not row.filed_date or not row.ticker:
+        served: List[NotableFiling] = []
+        seen: Set[str] = set()
+        for row in rows:  # newest first, so a company's first row is its newest
+            if row.ticker not in summarized or row.ticker in seen:
                 continue
-            age_days = (today - row.filed_date).days
-            ranked_score = effective_score(float(row.score or 0), age_days)
-            current = best_per_ticker.get(row.ticker)
-            if current is None or ranked_score > current[0]:
-                best_per_ticker[row.ticker] = (ranked_score, row)
-
-        ordered = sorted(best_per_ticker.values(), key=lambda pair: pair[0], reverse=True)
+            seen.add(row.ticker)
+            served.append(row)
+            if len(served) == MAX_FILINGS:
+                break
         return [
             {
                 "ticker": row.ticker,
@@ -514,7 +540,7 @@ class NotableFilingsService:
                 "filed_date": row.filed_date.isoformat(),
                 "sec_url": row.sec_url,
             }
-            for _, row in ordered
+            for row in served
         ]
 
 
