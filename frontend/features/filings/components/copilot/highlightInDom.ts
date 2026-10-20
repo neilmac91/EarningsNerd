@@ -189,9 +189,11 @@ export function clearCitationHighlight(): void {
 /**
  * `located` says the server located the passage (D-044): only then does it take the device's highlight.
  * Anything else, and a caller that does not say, lands in the neutral find highlight. One of the two is
- * registered at a time.
+ * registered at a time, and a jump that finds nothing leaves neither: the last jump's paint left beside
+ * the reader's "Couldn't pinpoint" banner would mark an unrelated passage as this one.
  */
 export function highlightExcerptInDom(container: HTMLElement, excerpt: string, { located = false }: { located?: boolean } = {}): boolean {
+  clearCitationHighlight()
   const flat = buildFlatText(container)
   const match = findExcerptMatch(flat.text, excerpt)
   if (!match) return false
@@ -214,8 +216,6 @@ export function highlightExcerptInDom(container: HTMLElement, excerpt: string, {
   const highlights = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights
   if (typeof w.Highlight === 'function' && highlights) {
     ensureCitationHighlightStyle()
-    highlights.delete(LOCATED_HIGHLIGHT)
-    highlights.delete(FIND_HIGHLIGHT)
     highlights.set(located ? LOCATED_HIGHLIGHT : FIND_HIGHLIGHT, new w.Highlight(range))
   }
 

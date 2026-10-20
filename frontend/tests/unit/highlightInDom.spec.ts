@@ -420,6 +420,29 @@ describe('highlightExcerptInDom', () => {
       }
     })
 
+    it("a jump that finds nothing clears the last jump's paint, so no passage beside the banner reads as this one (D-044)", () => {
+      const container = document.createElement('div')
+      container.innerHTML = '<p>Net income rose on higher services revenue during the quarter.</p>'
+      document.body.appendChild(container)
+      const found = 'Net income rose on higher services revenue during the quarter'
+      const absent = 'The company declared a special dividend of $5 per share today'
+      try {
+        // A located jump, then a chip whose passage the reader does not hold: the reader shows its
+        // "Couldn't pinpoint" banner, and the device must not stay on the last passage.
+        expect(highlightExcerptInDom(container, found, { located: true })).toBe(true)
+        expect([...highlights.keys()]).toEqual(['copilot-citation'])
+        expect(highlightExcerptInDom(container, absent, { located: true })).toBe(false)
+        expect(highlights.size).toBe(0)
+        // The same after the find paint.
+        expect(highlightExcerptInDom(container, found)).toBe(true)
+        expect([...highlights.keys()]).toEqual(['copilot-find'])
+        expect(highlightExcerptInDom(container, absent)).toBe(false)
+        expect(highlights.size).toBe(0)
+      } finally {
+        document.body.removeChild(container)
+      }
+    })
+
     it('re-adopts the same sheet if something replaced document.adoptedStyleSheets without spreading', () => {
       const container = document.createElement('div')
       container.innerHTML =
