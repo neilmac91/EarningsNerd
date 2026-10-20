@@ -10,8 +10,9 @@ pattern in source on any runner, CI's included.
 A Python file is read as its syntax tree, so formatting cannot hide the pattern: a mapping, a subscript
 assignment, a keyword or a pair of call arguments that gives one of those variables the device, or a
 `git config --file` sequence that names it, where the device is `os.devnull`, "/dev/null", a name the file binds
-to either, or any of those inside calls (`str(os.devnull)`), an f-string or a conditional; and a string that
-holds the shell form. Other code files are searched for the shell form. A device that reaches git from another
+to either (plainly, annotated, by unpacking or with `:=`), or any of those inside calls (`str(os.devnull)`), an
+f-string or a conditional; and a string that holds the shell form. Other code files are searched for the shell
+form, whatever whitespace separates its parts. A device that reaches git from another
 module, a linker's `-o` and an atomic writer's target stay review-checked, with `_null_device_survives` behind
 them in a root run; curl's `-o` writes in place and leaves the device alone.
 """
@@ -29,8 +30,9 @@ GIT_VARIABLES = {"GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG", "GIT_IN
 NULL_PATH = "/dev/null"
 NULL = r"(?:[\w.]+\(\s*['\"]?)*(?:os\.devnull|/dev/null)"  # wrapped in calls or not: str(os.devnull)
 SHELL_FORM = re.compile(
-    rf"GIT_(?:CONFIG(?:_GLOBAL|_SYSTEM)?|INDEX_FILE)\W{{0,8}}{NULL}"  # a variable naming a file git writes
-    rf"|\bconfig\W{{1,6}}(?:--file|-f)\W{{0,6}}{NULL}"  # git config --file
+    # A variable naming a file git writes: `NAME=`, `NAME: ` (YAML, JSON), `"NAME", ` (an argument pair).
+    rf"GIT_(?:CONFIG(?:_GLOBAL|_SYSTEM)?|INDEX_FILE)[\s\"'\])]*[:=,][\s\"'(\[]*{NULL}"
+    rf"|\bconfig\b[\s\"',]*(?:--file|-f)(?:=|[\s\"',]+)[\"'(]*{NULL}"  # git config --file
 )
 CODE = {".py", ".sh", ".bash", ".yml", ".yaml", ".toml", ".cfg", ".ini", ".json", ".js", ".mjs", ".cjs", ".ts", ".tsx"}
 
@@ -42,13 +44,30 @@ class _NullTargets(ast.NodeVisitor):
         self.lines: list[int] = []
         self.names: set[str] = set()
         for _ in range(2):  # a name bound to the device, or to such a name
-            self.names |= {target.id for node in ast.walk(tree) if isinstance(node, ast.Assign)
-                           and self._null(node.value) for target in node.targets if isinstance(target, ast.Name)}
+            self.names |= {name for node in ast.walk(tree) for name in self._bound(node)}
         self.docstrings = {id(node.body[0].value) for node in ast.walk(tree)
                            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
                            and node.body and isinstance(node.body[0], ast.Expr)
                            and isinstance(node.body[0].value, ast.Constant)}
         self.visit(tree)
+
+    def _bound(self, node: ast.AST) -> list[str]:
+        """The names this node binds to the device: `NAME = ...`, `NAME: str = ...`, `(NAME := ...)`, and each
+        name of an unpacking whose matching value is the device (`NULL, OTHER = os.devnull, path`)."""
+        if isinstance(node, ast.Assign):
+            pairs = [(target, node.value) for target in node.targets]
+        elif isinstance(node, (ast.AnnAssign, ast.NamedExpr)):
+            pairs = [(node.target, node.value)]
+        else:
+            return []
+        names = []
+        while pairs:
+            target, value = pairs.pop()
+            if isinstance(target, ast.Name) and self._null(value):
+                names.append(target.id)
+            elif isinstance(target, (ast.Tuple, ast.List)) and isinstance(value, (ast.Tuple, ast.List)):
+                pairs += list(zip(target.elts, value.elts))
+        return names
 
     def _null(self, node: ast.AST | None) -> bool:
         if isinstance(node, ast.Constant):
@@ -76,6 +95,12 @@ class _NullTargets(ast.NodeVisitor):
 
     def visit_Assign(self, node: ast.Assign) -> None:
         if any(isinstance(target, ast.Subscript) and self._git_variable(target.slice) for target in node.targets) \
+                and self._null(node.value):
+            self.lines.append(node.lineno)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if isinstance(node.target, ast.Subscript) and self._git_variable(node.target.slice) \
                 and self._null(node.value):
             self.lines.append(node.lineno)
         self.generic_visit(node)
@@ -149,6 +174,10 @@ def test_no_tracked_code_gives_git_the_null_device_to_write():
     'monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)',
     "env = dict(os.environ, GIT_CONFIG=os.fspath(Path('/dev/null')))",
     'NULL = os.devnull\nCONFIG = NULL\nenv["GIT_CONFIG_GLOBAL"] = CONFIG',  # a name the file binds
+    'NULL: str = os.devnull\nenv["GIT_CONFIG_GLOBAL"] = NULL',  # annotated
+    'NULL, OTHER = os.devnull, "x"\nenv["GIT_CONFIG_GLOBAL"] = NULL',  # unpacked
+    'if (NULL := os.devnull):\n    env["GIT_CONFIG_GLOBAL"] = NULL',  # bound with :=
+    'env["GIT_INDEX_FILE"]: str = os.devnull',  # an annotated subscript
     'env = {"GIT_CONFIG_GLOBAL": f"{os.devnull}"}',
     'env = {"GIT_CONFIG_GLOBAL": os.devnull if fast else str(tmp_path / "config")}',
     'subprocess.run(["git", "config", "--file", str(os.devnull), "a.b", "c"])',
@@ -179,6 +208,12 @@ def test_the_gate_passes_python_that_leaves_the_device_alone(code):
     "GIT_CONFIG_GLOBAL: /dev/null",  # a workflow step's env
     "git config -f /dev/null a.b c",
     "git config --file=/dev/null a.b c",
+    "GIT_CONFIG_GLOBAL:          /dev/null",  # any whitespace between the parts
+    "git config --file          /dev/null a.b c",
+    "env:\n  GIT_CONFIG_GLOBAL:\n    /dev/null",  # a YAML value on the next line
+    'process.env.GIT_INDEX_FILE = "/dev/null";',
+    "export GIT_CONFIG_SYSTEM='/dev/null'",
+    '["git", "config", "--file", "/dev/null", "a.b", "c"]',  # an argument list in another language
 ])
 def test_the_gate_finds_each_shell_form(text):
     assert SHELL_FORM.search(text)
@@ -190,6 +225,8 @@ def test_the_gate_finds_each_shell_form(text):
     "git -c core.hooksPath=/dev/null commit -m x",  # a path git reads
     "GIT_CONFIG_KEY_0=core.excludesFile GIT_CONFIG_VALUE_0=/dev/null git check-ignore x",  # a value, not a file
     "make build > /dev/null 2>&1",
+    "GIT_CONFIG_NOSYSTEM: '1'\nOUT:          /dev/null",
+    "curl -sS -o          /dev/null https://example.com",
 ])
 def test_the_gate_passes_shell_that_leaves_the_device_alone(text):
     assert not SHELL_FORM.search(text)
