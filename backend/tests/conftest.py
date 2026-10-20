@@ -385,19 +385,27 @@ _RUN_STARTED_WITH_THE_DEVICE = _is_character_device(os.devnull)
 
 
 def pytest_sessionfinish(session):
-    """The run fails when /dev/null stopped being the null device during it, wherever that happened: in a test
-    (whose phase failed above), at a module's import, or in another worker."""
-    if _RUN_STARTED_WITH_THE_DEVICE and not _is_character_device(os.devnull) \
-            and session.exitstatus == pytest.ExitCode.OK:
+    """The run fails when /dev/null is not the null device: when it started broken, which no check of a test can
+    see, or when it stopped being the device during the run, wherever that happened: in a test (whose phase
+    failed above), at a module's import, or in another worker."""
+    if _null_device_fault() and session.exitstatus == pytest.ExitCode.OK:
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
 def pytest_terminal_summary(terminalreporter):
-    if _RUN_STARTED_WITH_THE_DEVICE and not _is_character_device(os.devnull):
-        terminalreporter.section(f"{os.devnull} stopped being the null device during this run -- session FAILED",
-                                 sep="=", red=True, bold=True)
+    fault = _null_device_fault()
+    if fault:
+        terminalreporter.section(f"{os.devnull} {fault} -- session FAILED", sep="=", red=True, bold=True)
         terminalreporter.line("A tool replaced or removed it. Restore it before trusting this run; see "
                               "lessons/test-never-point-a-written-file-at-dev-null.md")
+
+
+def _null_device_fault():
+    if not _RUN_STARTED_WITH_THE_DEVICE:
+        return "was not the null device when this run started"
+    if not _is_character_device(os.devnull):
+        return "stopped being the null device during this run"
+    return None
 
 
 # The variables that name a file git writes through a lock file it renames over the target.

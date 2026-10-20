@@ -386,6 +386,30 @@ def test_a_run_that_loses_the_null_device_outside_every_test_fails(tmp_path):
     assert f"{stand_in} stopped being the null device during this run -- session FAILED" in result.stdout
 
 
+# A plugin the child loads before conftest, so the device its run starts with is already an ordinary file.
+_NULL_DEVICE_BROKEN_PLUGIN = (
+    "import os\n"
+    "from pathlib import Path\n\n"
+    "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
+    "assert STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
+    "STAND_IN.write_text('[probe]\\n', encoding='utf-8')  # an ordinary file in the device's place\n"
+    "os.devnull = str(STAND_IN)\n"
+)
+
+
+def test_a_run_that_starts_with_a_broken_null_device_fails(tmp_path):
+    stand_in = tmp_path / "null"
+    (tmp_path / "null_device_broken_at_start.py").write_text(_NULL_DEVICE_BROKEN_PLUGIN, encoding="utf-8")
+    probe = tmp_path / "test_null_device_broken_probe.py"
+    probe.write_text("def test_passes():\n    pass\n", encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "null_device_broken_at_start", "-p", "tests.conftest",
+                           str(probe), extra_env={"NULL_STAND_IN": str(stand_in), "PYTHONPATH": str(tmp_path)})
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1 and "1 passed" in summary and "error" not in summary, (
+        result.stdout[-3000:] + result.stderr[-2000:])
+    assert f"{stand_in} was not the null device when this run started -- session FAILED" in result.stdout
+
+
 # The probe builds git's variable name and option from parts, as the source gate would refuse them whole.
 _GIT_NULL_PROBE = (
     "import os, shutil, subprocess\n"

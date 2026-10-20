@@ -7,17 +7,18 @@ device, or through `git config --file` naming it, therefore replaces the device 
 tests/conftest.py's null-device checks see that only in a root run, after the damage; this gate finds the
 pattern in source on any runner, CI's included.
 
-A Python file is read as its syntax tree, so formatting cannot hide the pattern: a mapping, a subscript
-assignment, a keyword or a pair of call arguments that gives one of those variables the device, or a
-`git config` sequence that gives it as the file, where the device is `os.devnull`, "/dev/null", a name the file
-binds to either (plainly, annotated, by unpacking or with `:=`), or any of those inside calls (`str(os.devnull)`),
-an f-string or a conditional; and a string, literal or built with an f-string or `+`, that holds the shell form.
-Other code files are searched for the shell form, whatever whitespace separates its parts and whatever comes
-between `config` and its file option in one command. The file option is read as git's option parser reads it:
-`--file` or its abbreviation `--fil`, and `-f` alone or after other short options, the file after `=`, attached
-or next. A device that reaches git from another module, a string built any other way (`%`, `str.format`, a
-join) or out of variables, a linker's `-o` and an atomic writer's target stay review-checked, with conftest's
-process guard and null-device checks behind them; curl's `-o` writes in place and leaves the device alone.
+A Python file is read as its syntax tree, so formatting cannot hide the pattern: a mapping, a subscript assignment,
+a keyword or a pair of call arguments that gives one of those variables the device, or a `git config` sequence that
+gives it as the file, where the device is `os.devnull`, "/dev/null", a name the file binds to either (plainly,
+annotated, by unpacking or with `:=`) or imports under a name of its own (`from os import devnull as NULL`), or any
+of those inside calls (`str(os.devnull)`), an f-string or a conditional; and a string, literal or built with an
+f-string or `+`, that holds the shell form. Other code files are searched for the shell form, whatever whitespace
+separates its parts and whatever comes between `config` and its file option in one command. The file option is read
+as git's option parser reads it: `--file` or its abbreviation `--fil`, and `-f` alone or after other short options,
+the file after `=`, attached or next. A device that reaches git from another module, a string built any other way
+(`%`, `str.format`, a join) or out of variables, a linker's `-o` and an atomic writer's target stay review-checked,
+with conftest's process guard and null-device checks behind them; curl's `-o` writes in place and leaves the device
+alone.
 """
 from __future__ import annotations
 
@@ -62,8 +63,11 @@ class _NullTargets(ast.NodeVisitor):
         self.visit(tree)
 
     def _bound(self, node: ast.AST) -> list[str]:
-        """The names this node binds to the device: `NAME = ...`, `NAME: str = ...`, `(NAME := ...)`, and each
-        name of an unpacking whose matching value is the device (`NULL, OTHER = os.devnull, path`)."""
+        """The names this node binds to the device: `NAME = ...`, `NAME: str = ...`, `(NAME := ...)`, each
+        name of an unpacking whose matching value is the device (`NULL, OTHER = os.devnull, path`), and the device
+        imported under a name of its own (`from os import devnull as NULL`)."""
+        if isinstance(node, ast.ImportFrom) and node.module in ("os", "os.path"):
+            return [alias.asname or alias.name for alias in node.names if alias.name == "devnull"]
         if isinstance(node, ast.Assign):
             pairs = [(target, node.value) for target in node.targets]
         elif isinstance(node, (ast.AnnAssign, ast.NamedExpr)):
@@ -234,6 +238,8 @@ def test_no_tracked_code_gives_git_the_null_device_to_write():
     'subprocess.run(b"GIT_CONFIG_SYSTEM=/dev/null git config a.b c", shell=True)',
     'subprocess.run([f"{programs}/git-config", "-f", os.devnull, "a.b", "c"])',  # the git-config program
     'subprocess.run(["/usr/lib/git-core/git-config", "--file=/dev/null", "a.b", "c"])',
+    'from os import devnull as NULL\nos.execv("/usr/bin/git", ["git", "config", "-f", NULL, "a.b", "c"])',  # imported
+    'from os.path import devnull as SINK\nenv["GIT_CONFIG_GLOBAL"] = SINK',
 ])
 def test_the_gate_finds_each_python_form(code):
     assert _NullTargets(ast.parse(code)).lines, code

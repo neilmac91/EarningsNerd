@@ -47,7 +47,7 @@ and say so in the hand-off.
   or as git config's file, on every runner (CI runs as a non-root user, where nothing can replace the device).
   The null-device checks in `backend/tests/conftest.py` fail the test during whose setup, body or teardown
   `/dev/null` stops being a character device (a fixture of any scope included), which can happen only in a
-  root session, and fail the run for a loss outside every test; two child runs in
-  `backend/tests/unit/test_suite_isolation.py` prove it on a symlinked stand-in. An atomic writer's target
+  root session, and fail the run for a loss outside every test or a device already broken when it starts; three
+  child runs in `backend/tests/unit/test_suite_isolation.py` prove it on a stand-in. An atomic writer's target
   and a linker's `-o` stay review-checked: curl's `-o /dev/null` writes in place and is safe, so no pattern
   tells them apart.
