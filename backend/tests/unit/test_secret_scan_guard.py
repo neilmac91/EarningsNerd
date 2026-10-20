@@ -529,13 +529,50 @@ def test_a_relative_cd_that_cdpath_may_redirect_leaves_the_push_unresolved(scann
         assert decision is None and len(scanner.calls()) == 1
 
 
-def test_a_tilde_directory_is_read_from_home_unless_the_line_names_home(scanner: Scanner, tmp_path: Path) -> None:
-    _commit(_new_repo(scanner.home / "repo"), "clean.txt", "nothing to see\n")
+@pytest.mark.parametrize("move", ["cd ~/repo && git push origin main", "git -C ~/repo push origin main"],
+                         ids=["a cd", "git -C (Codex's)"])
+def test_a_tilde_directory_is_read_from_home_unless_the_line_names_home(scanner: Scanner, tmp_path: Path,
+                                                                       move: str) -> None:
+    _commit(_new_repo(scanner.home / "repo"), "clean.txt", "nothing to see\n")  # where ~ leads from the hook's HOME
+    _commit(_new_repo(tmp_path / "repo"), "settings.py", LEAKY)  # where it leads from the HOME the line sets
     start = tmp_path / "start"
     start.mkdir()
-    assert _bash(scanner, "cd ~/repo && git push origin main", start) is None and len(scanner.calls()) == 1
-    _refused(_bash(scanner, f"HOME={tmp_path}; cd ~/repo && git push origin main", start),
+    assert _bash(scanner, move, start) is None and len(scanner.calls()) == 1
+    _refused(_bash(scanner, f"HOME={tmp_path}; {move}", start),
              "pushes from a repository the hook cannot resolve as the line stands")
+    assert len(scanner.calls()) == 1  # refused before any scan
+
+
+# git enters each -C directory as chdir does, through its links, so `-C link/..` is the parent of the link's target,
+# not the directory that holds the link (Codex's). Bash's cd reads `..` by its text unless `set -P` is on, which the
+# hook does not read, so a cd whose two readings part leaves the push unresolved; one through a link alone resolves.
+@pytest.mark.parametrize(("command", "outcome"), [
+    ("git -C link/.. push origin main", "found"),
+    ("git -C {start}/link/.. push origin main", "found"),
+    ("git -C link -C .. push origin main", "found"),
+    ("cd link/.. && git push origin main", "unresolved"),
+    ("cd link; cd ..; git push origin main", "unresolved"),
+    ("cd link && git push origin main", "found"),
+    ("git -C sub/.. push origin main", "clean"),
+], ids=["git -C (Codex's)", "an absolute git -C", "two -C", "a cd", "a cd after a cd through the link",
+        "a cd through the link alone", "no link"])
+def test_a_link_and_then_dotdot_is_read_as_git_and_bash_read_it(scanner: Scanner, tmp_path: Path, command: str,
+                                                                outcome: str) -> None:
+    start = _new_repo(tmp_path / "start")  # clean, and holds the link: where `link/..` read by its text leads
+    _commit(start, "clean.txt", "nothing to see\n")
+    (start / "sub").mkdir()
+    secret = _new_repo(tmp_path / "secret")  # where `link/..` leads through the link
+    _commit(secret, "settings.py", LEAKY)
+    (secret / "inner").mkdir()
+    (start / "link").symlink_to(secret / "inner")
+    decision = _bash(scanner, command.format(start=start), start)
+    if outcome == "found":
+        _refused(decision, "settings.py:1 (stub-rule)")
+    elif outcome == "clean":
+        assert decision is None and len(scanner.calls()) == 1
+    else:
+        _refused(decision, "pushes from a repository the hook cannot resolve as the line stands")
+        assert scanner.calls() == []
 
 
 @pytest.mark.parametrize("command", ["cd; git push origin main", "HOME={start} cd; git push origin main"],
@@ -1080,6 +1117,17 @@ def test_a_relative_body_file_in_a_line_that_changes_directory_is_refused(scanne
                                             encoding="utf-8")
     _refused(_bash(scanner, command, payloads.parent), "changes directory", "by its absolute path")
     assert scanner.calls() == []
+
+
+# A body file named from ~ is read from the hook's HOME, so in a line that names HOME, which bash reads ~ from, it may be
+# another file than the one the write sends: refused before any scan, though a clean file stands at the hook's ~.
+def test_a_tilde_body_file_in_a_line_that_names_home_is_refused(scanner: Scanner, payloads: Path) -> None:
+    (scanner.home / "payload.json").write_text(json.dumps({"message": "m", "content": _b64("nothing to see\n")}),
+                                               encoding="utf-8")
+    send = "gh api repos/o/r/git/blobs --input ~/payload.json"
+    assert _bash(scanner, send, payloads.parent) is None and len(scanner.calls()) == 1  # read from the hook's HOME
+    _refused(_bash(scanner, f"HOME={payloads}; {send}", payloads.parent), "names HOME", "by its absolute path")
+    assert len(scanner.calls()) == 1
 
 
 def test_an_absolute_body_file_after_a_cd_is_read_where_it_is(scanner: Scanner, payloads: Path) -> None:

@@ -28,13 +28,15 @@ in any case. It scans
   global options, then `push`, in a line read as the shell reads it (codex_mention_guard.py's reader, imported), less
   its comments. The push runs in the event's working directory as the line's `cd` and `pushd` to a directory it names
   literally move it (a subshell's move ends with the subshell; a command substitution's text is read after the rest of
-  its line), then `git -C`. A move counts only where it certainly runs in the line's own shell: first in its and-or
+  its line), then `git -C`, which git enters as chdir does, through its links (`-C link/..` is the parent of the
+  link's target). A move counts only where it certainly runs in the line's own shell: first in its and-or
   list (after nothing, `;`, `&`, a newline or a subshell's `(`, with any assignments and redirections before it as its
   prefixes), in no pipeline or background job, and in a line with no if, while, until, for, select, case or function;
   any other leaves the push's directory unknown, as does a relative directory that CDPATH may find elsewhere (CDPATH set
   in the hook's environment or named anywhere in the line), unless it starts with `.`, `/` or `~`, which CDPATH skips;
-  a bare `cd`, which goes to HOME; a `~` directory in a line that names HOME; and a cd or pushd given an option (`-P`
-  resolves links, `pushd -n` stays put; `--` only ends the options).
+  a bare `cd`, which goes to HOME; a `~` directory, a cd's or a `git -C`'s, in a line that names HOME; a cd or pushd
+  given an option (`-P` resolves links, `pushd -n` stays put; `--` only ends the options); and one whose directory a
+  link and then `..` make two, since bash reads `..` by its text unless `set -P` is on, which the hook does not read.
   The scan is
   `gitleaks git .` with GIT_DIR=<that repository's git directory> and
   `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable from what the push
@@ -80,7 +82,8 @@ in any case. It scans
   that the hook cannot read as the line stands (one the line itself makes, one over the reader's 1 MiB, one that is
   no regular file) refuses the call, since what the write sends would go unscanned; so does one named by a relative
   path in a line that changes directory (a cd, pushd or popd anywhere in it), since the hook reads a body file from
-  the directory the call starts in.
+  the directory the call starts in, and so does one named from `~` in a line that names HOME, since the hook reads `~`
+  from its own HOME.
 A finding, a scan that fails (its refusal names gitleaks' error lines first) and one that outlasts the hook's time each
 refuse the call. A refusal is a JSON deny on stdout naming the scan, where it found something (file, line and rule;
 for a commit, its fingerprint) and what to do next, never the secret (gitleaks runs with --redact and without
@@ -93,7 +96,8 @@ means to get past it, which can always push from a script, so it does not read f
 Not checked: a push or write that another shell or program makes (`bash -c '...'`, a here-document fed to a shell, a
 script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in the
 same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, git
-configuration the line sets through the environment (`GIT_CONFIG_COUNT=` before the push, an export), a CDPATH the
+configuration the line sets through the environment (`GIT_CONFIG_COUNT=` before the push, an export, a `HOME=`
+whose `.gitconfig` sets push options), a CDPATH the
 session's shell sets that the hook's environment lacks, a
 remote-tracking ref whose branch the remote has since deleted (`git fetch --prune` drops it), whose commits the scan
 still counts as held, a file whose text git leaves out of `git log -p` as binary because of the repository's or the
@@ -206,6 +210,7 @@ SCAN_ERROR_REMEDY = "Fix what gitleaks names (a missing ref, an unreadable repos
 STAGE_REMEDY = "Send each file under a path that names one regular file, and send the call again"
 MOVED_BODY_REMEDY = ("Name each body file by its absolute path, or change directory in an earlier call (the next call "
                      "starts there), and send the call again")
+TILDE_BODY_REMEDY = "Name each body file by its absolute path, and send the call again"
 UNREAD_REMEDY = ("Write the body in an earlier call, keep it to 1 MiB, and send it in a call of its own; for a larger "
                  "file, commit it and push it with git, whose scan reads commits of any size")
 
@@ -358,8 +363,9 @@ def _uncommented(script: str) -> str:
     return "".join(out)
 
 
-def _join(here: Path | None, target: str) -> Path | None:
-    """`target` from `here`, or None when the shell expands it or it starts from an unknown directory."""
+def _join(here: Path | None, target: str, physical: bool = False) -> Path | None:
+    """`target` from `here`, or None when the shell expands it or it starts from an unknown directory: read by its text,
+    as bash's cd reads it, or `physical`ly, as chdir and git's -C read it, through each link before a `..`."""
     if any(char in target for char in EXPANDED):
         return None
     try:
@@ -370,14 +376,15 @@ def _join(here: Path | None, target: str) -> Path | None:
         if here is None:
             return None
         path = here / path
-    return Path(os.path.normpath(path))
+    return Path(os.path.realpath(path) if physical else os.path.normpath(path))
 
 
 def _moved(here: Path | None, verb: str, args: list[str], cdpath: bool, home: bool) -> Path | None:
     """Where `cd`, `pushd` or `popd` with these words leaves the shell; None when the line cannot say: an option (`-P`
     resolves links, `pushd -n` stays put), the previous directory or a stack entry, a bare `cd` (HOME, which the line
-    may set), a `~` directory when `home` (the line names HOME), and a relative one that CDPATH may find elsewhere when
-    `cdpath` (the environment or the line sets it)."""
+    may set), a `~` directory when `home` (the line names HOME), a relative one that CDPATH may find elsewhere when
+    `cdpath` (the environment or the line sets it), and one that a link and then `..` make two: bash reads `..` by its
+    text unless `set -P` is on, which the hook does not read, and chdir reads it through the link."""
     ended = False
     for arg in args if verb != "popd" else []:
         if arg in REDIRECTS or arg in (")", "}"):
@@ -389,7 +396,8 @@ def _moved(here: Path | None, verb: str, args: list[str], cdpath: bool, home: bo
         elif cdpath and not arg.startswith(("/", ".", "~")) or home and arg.startswith("~"):
             return None  # bash looks for it in CDPATH's directories first; ~ is the HOME the line sets
         else:
-            return _join(here, arg)
+            lexical = _join(here, arg)
+            return lexical if lexical is None or os.path.realpath(lexical) == str(_join(here, arg, True)) else None
     return None  # a bare cd goes to HOME, which the line may set; a bare pushd swaps the stack's top two; popd pops
 
 
@@ -406,15 +414,16 @@ def _global_options(words: list[str], index: int) -> tuple[str | None, list[tupl
     return (words[index] if index < len(words) else None), options, words[index + 1:]
 
 
-def _repository(here: Path | None, options: list[tuple[str, str | None]], before: list[str]) -> Path | None:
-    """The directory a git command runs in, or None when its line names one the hook cannot resolve."""
+def _repository(here: Path | None, options: list[tuple[str, str | None]], before: list[str], home: bool) -> Path | None:
+    """The directory a git command runs in, or None when its line names one the hook cannot resolve. git enters each -C
+    as chdir does, through its links; a `~` there is the HOME the line may set when `home` (the line names HOME)."""
     if any(word.startswith(("GIT_DIR=", "GIT_WORK_TREE=")) for word in before):
         return None
     for name, value in options:
         if name.startswith(("--git-dir", "--work-tree")):
             return None
         if name == "-C" and value:
-            here = _join(here, value)
+            here = None if home and value.startswith("~") else _join(here, value, True)
     return here
 
 
@@ -538,7 +547,7 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                     options, sources, remote = _sent(rest)
                     config = [word for name, value in global_options if name == "-c" or name.startswith("--config-env")
                               for word in (name, value) if word is not None]
-                    pushes.append((_repository(here, global_options, words[:index]), options, sources, remote, config))
+                    pushes.append((_repository(here, global_options, words[:index], home), options, sources, remote, config))
                 elif subcommand is not None and subcommand not in READS:
                     moved = True
     for _directory, options, sources, _remote, _config in pushes if moved else []:  # wherever the move stands
@@ -616,9 +625,9 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str], r
         return _reason(
             "this line pushes from a repository the hook cannot resolve as the line stands (a variable, a "
             "substitution, `cd -`, popd, a cd or pushd that may not run where it stands, a relative one that CDPATH "
-            "may take elsewhere, a bare cd or a ~ one when the line names HOME, one given an option, --git-dir, "
-            "--work-tree, GIT_DIR=, or a directory no repository holds yet), so it cannot tell what the push would "
-            "send.",
+            "may take elsewhere, a bare cd, a ~ directory when the line names HOME, a cd or pushd given an option, a "
+            "link and then .. that cd may read either way, --git-dir, --work-tree, GIT_DIR=, or a directory no "
+            "repository holds yet), so it cannot tell what the push would send.",
             REPOSITORY_REMEDY)
     destination, configured = _destination(top, remote, config), []
     if _git(top, *config, "config", "--type=bool", "--get", f"remote.{destination}.mirror") == "true":
@@ -695,12 +704,16 @@ def _api_refusal(command: str, script: str, cwd: object) -> str | None:
     words = " ".join(shell._tokens(script))
     if GH_API.search(words) is None and "api.github.com" not in words.lower():
         return None
-    texts, moved = [command], _changes_directory(script)
+    texts, moved, home = [command], _changes_directory(script), "HOME" in script
     for name in shell._names_sent(script):
         if moved and not os.path.isabs(os.path.expanduser(name)):
             return _reason(f"this line changes directory and sends {name!r}, a relative path, as a body, and the hook "
                            "reads a body file from the directory the call starts in, so it cannot tell which file the "
                            "write sends.", MOVED_BODY_REMEDY)
+        if home and name.startswith("~"):
+            return _reason(f"this line names HOME and sends {name!r} as a body, and the hook reads ~ from its own HOME, "
+                           "not the one the line may set, so it cannot tell which file the write sends.",
+                           TILDE_BODY_REMEDY)
         text = shell._read_sent(name, cwd)
         if text is None:  # a body the scan cannot read would go unscanned
             return _reason(f"this command sends {name!r} as a body, and the hook cannot read it as the line stands "
