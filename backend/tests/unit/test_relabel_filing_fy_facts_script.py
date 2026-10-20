@@ -15,8 +15,10 @@ period end of the same filing and concept, or of the concept's current rows, alr
 held.
 """
 import json
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -48,6 +50,20 @@ CALENDARS = {
 }
 CIKS = {"TGT": "0000027419", "JNJ": "0000200406", "AAPL": "0000320193", "DEC": "0000000777"}  # DEC: synthetic
 LEGACY = None  # provenance of a row the companyfacts writer stored before #1191
+
+
+@pytest.fixture(autouse=True)
+def sec(monkeypatch):
+    """The companyfacts read the CLI makes from SEC for each company, faked (tests reach no network):
+    a payload with no facts unless a case gives the CIK one (None is the transport's failed read)."""
+    payloads, reads = {}, []
+
+    def read(cik):
+        reads.append(cik)
+        return payloads.get(cik, {"cik": int(cik), "facts": {}})
+
+    monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", read)
+    return SimpleNamespace(payloads=payloads, reads=reads)
 
 
 @pytest.fixture
@@ -690,3 +706,179 @@ def test_a_relabel_that_would_give_two_current_rows_of_a_concept_one_year_is_hel
     db.refresh(row)
     assert row.fiscal_year == 2023 and result["relabel_rows"] == 0
     assert result["held"] == {"label_collision": [end]}
+
+
+def _jnj_before_any_sync(db):
+    """J&J's 2023 10-K as the per-filing writer stored it before P5, and no companyfacts row anywhere:
+    the state the first dry run found (``no_companyfacts_fy`` at every J&J year end)."""
+    company, filing = _company(db, "JNJ", year=24)
+    for start, end in CALENDARS["JNJ"].values():
+        _fact(db, company, concept="revenue", end=end, start=start, fiscal_year=_day(end).year,
+              source="edgar_xbrl", filing=filing)
+        _fact(db, company, concept="shareholders_equity", end=end, fiscal_year=_day(end).year,
+              source="edgar_xbrl", filing=filing, raw_tag="us-gaap:StockholdersEquity", value=50.0)
+    db.commit()
+    return company, filing
+
+
+def test_a_year_end_no_stored_row_vouches_for_takes_the_year_the_sec_read_names(db, capsys, sec):
+    apple, _apple_filing = _issuer(db, "AAPL")  # first in the run, with its own (empty) read
+    company, filing = _jnj_before_any_sync(db)
+    assert [year for _end, year in _chart(db, filing)["revenue"]] == [2022, 2023, 2023]
+    sec.payloads[company.cik] = _payload(company, {2023: (f"{company.cik}-24-000011", "2024-02-16")}, [2023])
+
+    assert relabel.main([]) == 0
+    _apple, preview, summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert relabel.main(["--apply"]) == 0
+    _apple, applied, _summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    for line in (preview, applied):
+        assert line["relabels"] == [
+            {"period_end": "2022-01-02", "from": 2022, "to": 2021, "rows": 2},
+            {"period_end": "2023-01-01", "from": 2023, "to": 2022, "rows": 2},
+        ]
+        assert line["sec_evidence"] == 6 and line["skipped"]["already_agrees"] == 2
+    assert summary["sec_evidence"] == 6 and preview["revisions"] == 0 and applied["revisions"] == 4
+    assert [year for _end, year in _chart(db, filing)["revenue"]] == [2021, 2022, 2023]
+    assert sec.reads == [apple.cik, company.cik] * 2  # one read per company per run
+    assert db.query(FinancialFact).filter_by(company_id=company.id, source="companyfacts").count() == 0
+
+
+def test_stored_evidence_outranks_the_sec_read(db):
+    company, filing = _issuer(db, "TGT")
+    opening = CALENDARS["TGT"][2020][1]  # stored evidence there is an instant only (untrusted)
+    _fact(db, company, concept="shareholders_equity", end=opening, fiscal_year=2021, raw_tag="us-gaap:StockholdersEquity")
+    _fact(db, company, concept="shareholders_equity", end=opening, fiscal_year=2021, source="edgar_xbrl", filing=filing,
+          raw_tag="us-gaap:StockholdersEquity")
+    rows = db.query(FinancialFact).filter_by(company_id=company.id).all()
+    # A read naming every stored companyfacts year one later changes nothing where stored rows vouch.
+    read = [SimpleNamespace(source="companyfacts", filing_id=None, raw_tag=row.raw_tag, fiscal_period="FY",
+                            fiscal_year=row.fiscal_year + 1, provenance=row.provenance,
+                            period_start=row.period_start, period_end=row.period_end)
+            for row in rows if row.filing_id is None]
+    read.append(SimpleNamespace(source="companyfacts", filing_id=None, raw_tag="us-gaap:Revenues", fiscal_period="FY",
+                                fiscal_year=2022, provenance=reported_provenance({"reconciled": True}),
+                                period_start=_day(CALENDARS["TGT"][2020][0]), period_end=_day(opening)))
+
+    plan = relabel.plan_company(rows, read)
+
+    assert plan == relabel.plan_company(rows) and plan["sec_evidence"] == 0 and len(plan["relabel"]) == 6
+
+
+def test_the_sec_read_vouches_for_the_year_the_filing_owns_so_its_newer_years_relabel_too(db, sec):
+    """The production state behind the label-collision case above: the 2024 10-K opened before the first
+    companyfacts sync, which then skipped the identities the filing owns, so no stored row vouches for
+    the filing's oldest year. The SEC read names it, and the filing's three years relabel together."""
+    company, filing = _company(db, "TGT", year=24)
+    db.commit()
+    reports = {2023: (filing.accession_number, "2024-03-13"), 2024: (_accession(company, 25), "2025-03-12")}
+    facts_service.process_filing_facts(db, filing, standardized=_unlabelled_annual_points(company, (2023, 2022, 2021)))
+    sec.payloads[company.cik] = payload = _payload(company, reports, [2023, 2024])
+    facts_service._persist_companyfacts_payload(db, company, payload)
+
+    result = relabel.relabel_company(db, company.id, apply=True, run_id="read",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+    db.commit()
+
+    assert result["relabels"] == [
+        {"period_end": "2022-01-29", "from": 2022, "to": 2021, "rows": 2},
+        {"period_end": "2023-01-28", "from": 2023, "to": 2022, "rows": 2},
+        {"period_end": "2024-02-03", "from": 2024, "to": 2023, "rows": 2},
+    ]
+    assert result["sec_evidence"] == 2 and result["skipped"] == dict.fromkeys(relabel.SKIP_REASONS, 0)
+    assert _chart(db, filing)["revenue"] == [("2022-01-29", 2021), ("2023-01-28", 2022), ("2024-02-03", 2023)]
+
+
+@pytest.mark.parametrize(("payload", "error"), [
+    (None, "companyfacts read from SEC failed; company unchanged"),  # the transport's failed read
+    ({"message": "Not Found"}, "companyfacts read from SEC had no facts object; company unchanged"),
+])
+@pytest.mark.parametrize("argv", [[], ["--apply"]])
+def test_a_failed_sec_read_fails_its_company_alone_before_its_session_opens(
+    db, factory, capsys, monkeypatch, sec, argv, payload, error,
+):
+    target, _filing = _issuer(db, "TGT")
+    jnj, _filing = _issuer(db, "JNJ")
+    before = _states(db)
+    sec.payloads[target.cik] = payload
+    events = []
+    read = facts_service._fetch_companyfacts_sync
+    monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", lambda cik: events.append(cik) or read(cik))
+
+    @contextmanager
+    def session():
+        events.append("open")
+        with factory() as opened:
+            yield opened
+        events.append("closed")
+
+    monkeypatch.setattr(database, "SessionLocal", session)
+
+    assert relabel.main(argv) == 1
+
+    *lines, summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert lines[0] == {"company_id": target.id, "ticker": "TGT", "error": error}
+    assert lines[1]["ticker"] == "JNJ" and lines[1]["relabel_rows"] == 4
+    assert (summary["failed"], summary["relabel_rows"]) == (1, 4)
+    assert events == ["open", "closed", target.cik, jnj.cik, "open", "closed"]
+    with factory() as fresh:
+        states = {row.id: quarterly_fact_repair.snapshot(row) for row in fresh.query(FinancialFact)}
+        assert {k: v for k, v in states.items() if v["company_id"] == target.id} == {
+            k: v for k, v in before.items() if v["company_id"] == target.id
+        }
+
+
+def test_a_read_row_the_stored_rule_rejects_is_no_evidence(db):
+    company, _filing = _jnj_before_any_sync(db)
+    _fact(db, company, concept="revenue", end="2022-01-02", start="2021-01-04", fiscal_year=2022, provenance=LEGACY,
+          is_latest=False, accession=_accession(company, 22))  # a pre-#1191 row never outranks the read
+    rows = db.query(FinancialFact).filter_by(company_id=company.id).all()
+    current = reported_provenance({"reconciled": True})
+
+    def read_row(fy, **changes):
+        start, end = CALENDARS["JNJ"][fy]
+        return SimpleNamespace(**{"filing_id": None, "raw_tag": "us-gaap:Revenues", "fiscal_period": "FY",
+                                  "fiscal_year": fy, "period_start": _day(start), "period_end": _day(end),
+                                  "source": "companyfacts", "provenance": current} | changes)
+
+    read = [read_row(2021), read_row(2022, period_start=None), read_row(2023, source="derived"),
+            read_row(2023, provenance=current | {"validation": "unavailable"})]
+
+    plan = relabel.plan_company(rows, read)
+
+    assert sorted((r.period_end.isoformat(), y) for r, y in plan["relabel"]) == [("2022-01-02", 2021)] * 2
+    assert plan["sec_evidence"] == 4
+    assert plan["held"] == {"no_companyfacts_fy": ["2023-12-31"], "untrusted_instant_only": ["2023-01-01"]}
+
+
+def test_the_read_never_relabels_beside_a_current_pre_1191_row(db, sec):
+    """Readers pick current rows by year and concept. A current pre-#1191 revenue row keeps 2022-01-02's
+    calendar label, so relabelling the filing's rows there from the read would split that end across
+    fiscal years: the end holds, as it did before the read existed, and so does its neighbour."""
+    company, filing = _jnj_before_any_sync(db)
+    start, end = CALENDARS["JNJ"][2021]
+    _fact(db, company, concept="revenue", end=end, start=start, fiscal_year=2022, provenance=LEGACY,
+          accession=_accession(company, 22))  # the 2022 10-K's column, stored by a sync before #1191
+    db.commit()
+    sec.payloads[company.cik] = _payload(company, {2023: (filing.accession_number, "2024-02-16")}, [2023])
+
+    result = relabel.relabel_company(db, company.id, apply=False, run_id="legacy-current",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+
+    assert result["relabels"] == [] and result["sec_evidence"] == 4
+    assert result["held"] == {"label_collision": ["2023-01-01"], "legacy_companyfacts_only": ["2022-01-02"]}
+
+
+def test_a_collision_holds_its_whole_period_end(db, sec):
+    """A current pre-#1191 revenue row names fiscal 2020's end 2021, so revenue at 2022-01-02 cannot take
+    2021. Equity at the same end could, but it holds too, so 2022-01-02 never carries two fiscal years."""
+    company, filing = _jnj_before_any_sync(db)
+    _fact(db, company, concept="revenue", end="2021-01-03", start="2020-01-01", fiscal_year=2021, provenance=LEGACY)
+    db.commit()
+    sec.payloads[company.cik] = _payload(company, {2023: (filing.accession_number, "2024-02-16")}, [2023])
+
+    result = relabel.relabel_company(db, company.id, apply=False, run_id="whole-end",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+
+    assert result["relabels"] == [] and result["skipped"]["label_collision"] == 4
+    assert result["held"] == {"label_collision": ["2022-01-02", "2023-01-01"]}
