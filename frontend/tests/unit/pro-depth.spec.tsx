@@ -11,7 +11,7 @@ import {
   SAMPLE_ASK,
   SAMPLE_CHANGE_REPORT,
 } from '@/features/marketing/lib/landing-samples'
-import { FREE_COPILOT_QUESTIONS, FREE_HISTORY_RETENTION_DAYS } from '@/lib/planLimits'
+import { FREE_COPILOT_QUESTIONS } from '@/lib/planLimits'
 
 /**
  * "What Pro adds" (landing section 6): the three product screens are the REAL product components
@@ -166,16 +166,13 @@ describe('ProDepth', () => {
     expect(
       within(section).getByText(`Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`, { exact: false }),
     ).toBeInTheDocument()
-    expect(
-      within(section).getByText(`Free keeps ${FREE_HISTORY_RETENTION_DAYS} days.`, { exact: false }),
-    ).toBeInTheDocument()
 
     expect(within(section).getByRole('heading', { level: 3, name: 'Also in Pro' })).toBeInTheDocument()
     expect(within(section).getByText('Watchlists are unlimited on both plans.')).toBeInTheDocument()
-    for (const extra of ['Summary export', 'Filing alerts', 'Full history']) {
-      expect(within(section).getByRole('heading', { level: 4, name: extra })).toBeInTheDocument()
-    }
-    for (const tag of ['PDF', 'CSV', '10-K', '10-Q', '8-K', 'Unlimited']) {
+    // The extras, exactly: no history tile while no retention is enforced (D-046; summaryPlanClaims.spec.ts).
+    const extras = within(section).getByRole('heading', { level: 4, name: 'Summary export' }).closest('ul')!
+    expect(within(extras).getAllByRole('heading', { level: 4 }).map((h) => h.textContent)).toEqual(['Summary export', 'Filing alerts'])
+    for (const tag of ['PDF', 'CSV', '10-K', '10-Q', '8-K']) {
       expect(within(section).getByText(tag)).toBeInTheDocument()
     }
   })
