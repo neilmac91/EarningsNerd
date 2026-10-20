@@ -10,7 +10,8 @@ allowed analytics before turning the signal on was still tracked. The footer's "
 time through our cookie consent banner or settings."), and #1399 first made Do Not Track win while the
 browser sent it, at the two consent functions and in the dialog. The founder decided otherwise (D-049): the
 banner is the only control, for every visitor. The masks, the disabled boxes and the first-visit decline
-went, and /privacy's sentence changed in the same PR.
+went, and /privacy's sentence changed in the same PR. The founder then scoped that sentence to the browser
+(2026-10-20), since the API's account events do not wait for the choice.
 
 **Rule.**
 
@@ -20,9 +21,9 @@ Not Track by any spelling, Global Privacy Control, their request headers, an SDK
 turns them off, stands in for a first choice or hides the bar.
 
 (b) App code reads no such signal. A change that reads one changes /privacy's sentence ("Analytics and
-session recording stay off until you allow them, and you can change your choice at any time in Cookie
-settings. We don't change this based on your browser's Do Not Track setting.") in the same PR, under a
-decision of the founder's.
+session recording in your browser stay off until you allow them, and you can change your choice at any time
+in Cookie settings. We don't change this based on your browser's Do Not Track setting.") in the same PR,
+under a decision of the founder's.
 
 (c) A spec that sends a signal checks both states: a first visit, where the bar shows, and a choice already
 stored, which reads back as written.
