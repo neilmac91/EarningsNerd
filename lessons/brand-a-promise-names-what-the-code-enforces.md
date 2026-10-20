@@ -62,4 +62,5 @@ and that logging out of all devices ends every session within 30 minutes, while
 `backend/app/services/refresh_token_service.py` (`rotate_refresh_token`, a plain `.first()` and the
 rotation written after the successor) lets two overlapping renewals both succeed and a renewal racing
 a logout keep a live token (`tasks/todo.md` E127, E96); `legalTruth.spec.tsx` (`E127_PROMISES`)
-holds the two items to what still holds while E127 is open.
+holds the two items to what still holds on every run: #1422 fixed E127's race, and E121 still records a
+login that straddles a password reset, so the stronger wording returns only with the founder's go-ahead.

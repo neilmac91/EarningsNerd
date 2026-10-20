@@ -200,8 +200,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the account-events sentence (`ACCOUNT_EVENTS_DISCLOSURE`, the same module) to the backend's callers
   that key an event on the account id and read no consent, the sourced bullets to their section's
   steps, the audit-log item to the backend's audit writers, and the page's numbers to the backend's
-  defaults; while E127 is open, fails on a refresh token that works once, a reused one revoking the
-  account, or a session that ends within a time after logging out; and pins each legal page's rendered
+  defaults; fails on a refresh token that works once, a reused one revoking the account, or a session
+  that ends within a time after logging out, on every run, since E121 still records a login that
+  straddles a password reset; and pins each legal page's rendered
   text, by hash, to a ledger row under its date, main's published text first, so a text or date
   change fails until the last row records it (a row on the day of the row before it names the pull
   request that shares the day; a row edited in place passes, and is review-checked). Its five links carry the brand focus ring, the site chrome's triple;
