@@ -54,8 +54,9 @@ trust rule.
 ## Run it
 
 Run it only after P5 (#1364) is merged and deployed; before that, newly opened filings still write
-calendar years. The database is only reachable from Cloud Run, so run it through the backfill job
-image with execution-scoped arguments (see `docs/DEPLOYMENT.md`, one-shot maintenance runs).
+calendar years. The database is reachable only from Cloud Run and through the Ops workflow's Cloud
+SQL proxy, so run it through the backfill job image with execution-scoped arguments (see
+`docs/DEPLOYMENT.md`, one-shot maintenance runs), or through the Ops workflow below.
 
 Dry run (the default; writes nothing, and each company's read is rolled back):
 
@@ -77,10 +78,28 @@ gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.co
 `--tickers TGT,JNJ` limits the run to a cohort (each named company gets a line, even with nothing
 to scan) and `--limit N` to the first N companies by id.
 
+The Ops workflow (`.github/workflows/ops.yml`, dispatched from main) runs the same script on its
+runner through the Cloud SQL proxy, so every line lands in the workflow run's log instead of Cloud
+Logging. Operation `relabel-fy-dry-run` runs the dry run in read-only transactions, so Postgres
+refuses any write; `relabel-fy-apply` runs the apply below. Before the script, the run prints the
+session's settings as Postgres reports them (`session read_only=on lock_timeout=10s
+statement_timeout=2min` for a dry run, `read_only=off` for the apply) and stops unless they are the
+step's own, so the log shows the guards took effect. Its `tickers` input passes `--tickers` (at most
+50); there is no `--limit`. The workflow refuses to start while a CI run for a push to main is in
+flight, so dispatch after that run finishes. A failed company fails the run once, with no automatic
+retry: read its `error` line, then dispatch again. Dispatching the same apply again after such a
+failure, up to three times (the retries Cloud Run would have made on its own), over the same tickers
+or only the companies that failed, stands under the same sign-off; an apply over other tickers needs
+its own. The repository is public, so anyone can read the run's log. Its lines carry company ids,
+tickers, period ends and fiscal years, all public filing data, and an `error` line can quote the
+failing SQL and its parameters. The proxy step masks the database URL and password, but a failed
+connection's error names the database user and the database.
+
 ## Apply (founder sign-off required)
 
 The apply rewrites stored financial data. Run it only after the founder has read the dry-run
-counts and signed off, with the same arguments plus `--apply`:
+counts and signed off, with the same arguments plus `--apply` (or the Ops workflow's
+`relabel-fy-apply`):
 
 ```bash
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
@@ -96,7 +115,8 @@ default of three retries applies, `docs/OPERATIONS.md`): each attempt prints a n
 companies an earlier attempt committed then read as `already_agrees`. Every changed row is
 journaled in `financial_fact_revision` (action `apply`, version `fy-relabel-v1`) under the `run_id`
 on the company line that shows `revisions` above zero. To revert one company, preview and then
-apply the audited rollback with that `run_id`:
+apply the audited rollback with that `run_id`. The rollback has no Ops operation, so it runs through
+the job image:
 
 ```bash
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
