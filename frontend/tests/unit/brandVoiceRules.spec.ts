@@ -69,22 +69,30 @@ import { isIconModule } from './iconModules'
  *    is not code's own, so an identifier (`signedIn`, `ENABLE_APPLE_SIGNIN`), a comment, an href, a class attribute and
  *    a comparison are never read. Unlike them, it reads a string no context claims whatever its shape, since the
  *    verb's own noun is hyphenated (`setError('could not complete sign-in.')`, `throw new Error('sign-in expired')`, a
- *    constant rendered later), except in a class list, where a token that joins the verb to a class's other parts is a
- *    class (`'sign-in-link underline'`, `'md:signin'`). A `kind` property's value is a tag (`{ kind: 'signin' }`), code
- *    as a `type`'s is. Markup a module builds is read by its text, its tags and attributes left out. Out of reach,
- *    planted as gaps in its self-check: the two words split across two literals, around an expression or around an
- *    element (`Sign{' '}in`, `'Sign ' + 'in'`, `Sign<br />in`), each part read alone; a noun object between them
- *    (`Sign other devices out`; "Sign your name in the box" is the other verb);
- *    a letter from another script (a Cyrillic `і`); and in a class-shaped string no context claims, the verb hyphenated
- *    into a longer token (`'sign-in-related issues'`), which is a class's shape. Its false positives are the other
- *    senses of "sign" before these words ("signed back in May", "signed into law", "a sign right in front of you") and a
- *    tag in a place no context names as code (`useState('sign-in')`): one goes to the residue with its reason.
+ *    constant rendered later), except in a class list, where the verb counts only as words of its own, a sentence's
+ *    punctuation, brackets or a possessive around it (`'[sign-in] failed'`, `"your sign-in's link"`), and a token that
+ *    joins it to a class's other parts is a class (`'sign-in-link underline'`, `'md:signin'`). A `kind` property's value
+ *    is a tag (`{ kind: 'signin' }`), code as a `type`'s is. Markup a module builds (an `innerHTML`, an `__html`) is read
+ *    by its text and by each attribute of its elements that is not code (CODE_ATTRS_ANY_CASE: an aria-label, an alt, a
+ *    title, a placeholder), each read alone, its tags and code attributes (a class, an href, an id, a `for`, a `style`)
+ *    left out. Out of reach, eight forms planted as gaps in its self-check: the two words split across two literals,
+ *    around an expression or around an element (`Sign{' '}in`, `'Sign ' + 'in'`, `Sign<br />in`), each part read
+ *    alone; a noun object between them (`Sign other devices out`; "Sign your name in the box" is the other verb); a
+ *    letter from another script (a Cyrillic `і`); and in a class-shaped string no context claims, the verb joined into
+ *    a longer token by a hyphen, a slash or a colon, each a class's shape (`group/name`, `md:name`):
+ *    `'sign-in-related issues'`, `'sign-in/sign-up required'`, `'auth:sign-in failed'`. Its false positives are the
+ *    other senses of "sign" before these words ("signed back in May", "signed into law", "a sign right in front of
+ *    you"), a tag in a place no context names as code (`useState('sign-in')`) and, in markup, a code attribute
+ *    CODE_ATTRS_ANY_CASE does not name (an SVG's `xlink:href`, a `clip-path`'s `url(#…)`): one goes to the residue
+ *    with its reason.
  *
  * Copy is a JSX text node, or a string or template literal outside the places code keeps its own
  * strings (imports, class lists, comparisons, identifiers such as hrefs and keys; see isCodeString). A
  * `createElement` call is read as JSX is: its type is code, a prop is read by the attribute's rule and a
  * child is copy (the literal clauses; the label clauses read JSX elements only). What `replace` puts in a
- * pattern's place, and the value `setAttribute` gives an attribute that is not code, are read by their context. An
+ * pattern's place, and the value `setAttribute` gives an attribute that is not code, are read by their context. A
+ * call whose string arguments are code (CODE_CALLS) claims those arguments, not the body of a function handed to it,
+ * which is read as a block body is (`queryFn: () => Promise.reject(new Error('…'))`). An
  * attribute that is not code (CODE_ATTRS) is copy, so a placeholder, an aria-label, an alt or a title is
  * read by the exclamation, emoji and buzzword clauses (and by no-em-dash-copy.spec.ts, which reads every
  * literal), whatever its shape (a lone `'!'` or `'🚀'` included), and so is an expression rendered as an
@@ -165,23 +173,28 @@ const INSIDE_THE_VERB = `(?:back|right|straight|(?:me|you|him|her|it|us|them|mys
     parted (PARTED), or parted around the words inside the verb (INSIDE_THE_VERB). Global, so read only by matchAll. */
 const SIGN_IN_VERB = new RegExp(String.raw`\bsign(?:s|ed|ing)?(?:${PARTED}+${INSIDE_THE_VERB})*${PARTED}*(?:in(?:s|to)?|outs?)\b`, 'giu')
 
-/** A literal's text as a reader gets it, for the verb: a character reference decoded as HTML decodes it (jsdom's decoder,
-    which knows every name JSX and Next's compiler decode), markup read by its text (its tags and attributes left out),
-    a compatibility form folded to its letter (NFKC) and the invisible characters taken out (Default_Ignorable_Code_Point:
-    a soft hyphen, a zero-width space, joiner or non-joiner, a word joiner, a direction mark). */
-function readable(text: string, markup: boolean): string {
-  let read = text
+/** A literal's texts as a reader gets them, for the verb: a character reference decoded as HTML decodes it (jsdom's
+    decoder, which knows every name JSX and Next's compiler decode), markup read by its text and by each attribute of its
+    elements that is not code (CODE_ATTRS_ANY_CASE: an aria-label, an alt, a title, a placeholder), each read alone, its
+    tags left out, a compatibility form folded to its letter (NFKC) and the invisible characters taken out
+    (Default_Ignorable_Code_Point: a soft hyphen, a zero-width space, joiner or non-joiner, a word joiner, a direction
+    mark). */
+function readable(text: string, markup: boolean): string[] {
+  let read = [text]
   if (markup) {
     const holder = document.createElement('template')
     holder.innerHTML = text
-    read = holder.content.textContent ?? ''
+    const copyAttributes = [...holder.content.querySelectorAll('*')].flatMap((element) =>
+      [...element.attributes].filter((attr) => !CODE_ATTRS_ANY_CASE.test(attr.name)).map((attr) => attr.value),
+    )
+    read = [holder.content.textContent ?? '', ...copyAttributes]
   } else if (/&#?\w/.test(text)) {
     // A textarea's content is text and character references, never tags (HTML's RCDATA).
     const holder = document.createElement('textarea')
     holder.innerHTML = text
-    read = holder.value
+    read = [holder.value]
   }
-  return read.normalize('NFKC').replace(/\p{Default_Ignorable_Code_Point}/gu, '')
+  return read.map((piece) => piece.normalize('NFKC').replace(/\p{Default_Ignorable_Code_Point}/gu, ''))
 }
 const HEADINGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
 /** Components whose title prop is a visible title. UpgradeModal is named because its title reaches its
@@ -194,8 +207,9 @@ const BUTTONS = new Set(['Button', 'button'])
 const CONTROLS = new Set(['Button', 'button', 'a', 'Link'])
 /** Attributes that hold code, not copy. */
 const CODE_ATTRS = /^(?:className|class|href|src|srcSet|id|key|type|role|name|rel|target|variant|size|as|method|action|htmlFor|autoComplete|inputMode|enterKeyHint|lang|viewBox|d|fill|stroke|strokeWidth|strokeLinecap|strokeLinejoin|xmlns|mode|side|align|tone|tabIndex|pattern|form|scope|dateTime|sizes|crossOrigin|referrerPolicy|layout|data-[\w-]+|aria-(?:controls|labelledby|describedby|haspopup|live|current|expanded|hidden|selected|pressed|checked|disabled|modal|orientation|sort|atomic|relevant|busy|invalid|required|owns|activedescendant))$/
-/** CODE_ATTRS for a DOM attribute's name, which is lowercase (`tabindex`, `for`). */
-const CODE_ATTRS_ANY_CASE = new RegExp(CODE_ATTRS.source.replace('htmlFor|', 'htmlFor|for|'), 'i')
+/** CODE_ATTRS for a DOM attribute's name, which is lowercase (`tabindex`, `for`), and a `style`, whose value is CSS there
+    (JSX's is an object). */
+const CODE_ATTRS_ANY_CASE = new RegExp(CODE_ATTRS.source.replace('htmlFor|', 'htmlFor|for|style|'), 'i')
 /** Calls whose string arguments are code: class lists, keys, selectors, patterns, event names. Two positions are read
     by their context instead (isCodeString): what `replace` and `replaceAll` put in a pattern's place, and the value
     `setAttribute` gives an attribute that is not code; `createElement` is read as JSX is. */
@@ -264,8 +278,9 @@ function contextOf(node: ts.Node): boolean | undefined {
   if ((ts.isPropertyAssignment(parent) || ts.isPropertyDeclaration(parent) || ts.isMethodDeclaration(parent)) && parent.name === node) return true
   if (ts.isElementAccessExpression(parent) || ts.isCaseClause(parent)) return true
   if (ts.isBinaryExpression(parent) && [ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken, ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.InKeyword].includes(parent.operatorToken.kind)) return true
-  // The outermost property passed on the way up, for a createElement call's props.
+  // The outermost property passed on the way up, for a createElement call's props, and whether the way up left a function.
   let prop: string | undefined
+  let leftFunction = false
   for (let n: ts.Node | undefined = parent, from: ts.Node = node; n; from = n, n = n.parent) {
     if (ts.isJsxAttribute(n)) return CODE_ATTRS.test(n.name.getText())
     // A tag's property holds code (`{ kind: 'signin' }`, as a `type` does), like a class list's, a key's and an href's.
@@ -278,6 +293,9 @@ function contextOf(node: ts.Node): boolean | undefined {
       return at === 1 ? prop === undefined || CODE_ATTRS.test(prop) : at < 2
     }
     if (ts.isCallExpression(n) && calleeNames(n).some((name) => CODE_CALLS.has(name))) {
+      // Such a call claims its own arguments, not the body of a function handed to it, which is read as a block body is
+      // (`queryFn: () => Promise.reject(new Error('…'))` as `queryFn: () => { throw new Error('…') }`).
+      if (leftFunction) break
       // A replacement is read by its context (`<p>{note.replace('x', 'Wow!')}</p>` renders it), and so is an attribute's
       // value when the attribute is not code (`el.setAttribute('aria-label', …)`).
       const at = n.arguments.indexOf(from as ts.Expression)
@@ -294,25 +312,28 @@ function contextOf(node: ts.Node): boolean | undefined {
     // An expression rendered as an element's child is copy, whatever its shape.
     if (ts.isJsxExpression(n) && (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))) return false
     if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isBlock(n) || ts.isSourceFile(n)) break
+    if (ts.isFunctionLike(n)) leftFunction = true
   }
   return undefined
 }
 
 /** Whether a literal says the other verb (D-046), read as the header's signInVerb says: by its context first; a string no
     context claims whatever its shape, but for a class list's token that joins the verb to a class's other parts; markup
-    by its text; each through `readable`. */
+    by its text and its copy attributes; each through `readable`. */
 function saysTheOtherVerb(node: ts.Node, raw: string): boolean {
   const context = contextOf(node)
   if (context === true) return false
   const markup = !ts.isJsxText(node) && isMarkup(raw)
   const asWords = context === undefined && !markup && looksLikeClasses(raw)
-  const text = readable(raw, markup)
-  for (const match of text.matchAll(SIGN_IN_VERB)) {
-    if (!asWords) return true
-    // In a class list the verb counts where it stands as words of its own, a sentence's punctuation around it.
-    const before = text.slice(0, match.index).split(/\s/).pop() ?? ''
-    const after = text.slice(match.index + match[0].length).split(/\s/)[0] ?? ''
-    if (/^[("'“‘]*$/.test(before) && /^[.,;:!?…)"'”’]*$/.test(after)) return true
+  for (const text of readable(raw, markup)) {
+    for (const match of text.matchAll(SIGN_IN_VERB)) {
+      if (!asWords) return true
+      // In a class list the verb counts where it stands as words of its own: a sentence's punctuation around it, brackets
+      // included, and a possessive after it (`'[sign-in] failed'`, `"your sign-in's link"`).
+      const before = text.slice(0, match.index).split(/\s/).pop() ?? ''
+      const after = text.slice(match.index + match[0].length).split(/\s/)[0] ?? ''
+      if (/^[(\["'“‘]*$/.test(before) && /^(?:['’]s)?[.,;:!?…)\]"'”’]*$/.test(after)) return true
+    }
   }
   return false
 }
@@ -1308,6 +1329,18 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       ['export const BA = (x: string) => `sign-in ${x}`', true],
       ["export const BB = (el: HTMLElement) => { el.innerHTML = '<p>Sign in to continue</p>' }", true],
       ["const LABEL = 'signin'; export const BC = () => <p>{LABEL}</p>", true],
+      // Markup a module builds, by each attribute of its elements that is not code: an aria-label, an alt, a title and a
+      // placeholder in an innerHTML, and an aria-label in an __html.
+      ["export const BK = (el: HTMLElement) => { el.innerHTML = '<button aria-label=\"Sign in\"></button>' }", true],
+      ["export const BL = (el: HTMLElement) => { el.innerHTML = '<img alt=\"Sign out\" src=\"x.png\">' }", true],
+      ["export const BM = (el: HTMLElement) => { el.innerHTML = '<a title=\"Sign in help\" href=\"/h\">Help</a>' }", true],
+      ["export const BN = (el: HTMLElement) => { el.innerHTML = '<input placeholder=\"Sign in email\">' }", true],
+      ["export const BO = () => <div dangerouslySetInnerHTML={{ __html: '<button aria-label=\"Sign in\"></button>' }} />", true],
+      // In a class-shaped string, the verb in brackets and with a possessive; and a message in a function handed to a call
+      // whose arguments are code, read as the block body (AY) is.
+      ["export const BP = () => toast.error('[sign-in] failed, try again')", true],
+      ["export const BQ = (setError: (m: string) => void) => setError(\"your sign-in's link has expired\")", true],
+      ["export const BR = () => useQuery({ queryKey: ['x'], queryFn: () => Promise.reject(new Error('Please sign in')) })", true],
       // A `kind` property's value is a tag, code (useCalendar.ts's `kind: 'signin'`).
       ["export const T = (set: (b: { kind: string }) => void) => set({ kind: 'signin' })", false],
       ['export const U = () => <Button>Sign up with email</Button>', false],
@@ -1321,22 +1354,26 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       ["export const ENABLE_APPLE_SIGNIN = process.env.NEXT_PUBLIC_ENABLE_APPLE_SIGNIN === 'true'", false],
       ["export const AB = (m: string) => m.includes('sign in')", false],
       ['export const AC = () => <AppleSignInButton apiBase="" />', false],
-      // The other "sign" before the same words, the verb inside a class token, and markup's attributes.
+      // The other "sign" before the same words, the verb inside a class token, and markup's code attributes (a DOM
+      // attribute's name in its own case: `for`, not `htmlFor`).
       ['export const BD = () => <p>Sign your name in the box</p>', false],
       ['export const BE = () => <p>There is no sign of it in the filing</p>', false],
       ['export const BF = () => <p>Signs you up in a minute</p>', false],
       ["const LINK = 'sign-in-link underline'", false],
       ["const NAV = 'md:signin hover:underline'", false],
       ["export const BG = (el: HTMLElement) => { el.innerHTML = '<a class=\"sign-in-link\" href=\"/signin\">Log in</a>' }", false],
+      ["export const BS = (el: HTMLElement) => { el.innerHTML = '<label for=\"signin-email\" id=\"sign-in-label\" style=\"background: url(/sign-in.svg)\">Email</label><input id=\"signin-email\" name=\"signin\" type=\"email\" data-cta=\"sign-in\">' }", false],
       // Out of reach, the gaps the header names: the words split around an expression, across two literals and around an
       // element, a noun object between them, a letter from another script, and in a class-shaped string no context
-      // claims, the verb hyphenated into a longer token.
+      // claims, the verb joined into a longer token by a hyphen, a slash or a colon, as a class joins its parts.
       ["export const AD = () => <p>Sign{' '}in</p>", 'gap'],
       ["export const AE = () => <p>{'Sign ' + 'in'}</p>", 'gap'],
       ['export const BH = () => <p>Sign<br />in</p>', 'gap'],
       ['export const BI = () => <p>Sign other devices out</p>', 'gap'],
       ['export const BJ = () => <p>S\u0456gn in</p>', 'gap'],
       ["const NOTE = 'sign-in-related issues'", 'gap'],
+      ["export const BT = (setError: (m: string) => void) => setError('sign-in/sign-up required')", 'gap'],
+      ["export const BU = () => toast.error('auth:sign-in failed')", 'gap'],
     ]
     let line = 1
     const expected: number[] = []
@@ -1347,8 +1384,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
     const src = planted.map(([code]) => code).join('\n')
     const found = voiceFindings(src, 'features/probe/Verb.tsx').filter((f) => f.clause === 'signInVerb')
     expect(found.map((f) => f.line)).toEqual(expected)
-    // Every plant is held, whatever its mark: 45 forms flagged, 18 look-alikes and code passing, 6 named gaps.
+    // Every plant is held, whatever its mark: 53 forms flagged, 19 look-alikes and code passing, 8 named gaps.
     const marked = (mark: boolean | 'gap') => planted.filter(([, flag]) => flag === mark).length
-    expect([marked(true), marked(false), marked('gap')]).toEqual([45, 18, 6])
+    expect([marked(true), marked(false), marked('gap')]).toEqual([53, 19, 8])
   })
 })

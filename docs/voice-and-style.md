@@ -139,11 +139,13 @@ the business card, the footer and the merch; it is the positioning in six words.
 - The account verb is "Log in": "Log out", "logged in", "logging in" (D-046). "Login" is the noun
   ("the login page", "Login failed"), and "sign up" is registering, so it stays. Never "sign in" or
   "sign out" in any form, "Signing you in…" and "Sign back in" included.
-  `frontend/tests/unit/brandVoiceRules.spec.ts` fails it in copy, a lowercase message and a character
-  reference included, except six forms its header names as gaps: the two words split around an
+  `frontend/tests/unit/brandVoiceRules.spec.ts` fails it in copy, a lowercase message, a character
+  reference and the copy attributes of markup a module builds (an aria-label, an alt, a title, a
+  placeholder) included, except eight forms its header names as gaps: the two words split around an
   expression, across literals joined with `+` or around an element; a noun between them ("Sign other
   devices out"); a letter from another script; and, in a lowercase string shaped like a class list,
-  the verb hyphenated into a longer word ("sign-in-related"). Copy in a JSON module stays
+  the verb joined into a longer word by a hyphen, a slash or a colon ("sign-in-related",
+  "sign-in/sign-up", "auth:sign-in"), as a class joins its parts. Copy in a JSON module stays
   review-checked. The backend's own messages follow in their voice pass (E45), and the OAuth-linked
   mail in E46's.
 
