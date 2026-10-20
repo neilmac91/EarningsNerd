@@ -802,8 +802,13 @@ const GAP = '\u0000'
  *    specifier, from that module or from any module that re-exports it (`export { … } from`, `export *`, a
  *    re-export of its own import; exportsOwn), a default import included where the module's default export is it
  *    (`export { TRIAL_DAYS as default } from`, `export default` of its own import; `export *` hands on no default);
- *    a namespace import's member (`P.TRIAL_DAYS`, `P['TRIAL_DAYS']`),
- *    one destructured from it, and a const holding any of those. A same-named export of another module (one
+ *    a namespace import's member (`P.TRIAL_DAYS`, `P['TRIAL_DAYS']`), a namespace a module hands on
+ *    (`export * as plan from`, a namespace import re-exported, by name or as the default) and its members through
+ *    any chain of written keys (`b.plan.TRIAL_DAYS`; namespaceOf), one destructured from it, and a const holding any
+ *    of those. What the reader cannot follow through a namespace that holds TRIAL_DAYS (reachesTrial) fails closed,
+ *    as a read the guard must cover: a key the file does not write (`plan[key]`), the namespace handed on, spread,
+ *    returned or stored, a destructuring with a computed key or a rest, and an `import()` or `require()` of a module
+ *    that holds it. A same-named export of another module (one
  *    named planLimits.ts included) is that module's own, a value the reader cannot resolve. A local declaration
  *    of the same name shadows it, as the language does.
  *  - A guard is lib/featureFlags.ts's ENABLE_PRO_TRIAL (imported the same way, or a namespace member; another
@@ -904,6 +909,91 @@ function exportsOwn(file: string | undefined, name: string, owner: string, want:
   })
 }
 
+/** The names module `file` exports: its own, the ones it renames or hands on, and those of each `export *` (which
+    hands on no default). */
+function exportNames(file: string, seen = new Set<string>()): string[] {
+  if (seen.has(file)) return []
+  seen.add(file)
+  const sf = moduleSource(file)
+  return sf.statements.flatMap((statement): string[] => {
+    if (ts.isExportAssignment(statement)) return statement.isExportEquals ? [] : ['default']
+    if (ts.isExportDeclaration(statement)) {
+      if (!statement.exportClause) {
+        const from = statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleFile(file, statement.moduleSpecifier.text) : undefined
+        return from ? exportNames(from, seen).filter((name) => name !== 'default') : []
+      }
+      return ts.isNamespaceExport(statement.exportClause) ? [statement.exportClause.name.text] : statement.exportClause.elements.map((element) => element.name.text)
+    }
+    const exported = ts.canHaveModifiers(statement) && ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+    if (!exported) return []
+    if (ts.isVariableStatement(statement)) return statement.declarationList.declarations.flatMap((d) => (ts.isIdentifier(d.name) ? [d.name.text] : []))
+    const named = (statement as ts.DeclarationStatement).name
+    return named && ts.isIdentifier(named) ? [named.text] : []
+  })
+}
+
+/**
+ * The module whose namespace object module `file` exports as `name`, or undefined when that export is not a namespace:
+ * `export * as name from`, a namespace import the module re-exports (`import * as ns …; export { ns as name }`, or as
+ * its default), followed through re-exports by name and `export *` as exportsOwn follows a value.
+ */
+function namespaceOf(file: string | undefined, name: string, seen = new Set<string>()): string | undefined {
+  if (!file || seen.has(`${file}#${name}`)) return undefined
+  seen.add(`${file}#${name}`)
+  const sf = moduleSource(file)
+  const imported = (local: string): string | undefined => {
+    for (const statement of sf.statements) {
+      if (!ts.isImportDeclaration(statement) || !statement.importClause || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+      const from = moduleFile(file, statement.moduleSpecifier.text)
+      const bindings = statement.importClause.namedBindings
+      if (bindings && ts.isNamespaceImport(bindings) && bindings.name.text === local) return from
+      if (statement.importClause.name?.text === local) return namespaceOf(from, 'default', seen)
+      const spec = bindings && ts.isNamedImports(bindings) ? bindings.elements.find((element) => element.name.text === local) : undefined
+      if (spec) return namespaceOf(from, (spec.propertyName ?? spec.name).text, seen)
+    }
+    return undefined
+  }
+  for (const statement of sf.statements) {
+    if (ts.isExportAssignment(statement)) {
+      const value = unwrapExpr(statement.expression)
+      if (name === 'default' && !statement.isExportEquals && ts.isIdentifier(value)) {
+        const ns = imported(value.text)
+        if (ns) return ns
+      }
+      continue
+    }
+    if (!ts.isExportDeclaration(statement)) continue
+    const from = statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleFile(file, statement.moduleSpecifier.text) : undefined
+    if (!statement.exportClause) {
+      const ns = name === 'default' ? undefined : namespaceOf(from, name, seen)
+      if (ns) return ns
+      continue
+    }
+    if (ts.isNamespaceExport(statement.exportClause)) {
+      if (statement.exportClause.name.text === name && from) return from
+      continue
+    }
+    for (const element of statement.exportClause.elements) {
+      if (element.name.text !== name) continue
+      const local = (element.propertyName ?? element.name).text
+      const ns = from ? namespaceOf(from, local, seen) : imported(local)
+      if (ns) return ns
+    }
+  }
+  return undefined
+}
+
+/** Whether a module's namespace object holds TRIAL_DAYS: as its own export, or in a namespace it exports. */
+function reachesTrial(file: string, seen = new Set<string>()): boolean {
+  if (seen.has(file)) return false
+  seen.add(file)
+  if (exportsOwn(file, 'TRIAL_DAYS', LIB_PLAN_LIMITS, 'TRIAL_DAYS')) return true
+  return exportNames(file).some((name) => {
+    const ns = namespaceOf(file, name)
+    return !!ns && reachesTrial(ns, seen)
+  })
+}
+
 interface TrialReader {
   /** Every read of TRIAL_DAYS in the file, with whether a guard holds over it. */
   reads: Array<{ line: number; guarded: boolean }>
@@ -926,6 +1016,8 @@ const isReference = (id: ts.Identifier): boolean => {
   if ((ts.isVariableDeclaration(p) || ts.isParameter(p) || ts.isFunctionDeclaration(p) || ts.isClassDeclaration(p)) && p.name === id) return false
   if (ts.isBindingElement(p) && (p.name === id || p.propertyName === id)) return false
   if (ts.isJsxAttribute(p) || ts.isExportSpecifier(p)) return false
+  // A lowercase tag names an intrinsic element (`<p>`), never a binding of that name.
+  if ((ts.isJsxOpeningElement(p) || ts.isJsxClosingElement(p) || ts.isJsxSelfClosingElement(p)) && p.tagName === id && /^[a-z]/.test(id.text)) return false
   return true
 }
 
@@ -946,23 +1038,47 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
     const byDefault = statement.importClause.name
     if (byDefault && exportsOwn(from, 'default', LIB_PLAN_LIMITS, 'TRIAL_DAYS')) trialImports.add(byDefault.text)
     if (byDefault && exportsOwn(from, 'default', LIB_FEATURE_FLAGS, 'ENABLE_PRO_TRIAL')) flagImports.add(byDefault.text)
+    const defaultNamespace = byDefault ? namespaceOf(from, 'default') : undefined
+    if (byDefault && defaultNamespace) namespaces.set(byDefault.text, defaultNamespace)
     if (bindings && ts.isNamespaceImport(bindings) && from) namespaces.set(bindings.name.text, from)
     if (bindings && ts.isNamedImports(bindings)) {
       for (const spec of bindings.elements) {
         const imported = (spec.propertyName ?? spec.name).text
         if (exportsOwn(from, imported, LIB_PLAN_LIMITS, 'TRIAL_DAYS')) trialImports.add(spec.name.text)
         if (exportsOwn(from, imported, LIB_FEATURE_FLAGS, 'ENABLE_PRO_TRIAL')) flagImports.add(spec.name.text)
+        const namespace = namespaceOf(from, imported)
+        if (namespace) namespaces.set(spec.name.text, namespace)
       }
     }
   }
   const line = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-  /** Whether an expression is a namespace import's member that is `owner`'s `want`: `P.TRIAL_DAYS`, `P['TRIAL_DAYS']`. */
+  /** The key a member access writes (`a.b`, `a['b']`), or undefined for a key the file does not write. */
+  const writtenKey = (x: ts.Expression): string | undefined =>
+    ts.isPropertyAccessExpression(x) ? x.name.text
+      : ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression.text : undefined
+  /** The module whose namespace object an expression is: a namespace import, an import of a namespace a module hands
+      on, a member of either by a written key (namespaceOf), or a const holding one. */
+  const namespaceAt = (expr: ts.Expression, seen = new Set<ts.Node>()): string | undefined => {
+    const x = unwrapExpr(expr)
+    if (ts.isIdentifier(x)) {
+      const binding = resolve(x)
+      if (!binding) return namespaces.get(x.text)
+      if (seen.has(binding.decl) || !isConst(binding.decl) || !binding.init) return undefined
+      seen.add(binding.decl)
+      return namespaceAt(binding.init, seen)
+    }
+    if (!ts.isPropertyAccessExpression(x) && !ts.isElementAccessExpression(x)) return undefined
+    const key = writtenKey(x)
+    const holder = key === undefined ? undefined : namespaceAt(x.expression, seen)
+    return holder && key !== undefined ? namespaceOf(holder, key) : undefined
+  }
+  /** Whether an expression is a namespace's member that is `owner`'s `want`: `P.TRIAL_DAYS`, `P['TRIAL_DAYS']`,
+      `b.plan.TRIAL_DAYS`. */
   const memberOf = (e: ts.Expression, owner: string, want: string): boolean => {
     const x = unwrapExpr(e)
-    const key = ts.isPropertyAccessExpression(x) ? x.name.text
-      : ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression.text : undefined
-    const holder = ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x) ? x.expression : undefined
-    return key !== undefined && !!holder && ts.isIdentifier(holder) && exportsOwn(namespaces.get(holder.text), key, owner, want)
+    if (!ts.isPropertyAccessExpression(x) && !ts.isElementAccessExpression(x)) return false
+    const key = writtenKey(x)
+    return key !== undefined && exportsOwn(namespaceAt(x.expression), key, owner, want)
   }
 
   /** Whether an expression is TRIAL_DAYS itself: its import, a namespace member, or a const holding either. */
@@ -980,8 +1096,7 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
       const key = (binding.decl.propertyName ?? binding.decl.name).getText()
       const pattern = binding.decl.parent
       const holder = ts.isVariableDeclaration(pattern.parent) ? pattern.parent : undefined
-      return !!holder?.initializer && isConst(holder) && ts.isIdentifier(unwrapExpr(holder.initializer)) &&
-        exportsOwn(namespaces.get((unwrapExpr(holder.initializer) as ts.Identifier).text), key, LIB_PLAN_LIMITS, 'TRIAL_DAYS')
+      return !!holder?.initializer && isConst(holder) && exportsOwn(namespaceAt(holder.initializer), key, LIB_PLAN_LIMITS, 'TRIAL_DAYS')
     }
     return isConst(binding.decl) && !!binding.init && isTrial(binding.init, seen)
   }
@@ -1096,6 +1211,20 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
     return true
   }
 
+  /** Whether a use of a namespace is one the reader follows: a member by a written key (the member is read in its
+      turn), a const holding it, a destructuring with written keys and no rest, `typeof`, or a re-export (namespaceOf). */
+  const followedNamespace = (node: ts.Node): boolean => {
+    const p = node.parent
+    if ((ts.isPropertyAccessExpression(p) || ts.isElementAccessExpression(p)) && p.expression === node) return writtenKey(p) !== undefined
+    if (ts.isParenthesizedExpression(p) || ts.isAsExpression(p) || ts.isNonNullExpression(p) || ts.isSatisfiesExpression(p)) return followedNamespace(p)
+    if (ts.isTypeOfExpression(p) || ts.isExportSpecifier(p) || ts.isExportAssignment(p)) return true
+    if (ts.isVariableDeclaration(p) && p.initializer === node && isConst(p)) {
+      if (ts.isIdentifier(p.name)) return true
+      return ts.isObjectBindingPattern(p.name) && p.name.elements.every((element) =>
+        !element.dotDotDotToken && (element.propertyName ? ts.isIdentifier(element.propertyName) || ts.isStringLiteralLike(element.propertyName) : ts.isIdentifier(element.name)))
+    }
+    return false
+  }
   const reads: TrialReader['reads'] = []
   const copy: Array<{ node: ts.Node; text: string }> = []
   const visit = (node: ts.Node) => {
@@ -1107,6 +1236,16 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
     }
     if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && memberOf(node, LIB_PLAN_LIMITS, 'TRIAL_DAYS')) {
       reads.push({ line: line(node), guarded: guarded(node) })
+    }
+    // A namespace that holds TRIAL_DAYS, used other than as the reader follows it, fails closed: a read the guard covers.
+    if ((ts.isIdentifier(node) && isReference(node)) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+      const at = namespaceAt(node as ts.Expression)
+      if (at && reachesTrial(at) && !followedNamespace(node)) reads.push({ line: line(node), guarded: guarded(node) })
+    }
+    if (ts.isCallExpression(node) && node.arguments[0] && ts.isStringLiteralLike(node.arguments[0]) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
+      const target = moduleFile(sf.fileName, node.arguments[0].text)
+      if (target && reachesTrial(target)) reads.push({ line: line(node), guarded: guarded(node) })
     }
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) copy.push({ node, text: node.text })
     if (ts.isTemplateExpression(node)) for (const text of valuesOf(node)) copy.push({ node, text })
@@ -1313,6 +1452,14 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
         ['defaultOn.ts', "export { default } from './defaultLocal'\n"],
         ['starDefault.ts', "export * from './byDefault'\n"],
         ['flagDefault.ts', "export { ENABLE_PRO_TRIAL as default } from '@/lib/featureFlags'\n"],
+        // Namespaces handed on (Codex on ea7c1317): `export * as`, a namespace import re-exported, `export *` of a
+        // barrel that holds one, a namespace as a default, the flag's namespace, and another module's namespace.
+        ['nsBarrel.ts', "export * as plan from '@/lib/planLimits'\n"],
+        ['nsLocal.ts', "import * as limits from '@/lib/planLimits'\nexport { limits }\n"],
+        ['nsStar.ts', "export * from './nsBarrel'\n"],
+        ['nsDefault.ts', "import * as limits from '@/lib/planLimits'\nexport default limits\n"],
+        ['flagNs.ts', "export * as flags from '@/lib/featureFlags'\n"],
+        ['otherNs.ts', "export * as other from './flags'\n"],
       ]) writeFileSync(path.join(root, name), text)
       const beside = (code: string) => trialReader(ts.createSourceFile(path.join(root, 'Banner.tsx'), code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX))
       const sibling = beside("import { TRIAL_DAYS } from './planLimits'\nexport const a = <p>Start a {TRIAL_DAYS}-day free trial</p>")
@@ -1329,6 +1476,33 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
       expect([throughStar.reads, throughStar.typed.map(({ line }) => line)], 'a default import through export *').toEqual([[], [2]])
       const flagDefault = beside("import ON from './flagDefault'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = ON && <p>{TRIAL_DAYS}</p>")
       expect(flagDefault.reads.map((read) => read.guarded), "the flag's default import").toEqual([true])
+      // A namespace's member is TRIAL_DAYS through any chain of written keys, each read held to the guard.
+      for (const [code, label] of [
+        ["import { plan } from './nsBarrel'\nexport const a = <p>Start a {plan.TRIAL_DAYS}-day free trial</p>", 'export * as'],
+        ["import { limits } from './nsLocal'\nexport const a = <p>Start a {limits['TRIAL_DAYS']}-day free trial</p>", 'a namespace import re-exported'],
+        ["import { plan } from './nsStar'\nexport const a = <p>Start a {plan.TRIAL_DAYS}-day free trial</p>", 'export * of a barrel'],
+        ["import limits from './nsDefault'\nexport const a = <p>Start a {limits.TRIAL_DAYS}-day free trial</p>", 'a namespace as the default'],
+        ["import * as b from './nsBarrel'\nexport const a = <p>Start a {b.plan.TRIAL_DAYS}-day free trial</p>", 'a member chain'],
+        ["import { plan } from './nsBarrel'\nconst p = plan\nconst { TRIAL_DAYS: n } = p\nexport const a = <p>Start a {n}-day free trial</p>", 'a const named like the <p> tag, and a destructuring'],
+      ] as const) {
+        const reader = beside(code)
+        expect([reader.reads.map((read) => read.guarded), reader.typed], label).toEqual([[false], []])
+      }
+      // What the reader cannot follow fails closed, as a read the guard must cover.
+      for (const [code, label] of [
+        ["import { plan } from './nsBarrel'\nconst key = 'TRIAL_DAYS'\nexport const a = <p>{plan[key]}</p>", 'a key the file does not write'],
+        ["import { plan } from './nsBarrel'\nexport const a = show(plan)", 'the namespace handed on'],
+        ["import { plan } from './nsBarrel'\nconst { ...rest } = plan\nexport const a = rest", 'a rest'],
+        ["export const load = () => import('@/lib/planLimits')", 'a dynamic import'],
+      ] as const) {
+        expect(beside(code).reads.map((read) => read.guarded), label).toEqual([false])
+      }
+      const guardedEscape = beside("import { plan } from './nsBarrel'\nimport { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'\nexport const a = ENABLE_PRO_TRIAL && show(plan)")
+      expect(guardedEscape.reads.map((read) => read.guarded), 'an escape under the guard').toEqual([true])
+      const flagNamespace = beside("import { flags } from './flagNs'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = flags.ENABLE_PRO_TRIAL && <p>{TRIAL_DAYS}</p>")
+      expect(flagNamespace.reads.map((read) => read.guarded), "the flag's namespace").toEqual([true])
+      const otherNamespace = beside("import { other } from './otherNs'\nexport const a = show(other)")
+      expect(otherNamespace.reads, "another module's namespace").toEqual([])
       const elsewhere = beside("import { ENABLE_PRO_TRIAL } from './flags'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = ENABLE_PRO_TRIAL && <p>{TRIAL_DAYS}</p>")
       expect(elsewhere.reads.map((read) => read.guarded), "another module's ENABLE_PRO_TRIAL").toEqual([false])
     } finally {
