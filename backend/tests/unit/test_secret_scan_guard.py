@@ -356,6 +356,8 @@ PRECISE = {
     "a push in an if": ("if git push; then echo ok; fi", "repo"),
     "git's global options": ("git -c push.default=current --no-pager push origin main", "repo"),
     "push options that take values": ("git push -o ci.skip --repo origin --force-with-lease origin main", "repo"),
+    "every branch, taken back": ("git push --all --no-all origin", "repo"),
+    "every ref, taken back": ("git push --mirror --no-mirror origin", "repo"),
     "a line whose here-document text names another push": (
         "cat > /dev/null <<'EOF'\ngit push origin side\nEOF\ngit push origin main", "repo"),
     "a push after a comment line": ("# push the branch\ngit push origin main", "repo"),
@@ -373,7 +375,8 @@ def test_a_push_reads_what_it_sends_from_where_it_runs(scanner: Scanner, repo: P
 
 
 # Each sends side's commit, which no remote-tracking ref holds: by naming it, or every branch or ref. The matching
-# refspec sends the branches the remote has too, so its scan reads every branch.
+# refspec sends the branches the remote has too, so its scan reads every branch. Git reads options in order, so a later
+# --no- form takes back a dry run or a deletion, and the push sends (Codex's).
 REACHES_SIDE = {
     "the side branch by name": "git push origin side",
     "every branch": "git push --all origin",
@@ -381,6 +384,10 @@ REACHES_SIDE = {
     "every ref": "git push --mirror origin",
     "the matching refspec": "git push origin :",
     "the matching refspec, forced": "git push origin +:",
+    "a dry run taken back": "git push --dry-run --no-dry-run origin side",
+    "-n taken back": "git push -n --no-dry-run origin side",
+    "a deletion taken back": "git push --delete --no-delete origin side",
+    "-d taken back": "git push -d --no-delete origin side",
 }
 
 
@@ -426,6 +433,25 @@ def test_a_source_in_a_variable_is_refused_though_no_branch_reaches_what_it_name
     assert scanner.calls() == []
 
 
+# Git takes a unique prefix of a long option for the whole option, which the hook does not complete, and an option push
+# does not take fails in git: each is refused before any scan (Codex's: `--mirr` pushes every ref).
+UNREAD_OPTIONS = {
+    "--mirror abbreviated": ("git push --mirr origin", "--mirr"),
+    "--all abbreviated": ("git push --al origin", "--al"),
+    "--no-dry-run abbreviated, after a dry run": ("git push --dry-run --no-dry origin side", "--no-dry"),
+    "--repo abbreviated": ("git push --rep=origin side", "--rep"),
+    "an option push does not take": ("git push --frobnicate origin main", "--frobnicate"),
+}
+
+
+@pytest.mark.parametrize(("command", "named"), UNREAD_OPTIONS.values(), ids=UNREAD_OPTIONS.keys())
+def test_a_long_option_push_does_not_take_as_written_is_refused(scanner: Scanner, repo: Path, command: str,
+                                                                named: str) -> None:
+    _refused(_bash(scanner, command, repo), f"names {named!r}, which `git push` does not take as written",
+             "Spell each of `git push`'s options in full")
+    assert scanner.calls() == []
+
+
 @pytest.mark.parametrize(("command", "outcome"), [
     ("git push origin main", "found"),
     ("cd {repo} && git push origin main", None),
@@ -434,6 +460,16 @@ def test_a_source_in_a_variable_is_refused_though_no_branch_reaches_what_it_name
     ("cd {repo}; cd {other} && git push origin main", "found"),
     ("pushd {repo} && popd && git push origin main", "unresolved"),  # the hook keeps no directory stack
     ("cd {other}/not-yet && git push origin main", "unresolved"),  # a directory no repository holds yet
+    # A move that may not run where it stands leaves the directory unknown, since the shell may push from where the line
+    # began (Codex's first case): after && or ||, in a pipeline or a background job, in a line that branches.
+    ("false && cd {repo}; git push origin main", "unresolved"),
+    ("true || cd {repo}; git push origin main", "unresolved"),
+    ("cd {repo} | cat; git push origin main", "unresolved"),
+    ("cd {repo} & git push origin main", "unresolved"),
+    ("if true; then cd {repo}; fi; git push origin main", "unresolved"),
+    ("false && cd {repo}; cd {other} && git push origin main", "found"),  # a later move that certainly runs
+    ("true && (cd {repo} && git push origin main)", None),  # first in its subshell's list
+    ("false && (cd {repo}); git push origin main", "found"),  # the subshell's move ends with it
 ])
 def test_the_push_runs_in_the_directory_the_line_moves_to(scanner: Scanner, repo: Path, tmp_path: Path,
                                                          command: str, outcome: str | None) -> None:
@@ -721,7 +757,9 @@ def test_a_push_from_a_repository_the_hook_cannot_resolve_or_fall_back_on_is_ref
     "git push -n origin side",
     "git push origin --delete side",
     "git push origin :side",
-], ids=["--dry-run", "-n", "--delete", "a deletion refspec"])
+    "git push --no-dry-run --dry-run origin side",
+    "git push --no-delete -d origin side",
+], ids=["--dry-run", "-n", "--delete", "a deletion refspec", "a dry run after --no-dry-run", "-d after --no-delete"])
 def test_a_push_that_sends_nothing_is_not_scanned(scanner: Scanner, repo: Path, command: str) -> None:
     assert _bash(scanner, command, repo) is None
     assert scanner.calls() == []

@@ -28,7 +28,10 @@ in any case. It scans
   global options, then `push`, in a line read as the shell reads it (codex_mention_guard.py's reader, imported), less
   its comments. The push runs in the event's working directory as the line's `cd` and `pushd` to a directory it names
   literally move it (a subshell's move ends with the subshell; a command substitution's text is read after the rest of
-  its line), then `git -C`. The scan is `gitleaks git .` with GIT_DIR=<that repository's git directory> and
+  its line), then `git -C`. A move counts only where it certainly runs in the line's own shell: first in its and-or
+  list (after nothing, `;`, `&`, a newline or a subshell's `(`), in no pipeline or background job, and in a line with
+  no if, while, until, for, select, case or function; any other leaves the push's directory unknown. The scan is
+  `gitleaks git .` with GIT_DIR=<that repository's git directory> and
   `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable from what the push
   sends and from no remote-tracking ref of the remote it pushes to, which it finds as git does (the one the line names,
   by its first word or --repo; else the current branch's pushRemote, remote.pushDefault, the current branch's remote,
@@ -44,14 +47,17 @@ in any case. It scans
   format.pretty, log.date, log.abbrevCommit or log.showSignature; file names without a/ and b/ under diff.noprefix).
   What it sends: each refspec's source (`tag <name>` too; a deletion or a negative refspec sends nothing), HEAD when it
   names none, every branch for --all, --branches or the matching refspec `:` (of which it pushes those the remote has
-  too), every ref for --mirror and every tag for --tags; a dry run and --delete send nothing. A push the hook cannot pin down is refused before any scan, since it could send any commit in
-  the repository: one whose source does not resolve to a commit as the line stands (a variable, a substitution, a
-  wildcard, a name that does not exist yet), one from a repository the hook cannot resolve (a variable, a substitution,
-  `cd -`, popd, --git-dir, --work-tree, GIT_DIR=, a directory no repository holds yet), and one in a line that also
-  runs a git checkout, switch, reset, branch, update-ref, worktree, tag, symbolic-ref or stash, before or after it (a
+  too), every ref for --mirror and every tag for --tags; a dry run and --delete send nothing. Its options are read in
+  order, as git reads them, so a later `--no-` form takes an earlier option back. A push the hook cannot pin down is
+  refused before any scan, since it could send any commit in the repository: one whose source does not resolve to a
+  commit as the line stands (a variable, a substitution, a wildcard, a name that does not exist yet); one from a
+  repository the hook cannot resolve (a variable, a substitution, `cd -`, popd, a move that may not run, --git-dir,
+  --work-tree, GIT_DIR=, a directory no repository holds yet); one with a long option push does not take as written,
+  since git takes a unique prefix of one for the whole option (`--mirr` for --mirror); and one in a line that also runs
+  a git checkout, switch, reset, branch, update-ref, worktree, tag, symbolic-ref or stash, before or after it (a
   command substitution runs before its command, though the hook reads its text after the line), since the hook
-  resolves sources before the line moves HEAD or a branch. Each refusal says what to name literally, or to push in a call of its
-  own.
+  resolves sources before the line moves HEAD or a branch. Each refusal says what to name literally, or to push in a
+  call of its own.
 - a line that pushes and also makes commits anywhere (git am, cherry-pick, commit, commit-tree, merge, pull, rebase
   or revert): refused, since a hook runs before the line and cannot read a commit the line has yet to make. The
   commits go in one call and the push in the next.
@@ -109,7 +115,20 @@ LESSON = "lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md"
 GIT_VALUE_OPTIONS = ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--attr-source",
                      "--super-prefix", "--shallow-file")
 PUSH_VALUE_OPTIONS = ("--repo", "--receive-pack", "--exec", "--push-option", "--recurse-submodules")
-SENDS_NOTHING = {"-n", "--dry-run", "-d", "--delete"}
+# git push's long options as `git push -h` lists them (each also as `--no-<name>`), and the help it reads itself. Git
+# takes a unique prefix of one for the whole option, which the hook does not complete: such a push is refused.
+PUSH_OPTIONS = frozenset({
+    "--verbose", "--quiet", "--repo", "--all", "--branches", "--mirror", "--delete", "--tags", "--dry-run",
+    "--porcelain", "--force", "--force-with-lease", "--force-if-includes", "--recurse-submodules", "--thin",
+    "--receive-pack", "--exec", "--set-upstream", "--progress", "--prune", "--no-verify", "--verify", "--follow-tags",
+    "--signed", "--atomic", "--push-option", "--ipv4", "--ipv6", "--help", "--help-all"})
+SHORT_OPTIONS = {"v": "--verbose", "q": "--quiet", "d": "--delete", "n": "--dry-run", "f": "--force",
+                 "u": "--set-upstream", "4": "--ipv4", "6": "--ipv6"}
+ALIASES = {"--branches": "--all"}
+SENDS_NOTHING = {"--dry-run", "--delete"}
+UNREAD_OPTION = "\x00option "  # a source that marks a push naming a long option git would complete, which is refused
+CONTROL = ("if", "then", "else", "elif", "fi", "while", "until", "for", "select", "do", "done", "case", "esac",
+           "function")
 COMMITTERS = ("am", "cherry-pick", "commit", "commit-tree", "merge", "pull", "rebase", "revert")
 # Subcommands that can move HEAD, a branch or a tag: a push after one in the same line sends what the hook cannot resolve.
 MOVERS = ("checkout", "switch", "reset", "branch", "update-ref", "worktree", "tag", "symbolic-ref", "stash")
@@ -155,6 +174,7 @@ SOURCE_REMEDY = ("Name each source literally, as a branch, a tag or a commit tha
                  "send the call again")
 REPOSITORY_REMEDY = ("Name the directory literally (`git -C <dir> push ...`), in a repository that exists before the "
                      "line runs, and send the call again")
+OPTION_REMEDY = "Spell each of `git push`'s options in full, as `git push -h` lists them, and send the call again"
 LATE_WRITE = "Send fewer files per call"
 COMMIT_REMEDY = "Commit in one call and push in the next, so the push's scan reads the new commits"
 SCAN_ERROR_REMEDY = "Fix what gitleaks names (a missing ref, an unreadable repository or file) and send the call again"
@@ -365,7 +385,10 @@ def _repository(here: Path | None, options: list[tuple[str, str | None]], before
 
 def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
     """What a push with these words sends: rev-list options (--branches, --all, --tags) and sources to resolve; and the
-    repository it names to push to, if any: its first word that is no option, else --repo's value, as git takes it."""
+    repository it names to push to, if any: its first word that is no option, else --repo's value, as git takes it. Its
+    options are read in order, as git reads them, so `--no-dry-run` after `--dry-run` takes the dry run back. A long
+    option push does not take as written, such as `--mirr`, which git completes to --mirror, leaves only an
+    UNREAD_OPTION source, which is refused."""
     words, index = [], 0
     while index < len(args):  # its words less redirections and the shell's grouping
         if args[index] in REDIRECTS:
@@ -385,7 +408,14 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
             ended = True
         elif word.startswith("--"):
             name, _, value = word.partition("=")
-            flags.add(name)
+            negated = "--" + name[5:] if name.startswith("--no-") and name not in PUSH_OPTIONS else None
+            if (negated or name) not in PUSH_OPTIONS:  # an abbreviation git would complete, or no option of push's
+                return [], [UNREAD_OPTION + name], repo
+            if negated:  # it takes the option back
+                flags.discard(ALIASES.get(negated, negated))
+                repo = None if negated == "--repo" else repo
+                continue
+            flags.add(ALIASES.get(name, name))
             if word in PUSH_VALUE_OPTIONS:  # its value is the next word
                 value = words[index] if index < len(words) else ""
                 index += 1
@@ -395,10 +425,10 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
                 if letter == "o":
                     index += at == len(word)
                     break
-                flags.add("-" + letter)
+                flags.add(SHORT_OPTIONS.get(letter, "-" + letter))
     if flags & SENDS_NOTHING:
         return [], [], None
-    options = ["--branches"] * bool(flags & {"--all", "--branches"}) + ["--all"] * ("--mirror" in flags)
+    options = ["--branches"] * ("--all" in flags) + ["--all"] * ("--mirror" in flags)
     options += ["--tags"] * ("--tags" in flags)
     specs, sources, index = positional[1:], [], 0  # the first is the repository it pushes to
     while index < len(specs):
@@ -411,7 +441,7 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
             options += [] if "--branches" in options else ["--branches"]
         elif not spec.startswith("^") and (source := spec.removeprefix("+").split(":", 1)[0]):
             sources.append(source)
-    if not specs and not flags & {"--all", "--branches", "--mirror"}:
+    if not specs and not flags & {"--all", "--mirror"}:
         sources.append("HEAD")
     return options, sources, positional[0] if positional else repo
 
@@ -424,19 +454,26 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
     here: Path | None = base
     stack: list[Path | None] = []
     pushes, commits, moved = [], False, False
-    for _operator, words in shell._commands(shell._command_tokens(_uncommented(script))):
-        start = True
+    commands = shell._commands(shell._command_tokens(_uncommented(script)))
+    branching = any(_branches(words) for _operator, words in commands)
+    for at, (operator, words) in enumerate(commands):
+        after = commands[at + 1][0] if at + 1 < len(commands) else None
+        start, first = True, operator in (None, ";", "&")  # whether it begins its and-or list
         for index, word in enumerate(words):
             if word == "(":  # a subshell or a process substitution: a move inside it ends with it
                 stack.append(here)
+                first = True
                 continue
             if word == ")":
                 here = stack.pop() if stack else here
                 continue
             if start and word in LEADERS:
                 continue
-            if start and word in ("cd", "pushd", "popd"):
-                here = _moved(here, word, words[index + 1:])
+            if word in ("cd", "pushd", "popd") and (start or branching):
+                # A move that may not run where it stands (after && or ||, in a pipeline or a background job, or in a
+                # line that branches) leaves the directory unknown: the shell may run what follows from either.
+                certain = start and first and not branching and after not in ("|", "|&", "&")
+                here = _moved(here, word, words[index + 1:]) if certain else None
             start = False
             if word == "git" or word.endswith("/git"):
                 subcommand, global_options, rest = _global_options(words, index + 1)
@@ -451,6 +488,13 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
         if options or sources:
             sources.append(MOVED)
     return pushes, commits
+
+
+def _branches(words: list[str]) -> bool:
+    """Whether this command opens, continues or closes an if, while, until, for, select or case, or defines a
+    function: a move in a line that has one may run, or not, wherever the line's text puts it."""
+    first = next((word for word in words if word not in ("(", "{", "!", "time", "command", "builtin")), None)
+    return first in CONTROL or any(word == "(" and words[at + 1:at + 2] == [")"] for at, word in enumerate(words))
 
 
 def _top(directory: Path) -> Path | None:
@@ -501,15 +545,22 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str],
     what the push sends, which could then be any commit in the repository; None when it sends nothing."""
     if not options and not sources:
         return None
+    unread = next((source.removeprefix(UNREAD_OPTION) for source in sources if source.startswith(UNREAD_OPTION)), None)
+    if unread is not None:
+        return _reason(
+            f"this push names {unread!r}, which `git push` does not take as written: git takes a unique prefix of a "
+            "long option for the whole option (`--mirr` for --mirror, `--no-dry` for --no-dry-run), so the hook cannot "
+            "tell what the push would send.", OPTION_REMEDY)
     top = _top(directory) if directory is not None else None
     gitdir = _git(top, "rev-parse", "--absolute-git-dir") if top is not None else None
     if top is None or gitdir is None:
         return _reason(
             "this line pushes from a repository the hook cannot resolve as the line stands (a variable, a "
-            "substitution, `cd -`, popd, --git-dir, --work-tree, GIT_DIR=, or a directory no repository holds yet), so "
-            "it cannot tell what the push would send.", REPOSITORY_REMEDY)
+            "substitution, `cd -`, popd, a cd or pushd that may not run where it stands, --git-dir, --work-tree, "
+            "GIT_DIR=, or a directory no repository holds yet), so it cannot tell what the push would send.",
+            REPOSITORY_REMEDY)
     revisions = list(options)
-    for source in (source for source in sources if source != MOVED):
+    for source in (source for source in sources if source != MOVED and not source.startswith(UNREAD_OPTION)):
         commit = None if source.startswith("-") or any(char in source for char in EXPANDED) else (
             _git(top, "rev-parse", "--verify", "--quiet", f"{source}^{{commit}}"))
         if commit is None:
