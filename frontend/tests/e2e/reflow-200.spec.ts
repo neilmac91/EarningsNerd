@@ -56,6 +56,13 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * column at 64rem the same way. At 1440x900 at the default size the site header's bar spans its container and
  * the logo keeps its top-left place, which the bar's w-full holds.
  *
+ * An auth page's "Request an invite" link draws its focus ring closed at 320, 360 and 390px, at both text sizes.
+ * As an inline link it broke inside its label at 320px and, under 200% text, at 390 and 320px, and drew an open
+ * piece of its ring on each line. The login page's, which ends its line, is one box (`inline-block`), its label
+ * wrapping inside that box where the line is too narrow. The register notice's sits inside a sentence, so it stays
+ * inline, wraps with it and draws its ring round each line (`box-decoration-clone`): one box there took the whole line
+ * under 200% text and pushed the sentence's comma to the start of the next, so its case fails one box.
+ *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
  * geometry. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
@@ -319,6 +326,46 @@ for (const route of ROUTES) {
     expect(await collisions(route.bar(page)), `${route.path} at 200% text: the bar's controls`).toEqual([])
     expect(await logoClearSpace(route.bar(page)), `${route.path} at 200% text: the logo's clear space`).toEqual([])
     if (route.oneRow) await expectOneRow(route.bar(page), `${route.path} at 200% text`, HEADER_AT_200)
+  })
+}
+
+/** How a link's ring is drawn, read from the browser's own line boxes (a link that breaks across lines has a client rect
+    per line): one box (an atomic box, such as `inline-block`), one inline piece, or a piece per line, each closed only
+    where the link clones its decoration onto every line. */
+const ring = (link: Locator) =>
+  link.evaluate((el) => {
+    const style = getComputedStyle(el)
+    const clone = [style.getPropertyValue('box-decoration-break'), style.getPropertyValue('-webkit-box-decoration-break')].includes('clone')
+    const pieces = el.getClientRects().length
+    if (pieces > 1) return `${pieces} ${clone ? 'closed' : 'open'} pieces`
+    return style.display === 'inline' ? 'one inline piece' : 'one box'
+  })
+/** The login page's link ends its line and stays one box; the register notice's stays inline in its sentence and wraps
+    with it, its pieces closed (as one box it took the whole line under 200% text and pushed the comma to the next). */
+const INVITE_RING: Record<string, RegExp> = { '/login': /^one box$/, '/register': /^(?:one inline piece|\d+ closed pieces)$/ }
+
+for (const width of [320, 360, 390]) {
+  test.describe(`a ${width}px phone: the auth pages' invite link draws its ring closed`, () => {
+    test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
+    for (const route of ROUTES.filter((r) => r.path === '/login' || r.path === '/register')) {
+      test(`${route.name} (${route.path}) at the default text size and at 200%`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await route.open(page, baseURL!)
+        await page.goto(route.path)
+        await route.ready(page)
+        const link = page.getByRole('link', { name: 'Request an invite' })
+        await expect(link).toBeVisible()
+        await page.evaluate(() => document.fonts.ready)
+        expect(await ring(link), `${route.path} at ${width}px: the ring round "Request an invite"`).toMatch(INVITE_RING[route.path])
+        await doubleText(page)
+        expect(await ring(link), `${route.path} at ${width}px and 200% text: the ring round "Request an invite"`).toMatch(INVITE_RING[route.path])
+      })
+    }
   })
 }
 

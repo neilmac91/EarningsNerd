@@ -17,8 +17,8 @@ test.describe('Authentication Flow', () => {
     await expect(page.locator('input[type="password"]')).toBeVisible()
     await expect(page.locator('button[type="submit"]')).toBeVisible()
 
-    // Check for link to registration
-    await expect(page.getByRole('link', { name: 'Sign up' })).toBeVisible()
+    // Check for link to request an invite
+    await expect(page.getByRole('link', { name: 'Request an invite' })).toBeVisible()
   })
 
   test('should display registration page with form elements', async ({ page }) => {
@@ -38,7 +38,7 @@ test.describe('Authentication Flow', () => {
     await expect(page.locator('button[type="submit"]')).toBeVisible()
 
     // Check for link to login
-    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible()
   })
 
   test('should show validation error for invalid login credentials', async ({ page }) => {
@@ -74,12 +74,16 @@ test.describe('Authentication Flow', () => {
     await page.goto('/login')
     await expect(page).toHaveURL('/login')
 
-    // Click in-form link to register
-    await page.getByRole('link', { name: 'Sign up' }).click()
+    // Click in-form link to request an invite
+    await page.getByRole('link', { name: 'Request an invite' }).click()
+    await expect(page).toHaveURL('/waitlist')
+
+    // Reach the register page by its URL
+    await page.goto('/register')
     await expect(page).toHaveURL('/register')
 
     // Click in-form link back to login
-    await page.getByRole('link', { name: 'Sign in' }).click()
+    await page.getByRole('link', { name: 'Log in' }).click()
     await expect(page).toHaveURL('/login')
   })
 

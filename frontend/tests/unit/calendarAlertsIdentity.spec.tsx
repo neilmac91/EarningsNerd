@@ -54,7 +54,7 @@ describe('calendar alert bell while identity is unresolved', () => {
 
     const bell = screen.getByRole('button', { name: /checking your account/i })
     expect(bell).toBeDisabled()
-    expect(bell).not.toHaveAccessibleName(/sign in/i)
+    expect(bell).not.toHaveAccessibleName(/log in/i)
     fireEvent.click(screen.getByRole('button', { name: 'direct toggle' }))
     expect(screen.getByTestId('blocked')).toHaveTextContent('none')
     expect(mockEnableEarningsAlert).not.toHaveBeenCalled()
@@ -71,7 +71,7 @@ describe('calendar alert bell while identity is unresolved', () => {
     mockGetCurrentUserSafe.mockRejectedValue(new Error('upstream unavailable'))
     renderHarness()
 
-    const bell = await screen.findByRole('button', { name: /sign in to get earnings alerts/i })
+    const bell = await screen.findByRole('button', { name: /log in to get earnings alerts/i })
     expect(bell).toBeEnabled()
     expect(screen.queryByRole('button', { name: /checking your account/i })).not.toBeInTheDocument()
     fireEvent.click(bell)
@@ -82,7 +82,7 @@ describe('calendar alert bell while identity is unresolved', () => {
     mockGetCurrentUserSafe.mockResolvedValue(null)
     renderHarness()
 
-    const bell = await screen.findByRole('button', { name: /sign in to get earnings alerts/i })
+    const bell = await screen.findByRole('button', { name: /log in to get earnings alerts/i })
     expect(bell).toBeEnabled()
     fireEvent.click(bell)
     expect(screen.getByTestId('blocked')).toHaveTextContent('signin')

@@ -491,7 +491,7 @@ export function WordingChanges({
                   'rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                 )}
               >
-                Already Pro? Sign in
+                Already Pro? Log in
               </Link>
             )}
           </div>
