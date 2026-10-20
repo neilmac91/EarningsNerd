@@ -1,16 +1,17 @@
 'use client'
 
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import Link from 'next/link'
 import { PRO_PRICING } from '@/app/pricing/prices'
 import { buttonVariants } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
 import { cx } from '@/components/ui/cx'
-import SectionImpression from '@/features/marketing/components/SectionImpression'
+import FormCodeText from '@/features/marketing/components/FormCodeText'
+import LandingRow from '@/features/marketing/components/LandingRow'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
+import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
-import { CheckIcon, SealCheckIcon } from '@/lib/icons'
+import { SealCheckIcon } from '@/lib/icons'
 import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 import {
   ANALYSIS_LINES,
@@ -24,36 +25,58 @@ import {
 } from '@/lib/planLimits'
 
 /**
- * Marketing pricing section (design section 7). Two plan cards under a "Monthly / Annual" billing
- * toggle. The approved offer comes from app/pricing/prices, free-tier caps from the
- * planLimits mirror, the account CTA from the page's ONE access decision, and the trial copy from
- * ENABLE_PRO_TRIAL, which the repo flips in lockstep with the backend's PRO_TRIAL_DAYS.
- * Paid-offer CTAs preserve the selected cycle on /pricing. The beta offer keeps the neutral
- * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
+ * Marketing pricing (the landing's pricing row, D-045): one table, the plans as columns and what each includes
+ * as rows, under a "Monthly / Annual" billing toggle. The approved offer comes from app/pricing/prices, free-tier
+ * caps from the planLimits mirror, the account CTA from the page's ONE access decision, and the trial copy from
+ * ENABLE_PRO_TRIAL, which the repo flips in lockstep with the backend's PRO_TRIAL_DAYS. Paid-offer CTAs preserve
+ * the selected cycle on /pricing. The beta offer keeps the neutral entry until pricing can resolve account
+ * eligibility, rather than selecting a guest trial. /pricing does not render this component and keeps its two
+ * plan cards.
+ *
+ * The table is one native table at every width (DESIGN.md: wide tables scroll within their container). At the
+ * default text size it fits a 390px phone; when it is wider than its box (a phone under a 200% text setting) it
+ * scrolls inside the box, which is then a named region in the Tab order (useOverflowRegion), so the page never
+ * scrolls sideways. `relative` makes the box the containing block of the sr-only text inside it.
  */
 
-// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts). A line a flag decides
-// (Multi-Period Analysis and its Excel workbook, 20-F filings) is typed once in lib/planLimits.ts, in the
-// `{ text, flag, off }` shape, and both lists go through its one reader, shipped(), at render (D-033, D-040).
-const FREE_FEATURES: readonly PlanLine[] = [
-  { text: `${FREE_SUMMARY_LIMIT} AI summaries a month` },
-  FILING_FORMS_LINE,
-  { text: 'Company search and historical filings' },
-  { text: `${FREE_COPILOT_QUESTIONS} Ask this Filing questions` },
-  { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` },
-  ANALYSIS_LINES.landingFree,
-  { text: 'Unlimited watchlist' },
+/**
+ * One row of the plan table: what each plan includes of one thing. Every part is a plan line read through
+ * shipped() (lib/planLimits.ts, D-033, D-040), so a row a flag decides lists with its feature: the row lists while
+ * its label ships, and a cell with no line (or a flagged line with no `off` while its flag is off) reads as not
+ * included. Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts), and every line that
+ * names Multi-Period Analysis is typed in ANALYSIS_LINES (tests/unit/analysis-route-hidden.spec.tsx).
+ */
+interface PlanRow {
+  readonly label: PlanLine
+  readonly free: PlanLine | null
+  readonly pro: PlanLine | null
+}
+
+const INCLUDED: PlanLine = { text: 'Included' }
+
+const PLAN_ROWS: readonly PlanRow[] = [
+  { label: { text: 'Summaries' }, free: { text: `${FREE_SUMMARY_LIMIT} a month` }, pro: { text: 'Unlimited' } },
+  { label: { text: 'Filings' }, free: FILING_FORMS_LINE, pro: FILING_FORMS_LINE },
+  { label: { text: 'Company search and historical filings' }, free: INCLUDED, pro: INCLUDED },
+  { label: { text: 'Ask this Filing' }, free: { text: `${FREE_COPILOT_QUESTIONS} questions` }, pro: INCLUDED },
+  { label: ANALYSIS_LINES.landingRow, free: ANALYSIS_LINES.landingFree, pro: ANALYSIS_LINES.landingPro },
+  // Both plans read the same report in production, metric deltas only: the XBRL metric changes carry no plan gate, and
+  // backend/app/services/change_report_service.py omits the report's risk lines for every reader. Its one plan
+  // difference is the Item 1A wording block (backend/app/services/entitlements.py: `section_changes`, and
+  // `section_changes_items` for the teaser), served only behind ENABLE_SECTION_CHANGES, which config.py defaults off and
+  // no deploy map sets. When the flag ships, this row changes with it (tests/unit/changeReportPlanClaims.spec.tsx fails
+  // until it does).
+  { label: { text: 'Change Report' }, free: INCLUDED, pro: INCLUDED },
+  { label: { text: 'Alerts' }, free: { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` }, pro: { text: 'Hourly filing alerts and 8-K alerts' } },
+  { label: { text: 'Exports' }, free: null, pro: ANALYSIS_LINES.exports },
+  { label: { text: 'Watchlist' }, free: { text: 'Unlimited' }, pro: { text: 'Unlimited' } },
+  { label: { text: 'Priority support' }, free: null, pro: INCLUDED },
 ]
 
-const PRO_FEATURES: readonly PlanLine[] = [
-  { text: 'Unlimited summaries' },
-  ANALYSIS_LINES.landingPro,
-  { text: 'Ask this Filing' },
-  { text: 'Change Report' },
-  { text: 'Hourly filing alerts and 8-K alerts' },
-  ANALYSIS_LINES.exports,
-  { text: 'Priority support' },
-]
+/** A line's reading under the flags this build ships with, or null where the plan does not include it. */
+const reading = (line: PlanLine | null): string | null => (line ? (shipped([line])[0] ?? null) : null)
+
+const CAPTION = 'What each plan includes'
 
 const BILLING_OPTIONS = ['monthly', 'annual'] as const
 type Billing = (typeof BILLING_OPTIONS)[number]
@@ -63,25 +86,23 @@ const PRICE_CLASS =
   // eslint-disable-next-line no-restricted-syntax -- the 40px display figure sets its own tracking; the ramp has no 40
   'font-data tnum text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary-light dark:text-text-primary-dark'
 const MUTED_CLASS = 'text-text-secondary-light dark:text-text-secondary-dark'
-// Design: 44px tall, full card width. buttonVariants' md size sets h-10, and min-h-11 lifts the box to
-// 44px whatever the stylesheet order. min-h, not h: below a 24rem viewport the Button's narrow state sets
-// h-auto so a label can wrap, and a caller's own min-h is the one height it keeps
-// (tests/unit/buttonHeightIsAMinimum.spec.ts).
-const CTA_CLASS = 'mt-5 min-h-11 w-full'
+const RULE = 'border-t border-border-light dark:border-white/10'
+const ROW_HEADER = `${RULE} py-3 pr-4 text-left align-top text-sm font-medium text-text-primary-light dark:text-text-primary-dark`
+const CELL = `${RULE} px-4 py-3 align-top text-sm ${MUTED_CLASS}`
+// 44px tall at least: buttonVariants' md size sets h-10, and min-h-11 lifts the box whatever the stylesheet order.
+// min-h, not h, and `wrap`: in a table cell on a phone the label wraps inside its button instead of widening the
+// column, and a caller's own min-h is the one height the wrap state keeps (tests/unit/buttonHeightIsAMinimum.spec.ts).
+const CTA_CLASS = 'min-h-11 max-w-full'
 
-function FeatureList({ items }: { items: readonly string[] }) {
+/** A cell's reading, each form code in it one unbroken run so a phone's narrow cell never breaks "10-Q" at its hyphen,
+ *  or a dash a screen reader hears as "Not included". */
+function PlanCell({ text }: { text: string | null }) {
+  if (text !== null) return <FormCodeText text={text} />
   return (
-    <ul className="mt-6 flex flex-col gap-2.5">
-      {items.map((item) => (
-        <li key={item} className={`flex items-start gap-2.5 text-sm ${MUTED_CLASS}`}>
-          <CheckIcon
-            aria-hidden="true"
-            className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark"
-          />
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
+    <>
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">Not included</span>
+    </>
   )
 }
 
@@ -96,6 +117,12 @@ export default function PricingSection({
   // lets the toggle reveal the monthly plan (and, when enabled, its trial).
   const [billing, setBilling] = useState<Billing>('annual')
   const radioRefs = useRef<Record<Billing, HTMLButtonElement | null>>({ monthly: null, annual: null })
+  const boxRef = useRef<HTMLDivElement>(null)
+  const hintId = useId()
+  const { overflowing, regionProps } = useOverflowRegion(boxRef, {
+    label: `Scrollable table: ${CAPTION}`,
+    describedBy: hintId,
+  })
 
   const access = ACCESS_COPY[accessMode]
 
@@ -105,6 +132,10 @@ export default function PricingSection({
   const billingNote = monthly
     ? `Billed monthly. Or ${PRO_PRICING.yearlyPerMonthDisplay} a month, billed annually at ${PRO_PRICING.yearlyDisplay}.`
     : `Billed annually at ${PRO_PRICING.yearlyDisplay}, saving ${PRO_PRICING.annualSavingsDisplay} a year.`
+  const rows = PLAN_ROWS.flatMap((row) => {
+    const label = reading(row.label)
+    return label === null ? [] : [{ label, free: reading(row.free), pro: reading(row.pro) }]
+  })
 
   // The pricing page's Switch speaks 'monthly' | 'yearly'; keep the funnel event's vocabulary.
   const cycleName = (option: Billing) => (option === 'monthly' ? 'monthly' : 'yearly')
@@ -141,118 +172,144 @@ export default function PricingSection({
     ].join(' ')
 
   return (
-    <section
+    <LandingRow
       id="pricing"
-      aria-labelledby="pricing-h"
-      className="border-t border-border-light py-20 dark:border-white/10 sm:py-24"
+      title="Pricing"
+      line="Summaries are generated once per filing and shared. That is what makes unlimited reading possible at this price."
+      impression="pricing"
     >
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-        <SectionImpression section="pricing">
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            {/* max-w-xl (not the section-lead 2xl) keeps the toggle beside the heading at lg, as designed. */}
-            <div className="max-w-xl">
-              <h2 id="pricing-h" className="text-3xl lg:text-4xl">
-                Pricing
-              </h2>
-              <p className={`mt-4 text-lg ${MUTED_CLASS}`}>
-                Summaries are generated once per filing and shared. That is what makes unlimited reading
-                possible at this price.
-              </p>
-            </div>
-            {/* One control whose segments wrap whole onto a second row inside it when the two do not fit side by
-                side, as SegmentedControl's fullWidth does (DESIGN_SYSTEM.md): at 360px and 200% text the unwrapped
-                group ran to 368px, its Annual label on three lines below its segment. */}
-            <div
-              role="radiogroup"
-              aria-label="Billing period"
-              onKeyDown={onKeyDown}
-              className="inline-flex max-w-full flex-wrap gap-y-1 rounded-lg border border-border-light bg-panel-light p-1 shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
-            >
-              <button
-                ref={(el) => {
-                  radioRefs.current.monthly = el
-                }}
-                type="button"
-                role="radio"
-                aria-checked={monthly}
-                tabIndex={monthly ? 0 : -1}
-                onClick={() => select('monthly')}
-                className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('monthly'))}
-              >
-                Monthly
-              </button>
-              <button
-                ref={(el) => {
-                  radioRefs.current.annual = el
-                }}
-                type="button"
-                role="radio"
-                aria-checked={!monthly}
-                tabIndex={monthly ? -1 : 0}
-                onClick={() => select('annual')}
-                className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('annual'))}
-              >
-                {/* No-break spaces hold the middot to "Annual" and "save" to its figure, so a label too long for its
-                    row breaks only after the middot: "Annual ·" over "save N%", never a line that starts "·". */}
-                Annual&nbsp;<span className="font-medium">· save&nbsp;{PRO_PRICING.annualSavingsPercent}%</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
-            <Card className="flex flex-col p-5 sm:p-7">
-              <h3 className="text-xl">Free</h3>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className={PRICE_CLASS}>$0</span>
-              </div>
-              <p className={`mt-1.5 text-sm ${MUTED_CLASS}`}>For reading a few filings a month.</p>
-              <Link
-                href={access.href}
-                className={buttonVariants({ variant: 'secondary', size: 'md', className: CTA_CLASS })}
-              >
-                {access.cta}
-              </Link>
-              <FeatureList items={shipped(FREE_FEATURES)} />
-            </Card>
-
-            {/* The design's brand border is a 1px inset ring here (the pricing page's Pro-card
-                pattern): Card sets its own border colour and cx has no tailwind-merge, so a
-                `dark:border-brand-border-dark` override loses to Card's `dark:border-white/10`
-                in the built stylesheet. A ring has no competitor on Card, in either theme. */}
-            <Card
-              elevation="e3"
-              className="flex flex-col p-5 ring-1 ring-inset ring-brand-border dark:ring-brand-border-dark sm:p-7"
-            >
-              {/* No "Most popular" badge: the beta has no popularity figure behind one, and the brand ring
-                  already carries the emphasis. */}
-              <h3 className="text-xl">Pro</h3>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className={PRICE_CLASS}>{proPrice}</span>
-                <span className={`text-sm ${MUTED_CLASS}`}>per month</span>
-              </div>
-              <p className={`mt-1.5 text-sm ${MUTED_CLASS}`}>{billingNote}</p>
-              {showBeta && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
-                  <SealCheckIcon aria-hidden="true" className="h-4 w-4" />
-                  Free for beta members
-                </p>
-              )}
-              <Link
-                href={showBeta ? '/pricing' : pricingHref(cycleName(billing))}
-                className={buttonVariants({ variant: 'primary', size: 'md', className: CTA_CLASS })}
-              >
-                {showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
-              </Link>
-              {showTrial && (
-                <p className={`mt-2 text-xs ${MUTED_CLASS}`}>
-                  Card required. One trial per account. Cancel any time in the {TRIAL_DAYS} days at no charge.
-                </p>
-              )}
-              <FeatureList items={shipped(PRO_FEATURES)} />
-            </Card>
-          </div>
-        </SectionImpression>
+      <div className="flex sm:justify-end">
+        {/* One control whose segments wrap whole onto a second row inside it when the two do not fit side by
+            side, as SegmentedControl's fullWidth does (DESIGN_SYSTEM.md): at 360px and 200% text the unwrapped
+            group ran to 368px, its Annual label on three lines below its segment. */}
+        <div
+          role="radiogroup"
+          aria-label="Billing period"
+          onKeyDown={onKeyDown}
+          className="inline-flex max-w-full flex-wrap gap-y-1 rounded-lg border border-border-light bg-panel-light p-1 shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+        >
+          <button
+            ref={(el) => {
+              radioRefs.current.monthly = el
+            }}
+            type="button"
+            role="radio"
+            aria-checked={monthly}
+            tabIndex={monthly ? 0 : -1}
+            onClick={() => select('monthly')}
+            className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('monthly'))}
+          >
+            Monthly
+          </button>
+          <button
+            ref={(el) => {
+              radioRefs.current.annual = el
+            }}
+            type="button"
+            role="radio"
+            aria-checked={!monthly}
+            tabIndex={monthly ? -1 : 0}
+            onClick={() => select('annual')}
+            className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('annual'))}
+          >
+            {/* No-break spaces hold the middot to "Annual" and "save" to its figure, so a label too long for its
+                row breaks only after the middot: "Annual ·" over "save N%", never a line that starts "·". */}
+            Annual&nbsp;<span className="font-medium">· save&nbsp;{PRO_PRICING.annualSavingsPercent}%</span>
+          </button>
+        </div>
       </div>
-    </section>
+
+      {overflowing && (
+        <p id={hintId} className="mt-4 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          Scroll horizontally to read all columns.
+        </p>
+      )}
+      {/* The role is written out, not read from regionProps, so tests/unit/dialogAllowlist.spec.ts can prove it is
+          no dialog's. */}
+      <div
+        ref={boxRef}
+        role={overflowing ? 'region' : undefined}
+        tabIndex={regionProps.tabIndex}
+        aria-label={regionProps['aria-label']}
+        aria-describedby={regionProps['aria-describedby']}
+        className="relative mt-6 overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+      >
+        <table className="w-full border-collapse">
+          <caption className="sr-only">{CAPTION}</caption>
+          <thead>
+            <tr>
+              <td className="w-[28%] pb-3" />
+              <th scope="col" className="w-[36%] px-4 pb-3 text-left align-bottom text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+                Free
+              </th>
+              <th scope="col" className="w-[36%] px-4 pb-3 text-left align-bottom text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+                Pro
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row" className={ROW_HEADER}>
+                Price
+              </th>
+              <td className={CELL}>
+                <span className={PRICE_CLASS}>$0</span>
+                <p className={`mt-1.5 text-sm ${MUTED_CLASS}`}>For reading a few filings a month.</p>
+              </td>
+              <td className={CELL}>
+                <div className="flex flex-wrap items-baseline gap-x-1.5">
+                  <span className={PRICE_CLASS}>{proPrice}</span>
+                  <span className={`text-sm ${MUTED_CLASS}`}>per month</span>
+                </div>
+                <p className={`mt-1.5 text-sm ${MUTED_CLASS}`}>{billingNote}</p>
+                {showBeta && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
+                    <SealCheckIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                    Free for beta members
+                  </p>
+                )}
+              </td>
+            </tr>
+            {rows.map((row) => (
+              <tr key={row.label}>
+                <th scope="row" className={ROW_HEADER}>
+                  {row.label}
+                </th>
+                <td className={CELL}>
+                  <PlanCell text={row.free} />
+                </td>
+                <td className={CELL}>
+                  <PlanCell text={row.pro} />
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td className={RULE} />
+              <td className={`${RULE} px-4 pt-5 align-top`}>
+                <Link
+                  href={access.href}
+                  className={buttonVariants({ variant: 'secondary', size: 'md', wrap: true, className: CTA_CLASS })}
+                >
+                  {access.cta}
+                </Link>
+              </td>
+              <td className={`${RULE} px-4 pt-5 align-top`}>
+                <Link
+                  href={showBeta ? '/pricing' : pricingHref(cycleName(billing))}
+                  className={buttonVariants({ variant: 'primary', size: 'md', wrap: true, className: CTA_CLASS })}
+                >
+                  {showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
+                </Link>
+                {showTrial && (
+                  <p className={`mt-2 text-xs ${MUTED_CLASS}`}>
+                    Card required. One trial per account. Cancel any time in the {TRIAL_DAYS} days at no charge.
+                  </p>
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </LandingRow>
   )
 }

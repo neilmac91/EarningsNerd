@@ -318,11 +318,11 @@
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Base section/page heading step; marketing section headings step up to 36/40px (-0.02em) from lg."
+        "purpose": "Base section/page heading step."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Section headings at 24/32px with tighter tracking; smaller component titles follow their own recipe."
+        "purpose": "Section headings at 24/32px with tighter tracking, the landing's row titles among them; smaller component titles follow their own recipe."
       },
       "card-title": {
         "displayName": "Card Title",
