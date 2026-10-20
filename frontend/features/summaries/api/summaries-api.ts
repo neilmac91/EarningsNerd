@@ -139,13 +139,23 @@ export const isPaywallStreamError = (message: string): boolean => {
   return m.includes('monthly limit') || m.includes('upgrade to pro')
 }
 
-// Errors that must NOT be auto-retried: retrying can't help and would waste the user's time.
-const isNonRetryableStreamError = (message: string): boolean => {
+// Errors a retry cannot help: the stream makes no automatic second attempt (generateSummaryStream below), and
+// the filing page's card offers no Retry (StreamingSummaryDisplay). Each backend sentence is matched on its own
+// words. Pro's fair-use pause (admission.py: "We've temporarily paused new summary generation on your
+// account …") holds until the month turns. The stream route's 403s hold whatever the reader retries: a Free
+// reader's force regeneration of a summary the page shows ("Regenerating an analysis is a Pro feature.", the
+// route itself) and an inactive account ("User account is inactive", get_current_user). A retry of any of them
+// only repeats the blocked request. tests/unit/streamErrorCopy.spec.ts reads the pause from admission.py and
+// every 403 the stream endpoint returns, and holds this matcher to each.
+export const isNonRetryableStreamError = (message: string): boolean => {
   const m = (message || '').toLowerCase()
   return (
     isPaywallStreamError(message) ||
+    m.includes('paused new summary generation') ||
+    m.includes('is a pro feature') ||
+    m.includes('account is inactive') ||
     m.includes('permission') ||
-    m.includes('sign in') ||
+    m.includes('log in') ||
     m.includes('authentication')
   )
 }
@@ -351,7 +361,7 @@ const runStreamAttempt = async (
       // The reader's sentence when the response carries no detail of its own. A 401 is never retried
       // whatever its text (retryable is set only for a 5xx below); its sentence says what to do.
       let errorMessage = response.status === 401
-        ? 'Sign in again to generate this summary.'
+        ? 'Log in again to generate this summary.'
         : 'The summary could not start. Try again.'
       try {
         const errorData = await untilAborted(response.json())

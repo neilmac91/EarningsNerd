@@ -1,16 +1,18 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingResolver } from './astBindings'
+import { declaredDefault, executableLines, readConfig, workflowFiles, type Workflow } from './deployMaps'
 import {
   ANALYSIS_MAX_ANNUAL_PERIODS,
   ANALYSIS_MAX_QUARTERLY_PERIODS,
   FREE_SUMMARY_LIMIT,
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_COPILOT_QUESTIONS,
-  FREE_HISTORY_RETENTION_DAYS,
+  PRO_SUMMARY_MONTHLY_CAP,
   TRIAL_DAYS,
 } from '@/lib/planLimits'
 import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
@@ -22,7 +24,9 @@ import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
  * (backend/app/services/entitlements.py). Guest-facing copy cannot read the usage response, so
  * frontend/lib/planLimits.ts mirrors the two numbers — and this spec keeps the mirror honest:
  * (1) the mirrored values equal the backend constants; (2) no source file spells the caps out as
- * bare literals again ("5 summaries", "3 companies"), which is how the copy drifted before.
+ * bare literals again ("5 summaries", "3 companies"), which is how the copy drifted before. That
+ * includes lib/planLimits.ts, the home of the plan lines: only the mirror's own declarations
+ * (MIRROR_DECLARATIONS) type the numbers there.
  *
  * The Pro trial's length is a claim of the same kind, with one difference: the backend's
  * PRO_TRIAL_DAYS defaults to 0 (backend/app/config.py), so the trial exists only while the UI flag
@@ -36,9 +40,13 @@ import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
  * parameter, each of which can be true with the flag off; and (5) TRIAL_DAYS is the value the flag's own
  * documentation and the backend name for the flip. Clauses (3) and (4) read every .ts, .tsx, .js and .jsx
  * file under the cap walk's roots (an .md or .mdx file there is read as copy, line by line), one reader per
- * file (trialReader, below, says what it follows). Out of reach, review-checked: a length said another way
- * ("a week", "a fortnight"), TRIAL_DAYS re-exported under another name by another module, and a guard
- * applied by an early return (`if (!ENABLE_PRO_TRIAL) return null`), which fails closed.
+ * file (trialReader, below, says what it follows), lib/planLimits.ts included: there, beside the plan lines,
+ * and in no other module, the module's own TRIAL_DAYS declaration is TRIAL_DAYS. An import is TRIAL_DAYS, or the
+ * flag, only when it resolves to that declaration (lib/planLimits.ts's TRIAL_DAYS, lib/featureFlags.ts's
+ * ENABLE_PRO_TRIAL), directly or through a module that re-exports it; a same-named export of any other module
+ * is that module's own. Out of reach, review-checked: a length said another way ("a week", "a fortnight"),
+ * TRIAL_DAYS held in another module's const (`export const LEN = TRIAL_DAYS`), and a guard applied by an
+ * early return (`if (!ENABLE_PRO_TRIAL) return null`), which fails closed.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const entitlements = readFileSync(path.resolve(frontendDir, '../backend/app/services/entitlements.py'), 'utf8')
@@ -63,9 +71,11 @@ const freeEntitlementField = (name: string): number => {
 }
 
 const SOURCE_ROOTS = ['app', 'features', 'components', 'lib', 'hooks']
+const SUMMARY_CAP_LABEL = 'free summary cap spelled out'
 const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
-  // Copy: the caps written out in prose.
-  { label: 'free summary cap spelled out', pattern: /\b\d+ (?:free )?(?:AI )?summar(?:y|ies)\b/i },
+  // Copy: the caps written out in prose. The summary pattern also reads Pro's ceiling typed, in PRO_FAIR_USE_LINE's
+  // form ("300 summary generations") or with "new" ("300 new summaries").
+  { label: SUMMARY_CAP_LABEL, pattern: /\b\d+ (?:new )?(?:free )?(?:AI )?summar(?:y|ies)\b/i },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
   { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
   { label: 'free Copilot question taste spelled out', pattern: /\b\d+ (?:free )?Ask this Filing questions?\b|\bFree accounts get \d+ questions?\b/i },
@@ -94,6 +104,29 @@ function walk(dir: string): string[] {
   })
 }
 
+/**
+ * The mirror's own declarations: the one line in lib/planLimits.ts that types each mirrored cap
+ * (`export const FREE_SUMMARY_LIMIT = 5`). Every other line of that file, its plan lines included, is held to
+ * LITERAL_PATTERNS like any other file's.
+ */
+const MIRROR_DECLARATIONS = new Set(
+  Object.entries({ FREE_SUMMARY_LIMIT, FREE_EARNINGS_ALERT_LIMIT, FREE_COPILOT_QUESTIONS }).map(
+    ([name, value]) => `export const ${name} = ${value}`,
+  ),
+)
+
+/** Each line of a source that spells a free-tier cap out, as `file:line (label): text`, the mirror's own declarations apart. */
+function capLiterals(rel: string, source: string): string[] {
+  const offenders: string[] = []
+  source.split('\n').forEach((line, index) => {
+    if (rel === 'lib/planLimits.ts' && MIRROR_DECLARATIONS.has(line.trim())) return
+    for (const { label, pattern } of LITERAL_PATTERNS) {
+      if (pattern.test(line)) offenders.push(`${rel}:${index + 1} (${label}): ${line.trim()}`)
+    }
+  })
+  return offenders
+}
+
 describe('free-tier plan limits move in lockstep with the backend', () => {
   it('mirrors FREE_TIER_SUMMARY_LIMIT', () => {
     expect(FREE_SUMMARY_LIMIT).toBe(backendConst('FREE_TIER_SUMMARY_LIMIT'))
@@ -103,9 +136,61 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     expect(FREE_EARNINGS_ALERT_LIMIT).toBe(backendConst('FREE_EARNINGS_ALERT_LIMIT'))
   })
 
-  it('mirrors the free Copilot taste and history retention', () => {
+  it('mirrors the free Copilot taste, and the Pro fair-use ceiling PRO_FAIR_USE_LINE states (E58)', () => {
     expect(FREE_COPILOT_QUESTIONS).toBe(freeEntitlementField('copilot_free_taste'))
-    expect(FREE_HISTORY_RETENTION_DAYS).toBe(freeEntitlementField('history_retention_days'))
+    expect(PRO_SUMMARY_MONTHLY_CAP).toBe(settingDefault('PRO_SUMMARY_MONTHLY_CAP'))
+  })
+
+  it('finds no deploy map that overrides PRO_SUMMARY_MONTHLY_CAP, so production runs the default the page states', () => {
+    const workflows = workflowFiles()
+    // Anti-vacuity: the read reaches the deploy's maps (ci.yml's service and job maps among them).
+    const ci = workflows.find(([file]) => file === 'ci.yml')?.[1] ?? ''
+    expect((ci.match(/--update-env-vars=/g) ?? []).length).toBeGreaterThanOrEqual(3)
+    expect(capOverrides(config, workflows), CAP_STAYS_DEFAULT).toEqual([])
+  })
+
+  it('reads a cap setting in every form a workflow writes one, and nothing else (planted forms)', () => {
+    const settings = `class Settings(BaseSettings):\n    ${CAP}: int = 300\n`
+    // ci.yml's service map, shortened: the form the gate exists for.
+    const serviceMap = '            --update-env-vars=ENVIRONMENT=production,COOKIE_DOMAIN=.earningsnerd.io,DB_POOL_SIZE=4,ENABLE_INSIDER_ACTIVITY=false \\'
+    const flagged: Record<string, string> = {
+      'the service map with the cap added': serviceMap.replace('DB_POOL_SIZE=4', `DB_POOL_SIZE=4,${CAP}=100`),
+      'a fresh map': `            --set-env-vars=${CAP}=0 \\`,
+      'an env: key': `          ${CAP}: "100"`,
+      'a value the deploy expands': `            --update-env-vars=DB_POOL_SIZE=3,${CAP}=\${PRO_CAP} \\`,
+      'a secret mapped onto it': `            --update-secrets=${CAP}=PRO_CAP:latest \\`,
+      "the default's own value": `            --update-env-vars=${CAP}=300 \\`,
+      'a run line': `        run: echo "${CAP}=150" >> "$GITHUB_ENV"`,
+    }
+    const passing: Record<string, string> = {
+      'a comment': `  # ${CAP} stays at config.py's default: never set it here`,
+      'the service map as it is': serviceMap,
+      'another cap': '          COPILOT_MONTHLY_QUESTION_CAP: "1000"',
+      'a gap: an env file the read cannot open': '            --env-vars-file=deploy/production.env.yaml \\',
+    }
+    const read = (line: string) => capOverrides(settings, [['ci.yml', line]]).length
+    expect(Object.keys(flagged).filter((name) => read(flagged[name]) !== 1), 'a form the read missed').toEqual([])
+    expect(Object.keys(passing).filter((name) => read(passing[name]) !== 0), 'a look-alike the read flagged').toEqual([])
+    expect(capOverrides(settings, [['ops.yaml', `jobs:\n  sync:\n    env:\n      ${CAP}: "5"\n`]])).toEqual([`ops.yaml:4 ${CAP}: "5"`])
+    expect(() => capOverrides('class Settings(BaseSettings):\n    OTHER: int = 1\n', [])).toThrow(/0 times/)
+    expect(() => capOverrides(settings + settings, [])).toThrow(/2 times/)
+  })
+
+  it('reads a summary cap typed with or without "new", and the Pro ceiling\'s sentence typed (planted forms)', () => {
+    const { pattern } = LITERAL_PATTERNS.find(({ label }) => label === SUMMARY_CAP_LABEL)!
+    for (const typed of [
+      '5 summaries',
+      '5 free summaries',
+      '5 AI summaries',
+      'Pro accounts can generate up to 300 new summaries a month.',
+      'An account can run up to 300 summary generations a month, regenerations included.',
+    ]) {
+      expect(pattern.test(typed), typed).toBe(true)
+    }
+    // A read of the cap types no number: summaryPlanClaims.spec.ts fails a read of it outside lib/planLimits.ts.
+    for (const prose of ['Pro accounts can generate up to {PRO_SUMMARY_MONTHLY_CAP} new summaries a month.', 'New summaries are paused.', 'Unlimited summaries']) {
+      expect(pattern.test(prose), prose).toBe(false)
+    }
   })
 
   it('mirrors the waitlist REFERRAL_BONUS, which the referral sentence reads', () => {
@@ -124,20 +209,36 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     }
   })
 
-  it('no source file spells a free-tier cap out as a bare literal', () => {
+  it("no source file spells a free-tier cap out as a bare literal, lib/planLimits.ts's plan lines included", () => {
     const offenders: string[] = []
+    const read: string[] = []
     for (const root of SOURCE_ROOTS) {
       for (const file of walk(path.join(frontendDir, root))) {
-        if (file.endsWith(path.join('lib', 'planLimits.ts'))) continue
-        const lines = readFileSync(file, 'utf8').split('\n')
-        lines.forEach((line, index) => {
-          for (const { label, pattern } of LITERAL_PATTERNS) {
-            if (pattern.test(line)) offenders.push(`${path.relative(frontendDir, file)}:${index + 1} (${label}): ${line.trim()}`)
-          }
-        })
+        const rel = path.relative(frontendDir, file).split(path.sep).join('/')
+        read.push(rel)
+        offenders.push(...capLiterals(rel, readFileSync(file, 'utf8')))
       }
     }
+    // The plan lines live beside the mirror (ANALYSIS_LINES, FILING_FORMS_LINE, PRO_INCLUDES), so its file is read too.
+    expect(read, 'the scan reads lib/planLimits.ts').toContain('lib/planLimits.ts')
     expect(offenders, 'use the mirrored constants (lib/planLimits; REFERRAL_BONUS from features/waitlist/lib/referral) instead').toEqual([])
+  })
+
+  it("reads lib/planLimits.ts like any file but for the mirror's own declarations (self-check)", () => {
+    const planted = [
+      `export const FREE_SUMMARY_LIMIT = ${FREE_SUMMARY_LIMIT}`,
+      `export const FREE_EARNINGS_ALERT_LIMIT = ${FREE_EARNINGS_ALERT_LIMIT}`,
+      "const PRO_INCLUDES = [{ text: '90-day summary history' }, { text: '5 AI summaries a month' }]",
+      'export const FREE_SUMMARY_CAP = 6',
+    ].join('\n')
+    // A plan line typed beside the mirror, and a cap constant that mirrors nothing, fail; the mirror's own two lines pass.
+    expect(capLiterals('lib/planLimits.ts', planted).map((offender) => offender.slice(0, offender.indexOf('): ') + 1))).toEqual([
+      'lib/planLimits.ts:3 (free summary cap spelled out)',
+      'lib/planLimits.ts:3 (free history retention spelled out)',
+      'lib/planLimits.ts:4 (free-tier cap constant assigned a literal)',
+    ])
+    // The exemption is the mirror file's alone: the same declarations anywhere else spell the caps out.
+    expect(capLiterals('features/elsewhere.ts', planted)).toHaveLength(5)
   })
 
   // Pro's Copilot questions are capped (COPILOT_MONTHLY_QUESTION_CAP, a fair-use 429 past it), so no copy
@@ -306,9 +407,16 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
  * not copy): each string, template and `+` chain, and each JSX tree's text as React renders it. A tree's
  * text children lose the whitespace JSX drops and have their entities decoded (`&nbsp;`), and its literal
  * children (`{10}`, `{'10'}`, `{' '}`) and nested elements' text (`<strong>10</strong>`) are joined in
- * order, so a count split across markup reads whole. A part that is not a literal (a name, a call, a
- * condition) reads as a hole no count spans, which is how `{ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years`
- * passes. A typed count is digits, a "+" allowed after them, or a number word up to twelve; then spaces or
+ * order, so a count split across markup reads whole. Where the whitespace JSX drops holds a line break
+ * (between two children on their own lines, or at a text child's edge), the tree is read twice, and a count
+ * either reading holds fails: once with the words on either side apart (BREAK), so a count that opens a block
+ * after a sibling ending in a letter (`<h3>Multi-Period Analysis</h3>` then `<p>10 fiscal years</p>`, a badge
+ * then a number word, a list item then the next) reads as its own word, and once joined as React renders them,
+ * so a count whose hyphen ends one element and whose unit opens the next (`<b>10-</b>` then `<b>year
+ * window</b>`) reads whole. A count and a unit in blocks of their own (`<li>10</li>` then `<li>years</li>`)
+ * have no separator between them in either reading, so they pass. A part that is not a literal (a
+ * name, a call, a condition) reads as a hole no count spans, which is how
+ * `{ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years` passes. A typed count is digits, a "+" allowed after them, or a number word up to twelve; then spaces or
  * hyphens (a no-break space and the Unicode hyphens among them); an optional "fiscal" or "financial"; then
  * year, quarter or an abbreviation (yr, qtr, FY, FQ), singular or plural (TYPED_PERIOD_COUNT).
  *
@@ -319,11 +427,37 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
  * a hole. Model-written text is not copy: the demo payload's sample narrative
  * (features/analysis/demo/demo-analysis.json) states its own window, "six fiscal years", as a model would.
  */
-const config = readFileSync(path.resolve(frontendDir, '../backend/app/config.py'), 'utf8')
+const config = readConfig()
 const settingDefault = (name: string): number => {
   const match = config.match(new RegExp(`^\\s+${name}\\s*:\\s*int\\s*=\\s*(\\d+)`, 'm'))
   if (!match) throw new Error(`${name} not found in backend/app/config.py`)
   return Number(match[1])
+}
+
+/**
+ * Production runs the Pro cap the page states. The /pricing FAQ and the filing page's limit card state
+ * PRO_SUMMARY_MONTHLY_CAP's Settings default through the mirror (lib/planLimits.ts), while the backend enforces
+ * `settings.PRO_SUMMARY_MONTHLY_CAP`, which an environment value overrides. So no deploy map sets it. The read
+ * takes the default from backend/app/config.py (declared once, or the read throws) and every executable line of
+ * every workflow under .github/workflows: a comment line is skipped, and any other line that names the variable
+ * counts, whatever its form (an --update-env-vars, --set-env-vars or --update-secrets entry, an env: key, a run
+ * line) and whatever its value (the default's own value too: the map would keep it when the default moves). Its
+ * planted forms score the read. Out of reach: a value set by hand on the Cloud Run service, which no file records,
+ * an env file a deploy names (`--env-vars-file`, none today) and an image's own ENV (backend/Dockerfile sets
+ * none of it). The read is deployMaps.ts's, shared with changeReportPlanClaims.spec.tsx; the rule and its message
+ * are this spec's.
+ */
+const CAP = 'PRO_SUMMARY_MONTHLY_CAP'
+const CAP_STAYS_DEFAULT =
+  `The /pricing FAQ and the filing page's limit card state config.py's ${CAP} default (lib/planLimits.ts mirrors ` +
+  'it), so a deploy map that sets it leaves the page stating a ceiling the backend does not enforce. Change the ' +
+  'default in backend/app/config.py, and the mirror follows; never override it in a deploy map.'
+
+/** The executable workflow lines that name PRO_SUMMARY_MONTHLY_CAP, as `file:line text`. Throws unless config.py
+    declares the cap's default once, so a renamed or moved field cannot leave the read holding nothing. */
+function capOverrides(configSource: string, workflows: readonly Workflow[]): string[] {
+  declaredDefault(configSource, CAP, 'int')
+  return executableLines(workflows, CAP).map(({ file, number, text }) => `${file}:${number} ${text.trim()}`)
 }
 
 const NUMBER_WORDS = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve'
@@ -389,8 +523,34 @@ function decoded(text: string, from: number): Rendered {
   return out
 }
 
+/**
+ * Where JSX drops whitespace that holds a line break (between two children on their own lines, or at a text
+ * child's edge), the words on either side read apart, as the blocks such children usually are show them. So a
+ * count that opens a block after a sibling ending in a letter (`<h3>Multi-Period Analysis</h3>` then
+ * `<p>10 fiscal years</p>`) starts a word of its own. Not a space, a letter, a digit or a hyphen, so no count
+ * spans it; settle() drops it beside a space. The scan reads the copy joined as well (readingsOf), so a count
+ * a break splits still reads whole there.
+ */
+const BREAK = '\u2063'
+/** A BREAK beside a space, another BREAK or either end of the text separates nothing: drop it. */
+function settle(rendered: Rendered): Rendered {
+  const out: Rendered = { text: '', at: [] }
+  for (let index = 0; index < rendered.text.length; index++) {
+    const char = rendered.text[index]
+    if (char === BREAK) {
+      const before = out.text[out.text.length - 1]
+      const after = rendered.text[index + 1]
+      if (before === undefined || after === undefined || /\s/.test(before) || /\s/.test(after) || before === BREAK || after === BREAK) continue
+    }
+    out.text += char
+    out.at.push(rendered.at[index])
+  }
+  return out
+}
+
 /** A JSX text child as React renders it (Babel's rule): each line trimmed where it meets a line break,
- * blank lines dropped, the rest joined by one space; its entities decoded. */
+ * blank lines dropped, the rest joined by one space; its entities decoded. Whitespace with a line break that
+ * Babel drops at either edge, or a child that is nothing else, reads as a BREAK. */
 function jsxText(node: ts.JsxText, sf: ts.SourceFile): Rendered {
   const lines: Array<{ from: number; text: string }> = []
   let from = node.pos
@@ -398,8 +558,11 @@ function jsxText(node: ts.JsxText, sf: ts.SourceFile): Rendered {
     if (index % 2 === 0) lines.push({ from, text: part })
     from += part.length
   })
+  const blank = (line: { text: string }) => !/[^ \t]/.test(line.text)
+  if (lines.length > 1 && lines.every(blank)) return { text: BREAK, at: [node.pos] }
   const lastWithText = lines.reduce((found, line, index) => (/[^ \t]/.test(line.text) ? index : found), 0)
   const parts: Rendered[] = []
+  if (lines.length > 1 && blank(lines[0])) parts.push({ text: BREAK, at: [node.pos] })
   lines.forEach((line, index) => {
     let start = 0
     let end = line.text.length
@@ -409,6 +572,7 @@ function jsxText(node: ts.JsxText, sf: ts.SourceFile): Rendered {
     parts.push(decoded(line.text.slice(start, end), line.from + start))
     if (index !== lastWithText) parts.push({ text: ' ', at: [line.from + end] })
   })
+  if (lines.length > 1 && blank(lines[lines.length - 1])) parts.push({ text: BREAK, at: [lines[lines.length - 1].from] })
   return join(parts)
 }
 
@@ -451,7 +615,7 @@ function copyTexts(sf: ts.SourceFile): Rendered[] {
   const visit = (node: ts.Node) => {
     if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)
       || isConcat(node) || ts.isJsxElement(node) || ts.isJsxFragment(node)) && !renderedByParent(node)) {
-      out.push(rendered(node, sf))
+      out.push(settle(rendered(node, sf)))
     }
     ts.forEachChild(node, visit)
   }
@@ -467,23 +631,44 @@ function covers(text: string, phrase: string, start: number, end: number): boole
   return false
 }
 
+/** A piece of copy's two readings: its words apart where a line break was dropped (BREAK), and joined as React
+ * renders them, every BREAK left out. A count whose hyphen ends one element and whose unit opens the next on a
+ * line of its own (`<b>10-</b>` then `<b>year window</b>`) reads whole only joined, so both are scanned. */
+function readingsOf(copy: Rendered): Rendered[] {
+  if (!copy.text.includes(BREAK)) return [copy]
+  const joined: Rendered = { text: '', at: [] }
+  for (let index = 0; index < copy.text.length; index++) {
+    if (copy.text[index] === BREAK) continue
+    joined.text += copy.text[index]
+    joined.at.push(copy.at[index])
+  }
+  return [copy, joined]
+}
+
 /** Each typed count in one source's copy, as `file:line: context`, less those inside a phrase that
- * PERIOD_COUNT_OTHER_FACTS argues for the file; `argued` collects every entry that covers one. */
+ * PERIOD_COUNT_OTHER_FACTS argues for the file; `argued` collects every entry that covers one. A count either
+ * reading holds is read, once: a second reading's count over the same source as one already reported is that one. */
 function typedPeriodCounts(source: string, rel: string, argued = new Set<number>()): string[] {
   if (!MENTIONS_A_PERIOD.test(source)) return []
   const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, rel.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
   const found: string[] = []
   for (const copy of copyTexts(sf)) {
-    for (const match of copy.text.matchAll(new RegExp(TYPED_PERIOD_COUNT_SOURCE, 'gi'))) {
-      const start = match.index
-      const end = start + match[0].length
-      const covering = PERIOD_COUNT_OTHER_FACTS.flatMap((entry, index) =>
-        (entry.file === rel && covers(copy.text, entry.phrase, start, end) ? [index] : []))
-      covering.forEach((index) => argued.add(index))
-      if (covering.length) continue
-      const line = sf.getLineAndCharacterOfPosition(copy.at[start]).line + 1
-      const context = copy.text.slice(Math.max(0, start - 40), end + 40).replaceAll(HOLE, '{…}').replace(/\s+/g, ' ').trim()
-      found.push(`${rel}:${line}: ${context}`)
+    const reported: Array<{ from: number; to: number }> = []
+    for (const reading of readingsOf(copy)) {
+      for (const match of reading.text.matchAll(new RegExp(TYPED_PERIOD_COUNT_SOURCE, 'gi'))) {
+        const start = match.index
+        const end = start + match[0].length
+        const covering = PERIOD_COUNT_OTHER_FACTS.flatMap((entry, index) =>
+          (entry.file === rel && covers(reading.text, entry.phrase, start, end) ? [index] : []))
+        covering.forEach((index) => argued.add(index))
+        if (covering.length) continue
+        const [from, to] = [reading.at[start], reading.at[end - 1]]
+        if (reported.some((span) => from <= span.to && span.from <= to)) continue
+        reported.push({ from, to })
+        const line = sf.getLineAndCharacterOfPosition(from).line + 1
+        const context = reading.text.slice(Math.max(0, start - 40), end + 40).replaceAll(HOLE, '{…}').replaceAll(BREAK, ' / ').replace(/\s+/g, ' ').trim()
+        found.push(`${rel}:${line}: ${context}`)
+      }
     }
   }
   return found
@@ -521,6 +706,15 @@ const PLANTED_FORMS: Array<{ kind: 'flag' | 'clean' | 'gap'; form: string; sourc
   { kind: 'flag', form: 'FQs', source: "export const copy = 'the last 12 FQs'" },
   { kind: 'flag', form: "a condition's literal branch", source: "export const copy = <p>{annual ? '10 fiscal years' : null}</p>" },
   { kind: 'flag', form: 'a tree behind &&', source: 'export const copy = <div>{open && <p>Up to 10 years</p>}</div>' },
+  // A count that opens a block after a sibling ending in a letter: JSX drops the line break between them (the review of 52531df8).
+  { kind: 'flag', form: 'a count opening a block after a heading', source: 'export const copy = (\n  <div>\n    <h3>Multi-Period Analysis</h3>\n    <p>10 fiscal years of filings</p>\n  </div>\n)' },
+  { kind: 'flag', form: 'a number word opening a block after a badge', source: 'export const copy = (\n  <div>\n    <Badge>Pro</Badge>\n    <p>ten years of history</p>\n  </div>\n)' },
+  { kind: 'flag', form: 'a count opening a list item after one ending in a letter', source: 'export const copy = (\n  <ul>\n    <li>Annual</li>\n    <li>12 quarters</li>\n  </ul>\n)' },
+  { kind: 'flag', form: 'a count opening a text line after an element', source: 'export const copy = (\n  <p>\n    <strong>Pro</strong>\n    10 fiscal years\n  </p>\n)' },
+  { kind: 'flag', form: "a {' '} child, then the unit in markup on the next line", source: "export const copy = (\n  <p>\n    Up to <b>10</b>{' '}\n    <em>fiscal years</em>\n  </p>\n)" },
+  // A count whose hyphen ends one element and whose unit opens the next on its own line: React joins them (the review of 3a1368ec).
+  { kind: 'flag', form: 'a hyphen ending one element, the unit opening the next on its own line', source: 'export const copy = (\n  <p>\n    Trends over a <b>10-</b>\n    <b>year window</b>\n  </p>\n)' },
+  { kind: 'flag', form: 'a count both readings hold, read once', source: 'export const copy = (\n  <div>\n    <h3>Multi-Period Analysis</h3>\n    <p>Up to 10 fiscal years</p>\n  </div>\n)' },
   { kind: 'clean', form: 'the mirror in JSX', source: 'export const copy = <p>Up to {ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years</p>' },
   { kind: 'clean', form: 'the mirror in a template', source: 'export const copy = `Unlimited Multi-Period Analysis: ${ANALYSIS_MAX_ANNUAL_PERIODS}-year trends`' },
   { kind: 'clean', form: 'the mirror in markup', source: 'export const copy = <p>Up to <strong>{ANALYSIS_MAX_QUARTERLY_PERIODS}</strong> quarters</p>' },
@@ -604,10 +798,21 @@ const GAP = '\u0000'
 
 /**
  * One reader for both trial clauses, per file, following bindings rather than names:
- *  - TRIAL_DAYS is the import of `TRIAL_DAYS` from lib/planLimits under any local name, a namespace import's
- *    member (`P.TRIAL_DAYS`, `P['TRIAL_DAYS']`), one destructured from it, and a const holding any of those.
- *    A local declaration of the same name shadows it, as the language does.
- *  - A guard is ENABLE_PRO_TRIAL (imported, or a namespace member), an `&&` chain with a guard operand, or a
+ *  - TRIAL_DAYS is lib/planLimits.ts's own export, imported under any local name through an `@/` or relative
+ *    specifier, from that module or from any module that re-exports it (`export { … } from`, `export *`, a
+ *    re-export of its own import; exportsOwn), a default import included where the module's default export is it
+ *    (`export { TRIAL_DAYS as default } from`, `export default` of its own import; `export *` hands on no default);
+ *    a namespace import's member (`P.TRIAL_DAYS`, `P['TRIAL_DAYS']`), a namespace a module hands on
+ *    (`export * as plan from`, a namespace import re-exported, by name or as the default) and its members through
+ *    any chain of written keys (`b.plan.TRIAL_DAYS`; namespaceOf), one destructured from it, and a const holding any
+ *    of those. What the reader cannot follow through a namespace that holds TRIAL_DAYS (reachesTrial) fails closed,
+ *    as a read the guard must cover: a key the file does not write (`plan[key]`), the namespace handed on, spread,
+ *    returned or stored, a destructuring with a computed key or a rest, and an `import()` or `require()` of a module
+ *    that holds it. A same-named export of another module (one
+ *    named planLimits.ts included) is that module's own, a value the reader cannot resolve. A local declaration
+ *    of the same name shadows it, as the language does.
+ *  - A guard is lib/featureFlags.ts's ENABLE_PRO_TRIAL (imported the same way, or a namespace member; another
+ *    module's ENABLE_PRO_TRIAL guards nothing), an `&&` chain with a guard operand, or a
  *    `const` whose initializer is a guard, resolved to the declaration a name binds to: a same-named const in
  *    another function is that function's own, and a `let` or a parameter is never a guard (it can be
  *    reassigned, or holds what a caller hands it).
@@ -645,8 +850,149 @@ const aroundLength = (raw: string) => {
   return `${at > 30 ? '…' : ''}${text.slice(Math.max(0, at - 30), at + 50).trim()}${at + 50 < text.length ? '…' : ''}`
 }
 
-const PLAN_LIMITS = /(?:^|\/)planLimits$/
-const FEATURE_FLAGS = /(?:^|\/)featureFlags$/
+/** The module a project import names: '@/…' from the frontend root, './…' and '../…' from the importer's directory,
+    under the extensions and index files TypeScript resolves; undefined for a package or a path with no file. */
+function moduleFile(importer: string, specifier: string): string | undefined {
+  const base = specifier.startsWith('@/')
+    ? path.join(frontendDir, specifier.slice(2))
+    : specifier.startsWith('.')
+      ? path.resolve(path.dirname(path.resolve(frontendDir, importer)), specifier)
+      : undefined
+  if (base === undefined) return undefined
+  return ['', '.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.tsx'].map((suffix) => base + suffix).find((file) => existsSync(file) && statSync(file).isFile())
+}
+const MODULES = new Map<string, ts.SourceFile>()
+const moduleSource = (file: string) => {
+  let sf = MODULES.get(file)
+  if (!sf) {
+    const kind = /\.tsx$/.test(file) ? ts.ScriptKind.TSX : /\.jsx$/.test(file) ? ts.ScriptKind.JSX : /\.js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS
+    MODULES.set(file, (sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, kind)))
+  }
+  return sf
+}
+const LIB_PLAN_LIMITS = path.join(frontendDir, 'lib', 'planLimits.ts')
+const LIB_FEATURE_FLAGS = path.join(frontendDir, 'lib', 'featureFlags.ts')
+
+/**
+ * Whether module `file` exports as `name` the declaration `want` of module `owner` (TRIAL_DAYS of lib/planLimits.ts,
+ * ENABLE_PRO_TRIAL of lib/featureFlags.ts): the owner's own, or one re-exported on the way (`export { a as name } from`,
+ * `export * from`, a re-export of the module's own import, named or default). `name` 'default' is the module's default
+ * export: `export { a as default }`, or `export default` of its own import; `export *` hands on no default. A
+ * declaration of that name in any other module is its own.
+ */
+function exportsOwn(file: string | undefined, name: string, owner: string, want: string, seen = new Set<string>()): boolean {
+  if (!file) return false
+  if (file === owner) return name === want
+  if (seen.has(`${file}#${name}`)) return false
+  seen.add(`${file}#${name}`)
+  const sf = moduleSource(file)
+  const importsOwn = (local: string) => sf.statements.some((statement) => {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) return false
+    const bindings = statement.importClause?.namedBindings
+    const from = moduleFile(file, statement.moduleSpecifier.text)
+    if (statement.importClause?.name?.text === local) return exportsOwn(from, 'default', owner, want, seen)
+    return !!bindings && ts.isNamedImports(bindings) &&
+      bindings.elements.some((element) => element.name.text === local && exportsOwn(from, (element.propertyName ?? element.name).text, owner, want, seen))
+  })
+  return sf.statements.some((statement) => {
+    if (ts.isExportAssignment(statement)) {
+      const value = unwrapExpr(statement.expression)
+      return name === 'default' && !statement.isExportEquals && ts.isIdentifier(value) && importsOwn(value.text)
+    }
+    if (!ts.isExportDeclaration(statement)) return false
+    const from = statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleFile(file, statement.moduleSpecifier.text) : undefined
+    if (!statement.exportClause) return name !== 'default' && exportsOwn(from, name, owner, want, seen)
+    return ts.isNamedExports(statement.exportClause) && statement.exportClause.elements.some((element) => {
+      const local = (element.propertyName ?? element.name).text
+      return element.name.text === name && (from ? exportsOwn(from, local, owner, want, seen) : importsOwn(local))
+    })
+  })
+}
+
+/** The names module `file` exports: its own, the ones it renames or hands on, and those of each `export *` (which
+    hands on no default). */
+function exportNames(file: string, seen = new Set<string>()): string[] {
+  if (seen.has(file)) return []
+  seen.add(file)
+  const sf = moduleSource(file)
+  return sf.statements.flatMap((statement): string[] => {
+    if (ts.isExportAssignment(statement)) return statement.isExportEquals ? [] : ['default']
+    if (ts.isExportDeclaration(statement)) {
+      if (!statement.exportClause) {
+        const from = statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleFile(file, statement.moduleSpecifier.text) : undefined
+        return from ? exportNames(from, seen).filter((name) => name !== 'default') : []
+      }
+      return ts.isNamespaceExport(statement.exportClause) ? [statement.exportClause.name.text] : statement.exportClause.elements.map((element) => element.name.text)
+    }
+    const exported = ts.canHaveModifiers(statement) && ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+    if (!exported) return []
+    if (ts.isVariableStatement(statement)) return statement.declarationList.declarations.flatMap((d) => (ts.isIdentifier(d.name) ? [d.name.text] : []))
+    const named = (statement as ts.DeclarationStatement).name
+    return named && ts.isIdentifier(named) ? [named.text] : []
+  })
+}
+
+/**
+ * The module whose namespace object module `file` exports as `name`, or undefined when that export is not a namespace:
+ * `export * as name from`, a namespace import the module re-exports (`import * as ns …; export { ns as name }`, or as
+ * its default), followed through re-exports by name and `export *` as exportsOwn follows a value.
+ */
+function namespaceOf(file: string | undefined, name: string, seen = new Set<string>()): string | undefined {
+  if (!file || seen.has(`${file}#${name}`)) return undefined
+  seen.add(`${file}#${name}`)
+  const sf = moduleSource(file)
+  const imported = (local: string): string | undefined => {
+    for (const statement of sf.statements) {
+      if (!ts.isImportDeclaration(statement) || !statement.importClause || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+      const from = moduleFile(file, statement.moduleSpecifier.text)
+      const bindings = statement.importClause.namedBindings
+      if (bindings && ts.isNamespaceImport(bindings) && bindings.name.text === local) return from
+      if (statement.importClause.name?.text === local) return namespaceOf(from, 'default', seen)
+      const spec = bindings && ts.isNamedImports(bindings) ? bindings.elements.find((element) => element.name.text === local) : undefined
+      if (spec) return namespaceOf(from, (spec.propertyName ?? spec.name).text, seen)
+    }
+    return undefined
+  }
+  for (const statement of sf.statements) {
+    if (ts.isExportAssignment(statement)) {
+      const value = unwrapExpr(statement.expression)
+      if (name === 'default' && !statement.isExportEquals && ts.isIdentifier(value)) {
+        const ns = imported(value.text)
+        if (ns) return ns
+      }
+      continue
+    }
+    if (!ts.isExportDeclaration(statement)) continue
+    const from = statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleFile(file, statement.moduleSpecifier.text) : undefined
+    if (!statement.exportClause) {
+      const ns = name === 'default' ? undefined : namespaceOf(from, name, seen)
+      if (ns) return ns
+      continue
+    }
+    if (ts.isNamespaceExport(statement.exportClause)) {
+      if (statement.exportClause.name.text === name && from) return from
+      continue
+    }
+    for (const element of statement.exportClause.elements) {
+      if (element.name.text !== name) continue
+      const local = (element.propertyName ?? element.name).text
+      const ns = from ? namespaceOf(from, local, seen) : imported(local)
+      if (ns) return ns
+    }
+  }
+  return undefined
+}
+
+/** Whether a module's namespace object holds TRIAL_DAYS: as its own export, or in a namespace it exports. */
+function reachesTrial(file: string, seen = new Set<string>()): boolean {
+  if (seen.has(file)) return false
+  seen.add(file)
+  if (exportsOwn(file, 'TRIAL_DAYS', LIB_PLAN_LIMITS, 'TRIAL_DAYS')) return true
+  return exportNames(file).some((name) => {
+    const ns = namespaceOf(file, name)
+    return !!ns && reachesTrial(ns, seen)
+  })
+}
 
 interface TrialReader {
   /** Every read of TRIAL_DAYS in the file, with whether a guard holds over it. */
@@ -670,46 +1016,79 @@ const isReference = (id: ts.Identifier): boolean => {
   if ((ts.isVariableDeclaration(p) || ts.isParameter(p) || ts.isFunctionDeclaration(p) || ts.isClassDeclaration(p)) && p.name === id) return false
   if (ts.isBindingElement(p) && (p.name === id || p.propertyName === id)) return false
   if (ts.isJsxAttribute(p) || ts.isExportSpecifier(p)) return false
+  // A lowercase tag names an intrinsic element (`<p>`), never a binding of that name.
+  if ((ts.isJsxOpeningElement(p) || ts.isJsxClosingElement(p) || ts.isJsxSelfClosingElement(p)) && p.tagName === id && /^[a-z]/.test(id.text)) return false
   return true
 }
 
 export function trialReader(sf: ts.SourceFile): TrialReader {
   const resolve = bindingResolver(sf)
+  // lib/planLimits.ts declares TRIAL_DAYS, and its plan lines sit beside it: there the module's own declaration is
+  // TRIAL_DAYS, read under the same guard rule as every import of it (it would otherwise read as its number, 7).
+  // That file alone: a TRIAL_DAYS declared in any other module, one named planLimits.ts included, is its number.
+  const declaresTrial = path.resolve(frontendDir, sf.fileName) === path.join(frontendDir, 'lib', 'planLimits.ts')
+  // Each import by the module it resolves to (exportsOwn): TRIAL_DAYS and the flag are their owners' own exports.
   const trialImports = new Set<string>()
   const flagImports = new Set<string>()
-  const planNamespaces = new Set<string>()
-  const flagNamespaces = new Set<string>()
+  const namespaces = new Map<string, string>()
   for (const statement of sf.statements) {
     if (!ts.isImportDeclaration(statement) || !statement.importClause || !ts.isStringLiteral(statement.moduleSpecifier)) continue
-    const from = statement.moduleSpecifier.text
+    const from = moduleFile(sf.fileName, statement.moduleSpecifier.text)
     const bindings = statement.importClause.namedBindings
-    if (bindings && ts.isNamespaceImport(bindings)) {
-      if (PLAN_LIMITS.test(from)) planNamespaces.add(bindings.name.text)
-      if (FEATURE_FLAGS.test(from)) flagNamespaces.add(bindings.name.text)
-    }
+    const byDefault = statement.importClause.name
+    if (byDefault && exportsOwn(from, 'default', LIB_PLAN_LIMITS, 'TRIAL_DAYS')) trialImports.add(byDefault.text)
+    if (byDefault && exportsOwn(from, 'default', LIB_FEATURE_FLAGS, 'ENABLE_PRO_TRIAL')) flagImports.add(byDefault.text)
+    const defaultNamespace = byDefault ? namespaceOf(from, 'default') : undefined
+    if (byDefault && defaultNamespace) namespaces.set(byDefault.text, defaultNamespace)
+    if (bindings && ts.isNamespaceImport(bindings) && from) namespaces.set(bindings.name.text, from)
     if (bindings && ts.isNamedImports(bindings)) {
       for (const spec of bindings.elements) {
         const imported = (spec.propertyName ?? spec.name).text
-        if (imported === 'TRIAL_DAYS' && PLAN_LIMITS.test(from)) trialImports.add(spec.name.text)
-        if (imported === 'ENABLE_PRO_TRIAL') flagImports.add(spec.name.text)
+        if (exportsOwn(from, imported, LIB_PLAN_LIMITS, 'TRIAL_DAYS')) trialImports.add(spec.name.text)
+        if (exportsOwn(from, imported, LIB_FEATURE_FLAGS, 'ENABLE_PRO_TRIAL')) flagImports.add(spec.name.text)
+        const namespace = namespaceOf(from, imported)
+        if (namespace) namespaces.set(spec.name.text, namespace)
       }
     }
   }
   const line = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-  const memberOf = (e: ts.Expression, namespaces: Set<string>, name: string): boolean => {
+  /** The key a member access writes (`a.b`, `a['b']`), or undefined for a key the file does not write. */
+  const writtenKey = (x: ts.Expression): string | undefined =>
+    ts.isPropertyAccessExpression(x) ? x.name.text
+      : ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression.text : undefined
+  /** The module whose namespace object an expression is: a namespace import, an import of a namespace a module hands
+      on, a member of either by a written key (namespaceOf), or a const holding one. */
+  const namespaceAt = (expr: ts.Expression, seen = new Set<ts.Node>()): string | undefined => {
+    const x = unwrapExpr(expr)
+    if (ts.isIdentifier(x)) {
+      const binding = resolve(x)
+      if (!binding) return namespaces.get(x.text)
+      if (seen.has(binding.decl) || !isConst(binding.decl) || !binding.init) return undefined
+      seen.add(binding.decl)
+      return namespaceAt(binding.init, seen)
+    }
+    if (!ts.isPropertyAccessExpression(x) && !ts.isElementAccessExpression(x)) return undefined
+    const key = writtenKey(x)
+    const holder = key === undefined ? undefined : namespaceAt(x.expression, seen)
+    return holder && key !== undefined ? namespaceOf(holder, key) : undefined
+  }
+  /** Whether an expression is a namespace's member that is `owner`'s `want`: `P.TRIAL_DAYS`, `P['TRIAL_DAYS']`,
+      `b.plan.TRIAL_DAYS`. */
+  const memberOf = (e: ts.Expression, owner: string, want: string): boolean => {
     const x = unwrapExpr(e)
-    if (ts.isPropertyAccessExpression(x)) return ts.isIdentifier(x.expression) && namespaces.has(x.expression.text) && x.name.text === name
-    if (ts.isElementAccessExpression(x)) return ts.isIdentifier(x.expression) && namespaces.has(x.expression.text) && ts.isStringLiteralLike(x.argumentExpression) && x.argumentExpression.text === name
-    return false
+    if (!ts.isPropertyAccessExpression(x) && !ts.isElementAccessExpression(x)) return false
+    const key = writtenKey(x)
+    return key !== undefined && exportsOwn(namespaceAt(x.expression), key, owner, want)
   }
 
   /** Whether an expression is TRIAL_DAYS itself: its import, a namespace member, or a const holding either. */
   const isTrial = (expr: ts.Expression, seen = new Set<ts.Node>()): boolean => {
     const e = unwrapExpr(expr)
-    if (memberOf(e, planNamespaces, 'TRIAL_DAYS')) return true
+    if (memberOf(e, LIB_PLAN_LIMITS, 'TRIAL_DAYS')) return true
     if (!ts.isIdentifier(e)) return false
     const binding = resolve(e)
     if (!binding) return trialImports.has(e.text)
+    if (declaresTrial && binding.scope === sf && ts.isVariableDeclaration(binding.decl) && binding.decl.name.getText(sf) === 'TRIAL_DAYS') return true
     if (seen.has(binding.decl)) return false
     seen.add(binding.decl)
     // `const { TRIAL_DAYS: n } = P`: destructured from the namespace.
@@ -717,8 +1096,7 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
       const key = (binding.decl.propertyName ?? binding.decl.name).getText()
       const pattern = binding.decl.parent
       const holder = ts.isVariableDeclaration(pattern.parent) ? pattern.parent : undefined
-      return key === 'TRIAL_DAYS' && !!holder?.initializer && isConst(holder) && ts.isIdentifier(unwrapExpr(holder.initializer)) &&
-        planNamespaces.has((unwrapExpr(holder.initializer) as ts.Identifier).text)
+      return !!holder?.initializer && isConst(holder) && exportsOwn(namespaceAt(holder.initializer), key, LIB_PLAN_LIMITS, 'TRIAL_DAYS')
     }
     return isConst(binding.decl) && !!binding.init && isTrial(binding.init, seen)
   }
@@ -727,10 +1105,10 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
   const isGuard = (expr: ts.Node, seen = new Set<ts.Node>()): boolean => {
     const e = ts.isExpression(expr) ? unwrapExpr(expr) : expr
     if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return isGuard(e.left, seen) || isGuard(e.right, seen)
-    if (ts.isExpression(e) && memberOf(e, flagNamespaces, 'ENABLE_PRO_TRIAL')) return true
+    if (ts.isExpression(e) && memberOf(e, LIB_FEATURE_FLAGS, 'ENABLE_PRO_TRIAL')) return true
     if (!ts.isIdentifier(e)) return false
     const binding = resolve(e)
-    if (!binding) return flagImports.has(e.text) || e.text === 'ENABLE_PRO_TRIAL'
+    if (!binding) return flagImports.has(e.text)
     if (seen.has(binding.decl) || !isConst(binding.decl) || !binding.init) return false
     seen.add(binding.decl)
     return isGuard(binding.init, seen)
@@ -833,6 +1211,20 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
     return true
   }
 
+  /** Whether a use of a namespace is one the reader follows: a member by a written key (the member is read in its
+      turn), a const holding it, a destructuring with written keys and no rest, `typeof`, or a re-export (namespaceOf). */
+  const followedNamespace = (node: ts.Node): boolean => {
+    const p = node.parent
+    if ((ts.isPropertyAccessExpression(p) || ts.isElementAccessExpression(p)) && p.expression === node) return writtenKey(p) !== undefined
+    if (ts.isParenthesizedExpression(p) || ts.isAsExpression(p) || ts.isNonNullExpression(p) || ts.isSatisfiesExpression(p)) return followedNamespace(p)
+    if (ts.isTypeOfExpression(p) || ts.isExportSpecifier(p) || ts.isExportAssignment(p)) return true
+    if (ts.isVariableDeclaration(p) && p.initializer === node && isConst(p)) {
+      if (ts.isIdentifier(p.name)) return true
+      return ts.isObjectBindingPattern(p.name) && p.name.elements.every((element) =>
+        !element.dotDotDotToken && (element.propertyName ? ts.isIdentifier(element.propertyName) || ts.isStringLiteralLike(element.propertyName) : ts.isIdentifier(element.name)))
+    }
+    return false
+  }
   const reads: TrialReader['reads'] = []
   const copy: Array<{ node: ts.Node; text: string }> = []
   const visit = (node: ts.Node) => {
@@ -842,8 +1234,18 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
       const alias = ts.isVariableDeclaration(holder) && holder.initializer === node && isConst(holder)
       if (!alias) reads.push({ line: line(node), guarded: guarded(node) })
     }
-    if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && memberOf(node, planNamespaces, 'TRIAL_DAYS')) {
+    if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && memberOf(node, LIB_PLAN_LIMITS, 'TRIAL_DAYS')) {
       reads.push({ line: line(node), guarded: guarded(node) })
+    }
+    // A namespace that holds TRIAL_DAYS, used other than as the reader follows it, fails closed: a read the guard covers.
+    if ((ts.isIdentifier(node) && isReference(node)) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+      const at = namespaceAt(node as ts.Expression)
+      if (at && reachesTrial(at) && !followedNamespace(node)) reads.push({ line: line(node), guarded: guarded(node) })
+    }
+    if (ts.isCallExpression(node) && node.arguments[0] && ts.isStringLiteralLike(node.arguments[0]) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
+      const target = moduleFile(sf.fileName, node.arguments[0].text)
+      if (target && reachesTrial(target)) reads.push({ line: line(node), guarded: guarded(node) })
     }
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) copy.push({ node, text: node.text })
     if (ts.isTemplateExpression(node)) for (const text of valuesOf(node)) copy.push({ node, text })
@@ -896,9 +1298,10 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
   it('no copy types the trial length', () => {
     const offenders: string[] = []
     const allowed = new Set<string>()
+    const read: string[] = []
     for (const file of sourceFiles()) {
       const rel = path.relative(frontendDir, file)
-      if (rel === path.join('lib', 'planLimits.ts')) continue
+      read.push(rel.split(path.sep).join('/'))
       const typed = isCode(file)
         ? readerOf(file).typed
         : readFileSync(file, 'utf8').split('\n').flatMap((text, i) => (typesTrialLength(text) ? [{ line: i + 1, text: aroundLength(text) }] : []))
@@ -911,6 +1314,8 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
         offenders.push(`${rel}:${line} ${text}`)
       }
     }
+    // The plan lines live in lib/planLimits.ts beside TRIAL_DAYS, so its file is read too.
+    expect(read, 'the scan reads lib/planLimits.ts').toContain('lib/planLimits.ts')
     expect(offenders, 'write the trial length as {TRIAL_DAYS} from lib/planLimits').toEqual([])
     expect(Object.keys(NOT_THE_TRIAL).filter((key) => !allowed.has(key)), 'no longer in the code: delete it from NOT_THE_TRIAL').toEqual([])
     // Parses every source file (about 2s idle): the default 5s is too tight on a loaded runner.
@@ -919,16 +1324,19 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
   it('every read of TRIAL_DAYS renders only under ENABLE_PRO_TRIAL', () => {
     const reads: string[] = []
     const unguarded: string[] = []
+    const files: string[] = []
     for (const file of sourceFiles().filter(isCode)) {
       const rel = path.relative(frontendDir, file)
-      if (rel === path.join('lib', 'planLimits.ts')) continue
+      files.push(rel.split(path.sep).join('/'))
       for (const read of readerOf(file).reads) {
         reads.push(`${rel}:${read.line}`)
         if (!read.guarded) unguarded.push(`${rel}:${read.line}`)
       }
     }
-    // Anti-vacuity: the signup gate, the paywall card and both pricing surfaces state the length.
+    // Anti-vacuity: the signup gate, the paywall card and both pricing surfaces state the length; and the module that
+    // declares TRIAL_DAYS, where the plan lines live, is read as every importer is.
     expect(reads.length, 'TRIAL_DAYS reads found').toBeGreaterThanOrEqual(4)
+    expect(files, 'the scan reads lib/planLimits.ts').toContain('lib/planLimits.ts')
     expect(unguarded, 'state the trial only inside ENABLE_PRO_TRIAL (or a const derived from it)').toEqual([])
   }, 30_000)
 
@@ -1009,6 +1417,97 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
     }
     expect(Object.entries(guardedForms).filter(([, code]) => loose(code) !== 0).map(([name]) => name), 'a guarded read the clause called loose').toEqual([])
     expect(Object.entries(looseForms).filter(([, code]) => loose(code) === 0).map(([name]) => name), 'a loose read the clause called guarded').toEqual([])
+
+    // In lib/planLimits.ts, which declares it, TRIAL_DAYS is its own declaration: a plan line typed beside it is a
+    // read held to the guard (line 3 loose, line 4 guarded), never a typed length, and a length typed there fails.
+    const own = (code: string) => trialReader(ts.createSourceFile(path.join(frontendDir, 'lib/planLimits.ts'), code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS))
+    const declared = own([
+      "import { ENABLE_PRO_TRIAL } from './featureFlags'",
+      'export const TRIAL_DAYS = 7',
+      'export const LINE = `Start with a ${TRIAL_DAYS}-day free trial`',
+      'export const GUARDED = ENABLE_PRO_TRIAL && `First ${TRIAL_DAYS} days free`',
+    ].join('\n'))
+    expect([declared.reads.map((read) => `${read.line} ${read.guarded ? 'guarded' : 'loose'}`), declared.typed]).toEqual([['3 loose', '4 guarded'], []])
+    expect(own("export const TRIAL_DAYS = 7\nconst PRO = [{ text: 'a 7-day free trial' }]").typed.map(({ line }) => line)).toEqual([2])
+    // That file alone: another module named planLimits.ts that declares its own TRIAL_DAYS types the length it holds.
+    const other = trialReader(ts.createSourceFile(path.join(frontendDir, 'features/plans/planLimits.ts'),
+      'export const TRIAL_DAYS = 7\nexport const LINE = `Start with a ${TRIAL_DAYS}-day free trial`', ts.ScriptTarget.Latest, true, ts.ScriptKind.TS))
+    expect([other.reads, other.typed.map(({ line }) => line)]).toEqual([[], [2]])
+    // An import is TRIAL_DAYS, or the flag, only when it resolves to that declaration (the review of 8fb22fbe): the
+    // review's sibling importing another planLimits.ts's TRIAL_DAYS types the length it cannot read, while a module
+    // that re-exports lib's TRIAL_DAYS (by name, renamed, by `export *`, or its own import) hands on TRIAL_DAYS, each
+    // read of it held to the guard; another module's ENABLE_PRO_TRIAL guards nothing.
+    const root = mkdtempSync(path.join(tmpdir(), 'trial-imports-'))
+    try {
+      for (const [name, text] of [
+        ['planLimits.ts', 'export const TRIAL_DAYS = 7\n'],
+        ['reexport.ts', "export { TRIAL_DAYS } from '@/lib/planLimits'\nexport { TRIAL_DAYS as TRIAL_LENGTH } from '@/lib/planLimits'\n"],
+        ['star.ts', "export * from '@/lib/planLimits'\n"],
+        ['local.ts', "import { TRIAL_DAYS } from '@/lib/planLimits'\nexport { TRIAL_DAYS }\n"],
+        ['flags.ts', 'export const ENABLE_PRO_TRIAL = true\n'],
+        // Default exports (Codex on 67cf7876): renamed to default from lib, a module's own import exported as its
+        // default, a default handed on by name, `export *` (which hands on no default), and the flag's default.
+        ['byDefault.ts', "export { TRIAL_DAYS as default } from '@/lib/planLimits'\n"],
+        ['defaultLocal.ts', "import { TRIAL_DAYS } from '@/lib/planLimits'\nexport default TRIAL_DAYS\n"],
+        ['defaultOn.ts', "export { default } from './defaultLocal'\n"],
+        ['starDefault.ts', "export * from './byDefault'\n"],
+        ['flagDefault.ts', "export { ENABLE_PRO_TRIAL as default } from '@/lib/featureFlags'\n"],
+        // Namespaces handed on (Codex on ea7c1317): `export * as`, a namespace import re-exported, `export *` of a
+        // barrel that holds one, a namespace as a default, the flag's namespace, and another module's namespace.
+        ['nsBarrel.ts', "export * as plan from '@/lib/planLimits'\n"],
+        ['nsLocal.ts', "import * as limits from '@/lib/planLimits'\nexport { limits }\n"],
+        ['nsStar.ts', "export * from './nsBarrel'\n"],
+        ['nsDefault.ts', "import * as limits from '@/lib/planLimits'\nexport default limits\n"],
+        ['flagNs.ts', "export * as flags from '@/lib/featureFlags'\n"],
+        ['otherNs.ts', "export * as other from './flags'\n"],
+      ]) writeFileSync(path.join(root, name), text)
+      const beside = (code: string) => trialReader(ts.createSourceFile(path.join(root, 'Banner.tsx'), code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX))
+      const sibling = beside("import { TRIAL_DAYS } from './planLimits'\nexport const a = <p>Start a {TRIAL_DAYS}-day free trial</p>")
+      expect([sibling.reads, sibling.typed.map(({ line }) => line)], 'another planLimits.ts').toEqual([[], [2]])
+      for (const [local, from] of [['TRIAL_DAYS', './reexport'], ['TRIAL_LENGTH', './reexport'], ['TRIAL_DAYS', './star'], ['TRIAL_DAYS', './local']]) {
+        const reader = beside(`import { ${local} } from '${from}'\nexport const a = <p>Start a {${local}}-day free trial</p>`)
+        expect([reader.reads.map((read) => read.guarded), reader.typed], `${local} from ${from}`).toEqual([[false], []])
+      }
+      for (const from of ['./byDefault', './defaultLocal', './defaultOn']) {
+        const reader = beside(`import DAYS from '${from}'\nexport const a = <p>Start a {DAYS}-day free trial</p>`)
+        expect([reader.reads.map((read) => read.guarded), reader.typed], `the default import of ${from}`).toEqual([[false], []])
+      }
+      const throughStar = beside("import DAYS from './starDefault'\nexport const a = <p>Start a {DAYS}-day free trial</p>")
+      expect([throughStar.reads, throughStar.typed.map(({ line }) => line)], 'a default import through export *').toEqual([[], [2]])
+      const flagDefault = beside("import ON from './flagDefault'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = ON && <p>{TRIAL_DAYS}</p>")
+      expect(flagDefault.reads.map((read) => read.guarded), "the flag's default import").toEqual([true])
+      // A namespace's member is TRIAL_DAYS through any chain of written keys, each read held to the guard.
+      for (const [code, label] of [
+        ["import { plan } from './nsBarrel'\nexport const a = <p>Start a {plan.TRIAL_DAYS}-day free trial</p>", 'export * as'],
+        ["import { limits } from './nsLocal'\nexport const a = <p>Start a {limits['TRIAL_DAYS']}-day free trial</p>", 'a namespace import re-exported'],
+        ["import { plan } from './nsStar'\nexport const a = <p>Start a {plan.TRIAL_DAYS}-day free trial</p>", 'export * of a barrel'],
+        ["import limits from './nsDefault'\nexport const a = <p>Start a {limits.TRIAL_DAYS}-day free trial</p>", 'a namespace as the default'],
+        ["import * as b from './nsBarrel'\nexport const a = <p>Start a {b.plan.TRIAL_DAYS}-day free trial</p>", 'a member chain'],
+        ["import { plan } from './nsBarrel'\nconst p = plan\nconst { TRIAL_DAYS: n } = p\nexport const a = <p>Start a {n}-day free trial</p>", 'a const named like the <p> tag, and a destructuring'],
+      ] as const) {
+        const reader = beside(code)
+        expect([reader.reads.map((read) => read.guarded), reader.typed], label).toEqual([[false], []])
+      }
+      // What the reader cannot follow fails closed, as a read the guard must cover.
+      for (const [code, label] of [
+        ["import { plan } from './nsBarrel'\nconst key = 'TRIAL_DAYS'\nexport const a = <p>{plan[key]}</p>", 'a key the file does not write'],
+        ["import { plan } from './nsBarrel'\nexport const a = show(plan)", 'the namespace handed on'],
+        ["import { plan } from './nsBarrel'\nconst { ...rest } = plan\nexport const a = rest", 'a rest'],
+        ["export const load = () => import('@/lib/planLimits')", 'a dynamic import'],
+      ] as const) {
+        expect(beside(code).reads.map((read) => read.guarded), label).toEqual([false])
+      }
+      const guardedEscape = beside("import { plan } from './nsBarrel'\nimport { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'\nexport const a = ENABLE_PRO_TRIAL && show(plan)")
+      expect(guardedEscape.reads.map((read) => read.guarded), 'an escape under the guard').toEqual([true])
+      const flagNamespace = beside("import { flags } from './flagNs'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = flags.ENABLE_PRO_TRIAL && <p>{TRIAL_DAYS}</p>")
+      expect(flagNamespace.reads.map((read) => read.guarded), "the flag's namespace").toEqual([true])
+      const otherNamespace = beside("import { other } from './otherNs'\nexport const a = show(other)")
+      expect(otherNamespace.reads, "another module's namespace").toEqual([])
+      const elsewhere = beside("import { ENABLE_PRO_TRIAL } from './flags'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = ENABLE_PRO_TRIAL && <p>{TRIAL_DAYS}</p>")
+      expect(elsewhere.reads.map((read) => read.guarded), "another module's ENABLE_PRO_TRIAL").toEqual([false])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it('TRIAL_DAYS is the length the trial flips to, in the flag and in the backend', () => {

@@ -75,10 +75,31 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
         await release_fetch.wait()
         return _companyfacts_payload() if successful_fetch else None
 
+    # The leader claims the sync, then checks freshness once. The other request's ingest joins the
+    # claim in its first step, with no read of its own, and waits on it (E129).
+    fresh_checks = 0
+    real_fresh_check = ingest._companyfacts_fresh_result
+
+    def counted_fresh_check(*args, **kwargs):
+        nonlocal fresh_checks
+        fresh_checks += 1
+        return real_fresh_check(*args, **kwargs)
+
+    ingest_starts = 0
+    real_ingest = analysis._ingest_with_own_session
+
+    async def counted_ingest(company_id):
+        nonlocal ingest_starts
+        ingest_starts += 1  # in the step that checks for the claim, so a follower is waiting once seen
+        return await real_ingest(company_id)
+
     monkeypatch.setattr(database, "SessionLocal", sessions)
     monkeypatch.setattr(ingest, "_fetch_companyfacts_async", stalled_fetch)
+    monkeypatch.setattr(ingest, "_companyfacts_fresh_result", counted_fresh_check)
+    monkeypatch.setattr(analysis, "_ingest_with_own_session", counted_ingest)
     monkeypatch.setattr(analysis, "enforce_rate_limit", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 1.0)
+    # Longer than the poll below can take, so the leader's wait never fires before the release.
+    monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 5.0)
     facts_service._inflight_syncs.clear()
 
     request = SimpleNamespace(client=None)
@@ -93,11 +114,15 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
     )
     try:
         await asyncio.wait_for(fetch_started.wait(), timeout=1.0)
-        # Let the second request complete its short preflight and join the leader's event.
-        for _ in range(20):
-            if engine.pool.checkedout() == 0:
+        # Let the second request complete its short preflight and join the leader's event. The
+        # preflight is a thread-pool unit, so it takes wall-clock time rather than loop turns.
+        for _ in range(200):
+            if ingest_starts == 2 and engine.pool.checkedout() == 0:
                 break
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.01)
+        # The second request's ingest has started and found the leader's claim, so only the leader read
+        # freshness; that it waits on the claim, the successful case's stamps below show.
+        assert (ingest_starts, fresh_checks) == (2, 1)
 
         assert fetch_calls == 1
         assert engine.pool.checkedout() == 0

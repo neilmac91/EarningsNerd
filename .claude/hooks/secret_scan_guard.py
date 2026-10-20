@@ -852,12 +852,30 @@ def _new_enough(where: _Where, env: dict, deadline: float, repository: bool = Tr
         raise _Unscannable(reason)
 
 
+_EMPTY_GLOBAL_CONFIG: str | None = None
+
+
+def _no_global_config() -> str:
+    """A path to an empty file for GIT_CONFIG_GLOBAL, so the scan's git reads no global configuration. Never the
+    null device: a git config write renames its lock over the file, which as root replaces the device with an
+    ordinary one. The scan only reads, so it never writes this file, and the empty file keeps the rule
+    (lessons/test-never-point-a-written-file-at-dev-null.md)."""
+    global _EMPTY_GLOBAL_CONFIG
+    if _EMPTY_GLOBAL_CONFIG is None:
+        import atexit
+        import tempfile
+        fd, _EMPTY_GLOBAL_CONFIG = tempfile.mkstemp(prefix="secret-scan-noconfig-")
+        os.close(fd)
+        atexit.register(lambda path=_EMPTY_GLOBAL_CONFIG: os.path.exists(path) and os.unlink(path))
+    return _EMPTY_GLOBAL_CONFIG
+
+
 def _scan_env(extra: dict | None = None) -> dict:
     """The environment of the scan's own git and gitleaks: no GIT_* or GITLEAKS_* variable (they would move the
     repository or replace the rules) and no system or global git configuration, with SCAN_CONFIG over the
     repository's own."""
     env = {key: value for key, value in os.environ.items() if not key.startswith(("GIT_", "GITLEAKS_"))}
-    env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull, GIT_ATTR_NOSYSTEM="1",
+    env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=_no_global_config(), GIT_ATTR_NOSYSTEM="1",
                GIT_CONFIG_COUNT=str(len(SCAN_CONFIG)))
     for index, (key, value) in enumerate(SCAN_CONFIG):
         env[f"GIT_CONFIG_KEY_{index}"], env[f"GIT_CONFIG_VALUE_{index}"] = key, value

@@ -10,6 +10,31 @@
 //                       text that is always there around it), so `border-l-4 ${tone} … rounded-xl`
 //                       is caught although no single literal holds both classes. A primitive that
 //                       always rounds itself (Card) needs no rounded-* beside the stripe.
+//   no-four-up-grid     (D-045) The landing page lays nothing out four across: every section after the
+//                       hero is one ruled row (features/marketing/components/LandingRow.tsx), and the
+//                       four-up stat strip and the four-up extras grid were the template skeleton tell T4
+//                       names (docs/brand/09-stress-test.md §2). The rule fails a class token that sets
+//                       four column tracks or more under any variant, at any breakpoint and on any element
+//                       it styles: `grid-cols-N` with N of 4 or more, and an arbitrary template
+//                       (`grid-cols-[…]`, `[grid-template-columns:…]`) or shorthand (`[grid-template:…]`,
+//                       `[grid:…]`: the track list after the `/`, or the cells of the first area string)
+//                       whose tracks count to 4 or more, a `repeat(N, …)` counted N times its tracks and a
+//                       line name `[a]` not counted; a template whose count only the width decides
+//                       (`repeat(auto-fill, …)`, `repeat(auto-fit, …)`) or the scan cannot read (`var(…)`)
+//                       fails too, since it can open four, and so does a column flow (`grid-flow-col`,
+//                       `[grid-auto-flow:column]`, the `grid` shorthand's `auto-flow` after its `/`), which
+//                       gives every item a column of its own. CSS multi-column counts the same way:
+//                       `columns-N` with N of 4 or more, `[columns:…]` and `[column-count:…]` by their
+//                       count, and a column width (`columns-xs`, `columns-[18rem]`) as the width's count.
+//                       It reads class strings as no-side-stripe does, a constant and a
+//                       ternary's arm included. It runs on the landing's own composition only
+//                       (LANDING_GRID_FILES below, eslint.config.mjs): the route, the marketing modules
+//                       and the sections the route mounts from other features, which
+//                       tests/unit/landing-sections-mounted.spec.ts holds to the route's imports. The
+//                       product screens the landing demos keep their own layouts (KpiStrip is four-up on
+//                       the analysis page). Outside it (review-checked): a four-across row built with flex
+//                       (`basis-1/4`, `w-1/4`), a table of four columns or more, and a template set in an
+//                       inline style or a stylesheet rather than a class.
 //   no-form-code-badge  (P-04) A form code (the form families EDGAR writes, 10-K, 10-Q, 8-K, SC 13D,
 //                       S-1, DEF 14A and their kin, FORM_CODES, and the insider forms the product
 //                       writes as words, Form 3, Form 4 and Form 5) is text in the data face, never a
@@ -145,6 +170,57 @@
 //                       value) cannot hold, and the group's line carries the disable with that reason: a mark
 //                       a reader can clear stays a toggle group (D-046). A group of independent toggles (a multi-select
 //                       filter row) is not this control either: disable the rule on that line with the reason.
+//   elements-built-with-jsx  The app builds its elements in JSX alone, and the gates that read its elements (the
+//                       password, preference and em-dash scans) read JSX, so an element built any other way is one
+//                       no gate reads. Outside tests the rule refuses React's element factories: createElement,
+//                       cloneElement and createFactory imported from React under any name (named, aliased or quoted,
+//                       or read off its default or a namespace import: `React.createElement`, `R.cloneElement` under
+//                       `import * as R`, `React['createElement']`, a key a pattern takes out of it), any value import
+//                       from a JSX runtime (react/jsx-runtime and react/jsx-dev-runtime, whose jsx, jsxs and jsxDEV
+//                       build elements), a re-export of any of these, and a createElement member, or a createElement
+//                       key a pattern takes, whose object is not the DOM's global `document` (the key dotted,
+//                       bracketed or a template). React's module is `react` at any entry, and the copy Next bundles
+//                       (`next/dist/compiled/react`). The rule reads syntax and scopes, not data, so a use of React
+//                       whose reach it cannot tell is refused too: its default or namespace import used other than
+//                       through a member with a written key (held under another name, handed to a call, spread,
+//                       returned or exported), a member by a key held in a name (`React[key]`), a pattern's rest or a
+//                       key it cannot read, a `require` or a dynamic `import()` of React's module, and TypeScript's
+//                       `import R = require('react')` (its `import h = React.createElement` is read as a member). A
+//                       type-only import builds nothing and passes. It reads every
+//                       script the gates parse, JavaScript included (eslint.config.mjs). ELEMENT_FACTORY_ALLOWLIST
+//                       names the one file allowed a factory, with its reason. Out of reach: an element a library
+//                       builds from data (react-markdown's tree, which lib/citationMarkers.tsx walks), and a module
+//                       named by a value the rule cannot read (`import(name)`).
+//   date-helpers-called-directly  The date rules in eslint.config.mjs (D-033, both directions) read a date helper's
+//                       call by its callee, so the helpers they name (Date, parseISO, formatInstant, formatLocalDate:
+//                       the config hands DATE_HELPERS in as the rule's option) are called by name where they format.
+//                       Any other reference, by name or as a member in any key spelling, is refused where it is held,
+//                       whatever calls it later: a binding under another name, a branch of a condition or a logical
+//                       operand (`flag ? formatInstant : fallback`), an argument (`.map(formatInstant)`), a return, an
+//                       object's or an array's entry, a spread, a prop, a cast, a member read off it (call, apply,
+//                       bind), an assignment or a default export. A call or a `new`, the helper's own import or export
+//                       specifier, `typeof`, a type, and a binding of its own name (`{ Date = globalThis.Date }`)
+//                       pass; the global Date keeps its statics and `instanceof`, and as a member it is the global
+//                       object's only, so a data row's key named Date is no helper. What holds a helper fails closed
+//                       rather than have its key resolved (chief design on Codex's finding on 5f548e18, the stance
+//                       elements-built-with-jsx takes on React's import): a namespace import of a date module (the
+//                       config hands DATE_HELPER_MODULES in: date-fns's barrels and parseISO's own entries, and
+//                       lib/format by its alias or a relative path) is used only through a member with a written key
+//                       (`fmt.formatInstant(…)`, `fmt['formatInstant'](…)`, `fmt.fmtPercent`) or `typeof`. Any other
+//                       use fails where it stands, the binding named: a member by a key the rule cannot read
+//                       (`fmt[key]`, held or called: a key held in a const is not resolved, since the namespace is
+//                       what escapes), the namespace held, handed to a call (`Object.values(fmt)`,
+//                       `Reflect.get(fmt, key)`), spread, returned or exported, and a pattern's rest or a key it
+//                       cannot read. The global object holds Date, so a member of it by a key the rule cannot read
+//                       (`globalThis[key]`), and such a pattern over it, fail too; its other uses pass. A `require`
+//                       or a dynamic `import()` of a date module and an `export * as` of one fail, and TypeScript's
+//                       `import fi = fmt.formatInstant` is a helper held under another name. Out of reach: the global
+//                       object under another name (held, handed on, or one of its own members: `window.self`), a
+//                       helper re-exported through another app module (`export { formatInstant } from …`,
+//                       `export * from …`), whose namespace the rule does not know as a date module's, and a module
+//                       named by a value the rule cannot read. tsc refuses a date module's default export (none
+//                       declares one) and `import x = require(…)`. Its cases are planted beside the date rules' own,
+//                       through the repository config, in tests/unit/calendarFieldLint.spec.ts.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -155,6 +231,7 @@
 
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   branchTexts,
   classUnitVisitors,
@@ -211,6 +288,129 @@ export const noSideStripe = {
           return
         }
       }
+    })
+  },
+}
+
+/** The landing's own composition, which no-four-up-grid reads (eslint.config.mjs): the route, every marketing module,
+ *  and the sections the route mounts from other features. A section mounted from elsewhere joins
+ *  LANDING_SECTIONS_ELSEWHERE in the same change (tests/unit/landing-sections-mounted.spec.ts fails until it does). */
+export const LANDING_SECTIONS_ELSEWHERE = ['features/calendar/components/ReportingThisWeek.tsx']
+export const LANDING_GRID_FILES = ['app/page.tsx', 'features/marketing/**/*.{ts,tsx}', ...LANDING_SECTIONS_ELSEWHERE]
+
+/** Top-level parts of a CSS value, split on `separator` outside parentheses and brackets. */
+function topLevel(text, separator) {
+  const parts = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '(' || ch === '[') depth++
+    else if ((ch === ')' || ch === ']') && depth > 0) depth--
+    else if (depth === 0 && separator.test(ch)) {
+      parts.push(text.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(text.slice(start))
+  return parts.map((part) => part.trim()).filter(Boolean)
+}
+
+/** The column tracks a grid template declares (Tailwind's `_` for a space): a `repeat(N, …)` counts N times its
+ *  tracks, a line name (`[full-start]`) none. Infinity where the count is the width's (auto-fill, auto-fit) or
+ *  the scan cannot read it (a `var(…)`), since either can open four. */
+export function templateTrackCount(template) {
+  let count = 0
+  for (const part of topLevel(template.replace(/_/g, ' '), /\s/)) {
+    if (part.startsWith('[')) continue
+    const repeat = part.match(/^repeat\((.*)\)$/s)
+    if (repeat) {
+      const [times, ...tracks] = topLevel(repeat[1], /,/)
+      if (!/^\d+$/.test(times ?? '')) return Infinity
+      count += Number(times) * templateTrackCount(tracks.join(' '))
+      continue
+    }
+    if (/\bvar\(/.test(part)) return Infinity
+    count += 1
+  }
+  return count
+}
+
+/** The columns a grid shorthand declares (`grid-template` or `grid`, Tailwind's `_` for a space): the track list
+ *  after the top-level `/`, or, with no slash, the cells of the first area string (none: rows alone, or `none`).
+ *  The `grid` shorthand's `auto-flow` after the slash is a column flow, every item a column: Infinity. */
+function shorthandColumnCount(value) {
+  const text = value.replace(/_/g, ' ')
+  const [, columns] = topLevel(text, /\//)
+  if (columns !== undefined) return /\bauto-flow\b/.test(columns) ? Infinity : templateTrackCount(columns)
+  const area = text.match(/["']([^"']*)["']/)
+  return area ? area[1].trim().split(/\s+/).filter(Boolean).length : null
+}
+
+// Tailwind's column-width scale for `columns-*` (3xs to 7xl): the container's width decides the count.
+const MULTICOL_WIDTHS = /^(?:3xs|2xs|xs|sm|md|lg|xl|[2-7]xl)$/
+
+/** The columns a multi-column value lays out: a count where it names one, Infinity for a column width alone (the
+ *  container's width turns it into a count), null for `auto`. */
+function multicolCount(value) {
+  const parts = value.replace(/_/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const count = parts.find((part) => /^\d+$/.test(part))
+  if (count !== undefined) return Number(count)
+  return parts.every((part) => part === 'auto') ? null : Infinity
+}
+
+/** The columns a class utility lays its items out in, or null for one that sets none of its own (`grid-cols-none`,
+ *  `grid-cols-subgrid`, `columns-auto`, anything that is not a column template, a column flow or multi-column). */
+export function gridColumnCount(utility) {
+  const numbered = utility.match(/^grid-cols-(\d+)$/)
+  if (numbered) return Number(numbered[1])
+  const arbitrary = utility.match(/^grid-cols-\[(.*)\]$/s) ?? utility.match(/^\[grid-template-columns:(.*)\]$/s)
+  if (arbitrary) return templateTrackCount(arbitrary[1])
+  if (/^grid-cols-\(/.test(utility)) return Infinity
+  const shorthand = utility.match(/^\[grid(?:-template)?:(.*)\]$/s)
+  if (shorthand) return shorthandColumnCount(shorthand[1])
+  if (/^grid-flow-col(?:-dense)?$/.test(utility) || /^\[grid-auto-flow:(?:dense_)?column(?:_dense)?\]$/.test(utility)) return Infinity
+  const multicol = utility.match(/^columns-(.+)$/s)
+  if (multicol) {
+    const value = multicol[1]
+    if (/^\d+$/.test(value)) return Number(value)
+    if (value === 'auto') return null
+    if (MULTICOL_WIDTHS.test(value) || /^\(/.test(value)) return Infinity
+    const bracket = value.match(/^\[(.*)\]$/s)
+    return bracket ? multicolCount(bracket[1]) : null
+  }
+  const multicolProperty = utility.match(/^\[(?:columns|column-count):(.*)\]$/s)
+  if (multicolProperty) return multicolCount(multicolProperty[1])
+  return null
+}
+
+/** The first token in `classText` that sets four column tracks or more, under any variant, else null. */
+export function fourUpGrid(classText) {
+  for (const raw of classText.split(/\s+/)) {
+    if (!raw) continue
+    const count = gridColumnCount(splitClassToken(raw).utility)
+    if (count !== null && count >= 4) return raw
+  }
+  return null
+}
+
+export const noFourUpGrid = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'The landing page lays nothing out four across (D-045).' },
+    schema: [],
+    messages: {
+      fourUp:
+        '{{token}} lays its items out four or more across: the landing has no four-up grids (D-045, tell T4). ' +
+        "Put at most three across, or make the items a ruled list in the row's content column.",
+    },
+  },
+  create(context) {
+    // Every piece of class text the unit renders is read, whatever branch it sits on: a four-up grid on any
+    // render is one.
+    return classUnitVisitors((node, pieces) => {
+      const token = fourUpGrid(pieces.map((piece) => piece.text).join(' '))
+      if (token !== null) context.report({ node, messageId: 'fourUp', data: { token } })
     })
   },
 }
@@ -1167,14 +1367,396 @@ export const noHandRolledToggleGroup = {
   },
 }
 
+/** React's element factories: each builds an element with no JSX, where no gate that reads elements sees it. */
+const ELEMENT_FACTORIES = new Set(['createElement', 'cloneElement', 'createFactory'])
+/** React's module at any entry (`react`, `react/index.js`, a file inside the package), and the copy Next bundles, which
+ *  `react` resolves to in its app router. */
+const REACT_MODULE = /^(?:next\/dist\/compiled\/)?react(?:-experimental)?(?:\/|$)/
+/** A JSX runtime among React's entries (react/jsx-runtime, react/jsx-dev-runtime, a build of either inside the package):
+ *  every value it exports builds an element (jsx, jsxs, jsxDEV) or is Fragment. */
+const JSX_RUNTIME = /jsx-(?:dev-)?runtime/
+/** The frontend's root, which the allowlist's paths start from: this file's directory. */
+const FRONTEND_ROOT = path.dirname(fileURLToPath(import.meta.url))
+
+/** The files allowed one of React's element factories, by their path from the frontend root, each with the factories it
+ *  may use, and why it needs one above the entry. tests/unit/designRules.spec.ts holds each entry to its file: the rule
+ *  must find each factory there with the entry set aside, so an entry its file no longer needs fails. */
+export const ELEMENT_FACTORY_ALLOWLIST = new Map([
+  // injectCitationMarkers walks the tree react-markdown builds from a model's answer and gives each element back with
+  // the citation chips set into its children: an element whose type and props the library wrote, which JSX cannot
+  // rebuild without knowing them.
+  ['lib/citationMarkers.tsx', new Set(['cloneElement'])],
+])
+
+/** Whether the file binds `name` where `node` reads it: a global (the DOM's `document`, Node's `require`, the global
+ *  object's `globalThis`) has no declaration in the file. */
+const bindsName = (sourceCode, node, name) => {
+  for (let scope = sourceCode.getScope(node); scope; scope = scope.upper) {
+    const variable = scope.set.get(name)
+    if (variable) return variable.defs.length > 0
+  }
+  return false
+}
+
+/** The node a value reaches through TypeScript's wrappers, which change its type and not the value. */
+const outermostTs = (node) => {
+  let at = node
+  while (/^TS(?:As|Satisfies|NonNull)Expression$|^TSTypeAssertion$/.test(at.parent?.type ?? '') && at.parent.expression === at) at = at.parent
+  return at
+}
+
+export const elementsBuiltWithJsx = {
+  meta: {
+    type: 'problem',
+    docs: { description: "Elements are built in JSX: React's element factories build one no gate reads." },
+    schema: [],
+    messages: {
+      factory:
+        "{{form}}: React's element factories build an element without JSX, which the gates that read the app's " +
+        'elements cannot see (they read JSX). Write the element in JSX; a file that must rebuild an element it did ' +
+        'not write goes in ELEMENT_FACTORY_ALLOWLIST (eslint.designRules.mjs) with its reason.',
+      unreadable:
+        "{{form}}: the rule cannot tell whether this reaches React's element factories (createElement, " +
+        'cloneElement, createFactory), which build an element no gate reads. Import React statically, and read it ' +
+        'through the names you import or a member with a written key (React.useState).',
+    },
+  },
+  create(context) {
+    const { sourceCode } = context
+    const relative = path.relative(FRONTEND_ROOT, context.filename).split(path.sep).join('/')
+    const allowed = ELEMENT_FACTORY_ALLOWLIST.get(relative) ?? new Set()
+    // A form two readings reach (`React.createElement` is a member of React's import and a createElement member) is
+    // reported once.
+    const reported = new WeakSet()
+    const report = (node, messageId, form) => {
+      if (reported.has(node)) return
+      reported.add(node)
+      context.report({ node, messageId, data: { form } })
+    }
+    const factory = (node, name, form) => {
+      if (!allowed.has(name)) report(node, 'factory', form)
+    }
+    const text = (node) => sourceCode.getText(node)
+    const declared = (node, name) => bindsName(sourceCode, node, name)
+    const isDocument = (node) => {
+      const object = unwrapTs(node)
+      return object?.type === 'Identifier' && object.name === 'document' && !declared(object, 'document')
+    }
+    /** The keys a pattern takes out of React's default or namespace import: a factory's is the factory, and a rest or
+        a key the rule cannot read may hold one. */
+    const takenOut = (pattern, from) => {
+      for (const property of pattern.properties) {
+        const key = property.type === 'RestElement' ? null : writtenKey(property.key, property.computed)
+        if (key === null) report(property, 'unreadable', `${text(property)}, taken out of ${from}`)
+        else if (ELEMENT_FACTORIES.has(key)) factory(property, key, `${key}, taken out of ${from}`)
+      }
+    }
+    /** Every use of React's default or namespace import: a member by a written key, or a pattern over it. A type names
+        no value (`React.ReactNode`, `typeof React.createElement` in a type), and the reference typescript-eslint makes
+        to the import's own name for a file's JSX (its jsxPragma) is no use; any other use is one the rule cannot
+        follow. TypeScript's `import h = React.createElement` aliases a member's value, as a const would. */
+    const readNamespace = (specifier) => {
+      for (const variable of sourceCode.getDeclaredVariables(specifier)) {
+        for (const reference of variable.references) {
+          if (reference.isValueReference === false || variable.identifiers.includes(reference.identifier)) continue
+          const at = outermostTs(reference.identifier)
+          const parent = at.parent
+          if (parent.type === 'TSQualifiedName' && parent.left === at) {
+            let name = parent
+            while (name.parent?.type === 'TSQualifiedName') name = name.parent
+            const alias = name.parent?.type === 'TSImportEqualsDeclaration' && name.parent.moduleReference === name
+            if (alias && ELEMENT_FACTORIES.has(parent.right.name)) factory(parent, parent.right.name, text(name.parent))
+            continue
+          }
+          if (parent.type === 'TSTypeQuery') continue
+          if ((parent.type === 'MemberExpression' || parent.type === 'JSXMemberExpression') && parent.object === at) {
+            const key = parent.type === 'JSXMemberExpression' ? parent.property.name : writtenKey(parent.property, parent.computed)
+            if (key === null) report(parent, 'unreadable', `${text(parent)}, a member of ${variable.name} by a key held in a name`)
+            else if (ELEMENT_FACTORIES.has(key)) factory(parent, key, text(parent))
+          } else if (parent.type === 'VariableDeclarator' && parent.init === at && parent.id.type === 'ObjectPattern') {
+            takenOut(parent.id, variable.name)
+          } else if (/^Assignment(?:Expression|Pattern)$/.test(parent.type) && parent.right === at && parent.left.type === 'ObjectPattern') {
+            takenOut(parent.left, variable.name)
+          } else {
+            report(reference.identifier, 'unreadable', `${variable.name}, React's import, used other than through a member with a written key`)
+          }
+        }
+      }
+    }
+    const fromReact = (node) => !!node.source && REACT_MODULE.test(String(node.source.value))
+    return {
+      ImportDeclaration(node) {
+        if (!fromReact(node) || node.importKind === 'type') return
+        const source = String(node.source.value)
+        const values = node.specifiers.filter((specifier) => specifier.importKind !== 'type')
+        if (JSX_RUNTIME.test(source)) {
+          if (values.length || !node.specifiers.length) report(node, 'factory', `An import from ${source}`)
+          return
+        }
+        for (const specifier of values) {
+          // A default or a namespace import, or `{ default as React }`, is React's object: every use of it is read.
+          const imported = specifier.type === 'ImportSpecifier' ? (specifier.imported.name ?? specifier.imported.value) : 'default'
+          if (ELEMENT_FACTORIES.has(imported)) factory(specifier, imported, `${imported}, imported from ${source}`)
+          else if (imported === 'default') readNamespace(specifier)
+        }
+      },
+      ExportNamedDeclaration(node) {
+        if (!fromReact(node) || node.exportKind === 'type') return
+        const source = String(node.source.value)
+        if (JSX_RUNTIME.test(source)) return report(node, 'factory', `A re-export from ${source}`)
+        for (const specifier of node.specifiers) {
+          if (specifier.exportKind === 'type') continue
+          const local = specifier.local.name ?? specifier.local.value
+          if (ELEMENT_FACTORIES.has(local)) factory(specifier, local, `${local}, re-exported from ${source}`)
+          else if (local === 'default') report(specifier, 'unreadable', `React's default import, re-exported from ${source}`)
+        }
+      },
+      ExportAllDeclaration(node) {
+        if (fromReact(node) && node.exportKind !== 'type') report(node, 'factory', `${text(node)}, which re-exports every factory`)
+      },
+      ImportExpression(node) {
+        const source = staticKey(node.source)
+        if (source !== undefined && REACT_MODULE.test(source)) report(node, 'unreadable', `${text(node)}, a dynamic import of React`)
+      },
+      CallExpression(node) {
+        if (node.callee.type !== 'Identifier' || node.callee.name !== 'require' || declared(node.callee, 'require')) return
+        const source = staticKey(node.arguments[0])
+        if (source !== undefined && REACT_MODULE.test(source)) report(node, 'unreadable', `${text(node)}, a require of React`)
+      },
+      TSImportEqualsDeclaration(node) {
+        const reference = node.moduleReference
+        const source = reference.type === 'TSExternalModuleReference' ? staticKey(reference.expression) : undefined
+        if (node.importKind !== 'type' && source !== undefined && REACT_MODULE.test(source)) {
+          report(node, 'unreadable', `${text(node)}, a require of React`)
+        }
+      },
+      // The DOM's own `document.createElement` builds a DOM node, not an element; any other object's createElement
+      // member is React's under another name, or may be.
+      MemberExpression(node) {
+        if (writtenKey(node.property, node.computed) === 'createElement' && !isDocument(node.object)) factory(node, 'createElement', text(node))
+      },
+      'ObjectPattern > Property'(node) {
+        if (writtenKey(node.key, node.computed) !== 'createElement') return
+        const holder = node.parent.parent
+        const source =
+          holder.type === 'VariableDeclarator' && holder.id === node.parent ? holder.init
+            : /^Assignment(?:Expression|Pattern)$/.test(holder.type) && holder.left === node.parent ? holder.right
+              : undefined
+        if (!source || !isDocument(source)) {
+          factory(node, 'createElement', `createElement, taken out of ${source ? text(source) : "a value the rule cannot tell is the DOM's document"}`)
+        }
+      },
+    }
+  },
+}
+
+/** The global object's names, through which the global Date is a member (`globalThis.Date`, `window['Date']`). */
+const GLOBAL_OBJECT = new Set(['globalThis', 'window', 'self', 'global'])
+/** How a date helper is held, by the node that holds it, for the message. */
+const HELD_AS = {
+  ConditionalExpression: 'held in a branch of a condition',
+  LogicalExpression: 'held in a logical operand',
+  VariableDeclarator: 'held in a binding under another name',
+  AssignmentExpression: 'assigned to a name',
+  AssignmentPattern: 'held as a default under another name',
+  CallExpression: 'handed to a call',
+  NewExpression: 'handed to a call',
+  ReturnStatement: 'returned',
+  ArrowFunctionExpression: 'returned',
+  Property: 'held in an object',
+  ArrayExpression: 'held in an array',
+  SpreadElement: 'spread',
+  JSXExpressionContainer: 'handed to a component',
+  MemberExpression: 'read for a member (call, apply or bind)',
+  ExportDefaultDeclaration: 'exported as a default',
+  TSAsExpression: 'held behind a cast',
+  TSSatisfiesExpression: 'held behind a cast',
+  TSNonNullExpression: 'held behind a cast',
+  TSTypeAssertion: 'held behind a cast',
+}
+
+/** The calendar-date and billing-instant rules (eslint.config.mjs) read a date helper's call by its callee, so a helper
+ *  used any other way hides the call it ends up in: `const held = flag ? formatInstant : fallback` then
+ *  `held(filing.filing_date)` (Codex on #1370's 08a94b87). This rule refuses every reference to a helper the config
+ *  names (its `helpers` option), by its name or as a member (`fmt.formatInstant`, `globalThis.Date`, any key
+ *  spelling), that is not one of the uses that keep the call in sight: the callee of a call or a `new`, its own export
+ *  specifier (a rename is the alias rule's), `typeof`, and the initializer or default of a binding of its own name
+ *  (`const { Date = globalThis.Date } = globalThis`). The global Date also keeps its statics (`Date.now()`) and a type
+ *  test (`x instanceof Date`); as a member it is the global object's only, so a data row's key named Date is no
+ *  helper. A type holds no value and passes. Anything else is refused where it is held, whatever calls it later: a
+ *  binding under another name, a branch of a condition or a logical operand, an argument, a return, an object's or an
+ *  array's entry, a spread, a prop, a cast, a member read off it (call, apply, bind), an assignment, a default
+ *  export.
+ *  What holds a helper fails closed rather than have its key resolved (chief design on Codex's finding on 5f548e18, as
+ *  elements-built-with-jsx reads React's import). A namespace import of a date module (the `modules` option) is used
+ *  only through a member with a written key, so the helper's own checks read it, or by `typeof`; any other use fails
+ *  where it stands, the binding named: a member by a key the rule cannot read (`fmt[key]`, held or called), the
+ *  namespace held, handed to a call (`Object.values(fmt)`, `Reflect.get(fmt, key)`), spread, returned or exported,
+ *  and a pattern's rest or a key it cannot read. The global object holds Date, so a member of it by a key the rule
+ *  cannot read, and such a pattern over it, fail too; its other uses pass (the app tests it: `'doNotTrack' in
+ *  window`). A `require` or a dynamic `import()` of a date module and an `export * as` of one fail, and TypeScript's
+ *  `import fi = fmt.formatInstant` is a helper held under another name. */
+export const dateHelpersCalledDirectly = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'A date helper is called by its name where it formats, never held or handed on as a value.' },
+    schema: [
+      {
+        type: 'object',
+        properties: { helpers: { type: 'array', items: { type: 'string' } }, modules: { type: 'array', items: { type: 'string' } } },
+        additionalProperties: false,
+      },
+    ],
+    messages: {
+      held:
+        "{{name}}, {{how}}: the calendar-date and billing-instant rules (eslint.config.mjs) read a date helper's call by " +
+        'its callee, so a helper held as a value hides what it is handed later. Call {{name}} directly, by its name ' +
+        'or as a namespace member, where the value is formatted.',
+      unreadable:
+        '{{form}}: a module or an object that holds a date helper is read only through a member with a written key ' +
+        "(`fmt.formatInstant(…)`, `fmt['formatInstant'](…)`), since the calendar-date and billing-instant rules " +
+        '(eslint.config.mjs) read a helper by its name or a written key, and a key the rule cannot read is not ' +
+        'followed. Write the key, or import the helper by its own name.',
+    },
+  },
+  create(context) {
+    const helpers = new Set(context.options[0]?.helpers ?? [])
+    const modules = new Set(context.options[0]?.modules ?? [])
+    const { sourceCode } = context
+    const text = (node) => sourceCode.getText(node)
+    /** Whether an import names a date module as the `modules` option names it: an app file by its `@/` alias, whether
+        the import writes the alias or a path relative to the file, with or without an extension or an index file; a
+        package as written. */
+    const dateModule = (source) => {
+      if (typeof source !== 'string') return false
+      const app = source.startsWith('@/')
+        ? path.posix.normalize(source.slice(2))
+        : /^\.\.?(?:\/|$)/.test(source)
+          ? path.relative(FRONTEND_ROOT, path.resolve(path.dirname(context.filename), source)).split(path.sep).join('/')
+          : null
+      return modules.has(app === null ? source : `@/${app.replace(/\.[cm]?[jt]sx?$/, '').replace(/\/index$/, '')}`)
+    }
+    /** Whether a helper's node (its name, or a member that reads it) keeps the call the rules read in sight. */
+    const inSight = (node, name) => {
+      const { parent } = node
+      if ((parent.type === 'CallExpression' || parent.type === 'NewExpression') && parent.callee === node) return true
+      if (parent.type === 'ExportSpecifier' || (parent.type === 'UnaryExpression' && parent.operator === 'typeof')) return true
+      const ownName = (target) => target.type === 'Identifier' && target.name === name
+      if (parent.type === 'VariableDeclarator' && parent.init === node && ownName(parent.id)) return true
+      if (parent.type === 'AssignmentPattern' && parent.right === node && ownName(parent.left)) return true
+      if (name !== 'Date') return false
+      return (parent.type === 'MemberExpression' && parent.object === node) ||
+        (parent.type === 'BinaryExpression' && parent.operator === 'instanceof' && parent.right === node)
+    }
+    const report = (node, name) => context.report({ node, messageId: 'held', data: { name, how: HELD_AS[node.parent.type] ?? 'used as a value' } })
+    const unreadable = (node, form) => context.report({ node, messageId: 'unreadable', data: { form } })
+    /** One use of `who`, which holds date helpers: a namespace import of a date module (`strict`), or the global
+        object, which holds Date. A member by a written key and a pattern's written keys pass, for the helper's own
+        checks and the rename selectors to read; a member by a key the rule cannot read, and a pattern's rest or a key
+        it cannot read, fail. A namespace's every other use fails too; the global object's pass. */
+    const readHolder = (identifier, who, strict) => {
+      const at = outermostTs(identifier)
+      const { parent } = at
+      if (parent.type === 'TSQualifiedName' && parent.left === at) {
+        // A type names no value (`typeof fmt.formatInstant`); TypeScript's `import fi = fmt.formatInstant` holds the
+        // member's value under the alias's name, so a helper it names keeps the name or is held under another.
+        let name = parent
+        while (name.parent?.type === 'TSQualifiedName') name = name.parent
+        const alias = name.parent?.type === 'TSImportEqualsDeclaration' && name.parent.moduleReference === name ? name.parent : null
+        const key = parent.right.name
+        if (alias && helpers.has(key) && (name !== parent || alias.id.name !== key)) {
+          context.report({ node: alias, messageId: 'held', data: { name: key, how: `aliased by ${text(alias)}` } })
+        }
+        return
+      }
+      if (parent.type === 'TSTypeQuery' || (parent.type === 'UnaryExpression' && parent.operator === 'typeof')) return
+      if ((parent.type === 'MemberExpression' || parent.type === 'JSXMemberExpression') && parent.object === at) {
+        const key = parent.type === 'JSXMemberExpression' ? parent.property.name : writtenKey(parent.property, parent.computed)
+        if (key === null) unreadable(parent, `${text(parent)}, a member of ${who} by a key the rule cannot read`)
+        return
+      }
+      const pattern =
+        parent.type === 'VariableDeclarator' && parent.init === at
+          ? parent.id
+          : /^Assignment(?:Expression|Pattern)$/.test(parent.type) && parent.right === at
+            ? parent.left
+            : null
+      if (pattern?.type === 'ObjectPattern') {
+        for (const property of pattern.properties) {
+          if (property.type === 'RestElement') unreadable(property, `${text(property)}, the rest of ${who}`)
+          else if (writtenKey(property.key, property.computed) === null) {
+            unreadable(property, `${text(property)}, taken out of ${who} by a key the rule cannot read`)
+          }
+        }
+        return
+      }
+      if (strict) unreadable(identifier, `${who}, ${parent.type === 'ExportSpecifier' ? 'exported' : (HELD_AS[parent.type] ?? 'used as a value')}`)
+    }
+    return {
+      // Every reference to a helper by its name, in any scope: a declaration's own name and a type are not uses. A
+      // reference to the global object, by a name the file does not bind, is read as a holder of Date.
+      'Program:exit'() {
+        for (const scope of sourceCode.scopeManager.scopes) {
+          for (const reference of scope.references) {
+            const id = reference.identifier
+            if (id.type !== 'Identifier' || reference.init || reference.isValueReference === false) continue
+            if (helpers.has(id.name)) {
+              if (id.parent.type !== 'TSQualifiedName' && id.parent.type !== 'TSTypeQuery' && !inSight(id, id.name)) report(id, id.name)
+            } else if (GLOBAL_OBJECT.has(id.name) && !reference.resolved?.defs.length) {
+              readHolder(id, `${id.name} (the global object)`, false)
+            }
+          }
+        }
+      },
+      // A namespace import of a date module, read through every use; a type-only import holds no value.
+      ImportDeclaration(node) {
+        const source = String(node.source.value)
+        if (node.importKind === 'type' || !dateModule(source)) return
+        for (const specifier of node.specifiers) {
+          if (specifier.type !== 'ImportNamespaceSpecifier') continue
+          for (const variable of sourceCode.getDeclaredVariables(specifier)) {
+            for (const reference of variable.references) {
+              if (reference.isValueReference === false || variable.identifiers.includes(reference.identifier)) continue
+              readHolder(reference.identifier, `${variable.name} (${source}'s namespace)`, true)
+            }
+          }
+        }
+      },
+      // A date module held where the rule cannot read it: a dynamic import, a require, its namespace exported.
+      ImportExpression(node) {
+        if (dateModule(staticKey(node.source))) unreadable(node, `${text(node)}, a dynamic import of a date module`)
+      },
+      CallExpression(node) {
+        if (node.callee.type !== 'Identifier' || node.callee.name !== 'require' || bindsName(sourceCode, node.callee, 'require')) return
+        if (dateModule(staticKey(node.arguments[0]))) unreadable(node, `${text(node)}, a require of a date module`)
+      },
+      ExportAllDeclaration(node) {
+        if (node.exported && node.exportKind !== 'type' && dateModule(String(node.source.value))) {
+          unreadable(node, `${text(node)}, a date module's namespace exported`)
+        }
+      },
+      MemberExpression(node) {
+        const name = writtenKey(node.property, node.computed)
+        if (name === null || !helpers.has(name)) return
+        const object = unwrapTs(node.object)
+        if (name === 'Date' && !(object.type === 'Identifier' && GLOBAL_OBJECT.has(object.name) && !bindsName(sourceCode, object, object.name))) return
+        if (!inSight(node, name)) report(node, name)
+      },
+    }
+  },
+}
+
 const plugin = {
   rules: {
     'direction-text-tokens': directionTextTokens,
     'no-side-stripe': noSideStripe,
+    'no-four-up-grid': noFourUpGrid,
     'no-form-code-badge': noFormCodeBadge,
     'no-unguarded-animation': noUnguardedAnimation,
     'locale-pinned-numbers': localePinnedNumbers,
     'no-hand-rolled-toggle-group': noHandRolledToggleGroup,
+    'elements-built-with-jsx': elementsBuiltWithJsx,
+    'date-helpers-called-directly': dateHelpersCalledDirectly,
   },
 }
 export default plugin

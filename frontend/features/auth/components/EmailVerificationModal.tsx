@@ -119,7 +119,7 @@ export default function EmailVerificationModal() {
       if (!identity) {
         setCheckFailure((previous) => ({
           title: "Couldn't check verification",
-          message: 'Sign in again to check your email verification.',
+          message: 'Log in again to check your email verification.',
           n: (previous?.n ?? 0) + 1,
         }))
       } else if (identity.email_verified === true) {

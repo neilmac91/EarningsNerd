@@ -197,12 +197,30 @@ def _registered() -> list[dict]:
     ]
 
 
+_NO_GLOBAL_CONFIG: str | None = None
+
+
+def _no_global_config() -> str:
+    """An empty file for GIT_CONFIG_GLOBAL, so a probe's git reads no global configuration without the null device,
+    which a git config write renames a lock over and so, as root, replaces with a file
+    (lessons/test-never-point-a-written-file-at-dev-null.md). The probes set git's identity with `-c`, never a
+    global write, so the file stays empty; one per test process is enough."""
+    global _NO_GLOBAL_CONFIG
+    if _NO_GLOBAL_CONFIG is None:
+        import atexit
+        import tempfile
+        fd, _NO_GLOBAL_CONFIG = tempfile.mkstemp(prefix="secret-scan-test-noconfig-")
+        os.close(fd)
+        atexit.register(lambda path=_NO_GLOBAL_CONFIG: os.path.exists(path) and os.unlink(path))
+    return _NO_GLOBAL_CONFIG
+
+
 def _plain_env() -> dict[str, str]:
     """The test's environment without GIT_* (a git hook running pytest sets GIT_DIR) or GITLEAKS_*, with no system
     or global git configuration, attributes or ignores, and with git's messages in English: the machine's own (a
     signing key, colours, aliases, a global `*.py` ignore, a locale) is no case's."""
     env = {key: value for key, value in os.environ.items() if not key.startswith(("GIT_", "GITLEAKS_"))}
-    return {**env, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_ATTR_NOSYSTEM": "1",
+    return {**env, "GIT_CONFIG_GLOBAL": _no_global_config(), "GIT_CONFIG_NOSYSTEM": "1", "GIT_ATTR_NOSYSTEM": "1",
             "XDG_CONFIG_HOME": os.devnull,
             "LC_ALL": "C"}
 
@@ -2759,7 +2777,7 @@ def _in_process(project: Project, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("XDG_CACHE_HOME", str(project.cache))
     for key in [key for key in os.environ if key.startswith(("GIT_", "GITLEAKS_"))]:
         monkeypatch.delenv(key)
-    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", _no_global_config())
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
 
 

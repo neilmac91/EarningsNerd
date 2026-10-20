@@ -76,9 +76,9 @@ describe('CopilotTeaser', () => {
 
   it('shows a sign-in link only for unauthenticated visitors', () => {
     const { rerender } = render(<CopilotTeaser {...baseProps} isAuthenticated={false} />)
-    expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument()
 
     rerender(<CopilotTeaser {...baseProps} isAuthenticated />)
-    expect(screen.queryByRole('link', { name: /sign in/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
   })
 })

@@ -47,8 +47,8 @@ FY2024, verified against SEC XBRL.
 - `frontend/app/globals.css`: the "Brand device" block: `.en-mark` (the highlight), `.en-marked`
   (the marked block), `.en-margin` (the gutter) and `.en-margin-mark` (the bracket twin), each
   with its dark pair.
-- `frontend/features/marketing/components/MarkedCopy.tsx`: the component that measures the
-  markers and places their twins (`EnRef` renders a marker).
+- `frontend/components/ui/MarkedCopy.tsx`: the component that measures the markers and places
+  their twins (`EnRef` renders a marker), on the landing page and the filing page's Risks (D-044).
 
 ## Templates
 
@@ -71,7 +71,7 @@ mark.
 | 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
 | 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
 | 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings dormant |
-| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 12 of 42 |
+| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 11 of 42 (12 until D-045's rows rescored T4) |
 | 10 | this page | The handoff |
 | all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
 
@@ -154,7 +154,7 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
    regenerated through the pipeline to end at FY2025, a paid run under a USD 0.10 ceiling (E93).
 2. Notable filings is to return to the homepage with 10-K and 10-Q filings only, from companies
    that hold a full summary, newest first, at most six (`NotableFilings.tsx`, E90).
-3. The landing page's sections after the hero are to become labelled rows (tell T4, D-045, E113).
+3. The landing page's sections after the hero became ruled rows (tell T4, D-045, #1398).
 4. Vercel Web Analytics loads only after the visitor allows analytics (D-046, #1387), so the consent
    bar's promise is true in code. What `/privacy` says of analytics and Do Not Track, in draft #1265,
    stays with the founder (F4).

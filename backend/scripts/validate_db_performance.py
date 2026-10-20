@@ -83,7 +83,8 @@ def run_validation():
     # The parse error can quote the password (a URL missing its `@host` puts it where the port goes, and the int() that
     # parses the port quotes it), so only its type is printed. A URL holding more than one "@" is refused too: an
     # unescaped "@" in the password ends it there, and the rest becomes the host, the database or a query key, which
-    # this script prints and a driver's error quotes.
+    # this script prints and a driver's error quotes. The advice is app.database's, word for word: an encoded "@" parses,
+    # but the deploy's migration step and the Ops proxy step hand the user name and password to psql undecoded.
     try:
         url = make_url(database_url)
     except Exception as e:  # noqa: BLE001 — any parse failure
@@ -92,7 +93,8 @@ def run_validation():
         problem = (
             None
             if database_url.count("@") <= 1
-            else "more than one '@'; percent-encode any '@' in the user name or password"
+            else "more than one '@'; keep the user name and password to characters that need no percent-encoding: "
+            "the deploy's migration step and the Ops proxy step read them undecoded"
         )
     if problem:
         print(f"ERROR: DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
