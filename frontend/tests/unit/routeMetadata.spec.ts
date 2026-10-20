@@ -765,7 +765,10 @@ const templateTexts = (t: ts.TemplateExpression, source: ts.SourceFile, seen = n
 /**
  * Every title template in a file: a string or a template literal that ends with the brand, a template read with
  * every substitution a name (Ⓝ), so a word after one is mid-title whatever it holds, and in each reading of it
- * (substitutionTexts). A title template with more than MAX_TEMPLATE_READINGS readings fails, never read in part.
+ * (substitutionTexts). A title template with more than MAX_TEMPLATE_READINGS readings fails, never read in part, and
+ * so does one with a reading that ends without the brand: a template some reading of which ends with it is a title,
+ * so a state the file holds text for that drops it breaks the route-title rule (Codex on c0d1e726). The reading with
+ * every substitution a name is apart, since it ends without the brand wherever a substitution holds it.
  */
 function titleTemplates(source: ts.SourceFile): string[] {
   const out: string[] = []
@@ -773,11 +776,16 @@ function titleTemplates(source: ts.SourceFile): string[] {
     if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
       if (n.text.endsWith(BRAND)) out.push(n.text)
     } else if (ts.isTemplateExpression(n)) {
-      const texts = [n.head.text + n.templateSpans.map((span) => `Ⓝ${span.literal.text}`).join(''), ...templateTexts(n, source)]
+      const read = templateTexts(n, source)
+      const texts = [n.head.text + n.templateSpans.map((span) => `Ⓝ${span.literal.text}`).join(''), ...read]
       const titled = texts.filter((text) => text.endsWith(BRAND))
+      const line = () => source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1
       if (titled.length && texts.some((text) => text.includes(MORE))) {
-        const line = source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1
-        throw new Error(`${rel(source.fileName)}:${line}: the title template ${n.getText(source)} has more than ${MAX_TEMPLATE_READINGS} readings, more than this spec reads: write the title each state takes as its own template, so every reading is read`)
+        throw new Error(`${rel(source.fileName)}:${line()}: the title template ${n.getText(source)} has more than ${MAX_TEMPLATE_READINGS} readings, more than this spec reads: write the title each state takes as its own template, so every reading is read`)
+      }
+      const unbranded = read.filter((text) => !text.endsWith(BRAND))
+      if (titled.length && unbranded.length) {
+        throw new Error(`${rel(source.fileName)}:${line()}: the title template ${n.getText(source)} reads ${unbranded.map((text) => JSON.stringify(text)).join(', ')} in some state, without "${BRAND.trim()}" at its end: every state's title ends with the brand`)
       }
       out.push(...titled)
     }
@@ -1155,6 +1163,12 @@ export const metadata = { title: pageTitleFor(DEFAULT_HEADLINE), description: DE
       '"Ⓝ: Amended Filing | EarningsNerd": "Filing" is capitalised mid-title (sentence case)',
     ])
     expect(readingsOf("export const title = (subject: string, filed: string, hasContent: boolean) => `${subject}${filed}${hasContent ? ': AI summary' : ''} | EarningsNerd`")).toEqual([])
+    // A template some reading of which ends with the brand is a title in every state (Codex on c0d1e726): a reading
+    // without it fails loudly, never filtered out of the readings judged. The templates above end with it in each one.
+    expect(() => readingsOf("const suffix = on ? 'EarningsNerd' : 'Other'\nexport const title = `Page | ${suffix}`")).toThrow(
+      /^app\/zzprobe\/page\.tsx:3: the title template `Page \| \$\{suffix\}` reads "Page \| Other" in some state, without "\| EarningsNerd" at its end/,
+    )
+    expect(() => readingsOf("export const title = (label: string, on: boolean) => `${label}${on ? ' | EarningsNerd' : ''}`")).toThrow(/reads "Ⓝ" in some state/)
     // Every substitution is a name as well: a word after one is mid-title whatever the file holds for it today.
     expect(readingsOf("const prefix = ''\nexport const title = `${prefix} Filings | EarningsNerd`")).toEqual([
       '"Ⓝ Filings | EarningsNerd": "Filings" is capitalised mid-title (sentence case)',
