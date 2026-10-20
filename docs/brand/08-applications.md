@@ -512,10 +512,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   invites yet. Send your first one above.", "No feedback yet. Reports appear here as people send
   them."), a failed load is a Notice with "Try again", and the section headings carry no icon. The status
   chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
-  them takes the same quiet ground in dark (no fill, its hairline kept), "New" feedback takes an unread
-  envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
-  and the remaining admin controls carry the brand ring (`statusChipContrast.spec.ts`,
-  `inviteOutcomeEmailed.spec.tsx`, `siteChromeFocusRing.spec.ts`).
+  them takes the same quiet ground in dark (no fill, its hairline kept) and Badge's metrics, so the
+  row's two chips share one weight, "New" feedback takes an unread envelope in place of the sparkle,
+  an already-invited chip reads "· already invited" in its own ink, and the remaining admin controls
+  carry the brand ring (`statusChipContrast.spec.ts`, `inviteOutcomeEmailed.spec.tsx`,
+  `siteChromeFocusRing.spec.ts`).
 - **Earnings calendar** (`frontend/app/calendar/page.tsx`, `features/calendar/components/*`): the
   page, its metadata and its footer say where each date comes from: a reported date from the
   company's 8-K results filing on SEC EDGAR, an estimated date and EPS estimate from a market-data

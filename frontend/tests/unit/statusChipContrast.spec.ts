@@ -47,7 +47,9 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
  * inline style on the chip or inside it, or an SVG paint attribute that is not currentColor or none fails,
  * so a label wrapped in a tint of its own is refused and the ink measured is the ink that ships; and
  * FeedbackTypeBadge, the chip beside FeedbackRow's status chip, is measured as it renders on that row's
- * grounds. A text- colour this spec cannot resolve fails, and
+ * grounds, and held to Badge's metrics: every class of Badge's BASE, read from its source, on the chip, and
+ * beside them only a ground and an ink of its own (a bg-, text- or border- colour, or the bare border
+ * hairline), so a weight, a gap or a size of its own fails. A text- colour this spec cannot resolve fails, and
  * so does a bg- or text- arbitrary value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it
  * can read, or a chip's text- or bg- colour under the important modifier, which this spec does not rank
  * against the plain ones. A chip's text- or bg- colour under any variant but its theme's own (bare in
@@ -402,6 +404,51 @@ const STATUS_VARIANTS = statusSet(readFileSync(path.join(ROOT, BADGE), 'utf8'), 
 /** A variant's classes, as Badge renders them. */
 const badgeClasses = (variant: string) => chipOf(createElement(Badge, { variant: variant as BadgeVariant }, 'x')).className
 
+/**
+ * Badge's metrics, from its source: the classes of its BASE, which every chip it renders carries (the layout, padding,
+ * type size and weight, gap and nowrap). A BASE that is not a string literal, or no BASE, is a failure.
+ */
+function badgeMetrics(source: string, file: string, failures: string[]): string[] {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const base = sf.statements
+    .filter(ts.isVariableStatement)
+    .flatMap((s) => [...s.declarationList.declarations])
+    .find((d) => ts.isIdentifier(d.name) && d.name.text === 'BASE')
+  if (!base) {
+    failures.push(`${file}: no BASE, so this spec cannot read Badge's metrics`)
+    return []
+  }
+  if (base.initializer && ts.isStringLiteralLike(base.initializer)) return base.initializer.text.split(/\s+/).filter(Boolean)
+  failures.push(`${file}: BASE is not a string literal this spec can read`)
+  return []
+}
+
+/** Why Badge's metrics could not be read; the case that holds the type chip to them fails on any of them. */
+const METRIC_FAILURES: string[] = []
+const METRICS = badgeMetrics(readFileSync(path.join(ROOT, BADGE), 'utf8'), BADGE, METRIC_FAILURES)
+
+/** A ground or an ink, in either theme: a bg-, text- or border- colour this spec resolves, or the bare border hairline. */
+function paints(cls: string): boolean {
+  const utility = cls.startsWith('dark:') ? cls.slice('dark:'.length) : cls
+  const m = utility.match(/^(bg|text|border)-(.+)$/)
+  return utility === 'border' || (m !== null && colour(m[2]) !== null)
+}
+
+/**
+ * Why a chip's classes are not Badge's metrics with only a ground and an ink of its own beside them, or null when they
+ * are: a class of Badge's metrics it lacks, and a class of its own that is no ground or ink (a weight, a gap, a size).
+ */
+function offTheMetrics(name: string, className: string, metrics: string[]): string | null {
+  const classes = className.split(/\s+/).filter(Boolean)
+  const lacks = metrics.filter((cls) => !classes.includes(cls))
+  const own = classes.filter((cls) => !metrics.includes(cls) && !paints(cls))
+  const why = [
+    ...(lacks.length ? [`lacks Badge's ${lacks.join(', ')}`] : []),
+    ...(own.length ? [`sets ${own.join(', ')}, which is no ground or ink`] : []),
+  ]
+  return why.length ? `${name}: ${why.join(' and ')}` : null
+}
+
 /** A chip's label ratio on each ground, in both themes, with any class the reader could not read. */
 function measure(name: string, className: string, grounds: Grounds, failures: string[]): number {
   let measured = 0
@@ -520,6 +567,33 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     expect(failures).toEqual([])
     // Three types, two themes, the row at rest and hovered.
     expect(measured).toBe(12)
+  })
+
+  it("the feedback type chip takes Badge's metrics, so FeedbackRow's two chips share one weight, with a ground and an ink of its own", () => {
+    const failures = [...METRIC_FAILURES]
+    for (const type of ['bug', 'feature', 'general'] satisfies FeedbackType[]) {
+      const why = offTheMetrics(`FeedbackTypeBadge ${type}`, chipOf(createElement(FeedbackTypeBadge, { type })).className, METRICS)
+      if (why) failures.push(why)
+    }
+    expect(failures).toEqual([])
+  })
+
+  it("reads Badge's metrics from its BASE, fails on one it cannot read, and tells them from a recipe of a chip's own", () => {
+    const lost: string[] = []
+    expect(badgeMetrics("const TINT = 'border'", 'probe.tsx', lost)).toEqual([])
+    expect(badgeMetrics("const BASE = cx('inline-flex', 'text-xs')", 'probe.tsx', lost)).toEqual([])
+    expect(lost).toEqual(["probe.tsx: no BASE, so this spec cannot read Badge's metrics", 'probe.tsx: BASE is not a string literal this spec can read'])
+    const own = 'border border-border-light bg-black/[0.04] text-text-secondary-light dark:border-white/10 dark:bg-transparent dark:text-text-secondary-dark'
+    const metrics = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold'
+    expect([
+      offTheMetrics('the old recipe', `inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${own}`, metrics.split(' ')),
+      offTheMetrics("Badge's metrics", `${metrics} ${own}`, metrics.split(' ')),
+      offTheMetrics('a size of its own', `${metrics} text-sm ${own}`, metrics.split(' ')),
+    ]).toEqual([
+      "the old recipe: lacks Badge's gap-1.5, whitespace-nowrap, font-semibold and sets gap-1, font-medium, which is no ground or ink",
+      null,
+      'a size of its own: sets text-sm, which is no ground or ink',
+    ])
   })
 
   it('reads a tinted ground and its alpha, so the old recipe would fail', () => {

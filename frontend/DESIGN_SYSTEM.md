@@ -641,10 +641,11 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  wider (4.4 to 5.4px under 200% text), one line, inside its cell at 1440 and 390px and at
                  390px under 200% text, and no page scrolls sideways (the tables scroll in their box,
                  Admin pages below). FeedbackTypeBadge, the neutral type chip beside the status chip in
-                 FeedbackRow, keeps its own recipe (500, a 4px gap) and its light ground (black/[0.04]:
-                 9.04:1, 8.50:1 hovered), and takes the same dark one: no fill, its white/10 hairline kept,
-                 text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row (its old white/5 fill
-                 measured 4.27:1 there).
+                 FeedbackRow, takes Badge's metrics too (600, a 6px gap, whitespace-nowrap), so the row's
+                 two chips share one weight, and keeps a ground and an ink of its own: its light ground
+                 (black/[0.04]: 9.04:1, 8.50:1 hovered), and the status set's dark one: no fill, its
+                 white/10 hairline kept, text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row
+                 (its old white/5 fill measured 4.27:1 there).
                  Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, read from
                  Badge's source and rendered through Badge, on both tables' rows, at rest and hovered, both
                  themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the pages' <tbody>;
@@ -655,7 +656,9 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  member with no class added and nothing on it or inside it that paints (a class inside but
                  the icon's size, an inline style, an SVG fill or stroke that is not currentColor), so a
                  hand-rolled chip, a copy of Badge's classes included, a tint, an added class or a label in
-                 a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds).
+                 a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds, and
+                 held to Badge's metrics: every class of Badge's BASE, with only a ground and an ink of its
+                 own beside them, so a weight, a gap or a size of its own fails).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
