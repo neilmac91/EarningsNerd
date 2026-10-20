@@ -365,7 +365,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
   ("Source: SEC EDGAR · {url}") and the CSV, which now carries that source row under its generated
   date; the PDF's closing note is two sentences, and a quote's attribution sits on its own line in
-  the PDF and follows a middot in the CSV, never a dash. Tables read as the page's reader tables do
+  the PDF and follows a middot in the CSV, never a dash. The CSV now ends with the PDF's closing
+  sentences, verbatim (D-046): after a blank row, the closing note's two paragraphs (the masthead
+  line, then the disclaimer), a row each, read from the constant both exporters share
+  (`SUMMARY_CLOSING_NOTE`). Tables read as the page's reader tables do
   (D-041, applying D-030): headers in the tertiary ink on no fill, hairline rows and no grid, and a
   column of figures right-aligned in the data face, each figure on one line, where the page sets
   one: the Financial Highlights table's Current Period, Prior Period and Change by name, as
