@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import CookieConsent, { type CookiePreferences } from '@/components/CookieConsent'
+import CookieConsent, { CONSENT_VERSION, type CookiePreferences } from '@/components/CookieConsent'
 import Footer from '@/components/Footer'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { PostHogProvider } from '@/app/posthog-provider'
@@ -51,7 +51,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () =>
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getSubscriptionStatus: async () => ({ is_pro: sdk.isPro }) }))
 
 const ESSENTIAL_ONLY: CookiePreferences = { essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }
-const ANALYTICS_ALLOWED: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }
+const ANALYTICS_ALLOWED: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z', version: CONSENT_VERSION }
 let mounts = 0
 
 /** A page that holds what the visitor typed, as the contact form does, and counts its own mounts. */

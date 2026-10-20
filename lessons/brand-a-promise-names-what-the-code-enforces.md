@@ -29,8 +29,12 @@ links nothing, and the provider links only on a later sign-in through it (the pr
   count, list every surface the sentence covers and find, for each, the code that enforces it.
 - Read the flag behind each enforcement. A gate that ships off (advisory) means the behaviour is
   measured, not enforced; the sentence covers only what runs with the deployed defaults.
+- Read the write behind each enforcement too. A check-then-write (a read with no row lock, then a
+  write) holds for one request at a time: before writing "once", "every" or "within", ask what two
+  overlapping requests do, and scope the sentence to what still holds.
 - Scope the sentence to the enforced surfaces ("risk excerpts … or withheld"), in plain words, and
-  add the scope to `frontend/tests/unit/brandCopyRules.spec.ts` in the same PR (CLAUDE.md rule 12).
+  add the scope to `frontend/tests/unit/brandCopyRules.spec.ts`, or for a legal page to
+  `legalTruth.spec.tsx`, in the same PR (CLAUDE.md rule 12).
 - When a flag is armed later, the claim may widen in that PR, with the gate's scope widened beside it.
 - An exclusive or negative claim ("only checkout", "never waits on it", "the one gate") is a promise
   too, in a comment or a record as much as on a page: grep every read of the field or flag it names
@@ -63,4 +67,11 @@ that route. Chief design's review 6255015740 on PR #1396 (the blocker: the Sourc
 device on a Cited metric chip's heading, a verified XBRL chip's and a Cited quote's);
 `frontend/features/filings/components/SourceTrace.tsx` (`jumpToSource`), `FilingViewer.tsx`
 (`isLocated`), and `frontend/tests/unit/sourcePanePaint.spec.tsx`, which holds the paint each jump
-registers.
+registers. The high-tier review of PR #1397 (2026-10-19): /security said a refresh token works once
+and that logging out of all devices ends every session within 30 minutes, while
+`backend/app/services/refresh_token_service.py` (`rotate_refresh_token`, a plain `.first()` and the
+rotation written after the successor) let two overlapping renewals both succeed and a renewal racing
+a logout keep a live token (E127, fixed by #1422; `tasks/todo.md` E96); `legalTruth.spec.tsx`
+(`E127_PROMISES`) holds the two items to what still holds on every run, timed or not: #1431 then
+fixed a login that straddled a password reset, but a session token already issued runs to its
+expiry and E96 and E133 are open, so the stronger wording returns only with the founder's go-ahead.
