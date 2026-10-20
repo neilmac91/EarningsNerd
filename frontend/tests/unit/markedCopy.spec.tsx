@@ -57,18 +57,22 @@ describe('MarkedCopy places each twin on its marker', () => {
 
 /**
  * Below its measure the margin gives way, and a word still longer than what is left breaks inside the marked
- * block: at a hyphen where the browser hyphenates, anywhere where it cannot, never past the block. On the
- * landing's card at 320px under 200% text the block keeps 115px of 32px serif, and without `overflow-wrap`
- * seven words of the evidence row ran up to 49px past it. Neither declaration shows in CI's Chromium, which
- * carries no hyphenation dictionary and renders the landing with no evidence row, so this reads the rule.
+ * block, never past it. On the landing's card at 320px under 200% text the block keeps 115px of 32px serif, and
+ * without `overflow-wrap` seven words of the evidence row ran up to 49px past it. The block adds no hyphen to the
+ * filing's words: CI's Chromium carries a hyphenation dictionary, and under auto hyphenation it hyphenated ordinary
+ * words at every width ("re-sults" at 1440px), which risk-evidence-rows.spec.ts reads as words broken mid-word on
+ * the filing page. CI renders the landing with no evidence row, so this reads the rules, comments aside.
  */
 describe('a marked block keeps a word longer than its measure inside itself', () => {
-  it('hyphenates it where the browser can, in an English page, and breaks it anywhere where it cannot', () => {
-    const css = readFileSync(path.join(FRONTEND, 'app/globals.css'), 'utf8')
+  it('breaks it anywhere inside the block, and never hyphenates the filing\'s words', () => {
+    const css = readFileSync(path.join(FRONTEND, 'app/globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
     const rule = css.match(/^\.en-marked\s*\{([^}]*)\}/m)?.[1] ?? ''
     expect(rule, 'the marked block rule (anti-vacuity)').toMatch(/border-left:\s*3px solid/)
-    expect(rule).toMatch(/(?<![-\w])hyphens:\s*auto/)
+    expect(rule).toMatch(/(?<![-\w])hyphens:\s*manual/)
     expect(rule).toMatch(/overflow-wrap:\s*anywhere/)
-    expect(readFileSync(path.join(FRONTEND, 'app/layout.tsx'), 'utf8')).toMatch(/<html\s+lang="en"/)
+    // No rule that reaches a marked block, or anything inside one, turns hyphenation back on.
+    const reaching = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, selector]) => selector.includes('.en-marked'))
+    expect(reaching.length, 'rules naming .en-marked (anti-vacuity)').toBeGreaterThanOrEqual(2)
+    for (const [, selector, body] of reaching) expect(body, selector.trim()).not.toMatch(/hyphens:\s*auto/)
   })
 })

@@ -211,12 +211,14 @@
   background: #ECF2EE; /* brand-weak */
   /* Square corners: a stripe never sits on a rounded container (DESIGN.md, the side-tab stripe). */
   border-radius: 0;
-  /* A word longer than the block's measure (a phone under 200% text) breaks at a hyphen where the
-     browser hyphenates (<html lang="en"> in app/layout.tsx), and inside the block where it cannot,
-     never past it: on the landing's card at 320px under 200% text the measure is 115px, and seven
-     words ran up to 49px past the block. MarkedCopy's margin gives way below a measure first. */
-  -webkit-hyphens: auto;
-  hyphens: auto;
+  /* The block quotes the filing, so the browser adds no hyphen to its words: a Chromium that carries
+     a hyphenation dictionary (CI's does, the container's does not) hyphenated ordinary words at every
+     width under auto hyphenation, "re-sults" at 1440px. A word longer than the block's measure (a
+     phone under 200% text) breaks inside the block, never past it: on the landing's card at 320px
+     under 200% text the measure is 115px, and seven words ran up to 49px past the block.
+     MarkedCopy's margin gives way below a measure first. */
+  -webkit-hyphens: manual;
+  hyphens: manual;
   overflow-wrap: anywhere;
 }
 .dark .en-marked {

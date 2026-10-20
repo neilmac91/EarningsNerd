@@ -31,7 +31,7 @@ import { markedCopyColumnsClass, markedMarginCollapseClass } from './markedCopyL
  * 18em wide on the filing page there and 15.4em in the landing's card. It goes under 200% text at
  * 390px and below: 10.2em and 7.6em at 390, 8em and 5.4em at 320, where giving it up leaves the
  * excerpt 197px of serif and no word breaks. A word still longer than the measure breaks inside the
- * marked block (`.en-marked`): at a hyphen where the browser hyphenates, anywhere where it cannot.
+ * marked block (`.en-marked`), which adds no hyphen to the filing's words.
  */
 export function MarkedCopy({ children, className }: { children: ReactNode; className?: string }) {
   const bodyRef = useRef<HTMLDivElement | null>(null)

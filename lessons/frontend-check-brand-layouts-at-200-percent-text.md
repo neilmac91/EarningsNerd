@@ -68,6 +68,10 @@ places the tile against the painted lines, measured with a Range.
 section's margin and its rows' rem insets leaving a marked excerpt 101px of 32px serif at 320px under 200%
 text, about a third of its words broken mid-word ("primari / ly"), and 171px at 390px with five; the PR's
 e2e case passed, since it read only sideways scroll. `MarkedCopy` now gives way below 13em of its own width
-(`frontend/components/ui/markedCopyLayout.ts`), the marked block takes `hyphens: auto`, and
-`frontend/tests/e2e/risk-evidence-rows.spec.ts` reads every marked block's words at 320, 390 and 1440px in
-both themes, default and 200% text.
+(`frontend/components/ui/markedCopyLayout.ts`), the marked block breaks a word longer than its measure inside
+itself, and `frontend/tests/e2e/risk-evidence-rows.spec.ts` reads every marked block's words at 320, 390 and 1440px
+in both themes, default and 200% text. That round also gave the block `hyphens: auto`, checked only on the
+container's Chromium, which carries no hyphenation dictionary, so it changed nothing there; CI's Chromium carries
+one and hyphenated ordinary words at every width ("re-sults" at 1440px), which the e2e failed on 1844574e. A
+typographic rule that depends on browser data (hyphenation, fonts, locale) is checked on the browser CI runs, and
+the marked block, a quote of the filing, now adds no hyphen (`hyphens: manual`).

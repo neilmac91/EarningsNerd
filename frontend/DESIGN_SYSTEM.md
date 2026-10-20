@@ -1157,13 +1157,14 @@ Evidence rows    <SummaryRisks>  (P-03; a marked copy since D-044): one hairline
                  390px and below (10.2em at 390, 8em at 320 on the filing page), where it left the excerpt
                  171px and 101px of 32px serif and broke words mid-word; without it the excerpt keeps 267px
                  and 197px and no word breaks. The marked block (`.en-marked`) keeps a word still longer than
-                 its measure inside itself: `hyphens: auto` (`<html lang="en">`) breaks it at a hyphen where
-                 the browser hyphenates (CI's Chromium does not), and `overflow-wrap: anywhere` breaks it
-                 anywhere where it cannot, never past the block. The landing's evidence row needs that: its
-                 card leaves the block 115px of 32px serif at 320px under 200% text, and seven words ran up to
-                 49px past it (gate: markedCopy.spec.tsx reads the rule, since CI renders the landing with no
-                 evidence row and no hyphenation). The row wraps a long unbreakable token
-                 ([overflow-wrap:anywhere]) rather than push the page sideways.
+                 its measure inside itself: `overflow-wrap: anywhere` breaks it inside the block, never past
+                 it. The block never hyphenates (`hyphens: manual`): it quotes the filing, and CI's Chromium,
+                 which carries a hyphenation dictionary, hyphenated ordinary words at every width under
+                 `hyphens: auto` ("re-sults" at 1440px). The landing's evidence row needs the break: its card
+                 leaves the block 115px of 32px serif at 320px under 200% text, and seven words ran up to 49px
+                 past it (gates: markedCopy.spec.tsx reads the rules, since CI renders the landing with no
+                 evidence row; risk-evidence-rows.spec.ts reads the painted words on the filing page). The row
+                 wraps a long unbreakable token ([overflow-wrap:anywhere]) rather than push the page sideways.
                  Heading rule (riskHeadline.ts, inside excerptHeadings): a verbatim prefix of the excerpt, never
                  recased and never whitespace-normalised (one enclosing quote pair is dropped first, only when
                  it wraps the whole span). The first sentence stays whole when it fits in 100 characters; a
