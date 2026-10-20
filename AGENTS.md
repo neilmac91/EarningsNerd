@@ -155,7 +155,12 @@ Other tools Codex and Astra do not have, and what to do instead:
 - **No `Workflow`, `Agent`, `send_later`, `TaskOutput`.** Do the tiered review by hand as above.
 - **No Claude Code hooks.** `.claude/hooks/ops_approval_guard.py` cannot stop you, so hold its rule
   yourself: never approve or reject an Ops run waiting on the `ops-apply` environment, and never
-  change that environment. Only the founder does.
+  change that environment. Only the founder does. Nor does `.claude/hooks/secret_scan_guard.py` read
+  your pushes, so before your first push in a session run
+  `git config core.hooksPath "$(git rev-parse --show-toplevel)/.claude/hooks/git"` and
+  `python3 .claude/hooks/secret_scan_guard.py --install` in the clone's main checkout: git's pre-push
+  hook then scans each `git push` (E134,
+  `lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md`).
 - **No background monitors.** After merging a PR touching deployable backend files (`backend/`
   outside `backend/tests/`): find the run (`gh run list --workflow ci.yml --branch main --event push -L 1`,
   or the unauthenticated `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`),

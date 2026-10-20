@@ -89,11 +89,13 @@ binary once per machine and pin, a new cloud container included, with
 
 The same scan runs as git's pre-push hook, `.claude/hooks/git/pre-push`, before each `git push`
 leaves a clone, yours and a script's included. Turn it on once per clone with
-`git config core.hooksPath "$(git rev-parse --show-toplevel)/.claude/hooks/git"`, and again if you
-move the clone (a relative path would miss a push run inside `.git`, or with a `GIT_DIR` from a
-subdirectory). A Claude Code cloud session's start does it for its clone, unless a hooks path or hooks
-of the clone's own are already set, which it leaves as they are; another agent's environment runs the
-same line in its setup script. Both hooks take the remote named `origin` for GitHub: in a clone whose
+`git config core.hooksPath "$(git rev-parse --show-toplevel)/.claude/hooks/git"`, run in the clone's
+main checkout (every worktree reads the clone's one path, and a linked worktree's would go with it),
+and again if you move the clone (a relative path would miss a push run inside `.git`, or with a
+`GIT_DIR` from a subdirectory). A Claude Code cloud session that loads the repository's hooks does it
+for its clone as it starts, unless a hooks path naming another directory or hooks of the clone's own
+are already set, which it leaves as they are; Codex and Astra sessions run the same line before their
+first push (`AGENTS.md` §5). Both hooks take the remote named `origin` for GitHub: in a clone whose
 GitHub remote has another name, every push that adds commits has its whole history scanned without
 main's pins, and is refused. The hook stops a push on a finding and whenever it cannot scan (it needs
 the binary above and `python3`), naming why; `git push --no-verify` skips it, as do `git send-pack`,

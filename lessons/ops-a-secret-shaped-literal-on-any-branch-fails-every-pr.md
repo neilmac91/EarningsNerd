@@ -123,28 +123,34 @@ that SHA-256 and another platform's against the release's checksums file once th
   repository (a `.git` or a `commondir` file in it, or a HEAD git cannot read, sends git elsewhere). A
   failed scan's refusal names the errors gitleaks logged. An error the hook does not expect in reading a
   Bash call that names git or gh refuses it too; any other crash lets the call through.
-- **git's pre-push hook.** `git config core.hooksPath "$(git rev-parse --show-toplevel)/.claude/hooks/git"`
-  turns it on in a clone, once and again if the clone moves. The path is absolute because git reads a
-  relative one from the directory it runs hooks in, which inside `.git`, or with a `GIT_DIR` or
-  `--git-dir` from a subdirectory or from outside the worktree, is not the worktree's top, so the hook
-  would not run there. A Claude Code cloud session's start does it for the session's clone
+- **git's pre-push hook.** `git config core.hooksPath "$(git rev-parse --show-toplevel)/.claude/hooks/git"`,
+  run in the clone's main checkout, turns it on in a clone, once and again if the clone moves. The path
+  is absolute because git reads a relative one from the directory it runs hooks in, which inside `.git`,
+  or with a `GIT_DIR` or `--git-dir` from a subdirectory or from outside the worktree, is not the
+  worktree's top, so the hook would not run there; and every worktree reads the clone's one path, which
+  a linked worktree's own directory would take with it when it is removed. A Claude Code cloud session's
+  start does it for the session's clone, in a session that loads the repository's hooks
   (`.claude/settings.json`'s SessionStart command, a file in the repository, so no environment needs
-  changing), and writes a relative path that names the directory absolute, unless a hooks path naming
-  another directory is set at any level or the clone has hooks of its own, which it leaves as they are
-  and names to the session; it also says when the pinned binary is missing. A session of another agent
-  (Codex, Astra) loads no repository hooks, so its environment's setup script runs the same `git config`
-  line. git runs the hook before a `git push` sends anything, whoever runs the push, and hands it the
-  refs the push sends: it scans the commits each one reaches and no ref under `refs/remotes/origin`
-  holds, with the scan above, and stops the push on a finding, wherever the scan fails closed (that
-  refusal names `git push --no-verify`, which skips git's hooks; a finding's does not), on a ref that
-  sends a tree or a blob rather than a commit, and on any error. A delete, and a commit GitHub holds as
-  last fetched, send it nothing to scan. Both hooks take the remote named `origin` for GitHub: in a
-  clone whose GitHub remote has another name, every push that adds commits has its whole history
-  scanned without main's pins, and is refused. git skips a hook it cannot execute, so the suite holds
-  the hook's tracked mode. In a Claude Code session whose clone turns it on, a push passes both: the
-  PreToolUse hook before the call, git's as git sends it.
+  changing; a cloud session with several repositories loads none), naming the main checkout's directory
+  from a linked worktree, and writes a relative path that names the directory absolute, unless a hooks
+  path naming another directory is set at any level or the clone has hooks of its own, which it leaves
+  as they are and names to the session; it also says when it cannot set the path, or a setting above the
+  clone's own keeps another, and when the pinned binary is missing. A session of another agent (Codex,
+  Astra) loads no repository hooks: `AGENTS.md` §5 has it run the same `git config` line in the clone's
+  main checkout before its first push, as its environment's setup script could (F53). git runs the hook
+  before a `git push` sends anything, whoever runs the push, and hands it the refs the push sends: it
+  scans the commits each one reaches and no ref under `refs/remotes/origin` holds, with the scan above,
+  and stops the push on a finding, wherever the scan fails closed (that refusal names
+  `git push --no-verify`, which skips git's hooks; a finding's does not), on a ref that sends a tree or
+  a blob rather than a commit, and on any error. A delete, and a commit GitHub holds as last fetched,
+  send it nothing to scan. Both hooks take the remote named `origin` for GitHub: in a clone whose GitHub
+  remote has another name, every push that adds commits has its whole history scanned without main's
+  pins, and is refused. git skips a hook it cannot execute, so the suite holds the hook's tracked mode.
+  In a Claude Code session whose clone turns it on, a push passes both: the PreToolUse hook before the
+  call, git's as git sends it.
 - **What it cannot see.** Before a call, the PreToolUse hook cannot see these; git's pre-push hook
-  stops each push among them as git sends it, in a clone that turns it on:
+  stops each push among them that is a `git push` without `--no-verify`, as git sends it, in a clone
+  that turns it on:
   - a push a script, a program (`env -S`'s string among them) or a shell's standard input runs;
   - a git that a variable, a substitution, an escape, a brace expansion, a glob or a shell alias or
     function names;
@@ -164,14 +170,15 @@ that SHA-256 and another platform's against the release's checksums file once th
   - a person's own push.
 
   Neither hook sees these:
-  - a push run outside a Claude Code call with `--no-verify`, from a clone whose `core.hooksPath` is
-    unset (a fresh Codex or Astra container's among them) or names other hooks (or that the push's
-    own `-c core.hooksPath=`, `GIT_CONFIG_COUNT` or `GIT_CONFIG_PARAMETERS` moves), or while the
-    checkout its hooks path names holds no `.claude/hooks/git/pre-push` (one at a commit from before
-    E134; a linked worktree runs its main worktree's), and one `git send-pack`, `git http-push` or a
-    program pushing through a git library makes, none of which runs git's pre-push hook (a Claude
-    Code call's push of any of these still meets the PreToolUse hook, which refuses `send-pack` and
-    `http-push` outright);
+  - a push with `--no-verify`, from a clone whose `core.hooksPath` is unset (a fresh Codex or Astra
+    container's among them, and one a cloud session with several repositories works in, which loads
+    no repository hooks) or names other hooks (or that the push's own `-c core.hooksPath=`,
+    `GIT_CONFIG_COUNT` or `GIT_CONFIG_PARAMETERS` moves), or while the checkout its hooks path names
+    holds no `.claude/hooks/git/pre-push` (one at a commit from before E134), and one `git send-pack`,
+    `git http-push` or a program pushing through a git library makes, none of which runs git's
+    pre-push hook: the PreToolUse hook sees only a `git push` in a Claude Code call's own words, and
+    refuses `send-pack` and `http-push` there outright, but not one a script, a program or a library
+    makes;
   - the commits a push sends to submodules, which run their own repositories' hooks;
   - a commit a stale ref under `refs/remotes/origin` still holds, or an MCP write to a branch fetched
     before it changed;
