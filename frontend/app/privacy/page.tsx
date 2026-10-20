@@ -123,7 +123,7 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. We respect the &quot;Do Not Track&quot; browser setting and will not track users who have enabled it.
+            You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. Analytics and session recording in your browser stay off until you allow them, and you can change your choice at any time in Cookie settings. We don&apos;t change this based on your browser&apos;s Do Not Track setting.
           </p>
         </section>
 

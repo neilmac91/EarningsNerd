@@ -582,12 +582,16 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  tracking-eyebrow around the code, its class written inline or held in a same-file
                  constant; gate: earningsnerd/no-form-code-badge, eslint.designRules.mjs);
                  <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls; "Superseded"). <Badge variant="success|error"> = a STATUS
-                 chip (a summary is ready, a run failed): the status ink on the quiet ground, since the
-                 success ink inside any tint of itself falls under 4.5:1 at 12px. In dark the chip
-                 carries no fill, its hairline only, so a hovered row's white/5 is the one layer under
-                 it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
-                 tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
+                 (replaces raw-amber hand-rolls; "Superseded"). Badge's status set, BadgeStatusVariant
+                 (<Badge variant="success|error|info-status|warning-status|neutral-status">) = a STATUS chip
+                 (a summary is ready, a run failed, an invite pending): the status ink on the quiet ground,
+                 since the success ink inside any tint of itself falls under 4.5:1 at 12px. info, warning
+                 and neutral are the tints and the quiet chip, so their status forms take names of their
+                 own. In dark the chip carries no fill, its hairline only, so a hovered row's white/5 is the
+                 one layer under it: error-dark holds 4.6:1 there, where a fill of its own would take it to
+                 3.9:1 (gates: tests/unit/badgeVariants.spec.tsx, success and error on the card and on a
+                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows, Status
+                 chip below). beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
@@ -623,27 +627,39 @@ Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx)
                  the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
                  card's e4 and dark none; the close button's hover, forced, on opaque fills).
 
-Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on
-                 STATUS_CHIP + STATUS_CHIP_INK[tone] from features/admin/lib/statusChip.ts, the one home
-                 of the recipe (tones info / success / warning / neutral). The status INK sits on the
-                 quiet ground, never the status tint. Light labels measure 5.0 to 7.1:1 on the white
-                 chip. Dark carries no fill, so the row's white/5 hover tint is the only layer: 5.77 to
-                 6.83:1 at rest, 4.97 to 5.89:1 on a hovered row (Badge's quiet white/5 on the chip as
-                 well would drop info-dark to 4.26:1 there). The old recipe, info-light in its own 10%
-                 tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
-                 FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
-                 same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
-                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). Badge's
-                 success and error status variants carry this dark recipe, no fill; E47 moves the admin
-                 chips onto Badge after the series, with info, warning and neutral status variants of
-                 their own (Badge's info, warning and neutral are the tints and the quiet chip).
-                 Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
-                 hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
-                 pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
-                 there carrying a bg- class fails; a chip colour under any variant but its theme's own
-                 (hover:, focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the
-                 <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
-                 it renders on FeedbackRow's grounds).
+Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label, a
+                 <Badge> of its status set (components/ui/Badge.tsx, BadgeStatusVariant; the Badge entry
+                 under Solid chip): pending and new on info-status, used and resolved on success, expired
+                 and triaged on warning-status, revoked on neutral-status, the icon in Badge's `icon` slot.
+                 The status INK sits on the quiet ground, never the status tint. Light labels measure 5.0
+                 to 7.1:1 on the white chip. Dark carries no fill, so the row's white/5 hover tint is the
+                 only layer: the four the admin chips use hold 5.77 to 6.83:1 at rest and 4.97 to 5.89:1 on
+                 a hovered row, and error, the set's fifth, 5.31:1 and 4.57:1 (a quiet white/5 fill on the
+                 chip as well would drop error-dark to 3.92:1 there, info-dark to 4.26:1 and the neutral
+                 ink to 4.27:1). The old recipe, info-light in its own 10% tint, is 4.32:1. The chips take
+                 Badge's metrics, 600 with a 6px gap where the hand-rolled recipe was 500 with 4px, and
+                 Badge's whitespace-nowrap, which the status cells already set: each chip is 2.2 to 2.7px
+                 wider (4.4 to 5.4px under 200% text), one line, inside its cell at 1440 and 390px and at
+                 390px under 200% text, and no page scrolls sideways (the tables scroll in their box,
+                 Admin pages below). FeedbackTypeBadge, the neutral type chip beside the status chip in
+                 FeedbackRow, takes Badge's metrics too (600, a 6px gap, whitespace-nowrap), so the row's
+                 two chips share one weight, and keeps a ground and an ink of its own: its light ground
+                 (black/[0.04]: 9.04:1, 8.50:1 hovered), and the status set's dark one: no fill, its
+                 white/10 hairline kept, text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row
+                 (its old white/5 fill measured 4.27:1 there).
+                 Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, read from
+                 Badge's source and rendered through Badge, on both tables' rows, at rest and hovered, both
+                 themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the pages' <tbody>;
+                 every layer between a chip and its <tr> read too, and a cell or wrapper there carrying a
+                 bg- class fails; a chip colour under any variant but its theme's own (hover:,
+                 focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the <tr> or the
+                 <tbody> fail too; both badges held to the set, every status a chip Badge rendered for one
+                 member with no class added and nothing on it or inside it that paints (a class inside but
+                 the icon's size, an inline style, an SVG fill or stroke that is not currentColor), so a
+                 hand-rolled chip, a copy of Badge's classes included, a tint, an added class or a label in
+                 a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds, and
+                 held to Badge's metrics: every class of Badge's BASE, with only a ground and an ink of its
+                 own beside them, so a weight, a gap or a size of its own fails).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the

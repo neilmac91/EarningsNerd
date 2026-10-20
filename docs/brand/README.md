@@ -156,8 +156,8 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
    that hold a full summary, newest first, at most six (`NotableFilings.tsx`, E90).
 3. The landing page's sections after the hero became ruled rows (tell T4, D-045, #1398).
 4. Vercel Web Analytics loads only after the visitor allows analytics (D-046, #1387), so the consent
-   bar's promise is true in code. What `/privacy` says of analytics and Do Not Track, in draft #1265,
-   stays with the founder (F4).
+   bar's promise is true in code. What `/privacy` says of Do Not Track is settled (D-049); what it says
+   of analytics, in draft #1265, stays with the founder (F4).
 
 Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
 site goes without (A5) unless the founder writes one (D6, F48).

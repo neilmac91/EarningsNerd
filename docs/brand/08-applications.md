@@ -156,6 +156,15 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "Essential only" and "Allow analytics" (session recording stays off until it is chosen under
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
+  After a first choice the bar is gone, and the site footer's "Cookie settings" (`frontend/components/Footer.tsx`,
+  a button in the Legal column with the links' recipe and the brand ring) reopens the dialog on the stored
+  choices: Save writes them and fires `cookieConsentChanged` as the bar does, so /privacy's withdrawal
+  sentence holds ("You can withdraw consent for analytics and session recording at any time through our
+  cookie consent banner or settings."; `lib/cookieSettings.ts`, `tests/unit/cookieSettingsReopen.spec.tsx`).
+  The auth routes have no site footer (`lib/authShellRoutes.ts`), so the control is not there.
+  The banner is the only control, for every visitor (D-049): no browser privacy signal is read, so a first
+  visit whose browser sends Do Not Track shows the bar like any other, and the dialog opens on the stored
+  choice with its Analytics cookies and Session recording boxes enabled.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
   dialog is to take D-046's words, which name PostHog and say that statistics are tied to an
   internal account id when you are logged in (chrome/F1, F33, E109).
@@ -375,8 +384,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
   "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
   ("Source: SEC EDGAR · {url}") and the CSV, which now carries that source row under its generated
-  date; the PDF's closing note is two sentences, and a quote's attribution sits on its own line in
-  the PDF and follows a middot in the CSV, never a dash. Tables read as the page's reader tables do
+  date; the PDF's closing note splits its one dashed sentence in two, and a quote's attribution
+  sits on its own line in the PDF and follows a middot in the CSV, never a dash. The CSV now ends
+  with the PDF's closing sentences, verbatim (D-046): after a blank row, the closing note's two
+  paragraphs (the masthead line, then the disclaimer), a row each, read from the constant both
+  exporters share (`SUMMARY_CLOSING_NOTE`). Tables read as the page's reader tables do
   (D-041, applying D-030): headers in the tertiary ink on no fill, hairline rows and no grid, and a
   column of figures right-aligned in the data face, each figure on one line, where the page sets
   one: the Financial Highlights table's Current Period, Prior Period and Change by name, as
@@ -513,10 +525,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   invites yet. Send your first one above.", "No feedback yet. Reports appear here as people send
   them."), a failed load is a Notice with "Try again", and the section headings carry no icon. The status
   chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
-  them takes the same quiet ground in dark (no fill, its hairline kept), "New" feedback takes an unread
-  envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
-  and the remaining admin controls carry the brand ring (`statusChipContrast.spec.ts`,
-  `inviteOutcomeEmailed.spec.tsx`, `siteChromeFocusRing.spec.ts`).
+  them takes the same quiet ground in dark (no fill, its hairline kept) and Badge's metrics, so the
+  row's two chips share one weight, "New" feedback takes an unread envelope in place of the sparkle,
+  an already-invited chip reads "· already invited" in its own ink, and the remaining admin controls
+  carry the brand ring (`statusChipContrast.spec.ts`, `inviteOutcomeEmailed.spec.tsx`,
+  `siteChromeFocusRing.spec.ts`).
 - **Earnings calendar** (`frontend/app/calendar/page.tsx`, `features/calendar/components/*`): the
   page, its metadata and its footer say where each date comes from: a reported date from the
   company's 8-K results filing on SEC EDGAR, an estimated date and EPS estimate from a market-data
