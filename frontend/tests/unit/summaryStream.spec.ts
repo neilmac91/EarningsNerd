@@ -101,6 +101,28 @@ describe('generateSummaryStream', () => {
     expect(completeSpy).toHaveBeenCalledWith(77)
     expect(errorSpy).not.toHaveBeenCalled()
   })
+
+  // Pro's fair-use pause (admission.py) holds until the month turns, so a second attempt would only repeat the
+  // blocked request: the error surfaces at once (isNonRetryableStreamError; streamErrorCopy.spec.ts holds the
+  // matcher to admission.py's sentence). An error frame a retry can help is attempted twice.
+  it("makes no automatic second attempt at Pro's fair-use pause, and one at an error a retry can help", async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const attempts = async (message: string) => {
+      const fetchMock = vi.fn(async () => new Response(`data: ${JSON.stringify({ type: 'error', message })}\n\n`))
+      global.fetch = fetchMock as unknown as typeof fetch
+      const errorSpy = vi.fn()
+      const run = generateSummaryStream(303, vi.fn(), vi.fn(), vi.fn(), errorSpy).catch(() => undefined)
+      await vi.runAllTimersAsync()
+      await run
+      return { requests: fetchMock.mock.calls.length, shown: errorSpy.mock.calls }
+    }
+    const pause =
+      "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
+      'Please try again later or contact support.'
+    expect(await attempts(pause)).toEqual({ requests: 1, shown: [[pause]] })
+    expect(await attempts('Provider unavailable')).toEqual({ requests: 2, shown: [['Provider unavailable']] })
+  })
 })
 
 describe('stripInternalNotices', () => {

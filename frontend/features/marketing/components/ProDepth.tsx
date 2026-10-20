@@ -2,9 +2,9 @@ import type { ReactNode } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { cx } from '@/components/ui/cx'
-import { ArrowRightIcon, BellIcon, ClockCounterClockwiseIcon, FilePdfIcon, FileXlsIcon } from '@/lib/icons'
+import { ArrowRightIcon, BellIcon, FilePdfIcon, FileXlsIcon } from '@/lib/icons'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
-import { ANALYSIS_MAX_ANNUAL_PERIODS, ANALYSIS_MAX_QUARTERLY_PERIODS, FREE_COPILOT_QUESTIONS, FREE_HISTORY_RETENTION_DAYS } from '@/lib/planLimits'
+import { ANALYSIS_MAX_ANNUAL_PERIODS, ANALYSIS_MAX_QUARTERLY_PERIODS, FREE_COPILOT_QUESTIONS } from '@/lib/planLimits'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 import AskFilingDemo from '@/features/marketing/components/AskFilingDemo'
 import ChangeReportDemo from '@/features/marketing/components/ChangeReportDemo'
@@ -32,12 +32,6 @@ const EXTRAS = [
     title: 'Filing alerts',
     description: 'Hourly checks for new filings on your watchlist, including 8-Ks.',
     tags: ['10-K', '10-Q', '8-K'],
-  },
-  {
-    icon: ClockCounterClockwiseIcon,
-    title: 'Full history',
-    description: `Every summary you have read, kept. Free keeps ${FREE_HISTORY_RETENTION_DAYS} days.`,
-    tags: ['Unlimited'],
   },
 ] as const
 
@@ -140,7 +134,7 @@ export default function ProDepth() {
                 Watchlists are unlimited on both plans.
               </span>
             </div>
-            <ul className={cx('mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2', ENABLE_ANALYSIS ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+            <ul className={cx('mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2', ENABLE_ANALYSIS ? 'lg:grid-cols-3' : 'lg:grid-cols-2')}>
               {extras.map((extra) => {
                 const Icon = extra.icon
                 return (

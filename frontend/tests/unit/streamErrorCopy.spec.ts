@@ -6,7 +6,7 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingResolver } from './astBindings'
 import { pythonTokens, type Token } from './pythonTokens'
-import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
+import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 
 /**
@@ -30,14 +30,24 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     not know) fails the reader. A reworded backend sentence fails until the map follows it, so the page
  *     never prints a sentence nobody mapped. Out of reach (planted as a gap in the self-check): a `status`
  *     set after its `.message`, read as the status before it.
- *  2. No stale lines: every key is still written by one of those modules.
+ *  2. No stale lines: every key is still written by one of those modules, or is an answer the stream
+ *     endpoint gives before it streams (ENDPOINT, below: the route's own HTTPExceptions and rate-limit
+ *     detail, and its account check's), whose JSON detail the reader shows as the error.
  *  3. Parity: the raw message, not the mapped one, decides the card. Exactly one admission.py error
  *     sentence opens the paywall card (the free monthly limit; Pro's fair-use pause never upsells), and it
  *     carries every phrase isPaywallStreamError routes on. Every phrase isNonRetryableStreamError routes
  *     on is still written somewhere a stream error's text can come from (routers/summaries.py, the stage
- *     modules, the client's own fallbacks, the matchers' own `.includes` literals never counted): a
- *     dead-phrase check, not a proof that a stream error carries it. A 401 is never retried whatever its
- *     text (the reader sets retryable only for a 5xx).
+ *     modules, the endpoint's answers, the client's own fallbacks, the matchers' own `.includes` literals
+ *     never counted): a dead-phrase check, not a proof that a stream error carries it. A 401 is never retried
+ *     automatically whatever its text (the reader sets retryable only for a 5xx). The proof, sentence by
+ *     sentence, for every answer no retry can change: Pro's fair-use pause, read in admission.py's own words
+ *     from the error it streams in the block under `if user_is_unlimited:` (the billing-unlimited caller its
+ *     usage gate blocked), and every 403 the endpoint answers with (a plan or account gate: a Free reader's
+ *     force regeneration of a summary the page shows, an inactive account) must match
+ *     isNonRetryableStreamError, so the stream never retries them and the card offers no Retry; the
+ *     endpoint's 401 (a retry after a refresh or a sign-in can help), its 404 (kept retryable since round 3)
+ *     and its 429 must not, and a status the table does not classify fails. A reworded sentence fails here
+ *     until the matcher follows it.
  *  4. Voice: what the page shows has no em-dash, no exclamation mark, and reads as a sentence; a key's
  *     only fields are bare `{name}` ones, the only kind streamErrorCopy matches.
  *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads a file's raw text for the character, so a dash
@@ -220,6 +230,97 @@ export function streamedMessages(src: string, file: string): Streamed[] {
 const source = (file: string) => readFileSync(path.join(SERVICES, file), 'utf8')
 const streamed = () => SOURCES.flatMap((file) => streamedMessages(source(file), file))
 
+/** The functions whose errors the stream endpoint answers with before it streams: the route, and the account
+    check it depends on. runStreamAttempt shows a 4xx's JSON detail as the card's raw message. */
+const ENDPOINT = [
+  { file: 'backend/app/routers/summaries.py', fn: 'generate_summary_stream' },
+  { file: 'backend/app/routers/auth.py', fn: 'get_current_user' },
+]
+
+interface Raised { file: string; line: number; status: number; text: string }
+
+/** The index of the bracket that closes the one at `open`. */
+function closing(toks: Token[], open: number): number {
+  let depth = 0
+  for (let i = open; i < toks.length; i++) {
+    if (toks[i].kind === 'op' && OPENERS.includes(toks[i].text)) depth++
+    else if (toks[i].kind === 'op' && CLOSERS.includes(toks[i].text) && --depth === 0) return i
+  }
+  return toks.length
+}
+
+/** A status written as digits (each digit is its own token) or as `status.HTTP_<code>_…`, or null. */
+function statusAt(toks: Token[], k: number): number | null {
+  if (toks[k]?.kind === 'name' && toks[k].text === 'status' && isOp(toks[k + 1], '.')) {
+    const code = /^HTTP_(\d{3})_/.exec(toks[k + 2]?.text ?? '')
+    return code ? Number(code[1]) : null
+  }
+  let digits = ''
+  for (let i = k; toks[i]?.kind === 'op' && /^\d$/.test(toks[i].text); i++) digits += toks[i].text
+  return digits ? Number(digits) : null
+}
+
+/** The errors one function of a Python module raises: each `HTTPException(...)` in its body (its status as digits
+    or `status.HTTP_<code>_…`, its detail a literal, adjacent literals joined), raised there or held in a name, and
+    each `enforce_rate_limit(...)`'s `error_detail` (a 429). The body ends at the first line after the `def` indented
+    no deeper than it (a signature's closing bracket aside). A detail the reader cannot key by its text fails it. */
+export function raisedErrors(src: string, file: string, fn: string): Raised[] {
+  const lines = src.split('\n')
+  const at = lines.findIndex((line) => new RegExp(`^\\s*(?:async\\s+)?def ${fn}\\(`).test(line))
+  if (at < 0) throw new Error(`${file}: ${fn} is gone; update this spec`)
+  const indent = lines[at].search(/\S/)
+  let end = lines.length
+  for (let i = at + 1; i < lines.length; i++) {
+    const text = lines[i].trim()
+    if (!text || text.startsWith('#') || /^[)\]]/.test(text)) continue
+    if (lines[i].search(/\S/) <= indent) {
+      end = i
+      break
+    }
+  }
+  const toks = pythonTokens(lines.slice(at, end).join('\n'))
+  const out: Raised[] = []
+  toks.forEach((t, k) => {
+    const limit = t.text === 'enforce_rate_limit'
+    if (t.kind !== 'name' || !(limit || t.text === 'HTTPException') || !isOp(toks[k + 1], '(')) return
+    let status: number | null = limit ? 429 : null
+    let text: string | null = null
+    const close = closing(toks, k + 1)
+    for (let i = k + 2; i < close; i++) {
+      if (toks[i].kind !== 'name' || !isOp(toks[i + 1], '=') || isOp(toks[i + 2], '=')) continue
+      if (!limit && toks[i].text === 'status_code') status = statusAt(toks, i + 2)
+      if (toks[i].text === (limit ? 'error_detail' : 'detail')) {
+        const lit = literalAt(toks, i + 2)
+        if (!lit) throw new Error(`${file}:${at + toks[i].line} ${fn}: a detail the reader cannot key by its text`)
+        text = lit.text
+      }
+    }
+    if (status === null || text === null) throw new Error(`${file}:${at + t.line} ${fn}: an error with no status or detail the reader can read`)
+    out.push({ file, line: at + t.line, status, text })
+  })
+  return out
+}
+
+const endpointErrors = () => ENDPOINT.flatMap(({ file, fn }) => raisedErrors(readFileSync(path.join(REPO, file), 'utf8'), file, fn))
+
+/** The error sentences a module streams inside the block under its first `if <condition>:` line, the block
+    read by indentation (blank and comment lines inside it skipped), or null when no such line exists. */
+export function errorsUnder(src: string, file: string, condition: string): Streamed[] | null {
+  const lines = src.split('\n')
+  const header = new RegExp(`^(\\s*)if ${condition}\\s*:\\s*(?:#.*)?$`)
+  const at = lines.findIndex((line) => header.test(line))
+  if (at < 0) return null
+  const indent = header.exec(lines[at])![1].length
+  let last = at
+  for (let i = at + 1; i < lines.length; i++) {
+    const text = lines[i].trim()
+    if (!text || text.startsWith('#')) continue
+    if (lines[i].search(/\S/) <= indent) break
+    last = i
+  }
+  return streamedMessages(src, file).filter((m) => m.error && m.line > at + 1 && m.line <= last + 1)
+}
+
 /** The phrases a matcher in summaries-api.ts tests for (its `.includes('…')` calls). */
 function matcherPhrases(fn: string): string[] {
   const file = path.join(FRONTEND, 'features/summaries/api/summaries-api.ts')
@@ -368,7 +469,7 @@ describe('the summary stream error sentences the filing page maps', () => {
     expect(unmapped, 'add the sentence to STREAM_ERROR_COPY (features/summaries/lib/streamErrorCopy.ts), keyed by its exact Python text').toEqual([])
   })
 
-  it('keeps no line for a sentence no stage module writes any more', () => {
+  it('keeps no line for a sentence no stage module writes and the endpoint no longer answers with', () => {
     const written = new Set<string>()
     for (const file of SOURCES) {
       const toks = pythonTokens(source(file))
@@ -377,7 +478,39 @@ describe('the summary stream error sentences the filing page maps', () => {
         if (lit) written.add(lit.text)
       })
     }
+    for (const answer of endpointErrors()) written.add(answer.text)
     expect(Object.keys(STREAM_ERROR_COPY).filter((key) => !written.has(key)), 'delete the stale line from STREAM_ERROR_COPY').toEqual([])
+  })
+
+  it("reads every error an endpoint function raises, in each form, and nothing after it (a self-check on planted forms)", () => {
+    const probe = [
+      'async def stream(',
+      '    filing_id: int,',
+      '):',
+      '    enforce_rate_limit(request, LIMITER, key, error_detail="Too many requests.", include_client_ip=False)',
+      '    if not filing:',
+      '        raise HTTPException(status_code=404, detail="Filing gone")',
+      '    denied = HTTPException(',
+      '        status_code=status.HTTP_403_FORBIDDEN,',
+      '        detail=("A Pro " "feature."),',
+      '        headers={"X": "y"},',
+      '    )',
+      '    try:',
+      '        raise denied',
+      '    except (ValueError, HTTPException):',
+      '        raise',
+      '',
+      'def after():',
+      '    raise HTTPException(status_code=500, detail="Not read")',
+    ].join('\n')
+    expect(raisedErrors(probe, 'p.py', 'stream')).toEqual([
+      { file: 'p.py', line: 4, status: 429, text: 'Too many requests.' },
+      { file: 'p.py', line: 6, status: 404, text: 'Filing gone' },
+      { file: 'p.py', line: 7, status: 403, text: 'A Pro feature.' },
+    ])
+    expect(() => raisedErrors('def f():\n    raise HTTPException(status_code=403, detail=reason)', 'q.py', 'f')).toThrow(/cannot key/)
+    expect(() => raisedErrors('def f():\n    raise HTTPException(detail="No status")', 'q.py', 'f')).toThrow(/no status/)
+    expect(() => raisedErrors('def g():\n    pass', 'q.py', 'f')).toThrow(/is gone/)
   })
 
   it('leaves the routing words in the sentences the matchers must catch', () => {
@@ -394,6 +527,7 @@ describe('the summary stream error sentences the filing page maps', () => {
       ...['backend/app/routers/summaries.py', ...SOURCES.map((file) => `backend/app/services/${file}`)].flatMap((rel) =>
         pythonTokens(readFileSync(path.join(REPO, rel), 'utf8')).filter((t) => t.kind === 'str').map((t) => t.text),
       ),
+      ...endpointErrors().map((answer) => answer.text),
       ...frontendFile('features/summaries/api/summaries-api.ts'),
       ...frontendFile('features/summaries/hooks/useSummaryGeneration.ts'),
     ].map((s) => s.toLowerCase())
@@ -403,6 +537,58 @@ describe('the summary stream error sentences the filing page maps', () => {
     // A matcher's own phrase is never its writer, whatever its spelling.
     const matcher = "const isNonRetryableStreamError = (m: string) => m.includes('sign-in') || m.includes(\"o'clock 9\")\nconst s = 'Sign in again.'"
     expect(frontendStrings(matcher)).toEqual(['Sign in again.'])
+  })
+
+  it("holds Pro's fair-use pause, in admission.py's own words, to the matcher that stops every retry", () => {
+    // The block read, planted: the error inside the block counts (its literals joined, a blank and a comment line
+    // inside skipped), the one after the block's dedent does not, and a condition no line tests reads as null.
+    const probe = [
+      'async def admit(run):',
+      '    if can_generate:',
+      '        return',
+      '    if user_is_unlimited:  # Pro',
+      '        logger.warning("capped")',
+      '',
+      '        # the pause',
+      '        yield {"type": "error", "message": ("A paused " "run.")}',
+      '        return',
+      '    yield {"type": "error", "message": "After the block."}',
+    ].join('\n')
+    expect(errorsUnder(probe, 'p.py', 'user_is_unlimited')).toEqual([{ file: 'p.py', line: 8, text: 'A paused run.', error: true }])
+    expect(errorsUnder(probe, 'p.py', 'user_is_pro')).toBeNull()
+    const file = 'summary_stages/admission.py'
+    const pause = errorsUnder(source(file), file, 'user_is_unlimited')
+    expect(pause, `${file} no longer tests \`if user_is_unlimited:\`: find where it streams Pro's fair-use pause and read that`).not.toBeNull()
+    expect(pause!.map((m) => m.text), `${file} streams one fair-use pause`).toHaveLength(1)
+    expect(
+      isNonRetryableStreamError(pause![0].text),
+      `${file}:${pause![0].line} "${pause![0].text}" no longer matches isNonRetryableStreamError: move its phrase ` +
+        '(features/summaries/api/summaries-api.ts) to the new words, or the stream retries the pause and its card offers a Retry',
+    ).toBe(true)
+  })
+
+  it('holds every 403 the stream endpoint answers with, in its own words, to that matcher, and keeps a Retry for the rest', () => {
+    // What a retry can do about each status the endpoint answers with before it streams. A 403 is a plan or account
+    // gate (a Free reader's force regeneration of a summary the page shows, an inactive account): it holds whatever
+    // the reader retries. A 401 can lift after a refresh or a sign-in (with the session gone, a press starts no
+    // run and says to sign in), the 404 is kept retryable since round 3 (only a row deleted mid-run reaches it), and
+    // a 429 lifts after a moment.
+    const NO_RETRY_HELPS = new Set([403])
+    const A_RETRY_CAN_HELP = new Set([401, 404, 429])
+    const answers = endpointErrors()
+    for (const { file } of ENDPOINT) {
+      expect(answers.some((answer) => answer.file === file && answer.status === 403), `${file} answers with a 403 the reader reads`).toBe(true)
+    }
+    const unclassified = answers.filter((answer) => !NO_RETRY_HELPS.has(answer.status) && !A_RETRY_CAN_HELP.has(answer.status))
+    expect(unclassified.map((answer) => `${answer.file}:${answer.line} ${answer.status}`), 'say here whether a retry can help this status').toEqual([])
+    const misread = answers
+      .filter((answer) => isNonRetryableStreamError(answer.text) !== NO_RETRY_HELPS.has(answer.status))
+      .map((answer) => `${answer.file}:${answer.line} ${answer.status} "${answer.text}"`)
+    expect(
+      misread,
+      'a 403 must match isNonRetryableStreamError (features/summaries/api/summaries-api.ts) in its own words, or its card ' +
+        'offers a Retry that repeats it; a 401, 404 or 429 must not',
+    ).toEqual([])
   })
 
   it('spells a displayed em-dash only as the character, the char code in streamErrorCopy.ts aside', () => {
