@@ -1002,6 +1002,29 @@ def test_a_repository_write_whose_body_the_hook_cannot_read_is_refused(scanner: 
     assert scanner.calls() == []  # refused before any scan
 
 
+# A body file is read from the directory the call starts in, so a relative one in a line that changes directory (a cd,
+# pushd or popd anywhere in it) may be another file than the one the write sends (Codex's): refused before any scan,
+# though clean files of the same names stand where the call starts.
+@pytest.mark.parametrize("command", [
+    "cd payloads && gh api repos/o/r/git/blobs --input payload.json",
+    "(cd payloads && gh api repos/o/r/git/blobs --input payload.json)",
+    "pushd payloads && curl -X POST https://api.github.com/repos/o/r/git/trees -d @tree.json",
+    "cd payloads; cat payload.json | gh api repos/o/r/git/blobs --input -",
+], ids=["after a cd", "in a subshell after a cd", "a curl body after a pushd", "a body piped in after a cd"])
+def test_a_relative_body_file_in_a_line_that_changes_directory_is_refused(scanner: Scanner, payloads: Path,
+                                                                         command: str) -> None:
+    for name in ("payload.json", "tree.json"):
+        (payloads.parent / name).write_text(json.dumps({"message": "m", "content": _b64("nothing to see\n")}),
+                                            encoding="utf-8")
+    _refused(_bash(scanner, command, payloads.parent), "changes directory", "by its absolute path")
+    assert scanner.calls() == []
+
+
+def test_an_absolute_body_file_after_a_cd_is_read_where_it_is(scanner: Scanner, payloads: Path) -> None:
+    command = f"cd {payloads} && gh api repos/o/r/git/blobs --input {payloads / 'payload.json'}"
+    _refused(_bash(scanner, command, payloads.parent), "decoded-content-1:1 (stub-rule)")
+
+
 def test_a_call_that_writes_no_repository_content_may_name_a_missing_file(scanner: Scanner, payloads: Path) -> None:
     assert _bash(scanner, "gh api repos/o/r/issues/1/comments -F body=@later.md", payloads) is None
 

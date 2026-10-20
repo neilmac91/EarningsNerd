@@ -73,7 +73,9 @@ in any case. It scans
   the line as written, the files its GitHub writes send (codex_mention_guard.py's detection), and, decoded, each
   base64 `content` value in either and each such file that is base64 whole, with `gitleaks dir`. A file it sends
   that the hook cannot read as the line stands (one the line itself makes, one over the reader's 1 MiB, one that is
-  no regular file) refuses the call, since what the write sends would go unscanned.
+  no regular file) refuses the call, since what the write sends would go unscanned; so does one named by a relative
+  path in a line that changes directory (a cd, pushd or popd anywhere in it), since the hook reads a body file from
+  the directory the call starts in.
 A finding, a scan that fails (its refusal names gitleaks' error lines first) and one that outlasts the hook's time each
 refuse the call. A refusal is a JSON deny on stdout naming the scan, where it found something (file, line and rule;
 for a commit, its fingerprint) and what to do next, never the secret (gitleaks runs with --redact and without
@@ -195,6 +197,8 @@ LATE_WRITE = "Send fewer files per call"
 COMMIT_REMEDY = "Commit in one call and push in the next, so the push's scan reads the new commits"
 SCAN_ERROR_REMEDY = "Fix what gitleaks names (a missing ref, an unreadable repository or file) and send the call again"
 STAGE_REMEDY = "Send each file under a path that names one regular file, and send the call again"
+MOVED_BODY_REMEDY = ("Name each body file by its absolute path, or change directory in an earlier call (the next call "
+                     "starts there), and send the call again")
 UNREAD_REMEDY = ("Write the body in an earlier call, keep it to 1 MiB, and send it in a call of its own; for a larger "
                  "file, commit it and push it with git, whose scan reads commits of any size")
 
@@ -671,8 +675,12 @@ def _api_refusal(command: str, script: str, cwd: object) -> str | None:
     words = " ".join(shell._tokens(script))
     if CONTENT_WRITE.search(words) is None or (GH_API.search(words) is None and "api.github.com" not in words.lower()):
         return None
-    texts = [command]
+    texts, moved = [command], _changes_directory(script)
     for name in shell._names_sent(script):
+        if moved and not os.path.isabs(os.path.expanduser(name)):
+            return _reason(f"this line changes directory and sends {name!r}, a relative path, as a body, and the hook "
+                           "reads a body file from the directory the call starts in, so it cannot tell which file the "
+                           "write sends.", MOVED_BODY_REMEDY)
         text = shell._read_sent(name, cwd)
         if text is None:  # a body the scan cannot read would go unscanned
             return _reason(f"this command sends {name!r} as a body, and the hook cannot read it as the line stands "
@@ -687,6 +695,13 @@ def _api_refusal(command: str, script: str, cwd: object) -> str | None:
         decoded += [data for value in values if (data := _decoded(value))]
     files += [(f"decoded-content-{n}", data) for n, data in enumerate(decoded, 1)]
     return _scan_files(files, "what this command writes to a repository", WRITE_REMEDY)
+
+
+def _changes_directory(script: str) -> bool:
+    """Whether the script may change its directory: a cd, pushd or popd anywhere in it, whatever the order the reader
+    gives its commands."""
+    commands = shell._commands(shell._command_tokens(_uncommented(script)))
+    return any(word in ("cd", "pushd", "popd") for _operator, words in commands for word in words)
 
 
 def _bash_refusal(command: str, cwd: object) -> str | None:
