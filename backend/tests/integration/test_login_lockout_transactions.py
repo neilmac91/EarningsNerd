@@ -50,7 +50,7 @@ def _seed(engine, email, scenario):
     if scenario == "absent":
         return
     now = datetime.now(timezone.utc)
-    with Session(engine) as db:
+    with _session(engine) as db:
         db.add(LoginAttempt(
             email_hash=lockout._email_hash(email),
             failed_count=8 if scenario == "current" else 10,

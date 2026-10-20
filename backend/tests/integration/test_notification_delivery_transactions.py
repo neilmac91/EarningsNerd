@@ -59,7 +59,7 @@ def _session(bind) -> Session:
 
 
 def _seed_batch(engine) -> tuple[int, int, int]:
-    with Session(engine) as db:
+    with _session(engine) as db:
         company = Company(cik=uuid.uuid4().hex[:10], ticker="T1", name="Company One")
         user = User(email=f"delivery-{uuid.uuid4().hex}@example.com", is_active=True, is_pro=True)
         db.add_all([company, user])

@@ -71,7 +71,7 @@ def _session(bind) -> Session:
 
 
 def _seed(engine, counts=None):
-    with Session(engine) as db:
+    with _session(engine) as db:
         user = User(email=f"usage-{uuid.uuid4().hex}@example.com")
         db.add(user)
         db.flush()
@@ -82,7 +82,7 @@ def _seed(engine, counts=None):
 
 
 def _rows(engine, user_id):
-    with Session(engine) as db:
+    with _session(engine) as db:
         return [(r.id, r.summary_count, r.qa_count, r.analysis_count)
                 for r in db.query(UserUsage).filter_by(user_id=user_id, month=MONTH).order_by(UserUsage.id)]
 
@@ -219,7 +219,7 @@ def test_failed_commit_rolls_back_without_retry(sqlite_engine, existing):
             raise RuntimeError("commit outcome unavailable")
 
     with pytest.raises(RuntimeError, match="commit outcome unavailable"):
-        with FailedCommit(sqlite_engine) as db:
+        with sessionmaker(**{**SessionLocal.kw, "bind": sqlite_engine}, class_=FailedCommit)() as db:
             usage.increment_user_usage(uid, MONTH, db)
     assert calls == ["commit"]
     assert _rows(sqlite_engine, uid) == before
@@ -227,17 +227,17 @@ def test_failed_commit_rolls_back_without_retry(sqlite_engine, existing):
 
 def test_existing_duplicate_history_is_neither_repaired_nor_summed(sqlite_engine):
     uid = _seed(sqlite_engine, (2, 3, 4))
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         db.add(UserUsage(user_id=uid, month=MONTH, summary_count=20, qa_count=30, analysis_count=40))
         db.commit()
         selected = db.query(UserUsage).filter_by(user_id=uid, month=MONTH).first().id
     before = _rows(sqlite_engine, uid)
     for writer, _ in WRITERS:
-        with Session(sqlite_engine) as db:
+        with _session(sqlite_engine) as db:
             writer(uid, MONTH, db)
     expected = [(rid, a + (rid == selected), b + (rid == selected), c + (rid == selected)) for rid, a, b, c in before]
     assert _rows(sqlite_engine, uid) == expected
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         assert usage.get_user_usage_count(uid, MONTH, db) == next(r[1] for r in expected if r[0] == selected)
 
 
@@ -248,19 +248,19 @@ async def test_signed_in_background_cached_summary_keeps_legacy_increment(sqlite
     from tests.support.summary_stream_harness import seed_company_filing
 
     Base.metadata.create_all(sqlite_engine)
-    factory = sessionmaker(bind=sqlite_engine)
+    factory = sessionmaker(**{**SessionLocal.kw, "bind": sqlite_engine})
     monkeypatch.setattr(database, "SessionLocal", factory)
     monkeypatch.setattr(summary_generation_service, "SessionLocal", factory)
     fid = seed_company_filing()
     uid = _seed(sqlite_engine)
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         db.add(Summary(filing_id=fid, business_overview="Already stored"))
         db.commit()
     drain = AsyncMock(side_effect=AssertionError("cached background path regenerated"))
     monkeypatch.setattr(summary_pipeline, "stream_filing_summary", drain)
     await summary_generation_service.generate_summary_background(fid, uid)
     drain.assert_not_called()
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         assert usage.get_user_usage_count(uid, usage.get_current_month(), db) == 1
         assert db.query(Summary).filter_by(filing_id=fid).count() == 1
 
@@ -281,7 +281,7 @@ def _pin_month(monkeypatch):
 
 
 def _reservations(engine, user_id):
-    with Session(engine) as db:
+    with _session(engine) as db:
         return [(r.token, r.kind) for r in db.query(UsageReservation).filter_by(user_id=user_id).order_by(UsageReservation.id)]
 
 
@@ -426,7 +426,7 @@ def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqli
     a UTC month rollover never lands in the new month (whose admissions did not see it)."""
     uid = _seed(sqlite_engine)
     admitted_month = "2026-08"
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         db.add(UsageReservation(
             user_id=uid, month=admitted_month, kind=usage.SUMMARY_RESERVATION_KIND, token="rollover-lease",
             expires_at=usage.utcnow() + timedelta(seconds=300), created_at=usage.utcnow(),
@@ -438,7 +438,7 @@ def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqli
         assert usage.convert_reservation("rollover-lease", db) == admitted_month
         usage.increment_user_usage(uid, admitted_month, db)  # commits the delete with the increment
     assert _reservations(sqlite_engine, uid) == []
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         buckets = {r.month: r.summary_count for r in db.query(UserUsage).filter_by(user_id=uid)}
     assert buckets == {admitted_month: 1}
 

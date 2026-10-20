@@ -1,7 +1,9 @@
-"""tests/support/postgres_gates.py fails a run in which a PostgreSQL gate's variable is set and its cases skip (E132).
+"""tests/support/postgres_gates.py fails a run in which a PostgreSQL gate's variable is set and its cases do not run
+(E132).
 
-Each child run loads the plugin as its conftest and runs one probe module named after a gate home, in a subprocess so
-the plugin's counts start empty, serially and under pytest-xdist (where only the controller sees every report).
+Each child run loads the plugin as its conftest and runs one probe module named after a gate home, in a subprocess,
+serially and under pytest-xdist (where only the controller sees every report). The forms planted: a fixture that reads
+another variable, a module that skips as it imports, a module's skip mark, a skip in a test's body, and an xfail.
 """
 from pathlib import Path
 
@@ -33,6 +35,7 @@ def test_a_sqlite_case():
     pass
 """
 
+# A module that skips as it imports collects nothing (alone in a run, exit 5).
 MODULE_SKIP = """
 import pytest
 
@@ -40,6 +43,31 @@ pytest.skip("parked", allow_module_level=True)
 
 def test_a_race():
     pass
+"""
+
+# A module's skip mark collects its tests and skips each one (exit 0 on its own).
+MARKED_SKIP = """
+import pytest
+
+pytestmark = pytest.mark.skip(reason="parked")
+
+def test_a_race():
+    pass
+"""
+
+BODY_SKIP = """
+import pytest
+
+def test_a_race():
+    pytest.skip("not today")
+"""
+
+EXPECTED_FAILURE = """
+import pytest
+
+@pytest.mark.xfail(reason="known")
+def test_a_race():
+    assert False
 """
 
 CASES_RUN = """
@@ -64,12 +92,17 @@ def _run(pytester, source, *args, home=HOME):
 
 
 @PARALLEL
-@pytest.mark.parametrize("source", [FIXTURE_READS_ANOTHER_VARIABLE, MODULE_SKIP], ids=["fixture", "module"])
-def test_a_gate_whose_cases_skip_while_its_variable_is_set_fails(pytester, monkeypatch, source, parallel):
+@pytest.mark.parametrize("source,kind", [
+    (FIXTURE_READS_ANOTHER_VARIABLE, "skipped"), (MODULE_SKIP, "skipped"), (MARKED_SKIP, "skipped"),
+    (BODY_SKIP, "skipped"), (EXPECTED_FAILURE, "xfailed"),
+], ids=["fixture", "module", "mark", "body", "xfail"])
+def test_a_gate_whose_cases_do_not_run_while_its_variable_is_set_fails(pytester, monkeypatch, source, kind, parallel):
     monkeypatch.setenv(VARIABLE, "postgresql://set-by-the-step")
     result = _run(pytester, source, *parallel)
     assert result.ret == pytest.ExitCode.TESTS_FAILED, result.stdout.str()[-2000:]
-    result.stdout.fnmatch_lines([f"*postgres gate: {VARIABLE} is set, yet 1 of {HOME}.py's cases skipped*"])
+    result.stdout.fnmatch_lines([
+        f"*postgres gate: {VARIABLE} is set, yet 1 of {HOME}.py's cases did not run*", f"{kind}: *",
+    ])
 
 
 @PARALLEL
@@ -92,3 +125,15 @@ def test_a_home_that_is_no_gate_may_skip_while_a_gate_variable_is_set(pytester, 
     result = _run(pytester, FIXTURE_READS_ANOTHER_VARIABLE, home="test_something_else")
     assert result.ret == pytest.ExitCode.OK, result.stdout.str()[-2000:]
     result.assert_outcomes(passed=1, skipped=1)
+
+
+def test_each_run_in_one_process_keeps_its_own_count(pytester, monkeypatch):
+    """Two in-process runs one after the other, as a pytester child runs inside a serial parent: the first's case
+    that did not run must not fail the second, nor the parent."""
+    monkeypatch.setenv(VARIABLE, "postgresql://set-by-the-step")
+    pytester.makepyfile(**{HOME: FIXTURE_READS_ANOTHER_VARIABLE})
+    first = pytester.runpytest("-p", "tests.support.postgres_gates", *CHILD_ARGS)
+    assert first.ret == pytest.ExitCode.TESTS_FAILED, first.stdout.str()[-2000:]
+    pytester.makepyfile(**{HOME: CASES_RUN})
+    second = pytester.runpytest("-p", "tests.support.postgres_gates", *CHILD_ARGS)
+    assert second.ret == pytest.ExitCode.OK, second.stdout.str()[-2000:]

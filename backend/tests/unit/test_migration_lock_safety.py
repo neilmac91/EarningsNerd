@@ -507,21 +507,99 @@ _POSTGRES_STEPS = [
     ("alert delivery claim", "test_notification_delivery_transactions.py", "DELIVERY_CONCURRENCY_TEST_DATABASE_URL"),
     ("refresh token rotation", "test_refresh_rotation_transactions.py", "REFRESH_CONCURRENCY_TEST_DATABASE_URL"),
 ]
+_GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 
 
-def test_every_postgres_step_fails_when_its_cases_skip():
-    """A home that stops reading its variable in the fixture, or skips at module level, would pass its required
-    step with nothing run; tests/support/postgres_gates.py fails such a run, and it must know every step (E132)."""
-    from tests import conftest
+def _last_name(node: ast.expr) -> str | None:
+    return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+
+
+def _spreads_production_settings(call: ast.Call) -> bool:
+    """``sessionmaker(**{**SessionLocal.kw, "bind": ...})``, with at most ``class_=`` beside it: production's
+    settings, with only the engine (and a test's Session subclass) replaced."""
+    spreads = [keyword.value for keyword in call.keywords if keyword.arg is None]
+    named = {keyword.arg for keyword in call.keywords if keyword.arg is not None}
+    if call.args or len(spreads) != 1 or not named <= {"class_"} or not isinstance(spreads[0], ast.Dict):
+        return False
+    keys, values = spreads[0].keys, spreads[0].values
+    return (
+        len(keys) == 2 and keys[0] is None and ast.unparse(values[0]) == "SessionLocal.kw"
+        and isinstance(keys[1], ast.Constant) and keys[1].value == "bind"
+    )
+
+
+def _sessions_without_production_settings(tree: ast.Module) -> list[str]:
+    """Each session a gate home opens that may lack production's settings: ``Session``, or a class derived from
+    it, called directly (it autoflushes), or a ``sessionmaker`` that sets anything beyond the engine."""
+    session_classes = {"Session"}
+    classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
+    while derived := {
+        node.name for node in classes
+        if node.name not in session_classes and any(_last_name(base) in session_classes for base in node.bases)
+    }:
+        session_classes |= derived
+    return [
+        f"line {node.lineno}: {ast.unparse(node)}" for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and (
+            _last_name(node.func) in session_classes
+            or (_last_name(node.func) == "sessionmaker" and not _spreads_production_settings(node))
+        )
+    ]
+
+
+def test_session_settings_detector_semantics():
+    def found(source: str) -> list[str]:
+        return _sessions_without_production_settings(ast.parse(source))
+
+    assert found('sessionmaker(**{**SessionLocal.kw, "bind": engine})()') == []
+    assert found('sessionmaker(**{**SessionLocal.kw, "bind": engine}, class_=Observed)') == []
+    # A Session called directly autoflushes, by any spelling and through any class derived from it.
+    assert found("Session(engine)") == ["line 1: Session(engine)"]
+    assert found("orm.Session(bind=conn)") == ["line 1: orm.Session(bind=conn)"]
+    assert found("class A(Session): pass\nclass B(A): pass\nB(engine)") == ["line 3: B(engine)"]
+    # A factory with settings of its own, or without production's: a later key wins a dict merge, so
+    # SessionLocal.kw spread after the engine binds the app's database instead.
+    for source in (
+        "sessionmaker(bind=engine, autoflush=False)",
+        "sessionmaker(engine)",
+        'sessionmaker(**{**SessionLocal.kw, "bind": engine, "autoflush": True})',
+        'sessionmaker(**{**SessionLocal.kw, "bind": engine}, autoflush=True)',
+        'sessionmaker(**{"bind": engine, **SessionLocal.kw})',
+        'sessionmaker(**{**SessionLocal.kw, "bind": engine}, **overrides)',
+    ):
+        assert len(found(source)) == 1, source
+
+
+def _sets_a_gate_variable(scope: dict) -> bool:
+    return any(_GATE_VARIABLE.fullmatch(str(name)) for name in scope.get("env") or {})
+
+
+def test_every_postgres_step_fails_when_its_cases_skip(request):
+    """A home whose fixture stops reading its variable, or whose module carries a skip mark, would pass its
+    required step with nothing run; tests/support/postgres_gates.py fails such a run, and it must know every
+    step (E132)."""
     from tests.support import postgres_gates
 
-    steps = {
-        str(step.get("name", "")) for step in _load_ci()["jobs"][MIGRATIONS_JOB]["steps"]
+    ci = _load_ci()
+    expected = sorted(f"Verify {label} concurrency on PostgreSQL" for label, _, _ in _POSTGRES_STEPS)
+    named = sorted(
+        str(step.get("name", "")) for step in ci["jobs"][MIGRATIONS_JOB]["steps"]
         if re.fullmatch(r"Verify .+ concurrency on PostgreSQL", str(step.get("name", "")))
-    }
-    assert steps == {f"Verify {label} concurrency on PostgreSQL" for label, _, _ in _POSTGRES_STEPS}
+    )
+    assert named == expected
+    # Whatever its name: each env, the workflow's, a job's or a step's, that hands a home a gate's database.
+    scopes = [ci, *ci["jobs"].values(), *(step for job in ci["jobs"].values() for step in job.get("steps", []))]
+    armed = sorted(str(scope.get("name", "")) for scope in scopes if _sets_a_gate_variable(scope))
+    assert armed == expected, "a step that sets a *_TEST_DATABASE_URL is a PostgreSQL gate: give it a row here"
     assert postgres_gates.POSTGRES_GATES == {home: url_name for _, home, url_name in _POSTGRES_STEPS}
-    assert "tests.support.postgres_gates" in conftest.pytest_plugins
+    # Registered by the conftest, which the steps load though they clear pytest.ini's addopts.
+    conftest = ast.parse((BACKEND_DIR / "tests" / "conftest.py").read_text(encoding="utf-8"))
+    plugins = [
+        ast.literal_eval(node.value) for node in conftest.body
+        if isinstance(node, ast.Assign) and [ast.unparse(target) for target in node.targets] == ["pytest_plugins"]
+    ]
+    assert len(plugins) == 1 and "tests.support.postgres_gates" in plugins[0]
+    assert request.config.pluginmanager.get_plugin("tests.support.postgres_gates") is postgres_gates
 
 
 @pytest.mark.parametrize("label,test_home,url_name", _POSTGRES_STEPS)
@@ -536,20 +614,14 @@ def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home,
         and node.args and isinstance(node.args[0], ast.Constant)
     }
     assert url_name in read, f"{test_home} must read {url_name}, the variable its step sets, or its cases skip"
-    # Its requests run with production's session settings, which do not autoflush: an autoflushing session
+    # Every session it opens has production's settings, which do not autoflush: an autoflushing session
     # flushes a pending write at the request's next query, and can serialize two requests that production
     # does not (E127's gate hid a lock moved out of a password reset's revocation that way).
-    production_sessions = any(
-        isinstance(node, ast.Attribute) and node.attr == "kw" and ast.unparse(node.value) == "SessionLocal"
-        for node in ast.walk(home)
-    ) or any(
-        isinstance(node, ast.keyword) and node.arg == "autoflush"
-        and isinstance(node.value, ast.Constant) and node.value.value is False
-        for node in ast.walk(home)
-    )
-    assert production_sessions, (
-        f"{test_home} must run its requests in sessions with production's settings: a sessionmaker built "
-        "from SessionLocal.kw, or autoflush=False"
+    unlike_production = _sessions_without_production_settings(home)
+    assert unlike_production == [], (
+        f"{test_home} must open every session with production's settings, through a sessionmaker that spreads "
+        f'SessionLocal.kw and replaces only its bind (sessionmaker(**{{**SessionLocal.kw, "bind": engine}})): '
+        f"{unlike_production}"
     )
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]

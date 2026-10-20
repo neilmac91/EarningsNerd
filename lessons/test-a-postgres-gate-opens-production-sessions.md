@@ -1,0 +1,33 @@
+# Open every session in a PostgreSQL gate with production's settings
+
+Date: 2026-10-20   Area: test
+
+**Context**: `Session(engine)` autoflushes; production's `SessionLocal` does not. An autoflushing
+session flushes a pending write at its next query, where production waits for the commit, so it
+can serialize two requests that production does not.
+- **E127.** Its gate ran a password reset that way. The reset flushed its users UPDATE before its
+  bulk revoke and waited there for a racing refresh. That hid a mutant that moved the lock out of
+  the revocation.
+- **E132.** The usage-counter, login-failure and alert-delivery gates ran their code the same way.
+  Their app mutants failed alike under both kinds of session: their writes are Core statements
+  that run at once, or ORM inserts flushed explicitly or right before a commit. The review's
+  mutant shows what was at stake. With the usage counter's users-row lock replaced by an ORM write
+  on that row, 4 cases fail under production's settings, and all 30 pass under autoflushing
+  sessions.
+
+**Rule**: Open every session in a PostgreSQL gate home through a `sessionmaker` that spreads
+`SessionLocal.kw` and replaces only its bind: `_session(bind)` in each home, or
+`sessionmaker(**{**SessionLocal.kw, "bind": engine})`, with `class_=` for a test's Session
+subclass.
+- Never `Session(engine)`, and never a factory with settings of its own.
+- Seeds and assertions follow the rule too. The production code they run, such as `create_batch`,
+  `create_refresh_token` and `payment_report`, then runs as production runs it.
+
+**Evidence**:
+- `_session` in each of the five homes under `backend/tests/integration/` (`*_transactions.py`).
+- `backend/tests/unit/test_migration_lock_safety.py`:
+  - `test_concurrency_has_a_required_postgres_ci_execution_path` fails a session a gate home opens
+    without production's settings (`_sessions_without_production_settings`);
+  - `test_session_settings_detector_semantics` holds the detector to planted forms.
+- A session built in a module the home imports, or a setting changed after a session is made, is
+  review-checked.
