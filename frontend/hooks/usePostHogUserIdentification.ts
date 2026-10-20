@@ -8,6 +8,7 @@ import { getSubscriptionStatus } from '@/features/subscriptions/api/subscription
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { analytics } from '@/lib/analytics'
 import { queryKeys } from '@/lib/queryKeys'
+import { usePostHogReady } from '@/lib/posthogReady'
 
 /**
  * App-wide PostHog identification (roadmap 2.4). Once the signed-in user and their subscription
@@ -20,6 +21,10 @@ import { queryKeys } from '@/lib/queryKeys'
  * Reuses the existing `queryKeys.currentUser()` / `queryKeys.subscription.byUser(user?.id)` React Query caches (no extra requests)
  * and `analytics.identify` (which also mirrors the id into Sentry). Idempotent: a ref guards against
  * re-identifying on every render — it only fires when the user id or pro status changes.
+ *
+ * It also waits for PostHog to be ready (lib/posthogReady.ts) and runs again when it is, so a reader whose account
+ * resolved while analytics was off is identified once a first allow from the footer's Cookie settings has loaded
+ * the SDK, with no remount to run it.
  */
 export function usePostHogUserIdentification(): void {
   const { data: user } = useQuery({
@@ -34,10 +39,11 @@ export function usePostHogUserIdentification(): void {
     enabled: !!user, // subscription is account-scoped; don't fire a guaranteed-401 for guests
   })
 
+  const posthogReady = usePostHogReady()
   const lastIdentity = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!user?.id) return
+    if (!user?.id || !posthogReady) return
     // Respect the analytics opt-in: PostHog is opted-out without it, and we shouldn't touch Sentry's
     // user either. (null preferences = no choice yet → wait for consent.)
     if (getCookiePreferences()?.analytics !== true) return
@@ -52,5 +58,5 @@ export function usePostHogUserIdentification(): void {
     lastIdentity.current = identity
 
     analytics.identify(String(user.id), { is_pro: isPro, plan: isPro ? 'pro' : 'free' })
-  }, [user?.id, subscription])
+  }, [user?.id, subscription, posthogReady])
 }

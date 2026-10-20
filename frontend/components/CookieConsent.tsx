@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { CookieIcon } from '@/lib/icons'
+import { OPEN_COOKIE_SETTINGS_EVENT } from '@/lib/cookieSettings'
 import Link from 'next/link'
 import { Button, Checkbox, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
@@ -81,28 +82,15 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     const existingPreferences = getCookiePreferences()
 
     if (!existingPreferences) {
-      // Check "Do Not Track" browser setting
-      // Note: window.doNotTrack is non-standard but supported by some browsers
-      const windowDoNotTrack = 'doNotTrack' in window ? (window as Window & { doNotTrack?: string }).doNotTrack : undefined
-      const doNotTrack =
-        navigator.doNotTrack === '1' ||
-        windowDoNotTrack === '1'
-
-      if (doNotTrack) {
-        // Respect DNT by only enabling essential cookies
-        const dntPreferences = { ...DEFAULT_PREFERENCES }
-        saveCookiePreferences(dntPreferences)
-        onPreferencesChanged?.(dntPreferences)
-      } else {
-        // Show banner for first-time visitors. Announce the consent layer in the same effect pass
-        // (height still 0): FilingWorkspace mounts earlier in the tree, so its coachmark decision
-        // and this flag land in one batched render and the nudge never points at a covered
-        // launcher, not even for a frame. The bar's layout effect below publishes the real height
-        // (and owns it: a re-run of this effect must not reset a measured inset to 0).
-        if (!isConsentLayerVisible()) publishConsentLayer(0)
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage/DNT, only readable client-side after hydration
-        setShowBanner(true)
-      }
+      // Show banner for first-time visitors, every one: the banner is the only control, and no browser
+      // privacy signal stands in for the visitor's choice (D-049). Announce the consent layer in the same
+      // effect pass (height still 0): FilingWorkspace mounts earlier in the tree, so its coachmark decision
+      // and this flag land in one batched render and the nudge never points at a covered
+      // launcher, not even for a frame. The bar's layout effect below publishes the real height
+      // (and owns it: a re-run of this effect must not reset a measured inset to 0).
+      if (!isConsentLayerVisible()) publishConsentLayer(0)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage, only readable client-side after hydration
+      setShowBanner(true)
     } else {
       // Use existing preferences
       setPreferences(existingPreferences)
@@ -173,10 +161,19 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   // the Customize button that opened it (Save still dismisses both). Its state stays mounted too, so
   // the draft starts from the saved choices on every open: a dismissed edit must not come back, or be
   // saved by a later Save.
-  const handleOpenSettings = () => {
+  const handleOpenSettings = useCallback(() => {
     setPreferences(getCookiePreferences() ?? DEFAULT_PREFERENCES)
     setShowSettings(true)
-  }
+  }, [])
+
+  // After a first choice the bar is gone; the footer's "Cookie settings" (lib/cookieSettings.ts) opens this
+  // same dialog on the stored choices, and Save writes them and fires cookieConsentChanged as the bar does,
+  // so /privacy's withdrawal sentence holds ("You can withdraw consent for analytics and session recording at
+  // any time through our cookie consent banner or settings."). ui/Modal returns focus to the control that opened it.
+  useEffect(() => {
+    window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
+    return () => window.removeEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
+  }, [handleOpenSettings])
 
   if (!showBanner && !showSettings) return null
 
@@ -204,11 +201,14 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           recording are off until you allow them here. Choose the ones you are comfortable with.
         </p>
 
+        {/* Each category row takes the Notice's recipe (components/ui/Notice.tsx): it wraps, and its text keeps
+            9rem beside the box or takes the card's width with the box under it, so at 200% text no box leaves
+            its card (tests/e2e/reflow-200.spec.ts). At the default size the box stays beside its text. */}
         <div className="space-y-4">
           {/* Essential cookies */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-essential-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
@@ -220,7 +220,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   security, and basic functionality. Cannot be disabled.
                 </p>
               </div>
-              <div className="ml-4">
+              <div>
                 <Checkbox
                   checked={true}
                   disabled
@@ -233,8 +233,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
           {/* Analytics cookies */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-analytics-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
@@ -247,7 +247,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   experience.
                 </p>
               </div>
-              <div className="ml-4">
+              <div>
                 <Checkbox
                   checked={preferences.analytics}
                   onChange={(e) =>
@@ -262,8 +262,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
           {/* Session recording */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-recording-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
@@ -276,7 +276,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   more invasive and is opt-in only.
                 </p>
               </div>
-              <div className="ml-4">
+              <div>
                 <Checkbox
                   checked={preferences.sessionRecording}
                   onChange={(e) =>

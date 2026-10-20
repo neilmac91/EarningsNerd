@@ -597,8 +597,8 @@ export default function PricingPage() {
   const [billingResolved, setBillingResolved] = useState(false)
   const [checkoutCanceled, setCheckoutCanceled] = useState(false)
   const noteCheckoutCanceled = useCallback(() => setCheckoutCanceled(true), [])
-  // The flag is gone from the address once read, so a remount in the same commit (the PostHog provider
-  // swaps its element when cookie consent arrives) keeps the notice (features/subscriptions/lib/returnNotice.ts).
+  // The flag is gone from the address once read, so a remount in the same commit (any parent that swaps
+  // its element type) keeps the notice (features/subscriptions/lib/returnNotice.ts).
   useCarryReturnNotice('pricing-checkout-canceled', checkoutCanceled)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- takes the notice a remount in this same commit carried; it exists only after the commit that unmounted the page showing it
