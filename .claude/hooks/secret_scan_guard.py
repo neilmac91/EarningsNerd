@@ -47,10 +47,11 @@ in any case. It scans
   `git/trees`, `git/commits`) or GraphQL's createCommitOnBranch, through `gh api` or api.github.com, a read included:
   the line as written, the files its GitHub writes send (codex_mention_guard.py's detection), and, decoded, each
   base64 `content` value in either and each such file that is base64 whole, with `gitleaks dir`.
-A finding, a scan that fails and one that outlasts the hook's time each refuse the call. A refusal is a JSON deny on
-stdout naming the scan, where it found something (file, line and rule; for a commit, its fingerprint) and what to do
-next, never the secret (gitleaks runs with --redact and without --verbose); anything else exits 0 with no output.
-A crash exits 1, which Claude Code reports as a hook error and lets through.
+A finding, a scan that fails (its refusal names gitleaks' error lines first) and one that outlasts the hook's time each
+refuse the call. A refusal is a JSON deny on stdout naming the scan, where it found something (file, line and rule;
+for a commit, its fingerprint) and what to do next, never the secret (gitleaks runs with --redact and without
+--verbose); anything else exits 0 with no output. A crash exits 1, which Claude Code reports as a hook error and lets
+through.
 
 Not checked: a push or write that another shell or program makes (`bash -c '...'`, a here-document fed to a shell, a
 script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in
@@ -232,8 +233,11 @@ def _gitleaks(args: list[str], where: str, remedy: str, pins_from: Path, relativ
         return _reason(
             f"the pinned gitleaks (CI's `secret-scan`) found a secret-shaped literal in {where}: {shown}. Once it reaches "
             "GitHub, every pull request's `secret-scan` fails until main pins it.", remedy)
-    lines = [LOG_LINE.sub("", ANSI.sub("", line)).strip() for line in proc.stderr.splitlines()]
-    tail = "; ".join([line for line in lines if line][-3:])[:600]
+    # gitleaks ends a failed scan with three WRN lines (scanned, partial scan, no leaks in it): its ERR and FTL lines
+    # name the cause, so they come first, then the last lines.
+    lines = [line for line in (LOG_LINE.sub("", ANSI.sub("", line)).strip() for line in proc.stderr.splitlines()) if line]
+    causes = [line for line in lines if line.startswith(("ERR", "FTL"))]
+    tail = "; ".join(dict.fromkeys(causes[:3] + lines[-3:]))[:600]
     return _reason(f"the pinned gitleaks could not finish scanning {where} (exit {proc.returncode}: {tail}).",
                    SCAN_ERROR_REMEDY)
 

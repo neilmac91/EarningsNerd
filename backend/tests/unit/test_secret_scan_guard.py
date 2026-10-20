@@ -39,7 +39,6 @@ SETUP = ROOT / ".claude" / "hooks" / "secret_scan_setup.py"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_guard.py" || exit 1'
 SETUP_COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_setup.py" || exit 1'
-MATCHER = "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$"
 FLAGS = ["--redact=100", "--no-banner", "--exit-code", "1"]  # the secret-scan job's
 LESSON = "lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md"
 # What the stub reports, standing in for a secret: no file in this repository may carry a real one.
@@ -86,8 +85,10 @@ def flagged(line):
     return any(word in line for word in words) and "gitleaks:allow" not in line
 
 
-if os.environ.get("GITLEAKS_STUB_FAIL"):
-    print("ERR [git] fatal: bad revision", file=sys.stderr)
+if os.environ.get("GITLEAKS_STUB_FAIL"):  # as gitleaks 8.24.3 fails on a bad revision: ERR lines, then its WRN trailer
+    for line in ("ERR [git] fatal: bad revision", 'ERR failed to scan Git repository error="stderr is not empty"',
+                 "WRN scanned ~0 bytes (0)", "WRN partial scan completed in 185ms", "WRN no leaks found in partial scan"):
+        print("6:01AM " + line, file=sys.stderr)
     sys.exit(1)
 if args[0] == "git":
     log_opts = next(arg for arg in args if arg.startswith("--log-opts="))[len("--log-opts="):]
@@ -100,7 +101,7 @@ if args[0] == "git":
         elif line.startswith("+++ "):
             path = line[6:]
         elif line.startswith("+") and flagged(line):
-            findings.append({"RuleID": "stub-rule", "File": path, "StartLine": 1, "Commit": commit,
+            findings.append({"RuleID": "stub-rule", "File": path, "StartLine": 1, "Commit": commit, "Match": line[1:],
                              "Fingerprint": f"{commit}:{path}:stub-rule:1"})
 else:
     entry["files"] = {str(p.relative_to(source)): p.read_text(errors="replace") for p in sorted(source.rglob("*"))
@@ -108,7 +109,7 @@ else:
     for name, text in entry["files"].items():
         for number, line in enumerate(text.splitlines(), 1):
             if flagged(line):
-                findings.append({"RuleID": "stub-rule", "File": str(source / name), "StartLine": number,
+                findings.append({"RuleID": "stub-rule", "File": str(source / name), "StartLine": number, "Match": line,
                                  "Fingerprint": f"{source / name}:stub-rule:{number}"})
 if "# stub: allow everything" in (config or ""):
     findings = []
@@ -297,6 +298,7 @@ def test_a_clean_push_reads_only_the_commits_no_remote_tracking_ref_holds(scanne
 # Each pushes main's clean commit alone, from the repository or from elsewhere: passes, with exactly that range.
 PRECISE = {
     "a bare push": ("git push", "repo"),
+    "a path to git": ("/usr/bin/git push origin main", "repo"),
     "HEAD": ("git push origin HEAD", "repo"),
     "a forced refspec to another name": ("git push origin +main:refs/heads/other", "repo"),
     "git -C from elsewhere": ("git -C {repo} push origin main", "elsewhere"),
@@ -329,6 +331,7 @@ def test_a_push_reads_what_it_sends_from_where_it_runs(scanner: Scanner, repo: P
 REACHES_SIDE = {
     "the side branch by name": ("git push origin side", False),
     "every branch": ("git push --all origin", False),
+    "every branch, by --branches": ("git push --branches origin", False),
     "every ref": ("git push --mirror origin", False),
     "a branch held in a variable": ('git push origin "$BRANCH"', True),
     "a branch a substitution names": ("git push origin $(git branch --show-current)", True),
@@ -354,6 +357,8 @@ def test_a_push_the_hook_cannot_resolve_reads_every_unpushed_branch(scanner: Sca
     ("(cd {repo}) && git push origin main", True),  # the subshell's cd ends with it
     ("git -C {repo} push origin main", False),
     ("cd {repo}; cd {other} && git push origin main", True),
+    ("pushd {repo} && popd && git push origin main", True),  # back where it started
+    ("cd {other}/not-yet && git push origin main", True),  # a directory no repository holds yet
 ])
 def test_the_push_runs_in_the_directory_the_line_moves_to(scanner: Scanner, repo: Path, tmp_path: Path,
                                                          command: str, refused: bool) -> None:
@@ -478,6 +483,12 @@ def test_the_scan_leaves_out_what_the_remote_it_pushes_to_holds(scanner: Scanner
     assert call["args"][2].endswith(f" --not {held}")
 
 
+@pytest.mark.parametrize("command", ["git push origin tag v1", "git push --tags origin"])
+def test_a_tag_push_reads_the_tags_commits(scanner: Scanner, repo: Path, command: str) -> None:
+    _git(repo, "tag", "v1", "side")
+    assert "widened" not in _refused(_bash(scanner, command, repo), "side.txt:1 (stub-rule)")
+
+
 def test_a_push_from_a_repository_the_hook_cannot_resolve_or_fall_back_on_is_refused(scanner: Scanner,
                                                                                    elsewhere: Path) -> None:
     _refused(_bash(scanner, 'cd "$WORKTREE" && git push', elsewhere), "cannot resolve", "git -C <dir> push")
@@ -500,7 +511,12 @@ def test_a_push_that_sends_nothing_is_not_scanned(scanner: Scanner, repo: Path, 
     "git pull --rebase && git push origin main",
     "git commit -m \"$(cat <<'EOF'\nfix: a thing\nEOF\n)\" && git push",
     "git push origin main && git cherry-pick side",
-], ids=["commit", "pull", "a commit message from a here-document", "a commit after the push"])
+    "git merge side && git push",
+    "git rebase origin/main && git push --force-with-lease",
+    "git revert --no-edit HEAD && git push",
+    "git am fix.patch && git push",
+], ids=["commit", "pull", "a commit message from a here-document", "a commit after the push", "merge", "rebase",
+        "revert", "am"])
 def test_a_line_that_makes_commits_and_pushes_is_refused(scanner: Scanner, repo: Path, command: str) -> None:
     _refused(_bash(scanner, command, repo), "commits and pushes in one call", "a hook runs before the line",
              "Commit in one call and push in the next")
@@ -509,8 +525,8 @@ def test_a_line_that_makes_commits_and_pushes_is_refused(scanner: Scanner, repo:
 
 def test_a_scan_that_fails_refuses_the_push_and_says_what_to_do(scanner: Scanner, repo: Path) -> None:
     decision = _decision(scanner, "Bash", {"command": "git push"}, repo, {"GITLEAKS_STUB_FAIL": "1"})
-    _refused(decision, "could not finish scanning", "(exit 1: ERR [git] fatal: bad revision)",
-             "Fix what gitleaks names", "send the call again")
+    reason = _refused(decision, "could not finish scanning", "Fix what gitleaks names", "send the call again")
+    assert "(exit 1: ERR [git] fatal: bad revision; ERR failed to scan Git repository" in reason  # the cause, first
 
 
 @pytest.mark.parametrize("command", [
@@ -656,6 +672,18 @@ def test_an_event_of_another_shape_goes_through(scanner: Scanner, event: str) ->
     assert (proc.returncode, proc.stdout) == (0, "")
 
 
+def test_a_scan_that_outlasts_the_hooks_time_is_refused(guard, scanner: Scanner, repo: Path,
+                                                         monkeypatch: pytest.MonkeyPatch) -> None:
+    scanner.binary.write_text("#!/bin/sh\nexec sleep 5\n", encoding="utf-8")
+    (scanner.folder / "gitleaks.sha256").write_text(
+        f"{hashlib.sha256(scanner.binary.read_bytes()).hexdigest()}  gitleaks\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(scanner.home))
+    monkeypatch.setattr(guard, "DEADLINE", time.monotonic() + 1)  # in-process, where the 8.5 s can be cut
+    reason = guard.refusal({"tool_name": "Bash", "tool_input": {"command": "git push"}, "cwd": str(repo)})
+    assert reason is not None and "did not finish inside the hook's time limit" in reason
+    assert "Push fewer commits at a time" in reason
+
+
 def test_a_scan_out_of_time_says_what_can_work(guard, scanner: Scanner, repo: Path,
                                               monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(scanner.home))
@@ -683,16 +711,20 @@ def test_a_scan_out_of_time_says_what_can_work(guard, scanner: Scanner, repo: Pa
 # --- registration --------------------------------------------------------------------------------------------------
 
 def test_the_guard_and_its_setup_are_registered() -> None:
-    settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
-    assert _registered("PreToolUse", "secret_scan_guard.py") == [
-        {"matcher": MATCHER, "hooks": [{"type": "command", "command": COMMAND, "timeout": 10}]}]
-    # The codex guard's matcher, which test_codex_mention_guard.py proves reaches Bash and every GitHub MCP server.
+    # Beside the codex guard, with its matcher, which test_codex_mention_guard.py proves reaches Bash and every GitHub
+    # MCP server (and that settings.json switches no hook off).
     [codex] = _registered("PreToolUse", "codex_mention_guard.py")
-    assert codex["matcher"] == MATCHER
+    assert _registered("PreToolUse", "secret_scan_guard.py") == [
+        {"matcher": codex["matcher"], "hooks": [{"type": "command", "command": COMMAND, "timeout": 10}]}]
     assert _registered("SessionStart", "secret_scan_setup.py") == [
         {"hooks": [{"type": "command", "command": SETUP_COMMAND, "timeout": 60}]}]
     assert GUARD.is_file() and SETUP.is_file()
-    assert "disableAllHooks" not in settings
+
+
+def test_the_guard_scans_with_the_secret_scan_jobs_flags(guard) -> None:
+    job = re.search(r"^  secret-scan:\n(?:(?: {4}.*)?\n)*", CI.read_text(encoding="utf-8"), re.MULTILINE).group(0)
+    assert f" {' '.join(guard.FLAGS)}\n" in job
+    assert list(guard.FLAGS) == FLAGS  # what the cases here expect the hook to pass
 
 
 # --- the setup -----------------------------------------------------------------------------------------------------
