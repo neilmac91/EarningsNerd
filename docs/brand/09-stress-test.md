@@ -56,7 +56,7 @@ by something still on the page.
    receipts"; the page `<title>` follows (`frontend/app/waitlist/page.tsx`).
 2. **The consent bar still opened with the sentence two competitors also say.** "We value your
    privacy" is now "Cookies on this site", and the body states what the cookies do: essential
-   keeps you signed in; analytics cookies and session recording stay off until allowed. That is
+   keeps you logged in; analytics cookies and session recording stay off until allowed. That is
    what `app/posthog-provider.tsx` enforces for PostHog, the one analytics tool that sets cookies;
    the first wording said "analytics" without "cookies", which the review caught, because Vercel
    Web Analytics (cookieless) ran for every visitor (since D-046 it waits for the same consent).

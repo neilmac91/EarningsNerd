@@ -43,10 +43,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   register page's notice says), the register page's link back reads "Log in", and the provider buttons
   read "Continue with Google" and "Continue with Apple" on both pages, an invited start that fails naming
   its provider under the button ("Couldn't continue with Google. Please try again."). The login page's
-  "Request an invite" is one box (`inline-block`), so at 320px or under 200% text it never breaks inside
-  its label; the register notice's, inside its sentence, wraps with it and draws its ring round each line
-  (`box-decoration-clone`, as a prose link does). Neither focus ring draws an open piece
-  (`tests/e2e/reflow-200.spec.ts`).
+  "Request an invite" is `inline-block`, so at 320px or under 200% text it stays one box, its label
+  wrapping inside it, and its ring closes round it; the register notice's stays inline inside its
+  sentence, wraps with it and draws its ring round each line (`box-decoration-clone`, as a prose link
+  does). Neither focus ring draws an open piece (`tests/e2e/reflow-200.spec.ts`).
   /check-email names where links go ("We send verification links to" the address) and never says one
   was just sent, since the account menu's "Verify your email" lands there without sending: "Open the
   newest one to verify your email address. Each link expires 24 hours after we send it.", and Resend is
