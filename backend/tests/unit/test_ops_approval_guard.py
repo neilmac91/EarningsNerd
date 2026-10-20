@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SETTINGS = ROOT / ".claude" / "settings.json"
 COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/ops_approval_guard.py" || exit 1'
 RUNS = "repos/neilmac91/EarningsNerd/actions/runs/39360634523"
+API_REFUSED = "this command calls GitHub's deployment-review or environment API"
 
 
 def _registered() -> list[dict]:
@@ -30,12 +31,12 @@ def _registered() -> list[dict]:
             if any("ops_approval_guard.py" in hook.get("command", "") for hook in entry["hooks"])]
 
 
-def _decision(tool: str, tool_input: object, cwd: Path = ROOT) -> dict | None:
+def _decision(tool: str, tool_input: object, cwd: Path = ROOT, **env: str) -> dict | None:
     [hook] = [hook for entry in _registered() for hook in entry["hooks"]]
     event = json.dumps({"session_id": "s", "cwd": str(cwd), "hook_event_name": "PreToolUse", "tool_name": tool,
                         "tool_input": tool_input, "tool_use_id": "toolu_1"})
     proc = subprocess.run(["sh", "-c", hook["command"]], input=event, capture_output=True, text=True,
-                          env={**os.environ, "CLAUDE_PROJECT_DIR": str(ROOT)}, timeout=hook["timeout"])
+                          env={**os.environ, "CLAUDE_PROJECT_DIR": str(ROOT), **env}, timeout=hook["timeout"])
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout)["hookSpecificOutput"] if proc.stdout else None
 
@@ -89,7 +90,8 @@ def test_a_call_to_the_deployment_review_api_is_refused(command):
 @pytest.mark.parametrize("path", ["graphql", "/graphql", "https://api.github.com/graphql"])
 def test_a_mutation_in_a_file_the_api_call_sends_is_refused(tmp_path, path):
     (tmp_path / "q.graphql").write_text("mutation { rejectDeployments(input: {}) { clientMutationId } }")
-    assert _decision("Bash", {"command": f"gh api {path} -F query=@q.graphql"}, cwd=tmp_path) is not None
+    decision = _decision("Bash", {"command": f"gh api {path} -F query=@q.graphql"}, cwd=tmp_path)
+    assert decision is not None and API_REFUSED in decision["permissionDecisionReason"]
 
 
 @pytest.mark.parametrize("command", [
@@ -98,11 +100,31 @@ def test_a_mutation_in_a_file_the_api_call_sends_is_refused(tmp_path, path):
     "gh api graphql --input=q.json",
     "curl -sS -X POST -Tq.json https://api.github.com/graphql",  # curl's upload, its file attached
     "gh api -X POST --hostname github.com graphql --input q.json",  # options before the endpoint
+    "curl -sS -X POST --upload-file q.json https://api.github.com/graphql",
+    "wget -O- --post-file=q.json https://api.github.com/graphql",
+    "wget -O- --method=POST --body-file q.json https://api.github.com/graphql",
+    "http POST https://api.github.com/graphql < q.json",  # httpie reads standard input unasked
+    "gh api graphql --input /dev/stdin < q.json",
+    "cat -u q.json | gh api graphql --input -",  # cat's options are no files
+    # Every GraphQL call on the line is read, not only the first.
+    "gh api graphql -f query='{ viewer { login } }'; gh api graphql --input q.json",
 ])
 def test_a_mutation_in_a_file_piped_redirected_or_uploaded_is_refused(tmp_path, command):
     (tmp_path / "q.json").write_text('{"query": "mutation { approveDeployments(input: {}) { clientMutationId } }"}')
     decision = _decision("Bash", {"command": command}, cwd=tmp_path)
-    assert decision is not None and "Only the founder approves an Ops apply" in decision["permissionDecisionReason"]
+    assert decision is not None and API_REFUSED in decision["permissionDecisionReason"]
+
+
+def test_a_mutation_in_a_file_named_from_home_is_refused(tmp_path):
+    (tmp_path / "q.graphql").write_text("mutation { approveDeployments(input: {}) { clientMutationId } }")
+    decision = _decision("Bash", {"command": "gh api graphql -F query=@~/q.graphql"}, cwd=ROOT, HOME=str(tmp_path))
+    assert decision is not None and API_REFUSED in decision["permissionDecisionReason"]
+
+
+def test_a_file_redirected_into_a_call_that_reads_no_input_is_not_its_body(tmp_path):
+    """gh reads standard input only when told to (`--input -`, `@-`), so this mutation file is never sent."""
+    (tmp_path / "q.json").write_text('{"query": "mutation { approveDeployments(input: {}) { clientMutationId } }"}')
+    assert _decision("Bash", {"command": "gh api graphql -f query='{ viewer { login } }' < q.json"}, cwd=tmp_path) is None
 
 
 @pytest.mark.parametrize("command", [
@@ -122,6 +144,9 @@ def test_a_mutation_in_a_file_piped_redirected_or_uploaded_is_refused(tmp_path, 
     "diff <(cat <<'EOF'\na\nEOF) <(echo b); gh api graphql -f query=\"$Q\"",
     # bash reads `<<'EOF'` before a CR as the word EOF<CR>, so its line with the CR ends the text.
     "gh api graphql -F query=@- <<'EOF'\r\nquery { viewer { login } }\r\nEOF\r\necho \"$Q\"",
+    *[f"gh api graphql -f query='{{ viewer {{ login }} }}' -F n={parameter}"
+      for parameter in ("$@", "$*", "$#", "$?", "$!", "$$", "$-", "$1", "$_", "$[1]", '$"x"', "${n}")],
+    "gh api graphql -f query='{ viewer { login } }' -F n=1#$N",  # a `#` inside a word starts no comment
     # The forms a session writes by habit, which read text the hook does not see.
     "gh api graphql -f query=\"$(cat <<'EOF'\nquery { viewer { login } }\nEOF\n)\"",
     'gh api graphql -f query="$(cat q.graphql)"',
@@ -164,6 +189,9 @@ def test_a_graphql_call_whose_query_the_hook_cannot_read_is_refused(tmp_path, co
     "cat q.json | gh api graphql --input -",
     "gh api graphql --input - < q.json",
     "gh api graphql -f query='{ viewer { login } }'  # costs $0 and `nothing`",
+    "#$X\ngh api graphql -f query='{ viewer { login } }'",  # a comment's line ends with it
+    "gh api graphql -F a=\"b\" -f query='query($n: Int) { viewer { login } }'",  # the double quote closes first
+    "echo x | gh api graphql -f query='{ viewer { login } }'",  # it reads no standard input
     # A REST call keeps its variables: routine reads build their paths from them, and a path that starts
     # where GraphQL's cannot is no GraphQL call, whatever else on the line names graphql.
     "RUN=39360634523; gh api repos/neilmac91/EarningsNerd/actions/runs/$RUN/jobs --jq '.jobs[].name'",
