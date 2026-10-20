@@ -43,8 +43,8 @@ in any case. It scans
   commit's diff that log.showRoot leaves out) or change its fingerprint (a commit header in another form under
   format.pretty, log.date, log.abbrevCommit or log.showSignature; file names without a/ and b/ under diff.noprefix).
   What it sends: each refspec's source (`tag <name>` too; a deletion or a negative refspec sends nothing), HEAD when it
-  names none, every branch for --all or --branches, every ref for --mirror and every tag for --tags; a dry run and
-  --delete send nothing. A push the hook cannot pin down is refused before any scan, since it could send any commit in
+  names none, every branch for --all, --branches or the matching refspec `:` (of which it pushes those the remote has
+  too), every ref for --mirror and every tag for --tags; a dry run and --delete send nothing. A push the hook cannot pin down is refused before any scan, since it could send any commit in
   the repository: one whose source does not resolve to a commit as the line stands (a variable, a substitution, a
   wildcard, a name that does not exist yet), one from a repository the hook cannot resolve (a variable, a substitution,
   `cd -`, popd, --git-dir, --work-tree, GIT_DIR=, a directory no repository holds yet), and one after a git checkout,
@@ -406,6 +406,8 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
         if spec == "tag" and index < len(specs):
             sources.append("refs/tags/" + specs[index])
             index += 1
+        elif spec.removeprefix("+") == ":":  # the matching refspec: each branch the remote has of the same name
+            options += [] if "--branches" in options else ["--branches"]
         elif not spec.startswith("^") and (source := spec.removeprefix("+").split(":", 1)[0]):
             sources.append(source)
     if not specs and not flags & {"--all", "--branches", "--mirror"}:

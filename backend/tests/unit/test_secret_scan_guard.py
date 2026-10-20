@@ -372,12 +372,15 @@ def test_a_push_reads_what_it_sends_from_where_it_runs(scanner: Scanner, repo: P
     assert call["env"]["GIT_DIR"] == str(repo / ".git")
 
 
-# Each sends side's commit, which no remote-tracking ref holds: by naming it, or every branch or ref.
+# Each sends side's commit, which no remote-tracking ref holds: by naming it, or every branch or ref. The matching
+# refspec sends the branches the remote has too, so its scan reads every branch.
 REACHES_SIDE = {
     "the side branch by name": "git push origin side",
     "every branch": "git push --all origin",
     "every branch, by --branches": "git push --branches origin",
     "every ref": "git push --mirror origin",
+    "the matching refspec": "git push origin :",
+    "the matching refspec, forced": "git push origin +:",
 }
 
 
