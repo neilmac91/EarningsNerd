@@ -8,9 +8,12 @@ export const metadata: Metadata = {
   description: 'Security practices and data protection at EarningsNerd.',
 }
 
-// Every sentence below says what the code or its hosting does (D-046): a fact the repository cannot show, such as
-// encryption at rest, is named as the provider's. tests/unit/legalTruth.spec.tsx holds the claims D-046 removed out
-// and pins this page's text to LEGAL_DATES.security.
+// Every claim below about the code or the hosting says what the code or its hosting does (D-046): a fact the
+// repository cannot show, such as encryption at rest, is named as the provider's, and a claim that stands on a
+// document names it in a Source comment beside it. The best practices, the responsible-disclosure section and the
+// contact lines are kept from before D-046: they ask things of the reader or promise a reply ("will acknowledge
+// responsible disclosures"), and claim nothing about the code. tests/unit/legalTruth.spec.tsx holds the claims D-046
+// removed out, the numbers to the backend's, and this page's text to LEGAL_DATES.security.
 export default function SecurityPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
@@ -208,6 +211,7 @@ export default function SecurityPage() {
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             {/* Source: tasks/security_privacy_runbook.md §3, "Breach-notification readiness" (legalTruth.spec.tsx checks it). */}
             <li>A written runbook covers containing it, finding what it touched, gathering evidence and rotating keys</li>
+            {/* Source: tasks/security_privacy_runbook.md §3, "Breach-notification readiness", step 2 (legalTruth.spec.tsx checks it). */}
             <li>When the law requires it, we notify the users affected and the data protection authority</li>
           </ul>
         </section>
