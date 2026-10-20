@@ -39,7 +39,6 @@ export {
   CheckIcon,
   CircleNotchIcon,
   ClockIcon,
-  ClockCounterClockwiseIcon,
   ColumnsIcon,
   CookieIcon,
   CopyIcon,
