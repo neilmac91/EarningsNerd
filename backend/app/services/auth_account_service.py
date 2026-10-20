@@ -12,14 +12,14 @@ from __future__ import annotations
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Tuple
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import InviteCode, User
 from app.services import invite_service, login_lockout
-from app.services.refresh_token_service import revoke_all_for_user
+from app.services.refresh_token_service import create_refresh_token, lock_user_tokens, revoke_all_for_user
 
 EMAIL_VERIFY_EXPIRY_HOURS = 24
 PASSWORD_RESET_EXPIRY_HOURS = 1
@@ -105,12 +105,36 @@ def issue_email_verification_token(db: Session, user: User) -> str:
     return raw_token
 
 
-def record_password_login(db: Session, user: User, email: str) -> None:
-    """A successful password login: reset the account's lockout and stamp ``last_login_at``,
-    committed together (see ``login_lockout.clear_failures``)."""
+def record_password_login(
+    db: Session,
+    user_id: int,
+    verified_hash: str,
+    email: str,
+    *,
+    user_agent: Optional[str] = None,
+    ip: Optional[str] = None,
+) -> Optional[Tuple[User, str]]:
+    """Finish a password login whose password matched ``verified_hash``: reset the account's lockout,
+    stamp ``last_login_at`` and mint the session's refresh token, committed together (see
+    ``login_lockout.clear_failures``). Returns the user and the raw refresh token.
+
+    Under the account's users row lock (``refresh_token_service.lock_user_tokens``), and only while that
+    hash is still the account's and the account active: a password reset or change revokes every
+    session but cannot reach a token minted after it commits, so a login that verified the old password
+    before one committed would keep a session through it (E121). Then nothing is written and None is
+    returned, as for a wrong password. A reset or change that starts after the lock is taken waits for
+    this commit, and its revocation then reaches the new token too.
+    """
+    lock_user_tokens(db, user_id)
+    user = db.query(User).filter(User.id == user_id).populate_existing().first()
+    if user is None or user.hashed_password != verified_hash or not user.is_active:
+        db.rollback()  # releases the lock; nothing was written
+        return None
     login_lockout.clear_failures(db, email)  # a successful login resets the lockout
     user.last_login_at = datetime.now(timezone.utc)
+    _, refresh_token = create_refresh_token(db, user, user_agent=user_agent, ip=ip)
     db.commit()
+    return user, refresh_token
 
 
 def verify_email_token(db: Session, raw_token: str) -> User:

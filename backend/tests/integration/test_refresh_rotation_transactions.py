@@ -20,7 +20,10 @@ its check if nothing stops it, while the first's writes are uncommitted:
 - a refresh, then a logout with the same cookie: the logout signs out the successor the refresh minted;
 - a refresh with the cookie another tab's refresh left, then a logout with the cookie before it: the
   logout walks the chain to its live tip and signs that out;
-- a refresh, then a sign-in: the sign-in's new token does not wait for the lock.
+- a refresh, then a sign-in: the sign-in's new token does not wait for the lock;
+- a password reset or change, and a password login that verified the old password before it committed,
+  in either order: the login mints only while the hash it verified is the account's (E121), so the
+  reset leaves no live token and the change only its own.
 Without the users-row lock each writer takes first, the second request writes on what it read before
 the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
 change leaves the refresh's successor live.
@@ -36,6 +39,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 import pytest
 from sqlalchemy import create_engine, event, text
@@ -49,6 +53,7 @@ from app.services import auth_account_service, user_account_service
 from app.services import refresh_token_service as tokens
 
 HANG_GUARD_S = 5.0  # a passing case never waits for it
+OLD_PASSWORD_HASH = "the old password's hash"
 
 
 @pytest.fixture
@@ -78,7 +83,7 @@ def postgres_engine():
 def _signed_in(engine) -> tuple[int, str]:
     """A user with one live refresh token; returns ``(user_id, raw_token)``."""
     with Session(engine) as db:
-        user = User(email=f"reader-{uuid.uuid4().hex}@example.com", is_active=True)
+        user = User(email=f"reader-{uuid.uuid4().hex}@example.com", is_active=True, hashed_password=OLD_PASSWORD_HASH)
         db.add(user)
         db.flush()
         user_id = user.id
@@ -102,10 +107,19 @@ _OPERATIONS = {
         db, db.get(User, user_id), "a new password's hash",
     ),
     "change_password": lambda db, user_id, raw: _change_password(db, db.get(User, user_id)),
+    "password_login": lambda db, user_id, raw: _password_login(db, db.get(User, user_id)),
     "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, db.get(User, user_id)),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
 }
 _WRITES = ("INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM refresh_tokens")
+
+
+def _password_login(db: Session, user: User) -> Optional[str]:
+    """The login route's second unit, for a password that matched OLD_PASSWORD_HASH before the race:
+    the session's refresh token, or None when the login is refused. The account is loaded first, as a
+    session that read it before would have it."""
+    login = auth_account_service.record_password_login(db, user.id, OLD_PASSWORD_HASH, user.email)
+    return login[1] if login is not None else None
 
 
 def _change_password(db: Session, user: User) -> str:
@@ -300,3 +314,24 @@ def test_a_sign_in_does_not_wait_for_a_rotation_holding_the_lock(postgres_engine
     a sign-in finishes while a refresh holds the account's lock."""
     refresh, sign_in, live, released = _race(postgres_engine, "refresh", "sign_in")
     assert (_result(refresh), _kind(sign_in), live, released) == ("rotated", "str", 2, "done")
+
+
+@pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])
+def test_a_password_login_that_verified_the_old_password_mints_nothing_once_it_changes(
+    postgres_engine, revocation, result, live_after,
+):
+    """A reset or change holds the lock while a login that verified the old password before it committed
+    waits: the login finds the hash changed and mints nothing (E121), so the reset leaves no live token
+    and the change only the changer's."""
+    first, login, live, released = _race(postgres_engine, revocation, "password_login")
+    assert (_kind(first), login, live, released) == (result, None, live_after, "blocked")
+
+
+@pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])
+def test_a_reset_or_change_after_a_password_login_signs_out_its_new_session(
+    postgres_engine, revocation, result, live_after,
+):
+    """The login takes the lock first and mints; the reset or change waits for its commit, and its
+    revocation then reaches the login's new token too."""
+    login, second, live, released = _race(postgres_engine, "password_login", revocation)
+    assert (_kind(login), _kind(second), live, released) == ("str", result, live_after, "blocked")

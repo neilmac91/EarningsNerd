@@ -52,7 +52,8 @@ _CHAT_SECONDS = 75.0
 # The Copilot's blocking DB lookups (its tool calls here and the claim repair in
 # ``copilot_service._admit_answer``) wait for a pool slot in threads of their own, never on the loop
 # or in its default executor. A slot holder can need a default-executor thread for its next step
-# (login keeps its connection checked out while it awaits bcrypt through ``asyncio.to_thread``), so
+# (a password change or reset keeps its connection checked out while it awaits bcrypt through
+# ``asyncio.to_thread``), so
 # lookups waiting there could leave neither side able to move until the pool timed out. A lookup
 # holds no slot while it waits and holds one only for its own query, so a few threads keep up.
 _LOOKUP_THREADS = ThreadPoolExecutor(max_workers=4, thread_name_prefix="copilot_lookup")

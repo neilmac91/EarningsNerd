@@ -18,9 +18,10 @@ router as well as after the move, so it proves the refactor preserved behaviour:
     new-account insert loses a concurrent create for the same email, with the router's warning
   - logout and logout-all commit their own revocations (with no audit row committing after them),
     and unlinking a provider commits the delete itself before its oauth_unlinked audit row
-  - a password login: a success resets the failed-login count, and that reset and last_login_at are
-    committed before the session mint, so a failed mint keeps both; a password change whose mint
-    fails changes nothing (one commit); a registration that loses a concurrent create stays opaque
+  - a password login: a success resets the failed-login count, and that reset, last_login_at and the
+    session's refresh token commit together, under the account's lock (E121), so a failed mint
+    changes nothing; a password change whose mint fails changes nothing (one commit); a registration
+    that loses a concurrent create stays opaque
   - an OAuth callback commits its own sign-in (a new account, the link, last_login_at, the refresh
     token) with no audit row committing after it; the connections list; Apple's name fill-in on an
     existing link and its first sign-in without an email
@@ -538,11 +539,12 @@ def test_a_successful_login_resets_the_failed_login_count(client, mail):
 
 
 @pytest.mark.requires_db
-def test_a_login_whose_session_mint_fails_keeps_its_lockout_reset_and_login_stamp(
+def test_a_login_whose_session_mint_fails_changes_nothing(
     client, mail, server_errors, fail_the_refresh_token_insert
 ):
-    """The lockout reset and last_login_at commit on their own, before the session mint: a failed
-    mint answers 500 with no session and no login audit row, but keeps both."""
+    """The lockout reset, last_login_at and the session's refresh token commit together, under the
+    account's lock (E121): a failed mint answers 500 with no session and no login audit row, and
+    keeps the failed-login count and the empty login stamp it found."""
     email, _ = _register(client, mail)
     user_id = _user(email).id
     assert _login(client, email, WRONG_PASSWORD).status_code == 401
@@ -552,9 +554,33 @@ def test_a_login_whose_session_mint_fails_keeps_its_lockout_reset_and_login_stam
     resp = server_errors.post("/api/auth/login", json={"email": email, "password": PASSWORD})
     assert fail_the_refresh_token_insert["fired"], "the mint failure was never injected"
     assert resp.status_code == 500 and _cookies(resp) == []
-    assert _lockout_rows(email) == 0
-    assert _user(email).last_login_at is not None
+    assert _lockout_rows(email) == 1
+    assert _user(email).last_login_at is None
     assert _refresh_tokens(user_id) == 0
+    assert _audit_actions(user_id, "login_success") == []
+
+
+@pytest.mark.requires_db
+def test_a_login_whose_password_changed_while_it_hashed_is_refused(client, mail, monkeypatch):
+    """A password reset or change that commits while a login is in bcrypt leaves the login's verified
+    hash stale: the login is refused like a wrong password and mints no session (E121)."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    real_verify = auth_module.verify_password
+
+    def verify_then_reset(password: str, hashed: str) -> bool:
+        matched = real_verify(password, hashed)
+        with SessionLocal() as db:  # the reset commits while the login hashes
+            db.get(User, user_id).hashed_password = auth_module.get_password_hash(NEW_PASSWORD)
+            db.commit()
+        return matched
+
+    monkeypatch.setattr(auth_module, "verify_password", verify_then_reset)
+    resp = _login(client, email, PASSWORD)
+    assert resp.status_code == 401 and resp.json() == {"detail": "Incorrect email or password"}
+    assert _cookies(resp) == []
+    assert _refresh_tokens(user_id) == 0
+    assert _lockout_rows(email) == 1 and _user(email).last_login_at is None
     assert _audit_actions(user_id, "login_success") == []
 
 

@@ -8,7 +8,7 @@ normalize and the bulk upsert of every fact) ran there in full, blocking the loo
 - A leader and a follower work no session on the loop: every checkout, statement and checkin runs on
   the sync's own threads (``sync_threads._SYNC_THREADS``), two of them, in a copy of the caller's
   context (its correlation id), and a follower reads back what the leader left, a failure included.
-- Nor in the loop's default executor. A slot holder shaped like login keeps its connection checked
+- Nor in the loop's default executor. A slot holder shaped like a password change keeps its connection checked
   out while it awaits a default-executor thread, so a sync waiting there for the slot would hold
   the thread the holder needs, and neither could move until the pool timed out
   (``copilot_chat._LOOKUP_THREADS`` keeps the Copilot's lookups off it for the same reason).

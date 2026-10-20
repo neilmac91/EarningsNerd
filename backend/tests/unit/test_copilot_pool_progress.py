@@ -9,7 +9,7 @@ out, the tool reports ``tool_failed`` and the figure ships uncited.
 
 Here a one-slot ``QueuePool`` is held by another "request". One holder returns its connection as
 soon as the event loop runs one callback (the ``test_auth_pool_progress.py`` shape). The other is
-shaped like login: it keeps its connection checked out while it awaits bcrypt through
+shaped like a password change or reset: it keeps its connection checked out while it awaits bcrypt through
 ``asyncio.to_thread``, so it needs a default-executor thread before it can give the slot back. The
 loop's default executor has one thread here, so a lookup waiting for the slot in that executor would
 hold the only thread the holder needs, and neither could move until the pool timed out. The real
