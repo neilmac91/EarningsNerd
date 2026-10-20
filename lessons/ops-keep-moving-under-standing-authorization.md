@@ -54,3 +54,17 @@ checks nor branch protection, budgets, purchases, owner merges or founder holds;
 standing exception for later work. The existing review-gate parser enforces the documented
 mechanism. First execution: [#1261](https://github.com/neilmac91/EarningsNerd/pull/1261), all seven
 checks successful before normal squash `55b2d557`, with the future #1253 fixture obligation retained.
+
+**The ready mark — 2026-10-20.** Finished pull requests waited as drafts "so the founder marks it
+ready", because the ready transition starts the paid `copilot-eval` draw (#1436 and #1437 said so in
+their bodies). The founder corrected it: "Please don't wait for me to mark stuff ready. If it's
+ready, then please proceed with the necessary steps to get it sorted and ready for merging (and then
+merge it)". The session driving a pull request marks it ready itself once its reviews and CI are
+done. When the ready transition starts a paid draw, it first reads the balance
+(`deepseek-balance.yml`) and puts the reason and the expected cost on the pull request: `AGENTS.md`
+§3 already authorizes that bounded spend after the balance read, and §6 sets the reservation. It
+then merges the pull request once it is green, a backend deploy on its own with the deploy check
+after it. When the owning session has gone quiet, the principal session drives the pull request the
+same way and says so on it first. The held boundaries above are unchanged: a sentence the founder
+owns, a production write, a flag, a deletion. First use: #1436, marked ready after a USD 13.06
+balance read and merged as `707d80e5`.
