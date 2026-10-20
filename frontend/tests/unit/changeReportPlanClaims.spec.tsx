@@ -1,8 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
-import { readdirSync, readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
+import { declaredDefault, executableLines, readConfig, workflowFiles, type Workflow } from './deployMaps'
 
 /**
  * The landing's Change Report claims, held to what production serves (D-046's pricing truth; CLAUDE.md rules 4
@@ -23,7 +21,8 @@ import { describe, expect, it, vi } from 'vitest'
  * the flag can ship: that PR restates the landing's Change Report claims from entitlements.py and moves this gate
  * beside them. Its planted forms score the read, and the row's words are read the same way, with planted forms of
  * their own. Out of reach: a value set on the service outside the repository (a console edit), which no file here
- * records, and ProDepth's lead, which speaks for all three features and is review-checked.
+ * records, and ProDepth's lead, which speaks for all three features and is review-checked. The read of the default
+ * and the workflows is deployMaps.ts's, shared with planLimitsLockstep.spec.ts; the rule over them is this spec's.
  */
 
 const flags = vi.hoisted(() => ({ analysis: false }))
@@ -51,9 +50,6 @@ import PricingSection from '@/features/marketing/components/PricingSection'
 import ProDepth from '@/features/marketing/components/ProDepth'
 
 const FLAG = 'ENABLE_SECTION_CHANGES'
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
-const CONFIG = path.join(ROOT, 'backend/app/config.py')
-const WORKFLOWS = path.join(ROOT, '.github/workflows')
 
 /** pydantic's spellings of a false bool; any other value, a `${…}` the deploy expands included, may ship the flag. */
 const OFF = new Set(['0', 'false', 'f', 'no', 'n', 'off'])
@@ -92,28 +88,17 @@ function namesWhatProductionWithholds(copy: string): string[] {
  * gives the flag a value that is not a false spelling (or names it without a value the read can take). Throws when
  * config.py declares no default, so a renamed or moved field cannot leave the gate reading nothing.
  */
-function flagShips(config: string, workflows: ReadonlyArray<readonly [string, string]>): boolean {
-  const defaults = [...config.matchAll(new RegExp(`^\\s*${FLAG}\\s*:\\s*bool\\s*=\\s*(True|False)\\b`, 'gm'))]
-  if (defaults.length !== 1) throw new Error(`config.py declares ${FLAG}'s default ${defaults.length} times, not once`)
-  if (defaults[0][1] === 'True') return true
-  for (const [, text] of workflows) {
-    for (const line of text.split('\n')) {
-      if (line.trimStart().startsWith('#') || !line.includes(FLAG)) continue
-      const values = [...line.matchAll(new RegExp(`${FLAG}\\s*[=:]\\s*["']?([^,\\s"']+)`, 'g'))].map((m) => m[1].toLowerCase())
-      if (values.length === 0 || values.some((value) => !OFF.has(value))) return true
-    }
+function flagShips(config: string, workflows: readonly Workflow[]): boolean {
+  if (declaredDefault(config, FLAG, 'bool') === 'True') return true
+  for (const { text } of executableLines(workflows, FLAG)) {
+    const values = [...text.matchAll(new RegExp(`${FLAG}\\s*[=:]\\s*["']?([^,\\s"']+)`, 'g'))].map((m) => m[1].toLowerCase())
+    if (values.length === 0 || values.some((value) => !OFF.has(value))) return true
   }
   return false
 }
 
-/** Every workflow under .github/workflows, by file name. */
-const workflowFiles = () =>
-  readdirSync(WORKFLOWS)
-    .filter((file) => /\.ya?ml$/.test(file))
-    .map((file) => [file, readFileSync(path.join(WORKFLOWS, file), 'utf8')] as const)
-
 /** Whether production can serve the wording diff, read where production takes the flag. */
-const productionShipsTheFlag = () => flagShips(readFileSync(CONFIG, 'utf8'), workflowFiles())
+const productionShipsTheFlag = () => flagShips(readConfig(), workflowFiles())
 
 /** ProDepth's Change Report row as rendered: its heading, its line and its product screen, read from the nearest
  *  element that holds both the heading and the demo. */
@@ -181,7 +166,7 @@ describe("the landing's Change Report claims while production serves no wording 
     // Anti-vacuity: the read reaches the deploy's maps (ci.yml's three service and job maps among them).
     const ci = workflows.find(([file]) => file === 'ci.yml')?.[1] ?? ''
     expect((ci.match(/--update-env-vars=/g) ?? []).length).toBeGreaterThanOrEqual(3)
-    expect(flagShips(readFileSync(CONFIG, 'utf8'), workflows), RESTATE).toBe(false)
+    expect(flagShips(readConfig(), workflows), RESTATE).toBe(false)
   })
 
   it("gives the Change Report to both plans alike in the landing's plan table", () => {
