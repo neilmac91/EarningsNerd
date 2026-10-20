@@ -160,22 +160,18 @@ function formPreferences(file: string, text: string, derived: ReadonlySet<string
   /** The containers the scan reads through a name (and the objects of an options array it reads each entry's value of),
       each checked once the scan is done: nothing may change one after its initializer. */
   const followed = new Map<ts.ObjectLiteralExpression | ts.ArrayLiteralExpression, string>()
-  /** The array literal an expression names: written in place, or a const in this file. */
+  const lexical = bindingResolver(source)
+  /** The array literal an expression names: written in place, or the declaration its name binds to (astBindings, so a
+      same-named const in another component is that component's own; Codex on 74fe2f53). */
   const arrayOf = (node: ts.Expression): ts.ArrayLiteralExpression | null => {
     const inner = unwrap(node)
     if (ts.isArrayLiteralExpression(inner)) return inner
     if (!ts.isIdentifier(inner)) return null
-    let found: ts.ArrayLiteralExpression | null = null
-    const find = (n: ts.Node): void => {
-      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === inner.text && n.initializer) {
-        const init = unwrap(n.initializer)
-        if (ts.isArrayLiteralExpression(init)) found = init
-      }
-      ts.forEachChild(n, find)
-    }
-    find(source)
-    if (found) followed.set(found, inner.text)
-    return found
+    const decl = lexical(inner)?.decl
+    const init = decl && ts.isVariableDeclaration(decl) && decl.initializer ? unwrap(decl.initializer) : undefined
+    if (!init || !ts.isArrayLiteralExpression(init)) return null
+    followed.set(init, inner.text)
+    return init
   }
   /** The values a `value={…}` takes: a literal, or the elements (or one field of each) of the array a `.map` callback walks. */
   const optionValues = (expression: ts.Expression): string[] | null => {
@@ -821,11 +817,15 @@ describe('Notification preferences the form offers are read by the alert jobs', 
       "const PERIODS2 = [{ value: 'period_written', label: 'W' }]",
       "PERIODS2[0].value = 'period_extra'",
       'export const P = () => <SegmentedControl label="p" options={PERIODS2} value={prefs.p} onChange={() => {}} />',
+      // A name binds to its own declaration (Codex on 74fe2f53): Q reads the module's SHADOWED, R its own.
+      "const SHADOWED = [{ value: 'shadow_outer', label: 'Outer' }]",
+      'export const Q = () => <SegmentedControl label="q" options={SHADOWED} value={prefs.q} onChange={() => {}} />',
+      "export const R = () => { const SHADOWED = [{ value: 'shadow_inner', label: 'Inner' }]; return <SegmentedControl label=\"r\" options={SHADOWED} value={prefs.r} onChange={() => {}} /> }",
     ].join('\n')
     const { options, unreadable } = formPreferences('fixture.tsx', fixture)
     expect([...options.keys()].sort()).toEqual([
       'annual', 'biweekly', 'choice_written', 'daily', 'fortnightly', 'hourly', 'immediate', 'interim', 'monthly', 'never', 'period_written', 'quarterly',
-      'weekly', 'yearly',
+      'shadow_inner', 'shadow_outer', 'weekly', 'yearly',
     ])
     expect(unreadable).toEqual([
       'fixture.tsx:7 <option value={v}>',

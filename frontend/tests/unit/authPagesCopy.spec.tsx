@@ -130,7 +130,19 @@ function verifyEmailRefusals(): string[] {
  * (verifyEmailFailureMessage reads a 400's alone), so each is a problem. A refusal whose detail is not written in
  * the body (a helper that builds it, an exception handler) is review-checked.
  */
-function refusalsIn(body: string): { reasons: string[]; problems: string[] } {
+/** The names a router module gives HTTPException: its own, and each alias an import (`HTTPException as ApiError`) or
+    an assignment (`ApiError = HTTPException`) gives it. */
+function exceptionNames(module: string): Set<string> {
+  // Only an import names an alias (an `except HTTPException as exc:` binds the instance, not the class).
+  const imports = [...module.matchAll(/^[ \t]*from[ \t]+[\w.]+[ \t]+import[ \t]+(\([^)]*\)|[^\n]*)/gm)].map((m) => m[1])
+  const aliases = [
+    ...imports.flatMap((list) => [...list.matchAll(/\bHTTPException\s+as\s+([A-Za-z_]\w*)/g)]),
+    ...module.matchAll(/^[ \t]*([A-Za-z_]\w*)\s*=\s*(?:[A-Za-z_]\w*\.)*HTTPException[ \t]*$/gm),
+  ].map((m) => m[1])
+  return new Set(['HTTPException', ...aliases])
+}
+
+function refusalsIn(body: string, exceptions: ReadonlySet<string> = new Set(['HTTPException'])): { reasons: string[]; problems: string[] } {
   const toks = pythonTokens(body).filter((t) => !(t.kind === 'op' && t.text === '\\'))
   const reasons: string[] = []
   const problems: string[] = []
@@ -147,10 +159,18 @@ function refusalsIn(body: string): { reasons: string[]; problems: string[] } {
     }
     const isKeyword = (arg: Token[]) => arg[0]?.kind === 'name' && arg[1]?.text === '=' && arg[2]?.text !== '='
     const keyword = (name: string) => args.find((arg) => isKeyword(arg) && arg[0].text === name)?.slice(2)
-    // Only an HTTPException's arguments are known by place; any other call is read by its keywords.
-    const exception = t.text === 'HTTPException'
+    // Only an HTTPException's arguments, under any name the module gives it, are known by place; any other call is
+    // read by its keywords. A call raised with an argument by place and no `detail=` is one the scan cannot read: it
+    // may carry a reason (Codex on 74fe2f53), so it fails closed.
+    const exception = exceptions.has(t.text)
     const positional = exception ? args.filter((arg) => arg.length > 0 && !isKeyword(arg)) : []
-    if (!exception && !keyword('detail')) return
+    let start = k
+    while (toks[start - 1]?.text === '.' && toks[start - 2]?.kind === 'name') start -= 2
+    const raised = toks[start - 1]?.kind === 'name' && toks[start - 1].text === 'raise'
+    if (!exception && !keyword('detail')) {
+      if (raised && args.some((arg) => arg.length > 0 && !isKeyword(arg))) problems.push(`a raised call the scan cannot read: ${t.text}(…)`)
+      return
+    }
     const status = (keyword('status_code') ?? positional[0] ?? []).map((tok) => tok.text).join('')
     const detail = keyword('detail') ?? positional[1] ?? []
     if (!detail.length || detail.some((tok) => tok.kind !== 'str')) {
@@ -276,7 +296,7 @@ describe('verify email', () => {
   it("lists exactly the endpoint's reasons (backend/app/routers/auth.py::verify_email), each a 400 the scan can read", () => {
     const router = backend('app/routers/auth.py')
     const body = router.match(/^async def verify_email\b[\s\S]*?(?=^@|^(?:async )?def )/m)?.[0] ?? ''
-    const { reasons, problems } = refusalsIn(body)
+    const { reasons, problems } = refusalsIn(body, exceptionNames(router))
     expect(problems, 'write each reason as a string literal on a 400, the one status /verify-email shows a reason for').toEqual([])
     expect([...reasons].sort()).toEqual([...VERIFY_EMAIL_REASONS].sort())
   })
@@ -305,16 +325,31 @@ describe('verify email', () => {
       '        raise LinkError(detail="Raised another way.") from None',
       '    except G:',
       '        raise errors.LinkError(status_code=status.HTTP_400_BAD_REQUEST, detail="A 400 of its own.") from None',
+      // HTTPException under a name the module gives it is read by place; another call raised by place fails closed.
+      '    except H:',
+      '        raise ApiError(400, "Aliased by an import.") from None',
+      '    except I:',
+      '        raise Refusal(status.HTTP_400_BAD_REQUEST, "Aliased by an assignment.") from None',
+      '    except J:',
+      '        raise errors.OtherError(400, "Raised by place.") from None',
+      '    except K:',
+      '        raise NoArguments() from None',
       // A parameter's default named detail is no refusal.
       '    def note(detail="Not a refusal."):',
       '        return detail',
     ].join('\n')
-    expect(refusalsIn(planted)).toEqual({
-      reasons: ['Double quoted.', 'Single quoted.', 'Split across two literals.', 'Moved to a 410.', 'Raised another way.', 'A 400 of its own.'],
+    const names = exceptionNames('from fastapi import HTTPException as ApiError, status\nRefusal = fastapi.HTTPException\ntry:\n    pass\nexcept HTTPException as caught:\n    pass\n')
+    expect([...names].sort()).toEqual(['ApiError', 'HTTPException', 'Refusal'])
+    expect(refusalsIn(planted, names)).toEqual({
+      reasons: [
+        'Double quoted.', 'Single quoted.', 'Split across two literals.', 'Moved to a 410.', 'Raised another way.', 'A 400 of its own.',
+        'Aliased by an import.', 'Aliased by an assignment.',
+      ],
       problems: [
         'a detail the scan cannot read: LINK_USED',
         '"Moved to a 410." is raised with status status.HTTP_410_GONE: /verify-email shows a reason only for a 400',
         '"Raised another way." is raised with no status the scan can read: /verify-email shows a reason only for a 400',
+        'a raised call the scan cannot read: OtherError(…)',
       ],
     })
   })
