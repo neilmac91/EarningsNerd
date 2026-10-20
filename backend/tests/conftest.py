@@ -329,7 +329,7 @@ def _null_device_survives():
     """A test must leave ``/dev/null`` the null device.
 
     A session that runs as root (cloud sessions do) lets a tool given /dev/null as a file it writes replace
-    it: a git config write through ``GIT_CONFIG_GLOBAL=/dev/null`` renames its lock file over it, and once
+    it: a git config write through a ``GIT_CONFIG_GLOBAL`` naming it renames its lock file over it, and once
     it is an ordinary file every failed ``ld -o /dev/null`` (``ctypes.util.find_library``'s last fallback,
     which importing WeasyPrint reaches) unlinks it. Git and ``subprocess.DEVNULL`` then fail across the
     container. The test during which it stopped being a character device fails here; under ``-n auto`` a

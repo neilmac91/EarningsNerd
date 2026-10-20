@@ -305,7 +305,7 @@ _NULL_DEVICE_PROBE = (
 
 
 def test_a_test_that_replaces_the_null_device_fails(tmp_path):
-    # As root, a git config write through GIT_CONFIG_GLOBAL=/dev/null renames its lock file over the device.
+    # As root, a git config write through a GIT_CONFIG_GLOBAL naming the device renames its lock file over it.
     real = os.stat(os.devnull)
     assert stat.S_ISCHR(real.st_mode), f"{os.devnull} is not the null device before this test: restore it first"
     stand_in = tmp_path / "null"

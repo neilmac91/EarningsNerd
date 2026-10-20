@@ -36,8 +36,11 @@ and say so in the hand-off.
 - Production runs the same lookups on its first PDF export: `backend/Dockerfile` has no `USER`, its `gcc`
   pulls in binutils' `ld`, and `export_service.py` imports WeasyPrint at request time. Its `/dev/null` is a
   device, so `ld` leaves it alone.
-- Partly gated: `_null_device_survives` in `backend/tests/conftest.py` fails the test during which `/dev/null`
-  stops being a character device. It can fire only where something can replace the device, which means a root
-  session. `test_a_test_that_replaces_the_null_device_fails` in `backend/tests/unit/test_suite_isolation.py`
-  proves it on a symlinked stand-in. Pointing a written file at `/dev/null` on a non-root runner is
-  review-checked.
+- Gated twice. `backend/tests/unit/test_null_device_write_targets.py` fails on any tracked code file that names
+  `/dev/null` or `os.devnull` in git's `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG` or `GIT_INDEX_FILE`,
+  or in `git config --file`, on every runner (CI runs as a non-root user, where nothing can replace the device).
+  `_null_device_survives` in `backend/tests/conftest.py` fails the test during which `/dev/null` stops being a
+  character device, which can happen only in a root session; `test_a_test_that_replaces_the_null_device_fails`
+  in `backend/tests/unit/test_suite_isolation.py` proves it on a symlinked stand-in. An atomic writer's target
+  and a linker's `-o` stay review-checked: curl's `-o /dev/null` writes in place and is safe, so no pattern
+  tells them apart.
