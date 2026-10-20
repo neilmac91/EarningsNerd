@@ -13,8 +13,11 @@ names api.github.com), and the line, here-documents, substitutions and variables
 deployment-review or environment API: a run's `pending_deployments` (approve or reject a wait on an
 environment), a `deployment_protection_rule` review, an `/environments` path (which could drop the
 environment's reviewer), or GraphQL's `approveDeployments`, `rejectDeployments`,
-`createEnvironment`, `updateEnvironment` or `deleteEnvironment`. Reading those paths is refused too;
-the run's own status shows it is waiting. A line that makes no API call passes whatever it names (a
+`createEnvironment`, `updateEnvironment` or `deleteEnvironment`, read with its percent escapes decoded
+too (`pending%5Fdeployments` reaches the same endpoint). Reading those paths is refused too; the run's
+own status shows it is waiting. A line whose API call uses brace expansion (`{a,b}`, `{x..y}`) is refused
+as well: it builds words the hook cannot read, and routine calls never use it (gh's own `{owner}` and
+`{repo}` placeholders pass). A line that makes no API call passes whatever it names (a
 commit message, a here-document written to a file, `gh pr comment --body-file`). On a line that makes
 one, a name anywhere refuses the line, in a comment's text or in a here-document that writes the file
 the call sends, so the refusal says how to send such text instead: write the file in an earlier Bash
@@ -28,8 +31,8 @@ variable (`repos/o/r/actions/runs/$id/jobs`) starts where GraphQL's cannot. The 
 when a file it sends names one of those mutations (a file's other text passes, so a GraphQL reply whose body
 names `pending_deployments` goes through), and fails closed when:
 - the shell builds text on the line as it runs (a variable, a command substitution or backquotes,
-  arithmetic, `$'...'` or `$"..."`) anywhere but in single quotes, a comment or a here-document whose
-  word is quoted: `A=approve; B=Deployments; ... $A$B`, `-f query="$(cat q.graphql)"`, `--input $S/q.json`;
+  arithmetic, `$'...'` or `$"..."`, brace expansion) anywhere but in single quotes, a comment or a
+  here-document whose word is quoted: `A=approve; B=Deployments; ... $A$B`, `-f query="$(cat q.graphql)"`, `--input $S/q.json`;
 - the call reads standard input piped from anything but a plain cat: a body a program writes;
 - a file the call sends (gh's --input or an @file value such as -F query=@q.graphql, curl's @file or
   -T, wget's --post-file or --body-file, a `<` redirect into a call that reads standard input, the files
@@ -56,6 +59,7 @@ import json
 import os
 import re
 import sys
+from urllib.parse import unquote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # -I leaves the hooks directory off sys.path
 import codex_mention_guard as shell  # noqa: E402  its shell reader, shared rather than copied
@@ -74,6 +78,7 @@ CLIENTS = {"curl", "wget", *shell.HTTPIE}
 # What the shell replaces as the line runs: a variable or special parameter, ${...}, $(...) and $((...)),
 # $[...], $'...' and $"...", and backquotes.
 EXPANSION = re.compile(r"\$[\w{(\[@*#?!$'\"-]|`")
+BRACES = re.compile(r"\{[^\s{}]*(?:,|\.\.)[^\s{}]*\}")  # brace expansion: {a,b} and {x..y}, not gh's {owner}
 # Options whose value is a file the call sends: gh's --input, curl's -T and --upload-file, wget's
 # --post-file and --body-file. An @file value (gh's -F key=@file, curl's -d @file) is one too.
 FILE_OPTIONS = ("--input", "-T", "--upload-file", "--post-file", "--body-file")
@@ -95,6 +100,13 @@ UNREAD = (
     "`\"$(cat <<'EOF' …)\"` substitution is text the shell builds), or in a file written in an earlier Bash "
     "call or with the Write tool and named by its path (`-F query=@q.graphql`, `--input q.json`). Only the "
     "founder approves an Ops apply (the ops-apply environment in .github/workflows/ops.yml), on the run's page."
+)
+BRACED = (
+    "Refused by .claude/hooks/ops_approval_guard.py: this line calls the GitHub API with brace expansion "
+    "(`{a,b}`, `{x..y}`), which builds words as the line runs, so the hook cannot read the endpoint, query "
+    "or values the call sends and cannot rule out one that approves or rejects an Ops apply or changes its "
+    "environment. Write them out in full. Only the founder approves an Ops apply (the ops-apply environment "
+    "in .github/workflows/ops.yml), on the run's page."
 )
 
 
@@ -131,16 +143,22 @@ def _calls_the_api(words: list[str], names_api: bool) -> bool:
     return names_api and any(name in CLIENTS for name in names)
 
 
-def _expands(command: str) -> bool:
-    """Whether the shell replaces any of this line's text as it runs, anywhere but in single quotes, a
-    comment or a here-document whose word is quoted."""
+def _built(command: str) -> set[str]:
+    """What the shell builds of this line's text as it runs, anywhere but in single quotes, a comment or a
+    here-document whose word is quoted: "expansion" (a variable, a substitution, backquotes, arithmetic,
+    `$'...'`), "braces" (brace expansion, unquoted only)."""
+    kinds: set[str] = set()
     i, double, waiting = 0, False, []
     while i < len(command):
         char = command[i]
         if char == "\\":  # an escaped character expands nothing
             i += 2
         elif EXPANSION.match(command, i):
-            return True
+            kinds.add("expansion")
+            i += 1
+        elif char == "{" and not double and command[i - 1:i] != "$" and BRACES.match(command, i):
+            kinds.add("braces")
+            i += 1
         elif char == '"':
             double, i = not double, i + 1
         elif double:
@@ -157,19 +175,20 @@ def _expands(command: str) -> bool:
             waiting.append(word)
             i = word.end()
         elif char == "\n" and waiting:
-            i = _past_here_documents(command, i + 1, waiting)
-            if i < 0:
-                return True
+            i, expanded = _past_here_documents(command, i + 1, waiting)
+            if expanded:  # an unquoted here-document's text expands
+                kinds.add("expansion")
             waiting = []
         else:
             i += 1
-    return False
+    return kinds
 
 
-def _past_here_documents(command: str, i: int, words: list[re.Match[str]]) -> int:
+def _past_here_documents(command: str, i: int, words: list[re.Match[str]]) -> tuple[int, bool]:
     """Where the line goes on past the text of these here-documents, each read from where the last ended up
     to the line that is its word (after its leading tabs, for <<-) or one that starts with its word, blanks
-    and a `)`; -1 when the text of one whose word is unquoted expands (its quotes are plain characters)."""
+    and a `)`, and whether the text of one whose word is unquoted expands (its quotes are plain characters)."""
+    expanded = False
     for word in words:
         end = next(part for part in word.groups()[1:] if part is not None)
         quoted = word.group(4) is None or command[word.start(4) - 1] == "\\"
@@ -185,9 +204,9 @@ def _past_here_documents(command: str, i: int, words: list[re.Match[str]]) -> in
                 i += len(line) - len(text) + len(end)  # its `)` and the rest of its line are commands
                 break
             if not quoted and EXPANSION.search(re.sub(r"\\.", "", line)):
-                return -1
+                expanded = True
             i = newline + 1
-    return i
+    return i, expanded
 
 
 def _sent(words: list[str]) -> tuple[list[str], bool]:
@@ -209,6 +228,16 @@ def _sent(words: list[str]) -> tuple[list[str], bool]:
     return [name for name in files if name not in shell.STDIN] + (redirects if stdin else []), stdin
 
 
+def _decoded(text: str) -> str:
+    """`text` with its percent escapes decoded until none is left (`%255F` is `%5F` is `_`)."""
+    for _ in range(5):
+        decoded = unquote(text)
+        if decoded == text:
+            break
+        text = decoded
+    return text
+
+
 def refusal(event: object) -> str | None:
     """Why this tool call must not run, or None to let it through."""
     if not isinstance(event, dict) or event.get("tool_name") != "Bash":
@@ -226,11 +255,15 @@ def refusal(event: object) -> str | None:
              if _calls_the_api(words, names_api)]
     if not calls:
         return None
-    # The whole line: a path or a query can arrive through a variable, a pipe or a here-document.
-    if REVIEW_NAMES.search(plain):
+    # The whole line: a path or a query can arrive through a variable, a pipe or a here-document, and a
+    # path's percent escapes name the same endpoint as the characters they encode.
+    if REVIEW_NAMES.search(plain) or REVIEW_NAMES.search(_decoded(plain)):
         return REASON
+    built = _built(command)
+    if "braces" in built:
+        return BRACED
     graphql = [call for call in calls if _graphql(call[2])]
-    if graphql and _expands(command):
+    if graphql and built:
         return UNREAD
     for index, operator, words in graphql:
         files, stdin = _sent(words)

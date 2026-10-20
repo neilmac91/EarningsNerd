@@ -57,6 +57,10 @@ def test_the_guard_runs_before_every_bash_command():
     f"echo `gh api -X POST {RUNS}/pending_deployments -f state=approved`",
     f"EP={RUNS}/pending_deployments; gh api -X POST \"$EP\" -f state=approved",
     "gh api -X DELETE repos/neilmac91/EarningsNerd/environments/ops-apply",
+    # A percent escape names the same endpoint as the character it encodes, once encoded or twice.
+    f"gh api -X POST {RUNS}/pending%5Fdeployments -f state=approved",
+    f"gh api -X POST {RUNS}/pending%255Fdeployments -f state=approved",
+    "gh api -X DELETE repos/neilmac91/EarningsNerd/%65nvironments/ops-apply",
     "gh api -X PUT repos/neilmac91/EarningsNerd/environments/ops-apply -F wait_timer=0",
     "gh api graphql -f query='mutation { approveDeployments(input: {workflowRunId: \"x\", environmentIds: [\"y\"]}) { clientMutationId } }'",
     "gh api graphql -f query=\"$(cat <<'EOF'\nmutation { approveDeployments(input: {}) { clientMutationId } }\nEOF\n)\"",
@@ -113,6 +117,16 @@ def test_a_mutation_in_a_file_piped_redirected_or_uploaded_is_refused(tmp_path, 
     (tmp_path / "q.json").write_text('{"query": "mutation { approveDeployments(input: {}) { clientMutationId } }"}')
     decision = _decision("Bash", {"command": command}, cwd=tmp_path)
     assert decision is not None and API_REFUSED in decision["permissionDecisionReason"]
+
+
+@pytest.mark.parametrize("command", [
+    "gh api graphql -f query='mutation { approve'{D..D}'eployments(input: {}) { clientMutationId } }'",
+    f"gh api -X POST {RUNS}/pending_deploymen{{t..t}}s -f state=approved",
+    "gh api repos/neilmac91/EarningsNerd/pulls/{1425,1426}",
+])
+def test_a_call_built_by_brace_expansion_is_refused(command):
+    decision = _decision("Bash", {"command": command})
+    assert decision is not None and "with brace expansion" in decision["permissionDecisionReason"], command
 
 
 def test_a_mutation_in_a_file_named_from_home_is_refused(tmp_path):
@@ -192,6 +206,11 @@ def test_a_graphql_call_whose_query_the_hook_cannot_read_is_refused(tmp_path, co
     "#$X\ngh api graphql -f query='{ viewer { login } }'",  # a comment's line ends with it
     "gh api graphql -F a=\"b\" -f query='query($n: Int) { viewer { login } }'",  # the double quote closes first
     "echo x | gh api graphql -f query='{ viewer { login } }'",  # it reads no standard input
+    'gh api graphql -f query="{ viewer { login } }" -F note="{a,b}"',  # braces in double quotes stay
+    "gh api repos/{owner}/{repo}/pulls/1425",  # gh's own placeholders
+    "gh api repos/o/r/issues?labels=${L:-bug,ops}",  # a parameter's default, not brace expansion
+    "{ gh api repos/o/r/pulls/1425; }",  # a group of commands
+    "gh api 'search/issues?q=repo:o/r%20is:open'",  # a percent escape that names nothing
     # A REST call keeps its variables: routine reads build their paths from them, and a path that starts
     # where GraphQL's cannot is no GraphQL call, whatever else on the line names graphql.
     "RUN=39360634523; gh api repos/neilmac91/EarningsNerd/actions/runs/$RUN/jobs --jq '.jobs[].name'",
