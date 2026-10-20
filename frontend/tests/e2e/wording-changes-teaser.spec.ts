@@ -150,7 +150,7 @@ test.describe('the risk factor wording block of the change report', () => {
     await expect(block.getByText(/5 paragraphs changed: 2 modified, 1 added, 1 removed and 1 moved; 4 unchanged/)).toBeVisible()
     await expect(block.getByRole('listitem')).toHaveCount(3)
     await expect(block.getByText('2 more changes in this section. Pro shows every change.')).toBeVisible()
-    await expect(block.getByRole('link', { name: 'Already Pro? Sign in' })).toHaveAttribute('href', '/login')
+    await expect(block.getByRole('link', { name: 'Already Pro? Log in' })).toHaveAttribute('href', '/login')
 
     // The redline: the later text with the removed words beside it, both named for assistive tech,
     // underlined and struck through in the rendered CSS.
@@ -178,7 +178,7 @@ test.describe('the risk factor wording block of the change report', () => {
     await expect(block.getByRole('listitem')).toHaveCount(5)
     await expect(block.getByText(/more change/)).toHaveCount(0)
     await expect(block.getByRole('button', { name: 'Upgrade to Pro' })).toHaveCount(0)
-    await expect(block.getByRole('link', { name: 'Already Pro? Sign in' })).toHaveCount(0)
+    await expect(block.getByRole('link', { name: 'Already Pro? Log in' })).toHaveCount(0)
   })
 
   test('a Pro user reviews the changes: toggles and keys mark them, the progress counts, and the end of the queue is a receipt that copies', async ({ page, baseURL, context }) => {

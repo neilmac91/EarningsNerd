@@ -65,7 +65,7 @@ async function renderPage() {
     </QueryClientProvider>,
   )
   // Identity resolves to a guest: every bell offers sign-in.
-  await waitFor(() => expect(screen.getAllByRole('button', { name: /^Sign in to get earnings alerts/ }).length).toBeGreaterThan(0))
+  await waitFor(() => expect(screen.getAllByRole('button', { name: /^Log in to get earnings alerts/ }).length).toBeGreaterThan(0))
 }
 
 /** The desktop "+N more" opens the day dialog (the mobile one expands in place). */
@@ -94,8 +94,8 @@ describe('the bell popover never outlives a change of the day dialog', () => {
   it('closing the day (its X, from the keyboard) closes the popover inside it; Escape is not swallowed', async () => {
     await renderPage()
     const dialog = openDay()
-    fireEvent.click(within(dialog).getAllByRole('button', { name: /^Sign in to get earnings alerts/ })[0])
-    expect(dialog).toContainElement(screen.getByRole('group', { name: 'Sign in to set earnings alerts' }))
+    fireEvent.click(within(dialog).getAllByRole('button', { name: /^Log in to get earnings alerts/ })[0])
+    expect(dialog).toContainElement(screen.getByRole('group', { name: 'Log in to set earnings alerts' }))
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
     expect(document.querySelector('dialog')).toBeNull()
@@ -104,11 +104,11 @@ describe('the bell popover never outlives a change of the day dialog', () => {
 
   it('opening a day over a page popover closes the popover first', async () => {
     await renderPage()
-    fireEvent.click(screen.getAllByRole('button', { name: /^Sign in to get earnings alerts/ })[0])
-    expect(screen.getByRole('group', { name: 'Sign in to set earnings alerts' })).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: /^Log in to get earnings alerts/ })[0])
+    expect(screen.getByRole('group', { name: 'Log in to set earnings alerts' })).toBeInTheDocument()
 
     openDay()
-    expect(screen.queryByRole('group', { name: 'Sign in to set earnings alerts' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Log in to set earnings alerts' })).not.toBeInTheDocument()
   })
 })
 
@@ -120,7 +120,7 @@ describe("the signed-out prompt's account action follows the registration mode",
     mockUser.mockResolvedValue(null)
   })
 
-  const openPrompt = () => fireEvent.click(screen.getAllByRole('button', { name: /^Sign in to get earnings alerts/ })[0])
+  const openPrompt = () => fireEvent.click(screen.getAllByRole('button', { name: /^Log in to get earnings alerts/ })[0])
 
   it.each([
     ['before an answer', () => new Promise<SignupConfig | null>(() => {})], // never answers
@@ -170,7 +170,7 @@ describe("the signed-out prompt's account action follows the registration mode",
     expect(await screen.findByText(/^0 of \d+$/)).toBeInTheDocument()
     await waitFor(() => expect(mockUser).toHaveBeenCalled())
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(screen.queryAllByRole('button', { name: /^Sign in to get earnings alerts/ })).toHaveLength(0)
+    expect(screen.queryAllByRole('button', { name: /^Log in to get earnings alerts/ })).toHaveLength(0)
     expect(mockRegistration).not.toHaveBeenCalled()
   })
 })

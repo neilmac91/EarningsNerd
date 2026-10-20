@@ -48,10 +48,13 @@ standard input unasked, the body files of a command another shell runs (`bash -c
 here-document fed to a shell), the commit messages `gh pr create --fill` copies, a GitHub MCP server
 registered under a name without "github", a session that loads no repository hooks, and a person's
 own write.
-Tests: backend/tests/unit/test_codex_mention_guard.py. ops_approval_guard.py imports this module's shell
+secret_scan_guard.py reads a Bash command with this module's shell reader (_scan, _substitution,
+_command_tokens, _Input, OPERATORS), so a change to them changes that hook too: run
+backend/tests/unit/test_secret_scan_guard.py as well. ops_approval_guard.py imports this module's shell
 reader (`_script`, `_command_tokens`, `_commands`, `_read_sent`) and patterns (`AT_FILE`, `STDIN`, `HTTPIE`,
 `HEREDOC_WORD`, `PAREN_END`, `WORD_START`, `UNQUOTE`, `GITHUB_API`), so a change here also runs
 backend/tests/unit/test_ops_approval_guard.py.
+Tests: backend/tests/unit/test_codex_mention_guard.py.
 """
 from __future__ import annotations
 

@@ -6704,6 +6704,18 @@ Full local and hosted verification plus independent exact-head review precede re
   (refresh-token rotation and revocation under the users row lock, E127) deployed healthy
   (`earningsnerd-backend-00556-cp4`); production not read live. No CODE RED spend; no ledger event. No classifier
   denial of the chief's. Closure 182.
+- 2026-10-20 (record 32, `runtime/control/DECISIONS-32.md`): PR #1424 (record 31) merged `02b55b46` (twenty-seventh
+  deploy-skip proof). Closure 183 registers record 31's fact-check and its reviewer. Another writer's #1398 (the
+  landing page) deployed nothing to the backend; production unchanged since #1422's deploy, not read live. No CODE
+  RED spend; no ledger event. No classifier denial of the chief's. Closure 183.
+- 2026-10-20 (record 33, `runtime/control/DECISIONS-33.md`): PR #1427 (record 32) merged `0ddc9aa0` (twenty-eighth
+  deploy-skip proof). Closure 184 registers record 32's fact-check and its reviewer. Six wording corrections to
+  record 32. No CI deploy since #1422's; production not read live. No CODE RED spend; no ledger event. No classifier
+  denial of the chief's. Closure 184.
+- 2026-10-20 (record 34, `runtime/control/DECISIONS-34.md`): PR #1428 (record 33) merged `c2e7eb7f` (twenty-ninth
+  deploy-skip proof). Closure 185 registers record 33's fact-check and its reviewer, and annotates two of closure
+  183's role texts. One wording correction to record 33. No CI deploy since #1422's; production not read live. No
+  CODE RED spend; no ledger event. No classifier denial of the chief's. Closure 185.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

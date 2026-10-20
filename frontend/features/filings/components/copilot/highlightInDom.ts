@@ -3,33 +3,58 @@
  *
  * Builds a flat-text projection of the container's text nodes (with an offset→node map), runs the
  * pure {@link findExcerptMatch} matcher, maps the resulting offsets back to a DOM Range, then:
- *   - paints the exact span via the CSS Custom Highlight API when supported (`::highlight(...)`),
+ *   - paints the exact span via the CSS Custom Highlight API when supported (`::highlight(...)`), in
+ *     the device's paint when the server located the passage and in the neutral find paint otherwise,
  *   - flashes the enclosing block (works everywhere, incl. browsers without the Highlight API),
  *   - scrolls the passage into view inside the container, and only there.
- * Returns true when a passage was located and highlighted.
+ * Returns true when the text was found in the container and highlighted.
  */
 import { findExcerptMatch } from './excerptMatch'
 import { flashElement } from '@/lib/citationFlash'
 import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { CONSENT_INSET_PROPERTY } from '@/lib/consentLayer'
 
-const HIGHLIGHT_NAME = 'copilot-citation'
+/** The device's highlight: a passage the server located (D-044). */
+const LOCATED_HIGHLIGHT = 'copilot-citation'
+/** The neutral find highlight: where a jump the server did not locate landed. */
+const FIND_HIGHLIGHT = 'copilot-find'
 
 /**
- * Paint for `::highlight(copilot-citation)`. Registered from here as a constructed stylesheet rather
- * than in `app/globals.css`: lightningcss (Next 16.3's CSS pipeline) does not know the `::highlight()`
- * pseudo-element — it emits a SelectorError warning and, with error recovery, keeps the rule, but
- * Next's build surfaces that as "Parsing CSS source code failed" on every build. Same visual as
- * before — the sage of `.citation-flash`, 22% — and it only ever runs where the Highlight API exists,
+ * Paint for `::highlight(copilot-citation)`: the brand device's mark on a passage the server located
+ * (D-044), so a located passage looks the same in the reader as on the landing page. It takes `.en-mark`'s
+ * tint and 2px hairline from app/globals.css, light and dark (a `.dark` rule, as globals.css pairs the
+ * device; tests/unit/highlightInDom.spec.ts holds the values to the stylesheet's). The Highlight API
+ * paints colours and text decorations only, so the tint fills the passage's content area (`.en-mark`
+ * starts it at 62% of the line box) and the hairline is a 2px underline, unbroken by descenders, set
+ * where the tint ends: Newsreader's content area ends 0.2632em below the baseline, measured in Chromium.
+ * The passage reads in the primary ink, as the landing's marked block does: the reader's secondary ink
+ * measures 4.49:1 on the dark tint over the slate panel, under the 4.5:1 floor.
+ * Registered from here as a constructed stylesheet rather than in `app/globals.css`: lightningcss
+ * (Next 16.3's CSS pipeline) does not know the `::highlight()` pseudo-element: it emits a
+ * SelectorError warning and, with error recovery, keeps the rule, but Next's build surfaces that as
+ * "Parsing CSS source code failed" on every build. It only ever runs where the Highlight API exists,
  * which implies constructable stylesheets too.
  */
-// eslint-disable-next-line no-restricted-syntax -- a constructed stylesheet has no Tailwind token; the rgba is .citation-flash's sage at 22% (its theme pairing waits on the D1 device decision, ASK-19).
-export const CITATION_HIGHLIGHT_CSS = `::highlight(${HIGHLIGHT_NAME}) { background-color: rgba(79, 122, 99, 0.22); color: inherit; }`
+/* eslint-disable no-restricted-syntax -- a constructed stylesheet has no Tailwind token: these are .en-mark's tint and hairline (brand-weak, brand-border and their dark pair) and the primary ink pair, and the find paint's brand sage at 22%, held to app/globals.css and tailwind.config.js by tests/unit/highlightInDom.spec.ts. */
+export const CITATION_HIGHLIGHT_CSS = [
+  `::highlight(${LOCATED_HIGHLIGHT}) { background-color: #ECF2EE; color: #1A1A17; text-decoration: underline 2px #CFE0D6; text-decoration-skip-ink: none; text-underline-offset: calc(0.2632em - 2px); }`,
+  `.dark ::highlight(${LOCATED_HIGHLIGHT}) { background-color: rgba(127, 178, 149, 0.14); color: #D7DADC; text-decoration-color: rgba(127, 178, 149, 0.28); }`,
+].join('\n')
+
+/**
+ * Paint for `::highlight(copilot-find)`: where a jump the server did not locate lands, so the reader still
+ * sees where it landed: a summary chip's section heading (every metric chip, a verified XBRL figure's
+ * included, and every Cited chip), or the text an XBRL fact's jump found. Nothing unlocated takes the
+ * device (D-044), so this is the reader's neutral sage from before it: the brand sage at 22%, one rule for
+ * both themes as it was, in the reader's own ink, with no hairline.
+ */
+export const FIND_HIGHLIGHT_CSS = `::highlight(${FIND_HIGHLIGHT}) { background-color: rgba(79, 122, 99, 0.22); color: inherit; }`
+/* eslint-enable no-restricted-syntax */
 
 let highlightSheet: CSSStyleSheet | null = null
 
 /**
- * Adopt the `::highlight(copilot-citation)` rule once per document. Safe to call repeatedly: the
+ * Adopt the two highlights' rules once per document, in one sheet. Safe to call repeatedly: the
  * memo alone is not trusted — if some other code reassigned `document.adoptedStyleSheets` without
  * spreading the existing list, our sheet is gone while the memo says installed, so re-adopt.
  */
@@ -37,7 +62,7 @@ export function ensureCitationHighlightStyle(): void {
   if (highlightSheet && document.adoptedStyleSheets.includes(highlightSheet)) return
   try {
     const sheet = highlightSheet ?? new CSSStyleSheet()
-    if (!highlightSheet) sheet.replaceSync(CITATION_HIGHLIGHT_CSS)
+    if (!highlightSheet) sheet.replaceSync(`${CITATION_HIGHLIGHT_CSS}\n${FIND_HIGHLIGHT_CSS}`)
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
     highlightSheet = sheet
   } catch {
@@ -156,10 +181,19 @@ function revealWithin(container: HTMLElement, target: HTMLElement): void {
 
 export function clearCitationHighlight(): void {
   const highlights = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights
-  if (highlights) highlights.delete(HIGHLIGHT_NAME)
+  if (!highlights) return
+  highlights.delete(LOCATED_HIGHLIGHT)
+  highlights.delete(FIND_HIGHLIGHT)
 }
 
-export function highlightExcerptInDom(container: HTMLElement, excerpt: string): boolean {
+/**
+ * `located` says the server located the passage (D-044): only then does it take the device's highlight.
+ * Anything else, and a caller that does not say, lands in the neutral find highlight. One of the two is
+ * registered at a time, and a jump that finds nothing leaves neither: the last jump's paint left beside
+ * the reader's "Couldn't pinpoint" banner would mark an unrelated passage as this one.
+ */
+export function highlightExcerptInDom(container: HTMLElement, excerpt: string, { located = false }: { located?: boolean } = {}): boolean {
+  clearCitationHighlight()
   const flat = buildFlatText(container)
   const match = findExcerptMatch(flat.text, excerpt)
   if (!match) return false
@@ -182,8 +216,7 @@ export function highlightExcerptInDom(container: HTMLElement, excerpt: string): 
   const highlights = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights
   if (typeof w.Highlight === 'function' && highlights) {
     ensureCitationHighlightStyle()
-    highlights.delete(HIGHLIGHT_NAME)
-    highlights.set(HIGHLIGHT_NAME, new w.Highlight(range))
+    highlights.set(located ? LOCATED_HIGHLIGHT : FIND_HIGHLIGHT, new w.Highlight(range))
   }
 
   flashBlock(startLoc.node)

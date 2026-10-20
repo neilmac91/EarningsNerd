@@ -84,16 +84,17 @@ file instead.
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
   and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
-  `test_codex_mention_guard.py` and `test_ops_approval_guard.py` (that hook reuses the first one's shell
-  reader); a `tasks/todo.md`, `lessons/` or `.claude/workflows/` change
-  also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/` change also runs that
+  `test_codex_mention_guard.py`, `test_secret_scan_guard.py` and `test_ops_approval_guard.py` (both
+  hooks reuse the first one's shell reader); a `tasks/todo.md`, `lessons/` or `.claude/workflows/`
+  change also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/` change also runs that
   script's own spec under `frontend/tests/unit/` (every script has one, the gate insists;
   `premergeReviewWorkflow.spec.ts` for the review script: it runs the script with stubbed agents,
   and the text gate alone misses a spread or a tier key that overrides `model`). Do not write tests
   for prose.
 - Workflow-only PR (`.github/workflows/*.yml`): YAML parse plus the unit gates that read the
   workflows (`backend/tests/unit/test_migration_lock_safety.py`, `test_eval_parity.py`,
-  `test_eval_measurement.py`, `test_data_completeness.py`, `test_backend_deploy_scope.py`,
+  `test_eval_measurement.py`, `test_data_completeness.py`, `test_secret_scan_guard.py` (it reads
+  `ci.yml`'s gitleaks pin), `test_backend_deploy_scope.py`,
   `frontend/tests/unit/nodeVersionLockstep.spec.ts`; for `copilot-eval.yml` also
   `test_copilot_gate.py`, `test_copilot_live_regressions.py` and `test_retired_model_ids.py`, which
   pin its event set, step names and flags, run its steps and check its model ids, and

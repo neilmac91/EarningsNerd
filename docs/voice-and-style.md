@@ -125,7 +125,7 @@ the business card, the footer and the merch; it is the positioning in six words.
   "The Print", "Results That Matter", "Forward Signals", "Notable Footnotes" …) and keep their
   casing everywhere they are named, including on the sales page.
 - "AI-powered", lowercase p, except at the start of a sentence or in title-case page titles.
-- Ellipsis character `…` on loading states ("Signing in…") is fine.
+- Ellipsis character `…` on loading states ("Logging in…") is fine.
 - One retry verb ([D-032](brand/decisions-log.md)): "Try again", and "Trying again…" while it runs, on every
   retry control and in the copy beside it ("Try again in a moment."); never "Retry" or "please retry".
   `frontend/tests/unit/busyControlsStayFocusable.spec.ts` fails another label, busy text or "retry" in copy.
@@ -136,6 +136,18 @@ the business card, the footer and the merch; it is the positioning in six words.
 - Vocabulary the product owns, use it as the product does: "located in the filing",
   "matched the company's XBRL", "withheld", "checkable", "cited", "the filing's own words",
   "Full summary". Never "verified" without a match behind it.
+- The account verb is "Log in": "Log out", "logged in", "logging in" (D-046). "Login" is the noun
+  ("the login page", "Login failed"), and "sign up" is registering, so it stays. Never "sign in" or
+  "sign out" in any form, "Signing you in…" and "Sign back in" included.
+  `frontend/tests/unit/brandVoiceRules.spec.ts` fails it in copy, a lowercase message, a character
+  reference and the copy attributes of markup a module builds (an aria-label, an alt, a title, a
+  placeholder) included, except eight forms its header names as gaps: the two words split around an
+  expression, across literals joined with `+` or around an element; a noun between them ("Sign other
+  devices out"); a letter from another script; and, in a lowercase string shaped like a class list,
+  the verb joined into a longer word by a hyphen, a slash or a colon ("sign-in-related",
+  "sign-in/sign-up", "auth:sign-in"), as a class joins its parts. Copy in a JSON module stays
+  review-checked. The backend's own messages follow in their voice pass (E45), and the OAuth-linked
+  mail in E46's.
 
 ## Claims
 

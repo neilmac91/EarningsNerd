@@ -23,12 +23,16 @@ import { describe, expect, it } from 'vitest'
  * twin. Tokens the config gives no dark sibling (the chart palette and overlay, one value in both themes,
  * and `brand-emphasis`, `gain-text`, `loss-text`, `info-text`, `error-emphasis`) are not read.
  *
- * The other half: a colour class on a dark half (a `-dark` token beside its `-light` or suffixless sibling)
- * with no `dark:` variant paints the dark theme's colour in the light theme too. UserMenu's unverified dot
- * wore `ring-background-dark` alone, a navy ring on the cream header, and the verification banner's dismiss
- * hover tinted the light band with the dark amber. Such a class fails wherever it is, unless its surface is
- * dark in both themes on purpose, listed in BARE_DARK_RESIDUE. In a stylesheet, a rule block whose every
- * selector names `.dark` (the config's `darkMode: 'class'`), or that sits inside one, is the dark theme's.
+ * The other half: a colour class on a dark half (every token the config names `-dark`, beside a `-light` or
+ * suffixless sibling or not: `brand-fill-dark`, the dark theme's pressed fill, has neither) with no `dark:`
+ * variant paints the dark theme's colour in the light theme too. UserMenu's unverified dot wore
+ * `ring-background-dark` alone, a navy ring on the cream header, and the verification banner's dismiss hover
+ * tinted the light band with the dark amber. Such a class fails wherever it is, unless its surface is dark in
+ * both themes on purpose, listed in BARE_DARK_RESIDUE. In a stylesheet, a rule block whose every selector
+ * names `.dark` (the config's `darkMode: 'class'`) outside a `:not(…)` or `:has(…)`, or that sits inside one,
+ * is the dark theme's: `html:not(.dark) .x` is the light theme's. A limit: `.dark` beside another selector in an
+ * `:is(…)` or `:where(…)` counts too, so `:is(.dark, .card) .x { @apply bg-panel-dark; }` reads as the dark
+ * theme's though it also paints `.card .x` in the light theme.
  *
  * A class list is the strings that always render together: one string, the static parts of one template, or
  * the unconditional strings of one call to the class joiners (`cx`, `clsx`, `cn`), one inline `[…].join(…)`
@@ -40,7 +44,8 @@ import { describe, expect, it } from 'vitest'
  * lookup table (`STRENGTH_COLORS[score]`) is a class list of its own and carries its own twin. In a
  * stylesheet under the scanned directories (app/globals.css), the `@apply` statements of one rule block,
  * from its `{` to its `}` with nested blocks apart and comments removed, style one element, so together
- * they are one class list.
+ * they are one class list; a statement ends at its `;` or, the last in its block, at the block's `}`, as CSS
+ * and PostCSS read it (`.x { @apply bg-error-light }` compiles to a colour).
  *
  * The scan reads every script and stylesheet under SCAN_DIRS (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`,
  * `.css`); any other file there fails the first case until it is read or listed in NOT_READ with why it
@@ -80,10 +85,8 @@ const ARBITRARY_COLOUR = /^\[(?:#|rgba?\(|hsla?\(|color:)/
 const bare = (value: string) => value.replace(OPACITY, '')
 const isColour = (value: string) => COLOURS.has(bare(value)) || PALETTE_STEP.test(bare(value)) || ARBITRARY_COLOUR.test(bare(value))
 const isLightHalf = (value: string) => LIGHT_HALVES.has(bare(value))
-/** The dark halves the config pairs by name: `<name>-dark` beside a `<name>-light` or a `<name>`. */
-const DARK_HALVES = new Set(
-  TOKENS.filter((name) => name.endsWith('-dark') && (COLOURS.has(`${name.slice(0, -5)}-light`) || COLOURS.has(name.slice(0, -5)))),
-)
+/** The dark theme's colours: every token the config names `<name>-dark`, with a light sibling or without one (`brand-fill-dark`). */
+const DARK_HALVES = new Set(TOKENS.filter((name) => name.endsWith('-dark')))
 const isDarkHalf = (value: string) => DARK_HALVES.has(bare(value))
 /** A colour utility on a light half, with an optional opacity (`/50`, `/[0.06]`): its property. */
 function lightProperty(utility: string): string | undefined {
@@ -224,7 +227,25 @@ function themePairFindings(source: string, rel: string): Finding[] {
 }
 
 type Apply = { classes: string; line: number; dark: boolean }
-/** Whether every selector of a rule (commas inside brackets apart) names the `.dark` class. */
+/** A selector with each `:not(…)` and `:has(…)` taken out: `.dark` inside one never makes the selector the dark theme's. */
+function outsideNegations(selector: string): string {
+  let out = ''
+  for (let i = 0; i < selector.length; ) {
+    const group = /^:(?:not|has)\(/i.exec(selector.slice(i))
+    if (!group) {
+      out += selector[i++]
+      continue
+    }
+    let j = i + group[0].length
+    for (let depth = 1; j < selector.length && depth > 0; j++) {
+      if (selector[j] === '(') depth++
+      else if (selector[j] === ')') depth--
+    }
+    i = j
+  }
+  return out
+}
+/** Whether every selector of a rule (commas inside brackets apart) names the `.dark` class outside a `:not(…)` or `:has(…)`. */
 function darkSelector(selector: string): boolean {
   const parts: string[] = []
   let depth = 0
@@ -238,7 +259,7 @@ function darkSelector(selector: string): boolean {
     }
   }
   parts.push(selector.slice(start))
-  return parts.every((part) => /\.dark(?![\w-])/.test(part))
+  return parts.every((part) => /\.dark(?![\w-])/.test(outsideNegations(part)))
 }
 /**
  * A stylesheet's `@apply` statements, grouped by the rule block they sit directly in (nested blocks apart).
@@ -250,7 +271,8 @@ function applyBlocks(source: string): Apply[][] {
   const blocks: Apply[][] = []
   const open: { applies: Apply[]; dark: boolean }[] = [{ applies: [], dark: false }]
   let from = 0
-  for (const match of text.matchAll(/[{}]|@apply\s+([^;{}]+);/g)) {
+  // A statement ends at its `;`, or at its block's `}` when it is the last: CSS lets that one go without a `;`.
+  for (const match of text.matchAll(/[{}]|@apply\s+([^;{}]+)(?:;|(?=\}))/g)) {
     const at = match.index ?? 0
     const top = open[open.length - 1]
     if (match[0] === '{') open.push({ applies: [], dark: top.dark || darkSelector(text.slice(from, at).split(';').pop() ?? '') })
@@ -381,7 +403,7 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
     expect(['error-light', 'border-light', 'brand', 'brand-strong', 'brand-weak', 'brand-border', 'gain', 'loss-soft'].filter((v) => !isLightHalf(v))).toEqual([])
     expect(['brand-dark', 'brand-weak-dark', 'white', 'chart-1', 'brand-emphasis'].filter(isLightHalf)).toEqual([])
     // And the dark halves, which a class outside `dark:` must not name.
-    expect(['background-dark', 'brand-dark', 'brand-weak-dark', 'text-primary-dark', 'warning-dark'].filter((v) => !isDarkHalf(v))).toEqual([])
+    expect(['background-dark', 'brand-dark', 'brand-weak-dark', 'text-primary-dark', 'warning-dark', 'brand-fill-dark'].filter((v) => !isDarkHalf(v))).toEqual([])
     expect(['background-light', 'brand', 'white', 'black', 'chart-1', 'brand-emphasis'].filter(isDarkHalf)).toEqual([])
   })
 
@@ -482,12 +504,16 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       '.d { @apply bg-error-light; } .e { @apply dark:bg-error-dark; }',
       '.f { @apply border-border-light; /* @apply dark:border-border-dark; */ }',
       '@media (min-width: 640px) { .g { @apply text-text-secondary-light; &:hover { @apply dark:text-text-secondary-dark; } } }',
+      // The last statement of a block may go without its `;` (the review of #1310); a twin so written pairs too.
+      '.h { @apply bg-error-light }',
+      '.i { @apply bg-error-light; @apply dark:bg-error-dark }',
     ].join('\n')
     expect(applyFindings(css, 'probe.css').map((f) => `${f.line} ${f.className}`)).toEqual([
       '2 border-border-light',
       '6 bg-error-light',
       '7 border-border-light',
       '8 text-text-secondary-light',
+      '9 bg-error-light',
     ])
     // A dark half outside `dark:` paints in the light theme: under hover or a condition too.
     const dark = [
@@ -501,12 +527,16 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       "const suffixless = 'bg-brand-dark/15'",
       // Not a dark half: white, a palette step, a shadow token named for a ring.
       "const other = 'text-white bg-slate-900 shadow-ring-brand-dark'",
+      // A dark token with no light sibling is the dark theme's too (the review of #1310): bare, it paints the light theme.
+      "const fill = 'bg-brand-fill-dark text-white'",
+      "const pressed = 'dark:active:bg-brand-fill-dark'",
     ].join('\n')
     expect(bareDarkFindings(dark, 'probe.tsx').map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 ring-background-dark',
       '3 hover:bg-warning-dark/15',
       '6 text-text-primary-dark',
       '8 bg-brand-dark/15',
+      '10 bg-brand-fill-dark',
     ])
     // In a stylesheet the dark theme is a `.dark` block: every selector of it, or a block inside one.
     const darkCss = [
@@ -516,11 +546,20 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       '.e { @apply dark:bg-panel-dark; /* @apply bg-panel-dark; */ }',
       '.f { @apply text-text-primary-light; .dark & { @apply text-text-primary-dark; } }',
       '.dark-panel { @apply bg-panel-dark; } :is(.dark .g, .dark .h) { @apply bg-panel-dark; }',
+      // The review of #1310's forms: a last statement with no `;`, and `.dark` inside a :not() or a :has(), which
+      // select the light theme; `.dark` outside one still is the dark theme's.
+      '.i { @apply bg-panel-dark }',
+      'html:not(.dark) .j { @apply bg-panel-dark; }',
+      '.k:has(.dark) { @apply text-text-primary-dark; }',
+      '.dark .l:not(.m) { @apply bg-panel-dark; }',
     ].join('\n')
     expect(bareDarkFindings(darkCss, 'probe.css').map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 bg-panel-dark',
       '3 border-border-dark',
       '6 bg-panel-dark',
+      '7 bg-panel-dark',
+      '8 bg-panel-dark',
+      '9 text-text-primary-dark',
     ])
   })
 })

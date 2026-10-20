@@ -26,7 +26,10 @@ pre-existing tests fail that pass on CI's 3.11, and in the gate's output an envi
 (chief defect 12's first run). `set -e` is not that check in the Claude Code tool shell: a probe `(set -e; false; echo survived)` prints there, so
 errexit is suppressed (chief defect 11, 2026-10-10T05:00Z: a failed `ruff format --check` did not stop a chain from committing and
 pushing `577edeb`). Give every verification step of a chain that commits or pushes its own explicit exit, `cmd || exit 1`; the
-wrapper is a separate script, where `set -e` does work.
+wrapper is a separate script, where `set -e` does work. Since E126 such a chain ends at the commit:
+`.claude/hooks/secret_scan_guard.py` reads what a push sends before its call runs, so it refuses a push that follows a test
+run, a lint or a commit in the same call, and the push goes in a Bash call of its own
+(`lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md`).
 
 **Evidence.** `tasks/code-red-20261004/runtime/control/DECISIONS-21.md` (disclosure 7);
 `tasks/code-red-20261004/runtime/control/APPOINTMENTS.json` (`chief_defects`, 2026-10-10T04:05Z);

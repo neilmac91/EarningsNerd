@@ -358,7 +358,7 @@
       },
       "filing-reader": {
         "displayName": "Filing Reader",
-        "purpose": "Original filing prose only."
+        "purpose": "The filing's own words only: original filing prose, and a located passage's marked block."
       }
     },
     "shadows": [
@@ -557,7 +557,7 @@
   ],
   "narrative": {
     "northStar": "The Investor’s Research Desk",
-    "overview": "EarningsNerd is calm, precise and evidence-led. Warm cream and espresso give the light interface the familiarity of a working document; deep navy carries the same structure into dark mode. Sage identifies actions, links and the product itself. Financial direction, status and chart series have separate color vocabularies so the interface can express their different meanings clearly.\n\nThe system is refined, readable and quietly confident. Inter headings organize the work, system-first body text supports scanning, and Geist Mono makes figures and evidence recognizable. Newsreader is reserved for the original filing reader. Depth is structural and restrained: light cards lift from the page, while dark cards separate through fill and hairlines. Decorative gradients remain outside the established visual language. One graphic device, the margin and the mark, makes a surface recognisable without the logo: a located passage is highlighted and a cited figure carries a bracketed marker whose twin sits in a margin on the same line.",
+    "overview": "EarningsNerd is calm, precise and evidence-led. Warm cream and espresso give the light interface the familiarity of a working document; deep navy carries the same structure into dark mode. Sage identifies actions, links and the product itself. Financial direction, status and chart series have separate color vocabularies so the interface can express their different meanings clearly.\n\nThe system is refined, readable and quietly confident. Inter headings organize the work, system-first body text supports scanning, and Geist Mono makes figures and evidence recognizable. Newsreader is reserved for the filing's own words: the filing reader and the passages the product located. Depth is structural and restrained: light cards lift from the page, while dark cards separate through fill and hairlines. Decorative gradients remain outside the established visual language. One graphic device, the margin and the mark, makes a surface recognisable without the logo: a located passage is highlighted and a cited figure carries a bracketed marker whose twin sits in a margin on the same line. Inside the product it marks every passage the server located.",
     "keyCharacteristics": [
       "One sage brand accent, with explicit light and dark treatments.",
       "Warm page grounds, brighter light panels and low-noise dark panels.",
@@ -589,7 +589,7 @@
       },
       {
         "name": "The Marked Copy Rule",
-        "body": "A mark means \"located in the filing\" and a bracket means \"cited\"; one highlight per surface may sit under a phrase of ours as the brand's signature, and none ever sits on a figure, a price, an unverified claim or a competitor's name. The margin appears only beside text that carries at least one marker, never as decoration, and the filing's words inside a marked block keep the filing's voice.",
+        "body": "A mark means \"located in the filing\" and a bracket means \"cited\"; inside the product the device marks every passage the server located and nothing else, one marker per row so the twins never overprint. A located passage set as a block takes the marked block and one inside running text takes the tint and hairline, never the other's form, and nothing unlocated takes either. One highlight per surface may sit under a phrase of ours as the brand's signature, and none ever sits on a figure, a price, an unverified claim or a competitor's name. The margin appears only beside text that carries at least one marker, never as decoration and never beside Ask answers or the Multi-Period narrative, which keep their citation chips, and the filing's words inside a marked block keep the filing's voice.",
         "section": "graphic device"
       },
       {

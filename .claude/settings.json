@@ -23,6 +23,16 @@
         ]
       },
       {
+        "matcher": "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_guard.py\" || exit 1",
+            "timeout": 60
+          }
+        ]
+      },
+      {
         "matcher": "^Bash$",
         "hooks": [
           {
