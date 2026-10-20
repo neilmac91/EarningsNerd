@@ -38,13 +38,14 @@ and say so in the hand-off.
   device, so `ld` leaves it alone.
 - Gated three times. `_install_git_null_guard` in `backend/tests/conftest.py`, installed when conftest is
   imported, refuses on any runner a start through `subprocess`, `os.system` or `os.posix_spawn`, from a test or
-  a fixture of any scope, whose environment, shell line or `config --file` gives git the device, however it
-  was built; a child run in `test_suite_isolation.py` proves each start.
+  a fixture of any scope, whose environment, shell line or git config file option (`--file`, `-f`, attached or
+  not) gives git the device, however it was built; a child run in `test_suite_isolation.py` proves each start.
   `backend/tests/unit/test_null_device_write_targets.py` fails on any tracked code file that names
   `/dev/null` or `os.devnull` in git's `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG` or `GIT_INDEX_FILE`,
-  or in `git config --file`, on every runner (CI runs as a non-root user, where nothing can replace the device).
-  `_null_device_survives` in `backend/tests/conftest.py` fails the test during which `/dev/null` stops being a
-  character device, which can happen only in a root session; `test_a_test_that_replaces_the_null_device_fails`
-  in `backend/tests/unit/test_suite_isolation.py` proves it on a symlinked stand-in. An atomic writer's target
+  or as git config's file, on every runner (CI runs as a non-root user, where nothing can replace the device).
+  The null-device checks in `backend/tests/conftest.py` fail the test during whose setup, body or teardown
+  `/dev/null` stops being a character device (a fixture of any scope included), which can happen only in a
+  root session, and fail the run for a loss outside every test; two child runs in
+  `backend/tests/unit/test_suite_isolation.py` prove it on a symlinked stand-in. An atomic writer's target
   and a linker's `-o` stay review-checked: curl's `-o /dev/null` writes in place and is safe, so no pattern
   tells them apart.

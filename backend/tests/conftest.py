@@ -4,13 +4,14 @@ Pytest configuration for EarningsNerd backend tests.
 Makes every pytest process hermetic and order-independent: a private temp database and EdgarTools
 directory per process (each xdist worker is one), pinned environment, the network gate, autouse
 resets of process-wide state, and checks that no process the run starts gives git /dev/null as a file it
-writes and that no test destroys /dev/null. Markers live in
+writes and that nothing in the run destroys /dev/null. Markers live in
 backend/pytest.ini; gates for all of this are in tests/unit/test_suite_isolation.py
 (lessons/ops-one-test-process-per-worktree.md).
 """
 
 import atexit
 import os
+import re
 import shlex
 import shutil
 import stat
@@ -327,25 +328,49 @@ def _clear_pinned_methods():
                 delattr(target, name)
 
 
-@pytest.fixture(autouse=True)
-def _null_device_survives():
-    """A test must leave ``/dev/null`` the null device.
+# Whether /dev/null was the null device as the running test's current phase began.
+_NULL_DEVICE_BEFORE = pytest.StashKey[bool]()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    item.stash[_NULL_DEVICE_BEFORE] = _is_character_device(os.devnull)  # read at each check: a child run swaps in a stand-in
+    return (yield)
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_runtest_makereport(item, call):
+    """A test must leave ``/dev/null`` the null device, through its setup, its body and its teardown.
 
     A session that runs as root (cloud sessions do) lets a tool given /dev/null as a file it writes replace
     it: a git config write through a ``GIT_CONFIG_GLOBAL`` naming it renames its lock file over it, and once
     it is an ordinary file every failed ``ld -o /dev/null`` (``ctypes.util.find_library``'s last fallback,
     which importing WeasyPrint reaches) unlinks it. Git and ``subprocess.DEVNULL`` then fail across the
-    container. The test during which it stopped being a character device fails here; under ``-n auto`` a
-    test in another worker may share the blame. A child run in ``tests/unit/test_suite_isolation.py``
-    replaces a stand-in to prove it (lessons/test-never-point-a-written-file-at-dev-null.md).
+    container. Each phase of a test whose span saw it stop being a character device fails here, a fixture of
+    any scope included: pytest sets one up in the setup of the first test that uses it and tears it down in the
+    teardown of the last. An ``xfail`` mark or a skip cannot absorb the failure (the network gate treats an
+    attempt the same way). Under ``-n auto`` a test in another worker may share the blame, and
+    ``pytest_sessionfinish`` fails the run for a loss outside every test (a module's import). Two child runs in
+    ``tests/unit/test_suite_isolation.py`` replace a stand-in in each place to prove it
+    (lessons/test-never-point-a-written-file-at-dev-null.md).
     """
-    path = os.devnull
-    was_device = _is_character_device(path)
-    yield
-    if was_device and not _is_character_device(path):
-        pytest.fail(f"{path} stopped being the null device during this test (or one in another worker): a tool "
-                    "replaced or removed it. Restore it before trusting this run; see "
-                    "lessons/test-never-point-a-written-file-at-dev-null.md", pytrace=False)
+    report = yield
+    was_device = item.stash.get(_NULL_DEVICE_BEFORE, False)
+    item.stash[_NULL_DEVICE_BEFORE] = _is_character_device(os.devnull)
+    if was_device and not item.stash[_NULL_DEVICE_BEFORE]:
+        text = (f"{os.devnull} stopped being the null device during this test ({call.when}) or in another worker: "
+                "a tool replaced or removed it. Restore it before trusting this run; see "
+                "lessons/test-never-point-a-written-file-at-dev-null.md")
+        if report.failed:
+            report.sections.append(("null device", text))
+        else:  # passed, skipped or an xfail: losing the device is never an expected outcome
+            try:
+                pytest.fail(text, pytrace=False)
+            except pytest.fail.Exception:  # a raised Failed gives the report a one-line reprcrash
+                report.outcome, report.longrepr = "failed", item.repr_failure(pytest.ExceptionInfo.from_current())
+            if hasattr(report, "wasxfail"):
+                del report.wasxfail
+    return report
 
 
 def _is_character_device(path):
@@ -355,8 +380,31 @@ def _is_character_device(path):
         return False
 
 
+_RUN_STARTED_WITH_THE_DEVICE = _is_character_device(os.devnull)
+
+
+def pytest_sessionfinish(session):
+    """The run fails when /dev/null stopped being the null device during it, wherever that happened: in a test
+    (whose phase failed above), at a module's import, or in another worker."""
+    if _RUN_STARTED_WITH_THE_DEVICE and not _is_character_device(os.devnull) \
+            and session.exitstatus == pytest.ExitCode.OK:
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+def pytest_terminal_summary(terminalreporter):
+    if _RUN_STARTED_WITH_THE_DEVICE and not _is_character_device(os.devnull):
+        terminalreporter.section(f"{os.devnull} stopped being the null device during this run -- session FAILED",
+                                 sep="=", red=True, bold=True)
+        terminalreporter.line("A tool replaced or removed it. Restore it before trusting this run; see "
+                              "lessons/test-never-point-a-written-file-at-dev-null.md")
+
+
 # The variables that name a file git writes through a lock file it renames over the target.
 _GIT_WRITE_TARGETS = ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG", "GIT_INDEX_FILE")
+# git config's file option as git's option parser reads it: `--file` or its abbreviation `--fil`, the file
+# after `=` or in the next word; `-f`, alone or after other short options (`-zf`), the file attached or in the
+# next word. tests/unit/test_null_device_write_targets.py reads source with the same pattern.
+_CONFIG_FILE_OPTION = re.compile(r"--fil(?:e)?(?:=(?P<long>.*))?|-[a-eg-zA-Z]*f(?P<short>.*)")
 
 
 def _install_git_null_guard():
@@ -365,12 +413,14 @@ def _install_git_null_guard():
     ``tests/unit/test_null_device_write_targets.py`` reads the source; this sees each start, however its
     environment or arguments were built, on any runner: an environment whose ``GIT_CONFIG_GLOBAL``,
     ``GIT_CONFIG_SYSTEM``, ``GIT_CONFIG`` or ``GIT_INDEX_FILE`` names the device, a ``NAME=/dev/null`` word in
-    a shell line, or ``config --file`` naming it. It is installed when conftest is imported, so a fixture of any
+    a shell line, or git config's file option naming it (``--file``, ``-f``, attached or not). A path is read
+    from the test's own directory; one that reaches the device only from another (a ``cwd=``, ``git -C``) is
+    outside it. It is installed when conftest is imported, so a fixture of any
     scope is covered, and it wraps every way the standard library starts a program but fork and exec:
     ``subprocess.Popen`` (``subprocess.run``, ``os.popen`` and asyncio's subprocesses go through it),
     ``os.system``, ``os.posix_spawn`` and ``os.posix_spawnp``. The start fails before it happens. A process that
     a started process starts in turn is outside it, as is ``os.fork`` with an ``exec`` and a start this cannot
-    read; the source gate and ``_null_device_survives`` stand behind them. A child run in
+    read; the source gate and the null-device checks above stand behind them. A child run in
     ``tests/unit/test_suite_isolation.py`` proves each start (lessons/test-never-point-a-written-file-at-dev-null.md).
     """
     popen_init = subprocess.Popen.__init__
@@ -429,10 +479,12 @@ def _git_null_target(args, env):
             name, equals, value = word.partition("=")
             if equals and name in _GIT_WRITE_TARGETS and names_null(value):
                 return word
-            if "config" in words[:index] and (
-                    (word in ("--file", "-f") and index + 1 < len(words) and names_null(words[index + 1]))
-                    or (word.startswith("--file=") and names_null(word[len("--file="):]))):
-                return f"config {word}" + (f" {words[index + 1]}" if "=" not in word else "")
+            option = _CONFIG_FILE_OPTION.fullmatch(word) if "config" in words[:index] else None
+            if option:
+                attached = option["long"] or option["short"]
+                given = attached or (words[index + 1] if index + 1 < len(words) else None)
+                if names_null(given):
+                    return f"config {word}" + ("" if attached else f" {given}")
     except (TypeError, ValueError, OSError):
         return None
     return None

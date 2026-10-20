@@ -4,17 +4,20 @@ as a file it writes.
 Git writes its config and its index through a lock file that it renames over the target. As root, which cloud
 sessions are, a write through GIT_CONFIG_GLOBAL, GIT_CONFIG_SYSTEM, GIT_CONFIG or GIT_INDEX_FILE naming the null
 device, or through `git config --file` naming it, therefore replaces the device with an ordinary file.
-tests/conftest.py's `_null_device_survives` sees that only in a root run, after the damage; this gate finds the
+tests/conftest.py's null-device checks see that only in a root run, after the damage; this gate finds the
 pattern in source on any runner, CI's included.
 
 A Python file is read as its syntax tree, so formatting cannot hide the pattern: a mapping, a subscript
 assignment, a keyword or a pair of call arguments that gives one of those variables the device, or a
-`git config --file` sequence that names it, where the device is `os.devnull`, "/dev/null", a name the file binds
-to either (plainly, annotated, by unpacking or with `:=`), or any of those inside calls (`str(os.devnull)`), an
-f-string or a conditional; and a string that holds the shell form. Other code files are searched for the shell
-form, whatever whitespace separates its parts. A device that reaches git from another
-module, a linker's `-o` and an atomic writer's target stay review-checked, with `_null_device_survives` behind
-them in a root run; curl's `-o` writes in place and leaves the device alone.
+`git config` sequence that gives it as the file, where the device is `os.devnull`, "/dev/null", a name the file
+binds to either (plainly, annotated, by unpacking or with `:=`), or any of those inside calls (`str(os.devnull)`),
+an f-string or a conditional; and a string, literal or built with an f-string or `+`, that holds the shell form.
+Other code files are searched for the shell form, whatever whitespace separates its parts and whatever comes
+between `config` and its file option in one command. The file option is read as git's option parser reads it:
+`--file` or its abbreviation `--fil`, and `-f` alone or after other short options, the file after `=`, attached
+or next. A device that reaches git from another module, a string built any other way (`%`, `str.format`, a
+join) or out of variables, a linker's `-o` and an atomic writer's target stay review-checked, with conftest's
+process guard and null-device checks behind them; curl's `-o` writes in place and leaves the device alone.
 """
 from __future__ import annotations
 
@@ -32,8 +35,12 @@ NULL = r"(?:[\w.]+\(\s*['\"]?)*(?:os\.devnull|/dev/null)"  # wrapped in calls or
 SHELL_FORM = re.compile(
     # A variable naming a file git writes: `NAME=`, `NAME: ` (YAML, JSON), `"NAME", ` (an argument pair).
     rf"GIT_(?:CONFIG(?:_GLOBAL|_SYSTEM)?|INDEX_FILE)[\s\"'\])]*[:=,][\s\"'(\[]*{NULL}"
-    rf"|\bconfig\b[\s\"',]*(?:--file|-f)(?:=|[\s\"',]+)[\"'(]*{NULL}"  # git config --file
+    # git config's file option later in the same command (a continued line counts; `;`, `&` or `|` ends it).
+    rf"|\bconfig\b(?:[^\n;&|]|\\\n)*?(?<![\w-])(?:--fil(?:e)?(?:=|[\s\"',]+)|-[a-eg-zA-Z]*f[\s\"',]*)[\"'(]*{NULL}"
 )
+# One word of git config's file option, as conftest's process guard reads it: `--file` or `--fil`, the file after
+# `=` or in the next word; `-f` alone or after other short options (`-zf`), the file attached or in the next word.
+CONFIG_FILE_OPTION = re.compile(r"--fil(?:e)?(?:=(?P<long>.*))?|-[a-eg-zA-Z]*f(?P<short>.*)")
 CODE = {".py", ".sh", ".bash", ".yml", ".yaml", ".toml", ".cfg", ".ini", ".json", ".js", ".mjs", ".cjs", ".ts", ".tsx"}
 
 
@@ -128,15 +135,38 @@ class _NullTargets(ast.NodeVisitor):
         if isinstance(node.value, str) and id(node) not in self.docstrings and SHELL_FORM.search(node.value):
             self.lines.append(node.lineno)
 
+    def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
+        self._built_shell_form(node)
+
+    def visit_BinOp(self, node: ast.BinOp) -> None:
+        self._built_shell_form(node)
+
+    def _built_shell_form(self, node: ast.JoinedStr | ast.BinOp) -> None:
+        if SHELL_FORM.search(self._text(node)):
+            self.lines.append(node.lineno)
+        self.generic_visit(node)
+
+    def _text(self, node: ast.AST | None) -> str:
+        """The text a string expression builds, the device written `/dev/null` and any part it cannot read a
+        NUL: a literal, an f-string, a `+` of them, or the device itself."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            return "".join(self._text(part.value if isinstance(part, ast.FormattedValue) else part)
+                           for part in node.values)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return self._text(node.left) + self._text(node.right)
+        return NULL_PATH if self._null(node) else "\0"
+
     def _config_file(self, items: list[ast.expr]) -> None:
-        """`git config --file <the device>` written as a sequence of arguments."""
-        words = [item.value if isinstance(item, ast.Constant) and isinstance(item.value, str) else None
-                 for item in items]
+        """`git config` given the device as its file in a sequence of arguments."""
+        words = [self._text(item) for item in items]
         if "config" not in words:
             return
         for index, word in enumerate(words):
-            if (word in ("--file", "-f") and index + 1 < len(items) and self._null(items[index + 1])) or \
-                    word == f"--file={NULL_PATH}":
+            option = CONFIG_FILE_OPTION.fullmatch(word)
+            attached = option and (option["long"] or option["short"])
+            if option and (attached or (words[index + 1] if index + 1 < len(words) else None)) == NULL_PATH:
                 self.lines.append(items[index].lineno)
 
 
@@ -162,7 +192,7 @@ def test_no_tracked_code_gives_git_the_null_device_to_write():
     hits = []
     for path in _tracked_code():
         text = path.read_text(encoding="utf-8", errors="replace")
-        hits += [f"{path.relative_to(ROOT)}:{line}" for line in _hits(path, text)]
+        hits += [f"{path.relative_to(ROOT)}:{line}" for line in sorted(set(_hits(path, text)))]
     assert not hits, (
         "Git renames its lock file over a config or index file it writes, which as root replaces the null "
         "device. Give git an empty file in the test's own temp directory instead "
@@ -187,7 +217,14 @@ def test_no_tracked_code_gives_git_the_null_device_to_write():
     'subprocess.run(["git", "config", "--file", str(os.devnull), "a.b", "c"])',
     'subprocess.run(("git", "config", "-f", "/dev/null", "a.b", "c"))',
     'subprocess.run(["git", "config", "--file=/dev/null", "a.b", "c"])',
+    'subprocess.run(["git", "config", "-f/dev/null", "a.b", "c"])',  # the file attached to -f
+    'subprocess.run(["git", "config", "-zf", os.devnull, "a.b", "c"])',  # -f after another short option
+    'subprocess.run(["git", "config", "--fil", os.devnull, "a.b", "c"])',  # git takes the abbreviation
+    'subprocess.run(["git", "config", f"--file={os.devnull}", "a.b", "c"])',  # built by an f-string
+    'subprocess.run(["git", "config", "-f" + os.devnull, "a.b", "c"])',  # or by +
     'subprocess.run("GIT_CONFIG_GLOBAL=/dev/null git config a.b c", shell=True)',  # the shell form in a string
+    'os.system(f"git config -f{os.devnull} a.b c")',  # a shell line built by an f-string
+    'os.system("GIT_CONFIG_GLOBAL=" + os.devnull + " git config a.b c")',  # or by +
 ])
 def test_the_gate_finds_each_python_form(code):
     assert _NullTargets(ast.parse(code)).lines, code
@@ -200,6 +237,9 @@ def test_the_gate_finds_each_python_form(code):
     'env = {"GIT_CONFIG_NOSYSTEM": "1", "NULL": os.devnull}',
     'subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "commit", "-m", "x"])',  # a path git reads
     'subprocess.run(["git", "config", "--file", str(tmp_path / "c"), "a.b", "c"], stdout=open(os.devnull, "w"))',
+    'subprocess.run(["git", "config", f"--file={tmp_path / \'c\'}", "a.b", "c"])',  # a file of its own
+    'subprocess.run(["git", "config", "--global", "core.excludesFile", os.devnull])',  # the device as a value
+    'os.system("git status > " + os.devnull)',  # a redirect
     'def f():\n    """GIT_CONFIG_GLOBAL=/dev/null would replace the device."""\n',  # a docstring describes it
     "# GIT_CONFIG_GLOBAL=/dev/null in a comment\nx = 1",
 ])
@@ -218,6 +258,12 @@ def test_the_gate_passes_python_that_leaves_the_device_alone(code):
     'process.env.GIT_INDEX_FILE = "/dev/null";',
     "export GIT_CONFIG_SYSTEM='/dev/null'",
     '["git", "config", "--file", "/dev/null", "a.b", "c"]',  # an argument list in another language
+    "git config -f/dev/null a.b c",  # the file attached to -f
+    "git config -zf /dev/null a.b c",  # -f after another short option
+    "git config --fil=/dev/null a.b c",  # git takes the abbreviation
+    "git config --type bool -f /dev/null a.b true",  # other options first
+    "git config \\\n  --file /dev/null a.b c",  # a continued line
+    '["git", "config", "-f/dev/null", "a.b", "c"]',
 ])
 def test_the_gate_finds_each_shell_form(text):
     assert SHELL_FORM.search(text)
@@ -231,6 +277,10 @@ def test_the_gate_finds_each_shell_form(text):
     "make build > /dev/null 2>&1",
     "GIT_CONFIG_NOSYSTEM: '1'\nOUT:          /dev/null",
     "curl -sS -o          /dev/null https://example.com",
+    "git config --global core.excludesFile /dev/null",  # the device as a value, in the global config
+    "git config -f ./c a.b c 2>/dev/null",  # a redirect after a file of its own
+    "git config a.b c && ln -sf /dev/null x",  # another command on the line
+    "git config alias.x-f /dev/null",  # a key that ends in -f, given the device as its value
 ])
 def test_the_gate_passes_shell_that_leaves_the_device_alone(text):
     assert not SHELL_FORM.search(text)

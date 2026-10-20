@@ -287,20 +287,46 @@ def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
 
 
 # The child watches a symlink to the null device in place of /dev/null, and the probe replaces only that
-# symlink, so the real /dev/null is never at stake, whether the run is root or not.
+# symlink, so the real /dev/null is never at stake, whether the run is root or not. A case that replaces it
+# puts the symlink back in its teardown, so the next case starts with the device.
 _NULL_DEVICE_PROBE = (
     "import os\n"
     "from pathlib import Path\n\n"
+    "import pytest\n\n"
     "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
     "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
-    "os.devnull = str(STAND_IN)  # the null device conftest's check watches in this process\n\n"
+    "DEVICE = os.readlink(STAND_IN)\n"
+    "os.devnull = str(STAND_IN)  # the null device conftest's checks watch in this process\n\n"
+    "def replace():  # as a git config write does: a lock file renamed over its target\n"
+    "    lock = STAND_IN.with_name(STAND_IN.name + '.lock')\n"
+    "    lock.write_text('[probe]\\n\\tkey = value\\n', encoding='utf-8')\n"
+    "    os.replace(lock, STAND_IN)\n\n"
+    "@pytest.fixture\n"
+    "def put_back():\n"
+    "    yield\n"
+    "    STAND_IN.unlink()\n"
+    "    STAND_IN.symlink_to(DEVICE)\n\n"
+    "@pytest.fixture(scope='session')\n"
+    "def replaced_by_a_session_fixture():\n"
+    "    replace()\n\n"
+    "@pytest.fixture(scope='module')\n"
+    "def replaced_as_a_module_fixture_ends():\n"
+    "    yield\n"
+    "    replace()\n\n"
     "def test_writes_into_the_null_device():\n"
     "    with open(os.devnull, 'w', encoding='utf-8') as sink:\n"
     "        sink.write('discarded')\n\n"
-    "def test_renames_a_lock_file_over_it_like_a_git_config_write():\n"
-    "    lock = STAND_IN.with_name(STAND_IN.name + '.lock')\n"
-    "    lock.write_text('[probe]\\n\\tkey = value\\n', encoding='utf-8')\n"
-    "    os.replace(lock, STAND_IN)\n"
+    "@pytest.mark.xfail(strict=True)  # a failure it expects, of any kind, cannot absorb the loss\n"
+    "def test_renames_a_lock_file_over_it_like_a_git_config_write(put_back):\n"
+    "    replace()\n"
+    "    raise AssertionError('the failure its mark expects')\n\n"
+    "def test_fails_on_its_own_as_it_replaces_it(put_back):\n"
+    "    replace()\n"
+    "    assert False, 'its own failure'\n\n"
+    "def test_uses_a_session_fixture_that_replaces_it(replaced_by_a_session_fixture, put_back):\n"
+    "    pass\n\n"
+    "def test_uses_a_module_fixture_that_replaces_it_as_it_ends(replaced_as_a_module_fixture_ends):\n"
+    "    pass\n"
 )
 
 
@@ -315,13 +341,49 @@ def test_a_test_that_replaces_the_null_device_fails(tmp_path):
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe),
                            extra_env={"NULL_STAND_IN": str(stand_in)})
     summary = result.stdout.strip().splitlines()[-1]
-    assert result.returncode == 1 and "2 passed" in summary and "1 error" in summary, result.stdout[-3000:]
-    [error] = [line for line in result.stdout.splitlines() if line.startswith("ERROR ")]
-    assert "::test_renames_a_lock_file_over_it_like_a_git_config_write" in error, error
-    assert f"{stand_in} stopped being the null device during this test" in result.stdout
+    # The xfail case fails as its mark expects, and fails all the same: its mark cannot absorb the loss.
+    assert result.returncode == 1 and all(count in summary for count in ("2 failed", "2 passed", "2 errors")), (
+        result.stdout[-3000:])
+    assert "xfail" not in summary, summary
+    for test in ("test_renames_a_lock_file_over_it_like_a_git_config_write", "test_fails_on_its_own_as_it_replaces_it"):
+        assert f"FAILED ::{test}" in result.stdout, (test, result.stdout[-3000:])
+    # A test that fails on its own keeps its failure, with the loss in a section of its report.
+    assert "AssertionError: its own failure" in result.stdout, result.stdout[-3000:]
+    assert any(line.startswith("-") and " null device " in line for line in result.stdout.splitlines())
+    for when, test in (("setup", "test_uses_a_session_fixture_that_replaces_it"),
+                       ("teardown", "test_uses_a_module_fixture_that_replaces_it_as_it_ends")):
+        assert f"ERROR at {when} of {test}" in result.stdout, (test, result.stdout[-3000:])
+    for when in ("call", "setup", "teardown"):
+        assert f"{stand_in} stopped being the null device during this test ({when})" in result.stdout, when
+    assert f"{stand_in} stopped being the null device during this run" in result.stdout
     assert not stand_in.is_symlink() and stand_in.read_text(encoding="utf-8").startswith("[probe]")
     now = os.stat(os.devnull)
     assert (now.st_ino, now.st_mode, now.st_rdev) == (real.st_ino, real.st_mode, real.st_rdev)
+
+
+_NULL_DEVICE_IMPORT_PROBE = (
+    "import os\n"
+    "from pathlib import Path\n\n"
+    "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
+    "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
+    "os.devnull = str(STAND_IN)\n"
+    "STAND_IN.unlink()\n"
+    "STAND_IN.write_text('[probe]\\n', encoding='utf-8')  # lost as the module is imported, outside every test\n\n"
+    "def test_passes():\n"
+    "    pass\n"
+)
+
+
+def test_a_run_that_loses_the_null_device_outside_every_test_fails(tmp_path):
+    stand_in = tmp_path / "null"
+    stand_in.symlink_to(os.devnull)
+    probe = tmp_path / "test_null_device_import_probe.py"
+    probe.write_text(_NULL_DEVICE_IMPORT_PROBE, encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe),
+                           extra_env={"NULL_STAND_IN": str(stand_in)})
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1 and "1 passed" in summary and "error" not in summary, result.stdout[-3000:]
+    assert f"{stand_in} stopped being the null device during this run -- session FAILED" in result.stdout
 
 
 # The probe builds git's variable name and option from parts, as the source gate would refuse them whole.
@@ -337,6 +399,8 @@ _GIT_NULL_PROBE = (
     "    subprocess.run(['git', '--version'], env={**os.environ, NAME: os.devnull}, capture_output=True)\n\n"
     "def test_starts_git_config_with_the_null_device_as_its_file():\n"
     "    subprocess.run(['git', 'config', FILE, os.devnull, '--list'], capture_output=True)\n\n"
+    "def test_attaches_it_to_the_short_file_option():\n"
+    "    subprocess.run(['git', 'config', '-' + 'f' + os.devnull, '--list'], capture_output=True)\n\n"
     "def test_starts_a_shell_line_that_names_it():\n"
     "    subprocess.run(NAME + '=' + os.devnull + ' git --version', shell=True, capture_output=True)\n\n"
     "def test_starts_it_through_os_system():\n"
@@ -355,12 +419,12 @@ def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
     probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
     summary = result.stdout.strip().splitlines()[-1]
-    # Five starts fail their tests; the session fixture's start errors the test that uses it.
-    assert result.returncode == 1 and all(count in summary for count in ("5 failed", "1 passed", "1 error")), (
+    # Six starts fail their tests; the session fixture's start errors the test that uses it.
+    assert result.returncode == 1 and all(count in summary for count in ("6 failed", "1 passed", "1 error")), (
         result.stdout[-3000:])
     failed = [line for line in result.stdout.splitlines() if line.startswith(("FAILED ", "ERROR "))]
     assert not any("test_starts_git_plainly" in line for line in failed), failed
-    assert result.stdout.count("a process started here would give git the null device") >= 6, result.stdout[-3000:]
+    assert result.stdout.count("a process started here would give git the null device") >= 7, result.stdout[-3000:]
 
 
 _EDGAR_DIRS = ("EDGAR_LOCAL_DATA_DIR", "EDGAR_CACHE_DIR")
