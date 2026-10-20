@@ -13,7 +13,8 @@ import { usePostHogReady } from '@/lib/posthogReady'
 /**
  * App-wide PostHog identification (roadmap 2.4). Once the signed-in user and their subscription
  * resolve — and only if analytics consent is granted — set `is_pro` + `plan` as PostHog person
- * properties so every event (and the distinct-filings insight) can split Free vs Pro.
+ * properties so every event (and the distinct-filings insight) can split Free vs Pro. If the
+ * subscription read fails, the user is still identified, by id alone.
  *
  * Previously only the dashboard set a plan trait and `loginCompleted()` identified with no traits,
  * so a user landing anywhere else carried no `is_pro`. This runs once, app-wide.
@@ -32,7 +33,7 @@ export function usePostHogUserIdentification(): void {
     queryFn: getCurrentUserSafe,
     retry: false,
   })
-  const { data: subscription } = useQuery({
+  const { data: subscription, isError: subscriptionFailed } = useQuery({
     queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
@@ -50,13 +51,23 @@ export function usePostHogUserIdentification(): void {
 
     // Entitlements SSoT: wait for the subscription row and use it directly, rather than the
     // denormalized `user.is_pro` mirror (which can be briefly out of sync). If the subscription
-    // query never resolves (rare error), we simply don't tag a possibly-stale plan.
-    if (subscription === undefined) return
+    // read fails (an API error, or the client's 30-second timeout), identify by the id alone and
+    // tag no possibly-stale plan: the consent clause (lib/consentCopy.ts) tells a logged-in reader
+    // their statistics are tied to their account id, and nothing here retries the read. A later
+    // successful read changes the identity and adds the plan.
+    if (subscription === undefined) {
+      if (!subscriptionFailed) return // still loading: the first identify carries the plan
+      const identity = `${user.id}:unknown`
+      if (lastIdentity.current === identity) return
+      lastIdentity.current = identity
+      analytics.identify(String(user.id))
+      return
+    }
     const isPro = Boolean(subscription.is_pro)
     const identity = `${user.id}:${isPro}`
     if (lastIdentity.current === identity) return // already identified with this state
     lastIdentity.current = identity
 
     analytics.identify(String(user.id), { is_pro: isPro, plan: isPro ? 'pro' : 'free' })
-  }, [user?.id, subscription, posthogReady])
+  }, [user?.id, subscription, subscriptionFailed, posthogReady])
 }
