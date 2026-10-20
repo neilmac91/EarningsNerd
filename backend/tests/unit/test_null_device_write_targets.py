@@ -5,8 +5,10 @@ Git writes its config and its index through a lock file that it renames over the
 sessions are, a write through GIT_CONFIG_GLOBAL, GIT_CONFIG_SYSTEM, GIT_CONFIG or GIT_INDEX_FILE naming the null
 device, or through `git config --file` naming it, therefore replaces the device with an ordinary file.
 tests/conftest.py's `_null_device_survives` sees that only in a root run, after the damage; this gate finds the
-pattern in source on any runner, CI's included. A linker's `-o` and an atomic writer's target stay
-review-checked; curl's `-o` writes in place and leaves the device alone.
+pattern in source on any runner, CI's included. The null device counts when wrapped in calls
+(`str(os.devnull)`, `Path("/dev/null")`). A variable that holds it, a linker's `-o` and an atomic writer's
+target stay review-checked, with `_null_device_survives` behind them in a root run; curl's `-o` writes in place
+and leaves the device alone.
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-NULL = r"(?:os\.devnull|/dev/null)"
+NULL = r"(?:[\w.]+\(\s*['\"]?)*(?:os\.devnull|/dev/null)"  # wrapped in calls or not: str(os.devnull)
 FORBIDDEN = re.compile(
     rf"GIT_(?:CONFIG(?:_GLOBAL|_SYSTEM)?|INDEX_FILE)\W{{0,8}}{NULL}"  # a variable naming a file git writes
     rf"|\bconfig\W{{1,6}}(?:--file|-f)\W{{0,6}}{NULL}"  # git config --file
@@ -56,6 +58,9 @@ def test_no_tracked_code_gives_git_the_null_device_to_write():
     'subprocess.run(["git", "config", "--file", os.devnull, "a.b", "c"])',
     "git config -f /dev/null a.b c",
     "git config --file=/dev/null a.b c",
+    'env["GIT_CONFIG_GLOBAL"] = str(os.devnull)',
+    '"GIT_INDEX_FILE": os.fspath(Path("/dev/null"))',
+    'subprocess.run(["git", "config", "--file", str(os.devnull), "a.b", "c"])',
 ])
 def test_the_gate_finds_each_form(text):
     assert FORBIDDEN.search(text)
@@ -67,6 +72,7 @@ def test_the_gate_finds_each_form(text):
     "git -c core.hooksPath=/dev/null commit -m x",  # a path git reads
     "GIT_CONFIG_KEY_0=core.excludesFile GIT_CONFIG_VALUE_0=/dev/null git check-ignore x",  # a value, not a file
     'env["GIT_CONFIG_GLOBAL"] = str(tmp_path / "gitconfig")',
+    '"GIT_CONFIG_GLOBAL": str(write_config(tmp_path)), "NULL": os.devnull',
     "make build > /dev/null 2>&1",
 ])
 def test_the_gate_passes_what_leaves_the_device_alone(text):
