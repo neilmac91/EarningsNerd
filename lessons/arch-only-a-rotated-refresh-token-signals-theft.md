@@ -25,7 +25,13 @@ write `replaced_by_id`; a new revocation path leaves it NULL. More generally, be
 column's state as evidence that event X happened, list every writer of that column; if any writer
 is not X, key the check on a field only X writes.
 
-**Evidence.** `backend/app/services/refresh_token_service.py::rotate_refresh_token`;
+**Evidence.** `backend/app/services/refresh_token_service.py::rotate_refresh_token`. Since E127 (2026-10-19)
+it and every revocation take the user's row lock first and read under it, so the second of two
+refreshes with one cookie reads the first's rotation and takes this path, as it did while refresh ran
+on the event loop. A logout reads the link too, for the same reason it is trusted here: a token with
+`replaced_by_id` set was rotated, so a logout that finds its token rotated away follows the links to the
+chain's live tip and revokes that, the session it was meant to end, and nothing else; it is no theft
+signal (`lessons/ops-release-cached-filing-reads-before-yield.md`).
 `backend/tests/unit/test_refresh_token_revocation_kinds.py` drives change-password, logout-all,
 reset and logout with two clients (separate cookie jars): the stale device gets a 401 that revokes
 nothing and the other device's new session still refreshes. Restoring the unconditional sweep fails
@@ -35,8 +41,9 @@ after a reset, still ends the new login.
 `replaced_by_id` in every Python, SQL, shell and workflow file that can reach the production
 database (the whole repository but the browser app and the test homes: the backend and its
 migrations, `ops/` detection SQL, the root `scripts/`, `tasks/` operator SQL, the workflows) to
-rotation's own read and write, the column definition and its migration, counted per function, so a
-second write inside a listed function fails too. It counts reads, so an aliased write cannot slip
+rotation's own read and write, the logout's walk along the links, the column definition and its
+migration, counted per function, so a second write inside a listed function fails too. It counts
+reads, so an aliased write cannot slip
 past it; it folds names built from literals (`"_".join(("replaced", "by", "id"))`) and matches SQL
 in any case; and in every file that names the model, its table, `User.refresh_tokens` or the column,
 or imports a refresh-token module, it counts each place a column could be picked at run time
@@ -55,10 +62,11 @@ delete. They go by name, not type, so any object's `user` store and any `merge` 
 and need a reviewed entry saying they drop no token. Those checks know the
 relationships by name, so a test holds the mappers to them: `User.refresh_tokens` is the only
 relationship into the model and `user` its only one, and a second delete-orphan collection, a rename
-or a relationship over the link (`t.replaced_by = None` writes it) fails it. The one refresh-token
-deleter that exists, the retention purge, deletes in ascending id order, so a chain's predecessor
-always goes before its successor and keeps its link even if a run stops between batches
+or a relationship over the link (`t.replaced_by = None` writes it) fails it. Two deleters exist. The
+retention purge deletes in ascending id order, so a chain's predecessor always goes before its
+successor and keeps its link even if a run stops between batches
 (`test_retention_purge.py::test_an_interrupted_purge_never_strips_a_remaining_tokens_rotation_link`).
+An account's deletion cascades to all of its tokens in one transaction, so none is left to hold a link.
 The gate scores its scan on planted forms and names its gaps: a generic helper elsewhere handed a
 token or a model to delete or merge, or a token to cut from its user; the collection handed to any
 helper that drops its members, one in the same module too, or reached through a binding other than

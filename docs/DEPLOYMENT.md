@@ -677,8 +677,11 @@ for the founder's approval on the `ops-apply` environment before any step runs, 
 run's first attempt (a retry is a fresh dispatch), and a Claude Code session is refused the approval
 call (`.claude/hooks/ops_approval_guard.py`). The gate binds main's `ops.yml`, not the credential, and
 every apply stops at the workflow's approval check, which finds no approval of `ops-apply` recorded
-for the run, until the founder configures the environment
-(`ops.yml`'s header lists its limits). `backfill_facts.py --dry-run` is accepted only
+for the run, until the founder configures the environment (`ops.yml`'s header lists its limits).
+The founder sets it up once: Settings > Environments > New environment `ops-apply`, with the founder
+as its required reviewer and "Prevent self-review" left off (sessions dispatch through the
+founder's account). Each apply then shows "Review deployments" on its run page, where the founder
+approves it. `backfill_facts.py --dry-run` is accepted only
 with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
 so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
 false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement

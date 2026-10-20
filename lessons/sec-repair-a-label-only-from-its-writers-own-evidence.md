@@ -19,20 +19,24 @@ ends with one year (the chart symptom being repaired) when an older neighbour wa
 **Rule**: Copy a label from another writer's stored rows only where the stored columns prove that
 writer derived it: for companyfacts FY labels, every row at that period end written by the
 fiscal-year-window writer (provenance version 1; pre-#1191 rows are no evidence and never count as
-agreement) names one year and at least one of them is a duration. Exclude rows a repair already
-retired. Rewrite only the defect's own signature (here a label equal to the calendar year of the
-period end), never a label some labeller set. Before writing, project the whole company: hold any
-relabel whose new label another period end of the same filing and concept, or another current row
-of the concept, would carry, and re-check, since a held row keeps its label. When the rows
-disagree, when only instants or only legacy rows exist, or when no row exists, skip and count the
-reason; never pick one, never infer a year from neighbouring years, and never treat a missing
-reference row as agreement. Report filings left partly repaired. Change only the label column,
-journal every change in `financial_fact_revision` so the audited rollback can revert it, dry-run
-by default, and leave a row that already agrees untouched so re-runs report zero.
+agreement) names one year and at least one of them is a duration. Where no stored row is evidence at
+a period end, the same writer's labels from a fresh read of its source, judged by the same rule and
+never stored, may stand in; a stored row that is evidence always outranks the read. Exclude rows a
+repair already retired. Rewrite only the defect's own signature (here a label equal to the calendar
+year of the period end), never a label some labeller set. Before writing, project the whole company:
+hold any relabel whose new label another period end of the same filing and concept, or another
+current row of the concept, would carry, and re-check, since a held row keeps its label. When the
+rows disagree, when only instants or only legacy rows exist and the read names no year, or when no
+row exists, stored or read, skip and count the reason; never pick one, never infer a year from
+neighbouring years, and never treat a missing reference row as agreement. Report filings left partly
+repaired. Change only the label column, journal every change in `financial_fact_revision` so the
+audited rollback can revert it, dry-run by default, and leave a row that already agrees untouched so
+re-runs report zero.
 
-**Evidence**: `backend/scripts/relabel_filing_fy_facts.py` (`_evidence_kind`, `_trusted_year`,
-`_collisions`, `plan_company`); gate `backend/tests/unit/test_relabel_filing_fy_facts_script.py`
-(legacy rows are neither evidence nor agreement; a non-calendar label is never overwritten; an
-instant-only label is never copied; disagreeing, retired and missing evidence skip; a relabel that
-would give two period ends one year is held, from the production writers; a second apply reports
-zero); runbook `docs/fiscal-year-label-repair.md`.
+**Evidence**: `backend/app/services/facts/fiscal_evidence.py` (`evidence_kind`, `trusted_year`) and
+`backend/scripts/relabel_filing_fy_facts.py` (`companyfacts_read`, `_collisions`, `plan_company`);
+gate `backend/tests/unit/test_relabel_filing_fy_facts_script.py` (legacy rows are neither evidence
+nor agreement; a non-calendar label is never overwritten; an instant-only label is never copied;
+disagreeing, retired and missing evidence skip; a relabel that would give two period ends one year
+is held, from the production writers; a second apply reports zero); runbook
+`docs/fiscal-year-label-repair.md`.

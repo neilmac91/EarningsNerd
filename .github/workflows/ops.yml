@@ -193,9 +193,9 @@ jobs:
 
       - name: Refuse an apply that no one approved in this run
         # approve-apply passes at once while the ops-apply environment requires no reviewer: before the
-        # founder adds one (F51), or after anyone removes it or deletes the environment. So an apply
-        # stops here unless this run's review history records an approval of ops-apply: the gate fails
-        # closed. It reads the run's approvals, not the environment's settings, which a reviewer added
+        # founder adds one (docs/DEPLOYMENT.md), or after anyone removes it or deletes the environment.
+        # So an apply stops here unless this run's review history records an approval of ops-apply: the
+        # gate fails closed. It reads the run's approvals, not the environment's settings, which a reviewer added
         # while this job queued behind another dispatch would satisfy with no one having approved.
         if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', steps.request.outputs.operation)
         env:
@@ -206,7 +206,7 @@ jobs:
             --jq '[.[] | select(.state == "approved") | .environments[]? | select(.name == "ops-apply")] | length' 2>/dev/null || true)"
           case "$APPROVED" in ''|*[!0-9]*) APPROVED=0 ;; esac  # an unreadable or non-numeric answer counts as none
           if [ "$APPROVED" -lt 1 ]; then
-            echo "::error::no approval of ops-apply is recorded for this run (none was given, or the answer could not be read), so this apply stops; see tasks/todo.md F51"
+            echo "::error::no approval of ops-apply is recorded for this run (none was given, or the answer could not be read), so this apply stops; docs/DEPLOYMENT.md, \"One-shot maintenance runs\", says how the ops-apply environment is set up"
             exit 1
           fi
           echo "This run records an approval of ops-apply; the apply proceeds."
@@ -442,6 +442,9 @@ jobs:
           # points at the proxy from the step above. libpq honours PGOPTIONS, so the SQLAlchemy
           # session gets the deploy migration step's guards (fail fast on a held lock; bound writes).
           PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
@@ -461,14 +464,19 @@ jobs:
         # backend/scripts/relabel_filing_fy_facts.py (docs/fiscal-year-label-repair.md): a dry run reads
         # and prints its plan, one JSON line per company and a summary, in read-only transactions, so
         # Postgres refuses any write it might attempt; the apply writes the plan, one company per
-        # transaction under the fact writers' lock, journaled for the audited rollback. It runs here
-        # rather than in the jobs channel so its lines reach this log.
+        # transaction under the fact writers' lock, journaled for the audited rollback. Before each
+        # company's session opens, it reads that company's companyfacts from SEC (the shared limiter),
+        # its evidence where no stored row vouches for a year. It runs here rather than in the jobs
+        # channel so its lines reach this log.
         if: contains('relabel-fy-dry-run relabel-fy-apply', steps.request.outputs.operation)
         working-directory: backend
         timeout-minutes: 60
         env:
           # The ticker repair's hermetic env and guards; DATABASE_URL points at the proxy above.
           PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
