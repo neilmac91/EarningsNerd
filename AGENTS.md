@@ -21,10 +21,13 @@ machine gate" section.
 - Prompt, model, eval or AI flag changes: `backend/evals/RUNBOOK.md`, sections "Regression gate
   (B1)" and "Judging a pull request's eval artifact" (mandatory), "Gotchas" before any paid run.
 - UI work: rule 11 (read [DESIGN.md](DESIGN.md) and `frontend/DESIGN_SYSTEM.md`):
-  `DESIGN_SYSTEM.md` §1–§6 and §12 and `DESIGN.md` from "Overview" on (mandatory), both in full
-  for a token, theme or typography change, and `DESIGN_SYSTEM.md` §7–§11 for a marketing, theme,
-  exemption, chart or motion change. Include both in UI subagent briefs; follow the
-  `design-docs-maintenance` skill (`.claude/skills/meta/design-docs-maintenance/SKILL.md`).
+  `DESIGN_SYSTEM.md` §1–§6 and §12 and `DESIGN.md` from "Overview" on (mandatory; §4 by recipe for
+  route-specific content or layout built from existing components and tokens), both in full for a
+  token, theme or typography change or a rule that spans components (a brand sweep), and
+  `DESIGN_SYSTEM.md` §7–§11 for a marketing, theme, exemption, chart or motion change. Include both
+  in UI subagent briefs; follow the `design-docs-maintenance` skill
+  (`.claude/skills/meta/design-docs-maintenance/SKILL.md`), whose "Which sections to read" names
+  the §4 recipes each change reads.
 - Deployment work: `docs/DEPLOYMENT.md`.
 
 Routine isolated edits need none of the handovers, the ledger or the repository map.
@@ -75,7 +78,8 @@ file instead.
 - Records-only PR (§5's records tier: `tasks/`, `lessons/`, `docs/`, `.claude/agents/`,
   `.claude/skills/`, `.impeccable/`, root Markdown other than `CLAUDE.md` and `AGENTS.md`): the
   link/anchor check plus §5's one Sonnet lens. A `DESIGN.md` or `.impeccable/design.json` change
-  also runs `npx vitest run tests/unit/designSnapshotParity.spec.ts` from `frontend/`; a
+  also runs `npx vitest run tests/unit/designSnapshotParity.spec.ts` from `frontend/`; a change to
+  the `design-docs-maintenance` skill also runs `tests/unit/designRecipeRoute.spec.ts`; a
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
   and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
