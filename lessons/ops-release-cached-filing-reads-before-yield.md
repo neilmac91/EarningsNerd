@@ -109,4 +109,4 @@ requests use production's `SessionLocal` settings, autoflush off. In an autoflus
 reset flushed its users UPDATE before its bulk revoke and waited there for a racing refresh, which hid a
 mutant that moved the lock out of the revocation (E132 checks the other PostgreSQL gates). A sign-in's
 new token takes no lock, so a login that verified the old password before a reset committed still mints
-after it (E131). Any other check-then-write unit stays a review check.
+after it (E121). Any other check-then-write unit stays a review check.
