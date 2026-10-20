@@ -106,7 +106,8 @@ traffic in its own bucket only in the SIC lookup (`app/services/edgar/company_si
 therefore draws from both, so a process's configured SEC ceiling is at most the sum of the two. SEC
 allows 10 requests per second per user regardless of machines, so the deploy pins both to `1` on the
 API service, every Cloud Run job and the private task worker (`ci.yml`; gate
-`tests/unit/test_sec_process_budgets.py`; CODE RED decision records 16 and 17 staged it, the jobs and
+`tests/unit/test_sec_process_budgets.py`), and so does each Ops workflow step that runs a backend
+script on its runner (gate `tests/unit/test_ops_workflow_wiring.py`; CODE RED decision records 16 and 17 staged it, the jobs and
 the worker first). Two request paths could not fit the service's 1 req/s and were removed with the
 pin: the insider endpoint (`GET /api/companies/{ticker}/insiders`, a cold load of about two edgartools
 requests per Form 4 for up to 60 Form 4s, so about 120) answers 404 unless `ENABLE_INSIDER_ACTIVITY` is

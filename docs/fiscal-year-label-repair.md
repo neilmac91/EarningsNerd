@@ -31,28 +31,31 @@ Where no stored row is evidence at a period end, the year comes from the company
 read from SEC on this run. The script reads each company's companyfacts once, through the shared
 SEC limiter and backoff (`facts/transport`), before the company's session opens. It names their FY
 periods with the writer a sync uses, judges them by the same rule, and stores nothing it read.
-Stored evidence outranks the read, so a period end it vouches for plans as it did before the read
-existed. A resync cannot fill these gaps instead: a sync skips every identity already stored,
-whichever writer stored it, and never rewrites a row. A row stored before #1191 therefore keeps its
-NULL provenance, and a period the per-filing writer stored first never gains a companyfacts row. A
-failed read fails that company with an `error` line and changes nothing. Each scanned row is
-counted once:
+Where a stored row vouches for a period end, its year is the one used; the read can still clear,
+or cause, a neighbour's `label_collision`. A resync rarely fills these gaps: a sync skips every
+identity already stored, whichever writer stored it, and never rewrites a stored row's label or
+provenance. So a pre-#1191 row, or a period the per-filing writer stored first, gains a current
+companyfacts row only when a later report re-reports the period under an accession not yet stored.
+A failed read fails that company with an `error` line and changes nothing; the transport's warning
+on standard error gives the cause (in the Ops run log, or as a `textPayload` line in Cloud
+Logging, outside the `jsonPayload:*` filter below). Each scanned row is counted once:
 
 | Count | Meaning |
 | --- | --- |
 | `relabel_rows` / `relabels` | The rows that change, grouped by period end with the `from` and `to` years |
 | `already_agrees` | The row already carries the trusted companyfacts year; left alone |
 | `no_companyfacts_fy` | No companyfacts FY row at that period end, stored or read from SEC; left alone |
-| `legacy_companyfacts_only` | Only rows stored before #1191 (calendar labels) at that period end, and none read from SEC; left alone, never read as agreement |
+| `legacy_companyfacts_only` | Only rows stored before #1191 (calendar labels) at that period end, and either none read from SEC or a current one that readers still pick, beside which a relabel would split the period end across fiscal years; left alone, never read as agreement |
 | `companyfacts_disagree` | Current-writer rows at that period end name more than one year; left alone, never one picked |
 | `untrusted_instant_only` | Only balance-sheet rows there. The companyfacts writer names its oldest opening balance by one report's fy or, failing that, by calendar year (for a January year, the next year's label), with no fiscal-year window behind it, so an instant-only label is never copied |
 | `not_calendar_default` | The row's label is not the calendar year of its end, so a labeller set it (P5, or a NULL); a stored source never overwrites it |
-| `label_collision` | The new label is one that another period end of the same filing and concept, or another current row of the concept, would carry; left alone so the chart and the annual datasets never get two period ends for one year |
+| `label_collision` | The new label is one that another period end of the same filing and concept, or another current row of the concept, would carry; the whole period end is left alone, every concept and filing at it, so the chart and the annual datasets never get two period ends for one year and no period end gets two years |
 
 `held` lists the period ends behind each non-agreeing skip, for spot checks. `partial_filings`
 lists, on every run, the accessions of filings that keep calendar-default rows beside fiscal years
-the run relabels or finds already agreeing (for example the newest year held as
-`no_companyfacts_fy`): their annual chart may skip a year until the held rows are repaired.
+the run relabels or finds already agreeing (for example a year held as `no_companyfacts_fy` because
+SEC's companyfacts has no FY row there either): their annual chart may skip a year until the held
+rows are repaired.
 `sec_evidence` counts the scanned rows judged on the SEC read, whatever the outcome. The summary
 line totals every count, and `partial_filings` as a number.
 
@@ -71,7 +74,7 @@ calendar years. The database is reachable only from Cloud Run and through the Op
 SQL proxy, so run it through the backfill job image with execution-scoped arguments (see
 `docs/DEPLOYMENT.md`, one-shot maintenance runs), or through the Ops workflow below.
 
-Dry run (the default; writes nothing, and each company's read is rolled back):
+Dry run (the default; writes nothing, and each company's transaction is rolled back):
 
 ```bash
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
@@ -95,8 +98,9 @@ The Ops workflow (`.github/workflows/ops.yml`, dispatched from main) runs the sa
 runner through the Cloud SQL proxy, so every line lands in the workflow run's log instead of Cloud
 Logging. Operation `relabel-fy-dry-run` runs the dry run in read-only transactions, so Postgres
 refuses any write; `relabel-fy-apply` runs the apply below. Either way the runner reads each
-company's companyfacts from SEC itself, one request per company under the shared limiter, with the
-app's SEC user agent. Before the script, the run prints the
+company's companyfacts from SEC itself, one read per company under the shared limiter (its backoff
+may retry a 429), at the one request a second every SEC-calling process is pinned to
+(`docs/OPERATIONS.md`, "SEC budgets per process"), with the app's SEC user agent. Before the script, the run prints the
 session's settings as Postgres reports them (`session read_only=on lock_timeout=10s
 statement_timeout=2min` for a dry run, `read_only=off` for the apply) and stops unless they are the
 step's own, so the log shows the guards took effect. Its `tickers` input passes `--tickers` (at most
@@ -121,9 +125,9 @@ gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args=scripts/relabel_filing_fy_facts.py,--apply --wait
 ```
 
-The apply re-plans each company from the live rows, so the apply execution's own lines, not the
-dry run's, are the record of what changed; compare them with the dry run before closing the
-change. Each company is its own transaction, taken under the same company lock the fact writers
+The apply re-plans each company from the live rows and a fresh SEC read, so the apply execution's
+own lines, not the dry run's, are the record of what changed; compare them with the dry run before
+closing the change. Each company is its own transaction, taken under the same company lock the fact writers
 use. A failed company rolls back alone, prints an `error` line and makes the exit code non-zero.
 A non-zero exit makes Cloud Run retry the task (no create command sets `--max-retries`, so the
 default of three retries applies, `docs/OPERATIONS.md`): each attempt prints a new `run_id`, and

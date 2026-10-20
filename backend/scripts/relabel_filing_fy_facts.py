@@ -15,11 +15,13 @@ FY row there (source ``companyfacts``, a raw tag, no filing owner, not retired b
 as ``validation: unavailable``) that the fiscal-year-window writer stored or a repair corrected
 (provenance version 1: #1191 brought those labels and versioned provenance together), current or
 not. A row stored before #1191 (NULL provenance) names every FY period by the calendar year of its
-end, so it is no evidence. Where no stored row is evidence, the evidence is the FY rows the same
-writer names from the company's companyfacts as read from SEC on this run, which nothing stores. No
-resync can store them: a sync skips every identity already stored, whichever writer stored it, so
-neither a pre-#1191 row nor a period the per-filing writer stored first ever gains a current twin.
-Stored evidence outranks the read, so where it exists the plan is the one it was without the read:
+end, so it is no evidence. Where no stored row is evidence at a period end, the evidence is the FY
+rows the same writer names from the company's companyfacts as read from SEC on this run, which
+nothing stores. A resync rarely helps: a sync skips every identity already stored, whichever writer
+stored it, and never rewrites a stored row's label or provenance, so a pre-#1191 row or a period the
+per-filing writer stored first gains a current twin only when a later report re-reports the period
+under an accession not yet stored. Where a stored row vouches for a period end its year is the one
+used; the read can still clear, or cause, a neighbour's ``label_collision``:
   - no evidence, only pre-#1191 rows    -> skipped ``legacy_companyfacts_only``
   - no companyfacts row, stored or read -> skipped ``no_companyfacts_fy``
   - they name more than one year      -> skipped ``companyfacts_disagree`` (never pick one)
@@ -32,7 +34,9 @@ Stored evidence outranks the read, so where it exists the plan is the one it was
     NULL), not by the defect, and is never overwritten: ``not_calendar_default``. The rest relabel,
     unless the new label is one another period end of the same filing and concept carries, or one
     another current row of the concept carries (readers index current annual rows by year and
-    concept): ``label_collision``, re-checked until none is left, since a held row keeps its label.
+    concept): ``label_collision``. The whole period end then holds, every concept and filing at it,
+    so no end is left on two fiscal years; re-checked until none is left, since a held row keeps
+    its label. The read is not used where a current pre-#1191 row keeps the calendar label.
 The evidence and trust rule is ``app/services/facts/fiscal_evidence.py`` (``evidence_kind``,
 ``trusted_year``), the rule #1364's per-filing writer adopts years by, so the two cannot drift.
 Durations and instants are both relabelled: an FY balance closes the year that ends on its date.
@@ -44,14 +48,15 @@ its chart may skip a year. The identity (company, concept, period_end,
 fiscal_period, unit, accession) and every index on ``financial_fact`` leave ``fiscal_year`` out, so a
 relabel cannot collide. Re-running is safe: a relabelled row agrees on the next run.
 
-DRY RUN BY DEFAULT: nothing is written and each company's read is rolled back. ``--apply`` re-plans
-each company from live data in its own transaction under the company lock both fact writers take,
-and journals every changed row in ``financial_fact_revision`` (action ``apply``), so
-``scripts/repair_quarterly_facts.py --tickers T --rollback-run RUN_ID [--apply]`` reverts one
-company's run. Output: one JSON line per company scanned (``sec_evidence`` counts its rows judged on
+DRY RUN BY DEFAULT: nothing is written and each company's transaction is rolled back. ``--apply``
+re-plans each company from live data and a fresh SEC read, in its own transaction under the company
+lock both fact writers take, and journals every changed row in ``financial_fact_revision`` (action
+``apply``), so ``scripts/repair_quarterly_facts.py --tickers T --rollback-run RUN_ID [--apply]``
+reverts one company's run. Output: one JSON line per company scanned (``sec_evidence`` counts its rows judged on
 the read), then one summary line. Network: one companyfacts read per company through
-``facts/transport`` (the shared SEC limiter and backoff), before the company's session opens; a
-failed read fails that company and changes nothing.
+``facts/transport`` (the shared SEC limiter; its backoff may retry a 429), before the company's
+session opens; a failed read fails that company and changes nothing, and the transport's warning on
+standard error says why.
 
 Founder commands (the DB is only reachable from Cloud Run; runbook docs/fiscal-year-label-repair.md):
   gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \\
@@ -113,6 +118,7 @@ def plan_company(rows: Iterable[FinancialFact], read: Iterable[Any] = ()) -> dic
     evidence: dict[date, list[tuple[int, bool]]] = defaultdict(list)
     from_read: dict[date, list[tuple[int, bool]]] = defaultdict(list)
     legacy: set[date] = set()
+    legacy_current: set[date] = set()  # a pre-#1191 row readers still pick keeps its calendar label here
     targets = []
     for row in rows:
         kind = evidence_kind(row)
@@ -120,6 +126,8 @@ def plan_company(rows: Iterable[FinancialFact], read: Iterable[Any] = ()) -> dic
             evidence[row.period_end].append((row.fiscal_year, row.period_start is not None))
         elif kind == "legacy":
             legacy.add(row.period_end)
+            if row.is_latest:
+                legacy_current.add(row.period_end)
         elif row.filing_id is not None:
             targets.append(row)
     for fact in read:
@@ -139,9 +147,12 @@ def plan_company(rows: Iterable[FinancialFact], read: Iterable[Any] = ()) -> dic
     sec_evidence = 0
     for row in targets:
         stored = evidence.get(row.period_end)
-        if not stored and row.period_end in from_read:
+        # The read stands in only where no stored row vouches, and not where a current pre-#1191 row would
+        # keep the calendar label beside the relabelled rows (readers pick current rows by year and concept).
+        read_here = [] if stored or row.period_end in legacy_current else from_read.get(row.period_end, [])
+        if read_here:
             sec_evidence += 1
-        year, reason = trusted_year(stored or from_read.get(row.period_end, []), row.period_end in legacy)
+        year, reason = trusted_year(stored or read_here, row.period_end in legacy)
         if reason is not None:
             hold(row, reason)
         elif year == row.fiscal_year:
@@ -151,9 +162,11 @@ def plan_company(rows: Iterable[FinancialFact], read: Iterable[Any] = ()) -> dic
             hold(row, "not_calendar_default")
         else:
             planned[row] = year
-    # A held row keeps its label, so holding one relabel can make another collide: repeat.
+    # A held row keeps its label, so holding one relabel can make another collide: repeat. The whole
+    # period end holds, every concept and filing at it, so no end is left on two fiscal years.
     while clashing := _collisions(rows, planned):
-        for row in clashing:
+        ends = {row.period_end for row in clashing}
+        for row in [row for row in planned if row.period_end in ends]:
             del planned[row]
             hold(row, "label_collision")
     # A filing whose verified fiscal years (relabelled now, or agreeing from an earlier run) sit
@@ -218,9 +231,10 @@ def relabel_company(
 
 
 def companyfacts_read(company_id: int, cik: str, sic: str | None) -> list[Any]:
-    """The FY facts the companyfacts writer names from the company's companyfacts as read from SEC
-    now, through ``facts/transport`` (the shared limiter and backoff); nothing stores them. A failed
-    read raises, so the company fails and changes nothing rather than being planned without it."""
+    """The facts the companyfacts writer names from the company's companyfacts as read from SEC now,
+    through ``facts/transport`` (the shared limiter and backoff); nothing stores them, and
+    ``plan_company`` keeps the FY rows. A failed read raises, so the company fails and changes nothing
+    rather than being planned without it."""
     from types import SimpleNamespace
 
     from app.services import facts_service
@@ -231,7 +245,7 @@ def companyfacts_read(company_id: int, cik: str, sic: str | None) -> list[Any]:
     facts, _meta = facts_service.normalize_companyfacts(
         company_id, payload, financial_sic=facts_service._is_financial_sic(sic),
     )
-    return [SimpleNamespace(**fact) for fact in facts if fact["fiscal_period"] == "FY"]
+    return [SimpleNamespace(**fact) for fact in facts]
 
 
 def build_parser() -> argparse.ArgumentParser:

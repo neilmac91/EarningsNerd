@@ -819,3 +819,36 @@ def test_a_read_row_the_stored_rule_rejects_is_no_evidence(db):
 
     assert plan["relabel"] == [] and plan["sec_evidence"] == 0
     assert plan["held"] == {"no_companyfacts_fy": ["2022-01-02", "2023-01-01", "2023-12-31"]}
+
+
+def test_the_read_never_relabels_beside_a_current_pre_1191_row(db, sec):
+    """Readers pick current rows by year and concept. A current pre-#1191 revenue row keeps 2022-01-02's
+    calendar label, so relabelling the filing's rows there from the read would split that end across
+    fiscal years: the end holds, as it did before the read existed, and so does its neighbour."""
+    company, filing = _jnj_before_any_sync(db)
+    start, end = CALENDARS["JNJ"][2021]
+    _fact(db, company, concept="revenue", end=end, start=start, fiscal_year=2022, provenance=LEGACY,
+          accession=_accession(company, 22))  # the 2022 10-K's column, stored by a sync before #1191
+    db.commit()
+    sec.payloads[company.cik] = _payload(company, {2023: (filing.accession_number, "2024-02-16")}, [2023])
+
+    result = relabel.relabel_company(db, company.id, apply=False, run_id="legacy-current",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+
+    assert result["relabels"] == [] and result["sec_evidence"] == 4
+    assert result["held"] == {"label_collision": ["2023-01-01"], "legacy_companyfacts_only": ["2022-01-02"]}
+
+
+def test_a_collision_holds_its_whole_period_end(db, sec):
+    """A current pre-#1191 revenue row names fiscal 2020's end 2021, so revenue at 2022-01-02 cannot take
+    2021. Equity at the same end could, but it holds too, so 2022-01-02 never carries two fiscal years."""
+    company, filing = _jnj_before_any_sync(db)
+    _fact(db, company, concept="revenue", end="2021-01-03", start="2020-01-01", fiscal_year=2021, provenance=LEGACY)
+    db.commit()
+    sec.payloads[company.cik] = _payload(company, {2023: (filing.accession_number, "2024-02-16")}, [2023])
+
+    result = relabel.relabel_company(db, company.id, apply=False, run_id="whole-end",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+
+    assert result["relabels"] == [] and result["skipped"]["label_collision"] == 4
+    assert result["held"] == {"label_collision": ["2022-01-02", "2023-01-01"]}

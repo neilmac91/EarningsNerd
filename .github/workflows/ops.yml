@@ -385,6 +385,9 @@ jobs:
           # points at the proxy from the step above. libpq honours PGOPTIONS, so the SQLAlchemy
           # session gets the deploy migration step's guards (fail fast on a held lock; bound writes).
           PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
@@ -414,6 +417,9 @@ jobs:
         env:
           # The ticker repair's hermetic env and guards; DATABASE_URL points at the proxy above.
           PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
