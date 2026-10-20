@@ -31,20 +31,28 @@ directory's own file as well as any `-i` path.
 **Gate (E126)**: `.claude/hooks/secret_scan_guard.py`, which `.claude/settings.json` runs before every
 Bash command and every call to an MCP server whose name contains "github" in any case
 (`backend/tests/unit/test_secret_scan_guard.py`). Before a `git push` it runs the job's pinned gitleaks,
-with the job's flags, over the commits the push would add (those reachable from what it sends and from no
-remote-tracking ref of the remote it pushes to), and refuses the call on a finding, naming each finding's
-file, line, rule and commit fingerprint, never the literal; when it cannot resolve what the push sends, or
-the line moves HEAD or a branch first, it widens the scan to every unpushed local branch and says so. Every
-scan reads main's pins and config (`origin/main`'s `.gitleaksignore` and `.gitleaks.toml`, as last fetched;
-none when it cannot read them), never the pushing checkout's or a call's, since every other pull request's
-`secret-scan` reads main's: a reviewed false positive takes `# gitleaks:allow` on its line, or a pin that
-has landed on main and been fetched, and a pin on the branch gets nothing past it. It refuses a line that
-makes commits and pushes them, since a hook runs before the line and cannot read a commit the line has yet
-to make: commit in one call, push in the next. Before the GitHub MCP `push_files` and
-`create_or_update_file` tools, and a `gh api` (or api.github.com) call naming a repository's contents or
-git data, it scans the files the call sends, a base64 `content` value decoded. The binary is the one
-`.claude/hooks/secret_scan_setup.py`, a SessionStart hook, extracts from the archive the job pins (version
-and SHA-256 read from `.github/workflows/ci.yml`) into
+with the job's flags, over the commits the push would add: those reachable from what it sends and from no
+remote-tracking ref of the remote it pushes to, which it finds as git does (the remote the line names; else
+the current branch's `pushRemote`, `remote.pushDefault`, the current branch's remote, then origin). Its
+`git log` runs with `--no-color --no-textconv --no-ext-diff` and `GIT_NO_REPLACE_OBJECTS=1`, so colour, a
+textconv driver or a replace ref in the user's or the repository's git config, none of which CI has, cannot
+hide an added line. It refuses the call on a finding, naming each finding's file, line, rule and commit
+fingerprint, never the literal; when it cannot resolve what the push sends, or the line moves HEAD or a
+branch first, it widens the scan to every unpushed local branch and says so, and how to narrow it (name the
+source literally; push in a call of its own). Every scan reads main's pins and config (`origin/main`'s
+`.gitleaksignore` and `.gitleaks.toml`, as last fetched; no pins when it cannot read them, and gitleaks' own
+default config, which the job runs, while main has no `.gitleaks.toml`), never the pushing checkout's, its
+git directory's, a call's or one that `GITLEAKS_CONFIG` or `GITLEAKS_CONFIG_TOML` names, since every other
+pull request's `secret-scan` reads main's: a reviewed false positive takes `# gitleaks:allow` on its line,
+or a pin that has landed on main and been fetched (a commit's, or a global `path:rule:line` one), and a pin
+on the branch gets nothing past it. It refuses a line that makes commits and pushes them, since a hook runs
+before the line and cannot read a commit the line has yet to make: commit in one call, push in the next.
+Before the GitHub MCP `push_files` and `create_or_update_file` tools, and a `gh api` (or api.github.com)
+call naming a repository's contents or git data, it scans the files the call sends, a base64 `content` value
+decoded; it reads them under a staging directory, not at the repository paths pins name, so a reviewed
+false positive there takes the marker, or a commit pushed with git, whose scan reads main's pins. The
+binary is the one `.claude/hooks/secret_scan_setup.py`, a SessionStart hook, extracts from the archive the
+job pins (version and SHA-256 read from `.github/workflows/ci.yml`) into
 `~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/`, with its own SHA-256 recorded beside it;
 use it for a scan by hand. CI runs the linux x64 archive; the setup pins the same release's macOS arm64
 and x64 and linux arm64 archives from its checksums file, and the gate fails when `ci.yml`'s version moves
@@ -53,8 +61,12 @@ would scan and says what to do (the setup command; how to add a pin). Not gated:
 another shell or program makes (`bash -c '...'`, a script, an alias), text a command builds as it runs, a
 repository the hook cannot resolve (`cd "$VAR" && git push`), whose widened scan reads the event's working
 directory's repository and not the one pushed, a push that configuration widens beyond its current branch
-(`push.default=matching`, a remote's push refspec), a session that loads no repository hooks (Codex,
-Astra), a person's own push, and every clause above about a literal already pushed.
+(`push.default=matching`, a remote's push refspec), a file whose text git leaves out of `git log -p`
+because a `-diff` attribute in the repository's `info/attributes` or the user's `core.attributesFile` marks
+it binary (CI has neither and scans that text; `--text` would scan it, but also the binary files CI skips,
+so the hook would refuse pushes CI passes), a fork layout, where CI reads the main of another remote than
+origin (the pins come from `origin/main` alone), a session that loads no repository hooks (Codex, Astra), a
+person's own push, and every clause above about a literal already pushed.
 
 **Evidence**: E20's commit 4ac900bb, amended to 2398f2af with the marker and force-pushed at 09:53 UTC;
 #1310's `secret-scan` re-run afterwards. Partly gated: the hook above refuses a session's push before it

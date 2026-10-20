@@ -5,10 +5,11 @@ reads GITLEAKS_VERSION and GITLEAKS_SHA256 from .github/workflows/ci.yml, the en
 place they are pinned (each must appear there exactly once, or nothing is provisioned). That SHA-256 is the linux x64
 archive's, the one the job runs; CHECKSUMS below pins the same release's darwin arm64, darwin x64 and linux arm64
 archives as the release's checksums file lists them, with its linux x64 line too, and test_secret_scan_guard.py fails
-when ci.yml's version moves and they do not, or when that line and ci.yml's SHA-256 part. On a platform PLATFORMS maps (platform.system() and platform.machine()), it downloads that platform's
-archive from GitHub once, by the job's URL, checks it against its SHA-256 before it opens it, extracts only the
-`gitleaks` member into ~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/, and records the binary's own
-SHA-256 beside it in `gitleaks.sha256`. A binary already there that matches its record means nothing is downloaded.
+when ci.yml's version moves and they do not, or when that line and ci.yml's SHA-256 differ. On a platform PLATFORMS
+maps (platform.system() and platform.machine()), it downloads that platform's archive from GitHub once, by the job's
+URL, checks it against its SHA-256 before it opens it, extracts only the `gitleaks` member into
+~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/, and records the binary's own SHA-256 beside it in
+`gitleaks.sha256`. A binary already there that matches its record means nothing is downloaded.
 The download goes through HTTPS_PROXY when it is set, and TLS trusts the CA bundle SSL_CERT_FILE names. On any other
 platform it provisions nothing, and its line names the platform and how to add a pin.
 
