@@ -25,6 +25,12 @@ The founder's review of PR #1226 measured both on the production build.
   inside its button (`buttonVariants({ wrap: true })`, `max-w-full`), when the card's own action row
   does not wrap; a header's figure beside a heading (a percent) moves beneath it on a line of its
   own; a form code ("10-K") is one `whitespace-nowrap` run, so it never breaks at its hyphen.
+- A title between a leading glyph and a trailing control (a dialog header's icon, title and close
+  button) wraps under the glyph, never under the control: the glyph and the title are one wrapping
+  group whose title takes a rem basis (`min-w-0 flex-[1_1_9rem]`, as a Notice's text column does)
+  and breaks a word only when the word is wider than the group (`break-words`), and the control
+  keeps its own column at the row's end. A row of the three that only shrinks leaves the title a
+  sliver at 200% text, and its words paint past it.
 - Prove it in Playwright on the real page at 390px with `document.documentElement.style.fontSize
   = '32px'` (or Chromium's own text size, `Page.setFontSizes`), in both themes, measuring painted
   text with a Range, at 320px with the default size, and in the narrowest desktop column the layout
@@ -58,3 +64,12 @@ no painted text outside the screen at 320 and 390 px with every computed size do
 words alone where it does not; the tile beside the wordmark. Its first form placed the tile against the wordmark's
 cell, whose box is its row's height, so a tile moved off the wordmark's line passed (round 24's review); it now
 places the tile against the painted lines, measured with a Range.
+
+**Recurrence (2026-10-20, the dialog header)**: the shared dialog header (`frontend/components/ui/Modal.tsx`,
+`ModalHeader`) set its icon, title and close button in one row that only shrank, so at 390px under 200% text the
+title kept 60px and its words painted past it, under the close button: "Cookie preferences" ran 26px past the
+consent dialog's panel (Chrome for Testing 156). The cookie-settings work found it; #1380 had ruled the same
+squeeze out of the Notice (E120). The header now wraps as the rule above says, and
+`frontend/tests/e2e/reflow-200.spec.ts` holds two dialogs' headers at 390, 360 and 320px, the consent dialog and
+the email verification prompt: the title beside the icon at the default size and under it at 200% text, every
+painted line inside the panel and left of the close button, a word broken only when it is wider than the title.
