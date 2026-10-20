@@ -589,13 +589,15 @@ def _install_null_device_path_guard():
     """No call in this pytest process may rename over, move or remove the null device.
 
     ``os.rename``, ``os.replace``, ``os.unlink`` and ``os.remove`` (``shutil.move`` and ``pathlib`` go through them)
-    fail the test before the call when a path they would replace, move or remove is ``os.devnull``: an atomic writer
-    handed the device as its target, a cleanup that removes it, or a test that breaks it and puts it back within one
-    phase, which the phase checks above, reading the device at each phase's end, cannot see. A path is compared as
-    written, so a call on a link to the device, which replaces the link, passes, and an absolute path whatever
-    descriptor the call gives it, since it ignores one. A relative path given its own descriptor (``src_dir_fd``,
-    ``dst_dir_fd``, ``dir_fd``) is outside it, as is a program the test starts, whose git starts the process guard
-    above reads.
+    fail the test before the call when a path they would replace, move or remove names the entry ``os.devnull``
+    names: an atomic writer handed the device as its target, a cleanup that removes it, or a test that breaks it and
+    puts it back within one phase, which the phase checks above, reading the device at each phase's end, cannot see.
+    Each path is read as the call reads it: a relative one from its own descriptor (``src_dir_fd``, ``dst_dir_fd``,
+    ``dir_fd``) when the call gives one, else from the working directory, and an absolute one whatever descriptor the
+    call gives it, since it ignores one. It names that entry when it has the same device and inode, a link's own
+    rather than its target's, so a call on a link to the device, which replaces the link, passes. When either entry
+    cannot be read (nothing is there yet), a path the call reads without a descriptor is compared as written. A
+    program the test starts is outside it, whose git starts the process guard above reads.
     """
     if getattr(os.replace, "checks_null_device", False):
         return  # installed already in this process
@@ -610,10 +612,8 @@ def _checked_null_device_path(call, count):
         given = {**dict(zip(names, args)), **{key: options[key] for key in names if key in options}}
         for key, path in given.items():
             try:
-                text = os.fsdecode(os.fspath(path))
-                own_descriptor = options.get("dir_fd" if key == "path" else f"{key}_dir_fd") is not None
-                named = not (own_descriptor and not os.path.isabs(text)) and (
-                    os.path.abspath(text) == os.path.abspath(os.devnull))
+                named = _names_null_device(os.fsdecode(os.fspath(path)),
+                                           options.get("dir_fd" if key == "path" else f"{key}_dir_fd"))
             except (TypeError, ValueError):
                 named = False
             if named:
@@ -625,6 +625,19 @@ def _checked_null_device_path(call, count):
 
     checked.checks_null_device = True
     return checked
+
+
+def _names_null_device(path, descriptor):
+    """Whether ``path``, read from ``descriptor`` when it is relative and has one, names the entry ``os.devnull``
+    names: the same device and inode, a link's own rather than its target's. When either entry cannot be read, a
+    path read without a descriptor is compared as written."""
+    descriptor = None if os.path.isabs(path) else descriptor  # an absolute path ignores its descriptor
+    try:
+        found = os.stat(path, dir_fd=descriptor, follow_symlinks=False)
+        null = os.stat(os.devnull, follow_symlinks=False)
+    except (OSError, NotImplementedError):
+        return descriptor is None and os.path.abspath(path) == os.path.abspath(os.devnull)
+    return (found.st_dev, found.st_ino) == (null.st_dev, null.st_ino)
 
 
 _install_null_device_path_guard()

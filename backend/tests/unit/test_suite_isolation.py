@@ -429,11 +429,40 @@ _NULL_DEVICE_CALL_PROBE = (
     "        os.unlink(os.devnull, dir_fd=fd)\n"
     "    finally:\n"
     "        os.close(fd)\n\n"
+    "def test_removes_it_by_its_name_in_its_directory():  # a relative path read from its own descriptor\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.unlink(STAND_IN.name, dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_renames_over_it_within_its_directory():\n"
+    "    written('g')\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.rename('g', STAND_IN.name, src_dir_fd=fd, dst_dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_removes_it_through_a_link_to_its_directory():  # another spelling of the same entry\n"
+    "    STAND_IN.with_name('folder').symlink_to(STAND_IN.parent)\n"
+    "    os.unlink(STAND_IN.with_name('folder') / STAND_IN.name)\n\n"
+    "def test_writes_at_its_path_while_nothing_is_there():  # no entry to compare: the path as written\n"
+    "    saved, os.devnull = os.devnull, str(STAND_IN.with_name('gone'))\n"
+    "    try:\n"
+    "        os.rename(written('h'), os.devnull)\n"
+    "    finally:\n"
+    "        os.devnull = saved\n\n"
     "def test_replaces_another_file():\n"
     "    os.replace(written('d'), STAND_IN.with_name('e'))\n"
     "    fd = descriptor()\n"
     "    try:\n"
     "        os.unlink('e', dir_fd=fd)  # a relative path with its own descriptor\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_removes_a_link_to_the_device():  # a link's own entry, not its target's\n"
+    "    STAND_IN.with_name('link').symlink_to(os.readlink(STAND_IN))\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.unlink('link', dir_fd=fd)\n"
     "    finally:\n"
     "        os.close(fd)\n"
 )
@@ -448,8 +477,9 @@ def test_a_test_that_renames_over_or_removes_the_null_device_in_its_process_fail
                            extra_env={"NULL_STAND_IN": str(stand_in)})
     summary = result.stdout.strip().splitlines()[-1]
     # Each call fails its test before it runs, so the stand-in is never touched and no check at a phase's end fires.
-    assert result.returncode == 1 and all(count in summary for count in ("9 failed", "1 passed")), result.stdout[-3000:]
-    assert result.stdout.count("would replace or remove the null device") >= 9, result.stdout[-3000:]
+    assert result.returncode == 1 and all(count in summary for count in ("13 failed", "2 passed")), (
+        result.stdout[-3000:])
+    assert result.stdout.count("would replace or remove the null device") >= 13, result.stdout[-3000:]
     assert "stopped being the null device" not in result.stdout, result.stdout[-3000:]
     assert stand_in.is_symlink() and os.readlink(stand_in) == os.devnull
 
