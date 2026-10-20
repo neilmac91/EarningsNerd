@@ -1304,11 +1304,47 @@ search glow. The hero accent phrase sits on the primary ink and carries the bran
 (`.en-mark`, below), not sage ink; sage ink stays for links and the wordmark's italic.
 `.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
 `shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
-(panel + hairline + e2, brighten on hover); the popular-company chips and the reporting tiles are
-the same surface at e1, per the design. `.glass-card` is retired on the landing route (its
-remaining consumer is `AuthShell`). Container rhythm on the landing: hero + header `max-w-7xl`,
-every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
-tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
+(panel + hairline + e2, brighten on hover); the popular-company chips are the same surface at e1,
+per the design. `.glass-card` is retired on the landing route (its remaining consumer is
+`AuthShell`).
+
+**The landing's composition** (D-045, composition C). The two-column hero stays; every section after
+it is one ruled row, `features/marketing/components/LandingRow.tsx`, in the page's order: on the hero's
+container (`max-w-7xl`, so each rule runs the width of the hero's trust strip), a `border-t` hairline
+and `py-12 sm:py-16`, then a 14rem label column beside the content. The label column holds the
+section's number (12px data face, tertiary ink, secondary on navy: the `landing-row` CSS counter that
+`app/page.tsx` resets on `<main>`, aria-hidden as the summary's section index is, so a section that
+omits itself, Reporting this week with no data or the empty reader quote, takes no number and leaves
+no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
+secondary), one short sentence: a second sentence opens the content column, in body secondary under a
+`max-w-2xl` measure, as the evidence and contents rows' do. The columns open at
+`[@media(min-width:64rem)]:` at the reader's text size (1024px, or 2048px under a 200% text setting)
+and the label stacks above the content below it. No row alternates
+and no landing file lays items out four across: the claims and the extras are two across, the Pro
+screens one under another with each pitch above its screen, the contents and Reporting this week
+hairline lists. Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
+the plans as `th scope="col"`, what each includes as `th scope="row"`, every cell a plan line read
+through `shipped()` from `lib/planLimits.ts`, a dash with a visually hidden "Not included" where a plan
+has none; it fits a 390px phone at the default size and, wider than its box (a phone at 200% text),
+scrolls inside a box that `useOverflowRegion` names and puts in the Tab order, never the page.
+`/pricing` does not share it and keeps its two plan cards. The page closes with one line
+(`ClosingLine.tsx`): the live example as a text link and the access mode's call to action as a button
+at the end of one sentence, under the last row's rule. Gates: `earningsnerd/no-four-up-grid`
+(`eslint.designRules.mjs`, run on `LANDING_GRID_FILES`: the route, every marketing module and the
+sections the route mounts from other features) fails a class that sets four column tracks or more under
+any variant (a template, a grid shorthand, a column flow, or multi-column by its count or column width);
+`tests/unit/landing-sections-mounted.spec.ts` holds `<main>` to the hero, the rows in
+order and the close, each row's component to returning its `LandingRow` (or null) and the close to one
+paragraph; `tests/unit/pricing-section.spec.tsx` holds the table's caption, headers and cells;
+`tests/unit/landingRow.spec.tsx` the row's own shape; `tests/e2e/home-page-unauthenticated.spec.ts` reads
+the painted numbers on the built page, 01 to the last row with no gap. The plan table and the Pro extras
+claim no summary history while nothing enforces one (D-046), and the Change Report the same on both plans,
+its line naming the metric deltas alone, while production serves no wording diff and omits the report's
+risk lines (`tests/unit/changeReportPlanClaims.spec.tsx` fails a Pro chip on the row, or a risk or
+language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). E90 remounts
+Notable filings as a row after Reporting this week.
+
+Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
 ground; copy the reader must read stays secondary, including the point-of-use AI disclaimer
 (`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
@@ -1320,13 +1356,19 @@ SegmentedControl) wraps its two segments whole onto a second row inside its one 
 fit side by side, each filling its row (`grow`), at `min-h-9` rather than a fixed height; no-break
 spaces hold "Annual ·" and "save 20%", so the label breaks only after its middot. At 360px and 200%
 text the unwrapped group took the page to 368px, its Annual label on three lines below its segment.
-The final CTA card and the site footer open their columns at md at the reader's text size,
-`[@media(min-width:48rem)]:` (768px at the default size, 1536px under a 200% text setting), not `md:`:
-their columns hold a one-line button and words that cannot break, and at md's 768px under 200% text
-the footer took every route to 812px and the card took / to 886px. The auth shell's lockup yields to
+The site footer opens its columns at md at the reader's text size, `[@media(min-width:48rem)]:`
+(768px at the default size, 1536px under a 200% text setting), not `md:`: its columns hold words that
+cannot break, and at md's 768px under 200% text the footer took every route to 812px (the landing's
+final CTA card took / to 886px the same way, until D-045 made the close one line). The landing's rows
+open their label column at 64rem by the same rule. A form code in the landing's copy is one
+`whitespace-nowrap` run (`FormCodeText` in the plan table's cells, the claims, How it works and the Pro
+extras; a span of its own in the close and the extras' file kinds): before, the plan table painted
+"10-K and 10-" over "Q filings" at 320px, and the claims and How it works broke "10-Q" the same way at
+320px under 200% text. The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
-at 360 and 390px, every line but the last ending at the middot; a 768px and an 834px tablet over its route
-loop).
+at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
+its close on one painted line at 320 and 390px under 200% text and at 320px at the default size; a 768px
+and an 834px tablet over its route loop).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
