@@ -8,7 +8,7 @@ normalize and the bulk upsert of every fact) ran there in full, blocking the loo
 - A leader and a follower work no session on the loop: every checkout, statement and checkin runs on
   the sync's own threads (``sync_threads._SYNC_THREADS``), two of them, in a copy of the caller's
   context (its correlation id), and a follower reads back what the leader left, a failure included.
-- Nor in the loop's default executor. A slot holder shaped like login keeps its connection checked
+- Nor in the loop's default executor. A slot holder shaped like a password change keeps its connection checked
   out while it awaits a default-executor thread, so a sync waiting there for the slot would hold
   the thread the holder needs, and neither could move until the pool timed out
   (``copilot_chat._LOOKUP_THREADS`` keeps the Copilot's lookups off it for the same reason).
@@ -194,8 +194,8 @@ async def test_a_follower_of_a_failed_fetch_reports_no_sync(engine, inflight):
 
 
 @pytest.mark.asyncio
-async def test_a_sync_waiting_for_a_slot_lets_a_login_shaped_holder_finish(tmp_path, inflight):
-    """Another request holds the pool's only slot and, like login awaiting bcrypt, needs a
+async def test_a_sync_waiting_for_a_slot_lets_a_change_shaped_holder_finish(tmp_path, inflight):
+    """Another request holds the pool's only slot and, like a password change awaiting bcrypt, needs a
     default-executor thread before it gives the slot back. The loop's default executor has one
     thread here, standing in for one whose threads are all taken: a sync waiting for the slot there
     would hold that thread until the pool timed out. The holder must release first, and the sync
@@ -220,7 +220,7 @@ async def test_a_sync_waiting_for_a_slot_lets_a_login_shaped_holder_finish(tmp_p
 
     async def holder():
         await release_holder.wait()
-        await asyncio.to_thread(lambda: None)  # login's bcrypt, its connection still checked out
+        await asyncio.to_thread(lambda: None)  # a change's bcrypt, its connection still checked out
         order.append("holder releasing")  # before close(): the waiting sync may check out at once
         holder_db.close()
 

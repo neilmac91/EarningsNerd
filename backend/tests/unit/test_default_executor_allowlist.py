@@ -1,10 +1,11 @@
 """Gate for lessons/ops-auth-lookups-must-let-request-cleanup-progress.md: work that waits for a database
 pool slot never runs on the event loop's default executor.
 
-The default executor is shared with work that may hold a slot: login keeps its connection checked out
-while it awaits bcrypt through ``asyncio.to_thread``. A unit waiting there for a slot could hold the
-thread such a holder needs, and neither could move until the pool timed out. Pool-waiting units run on
-threads of their own instead (``copilot_chat._LOOKUP_THREADS``, ``facts.sync_threads._SYNC_THREADS``).
+The default executor is shared with work that may hold a slot: a password change or reset keeps its
+connection checked out while it awaits bcrypt through ``asyncio.to_thread``. A unit waiting there for a
+slot could hold the thread such a holder needs, and neither could move until the pool timed out.
+Pool-waiting units run on threads of their own instead (``copilot_chat._LOOKUP_THREADS``,
+``facts.sync_threads._SYNC_THREADS``).
 
 The scan reads every module under ``app/`` and the backend's top-level modules (``main.py``,
 ``task_worker_main.py``) through ``ast`` and lists each call that hands work to the default executor:

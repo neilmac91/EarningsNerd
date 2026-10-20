@@ -8,8 +8,10 @@ other way (logout, logout-all, a password change or reset, or that theft sweep) 
 
 Every rotation and revocation of a user's tokens (a refresh, logout, logout-all, the sweep, a password
 change or reset) first takes the account's users row lock and reads what it writes under it, so two of
-them for one user run one after the other, on one API instance or across both (``_lock_user_tokens``).
-A token minted at sign-in takes no lock: it writes no existing row.
+them for one user run one after the other, on one API instance or across both (``lock_user_tokens``).
+A token minted at sign-in writes no existing row and takes no lock, except a password login's: a password
+login and a password change take the lock, and act only while the hash they verified is still the account's
+(``auth_account_service.record_password_login`` and ``stage_password_change``, E121).
 """
 from __future__ import annotations
 
@@ -40,19 +42,21 @@ class RefreshTokenReuseError(RefreshTokenError):
     """
 
 
-def _lock_user_tokens(db: Session, user_id: int) -> None:
+def lock_user_tokens(db: Session, user_id: int) -> None:
     """Take ``user_id``'s users row lock for the rest of the caller's transaction.
 
     Every rotation and revocation of a user's refresh tokens takes it before it reads the tokens it
-    writes, and so does the account's deletion (``user_account_service.delete_user``), whose cascade
-    deletes them. Two refreshes with one cookie both read the token live otherwise, and both mint a
+    writes. Two refreshes with one cookie both read the token live otherwise, and both mint a
     successor. A refresh racing a logout or logout-all writes on its stale read, leaving a live
     successor. A guarded UPDATE alone would not stop the logout-all case: its bulk UPDATE sees only
     rows committed when it starts, so a successor committed after that survives it. The lock makes
     the second writer wait for the first's commit, and the reads it then makes see that commit (READ
-    COMMITTED). FOR NO KEY UPDATE: it serializes these writers but not the foreign-key checks of
-    inserts that name the user, a sign-in's new token among them. Unbounded, as the holders are short
-    transactions, and a timeout would turn a moment's wait into a failed refresh. SQLite ignores it."""
+    COMMITTED). The account's deletion takes it as well (``user_account_service.delete_user``), as its
+    cascade deletes the tokens, and so do a password login and a password change before they check the
+    hash they verified (``auth_account_service.record_password_login`` and ``stage_password_change``).
+    FOR NO KEY UPDATE: it serializes these writers but not the foreign-key checks of inserts that name
+    the user, a sign-in's new token among them. Unbounded, as the holders are short transactions, and a
+    timeout would turn a moment's wait into a failed refresh. SQLite ignores it."""
     db.query(User.id).filter(User.id == user_id).with_for_update(key_share=True).first()
 
 
@@ -125,7 +129,7 @@ def rotate_refresh_token(
     )
     if token is None:
         raise RefreshTokenError("Unknown refresh token")
-    _lock_user_tokens(db, token.user_id)
+    lock_user_tokens(db, token.user_id)
     token = _read_again(db, token)  # a rotation, revocation or deletion committed since shows here
     if token is None:
         raise RefreshTokenError("Unknown refresh token")
@@ -185,7 +189,7 @@ def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> bool:
     )
     if token is None:
         return False
-    _lock_user_tokens(db, token.user_id)
+    lock_user_tokens(db, token.user_id)
     token = _read_again(db, token)  # as a rotation does
     # Each link points at a newer token (only a rotation writes it, to the successor it mints), so the
     # walk ends, at the chain's live tip or at a token revoked some other way.
@@ -202,7 +206,7 @@ def revoke_all_for_user(db: Session, user_id: int) -> int:
 
     Under the users row lock, so the bulk UPDATE starts after any rotation of this user's has committed
     and revokes its successor too."""
-    _lock_user_tokens(db, user_id)
+    lock_user_tokens(db, user_id)
     now = datetime.utcnow()
     count = (
         db.query(RefreshToken)
