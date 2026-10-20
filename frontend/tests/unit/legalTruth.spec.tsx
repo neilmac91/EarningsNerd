@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import PrivacyPage from '@/app/privacy/page'
 import SecurityPage from '@/app/security/page'
 import TermsPage from '@/app/terms/page'
+import { CONSENT_VERSION } from '@/components/CookieConsent'
 import { ACCOUNT_EVENTS_DISCLOSURE, ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 import { LEGAL_DATES } from '@/lib/legalDates'
 
@@ -45,7 +46,10 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    ANALYTICS_CONSENT_CLAUSE (lib/consentCopy.ts), in D-046's words: each of the two places it once, /privacy
  *    renders it, and no other copy literal types its account-id sentence. CookieConsent.spec.tsx reads it as the
  *    dialog's analytics checkbox description. F33's rule itself holds everywhere: no copy literal under app,
- *    components, features, hooks or lib calls the analytics anonymous.
+ *    components, features, hooks or lib calls the analytics anonymous. The clause is pinned beside CONSENT_VERSION
+ *    (components/CookieConsent.tsx), the clause a stored choice was made under: an allow made under an earlier one
+ *    reads as no choice, so the bar asks again, and a change to what the clause covers moves the version in the same
+ *    commit (CookieConsent.spec.tsx plants the stored choices).
  * 4. A legal page's date moves with its text. LEGAL_TEXT lists, per page, the dates its text took, oldest first, each
  *    with the hash of the text the page rendered under it (the "Last updated" date itself read as {date}). The gate
  *    holds: the last row is the page as it renders now, under its LEGAL_DATES date, so a changed text or a moved date
@@ -637,10 +641,14 @@ describe('the account events have a sentence of their own, true of the API (D-05
 })
 
 describe('the consent clause and /privacy say the same thing, from one constant (D-046, F33)', () => {
-  it("is D-046's sentence", () => {
-    expect(ANALYTICS_CONSENT_CLAUSE).toBe(
-      'Usage statistics through PostHog, so we can see which pages work. When you are logged in they are tied to an internal account id.',
-    )
+  it("is D-046's sentence, pinned beside the version a stored allow must carry (CONSENT_VERSION)", () => {
+    expect(
+      { clause: ANALYTICS_CONSENT_CLAUSE, version: CONSENT_VERSION },
+      'a change to what the clause says an allow covers moves CONSENT_VERSION (components/CookieConsent.tsx) in the same commit, so a reader who allowed analytics under the old words chooses again',
+    ).toEqual({
+      clause: 'Usage statistics through PostHog, so we can see which pages work. When you are logged in they are tied to an internal account id.',
+      version: 2,
+    })
   })
 
   it('the consent dialog and /privacy each place it once, and /privacy renders it', () => {
