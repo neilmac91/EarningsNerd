@@ -408,6 +408,14 @@ UNRESOLVED = {
     "the previous directory": ("cd - && git push origin main", "repository"),
     "--git-dir": ("git --git-dir=.git push origin main", "repository"),
     "GIT_DIR=": ("GIT_DIR=.git git push origin main", "repository"),
+    # A global option but those that leave git's repository alone (Codex's --bare, which takes the directory git runs
+    # in for its git directory), and a variable that tells git where its repository is, named anywhere in the line.
+    "--bare (Codex's)": ("git --bare push origin main", "repository"),
+    "--namespace": ("git --namespace=n push origin main", "repository"),
+    "--exec-path": ("git --exec-path=/usr/lib/git-core push origin main", "repository"),
+    "GIT_COMMON_DIR=": ("GIT_COMMON_DIR=.git git push origin main", "repository"),
+    "GIT_NAMESPACE=": ("GIT_NAMESPACE=n git push origin main", "repository"),
+    "an exported GIT_DIR": ("export GIT_DIR=.git; git push origin main", "repository"),
 }
 UNRESOLVED_REFUSALS = {
     "source": ("which the hook cannot resolve to a commit as the line stands", "Name each source literally"),
@@ -483,6 +491,18 @@ def test_a_long_option_push_does_not_take_as_written_is_refused(scanner: Scanner
     ("pushd -n {repo}; git push origin main", "unresolved"),
     ("cd -P {repo} && git push origin main", "unresolved"),
     ("cd -- {repo} && git push origin main", None),
+    # A cd word past a leader's option (Codex's `command -p`) or in another command's words may be a move the hook does
+    # not place: it leaves the directory unknown. A leader alone keeps the move.
+    ("command -p cd {repo}; git push origin main", "unresolved"),
+    ("time -p cd {repo}; git push origin main", "unresolved"),
+    ("builtin -- cd {repo}; git push origin main", "unresolved"),
+    ("eval cd {repo}; git push origin main", "unresolved"),
+    ("command cd {repo}; git push origin main", None),
+    ("time cd {repo} && git push origin main", None),
+    # Global options that change only git's output or pathspecs, its config and other GIT_ variables leave the push read.
+    ("git --no-pager -C {repo} push origin main", None),
+    ("git -p -c push.default=current --no-optional-locks push origin main", "found"),
+    ("GIT_TRACE=0 git push origin main", "found"),
 ])
 def test_the_push_runs_in_the_directory_the_line_moves_to(scanner: Scanner, repo: Path, tmp_path: Path,
                                                          command: str, outcome: str | None) -> None:

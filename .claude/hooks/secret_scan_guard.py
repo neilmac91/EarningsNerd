@@ -32,11 +32,16 @@ in any case. It scans
   link's target). A move counts only where it certainly runs in the line's own shell: first in its and-or
   list (after nothing, `;`, `&`, a newline or a subshell's `(`, with any assignments and redirections before it as its
   prefixes), in no pipeline or background job, and in a line with no if, while, until, for, select, case or function;
-  any other leaves the push's directory unknown, as does a relative directory that CDPATH may find elsewhere (CDPATH set
+  any other, and a cd, pushd or popd word anywhere else (past a leader's option, as `command -p cd`, or an eval's
+  word), leaves the push's directory unknown, as does a relative directory that CDPATH may find elsewhere (CDPATH set
   in the hook's environment or named anywhere in the line), unless it starts with `.`, `/` or `~`, which CDPATH skips;
   a bare `cd`, which goes to HOME; a `~` directory, a cd's or a `git -C`'s, in a line that names HOME; a cd or pushd
   given an option (`-P` resolves links, `pushd -n` stays put; `--` only ends the options); and one whose directory a
   link and then `..` make two, since bash reads `..` by its text unless `set -P` is on, which the hook does not read.
+  So does a line that names, anywhere, a variable telling git where its repository, refs or objects are (GIT_DIR,
+  GIT_WORK_TREE, GIT_COMMON_DIR, GIT_NAMESPACE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES), and a global
+  option of git's but -C, -c, --config-env and those that change only its output or its pathspecs: --git-dir,
+  --work-tree and --bare, which takes the directory git runs in for its git directory, among them.
   The scan is
   `gitleaks git .` with GIT_DIR=<that repository's git directory> and
   `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable from what the push
@@ -95,7 +100,7 @@ means to get past it, which can always push from a script, so it does not read f
 
 Not checked: a push or write that another shell or program makes (`bash -c '...'`, a here-document fed to a shell, a
 script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in the
-same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, git
+same line, a directory a command other than cd or pushd enters (`env -C`), git
 configuration the line sets through the environment (`GIT_CONFIG_COUNT=` before the push, an export, a `HOME=`
 whose `.gitconfig` sets push options), a CDPATH the
 session's shell sets that the hook's environment lacks, a
@@ -135,6 +140,16 @@ FLAGS = ("--redact=100", "--no-banner", "--exit-code", "1")  # the `secret-scan`
 LESSON = "lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md"
 GIT_VALUE_OPTIONS = ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--attr-source",
                      "--super-prefix", "--shallow-file")
+# git's global options that leave its repository, and what a push sends, as the hook reads them. Any other (--git-dir,
+# --work-tree, --bare, which takes the directory git runs in for its git directory, --namespace, --exec-path, one git
+# adds later) leaves a push's repository unknown.
+QUIET_OPTIONS = ("-C", "-c", "--config-env", "-p", "--paginate", "-P", "--no-pager", "--no-replace-objects",
+                 "--literal-pathspecs", "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs",
+                 "--no-optional-locks", "--no-advice", "--no-lazy-fetch")
+# Variables that tell git where its repository, refs or objects are. A line that names one anywhere (before a command,
+# in an export or a declare) may push from another repository than the one the hook reads.
+REPOSITORY_VARIABLES = re.compile(
+    r"\bGIT_(?:DIR|WORK_TREE|COMMON_DIR|NAMESPACE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES)\b")
 PUSH_VALUE_OPTIONS = ("--repo", "--receive-pack", "--exec", "--push-option", "--recurse-submodules")
 # git push's long options as `git push -h` lists them (each also as `--no-<name>`), and the help it reads itself. Git
 # takes a unique prefix of one for the whole option, which the hook does not complete: such a push is refused.
@@ -414,13 +429,14 @@ def _global_options(words: list[str], index: int) -> tuple[str | None, list[tupl
     return (words[index] if index < len(words) else None), options, words[index + 1:]
 
 
-def _repository(here: Path | None, options: list[tuple[str, str | None]], before: list[str], home: bool) -> Path | None:
-    """The directory a git command runs in, or None when its line names one the hook cannot resolve. git enters each -C
-    as chdir does, through its links; a `~` there is the HOME the line may set when `home` (the line names HOME)."""
-    if any(word.startswith(("GIT_DIR=", "GIT_WORK_TREE=")) for word in before):
+def _repository(here: Path | None, options: list[tuple[str, str | None]], home: bool, elsewhere: bool) -> Path | None:
+    """The directory a git command runs in, or None when its line names one the hook cannot resolve: a line that names
+    a variable telling git where its repository is (`elsewhere`), or a global option but QUIET_OPTIONS. git enters each
+    -C as chdir does, through its links; a `~` there is the HOME the line may set when `home` (the line names HOME)."""
+    if elsewhere:
         return None
     for name, value in options:
-        if name.startswith(("--git-dir", "--work-tree")):
+        if name.split("=", 1)[0] not in QUIET_OPTIONS:
             return None
         if name == "-C" and value:
             here = None if home and value.startswith("~") else _join(here, value, True)
@@ -511,6 +527,7 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
     stack: list[Path | None] = []
     pushes, commits, moved = [], False, False
     cdpath, home = bool(os.environ.get("CDPATH")) or "CDPATH" in script, "HOME" in script
+    elsewhere = REPOSITORY_VARIABLES.search(script) is not None  # GIT_DIR and its like, set anywhere in the line
     commands = shell._commands(shell._command_tokens(_uncommented(script)))
     branching = any(_branches(words) for _operator, words in commands)
     for at, (operator, words) in enumerate(commands):
@@ -533,9 +550,11 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                     word.isdigit() and index + 1 < len(words) and words[index + 1] in REDIRECTS)):
                 skip = 1 if word in REDIRECTS else 2  # `>file cd ...`, `2>/dev/null cd ...`: the command comes after
                 continue
-            if word in ("cd", "pushd", "popd") and (start or branching):
+            if word in ("cd", "pushd", "popd"):
                 # A move that may not run where it stands (after && or ||, in a pipeline or a background job, or in a
-                # line that branches) leaves the directory unknown: the shell may run what follows from either.
+                # line that branches), and a word that may be one past a leader's option or in another command's words
+                # (`command -p cd`, `time -p cd`, `builtin -- cd`, `eval cd`), leaves the directory unknown: the shell
+                # may run what follows from either.
                 certain = start and first and not branching and after not in ("|", "|&", "&")
                 here = _moved(here, word, words[index + 1:], cdpath, home) if certain else None
             start = False
@@ -547,7 +566,7 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                     options, sources, remote = _sent(rest)
                     config = [word for name, value in global_options if name == "-c" or name.startswith("--config-env")
                               for word in (name, value) if word is not None]
-                    pushes.append((_repository(here, global_options, words[:index], home), options, sources, remote, config))
+                    pushes.append((_repository(here, global_options, home, elsewhere), options, sources, remote, config))
                 elif subcommand is not None and subcommand not in READS:
                     moved = True
     for _directory, options, sources, _remote, _config in pushes if moved else []:  # wherever the move stands
@@ -626,8 +645,10 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str], r
             "this line pushes from a repository the hook cannot resolve as the line stands (a variable, a "
             "substitution, `cd -`, popd, a cd or pushd that may not run where it stands, a relative one that CDPATH "
             "may take elsewhere, a bare cd, a ~ directory when the line names HOME, a cd or pushd given an option, a "
-            "link and then .. that cd may read either way, --git-dir, --work-tree, GIT_DIR=, or a directory no "
-            "repository holds yet), so it cannot tell what the push would send.",
+            "link and then .. that cd may read either way, a cd word past a leader's option, a git option that may "
+            "change its repository such as --git-dir, --work-tree or --bare, a GIT_DIR or another variable that tells "
+            "git where its repository is, or a directory no repository holds yet), so it cannot tell what the push "
+            "would send.",
             REPOSITORY_REMEDY)
     destination, configured = _destination(top, remote, config), []
     if _git(top, *config, "config", "--type=bool", "--get", f"remote.{destination}.mirror") == "true":
