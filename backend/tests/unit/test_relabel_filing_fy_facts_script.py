@@ -803,3 +803,19 @@ def test_a_failed_sec_read_fails_its_company_alone_before_its_session_opens(db, 
         assert {k: v for k, v in states.items() if v["company_id"] == target.id} == {
             k: v for k, v in before.items() if v["company_id"] == target.id
         }
+
+
+def test_a_read_row_the_stored_rule_rejects_is_no_evidence(db):
+    company, _filing = _jnj_before_any_sync(db)
+    rows = db.query(FinancialFact).filter_by(company_id=company.id).all()
+    start, end = CALENDARS["JNJ"][2021]
+    fact = {"filing_id": None, "raw_tag": "us-gaap:Revenues", "fiscal_period": "FY", "fiscal_year": 2021,
+            "period_start": _day(start), "period_end": _day(end)}
+    read = [SimpleNamespace(**fact, source="derived", provenance=reported_provenance({"reconciled": True})),
+            SimpleNamespace(**fact, source="companyfacts",
+                            provenance=reported_provenance({"reconciled": True}) | {"validation": "unavailable"})]
+
+    plan = relabel.plan_company(rows, read)
+
+    assert plan["relabel"] == [] and plan["sec_evidence"] == 0
+    assert plan["held"] == {"no_companyfacts_fy": ["2022-01-02", "2023-01-01", "2023-12-31"]}
