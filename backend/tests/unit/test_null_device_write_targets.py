@@ -96,7 +96,8 @@ class _NullTargets(ast.NodeVisitor):
 
     @staticmethod
     def _git_variable(node: ast.AST | None) -> bool:
-        return isinstance(node, ast.Constant) and node.value in GIT_VARIABLES
+        value = node.value if isinstance(node, ast.Constant) else None
+        return (value.decode(errors="replace") if isinstance(value, bytes) else value) in GIT_VARIABLES
 
     def visit_Dict(self, node: ast.Dict) -> None:
         self.lines += [value.lineno for key, value in zip(node.keys, node.values)
@@ -132,7 +133,8 @@ class _NullTargets(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Constant(self, node: ast.Constant) -> None:
-        if isinstance(node.value, str) and id(node) not in self.docstrings and SHELL_FORM.search(node.value):
+        if isinstance(node.value, (str, bytes)) and id(node) not in self.docstrings \
+                and SHELL_FORM.search(self._text(node)):
             self.lines.append(node.lineno)
 
     def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
@@ -148,9 +150,9 @@ class _NullTargets(ast.NodeVisitor):
 
     def _text(self, node: ast.AST | None) -> str:
         """The text a string expression builds, the device written `/dev/null` and any part it cannot read a
-        NUL: a literal, an f-string, a `+` of them, or the device itself."""
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            return node.value
+        NUL: a literal (a byte string decoded), an f-string, a `+` of them, or the device itself."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, (str, bytes)):
+            return node.value if isinstance(node.value, str) else node.value.decode(errors="replace")
         if isinstance(node, ast.JoinedStr):
             return "".join(self._text(part.value if isinstance(part, ast.FormattedValue) else part)
                            for part in node.values)
@@ -225,6 +227,10 @@ def test_no_tracked_code_gives_git_the_null_device_to_write():
     'subprocess.run("GIT_CONFIG_GLOBAL=/dev/null git config a.b c", shell=True)',  # the shell form in a string
     'os.system(f"git config -f{os.devnull} a.b c")',  # a shell line built by an f-string
     'os.system("GIT_CONFIG_GLOBAL=" + os.devnull + " git config a.b c")',  # or by +
+    'env = {b"GIT_CONFIG_GLOBAL": b"/dev/null"}',  # byte strings
+    'env[b"GIT_INDEX_FILE"] = os.devnull',
+    'subprocess.run([b"git", b"config", b"-f", os.fsencode(os.devnull), b"a.b", b"c"])',
+    'subprocess.run(b"GIT_CONFIG_SYSTEM=/dev/null git config a.b c", shell=True)',
 ])
 def test_the_gate_finds_each_python_form(code):
     assert _NullTargets(ast.parse(code)).lines, code

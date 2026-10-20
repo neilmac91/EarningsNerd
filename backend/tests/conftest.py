@@ -10,6 +10,7 @@ backend/pytest.ini; gates for all of this are in tests/unit/test_suite_isolation
 """
 
 import atexit
+import inspect
 import os
 import re
 import shlex
@@ -413,12 +414,15 @@ def _install_git_null_guard():
     ``tests/unit/test_null_device_write_targets.py`` reads the source; this sees each start, however its
     environment or arguments were built, on any runner: an environment whose ``GIT_CONFIG_GLOBAL``,
     ``GIT_CONFIG_SYSTEM``, ``GIT_CONFIG`` or ``GIT_INDEX_FILE`` names the device, a ``NAME=/dev/null`` word in
-    a shell line, or git config's file option naming it (``--file``, ``-f``, attached or not). A path is read
+    a shell line, or git config's file option naming it (``--file``, ``-f``, attached or not), in strings or
+    byte strings, given by keyword or by position, a shell line alone or in a list. A path is read
     from the test's own directory; one that reaches the device only from another (a ``cwd=``, ``git -C``) is
     outside it. It is installed when conftest is imported, so a fixture of any
     scope is covered, and it wraps every way the standard library starts a program but fork and exec:
     ``subprocess.Popen`` (``subprocess.run``, ``os.popen`` and asyncio's subprocesses go through it),
-    ``os.system``, ``os.posix_spawn`` and ``os.posix_spawnp``. The start fails before it happens. A process that
+    ``os.system``, ``os.posix_spawn``, ``os.posix_spawnp`` and ``os.spawnv`` with its siblings, and
+    ``os.putenv``, which sets the environment later starts inherit without ``os.environ`` seeing it. The start
+    (or the setting) fails before it happens. A process that
     a started process starts in turn is outside it, as is ``os.fork`` with an ``exec`` and a start this cannot
     read; the source gate and the null-device checks above stand behind them. A child run in
     ``tests/unit/test_suite_isolation.py`` proves each start (lessons/test-never-point-a-written-file-at-dev-null.md).
@@ -427,9 +431,12 @@ def _install_git_null_guard():
     if getattr(popen_init, "checks_git_null_targets", False):
         return  # installed already in this process
 
-    def popen(self, args, *more, **options):
-        _refuse_git_null_target(args, options.get("env"))
-        popen_init(self, args, *more, **options)
+    parameters = inspect.signature(popen_init)
+
+    def popen(self, *given, **options):
+        start = parameters.bind(self, *given, **options).arguments  # env or shell given by position too
+        _refuse_git_null_target(start["args"], start.get("env"), start.get("shell", False))
+        popen_init(self, *given, **options)
 
     popen.checks_git_null_targets = True
     subprocess.Popen.__init__ = popen
@@ -440,10 +447,21 @@ def _install_git_null_guard():
         return system(command)
 
     os.system = checked_system
+    putenv = os.putenv
+
+    def checked_putenv(key, value):  # os.environ's own writes come through here too
+        _refuse_git_null_target([], {key: value}, what="the environment set here")
+        putenv(key, value)
+
+    os.putenv = checked_putenv
     for name in ("posix_spawn", "posix_spawnp"):
         spawn = getattr(os, name, None)
         if spawn is not None:
             setattr(os, name, _checked_spawn(spawn))
+    for name in ("spawnv", "spawnve", "spawnvp", "spawnvpe"):  # os.spawnl and its siblings call these
+        spawn = getattr(os, name, None)
+        if spawn is not None:
+            setattr(os, name, _checked_os_spawn(spawn))
 
 
 def _checked_spawn(spawn):
@@ -454,15 +472,23 @@ def _checked_spawn(spawn):
     return checked
 
 
-def _refuse_git_null_target(args, env):
-    given = _git_null_target(args, env)
+def _checked_os_spawn(spawn):
+    def checked(mode, file, args, *env):  # the spawnv*e forms take an environment
+        _refuse_git_null_target(args, env[0] if env else None)
+        return spawn(mode, file, args, *env)
+
+    return checked
+
+
+def _refuse_git_null_target(args, env, shell=False, what="a process started here"):
+    given = _git_null_target(args, env, shell)
     if given:
-        pytest.fail(f"a process started here would give git the null device to write ({given}): as root, git "
+        pytest.fail(f"{what} would give git the null device to write ({given}): as root, git "
                     "renames its lock file over the device. Give git an empty file in the test's temp directory "
                     "instead (lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
 
 
-def _git_null_target(args, env):
+def _git_null_target(args, env, shell=False):
     """What in a process's start gives git the null device to write, or None."""
     try:
         null = os.path.realpath(os.devnull)
@@ -470,11 +496,14 @@ def _git_null_target(args, env):
         def names_null(value):
             return bool(value) and os.path.realpath(os.fsdecode(value)) == null
 
-        environment = os.environ if env is None else env
-        for name in _GIT_WRITE_TARGETS:
-            if names_null(environment.get(name)):
-                return f"{name}={environment[name]} in its environment"
-        words = shlex.split(os.fsdecode(args)) if isinstance(args, (str, bytes)) else [os.fsdecode(w) for w in args]
+        for key, value in (os.environ if env is None else env).items():
+            name = os.fsdecode(key)  # a byte-string key names the same variable
+            if name in _GIT_WRITE_TARGETS and names_null(value):
+                return f"{name}={os.fsdecode(value)} in its environment"
+        items = [args] if isinstance(args, (str, bytes)) else list(args)
+        shell_lines = shell or isinstance(args, (str, bytes))  # with shell=True a list's words are shell lines
+        words = [word for item in items
+                 for word in (shlex.split(os.fsdecode(item)) if shell_lines else [os.fsdecode(item)])]
         for index, word in enumerate(words):
             name, equals, value = word.partition("=")
             if equals and name in _GIT_WRITE_TARGETS and names_null(value):

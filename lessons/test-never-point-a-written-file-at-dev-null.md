@@ -37,9 +37,11 @@ and say so in the hand-off.
   pulls in binutils' `ld`, and `export_service.py` imports WeasyPrint at request time. Its `/dev/null` is a
   device, so `ld` leaves it alone.
 - Gated three times. `_install_git_null_guard` in `backend/tests/conftest.py`, installed when conftest is
-  imported, refuses on any runner a start through `subprocess`, `os.system` or `os.posix_spawn`, from a test or
-  a fixture of any scope, whose environment, shell line or git config file option (`--file`, `-f`, attached or
-  not) gives git the device, however it was built; a child run in `test_suite_isolation.py` proves each start.
+  imported, refuses on any runner a start through `subprocess`, `os.system`, `os.posix_spawn` or `os.spawn*`,
+  from a test or a fixture of any scope, whose environment, shell line or git config file option (`--file`,
+  `-f`, attached or not) gives git the device, however it was built (byte strings, an `env` by position, a
+  shell line in a list), and an `os.putenv` that would set it for later starts; a child run in
+  `test_suite_isolation.py` proves each.
   `backend/tests/unit/test_null_device_write_targets.py` fails on any tracked code file that names
   `/dev/null` or `os.devnull` in git's `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG` or `GIT_INDEX_FILE`,
   or as git config's file, on every runner (CI runs as a non-root user, where nothing can replace the device).
