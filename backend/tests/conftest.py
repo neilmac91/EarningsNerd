@@ -3,15 +3,18 @@ Pytest configuration for EarningsNerd backend tests.
 
 Makes every pytest process hermetic and order-independent: a private temp database and EdgarTools
 directory per process (each xdist worker is one), pinned environment, the network gate, autouse
-resets of process-wide state, and a check that no test destroys /dev/null. Markers live in
+resets of process-wide state, and checks that no test starts git with /dev/null as a file it writes or
+destroys /dev/null. Markers live in
 backend/pytest.ini; gates for all of this are in tests/unit/test_suite_isolation.py
 (lessons/ops-one-test-process-per-worktree.md).
 """
 
 import atexit
 import os
+import shlex
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 from copy import deepcopy
@@ -350,6 +353,61 @@ def _is_character_device(path):
         return stat.S_ISCHR(os.stat(path).st_mode)
     except OSError:
         return False
+
+
+# The variables that name a file git writes through a lock file it renames over the target.
+_GIT_WRITE_TARGETS = ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG", "GIT_INDEX_FILE")
+
+
+@pytest.fixture(autouse=True)
+def _no_process_gives_git_the_null_device(monkeypatch):
+    """A test may not start a process that gives git the null device as a file it writes.
+
+    ``tests/unit/test_null_device_write_targets.py`` reads the source; this sees what a test starts, however
+    its environment or arguments were built, on any runner: an environment whose ``GIT_CONFIG_GLOBAL``,
+    ``GIT_CONFIG_SYSTEM``, ``GIT_CONFIG`` or ``GIT_INDEX_FILE`` names the device, a ``NAME=/dev/null`` word in
+    a shell line, or ``config --file`` naming it. The test fails before the process starts. A process that a
+    started process starts in turn is outside it, as is a start this cannot read (the source gate and
+    ``_null_device_survives`` stand behind it). A child run in ``tests/unit/test_suite_isolation.py`` proves
+    it (lessons/test-never-point-a-written-file-at-dev-null.md).
+    """
+    start = subprocess.Popen.__init__
+
+    def checked(self, args, *more, **options):
+        given = _git_null_target(args, options.get("env"))
+        if given:
+            pytest.fail(f"this test starts a process with {given}: as root, git renames its lock file over "
+                        "the null device. Give git an empty file in the test's temp directory instead "
+                        "(lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
+        start(self, args, *more, **options)
+
+    monkeypatch.setattr(subprocess.Popen, "__init__", checked)
+
+
+def _git_null_target(args, env):
+    """What in a process's start gives git the null device to write, or None."""
+    try:
+        null = os.path.realpath(os.devnull)
+
+        def names_null(value):
+            return bool(value) and os.path.realpath(os.fsdecode(value)) == null
+
+        environment = os.environ if env is None else env
+        for name in _GIT_WRITE_TARGETS:
+            if names_null(environment.get(name)):
+                return f"{name}={environment[name]} in its environment"
+        words = shlex.split(os.fsdecode(args)) if isinstance(args, (str, bytes)) else [os.fsdecode(w) for w in args]
+        for index, word in enumerate(words):
+            name, equals, value = word.partition("=")
+            if equals and name in _GIT_WRITE_TARGETS and names_null(value):
+                return word
+            if "config" in words[:index] and (
+                    (word in ("--file", "-f") and index + 1 < len(words) and names_null(words[index + 1]))
+                    or (word.startswith("--file=") and names_null(word[len("--file="):]))):
+                return f"config {word}" + (f" {words[index + 1]}" if "=" not in word else "")
+    except (TypeError, ValueError, OSError):
+        return None
+    return None
 
 
 # Stream tests that drive the real ``stream_filing_summary`` with a mocked 10-K (CIK 1234567890)

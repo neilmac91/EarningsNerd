@@ -324,6 +324,33 @@ def test_a_test_that_replaces_the_null_device_fails(tmp_path):
     assert (now.st_ino, now.st_mode, now.st_rdev) == (real.st_ino, real.st_mode, real.st_rdev)
 
 
+# The probe builds git's variable name and option from parts, as the source gate would refuse them whole.
+_GIT_NULL_PROBE = (
+    "import os, subprocess\n\n"
+    "NAME = 'GIT_CONFIG_' + 'GLOBAL'\n"
+    "FILE = '--' + 'file'\n\n"
+    "def test_starts_git_with_its_global_config_on_the_null_device():\n"
+    "    subprocess.run(['git', '--version'], env={**os.environ, NAME: os.devnull}, capture_output=True)\n\n"
+    "def test_starts_git_config_with_the_null_device_as_its_file():\n"
+    "    subprocess.run(['git', 'config', FILE, os.devnull, '--list'], capture_output=True)\n\n"
+    "def test_starts_a_shell_line_that_names_it():\n"
+    "    subprocess.run(NAME + '=' + os.devnull + ' git --version', shell=True, capture_output=True)\n\n"
+    "def test_starts_git_plainly():\n"
+    "    subprocess.run(['git', '--version'], capture_output=True, check=True)\n"
+)
+
+
+def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
+    probe = tmp_path / "test_git_null_probe.py"
+    probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1 and "3 failed, 1 passed" in summary, result.stdout[-3000:]
+    failed = [line for line in result.stdout.splitlines() if line.startswith("FAILED ")]
+    assert not any("test_starts_git_plainly" in line for line in failed), failed
+    assert result.stdout.count("this test starts a process with ") >= 3, result.stdout[-3000:]
+
+
 _EDGAR_DIRS = ("EDGAR_LOCAL_DATA_DIR", "EDGAR_CACHE_DIR")
 # Each test appends where its process's EdgarTools reads and writes, to a file, because xdist keeps a
 # worker's output.
