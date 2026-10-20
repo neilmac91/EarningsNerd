@@ -79,7 +79,8 @@ file instead.
   `.claude/skills/`, `.impeccable/`, root Markdown other than `CLAUDE.md` and `AGENTS.md`): the
   link/anchor check plus §5's one Sonnet lens. A `DESIGN.md` or `.impeccable/design.json` change
   also runs `npx vitest run tests/unit/designSnapshotParity.spec.ts` from `frontend/`; a change to
-  the `design-docs-maintenance` skill also runs `tests/unit/designRecipeRoute.spec.ts`; a
+  the `design-docs-maintenance` skill or to `DESIGN_SYSTEM.md` §4 also runs
+  `tests/unit/designRecipeRoute.spec.ts`; a
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
   and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
@@ -167,8 +168,9 @@ PR touching deployable backend files only after the previous
 `deploy-backend` job is green, the migration step shows `applied=0 skipped=<N>` (or the expected
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Read the head SHA from the PR before merging; never type one from memory.
-Marking a PR ready for review triggers the paid `copilot-eval` run when it touches that
-workflow's `paths:` filter (the eval's own inputs): reserve the spend first
+Marking a PR ready for review, and each push while it is ready, triggers the paid `copilot-eval`
+run when it touches that workflow's `paths:` filter (the eval's own inputs; one draw per head):
+reserve the spend first
 (`tasks/code-red-20261004/runtime/control/DECISIONS-09.md`, reservation rule).
 
 ## 7. PR body, handover and open-items formats

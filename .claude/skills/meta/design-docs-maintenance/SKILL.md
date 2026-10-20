@@ -62,16 +62,22 @@ A change of more than one kind below takes the widest reading. Any of them adds
     button, Secondary button, Wrapping button, Button size, Link as button, Accent text/link,
     Count control, Focus ring, Card / panel, Delta text, Data table hover, Solid chip, Status chip,
     Inline notice, Semantic card, Index list, Stacking and Metric cards;
-  - the recipe of each existing component or surface the change uses or edits, which is the only
-    way these recipes are read: Analysis evidence, Analysis periods, Analysis reading, Analysis
-    reflow, Callout, Chat composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero
-    example, Input, Password field, Provenance chip, Steady loading, Toast and Trust strip;
+  - the recipe of each existing component or surface the change uses or edits, whatever its list.
+    A recipe's name need not be its component's, so search §4's recipe block for the component's
+    name: `<NarrativePane>` is under Analysis reading, `<PeriodPicker>` under Analysis periods,
+    `<SourceValue>` under Analysis evidence, `<SourceTrace>` under Provenance chip and
+    `<Button reserveLoadingText>` under Steady loading. This is the only way these recipes are
+    read: Analysis evidence, Analysis periods, Analysis reading, Analysis reflow, Callout, Chat
+    composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero example, Input,
+    Password field, Provenance chip, Steady loading, Toast and Trust strip;
   - the triggered recipes, for what the change adds or changes:
     - a keyboard shortcut: Source pane, Wording changes and Search field (the filing page binds
       ⌘K and "/", its wording review list j, k, 1, 2 and the arrows; company search binds "/"
       and ⌘K);
-    - a menu, dropdown, tooltip or explainer (anything anchored to a control that closes on
-      Escape or an outside press, other than a field's list of suggestions): Popover;
+    - a menu, dropdown, tooltip, explainer or evidence chip (SourceTrace, CitationChip: their
+      popovers' Tab hand-off and Escape layer, and a filing-page chip opening the research pane;
+      anything anchored to a control that closes on Escape or an outside press, other than a
+      field's list of suggestions): Popover;
     - a field with a list of suggestions or results (a combobox, as CompanySearch and
       WatchlistAddSearch are): Search field and Search option;
     - a control that removes itself, or a region that hides, while it may hold focus (a dismiss,
@@ -102,4 +108,6 @@ or name the recipe in the shared recipes or the triggered recipes above, in the 
 can, a new recipe joins the list of those read only through their component.
 `frontend/tests/unit/designRecipeRoute.spec.ts` fails until every §4 recipe is in exactly one of
 the three lists and every name in them is a §4 recipe, so a new or renamed recipe cannot go
-unclassified; whether a rule binds other changes stays this check's judgment, not the spec's.
+unclassified; whether a rule binds other changes stays this check's judgment, not the spec's. The
+spec also pins how many trigger lines name each triggered recipe (`TRIGGER_LINES`), so a trigger
+line added, deleted or given other recipes moves that pin in the same PR.

@@ -7,10 +7,11 @@ import { describe, expect, it } from 'vitest'
  * Gate for the UI route: `DESIGN_SYSTEM.md` §4 read by recipe (CLAUDE.md "Read by task", AGENTS.md §1).
  *
  * A UI change built from existing components and tokens reads §4's rules, the list after its recipe
- * block and only the recipes that "Which sections to read" in
- * `.claude/skills/meta/design-docs-maintenance/SKILL.md` names for it: the shared recipes always, a
- * triggered recipe when the change does what its trigger line says, and every other recipe only as the
- * recipe of a component or surface the change uses or edits. The route copies recipe names out of §4's
+ * block and the recipes that "Which sections to read" in
+ * `.claude/skills/meta/design-docs-maintenance/SKILL.md` names for it: the shared recipes always; the
+ * recipe of each component or surface it uses or edits, whatever that recipe's list (a new Modal anywhere
+ * reads Dialog); and a triggered recipe also when the change does what one of its trigger lines says. A
+ * recipe in the third list is read only through its component. The route copies recipe names out of §4's
  * left column, so a renamed recipe would drop out of it unnoticed, and a new recipe would be read by no
  * change that does not use it, whatever its rules bind (#1348 named both; CLAUDE.md rule 12).
  *
@@ -19,27 +20,60 @@ import { describe, expect, it } from 'vitest'
  *      §4's left column;
  *   2. every recipe in §4's left column sits in exactly one of the route's three lists, so a new recipe
  *      fails here until its author classifies it, as the skill's last paragraph asks.
+ * And two pins, because a deletion can leave both rules green: the route keeps its bullet that reads §4's
+ * rules and closing list, and TRIGGER_LINES below pins how many trigger lines name each triggered recipe,
+ * so deleting a trigger line fails (Popover's own line among them, though two others name Popover) until
+ * the pin moves with it.
  *
  * §4's names come from its one fenced recipe block. A name starts at column 0 and its text at column 17,
  * or at column 18 after a 17-character name ("Analysis evidence"); every other line of the block is blank
  * or indented at least 17 spaces, so a name line with a stray indent fails here instead of hiding a recipe.
- * The route's shared and component-only lists are read from their lead-in phrases to the `;` that ends
- * them; a trigger line names its recipes after its last colon once its parentheses are removed, so prose
- * written after the names (", for the focus hand-off") reads as a name and fails rule 1.
+ * The route's lead-in phrases match across any whitespace, so rewrapping the skill cannot hide one; the
+ * shared and component-only lists run from their lead-in to the `;` that ends them, and the trigger lines
+ * are the list items below theirs. A trigger line names its recipes after its last colon once its
+ * parentheses are removed, so prose written after the names (", for the focus hand-off") reads as a name
+ * and fails rule 1.
  *
  * Out of reach: whether a classification is right, that is whether a recipe read only through its
  * component has a rule that binds other changes, stays the judgment the skill's upkeep paragraph asks of
- * each recipe edit; so does whether a trigger's condition covers the changes it should. The planted forms
- * below are the parsers' and the checks' fixture (AGENTS.md §4), scored on every run.
+ * each recipe edit; so does whether a trigger line's condition covers the changes it should (a reworded
+ * condition keeps its counts). The planted forms below are the readers' and the checks' fixture
+ * (AGENTS.md §4), scored on every run.
  */
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const read = (rel: string) => readFileSync(path.join(repoRoot, rel), 'utf8')
 
 const SKILL = '.claude/skills/meta/design-docs-maintenance/SKILL.md'
 const ROUTE_HEADING = '## Which sections to read for which UI change'
+const RULES_BULLET = 'the rules before the recipe block and the list after it;'
 const SHARED_LEAD = 'the shared recipes, whose rules a change can break without touching their component:'
-const OWN_LEAD = 'which is the only way these recipes are read:'
+const OWN_LEAD = 'This is the only way these recipes are read:'
 const TRIGGER_LEAD = 'the triggered recipes, for what the change adds or changes:'
+
+/**
+ * How many trigger lines name each triggered recipe. A trigger line added, deleted or given other recipes
+ * moves a count: move this pin with it, after checking that every change the old line routed still reads
+ * the recipes it needs.
+ */
+const TRIGGER_LINES: Record<string, number> = {
+  'Source pane': 4,
+  Popover: 3,
+  'Wording changes': 3,
+  'Analysis table': 2,
+  'Company identity': 2,
+  'Search field': 2,
+  'Section ledger': 2,
+  'Admin pages': 1,
+  'Analysis KPI': 1,
+  'Ask answer': 1,
+  'Compare periods': 1,
+  Dialog: 1,
+  'Evidence rows': 1,
+  'Filing identity': 1,
+  'Filing reader': 1,
+  'Search option': 1,
+  'Segmented ctrl': 1,
+}
 
 const NAME_COLUMN = 17
 /** Words of letters and slashes, one space apart: "Card / panel", "Accent text/link", "Analysis KPI". */
@@ -85,6 +119,9 @@ type Route = { shared: string[]; own: string[]; triggered: string[][] }
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim()
 /** "A, B and C" read as [A, B, C]; recipeNames refuses a name holding " and ", and RECIPE_NAME a comma. */
 const listNames = (text: string) => text.split(/, | and /).map((name) => name.trim())
+/** A lead-in phrase as a pattern that matches it across any whitespace, line breaks included. */
+const phrase = (text: string) =>
+  new RegExp(text.split(' ').map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+'), 'g')
 
 /** A trigger line's recipe names: the text after its last colon, once its parentheses are removed. */
 function triggerNames(item: string): string[] {
@@ -99,26 +136,37 @@ function triggerNames(item: string): string[] {
   return listNames(text.slice(colon + 2))
 }
 
-/** The route's three lists, read from the skill's "Which sections to read" section. */
+/** The route's three lists, read from the skill's "Which sections to read" section; one list per trigger line. */
 function readRoute(skill: string): Route {
   const lines = skill.split('\n')
   const start = lines.indexOf(ROUTE_HEADING)
   if (start < 0) throw new Error(`${SKILL} has no "${ROUTE_HEADING}" section`)
   const next = lines.findIndex((line, i) => i > start && line.startsWith('## '))
-  const section = lines.slice(start, next < 0 ? lines.length : next)
-  const text = squash(section.join('\n'))
+  const section = lines.slice(start, next < 0 ? lines.length : next).join('\n')
+  /** Where the section's one occurrence of a lead-in phrase ends. */
+  const after = (lead: string): number => {
+    const pattern = phrase(lead)
+    const ends: number[] = []
+    for (let match = pattern.exec(section); match !== null; match = pattern.exec(section)) {
+      ends.push(match.index + match[0].length)
+    }
+    const [end] = ends
+    if (ends.length !== 1 || end === undefined) {
+      throw new Error(`the route must say "${lead}" exactly once; it says it ${ends.length} times`)
+    }
+    return end
+  }
   const listAfter = (lead: string): string[] => {
-    const at = text.indexOf(lead)
-    if (at < 0 || text.includes(lead, at + 1)) throw new Error(`the route must say "${lead}" exactly once`)
-    const rest = text.slice(at + lead.length)
+    const rest = section.slice(after(lead))
     const stop = rest.indexOf(';')
     if (stop < 0) throw new Error(`the list after "${lead}" never ends with a ";"`)
-    return listNames(rest.slice(0, stop))
+    return listNames(squash(rest.slice(0, stop)))
   }
-  const lead = section.findIndex((line) => squash(line).endsWith(TRIGGER_LEAD))
-  if (lead < 0) throw new Error(`the route must say "${TRIGGER_LEAD}"`)
+  after(RULES_BULLET)
+  const [rest = '', ...below] = section.slice(after(TRIGGER_LEAD)).split('\n')
+  if (rest.trim() !== '') throw new Error(`"${TRIGGER_LEAD}" must end its line, with the trigger lines below it`)
   const items: string[] = []
-  for (const line of section.slice(lead + 1)) {
+  for (const line of below) {
     if (line.trim() === '') break
     if (/^\s*- /.test(line)) items.push(line.replace(/^\s*- /, ''))
     else if (items.length > 0) items[items.length - 1] += ` ${line.trim()}`
@@ -152,6 +200,17 @@ function routeProblems(recipes: string[], route: Route): string[] {
   return problems
 }
 
+/** Each recipe whose count of trigger lines differs from the pin, one message each; empty when they agree. */
+function triggerPinProblems(route: Route, pinned: Record<string, number>): string[] {
+  const counts = new Map<string, number>()
+  for (const line of route.triggered) for (const name of new Set(line)) counts.set(name, (counts.get(name) ?? 0) + 1)
+  return [...new Set([...Object.keys(pinned), ...counts.keys()])].flatMap((name) => {
+    const found = counts.get(name) ?? 0
+    const pin = pinned[name] ?? 0
+    return found === pin ? [] : [`"${name}" is named on ${found} of the trigger lines; TRIGGER_LINES pins ${pin}`]
+  })
+}
+
 const block = (rows: string[]) =>
   ['## 4. Canonical component patterns', '', 'Rules.', '```', ...rows, '```', '', '## 5. Headings'].join('\n')
 
@@ -178,8 +237,8 @@ const TRIGGER_FORMS: Array<[string, string, string[]]> = [
     ['Source pane', 'Wording changes', 'Search field'],
   ],
   [
-    'a parenthesis before the colon',
-    'a menu, dropdown, tooltip or explainer (anything anchored to a control that closes on Escape): Popover;',
+    'a parenthesis holding a colon, before the colon',
+    'a menu or evidence chip (SourceTrace, CitationChip: their popovers; anything that closes on Escape): Popover;',
     ['Popover'],
   ],
   [
@@ -245,6 +304,57 @@ const ROUTE_FORMS: Array<[string, string[], Route, string[]]> = [
   ],
 ]
 
+const PIN: Record<string, number> = { Gamma: 2, Delta: 1 }
+
+/** Each change to the trigger lines, and the clean look-alike, with the messages the pin must give. */
+const PIN_FORMS: Array<[string, string[][], string[]]> = [
+  ['clean: the counts the pin holds', CLEAN.triggered, []],
+  [
+    'a deleted trigger line whose recipe another line still names (rules 1 and 2 stay green)',
+    [['Gamma', 'Delta']],
+    ['"Gamma" is named on 1 of the trigger lines; TRIGGER_LINES pins 2'],
+  ],
+  [
+    'an added trigger line',
+    [['Gamma'], ['Gamma', 'Delta'], ['Delta']],
+    ['"Delta" is named on 2 of the trigger lines; TRIGGER_LINES pins 1'],
+  ],
+  [
+    'a recipe newly triggered',
+    [['Gamma'], ['Gamma', 'Delta', 'Alpha']],
+    ['"Alpha" is named on 1 of the trigger lines; TRIGGER_LINES pins 0'],
+  ],
+  [
+    'a recipe that loses its last trigger line',
+    [['Gamma'], ['Gamma']],
+    ['"Delta" is named on 0 of the trigger lines; TRIGGER_LINES pins 1'],
+  ],
+  ['a recipe named twice on one line counts once', [['Gamma', 'Gamma'], ['Gamma', 'Delta']], []],
+]
+
+/** A route section whose lead-ins are rewrapped across lines, as an edit of the skill may leave them. */
+const PLANTED_SECTION = [
+  ROUTE_HEADING,
+  '',
+  '  - the rules before the recipe block and the list',
+  '    after it;',
+  '  - the shared recipes, whose rules a change can break without touching',
+  '    their component: Alpha and Card / panel;',
+  '  - the recipe of each existing component or surface the change uses or edits, whatever its list.',
+  '    This is the only way these recipes are read: Beta, Accent text/link and Analysis evidence;',
+  '  - the triggered recipes, for what the change adds or',
+  '    changes:',
+  '    - a menu (one that closes on Escape: any): Gamma;',
+  '    - a scroll box: Gamma and',
+  '      Delta (a scripted scroll: §11 too).',
+  '',
+  '  The rest of the section.',
+  '',
+  '## Another section',
+  '',
+  '- the shared recipes, whose rules a change can break without touching their component: Omega;',
+]
+
 describe('the UI route readers score their planted forms', () => {
   it.each(NAME_FORMS)('§4 left column: %s', (_, row, expected) => {
     if (expected === 'throws') expect(() => recipeNames(block([row]))).toThrow()
@@ -259,30 +369,28 @@ describe('the UI route readers score their planted forms', () => {
     expect(routeProblems(recipes, route)).toEqual(expected)
   })
 
-  it('reads a planted route section, its lists and its trigger lines', () => {
-    const skill = [
-      ROUTE_HEADING,
-      '',
-      '  - the shared recipes, whose rules a change can break without touching their component: Alpha',
-      '    and Card / panel;',
-      '  - the recipe of each existing component or surface the change uses or edits, which is the only',
-      '    way these recipes are read: Beta, Accent text/link and Analysis evidence;',
-      '  - the triggered recipes, for what the change adds or changes:',
-      '    - a menu (one that closes on Escape: any): Gamma;',
-      '    - a scroll box: Gamma and',
-      '      Delta (a scripted scroll: §11 too).',
-      '',
-      '  The rest of the section.',
-      '',
-      '## Another section',
-      '',
-      '- the shared recipes, whose rules a change can break without touching their component: Omega;',
-    ].join('\n')
-    expect(readRoute(skill)).toEqual({
+  it.each(PIN_FORMS)('trigger lines against the pin: %s', (_, triggered, expected) => {
+    expect(triggerPinProblems({ ...CLEAN, triggered }, PIN)).toEqual(expected)
+  })
+
+  it('reads a planted route section, its rewrapped lead-ins, its lists and its trigger lines', () => {
+    expect(readRoute(PLANTED_SECTION.join('\n'))).toEqual({
       shared: ['Alpha', 'Card / panel'],
       own: ['Beta', 'Accent text/link', 'Analysis evidence'],
       triggered: [['Gamma'], ['Gamma', 'Delta']],
     })
+  })
+
+  it("refuses a route without the bullet that reads §4's rules and closing list", () => {
+    const without = PLANTED_SECTION.filter((line) => !line.includes('the rules before') && line !== '    after it;')
+    expect(() => readRoute(without.join('\n'))).toThrow(/the rules before the recipe block/)
+  })
+
+  it('refuses a lead-in said twice, and a trigger lead with text after it on its line', () => {
+    const twice = [...PLANTED_SECTION.slice(0, 2), '  - the rules before the recipe block and the list after it;', ...PLANTED_SECTION.slice(2)]
+    expect(() => readRoute(twice.join('\n'))).toThrow(/exactly once; it says it 2 times/)
+    const joined = PLANTED_SECTION.map((line) => (line === '    changes:' ? '    changes: Gamma;' : line))
+    expect(() => readRoute(joined.join('\n'))).toThrow(/must end its line/)
   })
 })
 
@@ -302,6 +410,14 @@ describe('the UI route in the design-docs skill and DESIGN_SYSTEM.md §4 agree',
       routeProblems(recipes, route),
       `Fix "Which sections to read" in ${SKILL}: a renamed recipe is renamed there too, and a new one goes ` +
         'in the shared recipes, a trigger line, or the list read only through its component (its last paragraph says which).',
+    ).toEqual([])
+  })
+
+  it('keeps every trigger line TRIGGER_LINES pins', () => {
+    expect(
+      triggerPinProblems(route, TRIGGER_LINES),
+      `A trigger line in ${SKILL} was added, deleted or given other recipes: move TRIGGER_LINES with it, after ` +
+        'checking that every change the old line routed still reads the recipes it needs.',
     ).toEqual([])
   })
 })
