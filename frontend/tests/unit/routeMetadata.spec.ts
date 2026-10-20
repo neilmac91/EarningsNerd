@@ -734,72 +734,97 @@ const readings = (parts: string[][]): string[] =>
     return next.length > MAX_TEMPLATE_READINGS ? [...next.slice(0, MAX_TEMPLATE_READINGS), MORE] : next
   }, [''])
 
-/** The key a member is read by: a written name, string or number; null for a key the file does not write. */
-const memberKey = (e: ts.PropertyAccessExpression | ts.ElementAccessExpression): string | null => {
-  if (ts.isPropertyAccessExpression(e)) return e.name.text
-  const key = unwrap(e.argumentExpression)
-  return ts.isStringLiteralLike(key) || ts.isNumericLiteral(key) ? key.text : null
+/** What stands in for a same-file container this spec cannot read whole, with the reason between two of them: it rides
+    on into every reading built from it, and a title template with one fails (titleTemplates), never read as a name. */
+const UNREAD = '\u0001'
+const unread = (why: string) => `${UNREAD}${why}${UNREAD}`
+
+/** The one text an expression the file writes renders (a literal, a same-file const, a branch-free template); null for
+    any other, a name or a choice among texts. */
+const staticKey = (expression: ts.Expression, source: ts.SourceFile, seen: Set<ts.Node>): string | null => {
+  const texts = substitutionTexts(expression, source, seen)
+  return texts.length === 1 && ![UNREAD, MORE, 'Ⓝ'].some((mark) => texts[0].includes(mark)) ? texts[0] : null
 }
+
+/** The key a member is read by: a written name, or a key the file writes (staticKey); null for any other key. */
+const memberKey = (e: ts.PropertyAccessExpression | ts.ElementAccessExpression, source: ts.SourceFile, seen: Set<ts.Node>): string | null =>
+  ts.isPropertyAccessExpression(e) ? e.name.text : staticKey(e.argumentExpression, source, seen)
 
 type Container = ts.ObjectLiteralExpression | ts.ArrayLiteralExpression
 
-/** What a container literal holds at a key, every entry for a key the file does not write; undefined where the key is
-    not there or the literal holds what this does not read (a spread, a method or accessor, a computed key, a hole). */
-function entriesAt(literal: Container, key: string | null): ts.Expression[] | undefined {
+/**
+ * What a container literal holds at a key, every entry for a key the file does not write, or why this cannot say. An
+ * object gives a key the last entry written for it, so the entries are read from the end: a spread, a computed key the
+ * file does not write (staticKey) or a method or accessor met before the key's own entry may give it another value
+ * (Codex on 8a27892c: a computed key the file writes, `{ ['otc']: … }`, is read as that key). An array is read by its
+ * index; a spread or a hole in it is not read. A key the literal does not hold renders "undefined".
+ */
+function entriesAt(literal: Container, key: string | null, source: ts.SourceFile, seen: Set<ts.Node>): { entries: ts.Expression[] } | { why: string } {
   if (ts.isArrayLiteralExpression(literal)) {
-    if (literal.elements.some((element) => ts.isSpreadElement(element) || ts.isOmittedExpression(element))) return undefined
-    if (key === null) return [...literal.elements]
+    const gap = literal.elements.find((element) => ts.isSpreadElement(element) || ts.isOmittedExpression(element))
+    if (gap) return { why: ts.isSpreadElement(gap) ? 'a spread' : 'a hole' }
+    if (key === null) return { entries: [...literal.elements] }
     const at = Number(key)
-    return Number.isInteger(at) && at >= 0 && at < literal.elements.length ? [literal.elements[at]] : undefined
+    return { entries: Number.isInteger(at) && at >= 0 && at < literal.elements.length ? [literal.elements[at]] : [] }
   }
   const out: ts.Expression[] = []
-  for (const property of literal.properties) {
-    if (ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name) || ts.isNumericLiteral(property.name))) {
-      if (key === null || property.name.text === key) out.push(property.initializer)
-    } else if (ts.isShorthandPropertyAssignment(property)) {
-      if (key === null || property.name.text === key) out.push(property.name)
-    } else return undefined
+  for (const property of [...literal.properties].reverse()) {
+    if (ts.isSpreadAssignment(property)) return { why: 'a spread' }
+    const name = ts.isComputedPropertyName(property.name) ? staticKey(property.name.expression, source, seen) : property.name.text
+    if (name === null) return { why: 'a computed key' }
+    if (key !== null && name !== key) continue
+    if (ts.isPropertyAssignment(property)) out.push(property.initializer)
+    else if (ts.isShorthandPropertyAssignment(property)) out.push(property.name)
+    else return { why: 'a method or an accessor' }
+    if (key !== null) break
   }
-  return out.length ? out : undefined
+  return { entries: out }
 }
 
 /**
- * The object or array literal an expression holds, when nothing can change it after it is made (astBindings'
- * containerEscape, so a write into it, a call it is handed to or an export makes it a value the file does not hold):
- * written in place, through a same-file const or `Object.freeze`, or as the one entry such a literal holds at a
- * member's key. `seen` carries the consts followed, so a literal that names itself ends.
+ * The object or array literal an expression holds, through a same-file const, `Object.freeze` or the one entry such a
+ * literal holds at a member's key, or why this cannot read it whole: something may change it after it is made
+ * (astBindings' containerEscape: a write into it, a call it is handed to, an export). Anything else, undefined: a value
+ * the file does not hold as a container. `seen` carries the consts followed, so a literal that names itself ends.
  */
-function heldContainer(expression: ts.Expression, source: ts.SourceFile, seen: Set<ts.Node>): { literal: Container; seen: Set<ts.Node> } | undefined {
+function heldContainer(expression: ts.Expression, source: ts.SourceFile, seen: Set<ts.Node>): { literal: Container; seen: Set<ts.Node> } | { why: string } | undefined {
   let e = unwrap(expression)
   while (ts.isNonNullExpression(e)) e = unwrap(e.expression)
-  let held: { node: ts.Expression; seen: Set<ts.Node> } | undefined
+  let node: ts.Expression = e
+  let next = seen
   if (ts.isIdentifier(e)) {
     const decl = resolverOf(source)(e)?.decl
-    if (decl && ts.isVariableDeclaration(decl) && decl.initializer && decl.parent.flags & ts.NodeFlags.Const && !seen.has(decl)) {
-      held = { node: unwrap(decl.initializer), seen: new Set([...seen, decl]) }
-    }
+    if (!decl || !ts.isVariableDeclaration(decl) || !decl.initializer || !(decl.parent.flags & ts.NodeFlags.Const) || seen.has(decl)) return undefined
+    node = unwrap(decl.initializer)
+    next = new Set([...seen, decl])
   } else if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) {
     const outer = heldContainer(e.expression, source, seen)
-    const entries = outer && entriesAt(outer.literal, memberKey(e))
-    if (outer && entries?.length === 1) held = { node: unwrap(entries[0]), seen: outer.seen }
-  } else held = { node: e, seen }
-  let node = held?.node
-  if (node && ts.isCallExpression(node) && node.arguments.length === 1 && node.expression.getText(source) === 'Object.freeze') node = unwrap(node.arguments[0])
-  if (!held || !node || !(ts.isObjectLiteralExpression(node) || ts.isArrayLiteralExpression(node))) return undefined
-  return containerEscape(node, source, resolverOf(source)) ? undefined : { literal: node, seen: held.seen }
+    if (!outer || 'why' in outer) return outer
+    const at = entriesAt(outer.literal, memberKey(e, source, seen), source, outer.seen)
+    if ('why' in at) return at
+    if (at.entries.length !== 1) return undefined
+    node = unwrap(at.entries[0])
+    next = outer.seen
+  }
+  if (ts.isCallExpression(node) && node.arguments.length === 1 && node.expression.getText(source) === 'Object.freeze') node = unwrap(node.arguments[0])
+  if (!ts.isObjectLiteralExpression(node) && !ts.isArrayLiteralExpression(node)) return undefined
+  const escape = containerEscape(node, source, resolverOf(source))
+  if (escape) return { why: `${escape.how} at line ${source.getLineAndCharacterOfPosition(escape.at.getStart(source)).line + 1}` }
+  return { literal: node, seen: next }
 }
 
 /**
  * The texts a template substitution can render: a literal's own, each branch of a condition, `||`, `??` or `&&` (whose
  * left side renders where it does not hold, read as its own texts), a comma's right side, a `+` chain's and a nested
- * template's readings, what a same-file const holds, and what a same-file object or array literal nothing writes holds
- * at a member's key (heldContainer), every entry for a key the file does not write (Codex on 5291bc97); anything else
- * (a name the file does not hold as a const, a call, a member of any other value, a container something may write)
- * reads as a name, Ⓝ.
+ * template's readings, what a same-file const holds, and what a same-file object or array literal holds at a member's
+ * key (heldContainer, entriesAt), every entry for a key the file does not write (Codex on 5291bc97). A container this
+ * cannot read whole (one something may change, or one whose spread, computed key or accessor may give the key its
+ * value) reads as UNREAD, which fails a title (Codex on 8a27892c). Anything else (a name the file does not hold as a
+ * const, a call, a member of any other value) reads as a name, Ⓝ.
  */
 function substitutionTexts(expression: ts.Expression, source: ts.SourceFile, seen = new Set<ts.Node>()): string[] {
   const e = unwrap(expression)
-  if (ts.isStringLiteralLike(e)) return [e.text]
+  if (ts.isStringLiteralLike(e) || ts.isNumericLiteral(e)) return [e.text]
   if (ts.isTemplateExpression(e)) return templateTexts(e, source, seen)
   if (ts.isConditionalExpression(e)) return [...substitutionTexts(e.whenTrue, source, seen), ...substitutionTexts(e.whenFalse, source, seen)]
   if (ts.isBinaryExpression(e)) {
@@ -812,8 +837,12 @@ function substitutionTexts(expression: ts.Expression, source: ts.SourceFile, see
   }
   if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) {
     const held = heldContainer(e.expression, source, seen)
-    const entries = held && entriesAt(held.literal, memberKey(e))
-    if (held && entries) return entries.flatMap((entry) => substitutionTexts(entry, source, held.seen))
+    if (held && 'why' in held) return [unread(held.why)]
+    if (held) {
+      const at = entriesAt(held.literal, memberKey(e, source, seen), source, held.seen)
+      if ('why' in at) return [unread(at.why)]
+      return at.entries.length ? at.entries.flatMap((entry) => substitutionTexts(entry, source, held.seen)) : ['undefined']
+    }
   }
   if (ts.isIdentifier(e)) {
     const binding = resolverOf(source)(e)
@@ -847,6 +876,10 @@ function titleTemplates(source: ts.SourceFile): string[] {
       const line = () => source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1
       if (titled.length && texts.some((text) => text.includes(MORE))) {
         throw new Error(`${rel(source.fileName)}:${line()}: the title template ${n.getText(source)} has more than ${MAX_TEMPLATE_READINGS} readings, more than this spec reads: write the title each state takes as its own template, so every reading is read`)
+      }
+      const unreadable = texts.find((text) => text.includes(UNREAD))
+      if (titled.length && unreadable) {
+        throw new Error(`${rel(source.fileName)}:${line()}: the title template ${n.getText(source)} reads a same-file container this spec cannot read whole (${unreadable.split(UNREAD)[1]}): write its entries as plain keys and values, or each state's title as its own template`)
       }
       const unbranded = read.filter((text) => !text.endsWith(BRAND))
       if (titled.length && unbranded.length) {
@@ -1242,8 +1275,19 @@ export const metadata = { title: pageTitleFor(DEFAULT_HEADLINE), description: DE
     expect(heldAt('${SUFFIX.sec}')).toEqual([])
     expect(heldAt('${PARTS[0]}', "const PARTS = [' OTC Filings'] as const")).toEqual(otcFilings)
     expect(heldAt('${T.a.b}', "const T = Object.freeze({ a: { b: ' OTC Filings' } })")).toEqual(otcFilings)
-    // A literal something writes after it is made holds a value the file does not: it reads as a name, as a prop does.
-    expect(heldAt('${SUFFIX.sec}', "const SUFFIX = { otc: ' sec filings', sec: ' OTC Filings' }\nSUFFIX.sec = ' sec filings'")).toEqual([])
+    // Codex on 8a27892c: a computed key the file writes is that key, and an object's last entry for a key is its value.
+    expect(heldAt('${SUFFIX.otc}', "const SUFFIX = { ['otc']: ' OTC Filings' }")).toEqual(otcFilings)
+    expect(heldAt('${SUFFIX.otc}', "const KEY = 'otc'\nconst SUFFIX = { [KEY]: ' OTC Filings' }")).toEqual(otcFilings)
+    expect(heldAt('${SUFFIX[KEY]}', "const KEY = 'otc'\nconst SUFFIX = { otc: ' OTC Filings', sec: ' SEC filings' }")).toEqual(otcFilings)
+    expect(heldAt('${SUFFIX.otc}', "const BASE = { otc: ' sec filings' }\nconst SUFFIX = { ...BASE, otc: ' OTC Filings' }")).toEqual(otcFilings)
+    expect(heldAt('${SUFFIX.otc}', "const SUFFIX = { otc: ' OTC Filings', otc: ' sec filings' }")).toEqual([])
+    // A container this cannot read whole fails the title, never read as a name: a spread, a computed key the file does
+    // not write or an accessor after the key's entry, and a literal something writes after it is made.
+    const unreadAt = (why: string) => new RegExp(`reads a same-file container this spec cannot read whole \\(${why}\\)`)
+    expect(() => heldAt('${SUFFIX.otc}', "const BASE = { otc: ' OTC Filings' }\nconst SUFFIX = { otc: ' sec filings', ...BASE }")).toThrow(unreadAt('a spread'))
+    expect(() => heldAt('${SUFFIX.otc}', "const SUFFIX = { otc: ' sec filings', [String(Date.now())]: ' OTC Filings' }")).toThrow(unreadAt('a computed key'))
+    expect(() => heldAt('${SUFFIX.otc}', "const SUFFIX = { otc: ' sec filings', get otc() { return ' OTC Filings' } }")).toThrow(unreadAt('a method or an accessor'))
+    expect(() => heldAt('${SUFFIX.sec}', "const SUFFIX = { otc: ' sec filings', sec: ' OTC Filings' }\nSUFFIX.sec = ' sec filings'")).toThrow(unreadAt('an entry assigned at line 3'))
     // A template some reading of which ends with the brand is a title in every state (Codex on c0d1e726): a reading
     // without it fails loudly, never filtered out of the readings judged. The templates above end with it in each one.
     expect(() => readingsOf("const suffix = on ? 'EarningsNerd' : 'Other'\nexport const title = `Page | ${suffix}`")).toThrow(
