@@ -6720,7 +6720,7 @@ Full local and hosted verification plus independent exact-head review precede re
   word (thirtieth deploy-skip proof), after classifier denials 16 and 17 of the chief's merge. Closure 186 registers
   record 34's fact-check and its reviewer. One wording correction to record 34. Four main runs classified, none
   deploying, a fifth still running; no CI deploy since #1422's; production not read live. No CODE RED spend; no
-  ledger event. Chief defects 17 and 18. Closure 186.
+  ledger event. Chief defects 17 and 18. Founder row F52. Closure 186.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
