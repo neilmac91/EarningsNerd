@@ -142,3 +142,15 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     script = (ROOT / "backend/scripts/relabel_filing_fy_facts.py").read_text(encoding="utf-8")
     assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                          r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", script, re.I), "the relabel script sets its own guards"
+
+
+def test_every_script_step_pins_the_sec_budgets():
+    """A committed backend script the Ops runner runs is a process that can reach SEC (the ticker
+    repair through the edgar service, the relabel through facts/transport), so it carries the per-process
+    budgets the deploy pins everywhere else (docs/OPERATIONS.md, "SEC budgets per process")."""
+    script_steps = [step for step in STEPS if RUNNER_SCRIPT.search(step.get("run") or "")]
+    assert len(script_steps) >= 2
+    for step in script_steps:
+        env = step.get("env") or {}
+        assert (env.get("SEC_RATE_LIMIT_PER_SECOND"), env.get("EDGAR_RATE_LIMIT_PER_SEC")) == ("1", "1"), (
+            f"{step['name']!r} runs a backend script without the per-process SEC budgets pinned to 1")
