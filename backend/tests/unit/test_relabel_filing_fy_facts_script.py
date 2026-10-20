@@ -15,6 +15,7 @@ period end of the same filing and concept, or of the concept's current rows, alr
 held.
 """
 import json
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
@@ -721,14 +722,15 @@ def _jnj_before_any_sync(db):
 
 
 def test_a_year_end_no_stored_row_vouches_for_takes_the_year_the_sec_read_names(db, capsys, sec):
+    apple, _apple_filing = _issuer(db, "AAPL")  # first in the run, with its own (empty) read
     company, filing = _jnj_before_any_sync(db)
     assert [year for _end, year in _chart(db, filing)["revenue"]] == [2022, 2023, 2023]
-    sec.payloads[company.cik] = _payload(company, {2023: (filing.accession_number, "2024-02-16")}, [2023])
+    sec.payloads[company.cik] = _payload(company, {2023: (f"{company.cik}-24-000011", "2024-02-16")}, [2023])
 
     assert relabel.main([]) == 0
-    preview, summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    _apple, preview, summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert relabel.main(["--apply"]) == 0
-    applied, _summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    _apple, applied, _summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
 
     for line in (preview, applied):
         assert line["relabels"] == [
@@ -738,18 +740,25 @@ def test_a_year_end_no_stored_row_vouches_for_takes_the_year_the_sec_read_names(
         assert line["sec_evidence"] == 6 and line["skipped"]["already_agrees"] == 2
     assert summary["sec_evidence"] == 6 and preview["revisions"] == 0 and applied["revisions"] == 4
     assert [year for _end, year in _chart(db, filing)["revenue"]] == [2021, 2022, 2023]
-    assert sec.reads == [company.cik, company.cik]  # one read per company per run
+    assert sec.reads == [apple.cik, company.cik] * 2  # one read per company per run
     assert db.query(FinancialFact).filter_by(company_id=company.id, source="companyfacts").count() == 0
 
 
 def test_stored_evidence_outranks_the_sec_read(db):
-    company, _filing = _issuer(db, "TGT")
+    company, filing = _issuer(db, "TGT")
+    opening = CALENDARS["TGT"][2020][1]  # stored evidence there is an instant only (untrusted)
+    _fact(db, company, concept="shareholders_equity", end=opening, fiscal_year=2021, raw_tag="us-gaap:StockholdersEquity")
+    _fact(db, company, concept="shareholders_equity", end=opening, fiscal_year=2021, source="edgar_xbrl", filing=filing,
+          raw_tag="us-gaap:StockholdersEquity")
     rows = db.query(FinancialFact).filter_by(company_id=company.id).all()
     # A read naming every stored companyfacts year one later changes nothing where stored rows vouch.
     read = [SimpleNamespace(source="companyfacts", filing_id=None, raw_tag=row.raw_tag, fiscal_period="FY",
                             fiscal_year=row.fiscal_year + 1, provenance=row.provenance,
                             period_start=row.period_start, period_end=row.period_end)
             for row in rows if row.filing_id is None]
+    read.append(SimpleNamespace(source="companyfacts", filing_id=None, raw_tag="us-gaap:Revenues", fiscal_period="FY",
+                                fiscal_year=2022, provenance=reported_provenance({"reconciled": True}),
+                                period_start=_day(CALENDARS["TGT"][2020][0]), period_end=_day(opening)))
 
     plan = relabel.plan_company(rows, read)
 
@@ -780,24 +789,38 @@ def test_the_sec_read_vouches_for_the_year_the_filing_owns_so_its_newer_years_re
     assert _chart(db, filing)["revenue"] == [("2022-01-29", 2021), ("2023-01-28", 2022), ("2024-02-03", 2023)]
 
 
-def test_a_failed_sec_read_fails_its_company_alone_before_its_session_opens(db, factory, capsys, monkeypatch, sec):
+@pytest.mark.parametrize(("payload", "error"), [
+    (None, "companyfacts read from SEC failed; company unchanged"),  # the transport's failed read
+    ({"message": "Not Found"}, "companyfacts read from SEC had no facts object; company unchanged"),
+])
+@pytest.mark.parametrize("argv", [[], ["--apply"]])
+def test_a_failed_sec_read_fails_its_company_alone_before_its_session_opens(
+    db, factory, capsys, monkeypatch, sec, argv, payload, error,
+):
     target, _filing = _issuer(db, "TGT")
     jnj, _filing = _issuer(db, "JNJ")
     before = _states(db)
-    sec.payloads[target.cik] = None
+    sec.payloads[target.cik] = payload
     events = []
     read = facts_service._fetch_companyfacts_sync
     monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", lambda cik: events.append(cik) or read(cik))
-    monkeypatch.setattr(database, "SessionLocal", lambda: events.append("session") or factory())
 
-    assert relabel.main(["--apply"]) == 1
+    @contextmanager
+    def session():
+        events.append("open")
+        with factory() as opened:
+            yield opened
+        events.append("closed")
+
+    monkeypatch.setattr(database, "SessionLocal", session)
+
+    assert relabel.main(argv) == 1
 
     *lines, summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
-    assert lines[0] == {"company_id": target.id, "ticker": "TGT",
-                        "error": "companyfacts read from SEC failed; company unchanged"}
-    assert lines[1]["ticker"] == "JNJ" and lines[1]["revisions"] == 4
-    assert (summary["failed"], summary["revisions"]) == (1, 4)
-    assert events == ["session", target.cik, jnj.cik, "session"]  # the cohort read, then read before session
+    assert lines[0] == {"company_id": target.id, "ticker": "TGT", "error": error}
+    assert lines[1]["ticker"] == "JNJ" and lines[1]["relabel_rows"] == 4
+    assert (summary["failed"], summary["relabel_rows"]) == (1, 4)
+    assert events == ["open", "closed", target.cik, jnj.cik, "open", "closed"]
     with factory() as fresh:
         states = {row.id: quarterly_fact_repair.snapshot(row) for row in fresh.query(FinancialFact)}
         assert {k: v for k, v in states.items() if v["company_id"] == target.id} == {
@@ -807,18 +830,25 @@ def test_a_failed_sec_read_fails_its_company_alone_before_its_session_opens(db, 
 
 def test_a_read_row_the_stored_rule_rejects_is_no_evidence(db):
     company, _filing = _jnj_before_any_sync(db)
+    _fact(db, company, concept="revenue", end="2022-01-02", start="2021-01-04", fiscal_year=2022, provenance=LEGACY,
+          is_latest=False, accession=_accession(company, 22))  # a pre-#1191 row never outranks the read
     rows = db.query(FinancialFact).filter_by(company_id=company.id).all()
-    start, end = CALENDARS["JNJ"][2021]
-    fact = {"filing_id": None, "raw_tag": "us-gaap:Revenues", "fiscal_period": "FY", "fiscal_year": 2021,
-            "period_start": _day(start), "period_end": _day(end)}
-    read = [SimpleNamespace(**fact, source="derived", provenance=reported_provenance({"reconciled": True})),
-            SimpleNamespace(**fact, source="companyfacts",
-                            provenance=reported_provenance({"reconciled": True}) | {"validation": "unavailable"})]
+    current = reported_provenance({"reconciled": True})
+
+    def read_row(fy, **changes):
+        start, end = CALENDARS["JNJ"][fy]
+        return SimpleNamespace(**{"filing_id": None, "raw_tag": "us-gaap:Revenues", "fiscal_period": "FY",
+                                  "fiscal_year": fy, "period_start": _day(start), "period_end": _day(end),
+                                  "source": "companyfacts", "provenance": current} | changes)
+
+    read = [read_row(2021), read_row(2022, period_start=None), read_row(2023, source="derived"),
+            read_row(2023, provenance=current | {"validation": "unavailable"})]
 
     plan = relabel.plan_company(rows, read)
 
-    assert plan["relabel"] == [] and plan["sec_evidence"] == 0
-    assert plan["held"] == {"no_companyfacts_fy": ["2022-01-02", "2023-01-01", "2023-12-31"]}
+    assert sorted((r.period_end.isoformat(), y) for r, y in plan["relabel"]) == [("2022-01-02", 2021)] * 2
+    assert plan["sec_evidence"] == 4
+    assert plan["held"] == {"no_companyfacts_fy": ["2023-12-31"], "untrusted_instant_only": ["2023-01-01"]}
 
 
 def test_the_read_never_relabels_beside_a_current_pre_1191_row(db, sec):

@@ -55,8 +55,8 @@ lock both fact writers take, and journals every changed row in ``financial_fact_
 reverts one company's run. Output: one JSON line per company scanned (``sec_evidence`` counts its rows judged on
 the read), then one summary line. Network: one companyfacts read per company through
 ``facts/transport`` (the shared SEC limiter; its backoff may retry a 429), before the company's
-session opens; a failed read fails that company and changes nothing, and the transport's warning on
-standard error says why.
+session opens; a failed read, or one with no ``facts`` object, fails that company and changes nothing,
+and for a failed read the transport's warning on standard error says why.
 
 Founder commands (the DB is only reachable from Cloud Run; runbook docs/fiscal-year-label-repair.md):
   gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \\
@@ -233,8 +233,8 @@ def relabel_company(
 def companyfacts_read(company_id: int, cik: str, sic: str | None) -> list[Any]:
     """The facts the companyfacts writer names from the company's companyfacts as read from SEC now,
     through ``facts/transport`` (the shared limiter and backoff); nothing stores them, and
-    ``plan_company`` keeps the FY rows. A failed read raises, so the company fails and changes nothing
-    rather than being planned without it."""
+    ``plan_company`` keeps the FY rows. A failed read, or a payload with no ``facts`` object, raises,
+    so the company fails and changes nothing rather than being planned without it."""
     from types import SimpleNamespace
 
     from app.services import facts_service
@@ -242,6 +242,8 @@ def companyfacts_read(company_id: int, cik: str, sic: str | None) -> list[Any]:
     payload = facts_service._fetch_companyfacts_sync(cik)
     if payload is None:
         raise RuntimeError("companyfacts read from SEC failed; company unchanged")
+    if not isinstance(payload.get("facts"), dict):
+        raise RuntimeError("companyfacts read from SEC had no facts object; company unchanged")
     facts, _meta = facts_service.normalize_companyfacts(
         company_id, payload, financial_sic=facts_service._is_financial_sic(sic),
     )

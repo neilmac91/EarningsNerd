@@ -36,8 +36,8 @@ or cause, a neighbour's `label_collision`. A resync rarely fills these gaps: a s
 identity already stored, whichever writer stored it, and never rewrites a stored row's label or
 provenance. So a pre-#1191 row, or a period the per-filing writer stored first, gains a current
 companyfacts row only when a later report re-reports the period under an accession not yet stored.
-A failed read fails that company with an `error` line and changes nothing; the transport's warning
-on standard error gives the cause (in the Ops run log, or as a `textPayload` line in Cloud
+A failed read, or one with no `facts` object, fails that company with an `error` line and changes
+nothing; for a failed read the transport's warning on standard error gives the cause (in the Ops run log, or as a `textPayload` line in Cloud
 Logging, outside the `jsonPayload:*` filter below). Each scanned row is counted once:
 
 | Count | Meaning |
