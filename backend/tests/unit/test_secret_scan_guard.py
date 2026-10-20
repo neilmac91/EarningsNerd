@@ -42,7 +42,9 @@ CI = ROOT / ".github" / "workflows" / "ci.yml"
 COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_guard.py" || exit 1'
 SETUP_COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_setup.py" || exit 1'
 FLAGS = ["--redact=100", "--no-banner", "--exit-code", "1"]  # the secret-scan job's
-LOG_OPTIONS = "--no-color --no-textconv --no-ext-diff"  # ahead of every commit scan's range, against the config CI lacks
+# Ahead of every commit scan's range, against the config CI lacks.
+LOG_OPTIONS = ("--no-color --no-textconv --no-ext-diff --root --pretty=medium --date=default --no-abbrev-commit "
+               "--no-show-signature --src-prefix=a/ --dst-prefix=b/")
 LESSON = "lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md"
 # What the stub reports, standing in for a secret: no file in this repository may carry a real one.
 MARKER = "planted-leak-marker"
@@ -112,7 +114,7 @@ if os.environ.get("GITLEAKS_STUB_FAIL"):  # as gitleaks 8.24.3 fails on a bad re
     sys.exit(1)
 if args[0] == "git":
     log_opts = next(arg for arg in args if arg.startswith("--log-opts="))[len("--log-opts="):]
-    out = subprocess.run(["git", "-C", str(source), "log", "-p", "-U0", "--format=commit %H", *log_opts.split(" ")],
+    out = subprocess.run(["git", "-C", str(source), "log", "-p", "-U0", *log_opts.split(" ")],  # as gitleaks runs it
                          capture_output=True, text=True, check=True).stdout
     commit = path = None
     number = 0
@@ -556,6 +558,10 @@ BLINDERS = {
         (repo / ".git" / "info" / "attributes").write_text("*.py diff=hidden\n", encoding="utf-8"),
         _git(repo, "config", "diff.hidden.textconv", f"sed s/{MARKER}/hidden/")),
     "a replace ref": lambda repo, leak: _git(repo, "replace", leak, f"{leak}~1"),
+    # These leave the line in view but change the fingerprint gitleaks reads, so main's pins stop clearing it.
+    "format.pretty=oneline": lambda repo, leak: _git(repo, "config", "format.pretty", "oneline"),
+    "log.abbrevCommit": lambda repo, leak: _git(repo, "config", "log.abbrevCommit", "true"),
+    "diff.noprefix": lambda repo, leak: _git(repo, "config", "diff.noprefix", "true"),
 }
 
 
@@ -564,11 +570,22 @@ def test_git_configuration_ci_lacks_hides_no_added_line_from_the_scan(scanner: S
     leak = _commit(repo, "settings.py", LEAKY)
     configure(repo, leak)
     _refused(_bash(scanner, "git push", repo), f"settings.py:1 (stub-rule), fingerprint {leak}:settings.py:stub-rule:1")
-    # The stub's git renders what each case hides, so each fails without its option or variable. `git log` runs an
-    # external diff only when asked, so --no-ext-diff has no such case: what gitleaks is handed is pinned whole.
+    # The stub's git renders what each case hides or changes, so each fails without its option or variable. Three
+    # options have no such case: `git log` runs an external diff only when asked (--no-ext-diff), the stub reads no
+    # dates (--date=default) and this suite signs nothing (--no-show-signature). What gitleaks is handed is pinned
+    # whole.
     [call] = scanner.calls()
     assert call["args"][2] == f"--log-opts={LOG_OPTIONS} {leak} --not --remotes=origin"
     assert call["env"]["GIT_NO_REPLACE_OBJECTS"] == "1"
+
+
+def test_a_root_commit_is_scanned_whatever_log_show_root_says(scanner: Scanner, repo: Path) -> None:
+    _git(repo, "config", "log.showRoot", "false")  # git log would show no diff for a root commit
+    _git(repo, "checkout", "-q", "--orphan", "pages")  # a new history: its first commit is a root
+    _git(repo, "rm", "-rq", "--cached", ".")
+    leak = _commit(repo, "page.txt", LEAKY)
+    _refused(_bash(scanner, "git push origin pages", repo),
+             f"page.txt:1 (stub-rule), fingerprint {leak}:page.txt:stub-rule:1")
 
 
 @pytest.mark.parametrize(("command", "config"), [

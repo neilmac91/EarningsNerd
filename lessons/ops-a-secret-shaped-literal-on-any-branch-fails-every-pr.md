@@ -34,9 +34,12 @@ Bash command and every call to an MCP server whose name contains "github" in any
 with the job's flags, over the commits the push would add: those reachable from what it sends and from no
 remote-tracking ref of the remote it pushes to, which it finds as git does (the remote the line names, by
 its first word or `--repo`; else the current branch's `pushRemote`, `remote.pushDefault`, the current
-branch's remote, then origin). Its `git log` runs with `--no-color --no-textconv --no-ext-diff` and
-`GIT_NO_REPLACE_OBJECTS=1`, so colour, a textconv driver or a replace ref in the user's or the
-repository's git config, none of which CI has, cannot hide an added line. It refuses the call on a
+branch's remote, then origin). Its `git log` runs with options that hold it to what CI's git prints
+(`--no-color --no-textconv --no-ext-diff --root --pretty=medium --date=default --no-abbrev-commit
+--no-show-signature --src-prefix=a/ --dst-prefix=b/`) and `GIT_NO_REPLACE_OBJECTS=1`, so the user's or the
+repository's git config, none of which CI has, cannot hide an added line (colour, a textconv driver, a
+replace ref, `log.showRoot`) or change its fingerprint (`format.pretty`, `log.date`, `log.abbrevCommit`,
+`diff.noprefix`). It refuses the call on a
 finding, naming each finding's file, line, rule and commit fingerprint, never the literal; when it cannot
 resolve what the push sends, or the line moves HEAD or a branch first, it widens the scan to every
 unpushed local branch and says so, and how to narrow it (name the source literally; push in a call of its
@@ -63,9 +66,12 @@ shell or program makes (`bash -c '...'`, a script, an alias), text a command bui
 repository the hook cannot resolve (`cd "$VAR" && git push`), whose widened scan reads the event's working
 directory's repository and not the one pushed, a push that configuration widens beyond its current branch
 (`push.default=matching`, a remote's push refspec), a file whose text git leaves out of `git log -p`
-because a `-diff` attribute in the repository's `info/attributes` or the user's `core.attributesFile`
-marks it binary (CI has neither and scans that text; `--text` would scan it, but also the binary files CI
-skips, so the hook would refuse pushes CI passes), a fork layout, where CI reads the main of another
+as binary because of the repository's or the user's settings (a `-diff` attribute in `info/attributes`
+or `core.attributesFile`, a diff driver set `binary = true`, `core.bigFileThreshold` below its size; CI
+has none of them and scans that text; `--text` would scan it, but also the binary files CI skips, so the
+hook would refuse pushes CI passes), the other way about a committed `.gitattributes` that marks files
+`-diff` (CI's checkout honours it and the hook reads none, so it can refuse a push CI passes), a fork
+layout, where CI reads the main of another
 remote than origin (the pins come from `origin/main` alone), a session that loads no repository hooks
 (Codex, Astra), a person's own push, and every clause above about a literal already pushed.
 

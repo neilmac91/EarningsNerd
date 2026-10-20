@@ -29,14 +29,17 @@ in any case. It scans
   its comments. The push runs in the event's working directory as the line's `cd` and `pushd` to a directory it names
   literally move it (a subshell's move ends with the subshell; a command substitution's text is read after the rest of
   its line), then `git -C`. The scan is `gitleaks git .` with GIT_DIR=<that repository's git directory> and
-  `--log-opts="--no-color --no-textconv --no-ext-diff <what it sends> --not --remotes=<remote>"`: the commits reachable
+  `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable
   from what the push sends and from no remote-tracking ref of the remote it pushes to, which it finds as git does (the
   one the line names, by its first word or --repo; else the current branch's pushRemote, remote.pushDefault, the
   current branch's remote, then origin; a name that is no configured remote, such as a URL or a path, names none, so
   every remote's refs count). A remote's pushurl changes nothing here: what origin's refs hold is on GitHub already,
-  where CI scans it. The three log options and GIT_NO_REPLACE_OBJECTS=1 in gitleaks' environment keep colour, a textconv
-  driver and a replace ref, which the user's or the repository's git config can set and CI has none of, from hiding an
-  added line. What it sends: each refspec's source (`tag <name>` too; a deletion or a negative refspec sends nothing),
+  where CI scans it. The log options (LOG_FLAGS) and GIT_NO_REPLACE_OBJECTS=1 in gitleaks' environment hold `git log
+  -p` to what CI's git prints. The user's or the repository's git config, which CI has none of, could otherwise hide an
+  added line (colour, a textconv driver, an external diff, a replace ref, a root commit's diff that log.showRoot leaves
+  out) or change its fingerprint (a commit header in another form under format.pretty, log.date, log.abbrevCommit or
+  log.showSignature; file names without a/ and b/ under diff.noprefix). What it sends: each refspec's source
+  (`tag <name>` too; a deletion or a negative refspec sends nothing),
   HEAD when it names none, every branch for --all or --branches, every ref for --mirror and every tag for --tags; a dry
   run and --delete send nothing. A source it cannot resolve (a variable, a substitution, a wildcard, one that does not
   exist yet) widens the scan to every local branch's commits and HEAD's that no such ref holds, and a refusal says so,
@@ -66,12 +69,14 @@ the same line, a directory a command other than cd or pushd enters (`env -C`) or
 repository the hook cannot resolve (`cd "$VAR" && git push`), whose widened scan reads the event's working directory's
 repository and not the one pushed, a push that configuration widens beyond its current branch (push.default=matching, a
 remote's push refspec), a commit that a move earlier in the line reaches outside every branch, a file whose text git
-leaves out of `git log -p` because a `-diff` attribute in the repository's info/attributes or the user's
-core.attributesFile marks it binary (CI has neither and scans that text; `--text` would scan it, but also the binary
-files CI skips, so the hook would refuse pushes CI passes), a fork layout, where CI reads the main of another remote
-than origin (the pins come from origin/main alone), text a command builds as it runs (`content="$(base64 -w0 file)"`),
-a word an ANSI-C escape spells (`$'pu\\x73h'`), a GitHub MCP server registered under a name without "github", a
-session that loads no repository hooks, and a person's own push.
+leaves out of `git log -p` as binary because of the repository's or the user's settings (a `-diff` attribute in
+info/attributes or core.attributesFile, a diff driver set `binary = true`, core.bigFileThreshold below the file's
+size; CI has none of them and scans that text; `--text` would scan it, but also the binary files CI skips, so the
+hook would refuse pushes CI passes), the other way about a committed `.gitattributes` that marks files `-diff` (CI's
+checkout honours it and the hook reads none, so it can refuse a push CI passes), a fork layout, where CI reads the main
+of another remote than origin (the pins come from origin/main alone), text a command builds as it runs
+(`content="$(base64 -w0 file)"`), a word an ANSI-C escape spells (`$'pu\\x73h'`), a GitHub MCP server registered under a
+name without "github", a session that loads no repository hooks, and a person's own push.
 Tests: backend/tests/unit/test_secret_scan_guard.py.
 """
 from __future__ import annotations
@@ -117,8 +122,11 @@ WRITE_TOOLS = ("push_files", "create_or_update_file")
 MAIN = "refs/remotes/origin/main"  # main as the repository last fetched it, whose pins every pull request's scan reads
 CONFIG_VARIABLES = ("GITLEAKS_CONFIG", "GITLEAKS_CONFIG_TOML")  # gitleaks 8.24.3 reads a config from these without -c
 # What `git log -p` would otherwise take from the user's or the repository's git config, which CI has none of: colour
-# codes that keep gitleaks from reading an added line, and a textconv driver's or an external diff's text in its place.
-LOG_FLAGS = ("--no-color", "--no-textconv", "--no-ext-diff")
+# codes that keep gitleaks from reading an added line, a textconv driver's or an external diff's text in its place, a
+# root commit's diff left out (log.showRoot), and a header or file names that gitleaks reads another fingerprint from,
+# or none (format.pretty, log.date, log.abbrevCommit, log.showSignature, diff.noprefix).
+LOG_FLAGS = ("--no-color", "--no-textconv", "--no-ext-diff", "--root", "--pretty=medium", "--date=default",
+             "--no-abbrev-commit", "--no-show-signature", "--src-prefix=a/", "--dst-prefix=b/")
 STAGED = "files"  # the subdirectory of a files scan's directory that the sent files are written under
 PROJECT = Path(__file__).resolve().parents[2]  # the repository whose main a write's scan takes its pins from
 PUSH_REMEDY = (
