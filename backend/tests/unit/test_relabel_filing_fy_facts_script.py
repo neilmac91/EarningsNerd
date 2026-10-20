@@ -17,6 +17,7 @@ held.
 import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -48,6 +49,20 @@ CALENDARS = {
 }
 CIKS = {"TGT": "0000027419", "JNJ": "0000200406", "AAPL": "0000320193", "DEC": "0000000777"}  # DEC: synthetic
 LEGACY = None  # provenance of a row the companyfacts writer stored before #1191
+
+
+@pytest.fixture(autouse=True)
+def sec(monkeypatch):
+    """The companyfacts read the CLI makes from SEC for each company, faked (tests reach no network):
+    a payload with no facts unless a case gives the CIK one (None is the transport's failed read)."""
+    payloads, reads = {}, []
+
+    def read(cik):
+        reads.append(cik)
+        return payloads.get(cik, {"cik": int(cik), "facts": {}})
+
+    monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", read)
+    return SimpleNamespace(payloads=payloads, reads=reads)
 
 
 @pytest.fixture
@@ -690,3 +705,101 @@ def test_a_relabel_that_would_give_two_current_rows_of_a_concept_one_year_is_hel
     db.refresh(row)
     assert row.fiscal_year == 2023 and result["relabel_rows"] == 0
     assert result["held"] == {"label_collision": [end]}
+
+
+def _jnj_before_any_sync(db):
+    """J&J's 2023 10-K as the per-filing writer stored it before P5, and no companyfacts row anywhere:
+    the state the first dry run found (``no_companyfacts_fy`` at every J&J year end)."""
+    company, filing = _company(db, "JNJ", year=24)
+    for start, end in CALENDARS["JNJ"].values():
+        _fact(db, company, concept="revenue", end=end, start=start, fiscal_year=_day(end).year,
+              source="edgar_xbrl", filing=filing)
+        _fact(db, company, concept="shareholders_equity", end=end, fiscal_year=_day(end).year,
+              source="edgar_xbrl", filing=filing, raw_tag="us-gaap:StockholdersEquity", value=50.0)
+    db.commit()
+    return company, filing
+
+
+def test_a_year_end_no_stored_row_vouches_for_takes_the_year_the_sec_read_names(db, capsys, sec):
+    company, filing = _jnj_before_any_sync(db)
+    assert [year for _end, year in _chart(db, filing)["revenue"]] == [2022, 2023, 2023]
+    sec.payloads[company.cik] = _payload(company, {2023: (filing.accession_number, "2024-02-16")}, [2023])
+
+    assert relabel.main([]) == 0
+    preview, summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert relabel.main(["--apply"]) == 0
+    applied, _summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    for line in (preview, applied):
+        assert line["relabels"] == [
+            {"period_end": "2022-01-02", "from": 2022, "to": 2021, "rows": 2},
+            {"period_end": "2023-01-01", "from": 2023, "to": 2022, "rows": 2},
+        ]
+        assert line["sec_evidence"] == 6 and line["skipped"]["already_agrees"] == 2
+    assert summary["sec_evidence"] == 6 and preview["revisions"] == 0 and applied["revisions"] == 4
+    assert [year for _end, year in _chart(db, filing)["revenue"]] == [2021, 2022, 2023]
+    assert sec.reads == [company.cik, company.cik]  # one read per company per run
+    assert db.query(FinancialFact).filter_by(company_id=company.id, source="companyfacts").count() == 0
+
+
+def test_stored_evidence_outranks_the_sec_read(db):
+    company, _filing = _issuer(db, "TGT")
+    rows = db.query(FinancialFact).filter_by(company_id=company.id).all()
+    # A read naming every stored companyfacts year one later changes nothing where stored rows vouch.
+    read = [SimpleNamespace(source="companyfacts", filing_id=None, raw_tag=row.raw_tag, fiscal_period="FY",
+                            fiscal_year=row.fiscal_year + 1, provenance=row.provenance,
+                            period_start=row.period_start, period_end=row.period_end)
+            for row in rows if row.filing_id is None]
+
+    plan = relabel.plan_company(rows, read)
+
+    assert plan == relabel.plan_company(rows) and plan["sec_evidence"] == 0 and len(plan["relabel"]) == 6
+
+
+def test_the_sec_read_vouches_for_the_year_the_filing_owns_so_its_newer_years_relabel_too(db, sec):
+    """The production state behind the label-collision case above: the 2024 10-K opened before the first
+    companyfacts sync, which then skipped the identities the filing owns, so no stored row vouches for
+    the filing's oldest year. The SEC read names it, and the filing's three years relabel together."""
+    company, filing = _company(db, "TGT", year=24)
+    db.commit()
+    reports = {2023: (filing.accession_number, "2024-03-13"), 2024: (_accession(company, 25), "2025-03-12")}
+    facts_service.process_filing_facts(db, filing, standardized=_unlabelled_annual_points(company, (2023, 2022, 2021)))
+    sec.payloads[company.cik] = payload = _payload(company, reports, [2023, 2024])
+    facts_service._persist_companyfacts_payload(db, company, payload)
+
+    result = relabel.relabel_company(db, company.id, apply=True, run_id="read",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+    db.commit()
+
+    assert result["relabels"] == [
+        {"period_end": "2022-01-29", "from": 2022, "to": 2021, "rows": 2},
+        {"period_end": "2023-01-28", "from": 2023, "to": 2022, "rows": 2},
+        {"period_end": "2024-02-03", "from": 2024, "to": 2023, "rows": 2},
+    ]
+    assert result["sec_evidence"] == 2 and result["skipped"] == dict.fromkeys(relabel.SKIP_REASONS, 0)
+    assert _chart(db, filing)["revenue"] == [("2022-01-29", 2021), ("2023-01-28", 2022), ("2024-02-03", 2023)]
+
+
+def test_a_failed_sec_read_fails_its_company_alone_before_its_session_opens(db, factory, capsys, monkeypatch, sec):
+    target, _filing = _issuer(db, "TGT")
+    jnj, _filing = _issuer(db, "JNJ")
+    before = _states(db)
+    sec.payloads[target.cik] = None
+    events = []
+    read = facts_service._fetch_companyfacts_sync
+    monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", lambda cik: events.append(cik) or read(cik))
+    monkeypatch.setattr(database, "SessionLocal", lambda: events.append("session") or factory())
+
+    assert relabel.main(["--apply"]) == 1
+
+    *lines, summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert lines[0] == {"company_id": target.id, "ticker": "TGT",
+                        "error": "companyfacts read from SEC failed; company unchanged"}
+    assert lines[1]["ticker"] == "JNJ" and lines[1]["revisions"] == 4
+    assert (summary["failed"], summary["revisions"]) == (1, 4)
+    assert events == ["session", target.cik, jnj.cik, "session"]  # the cohort read, then read before session
+    with factory() as fresh:
+        states = {row.id: quarterly_fact_repair.snapshot(row) for row in fresh.query(FinancialFact)}
+        assert {k: v for k, v in states.items() if v["company_id"] == target.id} == {
+            k: v for k, v in before.items() if v["company_id"] == target.id
+        }

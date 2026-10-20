@@ -25,14 +25,25 @@ The year comes from the stored companyfacts FY rows at the same company and peri
 retired as `validation: unavailable`) that the fiscal-year-window writer stored or a repair
 corrected: `provenance.version = 1`. That writer and versioned provenance arrived together in
 #1191 (10 October 2026). A row stored before it has NULL provenance and names every FY period by
-the calendar year of its end, so it is not evidence. Each scanned row is counted once:
+the calendar year of its end, so it is not evidence.
+
+Where no stored row is evidence at a period end, the year comes from the company's companyfacts as
+read from SEC on this run. The script reads each company's companyfacts once, through the shared
+SEC limiter and backoff (`facts/transport`), before the company's session opens. It names their FY
+periods with the writer a sync uses, judges them by the same rule, and stores nothing it read.
+Stored evidence outranks the read, so a period end it vouches for plans as it did before the read
+existed. A resync cannot fill these gaps instead: a sync skips every identity already stored,
+whichever writer stored it, and never rewrites a row. A row stored before #1191 therefore keeps its
+NULL provenance, and a period the per-filing writer stored first never gains a companyfacts row. A
+failed read fails that company with an `error` line and changes nothing. Each scanned row is
+counted once:
 
 | Count | Meaning |
 | --- | --- |
 | `relabel_rows` / `relabels` | The rows that change, grouped by period end with the `from` and `to` years |
 | `already_agrees` | The row already carries the trusted companyfacts year; left alone |
-| `no_companyfacts_fy` | No companyfacts FY row at that period end; left alone |
-| `legacy_companyfacts_only` | Only rows stored before #1191 (calendar labels) at that period end; left alone, never read as agreement |
+| `no_companyfacts_fy` | No companyfacts FY row at that period end, stored or read from SEC; left alone |
+| `legacy_companyfacts_only` | Only rows stored before #1191 (calendar labels) at that period end, and none read from SEC; left alone, never read as agreement |
 | `companyfacts_disagree` | Current-writer rows at that period end name more than one year; left alone, never one picked |
 | `untrusted_instant_only` | Only balance-sheet rows there. The companyfacts writer names its oldest opening balance by one report's fy or, failing that, by calendar year (for a January year, the next year's label), with no fiscal-year window behind it, so an instant-only label is never copied |
 | `not_calendar_default` | The row's label is not the calendar year of its end, so a labeller set it (P5, or a NULL); a stored source never overwrites it |
@@ -41,15 +52,17 @@ the calendar year of its end, so it is not evidence. Each scanned row is counted
 `held` lists the period ends behind each non-agreeing skip, for spot checks. `partial_filings`
 lists, on every run, the accessions of filings that keep calendar-default rows beside fiscal years
 the run relabels or finds already agreeing (for example the newest year held as
-`no_companyfacts_fy`): their annual chart may skip a year until the held rows are repaired. The
-summary line totals every count, and `partial_filings` as a number.
+`no_companyfacts_fy`): their annual chart may skip a year until the held rows are repaired.
+`sec_evidence` counts the scanned rows judged on the SEC read, whatever the outcome. The summary
+line totals every count, and `partial_filings` as a number.
 
 **Where the writer that ran first owns the identity.** When the per-filing writer stored a period
 before the company's first companyfacts sync under the same accession, the sync skipped that
-identity and no companyfacts row exists there; those rows count as `no_companyfacts_fy`, and their
-neighbours often as `label_collision`. A high share of these counts, or of
-`legacy_companyfacts_only`, is a signal for a follow-up repair source, not a reason to widen the
-trust rule.
+identity and no companyfacts row is stored there. The SEC read names that period, so its rows and
+their neighbours relabel together instead of holding as `no_companyfacts_fy` and
+`label_collision`. The first dry run, before the read existed (Ops run 39306000050, 2026-10-19),
+held all 1,892 scanned rows for want of stored evidence: 1,153 as `no_companyfacts_fy` and 739 as
+`legacy_companyfacts_only`.
 
 ## Run it
 
@@ -81,7 +94,9 @@ to scan) and `--limit N` to the first N companies by id.
 The Ops workflow (`.github/workflows/ops.yml`, dispatched from main) runs the same script on its
 runner through the Cloud SQL proxy, so every line lands in the workflow run's log instead of Cloud
 Logging. Operation `relabel-fy-dry-run` runs the dry run in read-only transactions, so Postgres
-refuses any write; `relabel-fy-apply` runs the apply below. Before the script, the run prints the
+refuses any write; `relabel-fy-apply` runs the apply below. Either way the runner reads each
+company's companyfacts from SEC itself, one request per company under the shared limiter, with the
+app's SEC user agent. Before the script, the run prints the
 session's settings as Postgres reports them (`session read_only=on lock_timeout=10s
 statement_timeout=2min` for a dry run, `read_only=off` for the apply) and stops unless they are the
 step's own, so the log shows the guards took effect. Its `tickers` input passes `--tickers` (at most
