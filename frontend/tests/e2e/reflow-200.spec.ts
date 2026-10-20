@@ -746,8 +746,9 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
     past the cards too. At 320, 360 and 390px each box and every run of text in its card lie inside the card. The text
     column is 105, 132 and 162px there (ModalBody's px-6 and the card's p-4 under doubled text), so the longest words
     still break at all three widths until a card's padding stops growing under enlarged text (tasks/todo.md E120, whose
-    measure with this recipe is 201px and no broken word at 320px). The dialog's title runs past the panel at these
-    widths (tasks/todo.md E130), so the panel's own sideways scroll is not asserted here. */
+    measure with this recipe is 201px and no broken word at 320px). The panel's own sideways scroll is held by the
+    consent dialog's header case below (`holdsPanel`), since its title wraps under its icon (#1432) and these rows
+    stay inside their cards. */
 const categoryRows = (dialog: Locator) =>
   dialog.evaluate((root) => {
     const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
@@ -1351,9 +1352,8 @@ const DIALOG_HEADERS = [
     name: 'the consent dialog',
     firstVisit: true,
     title: 'Cookie preferences',
-    /** Its body still widens the panel under 200% text on main (the category rows, which #1399 fixes): its header is held
-        here, its panel's own scroll once that lands. */
-    holdsPanel: false,
+    /** Its category rows wrap under 200% text (#1399), so nothing in its body widens the panel: its panel is held too. */
+    holdsPanel: true,
     open: async (p: Page, dialog: Locator) => {
       await p.getByRole('button', { name: 'Customize' }).click()
       await expect(dialog).toBeVisible()
