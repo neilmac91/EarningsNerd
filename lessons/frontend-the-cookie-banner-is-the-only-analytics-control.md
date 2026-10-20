@@ -28,8 +28,12 @@ decision of the founder's.
 stored, which reads back as written.
 
 **Evidence.** `frontend/components/CookieConsent.tsx`; `frontend/tests/unit/cookieSettingsReopen.spec.tsx`
-(the no-reader scan over every module the app runs, /privacy's sentence pinned beside it, and the cases with
-the signals sent); `consentLayer.spec.tsx` and `frontend/tests/e2e/consent-bar-yields.spec.ts` (a first visit
-with Do Not Track shows the bar). A `navigator.doNotTrack` read planted in CookieConsent.tsx fails the scan,
-main's first-visit decline put back fails consentLayer, and /privacy's old sentence put back fails the pin.
-Partly gated: a signal's name assembled at run time, and the API (`backend/`), are review-checked.
+(the no-reader scan over every module the app runs and the markup it serves, the code its strings carry
+included, /privacy's sentence pinned beside it both ways, and the cases with the signals sent);
+`consentLayer.spec.tsx` and `frontend/tests/e2e/consent-bar-yields.spec.ts` (a first visit with Do Not Track
+shows the bar). A `navigator.doNotTrack` read planted in CookieConsent.tsx fails the scan, and so does one
+planted in app/layout.tsx's inline theme script, a string the page runs before hydration; main's first-visit
+decline put back fails consentLayer; and /privacy's old sentence, in place of the founder's or beside it,
+fails the pin. Partly gated: a signal's name assembled at run time, a header's name in a string with a space
+in it that is not code and not handed to `RegExp` (copy names the headers that way), and the API
+(`backend/`), are review-checked.
