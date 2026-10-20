@@ -20,7 +20,15 @@ its check if nothing stops it, while the first's writes are uncommitted:
 - a refresh, then a logout with the same cookie: the logout signs out the successor the refresh minted;
 - a refresh with the cookie another tab's refresh left, then a logout with the cookie before it: the
   logout walks the chain to its live tip and signs that out;
-- a refresh, then a sign-in: the sign-in's new token does not wait for the lock.
+- a refresh, then a sign-in: the sign-in's new token does not wait for the lock;
+- a password reset or change, and a password login that verified the old password before it committed,
+  in either order: the login mints only while the hash it verified is the account's (E121), so the
+  reset leaves no live token and the change only its own;
+- a password reset and a password change that verified the old password, in either order, and two such
+  changes: a change writes only while the hash it verified is the account's (E121), so the reset's
+  password stands with no live token, and of two changes the first's password and session;
+- two first passwords set at once on an account that had none: the first stands, with its session;
+- two password logins of one account: the second waits for the first's commit, and both mint.
 Without the users-row lock each writer takes first, the second request writes on what it read before
 the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
 change leaves the refresh's successor live.
@@ -29,13 +37,15 @@ The account's deletion takes the same lock before its cascade deletes the tokens
 once a token writer holds the lock, and hold the writer there until the deletion is blocked or has
 deleted something: taking the lock last, the deletion would delete the tokens first, and the writer's
 token write and the deletion's own row delete would wait on each other until PostgreSQL aborted one. A
-writer that waits out a deletion finds its token gone and writes nothing.
+writer that waits out a deletion finds its token, or a login or change the account, gone and writes
+nothing.
 """
 import os
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 import pytest
 from sqlalchemy import create_engine, event, text
@@ -49,6 +59,7 @@ from app.services import auth_account_service, user_account_service
 from app.services import refresh_token_service as tokens
 
 HANG_GUARD_S = 5.0  # a passing case never waits for it
+OLD_PASSWORD_HASH = "the old password's hash"
 
 
 @pytest.fixture
@@ -75,16 +86,22 @@ def postgres_engine():
             engine.dispose()
 
 
-def _signed_in(engine) -> tuple[int, str]:
+def _signed_in(engine, password_hash: Optional[str] = OLD_PASSWORD_HASH) -> tuple[int, str]:
     """A user with one live refresh token; returns ``(user_id, raw_token)``."""
     with Session(engine) as db:
-        user = User(email=f"reader-{uuid.uuid4().hex}@example.com", is_active=True)
+        user = User(email=f"reader-{uuid.uuid4().hex}@example.com", is_active=True, hashed_password=password_hash)
         db.add(user)
         db.flush()
         user_id = user.id
         _, raw_token = tokens.create_refresh_token(db, user)
         db.commit()
     return user_id, raw_token
+
+
+def _stored_hashes(engine) -> list[str]:
+    """Every account's password hash; a case's schema holds one account."""
+    with Session(engine) as db:
+        return [user.hashed_password for user in db.query(User)]
 
 
 def _live_tokens(engine, user_id: int) -> int:
@@ -102,21 +119,48 @@ _OPERATIONS = {
         db, db.get(User, user_id), "a new password's hash",
     ),
     "change_password": lambda db, user_id, raw: _change_password(db, db.get(User, user_id)),
+    "change_password_again": lambda db, user_id, raw: _change_password(
+        db, db.get(User, user_id), "another changed password's hash",
+    ),
+    "set_first_password": lambda db, user_id, raw: _change_password(
+        db, db.get(User, user_id), "a first password's hash", verified_hash=None,
+    ),
+    "set_first_password_again": lambda db, user_id, raw: _change_password(
+        db, db.get(User, user_id), "another first password's hash", verified_hash=None,
+    ),
+    "password_login": lambda db, user_id, raw: _password_login(db, db.get(User, user_id)),
     "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, db.get(User, user_id)),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
 }
 _WRITES = ("INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM refresh_tokens")
 
 
-def _change_password(db: Session, user: User) -> str:
-    """The change-password route's writes: the new hash and every token revoked, then the acting
-    device's new session minted, all in the mint's one commit."""
-    auth_account_service.stage_password_change(db, user, "a changed password's hash")
+def _password_login(db: Session, user: User) -> Optional[str]:
+    """The login route's second unit, for a password that matched OLD_PASSWORD_HASH before the race:
+    the session's refresh token, or None when the login is refused. The account is loaded first, which
+    the route's second unit does not do (the first unit's release leaves its session empty): a re-read
+    that does not refresh the loaded account would then see the hash from before the race, so the case
+    also holds the service to its ``populate_existing``."""
+    login = auth_account_service.record_password_login(db, user.id, OLD_PASSWORD_HASH, user.email)
+    return login[1] if login is not None else None
+
+
+def _change_password(
+    db: Session, user: User, new_hash: str = "a changed password's hash",
+    verified_hash: Optional[str] = OLD_PASSWORD_HASH,
+) -> Optional[str]:
+    """The change-password route's writes, for a current password that matched ``verified_hash`` before
+    the race (None: an account with no password sets its first): the new hash and every token revoked,
+    then the acting device's new session minted, all in the mint's one commit; or None when the change
+    is refused. The account is loaded first, as the route's session holds it from ``get_current_user``."""
+    if not auth_account_service.stage_password_change(db, user, new_hash, verified_hash):
+        return None
     return tokens.mint_refresh_token(db, user)
 
 
 def _race(
     engine, first: str, second: str, *, second_starts: str = "after_first_write", second_cookie_behind: bool = False,
+    password_hash: Optional[str] = OLD_PASSWORD_HASH,
 ) -> tuple[object, object, int, str]:
     """Run ``first`` and ``second`` on one user's token, and return each one's result (or the exception it
     raised), the user's live tokens after both, and what let ``first`` commit: ``"blocked"`` (``second``
@@ -124,12 +168,13 @@ def _race(
     written a token row, or with ``after_first_lock`` once ``first`` holds the users row lock, where
     ``first`` then waits until ``second`` is blocked on a lock or has written. With
     ``second_cookie_behind``, another tab has rotated the token once before either starts: ``first``
-    carries the new cookie and ``second`` the one before it.
+    carries the new cookie and ``second`` the one before it. ``password_hash`` is the account's at the
+    start; None for one that signs in only through Google or Apple.
 
     Those waits run inside engine events, which must not raise: an exception there would leave the first
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
     records itself instead, and the race fails once both requests have ended."""
-    user_id, raw = _signed_in(engine)
+    user_id, raw = _signed_in(engine, password_hash)
     # Production's session settings, bound to this case's engine. An autoflushing session would flush a
     # pending write at the request's next query, where production waits for its commit, and could
     # serialize two requests that production does not.
@@ -288,10 +333,14 @@ def test_an_account_deletion_waits_for_a_token_writer_holding_the_lock(postgres_
     assert (_result(first), _kind(deletion), live, released) == (result, "NoneType", 0, "blocked")
 
 
-@pytest.mark.parametrize("writer,result", [("refresh", "RefreshTokenError"), ("logout", False), ("logout_all", 0)])
+@pytest.mark.parametrize("writer,result", [
+    ("refresh", "RefreshTokenError"), ("logout", False), ("logout_all", 0), ("password_login", None),
+    ("change_password", None),
+])
 def test_a_token_writer_that_waits_out_an_account_deletion_writes_nothing(postgres_engine, writer, result):
     deletion, second, live, released = _race(postgres_engine, "delete_account", writer)
-    # Its read again under the lock finds the token gone: a refusal, as for any unknown token.
+    # Its read again under the lock finds the token, or the account, gone: a refusal, as for any
+    # unknown token or a password that no longer matches.
     assert (_kind(deletion), _result(second), live, released) == ("NoneType", result, 0, "blocked")
 
 
@@ -300,3 +349,68 @@ def test_a_sign_in_does_not_wait_for_a_rotation_holding_the_lock(postgres_engine
     a sign-in finishes while a refresh holds the account's lock."""
     refresh, sign_in, live, released = _race(postgres_engine, "refresh", "sign_in")
     assert (_result(refresh), _kind(sign_in), live, released) == ("rotated", "str", 2, "done")
+
+
+@pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])
+def test_a_password_login_that_verified_the_old_password_mints_nothing_once_it_changes(
+    postgres_engine, revocation, result, live_after,
+):
+    """A reset or change holds the lock while a login that verified the old password before it committed
+    waits: the login finds the hash changed and mints nothing (E121), so the reset leaves no live token
+    and the change only the changer's."""
+    first, login, live, released = _race(postgres_engine, revocation, "password_login")
+    assert (_kind(first), login, live, released) == (result, None, live_after, "blocked")
+
+
+def test_two_password_logins_of_one_account_wait_for_each_other_and_both_mint(postgres_engine):
+    """A login holds the account's lock from its re-check to its commit, so a second login of the same
+    account, started once the first holds it, waits, then finds the hash unchanged and mints too, and
+    both sessions are live beside the one from before. A lock two logins could share (FOR SHARE) would
+    let both reach their users UPDATE and deadlock there."""
+    first, second, live, released = _race(
+        postgres_engine, "password_login", "password_login", second_starts="after_first_lock",
+    )
+    assert (_kind(first), _kind(second), live, released) == ("str", "str", 3, "blocked")
+
+
+@pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])
+def test_a_reset_or_change_after_a_password_login_signs_out_its_new_session(
+    postgres_engine, revocation, result, live_after,
+):
+    """The login takes the lock first and mints; the reset or change waits for its commit, and its
+    revocation then reaches the login's new token too."""
+    login, second, live, released = _race(postgres_engine, "password_login", revocation)
+    assert (_kind(login), _kind(second), live, released) == ("str", result, live_after, "blocked")
+
+
+@pytest.mark.parametrize("first,second", [("reset", "change_password"), ("change_password", "reset")])
+def test_a_reset_and_a_password_change_leave_the_resets_password_and_no_live_token(postgres_engine, first, second):
+    """Account recovery wins in either order. A change that verified the old password before the reset
+    committed waits for the reset's lock, then finds the hash changed and writes nothing (E121); a change
+    that holds the lock first commits, and the reset that waited replaces its password and revokes its
+    session."""
+    first_outcome, second_outcome, live, released = _race(postgres_engine, first, second)
+    reset, change = (first_outcome, second_outcome) if first == "reset" else (second_outcome, first_outcome)
+    assert (_kind(reset), _kind(change), live, released) == (
+        "NoneType", "NoneType" if first == "reset" else "str", 0, "blocked",
+    )
+    assert _stored_hashes(postgres_engine) == ["a new password's hash"]
+
+
+def test_two_first_passwords_set_at_once_leave_the_first(postgres_engine):
+    """An account with no password (it signs in only through Google or Apple) sets one in two requests at
+    once. Each found no password to check; the one that waits for the other's lock finds a hash now and
+    writes nothing (E121), so the first password and its session stand."""
+    first, second, live, released = _race(
+        postgres_engine, "set_first_password", "set_first_password_again", password_hash=None,
+    )
+    assert (_kind(first), second, live, released) == ("str", None, 1, "blocked")
+    assert _stored_hashes(postgres_engine) == ["a first password's hash"]
+
+
+def test_a_password_change_that_verified_the_old_password_writes_nothing_once_another_commits(postgres_engine):
+    """Two changes verified the old password; the one that waits for the other's lock finds the hash
+    changed and writes nothing (E121), so the first change's password and session stand."""
+    first, second, live, released = _race(postgres_engine, "change_password", "change_password_again")
+    assert (_kind(first), second, live, released) == ("str", None, 1, "blocked")
+    assert _stored_hashes(postgres_engine) == ["a changed password's hash"]

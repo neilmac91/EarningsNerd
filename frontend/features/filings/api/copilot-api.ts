@@ -195,7 +195,7 @@ export const askFilingStream = async (
 
     if (!response.ok) {
       let message: string | null
-      if (response.status === 401) message = 'Sign in to ask this filing a question.'
+      if (response.status === 401) message = 'Log in to ask this filing a question.'
       else if (response.status === 403 || response.status === 429) {
         // Preserve application-owned entitlement/rate-limit details and their existing upgrade UI.
         message = await Promise.race([

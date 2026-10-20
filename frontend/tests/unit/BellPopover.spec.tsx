@@ -53,16 +53,16 @@ describe('BellPopover', () => {
 
   it('is a labelled, described group on the overlay layer — never a dialog', async () => {
     await openFromBell('signin')
-    const group = screen.getByRole('group', { name: 'Sign in to set earnings alerts' })
+    const group = screen.getByRole('group', { name: 'Log in to set earnings alerts' })
     expect(group).toHaveAccessibleDescription(
-      `Sign in to get an email the morning a company reports. Free includes ${FREE_EARNINGS_ALERT_LIMIT} companies.`,
+      `Log in to get an email the morning a company reports. Free includes ${FREE_EARNINGS_ALERT_LIMIT} companies.`,
     )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(group.parentElement).toHaveClass('z-overlay')
     expect(group).toHaveClass('dark:shadow-none')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Sign in' }))
+    expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Log in' }))
   })
 
   // The account action follows the one access decision (features/marketing/lib/access.ts): while
@@ -77,7 +77,7 @@ describe('BellPopover', () => {
     document.body.appendChild(bell)
     try {
       render(<BellPopover blocked={blockedFor('signin', bell)} accessMode={accessMode} onClose={() => {}} />)
-      expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+      expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login')
       expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', href)
       expect(screen.queryByRole('link', { name: /create account/i })).not.toBeInTheDocument()
     } finally {
@@ -256,7 +256,7 @@ describe('BellPopover', () => {
     expect(document.activeElement).toBe(bell)
 
     await user.click(bell)
-    const first = screen.getByRole('link', { name: 'Sign in' })
+    const first = screen.getByRole('link', { name: 'Log in' })
     expect(document.activeElement).toBe(first)
     expect(fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })).toBe(false)
     expect(screen.queryByRole('group')).not.toBeInTheDocument()
@@ -265,7 +265,7 @@ describe('BellPopover', () => {
 
   it('Tab between its own actions stays inside', async () => {
     await openFromBell('signin')
-    const first = screen.getByRole('link', { name: 'Sign in' })
+    const first = screen.getByRole('link', { name: 'Log in' })
     expect(fireEvent.keyDown(first, { key: 'Tab' })).toBe(true)
     expect(screen.getByRole('group')).toBeInTheDocument()
   })
@@ -288,7 +288,7 @@ describe('BellPopover', () => {
     act(() => {
       render(<BellPopover blocked={blockedFor('signin', bell)} onClose={() => {}} />)
     })
-    expect(dialog).toContainElement(screen.getByRole('group', { name: 'Sign in to set earnings alerts' }))
+    expect(dialog).toContainElement(screen.getByRole('group', { name: 'Log in to set earnings alerts' }))
   })
 
   it('an error that arrives after a day dialog opened renders inside that dialog, not inert beneath it', () => {
@@ -459,7 +459,7 @@ describe('BellPopover placement', () => {
     document.body.appendChild(bell)
     try {
       render(<BellPopover blocked={{ kind: 'signin', ticker: 'AAPL', message: '', anchor, trigger: bell }} onClose={() => {}} />)
-      run(screen.getByRole('group', { name: 'Sign in to set earnings alerts' }))
+      run(screen.getByRole('group', { name: 'Log in to set earnings alerts' }))
     } finally {
       bell.remove()
       if (scroll) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', scroll)

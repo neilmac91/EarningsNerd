@@ -81,8 +81,8 @@ export default function ChangePasswordForm() {
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         {hasPassword
-          ? 'Update the password you use to sign in with email.'
-          : 'Set a password to sign in with email, in addition to your linked social accounts.'}
+          ? 'Update the password you use to log in with email.'
+          : 'Set a password to log in with email, in addition to your linked social accounts.'}
       </p>
 
       <form

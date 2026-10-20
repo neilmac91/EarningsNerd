@@ -230,7 +230,7 @@ describe('the full list (Pro)', () => {
     expect(screen.getByText(/underlined words were added and struck-through words removed/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Upgrade to Pro' })).toBeNull()
     expect(screen.queryByText(/more change/)).toBeNull()
-    expect(screen.queryByRole('link', { name: 'Already Pro? Sign in' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Already Pro? Log in' })).toBeNull()
   })
 
   it('renders a modified paragraph as a redline: inserted words in <ins>, removed words in <del>, each named for assistive tech, in ink and not in a tone', () => {
@@ -285,7 +285,7 @@ describe('the teaser (anonymous and Free)', () => {
     expect(LABELS(screen.getAllByRole('listitem'))).toEqual(['Modified', 'Added', 'Removed'])
     expect(screen.getByText('2 more changes in this section. Pro shows every change.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Already Pro? Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: 'Already Pro? Log in' })).toHaveAttribute('href', '/login')
     expect(mockAnalytics.wordingChangesViewed).toHaveBeenCalledWith(expect.objectContaining({ access: 'teaser', itemsTotal: 5 }))
     expect(mockAnalytics.paywallPromptShown).toHaveBeenCalledTimes(1)
     expect(mockAnalytics.paywallPromptShown).toHaveBeenCalledWith({ filingId: 42, ticker: 'AAPL', filingType: '10-K', entryPoint: 'wording_changes' })
@@ -294,7 +294,7 @@ describe('the teaser (anonymous and Free)', () => {
   it('a signed-in Free reader gets the prompt without the sign-in link', () => {
     render(<WordingChanges block={TEASER} Heading="h3" context={{ ...context, isAuthenticated: true }} />)
     expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Already Pro? Sign in' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Already Pro? Log in' })).toBeNull()
   })
 
   it('the prompt opens the upgrade dialog naming the feature, and counts the click', () => {

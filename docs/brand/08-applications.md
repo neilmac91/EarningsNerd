@@ -40,11 +40,21 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   FY2025 sentence, and the $416.2B figure with its direction chip. The three grey placeholder bars
   are gone. This is the brand pane beside the login and register forms; the auth logic and
   `features/auth/api/auth-api.ts` are untouched. The pages around it say only what the code does.
+  Their verb is "Log in" (D-046): the login page reads "Log in to continue to EarningsNerd." over a
+  "Log in" button ("Logging in…" while it works), its link for a visitor without an account follows the
+  access decision (`ACCESS_COPY`: "Request an invite" to /waitlist while access is by invite, as the
+  register page's notice says), the register page's link back reads "Log in", and the provider buttons
+  read "Continue with Google" and "Continue with Apple" on both pages, an invited start that fails naming
+  its provider under the button ("Couldn't continue with Google. Please try again."). The login page's
+  "Request an invite" is `inline-block`, so at 320px or under 200% text it stays one box, its label
+  wrapping inside it, and its ring closes round it; the register notice's stays inline inside its
+  sentence, wraps with it and draws its ring round each line (`box-decoration-clone`, as a prose link
+  does). Neither focus ring draws an open piece (`tests/e2e/reflow-200.spec.ts`).
   /check-email names where links go ("We send verification links to" the address) and never says one
   was just sent, since the account menu's "Verify your email" lands there without sending: "Open the
   newest one to verify your email address. Each link expires 24 hours after we send it.", and Resend is
   what sends. Reached without an address (verify-email's "Get a new link") it offers no Resend and
-  says "Open the newest verification link we sent you." then "Need a new one? Sign in, open the
+  says "Open the newest verification link we sent you." then "Need a new one? Log in, open the
   account menu and choose Verify your email.". /verify-email shows the endpoint's own reason for a
   refused link (its two 400 details, listed in `features/auth/lib/verifyEmailFailure.ts` and held to
   `backend/app/routers/auth.py`), "The link has expired, or a newer one replaced it." for a 400
@@ -69,7 +79,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   and refuses a `-dark` token outside `dark:`, which is why the account menu's
   unverified dot and the banner's dismiss hover now pair their light and dark values). The login page's Google and Apple account-conflict error names the
   provider tried: "This email already has an EarningsNerd account, and the two could not be linked.
-  Sign in the way you created that account and verify your email. Once the email is verified on
+  Log in the way you created that account and verify your email. Once the email is verified on
   EarningsNerd and Google, try Google again." (verifying links nothing by itself; the provider links on
   that later sign-in). The register subhead follows the server's config: under the invite gate an
   invited visitor is promised Pro only while the beta promo is on (`betaPricingActive`), otherwise
@@ -136,7 +146,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   alternates, so the x of a code reads as Copy copies it (Inter's draws it as a multiplication sign
   between digits), and the share links wrap inside the card at 200% text.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
-  cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
+  cookies do: essential cookies keep you logged in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
   (`frontend/app/posthog-provider.tsx`). Vercel Web Analytics is cookieless, which is why the clause
   names analytics cookies, and since D-046 it too loads only after the visitor allows analytics, read
@@ -245,7 +255,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   is a visible "Ratio source:" line (`PerAdsNote.tsx`). The actions bar reads "Save summary", and a
   stored summary that did not finish offers neither it nor an export, only "Copy filing link"
   (`SummaryActionsBar.tsx`). SourceTrace's "Open in SEC EDGAR" link and its sheet's close button, and
-  the actions bar's manual-copy link, carry the brand focus ring.
+  the actions bar's manual-copy link, carry the brand focus ring. The Risks section is a marked copy
+  (D-044, `SummaryRisks.tsx`): a row whose excerpt the server located carries a bracketed marker on
+  its heading, the marker's twin sits in the margin on its line, and the excerpt is a marked block in
+  the filing's face; below a measure (a phone under 200% text) the margin gives way and the marker stays;
+  a row not located keeps the plain quotation and no marker. A quote whose evidence
+  the server located takes the marked block alone, in the filing's face, with no marker or twin, and any
+  other quote keeps the neutral hairline (`SummaryBlocks.tsx`). The Source pane paints a passage the server
+  located in the mark's tint and its 2 px hairline, the passage in the primary ink, and any other jump (a
+  summary chip's section heading, an XBRL fact's) in the neutral find highlight, the reader's 22% sage with
+  no hairline (`highlightInDom.ts`). Ask's answers and the Multi-Period narrative keep their chips. Gates:
+  `brandCopyRules.spec.ts` rule 3 (the device's places, located rows only, one marker per row, its
+  planted forms), `designSystemDoneGate.spec.ts` (Newsreader's surfaces), `highlightInDom.spec.ts`,
+  `sourcePanePaint.spec.tsx`, `tests/e2e/risk-evidence-rows.spec.ts` and `tests/e2e/copilot-highlight-css.spec.ts`.
 - **Ticker route** (`frontend/features/filings/components/TickerFilingsView.tsx`, the /filing/AAPL
   picker): a load failure reads "Filings unavailable" with a "Try again" held through its refetch; a 404 is
   "Company not found", read from the held error so a refetch cannot flip it; a first load paused
@@ -535,7 +557,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`full-text-search.spec.tsx`).
 - **Multi-Period Analysis** (`frontend/features/analysis/*`, `frontend/app/analysis/page.tsx`): the
   fair-use cap is stated once, in the narrative card, with no plan link; "See plans" stays only beside
-  the 403 "Pro feature" gate, and the page's three inline links (Sign in, See plans, Terms) carry the
+  the 403 "Pro feature" gate, and the page's three inline links (Log in, See plans, Terms) carry the
   brand ring. The Cached badge says what it knows in a visible line beside it, in muted ink, never
   a title tooltip: "Served from an earlier run · regenerates if these figures change". A stale export reads "This report is out of
   date. Run analysis again before exporting."; a report whose evidence will not decode gives the one

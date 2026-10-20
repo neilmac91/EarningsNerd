@@ -6,6 +6,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ArrowClockwiseIcon, ArrowSquareOutIcon, FileTextIcon, XIcon } from '@/lib/icons'
 import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
+import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { clearCitationHighlight, highlightExcerptInDom } from './highlightInDom'
@@ -17,6 +18,15 @@ import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 // The reader's own markdown renderers: each table scrolls sideways in a box of its own (EN-04).
 // Module-level, so ReactMarkdown sees the same object on every render.
 const READER_COMPONENTS: Components = { table: ReaderTable }
+
+/**
+ * Whether the server located the passage a request jumps to (D-044), so the reader may paint it with the
+ * device: a verified citation of the filing's own text. A summary chip's heading fallback arrives
+ * unverified (SourceTrace sends `verified` only with the excerpt the server checked), and an XBRL fact
+ * ([F1]) has no passage, so the text its jump finds is a best effort. Anything else takes the neutral
+ * find highlight (highlightInDom).
+ */
+const isLocated = (citation: CopilotCitation) => citation.verified === true && !isXbrlCitation(citation)
 
 interface FilingViewerProps {
   filingId: number
@@ -85,8 +95,10 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     if (failedRef.current) void refetch({ cancelRefetch: false })
   }, [request, refetch, embedded])
 
-  // Once content is rendered and a citation is pending, locate + highlight the passage.
+  // Once content is rendered and a citation is pending, find + highlight the passage: in the device's
+  // paint only where the server located it, in the neutral find paint otherwise (D-044).
   const activeExcerpt = request?.citation.excerpt
+  const activeLocated = request ? isLocated(request.citation) : false
   const activeNonce = request?.nonce
   // The "Showing" line names the cited passage the reader scrolled to (2026-10 critique P-06).
   const showingLabel = request ? request.citation.section_ref?.trim() || 'Cited passage' : null
@@ -95,12 +107,12 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     // Defer a frame so ReactMarkdown has painted before we walk its text nodes.
     const raf = window.requestAnimationFrame(() => {
       const found = contentRef.current
-        ? highlightExcerptInDom(contentRef.current, activeExcerpt)
+        ? highlightExcerptInDom(contentRef.current, activeExcerpt, { located: activeLocated })
         : false
       setPassageMissing(!found)
     })
     return () => window.cancelAnimationFrame(raf)
-  }, [active, status, activeExcerpt, activeNonce, content])
+  }, [active, status, activeExcerpt, activeLocated, activeNonce, content])
 
   // Tear down any lingering highlight when the viewer unmounts (pane closed / page left).
   useEffect(() => () => clearCitationHighlight(), [])
@@ -168,8 +180,10 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
               )}
             </p>
           )}
-          {/* .filing-reader is the serif's ONE surface: the filing's own words
-              (Newsreader 19/1.7, 68ch measure, reader tables). It replaces the
+          {/* .filing-reader is the serif's long-form surface: the filing's own words
+              (Newsreader 19/1.7, 68ch measure, reader tables). Inside the product
+              the serif also sets a passage the server located, as a marked block in
+              the summary (.en-marked, D-044). It replaces the
               Tailwind prose stack per MIGRATION v2.1 §e.1: the two must never
               coexist (double margins), and the class carries its own measure and
               width (as wide as this pane, never wider: EN-04).

@@ -80,7 +80,7 @@ function CheckEmailContent() {
             Open the newest verification link we sent you.
           </p>
           <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Need a new one? Sign in, open the account menu and choose Verify your email.
+            Need a new one? Log in, open the account menu and choose Verify your email.
           </p>
         </>
       )}

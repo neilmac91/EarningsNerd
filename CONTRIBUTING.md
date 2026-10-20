@@ -3,6 +3,7 @@
 ## Prerequisites
 
 - Python **3.11**
+- git **2.43** or later (`.claude/hooks/secret_scan_guard.py` holds `attr.tree` for its scan, a setting an older git ignores, so the hook refuses its scans there; outside CI, its suite skips the cases that build a scratch project)
 - Node.js **22.23.2** (see `frontend/.nvmrc`; `frontend/tests/unit/nodeVersionLockstep.spec.ts` keeps `.nvmrc`, `engines` and every `.github/workflows/*.yml` / `*.yaml` Node pin in lockstep)
 - Docker + Docker Compose (optional, for local Postgres/Redis)
 
@@ -74,6 +75,17 @@ serially), `migrations-postgres` (the migrations and the concurrency tests on Po
 `frontend-tests` (vitest), `e2e-tests` (build + Playwright) and `secret-scan` (gitleaks). All five
 must pass before the backend auto-deploys to Cloud Run on `main`. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
+
+In a Claude Code session that loads the repository's hooks, `.claude/hooks/secret_scan_guard.py`
+runs the same pinned gitleaks over what a `git push` or a GitHub MCP file write would add. It
+refuses a call that adds commits on a finding and whenever it cannot scan them, as when its binary
+is missing or git is older than 2.43, a push whose directory it cannot name or whose repository
+git cannot read, whatever the push adds, and a few calls it cannot read, whether they push or not
+(a case in a command substitution whose pattern no `(` opens, a `<<` bash reads in a word such as
+`a[1<<2]=x`, and a parameter expansion such as `${x%)}` outside quotes or `"${x:-"a"}"`, among
+them); its header lists every case. Install the
+binary once per machine and pin, a new cloud container included, with
+`python3 .claude/hooks/secret_scan_guard.py --install`.
 
 ## Workflow
 

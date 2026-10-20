@@ -56,11 +56,22 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * the final CTA card's opened at md at the reader's text size (48rem), where at md's 768px they took pages to
  * 812-886px; the card is the landing's one-line close since D-045, and the landing's rows open their label
  * column at 64rem the same way. At 1440x900 at the default size the site header's bar spans its container and
- * the logo keeps its top-left place, which the bar's w-full holds.
+ * the logo keeps its top-left place, which the bar's w-full holds. At 390, 360 and 320px under 200% text a dialog's
+ * header keeps its title inside the panel and clear of its close button (the last cases in this file).
  *
- * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
- * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
- * geometry. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
+ * An auth page's "Request an invite" link draws its focus ring closed at 320, 360 and 390px, at both text sizes.
+ * As an inline link it broke inside its label at 320px and, under 200% text, at 390 and 320px, and drew an open
+ * piece of its ring on each line. The login page's, which ends its line, is one box (`inline-block`), its label
+ * wrapping inside that box where the line is too narrow. The register notice's sits inside a sentence, so it stays
+ * inline, wraps with it and draws its ring round each line (`box-decoration-clone`): one box there took the whole line
+ * under 200% text and pushed the sentence's comma to the start of the next, so its case fails one box.
+ *
+ * Consent is seeded, so the consent bar stays closed, except where the dialog header case opens the consent
+ * dialog from it on a first visit: the bar is fixed, adds nothing to the document's scroll width, and its own
+ * reflow is not measured here. Light theme only, since a theme changes no
+ * geometry, except a dialog's header, which is held in both themes, as
+ * lessons/frontend-check-brand-layouts-at-200-percent-text.md asks: a dark: utility on ModalHeader would move it
+ * in one theme alone. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
  * answered in the browser, as a guest, and the filing page from fixtures/filing3Api.ts (for a guest, and
  * for its Pro reader in the signed-in menu case). CI's e2e build turns /calendar and /search on, so both
  * join the route loop with their rows painted: the calendar on its own fixtures with the clock pinned to one
@@ -345,6 +356,46 @@ for (const route of ROUTES) {
     expect(await collisions(route.bar(page)), `${route.path} at 200% text: the bar's controls`).toEqual([])
     expect(await logoClearSpace(route.bar(page)), `${route.path} at 200% text: the logo's clear space`).toEqual([])
     if (route.oneRow) await expectOneRow(route.bar(page), `${route.path} at 200% text`, HEADER_AT_200)
+  })
+}
+
+/** How a link's ring is drawn, read from the browser's own line boxes (a link that breaks across lines has a client rect
+    per line): one box (an atomic box, such as `inline-block`), one inline piece, or a piece per line, each closed only
+    where the link clones its decoration onto every line. */
+const ring = (link: Locator) =>
+  link.evaluate((el) => {
+    const style = getComputedStyle(el)
+    const clone = [style.getPropertyValue('box-decoration-break'), style.getPropertyValue('-webkit-box-decoration-break')].includes('clone')
+    const pieces = el.getClientRects().length
+    if (pieces > 1) return `${pieces} ${clone ? 'closed' : 'open'} pieces`
+    return style.display === 'inline' ? 'one inline piece' : 'one box'
+  })
+/** The login page's link ends its line and stays one box; the register notice's stays inline in its sentence and wraps
+    with it, its pieces closed (as one box it took the whole line under 200% text and pushed the comma to the next). */
+const INVITE_RING: Record<string, RegExp> = { '/login': /^one box$/, '/register': /^(?:one inline piece|\d+ closed pieces)$/ }
+
+for (const width of [320, 360, 390]) {
+  test.describe(`a ${width}px phone: the auth pages' invite link draws its ring closed`, () => {
+    test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
+    for (const route of ROUTES.filter((r) => r.path === '/login' || r.path === '/register')) {
+      test(`${route.name} (${route.path}) at the default text size and at 200%`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await route.open(page, baseURL!)
+        await page.goto(route.path)
+        await route.ready(page)
+        const link = page.getByRole('link', { name: 'Request an invite' })
+        await expect(link).toBeVisible()
+        await page.evaluate(() => document.fonts.ready)
+        expect(await ring(link), `${route.path} at ${width}px: the ring round "Request an invite"`).toMatch(INVITE_RING[route.path])
+        await doubleText(page)
+        expect(await ring(link), `${route.path} at ${width}px and 200% text: the ring round "Request an invite"`).toMatch(INVITE_RING[route.path])
+      })
+    }
   })
 }
 
@@ -1174,3 +1225,161 @@ test.describe('a 1440px desktop at the default text size', () => {
     expect(place.logo, `the logo starts at the container's left padding (the logo at x=${place.logo}, its place at x=${place.place})`).toBe(place.place)
   })
 })
+
+/** A dialog's header (components/ui/Modal.tsx, ModalHeader) on a phone at 200% text, at 390, 360 and 320px. The icon and
+    the title are one group that wraps beside the close button, as a Notice's glyph and text do: where the title cannot keep
+    9rem beside the icon it goes under the icon, at the group's width, so the close button stays the row's last control, at
+    the top right, and the title never runs under it or past the panel. A word breaks only when it is wider than the title's
+    box, which at 320px "Verify" and "continue" are. Before, at 390px under 200% text, the icon and the close button left
+    the title 60px, and its words painted past it, under the close button: "Cookie preferences" to 383px, 26px past the
+    panel's edge, and each word of "Verify your email to continue" (Chrome 156). The scrim is fixed, so a dialog adds
+    nothing to the page's scroll width: the title's painted lines are read, a character at a time, against the panel and
+    the close button, with the page's width checked as well, and the panel's own sideways scroll where its body is
+    clean. The consent dialog's is not, yet: on main its category rows push the Essential checkbox 25px past the panel at
+    390px, which #1399 fixes. Two dialogs with an icon and a close button, from two surfaces, both over /pricing: the
+    consent dialog (Customize on a first visit) and checkout's email verification prompt, opened by its event, as
+    email-verification-resend.spec.ts opens it. At the default size the title sits beside the icon, as it always has. */
+type HeaderFit = { problems: string[]; panelScroll: string | null; beside: boolean; stacked: boolean; where: string }
+
+const headerFit = (dialog: Locator): Promise<HeaderFit> =>
+  dialog.evaluate((panel) => {
+    const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
+    const title = panel.querySelector('h2')
+    const closeButton = panel.querySelector('button[aria-label="Close"]')
+    const iconTile = title?.parentElement?.querySelector(':scope > [aria-hidden="true"]')
+    if (!title || !closeButton || !iconTile) return { problems: ['the header has no title, close button or icon'], panelScroll: null, beside: false, stacked: false, where: '' }
+    const close = closeButton.getBoundingClientRect()
+    const icon = iconTile.getBoundingClientRect()
+    const box = title.getBoundingClientRect()
+    const outer = panel.getBoundingClientRect()
+    const inner = { left: outer.left + panel.clientLeft, right: outer.left + panel.clientLeft + panel.clientWidth }
+
+    // The title's characters as painted: each one's line (its top) and sides.
+    const chars: { ch: string; top: number | null; left: number; right: number }[] = []
+    const walker = document.createTreeWalker(title, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+      for (let i = 0; i < node.length; i++) {
+        const range = document.createRange()
+        range.setStart(node, i)
+        range.setEnd(node, i + 1)
+        const r = range.getBoundingClientRect()
+        chars.push({ ch: node.data[i], top: r.width || r.height ? Math.round(r.top) : null, left: r.left, right: r.right })
+      }
+    }
+    const lines = new Map<number, { text: string; left: number; right: number }>()
+    for (const c of chars) {
+      if (c.top === null) continue
+      const line = lines.get(c.top) ?? { text: '', left: Infinity, right: -Infinity }
+      line.text += c.ch
+      if (c.ch.trim()) [line.left, line.right] = [Math.min(line.left, c.left), Math.max(line.right, c.right)]
+      lines.set(c.top, line)
+    }
+    const painted = [...lines.entries()].sort((a, b) => a[0] - b[0]).map(([, line]) => ({ ...line, text: line.text.trim() }))
+
+    const problems: string[] = []
+    for (const line of painted) {
+      if (line.left < inner.left - 0.5 || line.right > inner.right + 0.5) problems.push(`"${line.text}" paints at ${px(line.left, line.right)}, past the panel's ${px(inner.left, inner.right)}`)
+      if (line.right > close.left + 0.5) problems.push(`"${line.text}" at ${px(line.left, line.right)} reaches the close button at ${px(close.left, close.right)}`)
+    }
+    if (box.left < inner.left - 0.5 || box.right > inner.right + 0.5) problems.push(`the title's box at ${px(box.left, box.right)} passes the panel's ${px(inner.left, inner.right)}`)
+    if (box.right > close.left + 0.5) problems.push(`the title's box at ${px(box.left, box.right)} reaches the close button at ${px(close.left, close.right)}`)
+    if (close.top > icon.top + 0.5 || close.right > inner.right + 0.5) problems.push(`the close button at ${px(close.left, close.right)}, top ${Math.round(close.top)}px, is not at the header's top right (the icon's top ${Math.round(icon.top)}px, the panel's right edge ${Math.round(inner.right)}px)`)
+
+    // A word on two lines was broken, which only a word wider than the title's box may be.
+    const words: { text: string; tops: Set<number> }[] = []
+    let word: { text: string; tops: Set<number> } | null = null
+    for (const c of chars) {
+      if (!c.ch.trim()) {
+        word = null
+        continue
+      }
+      if (!word) words.push((word = { text: '', tops: new Set() }))
+      word.text += c.ch
+      if (c.top !== null) word.tops.add(c.top)
+    }
+    const probe = document.createElement('span')
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap'
+    title.appendChild(probe)
+    for (const w of words) {
+      if (w.tops.size < 2) continue
+      probe.textContent = w.text
+      const width = probe.getBoundingClientRect().width
+      if (width < box.width - 0.5) problems.push(`"${w.text}" (${Math.round(width)}px) breaks across lines in a ${Math.round(box.width)}px title it fits`)
+    }
+    probe.remove()
+
+    return {
+      problems,
+      panelScroll: panel.scrollWidth > panel.clientWidth ? `the panel scrolls sideways: ${panel.scrollWidth}px of content in ${panel.clientWidth}px` : null,
+      beside: box.left >= icon.right - 0.5 && box.top < icon.bottom,
+      stacked: box.top >= icon.bottom - 0.5 && Math.abs(box.left - icon.left) <= 0.5,
+      where: `panel ${px(inner.left, inner.right)}, icon ${px(icon.left, icon.right)} by ${px(icon.top, icon.bottom)}, title ${px(box.left, box.right)} by ${px(box.top, box.bottom)} painting ${painted.map((l) => `"${l.text}" ${px(l.left, l.right)}`).join(', ')}, close button ${px(close.left, close.right)} by ${px(close.top, close.bottom)}`,
+    }
+  })
+
+const DIALOG_HEADERS = [
+  {
+    name: 'the consent dialog',
+    firstVisit: true,
+    title: 'Cookie preferences',
+    /** Its body still widens the panel under 200% text on main (the category rows, which #1399 fixes): its header is held
+        here, its panel's own scroll once that lands. */
+    holdsPanel: false,
+    open: async (p: Page, dialog: Locator) => {
+      await p.getByRole('button', { name: 'Customize' }).click()
+      await expect(dialog).toBeVisible()
+    },
+  },
+  {
+    name: 'the email verification prompt',
+    firstVisit: false,
+    title: 'Verify your email to continue',
+    holdsPanel: true,
+    // The prompt listens once the page has hydrated; a second event while it is open is the same prompt.
+    open: (p: Page, dialog: Locator) =>
+      expect(async () => {
+        await p.evaluate(() => window.dispatchEvent(new Event('email-verification-required')))
+        await expect(dialog).toBeVisible({ timeout: 1000 })
+      }).toPass(),
+  },
+]
+
+for (const width of [390, 360, 320]) {
+  test.describe(`a ${width}px phone at 200% text, a dialog's header`, () => {
+    test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true })
+    for (const d of DIALOG_HEADERS) {
+      for (const theme of ['light', 'dark'] as const) {
+        test(`${d.name} keeps its title beside the icon at the default size and under it at 200% text, clear of the close button and inside the panel, at ${width}px in the ${theme} theme`, async ({ page, baseURL }) => {
+          await page.addInitScript(([firstVisit, chosen]) => {
+            try {
+              localStorage.setItem('theme', chosen)
+              if (!firstVisit) localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+            } catch {}
+          }, [d.firstVisit, theme] as const)
+          await answerGuest(page, baseURL!)
+          await page.goto('/pricing')
+          await h1(page, 'Pricing')
+          expect(await page.evaluate(() => document.documentElement.classList.contains('dark')), `/pricing in the ${theme} theme`).toBe(theme === 'dark')
+          const dialog = page.getByRole('dialog', { name: d.title })
+          await d.open(page, dialog)
+          await page.evaluate(() => document.fonts.ready)
+          const at = `${d.name} at ${width}px in the ${theme} theme`
+
+          const atDefault = await headerFit(dialog)
+          expect(atDefault.problems, `${at} at the default text size (${atDefault.where})`).toEqual([])
+          expect(atDefault.beside, `${at} at the default text size: the title sits beside the icon (${atDefault.where})`).toBe(true)
+          if (d.holdsPanel) expect(atDefault.panelScroll, `${at} at the default text size`).toBeNull()
+
+          await doubleText(page)
+
+          const enlarged = await headerFit(dialog)
+          expect(enlarged.problems, `${at} and 200% text (${enlarged.where})`).toEqual([])
+          expect(enlarged.stacked, `${at} and 200% text: the title goes under the icon, at the group's width (${enlarged.where})`).toBe(true)
+          if (d.holdsPanel) expect(enlarged.panelScroll, `${at} and 200% text`).toBeNull()
+          const widths = await measure(page)
+          expect(widths.scrollWidth, `/pricing with ${d.name} open at ${width}px in the ${theme} theme and 200% text: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
+        })
+      }
+    }
+  })
+}

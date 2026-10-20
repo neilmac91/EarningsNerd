@@ -108,5 +108,7 @@ blocked on a lock or has finished; on the old code every case that races two tok
 requests use production's `SessionLocal` settings, autoflush off. In an autoflushing session a password
 reset flushed its users UPDATE before its bulk revoke and waited there for a racing refresh, which hid a
 mutant that moved the lock out of the revocation (E132 checks the other PostgreSQL gates). A sign-in's
-new token takes no lock, so a login that verified the old password before a reset committed still mints
-after it (E121). Any other check-then-write unit stays a review check.
+new token takes no lock. A password login now mints under it, and a password change writes under it,
+each only while the hash it verified is still the account's: a login that verified the old password
+before a reset committed used to mint after it, and such a change to overwrite the reset's password and
+keep a session of its own (E121). Any other check-then-write unit stays a review check.
