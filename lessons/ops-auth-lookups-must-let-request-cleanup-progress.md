@@ -10,8 +10,9 @@ reproduced a required-auth 500 and an optional-auth downgrade to anonymous. The 
 tool calls and its server claim-repair lookup had the same shape inside the ask-stream SSE
 generator: with every slot held, the whole instance stalled for the pool timeout, the tool
 returned `tool_failed`, and the figure shipped without its citation. Moving those lookups to the
-loop's default executor was not enough. Login keeps its connection checked out while it awaits
-bcrypt through `asyncio.to_thread`, so lookups holding every default-executor thread and a holder
+loop's default executor was not enough. Login kept its connection checked out while it awaited
+bcrypt through `asyncio.to_thread` (a password change or reset still does; login has released its
+session before bcrypt since 2026-10-20, E121), so lookups holding every default-executor thread and a holder
 needing one waited on each other until the pool timed out, with the same uncited figure.
 
 **Rule.** The authentication dependencies await their blocking lookup through
