@@ -82,8 +82,9 @@ filled duotone. Three glyphs carry meaning and are reserved: the quotes glyph ma
 passage, the curly braces mark an XBRL fact, and the sparkle appears only on the AI summary chip
 (the "Full summary" badge and the generation card). No other glyph may use them, and no decorative
 icon tiles on the public pages: the three how-it-works tiles keep their icons because each names an
-action (search, pick, summarise); the "Also in Pro" tiles keep theirs because each names a file
-kind. A section heading never gets an icon.
+action (search, pick, summarise); the "Also in Pro" extras, a ruled list since the landing's rows
+(D-045), carry none and name their file kinds and forms as text in the data face. A section heading
+never gets an icon.
 
 ## 5. Imagery
 

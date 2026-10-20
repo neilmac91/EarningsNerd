@@ -50,7 +50,6 @@ export {
   EyeIcon,
   EyeSlashIcon,
   FileArrowDownIcon,
-  FilePdfIcon,
   FileTextIcon,
   FileXlsIcon,
   FunnelIcon,
