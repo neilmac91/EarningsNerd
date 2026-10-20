@@ -34,16 +34,18 @@ Bash command and every call to an MCP server whose name contains "github" in any
 with the job's flags, over the commits the push would add: those reachable from what it sends and from no
 remote-tracking ref of the remote it pushes to, which it finds as git does (the remote the line names, by
 its first word or `--repo`; else the current branch's `pushRemote`, `remote.pushDefault`, the current
-branch's remote, then origin). Its `git log` runs with options that hold it to what CI's git prints
+branch's remote, then origin), whose refs count only when it pushes to the repository it fetches from:
+a push to a URL, a path, a fork or a mirror reads every commit it sends. Its `git log` runs with options
+that hold it to what CI's git prints
 (`--no-color --no-textconv --no-ext-diff --root --pretty=medium --date=default --no-abbrev-commit
 --no-show-signature --src-prefix=a/ --dst-prefix=b/`) and `GIT_NO_REPLACE_OBJECTS=1`, so the user's or the
 repository's git config, none of which CI has, cannot hide an added line (colour, a textconv driver, a
 replace ref, `log.showRoot`) or change its fingerprint (`format.pretty`, `log.date`, `log.abbrevCommit`,
 `diff.noprefix`). It refuses the call on a
-finding, naming each finding's file, line, rule and commit fingerprint, never the literal; when it cannot
-resolve what the push sends, or the line moves HEAD or a branch first, it widens the scan to every
-unpushed local branch and says so, and how to narrow it (name the source literally; push in a call of its
-own). Every scan reads main's pins and config (`origin/main`'s `.gitleaksignore` and `.gitleaks.toml`, as
+finding, naming each finding's file, line, rule and commit fingerprint, never the literal, and before any
+scan when it cannot tell what the push sends (a source or a repository it cannot resolve as the line
+stands, or a line that moves HEAD or a branch first), saying what to name literally, or to push in a
+call of its own. Every scan reads main's pins and config (`origin/main`'s `.gitleaksignore` and `.gitleaks.toml`, as
 last fetched; no pins when it cannot read them, and gitleaks' own default config, which the job runs,
 while main has no `.gitleaks.toml`), never the pushing checkout's, its git directory's, a call's or one
 that `GITLEAKS_CONFIG` or `GITLEAKS_CONFIG_TOML` names, since every other pull request's `secret-scan`
@@ -64,10 +66,10 @@ use it for a scan by hand. CI runs the linux x64 archive; the setup pins the sam
 and x64 and linux arm64 archives from its checksums file, and the gate fails when `ci.yml`'s version moves
 without them. Without a verified binary, or on a platform with no pin, the guard refuses every call it
 would scan and says what to do (the setup command; how to add a pin). Not gated: a push or write another
-shell or program makes (`bash -c '...'`, a script, an alias), text a command builds as it runs, a
-repository the hook cannot resolve (`cd "$VAR" && git push`), whose widened scan reads the event's working
-directory's repository and not the one pushed, a push that configuration widens beyond its current branch
-(`push.default=matching`, a remote's push refspec), a file whose text git leaves out of `git log -p`
+shell or program makes (`bash -c '...'`, a script, an alias), text a command builds as it runs, a push
+that configuration widens beyond its current branch (`push.default=matching`, a remote's push refspec), a
+remote-tracking ref whose branch the remote has since deleted (`git fetch --prune` drops it), a file
+whose text git leaves out of `git log -p`
 as binary because of the repository's or the user's settings (a `-diff` attribute in `info/attributes`
 or `core.attributesFile`, a diff driver set `binary = true`, `core.bigFileThreshold` below its size; CI
 has none of them and scans that text; `--text` would scan it, but also the binary files CI skips, so the

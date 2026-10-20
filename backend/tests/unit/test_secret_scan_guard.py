@@ -149,11 +149,15 @@ sys.exit(1 if findings else 0)
 @pytest.fixture(autouse=True)
 def _own_git_config(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every git a case runs, the hook's included, reads an empty global config of the case's own: never the user's,
-    and never /dev/null, over which a config write would rename its lock file."""
+    never one the environment carries (a cloud session's GIT_CONFIG_COUNT rewrites GitHub's ssh URLs to https), and
+    never /dev/null, over which a config write would rename its lock file."""
     config = tmp_path_factory.mktemp("git") / "config"
     config.write_text("", encoding="utf-8")
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    for name in list(os.environ):
+        if name.startswith(("GIT_CONFIG_COUNT", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")):
+            monkeypatch.delenv(name)
 
 
 def _setup_module():
@@ -368,50 +372,78 @@ def test_a_push_reads_what_it_sends_from_where_it_runs(scanner: Scanner, repo: P
     assert call["env"]["GIT_DIR"] == str(repo / ".git")
 
 
-# Each reaches side's commit: by naming it, or, when the line names something the hook cannot resolve, through the
-# scan of every local branch and HEAD that no remote-tracking ref holds, which the refusal says it widened to.
+# Each sends side's commit, which no remote-tracking ref holds: by naming it, or every branch or ref.
 REACHES_SIDE = {
-    "the side branch by name": ("git push origin side", False),
-    "every branch": ("git push --all origin", False),
-    "every branch, by --branches": ("git push --branches origin", False),
-    "every ref": ("git push --mirror origin", False),
-    "a branch held in a variable": ('git push origin "$BRANCH"', True),
-    "a branch a substitution names": ("git push origin $(git branch --show-current)", True),
-    "a directory held in a variable": ('cd "$DIR" && git push origin main', True),
-    "the previous directory": ("cd - && git push origin main", True),
-    "a wildcard refspec": ("git push origin 'refs/heads/*:refs/heads/*'", True),
-    "a source that does not exist yet": ("git push origin feature", True),
-    "--git-dir": ("git --git-dir=.git push origin main", True),
-    "GIT_DIR=": ("GIT_DIR=.git git push origin main", True),
+    "the side branch by name": "git push origin side",
+    "every branch": "git push --all origin",
+    "every branch, by --branches": "git push --branches origin",
+    "every ref": "git push --mirror origin",
 }
 
 
-@pytest.mark.parametrize(("command", "widened"), REACHES_SIDE.values(), ids=REACHES_SIDE.keys())
-def test_a_push_the_hook_cannot_resolve_reads_every_unpushed_branch(scanner: Scanner, repo: Path, command: str,
-                                                                   widened: bool) -> None:
-    reason = _refused(_bash(scanner, command, repo), "side.txt:1 (stub-rule)")
-    assert ("widened to every local branch's and HEAD's" in reason) is widened
-    assert ("the hook cannot resolve; name them literally to narrow it" in reason) is widened
+@pytest.mark.parametrize("command", REACHES_SIDE.values(), ids=REACHES_SIDE.keys())
+def test_a_push_reads_each_unpushed_commit_it_sends(scanner: Scanner, repo: Path, command: str) -> None:
+    _refused(_bash(scanner, command, repo), "side.txt:1 (stub-rule)")
 
 
-@pytest.mark.parametrize(("command", "refused"), [
-    ("git push origin main", True),
-    ("cd {repo} && git push origin main", False),
-    ("(cd {repo}) && git push origin main", True),  # the subshell's cd ends with it
-    ("git -C {repo} push origin main", False),
-    ("cd {repo}; cd {other} && git push origin main", True),
-    ("pushd {repo} && popd && git push origin main", True),  # back where it started
-    ("cd {other}/not-yet && git push origin main", True),  # a directory no repository holds yet
+# Each names a source or a repository the hook cannot resolve as the line stands, so the push could send any commit in
+# the repository, one that no branch or HEAD reaches among them: it is refused before any scan.
+UNRESOLVED = {
+    "a branch held in a variable": ('git push origin "$BRANCH"', "source"),
+    "a branch a substitution names": ("git push origin $(git branch --show-current)", "source"),
+    "a wildcard refspec": ("git push origin 'refs/heads/*:refs/heads/*'", "source"),
+    "a source that does not exist yet": ("git push origin feature", "source"),
+    "a directory held in a variable": ('cd "$DIR" && git push origin main', "repository"),
+    "the previous directory": ("cd - && git push origin main", "repository"),
+    "--git-dir": ("git --git-dir=.git push origin main", "repository"),
+    "GIT_DIR=": ("GIT_DIR=.git git push origin main", "repository"),
+}
+UNRESOLVED_REFUSALS = {
+    "source": ("which the hook cannot resolve to a commit as the line stands", "Name each source literally"),
+    "repository": ("pushes from a repository the hook cannot resolve as the line stands", "git -C <dir> push"),
+}
+
+
+@pytest.mark.parametrize(("command", "what"), UNRESOLVED.values(), ids=UNRESOLVED.keys())
+def test_a_push_the_hook_cannot_resolve_is_refused_before_any_scan(scanner: Scanner, repo: Path, command: str,
+                                                                  what: str) -> None:
+    _refused(_bash(scanner, command, repo), *UNRESOLVED_REFUSALS[what])
+    assert scanner.calls() == []
+
+
+def test_a_source_in_a_variable_is_refused_though_no_branch_reaches_what_it_names(scanner: Scanner, repo: Path) -> None:
+    # Codex's case: the variable names a tag on a commit no branch or HEAD reaches, which a scan of every branch and
+    # HEAD would miss.
+    _git(repo, "checkout", "-q", "--detach")
+    _commit(repo, "detached.txt", LEAKY)
+    _git(repo, "tag", "recovered")
+    _git(repo, "checkout", "-q", "main")
+    _refused(_bash(scanner, 'REF=recovered; git push origin "${REF}:refs/heads/recovered"', repo), "'${REF}'",
+             "cannot resolve to a commit as the line stands")
+    assert scanner.calls() == []
+
+
+@pytest.mark.parametrize(("command", "outcome"), [
+    ("git push origin main", "found"),
+    ("cd {repo} && git push origin main", None),
+    ("(cd {repo}) && git push origin main", "found"),  # the subshell's cd ends with it
+    ("git -C {repo} push origin main", None),
+    ("cd {repo}; cd {other} && git push origin main", "found"),
+    ("pushd {repo} && popd && git push origin main", "unresolved"),  # the hook keeps no directory stack
+    ("cd {other}/not-yet && git push origin main", "unresolved"),  # a directory no repository holds yet
 ])
 def test_the_push_runs_in_the_directory_the_line_moves_to(scanner: Scanner, repo: Path, tmp_path: Path,
-                                                         command: str, refused: bool) -> None:
+                                                         command: str, outcome: str | None) -> None:
     other = _new_repo(tmp_path / "other")  # no remote-tracking ref: its one commit, which holds the marker, is new
     _commit(other, "other.txt", LEAKY)
     decision = _bash(scanner, command.format(repo=repo, other=other), other)
-    if refused:
+    if outcome is None:
+        assert decision is None
+    elif outcome == "found":
         _refused(decision, "other.txt:1 (stub-rule)")
     else:
-        assert decision is None
+        _refused(decision, "pushes from a repository the hook cannot resolve as the line stands")
+        assert scanner.calls() == []
 
 
 @pytest.mark.parametrize("committed", [True, False], ids=["committed", "uncommitted"])
@@ -531,7 +563,7 @@ MOVES = {
     "checkout": "git checkout side && git push",
     "reset": "git reset --hard side && git push -f origin HEAD:cleanbr",
     "branch -f": "git branch -f cleanbr side && git push -f origin cleanbr",
-    # Read as moves though they move nothing: the push alone would send main's clean commit, and no name narrows it.
+    # Read as moves though they move nothing, since the hook reads no mover's arguments.
     "a checkout of a file": "git checkout -- base.txt && git push origin main",
     "stash": "git stash && git push origin main",
     "branch --show-current": "git branch --show-current && git push origin main",
@@ -539,13 +571,12 @@ MOVES = {
 
 
 @pytest.mark.parametrize("command", MOVES.values(), ids=MOVES.keys())
-def test_a_line_that_moves_head_or_a_branch_before_it_pushes_widens_the_scan(scanner: Scanner, repo: Path,
-                                                                            command: str) -> None:
+def test_a_line_that_moves_head_or_a_branch_before_it_pushes_is_refused(scanner: Scanner, repo: Path,
+                                                                       command: str) -> None:
     _git(repo, "branch", "cleanbr", "main")  # clean as it stands: the line points it, or HEAD, at side first
-    reason = _refused(_bash(scanner, command, repo), "side.txt:1 (stub-rule)",
-                      "widened to every local branch's and HEAD's because the line moves HEAD or a branch before it "
-                      "pushes; push in a call of its own to narrow it")
-    assert "name them literally" not in reason
+    _refused(_bash(scanner, command, repo), "moves HEAD or a branch before it pushes",
+             "Run the line without its push, then push in a call of its own")
+    assert scanner.calls() == []
 
 
 # Git configuration CI does not have, each of which hides the new commit's added line from `git log -p` unless the scan
@@ -615,9 +646,8 @@ def test_commits_another_remote_holds_are_scanned_on_their_way_to_origin(scanner
     ("git push", {"branch.main.remote": "backup"}, "--remotes=backup"),
     ("git push", {"branch.main.remote": "origin", "remote.pushDefault": "backup"}, "--remotes=backup"),
     ("git push", {"remote.pushDefault": "origin", "branch.main.pushRemote": "backup"}, "--remotes=backup"),
-    ("git push https://example.com/o/r.git main", {}, "--remotes"),
 ], ids=["a named remote", "a named remote over pushRemote", "no remote named", "the branch's upstream remote",
-        "remote.pushDefault", "the branch's pushRemote", "a URL"])
+        "remote.pushDefault", "the branch's pushRemote"])
 def test_the_scan_leaves_out_what_the_remote_it_pushes_to_holds(scanner: Scanner, repo: Path, tmp_path: Path,
                                                                command: str, config: dict[str, str], held: str) -> None:
     _git(repo, "remote", "add", "backup", str(tmp_path / "backup.git"))
@@ -629,10 +659,49 @@ def test_the_scan_leaves_out_what_the_remote_it_pushes_to_holds(scanner: Scanner
     assert call["args"][2].endswith(f" --not {held}")
 
 
+# Where the push goes, against what its remote's fetched refs say it holds. origin/main holds base.txt's commit, which
+# holds the marker: a scan that leaves origin's refs out passes, and one that leaves nothing out finds it.
+DESTINATIONS = {
+    "a URL": ("git push https://example.com/new.git main", [], False),
+    "a path": ("git push {tmp}/new.git main", [], False),
+    "a remote that pushes to a fork": ("git push", [["remote", "set-url", "--push", "origin", "https://example.com/f"]],
+                                       False),
+    "a remote that pushes to a mirror too": ("git push", [
+        ["remote", "set-url", "--add", "--push", "origin", "{tmp}/origin.git"],
+        ["remote", "set-url", "--add", "--push", "origin", "https://example.com/mirror.git"]], False),
+    "a pushInsteadOf that sends it elsewhere": ("git push", [
+        ["config", "url.https://example.com/mirror/.pushInsteadOf", "{tmp}/"]], False),
+    "its push URL in another form": ("git push", [
+        ["remote", "set-url", "--push", "origin", "file://{tmp}/origin.git/"]], True),
+    "an https remote that pushes over ssh": ("git push", [
+        ["remote", "set-url", "origin", "https://GitHub.com/o/r"],
+        ["remote", "set-url", "--push", "origin", "git@github.com:o/r.git"]], True),
+    "an ssh URL and its scp-like form": ("git push", [
+        ["remote", "set-url", "origin", "ssh://git@github.com/o/r.git"],
+        ["remote", "set-url", "--push", "origin", "git@github.com:o/r"]], True),
+}
+
+
+@pytest.mark.parametrize(("command", "setup", "held"), DESTINATIONS.values(), ids=DESTINATIONS.keys())
+def test_only_a_remote_that_fetches_from_where_the_push_goes_holds_anything(scanner: Scanner, repo: Path,
+                                                                            tmp_path: Path, command: str,
+                                                                            setup: list[list[str]], held: bool) -> None:
+    for args in setup:
+        _git(repo, *(arg.format(tmp=tmp_path) for arg in args))
+    decision = _bash(scanner, command.format(tmp=tmp_path), repo)
+    [call] = scanner.calls()
+    log_range = call["args"][2]
+    if held:
+        assert decision is None and log_range.endswith(" --not --remotes=origin"), log_range
+    else:
+        _refused(decision, "base.txt:1 (stub-rule)", "every one it sends, since no remote's fetched refs show what")
+        assert " --not" not in log_range, log_range
+
+
 @pytest.mark.parametrize("command", ["git push origin tag v1", "git push --tags origin"])
 def test_a_tag_push_reads_the_tags_commits(scanner: Scanner, repo: Path, command: str) -> None:
     _git(repo, "tag", "v1", "side")
-    assert "widened" not in _refused(_bash(scanner, command, repo), "side.txt:1 (stub-rule)")
+    _refused(_bash(scanner, command, repo), "side.txt:1 (stub-rule)")
 
 
 def test_a_push_from_a_repository_the_hook_cannot_resolve_or_fall_back_on_is_refused(scanner: Scanner,
@@ -880,19 +949,17 @@ def test_a_scan_out_of_time_says_what_can_work(guard, scanner: Scanner, repo: Pa
     guard.DEADLINE = 0.0  # spent: the first subprocess runs out of time
     assert "Push fewer commits at a time" in refusal("Bash", {"command": "git push"})
     assert "Send fewer files per call" in refusal("mcp__github__push_files", {"files": [{"path": "a.md", "content": "x"}]})
-    guard.DEADLINE = time.monotonic() + 60  # time runs out in gitleaks, once the scan has widened
+    guard.DEADLINE = time.monotonic() + 60  # time runs out in gitleaks
 
     def late(*args: object, **kwargs: object) -> None:
         raise guard.Late
 
     monkeypatch.setattr(guard, "_gitleaks", late)
-    reason = refusal("Bash", {"command": 'git push origin "$BRANCH"'})
-    assert "because the line names a source or a repository the hook cannot resolve" in reason
-    assert "Name the source and the repository literally" in reason
-    reason = refusal("Bash", {"command": "git checkout -- base.txt && git push origin main"})  # no name narrows it
-    assert "because the line moves HEAD or a branch before it pushes" in reason
-    assert "Run the line without its push, then push in a call of its own" in reason
-    assert "literally" not in reason
+    assert "Push fewer commits at a time" in refusal("Bash", {"command": "git push origin main"})
+    reason = refusal("Bash", {"command": "git push https://example.com/new.git main"})  # fewer commits would not help
+    assert "it read every commit the push sends, since no remote's fetched refs show what" in reason
+    assert "Push to a remote by its name, one that fetches from where it pushes" in reason
+    assert "Push fewer commits at a time" not in reason
 
 
 # --- registration --------------------------------------------------------------------------------------------------

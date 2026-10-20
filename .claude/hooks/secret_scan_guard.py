@@ -29,25 +29,28 @@ in any case. It scans
   its comments. The push runs in the event's working directory as the line's `cd` and `pushd` to a directory it names
   literally move it (a subshell's move ends with the subshell; a command substitution's text is read after the rest of
   its line), then `git -C`. The scan is `gitleaks git .` with GIT_DIR=<that repository's git directory> and
-  `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable
-  from what the push sends and from no remote-tracking ref of the remote it pushes to, which it finds as git does (the
-  one the line names, by its first word or --repo; else the current branch's pushRemote, remote.pushDefault, the
-  current branch's remote, then origin; a name that is no configured remote, such as a URL or a path, names none, so
-  every remote's refs count). A remote's pushurl changes nothing here: what origin's refs hold is on GitHub already,
-  where CI scans it. The log options (LOG_FLAGS) and GIT_NO_REPLACE_OBJECTS=1 in gitleaks' environment hold `git log
-  -p` to what CI's git prints. The user's or the repository's git config, which CI has none of, could otherwise hide an
-  added line (colour, a textconv driver, an external diff, a replace ref, a root commit's diff that log.showRoot leaves
-  out) or change its fingerprint (a commit header in another form under format.pretty, log.date, log.abbrevCommit or
-  log.showSignature; file names without a/ and b/ under diff.noprefix). What it sends: each refspec's source
-  (`tag <name>` too; a deletion or a negative refspec sends nothing),
-  HEAD when it names none, every branch for --all or --branches, every ref for --mirror and every tag for --tags; a dry
-  run and --delete send nothing. A source it cannot resolve (a variable, a substitution, a wildcard, one that does not
-  exist yet) widens the scan to every local branch's commits and HEAD's that no such ref holds, and a refusal says so,
-  why, and to name them literally. So does a git checkout, switch, reset, branch, update-ref, worktree, tag,
-  symbolic-ref or stash earlier in the line, since the hook resolves sources before the line moves HEAD or a branch;
-  that refusal says to push in a call of its own. A repository it cannot resolve (a variable, a substitution, `cd -`,
-  popd, --git-dir, --work-tree, GIT_DIR=), or a directory that is in none, widens the scan the same way in the event's
-  working directory's repository; with no repository there, an unresolved one refuses.
+  `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable from what the push
+  sends and from no remote-tracking ref of the remote it pushes to, which it finds as git does (the one the line names,
+  by its first word or --repo; else the current branch's pushRemote, remote.pushDefault, the current branch's remote,
+  then origin). Those refs count only when every URL the remote pushes to names the repository it fetches from (`git
+  remote get-url`, which applies pushurl, insteadOf and pushInsteadOf; compared without scheme, user, `.git` or a
+  trailing slash, an scp-like `host:path` read as `host/path`, so the https and ssh forms of one repository agree). A
+  URL or a path, or a remote that pushes elsewhere than it fetches from (a fork, a mirror), may hold none of what it is
+  sent, so its scan drops `--not` and reads every commit the push sends; when that outlasts the hook's time, the refusal
+  says to push to a remote that fetches from there. The log options (LOG_FLAGS) and GIT_NO_REPLACE_OBJECTS=1 in
+  gitleaks' environment hold `git log -p` to what CI's git prints. The user's or the repository's git config, which CI
+  has none of, could otherwise hide an added line (colour, a textconv driver, an external diff, a replace ref, a root
+  commit's diff that log.showRoot leaves out) or change its fingerprint (a commit header in another form under
+  format.pretty, log.date, log.abbrevCommit or log.showSignature; file names without a/ and b/ under diff.noprefix).
+  What it sends: each refspec's source (`tag <name>` too; a deletion or a negative refspec sends nothing), HEAD when it
+  names none, every branch for --all or --branches, every ref for --mirror and every tag for --tags; a dry run and
+  --delete send nothing. A push the hook cannot pin down is refused before any scan, since it could send any commit in
+  the repository: one whose source does not resolve to a commit as the line stands (a variable, a substitution, a
+  wildcard, a name that does not exist yet), one from a repository the hook cannot resolve (a variable, a substitution,
+  `cd -`, popd, --git-dir, --work-tree, GIT_DIR=, a directory no repository holds yet), and one after a git checkout,
+  switch, reset, branch, update-ref, worktree, tag, symbolic-ref or stash earlier in the line, since the hook resolves
+  sources before the line moves HEAD or a branch. Each refusal says what to name literally, or to push in a call of its
+  own.
 - a line that pushes and also makes commits anywhere (git am, cherry-pick, commit, commit-tree, merge, pull, rebase
   or revert): refused, since a hook runs before the line and cannot read a commit the line has yet to make. The
   commits go in one call and the push in the next.
@@ -66,14 +69,13 @@ for a commit, its fingerprint) and what to do next, never the secret (gitleaks r
 through.
 
 Not checked: a push or write that another shell or program makes (`bash -c '...'`, a here-document fed to a shell, a
-script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in
-the same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, a
-repository the hook cannot resolve (`cd "$VAR" && git push`), whose widened scan reads the event's working directory's
-repository and not the one pushed, a push that configuration widens beyond its current branch (push.default=matching, a
-remote's push refspec), a commit that a move earlier in the line reaches outside every branch, a file whose text git
-leaves out of `git log -p` as binary because of the repository's or the user's settings (a `-diff` attribute in
-info/attributes or core.attributesFile, a diff driver set `binary = true`, core.bigFileThreshold below the file's
-size; CI has none of them and scans that text; `--text` would scan it, but also the binary files CI skips, so the
+script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in the
+same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, a push that
+configuration widens beyond its current branch (push.default=matching, a remote's push refspec), a remote-tracking ref
+whose branch the remote has since deleted (`git fetch --prune` drops it), whose commits the scan still counts as held, a
+file whose text git leaves out of `git log -p` as binary because of the repository's or the user's settings (a `-diff`
+attribute in info/attributes or core.attributesFile, a diff driver set `binary = true`, core.bigFileThreshold below the
+file's size; CI has none of them and scans that text; `--text` would scan it, but also the binary files CI skips, so the
 hook would refuse pushes CI passes), the other way about a committed `.gitattributes` that marks files `-diff` (CI's
 checkout honours it and the hook reads none, so it can refuse a push CI passes), a fork layout, where CI reads the main
 of another remote than origin (the pins come from origin/main alone), text a command builds as it runs
@@ -110,8 +112,7 @@ SENDS_NOTHING = {"-n", "--dry-run", "-d", "--delete"}
 COMMITTERS = ("am", "cherry-pick", "commit", "commit-tree", "merge", "pull", "rebase", "revert")
 # Subcommands that can move HEAD, a branch or a tag: a push after one in the same line sends what the hook cannot resolve.
 MOVERS = ("checkout", "switch", "reset", "branch", "update-ref", "worktree", "tag", "symbolic-ref", "stash")
-MOVED = "\x00moved"  # a source that marks such a push
-MOVED_WHY = "the line moves HEAD or a branch before it pushes"  # why its scan widens: a push of its own narrows it
+MOVED = "\x00moved"  # a source that marks such a push, which is refused: the hook cannot tell what it sends
 LEADERS = ("{", "!", "if", "then", "else", "elif", "do", "while", "until", "time", "command", "builtin")
 REDIRECTS = ("<", ">", ">>", ">&", "<&", "&>", ">|")
 EXPANDED = ("$", "`", "*", "?", "[", "\x00")  # a word holding one is expanded as the line runs, or names no file
@@ -145,8 +146,14 @@ WRITE_REMEDY = (
 LATE = "the scan did not finish inside the hook's time limit"
 LATE_PUSH = ("Push fewer commits at a time (`git push origin <older-sha>:refs/heads/<branch>`, then the rest), or ask the "
              "founder to push from their own terminal")
-LATE_WIDENED = "Name the source and the repository literally (`git -C <dir> push origin <branch>`) and send the call again"
-LATE_MOVED = "Run the line without its push, then push in a call of its own"
+LATE_UNHELD = ("Push to a remote by its name, one that fetches from where it pushes (`git remote add <name> <url>`, "
+               "then `git fetch <name>`), so the scan leaves out what that repository holds; to a new repository, "
+               "push older commits first (`git push <name> <older-sha>:refs/heads/<branch>`), then the rest")
+MOVED_REMEDY = "Run the line without its push, then push in a call of its own"
+SOURCE_REMEDY = ("Name each source literally, as a branch, a tag or a commit that exists before the line runs, and "
+                 "send the call again")
+REPOSITORY_REMEDY = ("Name the directory literally (`git -C <dir> push ...`), in a repository that exists before the "
+                     "line runs, and send the call again")
 LATE_WRITE = "Send fewer files per call"
 COMMIT_REMEDY = "Commit in one call and push in the next, so the push's scan reads the new commits"
 SCAN_ERROR_REMEDY = "Fix what gitleaks names (a missing ref, an unreadable repository or file) and send the call again"
@@ -446,51 +453,72 @@ def _top(directory: Path) -> Path | None:
     return Path(found) if found else None
 
 
-def _target(top: Path, remote: str | None) -> str | None:
-    """The remote whose remote-tracking refs hold what a push need not send, found as git finds where a push goes: the
-    one it names; else the current branch's pushRemote, remote.pushDefault, the current branch's remote, then origin.
-    None when that is no configured remote (a URL or a path), so every remote's refs count."""
-    configured = (_git(top, "remote") or "").split()
-    if remote is None:
-        branch = _git(top, "symbolic-ref", "--quiet", "--short", "HEAD")
-        keys = [f"branch.{branch}.pushRemote", "remote.pushDefault", f"branch.{branch}.remote"]
-        if branch is None:  # a detached HEAD: no branch keys
-            keys = keys[1:2]
-        remote = next((value for key in keys if (value := _git(top, "config", "--get", key))), "origin")
-    return remote if remote in configured else None
+def _destination(top: Path, remote: str | None) -> str:
+    """Where a push goes, found as git finds it: the repository the line names; else the current branch's pushRemote,
+    remote.pushDefault, the current branch's remote, then origin."""
+    if remote is not None:
+        return remote
+    branch = _git(top, "symbolic-ref", "--quiet", "--short", "HEAD")
+    keys = [f"branch.{branch}.pushRemote", "remote.pushDefault", f"branch.{branch}.remote"]
+    if branch is None:  # a detached HEAD: no branch keys
+        keys = keys[1:2]
+    return next((value for key in keys if (value := _git(top, "config", "--get", key))), "origin")
 
 
-def _scan_push(directory: Path | None, options: list[str], sources: list[str], remote: str | None,
-               base: Path) -> tuple[Path, Path, str, str | None] | str | None:
-    """The repository, its git directory and the log range a push's scan reads, and why it widened to every unpushed
-    branch, if it did; a refusal when there is none to read; None for nothing."""
-    top = _top(directory) if directory is not None else None
-    if top is None:
-        top, sources = _top(base), [""]  # read as unresolved: every branch of the working directory's repository
-        if top is None:
-            if directory is None:
-                return _reason(
-                    "this line pushes from a repository the hook cannot resolve (a variable, a substitution, `cd -`, "
-                    "--git-dir or --work-tree), and the event's working directory is in none.",
-                    "Name the directory literally (`git -C <dir> push ...`) and send the call again")
-            return None
-    revisions, unresolved = list(options), False
-    for source in sources:
-        commit = None if not source or source.startswith("-") or any(c in source for c in EXPANDED) else (
-            _git(top, "rev-parse", "--verify", "--quiet", f"{source}^{{commit}}"))
-        unresolved |= commit is None
-        revisions += [commit] if commit else []
-    why = None
-    if unresolved:
-        head = _git(top, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
-        revisions += ["--branches", *([head] if head else [])]
-        why = MOVED_WHY if MOVED in sources else "the line names a source or a repository the hook cannot resolve"
-    gitdir = _git(top, "rev-parse", "--absolute-git-dir")
-    if not revisions or gitdir is None:
+def _held(top: Path, destination: str) -> str | None:
+    """The remote whose remote-tracking refs show what `destination` holds: itself, when it is a configured remote
+    that pushes only to the repository it fetches from. None for a URL or a path, or a remote that pushes elsewhere (a
+    fork, a mirror), whose fetched refs say nothing of what the push's destination holds."""
+    if destination not in (_git(top, "remote") or "").split():
         return None
-    target = _target(top, remote)
-    held = f"--remotes={target}" if target else "--remotes"
-    return top, Path(gitdir), " ".join([*LOG_FLAGS, *dict.fromkeys(revisions), "--not", held]), why
+    fetched = _git(top, "remote", "get-url", destination)
+    pushed = (_git(top, "remote", "get-url", "--push", "--all", destination) or "").splitlines()
+    if fetched is None or {_repository_url(url) for url in pushed} != {_repository_url(fetched)}:
+        return None
+    return destination
+
+
+def _repository_url(url: str) -> str:
+    """The repository a URL or a path names, written so that its forms compare equal: without the scheme, the user,
+    `.git` or a trailing slash, an scp-like `host:path` read as `host/path`, and the host in lower case."""
+    text, schemed = re.subn(r"^[A-Za-z][A-Za-z0-9+.-]*://", "", url.strip())
+    if not schemed and re.match(r"[^/]*:", text):  # scp-like: [user@]host:path
+        text = text.replace(":", "/", 1)
+    host, _, path = re.sub(r"^[^/@]*@", "", text).partition("/")
+    return f"{host.lower()}/{path.rstrip('/').removesuffix('.git')}"
+
+
+def _scan_push(directory: Path | None, options: list[str], sources: list[str],
+               remote: str | None) -> tuple[Path, Path, str, str | None] | str | None:
+    """The repository, its git directory and the log range a push's scan reads, and where the push goes when no
+    remote's fetched refs show what that holds (the range then leaves nothing out); a refusal when the hook cannot tell
+    what the push sends, which could then be any commit in the repository; None when it sends nothing."""
+    if not options and not sources:
+        return None
+    if MOVED in sources:
+        return _reason("this line moves HEAD or a branch before it pushes, and the hook resolves what a push sends "
+                       "before the line runs, so it cannot tell what this push would send.", MOVED_REMEDY)
+    top = _top(directory) if directory is not None else None
+    gitdir = _git(top, "rev-parse", "--absolute-git-dir") if top is not None else None
+    if top is None or gitdir is None:
+        return _reason(
+            "this line pushes from a repository the hook cannot resolve as the line stands (a variable, a "
+            "substitution, `cd -`, popd, --git-dir, --work-tree, GIT_DIR=, or a directory no repository holds yet), so "
+            "it cannot tell what the push would send.", REPOSITORY_REMEDY)
+    revisions = list(options)
+    for source in sources:
+        commit = None if source.startswith("-") or any(char in source for char in EXPANDED) else (
+            _git(top, "rev-parse", "--verify", "--quiet", f"{source}^{{commit}}"))
+        if commit is None:
+            return _reason(
+                f"this push sends {source!r}, which the hook cannot resolve to a commit as the line stands (a "
+                "variable, a substitution, a wildcard, or a name that does not exist yet), so it cannot tell what the "
+                "push would send.", SOURCE_REMEDY)
+        revisions.append(commit)
+    destination = _destination(top, remote)
+    held = _held(top, destination)
+    log_range = " ".join([*LOG_FLAGS, *dict.fromkeys(revisions), *(["--not", f"--remotes={held}"] if held else [])])
+    return top, Path(gitdir), log_range, None if held else destination
 
 
 def _scan_files(files: list[tuple[str, bytes]], where: str, remedy: str) -> str | None:
@@ -559,26 +587,25 @@ def _bash_refusal(command: str, cwd: object) -> str | None:
         return _reason(
             "this line commits and pushes in one call, and a hook runs before the line, so a commit the same line "
             "makes cannot be scanned.", COMMIT_REMEDY)
-    scans, why = [], None
+    scans, unheld = [], None
     try:
         for directory, options, sources, remote in pushes:
-            scan = _scan_push(directory, options, sources, remote, base)
+            scan = _scan_push(directory, options, sources, remote)
             if isinstance(scan, str):
                 return scan
             if scan is not None and scan not in scans:
                 scans.append(scan)
-        for top, gitdir, log_range, why in scans:
+        for top, gitdir, log_range, unheld in scans:
             where = f"the commits this push would add to {top} (`--log-opts=\"{log_range}\"`)"
-            if why:
-                narrow = "push in a call of its own" if why == MOVED_WHY else "name them literally"
-                where += f", widened to every local branch's and HEAD's because {why}; {narrow} to narrow it"
+            if unheld:
+                where += f", every one it sends, since no remote's fetched refs show what {unheld!r} holds"
             refusal_reason = _gitleaks(["git", ".", f"--log-opts={log_range}"], where, PUSH_REMEDY, top, gitdir=gitdir)
             if refusal_reason is not None:
                 return refusal_reason
     except Late:
-        if why:
-            return _reason(f"{LATE}: it was widened to every local branch's commits and HEAD's, because {why}.",
-                           LATE_MOVED if why == MOVED_WHY else LATE_WIDENED)
+        if unheld:
+            return _reason(f"{LATE}: it read every commit the push sends, since no remote's fetched refs show what "
+                           f"{unheld!r} holds.", LATE_UNHELD)
         return _reason(f"{LATE}.", LATE_PUSH)
     return _api_refusal(command, script, cwd) if CONTENT_WRITE.search(plain) else None
 
