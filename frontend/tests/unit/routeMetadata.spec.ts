@@ -10,7 +10,7 @@ import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { HEADLINES, pageTitleFor, type HeadlineVariant } from '@/features/marketing/lib/headline'
 import { SOCIAL_CARD } from '@/lib/socialCard'
-import { bindingResolver, type Binding } from './astBindings'
+import { bindingResolver, containerEscape, type Binding } from './astBindings'
 
 /**
  * Route metadata (D-038; docs/brand/08-applications.md §1). Every route names itself in the tab and in
@@ -22,8 +22,9 @@ import { bindingResolver, type Binding } from './astBindings'
  *   2. Every title reads '<Page name> | EarningsNerd' in sentence case (proper nouns, acronyms and the
  *      company's own name allowed), each headline variant the home page's experiment serves included. A
  *      generated page holds every title template it can return in that form, read with every substitution a
- *      name and in each reading of it (each branch of a condition, `||` or `??` and each same-file const a
- *      substitution names read as its text, any other substitution as a name); a title template with more
+ *      name and in each reading of it (each branch of a condition, `||`, `??` or `&&`, a comma's right side,
+ *      each same-file const a substitution names and each entry of a same-file object or array literal nothing
+ *      writes after it is made read as its text, any other substitution as a name); a title template with more
  *      than 64 readings fails rather than be read in part. It titles every state (a title of undefined or
  *      null titles none).
  *   3. Every private route resolves robots to index: false. No public route resolves it to noindex
@@ -733,10 +734,68 @@ const readings = (parts: string[][]): string[] =>
     return next.length > MAX_TEMPLATE_READINGS ? [...next.slice(0, MAX_TEMPLATE_READINGS), MORE] : next
   }, [''])
 
+/** The key a member is read by: a written name, string or number; null for a key the file does not write. */
+const memberKey = (e: ts.PropertyAccessExpression | ts.ElementAccessExpression): string | null => {
+  if (ts.isPropertyAccessExpression(e)) return e.name.text
+  const key = unwrap(e.argumentExpression)
+  return ts.isStringLiteralLike(key) || ts.isNumericLiteral(key) ? key.text : null
+}
+
+type Container = ts.ObjectLiteralExpression | ts.ArrayLiteralExpression
+
+/** What a container literal holds at a key, every entry for a key the file does not write; undefined where the key is
+    not there or the literal holds what this does not read (a spread, a method or accessor, a computed key, a hole). */
+function entriesAt(literal: Container, key: string | null): ts.Expression[] | undefined {
+  if (ts.isArrayLiteralExpression(literal)) {
+    if (literal.elements.some((element) => ts.isSpreadElement(element) || ts.isOmittedExpression(element))) return undefined
+    if (key === null) return [...literal.elements]
+    const at = Number(key)
+    return Number.isInteger(at) && at >= 0 && at < literal.elements.length ? [literal.elements[at]] : undefined
+  }
+  const out: ts.Expression[] = []
+  for (const property of literal.properties) {
+    if (ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name) || ts.isNumericLiteral(property.name))) {
+      if (key === null || property.name.text === key) out.push(property.initializer)
+    } else if (ts.isShorthandPropertyAssignment(property)) {
+      if (key === null || property.name.text === key) out.push(property.name)
+    } else return undefined
+  }
+  return out.length ? out : undefined
+}
+
 /**
- * The texts a template substitution can render: a literal's own, each branch of a condition, `||` or `??`, a `+`
- * chain's and a nested template's readings, and what a same-file const holds; anything else (a name the file
- * does not hold as a const, a call, a member) reads as a name, Ⓝ.
+ * The object or array literal an expression holds, when nothing can change it after it is made (astBindings'
+ * containerEscape, so a write into it, a call it is handed to or an export makes it a value the file does not hold):
+ * written in place, through a same-file const or `Object.freeze`, or as the one entry such a literal holds at a
+ * member's key. `seen` carries the consts followed, so a literal that names itself ends.
+ */
+function heldContainer(expression: ts.Expression, source: ts.SourceFile, seen: Set<ts.Node>): { literal: Container; seen: Set<ts.Node> } | undefined {
+  let e = unwrap(expression)
+  while (ts.isNonNullExpression(e)) e = unwrap(e.expression)
+  let held: { node: ts.Expression; seen: Set<ts.Node> } | undefined
+  if (ts.isIdentifier(e)) {
+    const decl = resolverOf(source)(e)?.decl
+    if (decl && ts.isVariableDeclaration(decl) && decl.initializer && decl.parent.flags & ts.NodeFlags.Const && !seen.has(decl)) {
+      held = { node: unwrap(decl.initializer), seen: new Set([...seen, decl]) }
+    }
+  } else if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) {
+    const outer = heldContainer(e.expression, source, seen)
+    const entries = outer && entriesAt(outer.literal, memberKey(e))
+    if (outer && entries?.length === 1) held = { node: unwrap(entries[0]), seen: outer.seen }
+  } else held = { node: e, seen }
+  let node = held?.node
+  if (node && ts.isCallExpression(node) && node.arguments.length === 1 && node.expression.getText(source) === 'Object.freeze') node = unwrap(node.arguments[0])
+  if (!held || !node || !(ts.isObjectLiteralExpression(node) || ts.isArrayLiteralExpression(node))) return undefined
+  return containerEscape(node, source, resolverOf(source)) ? undefined : { literal: node, seen: held.seen }
+}
+
+/**
+ * The texts a template substitution can render: a literal's own, each branch of a condition, `||`, `??` or `&&` (whose
+ * left side renders where it does not hold, read as its own texts), a comma's right side, a `+` chain's and a nested
+ * template's readings, what a same-file const holds, and what a same-file object or array literal nothing writes holds
+ * at a member's key (heldContainer), every entry for a key the file does not write (Codex on 5291bc97); anything else
+ * (a name the file does not hold as a const, a call, a member of any other value, a container something may write)
+ * reads as a name, Ⓝ.
  */
 function substitutionTexts(expression: ts.Expression, source: ts.SourceFile, seen = new Set<ts.Node>()): string[] {
   const e = unwrap(expression)
@@ -745,10 +804,16 @@ function substitutionTexts(expression: ts.Expression, source: ts.SourceFile, see
   if (ts.isConditionalExpression(e)) return [...substitutionTexts(e.whenTrue, source, seen), ...substitutionTexts(e.whenFalse, source, seen)]
   if (ts.isBinaryExpression(e)) {
     const op = e.operatorToken.kind
-    if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) {
+    if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken || op === ts.SyntaxKind.AmpersandAmpersandToken) {
       return [...substitutionTexts(e.left, source, seen), ...substitutionTexts(e.right, source, seen)]
     }
+    if (op === ts.SyntaxKind.CommaToken) return substitutionTexts(e.right, source, seen)
     if (op === ts.SyntaxKind.PlusToken) return readings([substitutionTexts(e.left, source, seen), substitutionTexts(e.right, source, seen)])
+  }
+  if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) {
+    const held = heldContainer(e.expression, source, seen)
+    const entries = held && entriesAt(held.literal, memberKey(e))
+    if (held && entries) return entries.flatMap((entry) => substitutionTexts(entry, source, held.seen))
   }
   if (ts.isIdentifier(e)) {
     const binding = resolverOf(source)(e)
@@ -1163,6 +1228,22 @@ export const metadata = { title: pageTitleFor(DEFAULT_HEADLINE), description: DE
       '"Ⓝ: Amended Filing | EarningsNerd": "Filing" is capitalised mid-title (sentence case)',
     ])
     expect(readingsOf("export const title = (subject: string, filed: string, hasContent: boolean) => `${subject}${filed}${hasContent ? ': AI summary' : ''} | EarningsNerd`")).toEqual([])
+    // Codex on 5291bc97: `&&` renders its right side where its left holds, a comma its right side, and a same-file object
+    // or array literal nothing writes renders what it holds at the key, every entry for a key the file does not write.
+    const withBadCaps = ['With', 'Bad', 'Caps'].map((word) => `"Ⓝ With Bad Caps | EarningsNerd": "${word}" is capitalised mid-title (sentence case)`)
+    expect(readingsOf("export const title = (label: string, on: boolean) => `${label}${on && ' With Bad Caps'} | EarningsNerd`")).toEqual(withBadCaps)
+    expect(readingsOf("export const title = (label: string) => `${label}${(0, ' With Bad Caps')} | EarningsNerd`")).toEqual(withBadCaps)
+    const otcFilings = ['"Ⓝ OTC Filings | EarningsNerd": "Filings" is capitalised mid-title (sentence case)']
+    const heldAt = (use: string, decl = "const SUFFIX = { otc: ' OTC Filings', sec: ' SEC filings' }") =>
+      readingsOf(`${decl}\nexport const title = (label: string, kind: 'otc' | 'sec') => \`\${label}${use} | EarningsNerd\``)
+    expect(heldAt('${SUFFIX[kind]}')).toEqual(otcFilings)
+    expect(heldAt('${SUFFIX.otc}')).toEqual(otcFilings)
+    expect(heldAt("${SUFFIX['otc']}")).toEqual(otcFilings)
+    expect(heldAt('${SUFFIX.sec}')).toEqual([])
+    expect(heldAt('${PARTS[0]}', "const PARTS = [' OTC Filings'] as const")).toEqual(otcFilings)
+    expect(heldAt('${T.a.b}', "const T = Object.freeze({ a: { b: ' OTC Filings' } })")).toEqual(otcFilings)
+    // A literal something writes after it is made holds a value the file does not: it reads as a name, as a prop does.
+    expect(heldAt('${SUFFIX.sec}', "const SUFFIX = { otc: ' sec filings', sec: ' OTC Filings' }\nSUFFIX.sec = ' sec filings'")).toEqual([])
     // A template some reading of which ends with the brand is a title in every state (Codex on c0d1e726): a reading
     // without it fails loudly, never filtered out of the readings judged. The templates above end with it in each one.
     expect(() => readingsOf("const suffix = on ? 'EarningsNerd' : 'Other'\nexport const title = `Page | ${suffix}`")).toThrow(
