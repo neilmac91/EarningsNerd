@@ -64,8 +64,8 @@ since gitleaks reads the scanned directory's own file as well as any `-i` path.
 
 **Gate**: `.claude/hooks/secret_scan_guard.py`, which `.claude/settings.json` runs before every Bash
 command and every call to an MCP server whose name contains "github" in any case, and which git runs
-as its pre-push hook (`.claude/hooks/git/pre-push`) in a clone that turns that hook on
-(`backend/tests/unit/test_secret_scan_guard.py`). It runs the `secret-scan` job's gitleaks over the
+as its pre-push hook (`.claude/hooks/git/pre-push`) on each `git push` from a clone that turns that
+hook on (`backend/tests/unit/test_secret_scan_guard.py`). It runs the `secret-scan` job's gitleaks over the
 commits a call or a push would add to GitHub, and refuses the call, or stops the push, on a finding. The binary is the version and
 archive SHA-256 in `ci.yml`, installed once per machine and pin with
 `python3 .claude/hooks/secret_scan_guard.py --install`, which checks the linux x64 archive against
@@ -123,16 +123,26 @@ that SHA-256 and another platform's against the release's checksums file once th
   repository (a `.git` or a `commondir` file in it, or a HEAD git cannot read, sends git elsewhere). A
   failed scan's refusal names the errors gitleaks logged. An error the hook does not expect in reading a
   Bash call that names git or gh refuses it too; any other crash lets the call through.
-- **git's pre-push hook.** `git config core.hooksPath .claude/hooks/git` turns it on in a clone, once,
-  and a cloud session's start does it for the session's clone (`.claude/settings.json`'s SessionStart
-  command), unless a hooks path is set at any level or the clone has hooks of its own, which it leaves
-  as they are and names to the session. git runs it before a push sends anything, whoever runs the
-  push, and hands it the refs the push sends: it scans the commits each one reaches and no ref under
-  `refs/remotes/origin` holds, with the scan above, and stops the push on a finding, wherever the scan
-  fails closed (that refusal names `git push --no-verify`, which skips git's hooks; a finding's does
-  not) and on any error. A delete, and a commit GitHub holds as last fetched, send it nothing to scan.
-  git skips a hook it cannot execute, so the suite holds the hook's tracked mode. In a Claude Code
-  session a push passes both: the PreToolUse hook before the call, git's as git sends it.
+- **git's pre-push hook.** `git config core.hooksPath "$(git rev-parse --show-toplevel)/.claude/hooks/git"`
+  turns it on in a clone, once and again if the clone moves. The path is absolute because git reads a
+  relative one from the directory it runs hooks in, which inside `.git`, or with a `GIT_DIR` or
+  `--git-dir` from a subdirectory or from outside the worktree, is not the worktree's top, so the hook
+  would not run there. A Claude Code cloud session's start does it for the session's clone
+  (`.claude/settings.json`'s SessionStart command, a file in the repository, so no environment needs
+  changing), and writes a relative path that names the directory absolute, unless a hooks path naming
+  another directory is set at any level or the clone has hooks of its own, which it leaves as they are
+  and names to the session; it also says when the pinned binary is missing. A session of another agent
+  (Codex, Astra) loads no repository hooks, so its environment's setup script runs the same `git config`
+  line. git runs the hook before a `git push` sends anything, whoever runs the push, and hands it the
+  refs the push sends: it scans the commits each one reaches and no ref under `refs/remotes/origin`
+  holds, with the scan above, and stops the push on a finding, wherever the scan fails closed (that
+  refusal names `git push --no-verify`, which skips git's hooks; a finding's does not), on a ref that
+  sends a tree or a blob rather than a commit, and on any error. A delete, and a commit GitHub holds as
+  last fetched, send it nothing to scan. Both hooks take the remote named `origin` for GitHub: in a
+  clone whose GitHub remote has another name, every push that adds commits has its whole history
+  scanned without main's pins, and is refused. git skips a hook it cannot execute, so the suite holds
+  the hook's tracked mode. In a Claude Code session whose clone turns it on, a push passes both: the
+  PreToolUse hook before the call, git's as git sends it.
 - **What it cannot see.** Before a call, the PreToolUse hook cannot see these; git's pre-push hook
   stops each push among them as git sends it, in a clone that turns it on:
   - a push a script, a program (`env -S`'s string among them) or a shell's standard input runs;
@@ -149,13 +159,19 @@ that SHA-256 and another platform's against the release's checksums file once th
   - a push in a trap (on EXIT or a signal) when the shell may stop before its end, under `set -e` or
     `set -u`, at a `${x?}`, at a signal, or at a syntax error: the hook reads the trap from where the
     shell would end normally, not from where it stopped;
+  - a tag of a tree or a blob, whose content no commit holds;
   - a push in a session that loads no repository hooks;
   - a person's own push.
 
   Neither hook sees these:
-  - a push with `--no-verify`, from a clone whose `core.hooksPath` is unset or names other hooks (or
-    that the push's own `-c core.hooksPath=` moves), or from a checkout without
-    `.claude/hooks/git/pre-push`: only the PreToolUse hook, before a Claude Code call, stands there;
+  - a push run outside a Claude Code call with `--no-verify`, from a clone whose `core.hooksPath` is
+    unset (a fresh Codex or Astra container's among them) or names other hooks (or that the push's
+    own `-c core.hooksPath=`, `GIT_CONFIG_COUNT` or `GIT_CONFIG_PARAMETERS` moves), or while the
+    checkout its hooks path names holds no `.claude/hooks/git/pre-push` (one at a commit from before
+    E134; a linked worktree runs its main worktree's), and one `git send-pack`, `git http-push` or a
+    program pushing through a git library makes, none of which runs git's pre-push hook (a Claude
+    Code call's push of any of these still meets the PreToolUse hook, which refuses `send-pack` and
+    `http-push` outright);
   - the commits a push sends to submodules, which run their own repositories' hooks;
   - a commit a stale ref under `refs/remotes/origin` still holds, or an MCP write to a branch fetched
     before it changed;
@@ -172,7 +188,8 @@ that SHA-256 and another platform's against the release's checksums file once th
 **Evidence**: E20's commit 4ac900bb, amended to 2398f2af with the marker and force-pushed at 09:53 UTC;
 #1310's `secret-scan` re-run afterwards. Partly gated: CI's `secret-scan` finds the literal, but only
 after the push, when the next scan of each pull request fails; since E126 the **Gate** above runs the
-scan before a push in a session that loads the repository's hooks.
+scan before a push in a session that loads the repository's hooks, and since E134 as git's pre-push
+hook on each `git push` from a clone that turns it on.
 
 **Recurrence (2026-10-15 and 2026-10-17, pinned on main)**: #1340's branch carried a design-token
 name that the generic-api-key rule matched; main's run and every pull request's failed until #1342

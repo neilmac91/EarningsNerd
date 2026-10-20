@@ -87,12 +87,18 @@ them); its header lists every case. Install the
 binary once per machine and pin, a new cloud container included, with
 `python3 .claude/hooks/secret_scan_guard.py --install`.
 
-The same scan runs as git's pre-push hook, `.claude/hooks/git/pre-push`, before any push leaves a
-clone, yours and a script's included. Turn it on once per clone with
-`git config core.hooksPath .claude/hooks/git`; a cloud session's start does it for its clone, unless
-a hooks path or hooks of the clone's own are already set, which it leaves as they are. It stops a
-push on a finding and whenever it cannot scan (it needs the binary above and `python3`), naming why;
-`git push --no-verify` skips it, and CI's `secret-scan` still reads every branch after the push.
+The same scan runs as git's pre-push hook, `.claude/hooks/git/pre-push`, before each `git push`
+leaves a clone, yours and a script's included. Turn it on once per clone with
+`git config core.hooksPath "$(git rev-parse --show-toplevel)/.claude/hooks/git"`, and again if you
+move the clone (a relative path would miss a push run inside `.git`, or with a `GIT_DIR` from a
+subdirectory). A Claude Code cloud session's start does it for its clone, unless a hooks path or hooks
+of the clone's own are already set, which it leaves as they are; another agent's environment runs the
+same line in its setup script. Both hooks take the remote named `origin` for GitHub: in a clone whose
+GitHub remote has another name, every push that adds commits has its whole history scanned without
+main's pins, and is refused. The hook stops a push on a finding and whenever it cannot scan (it needs
+the binary above and `python3`), naming why; `git push --no-verify` skips it, as do `git send-pack`,
+`git http-push` and a program pushing through a git library, and CI's `secret-scan` still reads every
+branch after the push.
 
 ## Workflow
 
