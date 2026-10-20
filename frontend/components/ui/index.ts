@@ -24,7 +24,7 @@ export { GuidanceCard, type GuidanceCardProps, type GuidanceCardVariant } from '
 // the filing page's Risks section, around passages the server located (D-044).
 export { MarkedCopy, EnRef } from './MarkedCopy'
 // The marked copy's measure (its margin gives way below it), outside the 'use client' module for server components.
-export { markedRowInsetClass } from './markedCopyLayout'
+export { markedBlockInsetClass, markedRowInsetClass } from './markedCopyLayout'
 export {
   // v2.1: Direction is now the app's vocabulary ('up' | 'down' | 'flat' —
   // interchangeable with lib/financialTone.ts); direction() removed (derive

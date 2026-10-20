@@ -2,7 +2,7 @@ import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui/Badge'
-import { EnRef, MarkedCopy, cx, markedRowInsetClass } from '@/components/ui'
+import { EnRef, MarkedCopy, cx, markedBlockInsetClass, markedRowInsetClass } from '@/components/ui'
 import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
@@ -185,7 +185,7 @@ function HeroExample({
                 <EnRef label="[1]" />
               </p>
               {/* The filing's words, so they wear quotation marks; the closing one follows the ellipsis. */}
-              <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>
+              <blockquote className={cx('en-marked py-2.5 font-editorial text-base leading-relaxed', markedBlockInsetClass, INK)}>
                 “{clip(evidence.excerpt)}”
               </blockquote>
               {evidence.url && (

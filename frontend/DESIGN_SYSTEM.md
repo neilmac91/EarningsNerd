@@ -1155,14 +1155,18 @@ Evidence rows    <SummaryRisks>  (P-03; a marked copy since D-044): one hairline
                  the measured window: the margin stays at the default size on a 320px phone (the copy is 18em
                  wide on the filing page there, 15.4em in the landing's card) and goes under 200% text at
                  390px and below (10.2em at 390, 8em at 320 on the filing page), where it left the excerpt
-                 171px and 101px of 32px serif and broke words mid-word; without it the excerpt keeps 267px
-                 and 197px and no word breaks. The marked block (`.en-marked`) keeps a word still longer than
+                 171px and 101px of 32px serif and broke words mid-word; without it, and with the marked
+                 block's side padding narrowed from 0.875rem to 0.5rem below the same measure
+                 (markedBlockInsetClass), the excerpt keeps 291px and 221px and no word breaks, a filing's date
+                 joined by a no-break space ("September 27,", 199px in CI's Chromium) included. The marked
+                 block (`.en-marked`) keeps a word still longer than
                  its measure inside itself: `overflow-wrap: anywhere` breaks it inside the block, never past
                  it. The block never hyphenates (`hyphens: manual`): it quotes the filing, and CI's Chromium,
                  which carries a hyphenation dictionary, hyphenated ordinary words at every width under
                  `hyphens: auto` ("re-sults" at 1440px). The landing's evidence row needs the break: its card
-                 leaves the block 115px of 32px serif at 320px under 200% text, and seven words ran up to 49px
-                 past it (gates: markedCopy.spec.tsx reads the rules, since CI renders the landing with no
+                 left the block 115px of 32px serif at 320px under 200% text (about 139px with the narrowed
+                 padding), and seven words ran up to 49px past it (gates: markedCopy.spec.tsx reads the rules,
+                 since CI renders the landing with no
                  evidence row; risk-evidence-rows.spec.ts reads the painted words on the filing page). The row
                  wraps a long unbreakable token ([overflow-wrap:anywhere]) rather than push the page sideways.
                  Heading rule (riskHeadline.ts, inside excerptHeadings): a verbatim prefix of the excerpt, never

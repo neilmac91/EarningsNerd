@@ -29,9 +29,10 @@ import { markedCopyColumnsClass, markedMarginCollapseClass } from './markedCopyL
  * the rows drop their inset (markedCopyLayout.ts), while the marker in the heading stays. 13em is the
  * middle of the measured window. The margin stays at the default size on a 320px phone: this copy is
  * 18em wide on the filing page there and 15.4em in the landing's card. It goes under 200% text at
- * 390px and below: 10.2em and 7.6em at 390, 8em and 5.4em at 320, where giving it up leaves the
- * excerpt 197px of serif and no word breaks. A word still longer than the measure breaks inside the
- * marked block (`.en-marked`), which adds no hyphen to the filing's words.
+ * 390px and below: 10.2em and 7.6em at 390, 8em and 5.4em at 320, where giving it up, with the marked
+ * block's side padding narrowed below the same measure (markedBlockInsetClass), leaves the excerpt 221px
+ * of serif and no word breaks. A word still longer than the measure breaks inside the marked block
+ * (`.en-marked`), which adds no hyphen to the filing's words.
  */
 export function MarkedCopy({ children, className }: { children: ReactNode; className?: string }) {
   const bodyRef = useRef<HTMLDivElement | null>(null)

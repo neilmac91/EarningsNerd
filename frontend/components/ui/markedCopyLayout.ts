@@ -13,3 +13,7 @@ export const markedCopyColumnsClass = 'grid grid-cols-[2.25rem_minmax(0,1fr)] sm
 export const markedMarginCollapseClass = '[@container(width<13em)]:hidden'
 /** A row's inset beside the margin (12px, 14px from sm), gone with it. Every row of a marked copy takes it. */
 export const markedRowInsetClass = 'pl-3 sm:pl-3.5 [@container(width<13em)]:pl-0'
+/** A marked block's side padding (0.875rem), narrowed to 0.5rem below the measure, where the copy needs every pixel
+    the margin gave back: at 320px under 200% text the block keeps 221px of 32px serif instead of 197px, so a word joined
+    by a no-break space ("September 27," in a filing's date, 199px in CI's Chromium) holds its line whole. */
+export const markedBlockInsetClass = 'px-3.5 [@container(width<13em)]:px-2'

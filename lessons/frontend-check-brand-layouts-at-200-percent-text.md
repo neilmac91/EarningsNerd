@@ -74,4 +74,9 @@ in both themes, default and 200% text. That round also gave the block `hyphens: 
 container's Chromium, which carries no hyphenation dictionary, so it changed nothing there; CI's Chromium carries
 one and hyphenated ordinary words at every width ("re-sults" at 1440px), which the e2e failed on 1844574e. A
 typographic rule that depends on browser data (hyphenation, fonts, locale) is checked on the browser CI runs, and
-the marked block, a quote of the filing, now adds no hyphen (`hyphens: manual`).
+the marked block, a quote of the filing, now adds no hyphen (`hyphens: manual`). The same browser set a filing's
+date joined by a no-break space ("September 27,") at 199px, where the container's set it at 194.5px, in a 197px
+line, so CI broke it before its comma: a fit by a few pixels is not a fit. Below the measure the block's side
+padding narrows too (`markedBlockInsetClass`), leaving 221px. CI's browser (Chrome for Testing, the version in
+the e2e job's log) runs locally from its own folder through `launchOptions.executablePath`, without
+`playwright install`.

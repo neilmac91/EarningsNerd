@@ -57,8 +57,9 @@ describe('MarkedCopy places each twin on its marker', () => {
 
 /**
  * Below its measure the margin gives way, and a word still longer than what is left breaks inside the marked
- * block, never past it. On the landing's card at 320px under 200% text the block keeps 115px of 32px serif, and
- * without `overflow-wrap` seven words of the evidence row ran up to 49px past it. The block adds no hyphen to the
+ * block, never past it. On the landing's card at 320px under 200% text the block kept 115px of 32px serif (about
+ * 139px since its side padding narrows below the measure), and without `overflow-wrap` seven words of the evidence
+ * row ran up to 49px past it. The block adds no hyphen to the
  * filing's words: CI's Chromium carries a hyphenation dictionary, and under auto hyphenation it hyphenated ordinary
  * words at every width ("re-sults" at 1440px), which risk-evidence-rows.spec.ts reads as words broken mid-word on
  * the filing page. CI renders the landing with no evidence row, so this reads the rules, comments aside.

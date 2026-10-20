@@ -1,5 +1,5 @@
 import React from 'react'
-import { EnRef, MarkedCopy, cx, markedRowInsetClass } from '@/components/ui'
+import { EnRef, MarkedCopy, cx, markedBlockInsetClass, markedRowInsetClass } from '@/components/ui'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
 import type { RiskFactor } from '@/types/summary'
@@ -92,7 +92,7 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
               {isLocated && <EnRef label={`[${located.indexOf(index) + 1}]`} />}
             </h3>
             {isLocated ? (
-              <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>
+              <blockquote className={cx('en-marked py-2.5 font-editorial text-base leading-relaxed', markedBlockInsetClass, INK)}>
                 {risk.supporting_evidence}
               </blockquote>
             ) : (
