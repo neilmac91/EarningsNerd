@@ -6,8 +6,9 @@ branch, so a secret-shaped literal pushed to any branch fails every pull request
 branch drops it. This hook runs the same gitleaks with the job's flags (`--redact=100 --no-banner --exit-code 1`)
 before the call: the binary that secret_scan_setup.py, a SessionStart hook, extracted from the archive the job pins
 (GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/ci.yml), after checking it against the SHA-256 recorded
-beside it. With no such binary (the setup provisions one on linux x64 alone, the one platform the pin names), or one
-that does not match, it refuses every call it would scan and names the setup command: it fails closed, since a push
+beside it (the job's linux x64 archive; on macOS arm64 or x64 and linux arm64, the same release's archive the setup
+pins). With no such binary, or one that does not match, it refuses every call it would scan and names the setup
+command; on a platform with no pin the refusal names the platform and how to add one. It fails closed, since a push
 let through unscanned is the failure it exists to stop. The registered command (`python3 -I -S`) uses the standard
 library only; the script imports its two neighbours in .claude/hooks/ by path.
 
@@ -36,9 +37,9 @@ in any case. It scans
   the line as written, the files its GitHub writes send (codex_mention_guard.py's detection), and, decoded, each
   base64 `content` value in either and each such file that is base64 whole, with `gitleaks dir`.
 A finding, a scan that fails and one that outlasts the hook's time each refuse the call. A refusal is a JSON deny on
-stdout naming the scan, where it found something (file, line and rule; for a commit, its fingerprint) and the remedy,
-never the secret (gitleaks runs with --redact and without --verbose); anything else exits 0 with no output. A crash
-exits 1, which Claude Code reports as a hook error and lets through.
+stdout naming the scan, where it found something (file, line and rule; for a commit, its fingerprint) and what to do
+next, never the secret (gitleaks runs with --redact and without --verbose); anything else exits 0 with no output.
+A crash exits 1, which Claude Code reports as a hook error and lets through.
 
 Not checked: a push or write that another shell or program makes (`bash -c '...'`, a here-document fed to a shell, a
 script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in
@@ -92,7 +93,9 @@ WRITE_REMEDY = (
     "Take the literal out and send the call again; for a reviewed false positive, mark the line `# gitleaks:allow` with "
     "its reason (a .gitleaksignore fingerprint names a commit, and this call's commit does not exist yet)"
 )
-COMMIT_REMEDY = "Make the commits in one call and push in the next, so the push's scan reads them"
+COMMIT_REMEDY = "Commit in one call and push in the next, so the push's scan reads the new commits"
+SCAN_ERROR_REMEDY = "Fix what gitleaks names (a missing ref, an unreadable repository or file) and send the call again"
+STAGE_REMEDY = "Send each file under a path that names one regular file, and send the call again"
 
 
 class Late(Exception):
@@ -132,9 +135,11 @@ def _binary() -> tuple[Path | None, str | None]:
     """The provisioned gitleaks, or why there is none."""
     remedy = f"Run `python3 {setup.SETUP}` (the SessionStart hook runs it at each session start) and send the call again"
     try:
-        version, sha256 = setup.pin()
+        version, _archive, sha256 = setup.pin()
     except setup.SetupError as error:
-        return None, _reason(f"the pin of the gitleaks this call must be scanned with is unreadable ({error}).", remedy)
+        return None, _reason(
+            f"this call sends commits or files that the pinned gitleaks scans first, and there is none to run: {error}.",
+            f"Fix the pin as that says, run `python3 {setup.SETUP}`, and send the call again")
     folder = setup.directory(version, sha256)
     binary = setup.verified(folder)
     if binary is None:
@@ -176,7 +181,8 @@ def _gitleaks(args: list[str], cwd: Path, where: str, remedy: str, relative_to: 
         try:
             proc = _run([str(binary), *args, *FLAGS, "--report-format", "json", "--report-path", str(report)], cwd, env)
         except OSError as error:
-            return _reason(f"the pinned gitleaks could not run on {where} ({error}).", remedy)
+            return _reason(f"the pinned gitleaks could not run on {where} ({error}).",
+                           f"Provision it again with `python3 {setup.SETUP}` and send the call again")
         if proc.returncode == 0:
             return None
         places = _findings(report, relative_to)
@@ -187,7 +193,8 @@ def _gitleaks(args: list[str], cwd: Path, where: str, remedy: str, relative_to: 
             "GitHub, every pull request's `secret-scan` fails until main pins it.", remedy)
     lines = [LOG_LINE.sub("", ANSI.sub("", line)).strip() for line in proc.stderr.splitlines()]
     tail = "; ".join([line for line in lines if line][-3:])[:600]
-    return _reason(f"the pinned gitleaks could not finish scanning {where} (exit {proc.returncode}: {tail}).", remedy)
+    return _reason(f"the pinned gitleaks could not finish scanning {where} (exit {proc.returncode}: {tail}).",
+                   SCAN_ERROR_REMEDY)
 
 
 def _join(here: Path | None, target: str) -> Path | None:
@@ -367,7 +374,7 @@ def _scan_files(files: list[tuple[str, bytes]], where: str, remedy: str) -> str 
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(data)
             except (OSError, ValueError) as error:
-                return _reason(f"{where} could not be staged for the scan ({path!r}: {error}).", remedy)
+                return _reason(f"{where} could not be staged for the scan ({path!r}: {error}).", STAGE_REMEDY)
         return _gitleaks(["dir", str(root)], root, where, remedy, relative_to=root)
 
 
@@ -403,8 +410,8 @@ def _bash_refusal(command: str, cwd: object) -> str | None:
     pushes, commits = _pushes(script, base) if "push" in plain else ([], False)
     if pushes and commits:
         return _reason(
-            "this line makes commits and pushes them, and a hook runs before the line, so the scan cannot read a "
-            "commit the line has yet to make.", COMMIT_REMEDY)
+            "this line commits and pushes in one call, and a hook runs before the line, so a commit the same line "
+            "makes cannot be scanned.", COMMIT_REMEDY)
     scans = []
     for directory, options, sources in pushes:
         scan = _scan_push(directory, options, sources, base)

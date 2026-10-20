@@ -42,8 +42,10 @@ git data, it scans the files the call sends, a base64 `content` value decoded. T
 `.claude/hooks/secret_scan_setup.py`, a SessionStart hook, extracts from the archive the job pins (version
 and SHA-256 read from `.github/workflows/ci.yml`) into
 `~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/`, with its own SHA-256 recorded beside it;
-use it for a scan by hand. Without a verified binary (and on any platform but linux x64, the one the pin
-names) the guard refuses every call it would scan and names the setup command. Not gated: a push or write
+use it for a scan by hand. CI runs the linux x64 archive; the setup pins the same release's macOS arm64
+and x64 and linux arm64 archives from its checksums file, and the gate fails when `ci.yml`'s version moves
+without them. Without a verified binary, or on a platform with no pin, the guard refuses every call it
+would scan and says what to do (the setup command; how to add a pin). Not gated: a push or write
 another shell or program makes (`bash -c '...'`, a script, an alias), text a command builds as it runs, a
 session that loads no repository hooks (Codex, Astra), a person's own push, and every clause above about
 a literal already pushed.

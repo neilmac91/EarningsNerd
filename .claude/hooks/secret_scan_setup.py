@@ -2,17 +2,20 @@
 
 .claude/settings.json runs this at the start of every session, so the guard never fetches anything at push time. It
 reads GITLEAKS_VERSION and GITLEAKS_SHA256 from .github/workflows/ci.yml, the env of the `secret-scan` job and the one
-place they are pinned (each must appear there exactly once, or nothing is provisioned). On a linux x64 machine, the one
-platform the pin names an archive for, it downloads that release archive from GitHub once, by the job's URL, checks it
-against the SHA-256 before it opens it, extracts only the `gitleaks` member into
-~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/, and records the binary's own SHA-256 beside it in
-`gitleaks.sha256`. A binary already there that matches its record means nothing is downloaded. The download goes
-through HTTPS_PROXY when it is set, and TLS trusts the CA bundle SSL_CERT_FILE names.
+place they are pinned (each must appear there exactly once, or nothing is provisioned). That SHA-256 is the linux x64
+archive's, the one the job runs; CHECKSUMS below pins the same release's darwin arm64, darwin x64 and linux arm64
+archives as the release's checksums file lists them, and test_secret_scan_guard.py fails when ci.yml's version moves
+and they do not. On a platform PLATFORMS maps (platform.system() and platform.machine()), it downloads that platform's
+archive from GitHub once, by the job's URL, checks it against its SHA-256 before it opens it, extracts only the
+`gitleaks` member into ~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/, and records the binary's own
+SHA-256 beside it in `gitleaks.sha256`. A binary already there that matches its record means nothing is downloaded.
+The download goes through HTTPS_PROXY when it is set, and TLS trusts the CA bundle SSL_CERT_FILE names. On any other
+platform it provisions nothing, and its line names the platform and how to add a pin.
 
-It never blocks a session: it exits 0 whatever happens. On a failure, another platform included, it prints one line on
-stdout, which a SessionStart hook hands to Claude, saying that the guard refuses every push and repository write it
-would scan until this succeeds, and how to run it by hand; on success it prints one line on stderr, which a session
-does not see. The registered command (`python3 -I -S`) uses the standard library only.
+It never blocks a session: it exits 0 whatever happens. On a failure it prints one line on stdout, which a SessionStart
+hook hands to Claude, saying that the guard refuses every push and repository write it would scan until this succeeds,
+and how to run it by hand; on success it prints one line on stderr, which a session does not see. The registered
+command (`python3 -I -S`) uses the standard library only.
 Tests: backend/tests/unit/test_secret_scan_guard.py.
 """
 from __future__ import annotations
@@ -30,8 +33,26 @@ PIN = {
     "GITLEAKS_VERSION": re.compile(r"^[ \t]+GITLEAKS_VERSION:[ \t]*['\"]?([0-9]+\.[0-9]+\.[0-9]+)['\"]?[ \t]*$", re.MULTILINE),
     "GITLEAKS_SHA256": re.compile(r"^[ \t]+GITLEAKS_SHA256:[ \t]*['\"]?([0-9a-f]{64})['\"]?[ \t]*$", re.MULTILINE),
 }
-# The archive the `secret-scan` job downloads, by the same URL.
-ARCHIVE = "https://github.com/gitleaks/gitleaks/releases/download/v{version}/gitleaks_{version}_linux_x64.tar.gz"
+# The release's archives, at the URL the `secret-scan` job downloads its own from.
+RELEASE = "https://github.com/gitleaks/gitleaks/releases/download/v{version}/{archive}"
+ARCHIVE = "gitleaks_{version}_{platform}.tar.gz"
+CI_PLATFORM = "linux_x64"  # the archive the job runs, whose SHA-256 ci.yml pins
+# platform.system() and platform.machine() to the release's name for the platform; any other provisions nothing.
+PLATFORMS = {
+    ("Linux", "x86_64"): "linux_x64",
+    ("Linux", "aarch64"): "linux_arm64",
+    ("Linux", "arm64"): "linux_arm64",
+    ("Darwin", "arm64"): "darwin_arm64",
+    ("Darwin", "x86_64"): "darwin_x64",
+}
+# The other platforms' archives of ci.yml's release, as its checksums file (gitleaks_<version>_checksums.txt) lists
+# them. To add a platform, map it in PLATFORMS and copy its line from that file here; to move to another release, move
+# all of them with ci.yml.
+CHECKSUMS = {
+    "gitleaks_8.24.3_darwin_arm64.tar.gz": "b90f13bb8c90ab72083d9b0c842e39dafb82c0e5c3f872f407366b7a58909013",
+    "gitleaks_8.24.3_darwin_x64.tar.gz": "41c44ae8ad1d6eef57d4526ad0fd67d8129eee9a856f55c2b3b9395fd3d9ec0f",
+    "gitleaks_8.24.3_linux_arm64.tar.gz": "5f2edbe1f49f7b920f9e06e90759947d3c5dfc16f752fb93aaafc17e9d14cf07",
+}
 MAX_ARCHIVE_BYTES = 64 << 20
 MAX_BINARY_BYTES = 128 << 20
 DOWNLOAD_SECONDS = 45  # inside the 60 the registration gives the hook
@@ -41,7 +62,7 @@ class SetupError(Exception):
     """Why the binary could not be provisioned."""
 
 
-def pin(ci: Path = CI) -> tuple[str, str]:
+def ci_pin(ci: Path = CI) -> tuple[str, str]:
     """GITLEAKS_VERSION and GITLEAKS_SHA256 as ci.yml pins them."""
     try:
         text = ci.read_text(encoding="utf-8")
@@ -54,6 +75,26 @@ def pin(ci: Path = CI) -> tuple[str, str]:
             raise SetupError(f"{ci} pins {name} {len(found)} times, not once")
         values.append(found[0])
     return values[0], values[1]
+
+
+def pin(ci: Path = CI) -> tuple[str, str, str]:
+    """ci.yml's gitleaks version, this machine's archive of that release, and the archive's pinned SHA-256."""
+    import platform  # here, not at the top: the guard imports this module before every Bash command
+
+    version, ci_sha256 = ci_pin(ci)
+    system, machine = platform.system(), platform.machine()
+    name = PLATFORMS.get((system, machine))
+    if name is None:
+        raise SetupError(
+            f"no gitleaks archive is pinned for this platform ({system} {machine}); to add one, map it in PLATFORMS and "
+            f"copy its line from the release's gitleaks_{version}_checksums.txt into CHECKSUMS, both in {SETUP}")
+    archive = ARCHIVE.format(version=version, platform=name)
+    sha256 = ci_sha256 if name == CI_PLATFORM else CHECKSUMS.get(archive)
+    if sha256 is None:
+        raise SetupError(
+            f"no SHA-256 is pinned for {archive}, this platform's ({system} {machine}) archive of the version ci.yml "
+            f"pins; copy its line from the release's gitleaks_{version}_checksums.txt into CHECKSUMS in {SETUP}")
+    return version, archive, sha256
 
 
 def directory(version: str, sha256: str) -> Path:
@@ -82,9 +123,6 @@ def verified(folder: Path) -> Path | None:
 def _download(url: str) -> bytes:
     import urllib.request  # here, not at the top: the guard imports this module before every Bash command
 
-    machine = os.uname().machine.lower()
-    if sys.platform != "linux" or machine not in ("x86_64", "amd64"):
-        raise SetupError(f"ci.yml pins the linux x64 archive only, and this machine is {sys.platform} {machine}")
     deadline, data = time.monotonic() + DOWNLOAD_SECONDS, bytearray()
     with urllib.request.urlopen(url, timeout=20) as response:
         while block := response.read(1 << 16):
@@ -111,7 +149,7 @@ def _write(folder: Path, name: str, data: bytes, mode: int) -> None:
         raise
 
 
-def provision(version: str, sha256: str, download=_download) -> tuple[Path, bool]:
+def provision(version: str, archive: str, sha256: str, download=_download) -> tuple[Path, bool]:
     """The verified binary, and whether this call downloaded it."""
     import io
     import tarfile
@@ -119,11 +157,11 @@ def provision(version: str, sha256: str, download=_download) -> tuple[Path, bool
     folder = directory(version, sha256)
     if (binary := verified(folder)) is not None:
         return binary, False
-    archive = download(ARCHIVE.format(version=version))
-    if hashlib.sha256(archive).hexdigest() != sha256:
-        raise SetupError(f"the downloaded archive does not match GITLEAKS_SHA256 in {CI.name}")
+    data = download(RELEASE.format(version=version, archive=archive))
+    if hashlib.sha256(data).hexdigest() != sha256:
+        raise SetupError(f"the downloaded {archive} does not match its pinned SHA-256")
     try:
-        with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as bundle:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as bundle:
             member = bundle.getmember("gitleaks")
             if not member.isfile() or member.size > MAX_BINARY_BYTES:
                 raise SetupError("the archive's gitleaks member is not a regular file of a sane size")
@@ -141,8 +179,8 @@ def provision(version: str, sha256: str, download=_download) -> tuple[Path, bool
 
 def main() -> int:
     try:
-        version, sha256 = pin()
-        binary, downloaded = provision(version, sha256)
+        version, archive, sha256 = pin()
+        binary, downloaded = provision(version, archive, sha256)
     except Exception as error:  # a session start is never blocked; the guard fails closed instead
         detail = str(error) or type(error).__name__
         print(

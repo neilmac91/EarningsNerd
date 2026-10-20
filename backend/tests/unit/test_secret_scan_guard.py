@@ -23,6 +23,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
@@ -56,6 +57,9 @@ from pathlib import Path
 MARKER = "planted-leak-marker"
 args = sys.argv[1:]
 entry, findings = {"cwd": os.getcwd(), "args": args}, []
+if os.environ.get("GITLEAKS_STUB_FAIL"):
+    print("ERR [git] fatal: bad revision", file=sys.stderr)
+    sys.exit(1)
 if args[0] == "git":
     log_opts = next(arg for arg in args if arg.startswith("--log-opts="))[len("--log-opts="):]
     out = subprocess.run(["git", "-C", args[1], "log", "-p", "-U0", "--format=commit %H", *log_opts.split(" ")],
@@ -101,7 +105,7 @@ class Scanner:
     """The stub where the guard looks for the provisioned gitleaks, and the log of its calls."""
 
     def __init__(self, root: Path) -> None:
-        version, sha256 = _setup_module().pin()
+        version, _archive, sha256 = _setup_module().pin()
         self.home = root / "home"
         self.folder = self.home / ".cache" / "earningsnerd" / "gitleaks" / f"{version}-{sha256}"
         self.folder.mkdir(parents=True)
@@ -167,17 +171,18 @@ def _event(tool: str, tool_input: object, cwd: Path) -> str:
     })
 
 
-def _run(scanner: Scanner, stdin: str) -> subprocess.CompletedProcess[str]:
+def _run(scanner: Scanner, stdin: str, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     """Run the command .claude/settings.json registers, as Claude Code does (`/bin/sh -c`), within its timeout."""
     [hook] = [hook for entry in _registered("PreToolUse", "secret_scan_guard.py") for hook in entry["hooks"]]
     env = {**os.environ, **GIT_ENV, "HOME": str(scanner.home), "CLAUDE_PROJECT_DIR": str(ROOT),
-           "GITLEAKS_STUB_LOG": str(scanner.log)}
+           "GITLEAKS_STUB_LOG": str(scanner.log), **(extra_env or {})}
     return subprocess.run(["sh", "-c", hook["command"]], input=stdin, capture_output=True, text=True, env=env,
                           timeout=hook["timeout"])
 
 
-def _decision(scanner: Scanner, tool: str, tool_input: object, cwd: Path) -> dict | None:
-    proc = _run(scanner, _event(tool, tool_input, cwd))
+def _decision(scanner: Scanner, tool: str, tool_input: object, cwd: Path,
+              extra_env: dict[str, str] | None = None) -> dict | None:
+    proc = _run(scanner, _event(tool, tool_input, cwd), extra_env)
     assert proc.returncode == 0, proc.stderr
     if not proc.stdout:
         return None
@@ -320,8 +325,15 @@ def test_a_push_that_sends_nothing_is_not_scanned(scanner: Scanner, repo: Path, 
     "git push origin main && git cherry-pick side",
 ], ids=["commit", "pull", "a commit message from a here-document", "a commit after the push"])
 def test_a_line_that_makes_commits_and_pushes_is_refused(scanner: Scanner, repo: Path, command: str) -> None:
-    _refused(_bash(scanner, command, repo), "makes commits and pushes them", "push in the next")
+    _refused(_bash(scanner, command, repo), "commits and pushes in one call", "a hook runs before the line",
+             "Commit in one call and push in the next")
     assert scanner.calls() == []
+
+
+def test_a_scan_that_fails_refuses_the_push_and_says_what_to_do(scanner: Scanner, repo: Path) -> None:
+    decision = _decision(scanner, "Bash", {"command": "git push"}, repo, {"GITLEAKS_STUB_FAIL": "1"})
+    _refused(decision, "could not finish scanning", "(exit 1: ERR [git] fatal: bad revision)",
+             "Fix what gitleaks names", "send the call again")
 
 
 @pytest.mark.parametrize("command", [
@@ -476,15 +488,22 @@ def test_the_guard_and_its_setup_are_registered() -> None:
 
 # --- the setup -----------------------------------------------------------------------------------------------------
 
-def test_the_setup_reads_the_pin_where_the_secret_scan_job_sets_it(tmp_path: Path) -> None:
+def _on(monkeypatch: pytest.MonkeyPatch, system: str, machine: str) -> None:
+    monkeypatch.setattr("platform.system", lambda: system)
+    monkeypatch.setattr("platform.machine", lambda: machine)
+
+
+def test_the_setup_reads_the_pin_where_the_secret_scan_job_sets_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     setup = _setup_module()
-    version, sha256 = setup.pin()
+    _on(monkeypatch, "Linux", "x86_64")  # the job's runner
+    version, archive, sha256 = setup.pin()
     text = CI.read_text(encoding="utf-8")
     job = re.search(r"^  secret-scan:\n(?:(?: {4}.*)?\n)*", text, re.MULTILINE).group(0)
     assert f"GITLEAKS_VERSION: {version}\n" in job and f"GITLEAKS_SHA256: {sha256}\n" in job
     # It downloads the archive the job downloads.
     [url] = re.findall(r'"(https://github\.com/gitleaks/[^"]+)"', job)
-    assert url.replace("${GITLEAKS_VERSION}", version) == setup.ARCHIVE.format(version=version)
+    assert archive == f"gitleaks_{version}_{setup.CI_PLATFORM}.tar.gz"
+    assert url.replace("${GITLEAKS_VERSION}", version) == setup.RELEASE.format(version=version, archive=archive)
     # A pin that is missing or written twice provisions nothing.
     missing, twice = tmp_path / "missing.yml", tmp_path / "twice.yml"
     missing.write_text(re.sub(r"^[ \t]+GITLEAKS_SHA256:.*\n", "", text, flags=re.MULTILINE), encoding="utf-8")
@@ -492,6 +511,74 @@ def test_the_setup_reads_the_pin_where_the_secret_scan_job_sets_it(tmp_path: Pat
     for ci in (missing, twice):
         with pytest.raises(setup.SetupError, match="GITLEAKS_SHA256"):
             setup.pin(ci)
+
+
+def test_the_other_platforms_pins_follow_ci_ymls_version() -> None:
+    # A version bump in ci.yml fails here until CHECKSUMS moves with it: every platform PLATFORMS maps, the job's own
+    # aside (ci.yml pins that one), has exactly one SHA-256, for ci.yml's version, and each archive its own.
+    setup = _setup_module()
+    version, ci_sha256 = setup.ci_pin()
+    others = sorted(set(setup.PLATFORMS.values()) - {setup.CI_PLATFORM})
+    assert setup.CI_PLATFORM in setup.PLATFORMS.values()
+    assert sorted(setup.CHECKSUMS) == [setup.ARCHIVE.format(version=version, platform=name) for name in others]
+    assert all(re.fullmatch(r"[0-9a-f]{64}", sha256) for sha256 in setup.CHECKSUMS.values())
+    assert len({ci_sha256, *setup.CHECKSUMS.values()}) == len(setup.CHECKSUMS) + 1
+
+
+@pytest.mark.parametrize(("system", "machine", "name"), [
+    ("Linux", "x86_64", "linux_x64"),
+    ("Linux", "aarch64", "linux_arm64"),
+    ("Linux", "arm64", "linux_arm64"),
+    ("Darwin", "arm64", "darwin_arm64"),
+    ("Darwin", "x86_64", "darwin_x64"),
+])
+def test_each_mapped_platform_gets_its_own_archive_and_pin(monkeypatch: pytest.MonkeyPatch, system: str, machine: str,
+                                                           name: str) -> None:
+    setup = _setup_module()
+    _on(monkeypatch, system, machine)
+    version, ci_sha256 = setup.ci_pin()
+    archive = f"gitleaks_{version}_{name}.tar.gz"
+    assert setup.pin() == (version, archive, ci_sha256 if name == "linux_x64" else setup.CHECKSUMS[archive])
+
+
+@pytest.mark.parametrize(("system", "machine"), [("Windows", "AMD64"), ("Linux", "riscv64"), ("FreeBSD", "amd64")])
+def test_any_other_platform_has_no_pin_and_is_told_how_to_add_one(monkeypatch: pytest.MonkeyPatch, system: str,
+                                                                 machine: str) -> None:
+    setup = _setup_module()
+    _on(monkeypatch, system, machine)
+    with pytest.raises(setup.SetupError) as raised:
+        setup.pin()
+    message = str(raised.value)
+    assert f"this platform ({system} {machine})" in message
+    assert "map it in PLATFORMS" in message and "checksums.txt into CHECKSUMS" in message and str(SETUP) in message
+
+
+def test_a_mapped_platform_without_a_pin_for_ci_ymls_version_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    setup = _setup_module()
+    _on(monkeypatch, "Darwin", "arm64")
+    monkeypatch.setattr(setup, "CHECKSUMS", {})  # as if ci.yml's version moved and the pins did not
+    with pytest.raises(setup.SetupError, match=r"no SHA-256 is pinned for gitleaks_.*_darwin_arm64\.tar\.gz"):
+        setup.pin()
+
+
+@pytest.fixture
+def guard(monkeypatch: pytest.MonkeyPatch):
+    """The guard loaded in-process, where a platform can be faked; its two neighbours leave sys.modules afterwards."""
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    spec = importlib.util.spec_from_file_location("secret_scan_guard", GUARD)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    yield module
+    for name in ("codex_mention_guard", "secret_scan_setup"):
+        sys.modules.pop(name, None)
+
+
+def test_on_a_platform_without_a_pin_the_guard_refuses_and_says_how_to_add_one(guard, monkeypatch: pytest.MonkeyPatch) -> None:
+    _on(monkeypatch, "Windows", "AMD64")
+    reason = guard.refusal({"tool_name": "mcp__github__create_or_update_file", "tool_input": {"path": "a.md", "content": "x"}})
+    assert reason.startswith("Refused by .claude/hooks/secret_scan_guard.py: ") and LESSON in reason
+    assert "this platform (Windows AMD64)" in reason and "map it in PLATFORMS" in reason
+    assert f"Fix the pin as that says, run `python3 {SETUP}`" in reason
 
 
 def _archive(members: dict[str, bytes]) -> bytes:
@@ -511,22 +598,25 @@ def test_the_setup_installs_only_the_pinned_archives_gitleaks_and_records_its_di
     binary_bytes = b"#!/bin/sh\nexit 0\n"
     archive = _archive({"LICENSE": b"license", "gitleaks": binary_bytes, "../outside": b"escape"})
     sha256, urls = hashlib.sha256(archive).hexdigest(), []
-    binary, downloaded = setup.provision("8.24.3", sha256, download=lambda url: urls.append(url) or archive)
+    name = "gitleaks_8.24.3_darwin_arm64.tar.gz"
+    binary, downloaded = setup.provision("8.24.3", name, sha256, download=lambda url: urls.append(url) or archive)
     folder = tmp_path / ".cache" / "earningsnerd" / "gitleaks" / f"8.24.3-{sha256}"
-    assert (binary, downloaded, urls) == (folder / "gitleaks", True, [setup.ARCHIVE.format(version="8.24.3")])
+    assert (binary, downloaded) == (folder / "gitleaks", True)
+    assert urls == [f"https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/{name}"]
     assert sorted(path.name for path in tmp_path.rglob("*") if path.is_file()) == ["gitleaks", "gitleaks.sha256"]
     assert binary.read_bytes() == binary_bytes and os.access(binary, os.X_OK)
     assert (folder / "gitleaks.sha256").read_text() == f"{hashlib.sha256(binary_bytes).hexdigest()}  gitleaks\n"
     # A verified binary in place: nothing is downloaded again.
-    assert setup.provision("8.24.3", sha256, download=lambda url: pytest.fail("downloaded again")) == (binary, False)
+    assert setup.provision("8.24.3", name, sha256, download=lambda url: pytest.fail("downloaded again")) == (binary, False)
 
 
 def test_the_setup_refuses_an_archive_the_pin_does_not_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     setup = _setup_module()
     monkeypatch.setenv("HOME", str(tmp_path))
     archive = _archive({"gitleaks": b"#!/bin/sh\nexit 0\n"})
-    with pytest.raises(setup.SetupError, match="does not match GITLEAKS_SHA256"):
-        setup.provision("8.24.3", hashlib.sha256(b"another archive").hexdigest(), download=lambda url: archive)
+    with pytest.raises(setup.SetupError, match="does not match its pinned SHA-256"):
+        setup.provision("8.24.3", "gitleaks_8.24.3_linux_x64.tar.gz", hashlib.sha256(b"another archive").hexdigest(),
+                        download=lambda url: archive)
     assert list(tmp_path.iterdir()) == []
 
 
