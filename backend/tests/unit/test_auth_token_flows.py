@@ -561,17 +561,23 @@ def test_a_login_whose_session_mint_fails_changes_nothing(
 
 
 @pytest.mark.requires_db
-def test_a_login_whose_password_changed_while_it_hashed_is_refused(client, mail, monkeypatch):
-    """A password reset or change that commits while a login is in bcrypt leaves the login's verified
-    hash stale: the login is refused like a wrong password and mints no session (E121)."""
+@pytest.mark.parametrize("meanwhile", ["password_changed", "deactivated"])
+def test_a_login_whose_account_changed_while_it_hashed_is_refused(client, mail, monkeypatch, meanwhile):
+    """A password reset or change, or a deactivation, that commits while a login is in bcrypt leaves
+    the account the login read stale: the login is refused like a wrong password and mints no session
+    (E121)."""
     email, _ = _register(client, mail)
     user_id = _user(email).id
     real_verify = auth_module.verify_password
 
     def verify_then_reset(password: str, hashed: str) -> bool:
         matched = real_verify(password, hashed)
-        with SessionLocal() as db:  # the reset commits while the login hashes
-            db.get(User, user_id).hashed_password = auth_module.get_password_hash(NEW_PASSWORD)
+        with SessionLocal() as db:  # the change commits while the login hashes
+            user = db.get(User, user_id)
+            if meanwhile == "password_changed":
+                user.hashed_password = auth_module.get_password_hash(NEW_PASSWORD)
+            else:
+                user.is_active = False
             db.commit()
         return matched
 
