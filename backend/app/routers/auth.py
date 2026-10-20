@@ -323,12 +323,14 @@ def issue_session(
 ) -> str:
     """Issue a full session on ``response``: set the access + presence cookies and the refresh cookie.
 
-    The single mint point for the login paths. By default a NEW refresh token is minted and committed
-    (login, change-password) through ``refresh_token_service.mint_refresh_token``; an
+    The single session-issue point for the login paths. By default a NEW refresh token is minted and
+    committed (change-password) through ``refresh_token_service.mint_refresh_token``; an
     ``IntegrityError`` there propagates. Pass ``refresh_token=`` with ``commit=False`` when the caller
-    already minted or rotated and committed one: the ``/refresh`` endpoint, and the OAuth callbacks,
-    whose ``oauth_account_service.mint_oauth_refresh_token`` turns a concurrent first-login
-    ``IntegrityError`` into the conflict redirect. Returns the raw access token (body responses echo it).
+    already minted or rotated and committed one: the password login, whose
+    ``auth_account_service.record_password_login`` mints under the account's lock, the ``/refresh``
+    endpoint, and the OAuth callbacks, whose ``oauth_account_service.mint_oauth_refresh_token`` turns a
+    concurrent first-login ``IntegrityError`` into the conflict redirect. Returns the raw access token
+    (body responses echo it).
     """
     access_token = create_access_token(data={"sub": user.email})
     _set_auth_cookie(response, access_token)
@@ -916,10 +918,9 @@ async def change_password(
         error_detail="Too many password change attempts. Please try again later.",
         include_client_ip=False,  # per-account cap: an IP pool must not multiply it
     )
-    if current_user.hashed_password:
-        ok = await asyncio.to_thread(
-            verify_password, payload.current_password or "", current_user.hashed_password
-        )
+    verified_hash = current_user.hashed_password
+    if verified_hash:
+        ok = await asyncio.to_thread(verify_password, payload.current_password or "", verified_hash)
         if not ok:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
@@ -939,7 +940,11 @@ async def change_password(
     # inside issue_session (refresh_token_service.mint_refresh_token, default commit=True) commits
     # them with the new token, so a failure there rolls the whole change back (no
     # password-changed-but-500 inconsistency) and saves a commit round-trip.
-    auth_account_service.stage_password_change(db, current_user, new_password_hash)
+    if not auth_account_service.stage_password_change(db, current_user, new_password_hash, verified_hash):
+        # A reset or another change committed while this request hashed (E121).
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
+        )
     issue_session(db, current_user, response, request)
     return {"message": "Password updated."}
 

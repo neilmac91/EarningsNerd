@@ -63,7 +63,8 @@ async def _release_on_the_next_loop_turn() -> None:
 
 
 async def _release_after_a_default_executor_step() -> None:
-    """Login's shape: ``await asyncio.to_thread(verify_password, ...)`` while its session holds the slot."""
+    """A password change's shape: ``await asyncio.to_thread(verify_password, ...)`` while its session
+    holds the slot."""
     await asyncio.to_thread(lambda: None)
 
 
@@ -113,7 +114,7 @@ async def test_waiting_copilot_lookup_lets_the_slot_holder_finish(monkeypatch, t
 
     loop = asyncio.get_running_loop()
     # One default-executor thread stands in for a default executor whose threads are all taken: a
-    # lookup waiting there would hold the thread a login-shaped holder needs. The test's loop closes
+    # lookup waiting there would hold the thread a change-shaped holder needs. The test's loop closes
     # this executor at teardown.
     loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
     loop_thread = threading.get_ident()

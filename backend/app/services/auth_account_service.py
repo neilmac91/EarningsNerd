@@ -213,12 +213,28 @@ def complete_password_reset(db: Session, user: User, hashed_password: str) -> No
     db.commit()
 
 
-def stage_password_change(db: Session, user: User, hashed_password: str) -> None:
-    """Set the new password and revoke every refresh token, WITHOUT committing.
+def stage_password_change(
+    db: Session, user: User, hashed_password: str, verified_hash: Optional[str]
+) -> bool:
+    """Set the new password and revoke every refresh token, WITHOUT committing, and return True.
+
+    ``verified_hash`` is the hash the caller checked the current password against, or None for an
+    account that had none to check. Under the account's users row lock
+    (``refresh_token_service.lock_user_tokens``), and only while it is still the account's: a reset or
+    another change that committed while the caller hashed would otherwise be overwritten, and its
+    revocation undone by the session minted next, so whoever knew the old password would take the
+    account back from its owner's recovery (E121). Then nothing is written and False is returned. A
+    reset or change that starts after the lock is taken waits for this change's commit.
 
     The caller's session re-issue (``issue_session`` → ``refresh_token_service.mint_refresh_token``)
     commits the change, the revocation and this device's new token together, so a failure there
     rolls the whole change back (no password-changed-but-500 inconsistency).
     """
-    user.hashed_password = hashed_password
-    revoke_all_for_user(db, user.id)
+    lock_user_tokens(db, user.id)
+    current = db.query(User).filter(User.id == user.id).populate_existing().first()
+    if current is None or current.hashed_password != verified_hash:
+        db.rollback()  # releases the lock; nothing was written
+        return False
+    current.hashed_password = hashed_password
+    revoke_all_for_user(db, current.id)
+    return True
