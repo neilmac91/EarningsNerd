@@ -499,21 +499,32 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     )
 
 
-# Homes whose requests still run in autoflushing sessions, until E132 gives them production's settings.
-_AUTOFLUSHING_HOMES = {
-    "test_usage_counter_transactions.py",
-    "test_login_lockout_transactions.py",
-    "test_notification_delivery_transactions.py",
-}
-
-
-@pytest.mark.parametrize("label,test_home,url_name", [
+# Each PostgreSQL step of the migrations-postgres job: its label, its test home, and the variable it sets.
+_POSTGRES_STEPS = [
     ("Stripe transaction", "test_subscription_event_transactions.py", "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
     ("usage counter", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
     ("login failure", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
     ("alert delivery claim", "test_notification_delivery_transactions.py", "DELIVERY_CONCURRENCY_TEST_DATABASE_URL"),
     ("refresh token rotation", "test_refresh_rotation_transactions.py", "REFRESH_CONCURRENCY_TEST_DATABASE_URL"),
-])
+]
+
+
+def test_every_postgres_step_fails_when_its_cases_skip():
+    """A home that stops reading its variable in the fixture, or skips at module level, would pass its required
+    step with nothing run; tests/support/postgres_gates.py fails such a run, and it must know every step (E132)."""
+    from tests import conftest
+    from tests.support import postgres_gates
+
+    steps = {
+        str(step.get("name", "")) for step in _load_ci()["jobs"][MIGRATIONS_JOB]["steps"]
+        if re.fullmatch(r"Verify .+ concurrency on PostgreSQL", str(step.get("name", "")))
+    }
+    assert steps == {f"Verify {label} concurrency on PostgreSQL" for label, _, _ in _POSTGRES_STEPS}
+    assert postgres_gates.POSTGRES_GATES == {home: url_name for _, home, url_name in _POSTGRES_STEPS}
+    assert "tests.support.postgres_gates" in conftest.pytest_plugins
+
+
+@pytest.mark.parametrize("label,test_home,url_name", _POSTGRES_STEPS)
 def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home, url_name):
     """The ordinary SQLite lane cannot establish PostgreSQL row-lock behavior."""
     # The test home must read the variable its step sets: renamed on one side only, its cases skip and
@@ -536,13 +547,10 @@ def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home,
         and isinstance(node.value, ast.Constant) and node.value.value is False
         for node in ast.walk(home)
     )
-    if test_home in _AUTOFLUSHING_HOMES:
-        assert not production_sessions, f"{test_home} takes production's session settings now: drop it from _AUTOFLUSHING_HOMES"
-    else:
-        assert production_sessions, (
-            f"{test_home} must run its requests in sessions with production's settings: a sessionmaker built "
-            "from SessionLocal.kw, or autoflush=False"
-        )
+    assert production_sessions, (
+        f"{test_home} must run its requests in sessions with production's settings: a sessionmaker built "
+        "from SessionLocal.kw, or autoflush=False"
+    )
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]
     step = _step(job, f"Verify {label} concurrency on PostgreSQL")

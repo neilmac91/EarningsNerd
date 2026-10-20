@@ -12,10 +12,10 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import create_engine, delete
 from sqlalchemy.engine import make_url
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
-from app.database import Base
+from app.database import Base, SessionLocal
 from app.models import Company, Filing, NotificationLog, NotificationPreferences, User, Watchlist
 from app.models.notification_delivery import (
     KIND_FILING_REALTIME,
@@ -51,6 +51,13 @@ def postgres_engine():
         engine.dispose()
 
 
+def _session(bind) -> Session:
+    """A session with production's settings (``SessionLocal``'s, which do not autoflush) on this case's engine
+    or connection: an autoflushing one flushes a pending write at its next query, where production waits for
+    the commit, and can serialize two requests that production does not (E132)."""
+    return sessionmaker(**{**SessionLocal.kw, "bind": bind})()
+
+
 def _seed_batch(engine) -> tuple[int, int, int]:
     with Session(engine) as db:
         company = Company(cik=uuid.uuid4().hex[:10], ticker="T1", name="Company One")
@@ -72,30 +79,30 @@ def test_postgres_competing_claims_admit_exactly_one_owner(postgres_engine):
     ready = threading.Barrier(4, timeout=5)
 
     def try_claim(token):
-        with Session(postgres_engine) as db:
+        with _session(postgres_engine) as db:
             ready.wait()
             return delivery.claim(db, batch_id, token, NOW)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         outcomes = [f.result(timeout=8) for f in [pool.submit(try_claim, f"worker-{i}") for i in range(4)]]
     assert outcomes.count(True) == 1
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         row = db.get(DeliveryBatch, batch_id)
         assert row.status == STATUS_CLAIMED and row.owner_token in {f"worker-{i}" for i in range(4)}
 
 
 def test_postgres_stale_owner_is_fenced_out_of_send_and_finalisation(postgres_engine):
     _, _, batch_id = _seed_batch(postgres_engine)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         assert delivery.claim(db, batch_id, "owner", NOW) is True
     # Another worker that read the batch earlier can neither authorise nor finalise it.
-    with Session(postgres_engine) as stale, Session(postgres_engine) as owner:
+    with _session(postgres_engine) as stale, _session(postgres_engine) as owner:
         assert delivery.authorize_send(stale, batch_id, "stale", NOW) is False
         assert delivery.authorize_send(owner, batch_id, "owner", NOW) is True
         assert delivery.finalize_accepted(stale, stale.get(DeliveryBatch, batch_id), "stale", "x", NOW) is False
         assert stale.query(NotificationLog).count() == 0
         assert delivery.finalize_accepted(owner, owner.get(DeliveryBatch, batch_id), "owner", "x", NOW) is True
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         assert db.get(DeliveryBatch, batch_id).status == STATUS_ACCEPTED
         assert db.query(NotificationLog).count() == 1
         assert db.query(Watchlist).one().last_alerted_at is not None
@@ -103,7 +110,7 @@ def test_postgres_stale_owner_is_fenced_out_of_send_and_finalisation(postgres_en
 
 def test_postgres_deleting_the_users_row_cascades_batches_and_items(postgres_engine):
     uid, _, batch_id = _seed_batch(postgres_engine)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         db.execute(delete(Watchlist).where(Watchlist.user_id == uid))
         db.execute(delete(NotificationPreferences).where(NotificationPreferences.user_id == uid))
         db.execute(delete(User).where(User.id == uid))  # Core delete: proves the FK, not the ORM cascade
@@ -116,7 +123,7 @@ def test_postgres_deleting_the_users_row_cascades_batches_and_items(postgres_eng
 @pytest.mark.parametrize("partial", [False, True])
 async def test_postgres_deleting_a_filing_row_cascades_its_items(postgres_engine, partial):
     _, filing_id, batch_id = _seed_batch(postgres_engine)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         if partial:
             filing = db.get(Filing, filing_id)
             second = Filing(company_id=filing.company_id, accession_number=uuid.uuid4().hex,
