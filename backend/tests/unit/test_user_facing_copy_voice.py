@@ -42,6 +42,28 @@ condition after its opener, ``<!--[if !mso]>`` or ``<![if !mso]>``; what a comme
 an emoji or dingbat; an <h1>/<h2> in Title Case. The retired colours (RETIRED_HEX) are checked in every
 literal of the scanned files except docstrings and log arguments, since a hex string is only ever a colour.
 
+The account verb (docs/brand/decisions-log.md D-046, F44) is checked in every literal too: the product says
+"Log in", "Log out" and "logged in", with "login" the noun, so no literal says "sign in" or "sign out". The verb's
+noun is hyphenated and lowercase, like a code token, so the check reads past the eight shapes, and a sentence
+handed on through a local without a role word (``hint = "Please sign in"`` then ``detail=hint``) is read with
+the rest; only a module whose file name says its text is for the model (PROMPT_MODULES, MODEL_FACING_NAME) is
+read for its copy alone. The other verb is "sign" in any inflection (signs, signed, signing) before "in", "ins",
+"into", "out" or "outs", in any case, closed up ("signin"), hyphenated ("sign-in") or parted: by whitespace of any
+kind (a line break and a no-break space included), a dash of any kind or the minus sign, and by the words
+English puts inside the verb (INSIDE_THE_VERB: "back", "right" or "straight", and an object pronoun, a reflexive
+one or one for a person, which may take "all", "both" or "each": "Signing you back in", "Sign them all out"). A
+literal is read as its reader gets it: a character reference decoded as HTML decodes it (``Sign&nbsp;in``), a
+compatibility form folded to its letter (NFKC: a fullwidth ``Ｓｉｇｎ ｉｎ``) and an invisible character taken out
+(Unicode's Default_Ignorable_Code_Point: a soft hyphen, a zero-width space or joiner, a word joiner). Each place
+a literal says it is a break of its own. "Sign up" (registering), "log in", "logged in", "logging in" and "login"
+pass. Out of reach, each planted as a gap in VERB_FORMS: the two words in two literals joined by ``+``
+(``"Sign " + "in"``), or parted by an interpolation or a format field (``f"Sign{SPACE}in"``,
+``"Sign {}".format("in")``), each part read alone; a noun object between them (``Sign other devices out``; "Sign
+your name in the box" is the other verb, signing); and a letter from another script (a Cyrillic ``і``). Its false
+positives, planted too: the other senses of "sign" before these words (``Signed into law``,
+``A sign right in front of you``), a code attribute of markup, which is read whole (``href="/signin"``), and a
+code token in kebab case (``sign-in-limiter``).
+
 EXEMPT lists what breaks today, each entry with the number of breaks it covers and the PR or decision
 that owns their fix: a file, or ``file::function`` for half of one. The number is an equality, as
 brandVoiceRules.spec.ts holds its VOICE_RESIDUE, so a new break inside an exempt file or function fails as
@@ -68,6 +90,9 @@ as ``recovery_context.py``'s ``RecoveryBlock``, whose labels go into the prompt.
 import ast
 import html
 import re
+import sys
+import unicodedata
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Optional
@@ -126,6 +151,30 @@ ANY_TAG = re.compile(r"<[^>]+>")
 # Proper names keep their capitals inside a sentence-case heading.
 PROPER_NAMES = ("EarningsNerd", "Multi-Period Analysis", "Ask this Filing", "Change Report", "SEC EDGAR", "Pro")
 
+# The account verb (module docstring). What parts its two words once a literal is readable: whitespace of any kind
+# (Python's \s takes Unicode's, a no-break space among them), a dash of any kind (Unicode's Pd, as this Python's
+# tables list them) and the minus sign.
+_DASHES = "".join(chr(code) for code in range(sys.maxunicode + 1) if unicodedata.category(chr(code)) == "Pd")
+_PARTED = rf"[\s{re.escape(_DASHES)}\u2212]"
+# The words English puts inside the phrasal verb, between "sign" and its particle: "back" and the "right" and
+# "straight" that lean on it, and an object pronoun, a reflexive one or one for a person, which may take a floating
+# "all", "both" or "each". A closed set, so a noun object stays out (a gap: "Sign other devices out"), as it must:
+# "Sign your name in the box" is the other verb, signing.
+INSIDE_THE_VERB = (
+    r"(?:back|right|straight|(?:me|you|him|her|it|us|them|myself|yourself|himself|herself|itself|ourselves"
+    rf"|yourselves|themselves|oneself|everyone|everybody|someone|somebody|anyone|anybody|nobody|no{_PARTED}+one)"
+    rf"(?:{_PARTED}+(?:all|both|each))?)"
+)
+SIGN_IN_VERB = re.compile(
+    rf"\bsign(?:s|ed|ing)?(?:{_PARTED}+{INSIDE_THE_VERB})*{_PARTED}*(?:in(?:s|to)?|outs?)\b", re.IGNORECASE
+)
+# Unicode's Default_Ignorable_Code_Point (DerivedCoreProperties.txt), which Python's tables do not carry: what a
+# reader never sees, such as a soft hyphen, a zero-width space or joiner, a word joiner or a direction mark.
+INVISIBLE = re.compile(
+    "[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3164"
+    "\ufe00-\ufe0f\ufeff\uffa0\ufff0-\ufff8\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0000-\U000e0fff]"
+)
+
 # What breaks today, grouped by the PR or decision that owns the fix: (breaks covered, owner). Both only shrink
 # (module docstring).
 EXEMPT: dict[str, tuple[int, str]] = {
@@ -138,31 +187,30 @@ EXEMPT: dict[str, tuple[int, str]] = {
     "app/routers/contact.py::send_contact_notifications": (12, "backend-mail-templates"),
     "app/routers/feedback.py::_notify_admin": (5, "backend-mail-templates"),
     "app/services/email_service.py": (
-        20,
+        25,
         "backend-mail-templates; also the verification mail's 'Verify your email address and you can start "
-        "reading', which promises a gate the code does not have (only checkout checks email_verified)",
+        "reading', which promises a gate the code does not have (only checkout checks email_verified), and the "
+        "OAuth-linked mail's 'sign-in' and 'sign in', five places the account verb found when E45 taught it "
+        "(tasks/todo.md E46)",
     ),
 
     "app/services/ai/issuer_cash_disclosure.py": (1, "backend-copy-high: the issuer cash-flow table's column heading"),
     "app/services/fallback_summary.py": (1, "backend-copy-high"),
     "app/services/summary_sections.py": (1, "backend-copy-high"),
 
-    "app/routers/auth.py": (
+    "app/routers/auth.py::unlink_connection": (
         1,
-        "backend-copy-low (tasks/todo.md E45): the auth router's details, in the voice pass on the five routers "
-        "the founder approved (D-040)",
+        "founder: the unlink detail's 'only sign-in method', which test_auth_flow.py pins (a locked contract "
+        "test, CLAUDE.md rule 6), so it takes the account verb only under a contract change its PR documents",
     ),
-    "app/routers/email.py::send_test_email": (1, "backend-copy-low (tasks/todo.md E45): the admin-only Resend test mail"),
-    "app/services/edgar/ads_ratios.py": (4, "backend-copy-low (tasks/todo.md E45): the ADS-ratio sources PerAdsNote shows"),
-    "app/services/trend_analysis/citations.py": (1, "backend-copy-low (tasks/todo.md E45): the analysis citation's derived-Q4 label"),
-    "app/services/trend_analysis/detectors.py": (1, "backend-copy-low (tasks/todo.md E45): the cash-conversion red flag"),
 }
 # The entry count, held as an equality (D-040): 18 when the gate landed, 20 when the walk learned shapes 7
 # and 8 and listed the two files they found in the same commit, 16 when the backend-exports PR (#1345) landed
-# and its four entries went. Lower it with every deletion, in the same
-# diff; when two shrinking PRs meet, the later merge sets it to the merged list's count, which the equality
-# holds it to. Raising it for new copy is the one change this gate exists to refuse.
-EXEMPT_CAP = 16
+# and its four entries went, 12 when the five routers' voice pass (E45) took its five entries off and the
+# account verb, learned in the same commit, listed the one break a locked test pins. Lower it with every
+# deletion, in the same diff; when two shrinking PRs meet, the later merge sets it to the merged list's count,
+# which the equality holds it to. Raising it for new copy is the one change this gate exists to refuse.
+EXEMPT_CAP = 12
 
 
 @dataclass(frozen=True)
@@ -203,6 +251,25 @@ def _copy_breaks(text: str) -> Iterator[tuple[int, str]]:
         tail = [word.strip(".,:;()&'\"") for word in words.split()][1:]
         if any(word[:1].isupper() and not word.isupper() for word in tail):
             yield heading.start(), f"Title Case <{heading.group(1)}>"
+
+
+def _other_verb(text: str) -> Iterator[tuple[int, str]]:
+    """(offset, form) for each place a literal says the other verb, read as its reader gets it (module docstring);
+    the offset falls on the line of ``text`` the form starts on."""
+    readable = INVISIBLE.sub("", unicodedata.normalize("NFKC", html.unescape(text)))
+    for match in SIGN_IN_VERB.finditer(readable):
+        yield _after_lines(text, readable.count("\n", 0, match.start())), match.group(0)
+
+
+def _after_lines(text: str, lines: int) -> int:
+    """An offset into ``text`` with ``lines`` line breaks before it (its end, when it holds fewer)."""
+    at = 0
+    for _ in range(lines):
+        found = text.find("\n", at)
+        if found < 0:
+            return len(text)
+        at = found + 1
+    return at
 
 
 class _Reader(ast.NodeVisitor):
@@ -422,18 +489,26 @@ def read_module(source: str, path: str) -> tuple[list[Break], int]:
         prompt_module=module.name in PROMPT_MODULES,
         model_module=bool(MODEL_FACING_NAME.search(module.stem)),
     )
+    # A module whose file name says its text is for the model is read for the account verb in its copy alone.
+    model_text = module.name in PROMPT_MODULES or bool(MODEL_FACING_NAME.search(module.stem))
     found: list[Break] = []
+    verbs: list[Break] = []  # each place a literal says the other verb is a break of its own, never merged
     copy = 0
     for node, scope in reader.literals:
         text = _text(node)
-        if path in DOCUMENT_MODULES or id(node) in reader.reached or MARKUP.search(text):
+        is_copy = path in DOCUMENT_MODULES or id(node) in reader.reached or bool(MARKUP.search(text))
+        if is_copy:
             copy += 1
             for offset, rule in _copy_breaks(text):
                 found.append(Break(path, node.lineno + text.count("\n", 0, offset), scope, rule, text.strip()))
         for colour in RETIRED_HEX.finditer(text):
             line = node.lineno + text.count("\n", 0, colour.start())
             found.append(Break(path, line, scope, f"retired colour {colour.group(0)}", text.strip()))
-    return sorted(set(found), key=lambda b: (b.path, b.line, b.rule)), copy
+        if is_copy or not model_text:
+            for offset, form in _other_verb(text):
+                line = node.lineno + text.count("\n", 0, offset)
+                verbs.append(Break(path, line, scope, f"account verb {form!r}", text.strip()))
+    return sorted([*set(found), *verbs], key=lambda b: (b.path, b.line, b.rule)), copy
 
 
 def breaks_in(source: str, path: str) -> list[Break]:
@@ -678,6 +753,101 @@ def test_the_reader_sees_each_shape_and_lets_the_rest_through():
     reader = _Reader(ast.parse(source))
     taste = [node for node, scope in reader.literals if scope == "copilot_taste_exhausted_detail" and id(node) in reader.reached]
     assert any("free Copilot questions" in _text(node) for node in taste), "copilot_taste_exhausted_detail is no longer read"
+
+
+# The account verb's planted forms (module docstring; lessons/test-gates-must-be-as-wide-as-their-rule.md), each a
+# statement in the body of a probe route and the mark the walk must score it with: "flag", a form of the other verb
+# it fails; "clean", a look-alike it lets through; "gap", a form the rule forbids that it passes; "false positive",
+# another sense of "sign" or a code token it fails. Each gap and false positive is named in the module docstring
+# (the third field, as the docstring writes it), so the header and the cases move together.
+VERB_FORMS: tuple[tuple[str, str, str], ...] = (
+    (r'raise HTTPException(401, "Sign in to continue.")', "flag", ""),
+    (r'raise HTTPException(status_code=429, detail="Too many sign-in attempts. Please try again shortly.")', "flag", ""),
+    (r'raise HTTPException(status_code=503, detail="Google Sign-In is not configured.")', "flag", ""),
+    (r'raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")', "flag", ""),
+    ('raise HTTPException(400, detail="You can\'t remove your only sign-in method.")', "flag", ""),
+    (r'message = f"You are signed in as {name}."', "flag", ""),
+    (r'loading = "Signing in…"', "flag", ""),
+    (r'label = "Signs out of every device"', "flag", ""),
+    (r'label = "SIGN OUT"', "flag", ""),
+    (r'label = "Sign into your account"', "flag", ""),
+    (r'label = "No social sign-ins linked."', "flag", ""),
+    (r'label = "Signin failed"', "flag", ""),
+    (r'label = "Signout failed"', "flag", ""),
+    (r'label = "Readers who are signed-out see the teaser"', "flag", ""),
+    (r'label = "Sign\u00a0in"', "flag", ""),  # a no-break space
+    (r'label = "Sign\u2011in"', "flag", ""),  # a non-breaking hyphen
+    (r'label = "Sign\u2013in"', "flag", ""),  # an en dash
+    (r'label = "Sign\u2212in"', "flag", ""),  # the minus sign
+    (r'label = "Already have an account? Sign\n  in"', "flag", ""),  # a line break
+    (r'label = "Signing you back in…"', "flag", ""),
+    (r'label = "Sign them all out"', "flag", ""),
+    (r'html = "<p>Sign&nbsp;in to continue</p>"', "flag", ""),  # a character reference, decoded as HTML decodes it
+    (r'html = "<p>Sign&#8209;in</p>"', "flag", ""),
+    (r'label = "\uff33\uff49\uff47\uff4e \uff49\uff4e"', "flag", ""),  # fullwidth letters, which NFKC folds
+    (r'label = "Sig\u200bn in"', "flag", ""),  # a zero-width space inside the word
+    (r'label = "Sign\u00adin"', "flag", ""),  # a soft hyphen
+    (r'hint = "Please sign in."; raise HTTPException(401, hint)', "flag", ""),  # handed on through a local
+    (r'text = "Sign " "in"', "flag", ""),  # adjacent literals, which the parser joins
+    (r'"""Sign in to continue."""', "clean", ""),  # a docstring is never copy
+    (r'logger.info("sign in failed for %s", name)', "clean", ""),  # nor a log line
+    (r'PATTERN = re.compile("sign in")', "clean", ""),  # nor a pattern
+    (r'raise HTTPException(401, "Log in to continue.")', "clean", ""),
+    (r'label = "You are logged in as {}."', "clean", ""),
+    (r'loading = "Logging in…"', "clean", ""),
+    (r'label = "Log out of all devices"', "clean", ""),
+    (r'label = "Login failed"', "clean", ""),
+    (r'label = "Sign up for alerts"', "clean", ""),
+    (r'label = "Already signed up? Log in."', "clean", ""),
+    (r'label = "sign-up or signup"', "clean", ""),
+    (r'raise HTTPException(400, detail="Missing stripe-signature header")', "clean", ""),
+    (r'label = "The webhook signing secret is not set."', "clean", ""),
+    (r'label = "Signals in the filing"', "clean", ""),
+    (r'label = "Assign it in settings, or resign in protest."', "clean", ""),
+    (r'label = "Designing in public"', "clean", ""),
+    (r'key = "sign_in_url"', "clean", ""),
+    (r'label = "Sign your name in the box"', "clean", ""),  # the other verb, signing
+    (r'label = "Sign " + "in"', "gap", '``"Sign " + "in"``'),
+    (r'label = f"Sign{SPACE}in"', "gap", '``f"Sign{SPACE}in"``'),
+    (r'label = "Sign {}".format("in")', "gap", '``"Sign {}".format("in")``'),
+    (r'label = "Sign other devices out"', "gap", "``Sign other devices out``"),
+    (r'label = "Sign \u0456n"', "gap", "a Cyrillic ``\u0456``"),  # NFKC folds no letter of another script
+    (r'label = "Signed into law"', "false positive", "``Signed into law``"),
+    (r'label = "A sign right in front of you"', "false positive", "``A sign right in front of you``"),
+    ('html = \'<a href="/signin">Open the page</a>\'', "false positive", '``href="/signin"``'),
+    (r'key = "sign-in-limiter"', "false positive", "``sign-in-limiter``"),
+)
+# How many cases carry each mark, held equal so that a case dropped in an edit fails here.
+VERB_MARKS = {"flag": 28, "clean": 18, "gap": 5, "false positive": 4}
+
+
+def _verbs(source: str, path: str = "app/routers/probe.py") -> list[Break]:
+    return [item for item in breaks_in(source, path) if item.rule.startswith("account verb")]
+
+
+def test_the_verb_check_scores_its_planted_forms():
+    assert Counter(mark for _, mark, _ in VERB_FORMS) == VERB_MARKS
+    scored = [
+        (statement, mark, _verbs(f"def route(name, x, SPACE):\n    {statement}\n"))
+        for statement, mark, _ in VERB_FORMS
+    ]
+    wrong = [
+        f"{mark}: {statement} -> {[str(item) for item in found]}"
+        for statement, mark, found in scored
+        if bool(found) != (mark in {"flag", "false positive"})
+    ]
+    assert not wrong, "The account verb check scored a planted form wrongly:\n" + "\n".join(wrong)
+    unnamed = [named for _, mark, named in VERB_FORMS if mark in {"gap", "false positive"} and named not in __doc__]
+    assert not unnamed, f"The module docstring no longer names these gaps and false positives: {unnamed}"
+
+    # Each place a literal says it is a break of its own, on the line it starts on; a module whose file name says
+    # its text is for the model is read for its copy alone.
+    assert len(_verbs('label = "sign in, then sign in again"\n')) == 2
+    page = 'PAGE = """<p>Hello</p>\n<p>Welcome back</p>\n<p>Sign&nbsp;in to continue</p>"""\n'
+    assert [item.line for item in _verbs(page)] == [3]
+    model = 'RULE = "Never tell the reader to sign in."\nraise HTTPException(401, "Sign in again.")\n'
+    assert [item.text for item in _verbs(model, "app/services/ai/summary_prompt.py")] == ["Sign in again."]
+    assert len(_verbs(model, "app/services/ai/summary_writer.py")) == 2
 
 
 def test_the_walk_reads_the_backend():

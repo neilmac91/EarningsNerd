@@ -363,7 +363,7 @@ async def get_current_user(
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="You are not logged in.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     token = _get_token_from_request(credentials, request)
@@ -393,7 +393,7 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive",
+            detail="This account is inactive. Contact support with any questions.",
         )
 
     # Attribute Sentry errors on this request to the authenticated user + beta cohort. Id only —
@@ -505,7 +505,7 @@ async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
 # concurrent-create race — so the endpoint never reveals whether an account exists
 # (anti-enumeration). Differentiation happens only out-of-band, in the recipient's inbox.
 _REGISTER_OPAQUE = {
-    "message": "Thanks! Check your email for a link to finish setting up your account."
+    "message": "Check your email for a link to finish setting up your account."
 }
 
 
@@ -553,7 +553,7 @@ async def register(
         request,
         REGISTER_LIMITER,
         "register",
-        error_detail="Too many registration attempts. Please try again in a minute.",
+        error_detail="Too many registration attempts. Try again in a minute.",
     )
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
 
@@ -575,7 +575,7 @@ async def register(
     if await is_password_pwned(user_data.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This password has appeared in a known data breach. Please choose a different password.",
+            detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
     # Always pay the bcrypt cost, even for an existing email, so response timing doesn't reveal
@@ -644,7 +644,7 @@ async def login(
         request,
         LOGIN_LIMITER,
         "login",
-        error_detail="Too many login attempts. Please try again in a minute.",
+        error_detail="Too many login attempts. Try again in a minute.",
     )
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
     email, hashed_ip = user_data.email, _hashed_client_ip(request)
@@ -670,7 +670,7 @@ async def login(
     if lock_seconds is not None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many failed login attempts for this account. Please try again later.",
+            detail="Too many failed login attempts for this account. Try again later.",
             headers={"Retry-After": str(lock_seconds)},
         )
     user_id, verified_hash, is_active = account or (None, None, False)
@@ -746,7 +746,7 @@ async def refresh(
         logger.warning(f"Refresh reuse detected: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+            detail="Your session has ended. Log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except RefreshTokenError as exc:
@@ -755,7 +755,7 @@ async def refresh(
         logger.info(f"Refresh rejected: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+            detail="Your session has ended. Log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -811,12 +811,12 @@ async def resend_verification(
     # Per-IP cap across all addresses (stops one IP spraying verification mail to many emails)...
     enforce_rate_limit(
         request, RESET_RESEND_IP_LIMITER, "resend-ip",
-        error_detail="Too many resend requests. Please wait before trying again.",
+        error_detail="Too many resend requests. Try again later.",
     )
     # ...plus the per-email cap (email already normalized by the schema validator).
     enforce_rate_limit(
         request, RESEND_VERIFY_LIMITER, f"resend:{payload.email}",
-        error_detail="Too many resend requests. Please wait before trying again.",
+        error_detail="Too many resend requests. Try again later.",
         include_client_ip=False,
     )
     user = auth_account_service.find_user_by_email(db, payload.email)
@@ -839,12 +839,12 @@ async def forgot_password(
     # Per-IP cap across all addresses (stops one IP spraying reset mail to many emails)...
     enforce_rate_limit(
         request, RESET_RESEND_IP_LIMITER, "reset-ip",
-        error_detail="Too many reset requests. Please wait before trying again.",
+        error_detail="Too many reset requests. Try again later.",
     )
     # ...plus the per-email cap (email already normalized by the schema validator).
     enforce_rate_limit(
         request, RESET_REQUEST_LIMITER, f"reset:{payload.email}",
-        error_detail="Too many reset requests. Please wait before trying again.",
+        error_detail="Too many reset requests. Try again later.",
         include_client_ip=False,
     )
     opaque = {"message": "If an account exists for that email, a password reset link is on its way."}
@@ -884,7 +884,7 @@ async def reset_password(
     if await is_password_pwned(payload.new_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This password has appeared in a known data breach. Please choose a different password.",
+            detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
     hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
@@ -915,7 +915,7 @@ async def change_password(
         request,
         LOGIN_LIMITER,
         f"change-password:{current_user.id}",
-        error_detail="Too many password change attempts. Please try again later.",
+        error_detail="Too many password change attempts. Try again later.",
         include_client_ip=False,  # per-account cap: an IP pool must not multiply it
     )
     verified_hash = current_user.hashed_password
@@ -929,7 +929,7 @@ async def change_password(
     if await is_password_pwned(payload.new_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This password has appeared in a known data breach. Please choose a different password.",
+            detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
     new_password_hash = await asyncio.to_thread(get_password_hash, payload.new_password)
@@ -971,10 +971,10 @@ def _start_google(request: Request, db: Session, invite: Optional[str]) -> tuple
     """Rate limit, save the state (with the invite's hash when the invite is live) and build
     Google's consent URL. Returns ``(url, state)``; the caller sets the state cookie."""
     if not settings.GOOGLE_CLIENT_ID:
-        raise HTTPException(status_code=503, detail="Google Sign-In is not configured.")
+        raise HTTPException(status_code=503, detail="Logging in with Google is not available.")
     enforce_rate_limit(
         request, OAUTH_START_LIMITER, "oauth-start",
-        error_detail="Too many sign-in attempts. Please try again shortly.",
+        error_detail="Too many login attempts. Try again shortly.",
     )
     state = secrets.token_urlsafe(32)
     # Commits a state row only for a live invite; a plain sign-in persists nothing.
@@ -1127,10 +1127,10 @@ def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[
     Apple's consent URL. Returns ``(url, state)``; the row is committed before the caller returns
     the URL and sets the browser-binding cookie."""
     if not settings.APPLE_CLIENT_ID:
-        raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
+        raise HTTPException(status_code=503, detail="Logging in with Apple is not available.")
     enforce_rate_limit(
         request, OAUTH_START_LIMITER, "oauth-start",
-        error_detail="Too many sign-in attempts. Please try again shortly.",
+        error_detail="Too many login attempts. Try again shortly.",
     )
 
     state = secrets.token_urlsafe(32)

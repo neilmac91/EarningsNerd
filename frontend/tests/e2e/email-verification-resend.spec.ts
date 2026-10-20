@@ -42,7 +42,7 @@ function fixture(pathname: string): unknown {
 
 type Resend = { status: number; body: unknown }
 const SENT: Resend = { status: 200, body: { message: 'If that email has an unverified account, a new verification link is on its way.' } }
-const LIMITED: Resend = { status: 429, body: { detail: 'Too many resend requests. Please wait before trying again.' } }
+const LIMITED: Resend = { status: 429, body: { detail: 'Too many resend requests. Try again later.' } }
 const DOWN: Resend = { status: 503, body: { detail: 'Service temporarily unavailable. Please try again in a moment.' } }
 /** Resend under each of its names: idle, busy, sent. */
 const RESEND = /^(Resend link|Sending…|Link sent)$/

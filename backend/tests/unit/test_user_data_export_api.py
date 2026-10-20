@@ -29,7 +29,7 @@ PROFILE_KEYS = [
     "user_id", "email", "full_name", "is_active", "is_pro", "stripe_customer_id",
     "stripe_subscription_id", "created_at", "updated_at",
 ]
-FAILED_DETAIL = "Failed to export user data"
+FAILED_DETAIL = "We could not export your data. Try again in a moment."
 
 
 @pytest.fixture(scope="module")

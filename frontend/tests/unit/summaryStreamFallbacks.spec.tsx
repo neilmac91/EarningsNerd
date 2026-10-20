@@ -17,7 +17,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
  * or a 403 with no detail of its own and a press made signed out ask the reader to log in or name a missing
  * permission, which a Retry press cannot change, so the card offers none. backendMessageMatches.spec.ts
  * cannot tie a phrase to these sentences, since a backend module it reads writes the same words
- * (routers/auth.py says "log in" and "Sign In").
+ * (routers/auth.py says "log in").
  */
 
 const getSummary = vi.hoisted(() => vi.fn())
