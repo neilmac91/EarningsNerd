@@ -265,8 +265,19 @@ function literalsOf(rel: string, source: string): string[] {
   return out.map((text) => text.replace(/\s+/g, ' ').trim()).filter(Boolean)
 }
 
-/** Every copy literal of a module under frontend/ (literalsOf). */
-const literals = (rel: string) => literalsOf(rel, readFileSync(path.join(FRONTEND, rel), 'utf8'))
+const literalsByModule = new Map<string, string[]>()
+
+/** Every copy literal of a module under frontend/ (literalsOf), parsed once per run: three cases scan every module. */
+function literals(rel: string): string[] {
+  const known = literalsByModule.get(rel)
+  if (known) return known
+  const found = literalsOf(rel, readFileSync(path.join(FRONTEND, rel), 'utf8'))
+  literalsByModule.set(rel, found)
+  return found
+}
+
+/** A case that parses every module under the scan directories: the default 5s times out on a loaded machine. */
+const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 const copyModules = () =>
   execFileSync('git', ['ls-files', '--', ...SCAN_DIRS], { cwd: FRONTEND, encoding: 'utf8' })
@@ -784,7 +795,7 @@ describe('the account events have a sentence of their own, true of the API (D-05
     for (const page of ['security', 'privacy'] as const) expect(rendered(page)).toContain(ACCOUNT_EVENTS_DISCLOSURE)
   })
 
-  it('no other copy types it', () => {
+  it('no other copy types it', SCANS_EVERY_MODULE, () => {
     const modules = copyModules().filter((rel) => rel !== 'lib/consentCopy.ts')
     expect(modules.length).toBeGreaterThan(300)
     const typed = modules.flatMap((rel) =>
@@ -896,7 +907,7 @@ describe('the consent clause and /privacy say the same thing, from one constant 
     expect(rendered('privacy')).toContain(`Analytics Cookies: ${ANALYTICS_CONSENT_CLAUSE}`)
   })
 
-  it('no other copy types the clause', () => {
+  it('no other copy types the clause', SCANS_EVERY_MODULE, () => {
     const modules = copyModules().filter((rel) => rel !== 'lib/consentCopy.ts')
     expect(modules.length).toBeGreaterThan(300)
     const typed = modules.flatMap((rel) =>
@@ -905,7 +916,7 @@ describe('the consent clause and /privacy say the same thing, from one constant 
     expect(typed).toEqual([])
   })
 
-  it('no copy calls the analytics anonymous (F33), and the rule reads its forms (a self-check on planted forms)', () => {
+  it('no copy calls the analytics anonymous (F33), and the rule reads its forms (a self-check on planted forms)', SCANS_EVERY_MODULE, () => {
     const modules = copyModules()
     expect(modules.length).toBeGreaterThan(300)
     expect(modules.flatMap((rel) => literals(rel).filter((l) => ANONYMOUS_ANALYTICS.test(l)).map((l) => `${rel}: ${l}`))).toEqual([])
