@@ -26,9 +26,11 @@ DOMESTIC_FORMS = ["10-K", "10-Q"]
 FPI_FORMS = ["20-F", "6-K", "40-F"]
 
 
-def company_list_forms() -> list[str]:
-    """The forms a company's filings list serves by default, amendments included."""
-    return expand_amendment_forms(DOMESTIC_FORMS + (FPI_FORMS if settings.ENABLE_FPI_FILINGS else []))
+def company_list_forms(fpi: Optional[bool] = None) -> list[str]:
+    """The forms a company's filings list serves by default, amendments included. ``fpi`` names the
+    state of ``ENABLE_FPI_FILINGS`` to answer for; by default, the current one."""
+    with_fpi = settings.ENABLE_FPI_FILINGS if fpi is None else fpi
+    return expand_amendment_forms(DOMESTIC_FORMS + (FPI_FORMS if with_fpi else []))
 
 
 class LatestFilingRef(BaseModel):

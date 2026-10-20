@@ -236,6 +236,30 @@ def requested_filing_types(filing_types: Optional[str]) -> List[str]:
     return company_list_forms()
 
 
+def other_filing_forms() -> List[str]:
+    """Every form ``requested_filing_types`` can list that ``company_list_forms()`` does not, in one
+    fixed order: the second refresh a filings visit queues when it serves stored rows of one of
+    them (``routers/filings.py``). With the list forms it is one of only two refresh payloads a
+    visit can produce; the worker fetches only the forms :func:`forms_to_refresh` keeps."""
+    from app.services.latest_filing_service import company_list_forms
+    listed = set(company_list_forms())
+    return [form.value for form in FilingType if form is not FilingType.UNKNOWN and form.value not in listed]
+
+
+def forms_to_refresh(db: Session, company_id: int, forms: List[str]) -> List[str]:
+    """The forms of a durable refresh's payload that the worker fetches. The list-forms payload is
+    fetched whole, so a company's first 10-Q or 20-F arrives. It is recognised in either state of
+    ``ENABLE_FPI_FILINGS``, because a queued task can outlive a change of the flag. Any other payload
+    keeps only the forms the company already has rows of. So a refresh keeps stored rows fresh but
+    never adds another form nobody stored, which would spend the fetch's row budget and reach the pages
+    that read every stored form (the watchlist, the dashboard, the digest)."""
+    from app.services.latest_filing_service import company_list_forms
+    if forms in (company_list_forms(fpi=False), company_list_forms(fpi=True)):
+        return forms
+    stored = {form for (form,) in db.query(Filing.filing_type).filter(Filing.company_id == company_id).distinct()}
+    return [form for form in forms if form in stored]
+
+
 def cached_filings(
     db: Session,
     company_id: int,

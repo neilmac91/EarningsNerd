@@ -18,10 +18,6 @@ def find_company(db: Session, ticker: str) -> Company | None:
     return db.query(Company).filter(Company.ticker == ticker.upper()).first()
 
 
-def release_coverage_read(db: Session) -> None:
-    db.close()
-
-
 def facts_synced_at(db: Session, company_id: int) -> datetime | None:
     return db.query(Company.facts_synced_at).filter(Company.id == company_id).scalar()
 
