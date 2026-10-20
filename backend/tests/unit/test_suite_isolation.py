@@ -434,24 +434,31 @@ def test_a_test_that_renames_over_or_removes_the_null_device_in_its_process_fail
     assert stand_in.is_symlink() and os.readlink(stand_in) == os.devnull
 
 
-# A plugin the child loads before conftest, so the device its run starts with is already an ordinary file.
+# A plugin the child loads before conftest, so the device its run starts with is already broken: an ordinary file
+# in its place, or a link to another character device, which on Linux the check tells apart by its numbers.
 _NULL_DEVICE_BROKEN_PLUGIN = (
     "import os\n"
     "from pathlib import Path\n\n"
     "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
     "assert STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
-    "STAND_IN.write_text('[probe]\\n', encoding='utf-8')  # an ordinary file in the device's place\n"
+    "if os.environ['NULL_BROKEN_AS'] == 'a file':\n"
+    "    STAND_IN.write_text('[probe]\\n', encoding='utf-8')  # an ordinary file in the device's place\n"
+    "else:\n"
+    "    STAND_IN.symlink_to(os.environ['NULL_BROKEN_AS'])  # another device in its place\n"
     "os.devnull = str(STAND_IN)\n"
 )
 
 
-def test_a_run_that_starts_with_a_broken_null_device_fails(tmp_path):
+@pytest.mark.parametrize("broken_as", ["a file", pytest.param("/dev/zero", marks=pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="the device's numbers are checked on Linux only"))])
+def test_a_run_that_starts_with_a_broken_null_device_fails(tmp_path, broken_as):
     stand_in = tmp_path / "null"
     (tmp_path / "null_device_broken_at_start.py").write_text(_NULL_DEVICE_BROKEN_PLUGIN, encoding="utf-8")
     probe = tmp_path / "test_null_device_broken_probe.py"
     probe.write_text("def test_passes():\n    pass\n", encoding="utf-8")
     result = _fresh_pytest("-c", "pytest.ini", "-p", "null_device_broken_at_start", "-p", "tests.conftest",
-                           str(probe), extra_env={"NULL_STAND_IN": str(stand_in), "PYTHONPATH": str(tmp_path)})
+                           str(probe), extra_env={"NULL_STAND_IN": str(stand_in), "PYTHONPATH": str(tmp_path),
+                                                  "NULL_BROKEN_AS": broken_as})
     summary = result.stdout.strip().splitlines()[-1]
     assert result.returncode == 1 and "1 passed" in summary and "error" not in summary, (
         result.stdout[-3000:] + result.stderr[-2000:])
@@ -501,12 +508,19 @@ _GIT_NULL_PROBE = (
     "def test_sets_git_s_variable_through_a_variable_its_shell_line_expands():\n"
     "    subprocess.run(NAME + '=\"$TARGET\" git --version', shell=True, env={**os.environ, 'TARGET': os.devnull},\n"
     "                   capture_output=True)\n\n"
+    "def test_starts_it_in_a_shell_group():\n"
+    "    subprocess.run('(git config ' + FILE + ' ' + os.devnull + ' --list)', shell=True, capture_output=True)\n\n"
+    "def test_starts_it_after_a_shell_operator():\n"
+    "    subprocess.run('true;git config ' + FILE + ' ' + os.devnull + ' --list', shell=True, capture_output=True)\n\n"
+    "def test_sets_git_s_variable_after_a_shell_operator():\n"
+    "    subprocess.run('true&&' + NAME + '=' + os.devnull + ' git --version', shell=True, capture_output=True)\n\n"
     "def test_uses_a_session_fixture_that_starts_it(git_set_up_for_the_session):\n"
     "    pass\n\n"
     "def test_starts_git_plainly():\n"
     "    subprocess.run(['git', '--version'], capture_output=True, check=True)\n"
     "    subprocess.run(['git', 'config', '-f', '$LITERAL', '--list'], capture_output=True)  # no shell expands it\n"
     "    subprocess.run([sys.executable, '-c', 'pass', 'config', '-' + 'f', os.devnull], check=True)  # no git runs\n"
+    "    subprocess.run('(git --version) && git config --list >' + os.devnull, shell=True)  # a redirect only\n"
 )
 
 
@@ -515,12 +529,12 @@ def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
     probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
     summary = result.stdout.strip().splitlines()[-1]
-    # Fourteen starts or settings fail their tests; the session fixture's start errors the test that uses it.
-    assert result.returncode == 1 and all(count in summary for count in ("14 failed", "1 passed", "1 error")), (
+    # Seventeen starts or settings fail their tests; the session fixture's start errors the test that uses it.
+    assert result.returncode == 1 and all(count in summary for count in ("17 failed", "1 passed", "1 error")), (
         result.stdout[-3000:])
     failed = [line for line in result.stdout.splitlines() if line.startswith(("FAILED ", "ERROR "))]
     assert not any("test_starts_git_plainly" in line for line in failed), failed
-    assert result.stdout.count("a process started here would give git the null device") >= 14, result.stdout[-3000:]
+    assert result.stdout.count("a process started here would give git the null device") >= 17, result.stdout[-3000:]
     assert "the environment set here would give git the null device" in result.stdout, result.stdout[-3000:]
 
 

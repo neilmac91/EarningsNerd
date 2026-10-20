@@ -335,7 +335,7 @@ _NULL_DEVICE_BEFORE = pytest.StashKey[bool]()
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_protocol(item, nextitem):
-    item.stash[_NULL_DEVICE_BEFORE] = _is_character_device(os.devnull)  # read at each check: a child run swaps in a stand-in
+    item.stash[_NULL_DEVICE_BEFORE] = _is_null_device(os.devnull)  # read at each check: a child run swaps in a stand-in
     return (yield)
 
 
@@ -347,17 +347,17 @@ def pytest_runtest_makereport(item, call):
     it: a git config write through a ``GIT_CONFIG_GLOBAL`` naming it renames its lock file over it, and once
     it is an ordinary file every failed ``ld -o /dev/null`` (``ctypes.util.find_library``'s last fallback,
     which importing WeasyPrint reaches) unlinks it. Git and ``subprocess.DEVNULL`` then fail across the
-    container. Each phase of a test whose span saw it stop being a character device fails here, a fixture of
-    any scope included: pytest sets one up in the setup of the first test that uses it and tears it down in the
-    teardown of the last. An ``xfail`` mark or a skip cannot absorb the failure (the network gate treats an
-    attempt the same way). Under ``-n auto`` a test in another worker may share the blame, and
-    ``pytest_sessionfinish`` fails the run for a loss outside every test (a module's import). Two child runs in
-    ``tests/unit/test_suite_isolation.py`` replace a stand-in in each place to prove it
-    (lessons/test-never-point-a-written-file-at-dev-null.md).
+    container. Each phase of a test whose span saw it stop being the null device (a character device and, on
+    Linux, the one numbered 1:3) fails here, a fixture of any scope included: pytest sets one up in the setup of
+    the first test that uses it and tears it down in the teardown of the last. An ``xfail`` mark or a skip cannot
+    absorb the failure (the network gate treats an attempt the same way). Under ``-n auto`` a test in another
+    worker may share the blame, and ``pytest_sessionfinish`` fails the run for a loss outside every test (a
+    module's import). Two child runs in ``tests/unit/test_suite_isolation.py`` replace a stand-in in each place
+    to prove it (lessons/test-never-point-a-written-file-at-dev-null.md).
     """
     report = yield
     was_device = item.stash.get(_NULL_DEVICE_BEFORE, False)
-    item.stash[_NULL_DEVICE_BEFORE] = _is_character_device(os.devnull)
+    item.stash[_NULL_DEVICE_BEFORE] = _is_null_device(os.devnull)
     if was_device and not item.stash[_NULL_DEVICE_BEFORE]:
         text = (f"{os.devnull} stopped being the null device during this test ({call.when}) or in another worker: "
                 "a tool replaced or removed it. Restore it before trusting this run; see "
@@ -374,14 +374,18 @@ def pytest_runtest_makereport(item, call):
     return report
 
 
-def _is_character_device(path):
+def _is_null_device(path):
+    """Whether this path is the null device: a character device and, on Linux, the one numbered 1:3, so another
+    device in its place (a link to /dev/zero, a mistyped ``mknod``) does not pass for it."""
     try:
-        return stat.S_ISCHR(os.stat(path).st_mode)
+        device = os.stat(path)
     except OSError:
         return False
+    return stat.S_ISCHR(device.st_mode) and (
+        not sys.platform.startswith("linux") or (os.major(device.st_rdev), os.minor(device.st_rdev)) == (1, 3))
 
 
-_RUN_STARTED_WITH_THE_DEVICE = _is_character_device(os.devnull)
+_RUN_STARTED_WITH_THE_DEVICE = _is_null_device(os.devnull)
 
 
 def pytest_sessionfinish(session):
@@ -403,7 +407,7 @@ def pytest_terminal_summary(terminalreporter):
 def _null_device_fault():
     if not _RUN_STARTED_WITH_THE_DEVICE:
         return "was not the null device when this run started"
-    if not _is_character_device(os.devnull):
+    if not _is_null_device(os.devnull):
         return "stopped being the null device during this run"
     return None
 
@@ -425,7 +429,8 @@ def _install_git_null_guard():
     a shell line, or git config's file option naming it (``--file``, ``-f``, attached or not; ``git config`` or
     the ``git-config`` program git runs for it), or, in a shell line, a word there that the shell expands as
     the line runs (``"$TARGET"``, a substitution), which may name it, in strings or
-    byte strings, given by keyword or by position, a shell line alone or in a list. A path is read
+    byte strings, given by keyword or by position, a shell line alone or in a list, read as the shell splits it,
+    its operators apart from the words they touch (``(git config ...)``, ``true;git config ...``). A path is read
     from the test's own directory; one that reaches the device only from another (a ``cwd=``, ``git -C``) is
     outside it. It is installed when conftest is imported, so a fixture of any
     scope is covered, and it wraps every way the standard library starts a program but fork and exec:
@@ -509,6 +514,15 @@ def _expands(word):
     return bool(word) and ("$" in word or "`" in word)
 
 
+def _shell_words(line):
+    """A shell line's words as the shell splits them: its operators (``(``, ``)``, ``;``, ``&``, ``|``, ``<``,
+    ``>``) stand apart from the words they touch, so git's words show in ``(git config ...)`` or
+    ``true;git config ...``."""
+    lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
+    lexer.whitespace_split, lexer.commenters = True, ""
+    return list(lexer)
+
+
 def _refuse_git_null_target(args, env, shell=False, what="a process started here"):
     given = _git_null_target(args, env, shell)
     if given:
@@ -532,7 +546,7 @@ def _git_null_target(args, env, shell=False):
         items = [args] if isinstance(args, (str, bytes)) else list(args)
         shell_lines = shell or isinstance(args, (str, bytes))  # with shell=True a list's words are shell lines
         words = [word for item in items
-                 for word in (shlex.split(os.fsdecode(item)) if shell_lines else [os.fsdecode(item)])]
+                 for word in (_shell_words(os.fsdecode(item)) if shell_lines else [os.fsdecode(item)])]
         for index, word in enumerate(words):
             name, equals, value = word.partition("=")
             if equals and name in _GIT_WRITE_TARGETS and (names_null(value) or shell_lines and _expands(value)):

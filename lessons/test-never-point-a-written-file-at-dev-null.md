@@ -40,7 +40,8 @@ and say so in the hand-off.
   imported, refuses on any runner a start through `subprocess`, `os.system`, `os.posix_spawn` or `os.spawn*`,
   from a test or a fixture of any scope, whose environment, shell line or git config file option (`--file`,
   `-f`, attached or not) gives git the device, however it was built (byte strings, an `env` by position, a
-  shell line in a list), or leaves it to a shell expansion that may name it (`git config -f "$TARGET"`),
+  shell line in a list, read as the shell splits its operators: `(git config ...)`, `true;git config ...`),
+  or leaves it to a shell expansion that may name it (`git config -f "$TARGET"`),
   and an `os.putenv` that would set it for later starts; a child run in
   `test_suite_isolation.py` proves each. `_install_null_device_path_guard` beside it fails a test before an
   `os.rename`, `os.replace`, `os.unlink` or `os.remove` (`shutil.move` and `pathlib` go through them) that
@@ -51,7 +52,8 @@ and say so in the hand-off.
   either, in git's `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG` or `GIT_INDEX_FILE`, or as git
   config's file, on every runner (CI runs as a non-root user, where nothing can replace the device).
   The null-device checks in `backend/tests/conftest.py` fail the test during whose setup, body or teardown
-  `/dev/null` stops being a character device (a fixture of any scope included), which can happen only in a
+  `/dev/null` stops being the null device (a character device and, on Linux, the one numbered 1:3, so a link
+  to `/dev/zero` or a mistyped `mknod` fails too; a fixture of any scope included), which can happen only in a
   root session, and fail the run for a loss outside every test or a device already broken when it starts; three
   child runs in `backend/tests/unit/test_suite_isolation.py` prove it on a stand-in. An atomic writer that
   another program runs and a linker's `-o` stay review-checked: curl's `-o /dev/null` writes in place and is
