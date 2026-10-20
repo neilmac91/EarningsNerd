@@ -131,6 +131,7 @@ def test_a_mutation_in_a_file_piped_or_redirected_into_the_call_is_refused(tmp_p
     "printf '{}' > new.json && gh api graphql --input new.json",  # a file the line writes first
 ])
 def test_a_graphql_call_whose_query_the_hook_cannot_read_is_refused(tmp_path, command):
+    (tmp_path / "build_query.py").write_text("print('{\"query\": \"query { viewer { login } }\"}')\n")  # readable; its output is not
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "q.graphql").write_text("query { viewer { login } }")
     (tmp_path / "q.json").write_text('{"query": "query { viewer { login } }"}')
