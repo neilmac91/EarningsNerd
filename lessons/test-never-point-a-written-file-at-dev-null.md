@@ -17,9 +17,13 @@ renames the lock over the file, so as root it swaps the device for a regular fil
 commit (65ba41ef) gives every case its own empty config for exactly this reason. Main had the same pattern in
 `backend/tests/unit/test_ci_cost_controls.py`, which never wrote config, so the hazard stayed latent there.
 
-**Rule**: Never give a tool `/dev/null` (or `os.devnull`) as a file it may write. This covers git's
-`GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_INDEX_FILE` and `config --file`, the target of an atomic
-writer, and a linker's `-o`. Give it an empty file in the test's own temp directory instead. When `/dev/null`
+**Rule**: Never give a tool `/dev/null` (or `os.devnull`) as a file it may replace. This covers git's
+`GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_INDEX_FILE` and `config --file`, whose writes rename a lock file
+over their target, and the target of any atomic writer. A tool that writes into the device in place (a
+redirect, curl's `-o`) leaves it alone, and so does GNU ld given `-o /dev/null`, since it removes its output only
+when that is an ordinary file. CPython's own `ctypes.util.find_library` runs that `ld` on every library it
+misses, so `ld` finishes off a device already broken but never breaks one, and no gate refuses it. Give a tool
+that may replace its file an empty file in the test's own temp directory instead. When `/dev/null`
 is found broken, ask what first turned the device into a file before blaming the last tool seen unlinking it:
 many tools remove an ordinary file, few remove a device. Restore it as root before trusting any run
 (`rm -f /dev/null && mknod -m 666 /dev/null c 1 3`; the session's classifier may hold that for the founder),
@@ -56,5 +60,5 @@ and say so in the hand-off.
   to `/dev/zero` or a mistyped `mknod` fails too; a fixture of any scope included), which can happen only in a
   root session, and fail the run for a loss outside every test or a device already broken when it starts; three
   child runs in `backend/tests/unit/test_suite_isolation.py` prove it on a stand-in. An atomic writer that
-  another program runs and a linker's `-o` stay review-checked: curl's `-o /dev/null` writes in place and is
-  safe, so no pattern tells them apart.
+  another program runs stays review-checked: curl's `-o /dev/null` writes in place and is safe, so no pattern
+  tells them apart.

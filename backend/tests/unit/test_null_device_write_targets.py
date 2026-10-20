@@ -20,10 +20,10 @@ such variable) counts as the device there. `config` counts after a word naming g
 program, in Python and in text alike. The file option is read
 as git's option parser reads it: `--file` or its abbreviation `--fil`, and `-f` alone or after other short options,
 the file after `=`, attached or next. A device that reaches git from another module, a string built any other way
-(`%`, `str.format`, a join) or out of variables, a linker's `-o` and an atomic writer that another program runs
-stay review-checked, with conftest's process guard and null-device checks behind them; an atomic writer in the
-test's own process, which renames over its target, is conftest's path guard's to refuse, and curl's `-o` writes
-in place and leaves the device alone.
+(`%`, `str.format`, a join) or out of variables, and an atomic writer that another program runs stay
+review-checked, with conftest's process guard and null-device checks behind them; an atomic writer in the test's
+own process, which renames over its target, is conftest's path guard's to refuse. curl's `-o` writes in place and
+GNU ld's `-o` removes only an ordinary file, so both leave the device alone.
 """
 from __future__ import annotations
 

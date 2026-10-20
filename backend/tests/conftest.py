@@ -430,7 +430,9 @@ def _install_git_null_guard():
     the ``git-config`` program git runs for it), or, in a shell line, a word there that the shell expands as
     the line runs (``"$TARGET"``, a substitution), which may name it, in strings or
     byte strings, given by keyword or by position, a shell line alone or in a list, read as the shell splits it,
-    its operators apart from the words they touch (``(git config ...)``, ``true;git config ...``). A path is read
+    its operators apart from the words they touch (``(git config ...)``, ``true;git config ...``). The program is the
+    one the start runs: Popen's ``executable`` and the spawn functions' path take the place of an ``argv[0]`` that
+    names another (``["worker", "config", ...]`` run as git). A path is read
     from the test's own directory; one that reaches the device only from another (a ``cwd=``, ``git -C``) is
     outside it. It is installed when conftest is imported, so a fixture of any
     scope is covered, and it wraps every way the standard library starts a program but fork and exec:
@@ -451,7 +453,8 @@ def _install_git_null_guard():
 
     def popen(self, *given, **options):
         start = parameters.bind(self, *given, **options).arguments  # env or shell given by position too
-        _refuse_git_null_target(start["args"], start.get("env"), start.get("shell", False))
+        _refuse_git_null_target(start["args"], start.get("env"), start.get("shell", False),
+                                program=start.get("executable"))
         popen_init(self, *given, **options)
 
     popen.checks_git_null_targets = True
@@ -482,7 +485,7 @@ def _install_git_null_guard():
 
 def _checked_spawn(spawn):
     def checked(path, argv, env, *more, **options):
-        _refuse_git_null_target(argv, env)
+        _refuse_git_null_target(argv, env, program=path)
         return spawn(path, argv, env, *more, **options)
 
     return checked
@@ -490,7 +493,7 @@ def _checked_spawn(spawn):
 
 def _checked_os_spawn(spawn):
     def checked(mode, file, args, *env):  # the spawnv*e forms take an environment
-        _refuse_git_null_target(args, env[0] if env else None)
+        _refuse_git_null_target(args, env[0] if env else None, program=file)
         return spawn(mode, file, args, *env)
 
     return checked
@@ -523,16 +526,18 @@ def _shell_words(line):
     return list(lexer)
 
 
-def _refuse_git_null_target(args, env, shell=False, what="a process started here"):
-    given = _git_null_target(args, env, shell)
+def _refuse_git_null_target(args, env, shell=False, what="a process started here", program=None):
+    given = _git_null_target(args, env, shell, program)
     if given:
         pytest.fail(f"{what} would give git the null device to write ({given}): as root, git "
                     "renames its lock file over the device. Give git an empty file in the test's temp directory "
                     "instead (lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
 
 
-def _git_null_target(args, env, shell=False):
-    """What in a process's start gives git the null device to write, or None."""
+def _git_null_target(args, env, shell=False, program=None):
+    """What in a process's start gives git the null device to write, or None. ``program`` is the file it runs when the
+    start names one apart from its arguments (Popen's ``executable``, the spawn functions' path): it, not ``argv[0]``,
+    says whether git runs."""
     try:
         null = os.path.realpath(os.devnull)
 
@@ -547,6 +552,8 @@ def _git_null_target(args, env, shell=False):
         shell_lines = shell or isinstance(args, (str, bytes))  # with shell=True a list's words are shell lines
         words = [word for item in items
                  for word in (_shell_words(os.fsdecode(item)) if shell_lines else [os.fsdecode(item)])]
+        if program is not None and not shell_lines and words:  # a shell line's program is the shell
+            words[0] = os.fsdecode(program)
         for index, word in enumerate(words):
             name, equals, value = word.partition("=")
             if equals and name in _GIT_WRITE_TARGETS and (names_null(value) or shell_lines and _expands(value)):

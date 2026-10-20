@@ -514,6 +514,14 @@ _GIT_NULL_PROBE = (
     "    subprocess.run('true;git config ' + FILE + ' ' + os.devnull + ' --list', shell=True, capture_output=True)\n\n"
     "def test_sets_git_s_variable_after_a_shell_operator():\n"
     "    subprocess.run('true&&' + NAME + '=' + os.devnull + ' git --version', shell=True, capture_output=True)\n\n"
+    "def test_runs_git_under_another_name_through_popen():\n"
+    "    subprocess.run(['worker', 'config', '-' + 'f', os.devnull, '--list'], executable=shutil.which('git'),\n"
+    "                   capture_output=True)\n\n"
+    "def test_runs_git_under_another_name_through_posix_spawn():\n"
+    "    os.waitpid(os.posix_spawn(shutil.which('git'), ['worker', 'config', '-' + 'f', os.devnull, '--list'],\n"
+    "                              os.environ), 0)\n\n"
+    "def test_runs_git_under_another_name_through_os_spawnv():\n"
+    "    os.spawnv(os.P_WAIT, shutil.which('git'), ['worker', 'config', '-' + 'f', os.devnull, '--list'])\n\n"
     "def test_uses_a_session_fixture_that_starts_it(git_set_up_for_the_session):\n"
     "    pass\n\n"
     "def test_starts_git_plainly():\n"
@@ -521,6 +529,7 @@ _GIT_NULL_PROBE = (
     "    subprocess.run(['git', 'config', '-f', '$LITERAL', '--list'], capture_output=True)  # no shell expands it\n"
     "    subprocess.run([sys.executable, '-c', 'pass', 'config', '-' + 'f', os.devnull], check=True)  # no git runs\n"
     "    subprocess.run('(git --version) && git config --list >' + os.devnull, shell=True)  # a redirect only\n"
+    "    subprocess.run(['git', 'config', '-' + 'f', os.devnull], executable=sys.executable, capture_output=True)\n"
 )
 
 
@@ -529,12 +538,12 @@ def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
     probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
     summary = result.stdout.strip().splitlines()[-1]
-    # Seventeen starts or settings fail their tests; the session fixture's start errors the test that uses it.
-    assert result.returncode == 1 and all(count in summary for count in ("17 failed", "1 passed", "1 error")), (
+    # Twenty starts or settings fail their tests; the session fixture's start errors the test that uses it.
+    assert result.returncode == 1 and all(count in summary for count in ("20 failed", "1 passed", "1 error")), (
         result.stdout[-3000:])
     failed = [line for line in result.stdout.splitlines() if line.startswith(("FAILED ", "ERROR "))]
     assert not any("test_starts_git_plainly" in line for line in failed), failed
-    assert result.stdout.count("a process started here would give git the null device") >= 17, result.stdout[-3000:]
+    assert result.stdout.count("a process started here would give git the null device") >= 20, result.stdout[-3000:]
     assert "the environment set here would give git the null device" in result.stdout, result.stdout[-3000:]
 
 
