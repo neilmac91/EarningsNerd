@@ -49,8 +49,9 @@ here-document fed to a shell), the commit messages `gh pr create --fill` copies,
 registered under a name without "github", a session that loads no repository hooks, and a person's
 own write.
 Tests: backend/tests/unit/test_codex_mention_guard.py. ops_approval_guard.py imports this module's shell
-reader (`_script`, `_command_tokens`, `_commands`, `_read_sent` and the patterns they use), so a change
-here also runs backend/tests/unit/test_ops_approval_guard.py.
+reader (`_script`, `_command_tokens`, `_commands`, `_read_sent`) and patterns (`AT_FILE`, `STDIN`, `HTTPIE`,
+`HEREDOC_WORD`, `PAREN_END`, `WORD_START`, `UNQUOTE`, `GITHUB_API`), so a change here also runs
+backend/tests/unit/test_ops_approval_guard.py.
 """
 from __future__ import annotations
 

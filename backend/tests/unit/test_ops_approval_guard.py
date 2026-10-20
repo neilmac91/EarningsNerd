@@ -96,8 +96,10 @@ def test_a_mutation_in_a_file_the_api_call_sends_is_refused(tmp_path, path):
     "cat q.json | gh api graphql --input -",
     "gh api graphql --input - < q.json",
     "gh api graphql --input=q.json",
+    "curl -sS -X POST -Tq.json https://api.github.com/graphql",  # curl's upload, its file attached
+    "gh api -X POST --hostname github.com graphql --input q.json",  # options before the endpoint
 ])
-def test_a_mutation_in_a_file_piped_or_redirected_into_the_call_is_refused(tmp_path, command):
+def test_a_mutation_in_a_file_piped_redirected_or_uploaded_is_refused(tmp_path, command):
     (tmp_path / "q.json").write_text('{"query": "mutation { approveDeployments(input: {}) { clientMutationId } }"}')
     decision = _decision("Bash", {"command": command}, cwd=tmp_path)
     assert decision is not None and "Only the founder approves an Ops apply" in decision["permissionDecisionReason"]
@@ -118,12 +120,16 @@ def test_a_mutation_in_a_file_piped_or_redirected_into_the_call_is_refused(tmp_p
     # substitution); what follows is read as commands again.
     "gh api graphql --input - <<-'EOF'\n\t{\"query\": \"query { viewer { login } }\"}\n\tEOF\necho \"$Q\"",
     "diff <(cat <<'EOF'\na\nEOF) <(echo b); gh api graphql -f query=\"$Q\"",
+    # bash reads `<<'EOF'` before a CR as the word EOF<CR>, so its line with the CR ends the text.
+    "gh api graphql -F query=@- <<'EOF'\r\nquery { viewer { login } }\r\nEOF\r\necho \"$Q\"",
     # The forms a session writes by habit, which read text the hook does not see.
     "gh api graphql -f query=\"$(cat <<'EOF'\nquery { viewer { login } }\nEOF\n)\"",
     'gh api graphql -f query="$(cat q.graphql)"',
     "S=sub; gh api graphql -F query=@$S/q.graphql",
     "gh api graphql -f query='query($n: Int!) { viewer { login } }' -F n=$N",  # a value the shell supplies
     'G=graphql; gh api "$G" -f query=\'{ viewer { login } }\'',
+    "gh api \"https://api.github.com/$P\" -f query='{ viewer { login } }'",  # a start GraphQL's URL could have
+    'U=https://api.github.com/graphql; curl -sS -X POST "$U" -d @q.json',  # a URL a variable holds
     "python3 build_query.py | gh api graphql --input -",
     "gh api graphql --input <(cat q.json)",
     "gh api graphql -F query=@missing.graphql",
@@ -158,8 +164,12 @@ def test_a_graphql_call_whose_query_the_hook_cannot_read_is_refused(tmp_path, co
     "cat q.json | gh api graphql --input -",
     "gh api graphql --input - < q.json",
     "gh api graphql -f query='{ viewer { login } }'  # costs $0 and `nothing`",
-    # A REST call keeps its variables: routine reads build their paths from them.
+    # A REST call keeps its variables: routine reads build their paths from them, and a path that starts
+    # where GraphQL's cannot is no GraphQL call, whatever else on the line names graphql.
     "RUN=39360634523; gh api repos/neilmac91/EarningsNerd/actions/runs/$RUN/jobs --jq '.jobs[].name'",
+    "gh api repos/o/r/commits/$SHA/check-runs --jq '.check_runs[] | select(.name | test(\"graphql\"))'",
+    "gh api repos/o/r/actions/runs/$RUN/jobs  # the graphql lint run",
+    "curl -sS -H \"Authorization: Bearer $T\" https://api.github.com/repos/o/r/actions/runs/$RUN/jobs",
     "S=/tmp; gh api -X PATCH repos/neilmac91/EarningsNerd/pulls/1425 --input $S/body.json",
 ])
 def test_a_call_the_hook_reads_in_full_passes(tmp_path, command):

@@ -20,10 +20,12 @@ one, a name anywhere refuses the line, in a comment's text or in a here-document
 the call sends, so the refusal says how to send such text instead: write the file in an earlier Bash
 call or with the Write tool, then send it in a Bash call of its own.
 
-A GraphQL call (gh's `graphql` or `/graphql` path, a URL naming api.github.com/graphql, or any API call
-on a line whose text names graphql) sends a query, free text in which the line could build a mutation's
-name, so the hook lets one through only when it has read all of that text. It refuses one when a file
-the call sends names one of those mutations (a file's other text passes, so a GraphQL reply whose body
+A GraphQL call sends a query, free text in which the line could build a mutation's name, so the hook lets
+one through only when it has read all of that text. A call counts as one by its endpoint: gh's `graphql` or
+`/graphql`, a URL naming api.github.com/graphql, or an endpoint the shell builds as the line runs from a
+start GraphQL's could have (`gh api "$G"`, a curl whose URL a variable holds); a REST path built from a
+variable (`repos/o/r/actions/runs/$id/jobs`) starts where GraphQL's cannot. The hook refuses a GraphQL call
+when a file it sends names one of those mutations (a file's other text passes, so a GraphQL reply whose body
 names `pending_deployments` goes through), and fails closed when:
 - the shell builds text on the line as it runs (a variable, a command substitution or backquotes,
   arithmetic, `$'...'` or `$"..."`) anywhere but in single quotes, a comment or a here-document whose
@@ -62,7 +64,12 @@ MUTATIONS = r"(?:approve|reject)Deployments|(?:create|update|delete)Environment"
 REVIEW_NAMES = re.compile(
     r"pending_deployments|deployment_protection_rule|/environments(?![A-Za-z0-9_-])|" + MUTATIONS, re.I)
 SENT_MUTATIONS = re.compile(MUTATIONS, re.I)  # what a file a GraphQL call sends is searched for
-GRAPHQL = re.compile(r"\bgraphql\b", re.I)
+# The GraphQL endpoint as a call names it: gh's path, or a URL with or without its scheme.
+GRAPHQL_ENDPOINTS = ("graphql", "/graphql", f"https://{shell.GITHUB_API}/graphql",
+                     f"http://{shell.GITHUB_API}/graphql", f"{shell.GITHUB_API}/graphql")
+# gh api's options that take a value: its endpoint is the first other word after `api`.
+GH_VALUE_OPTIONS = {"-X", "--method", "-H", "--header", "-f", "--raw-field", "-F", "--field", "--input", "-q",
+                    "--jq", "-t", "--template", "--hostname", "-p", "--preview", "--cache"}
 CLIENTS = {"curl", "wget", *shell.HTTPIE}
 # What the shell replaces as the line runs: a variable or special parameter, ${...}, $(...) and $((...)),
 # $[...], $'...' and $"...", and backquotes.
@@ -91,9 +98,28 @@ UNREAD = (
 )
 
 
-def _is_graphql(words: list[str]) -> bool:
-    """gh sends both `graphql` and `/graphql` to the GraphQL endpoint; a URL can name it too."""
-    return any(word in ("graphql", "/graphql") or f"{shell.GITHUB_API}/graphql" in word.lower() for word in words)
+def _graphql(words: list[str]) -> bool:
+    """Whether this call may send a GraphQL query: its endpoint (gh api's first argument, an HTTP client's
+    api.github.com URL) is GraphQL's, or one the shell builds as the line runs from a start GraphQL's could
+    have. An HTTP client naming no such URL reads it from a variable, so it may be GraphQL's too."""
+    names = [word.rsplit("/", 1)[-1] for word in words]
+    if "gh" in names and "api" in names[names.index("gh") + 1:]:
+        rest = words[names.index("api", names.index("gh") + 1) + 1:]
+        while rest and rest[0].startswith("-"):
+            rest = rest[2:] if rest[0] in GH_VALUE_OPTIONS else rest[1:]
+        endpoints = rest[:1]
+    else:
+        endpoints = [word for word in words if shell.GITHUB_API in word.lower()]
+        if not endpoints:
+            return True
+    for endpoint in endpoints:
+        lowered = endpoint.lower()
+        if lowered in GRAPHQL_ENDPOINTS[:2] or f"{shell.GITHUB_API}/graphql" in lowered:
+            return True
+        built = EXPANSION.search(endpoint)
+        if built and any(form.startswith(lowered[:built.start()]) for form in GRAPHQL_ENDPOINTS):
+            return True
+    return False
 
 
 def _calls_the_api(words: list[str], names_api: bool) -> bool:
@@ -152,7 +178,7 @@ def _past_here_documents(command: str, i: int, words: list[re.Match[str]]) -> in
             newline = len(command) if newline < 0 else newline
             line = command[i:newline]
             text = line.lstrip("\t") if word.group(1) else line
-            if text == end:
+            if text.rstrip("\r") == end:  # bash reads `<<EOF\r` as the word EOF\r
                 i = newline + 1
                 break
             if text.startswith(end) and shell.PAREN_END.match(text, len(end)):
@@ -172,6 +198,8 @@ def _sent(words: list[str]) -> tuple[list[str], bool]:
         if word in FILE_OPTIONS and index + 1 < len(words):
             files.append(words[index + 1])
         files += [word[len(option) + 1:] for option in FILE_OPTIONS if word.startswith(option + "=")]
+        if word.startswith("-T") and len(word) > 2 and word[2] != "=":
+            files.append(word[2:])  # curl's attached -Tpayload.json
         if at_file := shell.AT_FILE.match(word):
             files.append(at_file.group(1))
         if word == "<" and index + 1 < len(words):
@@ -201,7 +229,7 @@ def refusal(event: object) -> str | None:
     # The whole line: a path or a query can arrive through a variable, a pipe or a here-document.
     if REVIEW_NAMES.search(plain):
         return REASON
-    graphql = [call for call in calls if _is_graphql(call[2])] or (calls if GRAPHQL.search(plain) else [])
+    graphql = [call for call in calls if _graphql(call[2])]
     if graphql and _expands(command):
         return UNREAD
     for index, operator, words in graphql:
