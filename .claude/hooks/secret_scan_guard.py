@@ -32,7 +32,9 @@ in any case. It scans
   list (after nothing, `;`, `&`, a newline or a subshell's `(`, with any assignments and redirections before it as its
   prefixes), in no pipeline or background job, and in a line with no if, while, until, for, select, case or function;
   any other leaves the push's directory unknown, as does a relative directory that CDPATH may find elsewhere (CDPATH set
-  in the hook's environment or named anywhere in the line), unless it starts with `.`, `/` or `~`, which CDPATH skips.
+  in the hook's environment or named anywhere in the line), unless it starts with `.`, `/` or `~`, which CDPATH skips;
+  a bare `cd`, which goes to HOME; a `~` directory in a line that names HOME; and a cd or pushd given an option (`-P`
+  resolves links, `pushd -n` stays put; `--` only ends the options).
   The scan is
   `gitleaks git .` with GIT_DIR=<that repository's git directory> and
   `--log-opts="<the log options> <what it sends> --not --remotes=<remote>"`: the commits reachable from what the push
@@ -371,19 +373,24 @@ def _join(here: Path | None, target: str) -> Path | None:
     return Path(os.path.normpath(path))
 
 
-def _moved(here: Path | None, verb: str, args: list[str], cdpath: bool) -> Path | None:
-    """Where `cd`, `pushd` or `popd` with these words leaves the shell; None when the line cannot say, as for a relative
-    directory that CDPATH may find elsewhere when `cdpath` (the environment or the line sets it)."""
+def _moved(here: Path | None, verb: str, args: list[str], cdpath: bool, home: bool) -> Path | None:
+    """Where `cd`, `pushd` or `popd` with these words leaves the shell; None when the line cannot say: an option (`-P`
+    resolves links, `pushd -n` stays put), the previous directory or a stack entry, a bare `cd` (HOME, which the line
+    may set), a `~` directory when `home` (the line names HOME), and a relative one that CDPATH may find elsewhere when
+    `cdpath` (the environment or the line sets it)."""
+    ended = False
     for arg in args if verb != "popd" else []:
         if arg in REDIRECTS or arg in (")", "}"):
             break
-        if arg == "-" or arg.startswith("+"):  # the previous directory; a pushd stack entry
+        if arg == "--" and not ended:  # the end of the options
+            ended = True
+        elif not ended and arg.startswith(("-", "+")):  # an option, the previous directory or a pushd stack entry
             return None
-        if not arg.startswith("-"):
-            if cdpath and not arg.startswith(("/", ".", "~")):  # bash looks for it in CDPATH's directories first
-                return None
+        elif cdpath and not arg.startswith(("/", ".", "~")) or home and arg.startswith("~"):
+            return None  # bash looks for it in CDPATH's directories first; ~ is the HOME the line sets
+        else:
             return _join(here, arg)
-    return Path.home() if verb == "cd" else None
+    return None  # a bare cd goes to HOME, which the line may set; a bare pushd swaps the stack's top two; popd pops
 
 
 def _global_options(words: list[str], index: int) -> tuple[str | None, list[tuple[str, str | None]], list[str]]:
@@ -494,7 +501,7 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
     here: Path | None = base
     stack: list[Path | None] = []
     pushes, commits, moved = [], False, False
-    cdpath = bool(os.environ.get("CDPATH")) or "CDPATH" in script
+    cdpath, home = bool(os.environ.get("CDPATH")) or "CDPATH" in script, "HOME" in script
     commands = shell._commands(shell._command_tokens(_uncommented(script)))
     branching = any(_branches(words) for _operator, words in commands)
     for at, (operator, words) in enumerate(commands):
@@ -521,7 +528,7 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                 # A move that may not run where it stands (after && or ||, in a pipeline or a background job, or in a
                 # line that branches) leaves the directory unknown: the shell may run what follows from either.
                 certain = start and first and not branching and after not in ("|", "|&", "&")
-                here = _moved(here, word, words[index + 1:], cdpath) if certain else None
+                here = _moved(here, word, words[index + 1:], cdpath, home) if certain else None
             start = False
             if word == "git" or word.endswith("/git"):
                 subcommand, global_options, rest = _global_options(words, index + 1)
@@ -609,8 +616,9 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str], r
         return _reason(
             "this line pushes from a repository the hook cannot resolve as the line stands (a variable, a "
             "substitution, `cd -`, popd, a cd or pushd that may not run where it stands, a relative one that CDPATH "
-            "may take elsewhere, --git-dir, --work-tree, GIT_DIR=, or a directory no repository holds yet), so it "
-            "cannot tell what the push would send.",
+            "may take elsewhere, a bare cd or a ~ one when the line names HOME, one given an option, --git-dir, "
+            "--work-tree, GIT_DIR=, or a directory no repository holds yet), so it cannot tell what the push would "
+            "send.",
             REPOSITORY_REMEDY)
     destination, configured = _destination(top, remote, config), []
     if _git(top, *config, "config", "--type=bool", "--get", f"remote.{destination}.mirror") == "true":

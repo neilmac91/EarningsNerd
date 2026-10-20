@@ -475,6 +475,14 @@ def test_a_long_option_push_does_not_take_as_written_is_refused(scanner: Scanner
     ("X=1 cd {repo}; git push origin main", None),
     (">/dev/null cd {repo}; git push origin main", None),
     ("2>/dev/null cd {repo}; git push origin main", None),
+    # A bare cd goes to HOME, which the line may set (Codex's), and so may ~; an option changes what cd or pushd does
+    # (`pushd -n` stays put, Codex's; `-P` resolves links): each leaves the directory unknown. `--` only ends options.
+    ("HOME={repo} cd; git push origin main", "unresolved"),
+    ("cd; git push origin main", "unresolved"),
+    ("HOME={repo}; cd ~ && git push origin main", "unresolved"),
+    ("pushd -n {repo}; git push origin main", "unresolved"),
+    ("cd -P {repo} && git push origin main", "unresolved"),
+    ("cd -- {repo} && git push origin main", None),
 ])
 def test_the_push_runs_in_the_directory_the_line_moves_to(scanner: Scanner, repo: Path, tmp_path: Path,
                                                          command: str, outcome: str | None) -> None:
@@ -519,6 +527,29 @@ def test_a_relative_cd_that_cdpath_may_redirect_leaves_the_push_unresolved(scann
         assert scanner.calls() == []
     else:
         assert decision is None and len(scanner.calls()) == 1
+
+
+def test_a_tilde_directory_is_read_from_home_unless_the_line_names_home(scanner: Scanner, tmp_path: Path) -> None:
+    _commit(_new_repo(scanner.home / "repo"), "clean.txt", "nothing to see\n")
+    start = tmp_path / "start"
+    start.mkdir()
+    assert _bash(scanner, "cd ~/repo && git push origin main", start) is None and len(scanner.calls()) == 1
+    _refused(_bash(scanner, f"HOME={tmp_path}; cd ~/repo && git push origin main", start),
+             "pushes from a repository the hook cannot resolve as the line stands")
+
+
+@pytest.mark.parametrize("command", ["cd; git push origin main", "HOME={start} cd; git push origin main"],
+                         ids=["a bare cd", "a bare cd after HOME= (Codex's)"])
+def test_a_bare_cd_leaves_the_push_unresolved_though_home_is_a_clean_repository(scanner: Scanner, tmp_path: Path,
+                                                                               command: str) -> None:
+    home = scanner.home  # the hook's HOME, a clean repository: a bare cd read as it would be scanned and pass
+    _git(home, "init", "-q", "-b", "main")
+    _commit(home, "clean.txt", "nothing to see\n")
+    start = _new_repo(tmp_path / "start")
+    _commit(start, "settings.py", LEAKY)
+    _refused(_bash(scanner, command.format(start=start), start),
+             "pushes from a repository the hook cannot resolve as the line stands")
+    assert scanner.calls() == []
 
 
 @pytest.mark.parametrize("committed", [True, False], ids=["committed", "uncommitted"])
