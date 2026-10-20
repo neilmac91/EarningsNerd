@@ -38,7 +38,7 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    render, text, blocks and splitter and score the reach: main's sentences and their close rewordings fail, the
  *    page's new sentences and class names pass. Out of reach, planted as gaps: a claim split across two sentences, one
  *    said in other words, and an unscoped consent promise in a sentence that also names the browser.
- * 2. The account events (D-051, F50). /security's PostHog line scopes the consent to the browser, and a sentence of
+ * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
  *    it once and render it, and no other copy literal types it. Each example it gives stands on events the API sends
@@ -61,8 +61,9 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    (components/CookieConsent.tsx), the clause a stored choice was made under: an allow made under an earlier one
  *    reads as no choice, so the bar asks again, and a change to what the clause covers moves the version in the same
  *    commit (CookieConsent.spec.tsx plants the stored choices).
- * 4. A legal page's date moves with its text. LEGAL_TEXT lists, per page, the dates its text took, oldest first, each
- *    with the hash of the text the page rendered under it (the "Last updated" date itself read as {date}). The gate
+ * 4. A legal page's date moves with its text. LEGAL_TEXT lists, per page, the texts readers see, oldest first (main's
+ *    published text before D-046 first), each with its date and the hash of the text the page rendered under it (the
+ *    "Last updated" date itself read as {date}). The gate
  *    holds: the last row is the page as it renders now, under its LEGAL_DATES date, so a changed text or a moved date
  *    fails until the last row says so; each row's hash differs from the row before it, so a row appended for a date
  *    moved with no text change fails, and a later return to an earlier text is recorded by appending; dates never
@@ -110,21 +111,22 @@ const PAGES: Record<LegalPage, () => ReactElement> = {
 }
 
 /**
- * Each legal page's dated texts, oldest first; append a row in the commit that changes a page's text, with the page's
- * LEGAL_DATES key moved to that row's date. The hash is the first 16 hex digits of the SHA-256 of pageText() with the
- * page's date read as {date}.
+ * Each legal page's texts as readers see them, oldest first: the first row is the text main published before D-046,
+ * under its date, and each later row a text a merge ships, under the date it took. Append a row in the commit that
+ * changes a page's text, with the page's LEGAL_DATES key moved to that row's date; while a pull request is open, its
+ * later round's row takes the place of an earlier round's, which no reader saw (review-checked). The hash is the first
+ * 16 hex digits of the SHA-256 of pageText() with the page's date read as {date}.
  */
 type LedgerRow = { date: string; sha256: string; sameDay?: string }
 
 const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
   terms: [{ date: 'June 16, 2026', sha256: '82ecb15a746bee66' }],
   privacy: [
-    { date: 'October 18, 2026', sha256: '628571d3d40dd705' },
+    { date: 'June 22, 2026', sha256: '455802b5d59fad8f' },
     { date: 'October 19, 2026', sha256: '40cc493ae300e1db' },
   ],
   security: [
-    { date: 'October 18, 2026', sha256: 'b07e688cfb36da50' },
-    { date: 'October 19, 2026', sha256: 'b0d7d5339d1fd802' },
+    { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },
     { date: 'October 20, 2026', sha256: 'f01e686b3c5afee8' },
   ],
 }
@@ -769,7 +771,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
   })
 })
 
-describe('the account events have a sentence of their own, true of the API (D-051, F50)', () => {
+describe('the account events have a sentence of their own, true of the API (D-051)', () => {
   it('names no provider, and says the recording does not wait for the analytics choice', () => {
     expect(ACCOUNT_EVENTS_DISCLOSURE).not.toMatch(/\b(?:PostHog|Stripe|Resend|DeepSeek|Sentry|Vercel|Google)\b/i)
     expect(ACCOUNT_EVENTS_DISCLOSURE).toMatch(/\bagainst your internal account id\b[^.]*\. This does not depend on your analytics choice\.$/)

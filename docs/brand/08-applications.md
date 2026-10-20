@@ -147,7 +147,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
   dialog reads D-046's words, "Usage statistics through PostHog, so we can see which pages work. When
   you are logged in they are tied to an internal account id." (chrome/F1, F33), one constant with
-  /privacy's analytics cookies line (`ANALYTICS_CONSENT_CLAUSE`, `frontend/lib/consentCopy.ts`).
+  /privacy's analytics cookies line (`ANALYTICS_CONSENT_CLAUSE`, `frontend/lib/consentCopy.ts`). A
+  stored choice records the clause it was made under (`CONSENT_VERSION`): an analytics allow made
+  while the dialog called the statistics anonymous reads as no choice, so the bar asks that reader
+  again, once, and a refusal made then stands (`tests/unit/CookieConsent.spec.tsx`).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
@@ -179,19 +182,26 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   enterprise-grade hosting with 99.9% uptime, and firewalls and intrusion detection. The PostHog
   line says PostHog in the browser waits for the reader's choice, and a sentence of its own, which
   /privacy says too, discloses the account events the API records against the account id whatever
-  the reader chose, in words that name no provider (D-051). The runbook bullet names its source
-  beside it (`tasks/security_privacy_runbook.md` §3), and the audit-log item names the administrator
-  actions an audit row records. `tests/unit/legalTruth.spec.tsx` fails on each removed claim's
-  family, on /security and in the waitlist page's copy (its planted forms name the gaps: a claim
-  split across sentences or said in other words), and on an analytics-consent promise not scoped to
-  the browser; holds the consent dialog's analytics clause and /privacy's analytics cookies line to
-  one constant (`ANALYTICS_CONSENT_CLAUSE` in `frontend/lib/consentCopy.ts`), with no copy calling
-  the analytics anonymous; holds the account-events sentence (`ACCOUNT_EVENTS_DISCLOSURE`, the same
-  module) to the backend's capture_event callers, the runbook bullet to its section and steps, and
-  the audit-log item to the backend's audit writers; and pins each legal page's rendered text, by
-  hash, to a ledger row under its date, so a text or date change fails until the last row records it
-  (a row may share the day of the row before it; a row edited in place passes, and is
-  review-checked). Its five links carry the brand focus ring, the site chrome's triple;
+  the reader chose, in words that name no provider (D-051). The runbook bullet and the notification
+  bullet name their source beside them (`tasks/security_privacy_runbook.md` §3), and the audit-log
+  item names the administrator actions an audit row records. Token renewal and Logging out say what
+  holds when requests overlap (E127): each renewal replaces the refresh token, logging out revokes the
+  one the browser sends, logging out of all devices revokes every refresh token the account holds at
+  that moment, as a password change or reset does, and none of these revokes a session token already
+  issued. `tests/unit/legalTruth.spec.tsx` fails on each removed claim's family, on /security (its
+  text, each list item and paragraph on its own, and its metadata) and in the waitlist page's copy
+  (its planted forms name the gaps: a claim split across sentences or said in other words), and on an
+  analytics-consent promise not scoped to the browser; holds the consent dialog's analytics clause and
+  /privacy's analytics cookies line to one constant (`ANALYTICS_CONSENT_CLAUSE` in
+  `frontend/lib/consentCopy.ts`), with no copy calling the analytics anonymous or anonymised; holds
+  the account-events sentence (`ACCOUNT_EVENTS_DISCLOSURE`, the same module) to the backend's callers
+  that key an event on the account id and read no consent, the sourced bullets to their section's
+  steps, the audit-log item to the backend's audit writers, and the page's numbers to the backend's
+  defaults; while E127 is open, fails on a refresh token that works once, a reused one revoking the
+  account, or a session that ends within a time after logging out; and pins each legal page's rendered
+  text, by hash, to a ledger row under its date, main's published text first, so a text or date
+  change fails until the last row records it (a row on the day of the row before it names the pull
+  request that shares the day; a row edited in place passes, and is review-checked). Its five links carry the brand focus ring, the site chrome's triple;
   `siteChromeFocusRing.spec.ts` holds them, and its residue no longer lists the page. Its two
   addresses break anywhere, as /privacy's four do, so neither page scrolls sideways at 390px under
   200% text (`reflow-200.spec.ts`).

@@ -29,8 +29,12 @@ links nothing, and the provider links only on a later sign-in through it (the pr
   count, list every surface the sentence covers and find, for each, the code that enforces it.
 - Read the flag behind each enforcement. A gate that ships off (advisory) means the behaviour is
   measured, not enforced; the sentence covers only what runs with the deployed defaults.
+- Read the write behind each enforcement too. A check-then-write (a read with no row lock, then a
+  write) holds for one request at a time: before writing "once", "every" or "within", ask what two
+  overlapping requests do, and scope the sentence to what still holds.
 - Scope the sentence to the enforced surfaces ("risk excerpts … or withheld"), in plain words, and
-  add the scope to `frontend/tests/unit/brandCopyRules.spec.ts` in the same PR (CLAUDE.md rule 12).
+  add the scope to `frontend/tests/unit/brandCopyRules.spec.ts`, or for a legal page to
+  `legalTruth.spec.tsx`, in the same PR (CLAUDE.md rule 12).
 - When a flag is armed later, the claim may widen in that PR, with the gate's scope widened beside it.
 - An exclusive or negative claim ("only checkout", "never waits on it", "the one gate") is a promise
   too, in a comment or a record as much as on a page: grep every read of the field or flag it names
@@ -53,4 +57,9 @@ review (the dialog's sentence, the "only checkout" records), and the principal r
 2026-10-14 on the same PR (the conflict sentence's automatic linking); `backend/app/routers/subscriptions.py`
 (the one 403), `backend/app/services/oauth_account_service.py` (linking waits on both sides);
 `frontend/tests/unit/authPagesCopy.spec.tsx`, whose dialog and 403 cases hold the scoped lines to
-that route.
+that route. The high-tier review of PR #1397 (2026-10-19): /security said a refresh token works once
+and that logging out of all devices ends every session within 30 minutes, while
+`backend/app/services/refresh_token_service.py` (`rotate_refresh_token`, a plain `.first()` and the
+rotation written after the successor) lets two overlapping renewals both succeed and a renewal racing
+a logout keep a live token (`tasks/todo.md` E127, E96); `legalTruth.spec.tsx` (`E127_PROMISES`)
+holds the two items to what still holds while E127 is open.
