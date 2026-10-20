@@ -85,18 +85,20 @@ export function shipped(lines: readonly PlanLine[]): string[] {
 
 /**
  * Every plan line the analysis flag decides, typed once: the lines that name Multi-Period Analysis (the
- * upgrade dialog's sentence, the /pricing Pro card, the landing's two plan cards and the /pricing Product
- * JSON-LD) and the Pro exports line, whose Excel workbook is the analysis export. The feature ships behind
- * NEXT_PUBLIC_ENABLE_ANALYSIS (its route 404s while the flag is off), so each list takes these entries and
- * reads them through shipped(). tests/unit/analysis-route-hidden.spec.tsx renders every list both ways and
- * fails on a string or JSX text naming the feature outside this declaration, the route's own files and a
- * short reasoned list.
+ * upgrade dialog's sentence, the /pricing Pro card, the landing's plan table and the /pricing Product
+ * JSON-LD) and the Pro exports line, whose Excel workbook is the analysis export. The landing's table gives
+ * the feature a row of its own (D-045): `landingRow` is the row's label, and `landingFree` and `landingPro`
+ * are its two cells, which the label already names. The feature ships behind NEXT_PUBLIC_ENABLE_ANALYSIS
+ * (its route 404s while the flag is off), so each list takes these entries and reads them through
+ * shipped(). tests/unit/analysis-route-hidden.spec.tsx renders every list both ways and fails on a string
+ * or JSX text naming the feature outside this declaration, the route's own files and a short reasoned list.
  */
 export const ANALYSIS_LINES = {
   upgradeDialog: { text: 'Multi-Period Analysis', flag: 'analysis' },
   pricingPro: { text: `Unlimited Multi-Period Analysis: ${ANALYSIS_MAX_ANNUAL_PERIODS}-year trends, quarterly deltas & AI narrative`, flag: 'analysis' },
-  landingPro: { text: 'Unlimited Multi-Period Analysis', flag: 'analysis' },
-  landingFree: { text: 'Multi-Period Analysis demo (locked)', flag: 'analysis' },
+  landingRow: { text: 'Multi-Period Analysis', flag: 'analysis' },
+  landingPro: { text: 'Unlimited', flag: 'analysis' },
+  landingFree: { text: 'Demo (locked)', flag: 'analysis' },
   productJsonLd: { text: 'multi-period analysis', flag: 'analysis' },
   exports: { text: 'PDF, CSV and Excel exports', flag: 'analysis', off: 'PDF and CSV exports' },
 } as const satisfies Record<string, PlanLine>
