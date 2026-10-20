@@ -254,7 +254,7 @@ describe('ConnectedAccounts', () => {
     expect(api.unlinkProvider).toHaveBeenCalledTimes(1)
 
     await act(async () => refetch.resolve({ has_password: true, providers: [] }))
-    expect(await screen.findByText('No social sign-ins linked.')).toBeInTheDocument()
+    expect(await screen.findByText('No social logins linked.')).toBeInTheDocument()
     expect(screen.queryByText(/Could not unlink/)).not.toBeInTheDocument()
     // The refetch dropped the row and the focused Unlink with it: focus lands on the section heading.
     expect(unlink.isConnected).toBe(false)
@@ -304,13 +304,13 @@ describe('ConnectedAccounts', () => {
     expect(api.unlinkProvider).toHaveBeenCalledTimes(1)
   })
 
-  it('Sign out of all devices keeps focus while in flight and ignores a second click', async () => {
+  it('Log out of all devices keeps focus while in flight and ignores a second click', async () => {
     api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
     const post = deferred<unknown>()
     api.logoutAllSessions.mockReturnValue(post.promise)
     renderWithClient(<ConnectedAccounts />)
 
-    const signOut = await screen.findByRole('button', { name: 'Sign out of all devices' })
+    const signOut = await screen.findByRole('button', { name: 'Log out of all devices' })
     signOut.focus()
     fireEvent.click(signOut)
     await waitFor(() => expect(signOut).toHaveAttribute('aria-busy', 'true'))

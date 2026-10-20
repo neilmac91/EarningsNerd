@@ -1063,7 +1063,7 @@ Wording changes  <WordingChanges block Heading context>  (features/filings, E27 
                  counts and the first `entitlements.section_changes_items` items) closes with one line ("N more
                  changes in this section. Pro shows every change."), a sm primary Button "Upgrade to Pro" that
                  opens UpgradeModal (feature "Risk factor wording review") and, signed out, the text link "Already
-                 Pro? Sign in" to /login. Events: `wording_changes_viewed` once per form served (not while the
+                 Pro? Log in" to /login. Events: `wording_changes_viewed` once per form served (not while the
                  anonymous seed stands in for a signed-in reader's own read: `context.provisional`), and the
                  paywall pair with entry_point `wording_changes`. The read is per viewer
                  (features/summaries/hooks/useWhatChanged: the key carries the signed-in reader's id; the

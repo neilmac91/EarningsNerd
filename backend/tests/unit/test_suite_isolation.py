@@ -19,7 +19,8 @@ twice; SQLite's default max(rowid)+1 re-issues a deleted test's id to the next t
 the first test left behind (SQLite here enforces no foreign keys) silently joins the new parent.
 
 Conftest's autouse resets are pinned by probe pairs: one test leaves the state dirty, the next asserts
-the clean default (the mock-leak guard instead by a child run that leaks a mock). Under ``-n auto`` and random order a pair can land on two workers or run reversed,
+the clean default (the mock-leak guard instead by a child run that leaks a mock, and the null-device check by a
+child run that replaces a stand-in for /dev/null). Under ``-n auto`` and random order a pair can land on two workers or run reversed,
 which proves nothing, so ``test_ordered_probes_hold_in_a_fresh_serial_process`` runs every probe in
 a fixed order in one fresh process.
 """
@@ -283,6 +284,321 @@ def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
     assert result.returncode == 1 and "2 passed" in summary and "1 error" in summary, result.stdout[-3000:]
     assert "mock left on a shared generation singleton after the test: " in result.stdout
     assert "get_filing_document" in result.stdout
+
+
+# The child watches a symlink to the null device in place of /dev/null, and the probe replaces only that
+# symlink, so the real /dev/null is never at stake, whether the run is root or not. A case that replaces it
+# puts the symlink back in its teardown, so the next case starts with the device.
+_NULL_DEVICE_PROBE = (
+    "import os, subprocess\n"
+    "from pathlib import Path\n\n"
+    "import pytest\n\n"
+    "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
+    "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
+    "DEVICE = os.readlink(STAND_IN)\n"
+    "os.devnull = str(STAND_IN)  # the null device conftest's checks watch in this process\n\n"
+    "def replace():  # as a git config write does: a program renames a lock file over its target\n"
+    "    lock = STAND_IN.with_name(STAND_IN.name + '.lock')\n"
+    "    lock.write_text('[probe]\\n\\tkey = value\\n', encoding='utf-8')\n"
+    "    subprocess.run(['mv', '-f', str(lock), str(STAND_IN)], check=True)\n\n"
+    "@pytest.fixture\n"
+    "def put_back():\n"
+    "    yield\n"
+    "    subprocess.run(['ln', '-sfn', DEVICE, str(STAND_IN)], check=True)\n\n"
+    "@pytest.fixture(scope='session')\n"
+    "def replaced_by_a_session_fixture():\n"
+    "    replace()\n\n"
+    "@pytest.fixture(scope='module')\n"
+    "def replaced_as_a_module_fixture_ends():\n"
+    "    yield\n"
+    "    replace()\n\n"
+    "def test_writes_into_the_null_device():\n"
+    "    with open(os.devnull, 'w', encoding='utf-8') as sink:\n"
+    "        sink.write('discarded')\n\n"
+    "@pytest.mark.xfail(strict=True)  # a failure it expects, of any kind, cannot absorb the loss\n"
+    "def test_renames_a_lock_file_over_it_like_a_git_config_write(put_back):\n"
+    "    replace()\n"
+    "    raise AssertionError('the failure its mark expects')\n\n"
+    "def test_fails_on_its_own_as_it_replaces_it(put_back):\n"
+    "    replace()\n"
+    "    assert False, 'its own failure'\n\n"
+    "def test_uses_a_session_fixture_that_replaces_it(replaced_by_a_session_fixture, put_back):\n"
+    "    pass\n\n"
+    "def test_uses_a_module_fixture_that_replaces_it_as_it_ends(replaced_as_a_module_fixture_ends):\n"
+    "    pass\n"
+)
+
+
+def test_a_test_that_replaces_the_null_device_fails(tmp_path):
+    # As root, a git config write through a GIT_CONFIG_GLOBAL naming the device renames its lock file over it.
+    real = os.stat(os.devnull)
+    assert stat.S_ISCHR(real.st_mode), f"{os.devnull} is not the null device before this test: restore it first"
+    stand_in = tmp_path / "null"
+    stand_in.symlink_to(os.devnull)
+    probe = tmp_path / "test_null_device_probe.py"
+    probe.write_text(_NULL_DEVICE_PROBE, encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe),
+                           extra_env={"NULL_STAND_IN": str(stand_in)})
+    summary = result.stdout.strip().splitlines()[-1]
+    # The xfail case fails as its mark expects, and fails all the same: its mark cannot absorb the loss.
+    assert result.returncode == 1 and all(count in summary for count in ("2 failed", "2 passed", "2 errors")), (
+        result.stdout[-3000:])
+    assert "xfail" not in summary, summary
+    for test in ("test_renames_a_lock_file_over_it_like_a_git_config_write", "test_fails_on_its_own_as_it_replaces_it"):
+        assert f"FAILED ::{test}" in result.stdout, (test, result.stdout[-3000:])
+    # A test that fails on its own keeps its failure, with the loss in a section of its report.
+    assert "AssertionError: its own failure" in result.stdout, result.stdout[-3000:]
+    assert any(line.startswith("-") and " null device " in line for line in result.stdout.splitlines())
+    for when, test in (("setup", "test_uses_a_session_fixture_that_replaces_it"),
+                       ("teardown", "test_uses_a_module_fixture_that_replaces_it_as_it_ends")):
+        assert f"ERROR at {when} of {test}" in result.stdout, (test, result.stdout[-3000:])
+    for when in ("call", "setup", "teardown"):
+        assert f"{stand_in} stopped being the null device during this test ({when})" in result.stdout, when
+    assert f"{stand_in} stopped being the null device during this run" in result.stdout
+    assert not stand_in.is_symlink() and stand_in.read_text(encoding="utf-8").startswith("[probe]")
+    now = os.stat(os.devnull)
+    assert (now.st_ino, now.st_mode, now.st_rdev) == (real.st_ino, real.st_mode, real.st_rdev)
+
+
+_NULL_DEVICE_IMPORT_PROBE = (
+    "import os, subprocess\n"
+    "from pathlib import Path\n\n"
+    "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
+    "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
+    "os.devnull = str(STAND_IN)\n"
+    "subprocess.run(['rm', '-f', str(STAND_IN)], check=True)\n"
+    "STAND_IN.write_text('[probe]\\n', encoding='utf-8')  # lost as the module is imported, outside every test\n\n"
+    "def test_passes():\n"
+    "    pass\n"
+)
+
+
+def test_a_run_that_loses_the_null_device_outside_every_test_fails(tmp_path):
+    stand_in = tmp_path / "null"
+    stand_in.symlink_to(os.devnull)
+    probe = tmp_path / "test_null_device_import_probe.py"
+    probe.write_text(_NULL_DEVICE_IMPORT_PROBE, encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe),
+                           extra_env={"NULL_STAND_IN": str(stand_in)})
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1 and "1 passed" in summary and "error" not in summary, result.stdout[-3000:]
+    assert f"{stand_in} stopped being the null device during this run -- session FAILED" in result.stdout
+
+
+# Each test renames over, moves or removes the null device in its own process, as an atomic writer or a cleanup
+# would. The first breaks it and puts it back within its call, which no check at a phase's end can see (Codex's case).
+_NULL_DEVICE_CALL_PROBE = (
+    "import os, shutil\n"
+    "from pathlib import Path\n\n"
+    "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
+    "assert STAND_IN.is_symlink() and STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
+    "os.devnull = str(STAND_IN)\n\n"
+    "def written(name):\n"
+    "    path = STAND_IN.with_name(name)\n"
+    "    path.write_text('x', encoding='utf-8')\n"
+    "    return path\n\n"
+    "def test_replaces_it_and_puts_it_back_within_its_call():\n"
+    "    device = os.readlink(STAND_IN)\n"
+    "    os.replace(written('a'), STAND_IN)\n"
+    "    os.remove(STAND_IN)\n"
+    "    os.symlink(device, STAND_IN)\n\n"
+    "def test_renames_a_file_over_it():\n"
+    "    os.rename(written('b'), os.devnull)\n\n"
+    "def test_moves_it_away():\n"
+    "    os.rename(os.devnull, STAND_IN.with_name('moved'))\n\n"
+    "def test_moves_it_away_by_keyword():\n"
+    "    os.replace(src=os.devnull, dst=str(STAND_IN.with_name('moved')))\n\n"
+    "def test_removes_it():\n"
+    "    os.unlink(os.devnull)\n\n"
+    "def test_removes_it_through_pathlib():\n"
+    "    Path(os.devnull).unlink()\n\n"
+    "def test_moves_a_file_over_it_with_shutil():\n"
+    "    shutil.move(str(written('c')), os.devnull)\n\n"
+    "def descriptor():\n"
+    "    return os.open(str(STAND_IN.parent), os.O_RDONLY)\n\n"
+    "def test_renames_over_it_with_a_descriptor_for_its_source():  # an absolute path ignores its descriptor\n"
+    "    written('f')\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.rename('f', os.devnull, src_dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_removes_it_with_a_descriptor():\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.unlink(os.devnull, dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_removes_it_by_its_name_in_its_directory():  # a relative path read from its own descriptor\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.unlink(STAND_IN.name, dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_renames_over_it_within_its_directory():\n"
+    "    written('g')\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.rename('g', STAND_IN.name, src_dir_fd=fd, dst_dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_removes_it_through_a_link_to_its_directory():  # another spelling of the same entry\n"
+    "    STAND_IN.with_name('folder').symlink_to(STAND_IN.parent)\n"
+    "    os.unlink(STAND_IN.with_name('folder') / STAND_IN.name)\n\n"
+    "def test_writes_at_its_path_while_nothing_is_there():  # no entry to compare: the path as written\n"
+    "    saved, os.devnull = os.devnull, str(STAND_IN.with_name('gone'))\n"
+    "    try:\n"
+    "        os.rename(written('h'), os.devnull)\n"
+    "    finally:\n"
+    "        os.devnull = saved\n\n"
+    "def test_replaces_another_file():\n"
+    "    os.replace(written('d'), STAND_IN.with_name('e'))\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.unlink('e', dir_fd=fd)  # a relative path with its own descriptor\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_removes_a_link_to_the_device():  # a link's own entry, not its target's\n"
+    "    STAND_IN.with_name('link').symlink_to(os.readlink(STAND_IN))\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.unlink('link', dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n"
+)
+
+
+def test_a_test_that_renames_over_or_removes_the_null_device_in_its_process_fails(tmp_path):
+    stand_in = tmp_path / "null"
+    stand_in.symlink_to(os.devnull)
+    probe = tmp_path / "test_null_device_call_probe.py"
+    probe.write_text(_NULL_DEVICE_CALL_PROBE, encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe),
+                           extra_env={"NULL_STAND_IN": str(stand_in)})
+    summary = result.stdout.strip().splitlines()[-1]
+    # Each call fails its test before it runs, so the stand-in is never touched and no check at a phase's end fires.
+    assert result.returncode == 1 and all(count in summary for count in ("13 failed", "2 passed")), (
+        result.stdout[-3000:])
+    assert result.stdout.count("would replace or remove the null device") >= 13, result.stdout[-3000:]
+    assert "stopped being the null device" not in result.stdout, result.stdout[-3000:]
+    assert stand_in.is_symlink() and os.readlink(stand_in) == os.devnull
+
+
+# A plugin the child loads before conftest, so the device its run starts with is already broken: an ordinary file
+# in its place, or a link to another character device, which on Linux the check tells apart by its numbers.
+_NULL_DEVICE_BROKEN_PLUGIN = (
+    "import os\n"
+    "from pathlib import Path\n\n"
+    "STAND_IN = Path(os.environ['NULL_STAND_IN'])\n"
+    "assert STAND_IN.parent == Path(__file__).parent, STAND_IN\n"
+    "if os.environ['NULL_BROKEN_AS'] == 'a file':\n"
+    "    STAND_IN.write_text('[probe]\\n', encoding='utf-8')  # an ordinary file in the device's place\n"
+    "else:\n"
+    "    STAND_IN.symlink_to(os.environ['NULL_BROKEN_AS'])  # another device in its place\n"
+    "os.devnull = str(STAND_IN)\n"
+)
+
+
+@pytest.mark.parametrize("broken_as", ["a file", pytest.param("/dev/zero", marks=pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="the device's numbers are checked on Linux only"))])
+def test_a_run_that_starts_with_a_broken_null_device_fails(tmp_path, broken_as):
+    stand_in = tmp_path / "null"
+    (tmp_path / "null_device_broken_at_start.py").write_text(_NULL_DEVICE_BROKEN_PLUGIN, encoding="utf-8")
+    probe = tmp_path / "test_null_device_broken_probe.py"
+    probe.write_text("def test_passes():\n    pass\n", encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "null_device_broken_at_start", "-p", "tests.conftest",
+                           str(probe), extra_env={"NULL_STAND_IN": str(stand_in), "PYTHONPATH": str(tmp_path),
+                                                  "NULL_BROKEN_AS": broken_as})
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1 and "1 passed" in summary and "error" not in summary, (
+        result.stdout[-3000:] + result.stderr[-2000:])
+    assert f"{stand_in} was not the null device when this run started -- session FAILED" in result.stdout
+
+
+# The probe builds git's variable name and option from parts, as the source gate would refuse them whole.
+_GIT_NULL_PROBE = (
+    "import os, shutil, subprocess, sys\n"
+    "import pytest\n\n"
+    "NAME = 'GIT_CONFIG_' + 'GLOBAL'\n"
+    "FILE = '--' + 'file'\n\n"
+    "@pytest.fixture(scope='session')\n"
+    "def git_set_up_for_the_session():\n"
+    "    subprocess.run(['git', '--version'], env={**os.environ, NAME: os.devnull}, capture_output=True)\n\n"
+    "def test_starts_git_with_its_global_config_on_the_null_device():\n"
+    "    subprocess.run(['git', '--version'], env={**os.environ, NAME: os.devnull}, capture_output=True)\n\n"
+    "def test_starts_git_config_with_the_null_device_as_its_file():\n"
+    "    subprocess.run(['git', 'config', FILE, os.devnull, '--list'], capture_output=True)\n\n"
+    "def test_attaches_it_to_the_short_file_option():\n"
+    "    subprocess.run(['git', 'config', '-' + 'f' + os.devnull, '--list'], capture_output=True)\n\n"
+    "def test_runs_the_git_config_program_itself():\n"
+    "    programs = subprocess.run(['git', '--exec-path'], capture_output=True, text=True).stdout.strip()\n"
+    "    subprocess.run([os.path.join(programs, 'git-' + 'config'), '-' + 'f', os.devnull, '--list'],\n"
+    "                   capture_output=True)\n\n"
+    "def test_gives_it_in_byte_strings():\n"
+    "    subprocess.run(['git', '--version'], env={**os.environb, os.fsencode(NAME): os.fsencode(os.devnull)},\n"
+    "                   capture_output=True)\n\n"
+    "def test_gives_the_environment_by_position():\n"
+    "    subprocess.Popen(['git', '--version'], -1, None, None, subprocess.DEVNULL, subprocess.DEVNULL, None, True,\n"
+    "                     False, None, {**os.environ, NAME: os.devnull}).wait()\n\n"
+    "def test_starts_a_shell_line_inside_a_list():\n"
+    "    subprocess.run([NAME + '=' + os.devnull + ' git --version'], shell=True, capture_output=True)\n\n"
+    "def test_starts_it_through_os_spawnve():\n"
+    "    os.spawnve(os.P_WAIT, shutil.which('git'), ['git', '--version'], {**os.environ, NAME: os.devnull})\n\n"
+    "def test_sets_it_in_the_environment_later_starts_inherit():\n"
+    "    os.putenv(NAME, os.devnull)\n\n"
+    "def test_starts_a_shell_line_that_names_it():\n"
+    "    subprocess.run(NAME + '=' + os.devnull + ' git --version', shell=True, capture_output=True)\n\n"
+    "def test_starts_it_through_os_system():\n"
+    "    os.system(NAME + '=' + os.devnull + ' git --version')\n\n"
+    "def test_starts_it_through_posix_spawn():\n"
+    "    os.posix_spawn(shutil.which('git'), ['git', '--version'], {**os.environ, NAME: os.devnull})\n\n"
+    "def test_names_it_through_a_variable_its_shell_line_expands():\n"
+    "    subprocess.run('git config -f \"$TARGET\" --list', shell=True, env={**os.environ, 'TARGET': os.devnull},\n"
+    "                   capture_output=True)\n\n"
+    "def test_sets_git_s_variable_through_a_variable_its_shell_line_expands():\n"
+    "    subprocess.run(NAME + '=\"$TARGET\" git --version', shell=True, env={**os.environ, 'TARGET': os.devnull},\n"
+    "                   capture_output=True)\n\n"
+    "def test_starts_it_in_a_shell_group():\n"
+    "    subprocess.run('(git config ' + FILE + ' ' + os.devnull + ' --list)', shell=True, capture_output=True)\n\n"
+    "def test_starts_it_after_a_shell_operator():\n"
+    "    subprocess.run('true;git config ' + FILE + ' ' + os.devnull + ' --list', shell=True, capture_output=True)\n\n"
+    "def test_sets_git_s_variable_after_a_shell_operator():\n"
+    "    subprocess.run('true&&' + NAME + '=' + os.devnull + ' git --version', shell=True, capture_output=True)\n\n"
+    "def test_runs_git_under_another_name_through_popen():\n"
+    "    subprocess.run(['worker', 'config', '-' + 'f', os.devnull, '--list'], executable=shutil.which('git'),\n"
+    "                   capture_output=True)\n\n"
+    "def test_runs_git_under_another_name_through_posix_spawn():\n"
+    "    os.waitpid(os.posix_spawn(shutil.which('git'), ['worker', 'config', '-' + 'f', os.devnull, '--list'],\n"
+    "                              os.environ), 0)\n\n"
+    "def test_runs_git_under_another_name_through_os_spawnv():\n"
+    "    os.spawnv(os.P_WAIT, shutil.which('git'), ['worker', 'config', '-' + 'f', os.devnull, '--list'])\n\n"
+    "def test_names_it_from_the_childs_directory():\n"
+    "    subprocess.run(['git', 'config', '-' + 'f', 'dev/null', '--list'], cwd='/', capture_output=True)\n\n"
+    "def test_names_it_from_git_s_directory():\n"
+    "    subprocess.run(['git', '-C', '/', 'config', '-' + 'f', 'dev/null', '--list'], capture_output=True)\n\n"
+    "def test_uses_a_session_fixture_that_starts_it(git_set_up_for_the_session):\n"
+    "    pass\n\n"
+    "def test_starts_git_plainly():\n"
+    "    subprocess.run(['git', '--version'], capture_output=True, check=True)\n"
+    "    subprocess.run(['git', 'config', '-f', '$LITERAL', '--list'], capture_output=True)  # no shell expands it\n"
+    "    subprocess.run([sys.executable, '-c', 'pass', 'config', '-' + 'f', os.devnull], check=True)  # no git runs\n"
+    "    subprocess.run('(git --version) && git config --list >' + os.devnull, shell=True)  # a redirect only\n"
+    "    subprocess.run(['git', 'config', '-' + 'f', os.devnull], executable=sys.executable, capture_output=True)\n"
+)
+
+
+def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
+    probe = tmp_path / "test_git_null_probe.py"
+    probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
+    summary = result.stdout.strip().splitlines()[-1]
+    # Twenty-two starts or settings fail their tests; the session fixture's start errors the test that uses it.
+    assert result.returncode == 1 and all(count in summary for count in ("22 failed", "1 passed", "1 error")), (
+        result.stdout[-3000:])
+    failed = [line for line in result.stdout.splitlines() if line.startswith(("FAILED ", "ERROR "))]
+    assert not any("test_starts_git_plainly" in line for line in failed), failed
+    assert result.stdout.count("a process started here would give git the null device") >= 22, result.stdout[-3000:]
+    assert "the environment set here would give git the null device" in result.stdout, result.stdout[-3000:]
 
 
 _EDGAR_DIRS = ("EDGAR_LOCAL_DATA_DIR", "EDGAR_CACHE_DIR")
