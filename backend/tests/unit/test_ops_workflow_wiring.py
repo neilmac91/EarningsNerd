@@ -152,12 +152,29 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
 
 def test_every_apply_operation_waits_for_the_founders_approval():
     """The approval job runs for exactly the -apply operations, in the founder's `ops-apply`
-    environment, with no token; the operations job needs it, carries no environment of its own and
-    holds the `ops` concurrency group alone. The ops job's exact if: (main only, then approval passed
-    or skipped) is pinned in test_workflow_dispatch_inputs.py."""
+    environment, with no token and nothing that could turn a rejection into a pass (no
+    `continue-on-error`, no concurrency group). The operations job needs it, runs an -apply only once
+    it has passed and only in the run's first attempt, runs every other operation when it is skipped,
+    carries no environment of its own and holds the `ops` concurrency group alone."""
     approve, ops = OPS["jobs"]["approve-apply"], OPS["jobs"]["ops"]
-    assert selected(approve) == {op for op in OPTIONS if op.endswith("-apply")} != set()
+    applies = {op for op in OPTIONS if op.endswith("-apply")}
+    assert selected(approve) == applies != set()
+    assert set(approve) == {"if", "runs-on", "timeout-minutes", "environment", "permissions", "steps"}
     assert (approve["environment"], approve["permissions"]) == ("ops-apply", {})
     assert [step.get("uses") for step in approve["steps"]] == [None], "the approval job runs no action"
     assert ops["needs"] == "approve-apply" and "environment" not in ops
+    listed = re.search(r"contains\('([^']*)', inputs\.operation\)", ops["if"]).group(1)
+    assert set(listed.split()) == applies
+    assert ops["if"] == (
+        "${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' "
+        f"&& !contains('{listed}', inputs.operation)) || (needs.approve-apply.result == 'success' "
+        "&& github.run_attempt == '1')) }}")
     assert "concurrency" not in OPS and ops["concurrency"] == {"group": "ops", "cancel-in-progress": "false"}
+    # The approval only waits while the environment names a reviewer, so an apply also stops unless it
+    # does: before the founder adds one, or after anyone removes it. Checked before the cloud sign-in.
+    names = [step.get("name") for step in STEPS]
+    at = names.index("Refuse an apply unless the ops-apply environment requires a reviewer")
+    check = STEPS[at]
+    assert selected(check) == applies and at < names.index("Authenticate to Google Cloud")
+    assert "environments/ops-apply" in check["run"] and '"required_reviewers"' in check["run"]
+    assert "REVIEWERS=0" in check["run"] and 'exit 1' in check["run"], "an unreadable answer must count as no reviewer"

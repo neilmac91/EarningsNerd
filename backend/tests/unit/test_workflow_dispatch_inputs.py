@@ -41,18 +41,31 @@ def test_no_dispatch_input_is_interpolated_into_a_run_script(name):
     )
 
 
+def _conjuncts(condition: str) -> tuple[list[str], bool]:
+    """An if:'s top-level `&&` terms, and whether a top-level `||` could bypass them."""
+    condition = condition.strip()
+    if condition.startswith("${{") and condition.endswith("}}"):
+        condition = condition[3:-2].strip()
+    terms, depth, start, bypass = [], 0, 0, False
+    for at, char in enumerate(condition):
+        depth += {"(": 1, ")": -1}.get(char, 0)
+        if depth == 0 and condition.startswith("&&", at):
+            terms.append(condition[start:at].strip())
+            start = at + 2
+        bypass = bypass or (depth == 0 and condition.startswith("||", at))
+    return [*terms, condition[start:].strip()], bypass
+
+
 def test_ops_workflow_runs_only_from_main_without_persisted_credentials():
     jobs = _workflow("ops.yml")["jobs"]
     job = jobs["ops"]
-    # Each job opens its if: with the main-ref check as a conjunct no || can bypass; the ops job also
-    # runs only once the founder's approval job has passed or been skipped
-    # (test_ops_workflow_wiring.py::test_every_apply_operation_waits_for_the_founders_approval).
-    assert {name: job.get("if") for name, job in jobs.items()} == {
-        "approve-apply": "github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply "
-                         "reset-filing-summary-apply', inputs.operation)",
-        "ops": "${{ !cancelled() && github.ref == 'refs/heads/main' && (needs.approve-apply.result == 'success' "
-               "|| needs.approve-apply.result == 'skipped') }}",
-    }, "ops.yml must refuse dispatches from any ref but main so only the reviewed definition can act on production"
+    # Every job's if: holds the main-ref check as a top-level term that no top-level || can bypass. What
+    # else each holds is the approval wiring's gate (test_ops_workflow_wiring.py).
+    for name, each in jobs.items():
+        terms, bypass = _conjuncts(each.get("if") or "")
+        assert "github.ref == 'refs/heads/main'" in terms and not bypass, (
+            f"ops.yml job {name!r} must refuse dispatches from any ref but main so only the reviewed "
+            f"definition can act on production: {each.get('if')!r}")
     checkouts = [step for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")]
     assert checkouts, "ops.yml must check out the repository"
     for step in checkouts:

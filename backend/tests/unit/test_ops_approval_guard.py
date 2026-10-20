@@ -46,15 +46,28 @@ def test_the_guard_runs_before_every_bash_command():
     f"gh api {RUNS}/pending_deployments",  # reading one is refused too
     f"cd /tmp && gh api --method POST {RUNS}/pending_'deploy'ments -f state=rejected",  # quotes split the name
     f"curl -sS -X POST -H 'Authorization: Bearer x' https://api.github.com/{RUNS}/pending_deployments -d @body.json",
+    f"wget --method=POST -O- https://api.github.com/{RUNS}/pending_deployments",
+    f"http POST https://api.github.com/{RUNS}/pending_deployments state=approved",
     f"sudo /usr/bin/gh api {RUNS}/deployment_protection_rule -f environment_name=ops-apply -f state=approved",
-    "gh api graphql -f query='mutation { approveDeployments(input: {workflowRunId: \"x\", environmentIds: [\"y\"]}) { clientMutationId } }'",
     f"echo $(gh api -X POST {RUNS}/pending_deployments -f state=approved)",
+    f"echo `gh api -X POST {RUNS}/pending_deployments -f state=approved`",
+    f"EP={RUNS}/pending_deployments; gh api -X POST \"$EP\" -f state=approved",
+    "gh api -X DELETE repos/neilmac91/EarningsNerd/environments/ops-apply",
+    "gh api -X PUT repos/neilmac91/EarningsNerd/environments/ops-apply -F wait_timer=0",
+    "gh api graphql -f query='mutation { approveDeployments(input: {workflowRunId: \"x\", environmentIds: [\"y\"]}) { clientMutationId } }'",
+    "gh api graphql -f query=\"$(cat <<'EOF'\nmutation { approveDeployments(input: {}) { clientMutationId } }\nEOF\n)\"",
+    "gh api graphql -F query=@- <<'EOF'\nmutation { rejectDeployments(input: {}) { clientMutationId } }\nEOF",
+    "echo '{\"query\": \"mutation { approveDeployments(input: {}) { clientMutationId } }\"}' | gh api graphql --input -",
+    "gh api graphql -f query='mutation { deleteEnvironment(input: {id: \"x\"}) { clientMutationId } }'",
+    # Text that names the API on a line that calls it: refused, and the reason says how to send it instead.
+    "gh api repos/o/r/pulls/1415/comments/1/replies -f body='Only the founder answers pending_deployments.'",
 ])
 def test_a_call_to_the_deployment_review_api_is_refused(command):
     decision = _decision("Bash", {"command": command})
     assert decision == {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                         "permissionDecisionReason": decision["permissionDecisionReason"]}
     assert "Only the founder approves an Ops apply" in decision["permissionDecisionReason"]
+    assert "send that text from a file" in decision["permissionDecisionReason"]
 
 
 def test_a_mutation_in_a_file_the_api_call_sends_is_refused(tmp_path):
@@ -67,7 +80,16 @@ def test_a_mutation_in_a_file_the_api_call_sends_is_refused(tmp_path):
     ("Bash", {"command": f"gh api {RUNS} -q .status"}),
     ("Bash", {"command": "gh pr comment 1 --body 'The apply waits on pending_deployments for the founder.'"}),
     ("Bash", {"command": "grep -rn pending_deployments .claude/hooks"}),
-    ("mcp__github__add_issue_comment", {"issue_number": 1, "body": "approveDeployments is the founder's"}),
+    ("Bash", {"command": f"cat > notes.md <<'EOF'\nThe founder runs: gh api -X POST {RUNS}/pending_deployments\nEOF"}),
 ])
 def test_text_that_only_names_the_api_passes(tool, tool_input):
     assert _decision(tool, tool_input) is None
+
+
+@pytest.mark.parametrize("command", [
+    "gh api repos/o/r/issues/1/comments -F body=@reply.md",  # a REST call's file: no path comes from it
+    "gh pr comment 1 --body-file reply.md",  # no API call on the line
+])
+def test_text_that_names_the_api_passes_from_a_file(tmp_path, command):
+    (tmp_path / "reply.md").write_text("The founder answers approveDeployments and pending_deployments on the run page.")
+    assert _decision("Bash", {"command": command}, cwd=tmp_path) is None

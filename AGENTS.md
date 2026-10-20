@@ -79,7 +79,8 @@ file instead.
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
   and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
-  `test_codex_mention_guard.py`; a `tasks/todo.md`, `lessons/` or `.claude/workflows/` change
+  `test_codex_mention_guard.py` and `test_ops_approval_guard.py` (that hook reuses the first one's shell
+  reader); a `tasks/todo.md`, `lessons/` or `.claude/workflows/` change
   also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/` change also runs that
   script's own spec under `frontend/tests/unit/` (every script has one, the gate insists;
   `premergeReviewWorkflow.spec.ts` for the review script: it runs the script with stubbed agents,
@@ -146,6 +147,9 @@ line; that is expected.
 Other tools Codex and Astra do not have, and what to do instead:
 
 - **No `Workflow`, `Agent`, `send_later`, `TaskOutput`.** Do the tiered review by hand as above.
+- **No Claude Code hooks.** `.claude/hooks/ops_approval_guard.py` cannot stop you, so hold its rule
+  yourself: never approve or reject an Ops run waiting on the `ops-apply` environment, and never
+  change that environment. Only the founder does.
 - **No background monitors.** After merging a PR touching deployable backend files (`backend/`
   outside `backend/tests/`): find the run (`gh run list --workflow ci.yml --branch main --event push -L 1`,
   or the unauthenticated `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`),

@@ -16,14 +16,27 @@ name: Ops
 #     mirroring the deploy-backend migrations step.
 #   - Every -apply operation (relabel-fy-apply, repair-ticker-apply, reset-filing-summary-apply)
 #     waits for the founder's approval before any step runs: the approve-apply job runs in the
-#     `ops-apply` environment, whose required reviewer is the founder (Settings > Environments), and
-#     the ops job starts only once that job has passed or been skipped. A rejected or cancelled
-#     approval runs nothing. The ops job keeps its own OIDC subject: no environment on it.
+#     `ops-apply` environment, whose required reviewer is the founder (Settings > Environments). The
+#     ops job runs an -apply only after that job has passed, and only in a run's first attempt: any
+#     re-run of an apply writes nothing, so a retry is a fresh dispatch the founder approves again.
+#     A rejected, cancelled or expired approval runs nothing. The run executes the commit main had
+#     at dispatch, so an approval given after main has moved is a reason to reject and re-dispatch.
+#     The ops job keeps its own OIDC subject: no environment on it. Ungated on purpose:
+#     rollback-traffic (an incident rollback must not wait on a person), and sync-companyfacts and
+#     backfill-filing-history (writes the app makes on its own).
+#     Known limits: the gate binds main's ops.yml, not the credential (WIF trusts every ref, so a
+#     workflow on another branch could write unapproved; docs/data-quality-remediation-log.md);
+#     an environment without a required reviewer would let approve-apply pass at once, so the ops
+#     job refuses an apply unless the environment names one (fail closed); and sessions act
+#     through the founder's account, so .claude/hooks/ops_approval_guard.py refuses a Claude Code
+#     session the approval and environment calls, while Codex and Astra load no hooks (AGENTS.md §5).
 #   - The ops job's `concurrency: ops` serializes operations; the approval job sits outside the
-#     group, so an apply waiting for approval holds up no other dispatch. Deploys keep their own
-#     group on purpose: GitHub holds ONE pending run per group, so sharing `deploy-backend`'s group
-#     would let an ops dispatch silently cancel a queued release. Instead the pre-flight step below refuses to run while a
-#     CI run for a push to `main` is in flight (read-only inspection and rollback are exempt).
+#     group, so an apply waiting for approval holds up no other dispatch. Once approved, an apply
+#     queues like any dispatch, and GitHub holds ONE pending run per group, so a later pending
+#     dispatch replaces it and wastes the approval. Deploys keep their own group on purpose: sharing
+#     `deploy-backend`'s group would let an ops dispatch silently cancel a queued release. Instead
+#     the pre-flight step below refuses to run while a CI run for a push to `main` is in flight
+#     (read-only inspection and rollback are exempt); for an apply it runs after the approval.
 #     Known limit: the check is point-in-time and one-directional — a main push that lands AFTER
 #     it passes can still overlap this run, and a deploy never waits for ops. Do not dispatch
 #     write operations when a backend merge is imminent.
@@ -89,7 +102,7 @@ env:
 
 jobs:
   approve-apply:
-    # A production write waits here until the founder approves it in GitHub: the `ops-apply`
+    # An -apply operation waits here until the founder approves it in GitHub: the `ops-apply`
     # environment names the founder as its required reviewer. Every other operation skips this job.
     if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', inputs.operation)
     runs-on: ubuntu-latest
@@ -105,9 +118,10 @@ jobs:
   ops:
     # Operations run against production, so only the reviewed definition on main may run: a
     # dispatch from another ref is skipped before any step executes. An -apply operation runs only
-    # after approve-apply passes; a rejected or cancelled approval skips this job.
+    # after approve-apply passes, and only in the run's first attempt; any other operation runs when
+    # approve-apply is skipped.
     needs: approve-apply
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (needs.approve-apply.result == 'success' || needs.approve-apply.result == 'skipped') }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
     concurrency:
       group: ops
       cancel-in-progress: false
@@ -174,6 +188,24 @@ jobs:
             echo "revision=$REVISION"
           } >> "$GITHUB_OUTPUT"
           echo "Requested operation: $OP"
+
+      - name: Refuse an apply unless the ops-apply environment requires a reviewer
+        # The approval job only waits while the environment names a required reviewer. Before the
+        # founder adds one (F51), or after anyone removes it or deletes the environment, it would pass
+        # at once, so an apply stops here instead: the gate fails closed.
+        if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', steps.request.outputs.operation)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REVIEWERS="$(gh api "repos/$GITHUB_REPOSITORY/environments/ops-apply" \
+            --jq '[.protection_rules[]? | select(.type == "required_reviewers")] | length' 2>/dev/null || true)"
+          case "$REVIEWERS" in ''|*[!0-9]*) REVIEWERS=0 ;; esac  # an unreadable answer counts as none
+          if [ "$REVIEWERS" -lt 1 ]; then
+            echo "::error::the ops-apply environment requires no reviewer, so this apply was not approved by the founder; see tasks/todo.md F51"
+            exit 1
+          fi
+          echo "ops-apply requires a reviewer; the approval stands."
 
       - name: Refuse to run while a main push (deploy) is in flight
         # deploy-backend (ci.yml) applies migrations to the same database and re-images the jobs this

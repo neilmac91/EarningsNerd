@@ -36,10 +36,11 @@ def selected(step) -> set[str]:
         return set(OPTIONS)
     condition = re.sub(r"^\$\{\{\s*(.*?)\s*\}\}$", r"\1", condition.strip())
     condition = re.sub(r"^(?:always\(\)|github\.ref == 'refs/heads/main') && ", "", condition)
-    if match := re.fullmatch(rf"(!?)contains\('([^']*)', {OPERAND}\)", condition):
+    operand = OPERAND if "steps" in step else r"steps\.request\.outputs\.operation"  # a step reads the resolved one
+    if match := re.fullmatch(rf"(!?)contains\('([^']*)', {operand}\)", condition):
         hit = {op for op in OPTIONS if op in match.group(2).lower()}
         return set(OPTIONS) - hit if match.group(1) else hit
-    if match := re.fullmatch(rf"{OPERAND} == '([^']*)'", condition):
+    if match := re.fullmatch(rf"{operand} == '([^']*)'", condition):
         return {match.group(1).lower()} & set(OPTIONS)
     raise AssertionError(f"{step.get('name')!r}: teach selected() this if: form rather than skip it: {condition!r}")
 
