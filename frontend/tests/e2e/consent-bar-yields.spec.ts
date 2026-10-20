@@ -48,7 +48,7 @@ interface OpenOptions {
   theme?: Theme
   /** Stored preferences: the bar must not show. */
   consented?: boolean
-  /** Do Not Track: defaults are saved silently and the bar must not show. */
+  /** Do Not Track sent: it changes nothing, so a first visit shows the bar as any other does (D-049). */
   dnt?: boolean
   /** A cited opening quote keeps the pointer target in view at scroll zero. */
   earlySource?: boolean
@@ -458,15 +458,20 @@ test.describe('no bar', () => {
     await expect(coachmark(page)).toBeVisible()
     expect(await consentEvents(page)).toEqual([])
   })
+})
 
-  test('Do Not Track: defaults saved silently, no bar, no layer', async ({ page, baseURL }) => {
+/** The banner is the only control (D-049): a first visit whose browser sends Do Not Track shows the bar and publishes
+    its layer as any first visit does, and nothing is stored or fired until the visitor chooses. */
+test.describe('Do Not Track', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('Do Not Track: the bar shows and its layer is published as for any first visit, and nothing is decided', async ({ page, baseURL }) => {
     await openFiling(page, baseURL!, { dnt: true })
-    // The defaults are written by CookieConsent's mount effect, which can land after the launcher is
-    // visible on a busy machine: poll for the write rather than reading storage once.
-    await expect.poll(() => stored(page)).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
-    await expect(bar(page)).toHaveCount(0)
-    expect(await layer(page)).toEqual({ visible: false, inset: '' })
-    expect(await consentEvents(page)).toHaveLength(1)
+    expect(await page.evaluate(() => navigator.doNotTrack)).toBe('1')
+    await expect(bar(page)).toBeVisible()
+    await expectBothControlSetsUsable(page)
+    expect(await stored(page)).toBeNull()
+    expect(await consentEvents(page)).toEqual([])
     expect(await page.getByText(SAVED_TEXT).count()).toBe(0)
   })
 })

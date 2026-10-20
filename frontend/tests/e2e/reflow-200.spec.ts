@@ -738,6 +738,78 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
   }
 })
 
+/** The cookie settings dialog's category rows at 200% text (components/CookieConsent.tsx), opened from the footer's
+    "Cookie settings" on a page whose visitor has already chosen. Each row takes the Notice's recipe: it wraps, its text
+    column keeps 9rem beside the box or takes the card's width with the box under it, and a word too long for the column
+    breaks inside it. Before, a row could not wrap and its text column never went narrower than its longest word, so the
+    boxes ended 32 to 73px past their cards at 390px, 62 to 103px at 360px and 89 to 130px at 320px, and the text ran
+    past the cards too. At 320, 360 and 390px each box and every run of text in its card lie inside the card. The text
+    column is 105, 132 and 162px there (ModalBody's px-6 and the card's p-4 under doubled text), so the longest words
+    still break at all three widths until a card's padding stops growing under enlarged text (tasks/todo.md E120, whose
+    measure with this recipe is 201px and no broken word at 320px). The panel's own sideways scroll is held by the
+    consent dialog's header case below (`holdsPanel`), since its title wraps under its icon (#1432) and these rows
+    stay inside their cards. */
+const categoryRows = (dialog: Locator) =>
+  dialog.evaluate((root) => {
+    const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
+    return [...root.querySelectorAll('input[type="checkbox"]')].map((box) => {
+      // The box's card: the nearest box around it that draws a border.
+      let card = box.parentElement as HTMLElement
+      while (card !== root && getComputedStyle(card).borderTopWidth === '0px') card = card.parentElement as HTMLElement
+      const c = card.getBoundingClientRect()
+      const b = box.getBoundingClientRect()
+      // Each run of text in the card, as painted, that reaches past the card's sides.
+      const pastCard: string[] = []
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        const r = range.getBoundingClientRect()
+        if (r.left < c.left - 0.5 || r.right > c.right + 0.5) pastCard.push(`"${node.textContent.replace(/\s+/g, ' ').trim().slice(0, 30)}" ${px(r.left, r.right)}`)
+      }
+      return {
+        title: document.getElementById(box.getAttribute('aria-labelledby') ?? '')?.textContent?.trim() ?? '',
+        boxInCard: b.left >= c.left - 0.5 && b.right <= c.right + 0.5 && b.top >= c.top - 0.5 && b.bottom <= c.bottom + 0.5,
+        pastCard,
+        where: `box ${px(b.left, b.right)} by ${px(b.top, b.bottom)}, card ${px(c.left, c.right)} by ${px(c.top, c.bottom)}`,
+      }
+    })
+  })
+
+test.describe("the cookie settings dialog's boxes and text stay inside their cards at 200% text", () => {
+  for (const width of [320, 360, 390]) {
+    test.describe(`a ${width}px phone`, () => {
+      test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
+      test(`opened from the footer at ${width}px, each box and its text inside its card`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await answerGuest(page, baseURL!)
+        await page.goto('/pricing')
+        await h1(page, 'Pricing')
+        await page.evaluate(() => document.fonts.ready)
+        await doubleText(page)
+        await page.getByRole('contentinfo').getByRole('button', { name: 'Cookie settings' }).click()
+        const dialog = page.getByRole('dialog', { name: 'Cookie preferences' })
+        await expect(dialog).toBeVisible()
+        await settle(page)
+
+        const rows = await categoryRows(dialog)
+        expect(rows.map((row) => row.title)).toEqual(['Essential cookies', 'Analytics cookies', 'Session recording'])
+        for (const row of rows) {
+          const at = `"${row.title}" at ${width}px and 200% text (${row.where})`
+          expect(row.boxInCard, `${at}: the box lies inside its card`).toBe(true)
+          expect(row.pastCard, `${at}: every run of text in the card lies inside it`).toEqual([])
+        }
+      })
+    })
+  }
+})
+
 /** The header must not cover what is pinned under it. At 200% text the site header is about 151px
     (one row; 239px when it wrapped to two); the filing page's section nav, once stuck, sits below the
     header's measured height (`--site-header-h`, components/Header.tsx), not below a fixed 4rem (128px
@@ -1280,9 +1352,8 @@ const DIALOG_HEADERS = [
     name: 'the consent dialog',
     firstVisit: true,
     title: 'Cookie preferences',
-    /** Its body still widens the panel under 200% text on main (the category rows, which #1399 fixes): its header is held
-        here, its panel's own scroll once that lands. */
-    holdsPanel: false,
+    /** Its category rows wrap under 200% text (#1399), so nothing in its body widens the panel: its panel is held too. */
+    holdsPanel: true,
     open: async (p: Page, dialog: Locator) => {
       await p.getByRole('button', { name: 'Customize' }).click()
       await expect(dialog).toBeVisible()
