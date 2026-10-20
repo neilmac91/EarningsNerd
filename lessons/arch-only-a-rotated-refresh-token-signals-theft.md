@@ -28,7 +28,9 @@ is not X, key the check on a field only X writes.
 **Evidence.** `backend/app/services/refresh_token_service.py::rotate_refresh_token`. Since E127 (2026-10-19)
 it and every revocation take the user's row lock first and read under it, so the second of two
 refreshes with one cookie reads the first's rotation and takes this path, as it did while refresh ran
-on the event loop (`lessons/ops-release-cached-filing-reads-before-yield.md`).
+on the event loop. A logout reads the link too, for the same reason it is trusted here: a token with
+`replaced_by_id` set was rotated, so a logout that finds its token rotated by a racing refresh revokes
+the successor, the session it was meant to end (`lessons/ops-release-cached-filing-reads-before-yield.md`).
 `backend/tests/unit/test_refresh_token_revocation_kinds.py` drives change-password, logout-all,
 reset and logout with two clients (separate cookie jars): the stale device gets a 401 that revokes
 nothing and the other device's new session still refreshes. Restoring the unconditional sweep fails

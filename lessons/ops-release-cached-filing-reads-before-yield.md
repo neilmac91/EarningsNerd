@@ -96,10 +96,14 @@ checkout made inside the watch-row lock. It covers those five units only.
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
 marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or
 logout-all left a live successor. That race also spans the API's two instances, which no process lock
-reaches. Every writer of a user's tokens (rotation, logout, logout-all and the theft sweep) now takes
-the account's users row lock and re-reads under it. A guarded UPDATE alone would not have served:
-logout-all's bulk UPDATE sees only rows committed when it starts, so a successor committed after that
-survives it (2026-10-19, E127). `backend/tests/integration/test_refresh_rotation_transactions.py` runs
-each interleaving on PostgreSQL in CI's migrations-postgres job, holding the first writer's commit
-until the second is blocked; on the old code all four cases fail. Any other check-then-write unit stays
-a review check.
+reaches. Every rotation and revocation of a user's tokens (a refresh, logout, logout-all, the theft
+sweep, a password change or reset) now takes the account's users row lock and re-reads under it, and a
+logout that finds its token already rotated by a racing refresh revokes the successor. A guarded UPDATE
+alone would not have served: logout-all's bulk UPDATE sees only rows committed when it starts, so a
+successor committed after that survives it. The account's deletion takes the lock first too: its cascade
+deletes the tokens before the account, so in the other order it deadlocked with a token writer
+(2026-10-19, E127). `backend/tests/integration/test_refresh_rotation_transactions.py` runs each order
+on PostgreSQL in CI's migrations-postgres job, holding the first writer's commit until the second is
+blocked; on the old code every token case fails. A sign-in's new token takes no lock, so a login that
+verified the old password before a reset committed still mints after it (E131). Any other
+check-then-write unit stays a review check.

@@ -57,6 +57,7 @@ outside the "only the script applies SQL" pin below (they run ops SQL, never mig
 
 Everything here is text-level and runs in the hermetic unit suite (no Postgres needed).
 """
+import ast
 import re
 import shutil
 import subprocess
@@ -502,10 +503,20 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     ("Stripe transaction", "test_subscription_event_transactions.py", "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
     ("usage counter", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
     ("login failure", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
+    ("alert delivery claim", "test_notification_delivery_transactions.py", "DELIVERY_CONCURRENCY_TEST_DATABASE_URL"),
     ("refresh token rotation", "test_refresh_rotation_transactions.py", "REFRESH_CONCURRENCY_TEST_DATABASE_URL"),
 ])
 def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home, url_name):
     """The ordinary SQLite lane cannot establish PostgreSQL row-lock behavior."""
+    # The test home must read the variable its step sets: renamed on one side only, its cases skip and
+    # the required step passes with nothing run.
+    home = ast.parse((BACKEND_DIR / "tests" / "integration" / test_home).read_text(encoding="utf-8"))
+    read = {
+        node.args[0].value for node in ast.walk(home)
+        if isinstance(node, ast.Call) and ast.unparse(node.func) in ("os.environ.get", "os.getenv")
+        and node.args and isinstance(node.args[0], ast.Constant)
+    }
+    assert url_name in read, f"{test_home} must read {url_name}, the variable its step sets, or its cases skip"
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]
     step = _step(job, f"Verify {label} concurrency on PostgreSQL")
