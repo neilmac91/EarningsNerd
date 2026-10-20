@@ -130,12 +130,12 @@ TABLE = "refresh_tokens"
 
 # Every mention of the successor link, as (path from the repository root, scope, kind) -> how many
 # times. The count matters: a second write inside an already-listed scope is a new mention too.
-# Rotation is the only writer. Its own presence check reads it, and so does a logout's one step to the
-# successor of a token a racing refresh rotated away (E127); the model defines the column.
+# Rotation is the only writer. Its own presence check reads it, and so does a logout's walk from a
+# token refreshes rotated away to its chain's live tip (E127); the model defines the column.
 ALLOWED_MENTIONS = {
     ("backend/app/services/refresh_token_service.py", "rotate_refresh_token", "read"): 1,
     ("backend/app/services/refresh_token_service.py", "rotate_refresh_token", "write"): 1,
-    ("backend/app/services/refresh_token_service.py", "revoke_refresh_token", "read"): 1,
+    ("backend/app/services/refresh_token_service.py", "revoke_refresh_token", "read"): 2,
     ("backend/app/models/refresh_token.py", "RefreshToken", "definition"): 1,
     # Dynamic-name sinks in a module that names RefreshToken (the model registry imports it): they
     # read Filing's two URL columns by a name from _FILING_URL_FIELDS (getattr, and the attribute

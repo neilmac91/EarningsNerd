@@ -170,10 +170,11 @@ def rotate_refresh_token(
 def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> bool:
     """Revoke a single refresh token (e.g. on logout). Returns True if one was revoked.
 
-    Idempotent and best-effort: unknown or already-revoked tokens return False. A token a refresh
-    rotated away revokes its successor instead: that refresh may have taken the lock first, with the
-    same cookie, and its new cookie may reach the browser after the logout clears it. The caller is
-    responsible for committing the session.
+    Idempotent and best-effort: unknown or already-revoked tokens return False. A token that refreshes
+    rotated away revokes its chain's live tip instead, the session it belonged to: a refresh may have
+    taken the lock first with the same cookie, or another tab may have rotated the chain on, and their
+    new cookie may reach the browser after the logout clears it. The caller is responsible for
+    committing the session.
     """
     if not raw_token:
         return False
@@ -186,10 +187,10 @@ def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> bool:
         return False
     _lock_user_tokens(db, token.user_id)
     token = _read_again(db, token)  # as a rotation does
-    successor_id = token.replaced_by_id if token is not None else None
-    if token is not None and token.revoked_at is not None and successor_id is not None:
-        # One step: a refresh racing this logout leaves the cookie one rotation behind, no more.
-        token = db.get(RefreshToken, successor_id)
+    # Each link points at a newer token (only a rotation writes it, to the successor it mints), so the
+    # walk ends, at the chain's live tip or at a token revoked some other way.
+    while token is not None and token.revoked_at is not None and token.replaced_by_id is not None:
+        token = db.get(RefreshToken, token.replaced_by_id)
     if token is None or token.revoked_at is not None:
         return False
     token.revoked_at = datetime.utcnow()

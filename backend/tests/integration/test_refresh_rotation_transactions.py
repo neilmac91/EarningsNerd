@@ -15,12 +15,15 @@ its check if nothing stops it, while the first's writes are uncommitted:
   two did when refresh ran on the event loop, so no live token is left;
 - a refresh and a logout-all, in either order: no live token is left;
 - a refresh and a password reset, in either order: no live token is left, as account recovery promises;
+- a refresh and a password change, in either order: only the changer's new session is left;
 - a logout, then a refresh with the same cookie: the refresh is refused and no live token is left;
 - a refresh, then a logout with the same cookie: the logout signs out the successor the refresh minted;
+- a refresh with the cookie another tab's refresh left, then a logout with the cookie before it: the
+  logout walks the chain to its live tip and signs that out;
 - a refresh, then a sign-in: the sign-in's new token does not wait for the lock.
 Without the users-row lock each writer takes first, the second request writes on what it read before
-the first's commit: the two refreshes leave two live successors, and a logout, logout-all or reset
-leaves the refresh's successor live.
+the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
+change leaves the refresh's successor live.
 
 The account's deletion takes the same lock before its cascade deletes the tokens. Those cases start it
 once a token writer holds the lock, and hold the writer there until the deletion is blocked or has
@@ -98,20 +101,30 @@ _OPERATIONS = {
     "reset": lambda db, user_id, raw: auth_account_service.complete_password_reset(
         db, db.get(User, user_id), "a new password's hash",
     ),
+    "change_password": lambda db, user_id, raw: _change_password(db, db.get(User, user_id)),
     "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, db.get(User, user_id)),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
 }
 _WRITES = ("INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM refresh_tokens")
 
 
+def _change_password(db: Session, user: User) -> str:
+    """The change-password route's writes: the new hash and every token revoked, then the acting
+    device's new session minted, all in the mint's one commit."""
+    auth_account_service.stage_password_change(db, user, "a changed password's hash")
+    return tokens.mint_refresh_token(db, user)
+
+
 def _race(
-    engine, first: str, second: str, *, second_starts: str = "after_first_write",
+    engine, first: str, second: str, *, second_starts: str = "after_first_write", second_cookie_behind: bool = False,
 ) -> tuple[object, object, int, str]:
     """Run ``first`` and ``second`` on one user's token, and return each one's result (or the exception it
     raised), the user's live tokens after both, and what let ``first`` commit: ``"blocked"`` (``second``
     was waiting on a lock) or ``"done"`` (``second`` had finished). ``second`` starts once ``first`` has
     written a token row, or with ``after_first_lock`` once ``first`` holds the users row lock, where
-    ``first`` then waits until ``second`` is blocked on a lock or has written.
+    ``first`` then waits until ``second`` is blocked on a lock or has written. With
+    ``second_cookie_behind``, another tab has rotated the token once before either starts: ``first``
+    carries the new cookie and ``second`` the one before it.
 
     Those waits run inside engine events, which must not raise: an exception there would leave the first
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
@@ -121,6 +134,10 @@ def _race(
     # pending write at the request's next query, where production waits for its commit, and could
     # serialize two requests that production does not.
     request_session = sessionmaker(**{**SessionLocal.kw, "bind": engine})
+    cookies = {"first": raw, "second": raw}
+    if second_cookie_behind:
+        with request_session() as db:
+            cookies["first"] = tokens.rotate_and_commit(db, raw)[1]
     role = threading.local()
     first_ready = threading.Event()
     second_wrote = threading.Event()
@@ -178,7 +195,7 @@ def _race(
                         hung.append("the first request to reach the point the second starts at")
                         return None
                     second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
-                return _OPERATIONS[operation](db, user_id, raw)
+                return _OPERATIONS[operation](db, user_id, cookies[name])
         except Exception as exc:  # noqa: BLE001 - the outcome under test may be a refusal
             return exc
         finally:
@@ -235,6 +252,16 @@ def test_a_refresh_and_a_password_reset_leave_no_live_token(postgres_engine, fir
     assert (_result(refresh), _kind(reset), live, released) == (expected, "NoneType", 0, "blocked")
 
 
+@pytest.mark.parametrize("first,second", [("refresh", "change_password"), ("change_password", "refresh")])
+def test_a_refresh_and_a_password_change_leave_only_the_changers_new_session(postgres_engine, first, second):
+    """A password change signs out every other session, a successor minted by a racing refresh included,
+    and keeps the acting device's re-issued one."""
+    first_outcome, second_outcome, live, released = _race(postgres_engine, first, second)
+    refresh, change = (first_outcome, second_outcome) if first == "refresh" else (second_outcome, first_outcome)
+    expected = "rotated" if first == "refresh" else "RefreshTokenError"
+    assert (_result(refresh), _kind(change), live, released) == (expected, "str", 1, "blocked")
+
+
 def test_a_refresh_after_a_logout_with_the_same_cookie_is_refused(postgres_engine):
     logout, refresh, live, released = _race(postgres_engine, "logout", "refresh")
     assert (logout, _kind(refresh), live, released) == (True, "RefreshTokenError", 0, "blocked")
@@ -245,6 +272,13 @@ def test_a_logout_after_a_refresh_with_the_same_cookie_signs_out_its_successor(p
     rotated and revokes the successor, whose cookie may reach the browser after the logout clears it."""
     refresh, logout, live, released = _race(postgres_engine, "refresh", "logout")
     assert (_kind(refresh), logout, live, released) == ("tuple", True, 0, "blocked")
+
+
+def test_a_logout_whose_cookie_another_tab_moved_on_signs_out_the_chains_live_tip(postgres_engine):
+    """Another tab rotated the token once, and its next refresh holds the lock while this logout waits
+    with the cookie from before both: the logout walks the rotation links to the live tip."""
+    refresh, logout, live, released = _race(postgres_engine, "refresh", "logout", second_cookie_behind=True)
+    assert (_result(refresh), logout, live, released) == ("rotated", True, 0, "blocked")
 
 
 @pytest.mark.parametrize("writer,result", [("refresh", "rotated"), ("logout", True), ("logout_all", 1)])

@@ -12,7 +12,8 @@ again on every request.
 
 Each case runs over HTTP with two clients, so the two devices keep separate cookie jars. The
 signed-out device's refresh is refused with a 401 that revokes nothing, and the other device's new
-session still refreshes. Replaying a rotated-away token still takes the theft path; that half is
+session still refreshes. A logout that presents a token rotated away follows the rotation links to its
+chain's live tip and revokes that alone; it is no theft signal either. Replaying a rotated-away token still takes the theft path; that half is
 gated by ``test_refresh_replay.py`` and ``test_auth_token_flows.py``. The last test pins that it
 still does after a reset, which is the residual the lesson records: the sweep is user-wide, so it
 also ends the new login.
@@ -200,6 +201,25 @@ def test_a_logout_on_one_device_leaves_the_other_session_alone(laptop, phone, ma
     _assert_stale_refused_and_new_session_refreshes(
         phone, laptop, user_id, body={"refresh_token": signed_out}
     )
+
+
+@pytest.mark.requires_db
+def test_a_logout_whose_cookie_rotations_moved_past_signs_out_only_its_chains_live_tip(laptop, phone, mail):
+    """Another tab refreshed twice while this logout's request was on its way, so its cookie is two
+    rotations behind. The logout follows the rotation links to the chain's live tip and revokes it. It
+    is no theft signal: the phone's session is untouched."""
+    email, user_id = _register(laptop)
+    _login(phone, email)
+    behind = _login(laptop, email)
+    for _ in range(2):
+        assert laptop.post("/api/auth/refresh").status_code == 200
+
+    laptop.cookies.clear()
+    laptop.cookies.set(settings.REFRESH_COOKIE_NAME, behind)
+    assert laptop.post("/api/auth/logout").status_code == 200
+
+    assert _live_tokens(user_id) == 1  # the phone's session alone
+    assert phone.post("/api/auth/refresh").status_code == 200
 
 
 @pytest.mark.requires_db

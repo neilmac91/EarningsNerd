@@ -98,7 +98,7 @@ marked the token rotated, so two refreshes with one cookie both minted, and a re
 logout-all left a live successor. That race also spans the API's two instances, which no process lock
 reaches. Every rotation and revocation of a user's tokens (a refresh, logout, logout-all, the theft
 sweep, a password change or reset) now takes the account's users row lock and re-reads under it, and a
-logout that finds its token already rotated by a racing refresh revokes the successor. A guarded UPDATE
+logout that finds its token already rotated away revokes its chain's live tip. A guarded UPDATE
 alone would not have served: logout-all's bulk UPDATE sees only rows committed when it starts, so a
 successor committed after that survives it. The account's deletion takes the lock first too: its cascade
 deletes the tokens before the account, so in the other order it deadlocked with a token writer

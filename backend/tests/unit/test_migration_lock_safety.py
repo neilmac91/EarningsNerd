@@ -499,6 +499,14 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     )
 
 
+# Homes whose requests still run in autoflushing sessions, until E132 gives them production's settings.
+_AUTOFLUSHING_HOMES = {
+    "test_usage_counter_transactions.py",
+    "test_login_lockout_transactions.py",
+    "test_notification_delivery_transactions.py",
+}
+
+
 @pytest.mark.parametrize("label,test_home,url_name", [
     ("Stripe transaction", "test_subscription_event_transactions.py", "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
     ("usage counter", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
@@ -517,6 +525,24 @@ def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home,
         and node.args and isinstance(node.args[0], ast.Constant)
     }
     assert url_name in read, f"{test_home} must read {url_name}, the variable its step sets, or its cases skip"
+    # Its requests run with production's session settings, which do not autoflush: an autoflushing session
+    # flushes a pending write at the request's next query, and can serialize two requests that production
+    # does not (E127's gate hid a lock moved out of a password reset's revocation that way).
+    production_sessions = any(
+        isinstance(node, ast.Attribute) and node.attr == "kw" and ast.unparse(node.value) == "SessionLocal"
+        for node in ast.walk(home)
+    ) or any(
+        isinstance(node, ast.keyword) and node.arg == "autoflush"
+        and isinstance(node.value, ast.Constant) and node.value.value is False
+        for node in ast.walk(home)
+    )
+    if test_home in _AUTOFLUSHING_HOMES:
+        assert not production_sessions, f"{test_home} takes production's session settings now: drop it from _AUTOFLUSHING_HOMES"
+    else:
+        assert production_sessions, (
+            f"{test_home} must run its requests in sessions with production's settings: a sessionmaker built "
+            "from SessionLocal.kw, or autoflush=False"
+        )
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]
     step = _step(job, f"Verify {label} concurrency on PostgreSQL")
