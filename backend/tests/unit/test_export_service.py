@@ -308,14 +308,21 @@ class TestCsv:
         assert lines[6] == "Source: SEC EDGAR · https://www.sec.gov/Archives/edgar/data/875045/x.htm"
         assert lines[7] == ""
 
-    @pytest.mark.parametrize("sections", [_full_sections(), {}], ids=["sections", "no-sections"])
-    def test_ends_with_the_closing_note(self, service, sections):
-        """The CSV ends as the PDF does (F45, D-046): one blank row, the one the last section or the
-        header already ends with, then the closing note's paragraphs in order, a row each."""
-        rows = _csv_rows(service.generate_csv(*_make_summary_and_filing(sections)))
-        tail = len(SUMMARY_CLOSING_NOTE)
-        assert rows[-tail - 1:] == [[], *([paragraph] for paragraph in SUMMARY_CLOSING_NOTE)]
-        assert rows[-tail - 2] != []
+    @pytest.mark.parametrize(("raw_summary", "last_row"), [
+        ({"sections": _full_sections()}, ["", "Margins down 380bps"]),  # the last section's last row
+        # No stored payload renders no section at all (stored sections of {} still render the risks note).
+        (None, ["Source: SEC EDGAR · https://www.sec.gov/Archives/edgar/data/875045/x.htm"]),  # the header's
+    ], ids=["sections", "no-sections"])
+    def test_ends_with_the_closing_note(self, service, raw_summary, last_row):
+        """The CSV ends as the PDF does (F45, D-046): one blank row, the one its last section already
+        ends with (the header's, when there is no section), then the closing note's paragraphs in order,
+        a row each."""
+        summary, filing = _make_summary_and_filing({})
+        summary.raw_summary = raw_summary
+        rows = _csv_rows(service.generate_csv(summary, filing))
+        assert rows[-len(SUMMARY_CLOSING_NOTE) - 2:] == [
+            last_row, [], *([paragraph] for paragraph in SUMMARY_CLOSING_NOTE),
+        ]
 
     def test_closing_rows_are_the_pdfs_closing_note(self, service):
         """The CSV's closing rows are read against the PDF's closing note as it prints, so the two
