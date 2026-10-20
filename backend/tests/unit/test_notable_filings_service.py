@@ -5,6 +5,7 @@ pattern) against the real (SQLite) engine via create_all, and the serve path aga
 in-memory SQLite database per test, so the companies, filings and summaries a case seeds meet no
 other test's rows. No network.
 """
+import threading
 from datetime import date, timedelta
 from types import SimpleNamespace
 
@@ -471,6 +472,61 @@ def test_serve_caps_at_six_and_slices_within_the_cap(serve_db, enabled):
     assert [f["ticker"] for f in top2["filings"]] == ["TK0", "TK1"]
     widest = service.get_notable_filings(serve_db, limit=12)
     assert [f["ticker"] for f in widest["filings"]] == tickers[:MAX_FILINGS]
+    assert len(statements) == 2, statements
+
+
+def test_a_miss_during_a_fill_waits_for_it_and_reads_nothing(serve_db, enabled, monkeypatch):
+    """Single flight: a request that misses while another fills the cache waits for that fill and
+    serves it, so a cold cache costs one fill's two queries however many requests arrive at once
+    (Codex on #1437, r4329140507). The first fill is held until the second request reaches the
+    lock, or reaches a fill of its own if nothing stops it."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    statements = []
+    event.listen(serve_db.get_bind(), "before_cursor_execute", lambda *args: statements.append(args[2]))
+    service = NotableFilingsService()
+    fetch, lock = service._fetch, service._fill_lock
+    filling, second, release = threading.Event(), threading.Event(), threading.Event()
+    calls = {"fetch": 0, "lock": 0}
+
+    def held_fetch(db, today):
+        calls["fetch"] += 1
+        (filling if calls["fetch"] == 1 else second).set()
+        assert release.wait(5)
+        return fetch(db, today)
+
+    class _Watched:
+        """The service's lock, telling the case when a second request reaches it."""
+
+        def __enter__(self):
+            calls["lock"] += 1
+            if calls["lock"] == 2:
+                second.set()
+            return lock.__enter__()
+
+        def __exit__(self, *exc):
+            return lock.__exit__(*exc)
+
+    monkeypatch.setattr(service, "_fetch", held_fetch)
+    monkeypatch.setattr(service, "_fill_lock", _Watched())
+    served = []
+
+    def request():
+        served.append([f["ticker"] for f in service.get_notable_filings(serve_db)["filings"]])
+
+    first = threading.Thread(target=request)
+    first.start()
+    assert filling.wait(5)
+    late = threading.Thread(target=request)
+    late.start()
+    assert second.wait(5)
+    release.set()
+    first.join(5)
+    late.join(5)
+    assert served == [tickers, tickers]
+    assert calls["fetch"] == 1
     assert len(statements) == 2, statements
 
 

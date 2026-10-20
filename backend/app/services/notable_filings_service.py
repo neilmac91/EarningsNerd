@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -486,8 +487,22 @@ class NotableFilingsService:
         # time, so different `limit` values within one cache window each get correctly sliced
         # results (ReportingThisWeekService's cache rationale). Requests read it from worker
         # threads, so a fill replaces the whole snapshot in one assignment: a reader sees one fill
-        # or the next, never a mix. Concurrent misses may each read; the last fill stays.
+        # or the next, never a mix.
         self._cache: Optional[Tuple[date, datetime, List[Dict[str, Any]]]] = None
+        # Single flight (ReportingThisWeekService's fill lock, a thread lock here because requests
+        # run in the thread pool): concurrent misses queue here and recheck, so one read fills the
+        # cache instead of one pooled connection each. A waiter holds no connection: its session
+        # has run no query yet.
+        self._fill_lock = threading.Lock()
+
+    def _cached(
+        self, today: date, now: datetime
+    ) -> Optional[Tuple[date, datetime, List[Dict[str, Any]]]]:
+        """The cached snapshot, if it is for ``today`` and inside the TTL."""
+        cached = self._cache
+        if cached is not None and cached[0] == today and now - cached[1] < self._cache_ttl:
+            return cached
+        return None
 
     def get_notable_filings(
         self, db: Session, *, limit: int = MAX_FILINGS, force_refresh: bool = False
@@ -503,13 +518,15 @@ class NotableFilingsService:
         if not settings.NOTABLE_FILINGS_ENABLED:
             return {"filings": [], "status": "empty", "timestamp": now.isoformat()}
 
-        cached = None if force_refresh else self._cache
-        if cached is not None and cached[0] == today and now - cached[1] < self._cache_ttl:
-            _, filled_at, served = cached
-        else:
-            served = self._fetch(db, today)
-            filled_at = now
-            self._cache = (today, filled_at, served)
+        hit = None if force_refresh else self._cached(today, now)
+        if hit is None:
+            with self._fill_lock:
+                now = datetime.now(timezone.utc)
+                hit = None if force_refresh else self._cached(today, now)
+                if hit is None:
+                    hit = (today, now, self._fetch(db, today))
+                    self._cache = hit
+        _, filled_at, served = hit
 
         status = "ok" if len(served) >= MIN_COMPANIES else "empty"
         return {
