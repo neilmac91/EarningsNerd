@@ -29,7 +29,8 @@ request-context monitoring, and the request-owned session lifecycle. Do not clos
 user early, or increase pool sizes to hide event-loop starvation. The fix allows cleanup to
 progress; it does not establish safe fleet concurrency or guarantee that every busy pool can
 satisfy its timeout. The off-the-loop rule and its gates cover only these sites; the default-executor
-listing covers every site under `app/` and in the backend's top-level modules. Other async code still
+listing covers each `asyncio.to_thread` and positional `run_in_executor(None, …)` call under `app/` and
+in the backend's top-level modules, and its docstring names the forms it cannot see. Other async code still
 makes blocking lookups on the loop (async route bodies such as `login`, the
 `filing_list_service.refresh_company_filings` background task, the `/internal` trigger helpers);
 those are known and review-checked.
@@ -52,8 +53,8 @@ off-loop draft (E129, 2026-10-19) ran its units through `asyncio.to_thread`, the
 already ruled out, and passed its own tests: `backend/tests/unit/test_companyfacts_sync_off_the_loop.py`
 now holds the sync to its own threads and runs it against a one-slot pool whose holder needs the
 one-thread default executor, a case the draft fails at the pool timeout. Prose had not stopped it, so
-`backend/tests/unit/test_default_executor_allowlist.py` lists every default-executor call under `app/`
-and in the backend's top-level modules, each with why its work never waits for a slot: bcrypt, the PDF
+`backend/tests/unit/test_default_executor_allowlist.py` lists each such call under `app/` and in the
+backend's top-level modules, each with why its work never waits for a slot: bcrypt, the PDF
 and workbook renders, the Copilot's quotation check, and the startup connection check, which runs
 before the app serves a request. Its first scan also found a `SELECT 1` waiting there for a slot, in
 `metrics_service.get_health_summary`, which nothing had called since it was written; it is deleted.

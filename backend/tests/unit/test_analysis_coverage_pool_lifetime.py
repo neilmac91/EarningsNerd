@@ -121,7 +121,7 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
                 break
             await asyncio.sleep(0.01)
         # The second request's ingest has started and found the leader's claim, so only the leader read
-        # freshness; that it waits on the claim, the stamps checked below show.
+        # freshness; that it waits on the claim, the successful case's stamps below show.
         assert (ingest_starts, fresh_checks) == (2, 1)
 
         assert fetch_calls == 1

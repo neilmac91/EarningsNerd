@@ -10,13 +10,15 @@ The scan reads every module under ``app/`` and the backend's top-level modules (
 ``task_worker_main.py``) through ``ast`` and lists each call that hands work to the default executor:
 ``asyncio.to_thread(...)`` under any name the module imports it by, from ``asyncio`` or
 ``asyncio.threads``, and ``run_in_executor(None, ...)`` on any loop. ``SITES`` names each one by file,
-the outermost function holding it and the work it hands over, with why that work never waits for a slot. A new site fails until it is listed, once its work has
-been checked, and a listed site that is gone fails until its line is.
+the outermost function holding it and the work it hands over, with why that work never waits for a
+slot. A new site fails until it is listed, once its work has been checked, and a listed site that is
+gone fails until its line is.
 
 Out of reach, so review holds them: the default executor reached any other way (an executor of ``None``
-held in a variable or passed by keyword, a callable passed by keyword, ``asyncio.threads.to_thread``
-called through its module path, ``loop.getaddrinfo`` and the other loop methods that use it, a library
-that calls it), and a listed callable that later starts to open a session.
+held in a variable or passed by keyword, a callable passed by keyword, ``to_thread`` reached through
+the ``asyncio.threads`` module itself under any name it is imported or assigned by,
+``loop.getaddrinfo`` and the other loop methods that use it, a library that calls it), and a listed
+callable that later starts to open a session.
 """
 
 from __future__ import annotations
