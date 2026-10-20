@@ -6689,6 +6689,11 @@ Full local and hosted verification plus independent exact-head review precede re
   merged in; merged `b9c69808` and deployed healthy (`earningsnerd-backend-00551-8jb`). Ninety-three main runs
   classified; E30's deploy read back (healthy; every pin in place); production read live. Ledger events 68–75 (USD
   1.603888). Closure 179.
+- 2026-10-19 to 2026-10-20 (record 29, `runtime/control/DECISIONS-29.md`): PR #1330 (record 28) merged `fc5aa352`
+  (twenty-fourth deploy-skip proof). Closure 180 registers record 28's window's launches (E30's six check workflows,
+  the add-on's three, record 28's fact-check and its reviewer). Another writer's #1414 (backend dependency updates,
+  `sentry-sdk` 2.72.0 among them) deployed healthy (`earningsnerd-backend-00552-w9z`); production read live, Sentry
+  starting on that revision. No spend; no ledger event. Classifier denial 14. Closure 180.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
