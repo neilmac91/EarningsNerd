@@ -46,10 +46,13 @@ in any case. It scans
   has none of, could otherwise hide an added line (colour, a textconv driver, an external diff, a replace ref, a root
   commit's diff that log.showRoot leaves out) or change its fingerprint (a commit header in another form under
   format.pretty, log.date, log.abbrevCommit or log.showSignature; file names without a/ and b/ under diff.noprefix).
-  What it sends: each refspec's source (`tag <name>` too; a deletion or a negative refspec sends nothing), HEAD when it
-  names none, every branch for --all, --branches or the matching refspec `:` (of which it pushes those the remote has
-  too), every ref for --mirror and every tag for --tags; a dry run and --delete send nothing. Its options are read in
-  order, as git reads them, so a later `--no-` form takes an earlier option back. A push the hook cannot pin down is
+  What it sends: each refspec's source (`tag <name>` too; a deletion or a negative refspec sends nothing), every branch
+  for --all, --branches or the matching refspec `:` (of which it pushes those the remote has too), every ref for
+  --mirror and every tag for --tags; a dry run and --delete send nothing. A push that names none of these sends what
+  git's config says, which the hook reads as git does, with the pushing git's own -c and --config-env: the remote's
+  push refspecs (remote.<name>.push), else every branch under push.default=matching, else HEAD; and a remote set to
+  mirror (remote.<name>.mirror) sends every ref, as --mirror does. Its options are read in order, as git reads them, so
+  a later `--no-` form takes an earlier option back. A push the hook cannot pin down is
   refused before any scan, since it could send any commit in the repository: one whose source does not resolve to a
   commit as the line stands (a variable, a substitution, a wildcard, a name that does not exist yet); one from a
   repository the hook cannot resolve (a variable, a substitution, `cd -`, popd, a move that may not run, --git-dir,
@@ -77,19 +80,23 @@ for a commit, its fingerprint) and what to do next, never the secret (gitleaks r
 --verbose); anything else exits 0 with no output. A crash exits 1, which Claude Code reports as a hook error and lets
 through.
 
+The hook stops a session's accidental push or write of a secret-shaped literal. It is no boundary against a session that
+means to get past it, which can always push from a script, so it does not read forms that only such a bypass writes.
+
 Not checked: a push or write that another shell or program makes (`bash -c '...'`, a here-document fed to a shell, a
 script, a git alias such as `git p`, `gh repo create --push`, a submodule's push), a commit another program makes in the
-same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, a push that
-configuration widens beyond its current branch (push.default=matching, a remote's push refspec), a remote-tracking ref
-whose branch the remote has since deleted (`git fetch --prune` drops it), whose commits the scan still counts as held, a
-file whose text git leaves out of `git log -p` as binary because of the repository's or the user's settings (a `-diff`
-attribute in info/attributes or core.attributesFile, a diff driver set `binary = true`, core.bigFileThreshold below the
-file's size; CI has none of them and scans that text; `--text` would scan it, but also the binary files CI skips, so the
-hook would refuse pushes CI passes), the other way about a committed `.gitattributes` that marks files `-diff` (CI's
-checkout honours it and the hook reads none, so it can refuse a push CI passes), a fork layout, where CI reads the main
-of another remote than origin (the pins come from origin/main alone), text a command builds as it runs
-(`content="$(base64 -w0 file)"`), a word an ANSI-C escape spells (`$'pu\\x73h'`), a GitHub MCP server registered under a
-name without "github", a session that loads no repository hooks, and a person's own push.
+same line, a directory a command other than cd or pushd enters (`env -C`) or a GIT_DIR the line exports, git
+configuration the line sets through the environment (`GIT_CONFIG_COUNT=` before the push, an export), a
+remote-tracking ref whose branch the remote has since deleted (`git fetch --prune` drops it), whose commits the scan
+still counts as held, a file whose text git leaves out of `git log -p` as binary because of the repository's or the
+user's settings (a `-diff` attribute in info/attributes or core.attributesFile, a diff driver set `binary = true`,
+core.bigFileThreshold below the file's size; CI has none of them and scans that text; `--text` would scan it, but also
+the binary files CI skips, so the hook would refuse pushes CI passes), the other way about a committed `.gitattributes`
+that marks files `-diff` (CI's checkout honours it and the hook reads none, so it can refuse a push CI passes), a fork
+layout, where CI reads the main of another remote than origin (the pins come from origin/main alone), text a command
+builds as it runs (`content="$(base64 -w0 file)"`), a word an ANSI-C escape spells (`$'pu\\x73h'`), a JSON key an
+escape spells (`"cont\\u0065nt"`, which no JSON writer emits), a GitHub MCP server registered under a name without
+"github", a session that loads no repository hooks, and a person's own push.
 Tests: backend/tests/unit/test_secret_scan_guard.py.
 """
 from __future__ import annotations
@@ -140,6 +147,7 @@ READS = ("status", "log", "show", "diff", "rev-parse", "rev-list", "ls-files", "
          "name-rev", "cherry", "range-diff", "diff-tree", "diff-index", "diff-files", "whatchanged", "check-ignore",
          "check-attr", "check-ref-format", "verify-commit", "verify-tag", "count-objects", "var", "version", "help")
 MOVED = "\x00moved"  # a source that marks such a push, which is refused: the hook cannot tell what it sends
+DEFAULT = "\x00default"  # a source that marks a push naming nothing to send, which sends what git's config says
 ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\[[^]]*\])?\+?=")  # `NAME=value` before a command, a prefix
 LEADERS = ("{", "!", "if", "then", "else", "elif", "do", "while", "until", "time", "command", "builtin")
 REDIRECTS = ("<", ">", ">>", ">&", "<&", "&>", ">|")
@@ -438,27 +446,39 @@ def _sent(args: list[str]) -> tuple[list[str], list[str], str | None]:
         return [], [], None
     options = ["--branches"] * ("--all" in flags) + ["--all"] * ("--mirror" in flags)
     options += ["--tags"] * ("--tags" in flags)
-    specs, sources, index = positional[1:], [], 0  # the first is the repository it pushes to
+    specs = positional[1:]  # the first is the repository it pushes to
+    more, sources = _specs(specs)
+    if not specs and not flags & {"--all", "--mirror", "--tags"}:  # it names nothing: git's config says what it sends
+        sources.append(DEFAULT)
+    return [*options, *(option for option in more if option not in options)], sources, (
+        positional[0] if positional else repo)
+
+
+def _specs(specs: list[str]) -> tuple[list[str], list[str]]:
+    """The rev-list options and the sources these refspecs send: each one's source (`tag <name>` too; a deletion or a
+    negative refspec sends nothing), and every branch for the matching refspec `:`, which sends each branch the remote
+    has of the same name."""
+    options, sources, index = [], [], 0
     while index < len(specs):
         spec = specs[index]
         index += 1
         if spec == "tag" and index < len(specs):
             sources.append("refs/tags/" + specs[index])
             index += 1
-        elif spec.removeprefix("+") == ":":  # the matching refspec: each branch the remote has of the same name
-            options += [] if "--branches" in options else ["--branches"]
+        elif spec.removeprefix("+") == ":":
+            options = ["--branches"]
         elif not spec.startswith("^") and (source := spec.removeprefix("+").split(":", 1)[0]):
             sources.append(source)
-    if not specs and not flags & {"--all", "--mirror"}:
-        sources.append("HEAD")
-    return options, sources, positional[0] if positional else repo
+    return options, sources
 
 
-def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str], list[str], str | None]], bool]:
-    """Each `git push` the script runs, as (its directory or None, rev-list options, sources, the repository it names),
-    and whether the script makes commits too. A push in a script that runs a command that can move HEAD or a branch,
-    anywhere, carries MOVED: a command substitution runs before the command it is part of, though its text is read
-    after the line, so the order the reader sees is not the order the shell runs."""
+def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str], list[str], str | None, list[str]]],
+                                             bool]:
+    """Each `git push` the script runs, as (its directory or None, rev-list options, sources, the repository it names,
+    the -c and --config-env options its git takes), and whether the script makes commits too. A push in a script that
+    runs a command that can move HEAD or a branch, anywhere, carries MOVED: a command substitution runs before the
+    command it is part of, though its text is read after the line, so the order the reader sees is not the order the
+    shell runs."""
     here: Path | None = base
     stack: list[Path | None] = []
     pushes, commits, moved = [], False, False
@@ -496,10 +516,12 @@ def _pushes(script: str, base: Path) -> tuple[list[tuple[Path | None, list[str],
                     commits = True
                 elif subcommand == "push":
                     options, sources, remote = _sent(rest)
-                    pushes.append((_repository(here, global_options, words[:index]), options, sources, remote))
+                    config = [word for name, value in global_options if name == "-c" or name.startswith("--config-env")
+                              for word in (name, value) if word is not None]
+                    pushes.append((_repository(here, global_options, words[:index]), options, sources, remote, config))
                 elif subcommand is not None and subcommand not in READS:
                     moved = True
-    for _directory, options, sources, _remote in pushes if moved else []:  # wherever the move stands in the line
+    for _directory, options, sources, _remote, _config in pushes if moved else []:  # wherever the move stands
         if options or sources:
             sources.append(MOVED)
     return pushes, commits
@@ -512,32 +534,33 @@ def _branches(words: list[str]) -> bool:
     return first in CONTROL or any(word == "(" and words[at + 1:at + 2] == [")"] for at, word in enumerate(words))
 
 
-def _top(directory: Path) -> Path | None:
+def _top(directory: Path, config: list[str]) -> Path | None:
     """The top level of the repository `directory` is in, or its git directory when it is bare."""
-    found = _git(directory, "rev-parse", "--show-toplevel") or _git(directory, "rev-parse", "--absolute-git-dir")
+    found = (_git(directory, *config, "rev-parse", "--show-toplevel")
+             or _git(directory, *config, "rev-parse", "--absolute-git-dir"))
     return Path(found) if found else None
 
 
-def _destination(top: Path, remote: str | None) -> str:
+def _destination(top: Path, remote: str | None, config: list[str]) -> str:
     """Where a push goes, found as git finds it: the repository the line names; else the current branch's pushRemote,
     remote.pushDefault, the current branch's remote, then origin."""
     if remote is not None:
         return remote
-    branch = _git(top, "symbolic-ref", "--quiet", "--short", "HEAD")
+    branch = _git(top, *config, "symbolic-ref", "--quiet", "--short", "HEAD")
     keys = [f"branch.{branch}.pushRemote", "remote.pushDefault", f"branch.{branch}.remote"]
     if branch is None:  # a detached HEAD: no branch keys
         keys = keys[1:2]
-    return next((value for key in keys if (value := _git(top, "config", "--get", key))), "origin")
+    return next((value for key in keys if (value := _git(top, *config, "config", "--get", key))), "origin")
 
 
-def _held(top: Path, destination: str) -> str | None:
+def _held(top: Path, destination: str, config: list[str]) -> str | None:
     """The remote whose remote-tracking refs show what `destination` holds: itself, when it is a configured remote
     that pushes only to the repository it fetches from. None for a URL or a path, or a remote that pushes elsewhere (a
     fork, a mirror), whose fetched refs say nothing of what the push's destination holds."""
-    if destination not in (_git(top, "remote") or "").split():
+    if destination not in (_git(top, *config, "remote") or "").split():
         return None
-    fetched = _git(top, "remote", "get-url", destination)
-    pushed = (_git(top, "remote", "get-url", "--push", "--all", destination) or "").splitlines()
+    fetched = _git(top, *config, "remote", "get-url", destination)
+    pushed = (_git(top, *config, "remote", "get-url", "--push", "--all", destination) or "").splitlines()
     if fetched is None or {_repository_url(url) for url in pushed} != {_repository_url(fetched)}:
         return None
     return destination
@@ -553,11 +576,12 @@ def _repository_url(url: str) -> str:
     return f"{host.lower()}/{path.rstrip('/').removesuffix('.git')}"
 
 
-def _scan_push(directory: Path | None, options: list[str], sources: list[str],
-               remote: str | None) -> tuple[Path, Path, str, str | None] | str | None:
+def _scan_push(directory: Path | None, options: list[str], sources: list[str], remote: str | None,
+               config: list[str]) -> tuple[Path, Path, str, str | None] | str | None:
     """The repository, its git directory and the log range a push's scan reads, and where the push goes when no
     remote's fetched refs show what that holds (the range then leaves nothing out); a refusal when the hook cannot tell
-    what the push sends, which could then be any commit in the repository; None when it sends nothing."""
+    what the push sends, which could then be any commit in the repository; None when it sends nothing. Its git reads
+    `config`, the pushing git's own -c and --config-env, as that git does."""
     if not options and not sources:
         return None
     unread = next((source.removeprefix(UNREAD_OPTION) for source in sources if source.startswith(UNREAD_OPTION)), None)
@@ -566,21 +590,31 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str],
             f"this push names {unread!r}, which `git push` does not take as written: git takes a unique prefix of a "
             "long option for the whole option (`--mirr` for --mirror, `--no-dry` for --no-dry-run), so the hook cannot "
             "tell what the push would send.", OPTION_REMEDY)
-    top = _top(directory) if directory is not None else None
-    gitdir = _git(top, "rev-parse", "--absolute-git-dir") if top is not None else None
+    top = _top(directory, config) if directory is not None else None
+    gitdir = _git(top, *config, "rev-parse", "--absolute-git-dir") if top is not None else None
     if top is None or gitdir is None:
         return _reason(
             "this line pushes from a repository the hook cannot resolve as the line stands (a variable, a "
             "substitution, `cd -`, popd, a cd or pushd that may not run where it stands, --git-dir, --work-tree, "
             "GIT_DIR=, or a directory no repository holds yet), so it cannot tell what the push would send.",
             REPOSITORY_REMEDY)
+    destination, configured = _destination(top, remote, config), []
+    if _git(top, *config, "config", "--type=bool", "--get", f"remote.{destination}.mirror") == "true":
+        options = [*options, "--all"]  # it mirrors every ref, as --mirror does
+    elif DEFAULT in sources:  # it names nothing to send: what the remote's push refspecs say, else push.default's
+        configured = (_git(top, *config, "config", "--get-all", f"remote.{destination}.push") or "").splitlines()
+        matching = _git(top, *config, "config", "--get", "push.default") == "matching"
+        more, named = _specs(configured or [":" if matching else "HEAD"])
+        options, sources = [*options, *more], [*sources, *named]
     revisions = list(options)
-    for source in (source for source in sources if source != MOVED and not source.startswith(UNREAD_OPTION)):
+    for source in (source for source in sources if source not in (MOVED, DEFAULT) and
+                   not source.startswith(UNREAD_OPTION)):
         commit = None if source.startswith("-") or any(char in source for char in EXPANDED) else (
-            _git(top, "rev-parse", "--verify", "--quiet", f"{source}^{{commit}}"))
+            _git(top, *config, "rev-parse", "--verify", "--quiet", f"{source}^{{commit}}"))
         if commit is None:
+            given = f" (remote.{destination}.push configures it)" if configured else ""
             return _reason(
-                f"this push sends {source!r}, which the hook cannot resolve to a commit as the line stands (a "
+                f"this push sends {source!r}{given}, which the hook cannot resolve to a commit as the line stands (a "
                 "variable, a substitution, a wildcard, or a name that does not exist yet), so it cannot tell what the "
                 "push would send.", SOURCE_REMEDY)
         revisions.append(commit)
@@ -588,8 +622,7 @@ def _scan_push(directory: Path | None, options: list[str], sources: list[str],
         return _reason("this line runs another git command beside its push, one that may change what the push sends or "
                        "where it goes (anything but a read such as status, log, show or diff), and the hook resolves "
                        "the push before the line runs, so it cannot tell what this push would send.", MOVED_REMEDY)
-    destination = _destination(top, remote)
-    held = _held(top, destination)
+    held = _held(top, destination, config)
     log_range = " ".join([*LOG_FLAGS, *dict.fromkeys(revisions), *(["--not", f"--remotes={held}"] if held else [])])
     return top, Path(gitdir), log_range, None if held else destination
 
@@ -669,8 +702,8 @@ def _bash_refusal(command: str, cwd: object) -> str | None:
             "makes cannot be scanned.", COMMIT_REMEDY)
     scans, unheld = [], None
     try:
-        for directory, options, sources, remote in pushes:
-            scan = _scan_push(directory, options, sources, remote)
+        for directory, options, sources, remote, config in pushes:
+            scan = _scan_push(directory, options, sources, remote, config)
             if isinstance(scan, str):
                 return scan
             if scan is not None and scan not in scans:

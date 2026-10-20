@@ -47,7 +47,9 @@ scan when it cannot tell what the push sends (a source or a repository it cannot
 stands, a `cd` that may not run where it stands, a long option `git push` does not take as written, which
 git may complete (`--mirr` for `--mirror`), or a line that also runs another git command but a read, such as
 a checkout or a fetch), saying what to name literally, or to push in a call of its own. It reads the push's
-options in order, as git does, so a later `--no-dry-run` takes a dry run back. Every scan reads main's pins
+options in order, as git does, so a later `--no-dry-run` takes a dry run back, and a push that names
+nothing to send reads git's config as git does (a remote's push refspecs, `push.default=matching`, a
+mirror remote, with the pushing git's own `-c`). Every scan reads main's pins
 and config (`origin/main`'s `.gitleaksignore` and `.gitleaks.toml`, as
 last fetched; no pins when it cannot read them, and gitleaks' own default config, which the job runs,
 while main has no `.gitleaks.toml`), never the pushing checkout's, its git directory's, a call's or one
@@ -69,10 +71,11 @@ use it for a scan by hand. CI runs the linux x64 archive; the setup pins the sam
 and x64 and linux arm64 archives from its checksums file, and the gate fails when `ci.yml`'s version moves
 without them. Without a verified binary, or on a platform with no pin, the guard refuses every call it
 would scan and says what to do (the setup command; how to add a pin). Not gated: a push or write another
-shell or program makes (`bash -c '...'`, a script, an alias), text a command builds as it runs, a push
-that configuration widens beyond its current branch (`push.default=matching`, a remote's push refspec), a
-remote-tracking ref whose branch the remote has since deleted (`git fetch --prune` drops it), a file
-whose text git leaves out of `git log -p`
+shell or program makes (`bash -c '...'`, a script, an alias), text a command builds as it runs, git
+configuration a line sets through the environment (`GIT_CONFIG_COUNT=`, an export), a form only a
+deliberate bypass writes (an escape that spells a word or a JSON key; the hook stops accidents, not a
+session set on getting past it), a remote-tracking ref whose branch the remote has since deleted
+(`git fetch --prune` drops it), a file whose text git leaves out of `git log -p`
 as binary because of the repository's or the user's settings (a `-diff` attribute in `info/attributes`
 or `core.attributesFile`, a diff driver set `binary = true`, `core.bigFileThreshold` below its size; CI
 has none of them and scans that text; `--text` would scan it, but also the binary files CI skips, so the

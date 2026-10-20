@@ -760,6 +760,46 @@ def test_a_tag_push_reads_the_tags_commits(scanner: Scanner, repo: Path, command
     _refused(_bash(scanner, command, repo), "side.txt:1 (stub-rule)")
 
 
+# A push that names nothing to send (no refspec, --all, --mirror or --tags) sends what git's config says, which the scan
+# reads as git does, with the pushing git's own -c and --config-env (Codex's): the remote's push refspecs, else every
+# branch the remote has too under push.default=matching, else HEAD; a remote set to mirror sends every ref. A push that
+# names what it sends reads none of it, as git does.
+CONFIGURED = {
+    "push.default=matching": ({"push.default": "matching"}, "git push origin", "side"),
+    "push.default=matching, by -c": ({}, "git -c push.default=matching push origin", "side"),
+    "push.default=matching, by --config-env": ({}, "git --config-env=push.default=PUSH_DEFAULT push", "side"),
+    "a push refspec": ({"remote.origin.push": "refs/heads/side:refs/heads/side"}, "git push", "side"),
+    "the matching refspec as the push refspec": ({"remote.origin.push": ":"}, "git push origin", "side"),
+    "a push refspec, by -c": ({}, "git -c remote.origin.push=side push origin", "side"),
+    "a mirror remote": ({"remote.origin.mirror": "true"}, "git push origin", "side"),
+    "a wildcard push refspec": ({"remote.origin.push": "refs/heads/*:refs/heads/*"}, "git push origin", "unresolved"),
+    "push.default=simple": ({"push.default": "simple"}, "git push origin", "main"),
+    "push.default=matching, a branch named": ({"push.default": "matching"}, "git push origin main", "main"),
+    "a push refspec, a branch named": ({"remote.origin.push": "side"}, "git push origin main", "main"),
+    "a wildcard push refspec, the tags named": ({"remote.origin.push": "refs/heads/*:refs/heads/*"},
+                                                "git push --tags origin", "--tags"),
+}
+
+
+@pytest.mark.parametrize(("config", "command", "sends"), CONFIGURED.values(), ids=CONFIGURED.keys())
+def test_a_push_that_names_nothing_sends_what_gits_config_says(scanner: Scanner, repo: Path, config: dict[str, str],
+                                                               command: str, sends: str) -> None:
+    for key, value in config.items():
+        _git(repo, "config", key, value)
+    decision = _decision(scanner, "Bash", {"command": command}, repo, {"PUSH_DEFAULT": "matching"})
+    if sends == "side":
+        _refused(decision, "side.txt:1 (stub-rule)")
+    elif sends == "unresolved":
+        _refused(decision, "'refs/heads/*' (remote.origin.push configures it), which the hook cannot resolve",
+                 "Name each source literally")
+        assert scanner.calls() == []
+    else:  # main's clean commit alone, or the tags alone (none here)
+        assert decision is None
+        [call] = scanner.calls()
+        sent = _git(repo, "rev-parse", "main") if sends == "main" else sends
+        assert call["args"][2] == f"--log-opts={LOG_OPTIONS} {sent} --not --remotes=origin"
+
+
 def test_a_push_from_a_repository_the_hook_cannot_resolve_or_fall_back_on_is_refused(scanner: Scanner,
                                                                                    elsewhere: Path) -> None:
     _refused(_bash(scanner, 'cd "$WORKTREE" && git push', elsewhere), "cannot resolve", "git -C <dir> push")
