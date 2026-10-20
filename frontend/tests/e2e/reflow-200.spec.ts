@@ -60,7 +60,9 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * Consent is seeded, so the consent bar stays closed, except where the dialog header case opens the consent
  * dialog from it on a first visit: the bar is fixed, adds nothing to the document's scroll width, and its own
  * reflow is not measured here. Light theme only, since a theme changes no
- * geometry. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
+ * geometry, except a dialog's header, which is held in both themes, as
+ * lessons/frontend-check-brand-layouts-at-200-percent-text.md asks: a dark: utility on ModalHeader would move it
+ * in one theme alone. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
  * answered in the browser, as a guest, and the filing page from fixtures/filing3Api.ts (for a guest, and
  * for its Pro reader in the signed-in menu case).
  */
@@ -1257,35 +1259,38 @@ for (const width of [390, 360, 320]) {
   test.describe(`a ${width}px phone at 200% text, a dialog's header`, () => {
     test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true })
     for (const d of DIALOG_HEADERS) {
-      test(`${d.name} keeps its title beside the icon at the default size and under it at 200% text, clear of the close button and inside the panel, at ${width}px`, async ({ page, baseURL }) => {
-        await page.addInitScript((firstVisit) => {
-          try {
-            localStorage.setItem('theme', 'light')
-            if (!firstVisit) localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
-          } catch {}
-        }, d.firstVisit)
-        await answerGuest(page, baseURL!)
-        await page.goto('/pricing')
-        await h1(page, 'Pricing')
-        const dialog = page.getByRole('dialog', { name: d.title })
-        await d.open(page, dialog)
-        await page.evaluate(() => document.fonts.ready)
-        const at = `${d.name} at ${width}px`
+      for (const theme of ['light', 'dark'] as const) {
+        test(`${d.name} keeps its title beside the icon at the default size and under it at 200% text, clear of the close button and inside the panel, at ${width}px in the ${theme} theme`, async ({ page, baseURL }) => {
+          await page.addInitScript(([firstVisit, chosen]) => {
+            try {
+              localStorage.setItem('theme', chosen)
+              if (!firstVisit) localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+            } catch {}
+          }, [d.firstVisit, theme] as const)
+          await answerGuest(page, baseURL!)
+          await page.goto('/pricing')
+          await h1(page, 'Pricing')
+          expect(await page.evaluate(() => document.documentElement.classList.contains('dark')), `/pricing in the ${theme} theme`).toBe(theme === 'dark')
+          const dialog = page.getByRole('dialog', { name: d.title })
+          await d.open(page, dialog)
+          await page.evaluate(() => document.fonts.ready)
+          const at = `${d.name} at ${width}px in the ${theme} theme`
 
-        const atDefault = await headerFit(dialog)
-        expect(atDefault.problems, `${at} at the default text size (${atDefault.where})`).toEqual([])
-        expect(atDefault.beside, `${at} at the default text size: the title sits beside the icon (${atDefault.where})`).toBe(true)
-        if (d.holdsPanel) expect(atDefault.panelScroll, `${at} at the default text size`).toBeNull()
+          const atDefault = await headerFit(dialog)
+          expect(atDefault.problems, `${at} at the default text size (${atDefault.where})`).toEqual([])
+          expect(atDefault.beside, `${at} at the default text size: the title sits beside the icon (${atDefault.where})`).toBe(true)
+          if (d.holdsPanel) expect(atDefault.panelScroll, `${at} at the default text size`).toBeNull()
 
-        await doubleText(page)
+          await doubleText(page)
 
-        const enlarged = await headerFit(dialog)
-        expect(enlarged.problems, `${at} and 200% text (${enlarged.where})`).toEqual([])
-        expect(enlarged.stacked, `${at} and 200% text: the title goes under the icon, at the group's width (${enlarged.where})`).toBe(true)
-        if (d.holdsPanel) expect(enlarged.panelScroll, `${at} and 200% text`).toBeNull()
-        const widths = await measure(page)
-        expect(widths.scrollWidth, `/pricing with ${d.name} open at ${width}px and 200% text: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
-      })
+          const enlarged = await headerFit(dialog)
+          expect(enlarged.problems, `${at} and 200% text (${enlarged.where})`).toEqual([])
+          expect(enlarged.stacked, `${at} and 200% text: the title goes under the icon, at the group's width (${enlarged.where})`).toBe(true)
+          if (d.holdsPanel) expect(enlarged.panelScroll, `${at} and 200% text`).toBeNull()
+          const widths = await measure(page)
+          expect(widths.scrollWidth, `/pricing with ${d.name} open at ${width}px in the ${theme} theme and 200% text: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
+        })
+      }
     }
   })
 }
