@@ -516,6 +516,13 @@ def _lockout_rows(email: str) -> int:
         return db.query(LoginAttempt).filter(LoginAttempt.email_hash == login_lockout._email_hash(email)).count()
 
 
+def _failed_count(email: str) -> Optional[int]:
+    with SessionLocal() as db:
+        return db.query(LoginAttempt.failed_count).filter(
+            LoginAttempt.email_hash == login_lockout._email_hash(email)
+        ).scalar()
+
+
 def _refresh_tokens(user_id: int) -> int:
     with SessionLocal() as db:
         return db.query(RefreshToken).filter(RefreshToken.user_id == user_id).count()
@@ -573,13 +580,13 @@ def test_a_login_whose_session_mint_fails_changes_nothing(
     email, _ = _register(client, mail)
     user_id = _user(email).id
     assert _login(client, email, WRONG_PASSWORD).status_code == 401
-    assert _lockout_rows(email) == 1 and _user(email).last_login_at is None
+    assert _failed_count(email) == 1 and _user(email).last_login_at is None
 
     fail_the_refresh_token_insert["on"] = True
     resp = server_errors.post("/api/auth/login", json={"email": email, "password": PASSWORD})
     assert fail_the_refresh_token_insert["fired"], "the mint failure was never injected"
     assert resp.status_code == 500 and _cookies(resp) == []
-    assert _lockout_rows(email) == 1
+    assert _failed_count(email) == 1  # neither cleared nor counted again
     assert _user(email).last_login_at is None
     assert _refresh_tokens(user_id) == 0
     assert _audit_actions(user_id, "login_success") == []
@@ -594,9 +601,11 @@ def test_a_login_whose_account_changed_while_it_hashed_is_refused(client, mail, 
     email, _ = _register(client, mail)
     user_id = _user(email).id
     real_verify = auth_module.verify_password
+    matches: list[bool] = []
 
     def verify_then_reset(password: str, hashed: str) -> bool:
         matched = real_verify(password, hashed)
+        matches.append(matched)
         with SessionLocal() as db:  # the change commits while the login hashes
             user = db.get(User, user_id)
             if meanwhile == "password_changed":
@@ -608,10 +617,11 @@ def test_a_login_whose_account_changed_while_it_hashed_is_refused(client, mail, 
 
     monkeypatch.setattr(auth_module, "verify_password", verify_then_reset)
     resp = _login(client, email, PASSWORD)
+    assert matches == [True]  # refused by the re-check, not as a wrong password
     assert resp.status_code == 401 and resp.json() == {"detail": "Incorrect email or password"}
     assert _cookies(resp) == []
     assert _refresh_tokens(user_id) == 0
-    assert _lockout_rows(email) == 1 and _user(email).last_login_at is None
+    assert _failed_count(email) == 1 and _user(email).last_login_at is None
     assert _audit_actions(user_id, "login_success") == [] and _failed_login_audits(email) == 1
 
 
@@ -661,9 +671,11 @@ def test_a_password_change_whose_password_changed_while_it_hashed_is_refused(cli
     client.cookies.clear()
     recovered_hash = auth_module.get_password_hash(PASSWORD + "8y")
     real_verify = auth_module.verify_password
+    matches: list[bool] = []
 
     def verify_then_reset(password: str, hashed: str) -> bool:
         matched = real_verify(password, hashed)
+        matches.append(matched)
         with SessionLocal() as db:  # the reset commits while the change hashes
             db.get(User, user_id).hashed_password = recovered_hash
             db.commit()
@@ -675,6 +687,7 @@ def test_a_password_change_whose_password_changed_while_it_hashed_is_refused(cli
         json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
         headers={"Authorization": f"Bearer {access_token}"},
     )
+    assert matches == [True]  # refused by the re-check, not as a wrong current password
     assert resp.status_code == 400 and resp.json() == {"detail": "Current password is incorrect."}
     assert _cookies(resp) == []
     assert _user(email).hashed_password == recovered_hash
