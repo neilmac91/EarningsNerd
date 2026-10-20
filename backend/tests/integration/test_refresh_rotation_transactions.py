@@ -7,18 +7,20 @@ unavailable database fails; every case owns a disposable schema and never change
 A rotation reads its token, checks that it is live, mints a successor and marks the token rotated; a
 logout and a logout-all revoke what they read as live. Since #1394 runs them in the thread pool, and
 always across the API's two instances, two of them can interleave inside those steps. Each case runs
-two of them on one user's token. The first holds its COMMIT until the second is blocked on a lock or has
-finished, so the second makes its first read, and its check if nothing stops it, while the first's
-writes are uncommitted:
+two of them on one user's token, each in a session made with production's ``SessionLocal`` settings
+(autoflush off), so their statements reach the database in production's order. The first holds its
+COMMIT until the second is blocked on a lock or has finished, so the second makes its first read, and
+its check if nothing stops it, while the first's writes are uncommitted:
 - two refreshes with one cookie: one rotates, and the other meets the replay sweep, as the second of
   two did when refresh ran on the event loop, so no live token is left;
 - a refresh and a logout-all, in either order: no live token is left;
+- a refresh and a password reset, in either order: no live token is left, as account recovery promises;
 - a logout, then a refresh with the same cookie: the refresh is refused and no live token is left;
 - a refresh, then a logout with the same cookie: the logout signs out the successor the refresh minted;
 - a refresh, then a sign-in: the sign-in's new token does not wait for the lock.
 Without the users-row lock each writer takes first, the second request writes on what it read before
-the first's commit: the two refreshes leave two live successors, and a logout or logout-all leaves the
-refresh's successor live.
+the first's commit: the two refreshes leave two live successors, and a logout, logout-all or reset
+leaves the refresh's successor live.
 
 The account's deletion takes the same lock before its cascade deletes the tokens. Those cases start it
 once a token writer holds the lock, and hold the writer there until the deletion is blocked or has
@@ -35,13 +37,13 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
-from app.database import Base
+from app.database import Base, SessionLocal
 from app.models import RefreshToken, User
+from app.services import auth_account_service, user_account_service
 from app.services import refresh_token_service as tokens
-from app.services import user_account_service
 
 HANG_GUARD_S = 5.0  # a passing case never waits for it
 
@@ -93,6 +95,9 @@ _OPERATIONS = {
     "refresh": lambda db, user_id, raw: tokens.rotate_and_commit(db, raw),
     "logout": lambda db, user_id, raw: tokens.revoke_and_commit(db, raw),
     "logout_all": lambda db, user_id, raw: tokens.revoke_all_and_commit(db, user_id),
+    "reset": lambda db, user_id, raw: auth_account_service.complete_password_reset(
+        db, db.get(User, user_id), "a new password's hash",
+    ),
     "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, db.get(User, user_id)),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
 }
@@ -112,6 +117,10 @@ def _race(
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
     records itself instead, and the race fails once both requests have ended."""
     user_id, raw = _signed_in(engine)
+    # Production's session settings, bound to this case's engine. An autoflushing session would flush a
+    # pending write at the request's next query, where production waits for its commit, and could
+    # serialize two requests that production does not.
+    request_session = sessionmaker(**{**SessionLocal.kw, "bind": engine})
     role = threading.local()
     first_ready = threading.Event()
     second_wrote = threading.Event()
@@ -136,7 +145,7 @@ def _race(
             return
         if second_starts == "after_first_write" and statement.startswith(_WRITES):
             first_ready.set()
-        elif second_starts == "after_first_lock" and "FOR NO KEY UPDATE" in statement:
+        elif second_starts == "after_first_lock" and statement.startswith("SELECT users.id") and " FOR " in statement:
             first_ready.set()
             wait_until(lambda: second_wrote.is_set() or second_blocked(), "the second request to block or write")
 
@@ -163,9 +172,11 @@ def _race(
     def run(name: str, operation: str):
         role.name = name
         try:
-            with Session(engine) as db:
+            with request_session() as db:
                 if name == "second":
-                    assert first_ready.wait(HANG_GUARD_S), "the first request never reached the point the second starts at"
+                    if not first_ready.wait(HANG_GUARD_S):
+                        hung.append("the first request to reach the point the second starts at")
+                        return None
                     second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
                 return _OPERATIONS[operation](db, user_id, raw)
         except Exception as exc:  # noqa: BLE001 - the outcome under test may be a refusal
@@ -211,6 +222,17 @@ def test_a_refresh_and_a_logout_all_leave_no_live_token(postgres_engine, first, 
     # loses is refused, its token already revoked. Either way the logout-all revokes one token.
     assert _kind(refresh) == ("tuple" if first == "refresh" else "RefreshTokenError")
     assert (logout_all, live, released) == (1, 0, "blocked")
+
+
+@pytest.mark.parametrize("first,second", [("refresh", "reset"), ("reset", "refresh")])
+def test_a_refresh_and_a_password_reset_leave_no_live_token(postgres_engine, first, second):
+    """Account recovery signs out every session, a successor minted by a racing refresh included. The
+    reset's own users UPDATE reaches the database only at its commit, after its bulk revoke, so the lock
+    its revocation takes first is what makes it wait for the refresh."""
+    first_outcome, second_outcome, live, released = _race(postgres_engine, first, second)
+    refresh, reset = (first_outcome, second_outcome) if first == "refresh" else (second_outcome, first_outcome)
+    expected = "rotated" if first == "refresh" else "RefreshTokenError"
+    assert (_result(refresh), _kind(reset), live, released) == (expected, "NoneType", 0, "blocked")
 
 
 def test_a_refresh_after_a_logout_with_the_same_cookie_is_refused(postgres_engine):

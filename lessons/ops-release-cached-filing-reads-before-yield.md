@@ -103,7 +103,10 @@ alone would not have served: logout-all's bulk UPDATE sees only rows committed w
 successor committed after that survives it. The account's deletion takes the lock first too: its cascade
 deletes the tokens before the account, so in the other order it deadlocked with a token writer
 (2026-10-19, E127). `backend/tests/integration/test_refresh_rotation_transactions.py` runs each order
-on PostgreSQL in CI's migrations-postgres job, holding the first writer's commit until the second is
-blocked; on the old code every token case fails. A sign-in's new token takes no lock, so a login that
-verified the old password before a reset committed still mints after it (E131). Any other
-check-then-write unit stays a review check.
+on PostgreSQL in CI's migrations-postgres job, holding the first request's commit until the second is
+blocked on a lock or has finished; on the old code every case that races two token writers fails. Its
+requests use production's `SessionLocal` settings, autoflush off. In an autoflushing session a password
+reset flushed its users UPDATE before its bulk revoke and waited there for a racing refresh, which hid a
+mutant that moved the lock out of the revocation (E132 checks the other PostgreSQL gates). A sign-in's
+new token takes no lock, so a login that verified the old password before a reset committed still mints
+after it (E131). Any other check-then-write unit stays a review check.
