@@ -161,9 +161,10 @@ class _NullTargets(ast.NodeVisitor):
         return NULL_PATH if self._null(node) else "\0"
 
     def _config_file(self, items: list[ast.expr]) -> None:
-        """`git config` given the device as its file in a sequence of arguments."""
+        """`git config`, or the `git-config` program git keeps for it, given the device as its file in a sequence
+        of arguments."""
         words = [self._text(item) for item in items]
-        if "config" not in words:
+        if not any(word == "config" or word.rsplit("/", 1)[-1] == "git-config" for word in words):
             return
         for index, word in enumerate(words):
             option = CONFIG_FILE_OPTION.fullmatch(word)
@@ -231,6 +232,8 @@ def test_no_tracked_code_gives_git_the_null_device_to_write():
     'env[b"GIT_INDEX_FILE"] = os.devnull',
     'subprocess.run([b"git", b"config", b"-f", os.fsencode(os.devnull), b"a.b", b"c"])',
     'subprocess.run(b"GIT_CONFIG_SYSTEM=/dev/null git config a.b c", shell=True)',
+    'subprocess.run([f"{programs}/git-config", "-f", os.devnull, "a.b", "c"])',  # the git-config program
+    'subprocess.run(["/usr/lib/git-core/git-config", "--file=/dev/null", "a.b", "c"])',
 ])
 def test_the_gate_finds_each_python_form(code):
     assert _NullTargets(ast.parse(code)).lines, code
@@ -270,6 +273,7 @@ def test_the_gate_passes_python_that_leaves_the_device_alone(code):
     "git config --type bool -f /dev/null a.b true",  # other options first
     "git config \\\n  --file /dev/null a.b c",  # a continued line
     '["git", "config", "-f/dev/null", "a.b", "c"]',
+    '"$(git --exec-path)/git-config" -f /dev/null a.b c',  # the git-config program
 ])
 def test_the_gate_finds_each_shell_form(text):
     assert SHELL_FORM.search(text)

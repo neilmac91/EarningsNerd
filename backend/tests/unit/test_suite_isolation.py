@@ -401,6 +401,10 @@ _GIT_NULL_PROBE = (
     "    subprocess.run(['git', 'config', FILE, os.devnull, '--list'], capture_output=True)\n\n"
     "def test_attaches_it_to_the_short_file_option():\n"
     "    subprocess.run(['git', 'config', '-' + 'f' + os.devnull, '--list'], capture_output=True)\n\n"
+    "def test_runs_the_git_config_program_itself():\n"
+    "    programs = subprocess.run(['git', '--exec-path'], capture_output=True, text=True).stdout.strip()\n"
+    "    subprocess.run([os.path.join(programs, 'git-' + 'config'), '-' + 'f', os.devnull, '--list'],\n"
+    "                   capture_output=True)\n\n"
     "def test_gives_it_in_byte_strings():\n"
     "    subprocess.run(['git', '--version'], env={**os.environb, os.fsencode(NAME): os.fsencode(os.devnull)},\n"
     "                   capture_output=True)\n\n"
@@ -431,12 +435,12 @@ def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
     probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
     summary = result.stdout.strip().splitlines()[-1]
-    # Eleven starts or settings fail their tests; the session fixture's start errors the test that uses it.
-    assert result.returncode == 1 and all(count in summary for count in ("11 failed", "1 passed", "1 error")), (
+    # Twelve starts or settings fail their tests; the session fixture's start errors the test that uses it.
+    assert result.returncode == 1 and all(count in summary for count in ("12 failed", "1 passed", "1 error")), (
         result.stdout[-3000:])
     failed = [line for line in result.stdout.splitlines() if line.startswith(("FAILED ", "ERROR "))]
     assert not any("test_starts_git_plainly" in line for line in failed), failed
-    assert result.stdout.count("a process started here would give git the null device") >= 11, result.stdout[-3000:]
+    assert result.stdout.count("a process started here would give git the null device") >= 12, result.stdout[-3000:]
     assert "the environment set here would give git the null device" in result.stdout, result.stdout[-3000:]
 
 

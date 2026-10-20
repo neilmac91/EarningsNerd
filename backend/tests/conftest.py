@@ -414,7 +414,8 @@ def _install_git_null_guard():
     ``tests/unit/test_null_device_write_targets.py`` reads the source; this sees each start, however its
     environment or arguments were built, on any runner: an environment whose ``GIT_CONFIG_GLOBAL``,
     ``GIT_CONFIG_SYSTEM``, ``GIT_CONFIG`` or ``GIT_INDEX_FILE`` names the device, a ``NAME=/dev/null`` word in
-    a shell line, or git config's file option naming it (``--file``, ``-f``, attached or not), in strings or
+    a shell line, or git config's file option naming it (``--file``, ``-f``, attached or not; ``git config`` or
+    the ``git-config`` program git runs for it), in strings or
     byte strings, given by keyword or by position, a shell line alone or in a list. A path is read
     from the test's own directory; one that reaches the device only from another (a ``cwd=``, ``git -C``) is
     outside it. It is installed when conftest is imported, so a fixture of any
@@ -423,8 +424,9 @@ def _install_git_null_guard():
     ``os.system``, ``os.posix_spawn``, ``os.posix_spawnp`` and ``os.spawnv`` with its siblings, and
     ``os.putenv``, which sets the environment later starts inherit without ``os.environ`` seeing it. The start
     (or the setting) fails before it happens. A process that
-    a started process starts in turn is outside it, as is ``os.fork`` with an ``exec`` and a start this cannot
-    read; the source gate and the null-device checks above stand behind them. A child run in
+    a started process starts in turn is outside it, as are ``os.fork`` with an ``exec``, a git alias
+    (``-c alias.x=config``) and a start this cannot read; the source gate and the null-device checks above stand
+    behind them. A child run in
     ``tests/unit/test_suite_isolation.py`` proves each start (lessons/test-never-point-a-written-file-at-dev-null.md).
     """
     popen_init = subprocess.Popen.__init__
@@ -480,6 +482,12 @@ def _checked_os_spawn(spawn):
     return checked
 
 
+def _names_git_config(word):
+    """Whether a word of a start is git's config command: `config` after git, or the `git-config` program git
+    keeps in its exec path for it."""
+    return word == "config" or os.path.basename(word) == "git-config"
+
+
 def _refuse_git_null_target(args, env, shell=False, what="a process started here"):
     given = _git_null_target(args, env, shell)
     if given:
@@ -508,7 +516,7 @@ def _git_null_target(args, env, shell=False):
             name, equals, value = word.partition("=")
             if equals and name in _GIT_WRITE_TARGETS and names_null(value):
                 return word
-            option = _CONFIG_FILE_OPTION.fullmatch(word) if "config" in words[:index] else None
+            option = _CONFIG_FILE_OPTION.fullmatch(word) if any(map(_names_git_config, words[:index])) else None
             if option:
                 attached = option["long"] or option["short"]
                 given = attached or (words[index + 1] if index + 1 < len(words) else None)
