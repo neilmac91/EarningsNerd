@@ -48,7 +48,7 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * hyphen before each code became one nowrap run. Below a 12rem viewport the auth shell's wordmark yields to the
  * mark. At 320x640 with the text doubled /pricing passes the same checks: its billing switch's row wraps, the
  * yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge and
- * the page to 333px. The other routes join it at 320px with E81 (/ reaches 337px there). The open menu scrolls
+ * the page to 333px. The other routes join it at 320px with E81 (/ reaches 337px there, and /search 344px). The open menu scrolls
  * inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
@@ -144,7 +144,9 @@ const ROUTES: Route[] = [
     ...siteHeader,
   },
   {
-    // A search answered and run (fixtures/searchApi.ts), so its result rows are measured, a long filer name included.
+    // A search answered and run (fixtures/searchApi.ts), so the page is measured with its result rows painted, a long
+    // filer name included. The list clips its rows (`relative overflow-hidden`), so this check cannot see a row or its
+    // sr-only commas overrun the list; full-text-search.spec.tsx pins the list's classes.
     name: 'search',
     path: '/search',
     open: async (p, b) => {

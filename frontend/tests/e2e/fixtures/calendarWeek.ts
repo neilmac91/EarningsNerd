@@ -17,7 +17,10 @@ export async function pinCalendarWeek(page: Page) {
   await page.clock.setFixedTime(CALENDAR_TODAY)
 }
 
-/** What only the loaded week shows: Wednesday's highest-ranked reporter, Microsoft, in the sheet or the day list,
-    whichever the width shows. */
-export const calendarWeekReady = (page: Page) =>
-  expect(page.locator('a[href="/company/MSFT"]').filter({ visible: true })).toBeVisible()
+/** What only the loaded, pinned week shows: its range heading, so a run in a real week that also lists Microsoft (one
+    week in thirteen, as the fixtures repeat) cannot pass on the wrong week, and Wednesday's highest-ranked reporter,
+    Microsoft, in the sheet or the day list, whichever the width shows. */
+export const calendarWeekReady = async (page: Page) => {
+  await expect(page.getByRole('heading', { level: 2, name: /Jul 27\s–\sJul 31, 2026/ })).toBeVisible()
+  await expect(page.locator('a[href="/company/MSFT"]').filter({ visible: true })).toBeVisible()
+}

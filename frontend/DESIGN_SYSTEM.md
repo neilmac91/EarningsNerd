@@ -947,7 +947,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  short phone (320x568) its open mobile menu reaches the bar's region and covers a choice
                  until the user closes the menu (user-opened, user-closed; before, the bar covered the menu's
                  lower items instead). On a 390x844 phone a signed-in reader's open menu, with the Search and
-                 Calendar links, ends just above the bar and covers the Ask and feedback launchers until it
+                 Calendar links, ends just above the bar and can cover the Ask and feedback launchers until it
                  closes, since the header outranks them too (tests/e2e/consent-bar-yields.spec.ts).
                  New fixed bottom chrome joins this band, never above it: a floating control takes
                  `BOTTOM_CHROME_OFFSET` (a sheet takes `bottom-[var(--consent-inset,0px)]` and subtracts the

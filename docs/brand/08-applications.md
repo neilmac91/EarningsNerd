@@ -122,8 +122,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
   /waitlist, /login, /register, /forgot-password, /check-email, /verify-email, /reset-password,
-  /contact, /privacy, /terms, /security, /delete-account and /search (its results painted, since CI's
-  e2e build turns search on) join the routes
+  /contact, /privacy, /terms, /security, /delete-account, /calendar (its pinned fixture week painted) and
+  /search (its results painted), since CI's e2e build turns the calendar and search on, join the routes
   `tests/e2e/text-floors.spec.ts` visits; three census cases hold the list to the sitemap's static
   core (`STATIC_ENTRIES`), the auth shell's routes (`AUTH_ROUTES`) and every `page.tsx` under `app/`,
   static or dynamic (visited, a dynamic route by a representative path, or named in `NOT_VISITED`
