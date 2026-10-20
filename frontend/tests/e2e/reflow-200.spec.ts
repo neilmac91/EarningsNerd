@@ -56,9 +56,9 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * An auth page's "Request an invite" link draws its focus ring closed at 320, 360 and 390px, at both text sizes.
  * As an inline link it broke inside its label at 320px and, under 200% text, at 390 and 320px, and drew an open
  * piece of its ring on each line. The login page's, which ends its line, is one box (`inline-block`), its label
- * wrapping inside that box where the line is too narrow. The register notice's sits inside a sentence, so it wraps
- * with it and draws its ring round each line (`box-decoration-clone`): one box there took the whole line under 200%
- * text and pushed the sentence's comma to the start of the next.
+ * wrapping inside that box where the line is too narrow. The register notice's sits inside a sentence, so it stays
+ * inline, wraps with it and draws its ring round each line (`box-decoration-clone`): one box there took the whole line
+ * under 200% text and pushed the sentence's comma to the start of the next, so its case fails one box.
  *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
@@ -327,16 +327,19 @@ for (const route of ROUTES) {
 }
 
 /** How a link's ring is drawn, read from the browser's own line boxes (a link that breaks across lines has a client rect
-    per line): one box, or a piece per line, each closed only where the link clones its decoration onto every line. */
+    per line): one box (an atomic box, such as `inline-block`), one inline piece, or a piece per line, each closed only
+    where the link clones its decoration onto every line. */
 const ring = (link: Locator) =>
   link.evaluate((el) => {
     const style = getComputedStyle(el)
     const clone = [style.getPropertyValue('box-decoration-break'), style.getPropertyValue('-webkit-box-decoration-break')].includes('clone')
     const pieces = el.getClientRects().length
-    return pieces === 1 ? 'one box' : `${pieces} ${clone ? 'closed' : 'open'} pieces`
+    if (pieces > 1) return `${pieces} ${clone ? 'closed' : 'open'} pieces`
+    return style.display === 'inline' ? 'one inline piece' : 'one box'
   })
-/** The login page's link ends its line and stays whole; the register notice's wraps with its sentence, its pieces closed. */
-const INVITE_RING: Record<string, RegExp> = { '/login': /^one box$/, '/register': /^(?:one box|\d+ closed pieces)$/ }
+/** The login page's link ends its line and stays one box; the register notice's stays inline in its sentence and wraps
+    with it, its pieces closed (as one box it took the whole line under 200% text and pushed the comma to the next). */
+const INVITE_RING: Record<string, RegExp> = { '/login': /^one box$/, '/register': /^(?:one inline piece|\d+ closed pieces)$/ }
 
 for (const width of [320, 360, 390]) {
   test.describe(`a ${width}px phone: the auth pages' invite link draws its ring closed`, () => {
