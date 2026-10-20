@@ -800,7 +800,9 @@ const GAP = '\u0000'
  * One reader for both trial clauses, per file, following bindings rather than names:
  *  - TRIAL_DAYS is lib/planLimits.ts's own export, imported under any local name through an `@/` or relative
  *    specifier, from that module or from any module that re-exports it (`export { … } from`, `export *`, a
- *    re-export of its own import; exportsOwn); a namespace import's member (`P.TRIAL_DAYS`, `P['TRIAL_DAYS']`),
+ *    re-export of its own import; exportsOwn), a default import included where the module's default export is it
+ *    (`export { TRIAL_DAYS as default } from`, `export default` of its own import; `export *` hands on no default);
+ *    a namespace import's member (`P.TRIAL_DAYS`, `P['TRIAL_DAYS']`),
  *    one destructured from it, and a const holding any of those. A same-named export of another module (one
  *    named planLimits.ts included) is that module's own, a value the reader cannot resolve. A local declaration
  *    of the same name shadows it, as the language does.
@@ -869,7 +871,9 @@ const LIB_FEATURE_FLAGS = path.join(frontendDir, 'lib', 'featureFlags.ts')
 /**
  * Whether module `file` exports as `name` the declaration `want` of module `owner` (TRIAL_DAYS of lib/planLimits.ts,
  * ENABLE_PRO_TRIAL of lib/featureFlags.ts): the owner's own, or one re-exported on the way (`export { a as name } from`,
- * `export * from`, a re-export of the module's own import). A declaration of that name in any other module is its own.
+ * `export * from`, a re-export of the module's own import, named or default). `name` 'default' is the module's default
+ * export: `export { a as default }`, or `export default` of its own import; `export *` hands on no default. A
+ * declaration of that name in any other module is its own.
  */
 function exportsOwn(file: string | undefined, name: string, owner: string, want: string, seen = new Set<string>()): boolean {
   if (!file) return false
@@ -881,13 +885,18 @@ function exportsOwn(file: string | undefined, name: string, owner: string, want:
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) return false
     const bindings = statement.importClause?.namedBindings
     const from = moduleFile(file, statement.moduleSpecifier.text)
+    if (statement.importClause?.name?.text === local) return exportsOwn(from, 'default', owner, want, seen)
     return !!bindings && ts.isNamedImports(bindings) &&
       bindings.elements.some((element) => element.name.text === local && exportsOwn(from, (element.propertyName ?? element.name).text, owner, want, seen))
   })
   return sf.statements.some((statement) => {
+    if (ts.isExportAssignment(statement)) {
+      const value = unwrapExpr(statement.expression)
+      return name === 'default' && !statement.isExportEquals && ts.isIdentifier(value) && importsOwn(value.text)
+    }
     if (!ts.isExportDeclaration(statement)) return false
     const from = statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? moduleFile(file, statement.moduleSpecifier.text) : undefined
-    if (!statement.exportClause) return exportsOwn(from, name, owner, want, seen)
+    if (!statement.exportClause) return name !== 'default' && exportsOwn(from, name, owner, want, seen)
     return ts.isNamedExports(statement.exportClause) && statement.exportClause.elements.some((element) => {
       const local = (element.propertyName ?? element.name).text
       return element.name.text === name && (from ? exportsOwn(from, local, owner, want, seen) : importsOwn(local))
@@ -934,6 +943,9 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
     if (!ts.isImportDeclaration(statement) || !statement.importClause || !ts.isStringLiteral(statement.moduleSpecifier)) continue
     const from = moduleFile(sf.fileName, statement.moduleSpecifier.text)
     const bindings = statement.importClause.namedBindings
+    const byDefault = statement.importClause.name
+    if (byDefault && exportsOwn(from, 'default', LIB_PLAN_LIMITS, 'TRIAL_DAYS')) trialImports.add(byDefault.text)
+    if (byDefault && exportsOwn(from, 'default', LIB_FEATURE_FLAGS, 'ENABLE_PRO_TRIAL')) flagImports.add(byDefault.text)
     if (bindings && ts.isNamespaceImport(bindings) && from) namespaces.set(bindings.name.text, from)
     if (bindings && ts.isNamedImports(bindings)) {
       for (const spec of bindings.elements) {
@@ -1294,6 +1306,13 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
         ['star.ts', "export * from '@/lib/planLimits'\n"],
         ['local.ts', "import { TRIAL_DAYS } from '@/lib/planLimits'\nexport { TRIAL_DAYS }\n"],
         ['flags.ts', 'export const ENABLE_PRO_TRIAL = true\n'],
+        // Default exports (Codex on 67cf7876): renamed to default from lib, a module's own import exported as its
+        // default, a default handed on by name, `export *` (which hands on no default), and the flag's default.
+        ['byDefault.ts', "export { TRIAL_DAYS as default } from '@/lib/planLimits'\n"],
+        ['defaultLocal.ts', "import { TRIAL_DAYS } from '@/lib/planLimits'\nexport default TRIAL_DAYS\n"],
+        ['defaultOn.ts', "export { default } from './defaultLocal'\n"],
+        ['starDefault.ts', "export * from './byDefault'\n"],
+        ['flagDefault.ts', "export { ENABLE_PRO_TRIAL as default } from '@/lib/featureFlags'\n"],
       ]) writeFileSync(path.join(root, name), text)
       const beside = (code: string) => trialReader(ts.createSourceFile(path.join(root, 'Banner.tsx'), code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX))
       const sibling = beside("import { TRIAL_DAYS } from './planLimits'\nexport const a = <p>Start a {TRIAL_DAYS}-day free trial</p>")
@@ -1302,6 +1321,14 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
         const reader = beside(`import { ${local} } from '${from}'\nexport const a = <p>Start a {${local}}-day free trial</p>`)
         expect([reader.reads.map((read) => read.guarded), reader.typed], `${local} from ${from}`).toEqual([[false], []])
       }
+      for (const from of ['./byDefault', './defaultLocal', './defaultOn']) {
+        const reader = beside(`import DAYS from '${from}'\nexport const a = <p>Start a {DAYS}-day free trial</p>`)
+        expect([reader.reads.map((read) => read.guarded), reader.typed], `the default import of ${from}`).toEqual([[false], []])
+      }
+      const throughStar = beside("import DAYS from './starDefault'\nexport const a = <p>Start a {DAYS}-day free trial</p>")
+      expect([throughStar.reads, throughStar.typed.map(({ line }) => line)], 'a default import through export *').toEqual([[], [2]])
+      const flagDefault = beside("import ON from './flagDefault'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = ON && <p>{TRIAL_DAYS}</p>")
+      expect(flagDefault.reads.map((read) => read.guarded), "the flag's default import").toEqual([true])
       const elsewhere = beside("import { ENABLE_PRO_TRIAL } from './flags'\nimport { TRIAL_DAYS } from '@/lib/planLimits'\nexport const a = ENABLE_PRO_TRIAL && <p>{TRIAL_DAYS}</p>")
       expect(elsewhere.reads.map((read) => read.guarded), "another module's ENABLE_PRO_TRIAL").toEqual([false])
     } finally {
