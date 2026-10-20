@@ -28,7 +28,8 @@ name: Ops
 #     Known limits: the gate binds main's ops.yml, not the credential (WIF trusts every ref, so a
 #     workflow on another branch could write unapproved; docs/data-quality-remediation-log.md);
 #     approve-apply passes at once when the environment requires no reviewer, so the ops job
-#     refuses an apply unless this run records an approval of `ops-apply` (fail closed); and
+#     refuses an apply unless this run records the repository owner's approval of `ops-apply`
+#     (fail closed; another reviewer's approval does not count); and
 #     sessions act through the founder's account, so .claude/hooks/ops_approval_guard.py refuses a
 #     Claude Code session the approval and environment calls, while Codex and Astra load no hooks
 #     (AGENTS.md §5).
@@ -196,20 +197,24 @@ jobs:
         # founder adds one (docs/DEPLOYMENT.md), or after anyone removes it or deletes the environment.
         # So an apply stops here unless this run's review history records an approval of ops-apply: the
         # gate fails closed. It reads the run's approvals, not the environment's settings, which a reviewer added
-        # while this job queued behind another dispatch would satisfy with no one having approved.
+        # while this job queued behind another dispatch would satisfy with no one having approved. Only the
+        # repository owner's approval counts, the founder's, so a reviewer added to ops-apply later cannot
+        # approve a production write. The owner's login goes into the filter after a check that it is one.
         if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', steps.request.outputs.operation)
         env:
           GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
+          case "$OWNER" in ''|*[!A-Za-z0-9-]*) OWNER='' ;; esac  # not a GitHub login: no approval can match
           APPROVED="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
-            --jq '[.[] | select(.state == "approved") | .environments[]? | select(.name == "ops-apply")] | length' 2>/dev/null || true)"
+            --jq "[.[] | select(.state == \"approved\" and .user.login == \"$OWNER\") | .environments[]? | select(.name == \"ops-apply\")] | length" 2>/dev/null || true)"
           case "$APPROVED" in ''|*[!0-9]*) APPROVED=0 ;; esac  # an unreadable or non-numeric answer counts as none
           if [ "$APPROVED" -lt 1 ]; then
-            echo "::error::no approval of ops-apply is recorded for this run (none was given, or the answer could not be read), so this apply stops; docs/DEPLOYMENT.md, \"One-shot maintenance runs\", says how the ops-apply environment is set up"
+            echo "::error::no approval of ops-apply is recorded for this run from the repository owner ($OWNER): none was given, or the answer could not be read, so this apply stops; docs/DEPLOYMENT.md, \"One-shot maintenance runs\", says how the ops-apply environment is set up"
             exit 1
           fi
-          echo "This run records an approval of ops-apply; the apply proceeds."
+          echo "This run records the repository owner's approval of ops-apply; the apply proceeds."
 
       - name: Refuse to run while a main push (deploy) is in flight
         # deploy-backend (ci.yml) applies migrations to the same database and re-images the jobs this

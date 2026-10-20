@@ -681,7 +681,8 @@ for the run, until the founder configures the environment (`ops.yml`'s header li
 The founder sets it up once: Settings > Environments > New environment `ops-apply`, with the founder
 as its required reviewer and "Prevent self-review" left off (sessions dispatch through the
 founder's account). Each apply then shows "Review deployments" on its run page, where the founder
-approves it. `backfill_facts.py --dry-run` is accepted only
+approves it; the check counts only the repository owner's approval, so a reviewer added to the
+environment later cannot approve a production write. `backfill_facts.py --dry-run` is accepted only
 with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
 so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
 false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement

@@ -221,13 +221,16 @@ def test_no_relabel_runs_when_the_session_reports_other_settings_than_the_steps(
 REPO, RUN_ID = "neilmac91/EarningsNerd", "39360634523"
 
 
-def _review(state: str, *environments: str) -> dict:
+OWNER = "neilmac91"  # github.repository_owner, the founder's account
+
+
+def _review(state: str, *environments: str, login: str = OWNER) -> dict:
     """One entry of a run's review history, as GitHub's approvals endpoint returns it."""
     return {"state": state, "comment": "", "environments": [{"id": 1, "name": name} for name in environments],
-            "user": {"login": "neilmac91"}}
+            "user": {"login": login}}
 
 
-def _run_approval_check(tmp_path, body: str, *, gh_exit=0):
+def _run_approval_check(tmp_path, body: str, *, gh_exit=0, owner=OWNER):
     """The approval check's own script, run as GitHub runs it (`bash -e`) with a stand-in `gh` that records
     its arguments, one per line, and answers with ``body``: through the real `jq` with the `--jq` filter it
     was given (gh's own --jq is gojq; the filter uses nothing where the two differ), or, when it exits
@@ -238,6 +241,7 @@ def _run_approval_check(tmp_path, body: str, *, gh_exit=0):
         pytest.skip("jq is not installed; CI runs this")
     step = next(s for s in _workflow("ops.yml")["jobs"]["ops"]["steps"]
                 if s.get("name") == "Refuse an apply that no one approved in this run")
+    assert step["env"]["OWNER"] == "${{ github.repository_owner }}"
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     (bin_dir / "gh").write_text(
@@ -248,7 +252,8 @@ def _run_approval_check(tmp_path, body: str, *, gh_exit=0):
         'printf "%s" "$GH_BODY" | jq -r "$2"\n')
     (bin_dir / "gh").chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "CALLS": str(tmp_path / "calls"),
-           "GH_BODY": body, "GH_EXIT": str(gh_exit), "GITHUB_REPOSITORY": REPO, "GITHUB_RUN_ID": RUN_ID}
+           "GH_BODY": body, "GH_EXIT": str(gh_exit), "GITHUB_REPOSITORY": REPO, "GITHUB_RUN_ID": RUN_ID,
+           "OWNER": owner}
     result = subprocess.run(  # fixed argv; the script under test is repository content
         ["bash", "-e", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True, check=False
     )
@@ -263,6 +268,8 @@ def _run_approval_check(tmp_path, body: str, *, gh_exit=0):
     pytest.param(json.dumps([_review("rejected", "ops-apply")]), 0, 1, id="rejected"),
     pytest.param(json.dumps([_review("approved", "github-pages")]), 0, 1, id="another-environment"),
     pytest.param(json.dumps([_review("pending", "ops-apply")]), 0, 1, id="pending"),
+    # Only the repository owner's approval counts: a reviewer added to ops-apply later cannot approve.
+    pytest.param(json.dumps([_review("approved", "ops-apply", login="another-reviewer")]), 0, 1, id="not-the-owner"),
     pytest.param("<html>Unicorn!</html>", 0, 1, id="not-json"),
     pytest.param(json.dumps({"message": "Not Found", "status": "404"}), 1, 1, id="http-404"),
 ])
@@ -275,3 +282,12 @@ def test_an_apply_runs_only_when_this_run_records_an_approval_of_ops_apply(tmp_p
     assert calls[:3] == ["api", f"repos/{REPO}/actions/runs/{RUN_ID}/approvals", "--jq"] and len(calls) == 4, calls
     refused = "::error::no approval of ops-apply is recorded for this run" in result.stdout
     assert refused == (code == 1), result.stdout
+
+
+# The second would widen the filter to every approval if it were spliced in unchecked.
+@pytest.mark.parametrize("owner", ["", 'x" or "a" == "a', "neil mac"])
+def test_an_owner_that_is_not_a_github_login_matches_no_approval(tmp_path, owner):
+    """The owner's login is spliced into the filter, so anything that is not a login matches nothing."""
+    approvals = [_review("approved", "ops-apply"), _review("approved", "ops-apply", login="another-reviewer")]
+    result, _ = _run_approval_check(tmp_path, json.dumps(approvals), owner=owner)
+    assert result.returncode == 1 and "::error::no approval of ops-apply" in result.stdout, result.stdout
