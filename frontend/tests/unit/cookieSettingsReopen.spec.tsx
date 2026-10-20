@@ -121,7 +121,7 @@ const scriptKind = (fileName: string) =>
         ? ts.ScriptKind.JS
         : ts.ScriptKind.TS
 
-/** A pattern's text as the scan reads it: lowercased, an escaped character as itself (`\-`, `\x2d`, `-`), a
+/** A pattern's text as the scan reads it: lowercased, an escaped character as itself (`\-`, `\x2d`, `\u002d`), a
  *  class or property escape and a backreference (`\b`, `\s`, `\p{L}`, `\1`) as a separator, and a class of one letter
  *  in either case (`[Ss]`) as that letter. */
 function patternText(source: string): string {
