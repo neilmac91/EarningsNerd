@@ -14,9 +14,15 @@ name: Ops
 #     detection SQL never touches user/auth/billing tables.
 #   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
 #     mirroring the deploy-backend migrations step.
-#   - `concurrency: ops` serializes ops runs. Deploys keep their own group on purpose: GitHub holds
-#     ONE pending run per group, so sharing `deploy-backend`'s group would let an ops dispatch
-#     silently cancel a queued release. Instead the pre-flight step below refuses to run while a
+#   - Every -apply operation (relabel-fy-apply, repair-ticker-apply, reset-filing-summary-apply)
+#     waits for the founder's approval before any step runs: the approve-apply job runs in the
+#     `ops-apply` environment, whose required reviewer is the founder (Settings > Environments), and
+#     the ops job starts only once that job has passed or been skipped. A rejected or cancelled
+#     approval runs nothing. The ops job keeps its own OIDC subject: no environment on it.
+#   - The ops job's `concurrency: ops` serializes operations; the approval job sits outside the
+#     group, so an apply waiting for approval holds up no other dispatch. Deploys keep their own
+#     group on purpose: GitHub holds ONE pending run per group, so sharing `deploy-backend`'s group
+#     would let an ops dispatch silently cancel a queued release. Instead the pre-flight step below refuses to run while a
 #     CI run for a push to `main` is in flight (read-only inspection and rollback are exempt).
 #     Known limit: the check is point-in-time and one-directional — a main push that lands AFTER
 #     it passes can still overlap this run, and a deploy never waits for ops. Do not dispatch
@@ -68,10 +74,6 @@ on:
         required: false
         default: ''
 
-concurrency:
-  group: ops
-  cancel-in-progress: false
-
 permissions:
   contents: read
   actions: read # pre-flight: list in-flight CI runs on main
@@ -86,10 +88,29 @@ env:
   CLOUD_SQL_PROXY_SHA256: c0af803c07157530c9159b6179e3288298950af5a39c8ca38ad28c8a2b52ae3d
 
 jobs:
+  approve-apply:
+    # A production write waits here until the founder approves it in GitHub: the `ops-apply`
+    # environment names the founder as its required reviewer. Every other operation skips this job.
+    if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', inputs.operation)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ops-apply
+    permissions: {}
+    steps:
+      - name: Record the approval
+        env:
+          OP: ${{ inputs.operation }}
+        run: echo "ops-apply approval passed for $OP"
+
   ops:
     # Operations run against production, so only the reviewed definition on main may run: a
-    # dispatch from another ref is skipped before any step executes.
-    if: github.ref == 'refs/heads/main'
+    # dispatch from another ref is skipped before any step executes. An -apply operation runs only
+    # after approve-apply passes; a rejected or cancelled approval skips this job.
+    needs: approve-apply
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (needs.approve-apply.result == 'success' || needs.approve-apply.result == 'skipped') }}
+    concurrency:
+      group: ops
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

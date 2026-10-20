@@ -1,7 +1,8 @@
 """Readers for `.github/workflows/ops.yml`, shared by the gates that read it as GitHub and Postgres do.
 
-`selected` reads a step's `if:` as GitHub evaluates it: `contains()` on a string is a substring test,
-and both it and `==` compare strings without regard to case. `pg_settings` and `setting_ms` read a
+`selected` reads a step's or a job's `if:` as GitHub evaluates it: `contains()` on a string is a
+substring test, and both it and `==` compare strings without regard to case; a job reads the
+operation as `inputs.operation` and may open with the main-ref check. `pg_settings` and `setting_ms` read a
 PGOPTIONS string as the Postgres backend parses it: split on unescaped spaces; `-c name=value`,
 `-cname=value` or `--name=value`; a name's `-` reads as `_` and its case does not count; the last
 setting wins; a bare number is milliseconds. A form either reader does not know fails the calling
@@ -23,21 +24,22 @@ BY_NAME = {step.get("name"): (index, step) for index, step in enumerate(STEPS)}
 RESOLVE, PROXY, DEPS = ("Resolve requested operation", "Start Cloud SQL proxy and export connection env",
                         "Install backend dependencies")
 RELABEL = "Run fiscal-year relabel script"
+OPERAND = r"(?:steps\.request\.outputs|inputs)\.operation"  # a step's resolved operation, or a job's input
 NO_DATABASE = {DEPS}  # runs after the proxy for its operations, but opens no database session
 UNIT_MS = {"ms": 1, "s": 1_000, "min": 60_000, "h": 3_600_000, "d": 86_400_000}
 
 
 def selected(step) -> set[str]:
-    """The operations whose dispatch runs this step, read as GitHub evaluates its `if:`."""
+    """The operations whose dispatch runs this step or job, read as GitHub evaluates its `if:`."""
     condition = step.get("if")
     if condition is None:
         return set(OPTIONS)
     condition = re.sub(r"^\$\{\{\s*(.*?)\s*\}\}$", r"\1", condition.strip())
-    condition = re.sub(r"^always\(\) && ", "", condition)
-    if match := re.fullmatch(r"(!?)contains\('([^']*)', steps\.request\.outputs\.operation\)", condition):
+    condition = re.sub(r"^(?:always\(\)|github\.ref == 'refs/heads/main') && ", "", condition)
+    if match := re.fullmatch(rf"(!?)contains\('([^']*)', {OPERAND}\)", condition):
         hit = {op for op in OPTIONS if op in match.group(2).lower()}
         return set(OPTIONS) - hit if match.group(1) else hit
-    if match := re.fullmatch(r"steps\.request\.outputs\.operation == '([^']*)'", condition):
+    if match := re.fullmatch(rf"{OPERAND} == '([^']*)'", condition):
         return {match.group(1).lower()} & set(OPTIONS)
     raise AssertionError(f"{step.get('name')!r}: teach selected() this if: form rather than skip it: {condition!r}")
 

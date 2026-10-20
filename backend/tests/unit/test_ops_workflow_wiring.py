@@ -25,13 +25,19 @@ reach the database only through libpq's `PGOPTIONS`. An `options` setting in the
 connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in the relabel
 script would replace them, so none may exist.
 
+Every -apply operation waits for the founder's approval: an approval job in the `ops-apply`
+environment, whose required reviewer is the founder, runs for exactly those operations, and the
+operations job runs only once it has passed or been skipped. The operations job keeps no environment,
+so its OIDC subject is unchanged, and the `ops` concurrency group is its own, so a wait for approval
+holds up no other dispatch.
+
 `inputs[...]` and `outputs[...]` index syntax, which these checks would not see, is refused.
 """
 import ast
 import re
 
 from tests.support.ops_workflow import (
-    BY_NAME, DEPS, INPUTS, NO_DATABASE, OPS_TEXT, OPTIONS, PROXY, RELABEL, RESOLVE, ROOT, STEPS,
+    BY_NAME, DEPS, INPUTS, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, RELABEL, RESOLVE, ROOT, STEPS,
     cloud_sql_reach, selected, setting_ms, shown,
 )
 
@@ -142,3 +148,16 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     script = (ROOT / "backend/scripts/relabel_filing_fy_facts.py").read_text(encoding="utf-8")
     assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                          r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", script, re.I), "the relabel script sets its own guards"
+
+
+def test_every_apply_operation_waits_for_the_founders_approval():
+    """The approval job runs for exactly the -apply operations, in the founder's `ops-apply`
+    environment, with no token; the operations job needs it, carries no environment of its own and
+    holds the `ops` concurrency group alone. The ops job's exact if: (main only, then approval passed
+    or skipped) is pinned in test_workflow_dispatch_inputs.py."""
+    approve, ops = OPS["jobs"]["approve-apply"], OPS["jobs"]["ops"]
+    assert selected(approve) == {op for op in OPTIONS if op.endswith("-apply")} != set()
+    assert (approve["environment"], approve["permissions"]) == ("ops-apply", {})
+    assert [step.get("uses") for step in approve["steps"]] == [None], "the approval job runs no action"
+    assert ops["needs"] == "approve-apply" and "environment" not in ops
+    assert "concurrency" not in OPS and ops["concurrency"] == {"group": "ops", "cancel-in-progress": "false"}

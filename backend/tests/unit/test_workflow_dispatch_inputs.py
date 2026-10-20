@@ -42,10 +42,17 @@ def test_no_dispatch_input_is_interpolated_into_a_run_script(name):
 
 
 def test_ops_workflow_runs_only_from_main_without_persisted_credentials():
-    job = _workflow("ops.yml")["jobs"]["ops"]
-    assert job.get("if") == "github.ref == 'refs/heads/main'", (
-        "ops.yml must refuse dispatches from any ref but main so only the reviewed definition can act on production"
-    )
+    jobs = _workflow("ops.yml")["jobs"]
+    job = jobs["ops"]
+    # Each job opens its if: with the main-ref check as a conjunct no || can bypass; the ops job also
+    # runs only once the founder's approval job has passed or been skipped
+    # (test_ops_workflow_wiring.py::test_every_apply_operation_waits_for_the_founders_approval).
+    assert {name: job.get("if") for name, job in jobs.items()} == {
+        "approve-apply": "github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply "
+                         "reset-filing-summary-apply', inputs.operation)",
+        "ops": "${{ !cancelled() && github.ref == 'refs/heads/main' && (needs.approve-apply.result == 'success' "
+               "|| needs.approve-apply.result == 'skipped') }}",
+    }, "ops.yml must refuse dispatches from any ref but main so only the reviewed definition can act on production"
     checkouts = [step for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")]
     assert checkouts, "ops.yml must check out the repository"
     for step in checkouts:
