@@ -4,13 +4,14 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingResolver } from './astBindings'
+import { declaredDefault, executableLines, readConfig, workflowFiles, type Workflow } from './deployMaps'
 import {
   ANALYSIS_MAX_ANNUAL_PERIODS,
   ANALYSIS_MAX_QUARTERLY_PERIODS,
   FREE_SUMMARY_LIMIT,
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_COPILOT_QUESTIONS,
-  FREE_HISTORY_RETENTION_DAYS,
+  PRO_SUMMARY_MONTHLY_CAP,
   TRIAL_DAYS,
 } from '@/lib/planLimits'
 import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
@@ -63,9 +64,11 @@ const freeEntitlementField = (name: string): number => {
 }
 
 const SOURCE_ROOTS = ['app', 'features', 'components', 'lib', 'hooks']
+const SUMMARY_CAP_LABEL = 'free summary cap spelled out'
 const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
-  // Copy: the caps written out in prose.
-  { label: 'free summary cap spelled out', pattern: /\b\d+ (?:free )?(?:AI )?summar(?:y|ies)\b/i },
+  // Copy: the caps written out in prose. The summary pattern also reads Pro's ceiling typed, in PRO_FAIR_USE_LINE's
+  // form ("300 summary generations") or with "new" ("300 new summaries").
+  { label: SUMMARY_CAP_LABEL, pattern: /\b\d+ (?:new )?(?:free )?(?:AI )?summar(?:y|ies)\b/i },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
   { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
   { label: 'free Copilot question taste spelled out', pattern: /\b\d+ (?:free )?Ask this Filing questions?\b|\bFree accounts get \d+ questions?\b/i },
@@ -103,9 +106,61 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     expect(FREE_EARNINGS_ALERT_LIMIT).toBe(backendConst('FREE_EARNINGS_ALERT_LIMIT'))
   })
 
-  it('mirrors the free Copilot taste and history retention', () => {
+  it('mirrors the free Copilot taste, and the Pro fair-use ceiling PRO_FAIR_USE_LINE states (E58)', () => {
     expect(FREE_COPILOT_QUESTIONS).toBe(freeEntitlementField('copilot_free_taste'))
-    expect(FREE_HISTORY_RETENTION_DAYS).toBe(freeEntitlementField('history_retention_days'))
+    expect(PRO_SUMMARY_MONTHLY_CAP).toBe(settingDefault('PRO_SUMMARY_MONTHLY_CAP'))
+  })
+
+  it('finds no deploy map that overrides PRO_SUMMARY_MONTHLY_CAP, so production runs the default the page states', () => {
+    const workflows = workflowFiles()
+    // Anti-vacuity: the read reaches the deploy's maps (ci.yml's service and job maps among them).
+    const ci = workflows.find(([file]) => file === 'ci.yml')?.[1] ?? ''
+    expect((ci.match(/--update-env-vars=/g) ?? []).length).toBeGreaterThanOrEqual(3)
+    expect(capOverrides(config, workflows), CAP_STAYS_DEFAULT).toEqual([])
+  })
+
+  it('reads a cap setting in every form a workflow writes one, and nothing else (planted forms)', () => {
+    const settings = `class Settings(BaseSettings):\n    ${CAP}: int = 300\n`
+    // ci.yml's service map, shortened: the form the gate exists for.
+    const serviceMap = '            --update-env-vars=ENVIRONMENT=production,COOKIE_DOMAIN=.earningsnerd.io,DB_POOL_SIZE=4,ENABLE_INSIDER_ACTIVITY=false \\'
+    const flagged: Record<string, string> = {
+      'the service map with the cap added': serviceMap.replace('DB_POOL_SIZE=4', `DB_POOL_SIZE=4,${CAP}=100`),
+      'a fresh map': `            --set-env-vars=${CAP}=0 \\`,
+      'an env: key': `          ${CAP}: "100"`,
+      'a value the deploy expands': `            --update-env-vars=DB_POOL_SIZE=3,${CAP}=\${PRO_CAP} \\`,
+      'a secret mapped onto it': `            --update-secrets=${CAP}=PRO_CAP:latest \\`,
+      "the default's own value": `            --update-env-vars=${CAP}=300 \\`,
+      'a run line': `        run: echo "${CAP}=150" >> "$GITHUB_ENV"`,
+    }
+    const passing: Record<string, string> = {
+      'a comment': `  # ${CAP} stays at config.py's default: never set it here`,
+      'the service map as it is': serviceMap,
+      'another cap': '          COPILOT_MONTHLY_QUESTION_CAP: "1000"',
+      'a gap: an env file the read cannot open': '            --env-vars-file=deploy/production.env.yaml \\',
+    }
+    const read = (line: string) => capOverrides(settings, [['ci.yml', line]]).length
+    expect(Object.keys(flagged).filter((name) => read(flagged[name]) !== 1), 'a form the read missed').toEqual([])
+    expect(Object.keys(passing).filter((name) => read(passing[name]) !== 0), 'a look-alike the read flagged').toEqual([])
+    expect(capOverrides(settings, [['ops.yaml', `jobs:\n  sync:\n    env:\n      ${CAP}: "5"\n`]])).toEqual([`ops.yaml:4 ${CAP}: "5"`])
+    expect(() => capOverrides('class Settings(BaseSettings):\n    OTHER: int = 1\n', [])).toThrow(/0 times/)
+    expect(() => capOverrides(settings + settings, [])).toThrow(/2 times/)
+  })
+
+  it('reads a summary cap typed with or without "new", and the Pro ceiling\'s sentence typed (planted forms)', () => {
+    const { pattern } = LITERAL_PATTERNS.find(({ label }) => label === SUMMARY_CAP_LABEL)!
+    for (const typed of [
+      '5 summaries',
+      '5 free summaries',
+      '5 AI summaries',
+      'Pro accounts can generate up to 300 new summaries a month.',
+      'An account can run up to 300 summary generations a month, regenerations included.',
+    ]) {
+      expect(pattern.test(typed), typed).toBe(true)
+    }
+    // A read of the cap types no number: summaryPlanClaims.spec.ts fails a read of it outside lib/planLimits.ts.
+    for (const prose of ['Pro accounts can generate up to {PRO_SUMMARY_MONTHLY_CAP} new summaries a month.', 'New summaries are paused.', 'Unlimited summaries']) {
+      expect(pattern.test(prose), prose).toBe(false)
+    }
   })
 
   it('mirrors the waitlist REFERRAL_BONUS, which the referral sentence reads', () => {
@@ -319,11 +374,37 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
  * a hole. Model-written text is not copy: the demo payload's sample narrative
  * (features/analysis/demo/demo-analysis.json) states its own window, "six fiscal years", as a model would.
  */
-const config = readFileSync(path.resolve(frontendDir, '../backend/app/config.py'), 'utf8')
+const config = readConfig()
 const settingDefault = (name: string): number => {
   const match = config.match(new RegExp(`^\\s+${name}\\s*:\\s*int\\s*=\\s*(\\d+)`, 'm'))
   if (!match) throw new Error(`${name} not found in backend/app/config.py`)
   return Number(match[1])
+}
+
+/**
+ * Production runs the Pro cap the page states. The /pricing FAQ and the filing page's limit card state
+ * PRO_SUMMARY_MONTHLY_CAP's Settings default through the mirror (lib/planLimits.ts), while the backend enforces
+ * `settings.PRO_SUMMARY_MONTHLY_CAP`, which an environment value overrides. So no deploy map sets it. The read
+ * takes the default from backend/app/config.py (declared once, or the read throws) and every executable line of
+ * every workflow under .github/workflows: a comment line is skipped, and any other line that names the variable
+ * counts, whatever its form (an --update-env-vars, --set-env-vars or --update-secrets entry, an env: key, a run
+ * line) and whatever its value (the default's own value too: the map would keep it when the default moves). Its
+ * planted forms score the read. Out of reach: a value set by hand on the Cloud Run service, which no file records,
+ * an env file a deploy names (`--env-vars-file`, none today) and an image's own ENV (backend/Dockerfile sets
+ * none of it). The read is deployMaps.ts's, shared with changeReportPlanClaims.spec.tsx; the rule and its message
+ * are this spec's.
+ */
+const CAP = 'PRO_SUMMARY_MONTHLY_CAP'
+const CAP_STAYS_DEFAULT =
+  `The /pricing FAQ and the filing page's limit card state config.py's ${CAP} default (lib/planLimits.ts mirrors ` +
+  'it), so a deploy map that sets it leaves the page stating a ceiling the backend does not enforce. Change the ' +
+  'default in backend/app/config.py, and the mirror follows; never override it in a deploy map.'
+
+/** The executable workflow lines that name PRO_SUMMARY_MONTHLY_CAP, as `file:line text`. Throws unless config.py
+    declares the cap's default once, so a renamed or moved field cannot leave the read holding nothing. */
+function capOverrides(configSource: string, workflows: readonly Workflow[]): string[] {
+  declaredDefault(configSource, CAP, 'int')
+  return executableLines(workflows, CAP).map(({ file, number, text }) => `${file}:${number} ${text.trim()}`)
 }
 
 const NUMBER_WORDS = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve'

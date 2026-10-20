@@ -1,0 +1,520 @@
+[
+ {
+  "name": "welcome[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "referral[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "verify[none]",
+  "reader": [
+   "SpamAssassin reads 'Verify my email' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Verify my email"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "invite[none]",
+  "reader": [
+   "SpamAssassin reads 'Accept your invite' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Accept your invite"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "reset[none]",
+  "reader": [
+   "SpamAssassin reads 'Reset my password' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Reset my password"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "oauth[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "exists[none]",
+  "reader": [
+   "SpamAssassin reads 'Log in to your account' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Log in to your account"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "alert[none]",
+  "reader": [
+   "SpamAssassin reads 'Read the AI summary' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Read the AI summary"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "alert-wording[none]",
+  "reader": [
+   "SpamAssassin reads 'Read the AI summary' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Read the AI summary"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "digest1[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest3[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings1[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings3[none]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "welcome[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "referral[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "verify[short]",
+  "reader": [
+   "SpamAssassin reads 'Verify my email' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Verify my email"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "invite[short]",
+  "reader": [
+   "SpamAssassin reads 'Accept your invite' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Accept your invite"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "reset[short]",
+  "reader": [
+   "SpamAssassin reads 'Reset my password' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Reset my password"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "oauth[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "exists[short]",
+  "reader": [
+   "SpamAssassin reads 'Log in to your account' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Log in to your account"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "alert[short]",
+  "reader": [
+   "SpamAssassin reads 'Read the AI summary' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Read the AI summary"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "alert-wording[short]",
+  "reader": [
+   "SpamAssassin reads 'Read the AI summary' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Read the AI summary"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "digest1[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest3[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings1[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings3[short]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "welcome[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "referral[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "verify[long]",
+  "reader": [
+   "SpamAssassin reads 'Verify my email' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Verify my email"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "invite[long]",
+  "reader": [
+   "SpamAssassin reads 'Accept your invite' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Accept your invite"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "reset[long]",
+  "reader": [
+   "SpamAssassin reads 'Reset my password' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Reset my password"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "oauth[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "exists[long]",
+  "reader": [
+   "SpamAssassin reads 'Log in to your account' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Log in to your account"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "alert[long]",
+  "reader": [
+   "SpamAssassin reads 'Read the AI summary' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Read the AI summary"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "alert-wording[long]",
+  "reader": [
+   "SpamAssassin reads 'Read the AI summary' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin_low_contrast": 1,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [
+   {
+    "ground": "#f4f3ee",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Read the AI summary"
+   }
+  ],
+  "agrees": true
+ },
+ {
+  "name": "digest1[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "digest3[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings1[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "earnings3[long]",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ },
+ {
+  "name": "data-quality",
+  "reader": [],
+  "spamassassin_low_contrast": 0,
+  "spamassassin_invalid_colour": 0,
+  "spamassassin_flagged": [],
+  "agrees": true
+ }
+]

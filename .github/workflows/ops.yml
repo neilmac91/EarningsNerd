@@ -4,9 +4,10 @@ name: Ops
 # execution log: docs/data-quality-remediation-log.md).
 #
 # The remediation is driven from an environment with no direct GCP/Cloud SQL access, so the
-# production operations the plan requires (detection SQL snapshots, the ticker repair script,
-# the companyfacts resync, env verification) run HERE, with the same keyless WIF auth the
-# deploy-backend job already uses. Design constraints:
+# production operations the plan requires (detection SQL snapshots, the ticker repair script, the
+# companyfacts resync, env verification) run HERE, with the same keyless WIF auth the deploy-backend
+# job already uses. So, since 2026-10-19, does the fiscal-year relabel (P6 of the 2026-10-15 bug
+# hunt, docs/fiscal-year-label-repair.md). Design constraints:
 #   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
 #     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
 #   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries);
@@ -20,10 +21,11 @@ name: Ops
 #     Known limit: the check is point-in-time and one-directional — a main push that lands AFTER
 #     it passes can still overlap this run, and a deploy never waits for ops. Do not dispatch
 #     write operations when a backend merge is imminent.
-#   - Every Cloud SQL step sets PGOPTIONS with lock_timeout=10s (fail fast, never queue behind a
-#     held lock). statement_timeout is per step: the write path (repair script) matches the deploy
-#     migration step (120s); the read-only detection snapshots full-scan financial_fact and get
-#     600s. The proxy binary is checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
+#   - Every Cloud SQL step sets PGOPTIONS with a lock_timeout of at most 10s (fail fast, never queue
+#     behind a held lock; the capacity ledger uses 2s). statement_timeout is per step: the write
+#     paths (the repair and relabel scripts) match the deploy migration step (120s); the read-only
+#     detection snapshots full-scan financial_fact and get 600s. The proxy binary is checksum-pinned
+#     (lessons/ops-migrations-need-lock-timeout.md).
 
 on:
   workflow_dispatch:
@@ -41,6 +43,8 @@ on:
           - jobs-channel-noop-probe
           - repair-ticker-dry-run
           - repair-ticker-apply
+          - relabel-fy-dry-run
+          - relabel-fy-apply
           - sync-companyfacts
           - backfill-filing-history
           - data-quality-report
@@ -56,7 +60,7 @@ on:
         required: false
         default: ""
       tickers:
-        description: 'Comma-separated tickers (sync-companyfacts / backfill-filing-history); a SINGLE ticker for reset-filing-summary'
+        description: 'Comma-separated tickers: sync-companyfacts; backfill-filing-history (empty = the watchlist cohort); relabel-fy-* (empty = every company). A SINGLE ticker for reset-filing-summary'
         required: false
         default: ''
       revision:
@@ -112,7 +116,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -123,8 +127,9 @@ jobs:
               COUNT=$(echo "$TICKERS" | tr ',' '\n' | wc -l)
               [ "$COUNT" -le 50 ] || { echo "::error::max 50 tickers per dispatch"; exit 1; }
               ;;
-            backfill-filing-history)
-              # tickers OPTIONAL (empty => watchlist cohort); when given, a comma-separated list ≤50.
+            backfill-filing-history|relabel-fy-dry-run|relabel-fy-apply)
+              # tickers OPTIONAL (empty => the watchlist cohort for a backfill, every company for a
+              # relabel); when given, a comma-separated list ≤50.
               if [ -n "$TICKERS" ]; then
                 [[ "$TICKERS" =~ ^[A-Za-z0-9.-]+(,[A-Za-z0-9.-]+)*$ ]] \
                   || { echo "::error::tickers must be a comma-separated symbol list"; exit 1; }
@@ -289,7 +294,7 @@ jobs:
 
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply capacity-readout', steps.request.outputs.operation)
+        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply capacity-readout', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -368,7 +373,7 @@ jobs:
 
       # ------------------------------------------------------------------ committed scripts (runner)
       - name: Install backend dependencies
-        if: contains('repair-ticker-dry-run repair-ticker-apply', steps.request.outputs.operation)
+        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply', steps.request.outputs.operation)
         run: |
           pip install -q -r backend/requirements.txt
 
@@ -380,6 +385,9 @@ jobs:
           # points at the proxy from the step above. libpq honours PGOPTIONS, so the SQLAlchemy
           # session gets the deploy migration step's guards (fail fast on a held lock; bound writes).
           PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
@@ -394,6 +402,46 @@ jobs:
           else
             python scripts/repair_ticker_by_cik.py
           fi
+
+      - name: Run fiscal-year relabel script
+        # backend/scripts/relabel_filing_fy_facts.py (docs/fiscal-year-label-repair.md): a dry run reads
+        # and prints its plan, one JSON line per company and a summary, in read-only transactions, so
+        # Postgres refuses any write it might attempt; the apply writes the plan, one company per
+        # transaction under the fact writers' lock, journaled for the audited rollback. Before each
+        # company's session opens, it reads that company's companyfacts from SEC (the shared limiter),
+        # its evidence where no stored row vouches for a year. It runs here rather than in the jobs
+        # channel so its lines reach this log.
+        if: contains('relabel-fy-dry-run relabel-fy-apply', steps.request.outputs.operation)
+        working-directory: backend
+        timeout-minutes: 60
+        env:
+          # The ticker repair's hermetic env and guards; DATABASE_URL points at the proxy above.
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
+          STRIPE_SECRET_KEY: sk_test_ops
+          STRIPE_WEBHOOK_SECRET: whsec_ops
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          OP: ${{ steps.request.outputs.operation }}
+          TICKERS: ${{ steps.request.outputs.tickers }}
+        run: |
+          set -euo pipefail
+          [ -f scripts/relabel_filing_fy_facts.py ] || { echo "::error::relabel script not committed yet"; exit 1; }
+          ARGS=()
+          READ_ONLY=on
+          if [ "$OP" = "relabel-fy-apply" ]; then ARGS+=(--apply); READ_ONLY=off
+          else PGOPTIONS="$PGOPTIONS -c default_transaction_read_only=on"; fi
+          if [ -n "$TICKERS" ]; then ARGS+=(--tickers "$TICKERS"); fi
+          # The settings a session gets through the proxy, read back so this log proves them, and
+          # compared with this step's, so a lost or weakened guard stops the run before the script.
+          SESSION=$(psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')")
+          echo "$SESSION"
+          EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
+          [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
+          python scripts/relabel_filing_fy_facts.py "${ARGS[@]}"
 
       # ------------------------------------------------------------------ internal jobs
       - name: Trigger companyfacts resync (internal endpoint; jobs-channel fallback)

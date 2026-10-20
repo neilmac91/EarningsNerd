@@ -172,6 +172,35 @@ describe('WhatChanged (A5)', () => {
     expect(items[1]).toHaveTextContent('Unfavorable')
   })
 
+  // E76: a missing figure is the token in an element of its own, never bare text beside the phone rows' sr-only
+  // "Prior" and "current" and the arrow, and assistive tech reads it as "unavailable", in both layouts.
+  it('shows a missing figure as the dash in its own element, read as unavailable, in both layouts', () => {
+    const missing: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        items: [{ metric: 'revenue', label: 'Revenue', direction: 'up', pct: null, current: 100, prior: null, display: null, tone: 'gain' }],
+      },
+    }
+    const { container } = render(<WhatChanged report={missing} />)
+    const table = within(container.querySelector<HTMLElement>('[data-change-layout="table"]')!)
+    const [prior, current] = within(table.getByRole('row', { name: /Revenue/ })).getAllByRole('cell')
+    expect(prior).toHaveAccessibleName('unavailable')
+    expect(within(prior).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+    expect(current).toHaveTextContent(/^\$100\.0$/)
+
+    // The phone row: what the eye sees, and what assistive tech reads, each as one unit.
+    const figures = within(container.querySelector<HTMLElement>('[data-change-layout="rows"]')!).getByText('Prior').parentElement!
+    const without = (selector: string) => {
+      const copy = figures.cloneNode(true) as HTMLElement
+      copy.querySelectorAll(selector).forEach((part) => part.remove())
+      return copy.textContent!.replace(/\s+/g, ' ').trim()
+    }
+    expect(without('.sr-only')).toBe('— → $100.0')
+    expect(without('[aria-hidden="true"]')).toBe('Prior unavailable, current $100.0')
+    expect(within(figures).getByText('—').parentElement!.parentElement).toBe(figures)
+  })
+
   it('renders bare inside a summary section: no card and no heading of its own', () => {
     const { container } = render(<WhatChanged report={baseReport} bare />)
     expect(container.querySelector('section')).toBeNull()

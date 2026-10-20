@@ -23,11 +23,19 @@ const WINDOWS: { days: number; label: string }[] = [
 
 const MAX_ROWS = 8
 
-const shares = (n: number | null | undefined, options?: { signed?: boolean }): string =>
-  n === null || n === undefined ? '—' : fmtShares(n, options)
+/** A dollar amount's size, compact ("$1.8M"); the panel states its direction beside it, in words or a sign. */
+const fmtMoney = (n: number): string => fmtCurrency(Math.abs(n), { compact: true })
 
-const fmtMoney = (n: number | null | undefined): string =>
-  n === null || n === undefined ? '—' : fmtCurrency(Math.abs(n), { compact: true })
+/** A trade's missing share count, value or date: the missing-value token alone in its cell, which assistive tech
+ *  reads as "unavailable". The summary never needs it: the API always sends its share counts, so a missing dollar
+ *  value falls back to them. `relative` keeps the sr-only word inside the table's scroll box
+ *  (lessons/frontend-sr-only-needs-a-positioned-clip.md). */
+const UNAVAILABLE = (
+  <span className="relative">
+    <span aria-hidden="true">—</span>
+    <span className="sr-only">unavailable</span>
+  </span>
+)
 
 function roleOf(t: InsiderTransaction): string {
   if (t.insider_title) return t.insider_title
@@ -76,9 +84,9 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
       </>
     ),
   },
-  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => shares(t.shares) },
-  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => fmtMoney(t.value) },
-  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? '—' },
+  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => (t.shares == null ? UNAVAILABLE : fmtShares(t.shares)) },
+  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => (t.value == null ? UNAVAILABLE : fmtMoney(t.value)) },
+  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? UNAVAILABLE },
 ]
 
 export default function InsiderActivityPanel({
@@ -147,7 +155,7 @@ export default function InsiderActivityPanel({
       : direction === 'sell'
         ? 'Net insider selling'
         : 'Balanced insider activity'
-  const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${shares(signalValue)} shares`
+  const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
 
   return (
     <Card as="section" className="mb-8 p-6">
@@ -183,36 +191,40 @@ export default function InsiderActivityPanel({
               </p>
               {planSells > 0 && (
                 <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-                  Excludes {shares(planSells)} shares sold under pre-scheduled 10b5-1 plans
+                  Excludes {fmtShares(planSells)} shares sold under pre-scheduled 10b5-1 plans
                   {summary.discretionary_net_shares !== summary.net_shares && (
-                    <> · discretionary net {shares(summary.discretionary_net_shares, { signed: true })} shares</>
+                    <> · discretionary net {fmtShares(summary.discretionary_net_shares, { signed: true })} shares</>
                   )}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Buy / Sell / Net stats */}
-          <div className="mb-5 grid grid-cols-3 gap-3">
-            <div className="rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
+          {/* Buy / Sell / Net stats: equal tracks of at least 5.5rem, as many as fit, so the three tinted tiles keep
+              one width whatever their figures say and stack when enlarged text leaves no room for three (a rem
+              minimum grows with the text); a figure wider than its tile breaks inside it. The figures are in the
+              data face (frontend/DESIGN_SYSTEM.md §3; lessons/frontend-variable-text-must-not-size-a-wrapping-row.md,
+              lessons/frontend-check-brand-layouts-at-200-percent-text.md). */}
+          <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(min(5.5rem,100%),1fr))] gap-3">
+            <div className="min-w-0 rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
               <p className="text-xs font-medium text-gain-text dark:text-gain-dark">
                 Buys ({summary.buy_count})
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {fmtMoney(summary.buy_value) !== '—' ? fmtMoney(summary.buy_value) : `${shares(summary.buy_shares)} sh`}
+              <p className="mt-0.5 break-words font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                {summary.buy_value != null ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
               </p>
             </div>
-            <div className="rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
+            <div className="min-w-0 rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
               <p className="text-xs font-medium text-loss-text dark:text-loss-dark">
                 Sells ({summary.sell_count})
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {fmtMoney(summary.sell_value) !== '—' ? fmtMoney(summary.sell_value) : `${shares(summary.sell_shares)} sh`}
+              <p className="mt-0.5 break-words font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                {summary.sell_value != null ? fmtMoney(summary.sell_value) : `${fmtShares(summary.sell_shares)} sh`}
               </p>
             </div>
-            <div className="rounded-lg bg-background-light p-3 dark:bg-white/5">
+            <div className="min-w-0 rounded-lg bg-background-light p-3 dark:bg-white/5">
               <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">Net</p>
-              <p className={`mt-0.5 text-sm font-semibold ${signalColor}`}>
+              <p className={`mt-0.5 break-words font-data text-sm font-semibold tabular-nums ${signalColor}`}>
                 {direction === 'sell' ? '−' : direction === 'buy' ? '+' : ''}
                 {signalMagnitude}
               </p>

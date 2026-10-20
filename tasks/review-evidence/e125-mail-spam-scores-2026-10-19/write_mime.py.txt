@@ -1,0 +1,20 @@
+"""E125: write each option's 40 MIME messages to mime/<option>/<mail>.eml (score_options.py's build), for SpamAssassin."""
+import re
+import sys
+from pathlib import Path
+
+sys.argv = [sys.argv[0], sys.argv[1], sys.argv[2], "/dev/null"]
+src = Path(__file__).with_name("score_options.py").read_text()
+exec(compile(src[:src.index("OPTIONS = (")], "score_options", "exec"))
+OPTIONS = ("current", "inline_nested", "inline_related_top", "inline_mixed_top", "text_tile_url", "header_home_link",
+           "text_site_line")
+root = Path(__file__).with_name("mime")
+n = 0
+for option in OPTIONS:
+    (root / option).mkdir(parents=True, exist_ok=True)
+    for name, case in dump.items():
+        if not (isinstance(case, dict) and "html" in case and case.get("text") is not None):
+            continue
+        (root / option / (re.sub(r"[^a-z0-9-]+", "_", name) + ".eml")).write_bytes(build(option, case))
+        n += 1
+print("wrote", n)

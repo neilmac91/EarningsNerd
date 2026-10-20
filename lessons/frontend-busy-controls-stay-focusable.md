@@ -246,8 +246,11 @@ move focus a mouse user did not lose.
 - A Retry that restarts a stream (SSE), not a query, has no failure to hold, but it is still RetryButton for
   its hand-off: the filing page's generation restart passes the stream's own failure, `{ failed: true, error,
   busy: false, retry }`. Its press clears the error in the render that starts the stream, so the card leaves
-  with the press when the run starts (a signed-out press starts none, so the card and its focused Retry stay)
-  and focus goes to the progress card's heading (`tabIndex={-1}`), in the branch that replaced it.
+  with the press when the run starts and focus goes to the progress card's heading (`tabIndex={-1}`), in the
+  branch that replaced it. The card offers the Retry only for a failure a retry can help
+  (`isNonRetryableStreamError`, which also stops the stream's automatic retry), so a signed-out press, which
+  starts no run and leaves a sign-in sentence, keeps the card and drops its Retry: focus then goes to the
+  card's own heading, the target's fallback.
   That literal is pinned in the gate's ALLOW_HAND_BUILT_FAILURE (d): a hand-built failure for a query would skip
   the hold.
 - The other direction (EN-05, 2026-10-07): a card that ends a run the user is waiting on takes focus when it

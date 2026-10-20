@@ -154,8 +154,8 @@ API service's own describe included, prints only its closed class (`permission_d
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
 host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
 
-The Cloud SQL proxy step used by `capacity-readout`, `detection-sql` and the repair-ticker
-operations captures the `DATABASE_URL` secret read's stderr, including success-path warnings.
+The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, the repair-ticker and the
+fiscal-year relabel (`relabel-fy-*`) operations captures the `DATABASE_URL` secret read's stderr, including success-path warnings.
 A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
 The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
@@ -277,7 +277,9 @@ gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-r
 ```
 
 Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
-`--to-latest` deploy would otherwise route traffic straight back to the bad image).
+`--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
+E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
+`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back.
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
@@ -665,9 +667,10 @@ check whether separately managed database routines need their own backup coverag
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next
 scheduled run is unaffected. Do not use `gcloud run jobs update --args=…` for one-shot work. The
 backend deploy owns the persistent `earningsnerd-backfill-facts` contract and restores
-`python scripts/backfill_facts.py --only-new` while updating its image. Since the DB is only
-reachable from Cloud Run, execution-scoped arguments are also the way to run any
-`backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
+`python scripts/backfill_facts.py --only-new` while updating its image. The DB is reachable only
+from Cloud Run and through the Ops workflow's Cloud SQL proxy, so apart from the Ops workflow's
+committed script operations (`repair-ticker-*`, `relabel-fy-*`), execution-scoped arguments are the
+way to run a `backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
 with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
 so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
 false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement
