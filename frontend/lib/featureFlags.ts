@@ -136,7 +136,7 @@ export const ENABLE_FPI_FILINGS =
 
 /**
  * Advertise the 7-day card-required Pro trial across the UI (pricing card CTA/note/FAQ, the
- * filing-page paywall card, the signup gate, homepage CTA banner). MUST flip in lockstep with the
+ * landing's plan table, the filing-page paywall card, the signup gate). MUST flip in lockstep with the
  * backend's PRO_TRIAL_DAYS on Cloud Run: the backend defaults the trial OFF (rollout convention —
  * enable per environment only after the Stripe test-mode checklist in PR #619), and showing trial
  * copy while checkout grants no trial is a false billing claim. Ships dark.
