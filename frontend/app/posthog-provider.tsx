@@ -41,7 +41,10 @@ function PostHogPageViewWrapper() {
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  const [initialized, setInitialized] = useState(false)
+  // Seeded from the SDK, for a provider that mounts again after PostHog has loaded (GlobalErrorBoundary's "Try
+  // again", a global-error reset): a second init is a no-op that never calls `loaded`, so nothing else would set it.
+  // The server render and the first hydration still start at false, since posthog.init runs only in the effect below.
+  const [initialized, setInitialized] = useState(() => Boolean(posthog?.__loaded))
   // The visitor's analytics choice as this provider last applied it; with `initialized` it makes PostHogReadyContext.
   const [analyticsAllowed, setAnalyticsAllowed] = useState(false)
 
@@ -117,8 +120,8 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
                 posthogClient.opt_in_capturing()
               }
 
-              // Set initialized state to trigger re-render with PHProvider
-              // This must be in the loaded callback since posthog.__loaded doesn't trigger React updates
+              // The page-view tracker joins on this state, and PostHogReadyContext waits on it. It is set here, in
+              // the loaded callback, since posthog.__loaded changing does not re-render React.
               setInitialized(true)
             },
           })
