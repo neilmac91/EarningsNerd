@@ -326,15 +326,25 @@ def test_a_test_that_replaces_the_null_device_fails(tmp_path):
 
 # The probe builds git's variable name and option from parts, as the source gate would refuse them whole.
 _GIT_NULL_PROBE = (
-    "import os, subprocess\n\n"
+    "import os, shutil, subprocess\n"
+    "import pytest\n\n"
     "NAME = 'GIT_CONFIG_' + 'GLOBAL'\n"
     "FILE = '--' + 'file'\n\n"
+    "@pytest.fixture(scope='session')\n"
+    "def git_set_up_for_the_session():\n"
+    "    subprocess.run(['git', '--version'], env={**os.environ, NAME: os.devnull}, capture_output=True)\n\n"
     "def test_starts_git_with_its_global_config_on_the_null_device():\n"
     "    subprocess.run(['git', '--version'], env={**os.environ, NAME: os.devnull}, capture_output=True)\n\n"
     "def test_starts_git_config_with_the_null_device_as_its_file():\n"
     "    subprocess.run(['git', 'config', FILE, os.devnull, '--list'], capture_output=True)\n\n"
     "def test_starts_a_shell_line_that_names_it():\n"
     "    subprocess.run(NAME + '=' + os.devnull + ' git --version', shell=True, capture_output=True)\n\n"
+    "def test_starts_it_through_os_system():\n"
+    "    os.system(NAME + '=' + os.devnull + ' git --version')\n\n"
+    "def test_starts_it_through_posix_spawn():\n"
+    "    os.posix_spawn(shutil.which('git'), ['git', '--version'], {**os.environ, NAME: os.devnull})\n\n"
+    "def test_uses_a_session_fixture_that_starts_it(git_set_up_for_the_session):\n"
+    "    pass\n\n"
     "def test_starts_git_plainly():\n"
     "    subprocess.run(['git', '--version'], capture_output=True, check=True)\n"
 )
@@ -345,10 +355,12 @@ def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
     probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
     summary = result.stdout.strip().splitlines()[-1]
-    assert result.returncode == 1 and "3 failed, 1 passed" in summary, result.stdout[-3000:]
-    failed = [line for line in result.stdout.splitlines() if line.startswith("FAILED ")]
+    # Five starts fail their tests; the session fixture's start errors the test that uses it.
+    assert result.returncode == 1 and all(count in summary for count in ("5 failed", "1 passed", "1 error")), (
+        result.stdout[-3000:])
+    failed = [line for line in result.stdout.splitlines() if line.startswith(("FAILED ", "ERROR "))]
     assert not any("test_starts_git_plainly" in line for line in failed), failed
-    assert result.stdout.count("this test starts a process with ") >= 3, result.stdout[-3000:]
+    assert result.stdout.count("a process started here would give git the null device") >= 6, result.stdout[-3000:]
 
 
 _EDGAR_DIRS = ("EDGAR_LOCAL_DATA_DIR", "EDGAR_CACHE_DIR")

@@ -43,8 +43,11 @@ class _NullTargets(ast.NodeVisitor):
     def __init__(self, tree: ast.AST) -> None:
         self.lines: list[int] = []
         self.names: set[str] = set()
-        for _ in range(2):  # a name bound to the device, or to such a name
-            self.names |= {name for node in ast.walk(tree) for name in self._bound(node)}
+        while True:  # a name bound to the device, or to such a name, however long the chain
+            bound = {name for node in ast.walk(tree) for name in self._bound(node)}
+            if bound <= self.names:
+                break
+            self.names |= bound
         self.docstrings = {id(node.body[0].value) for node in ast.walk(tree)
                            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
                            and node.body and isinstance(node.body[0], ast.Expr)
@@ -174,6 +177,7 @@ def test_no_tracked_code_gives_git_the_null_device_to_write():
     'monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)',
     "env = dict(os.environ, GIT_CONFIG=os.fspath(Path('/dev/null')))",
     'NULL = os.devnull\nCONFIG = NULL\nenv["GIT_CONFIG_GLOBAL"] = CONFIG',  # a name the file binds
+    'A = os.devnull\nB = A\nC = B\nD = C\nenv["GIT_CONFIG_GLOBAL"] = D',  # however long the chain
     'NULL: str = os.devnull\nenv["GIT_CONFIG_GLOBAL"] = NULL',  # annotated
     'NULL, OTHER = os.devnull, "x"\nenv["GIT_CONFIG_GLOBAL"] = NULL',  # unpacked
     'if (NULL := os.devnull):\n    env["GIT_CONFIG_GLOBAL"] = NULL',  # bound with :=

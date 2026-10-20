@@ -3,8 +3,8 @@ Pytest configuration for EarningsNerd backend tests.
 
 Makes every pytest process hermetic and order-independent: a private temp database and EdgarTools
 directory per process (each xdist worker is one), pinned environment, the network gate, autouse
-resets of process-wide state, and checks that no test starts git with /dev/null as a file it writes or
-destroys /dev/null. Markers live in
+resets of process-wide state, and checks that no process the run starts gives git /dev/null as a file it
+writes and that no test destroys /dev/null. Markers live in
 backend/pytest.ini; gates for all of this are in tests/unit/test_suite_isolation.py
 (lessons/ops-one-test-process-per-worktree.md).
 """
@@ -359,29 +359,57 @@ def _is_character_device(path):
 _GIT_WRITE_TARGETS = ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG", "GIT_INDEX_FILE")
 
 
-@pytest.fixture(autouse=True)
-def _no_process_gives_git_the_null_device(monkeypatch):
-    """A test may not start a process that gives git the null device as a file it writes.
+def _install_git_null_guard():
+    """No process this pytest process starts may give git the null device as a file it writes.
 
-    ``tests/unit/test_null_device_write_targets.py`` reads the source; this sees what a test starts, however
-    its environment or arguments were built, on any runner: an environment whose ``GIT_CONFIG_GLOBAL``,
+    ``tests/unit/test_null_device_write_targets.py`` reads the source; this sees each start, however its
+    environment or arguments were built, on any runner: an environment whose ``GIT_CONFIG_GLOBAL``,
     ``GIT_CONFIG_SYSTEM``, ``GIT_CONFIG`` or ``GIT_INDEX_FILE`` names the device, a ``NAME=/dev/null`` word in
-    a shell line, or ``config --file`` naming it. The test fails before the process starts. A process that a
-    started process starts in turn is outside it, as is a start this cannot read (the source gate and
-    ``_null_device_survives`` stand behind it). A child run in ``tests/unit/test_suite_isolation.py`` proves
-    it (lessons/test-never-point-a-written-file-at-dev-null.md).
+    a shell line, or ``config --file`` naming it. It is installed when conftest is imported, so a fixture of any
+    scope is covered, and it wraps every way the standard library starts a program but fork and exec:
+    ``subprocess.Popen`` (``subprocess.run``, ``os.popen`` and asyncio's subprocesses go through it),
+    ``os.system``, ``os.posix_spawn`` and ``os.posix_spawnp``. The start fails before it happens. A process that
+    a started process starts in turn is outside it, as is ``os.fork`` with an ``exec`` and a start this cannot
+    read; the source gate and ``_null_device_survives`` stand behind them. A child run in
+    ``tests/unit/test_suite_isolation.py`` proves each start (lessons/test-never-point-a-written-file-at-dev-null.md).
     """
-    start = subprocess.Popen.__init__
+    popen_init = subprocess.Popen.__init__
+    if getattr(popen_init, "checks_git_null_targets", False):
+        return  # installed already in this process
 
-    def checked(self, args, *more, **options):
-        given = _git_null_target(args, options.get("env"))
-        if given:
-            pytest.fail(f"this test starts a process with {given}: as root, git renames its lock file over "
-                        "the null device. Give git an empty file in the test's temp directory instead "
-                        "(lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
-        start(self, args, *more, **options)
+    def popen(self, args, *more, **options):
+        _refuse_git_null_target(args, options.get("env"))
+        popen_init(self, args, *more, **options)
 
-    monkeypatch.setattr(subprocess.Popen, "__init__", checked)
+    popen.checks_git_null_targets = True
+    subprocess.Popen.__init__ = popen
+    system = os.system
+
+    def checked_system(command):
+        _refuse_git_null_target(command, None)
+        return system(command)
+
+    os.system = checked_system
+    for name in ("posix_spawn", "posix_spawnp"):
+        spawn = getattr(os, name, None)
+        if spawn is not None:
+            setattr(os, name, _checked_spawn(spawn))
+
+
+def _checked_spawn(spawn):
+    def checked(path, argv, env, *more, **options):
+        _refuse_git_null_target(argv, env)
+        return spawn(path, argv, env, *more, **options)
+
+    return checked
+
+
+def _refuse_git_null_target(args, env):
+    given = _git_null_target(args, env)
+    if given:
+        pytest.fail(f"a process started here would give git the null device to write ({given}): as root, git "
+                    "renames its lock file over the device. Give git an empty file in the test's temp directory "
+                    "instead (lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
 
 
 def _git_null_target(args, env):
@@ -408,6 +436,9 @@ def _git_null_target(args, env):
     except (TypeError, ValueError, OSError):
         return None
     return None
+
+
+_install_git_null_guard()
 
 
 # Stream tests that drive the real ``stream_filing_summary`` with a mocked 10-K (CIK 1234567890)

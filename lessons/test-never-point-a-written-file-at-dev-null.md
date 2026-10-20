@@ -36,9 +36,10 @@ and say so in the hand-off.
 - Production runs the same lookups on its first PDF export: `backend/Dockerfile` has no `USER`, its `gcc`
   pulls in binutils' `ld`, and `export_service.py` imports WeasyPrint at request time. Its `/dev/null` is a
   device, so `ld` leaves it alone.
-- Gated three times. `_no_process_gives_git_the_null_device` in `backend/tests/conftest.py` fails a test, on
-  any runner, before it starts a process whose environment, shell line or `config --file` gives git the device,
-  however the test built it; a child run in `test_suite_isolation.py` proves it.
+- Gated three times. `_install_git_null_guard` in `backend/tests/conftest.py`, installed when conftest is
+  imported, refuses on any runner a start through `subprocess`, `os.system` or `os.posix_spawn`, from a test or
+  a fixture of any scope, whose environment, shell line or `config --file` gives git the device, however it
+  was built; a child run in `test_suite_isolation.py` proves each start.
   `backend/tests/unit/test_null_device_write_targets.py` fails on any tracked code file that names
   `/dev/null` or `os.devnull` in git's `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG` or `GIT_INDEX_FILE`,
   or in `git config --file`, on every runner (CI runs as a non-root user, where nothing can replace the device).
