@@ -1,23 +1,33 @@
 """Notable-filings service: pure scoring, the EDGAR scan (stubbed EFTS), and the serve path.
 
 Hermetic: the scan is tested with a SimpleNamespace EFTS stub (the `test_earnings_calendar_engine`
-pattern) and the serve path against the real (SQLite) engine via create_all — no network.
+pattern) against the real (SQLite) engine via create_all, and the serve path against a private
+in-memory SQLite database per test, so the companies, filings and summaries a case seeds meet no
+other test's rows. No network.
 """
+import threading
 from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.config import settings
+from app.models import Company, Filing, NotableFiling, Summary
 from app.services import notable_filings_service as svc
 from app.services.notable_filings_service import (
+    MAX_FILINGS,
     MIN_COMPANIES,
+    SERVE_WINDOW_DAYS,
     NotableFilingsService,
     base_signal,
     demand_boost,
-    effective_score,
     run_scan,
 )
+from app.utils.datetimes import utcnow
+from app.utils.sec_urls import build_sec_archive_url
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -126,14 +136,6 @@ def test_demand_boost_monotone_and_bounded():
     assert demand_boost(0, 10) > demand_boost(0, 1)
     # Demand re-ranks within a tier but can't lift a 10-Q (45) over a bankruptcy (95).
     assert 45.0 + demand_boost(100, 100) < 95.0
-
-
-def test_effective_score_decay():
-    assert effective_score(80.0, 0) == 80.0
-    assert effective_score(80.0, 3.5) == pytest.approx(40.0)
-    assert effective_score(80.0, 7.0) == pytest.approx(20.0)
-    # Fresh earnings 8-K beats a 6-day-old bankruptcy — the review's ordering requirement.
-    assert effective_score(80.0, 1) > effective_score(95.0, 6)
 
 
 # ---- scan -------------------------------------------------------------------
@@ -260,103 +262,473 @@ async def test_scan_commit_failure_rolls_back():
 
 
 # ---- serve ------------------------------------------------------------------
+#
+# D-046's rule (docs/brand/decisions-log.md, F3): 10-K and 10-Q filings only, from companies that
+# hold a summary the filing page shows, newest first, one per company, at most six.
 
-@pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_serve_flag_off_returns_empty():
-    _clear()
-    today = svc.today_eastern()
-    for i, t in enumerate(["AAA", "BBB", "CCC"]):
-        _seed(t, today - timedelta(days=1), 80 + i)
-    db = _new_db()
+READY = "Revenue rose 6% as services grew."
+
+_REASON_BY_FORM = {
+    "10-K": "annual_report", "10-Q": "quarterly_report", "8-K": "earnings_results",
+    "S-1": "ipo_filing", "SC 13D": "activist_stake",
+}
+
+
+@pytest.fixture
+def serve_db():
+    """A private in-memory database for one serve case."""
+    from app.models import Base
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(bind=engine)
+    db = sessionmaker(bind=engine)()
     try:
-        # Default is off; be explicit anyway.
-        assert settings.NOTABLE_FILINGS_ENABLED is False
-        result = await NotableFilingsService().get_notable_filings(db)
-        assert result == {"filings": [], "status": "empty", "timestamp": result["timestamp"]}
+        yield db
     finally:
         db.close()
-        _clear()
+        engine.dispose()
 
 
-@pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_serve_window_dedupe_and_ranking(monkeypatch):
-    _clear()
+@pytest.fixture
+def enabled(monkeypatch):
     monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
+
+
+_OWN_CIK = object()
+
+
+def _cik(ticker):
+    """The CIK this file gives a ticker's issuer, built from its letters' code points, so a candidate
+    and its stored company agree unless a case gives one of them another."""
+    return "".join(str(ord(c)) for c in ticker).zfill(10)
+
+
+def _candidate(db, ticker, days_ago, *, form="10-K", score=50.0, cik=_OWN_CIK):
+    """A stored EDGAR candidate as the scan writes one, with no ingested filing behind it."""
+    db.add(NotableFiling(
+        accession_number=f"{ticker}-{form}-{days_ago}",
+        ticker=ticker,
+        cik=_cik(ticker) if cik is _OWN_CIK else cik,
+        company_name=f"{ticker} Inc",
+        form=form,
+        reason=_REASON_BY_FORM[form],
+        filed_date=svc.today_eastern() - timedelta(days=days_ago),
+        score=score,
+        sec_url=f"https://www.sec.gov/Archives/edgar/data/1/{ticker}/",
+    ))
+    db.commit()
+
+
+def _company(db, ticker, *filings, cik=None):
+    """A stored company with one filing per entry: a ``(body, raw_summary)`` pair for a filing with
+    that summary, or ``None`` for a filing with none. Its CIK is the ticker's own unless given."""
+    cik = cik or _cik(ticker)
+    company = Company(cik=cik, ticker=ticker, name=f"{ticker} Inc")
+    db.add(company)
+    db.flush()
+    for i, summary in enumerate(filings):
+        accession = f"{cik.zfill(10)}-26-{i:06d}"
+        url = build_sec_archive_url(cik, accession)
+        filing = Filing(company_id=company.id, accession_number=accession, filing_type="10-K",
+                        filing_date=utcnow(), sec_url=url, document_url=f"{url}doc.htm")
+        db.add(filing)
+        db.flush()
+        if summary is not None:
+            body, raw_summary = summary
+            db.add(Summary(filing_id=filing.id, business_overview=body, raw_summary=raw_summary))
+    db.commit()
+
+
+def _ready(db, *tickers):
+    """Companies that each hold one summary the filing page shows."""
+    for ticker in tickers:
+        _company(db, ticker, (READY, None))
+
+
+def _served(db, **kwargs):
+    return [(f["ticker"], f["form"]) for f in NotableFilingsService().get_notable_filings(db, **kwargs)["filings"]]
+
+
+def _tickers(service, db):
+    """The tickers one request to ``service`` serves."""
+    return [f["ticker"] for f in service.get_notable_filings(db)["filings"]]
+
+
+class _BrokenDB:
+    """A session whose every query fails, as it does while the database is down."""
+
+    def query(self, *args, **kwargs):
+        raise RuntimeError("db down")
+
+
+def test_serve_flag_off_returns_empty(serve_db):
+    _ready(serve_db, "AAA", "BBB", "CCC")
+    for days_ago, ticker in enumerate(("AAA", "BBB", "CCC"), start=1):
+        _candidate(serve_db, ticker, days_ago)
+    # Default is off; be explicit anyway.
+    assert settings.NOTABLE_FILINGS_ENABLED is False
+    result = NotableFilingsService().get_notable_filings(serve_db)
+    assert result == {"filings": [], "status": "empty", "timestamp": result["timestamp"]}
+
+
+def test_serve_drops_every_form_but_10k_and_10q(serve_db, enabled):
+    """An 8-K, an S-1 and an SC 13D are dropped though each company holds a summary to open, and a
+    newer one does not hide its company's 10-Q or 10-K: the form filter runs before the
+    one-per-company pick."""
+    _ready(serve_db, "AAA", "BBB", "CCC", "DDD")
+    _candidate(serve_db, "AAA", 1, form="8-K", score=95.0)
+    _candidate(serve_db, "BBB", 1, form="S-1")
+    _candidate(serve_db, "CCC", 1, form="SC 13D")
+    _candidate(serve_db, "AAA", 2, form="10-Q")
+    _candidate(serve_db, "BBB", 3, form="10-K")
+    _candidate(serve_db, "DDD", 4, form="10-Q")
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-K"), ("DDD", "10-Q")]
+
+
+@pytest.mark.parametrize("held", [
+    pytest.param(None, id="no stored company"),
+    pytest.param((None,), id="a filing with no summary"),
+    pytest.param((("Generating summary...", None),), id="the in-progress marker"),
+    pytest.param((("## Executive Summary\n\nSummary temporarily unavailable. Please retry.", None),),
+                 id="failure filler"),
+    pytest.param(((READY, {"writer_error": "timeout"}),), id="a writer error"),
+    pytest.param((("   ", None),), id="an empty body"),
+])
+def test_serve_drops_a_company_with_no_summary_the_page_shows(serve_db, enabled, held):
+    """The window's newest 10-K is dropped when its company holds no summary, or only one the filing
+    page would not show (summary_placeholders.is_summary_ready)."""
+    if held is not None:
+        _company(serve_db, "NOPE", *held)
+    _candidate(serve_db, "NOPE", 0, form="10-K")
+    _ready(serve_db, "AAA", "BBB", "CCC")
+    for days_ago, ticker in enumerate(("AAA", "BBB", "CCC"), start=1):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-Q")]
+
+
+def test_serve_counts_a_ready_summary_of_any_filing(serve_db, enabled):
+    """A candidate is an EDGAR row, not an ingested filing: a 10-Q is served when its company holds a
+    summary the page shows of another filing, here beside a filing with none and one mid-run. Prose
+    about generating summaries is a summary, since the in-progress marker is case-sensitive."""
+    _company(serve_db, "AAA", None, ("Generating summary...", None), (READY, None))
+    _company(serve_db, "BBB", ("Management reworked its revenue-generating summary reports.", None))
+    _ready(serve_db, "CCC")
+    _candidate(serve_db, "AAA", 1, form="10-Q")
+    _candidate(serve_db, "BBB", 2, form="10-Q")
+    _candidate(serve_db, "CCC", 3, form="10-K")
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-K")]
+
+
+def test_serve_counts_a_summary_graded_partial(serve_db, enabled):
+    """D-046's summary is one the filing page shows (``is_summary_ready``), and the page shows a
+    summary the quality grader marked Partial, so it counts. Leaving it out would be one more
+    condition on the rule, which is the founder's to add (#1437's Founder actions)."""
+    graded = {"quality": {"tier": "partial", "reasons": ["The segment table could not be read."]}}
+    _company(serve_db, "PRT", (READY, graded))
+    _ready(serve_db, "AAA", "BBB", "CCC")
+    _candidate(serve_db, "PRT", 0, form="10-K")
+    for days_ago, ticker in enumerate(("AAA", "BBB", "CCC"), start=1):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    assert _served(serve_db) == [("PRT", "10-K"), ("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-Q")]
+
+
+def test_serve_reads_the_summaries_of_the_windows_issuers_only(serve_db, enabled, monkeypatch):
+    """The summary read is held to the window's issuers, so a fill reads none of a stored company's
+    summaries when that company has no candidate this week, rather than every summary stored."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers, "IDLE")
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    tested = []
+    ready = svc.is_summary_ready
+
+    def counted(overview, writer_error=None):
+        tested.append(overview)
+        return ready(overview, writer_error)
+
+    monkeypatch.setattr(svc, "is_summary_ready", counted)
+    assert _served(serve_db) == [(ticker, "10-Q") for ticker in tickers]
+    assert len(tested) == len(tickers)
+
+
+@pytest.mark.parametrize("case", [
+    pytest.param("reused", id="an older issuer holds the ticker"),
+    pytest.param("moved", id="its issuer is stored under another ticker"),
+    pytest.param("no cik", id="the scan stored no CIK"),
+])
+def test_serve_matches_a_candidate_to_its_own_issuer(serve_db, enabled, case):
+    """The test is at the candidate's issuer, the stored company holding its CIK, which must carry
+    its ticker too. A reused ticker's older issuer lends no summary (``Company.ticker`` is not
+    unique); an issuer stored under another ticker is not the company the card opens; a candidate
+    with no CIK has no issuer to test."""
+    if case == "reused":
+        _company(serve_db, "NEW", (READY, None), cik="0000000777")
+        _company(serve_db, "NEW", None)
+        _candidate(serve_db, "NEW", 0)
+    elif case == "moved":
+        _company(serve_db, "WAS", (READY, None), cik=_cik("NEW"))
+        _candidate(serve_db, "NEW", 0)
+    else:
+        _ready(serve_db, "NEW")
+        _candidate(serve_db, "NEW", 0, cik=None)
+    _ready(serve_db, "AAA", "BBB", "CCC")
+    for days_ago, ticker in enumerate(("AAA", "BBB", "CCC"), start=1):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-Q")]
+
+
+def test_serve_matches_a_cik_in_either_spelling(serve_db, enabled):
+    """A CIK matches zero-padded or stripped, on the candidate or the stored company, as
+    ``company_resolution`` matches one."""
+    _company(serve_db, "AAA", (READY, None), cik=_cik("AAA").lstrip("0"))
+    _ready(serve_db, "BBB", "CCC")
+    _candidate(serve_db, "AAA", 1, form="10-Q")
+    _candidate(serve_db, "BBB", 2, form="10-Q", cik=_cik("BBB").lstrip("0"))
+    _candidate(serve_db, "CCC", 3, form="10-K")
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-K")]
+
+
+def test_serve_orders_newest_first_with_the_score_breaking_a_tie(serve_db, enabled):
+    """Newest first whatever the score; on one day the higher stored score leads. A company's newest
+    row stands for it, and a row outside the window is not served."""
+    _ready(serve_db, "AAA", "BBB", "CCC", "DDD", "OLD")
+    _candidate(serve_db, "DDD", 5, form="10-K", score=90.0)
+    _candidate(serve_db, "BBB", 3, form="10-K", score=55.0)
+    _candidate(serve_db, "AAA", 1, form="10-Q", score=45.0)
+    _candidate(serve_db, "CCC", 1, form="10-Q", score=60.0)
+    _candidate(serve_db, "BBB", 2, form="10-Q", score=45.0)
+    _candidate(serve_db, "OLD", SERVE_WINDOW_DAYS + 3, form="10-K", score=99.0)
+    assert _served(serve_db) == [("CCC", "10-Q"), ("AAA", "10-Q"), ("BBB", "10-Q"), ("DDD", "10-K")]
+
+
+@pytest.mark.parametrize("order", [("AAA", "BBB", "CCC"), ("CCC", "BBB", "AAA")],
+                         ids=["seeded in accession order", "seeded in reverse"])
+def test_serve_breaks_a_tie_of_day_and_score_by_accession_number(serve_db, enabled, order):
+    """Filings of one day and one score (every unwatched 10-Q stores 45.0) keep their accession
+    numbers' order, so each fill picks the same companies for the six places. Seeded both ways,
+    since without the key a database returns tied rows in an order of its own."""
+    _ready(serve_db, *order)
+    for ticker in order:
+        _candidate(serve_db, ticker, 1, form="10-Q", score=45.0)
+    assert _served(serve_db) == [("AAA", "10-Q"), ("BBB", "10-Q"), ("CCC", "10-Q")]
+
+
+def test_serve_keeps_a_filing_exactly_a_week_old(serve_db, enabled, monkeypatch):
+    """The window is the past week with its first day: a filing dated seven days ago is served. New
+    York's day is held still, so a midnight between seeding and serving cannot move the edge."""
     today = svc.today_eastern()
-    # Fresh earnings (decayed 80) must outrank an older bankruptcy (decayed 95).
-    _seed("AAPL", today - timedelta(days=1), 80, reason="earnings_results")
-    _seed("DOOM", today - timedelta(days=6), 95, reason="bankruptcy")
-    # Two MSFT rows → only the better (fresher) one serves.
-    _seed("MSFT", today - timedelta(days=1), 55, reason="annual_report")
-    _seed("MSFT", today - timedelta(days=5), 55, reason="annual_report", accession="msft-old")
-    # Outside the 7-day window → invisible even though unpruned.
-    _seed("STALE", today - timedelta(days=10), 95)
-
-    db = _new_db()
-    try:
-        result = await NotableFilingsService().get_notable_filings(db)
-        assert result["status"] == "ok"
-        tickers = [f["ticker"] for f in result["filings"]]
-        assert tickers == ["AAPL", "MSFT", "DOOM"]
-        by_ticker = {f["ticker"]: f for f in result["filings"]}
-        assert by_ticker["AAPL"]["reason_label"] == "Results or financial condition"
-        assert by_ticker["MSFT"]["filed_date"] == (today - timedelta(days=1)).isoformat()
-    finally:
-        db.close()
-        _clear()
+    monkeypatch.setattr(svc, "today_eastern", lambda: today)
+    tickers = ["AAA", "BBB", "CCC", "EDGE"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in zip((1, 2, 3, SERVE_WINDOW_DAYS), tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    assert _served(serve_db) == [(ticker, "10-Q") for ticker in tickers]
 
 
-@pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_serve_below_min_companies_is_empty(monkeypatch):
-    _clear()
-    monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
-    today = svc.today_eastern()
-    for t in ["AAA", "BBB"][: MIN_COMPANIES - 1]:
-        _seed(t, today - timedelta(days=1), 80)
-
-    db = _new_db()
-    try:
-        result = await NotableFilingsService().get_notable_filings(db)
-        assert result["status"] == "empty"
-        assert result["filings"] == []
-    finally:
-        db.close()
-        _clear()
-
-
-@pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_serve_limit_slices_full_ranked_list(monkeypatch):
-    _clear()
-    monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
-    today = svc.today_eastern()
-    for i in range(5):
-        _seed(f"TK{i}", today - timedelta(days=1), 50 + i)
-
-    db = _new_db()
-    try:
-        service = NotableFilingsService()
-        top2 = await service.get_notable_filings(db, limit=2)
-        assert [f["ticker"] for f in top2["filings"]] == ["TK4", "TK3"]
-        # Same cache window, larger limit → full list (cache holds the unsliced ranking).
-        top5 = await service.get_notable_filings(db, limit=5)
-        assert len(top5["filings"]) == 5
-    finally:
-        db.close()
-        _clear()
+def test_serve_caps_at_six_and_slices_within_the_cap(serve_db, enabled):
+    """At most six however large ``limit`` is, read in two queries for the whole window; within one
+    cache window a small and a large ``limit`` each get their own slice of the same list."""
+    assert MAX_FILINGS == 6
+    tickers = [f"TK{i}" for i in range(MAX_FILINGS + 2)]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    statements = []
+    event.listen(serve_db.get_bind(), "before_cursor_execute", lambda *args: statements.append(args[2]))
+    service = NotableFilingsService()
+    top2 = service.get_notable_filings(serve_db, limit=2)
+    assert [f["ticker"] for f in top2["filings"]] == ["TK0", "TK1"]
+    widest = service.get_notable_filings(serve_db, limit=12)
+    assert [f["ticker"] for f in widest["filings"]] == tickers[:MAX_FILINGS]
+    assert len(statements) == 2, statements
 
 
-@pytest.mark.asyncio
-async def test_serve_never_raises_on_query_error(monkeypatch):
-    monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
+def test_a_miss_during_a_fill_waits_for_it_and_reads_nothing(serve_db, enabled, monkeypatch):
+    """Single flight: a request that misses while another fills the cache waits for that fill and
+    serves it, so a cold cache costs one fill's two queries however many requests arrive at once
+    (Codex on #1437, r4329140507). The first fill is held until the second request reaches the
+    lock, or reaches a fill of its own if nothing stops it."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    statements = []
+    event.listen(serve_db.get_bind(), "before_cursor_execute", lambda *args: statements.append(args[2]))
+    service = NotableFilingsService()
+    fetch, lock = service._fetch, service._fill_lock
+    filling, second, release = threading.Event(), threading.Event(), threading.Event()
+    calls = {"fetch": 0, "lock": 0}
 
-    class _BrokenDB:
-        def query(self, *args, **kwargs):
-            raise RuntimeError("db down")
+    def held_fetch(db, today):
+        calls["fetch"] += 1
+        (filling if calls["fetch"] == 1 else second).set()
+        assert release.wait(5)
+        return fetch(db, today)
 
-    result = await NotableFilingsService().get_notable_filings(_BrokenDB())
+    class _Watched:
+        """The service's lock, telling the case when a second request reaches it."""
+
+        def __enter__(self):
+            calls["lock"] += 1
+            if calls["lock"] == 2:
+                second.set()
+            return lock.__enter__()
+
+        def __exit__(self, *exc):
+            return lock.__exit__(*exc)
+
+    monkeypatch.setattr(service, "_fetch", held_fetch)
+    monkeypatch.setattr(service, "_fill_lock", _Watched())
+    served = []
+
+    def request():
+        served.append([f["ticker"] for f in service.get_notable_filings(serve_db)["filings"]])
+
+    first = threading.Thread(target=request)
+    first.start()
+    assert filling.wait(5)
+    late = threading.Thread(target=request)
+    late.start()
+    assert second.wait(5)
+    release.set()
+    first.join(5)
+    late.join(5)
+    assert served == [tickers, tickers]
+    assert calls["fetch"] == 1
+    assert len(statements) == 2, statements
+
+
+def test_a_failed_read_lets_the_next_waiter_read_again(serve_db, enabled, monkeypatch):
+    """A request waiting behind a fill whose read fails reads again rather than serve that failure,
+    and its success fills the cache for the request after it
+    (lessons/arch-cache-only-reads-that-succeeded.md). The first read is held until the second
+    request reaches the lock, then fails as a database outage does."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    service = NotableFilingsService()
+    fetch, lock = service._fetch, service._fill_lock
+    filling, waiting, release = threading.Event(), threading.Event(), threading.Event()
+    calls = {"fetch": 0, "lock": 0}
+
+    def failing_first(db, today):
+        calls["fetch"] += 1
+        if calls["fetch"] > 1:
+            return fetch(db, today)
+        filling.set()
+        assert release.wait(5)
+        return fetch(_BrokenDB(), today)
+
+    class _Watched:
+        """The service's lock, telling the case when a second request reaches it."""
+
+        def __enter__(self):
+            calls["lock"] += 1
+            if calls["lock"] == 2:
+                waiting.set()
+            return lock.__enter__()
+
+        def __exit__(self, *exc):
+            return lock.__exit__(*exc)
+
+    monkeypatch.setattr(service, "_fetch", failing_first)
+    monkeypatch.setattr(service, "_fill_lock", _Watched())
+    served = {}
+
+    def request(name):
+        served[name] = _tickers(service, serve_db)
+
+    first = threading.Thread(target=request, args=("first",))
+    first.start()
+    assert filling.wait(5)
+    second = threading.Thread(target=request, args=("second",))
+    second.start()
+    assert waiting.wait(5)
+    release.set()
+    first.join(5)
+    second.join(5)
+    request("third")
+    assert served == {"first": [], "second": tickers, "third": tickers}
+    assert calls == {"fetch": 2, "lock": 2}
+
+
+def test_serve_below_min_companies_is_empty(serve_db, enabled):
+    tickers = ["AAA", "BBB"][: MIN_COMPANIES - 1]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers, start=1):
+        _candidate(serve_db, ticker, days_ago)
+    result = NotableFilingsService().get_notable_filings(serve_db)
     assert result["status"] == "empty"
     assert result["filings"] == []
+
+
+def test_serve_never_raises_on_query_error(enabled):
+    result = NotableFilingsService().get_notable_filings(_BrokenDB())
+    assert result["status"] == "empty"
+    assert result["filings"] == []
+
+
+def test_a_failed_summary_read_is_caught_and_not_cached(serve_db, enabled, monkeypatch):
+    """The summary read sits inside the window read's guard: when it fails, the request is served
+    the empty section, not a 500, and the next request reads again."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    service = NotableFilingsService()
+    ready = svc._issuers_with_ready_summary
+
+    def down(db, issuers):
+        raise RuntimeError("summary read down")
+
+    monkeypatch.setattr(svc, "_issuers_with_ready_summary", down)
+    failed = service.get_notable_filings(serve_db)
+    assert (failed["status"], failed["filings"]) == ("empty", [])
+    monkeypatch.setattr(svc, "_issuers_with_ready_summary", ready)
+    assert _tickers(service, serve_db) == tickers
+
+
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+def test_a_failed_read_is_not_cached(serve_db, enabled, monkeypatch, warm):
+    """A failed read serves its own request the empty section and leaves the cache as it was, so the
+    next request reads again (lessons/arch-cache-only-reads-that-succeeded.md). Warm: a success is
+    still inside the TTL when New York's day turns, so only the day key sends the read that fails
+    to the database."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    service = NotableFilingsService()
+    if warm:
+        assert _tickers(service, serve_db) == tickers
+        tomorrow = svc.today_eastern() + timedelta(days=1)
+        monkeypatch.setattr(svc, "today_eastern", lambda: tomorrow)
+    failed = service.get_notable_filings(_BrokenDB())
+    assert (failed["status"], failed["filings"]) == ("empty", [])
+    assert _tickers(service, serve_db) == tickers
+
+
+def test_a_successful_empty_read_is_cached(serve_db, enabled):
+    """An empty window is a read that succeeded: it is read once and then served from the cache."""
+    statements = []
+    event.listen(serve_db.get_bind(), "before_cursor_execute", lambda *args: statements.append(args[2]))
+    service = NotableFilingsService()
+    for _ in range(2):
+        result = service.get_notable_filings(serve_db)
+        assert (result["status"], result["filings"]) == ("empty", [])
+    assert len(statements) == 1, statements
+
+
+def test_a_cached_answer_carries_the_time_of_its_fill(serve_db, enabled):
+    """``timestamp`` is when the list was read: an answer from the cache reports its fill's time, not
+    the time of the request it answers."""
+    tickers = ["AAA", "BBB", "CCC"]
+    _ready(serve_db, *tickers)
+    for days_ago, ticker in enumerate(tickers):
+        _candidate(serve_db, ticker, days_ago, form="10-Q")
+    service = NotableFilingsService()
+    filled = service.get_notable_filings(serve_db)
+    cached = service.get_notable_filings(serve_db)
+    assert [f["ticker"] for f in cached["filings"]] == tickers
+    assert cached["timestamp"] == filled["timestamp"]
