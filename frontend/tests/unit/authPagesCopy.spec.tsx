@@ -69,41 +69,127 @@ function verifyLinkHours(): number {
   return Number(hours)
 }
 
-/** Every `.py` file under backend/app, relative to backend/. */
+/** The directories under backend/ the server never runs: its tests, its one-off scripts, its offline evals, caches. */
+const NOT_SERVED = new Set(['tests', 'scripts', 'evals', '__pycache__', 'venv', 'node_modules'])
+
+/**
+ * Every `.py` file the backend can run, relative to backend/: main.py (the app-wide middleware lives there),
+ * task_worker_main.py and everything under app/, any other directory but NOT_SERVED and a hidden one included.
+ */
 function backendFiles(): string[] {
   const files = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
       const full = path.join(dir, entry.name)
-      if (entry.isDirectory()) return entry.name === '__pycache__' ? [] : files(full)
+      if (entry.isDirectory()) return NOT_SERVED.has(entry.name) || entry.name.startsWith('.') ? [] : files(full)
       return entry.name.endsWith('.py') ? [full] : []
     })
-  return files(path.join(BACKEND, 'app')).map((file) => path.relative(BACKEND, file).split(path.sep).join('/'))
+  return files(BACKEND).map((file) => path.relative(BACKEND, file).split(path.sep).join('/'))
 }
 
-/**
- * Each match of `match` (a global pattern) in `source`, as `file::function`: the nearest `def` at or above
- * the line the match starts on. The whole file is read, so a match may run across lines.
- */
-function sites(rel: string, source: string, match: RegExp): string[] {
-  if (!match.global) throw new Error('sites() reads every match: give the pattern the g flag')
-  const lines = source.split('\n')
-  return [...source.matchAll(match)].map((found) => {
-    const line = source.slice(0, found.index).split('\n').length - 1
-    const def = lines.slice(0, line + 1).reverse().find((l) => /^\s*(?:async\s+)?def\s+\w+/.test(l))
-    return `${rel}::${def?.match(/def\s+(\w+)/)?.[1] ?? '<module>'}`
+/** A site as `file::function`: the nearest `def` at or above a line (1-based) of a Python source's lines. */
+function siteAt(rel: string, lines: string[], line: number): string {
+  const def = lines.slice(0, line).reverse().find((l) => /^\s*(?:async\s+)?def\s+\w+/.test(l))
+  return `${rel}::${def?.match(/def\s+(\w+)/)?.[1] ?? '<module>'}`
+}
+
+/** A Python source's string literals as Python reads them: each run of adjacent literals (implicit concatenation,
+    over lines or a backslash) one string, with the line it starts on; comments are no string. Literals joined by `+`
+    (`"Please verify " + "your email first."`) stay two strings, so the words scan misses a sentence split that way
+    (a limit: the email_verified read scan below still finds the gate). */
+function pythonStrings(source: string): Array<{ text: string; line: number }> {
+  const toks = pythonTokens(source).filter((t) => !(t.kind === 'op' && t.text === '\\'))
+  const out: Array<{ text: string; line: number }> = []
+  toks.forEach((t, k) => {
+    if (t.kind !== 'str') return
+    if (toks[k - 1]?.kind === 'str') out[out.length - 1].text += t.text
+    else out.push({ text: t.text, line: t.line })
   })
+  return out
+}
+
+/** Each string in a Python source that `match` finds, as `file::function`. */
+function stringSites(rel: string, source: string, match: RegExp): string[] {
+  const lines = source.split('\n')
+  return pythonStrings(source).filter(({ text }) => match.test(text)).map(({ line }) => siteAt(rel, lines, line))
 }
 
 /**
- * Every backend line that says "verify your email" (the words lib/api/client.ts reads off a 403 to open
- * the verification dialog), as `file::function`. The mail bodies (`app/services/email_service.py`) are
+ * Every backend string that says "verify your email" (the words lib/api/client.ts reads off a 403 to open
+ * the verification dialog), as `file::function`, read as Python reads its strings: a detail split across
+ * literals reads whole, and a comment is no string. The mail bodies (`app/services/email_service.py`) are
  * copy sent to an inbox and are left out: that service cannot raise a 403, since
  * `backend/tests/unit/test_services_http_free_allowlist.py` keeps it free of fastapi.
  */
 function verifyEmailRefusals(): string[] {
   return backendFiles()
     .filter((rel) => rel !== 'app/services/email_service.py')
-    .flatMap((rel) => sites(rel, backend(rel), /verify your email/gi))
+    .flatMap((rel) => stringSites(rel, backend(rel), /verify your email/i))
+}
+
+/**
+ * Every refusal a route body raises, read on its tokens: each HTTPException, its status `status_code=` or the
+ * first argument (`status.HTTP_400_…` or a number) and its detail `detail=` or the second, and each other call
+ * that passes a `detail=` (an exception of the app's own, any callee), its status `status_code=`; the detail's
+ * adjacent string literals joined in any quoting. A detail written any other way (a name, a call) is unreadable,
+ * and a status other than 400, or none the scan can read, is a reason /verify-email cannot show
+ * (verifyEmailFailureMessage reads a 400's alone), so each is a problem. A refusal whose detail is not written in
+ * the body (a helper that builds it, an exception handler) is review-checked.
+ */
+/** The names a router module gives HTTPException: its own, and each alias an import (`HTTPException as ApiError`) or
+    an assignment (`ApiError = HTTPException`) gives it. */
+function exceptionNames(module: string): Set<string> {
+  // Only an import names an alias (an `except HTTPException as exc:` binds the instance, not the class).
+  const imports = [...module.matchAll(/^[ \t]*from[ \t]+[\w.]+[ \t]+import[ \t]+(\([^)]*\)|[^\n]*)/gm)].map((m) => m[1])
+  const aliases = [
+    ...imports.flatMap((list) => [...list.matchAll(/\bHTTPException\s+as\s+([A-Za-z_]\w*)/g)]),
+    ...module.matchAll(/^[ \t]*([A-Za-z_]\w*)\s*=\s*(?:[A-Za-z_]\w*\.)*HTTPException[ \t]*$/gm),
+  ].map((m) => m[1])
+  return new Set(['HTTPException', ...aliases])
+}
+
+function refusalsIn(body: string, exceptions: ReadonlySet<string> = new Set(['HTTPException'])): { reasons: string[]; problems: string[] } {
+  const toks = pythonTokens(body).filter((t) => !(t.kind === 'op' && t.text === '\\'))
+  const reasons: string[] = []
+  const problems: string[] = []
+  toks.forEach((t, k) => {
+    // A call: a name and its parenthesis, where no `def` declares it (a parameter's default is no refusal).
+    if (t.kind !== 'name' || toks[k + 1]?.text !== '(' || (toks[k - 1]?.kind === 'name' && toks[k - 1].text === 'def')) return
+    const args: Token[][] = [[]]
+    for (let j = k + 2, depth = 1; j < toks.length; j++) {
+      const tok = toks[j]
+      if (tok.kind === 'op' && '([{'.includes(tok.text)) depth++
+      else if (tok.kind === 'op' && ')]}'.includes(tok.text) && --depth === 0) break
+      if (depth === 1 && tok.kind === 'op' && tok.text === ',') args.push([])
+      else args[args.length - 1].push(tok)
+    }
+    const isKeyword = (arg: Token[]) => arg[0]?.kind === 'name' && arg[1]?.text === '=' && arg[2]?.text !== '='
+    const keyword = (name: string) => args.find((arg) => isKeyword(arg) && arg[0].text === name)?.slice(2)
+    // Only an HTTPException's arguments, under any name the module gives it, are known by place; any other call is
+    // read by its keywords. A call raised with an argument by place and no `detail=` is one the scan cannot read: it
+    // may carry a reason (Codex on 74fe2f53), so it fails closed.
+    const exception = exceptions.has(t.text)
+    const positional = exception ? args.filter((arg) => arg.length > 0 && !isKeyword(arg)) : []
+    let start = k
+    while (toks[start - 1]?.text === '.' && toks[start - 2]?.kind === 'name') start -= 2
+    const raised = toks[start - 1]?.kind === 'name' && toks[start - 1].text === 'raise'
+    if (!exception && !keyword('detail')) {
+      if (raised && args.some((arg) => arg.length > 0 && !isKeyword(arg))) problems.push(`a raised call the scan cannot read: ${t.text}(…)`)
+      return
+    }
+    const status = (keyword('status_code') ?? positional[0] ?? []).map((tok) => tok.text).join('')
+    const detail = keyword('detail') ?? positional[1] ?? []
+    if (!detail.length || detail.some((tok) => tok.kind !== 'str')) {
+      problems.push(`a detail the scan cannot read: ${detail.map((tok) => tok.text).join(' ') || 'none'}`)
+      return
+    }
+    const reason = detail.map((tok) => tok.text).join('')
+    reasons.push(reason)
+    const code = status.match(/\bHTTP_(\d{3})_|^(\d{3})$/)
+    if ((code?.[1] ?? code?.[2]) !== '400') {
+      problems.push(`"${reason}" is raised with ${status ? `status ${status}` : 'no status the scan can read'}: /verify-email shows a reason only for a 400`)
+    }
+  })
+  return { reasons, problems }
 }
 
 /**
@@ -212,10 +298,65 @@ describe('verify email', () => {
     expect(screen.queryByText(/resend/i)).toBeNull()
   })
 
-  it("lists exactly the endpoint's reasons (backend/app/routers/auth.py::verify_email)", () => {
+  it("lists exactly the endpoint's reasons (backend/app/routers/auth.py::verify_email), each a 400 the scan can read", () => {
     const router = backend('app/routers/auth.py')
     const body = router.match(/^async def verify_email\b[\s\S]*?(?=^@|^(?:async )?def )/m)?.[0] ?? ''
-    expect([...body.matchAll(/detail="([^"]+)"/g)].map((m) => m[1]).sort()).toEqual([...VERIFY_EMAIL_REASONS].sort())
+    const { reasons, problems } = refusalsIn(body, exceptionNames(router))
+    expect(problems, 'write each reason as a string literal on a 400, the one status /verify-email shows a reason for').toEqual([])
+    expect([...reasons].sort()).toEqual([...VERIFY_EMAIL_REASONS].sort())
+  })
+
+  it('the reasons reader takes any quoting, a split literal, a positional detail and a refusal of another class, and refuses a name or another status (self-check)', () => {
+    const planted = [
+      'async def verify_email(payload, db):',
+      '    try:',
+      '        user = verify(db, payload.token)',
+      '    except A:',
+      '        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Double quoted.") from None',
+      '    except B:',
+      "        raise HTTPException(status_code=400, detail='Single quoted.') from None",
+      '    except C:',
+      '        raise HTTPException(',
+      '            status.HTTP_400_BAD_REQUEST,',
+      '            "Split across "',
+      '            "two literals.",',
+      '        ) from None',
+      '    except D:',
+      '        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=LINK_USED) from None',
+      '    except E:',
+      '        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Moved to a 410.") from None',
+      // A refusal of another class is read by its keywords (main read every detail= in the body): one with no status, one a 400.
+      '    except F:',
+      '        raise LinkError(detail="Raised another way.") from None',
+      '    except G:',
+      '        raise errors.LinkError(status_code=status.HTTP_400_BAD_REQUEST, detail="A 400 of its own.") from None',
+      // HTTPException under a name the module gives it is read by place; another call raised by place fails closed.
+      '    except H:',
+      '        raise ApiError(400, "Aliased by an import.") from None',
+      '    except I:',
+      '        raise Refusal(status.HTTP_400_BAD_REQUEST, "Aliased by an assignment.") from None',
+      '    except J:',
+      '        raise errors.OtherError(400, "Raised by place.") from None',
+      '    except K:',
+      '        raise NoArguments() from None',
+      // A parameter's default named detail is no refusal.
+      '    def note(detail="Not a refusal."):',
+      '        return detail',
+    ].join('\n')
+    const names = exceptionNames('from fastapi import HTTPException as ApiError, status\nRefusal = fastapi.HTTPException\ntry:\n    pass\nexcept HTTPException as caught:\n    pass\n')
+    expect([...names].sort()).toEqual(['ApiError', 'HTTPException', 'Refusal'])
+    expect(refusalsIn(planted, names)).toEqual({
+      reasons: [
+        'Double quoted.', 'Single quoted.', 'Split across two literals.', 'Moved to a 410.', 'Raised another way.', 'A 400 of its own.',
+        'Aliased by an import.', 'Aliased by an assignment.',
+      ],
+      problems: [
+        'a detail the scan cannot read: LINK_USED',
+        '"Moved to a 410." is raised with status status.HTTP_410_GONE: /verify-email shows a reason only for a 400',
+        '"Raised another way." is raised with no status the scan can read: /verify-email shows a reason only for a 400',
+        'a raised call the scan cannot read: OtherError(…)',
+      ],
+    })
   })
 
   // What lib/api/client.ts's interceptor actually throws when the answer carries no reason of the server's.
@@ -301,6 +442,25 @@ describe('verification banner and dialog', () => {
     expect(verifyEmailRefusals(), 'a new "verify your email" refusal: name what it gates in the banner and the dialog, then list it here').toEqual([
       'app/routers/subscriptions.py::create_checkout_session',
     ])
+  })
+
+  it('the "verify your email" scan reads a refusal split across literals and wherever the backend runs, and not a comment (self-check)', () => {
+    const planted = [
+      'async def export_filing(current_user):',
+      '    # Please verify your email first: a comment, not a refusal',
+      '    raise HTTPException(',
+      '        status_code=403,',
+      '        detail="Please verify your "',
+      '        "email before exporting.",',
+      '    )',
+      'def later():',
+      "    return 'Verify your ' \\",
+      "        'email to subscribe.'",
+    ].join('\n')
+    expect(stringSites('app/routers/probe.py', planted, /verify your email/i)).toEqual(['app/routers/probe.py::export_filing', 'app/routers/probe.py::later'])
+    // The app-wide middleware lives in main.py, beside the worker's entry point: both are read with app/.
+    expect(backendFiles(), 'the scan reads every module the backend runs').toEqual(expect.arrayContaining(['main.py', 'task_worker_main.py', 'app/routers/subscriptions.py']))
+    expect(backendFiles().filter((rel) => /^(?:tests|scripts|evals)\//.test(rel)), 'tests, scripts and evals never serve a request').toEqual([])
   })
 
   it('every backend read of email_verified is listed with what it does, so a gate worded any way fails until the banner and the dialog name it', () => {

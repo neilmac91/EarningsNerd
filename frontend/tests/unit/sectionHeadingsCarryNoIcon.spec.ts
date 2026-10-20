@@ -14,11 +14,14 @@ import { describe, expect, it } from 'vitest'
  * between the two is skipped. A fragment's children are siblings as an element's are. Each side is read one
  * wrapper deep: an element holding only icons before the heading (a chip `<span>` around one), or an element
  * holding the heading after the icon (a `<div>` with the heading and its description). A heading that titles
- * a notice or an empty state, not a section, keeps the icon that carries its state (NOT_SECTION_HEADINGS,
- * pinned one heading at a time).
+ * a notice or an empty state, not a section, keeps the icon that carries its state (NOT_SECTION_HEADINGS):
+ * each entry is pinned to its file, its heading's words and its site (the icon and where it sits), and takes
+ * one find, so an icon put inside that heading, another icon beside it, or a second heading with the same words
+ * fails.
  *
- * Limits: a wrapper two deep on either side, an icon passed as a prop or built in another file, and a heading
- * written as a component rather than an <h2>/<h3> are not read; review reads them.
+ * Limits: a wrapper two deep on either side, an icon passed as a prop or built in another file, a heading
+ * written as a component rather than an <h2>/<h3>, and an icon after the heading (`<h3>Notifications</h3><BellIcon />`,
+ * though D-033 says "beside it") are not read; review reads them.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app/dashboard', 'features/settings', 'features/subscriptions', 'features/dashboard']
@@ -27,11 +30,15 @@ const HEADINGS = new Set(['h2', 'h3'])
 type JsxNode = ts.JsxElement | ts.JsxSelfClosingElement
 const isJsxNode = (node: ts.Node): node is JsxNode => ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)
 
-/** Every icon rendered inside, or directly before, a heading: the site as `file:line <Icon> where <hN>`, and the heading's words. */
-function headingIcons(file: string, text: string): Array<{ site: string; heading: string }> {
+/** One icon on a heading: the site as `file:line <Icon> where <hN>`, its place (the site without its line), and the heading's words. */
+type HeadingIcon = { site: string; place: string; heading: string }
+
+/** Every icon rendered inside, or directly before, a heading. */
+function headingIcons(file: string, text: string): HeadingIcon[] {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const found: Array<{ site: string; heading: string }> = []
-  const at = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart()).line + 1
+  const found: HeadingIcon[] = []
+  const add = (at: ts.Node, place: string, heading: JsxNode) => found.push({ site: `${file}:${line(at)} ${place}`, place, heading: words(heading) })
+  const line = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart()).line + 1
   const tagOf = (node: JsxNode) => (ts.isJsxElement(node) ? node.openingElement.tagName : node.tagName).getText(source)
   const isIcon = (node: JsxNode) => /Icon$/.test(tagOf(node))
   const isHeading = (node: JsxNode) => HEADINGS.has(tagOf(node))
@@ -102,13 +109,11 @@ function headingIcons(file: string, text: string): Array<{ site: string; heading
       const heading = node
       const outside = (element: JsxNode) => element.getStart() < heading.getStart() || element.getEnd() > heading.getEnd()
       const inside = (child: ts.Node): void => {
-        if (isJsxNode(child) && isIcon(child)) {
-          found.push({ site: `${file}:${at(child)} <${tagOf(child)}> inside <${tagOf(heading)}>`, heading: words(heading) })
-        }
+        if (isJsxNode(child) && isIcon(child)) add(child, `<${tagOf(child)}> inside <${tagOf(heading)}>`, heading)
         // An icon a const holds (`{icon}`) is written elsewhere: report it where the heading renders it.
         if (ts.isJsxExpression(child)) {
           for (const element of rendered(child).filter(outside)) {
-            if (isIcon(element)) found.push({ site: `${file}:${at(child)} <${tagOf(element)}> inside <${tagOf(heading)}>`, heading: words(heading) })
+            if (isIcon(element)) add(child, `<${tagOf(element)}> inside <${tagOf(heading)}>`, heading)
           }
         }
         ts.forEachChild(child, inside)
@@ -123,9 +128,7 @@ function headingIcons(file: string, text: string): Array<{ site: string; heading
         if (!headings.length) return
         const before = siblings[i - 1]
         for (const icon of iconsBefore(before)) {
-          for (const heading of headings) {
-            found.push({ site: `${file}:${at(before)} <${tagOf(icon)}> before <${tagOf(heading)}>`, heading: words(heading) })
-          }
+          for (const heading of headings) add(before, `<${tagOf(icon)}> before <${tagOf(heading)}>`, heading)
         }
       })
     }
@@ -137,21 +140,36 @@ function headingIcons(file: string, text: string): Array<{ site: string; heading
 
 /**
  * Headings that title a notice or an empty state rather than a section, so the icon beside them carries the
- * state, as the design system's Notice and GuidanceCard do. Each entry is ONE heading, pinned by its file and
- * its whole text; shrink-only, so an entry no heading takes any more fails.
+ * state, as the design system's Notice and GuidanceCard do. Each entry is ONE icon on ONE heading, pinned by
+ * its file, the heading's whole text and the icon's place (`<Icon> before <hN>`), and takes one find
+ * (exempted, below); shrink-only, so an entry no find takes any more fails.
  */
-const NOT_SECTION_HEADINGS: Array<{ file: string; heading: string; why: string }> = [
+type Exemption = { file: string; place: string; heading: string; why: string }
+const NOT_SECTION_HEADINGS: Exemption[] = [
   {
     file: 'app/dashboard/settings/page.tsx',
+    place: '<WarningCircleIcon> before <h3>',
     heading: 'Warning: This action is permanent',
     why: "the delete confirmation's warning callout: its icon is the status icon a Notice carries beside its title (DESIGN_SYSTEM.md, Inline notice)",
   },
   {
     file: 'features/dashboard/components/FeedOnboarding.tsx',
+    place: '<NewspaperIcon> before <h3>',
     heading: 'Follow your first company',
     why: "the empty feed's panel in GuidanceCard's look: the brand-tint icon above its title (DESIGN_SYSTEM.md, GuidanceCard)",
   },
 ]
+
+/** The finds no entry takes, each entry taking the first find at its file, place and heading, and the entries no find takes. */
+function exempted(finds: Array<HeadingIcon & { file: string }>, entries: Exemption[]) {
+  const taken = new Set<Exemption>()
+  const left = finds.filter((find) => {
+    const entry = entries.find((e) => !taken.has(e) && e.file === find.file && e.place === find.place && e.heading === find.heading)
+    if (entry) taken.add(entry)
+    return !entry
+  })
+  return { left: left.map(({ site }) => site), stale: entries.filter((entry) => !taken.has(entry)).map(({ file, heading }) => `${file}: ${heading}`) }
+}
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
@@ -209,10 +227,30 @@ describe('Section headings in settings and on the dashboard carry no icon', () =
       'features/dashboard/components/FilingFeed.tsx',
     ]))
     const finds = files.flatMap((file, i) => headingIcons(rels[i], readFileSync(file, 'utf8')).map((find) => ({ ...find, file: rels[i] })))
-    const exempt = (entry: (typeof NOT_SECTION_HEADINGS)[number]) => (find: (typeof finds)[number]) =>
-      find.file === entry.file && find.heading === entry.heading
-    expect(finds.filter((find) => !NOT_SECTION_HEADINGS.some((entry) => exempt(entry)(find))).map(({ site }) => site)).toEqual([])
+    const { left, stale } = exempted(finds, NOT_SECTION_HEADINGS)
+    expect(left).toEqual([])
     // Shrink-only: an entry no heading with an icon takes any more goes.
-    expect(NOT_SECTION_HEADINGS.filter((entry) => !finds.some(exempt(entry))).map(({ file, heading }) => `${file}: ${heading}`)).toEqual([])
+    expect(stale).toEqual([])
+  })
+
+  it('an exemption takes the one icon at its site, never another icon on that heading or a second heading with its words (self-check)', () => {
+    const fixture = [
+      'const a = <div><span className="tint"><NewspaperIcon /></span><h3>Follow your first company</h3></div>',
+      // The review of #1312's forms: another icon beside a heading with the pinned words, one inside the pinned
+      // heading, and the pinned site written twice.
+      'const b = <div className="flex items-center gap-2"><BellIcon className="h-5 w-5" /><h3>Follow your first company</h3></div>',
+      'const c = <div><span><NewspaperIcon /></span><h3><BellIcon className="h-4 w-4" /> Follow your first company</h3></div>',
+      'const d = <div><span className="tint"><NewspaperIcon /></span><h3>Follow your first company</h3></div>',
+    ].join('\n')
+    const entry: Exemption = { file: 'fixture.tsx', place: '<NewspaperIcon> before <h3>', heading: 'Follow your first company', why: 'planted' }
+    const finds = headingIcons('fixture.tsx', fixture).map((find) => ({ ...find, file: 'fixture.tsx' }))
+    expect(exempted(finds, [entry])).toEqual({
+      left: ['fixture.tsx:2 <BellIcon> before <h3>', 'fixture.tsx:3 <NewspaperIcon> before <h3>', 'fixture.tsx:3 <BellIcon> inside <h3>', 'fixture.tsx:4 <NewspaperIcon> before <h3>'],
+      stale: [],
+    })
+    expect(exempted([], [entry]).stale, 'an entry no find takes is stale').toEqual(['fixture.tsx: Follow your first company'])
+    // The pinned heading with its own icon gone and another put inside it: the entry takes no other icon.
+    const moved = headingIcons('fixture.tsx', 'const e = <h3><BellIcon className="h-4 w-4" /> Follow your first company</h3>').map((find) => ({ ...find, file: 'fixture.tsx' }))
+    expect(exempted(moved, [entry])).toEqual({ left: ['fixture.tsx:1 <BellIcon> inside <h3>'], stale: ['fixture.tsx: Follow your first company'] })
   })
 })

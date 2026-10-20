@@ -173,10 +173,10 @@ describe('SummaryBlocks', () => {
   it('renders the risks section with its evidence + trace-to-source provenance', () => {
     render(<SummaryBlocks sections={sections} summary={summary} />)
     // An evidence row (critique P-03): the start of the excerpt heads it, one level under the
-    // section's h2, and the excerpt itself sits in a blockquote.
-    expect(
-      screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply' }),
-    ).toBeInTheDocument()
+    // section's h2, with the device's marker on a located row (D-044), hidden from assistive tech so the
+    // heading's name is its words alone, and the excerpt itself sits in a blockquote.
+    const heading = screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply' })
+    expect(heading.textContent).toBe('We are substantially dependent on TSMC for wafer supply[1]')
     expect(screen.getByText(/substantially dependent on TSMC/, { selector: 'blockquote' })).toBeInTheDocument()
     // source_verified: true → the shared SourceTrace renders the "Verified in filing" affordance.
     expect(screen.getByText(/Verified in filing/i)).toBeInTheDocument()
@@ -187,6 +187,31 @@ describe('SummaryBlocks', () => {
     for (const leak of [/Headline:/, /Key Points:/, /Tone:/, /Source Section Ref:/, /Guidance:/]) {
       expect(screen.queryByText(leak)).not.toBeInTheDocument()
     }
+  })
+
+  it('marks a quote whose evidence the server located (D-044): the marked block in the filing\'s face, no marker, no twin', () => {
+    const evidence = (verified: boolean) => ({ excerpt: 'We expect double-digit growth.', section_ref: 'Item 7. MD&A', verified, fragment_url: 'https://www.sec.gov/x.htm' })
+    const quotes: RenderedSection[] = [{
+      id: 'forward-signals',
+      title: 'Forward Signals',
+      blocks: [
+        { kind: 'quote', text: 'We expect double-digit growth.', speaker: 'CEO', evidence: evidence(true) },
+        { kind: 'quote', text: 'Demand may soften.', speaker: 'CFO', evidence: evidence(false) },
+        { kind: 'quote', text: 'Free cash flow is defined as operating cash flow less capital expenditures.', speaker: 'Filing statement' },
+      ],
+    }]
+    const { container } = render(<SummaryBlocks sections={quotes} summary={summary} />)
+    const [located, cited, plain] = Array.from(container.querySelectorAll('blockquote'))
+    // Located: the marked block, in the filing's face on the primary ink; the speaker stays in the body face.
+    expect(located.className.split(' ')).toEqual(expect.arrayContaining(['en-marked', 'font-editorial', 'text-text-primary-light']))
+    expect(located.querySelector('cite')!.className.split(' ')).toContain('font-sans')
+    // Cited or uncited: today's neutral hairline, the body face.
+    for (const quote of [cited, plain]) {
+      expect(quote.className.split(' ')).toEqual(expect.arrayContaining(['border-l-2', 'italic']))
+      expect(quote.className).not.toMatch(/en-marked|font-editorial/)
+    }
+    // A quote block has no heading to carry a marker: no marker, no margin, no twin anywhere.
+    expect(container.querySelector('[data-en-ref], .en-margin, .en-margin-mark')).toBeNull()
   })
 
   it('renders Trace-to-Source chips on cited quotes, footnotes, and metric takeaways (T4)', () => {

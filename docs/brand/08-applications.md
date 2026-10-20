@@ -254,7 +254,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   is a visible "Ratio source:" line (`PerAdsNote.tsx`). The actions bar reads "Save summary", and a
   stored summary that did not finish offers neither it nor an export, only "Copy filing link"
   (`SummaryActionsBar.tsx`). SourceTrace's "Open in SEC EDGAR" link and its sheet's close button, and
-  the actions bar's manual-copy link, carry the brand focus ring.
+  the actions bar's manual-copy link, carry the brand focus ring. The Risks section is a marked copy
+  (D-044, `SummaryRisks.tsx`): a row whose excerpt the server located carries a bracketed marker on
+  its heading, the marker's twin sits in the margin on its line, and the excerpt is a marked block in
+  the filing's face; below a measure (a phone under 200% text) the margin gives way and the marker stays;
+  a row not located keeps the plain quotation and no marker. A quote whose evidence
+  the server located takes the marked block alone, in the filing's face, with no marker or twin, and any
+  other quote keeps the neutral hairline (`SummaryBlocks.tsx`). The Source pane paints a passage the server
+  located in the mark's tint and its 2 px hairline, the passage in the primary ink, and any other jump (a
+  summary chip's section heading, an XBRL fact's) in the neutral find highlight, the reader's 22% sage with
+  no hairline (`highlightInDom.ts`). Ask's answers and the Multi-Period narrative keep their chips. Gates:
+  `brandCopyRules.spec.ts` rule 3 (the device's places, located rows only, one marker per row, its
+  planted forms), `designSystemDoneGate.spec.ts` (Newsreader's surfaces), `highlightInDom.spec.ts`,
+  `sourcePanePaint.spec.tsx`, `tests/e2e/risk-evidence-rows.spec.ts` and `tests/e2e/copilot-highlight-css.spec.ts`.
 - **Ticker route** (`frontend/features/filings/components/TickerFilingsView.tsx`, the /filing/AAPL
   picker): a load failure reads "Filings unavailable" with a "Try again" held through its refetch; a 404 is
   "Company not found", read from the held error so a refetch cannot flip it; a first load paused
