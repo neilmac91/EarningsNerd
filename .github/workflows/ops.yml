@@ -385,6 +385,9 @@ jobs:
           # points at the proxy from the step above. libpq honours PGOPTIONS, so the SQLAlchemy
           # session gets the deploy migration step's guards (fail fast on a held lock; bound writes).
           PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
@@ -404,14 +407,19 @@ jobs:
         # backend/scripts/relabel_filing_fy_facts.py (docs/fiscal-year-label-repair.md): a dry run reads
         # and prints its plan, one JSON line per company and a summary, in read-only transactions, so
         # Postgres refuses any write it might attempt; the apply writes the plan, one company per
-        # transaction under the fact writers' lock, journaled for the audited rollback. It runs here
-        # rather than in the jobs channel so its lines reach this log.
+        # transaction under the fact writers' lock, journaled for the audited rollback. Before each
+        # company's session opens, it reads that company's companyfacts from SEC (the shared limiter),
+        # its evidence where no stored row vouches for a year. It runs here rather than in the jobs
+        # channel so its lines reach this log.
         if: contains('relabel-fy-dry-run relabel-fy-apply', steps.request.outputs.operation)
         working-directory: backend
         timeout-minutes: 60
         env:
           # The ticker repair's hermetic env and guards; DATABASE_URL points at the proxy above.
           PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
