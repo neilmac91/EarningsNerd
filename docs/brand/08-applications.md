@@ -78,7 +78,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   everyone, invited or not. That invite-path Pro line is a founder claim, like the pricing pages'
   "Unlimited" line (the founder's review filed both under F32, later F41): this one is conditional on
   the server's promo config, and D-040 keeps "Unlimited" on the plan cards, with the fair-use guardrail
-  stated once after the series (E58). Every page link and button on these routes carries the brand
+  stated once, in the /pricing FAQ and the filing page's monthly-limit card (D-046). Every page link and button on these routes carries the brand
   focus ring.
 - **Pricing** (`frontend/app/pricing/page.tsx`): the free plan's call to action reads the
   registration mode (`features/marketing/api/access-api.ts`, the client twin of the server's
@@ -96,9 +96,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
   export is the analysis workbook). The check marks are in the brand ink and hidden from
-  assistive tech. "Unlimited" stays; the fair-use guardrail is to be stated once where it is read
-  (pub/F05, D-040, E58), and the history lines are to leave until entitlements enforce a retention
-  (pub/F03, D-046, E58).
+  assistive tech. "Unlimited" stays, with the fair-use guardrail stated once where it is read
+  (pub/F05, D-040, E58); the history lines leave until entitlements enforce a retention (pub/F03,
+  D-046, E58).
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as
@@ -216,6 +216,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `features/summaries/hooks/useSummaryGeneration.ts`: a status with no detail, a dropped or closed
   stream, the idle timeout, a failed summary read) are sentences in the voice, never the browser's
   or the API client's transport text, pinned path by path in `tests/unit/summaryStreamFallbacks.spec.tsx`.
+  The error card offers its Retry only for a failure a retry can help (`isNonRetryableStreamError`,
+  which also stops the stream's automatic retry): Pro's fair-use pause, a sign-in or a permission error
+  keeps its sentence and no Retry.
   At 200% text the progress card's header row wraps, the percent keeping to the right on a line of
   its own, and the form code in its meta line ("10-K · Processing…") never breaks at its hyphen.
 - **Signup gate** (`frontend/features/summaries/components/GenerateSignupGate.tsx`): it follows the
@@ -288,7 +291,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   companies you follow."), the limit banner states the account's own count and nothing about
   Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
   and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
-  "Unlimited" among them, and the fair-use guardrail is to be stated once, app-wide, after the series, E58),
+  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide: `PRO_FAIR_USE_LINE` in
+  `frontend/lib/planLimits.ts`, built from `PRO_SUMMARY_MONTHLY_CAP` (the backend's `config.py` default), read by
+  the /pricing FAQ and the filing page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face.

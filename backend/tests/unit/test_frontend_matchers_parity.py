@@ -35,6 +35,7 @@ BACKEND = {
     "dependencies": "backend/app/dependencies.py",
     "admission": "backend/app/services/summary_stages/admission.py",
     "summaries": "backend/app/routers/summaries.py",
+    "auth": "backend/app/routers/auth.py",
     "analysis": "backend/app/routers/analysis.py",
     "subscriptions": "backend/app/routers/subscriptions.py",
 }
@@ -55,7 +56,7 @@ MATCHERS = (
     Matcher("features/summaries/api/summaries-api.ts", "isPaywallStreamError",
             (BACKEND["admission"], BACKEND["dependencies"], BACKEND["summaries"]), ()),
     Matcher("features/summaries/api/summaries-api.ts", "isNonRetryableStreamError",
-            (BACKEND["summaries"], BACKEND["admission"]), ("features/summaries/api/summaries-api.ts",)),
+            (BACKEND["summaries"], BACKEND["admission"], BACKEND["auth"]), ("features/summaries/api/summaries-api.ts",)),
     Matcher("features/filings/api/copilot-api.ts", "isCopilotFairUseLimit",
             (BACKEND["summaries"],), ("features/filings/api/copilot-api.ts",)),
     Matcher("features/filings/api/copilot-api.ts", "isCopilotPaywallError",

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import StreamingSummaryDisplay from '@/app/filing/[id]/StreamingSummaryDisplay'
 import { GuidanceCard } from '@/components/ui'
 import type { Filing } from '@/features/filings/api/filings-api'
+import { PRO_FAIR_USE_LINE } from '@/lib/planLimits'
 
 // The trial ships behind ENABLE_PRO_TRIAL (flipped with the backend's PRO_TRIAL_DAYS); a live flag lets a
 // case turn it on without re-importing the component.
@@ -203,6 +204,55 @@ describe('StreamingSummaryDisplay failure reason', () => {
     expect(screen.getByText('We could not generate this summary. Try again shortly.')).toBeInTheDocument()
     expect(screen.queryByText(/\u2014/)).toBeNull()
   })
+
+  // Pro's fair-use pause holds until the month turns, so a Retry could only repeat the blocked request: the card
+  // keeps its sentence and offers none (isNonRetryableStreamError, the matcher that also stops the stream's own
+  // retry). A failure a retry can help keeps its Retry. The card's one button is its Retry, read by role and not
+  // by label, so the case holds whatever the Retry says.
+  it("offers no Retry at Pro's fair-use pause, and one for a failure a retry can help", async () => {
+    const failed = (error: string) => (
+      <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
+    )
+    const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
+    const { rerender } = render(
+      failed(
+        "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
+          'Please try again later or contact support.',
+      ),
+    )
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
+      ),
+    ).toBeInTheDocument()
+    expect(cardButton()).toBeNull()
+    rerender(failed('The filing could not be summarized right now.'))
+    expect(cardButton()).toBeInTheDocument()
+  })
+
+  // The stream endpoint's 403s hold whatever the reader retries. A Free reader's retry after a failed summary read
+  // sends force, and with a summary the page shows on the server, the route answers that regenerating is Pro-only:
+  // the card says the summary is there to read and offers no Retry, and stays the error card, not the paywall's
+  // monthly-limit card, which this reader has not hit. An inactive account's 403 offers none either.
+  it("offers no Retry at the stream endpoint's 403s, and shows each in the product's words", async () => {
+    const failed = (error: string) => (
+      <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
+    )
+    const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
+    const { rerender } = render(failed('Regenerating an analysis is a Pro feature.'))
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
+    expect(
+      screen.getByText('A summary of this filing is ready, and regenerating it is a Pro feature. Reload the page to read it.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: "You've hit this month's free limit" })).toBeNull()
+    expect(cardButton()).toBeNull()
+    rerender(failed('User account is inactive'))
+    expect(screen.getByText('This account is inactive. Contact support with any questions.')).toBeInTheDocument()
+    expect(cardButton()).toBeNull()
+  })
 })
 
 // EN-05: a failed generation used to leave focus where it was, usually <body> after page load, so a
@@ -215,8 +265,9 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
   const FAILED: Run = { stage: 'error', error: 'The filing could not be summarized right now.' }
   const LIMIT: Run = { stage: 'error', error: "You've reached your monthly limit. Upgrade to Pro for unlimited summaries." }
 
-  /** page-client's slot for one generation: the stream's state, restarted the way useSummaryGeneration does. */
-  function Page({ start }: { start: Run }) {
+  /** page-client's slot for one generation: the stream's state, restarted the way useSummaryGeneration does, or,
+      when `pressed` is given, the state a press leaves (a signed-out press starts no run). */
+  function Page({ start, pressed }: { start: Run; pressed?: Run }) {
     const [run, setRun] = useState(start)
     return (
       <div>
@@ -232,7 +283,7 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
           filing={filing}
           error={run.error}
           // handleGenerateSummary clears the error in the same render that starts the stream.
-          onRetry={() => setRun({ stage: 'initializing', error: null })}
+          onRetry={() => setRun(pressed ?? { stage: 'initializing', error: null })}
         />
       </div>
     )
@@ -279,6 +330,8 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     await settle()
     expect(document.activeElement).toBe(heading("You've hit this month's free limit"))
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).not.toHaveFocus()
+    // What "go unlimited" holds, in the one sentence lib/planLimits.ts builds (E58, D-046).
+    expect(screen.getByText(PRO_FAIR_USE_LINE)).toBeInTheDocument()
   })
 
   it('its Try again hands focus to the progress heading when its press restarts the run', async () => {
@@ -290,6 +343,19 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
     expect(document.activeElement).toBe(heading('Generating the summary'))
     expect(heading('Generating the summary')).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('a press that starts no run keeps the card, drops its Retry and hands focus to the card heading', async () => {
+    // Signed out, useSummaryGeneration sets its sign-in sentence and starts nothing: the card stays, and no retry
+    // can help that sentence, so the Retry leaves while it holds focus. The progress heading is not there.
+    render(<Page start={FAILED} pressed={{ stage: 'error', error: 'Sign in to generate this summary.' }} />)
+    await settle()
+    retry().focus()
+    fireEvent.click(retry(), { detail: 0 })
+    await settle()
+    expect(screen.getByText('Sign in to generate this summary.')).toBeInTheDocument()
+    expect(within(screen.getByRole('alert')).queryByRole('button')).toBeNull()
+    expect(document.activeElement).toBe(heading('Generation interrupted'))
   })
 
   it('a restart that fails again brings focus back into the new card', async () => {
