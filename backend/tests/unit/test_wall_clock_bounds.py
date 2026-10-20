@@ -54,8 +54,6 @@ ALLOWED = {
         "an 80 ms lock_timeout measured against 1.5 s, in the serial migrations-postgres job",
     "tests/integration/test_usage_counter_transactions.py::test_postgres_reservation_lock_wait_is_bounded_and_admits_nothing":
         "an 80 ms lock_timeout measured against 1.5 s, in the serial migrations-postgres job",
-    "tests/integration/test_refresh_rotation_transactions.py::_race":
-        "a 5 s hang guard on a wait each case's ordering ends in milliseconds: the second request is blocked on the first's lock, or done",
     "tests/unit/test_app_loop_lifespan.py::test_hanging_startup_schema_step_fails_the_start_within_the_deadline":
         "a 1 s startup deadline measured against 5 s; the hang it guards against lasts 30 s",
     "tests/unit/test_copilot_prose_quotations.py::test_quotation_work_is_bounded":
