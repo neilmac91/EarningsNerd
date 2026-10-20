@@ -79,9 +79,9 @@ file instead.
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
   and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
-  `test_codex_mention_guard.py`; a `tasks/todo.md`, `lessons/` or `.claude/workflows/` change
-  also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/` change also runs that
-  script's own spec under `frontend/tests/unit/` (every script has one, the gate insists;
+  `test_codex_mention_guard.py` and `test_secret_scan_guard.py`; a `tasks/todo.md`, `lessons/` or
+  `.claude/workflows/` change also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/`
+  change also runs that script's own spec under `frontend/tests/unit/` (every script has one, the gate insists;
   `premergeReviewWorkflow.spec.ts` for the review script: it runs the script with stubbed agents,
   and the text gate alone misses a spread or a tier key that overrides `model`). Do not write tests
   for prose.

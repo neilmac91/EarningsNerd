@@ -1,0 +1,545 @@
+"""Gate for `.claude/hooks/secret_scan_guard.py` and `secret_scan_setup.py` (E126;
+lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md): a session's push, and a GitHub write that
+commits without one, is scanned with the pinned gitleaks before it runs and refused on a finding.
+
+Each guard case runs the hook the way `.claude/settings.json` registers it: the registered command, through the shell,
+with CLAUDE_PROJECT_DIR set, on the event Claude Code sends. A refusal is a JSON deny on stdout with exit 0; a call let
+through exits 0 with no output. The network gate keeps the real gitleaks out of reach, so a stub stands where the
+setup provisions the binary, under a HOME of the test's own, with its SHA-256 recorded beside it as the setup records
+it. The stub reads what it is asked to scan as gitleaks does (`git log -p -U0` over the range; every file under a
+directory), logs each call, and reports a finding, in gitleaks' JSON report, for each added line holding a planted
+marker. Throwaway repositories with a fake remote-tracking ref pin the range. The registration is pinned too: the guard
+beside codex_mention_guard.py, before Bash and every GitHub MCP server, within 10 seconds, and the setup as a
+SessionStart hook. The setup's own logic runs in-process with a fake download, and its failure path through the
+registered command with the proxy pointed at a closed loopback port.
+"""
+from __future__ import annotations
+
+import base64
+import hashlib
+import importlib.util
+import io
+import json
+import os
+import re
+import subprocess
+import tarfile
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[3]
+SETTINGS = ROOT / ".claude" / "settings.json"
+GUARD = ROOT / ".claude" / "hooks" / "secret_scan_guard.py"
+SETUP = ROOT / ".claude" / "hooks" / "secret_scan_setup.py"
+CI = ROOT / ".github" / "workflows" / "ci.yml"
+COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_guard.py" || exit 1'
+SETUP_COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_setup.py" || exit 1'
+MATCHER = "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$"
+FLAGS = ["--redact=100", "--no-banner", "--exit-code", "1"]  # the secret-scan job's
+LESSON = "lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md"
+# What the stub reports, standing in for a secret: no file in this repository may carry a real one.
+MARKER = "planted-leak-marker"
+LEAKY = f"TOKEN = '{MARKER}'\n"
+GIT_ENV = {
+    "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
+    "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+}
+STUB = '''#!/usr/bin/env python3
+"""A stand-in for gitleaks: it logs each call and reports every added line that holds the marker."""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+MARKER = "planted-leak-marker"
+args = sys.argv[1:]
+entry, findings = {"cwd": os.getcwd(), "args": args}, []
+if args[0] == "git":
+    log_opts = next(arg for arg in args if arg.startswith("--log-opts="))[len("--log-opts="):]
+    out = subprocess.run(["git", "-C", args[1], "log", "-p", "-U0", "--format=commit %H", *log_opts.split(" ")],
+                         capture_output=True, text=True, check=True).stdout
+    commit = path = None
+    for line in out.splitlines():
+        if line.startswith("commit "):
+            commit = line.split()[1]
+        elif line.startswith("+++ "):
+            path = line[6:]
+        elif line.startswith("+") and MARKER in line:
+            findings.append({"RuleID": "stub-rule", "File": path, "StartLine": 1, "Commit": commit,
+                             "Fingerprint": f"{commit}:{path}:stub-rule:1"})
+else:
+    root = Path(args[1])
+    entry["files"] = {str(p.relative_to(root)): p.read_text(errors="replace") for p in sorted(root.rglob("*"))
+                      if p.is_file()}
+    for name, text in entry["files"].items():
+        for number, line in enumerate(text.splitlines(), 1):
+            if MARKER in line:
+                findings.append({"RuleID": "stub-rule", "File": str(root / name), "StartLine": number})
+with open(os.environ["GITLEAKS_STUB_LOG"], "a", encoding="utf-8") as log:
+    log.write(json.dumps(entry) + "\\n")
+Path(args[args.index("--report-path") + 1]).write_text(json.dumps(findings), encoding="utf-8")
+sys.exit(1 if findings else 0)
+'''
+
+
+def _setup_module():
+    spec = importlib.util.spec_from_file_location("secret_scan_setup", SETUP)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _registered(event: str, script: str) -> list[dict]:
+    settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    return [entry for entry in settings["hooks"].get(event, [])
+            if any(script in hook.get("command", "") for hook in entry["hooks"])]
+
+
+class Scanner:
+    """The stub where the guard looks for the provisioned gitleaks, and the log of its calls."""
+
+    def __init__(self, root: Path) -> None:
+        version, sha256 = _setup_module().pin()
+        self.home = root / "home"
+        self.folder = self.home / ".cache" / "earningsnerd" / "gitleaks" / f"{version}-{sha256}"
+        self.folder.mkdir(parents=True)
+        self.binary = self.folder / "gitleaks"
+        self.binary.write_text(STUB, encoding="utf-8")
+        self.binary.chmod(0o755)
+        (self.folder / "gitleaks.sha256").write_text(
+            f"{hashlib.sha256(self.binary.read_bytes()).hexdigest()}  gitleaks\n", encoding="utf-8")
+        self.log = root / "gitleaks-calls.jsonl"
+
+    def calls(self) -> list[dict]:
+        return [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines()] if self.log.exists() else []
+
+
+@pytest.fixture
+def scanner(tmp_path: Path) -> Scanner:
+    return Scanner(tmp_path)
+
+
+def _git(cwd: Path, *args: str) -> str:
+    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True,
+                          env={**os.environ, **GIT_ENV}).stdout.strip()
+
+
+def _commit(repo: Path, name: str, text: str) -> str:
+    (repo / name).write_text(text, encoding="utf-8")
+    _git(repo, "add", name)
+    _git(repo, "commit", "-q", "-m", name)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def _new_repo(path: Path) -> Path:
+    path.mkdir()
+    _git(path, "init", "-q", "-b", "main")
+    return path.resolve()
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    """main: `base.txt` holding the marker, which origin/main holds, then a clean commit (HEAD). Branch `side`: a
+    commit holding the marker that no remote-tracking ref holds."""
+    path = _new_repo(tmp_path / "repo")
+    _commit(path, "base.txt", LEAKY)
+    _git(path, "update-ref", "refs/remotes/origin/main", "HEAD")
+    _git(path, "branch", "side")
+    _commit(path, "clean.txt", "nothing to see\n")
+    _git(path, "checkout", "-q", "side")
+    _commit(path, "side.txt", LEAKY)
+    _git(path, "checkout", "-q", "main")
+    return path
+
+
+@pytest.fixture
+def elsewhere(tmp_path: Path) -> Path:
+    (tmp_path / "elsewhere").mkdir()
+    return (tmp_path / "elsewhere").resolve()
+
+
+def _event(tool: str, tool_input: object, cwd: Path) -> str:
+    return json.dumps({
+        "session_id": "s", "transcript_path": "/dev/null", "cwd": str(cwd), "permission_mode": "default",
+        "hook_event_name": "PreToolUse", "tool_name": tool, "tool_input": tool_input, "tool_use_id": "toolu_1",
+    })
+
+
+def _run(scanner: Scanner, stdin: str) -> subprocess.CompletedProcess[str]:
+    """Run the command .claude/settings.json registers, as Claude Code does (`/bin/sh -c`), within its timeout."""
+    [hook] = [hook for entry in _registered("PreToolUse", "secret_scan_guard.py") for hook in entry["hooks"]]
+    env = {**os.environ, **GIT_ENV, "HOME": str(scanner.home), "CLAUDE_PROJECT_DIR": str(ROOT),
+           "GITLEAKS_STUB_LOG": str(scanner.log)}
+    return subprocess.run(["sh", "-c", hook["command"]], input=stdin, capture_output=True, text=True, env=env,
+                          timeout=hook["timeout"])
+
+
+def _decision(scanner: Scanner, tool: str, tool_input: object, cwd: Path) -> dict | None:
+    proc = _run(scanner, _event(tool, tool_input, cwd))
+    assert proc.returncode == 0, proc.stderr
+    if not proc.stdout:
+        return None
+    parsed = json.loads(proc.stdout)
+    assert list(parsed) == ["hookSpecificOutput"]
+    output = parsed["hookSpecificOutput"]
+    assert sorted(output) == ["hookEventName", "permissionDecision", "permissionDecisionReason"]
+    assert output["hookEventName"] == "PreToolUse"
+    return output
+
+
+def _refused(decision: dict | None, *found: str) -> str:
+    assert decision is not None, "the hook let it through"
+    assert decision["permissionDecision"] == "deny"
+    reason = decision["permissionDecisionReason"]
+    assert reason.startswith("Refused by .claude/hooks/secret_scan_guard.py: ") and LESSON in reason
+    for text in found:
+        assert text in reason
+    return reason
+
+
+def _bash(scanner: Scanner, command: str, cwd: Path) -> dict | None:
+    return _decision(scanner, "Bash", {"command": command, "description": "x"}, cwd)
+
+
+def _b64(text: str) -> str:
+    return base64.b64encode(text.encode()).decode()
+
+
+# --- git push ------------------------------------------------------------------------------------------------------
+
+def test_a_push_whose_new_commit_holds_a_finding_is_refused(scanner: Scanner, repo: Path) -> None:
+    leak = _commit(repo, "settings.py", LEAKY)
+    reason = _refused(_bash(scanner, "git push -u origin main", repo), "found a secret-shaped literal",
+                      f"settings.py:1 (stub-rule), fingerprint {leak}:settings.py:stub-rule:1", "# gitleaks:allow",
+                      ".gitleaksignore")
+    assert MARKER not in reason  # where, never what
+
+
+def test_a_clean_push_reads_only_the_commits_no_remote_tracking_ref_holds(scanner: Scanner, repo: Path) -> None:
+    # base.txt holds the marker, but origin/main holds its commit: the push adds only the clean one.
+    assert _bash(scanner, "git push -u origin main", repo) is None
+    [call] = scanner.calls()
+    assert call["cwd"] == str(repo)  # the repository's own .gitleaksignore applies
+    assert call["args"][:7] == ["git", str(repo), f"--log-opts={_git(repo, 'rev-parse', 'HEAD')} --not --remotes", *FLAGS]
+
+
+# Each pushes main's clean commit alone, from the repository or from elsewhere: passes, with exactly that range.
+PRECISE = {
+    "a bare push": ("git push", "repo"),
+    "HEAD": ("git push origin HEAD", "repo"),
+    "a forced refspec to another name": ("git push origin +main:refs/heads/other", "repo"),
+    "git -C from elsewhere": ("git -C {repo} push origin main", "elsewhere"),
+    "a relative git -C": ("git -C repo push origin main", "parent"),
+    "cd and push in a compound line": ("cd {repo} && git push", "elsewhere"),
+    "cd and push in a subshell": ("(cd {repo} && git push origin main); echo done", "elsewhere"),
+    "pushd": ("pushd {repo} > /dev/null && git push origin main", "elsewhere"),
+    "a redirected, piped push": ("git push origin main 2>&1 | tail -3", "repo"),
+    "a push in a command substitution": ('OUT="$(git push origin main 2>&1)"', "repo"),
+    "a push in an if": ("if git push; then echo ok; fi", "repo"),
+    "git's global options": ("git -c push.default=current --no-pager push origin main", "repo"),
+    "push options that take values": ("git push -o ci.skip --repo origin --force-with-lease origin main", "repo"),
+    "a line whose here-document text names another push": (
+        "cat > /dev/null <<'EOF'\ngit push origin side\nEOF\ngit push origin main", "repo"),
+}
+
+
+@pytest.mark.parametrize(("command", "where"), PRECISE.values(), ids=PRECISE.keys())
+def test_a_push_reads_what_it_sends_from_where_it_runs(scanner: Scanner, repo: Path, elsewhere: Path,
+                                                        command: str, where: str) -> None:
+    cwd = {"repo": repo, "elsewhere": elsewhere, "parent": repo.parent}[where]
+    assert _bash(scanner, command.format(repo=repo), cwd) is None
+    [call] = scanner.calls()
+    assert call["args"][1:3] == [str(repo), f"--log-opts={_git(repo, 'rev-parse', 'main')} --not --remotes"]
+
+
+# Each reaches side's commit: by naming it, or, when the line names something the hook cannot resolve, through the
+# scan of every local branch and HEAD that no remote-tracking ref holds, which the refusal says it widened to.
+REACHES_SIDE = {
+    "the side branch by name": ("git push origin side", False),
+    "every branch": ("git push --all origin", False),
+    "every ref": ("git push --mirror origin", False),
+    "a branch held in a variable": ('git push origin "$BRANCH"', True),
+    "a branch a substitution names": ("git push origin $(git branch --show-current)", True),
+    "a directory held in a variable": ('cd "$DIR" && git push origin main', True),
+    "the previous directory": ("cd - && git push origin main", True),
+    "a wildcard refspec": ("git push origin 'refs/heads/*:refs/heads/*'", True),
+    "a source that does not exist yet": ("git push origin feature", True),
+    "--git-dir": ("git --git-dir=.git push origin main", True),
+    "GIT_DIR=": ("GIT_DIR=.git git push origin main", True),
+}
+
+
+@pytest.mark.parametrize(("command", "widened"), REACHES_SIDE.values(), ids=REACHES_SIDE.keys())
+def test_a_push_the_hook_cannot_resolve_reads_every_unpushed_branch(scanner: Scanner, repo: Path, command: str,
+                                                                   widened: bool) -> None:
+    reason = _refused(_bash(scanner, command, repo), "side.txt:1 (stub-rule)")
+    assert ("widened to every local branch's and HEAD's" in reason) is widened
+
+
+@pytest.mark.parametrize(("command", "refused"), [
+    ("git push origin main", True),
+    ("cd {repo} && git push origin main", False),
+    ("(cd {repo}) && git push origin main", True),  # the subshell's cd ends with it
+    ("git -C {repo} push origin main", False),
+    ("cd {repo}; cd {other} && git push origin main", True),
+])
+def test_the_push_runs_in_the_directory_the_line_moves_to(scanner: Scanner, repo: Path, tmp_path: Path,
+                                                         command: str, refused: bool) -> None:
+    other = _new_repo(tmp_path / "other")  # no remote-tracking ref: its one commit, which holds the marker, is new
+    _commit(other, "other.txt", LEAKY)
+    decision = _bash(scanner, command.format(repo=repo, other=other), other)
+    if refused:
+        _refused(decision, "other.txt:1 (stub-rule)")
+    else:
+        assert decision is None
+
+
+def test_a_push_from_a_repository_the_hook_cannot_resolve_or_fall_back_on_is_refused(scanner: Scanner,
+                                                                                   elsewhere: Path) -> None:
+    _refused(_bash(scanner, 'cd "$WORKTREE" && git push', elsewhere), "cannot resolve", "git -C <dir> push")
+    assert scanner.calls() == []
+
+
+@pytest.mark.parametrize("command", [
+    "git push --dry-run origin side",
+    "git push -n origin side",
+    "git push origin --delete side",
+    "git push origin :side",
+], ids=["--dry-run", "-n", "--delete", "a deletion refspec"])
+def test_a_push_that_sends_nothing_is_not_scanned(scanner: Scanner, repo: Path, command: str) -> None:
+    assert _bash(scanner, command, repo) is None
+    assert scanner.calls() == []
+
+
+@pytest.mark.parametrize("command", [
+    "git add -A && git commit -m wip && git push",
+    "git pull --rebase && git push origin main",
+    "git commit -m \"$(cat <<'EOF'\nfix: a thing\nEOF\n)\" && git push",
+    "git push origin main && git cherry-pick side",
+], ids=["commit", "pull", "a commit message from a here-document", "a commit after the push"])
+def test_a_line_that_makes_commits_and_pushes_is_refused(scanner: Scanner, repo: Path, command: str) -> None:
+    _refused(_bash(scanner, command, repo), "makes commits and pushes them", "push in the next")
+    assert scanner.calls() == []
+
+
+@pytest.mark.parametrize("command", [
+    "git status && ls -la",
+    "git log --grep push --oneline",
+    "git stash push -m wip",
+    "pushd /tmp && popd",
+    'echo "git push"',
+    "git commit -m 'push later'",
+    "gh pr create --title 'push the fix' --body x",
+], ids=["status", "a log that names push", "stash push", "pushd", "a quoted git push", "a commit alone", "gh pr create"])
+def test_a_bash_command_that_pushes_nothing_runs_no_scan(scanner: Scanner, repo: Path, command: str) -> None:
+    assert _bash(scanner, command, repo) is None
+    assert scanner.calls() == []
+
+
+# --- the binary ----------------------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("state", ["missing", "tampered", "unrecorded"])
+def test_without_a_verified_binary_a_scan_is_refused(scanner: Scanner, repo: Path, state: str) -> None:
+    if state == "missing":
+        scanner.binary.unlink()
+    elif state == "tampered":
+        scanner.binary.write_text(STUB + "# changed after it was recorded\n", encoding="utf-8")
+    else:
+        (scanner.folder / "gitleaks.sha256").unlink()
+    expected = "is not provisioned" if state == "missing" else "does not match the SHA-256 recorded beside it"
+    for tool, tool_input in [
+        ("Bash", {"command": "git push"}),
+        ("mcp__github__create_or_update_file", {"path": "a.md", "content": "clean", "message": "m"}),
+    ]:
+        _refused(_decision(scanner, tool, tool_input, repo), expected, f"python3 {SETUP}")
+    assert scanner.calls() == []
+
+
+# --- writes that commit without a push -----------------------------------------------------------------------------
+
+WRITE_TOOLS = {
+    "push_files": ("mcp__github__push_files", lambda files: {"owner": "o", "repo": "r", "branch": "b", "message": "m",
+                                                               "files": files}),
+    "create_or_update_file": ("mcp__github__create_or_update_file", lambda files: {
+        "owner": "o", "repo": "r", "branch": "b", "message": "m", **files[-1]}),
+    "a plugin's GitHub server": ("mcp__plugin_gh_github__push_files", lambda files: {"files": files}),
+    "a server named in capitals": ("mcp__GitHub__create_or_update_file", lambda files: files[-1]),
+}
+
+
+@pytest.mark.parametrize(("tool", "build"), WRITE_TOOLS.values(), ids=WRITE_TOOLS.keys())
+def test_a_github_mcp_write_is_scanned_under_its_paths(scanner: Scanner, elsewhere: Path, tool: str, build) -> None:
+    clean = [{"path": "docs/notes.md", "content": "notes"}, {"path": "src/app/settings.py", "content": "DEBUG = False\n"}]
+    assert _decision(scanner, tool, build(clean), elsewhere) is None
+    leaky = [*clean[:1], {"path": "src/app/settings.py", "content": LEAKY}]
+    _refused(_decision(scanner, tool, build(leaky), elsewhere), "src/app/settings.py:1 (stub-rule)", "# gitleaks:allow")
+    first, second = scanner.calls()
+    assert first["args"][0] == "dir" and first["args"][2:6] == FLAGS and first["cwd"] == first["args"][1]
+    staged = {entry["path"]: entry["content"] for entry in (clean if tool.endswith("__push_files") else clean[-1:])}
+    assert first["files"] == staged
+
+
+@pytest.mark.parametrize("path", ["../escape.txt", "/etc/escape.txt", "docs/../../escape.txt", ""])
+def test_a_path_that_leaves_the_scan_directory_is_refused(scanner: Scanner, elsewhere: Path, path: str) -> None:
+    files = [{"path": "docs/notes.md", "content": "notes"}, {"path": path, "content": "x"}]
+    _refused(_decision(scanner, "mcp__github__push_files", {"files": files}, elsewhere), "leaves the directory")
+    assert scanner.calls() == []
+
+
+@pytest.mark.parametrize(("tool", "tool_input"), [
+    ("mcp__github__get_file_contents", {"owner": "o", "repo": "r", "path": "a.py"}),
+    ("mcp__github__create_pull_request", {"title": "x", "body": LEAKY, "head": "b", "base": "main"}),
+    ("mcp__github__delete_file", {"path": "a.py", "message": "m", "branch": "b"}),
+    ("mcp__gh__push_files", {"files": [{"path": "a.py", "content": LEAKY}]}),  # stated gap: no "github" in the name
+], ids=["a read", "a pull request", "a deletion", "a server named without github"])
+def test_an_mcp_call_that_commits_no_content_runs_no_scan(scanner: Scanner, elsewhere: Path, tool: str,
+                                                         tool_input: dict) -> None:
+    assert _decision(scanner, tool, tool_input, elsewhere) is None
+    assert scanner.calls() == []
+
+
+@pytest.fixture
+def payloads(tmp_path: Path) -> Path:
+    folder = tmp_path / "payloads"
+    folder.mkdir()
+    (folder / "payload.json").write_text(json.dumps({"message": "m", "content": _b64(LEAKY)}), encoding="utf-8")
+    (folder / "content.b64").write_text(_b64(LEAKY) + "\n", encoding="utf-8")
+    (folder / "tree.json").write_text(json.dumps({"tree": [{"path": "a.py", "content": LEAKY}]}), encoding="utf-8")
+    (folder / "secret.txt").write_text(LEAKY, encoding="utf-8")
+    return folder
+
+
+API_WRITES = {
+    "a contents write with base64 content": (
+        f"gh api -X PUT repos/o/r/contents/src/a.py -f message=add -f content={_b64(LEAKY)} -f branch=b",
+        "decoded-content-1:1"),
+    "a blob of raw text": (f"gh api repos/o/r/git/blobs -f content=\"{LEAKY}\" -f encoding=utf-8", "command-line:1"),
+    "a payload file with a base64 content field": (
+        "gh api -X PUT 'repos/{owner}/{repo}/contents/a.py' --input payload.json", "decoded-content-1:1"),
+    "a content field read from a base64 file": (
+        "gh api -X PUT repos/o/r/contents/a.py -f message=m -F content=@content.b64", "decoded-content-1:1"),
+    "a tree sent to api.github.com": (
+        "curl -X POST https://api.github.com/repos/o/r/git/trees -d @tree.json", "sent-file-1:1"),
+    "a GraphQL commit": (
+        "gh api graphql -f query='mutation { createCommitOnBranch(input: {fileChanges: {additions: "
+        f"[{{path: \"a.py\", contents: \"{_b64(LEAKY)}\"}}]}}}}) {{ commit {{ oid }} }} }}'", "decoded-content-1:1"),
+}
+
+
+@pytest.mark.parametrize(("command", "found"), API_WRITES.values(), ids=API_WRITES.keys())
+def test_a_gh_api_contents_write_is_scanned_with_its_content_decoded(scanner: Scanner, payloads: Path, command: str,
+                                                                   found: str) -> None:
+    _refused(_bash(scanner, command, payloads), f"{found} (stub-rule)", "# gitleaks:allow")
+
+
+@pytest.mark.parametrize("command", [
+    "gh api -X PUT repos/o/r/contents/src/a.py -f message=add -f content=" + _b64("print('hello')\n"),
+    "gh api repos/o/r/contents/README.md --jq .content",
+], ids=["a clean write", "a read"])
+def test_a_clean_gh_api_contents_call_passes(scanner: Scanner, payloads: Path, command: str) -> None:
+    assert _bash(scanner, command, payloads) is None
+    [call] = scanner.calls()
+    assert call["args"][0] == "dir" and call["files"]["command-line"] == command
+
+
+def test_content_a_command_builds_as_it_runs_is_a_stated_gap(scanner: Scanner, payloads: Path) -> None:
+    command = 'gh api -X PUT repos/o/r/contents/a.py -f message=m -f content="$(base64 -w0 secret.txt)"'
+    assert _bash(scanner, command, payloads) is None
+
+
+@pytest.mark.parametrize("event", [
+    json.dumps([]),
+    json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash"}),
+    _event("Bash", {"command": None}, ROOT),
+], ids=["a list", "no tool input", "a null command"])
+def test_an_event_of_another_shape_goes_through(scanner: Scanner, event: str) -> None:
+    proc = _run(scanner, event)
+    assert (proc.returncode, proc.stdout) == (0, "")
+
+
+# --- registration --------------------------------------------------------------------------------------------------
+
+def test_the_guard_and_its_setup_are_registered() -> None:
+    settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    assert _registered("PreToolUse", "secret_scan_guard.py") == [
+        {"matcher": MATCHER, "hooks": [{"type": "command", "command": COMMAND, "timeout": 10}]}]
+    # The codex guard's matcher, which test_codex_mention_guard.py proves reaches Bash and every GitHub MCP server.
+    [codex] = _registered("PreToolUse", "codex_mention_guard.py")
+    assert codex["matcher"] == MATCHER
+    assert _registered("SessionStart", "secret_scan_setup.py") == [
+        {"hooks": [{"type": "command", "command": SETUP_COMMAND, "timeout": 60}]}]
+    assert GUARD.is_file() and SETUP.is_file()
+    assert "disableAllHooks" not in settings
+
+
+# --- the setup -----------------------------------------------------------------------------------------------------
+
+def test_the_setup_reads_the_pin_where_the_secret_scan_job_sets_it(tmp_path: Path) -> None:
+    setup = _setup_module()
+    version, sha256 = setup.pin()
+    text = CI.read_text(encoding="utf-8")
+    job = re.search(r"^  secret-scan:\n(?:(?: {4}.*)?\n)*", text, re.MULTILINE).group(0)
+    assert f"GITLEAKS_VERSION: {version}\n" in job and f"GITLEAKS_SHA256: {sha256}\n" in job
+    # It downloads the archive the job downloads.
+    [url] = re.findall(r'"(https://github\.com/gitleaks/[^"]+)"', job)
+    assert url.replace("${GITLEAKS_VERSION}", version) == setup.ARCHIVE.format(version=version)
+    # A pin that is missing or written twice provisions nothing.
+    missing, twice = tmp_path / "missing.yml", tmp_path / "twice.yml"
+    missing.write_text(re.sub(r"^[ \t]+GITLEAKS_SHA256:.*\n", "", text, flags=re.MULTILINE), encoding="utf-8")
+    twice.write_text(text + f"      GITLEAKS_SHA256: {'0' * 64}\n", encoding="utf-8")
+    for ci in (missing, twice):
+        with pytest.raises(setup.SetupError, match="GITLEAKS_SHA256"):
+            setup.pin(ci)
+
+
+def _archive(members: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as bundle:
+        for name, data in members.items():
+            info = tarfile.TarInfo(name)
+            info.size, info.mode = len(data), 0o755
+            bundle.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
+def test_the_setup_installs_only_the_pinned_archives_gitleaks_and_records_its_digest(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    setup = _setup_module()
+    monkeypatch.setenv("HOME", str(tmp_path))
+    binary_bytes = b"#!/bin/sh\nexit 0\n"
+    archive = _archive({"LICENSE": b"license", "gitleaks": binary_bytes, "../outside": b"escape"})
+    sha256, urls = hashlib.sha256(archive).hexdigest(), []
+    binary, downloaded = setup.provision("8.24.3", sha256, download=lambda url: urls.append(url) or archive)
+    folder = tmp_path / ".cache" / "earningsnerd" / "gitleaks" / f"8.24.3-{sha256}"
+    assert (binary, downloaded, urls) == (folder / "gitleaks", True, [setup.ARCHIVE.format(version="8.24.3")])
+    assert sorted(path.name for path in tmp_path.rglob("*") if path.is_file()) == ["gitleaks", "gitleaks.sha256"]
+    assert binary.read_bytes() == binary_bytes and os.access(binary, os.X_OK)
+    assert (folder / "gitleaks.sha256").read_text() == f"{hashlib.sha256(binary_bytes).hexdigest()}  gitleaks\n"
+    # A verified binary in place: nothing is downloaded again.
+    assert setup.provision("8.24.3", sha256, download=lambda url: pytest.fail("downloaded again")) == (binary, False)
+
+
+def test_the_setup_refuses_an_archive_the_pin_does_not_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    setup = _setup_module()
+    monkeypatch.setenv("HOME", str(tmp_path))
+    archive = _archive({"gitleaks": b"#!/bin/sh\nexit 0\n"})
+    with pytest.raises(setup.SetupError, match="does not match GITLEAKS_SHA256"):
+        setup.provision("8.24.3", hashlib.sha256(b"another archive").hexdigest(), download=lambda url: archive)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_setup_that_fails_never_blocks_the_session(tmp_path: Path) -> None:
+    [hook] = [hook for entry in _registered("SessionStart", "secret_scan_setup.py") for hook in entry["hooks"]]
+    closed = "http://127.0.0.1:9"  # nothing listens there, so the download fails at once and never leaves the host
+    env = {**os.environ, "HOME": str(tmp_path), "CLAUDE_PROJECT_DIR": str(ROOT), "HTTPS_PROXY": closed,
+           "https_proxy": closed, "NO_PROXY": "", "no_proxy": ""}
+    proc = subprocess.run(["sh", "-c", hook["command"]], input=json.dumps({"hook_event_name": "SessionStart"}),
+                          capture_output=True, text=True, env=env, timeout=hook["timeout"])
+    assert proc.returncode == 0
+    [line] = proc.stdout.splitlines()
+    assert line.startswith("secret_scan_setup: the pinned gitleaks is not provisioned (")
+    assert "secret_scan_guard.py refuses every push and repository write it would scan" in line
+    assert line.endswith(f"run it by hand with: python3 {SETUP}")
+    assert not [path for path in tmp_path.rglob("gitleaks*")]

@@ -28,9 +28,30 @@ as the branch's own `.gitleaksignore` writes them, so neither merge conflicts, a
 scanning without it from a checkout whose `.gitleaksignore` is main's, since gitleaks reads the scanned
 directory's own file as well as any `-i` path.
 
+**Gate (E126)**: `.claude/hooks/secret_scan_guard.py`, which `.claude/settings.json` runs before every
+Bash command and every call to an MCP server whose name contains "github" in any case
+(`backend/tests/unit/test_secret_scan_guard.py`). Before a `git push` it runs the job's pinned gitleaks,
+with the job's flags, over the commits the push would add (those reachable from what it sends and from no
+remote-tracking ref), in the repository's top level so its `.gitleaksignore` applies, and refuses the call
+on a finding, naming each finding's file, line, rule and commit fingerprint, never the literal; when it
+cannot resolve what the push sends, it widens the scan to every unpushed local branch and says so. It
+refuses a line that makes commits and pushes them, since a hook runs before the line and cannot read a
+commit the line has yet to make: commit in one call, push in the next. Before the GitHub MCP `push_files` and
+`create_or_update_file` tools, and a `gh api` (or api.github.com) call naming a repository's contents or
+git data, it scans the files the call sends, a base64 `content` value decoded. The binary is the one
+`.claude/hooks/secret_scan_setup.py`, a SessionStart hook, extracts from the archive the job pins (version
+and SHA-256 read from `.github/workflows/ci.yml`) into
+`~/.cache/earningsnerd/gitleaks/<version>-<archive SHA-256>/`, with its own SHA-256 recorded beside it;
+use it for a scan by hand. Without a verified binary (and on any platform but linux x64, the one the pin
+names) the guard refuses every call it would scan and names the setup command. Not gated: a push or write
+another shell or program makes (`bash -c '...'`, a script, an alias), text a command builds as it runs, a
+session that loads no repository hooks (Codex, Astra), a person's own push, and every clause above about
+a literal already pushed.
+
 **Evidence**: E20's commit 4ac900bb, amended to 2398f2af with the marker and force-pushed at 09:53 UTC;
-#1310's `secret-scan` re-run afterwards. Partly gated: CI's `secret-scan` finds the literal, but only
-after the push, when the next scan of each pull request fails.
+#1310's `secret-scan` re-run afterwards. Partly gated: the hook above refuses a session's push before it
+leaves; CI's `secret-scan` finds what gets past the hook, but only after the push, when the next scan of
+each pull request fails.
 
 **Recurrence (2026-10-15 and 2026-10-17, pinned on main)**: #1340's branch carried a design-token
 name that the generic-api-key rule matched; main's run and every pull request's failed until #1342
@@ -53,4 +74,4 @@ scan alone: #1372's at 09:24 (job 117984774947), #1409's at 09:36 (job 117989883
 on main (`4b2ae9d8`, 09:50 UTC), and the runs that started after it passed (main's on `4b2ae9d8`,
 #1372's on its merge of main, `896fa772`). #1409's and #1410's runs had started before it, so their
 next pushes clear them, not a re-run. Two pushes this lesson records have skipped the scan since the
-rule was written (#1334's and #1407's), so E126 proposes a gate before the push.
+rule was written (#1334's and #1407's), so E126 made the scan a gate before the push (**Gate** above).
