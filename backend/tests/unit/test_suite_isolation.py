@@ -414,8 +414,28 @@ _NULL_DEVICE_CALL_PROBE = (
     "    Path(os.devnull).unlink()\n\n"
     "def test_moves_a_file_over_it_with_shutil():\n"
     "    shutil.move(str(written('c')), os.devnull)\n\n"
+    "def descriptor():\n"
+    "    return os.open(str(STAND_IN.parent), os.O_RDONLY)\n\n"
+    "def test_renames_over_it_with_a_descriptor_for_its_source():  # an absolute path ignores its descriptor\n"
+    "    written('f')\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.rename('f', os.devnull, src_dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
+    "def test_removes_it_with_a_descriptor():\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.unlink(os.devnull, dir_fd=fd)\n"
+    "    finally:\n"
+    "        os.close(fd)\n\n"
     "def test_replaces_another_file():\n"
     "    os.replace(written('d'), STAND_IN.with_name('e'))\n"
+    "    fd = descriptor()\n"
+    "    try:\n"
+    "        os.unlink('e', dir_fd=fd)  # a relative path with its own descriptor\n"
+    "    finally:\n"
+    "        os.close(fd)\n"
 )
 
 
@@ -428,8 +448,8 @@ def test_a_test_that_renames_over_or_removes_the_null_device_in_its_process_fail
                            extra_env={"NULL_STAND_IN": str(stand_in)})
     summary = result.stdout.strip().splitlines()[-1]
     # Each call fails its test before it runs, so the stand-in is never touched and no check at a phase's end fires.
-    assert result.returncode == 1 and all(count in summary for count in ("7 failed", "1 passed")), result.stdout[-3000:]
-    assert result.stdout.count("would replace or remove the null device") >= 7, result.stdout[-3000:]
+    assert result.returncode == 1 and all(count in summary for count in ("9 failed", "1 passed")), result.stdout[-3000:]
+    assert result.stdout.count("would replace or remove the null device") >= 9, result.stdout[-3000:]
     assert "stopped being the null device" not in result.stdout, result.stdout[-3000:]
     assert stand_in.is_symlink() and os.readlink(stand_in) == os.devnull
 
@@ -522,6 +542,10 @@ _GIT_NULL_PROBE = (
     "                              os.environ), 0)\n\n"
     "def test_runs_git_under_another_name_through_os_spawnv():\n"
     "    os.spawnv(os.P_WAIT, shutil.which('git'), ['worker', 'config', '-' + 'f', os.devnull, '--list'])\n\n"
+    "def test_names_it_from_the_childs_directory():\n"
+    "    subprocess.run(['git', 'config', '-' + 'f', 'dev/null', '--list'], cwd='/', capture_output=True)\n\n"
+    "def test_names_it_from_git_s_directory():\n"
+    "    subprocess.run(['git', '-C', '/', 'config', '-' + 'f', 'dev/null', '--list'], capture_output=True)\n\n"
     "def test_uses_a_session_fixture_that_starts_it(git_set_up_for_the_session):\n"
     "    pass\n\n"
     "def test_starts_git_plainly():\n"
@@ -538,12 +562,12 @@ def test_a_test_that_starts_git_with_the_null_device_to_write_fails(tmp_path):
     probe.write_text(_GIT_NULL_PROBE, encoding="utf-8")
     result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
     summary = result.stdout.strip().splitlines()[-1]
-    # Twenty starts or settings fail their tests; the session fixture's start errors the test that uses it.
-    assert result.returncode == 1 and all(count in summary for count in ("20 failed", "1 passed", "1 error")), (
+    # Twenty-two starts or settings fail their tests; the session fixture's start errors the test that uses it.
+    assert result.returncode == 1 and all(count in summary for count in ("22 failed", "1 passed", "1 error")), (
         result.stdout[-3000:])
     failed = [line for line in result.stdout.splitlines() if line.startswith(("FAILED ", "ERROR "))]
     assert not any("test_starts_git_plainly" in line for line in failed), failed
-    assert result.stdout.count("a process started here would give git the null device") >= 20, result.stdout[-3000:]
+    assert result.stdout.count("a process started here would give git the null device") >= 22, result.stdout[-3000:]
     assert "the environment set here would give git the null device" in result.stdout, result.stdout[-3000:]
 
 

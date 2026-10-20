@@ -432,8 +432,8 @@ def _install_git_null_guard():
     byte strings, given by keyword or by position, a shell line alone or in a list, read as the shell splits it,
     its operators apart from the words they touch (``(git config ...)``, ``true;git config ...``). The program is the
     one the start runs: Popen's ``executable`` and the spawn functions' path take the place of an ``argv[0]`` that
-    names another (``["worker", "config", ...]`` run as git). A path is read
-    from the test's own directory; one that reaches the device only from another (a ``cwd=``, ``git -C``) is
+    names another (``["worker", "config", ...]`` run as git). A relative path is read from where git runs: Popen's
+    ``cwd``, then each ``-C`` git is given; one that reaches the device only through a shell line's ``cd`` is
     outside it. It is installed when conftest is imported, so a fixture of any
     scope is covered, and it wraps every way the standard library starts a program but fork and exec:
     ``subprocess.Popen`` (``subprocess.run``, ``os.popen`` and asyncio's subprocesses go through it),
@@ -454,7 +454,7 @@ def _install_git_null_guard():
     def popen(self, *given, **options):
         start = parameters.bind(self, *given, **options).arguments  # env or shell given by position too
         _refuse_git_null_target(start["args"], start.get("env"), start.get("shell", False),
-                                program=start.get("executable"))
+                                program=start.get("executable"), cwd=start.get("cwd"))
         popen_init(self, *given, **options)
 
     popen.checks_git_null_targets = True
@@ -517,6 +517,17 @@ def _expands(word):
     return bool(word) and ("$" in word or "`" in word)
 
 
+def _git_directory(words, base):
+    """Where git reads a relative path: ``base``, moved by each ``-C <dir>`` after the last word naming git."""
+    where = base
+    for index, word in enumerate(words):
+        if os.path.basename(word) == "git":
+            where = base
+        elif word == "-C" and index + 1 < len(words):
+            where = os.path.join(where, words[index + 1])
+    return where
+
+
 def _shell_words(line):
     """A shell line's words as the shell splits them: its operators (``(``, ``)``, ``;``, ``&``, ``|``, ``<``,
     ``>``) stand apart from the words they touch, so git's words show in ``(git config ...)`` or
@@ -526,43 +537,45 @@ def _shell_words(line):
     return list(lexer)
 
 
-def _refuse_git_null_target(args, env, shell=False, what="a process started here", program=None):
-    given = _git_null_target(args, env, shell, program)
+def _refuse_git_null_target(args, env, shell=False, what="a process started here", program=None, cwd=None):
+    given = _git_null_target(args, env, shell, program, cwd)
     if given:
         pytest.fail(f"{what} would give git the null device to write ({given}): as root, git "
                     "renames its lock file over the device. Give git an empty file in the test's temp directory "
                     "instead (lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
 
 
-def _git_null_target(args, env, shell=False, program=None):
+def _git_null_target(args, env, shell=False, program=None, cwd=None):
     """What in a process's start gives git the null device to write, or None. ``program`` is the file it runs when the
     start names one apart from its arguments (Popen's ``executable``, the spawn functions' path): it, not ``argv[0]``,
-    says whether git runs."""
+    says whether git runs. ``cwd`` is the directory the child starts in, from which git reads a relative path."""
     try:
         null = os.path.realpath(os.devnull)
+        base = os.path.abspath(os.fsdecode(os.fspath(cwd))) if cwd is not None else os.getcwd()
 
-        def names_null(value):
-            return bool(value) and os.path.realpath(os.fsdecode(value)) == null
+        def names_null(value, where=base):
+            return bool(value) and os.path.realpath(os.path.join(where, os.fsdecode(value))) == null
 
-        for key, value in (os.environ if env is None else env).items():
-            name = os.fsdecode(key)  # a byte-string key names the same variable
-            if name in _GIT_WRITE_TARGETS and names_null(value):
-                return f"{name}={os.fsdecode(value)} in its environment"
         items = [args] if isinstance(args, (str, bytes)) else list(args)
         shell_lines = shell or isinstance(args, (str, bytes))  # with shell=True a list's words are shell lines
         words = [word for item in items
                  for word in (_shell_words(os.fsdecode(item)) if shell_lines else [os.fsdecode(item)])]
         if program is not None and not shell_lines and words:  # a shell line's program is the shell
             words[0] = os.fsdecode(program)
+        for key, value in (os.environ if env is None else env).items():
+            name = os.fsdecode(key)  # a byte-string key names the same variable
+            if name in _GIT_WRITE_TARGETS and names_null(value, _git_directory(words, base)):
+                return f"{name}={os.fsdecode(value)} in its environment"
         for index, word in enumerate(words):
             name, equals, value = word.partition("=")
-            if equals and name in _GIT_WRITE_TARGETS and (names_null(value) or shell_lines and _expands(value)):
+            if equals and name in _GIT_WRITE_TARGETS and (
+                    names_null(value, _git_directory(words, base)) or shell_lines and _expands(value)):
                 return word
             option = _CONFIG_FILE_OPTION.fullmatch(word) if _runs_git_config(words[:index]) else None
             if option:
                 attached = option["long"] or option["short"]
                 given = attached or (words[index + 1] if index + 1 < len(words) else None)
-                if names_null(given) or shell_lines and _expands(given):
+                if names_null(given, _git_directory(words[:index], base)) or shell_lines and _expands(given):
                     return f"config {word}" + ("" if attached else f" {given}")
     except (TypeError, ValueError, OSError):
         return None
@@ -579,8 +592,10 @@ def _install_null_device_path_guard():
     fail the test before the call when a path they would replace, move or remove is ``os.devnull``: an atomic writer
     handed the device as its target, a cleanup that removes it, or a test that breaks it and puts it back within one
     phase, which the phase checks above, reading the device at each phase's end, cannot see. A path is compared as
-    written, so a call on a link to the device, which replaces the link, passes. A call given a ``dir_fd`` is outside
-    it, as is a program the test starts, whose git starts the process guard above reads.
+    written, so a call on a link to the device, which replaces the link, passes, and an absolute path whatever
+    descriptor the call gives it, since it ignores one. A relative path given its own descriptor (``src_dir_fd``,
+    ``dst_dir_fd``, ``dir_fd``) is outside it, as is a program the test starts, whose git starts the process guard
+    above reads.
     """
     if getattr(os.replace, "checks_null_device", False):
         return  # installed already in this process
@@ -589,19 +604,23 @@ def _install_null_device_path_guard():
 
 
 def _checked_null_device_path(call, count):
+    names = ("src", "dst") if count == 2 else ("path",)  # each with its own descriptor: src_dir_fd, dst_dir_fd, dir_fd
+
     def checked(*args, **options):
-        if not any(key.endswith("dir_fd") and value is not None for key, value in options.items()):
-            paths = [*args[:count], *(options[key] for key in ("src", "dst", "path") if key in options)]
-            for path in paths:
-                try:
-                    named = os.path.abspath(os.fsdecode(os.fspath(path))) == os.path.abspath(os.devnull)
-                except (TypeError, ValueError):
-                    named = False
-                if named:
-                    pytest.fail(f"os.{call.__name__} would replace or remove the null device ({os.devnull}): as root, "
-                                "it is gone for every process until someone restores it. Give the call a file in the "
-                                "test's temp directory instead "
-                                "(lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
+        given = {**dict(zip(names, args)), **{key: options[key] for key in names if key in options}}
+        for key, path in given.items():
+            try:
+                text = os.fsdecode(os.fspath(path))
+                own_descriptor = options.get("dir_fd" if key == "path" else f"{key}_dir_fd") is not None
+                named = not (own_descriptor and not os.path.isabs(text)) and (
+                    os.path.abspath(text) == os.path.abspath(os.devnull))
+            except (TypeError, ValueError):
+                named = False
+            if named:
+                pytest.fail(f"os.{call.__name__} would replace or remove the null device ({os.devnull}): as root, "
+                            "it is gone for every process until someone restores it. Give the call a file in the "
+                            "test's temp directory instead "
+                            "(lessons/test-never-point-a-written-file-at-dev-null.md)", pytrace=False)
         return call(*args, **options)
 
     checked.checks_null_device = True
