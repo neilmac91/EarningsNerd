@@ -2,6 +2,11 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import demo from '@/features/analysis/demo/demo-analysis.json'
+import type { AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
+import { decodeNarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
 import * as samples from '@/features/marketing/lib/landing-samples'
 
 /**
@@ -12,9 +17,10 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  * renumbers every marker [1], [2], [3] in first-appearance order, copilot/resolution.py), and a chip
  * labelled with the raw concept `NetIncomeLoss`.
  *
- * It reads every string and number in landing-samples.ts (the Multi-Period demo excepted: it is the
- * FY2019 to FY2024 pipeline snapshot, regenerated only through the pipeline, decision D7) and the hero's
- * static fallback in HeroExample.tsx, and checks:
+ * It reads every string and number in landing-samples.ts (the Multi-Period demo excepted from that scan:
+ * it is one pipeline run, FY2020 to FY2025, regenerated only through the pipeline, decision D-046 D7, and
+ * holds figures for years and concepts the verified set does not) and the hero's static fallback in
+ * HeroExample.tsx, and checks:
  *  - every dollar figure and percentage is one the verified set yields (a value at one or two decimals
  *    of a billion, a per-share value, or a year-over-year change at one decimal);
  *  - each hero fallback figure and each Financial Highlights row holds its own label's verified values
@@ -29,7 +35,12 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    is) states only the verified Services pair, a dimensioned fact the tool cannot fetch, so it cites
  *    passages: its markers run [1], [2] with one matched source each, it names the drivers the
  *    filing's Item 7 sentence names, and it shows no XBRL marker, locator, tag or braces glyph;
- *  - no figure row is labelled with a CamelCase or namespaced XBRL concept.
+ *  - no figure row is labelled with a CamelCase or namespaced XBRL concept;
+ *  - the Multi-Period demo (features/analysis/demo/demo-analysis.json, the teaser's and the landing's) is the
+ *    run its comment names, ending at FY2025: its FY2025 and FY2024 revenue, net income, diluted EPS and
+ *    operating cash flow are the verified values, tagged and filed as the verified 10-K; its citations are
+ *    its own dataset's figures; its data notes and narrative evidence pass the admission the live API path
+ *    applies; and the landing's three-series view counts data notes from those three series alone.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -267,5 +278,69 @@ describe('figure rows carry a label, not an XBRL concept', () => {
     for (const label of labels) {
       expect(label).not.toMatch(/:|^[A-Z][a-z]+(?:[A-Z][a-z]*)+$/)
     }
+  })
+})
+
+describe('the Multi-Period demo is one pipeline run, ending at the verified fiscal year (D-046 D7)', () => {
+  // The teaser and the landing read the payload as checked in, without the decoders the live API path applies.
+  const dataset = demo.dataset as unknown as AnalysisDataset
+  const completion = demo.completion as unknown as AnalysisCompletion
+  const points = (concept: string) => dataset.series.find((series) => series.concept === concept)?.points ?? []
+
+  it('covers FY2020 to FY2025, the window and run its comment names', () => {
+    expect(dataset.periods.map((period) => period.key)).toEqual(['FY2020', 'FY2021', 'FY2022', 'FY2023', 'FY2024', 'FY2025'])
+    expect(dataset.period_key).toBe('FY2020..FY2025')
+    expect(demo._comment).toContain('Apple Inc., annual, FY2020 to FY2025, on a local backend on 2026-10-20')
+    expect(demo._comment).toContain('USD 0.00046')
+  })
+
+  it('holds the verified FY2025 and FY2024 values for each concept the two share, from the verified 10-K', () => {
+    // The demo's concept and the us-gaap tag the verified set (docs/brand/00-audit.md §4) names it by.
+    const SHARED: Record<string, string> = {
+      revenue: 'RevenueFromContractWithCustomerExcludingAssessedTax',
+      net_income: 'NetIncomeLoss',
+      eps_diluted: 'EarningsPerShareDiluted',
+      operating_cash_flow: 'NetCashProvidedByUsedInOperatingActivities',
+    }
+    const accession = samples.AAPL_FY25_EDGAR_URL.match(/\/(\d{18})\/$/)?.[1]
+    expect(accession, 'the landing names its 10-K by accession').toBeDefined()
+    for (const [concept, tag] of Object.entries(SHARED)) {
+      const shown = ['FY2025', 'FY2024'].map((period) => points(concept).find((point) => point.period === period))
+      expect(shown.map((point) => point?.value), `${concept} FY2025, FY2024`).toEqual([...VERIFIED[tag]])
+      for (const point of shown) {
+        expect(point?.raw_tag, `${concept} ${point?.period} tag`).toBe(`us-gaap:${tag}`)
+        expect(point?.accession?.replace(/-/g, ''), `${concept} ${point?.period} filing`).toBe(accession)
+      }
+    }
+  })
+
+  it("cites its own dataset's figures, and carries the data notes and evidence the live path admits", () => {
+    const byMarker = new Map<string, [string, string | undefined, unknown]>()
+    for (const series of dataset.series) {
+      for (const point of series.points) if (point.marker) byMarker.set(point.marker, [series.concept, point.period, point.value])
+      const cagr = series as typeof series & { cagr_marker?: string }
+      if (cagr.cagr_marker) byMarker.set(cagr.cagr_marker, [series.concept, series.cagr_window ?? undefined, series.cagr])
+    }
+    expect(completion.kind).toBe('analysis')
+    expect(completion.citations.length).toBe(completion.grounded)
+    for (const citation of completion.citations) {
+      expect([citation.concept, citation.period, citation.value], `[${citation.n}] ${citation.excerpt}`).toEqual(byMarker.get(citation.marker as string))
+    }
+    expect(completion.unverified).toBe(0)
+    expect(completion.mismatched).toBe(0)
+    // streamAnalysis and getAnalysisDataset (features/analysis/api/analysis-api.ts) admit a live payload through these.
+    expect(decodeDataNotes(dataset.data_notes, dataset)).toEqual(dataset.data_notes)
+    expect(() => decodeNarrativePresentation(completion.narrative_presentation, completion, dataset)).not.toThrow()
+  })
+
+  it("lets the landing's three series count their own data notes, never the whole run's", () => {
+    const landing = samples.SAMPLE_ANALYSIS_DATASET
+    expect(landing.series.map((series) => series.concept)).toEqual(['revenue', 'net_income', 'net_margin'])
+    expect(Object.hasOwn(landing, 'data_notes')).toBe(false)
+    expect(resolveDataNotes(landing).totals.total).toBe(landing.series.length * landing.periods.length)
+    // The reading the landing relies on, over the whole run, gives the pipeline's own notes.
+    const { data_notes: pipelineNotes, ...withoutNotes } = dataset
+    const { notes, totals } = resolveDataNotes(withoutNotes)
+    expect({ notes, totals }).toEqual({ notes: pipelineNotes?.notes, totals: pipelineNotes?.totals })
   })
 })

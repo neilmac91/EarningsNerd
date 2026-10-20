@@ -12,17 +12,20 @@ import type { AnalysisCompletion, AnalysisDataset } from '@/features/analysis/ap
 
 const demoDataset = demo.dataset as unknown as AnalysisDataset
 const demoCompletion = demo.completion as unknown as AnalysisCompletion
+// The window the sample covers, read from the run itself (as the landing's AnalysisDemo reads it).
+const SAMPLE_RANGE = `${demoDataset.periods[0]?.key ?? ''}–${demoDataset.periods[demoDataset.periods.length - 1]?.key ?? ''}`
 
 /**
  * The free-user teaser (D6): the REAL results experience — KPI strip, charts, metrics grid,
  * narrative with verified citations — rendered from a checked-in sample payload behind
- * PeekLocked. Zero backend/AI cost for free users; the blur shows exactly what Pro unlocks.
+ * PeekLocked: one saved run of the pipeline, its figures, data notes and narrative unedited (D-046).
+ * Zero backend/AI cost for free users; the blur shows exactly what Pro unlocks.
  */
 export default function AnalysisTeaser({ forTicker }: { forTicker?: string }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        Sample: Apple Inc. (AAPL), FY2019–FY2024
+        Sample: {demoDataset.company_name} ({demoDataset.ticker}), {SAMPLE_RANGE}
         {forTicker ? `. Upgrade to run it for ${forTicker.toUpperCase()}` : ''}.
       </p>
       <PeekLocked feature="Multi-Period Analysis">

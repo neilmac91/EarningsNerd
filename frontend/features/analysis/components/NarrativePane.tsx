@@ -120,6 +120,11 @@ export interface NarrativeState {
 const SOURCE_BADGE_BASE =
   'Sources identify SEC XBRL values or calculated figures (marked †).'
 
+/** The teaser's sample is one saved run of the pipeline (features/analysis/demo, D-046): its figures are the
+ *  pipeline's, not approximations, but the run is not the reader's own. */
+const SAMPLE_NOTE =
+  'Sample data: the pipeline’s figures and narrative from one saved run. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
+
 function sourceWarningText(
   unverified: number | null | undefined,
   mismatched?: number | null
@@ -151,7 +156,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
       <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
         {sample
-          ? 'Sources · sample data (approximate figures)'
+          ? 'Sources · sample data (the pipeline’s figures)'
           : 'Sources · SEC XBRL values and calculated figures'}
       </div>
       <ul className="space-y-1">
@@ -201,8 +206,8 @@ export default function NarrativePane({
   refreshDisabled?: boolean
   /** PDF download (Pro can_export; hidden when absent or before a persisted completion). */
   onExport?: () => void
-  /** Teaser mode: the payload is an illustrative sample with approximate figures — the
-   *  verified/cached badges would overclaim, so a "Sample data" badge replaces them (F3). */
+  /** Teaser mode: the payload is one saved run of the pipeline, not the reader's own analysis, so a
+   *  "Sample data" badge stands in for the live run's source count and Cached badges (F3). */
   sample?: boolean
 }) {
   const printScope = usePrintDetails()
@@ -261,7 +266,7 @@ export default function NarrativePane({
             </span>
           )}
           {state.status === 'done' && completion && !notEnoughData && sample && (
-            <Badge title="Illustrative sample with approximate figures. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.">
+            <Badge title={SAMPLE_NOTE}>
               Sample data
             </Badge>
           )}
@@ -359,7 +364,7 @@ export default function NarrativePane({
           {state.status === 'done' && completion && (
             <AiDisclaimer className="mt-3">
               {sample
-                ? 'Illustrative sample with approximate figures. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
+                ? SAMPLE_NOTE
                 : 'Source entries identify SEC XBRL values or computed figures. They do not verify every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.'}
             </AiDisclaimer>
           )}

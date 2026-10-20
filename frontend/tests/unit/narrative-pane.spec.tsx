@@ -392,12 +392,17 @@ describe('NarrativePane citation chips', () => {
 
   it('replaces the verified/cached badges with a Sample badge in teaser mode (F3)', () => {
     const state = doneState({ completion: doneCompletion({ cached: true }) })
-    render(<NarrativePane state={state} sample />)
-    // Approximate demo figures must never wear the "verified" claim.
+    const { container } = render(<NarrativePane state={state} sample />)
+    // A saved sample run is not the reader's analysis: it never wears a live run's source count or Cached line.
     expect(screen.getByText('Sample data')).toBeInTheDocument()
     expect(screen.queryByText(/^\d+ sources?$/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cached')).not.toBeInTheDocument()
     expect(screen.queryByText(/Served from an earlier run/)).not.toBeInTheDocument()
-    expect(screen.getByText(/Sources · sample data/)).toBeInTheDocument()
+    // The sample is the pipeline's own run (D-046), so its labels say so and never call its figures approximate.
+    expect(screen.getByText('Sources · sample data (the pipeline’s figures)')).toBeInTheDocument()
+    const note = 'Sample data: the pipeline’s figures and narrative from one saved run. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
+    expect(screen.getByText('Sample data')).toHaveAttribute('title', note)
+    expect(container).toHaveTextContent(note)
+    expect(container.innerHTML).not.toMatch(/approximat/i)
   })
 })
