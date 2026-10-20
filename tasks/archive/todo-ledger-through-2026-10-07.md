@@ -6694,6 +6694,16 @@ Full local and hosted verification plus independent exact-head review precede re
   the add-on's three, record 28's fact-check and its reviewer). Another writer's #1414 (backend dependency updates,
   `sentry-sdk` 2.72.0 among them) deployed healthy (`earningsnerd-backend-00552-w9z`); production read live, Sentry
   starting on that revision. No CODE RED spend; no ledger event. Classifier denial 14. Closure 180.
+- 2026-10-20 (record 30, `runtime/control/DECISIONS-30.md`): PR #1415 (record 29) merged `cd04cbe7` (twenty-fifth
+  deploy-skip proof). Closure 181 registers record 29's fact-check and its reviewer. Other writers' #1418 (fastapi,
+  the OpenAI client and posthog) and #1420 (the fiscal-year relabel's evidence) deployed healthy
+  (`earningsnerd-backend-00554-fr2`, then `00555-9dh`); production not read live. No CODE RED spend; no ledger
+  event. Classifier denial 15. Founder row F51. Closure 181.
+- 2026-10-20 (record 31, `runtime/control/DECISIONS-31.md`): PR #1423 (record 30) merged `f4c3354d` (twenty-sixth
+  deploy-skip proof). Closure 182 registers record 30's fact-check and its reviewer. Another writer's #1422
+  (refresh-token rotation and revocation under the users row lock, E127) deployed healthy
+  (`earningsnerd-backend-00556-cp4`); production not read live. No CODE RED spend; no ledger event. No classifier
+  denial of the chief's. Closure 182.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

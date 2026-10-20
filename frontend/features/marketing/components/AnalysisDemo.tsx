@@ -36,7 +36,7 @@ export default function AnalysisDemo() {
 
       <DataNotesProvider dataset={SAMPLE_ANALYSIS_DATASET}>
         <div className="flex flex-col gap-3 p-4">
-          {/* KpiStrip lays out four columns at lg; three tiles inside a half-width frame need three. */}
+          {/* KpiStrip lays out four columns at lg; the sample's three tiles need three. */}
           <div className="lg:[&>div>dl]:grid-cols-3 [&>div>dl]:[@container(width<17em)]:grid-cols-1">
             <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
           </div>

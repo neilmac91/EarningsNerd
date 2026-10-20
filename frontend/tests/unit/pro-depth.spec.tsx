@@ -14,7 +14,7 @@ import {
 import { FREE_COPILOT_QUESTIONS } from '@/lib/planLimits'
 
 /**
- * "What Pro adds" (landing section 6): the three product screens are the REAL product components
+ * "What Pro adds" (the landing's fourth ruled row, D-045): the three product screens are the REAL product components
  * (CitationChip, KpiStrip, MetricsTable, WhatChanged) fed the static landing samples. These specs
  * prove the samples satisfy each component's contract at runtime, pin the accessibility shape the
  * design asks for, and keep the plan-cap copy on the lib/planLimits mirror.
@@ -152,7 +152,7 @@ describe('ProDepth', () => {
     flags.analysis = false
   })
 
-  it('is a labelled section with the Pro rows, the extras grid and mirror-driven caps', () => {
+  it('is a labelled section with the Pro rows, the extras list and mirror-driven caps', () => {
     render(<ProDepth />)
     const section = screen.getByRole('region', { name: 'More ways to read one filing.' })
     expect(section.id).toBe('pro')
@@ -161,7 +161,8 @@ describe('ProDepth', () => {
     for (const title of ['Ask this Filing', 'Change Report']) {
       expect(within(section).getByRole('heading', { level: 3, name: title })).toBeInTheDocument()
     }
-    expect(within(section).getAllByText('Pro')).toHaveLength(2)
+    // One Pro chip, Ask this Filing's: both plans read the same Change Report (changeReportPlanClaims.spec.tsx).
+    expect(within(section).getAllByText('Pro')).toHaveLength(1)
 
     expect(
       within(section).getByText(`Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`, { exact: false }),
@@ -188,7 +189,7 @@ describe('ProDepth', () => {
       within(section).getByText('Ask it a question, read its periods side by side, see what changed since the last one.'),
     ).toBeInTheDocument()
     expect(within(section).getByRole('heading', { level: 3, name: 'Multi-Period Analysis' })).toBeInTheDocument()
-    expect(within(section).getAllByText('Pro')).toHaveLength(3)
+    expect(within(section).getAllByText('Pro')).toHaveLength(2)
     expect(within(section).getByRole('heading', { level: 4, name: 'Excel export' })).toBeInTheDocument()
     expect(within(section).getByText('XLSX')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Try it on Apple/ })).toHaveAttribute('href', '/analysis?ticker=AAPL')
