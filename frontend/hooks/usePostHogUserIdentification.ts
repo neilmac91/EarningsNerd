@@ -52,17 +52,18 @@ export function usePostHogUserIdentification(): void {
     // Entitlements SSoT: wait for the subscription row and use it directly, rather than the
     // denormalized `user.is_pro` mirror (which can be briefly out of sync). If the subscription
     // read fails (an API error, or the client's 30-second timeout), identify by the id alone and
-    // tag no possibly-stale plan: the consent clause (lib/consentCopy.ts) tells a logged-in reader
-    // their statistics are tied to their account id, and nothing here retries the read. A later
-    // successful read changes the identity and adds the plan.
-    if (subscription === undefined) {
-      if (!subscriptionFailed) return // still loading: the first identify carries the plan
+    // tag no plan, not even one an earlier read left cached (a failed refetch keeps its data): the
+    // consent clause (lib/consentCopy.ts) tells a logged-in reader their statistics are tied to
+    // their account id, and nothing here retries the read. A later successful read changes the
+    // identity and adds the plan.
+    if (subscriptionFailed) {
       const identity = `${user.id}:unknown`
       if (lastIdentity.current === identity) return
       lastIdentity.current = identity
       analytics.identify(String(user.id))
       return
     }
+    if (subscription === undefined) return // still loading: the first identify carries the plan
     const isPro = Boolean(subscription.is_pro)
     const identity = `${user.id}:${isPro}`
     if (lastIdentity.current === identity) return // already identified with this state

@@ -21,6 +21,8 @@ vi.mock('@/lib/analytics', () => ({
 }))
 
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
+import { PostHogReadyContext } from '@/lib/posthogReady'
+import { queryKeys } from '@/lib/queryKeys'
 
 function Probe() {
   usePostHogUserIdentification()
@@ -35,6 +37,20 @@ function renderProbe() {
     </QueryClientProvider>,
   )
   return qc
+}
+
+/** The probe under a PostHog readiness the test sets, as app/posthog-provider.tsx sets it on each consent change. */
+function renderWithReadiness(ready: boolean) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const tree = (value: boolean) => (
+    <QueryClientProvider client={qc}>
+      <PostHogReadyContext.Provider value={value}>
+        <Probe />
+      </PostHogReadyContext.Provider>
+    </QueryClientProvider>
+  )
+  const view = render(tree(ready))
+  return { qc, setReady: (value: boolean) => view.rerender(tree(value)) }
 }
 
 describe('usePostHogUserIdentification (roadmap 2.4)', () => {
@@ -106,6 +122,32 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     await qc.refetchQueries({ type: 'all' })
     await waitFor(() => expect(identify).toHaveBeenCalledTimes(2))
     expect(identify).toHaveBeenLastCalledWith('7', { is_pro: true, plan: 'pro' })
+  })
+
+  // A failed refetch keeps the earlier read's data while the query reports the error (Codex r4331603917 on #1448).
+  it('tags no cached plan when a refetch fails, even once PostHog becomes ready', async () => {
+    getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: true })
+    getSubscriptionStatus.mockResolvedValueOnce({ is_pro: true }).mockRejectedValue(new Error('500'))
+    const { qc, setReady } = renderWithReadiness(false)
+    await waitFor(() => expect(qc.getQueryData(queryKeys.subscription.byUser(7))).toEqual({ is_pro: true }))
+    await qc.refetchQueries({ type: 'all' })
+    expect(qc.getQueryState(queryKeys.subscription.byUser(7))?.status).toBe('error')
+    expect(qc.getQueryData(queryKeys.subscription.byUser(7))).toEqual({ is_pro: true })
+    expect(identify).not.toHaveBeenCalled()
+    setReady(true)
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(1))
+    expect(identify.mock.calls[0]).toEqual(['7'])
+  })
+
+  it('identifies a failed read once, however often PostHog readiness changes', async () => {
+    getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
+    getSubscriptionStatus.mockRejectedValue(new Error('500'))
+    const { setReady } = renderWithReadiness(true)
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(1))
+    setReady(false)
+    setReady(true)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(identify).toHaveBeenCalledTimes(1)
   })
 
   it('does not identify after a failed subscription read without analytics consent', async () => {
