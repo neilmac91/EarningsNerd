@@ -155,17 +155,20 @@ ref under refs/remotes/origin holds, in the repository the push runs from, with 
 than a commit, on a line from git it cannot read and on an error it does not expect. A delete sends nothing. git
 skips a hook it cannot execute, so the file is tracked executable.
 
---turn-on, run from any worktree of a clone (`python3 .claude/hooks/secret_scan_guard.py --turn-on`, once per clone
-and again if it moves), sets that core.hooksPath and says the hook is on, or says why not and exits 1;
+--turn-on, run from any worktree of a clone (`python3 .claude/hooks/secret_scan_guard.py --turn-on`, once per clone,
+and again from the main checkout if it moves, which breaks a linked worktree's link), sets that core.hooksPath and
+says the hook is on, or says why not and exits 1;
 --session-start, which .claude/settings.json runs as a Claude Code session starts, does the same in a cloud session's
 clone (CLAUDE_CODE_REMOTE=true), saying nothing once the hook is on, and changes nothing in any other session and
 never fails a session's start. Each writes the main checkout's path where another spelling names the directory (a
-relative one, or a worktree's own copy), and leaves a hooks path naming another directory, at any level, or hooks of
-the clone's own as they are, saying so and what turning it on would replace. Each also says when no main checkout it
-can find holds the hook, when git cannot read the clone or write the path, when a setting above the clone's own keeps
-another path in effect, when it runs out of time, and when the pinned binary is missing. A session of another agent
-(Codex, Astra) loads no repository hooks: AGENTS.md §5 has it leave core.hooksPath to the founder (F53) and, where
-git's hook is off, scan its commits by hand before it pushes.
+relative one, a worktree's own copy, or one that has gone, as a moved clone's has), and leaves a hooks path naming
+another directory, at any level, or hooks of the clone's own as they are, saying so and what turning it on would
+replace. Each also says when no main checkout it can find holds the hook (a checkout's copy set by hand, by its
+absolute path, at a level every worktree reads, counts), when git cannot read the clone or write the path, when a
+setting above the clone's own keeps another path in effect, when it runs out of time, and when the pinned binary is
+missing, and sets nothing on a git older than the scan needs, saying so. A session of another agent (Codex, Astra)
+loads no repository hooks: AGENTS.md §5 has it leave core.hooksPath to the founder (F53) and scan its commits by
+hand before every push.
 
 Not checked before a call, though git's pre-push hook stops each push among them that is a `git push` without
 --no-verify, as git sends it, in a clone that turns that hook on: a push a script, a program (env -S's string among
@@ -219,8 +222,9 @@ ARCHES = {"x86_64": "x64", "amd64": "x64", "aarch64": "arm64", "arm64": "arm64"}
 # reports a hook error and lets the call through, so the scan ends first and refuses.
 DEADLINE = 50.0
 # The session's start's own: .claude/settings.json allows it 10 seconds, past which Claude Code stops it before it
-# can say why the hook is off
+# can say why the hook is off. --turn-on, run by hand, has no such limit, and gives a slow git longer
 TURN_ON = 8.0
+TURN_ON_BY_HAND = 60.0
 # The longest line the hook reads outside its here-documents: the shell reader builds one long word in time that
 # grows as its square, and checks no deadline while it does (400,000 characters take about ten seconds)
 LONGEST = 400_000
@@ -2476,10 +2480,13 @@ def _binary(ci: Path = CI) -> tuple[str, Path]:
             "cannot scan the commits; push from a Linux or macOS machine")
     path = _installed(version, sha256, target)
     if not (path.is_file() and os.access(path, os.X_OK)):
+        import shlex
+
+        guard = shlex.quote(str(ci.parents[2] / ".claude" / "hooks" / "secret_scan_guard.py"))
         raise _Unscannable(
             f"gitleaks {version}, which the scan runs over the commits a call or a push adds, is not installed "
-            f"({path}). Install it once with `python3 {Path(__file__).resolve()} --install`, which downloads the "
-            "release archive and checks its SHA-256, then try again")
+            f"({path}). Install it once with `python3 {guard} --install`, which downloads the release archive and "
+            "checks its SHA-256, then try again")
     return version, path
 
 
@@ -2832,7 +2839,7 @@ def session_start() -> int:
 def turn_on() -> int:
     """`--turn-on`, run from any worktree of a clone: what a cloud session's start does, in any clone. It says the hook
     is on and exits 0, or says why not and exits 1."""
-    hooks = _turn_on(time.monotonic() + TURN_ON, person=True)
+    hooks = _turn_on(time.monotonic() + TURN_ON_BY_HAND, person=True)
     if hooks is None:
         return 1
     print(f"the secret-scan pre-push hook is on in this clone: core.hooksPath is {hooks}")
@@ -2852,13 +2859,16 @@ def _turn_on(deadline: float, person: bool) -> str | None:
     from any worktree of the clone, wherever in it the push runs. git reads a relative path from the directory it runs
     hooks in, which inside .git, or with a GIT_DIR from a subdirectory, is not the worktree's top; and every worktree
     reads the clone's one path, which a linked worktree's own directory would take with it when it is removed. A path
-    that names the directory otherwise, a relative one or a worktree's own copy among them, is written as the main
-    checkout's. A hooks path naming another directory, at any level, or a hook of the clone's own in the directory git
-    runs hooks from stays as it is, and a note says the pre-push scan is off, as it is where no main checkout this can
-    find holds the hook, where git cannot read the clone or write the path, and where a setting above the clone's own
-    keeps another path in effect. A note also says when the pinned binary that copy reads is missing, since each push
-    that adds commits is refused until it is installed. Returns the path in effect once the hook is on and can scan,
-    and None once a note has said why not, or outside any repository (where only --turn-on says so)."""
+    that names the directory otherwise, a relative one, a worktree's own copy or one that has gone (a moved clone's)
+    among them, is written as the main checkout's, and the clone's own configuration holds it. A hooks path naming
+    another directory, at any level, or a hook of the clone's own in the directory git runs hooks from stays as it is,
+    and a note says the pre-push scan is off, as it is where no main checkout this can find holds the hook (unless a
+    checkout's copy is set by hand, by its absolute path, at a level every worktree reads), where git cannot read the
+    clone or write the path, and where a setting above the clone's own keeps another path in effect. On a git older
+    than the scan needs it sets nothing, since git's hook would refuse every push that adds commits, and says so. A
+    note also says when the pinned binary that copy reads is missing, since each push that adds commits is refused
+    until it is installed. Returns the path in effect once the hook is on and can scan, and None once a note has said
+    why not, or outside any repository (where only --turn-on says so)."""
     import shlex
 
     noted = False
@@ -2886,8 +2896,21 @@ def _turn_on(deadline: float, person: bool) -> str | None:
     def said(proc: subprocess.CompletedProcess) -> str:  # the first line git complained in
         return (proc.stderr.strip().splitlines() or [f"exit {proc.returncode}"])[0]
 
-    def level() -> str:  # the level the hooks path in effect is set at (a git before 2.26 does not say)
-        return git("config", "--show-scope", "--get", "core.hooksPath").stdout.partition("\t")[0].strip() or "some"
+    def level() -> str:  # the level the hooks path in effect is set at
+        return git("config", "--show-scope", "--get", "core.hooksPath").stdout.partition("\t")[0].strip()
+
+    def absolute(value: str) -> str | None:  # the real path of a hooks path git reads alike wherever it runs hooks
+        value = os.path.expanduser(value)
+        return os.path.realpath(value) if os.path.isabs(value) else None
+
+    def above(scope: str, value: str, quoted: str) -> str | None:  # the commands for a level above the clone's own
+        if scope == "worktree":
+            return (f"`git config --worktree --unset core.hooksPath` and `git config core.hooksPath {quoted}` turn it "
+                    f"on, in place of {value}")
+        if scope == "command":
+            return ("The session's environment sets it (GIT_CONFIG_COUNT or GIT_CONFIG_PARAMETERS), which outranks the "
+                    f"clone's configuration; without it, `git config core.hooksPath {quoted}` turns it on")
+        return None
 
     def off(why: str, fix: str = "`python3 .claude/hooks/secret_scan_guard.py --turn-on` turns it on once that is "
                                  "fixed") -> None:
@@ -2898,13 +2921,16 @@ def _turn_on(deadline: float, person: bool) -> str | None:
         if written.returncode != 0:
             off(f"git could not set core.hooksPath ({said(written)})")
             return False
-        # A setting above the clone's own (the session's environment's, a worktree's) keeps its path in effect
+        # A setting above the clone's own (the session's environment's, a worktree's) keeps its path in effect, which
+        # runs this hook for every push only as an absolute path to this directory
         value = git("config", "--get", "core.hooksPath").stdout.strip()
-        if value != hooks:
-            say(f"the secret-scan pre-push hook is off in this clone: core.hooksPath is {value} at the {level()} "
-                f"level, which outranks the {hooks} this set in the clone's own configuration")
-            return False
-        return True
+        if value == hooks or absolute(value) == os.path.realpath(hooks):
+            return True
+        scope = level()
+        fix = above(scope, value, shlex.quote(hooks))
+        say(f"the secret-scan pre-push hook is off in this clone: core.hooksPath is {value} at the {scope} level, "
+            f"which outranks the {hooks} this set in the clone's own configuration" + (f". {fix}" if fix else ""))
+        return False
 
     def place(top: str) -> str | None:  # the hooks path in effect once the hook is on, else None, a note said
         rel = os.path.relpath(ROOT, top)  # where this file's project sits in its worktree
@@ -2923,9 +2949,14 @@ def _turn_on(deadline: float, person: bool) -> str | None:
         # git expands a leading ~, and reads a relative path from where it runs hooks: for a push from here, this
         # worktree's top (which makes it this worktree's own copy)
         named = os.path.realpath(os.path.join(top, os.path.expanduser(configured))) if configured else ""
+        # A checkout's copy set by hand by its absolute path, which runs for every push, where this finds no main
+        # checkout's copy to set: git reads a relative one from each worktree's own top, and a worktree's setting, or
+        # the session's environment's, reaches no other worktree or session
+        fixed = absolute(configured)
+        by_hand = fixed if fixed and _a_hook_at(fixed) and level() not in ("worktree", "command") else None
         if main is None:
-            if _a_hook_at(named):  # a checkout's copy, set by hand, which runs for every push
-                return named
+            if by_hand:
+                return by_hand
             checkout = os.path.normpath(os.path.join("<checkout>", rel, HOOKS_PATH))
             say("the secret-scan pre-push hook may be off in this clone: this is a linked worktree of a clone with no "
                 f"main checkout the hook can find above its git directory ({common}), so it sets no core.hooksPath. "
@@ -2934,6 +2965,8 @@ def _turn_on(deadline: float, person: bool) -> str | None:
             return None
         hooks = os.path.normpath(os.path.join(main, rel, HOOKS_PATH))
         if not _a_hook_at(hooks):
+            if by_hand:
+                return by_hand
             say(f"the secret-scan pre-push hook is off in this clone: the main checkout holds no executable "
                 f"{hooks}/pre-push, the hook every worktree's pushes would run")
             return None
@@ -2941,18 +2974,15 @@ def _turn_on(deadline: float, person: bool) -> str | None:
             listed = git("worktree", "list", "--porcelain").stdout.splitlines()
             copies = {os.path.realpath(os.path.join(line[len("worktree "):], rel, HOOKS_PATH)) for line in listed
                       if line.startswith("worktree ")}
-            if named == os.path.realpath(hooks) or named in copies:
-                # ours spelled otherwise, or a worktree's own copy, which goes when that worktree does
-                return hooks if configured == hooks or turn_on(hooks) else None
+            # Ours spelled otherwise; a worktree's own copy, which goes when that worktree does; or a copy that has
+            # gone already (the clone moved), from which git runs nothing. Ours as written counts as on only where the
+            # clone's own configuration holds it: a worktree's, or the session's environment's, reaches no other.
+            gone = named.replace(os.sep, "/").endswith("/" + HOOKS_PATH) and not os.path.isdir(named)
+            if named == os.path.realpath(hooks) or named in copies or gone:
+                return hooks if (configured == hooks and level() == "local") or turn_on(hooks) else None
             quoted, scope = shlex.quote(hooks), level()
-            if scope == "worktree":
-                fix = (f"`git config --worktree --unset core.hooksPath` and `git config core.hooksPath {quoted}` turn "
-                       f"it on, in place of {configured}")
-            elif scope == "command":
-                fix = ("The session's environment sets it (GIT_CONFIG_COUNT or GIT_CONFIG_PARAMETERS), which outranks "
-                       f"the clone's configuration; without it, `git config core.hooksPath {quoted}` turns it on")
-            else:
-                fix = f"`git config core.hooksPath {quoted}` turns it on, in place of {configured}"
+            fix = above(scope, configured, quoted) or (f"`git config core.hooksPath {quoted}` turns it on, in place of "
+                                                       f"{configured}")
             off(f"core.hooksPath is {configured} at the {scope} level, which this leaves as it is", fix)
             return None
         shown = git("rev-parse", "--git-path", "hooks").stdout.strip()
@@ -2969,10 +2999,15 @@ def _turn_on(deadline: float, person: bool) -> str | None:
     try:
         found = git("rev-parse", "--show-toplevel")
         if not found.stdout.strip():  # no worktree here: nothing to set, nor to say unless git cannot read the clone
-            if "not a git repository" not in found.stderr:
+            if "not a git repository (or any" not in found.stderr:  # a .git that names a git directory gone, among them
                 off(f"git cannot read the clone ({said(found)})")
             elif person:
                 say("the secret-scan pre-push hook is off: this file is in no git repository")
+            return None
+        old = _too_old(git("version").stdout.strip())
+        if old:  # git's hook would refuse every push that adds commits, and a git before 2.31 reads no clone's shape
+            say("the secret-scan pre-push hook cannot scan with this machine's git, so this leaves core.hooksPath as "
+                f"it is: {old}")
             return None
         hooks = place(os.path.realpath(found.stdout.strip()))
         try:  # the pin the copy git runs reads, or, where it runs none, the one this file's PreToolUse hook reads

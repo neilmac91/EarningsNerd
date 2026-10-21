@@ -156,13 +156,13 @@ Other tools Codex and Astra do not have, and what to do instead:
 - **No Claude Code hooks.** `.claude/hooks/ops_approval_guard.py` cannot stop you, so hold its rule
   yourself: never approve or reject an Ops run waiting on the `ops-apply` environment, and never
   change that environment. Only the founder does. Nor does `.claude/hooks/secret_scan_guard.py` read
-  your pushes, though git's pre-push hook runs its scan on each `git push` from a clone whose
-  `core.hooksPath` names a `.claude/hooks/git` (E134). Turning that on in a clone is the founder's
-  call (F53), so never set or change `core.hooksPath`, and never push with `--no-verify` past the
-  hook. Where `git config --get core.hooksPath` names no `.claude/hooks/git`, scan your new commits
-  by hand before you push, as
-  `lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md`'s Rule says: CI's
-  `secret-scan` reads them only after the push.
+  your pushes, though git's pre-push hook runs its scan on each `git push` from a clone where it is
+  turned on (E134). Turning it on in a clone is the founder's call (F53), so never set or change
+  `core.hooksPath`, and never push with `--no-verify` past the hook. Scan your new commits by hand
+  before every push, as `lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md`'s Rule
+  says, whatever `core.hooksPath` names: a path can name a hook that has gone (a moved clone's, or a
+  main checkout's at a commit from before E134), and CI's `secret-scan` reads the commits only after
+  the push.
 - **No background monitors.** After merging a PR touching deployable backend files (`backend/`
   outside `backend/tests/`): find the run (`gh run list --workflow ci.yml --branch main --event push -L 1`,
   or the unauthenticated `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`),

@@ -88,17 +88,19 @@ binary once per machine and pin, a new cloud container included, with
 `python3 .claude/hooks/secret_scan_guard.py --install`.
 
 The same scan runs as git's pre-push hook, `.claude/hooks/git/pre-push`, before each `git push`
-leaves a clone, yours and a script's included. Turn it on once per clone, and again if you move the
-clone, with `python3 .claude/hooks/secret_scan_guard.py --turn-on`, run from any worktree: it sets
+leaves a clone, yours and a script's included. Turn it on once per clone, from any worktree, and
+again from the main checkout if you move the clone (a move breaks a linked worktree's link), with
+`python3 .claude/hooks/secret_scan_guard.py --turn-on`: it sets
 `core.hooksPath` to the main checkout's `.claude/hooks/git` by its absolute path (every worktree
 reads the clone's one path, a linked worktree's own would go with it, and a relative one would miss a
 push run inside `.git`, or with a `GIT_DIR` from a subdirectory), and says the hook is on or why not,
-leaving a hooks path naming another directory, or hooks of the clone's own, as they are. A Claude
+leaving a hooks path naming another directory, or hooks of the clone's own, as they are, and setting
+nothing on a git older than 2.43, whose every push that adds commits the hook would refuse. A Claude
 Code cloud session that loads the repository's hooks does it for its clone as it starts; Codex and
 Astra sessions leave it to the founder (`AGENTS.md` §5, F53). Both hooks take the remote named
 `origin` for GitHub: in a clone whose GitHub remote has another name, every push that adds commits
 has its whole history scanned without main's pins, and is refused. The hook stops a push on a finding
-and whenever it cannot scan (it needs the binary above and `python3`), naming why;
+and whenever it cannot scan (it needs the binary above, git 2.43 or later and `python3`), naming why;
 `git push --no-verify` skips it, as do `git send-pack`, `git http-push` and a program pushing through
 a git library, and CI's `secret-scan` still reads every branch after the push.
 
