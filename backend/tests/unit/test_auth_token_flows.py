@@ -5,8 +5,9 @@ Written against the router before its ORM work moved into app/services/ (the rou
 tests/unit/test_router_orm_ceilings_allowlist.py), and every test here passed on that pre-move
 router as well as after the move, so it proved the refactor preserved behaviour. The password
 login's one commit and the refusals of a login or change whose account changed while it hashed
-(E121), and the logout's audit row under the user whose session it ended (E137), pin deliberate
-changes made since, and fail on the code before them:
+(E121), and the logout rows that name the user whose refresh token a logout revoked (E137), pin
+deliberate changes made since, and fail on the code before them; the rows of signed-in logouts that
+revoke nothing, which E137 kept, are pinned beside them:
 
   - email verification: verify, single use, unknown and expired links, resend (opaque; a resend
     supersedes the earlier link; a verified account gets no mail)
@@ -62,7 +63,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import AuditLog, LoginAttempt, OAuthAccount, RefreshToken, Subscription, User
 from app.routers import auth as auth_module
-from app.services import login_lockout
+from app.services import login_lockout, refresh_token_service
 from app.services.posthog_client import EVENT_TRIAL_STARTED
 from tests.support.summary_stream_harness import reset_rate_limiters
 
@@ -777,26 +778,32 @@ def test_logout_with_only_the_refresh_cookie_logs_it_under_that_tokens_user(clie
 
 
 @pytest.mark.requires_db
-def test_a_signed_in_logout_without_a_refresh_cookie_logs_it_under_the_signed_in_user(client, mail):
-    """A signed-in logout whose refresh token is already gone (logout-all on another device, say) ends
-    the session token's use here, so its row names the signed-in user. Its refresh token, never sent,
-    stays live."""
+@pytest.mark.parametrize("refresh_cookie", ["not_sent", "revoked_elsewhere"])
+def test_a_signed_in_logout_that_revokes_nothing_logs_it_under_the_signed_in_user(client, mail, refresh_cookie):
+    """A signed-in logout whose refresh cookie revokes nothing still ends the session token's use here,
+    so its row names the signed-in user. One sends no refresh cookie, and its token stays live; the
+    other sends the cookie of a token that logout-all on another device has already revoked, as a
+    browser still holding it would."""
     email, _ = _register(client, mail)
     user_id = _user(email).id
     assert _login(client, email).status_code == 200
-    client.cookies.delete("earningsnerd_refresh_token")
+    if refresh_cookie == "not_sent":
+        client.cookies.delete("earningsnerd_refresh_token")
+    else:
+        with SessionLocal() as db:
+            assert refresh_token_service.revoke_all_and_commit(db, user_id) == 1
 
     resp = client.post("/api/auth/logout")
     assert resp.status_code == 200 and resp.json() == {"status": "success"}
     assert _logout_rows(user_id) == [("user", email, True)]
-    assert _live_refresh_tokens(user_id) == 1
+    assert _live_refresh_tokens(user_id) == (1 if refresh_cookie == "not_sent" else 0)
 
 
 @pytest.mark.requires_db
 def test_a_logout_whose_refresh_cookie_is_another_accounts_logs_it_under_that_account(client, mail):
-    """One account's bearer token beside another's refresh cookie (two tabs, an API client): the session
-    the logout ends is the refresh token's, so its row names that token's user and none names the bearer's
-    (Codex r4332649556 on #1451)."""
+    """One account's bearer token beside another's refresh cookie (an API client; the site never sends a
+    bearer token): the session the logout ends is the refresh token's, so its row names that token's user
+    and none names the bearer's (Codex r4332649556 on #1451)."""
     bearer_email, _ = _register(client, mail)
     cookie_email, _ = _register(client, mail)
     client.cookies.clear()

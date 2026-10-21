@@ -91,9 +91,9 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    Administrator actions are named one by one, since six of them write a log line and no row
  *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
  *    This reader sees only that some module writes a named action, not that every path of the event does; that is
- *    the backend's to pin. For logouts (E137), test_auth_token_flows.py's logout cases and the logout_cookie_only
- *    case in test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its row, under the
- *    user whose session it ended.
+ *    the backend's to pin. For logouts (E137), test_auth_token_flows.py's logout cases and the logout_signed_in and
+ *    logout_cookie_only cases in test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its
+ *    row, under the user whose session it ended.
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests
  *    overlap (E127_PROMISES): a refresh token that works once, a reused one revoking the account, or a session that
  *    ends after logging out or a password change, within a time or with none named (every session, everywhere, a
