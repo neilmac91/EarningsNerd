@@ -207,7 +207,7 @@ EXEMPT: dict[str, tuple[int, str]] = {
         1,
         "founder: the cash-conversion red flag's sentence is in the observation selector's prompt bytes and the "
         "dataset fingerprint (test_trend_refactor_anchors.py T0.2, T0.3), so its em-dash goes with a PROMPT_VERSION "
-        "bump and the spot-check backend/evals/RUNBOOK.md asks of one (Multi-Period Analysis observation-selector gate)",
+        "bump and the spot-check backend/evals/RUNBOOK.md asks of one (Multi-Period Analysis observation-selector gate); E138",
     ),
 }
 # The entry count, held as an equality (D-040): 18 when the gate landed, 20 when the walk learned shapes 7
