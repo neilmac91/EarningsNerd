@@ -14,7 +14,7 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  * (no-em-dash-copy.spec.ts fails it only where it is joined into copy, and reads the lone token as the convention).
  *
  * Every .ts and .tsx file under app/, components/, features/, lib/ and hooks/ that spells the token (the dash, a
- * `—` escape, an entity JSX decodes, `&mdash;`, `&#8212;` or `&#x2014;`, or `String.fromCharCode(0x2014)`) is
+ * `\u2014` escape, an entity JSX decodes, `&mdash;`, `&#8212;` or `&#x2014;`, or `String.fromCharCode(0x2014)`) is
  * read through the shared reader (tests/unit/heldValues.ts) with `passThrough` on, so a value is followed from every
  * place a name is given it to every place it renders, and a call the reader cannot see is taken to give back what it
  * is handed. The token renders, and fails where it does, as:
