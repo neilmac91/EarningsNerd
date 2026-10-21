@@ -112,18 +112,23 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    step's words gone, a cited step that lacks them while another step holds them, and a cited step that is not there
  *    fail.
  * 6. The audit-log item names only what an audit_logs row records (AUDITED): each thing it names stands on actions the
- *    backend writes, read from each create_audit_log call and each audit_service helper another module calls. The item
- *    names part of what the rows record, and AUDITED_UNNAMED holds the rest, each with what it records: a Google or
- *    Apple sign-in linked to an existing account or unlinked from it (oauth_linked, oauth_unlinked), and two
- *    administrator actions on summaries, a bulk reset and a regeneration of stale ones (summaries_bulk_reset,
- *    summaries_refresh_stale). Every action written is in one map or the other, so a new one fails until it is placed;
- *    naming one on the page changes the page's sentence, which is the founder's. Administrator actions are named one by
- *    one, since six of them write a log line and no row (admin_filing_service.py's filing maintenance and stale-XBRL
- *    bulk reset, the XBRL cache clear, the test mail). This reader sees only that some module writes a named action,
- *    not that every path of the event does; that is the backend's to pin. For logouts (E137),
- *    test_auth_token_flows.py's logout cases and the logout_signed_in and logout_cookie_only cases in
- *    test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its row, under the user whose
- *    session it ended.
+ *    backend writes (auditActions), read so that none is missed: each create_audit_log call by its own argument list,
+ *    each audit_service function that calls create_audit_log as a helper with a literal action or a template one
+ *    (`subscription_{action}`, composed from the caller's literal keyword), a callable passed with its arguments
+ *    (`run_in_threadpool(audit_service.create_audit_log, db, action=...)`) from them, an import not as a call; whatever
+ *    the walk cannot read (a variable, an f-string or a positional action, a name mentioned but not called) is listed
+ *    by module and line, and that list is held empty, so a new write fails until its action is a literal or taught to
+ *    the walk. The item names part of what the rows record, and AUDITED_UNNAMED holds the rest, each with what it
+ *    records: a Google or Apple sign-in linked to an existing account or unlinked from it (oauth_linked,
+ *    oauth_unlinked), and two administrator actions on summaries, a bulk reset and a regeneration of stale ones
+ *    (summaries_bulk_reset, summaries_refresh_stale). Every action written is in one map or the other, so a new one
+ *    fails until it is placed; naming one on the page changes the page's sentence, which is the founder's.
+ *    Administrator actions are named one by one, since six of them write a log line and no row
+ *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
+ *    This reader sees only that some module writes a named action, not that every path of the event does; that is the
+ *    backend's to pin. For logouts (E137), test_auth_token_flows.py's logout cases and the logout_signed_in and
+ *    logout_cookie_only cases in test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its
+ *    row, under the user whose session it ended.
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests overlap
  *    (E127_PROMISES): a refresh token that works once (one-time, cannot be used twice, read beyond main's phrases only
  *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential), a reused one
@@ -552,8 +557,10 @@ const backendModules = (): Record<string, string> =>
       .map((rel) => [rel, readFileSync(path.join(REPO, rel), 'utf8')]),
   )
 
-/** A Python module's code, its docstrings and comments dropped, so a mention is not read as a call. */
-const pythonCode = (src: string) => src.replace(/"""[\s\S]*?"""|'''[\s\S]*?'''/g, '""').replace(/(^|\s)#.*$/gm, '$1')
+/** A Python module's code, its docstrings and comments dropped, so a mention is not read as a call. A docstring's line
+    breaks stay, so a line number in the code is the module's own. */
+const pythonCode = (src: string) =>
+  src.replace(/"""[\s\S]*?"""|'''[\s\S]*?'''/g, (doc) => '""' + '\n'.repeat(doc.split('\n').length - 1)).replace(/(^|\s)#.*$/gm, '$1')
 
 /** The PostHog wrappers that send one event each, and the constant that names it. */
 const EVENT_WRAPPERS: Record<string, string> = {
@@ -729,30 +736,145 @@ const AUDITED_UNNAMED: Record<string, string> = {
   summaries_refresh_stale: "an administrator's regeneration of stale summaries in place",
 }
 
-/** The audit_logs actions the backend writes: each create_audit_log call's action, and the action of each audit_service
-    helper another module calls. */
-function auditActionsWritten(modules: Record<string, string>): Set<string> {
+/** Where a Python string literal that starts at `at` ends: its closing quote, or its line's end (pythonCode has dropped
+    the triple-quoted ones). */
+const pythonStringEnd = (code: string, at: number) => {
+  let i = at + 1
+  while (i < code.length && code[i] !== code[at] && code[i] !== '\n') i += code[i] === '\\' ? 2 : 1
+  return i
+}
+
+/** The call whose opening parenthesis is at `open`: its argument list up to the matching closing parenthesis (strings
+    and nested brackets read whole), split at its top-level commas, and where that parenthesis is; null when the module
+    ends first. */
+function pythonCall(code: string, open: number): { args: string[]; close: number } | null {
+  const args: string[] = []
+  let depth = 0
+  let start = open + 1
+  for (let i = open; i < code.length; i++) {
+    const c = code[i]
+    if (c === '"' || c === "'") i = pythonStringEnd(code, i)
+    else if ('([{'.includes(c)) depth++
+    else if (')]}'.includes(c)) {
+      depth--
+      if (depth === 0) {
+        const last = code.slice(start, i).trim()
+        return { args: last ? [...args, last] : args, close: i }
+      }
+    } else if (c === ',' && depth === 1) {
+      args.push(code.slice(start, i).trim())
+      start = i + 1
+    }
+  }
+  return null
+}
+
+/** A module function's code from its def line: its signature, read to the parenthesis that closes it (a signature may
+    close at the line's start, as `) -> AuditLog:` does), and its body, up to the next line that starts at the margin. */
+function pythonFunctionAt(code: string, def: number, open: number): string {
+  const close = pythonCall(code, open)?.close ?? open
+  const bodyStart = code.indexOf('\n', close) + 1 || code.length
+  const next = code.slice(bodyStart).search(/^\S/m)
+  return code.slice(def, next < 0 ? code.length : bodyStart + next)
+}
+
+/** The opening parenthesis of the call whose argument list holds `index`, or -1 outside any call. */
+function pythonEnclosingCall(code: string, index: number): number {
+  let depth = 0
+  for (let i = index - 1; i >= 0; i--) {
+    const c = code[i]
+    if (')]}'.includes(c)) depth++
+    else if ('([{'.includes(c)) {
+      if (depth === 0) return c === '(' ? i : -1
+      depth--
+    }
+  }
+  return -1
+}
+
+/** What a call passes as its `name` parameter: the keyword argument's value, or else the positional one at `position`
+    (null when neither is there). */
+function pythonArgument(args: string[], name: string, position: number): { value: string; positional: boolean } | null {
+  const keyword = args.find((arg) => new RegExp(String.raw`^${name}\s*=(?!=)`).test(arg))
+  if (keyword) return { value: keyword.replace(new RegExp(String.raw`^${name}\s*=\s*`), ''), positional: false }
+  const positional = args.filter((arg) => !/^\w+\s*=(?!=)/.test(arg) && !arg.startsWith('*'))
+  return position >= 0 && position < positional.length ? { value: positional[position], positional: true } : null
+}
+
+/** A Python string literal's text when it is a plain word ("register", 'logout'), else undefined. */
+const pythonWord = (value: string) => value.match(/^(['"])(\w+)\1$/)?.[2]
+
+/** An audit_service function that calls create_audit_log: the action it writes, or the template it fills from one of
+    its parameters (`action=f"subscription_{action}"`), and its parameters in order. */
+type AuditHelper = { params: string[] } & ({ action: string } | { prefix: string; param: string; suffix: string })
+
+/** The audit_logs actions the backend writes, read so that none is missed: each create_audit_log call's action from
+    its own argument list (a literal `action=` keyword), each audit_service function that calls create_audit_log (a
+    helper) with a literal action or a template one, and each call of a helper from another module, a template helper's
+    action composed from the call's literal keyword (`action="created"` gives subscription_created). A call or helper
+    passed as a callable (`run_in_threadpool(audit_service.create_audit_log, db, action=...)`) is read from the
+    arguments passed with it. An import is not a call. Whatever the walk cannot read (a variable or an f-string action
+    outside the service, a positional action, a helper whose action is neither, a name mentioned but not called) is
+    listed in `unread`, with its module and line, and the test holds that list empty, so it fails closed. */
+function auditActions(modules: Record<string, string>): { written: Set<string>; unread: string[] } {
   const isService = (rel: string) => /(?:^|\/)audit_service\.py$/.test(rel)
-  const helpers = new Map<string, string>()
+  const lineOf = (code: string, index: number) => code.slice(0, index).split('\n').length
+  const helpers = new Map<string, AuditHelper>()
+  const unread: string[] = []
   for (const [rel, src] of Object.entries(modules)) {
     if (!isService(rel)) continue
-    for (const chunk of pythonCode(src).split(/^def /m).slice(1)) {
-      const name = chunk.match(/^(log_\w+)\(/)?.[1]
-      const action = chunk.match(/\baction="(\w+)"/)?.[1]
-      if (name && action) helpers.set(name, action)
+    const code = pythonCode(src)
+    for (const def of code.matchAll(/^(?:async\s+)?def\s+(\w+)\s*\(/gm)) {
+      const name = def[1]
+      const open = (def.index ?? 0) + def[0].length - 1
+      const body = pythonFunctionAt(code, def.index ?? 0, open)
+      const call = name === 'create_audit_log' ? null : body.match(/\bcreate_audit_log\s*\(/)
+      if (!call) continue
+      const params = (pythonCall(code, open)?.args ?? []).map((param) => param.split(/[:=]/)[0].trim())
+      const action = pythonArgument(pythonCall(body, (call.index ?? 0) + call[0].length - 1)?.args ?? [], 'action', 1)
+      const word = action && !action.positional ? pythonWord(action.value) : undefined
+      const template = action && !action.positional ? action.value.match(/^[fF](['"])(\w*)\{(\w+)\}(\w*)\1$/) : null
+      if (word) helpers.set(name, { params, action: word })
+      else if (template && params.includes(template[3])) helpers.set(name, { params, prefix: template[2], param: template[3], suffix: template[4] })
+      else unread.push(`${rel}:${lineOf(code, def.index ?? 0)} ${name} passes create_audit_log an action the walk cannot read (${action?.value ?? 'none'})`)
     }
   }
   const written = new Set<string>()
+  const callees = ['create_audit_log', ...helpers.keys()]
   for (const [rel, src] of Object.entries(modules)) {
     if (isService(rel)) continue
-    const code = pythonCode(src)
-    for (const call of code.matchAll(/\bcreate_audit_log\b/g)) {
-      const action = code.slice(call.index, (call.index ?? 0) + 600).match(/\baction="(\w+)"/)?.[1]
-      if (action) written.add(action)
+    // An import names a callee without calling it; blank it, keeping its line breaks.
+    const code = pythonCode(src).replace(/^[ \t]*(?:from[ \t]+[\w.]+[ \t]+)?import[ \t]+(?:\([^)]*\)|[^\n]*)/gm, (statement) => statement.replace(/[^\n]/g, ' '))
+    for (const mention of code.matchAll(new RegExp(String.raw`(?<!\bdef\s+)\b(${callees.join('|')})\b(\s*\()?`, 'g'))) {
+      const [, name, called] = mention
+      const at = mention.index ?? 0
+      const where = `${rel}:${lineOf(code, at)} ${name}`
+      let args: string[] | null = null
+      if (called) args = pythonCall(code, at + mention[0].length - 1)?.args ?? null
+      else {
+        // A callable passed first, with its arguments after it, to a call that runs it.
+        const open = pythonEnclosingCall(code, at)
+        if (open >= 0 && /^\s*(?:[\w.]+\.)?$/.test(code.slice(open + 1, at))) {
+          args = (pythonCall(code, open)?.args ?? []).slice(1)
+        }
+      }
+      if (args === null) {
+        unread.push(`${where} is named but not called, so the walk cannot read its action`)
+        continue
+      }
+      const helper = helpers.get(name)
+      if (helper && 'action' in helper) {
+        written.add(helper.action)
+        continue
+      }
+      const param = helper ? helper.param : 'action'
+      const value = pythonArgument(args, param, helper ? helper.params.indexOf(param) : 1)
+      const word = value && !value.positional ? pythonWord(value.value) : undefined
+      if (word) written.add(helper ? `${helper.prefix}${word}${helper.suffix}` : word)
+      else unread.push(`${where} passes ${param}=${value ? (value.positional ? `${value.value} positionally` : value.value) : 'nothing'}, which the walk cannot read`)
     }
-    for (const [name, action] of helpers) if (new RegExp(String.raw`\b${name}\(`).test(code)) written.add(action)
   }
-  return written
+  return { written, unread }
 }
 
 /** What an audit-log item names: the list before "are written to an audit log", and the administrators' list after. */
@@ -1204,7 +1326,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     const item = [...container.querySelectorAll('li')].map((li) => (li.textContent ?? '').replace(/\s+/g, ' ').trim()).find((t) => /\baudit log\b/.test(t))
     unmount()
     expect(item).toBeDefined()
-    const written = auditActionsWritten(backendModules())
+    const { written, unread } = auditActions(backendModules())
+    expect(
+      unread,
+      'an audit_logs action the walk cannot read: give the call a literal action= keyword (a template helper the literal its template takes), or teach auditActions its action and classify it',
+    ).toEqual([])
     expect(auditFaults(item ?? '', written)).toEqual([])
     // Every action a row records is one the item names or one AUDITED_UNNAMED holds, so a new one is placed before it
     // ships, and the header's split of the actions stays true.
@@ -1228,7 +1354,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       '"logouts": nothing writes the logout row',
       '"administrator actions": no audit_logs row is known to record it',
     ])
-    const fromPlanted = auditActionsWritten({
+    const fromPlanted = auditActions({
       'app/services/audit_service.py': [
         'def create_audit_log(db, action):',
         '    """>>> create_audit_log(db, action="in_a_docstring")"""',
@@ -1247,7 +1373,53 @@ describe("/security says what the code and the hosting do (D-046)", () => {
         'logger.info(f"Admin {actor.id} deleted summary for filing {filing_id}")',
       ].join('\n'),
     })
-    expect([...fromPlanted].sort()).toEqual(['invite_minted', 'register'])
+    expect([...fromPlanted.written].sort()).toEqual(['invite_minted', 'register'])
+    expect(fromPlanted.unread).toEqual([])
+    // The walk fails closed (Codex's r4335911312 on 94fb37fe): a template helper's action is composed from its caller's
+    // literal keyword, a callable passed with its arguments is read from them, and a call whose action it cannot read is
+    // reported, by module and line, never skipped. An import names create_audit_log without calling it.
+    const templated = auditActions({
+      'app/services/audit_service.py': [
+        'def create_audit_log(db, action, user_id=None):',
+        '    return None',
+        'def log_subscription_change(db, user_id, user_email, subscription_id, action, details=None):',
+        '    """Log a subscription change."""',
+        '    return create_audit_log(db=db, action=f"subscription_{action}", user_id=user_id)',
+        'def record_admin(db, verb):',
+        '    return create_audit_log(db, action=verb)',
+        // A signature that closes at the margin, as the real module's multi-line ones do.
+        'def log_data_export(',
+        '    db,',
+        '    user_id,',
+        ') -> AuditLog:',
+        '    return create_audit_log(',
+        '        db=db,',
+        '        action="data_exported",',
+        '    )',
+      ].join('\n'),
+      'app/routers/b.py': [
+        'from app.services.audit_service import create_audit_log',
+        'audit_service.log_subscription_change(db, user.id, user.email, sub.id, action="created")',
+        'audit_service.log_subscription_change(db, user.id, user.email, sub.id, action=kind)',
+        'create_audit_log(db, action=f"admin_{verb}")',
+        'def record(db, action_name):',
+        '    create_audit_log(db, action=action_name)',
+        '    create_audit_log(db, action="feedback_status_changed")',
+        '    create_audit_log(db, "invite_revoked")',
+        '    await run_in_threadpool(audit_service.create_audit_log, db, action="free_account_created")',
+        '    hook = audit_service.create_audit_log',
+        '    log_data_export(db, user.id)',
+      ].join('\n'),
+    })
+    expect([...templated.written].sort()).toEqual(['data_exported', 'feedback_status_changed', 'free_account_created', 'subscription_created'])
+    expect(templated.unread).toEqual([
+      'app/services/audit_service.py:6 record_admin passes create_audit_log an action the walk cannot read (verb)',
+      'app/routers/b.py:3 log_subscription_change passes action=kind, which the walk cannot read',
+      'app/routers/b.py:4 create_audit_log passes action=f"admin_{verb}", which the walk cannot read',
+      'app/routers/b.py:6 create_audit_log passes action=action_name, which the walk cannot read',
+      'app/routers/b.py:8 create_audit_log passes action="invite_revoked" positionally, which the walk cannot read',
+      'app/routers/b.py:10 create_audit_log is named but not called, so the walk cannot read its action',
+    ])
   })
 })
 

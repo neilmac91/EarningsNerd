@@ -221,7 +221,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the account-events sentence (`ACCOUNT_EVENTS_DISCLOSURE`, the same module) to the backend's callers
   that key an event on the account id and read no consent, the sourced bullets to the steps they
   cite, the audit-log item to the backend's audit writers (each audited action named or held as
-  unnamed), and the page's numbers and schedules to
+  unnamed, and a write whose action the reader cannot read reported, not skipped), and the page's
+  numbers and schedules to
   the repository's facts (the backend's defaults, the breach check's prefix, the export's day of the
   month and Dependabot's week); fails on a refresh token that works once, a reused one revoking the account, or a session
   that ends after logging out, within a time or with none named, on every run, until the founder's
