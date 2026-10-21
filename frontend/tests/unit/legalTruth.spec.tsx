@@ -115,15 +115,18 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    backend writes (auditActions), read so that none is missed: each create_audit_log call by its own argument list,
  *    each audit_service function that calls create_audit_log as a helper with a literal action or a template one
  *    (`subscription_{action}`, composed from the caller's literal keyword), a callable passed with its arguments
- *    (`run_in_threadpool(audit_service.create_audit_log, db, action=...)`) from them, an import not as a call; whatever
- *    the walk cannot read (a variable, an f-string or a positional action, a name mentioned but not called) is listed
- *    by module and line, and that list is held empty, so a new write fails until its action is a literal or taught to
- *    the walk. The item names part of what the rows record, and AUDITED_UNNAMED holds the rest, each with what it
- *    records: a Google or Apple sign-in linked to an existing account or unlinked from it (oauth_linked,
- *    oauth_unlinked), and two administrator actions on summaries, a bulk reset and a regeneration of stale ones
- *    (summaries_bulk_reset, summaries_refresh_stale). Every action written is in one map or the other, so a new one
- *    fails until it is placed; naming one on the page changes the page's sentence, which is the founder's.
- *    Administrator actions are named one by one, since six of them write a log line and no row
+ *    (`run_in_threadpool(audit_service.create_audit_log, db, action=...)`) from them, an import not as a call; and it
+ *    follows a module's bindings, not names, so a writer imported under an alias (`create_audit_log as write_audit`)
+ *    and the service imported as a module (`import app.services.audit_service as audit`) are read. Whatever the walk
+ *    cannot read or follow (a variable, an f-string or a positional action, a name mentioned but not called or
+ *    reassigned, a star import of the service, the service module used other than as `<module>.<name>`, a service
+ *    function that writes through another helper) is listed by module and line, and that list is held empty, so a new
+ *    write fails until its action is a literal or taught to the walk. The item names part of what the rows record, and
+ *    AUDITED_UNNAMED holds the rest, each with what it records: a Google or Apple sign-in linked to an existing account
+ *    or unlinked from it (oauth_linked, oauth_unlinked), and two administrator actions on summaries, a bulk reset and a
+ *    regeneration of stale ones (summaries_bulk_reset, summaries_refresh_stale). Every action written is in one map or
+ *    the other, so a new one fails until it is placed; naming one on the page changes the page's sentence, which is the
+ *    founder's. Administrator actions are named one by one, since six of them write a log line and no row
  *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
  *    This reader sees only that some module writes a named action, not that every path of the event does; that is the
  *    backend's to pin. For logouts (E137), test_auth_token_flows.py's logout cases and the logout_signed_in and
@@ -832,6 +835,7 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
   const lineOf = (code: string, index: number) => code.slice(0, index).split('\n').length
   const helpers = new Map<string, AuditHelper>()
   const unread: string[] = []
+  const others: Array<{ where: string; name: string; body: string }> = []
   for (const [rel, src] of Object.entries(modules)) {
     if (!isService(rel)) continue
     const code = pythonCode(src)
@@ -840,7 +844,10 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
       const open = (def.index ?? 0) + def[0].length - 1
       const body = pythonFunctionAt(code, def.index ?? 0, open)
       const call = name === 'create_audit_log' ? null : body.match(/\bcreate_audit_log\s*\(/)
-      if (!call) continue
+      if (!call) {
+        others.push({ where: `${rel}:${lineOf(code, def.index ?? 0)}`, name, body })
+        continue
+      }
       const params = (pythonCall(code, open)?.args ?? []).map((param) => param.split(/[:=]/)[0].trim())
       const action = pythonArgument(pythonCall(body, (call.index ?? 0) + call[0].length - 1)?.args ?? [], 'action', 1)
       const word = action && !action.positional ? pythonWord(action.value) : undefined
@@ -850,16 +857,54 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
       else unread.push(`${rel}:${lineOf(code, def.index ?? 0)} ${name} passes create_audit_log an action the walk cannot read (${action?.value ?? 'none'})`)
     }
   }
+  // A service function that writes through another helper is one the walk does not follow inside the service.
+  for (const { where, name, body } of others) {
+    const inner = [...helpers.keys()].find((helper) => new RegExp(String.raw`\b${helper}\s*\(`).test(body))
+    if (inner) unread.push(`${where} ${name} calls ${inner} inside the service, which the walk does not follow`)
+  }
   const written = new Set<string>()
   const callees = ['create_audit_log', ...helpers.keys()]
+  const IMPORT = /^[ \t]*(?:from[ \t]+([\w.]+)[ \t]+)?import[ \t]+(\([^)]*\)|[^\n]*)/gm
+  const isServicePath = (path: string) => /(?:^|\.)audit_service$/.test(path)
   for (const [rel, src] of Object.entries(modules)) {
     if (isService(rel)) continue
-    // An import names a callee without calling it; blank it, keeping its line breaks.
-    const code = pythonCode(src).replace(/^[ \t]*(?:from[ \t]+[\w.]+[ \t]+)?import[ \t]+(?:\([^)]*\)|[^\n]*)/gm, (statement) => statement.replace(/[^\n]/g, ' '))
-    for (const mention of code.matchAll(new RegExp(String.raw`(?<!\bdef\s+)\b(${callees.join('|')})\b(\s*\()?`, 'g'))) {
-      const [, name, called] = mention
+    const raw = pythonCode(src)
+    // The module's bindings, read from its imports before they are blanked (an import names a callee without calling
+    // it): a writer under its own name or an alias (`from ...audit_service import create_audit_log as write_audit`), and
+    // the service as a module (`import app.services.audit_service as audit`, `from app.services import audit_service`).
+    // A star import of the service binds names the walk cannot follow.
+    const writerOf = new Map(callees.map((name) => [name, name]))
+    const aliases: string[] = []
+    const services: string[] = []
+    for (const statement of raw.matchAll(IMPORT)) {
+      const [, from, list] = statement
+      for (const part of list.replace(/[()]/g, '').split(',').map((piece) => piece.trim()).filter(Boolean)) {
+        const [target, alias] = part.split(/\s+as\s+/).map((piece) => piece.trim())
+        if (from !== undefined && isServicePath(from)) {
+          if (target === '*') unread.push(`${rel}:${lineOf(raw, statement.index ?? 0)} imports * from ${from}, which binds names the walk cannot follow`)
+          else if (alias && callees.includes(target)) {
+            writerOf.set(alias, target)
+            aliases.push(alias)
+          }
+        } else if (from !== undefined ? target === 'audit_service' : isServicePath(target)) services.push(alias ?? target)
+      }
+    }
+    const code = raw.replace(IMPORT, (statement) => statement.replace(/[^\n]/g, ' '))
+    // The service bound as a module is followed only through `<module>.<name>`; any other use of it (getattr, passed on,
+    // reassigned) is a binding the walk cannot follow.
+    for (const service of services) {
+      for (const use of code.matchAll(new RegExp(String.raw`(?<![\w.])${escapeRe(service)}\b(?!\s*\.\s*\w)`, 'g'))) {
+        unread.push(`${rel}:${lineOf(code, use.index ?? 0)} ${service} (the audit service) is used other than as ${service}.<name>, so the walk cannot follow what it calls`)
+      }
+    }
+    // A writer under its own name may be an attribute (`audit_service.create_audit_log`); an alias is a bare name.
+    const bound = aliases.length ? String.raw`|(?<![\w.])(?<alias>${aliases.map(escapeRe).join('|')})` : ''
+    for (const mention of code.matchAll(new RegExp(String.raw`(?<!\bdef\s+)(?:\b(?<own>${callees.join('|')})${bound})\b(?<called>\s*\()?`, 'g'))) {
+      const spelled = mention.groups?.own ?? mention.groups?.alias ?? ''
+      const called = mention.groups?.called
+      const name = writerOf.get(spelled) ?? spelled
       const at = mention.index ?? 0
-      const where = `${rel}:${lineOf(code, at)} ${name}`
+      const where = `${rel}:${lineOf(code, at)} ${spelled}`
       let args: string[] | null = null
       if (called) args = pythonCall(code, at + mention[0].length - 1)?.args ?? null
       else {
@@ -1452,6 +1497,39 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       'app/routers/b.py:6 create_audit_log passes action=action_name, which the walk cannot read',
       'app/routers/b.py:8 create_audit_log passes action="invite_revoked" positionally, which the walk cannot read',
       'app/routers/b.py:10 create_audit_log is named but not called, so the walk cannot read its action',
+    ])
+    // The walk follows bindings, not names (Codex's r4336218376 on 2b30fe47): a writer imported under an alias and the
+    // service imported as a module are read; a star import, an alias reassigned, the module used other than as
+    // `<module>.<name>` and a service function that writes through another helper are reported.
+    const aliased = auditActions({
+      'app/services/audit_service.py': [
+        'def create_audit_log(db, action, user_id=None):',
+        '    return None',
+        'def log_register(db, user_id):',
+        '    return create_audit_log(db, action="register", user_id=user_id)',
+        'def log_subscription_change(db, user_id, user_email, subscription_id, action):',
+        '    return create_audit_log(db=db, action=f"subscription_{action}")',
+        'def log_both(db, user_id):',
+        '    return log_register(db, user_id)',
+      ].join('\n'),
+      'app/routers/c.py': [
+        'from app.services.audit_service import create_audit_log as write_audit, log_register as register_row',
+        'import app.services.audit_service as audit',
+        'write_audit(db, action="invite_resent")',
+        'register_row(db, user.id)',
+        'audit.log_subscription_change(db, user.id, user.email, sub.id, action="cancelled")',
+        'writer = write_audit',
+      ].join('\n'),
+      'app/routers/d.py': ['from app.services.audit_service import *', 'create_audit_log(db, action="feedback_status_changed")'].join('\n'),
+      'app/routers/e.py': ['from app.services import audit_service', 'fn = getattr(audit_service, "create_audit_log")'].join('\n'),
+    })
+    expect([...aliased.written].sort()).toEqual(['feedback_status_changed', 'invite_resent', 'register', 'subscription_cancelled'])
+    expect(aliased.unread).toEqual([
+      'app/services/audit_service.py:7 log_both calls log_register inside the service, which the walk does not follow',
+      'app/routers/c.py:6 write_audit is named but not called, so the walk cannot read its action',
+      'app/routers/d.py:1 imports * from app.services.audit_service, which binds names the walk cannot follow',
+      'app/routers/e.py:2 audit_service (the audit service) is used other than as audit_service.<name>, so the walk cannot follow what it calls',
+      'app/routers/e.py:2 create_audit_log is named but not called, so the walk cannot read its action',
     ])
   })
 })
