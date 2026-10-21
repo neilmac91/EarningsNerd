@@ -28,7 +28,8 @@ import type { EarningsAlertsApi } from '@/features/calendar/hooks/useCalendar'
  *  - Badge.tsx no longer documents beat/miss/new as tonal recipes, and frontend/DESIGN_SYSTEM.md §4's Status chip
  *    recipe says what each member of the status set means, every member once (chief design's reading on #1459);
  *  - no `<Badge icon={null}>` in app/, components/ or features/ takes `beat` or `miss` (a literal, or a
- *    variable in a file that names either): a direction without its glyph is a status in data colours.
+ *    variable in a file that names either), under any name the file gives Badge (badgeTags): a direction without
+ *    its glyph is a status in data colours.
  *    No file is exempt: the watchlist and dashboard rows say "Ready" and "Error" on success and error;
  *  - `new` is the brand tint with its sage dot (D-032, E51): the `brand` chip's own classes, so it cannot drift
  *    back to the warning tint or apart from the brand chip, a pulse dot in the label's ink that stops under
@@ -36,8 +37,8 @@ import type { EarningsAlertsApi } from '@/features/calendar/hooks/useCalendar'
  *    (the dashboard's What changed card), at rest and pressed, the grounds read from Card's own classes;
  *  - `tentative` (E83) is neutral-status's ink on a dashed hairline with no fill in either theme, and the calendar's
  *    status ladder is the status set as Badge renders it ("Est." on tentative, "Confirmed" on info-status, "Reported"
- *    on neutral-status, E141), each label clearing 4.5:1 on its rows at rest and hovered in both themes; and no <Badge>
- *    sets a ground, an ink or a hairline in its className (the cases at the end).
+ *    on neutral-status, E141), each label clearing 4.5:1 on its rows at rest and hovered in both themes; and no <Badge>,
+ *    under any name the file gives it, sets a ground, an ink or a hairline in its className (the cases at the end).
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -74,6 +75,42 @@ function badgeCallerFiles(): string[] {
   }
   for (const dir of ['app', 'components', 'features']) walk(dir)
   return files
+}
+
+/** The tags a source can render Badge under: `Badge` itself, whatever it names, so a scan fails closed; each name an
+    import from Badge's module binds to it (`import { Badge as Chip }`); `<namespace>.Badge` for a namespace import of
+    that module; and a local name set to one of those (`const Chip = UI.Badge`). Badge's module is components/ui or
+    components/ui/Badge, by the `@/` alias or a relative path. Out of reach: a name that crosses modules (a re-export
+    under another name in a file of its own) and a component that renders Badge for its caller, whose own <Badge>
+    is read where it is written, a spread there failing. */
+function badgeTags(file: string, sf: ts.SourceFile): Set<string> {
+  const tags = new Set(['Badge'])
+  const badgeModule = (spec: string): boolean => {
+    const target = spec.startsWith('@/') ? spec.slice(2) : spec.startsWith('.') ? path.join(path.dirname(file), spec) : null
+    if (target === null) return false
+    const bare = path.normalize(target).replace(/\.(tsx?|jsx?)$/, '').replace(/[\\/]index$/, '')
+    return bare === path.join('components', 'ui') || bare === path.join('components', 'ui', 'Badge')
+  }
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    if (!badgeModule(statement.moduleSpecifier.text)) continue
+    const bindings = statement.importClause?.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings)) tags.add(`${bindings.name.text}.Badge`)
+    if (bindings && ts.isNamedImports(bindings))
+      for (const element of bindings.elements) if ((element.propertyName ?? element.name).text === 'Badge') tags.add(element.name.text)
+  }
+  for (let grew = true; grew; ) {
+    grew = false
+    const visit = (node: ts.Node): void => {
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && !tags.has(node.name.text) && tags.has(node.initializer.getText(sf))) {
+        tags.add(node.name.text)
+        grew = true
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sf)
+  }
+  return tags
 }
 
 /** `success-light` → its hex; `white` → #FFFFFF. */
@@ -147,8 +184,9 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
     const found: string[] = []
     for (const file of badgeCallerFiles()) {
       const text = readFileSync(path.join(ROOT, file), 'utf8')
-      if (!text.includes('<Badge')) continue
+      if (!text.includes('Badge')) continue
       const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+      const tags = badgeTags(file, sf)
       let namesDirection = false
       const scanLiterals = (node: ts.Node): void => {
         if (ts.isStringLiteralLike(node) && (node.text === 'beat' || node.text === 'miss')) namesDirection = true
@@ -156,7 +194,7 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
       }
       scanLiterals(sf)
       const visit = (node: ts.Node): void => {
-        if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === 'Badge') {
+        if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && tags.has(node.tagName.getText(sf))) {
           const attr = (name: string) =>
             node.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === name)
           const icon = attr('icon')?.initializer
@@ -534,12 +572,14 @@ function paintsChip(cls: string): boolean {
   return PALETTE[value.split('/')[0]] !== undefined
 }
 
-/** Every <Badge> in a source with a className or a spread this scan finds fault with, as `file:line: why`. */
+/** Every <Badge>, under any name the source gives it (badgeTags), with a className or a spread this scan finds fault
+    with, as `file:line: why`. */
 function badgeClassFaults(file: string, source: string): string[] {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const tags = badgeTags(file, sf)
   const faults: string[] = []
   const visit = (node: ts.Node): void => {
-    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === 'Badge') {
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && tags.has(node.tagName.getText(sf))) {
       const at = `${file}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
       for (const prop of node.attributes.properties) {
         if (ts.isJsxSpreadAttribute(prop)) faults.push(`${at}: a spread, which may pass a className this scan cannot read`)
@@ -561,7 +601,7 @@ describe("a Badge's ground, ink and hairline are its variant's (E83)", () => {
   it('no <Badge> in app/, components/ or features/ sets a ground, an ink or a hairline in its className', () => {
     const found = badgeCallerFiles().flatMap((file) => {
       const source = readFileSync(path.join(ROOT, file), 'utf8')
-      return source.includes('<Badge') ? badgeClassFaults(file, source) : []
+      return source.includes('Badge') ? badgeClassFaults(file, source) : []
     })
     expect(found, "give the chip a variant of its own (components/ui/Badge.tsx): a class on top of a variant's wins or loses by stylesheet order").toEqual([])
   })
@@ -597,5 +637,30 @@ describe("a Badge's ground, ink and hairline are its variant's (E83)", () => {
     const last = ts.createSourceFile('probe.tsx', '<Badge className={`shrink-0 ${wide ? "w-full" : ""} mt-${"1"}`} />', ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
     const attr = (last.statements[0] as ts.ExpressionStatement).expression as ts.JsxSelfClosingElement
     expect(staticClasses((attr.attributes.properties[0] as ts.JsxAttribute).initializer)).toEqual(['shrink-0', 'w-full', 'mt-1'])
+  })
+
+  it('reads Badge under any name a source gives it: an alias, a namespace, a relative path or a local name', () => {
+    const probe = [
+      "import { Badge as Chip } from '@/components/ui'",
+      "import * as UI from '@/components/ui/Badge'",
+      "import { Badge as Near } from '../ui'",
+      "import { Badge as Other } from '@/features/other'",
+      "import * as Lib from '@/lib/ui'",
+      // A statement of its own: unended, the next line's tag would parse as `UI.Badge < Chip …`.
+      'const Local = UI.Badge;',
+      '<Chip className="bg-white" />',
+      '<UI.Badge className="text-white" />',
+      '<Near className="border-dashed" />',
+      '<Local className="dark:bg-white/5" />',
+      // Another module's Badge, or another module's namespace, is not this one.
+      '<Other className="bg-white" />',
+      '<Lib.Badge className="bg-white" />',
+    ].join('\n')
+    expect(badgeClassFaults('components/dashboard/probe.tsx', probe)).toEqual([
+      'components/dashboard/probe.tsx:7: bg-white',
+      'components/dashboard/probe.tsx:8: text-white',
+      'components/dashboard/probe.tsx:9: border-dashed',
+      'components/dashboard/probe.tsx:10: dark:bg-white/5',
+    ])
   })
 })
