@@ -64,11 +64,13 @@ export default function NotableFilingCard({
             {filing.company_name}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+        <div className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
           {/* A form code is text in the data face, never an eyebrow chip (DESIGN.md › Chips), and one unbroken run, so
-              it never breaks at its hyphen on the landing (tests/e2e/reflow-200.spec.ts reads every row's codes). */}
+              it never breaks at its hyphen on the landing (tests/e2e/reflow-200.spec.ts reads every row's codes). The
+              middot keeps to it through a no-break space, so where the line wraps (a phone at 200% text) the next line
+              starts with "Filed", never with the dot. */}
           <span className="whitespace-nowrap font-data text-text-primary-light dark:text-text-primary-dark">{filing.form}</span>
-          {ago && <span>· Filed {ago}</span>}
+          {ago && ` · Filed ${ago}`}
         </div>
         <div className="mt-2">
           <Badge
