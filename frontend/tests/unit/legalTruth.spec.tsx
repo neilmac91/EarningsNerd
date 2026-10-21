@@ -18,27 +18,37 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  * The legal pages say what the code and the hosting do, and their dates move with their text (D-046; CLAUDE.md
  * rule 12; lessons/brand-a-promise-names-what-the-code-enforces.md, lessons/test-gates-must-be-as-wide-as-their-rule.md).
  *
- * 1. /security's claims that nothing in the repository supported stay out (REMOVED_CLAIMS), each read as its family:
- *    a Redis cache (production runs none, ADR-0004); an uptime figure or guarantee (a percentage, written with % or as
+ * 1. /security's claims that nothing in the repository supported stay out (REMOVED_CLAIMS), each read as its family: a
+ *    Redis cache (production runs none, ADR-0004); an uptime figure or guarantee (a percentage, written with % or as
  *    percent or per cent, beside uptime, availability or an SLA, or a guarantee beside uptime or availability, in
  *    either order; none is offered); firewalls or intrusion detection or prevention (nothing configures them); every
- *    endpoint behind authentication, with or without "API" (search, company pages and summaries are public); a Content
+ *    endpoint behind authentication, "all", "every", "each", "any" or "no" with up to three words before "endpoints"
+ *    ("all of the API's endpoints", "every single endpoint"; search, company pages and summaries are public); a Content
  *    Security Policy against XSS or cross-site scripting (the site sends frame-ancestors only); role-based access,
  *    permissions or authorisation, or RBAC (one administrator flag); an adjective in place of a fact (enterprise,
  *    military or bank grade or level, industry standard or standards, hyphenated or not); no financial data stored, a
  *    negation, contracted or not, on either side (payment records are kept); post-incident reviews or post-mortems and
  *    vetting the providers (no process in the repository does either); and an analytics-consent promise not scoped to
- *    the browser in its own sentence, the analytics named on either side of "only after you allow" or "only with your
- *    consent" (the API sends account events whatever the reader chose: D-051). The scan reads /security's rendered
- *    tree, as one text (a heading runs into the body under it) and block by block (blockTexts: a list item or a
- *    paragraph on its own, so a provider's item is not read through the PostHog line's "in your browser"), /privacy's
- *    and /terms' rendered trees the same way (/privacy carries the account-events sentence too), the page
- *    module's literals (its metadata, which no render shows) and the waitlist page's copy (strings, JSX text and each
- *    element's run across its inline elements, outside className), sentence by sentence, a sentence ending only at
- *    ".", "!" or "?", so a `<strong>Label:</strong> body` item is read whole. The planted forms run through the same
- *    render, text, blocks and splitter and score the reach: main's sentences and their close rewordings fail, the
- *    page's new sentences and class names pass. Out of reach, planted as gaps: a claim split across two sentences, one
- *    said in other words, and an unscoped consent promise in a sentence that also names the browser.
+ *    the browser in its own sentence (CONSENT_PROMISE; the API sends account events whatever the reader chose: D-051).
+ *    That promise names the analytics by a name the F33 check reads them by (analytics, tracking, statistics, PostHog,
+ *    usage, telemetry, data) or as events, and makes them wait for a yes: "only" up to 60 characters before "after
+ *    (once, when, if or until) you allow" (accept, agree, consent, opt in, give consent, say yes, turn or switch on,
+ *    enable), before "with (after, upon, on or by) your consent" with up to three words before the consent (permission,
+ *    agreement, approval, opt-in), or before "once allowed", a sentence that names the browser ("in your browser")
+ *    reading as scoped; or, in the forms the "only" ones miss, "until you allow", a negation before "without your
+ *    consent", "requires (needs, waits for, is subject to) your consent", "consent-gated" or "opt-in", where a sentence
+ *    that names the browser or its analytics cookies, the browser's part (the consent dialog's own "Analytics cookies
+ *    and session recording stay off until you allow them"), reads as scoped. The scan reads /security's rendered tree,
+ *    as one text (a heading runs into the body under it) and block by block (blockTexts: a list item or a paragraph on
+ *    its own, so a provider's item is not read through the PostHog line's "in your browser"), /privacy's and /terms'
+ *    rendered trees the same way (/privacy carries the account-events sentence too), the page module's literals (its
+ *    metadata, which no render shows) and the waitlist page's copy (strings, JSX text and each element's run across its
+ *    inline elements, outside className), sentence by sentence, a sentence ending only at ".", "!" or "?", so a
+ *    `<strong>Label:</strong> body` item is read whole. The planted forms run through the same render, text, blocks and
+ *    splitter and score the reach: main's sentences and their close rewordings fail, the page's new sentences and class
+ *    names pass. Out of reach, planted as gaps: a claim split across two sentences, one said in other words ("PostHog
+ *    runs after you allow it", "the whole API sits behind authentication"), and an unscoped consent promise in a
+ *    sentence that also names the browser or its analytics cookies.
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -79,30 +89,40 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    appended), which passes, since the diff shows the row rewritten; and whether a row's date is the day main's
  *    history gives the merge that shipped it (lib/legalDates.ts), since no run reads the clock or the history.
  * 5. A /security claim that stands on a document, not the code, names it in a comment beside the claim,
- *    `{/* Source: <path> §<n>, "<heading>" ... *\/}`, and the document must exist, hold that numbered section, and
- *    say each word the claim names in a numbered step of it, its label, its text or a line that carries it on
- *    (SOURCED_STEPS): the runbook bullet stands on tasks/security_privacy_runbook.md §3's steps that contain and assess,
- *    gather evidence and rotate keys, and the notification bullet on its step 2, which notifies the supervisory
- *    authority and the affected users. Which claims stand on a document is review-checked; each one SOURCED_STEPS lists
- *    must carry its comment. Planted documents score the reader: a missing file, a renamed heading, a missing step and a
- *    step's words gone fail.
- * 6. The audit-log item names only what an audit_logs row records (AUDITED): each thing it names stands on actions
- *    the backend writes, read from each create_audit_log call and each audit_service helper another module calls.
- *    Administrator actions are named one by one, since six of them write a log line and no row
- *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
- *    This reader sees only that some module writes a named action, not that every path of the event does; that is
- *    the backend's to pin. For logouts (E137), test_auth_token_flows.py's logout cases and the logout_signed_in and
- *    logout_cookie_only cases in test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its
- *    row, under the user whose session it ended.
- * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests
- *    overlap (E127_PROMISES): a refresh token that works once, a reused one revoking the account, or a session that
- *    ends after logging out or a password change, within a time or with none named (every session, everywhere, a
- *    session token revoked). The page is read on every run, whatever tasks/todo.md records: E127's race is fixed
- *    (#1422) and so is a login that straddled a password reset (#1431), but a session token already issued runs to
- *    its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout that does not wait for an in-flight
- *    renewal) are open; the stronger wording returns only in a pull request that carries the founder's go-ahead
- *    (tasks/todo.md F53) and changes this check. Each family is read in one list item or paragraph (blockTexts).
- *    Planted forms score the reach; out of reach, planted as a gap: a promise split across two items.
+ *    `{/* Source: <path> §<n>, "<heading>"[, step <m>] ... *\/}`, and the document must exist, hold that numbered
+ *    section, and say each word the claim names in a numbered step of it (in step <m> alone, when the comment cites
+ *    one), its label, its text or a line that carries it on (SOURCED_STEPS, which lists each claim's cited step): the
+ *    runbook bullet stands on tasks/security_privacy_runbook.md §3's steps that contain and assess, gather evidence and
+ *    rotate keys, and the notification bullet on its step 2, which notifies the supervisory authority and the affected
+ *    users. Which claims stand on a document is review-checked; each one SOURCED_STEPS lists must carry its comment,
+ *    citing the step listed. Planted documents score the reader: a missing file, a renamed heading, a missing step, a
+ *    step's words gone, a cited step that lacks them while another step holds them, and a cited step that is not there
+ *    fail.
+ * 6. The audit-log item names only what an audit_logs row records (AUDITED): each thing it names stands on actions the
+ *    backend writes, read from each create_audit_log call and each audit_service helper another module calls. The item
+ *    names part of what the rows record, and AUDITED_UNNAMED holds the rest, each with what it records: a Google or
+ *    Apple sign-in linked to an existing account or unlinked from it (oauth_linked, oauth_unlinked), and two
+ *    administrator actions on summaries, a bulk reset and a regeneration of stale ones (summaries_bulk_reset,
+ *    summaries_refresh_stale). Every action written is in one map or the other, so a new one fails until it is placed;
+ *    naming one on the page changes the page's sentence, which is the founder's. Administrator actions are named one by
+ *    one, since six of them write a log line and no row (admin_filing_service.py's filing maintenance and stale-XBRL
+ *    bulk reset, the XBRL cache clear, the test mail). This reader sees only that some module writes a named action,
+ *    not that every path of the event does; that is the backend's to pin. For logouts (E137),
+ *    test_auth_token_flows.py's logout cases and the logout_signed_in and logout_cookie_only cases in
+ *    test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its row, under the user whose
+ *    session it ended.
+ * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests overlap
+ *    (E127_PROMISES): a refresh token that works once (one-time, cannot be used twice), a reused one revoking the
+ *    account or ending its sessions, or a session that ends after logging out or a password change, within a time or
+ *    with none named (every session, everywhere, a session token revoked), a logout in each spelling (logout, logged
+ *    out, a sign-out), and what ends named before its verb ("a session open elsewhere then ends", "every device is
+ *    signed out") or signed out with no pronoun ("signs out every device"). The page is read on every run, whatever
+ *    tasks/todo.md records: E127's race is fixed (#1422) and so is a login that straddled a password reset (#1431), but
+ *    a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout
+ *    that does not wait for an in-flight renewal) are open; the stronger wording returns only in a pull request that
+ *    carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list item or
+ *    paragraph (blockTexts). Planted forms score the reach; out of reach, planted as gaps: a promise split across two
+ *    items, and one said in other words ("nobody stays signed in").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -192,6 +212,28 @@ const PERCENT = String.raw`\b\d{2,3}(?:\.\d+)?\s?(?:%|percent\b|per cent\b)`
 const CSP = String.raw`(?:\bCSP\b|\bContent[- ]Security[- ]Polic(?:y|ies)\b)`
 const XSS = String.raw`(?:\bXSS\b|\bcross[- ]site[- ]scripting\b)`
 
+/** The analytics by any name ANONYMOUS_ANALYTICS reads them by, and their events. */
+const ANALYTICS_NAMES = String.raw`\b(?:analytics|tracking|statistics|PostHog|usage|telemetry|events?|data)\b`
+/** The reader's yes, as a clause after "you" says it. */
+const YES = String.raw`(?:allow|accept|agree|consent|opt(?:ed)?[- ]in|giv(?:e|en) (?:your |us )?(?:\w+ )?(?:consent|permission)|say yes|turn (?:it |them )?on|switch (?:it |them )?on|enable)`
+/** The reader's yes, as a noun. */
+const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|say-so)s?`
+
+/** An analytics-consent promise not scoped to the browser, in one sentence (header item 1 lists its forms). The
+    "only" forms read a sentence that names the browser as scoped; the forms that wait for a yes another way read the
+    browser's analytics cookies as scoped too, so the consent dialog's own sentence about them passes. */
+const CONSENT_PROMISE = new RegExp(
+  String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*\bonly\b.{0,60}?(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}\b|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)` +
+    String.raw`|^(?!.*(?:\bin your browser\b|\b(?:analytics|tracking) cookies\b))(?=.*${ANALYTICS_NAMES})(?:` +
+    String.raw`.*\buntil you(?: have|['’]ve)? ${YES}` +
+    String.raw`|.*\b(?:never|not|no|nothing|none)\b.{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
+    String.raw`|.*(?<!\b(?:not|never)\s|n['’]t\s)\b(?:requires?|needs?|waits? for|is subject to) (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
+    String.raw`|.*\bconsent[- ]gated\b|.*\bgated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b` +
+    String.raw`|.*\b(?:is|are) (?:strictly |only )?opt[- ]in\b` +
+    ')',
+  'i',
+)
+
 const REMOVED_CLAIMS: Array<[string, RegExp]> = [
   ['a Redis cache', /\bredis\b/i],
   [
@@ -199,17 +241,14 @@ const REMOVED_CLAIMS: Array<[string, RegExp]> = [
     new RegExp(String.raw`\b(?:uptime|availability|SLA)\b[^.]*${PERCENT}|${PERCENT}[^.]*\b(?:uptime|availability|available|SLA)\b|\b(?:uptime|availability)\b[^.]*\bguarantee(?:s|d)?\b|\bguarantee(?:s|d)?\b[^.]*\b(?:uptime|availability|available)\b`, 'i'),
   ],
   ['firewalls or intrusion detection', /\bfirewalls?\b|\bintrusion[- ](?:detection|prevention)\b/i],
-  ['every endpoint behind authentication', /\b(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b/i],
+  ['every endpoint behind authentication', /\b(?:all|every|each|any|no)\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b/i],
   ['a Content Security Policy against XSS', new RegExp(`${CSP}[^.]*${XSS}|${XSS}[^.]*${CSP}`, 'i')],
   ['role-based access control', /\brole[- ]based (?:access|permissions?|authori[sz]ation)\b|\bRBAC\b/i],
   ['an adjective in place of a fact', /\b(?:enterprise|military|bank)[- ](?:grade|level)\b|\bindustry[- ]standards?\b/i],
   ['no financial data stored', /(?:\b(?:no|never|not|none)\b|n['’]t\b)[^.]{0,40}\bfinancial data\b|\bfinancial data\b[^.]{0,40}(?:\b(?:never|not)\b|n['’]t\b)/i],
   ['post-incident reviews', /\bpost[- ]incident reviews?\b|\bpost[- ]?mortems?\b/i],
   ['vetting the providers', /\bvet(?:s|ted|ting)?\b/i],
-  [
-    'an analytics-consent promise not scoped to the browser',
-    /^(?!.*\bin your browser\b)(?=.*\b(?:analytics|tracking|statistics)\b).*\bonly (?:(?:after|once|when|if) you(?: have|['’]ve)? (?:allow|accept|agree|consent|opt(?:ed)?[- ]in)|(?:with|after|upon|on) (?:your )?(?:consent|permission|agreement|approval|opt[- ]in))/i,
-  ],
+  ['an analytics-consent promise not scoped to the browser', CONSENT_PROMISE],
 ]
 
 const claimsIn = (where: string, text: string) =>
@@ -251,14 +290,54 @@ const SESSION_END_UNTIMED = new RegExp(
   'i',
 )
 
+/** Not after a negation: "does not end your other sessions" and "never signs you out" deny an end. */
+const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+(?:\w+\s+)?|n['’]t\s+(?:\w+\s+)?)`
+/** What a promise of logging out says ends: a session (a session token is a token, not a session), a device, a tab or
+    a browser, with a word that says which ("every session", "your other sessions", "all of your devices"), or
+    everywhere, elsewhere or the others. */
+const ENDED = String.raw`(?:\b(?:every|all|each|any|your|the|other|open)\b(?:\s+(?:of|your|the|other|open|active|remaining))*\s+(?:sessions?(?![- ]tokens?)|devices?|tabs?|browsers?)\b|\b(?:everywhere|elsewhere|the others)\b)`
+/** A verb that ends one ("the end of" is a noun). */
+const ENDS = String.raw`${NOT}\b(?:end(?:s|ed|ing)?(?!\s+of\b)|clos(?:e|es|ed|ing)|stop(?:s|ped|ping)?|terminat(?:e|es|ed|ing)|kill(?:s|ed|ing)?|invalidat(?:e|es|ed|ing)|expir(?:e|es|ed|ing)|times? out|timed out|cuts? off)\b`
+/** A time an end comes within: a span, or at once. */
+const WITHIN = String.raw`(?:\b(?:within|after|in|under|inside)\s+(?:(?:\d+|a|an|one|two|three|five|ten|fifteen|twenty|thirty|forty|sixty|a few|a couple of|half an?)\s+)?(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|days?)\b|\b(?:immediately|at once|instantly|right away|straight away|straightaway|without delay|on the spot)\b)`
+/** A logging-out action, as a block names it: a logout and a sign-out in their spellings (log out, logged out,
+    logout, log-out, signing out, sign-out), all devices or every device, everywhere, a password, a revocation. */
+const LOGGING_OUT = /\b(?:log(?:s|ged|ging)?[- ]?outs?|sign(?:s|ed|ing)?[- ]?outs?|all (?:of )?(?:your |the )?devices|every device|everywhere|passwords?|revok\w*)\b/i
+/** The forms of an end the two above miss: the verb before what it ends with no "every" ("ends your sessions", "ends
+    the others"), a sign-out with no pronoun or not after "of" ("signs out every device", "signs you out on every
+    device", "you are logged out"), what ends named before its verb ("a session open elsewhere then ends", "every
+    device is signed out"), and an end within a time in more verbs and spans ("within half an hour", "straight away"). A
+    session "keeps working until its session token expires" promises no end: what ends before its verb takes no
+    "expires", which reads its token's expiry. */
+const SESSION_END_MORE = new RegExp(
+  [
+    String.raw`${ENDS}(?:[^\w.;!?]+[\w'’-]+){0,3}?[^\w.;!?]+${ENDED}`,
+    String.raw`${NOT}\brevok(?:e|es|ed|ing)\b(?:[^\w.;!?]+[\w'’-]+){0,3}?[^\w.;!?]+\b(?:every|all|each|any|your|the|other|open)\b(?:\s+(?:of|your|the|other|open|active))*\s+sessions?\b(?![- ]tokens?)`,
+    String.raw`${NOT}\b(?:signs?|logs?|signed|logged)\s+(?:you|everyone|everybody)\s+out\b`,
+    String.raw`${NOT}\b(?:signs|logs|signed|logged)\s+out\s+(?:of\s+|from\s+|on\s+|across\s+)?${ENDED}`,
+    String.raw`\b(?:you|everyone|everybody)(?:['’]re|\s+are|\s+will be|\s+get|\s+are then)\s+(?:signed|logged)\s+out\b`,
+    String.raw`\b(?:sessions?(?![- ]tokens?)|devices?|tabs?|browsers?|the others)\b[^.;!?]*?${NOT}\b(?:end(?:s|ed)?(?!\s+of\b)|clos(?:e|es|ed)|stop(?:s|ped)?|terminat(?:e|es|ed)|times? out|timed out|(?:is|are|get|gets|will be|would be|be)\s+(?:ended|closed|terminated|revoked|invalidated|killed|cut off|signed out|logged out))\b`,
+    String.raw`(?:\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b|\b(?:ending|expired|stopped|closed|terminat(?:e|es|ed|ing)|kill(?:s|ed)?|invalidat(?:e|es|ed)|times? out|timed out|cuts? off|(?:signs?|logs?|signed|logged)\s+(?:you\s+)?out)\b).*${WITHIN}`,
+  ].join('|'),
+  'i',
+)
+/** A reuse, as a sentence names it. */
+const REUSED = String.raw`\b(?:a second time|again|twice|more than once|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?|already (?:been )?used|used before|(?:old|used|rotated(?:[- ]away)?|stale|spent) (?:refresh )?tokens?)\b`
+
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
-  ['a refresh token that works once', inASentence(/\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?(?:once|one time)\b|\bonly once\b|\bone time only\b/i)],
-  ['a reused refresh token revoking the account', inASentence(/^(?=.*\brevok).*\b(?:a second time|again|twice|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?)\b/i)],
+  [
+    'a refresh token that works once',
+    inASentence(/\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?(?:once|one time)\b|\bonly once\b|\bone time only\b|\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\b(?:can(?:not|['’]t)|can never|may not|never|won['’]t) be (?:used|presented|accepted) (?:twice|again|more than once|a second time)\b|\b(?:can(?:not|['’]t)|can never|won['’]t) be re-?used\b|\bafter (?:one|a single|its first) use\b/i),
+  ],
+  [
+    'a reused refresh token revoking the account',
+    inASentence(new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok|${SESSION_END_UNTIMED.source}|${SESSION_END_MORE.source}|\block(?:s|ed)?\s+(?:the account|you out)\b))`, 'i')),
+  ],
   [
     'a session that ends after logging out, within a time or with none named',
     (block) =>
-      /\b(?:log(?:ging|s)? out|sign(?:ing|s)? out|all (?:of your )?devices|everywhere|password)\b/i.test(block) &&
-      (inASentence(SESSION_END_TIMED)(block) || inASentence(SESSION_END_UNTIMED)(block)),
+      LOGGING_OUT.test(block) &&
+      (inASentence(SESSION_END_TIMED)(block) || inASentence(SESSION_END_UNTIMED)(block) || inASentence(SESSION_END_MORE)(block)),
   ],
 ]
 
@@ -471,38 +550,45 @@ const exampleFaults = (examples: string[], sent: Set<string>) =>
       : EVENTS_BY_EXAMPLE[example].filter((event) => !sent.has(event)).map((event) => `"${example}": no capture_event caller sends ${event}`),
   )
 
-/** The /security claims that stand on a document, and what each says the document holds, word for word from its
-    numbered steps. Which claims stand on a document is review-checked; each one listed must carry its comment. */
-const SOURCED_STEPS: Record<string, string[]> = {
-  'A written runbook covers containing it, finding what it touched, gathering evidence and rotating keys': ['Contain', 'assess', 'Evidence', 'Rotate'],
-  'When the law requires it, we notify the users affected and the data protection authority': ['notify', 'supervisory authority', 'affected users'],
+/** The /security claims that stand on a document, the step each cites (none: any step of the section), and what each
+    says the step holds, word for word. Which claims stand on a document is review-checked; each one listed must carry
+    its comment, citing the step listed here. */
+const SOURCED_STEPS: Record<string, { step?: string; words: string[] }> = {
+  'A written runbook covers containing it, finding what it touched, gathering evidence and rotating keys': { words: ['Contain', 'assess', 'Evidence', 'Rotate'] },
+  'When the law requires it, we notify the users affected and the data protection authority': { step: '2', words: ['notify', 'supervisory authority', 'affected users'] },
 }
 
-/** A `{/* Source: <path> §<n>, "<heading>" ... *\/}` comment and the list item right after it, in a page's source. */
-const SOURCE_COMMENT = /\{\/\*\s*Source:\s*(\S+)\s+§(\d+),\s*"([^"]+)"[^*]*\*\/\}\s*<li>([^<]+)<\/li>/g
+/** A `{/* Source: <path> §<n>, "<heading>"[, step <m>] ... *\/}` comment and the list item right after it, in a page's
+    source: the path, the section, the heading, the step it cites (if any) and the claim. */
+const SOURCE_COMMENT = /\{\/\*\s*Source:\s*(\S+)\s+§(\d+),\s*"([^"]+)"(?:,\s*step\s+(\d+))?[^*]*\*\/\}\s*<li>([^<]+)<\/li>/g
 
 const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** What a source lacks: the file, its numbered section (a heading `## <n>. <heading>`), or a word the claim names (in a
-    numbered step of that section, its label, its text and the lines that carry it on). */
-function sourceFaults(rel: string, doc: string | null, section: string, heading: string, steps: string[]): string[] {
+/** What a source lacks: the file, its numbered section (a heading `## <n>. <heading>`), the step a comment cites, or a
+    word the claim names (in the cited step, or with none cited in any numbered step of the section: a step's label, its
+    text and the lines that carry it on). */
+function sourceFaults(rel: string, doc: string | null, section: string, heading: string, words: string[], step?: string): string[] {
   if (doc === null) return [`${rel} is missing`]
   const lines = doc.split('\n')
   const start = lines.findIndex((line) => new RegExp(String.raw`^#{1,6}\s+${section}\.\s+${escapeRe(heading)}\b`).test(line))
   if (start < 0) return [`${rel} has no §${section} "${heading}" heading`]
   const next = lines.findIndex((line, i) => i > start && /^#{1,6}\s/.test(line))
-  const items: string[] = []
+  const items: Array<{ n: string; text: string }> = []
   for (const line of lines.slice(start + 1, next < 0 ? undefined : next)) {
-    if (/^\s*\d+\.\s/.test(line)) items.push(line.trim())
-    else if (items.length > 0 && /^\s+\S/.test(line)) items[items.length - 1] += ` ${line.trim()}`
-    else if (!line.trim()) items.push('')
+    const numbered = line.match(/^\s*(\d+)\.\s/)
+    if (numbered) items.push({ n: numbered[1], text: line.trim() })
+    else if (items.length > 0 && /^\s+\S/.test(line)) items[items.length - 1].text += ` ${line.trim()}`
+    else if (!line.trim()) items.push({ n: '', text: '' })
   }
-  return steps
-    .filter((step) => !items.some((item) => new RegExp(String.raw`\b${escapeRe(step)}\b`, 'i').test(item)))
-    .map((step) => `${rel} §${section} has no step that says "${step}"`)
+  const cited = step === undefined ? items : items.filter((item) => item.n === step)
+  if (step !== undefined && cited.length === 0) return [`${rel} §${section} has no step ${step}`]
+  return words
+    .filter((word) => !cited.some((item) => new RegExp(String.raw`\b${escapeRe(word)}\b`, 'i').test(item.text)))
+    .map((word) => (step === undefined ? `${rel} §${section} has no step that says "${word}"` : `${rel} §${section} step ${step} does not say "${word}"`))
 }
 
-/** What the audit-log item names, and the audit_logs actions the backend writes for each. */
+/** What the audit-log item names, and the audit_logs actions the backend writes for each. A sign-up through Google or
+    Apple writes only an oauth_login row, read under logins. */
 const AUDITED: Record<string, string[]> = {
   registrations: ['register'],
   logins: ['login_success', 'oauth_login'],
@@ -513,6 +599,15 @@ const AUDITED: Record<string, string[]> = {
   "administrators' invites": ['invite_minted', 'invite_revoked', 'invite_resent'],
   "administrators' feedback status changes": ['feedback_status_changed'],
   "administrators' new free accounts": ['free_account_created'],
+}
+
+/** The audit_logs actions the backend writes that the item does not name, and what each records. The item names part
+    of what the rows record; naming one of these on the page changes the page's sentence, which is the founder's. */
+const AUDITED_UNNAMED: Record<string, string> = {
+  oauth_linked: 'a Google or Apple sign-in linked to an existing account',
+  oauth_unlinked: 'a Google or Apple sign-in unlinked in the account settings',
+  summaries_bulk_reset: "an administrator's bulk reset of generated summaries, so they regenerate",
+  summaries_refresh_stale: "an administrator's regeneration of stale summaries in place",
 }
 
 /** The audit_logs actions the backend writes: each create_audit_log call's action, and the action of each audit_service
@@ -688,6 +783,35 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A provider item in the list beside the PostHog line: list items carry no full stop, so the list's text runs
       // on as one sentence and the PostHog line's "in your browser" covered the item; each block is read on its own.
       ['<ul><li><strong>Vercel:</strong> Hosts the site, and counts page views only after you allow analytics</li><li><strong>PostHog:</strong> Usage statistics: PostHog in your browser runs only after you allow analytics, and records sessions only if you allow that too</li></ul>', true],
+      // The consent promise with the analytics named as PostHog, usage, events or data (D-051's contradiction itself),
+      // "only" before the verb, and an adjective before the consent (#1397's last review, its nine forms).
+      ['<p>PostHog runs only after you allow it.</p>', true],
+      ['<li><strong>PostHog:</strong> Runs only after you allow it, and records sessions only if you allow that too</li>', true],
+      ['<p>The API records account events only with your consent.</p>', true],
+      ['<li><strong>PostHog:</strong> Usage statistics: PostHog in your browser runs only after you allow analytics. Server events run only with your consent.</li>', true],
+      ['<p>PostHog receives events only with your consent.</p>', true],
+      ['<p>Usage data is collected only with your consent.</p>', true],
+      ['<p>We only collect usage statistics after you allow analytics.</p>', true],
+      ['<p>Analytics only run once you allow them.</p>', true],
+      ['<p>Product analytics run only with your explicit consent.</p>', true],
+      // The rest of the family, taken from the language: other names, other clauses, other ways to wait for a yes.
+      ['<p>Account events are sent only after you allow it.</p>', true],
+      ['<p>Telemetry is sent only after you allow it.</p>', true],
+      ['<p>We track usage only after you allow cookies.</p>', true],
+      ['<p>We collect usage statistics only after you give consent.</p>', true],
+      ['<p>Usage data is collected only with the reader’s prior consent.</p>', true],
+      ['<p>Analytics run only once allowed.</p>', true],
+      ['<p>Analytics stay off until you allow them.</p>', true],
+      ['<p>PostHog never runs without your consent.</p>', true],
+      ['<p>No usage data is sent without your permission.</p>', true],
+      ['<p>Usage tracking requires your consent.</p>', true],
+      ['<p>Our analytics are consent-gated.</p>', true],
+      ['<p>Analytics are opt-in.</p>', true],
+      // Every endpoint with other words before "endpoints" (#1397's last review).
+      ["<p>All of the API's endpoints require authentication.</p>", true],
+      ['<p>Every single endpoint requires authentication.</p>', true],
+      ['<p>All REST API endpoints require authentication.</p>', true],
+      ['<p>No API endpoint answers without authentication.</p>', true],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
@@ -699,10 +823,21 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li><strong>PostHog:</strong> Usage statistics: PostHog in your browser runs only after you allow analytics, and records sessions only if you allow that too</li>', false],
       ['<p>Save 20% with annual billing.</p>', false],
       ['<p>max-w-[85%] from-10% via-50%</p>', false],
+      // The consent dialog's own sentence (its analytics cookies are the browser's), /privacy's D-049 sentence, and a
+      // sentence that says the events wait for no consent, the account-events sentence among them.
+      ['<p>Analytics cookies and session recording stay off until you allow them.</p>', false],
+      ['<p>Analytics and session recording in your browser stay off until you allow them, and you can change your choice at any time in Cookie settings.</p>', false],
+      ['<p>The service also records how accounts use it, such as sign-ups, plan changes, payments, feedback and feature use, against your internal account id, to run and improve it. This does not depend on your analytics choice.</p>', false],
+      ['<p>Account events do not need your consent.</p>', false],
+      ['<p>The API serves your profile, watchlist, alerts, saved summaries and billing only to your logged-in session.</p>', false],
+      ["<p>The API's endpoints for search, company pages and summaries are open to everyone.</p>", false],
       // Out of reach.
       ['<p>Our pages use a Content Security Policy. It blocks XSS.</p>', 'gap'],
       ['<p>Nobody outside our network can reach the servers.</p>', 'gap'],
       ['<p>PostHog in your browser runs only after you allow analytics, and so does every server event.</p>', 'gap'],
+      ['<p>Analytics cookies stay off until you allow them, and so do server events.</p>', 'gap'],
+      ['<p>PostHog runs after you allow it.</p>', 'gap'],
+      ['<p>The whole API sits behind authentication.</p>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
@@ -765,6 +900,22 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Resetting your password ends all your other sessions, with no delay.</li>', true],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. Each of these ends every session.</li>', true],
       ['<li>A refresh token can be used one time.</li>', true],
+      // The forms the readings above let through (#1397's last review and its refuters): an end named before its verb,
+      // a logout's other spellings, a reuse that ends the sessions or signs you out, "one-time", a sign-out with no
+      // pronoun or on every device, and a passive sign-out.
+      ['<li><strong>Logging out:</strong> Logging out revokes that browser’s refresh token. Logging out of all devices, from your account settings, revokes all of your refresh tokens, and so does changing or resetting your password; a session open elsewhere then ends.</li>', true],
+      ['<li>After a logout, every other session ends within 30 minutes.</li>', true],
+      ['<li>Once logged out, every session ends within 30 minutes.</li>', true],
+      ['<li><strong>Logout:</strong> Every session on the account ends within 30 minutes.</li>', true],
+      ['<li>A sign-out ends every session within 30 minutes.</li>', true],
+      ['<li>A sign-out on one device ends the others within 30 minutes.</li>', true],
+      ['<li>A refresh token presented a second time ends every session on the account.</li>', true],
+      ['<li>Presenting a used refresh token again signs you out on every device.</li>', true],
+      ['<li>Refresh tokens are one-time tokens.</li>', true],
+      ['<li>A refresh token cannot be used twice.</li>', true],
+      ['<li>Resetting your password signs you out on every device.</li>', true],
+      ['<li>Logging out signs out every device.</li>', true],
+      ['<li>After a password reset, every device is signed out.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -772,8 +923,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Log out of your account when using shared or public computers</li>', false],
       ['<li>Log out of all devices, in your account settings, revokes every refresh token your account holds.</li>', false],
       ['<li><strong>Logging out:</strong> None of these revokes a session token already issued; a session open elsewhere keeps working until its session token expires.</li>', false],
-      // Out of reach: a promise split across two items.
+      ['<li>Logging out of one device does not end your other sessions.</li>', false],
+      ['<li>Use Sign out of all devices in your account settings.</li>', false],
+      ['<li>Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log</li>', false],
+      // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
+      ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
@@ -787,12 +942,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
   it('a claim that stands on a document names it beside the claim, and the document holds the section and its steps (a self-check on planted documents)', () => {
     const source = readFileSync(path.join(FRONTEND, 'app/security/page.tsx'), 'utf8')
     const sourced = [...source.matchAll(SOURCE_COMMENT)]
-    expect(sourced.map((m) => m[4]), 'each sourced claim names its document beside it').toEqual(Object.keys(SOURCED_STEPS))
+    expect(
+      sourced.map((m) => [m[5], m[4]]),
+      'each sourced claim names its document beside it, citing the step SOURCED_STEPS lists',
+    ).toEqual(Object.entries(SOURCED_STEPS).map(([claim, { step }]) => [claim, step]))
     const text = rendered('security')
-    for (const [, rel, section, heading, claim] of sourced) {
+    for (const [, rel, section, heading, step, claim] of sourced) {
       expect(text).toContain(claim)
       const file = path.join(REPO, rel)
-      expect(sourceFaults(rel, existsSync(file) ? readFileSync(file, 'utf8') : null, section, heading, SOURCED_STEPS[claim])).toEqual([])
+      expect(sourceFaults(rel, existsSync(file) ? readFileSync(file, 'utf8') : null, section, heading, SOURCED_STEPS[claim].words, step)).toEqual([])
     }
     const doc = [
       '## 3. Breach-notification readiness (GDPR Art. 33/34)',
@@ -814,11 +972,23 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(faults(doc.replace('Breach-notification readiness', 'Breach readiness'))).toEqual(['r.md has no §3 "Breach-notification readiness" heading'])
     expect(faults(doc.replace('4. **Rotate** - SECRET_KEY, and any leaked keys.\n', ''))).toEqual(['r.md §3 has no step that says "Rotate"'])
     expect(faults(doc.replace('**Contain & assess**', '**Assess**'))).toEqual(['r.md §3 has no step that says "Contain"'])
-    // The notification bullet's words stand in step 2's text, on the line that carries it on.
-    const notify = (text: string | null) => sourceFaults('r.md', text, '3', 'Breach-notification readiness', ['notify', 'supervisory authority', 'affected users'])
-    expect(notify(doc)).toEqual([])
-    expect(notify(doc.replace('notify affected users without undue delay', 'tell nobody'))).toEqual(['r.md §3 has no step that says "affected users"'])
-    expect(notify(doc.replace('\n   72 hours', '\n\n72 hours'))).toEqual(['r.md §3 has no step that says "affected users"']) // a line outside the list
+    // The notification bullet's words stand in the step its comment cites, step 2, on the line that carries it on.
+    const notify = (text: string | null, step?: string) =>
+      sourceFaults('r.md', text, '3', 'Breach-notification readiness', ['notify', 'supervisory authority', 'affected users'], step)
+    expect(notify(doc, '2')).toEqual([])
+    expect(notify(doc.replace('notify affected users without undue delay', 'tell nobody'), '2')).toEqual(['r.md §3 step 2 does not say "affected users"'])
+    expect(notify(doc.replace('\n   72 hours', '\n\n72 hours'), '2')).toEqual(['r.md §3 step 2 does not say "affected users"']) // a line outside the list
+    // The words gone from step 2 while step 5 says them: the cited step fails, where any step of §3 would pass.
+    const moved = doc
+      .replace(/2\. \*\*Clock starts\*\*[\s\S]*?if high risk\./, '2. **Clock starts** when you become aware.')
+      .replace('4. **Rotate** - SECRET_KEY, and any leaked keys.', '4. **Rotate** - SECRET_KEY, and any leaked keys.\n5. **Comms** - notify affected users and the supervisory authority from a template.')
+    expect(notify(moved, '2')).toEqual([
+      'r.md §3 step 2 does not say "notify"',
+      'r.md §3 step 2 does not say "supervisory authority"',
+      'r.md §3 step 2 does not say "affected users"',
+    ])
+    expect(notify(moved)).toEqual([])
+    expect(notify(doc, '9')).toEqual(['r.md §3 has no step 9']) // a cited step that is not there
   })
 
   it('the audit-log item names only what an audit_logs row records (a self-check on planted items and modules)', () => {
@@ -828,6 +998,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(item).toBeDefined()
     const written = auditActionsWritten(backendModules())
     expect(auditFaults(item ?? '', written)).toEqual([])
+    // Every action a row records is one the item names or one AUDITED_UNNAMED holds, so a new one is placed before it
+    // ships, and the header's split of the actions stays true.
+    expect(
+      [...written].sort(),
+      'an audit_logs action the item does not name: add it to AUDITED_UNNAMED with what it records (naming it on the page is the founder’s change)',
+    ).toEqual([...new Set([...Object.values(AUDITED).flat(), ...Object.keys(AUDITED_UNNAMED)])].sort())
     const planted: Array<[string, string[]]> = [
       // Round 2's item, and a rewording that names an administrator action no row records.
       ['Registrations, logins, failed logins, logouts, data exports, account deletions and administrator actions are written to an audit log', ['"administrator actions": no audit_logs row is known to record it']],
