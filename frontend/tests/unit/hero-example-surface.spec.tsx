@@ -46,10 +46,23 @@ describe('HeroExample', () => {
 
   it('states the filing in the data face and its figures in one hairline strip, direction in a glyph', () => {
     render(<HeroExample example={LIVE} />)
-    expect(screen.getByText('10-K').parentElement).toHaveTextContent(/^AAPL\s*·\s*,\s*10-K\s*·\s*,\s*filed Oct 31, 2025$/)
+    const facts = screen.getByText('10-K').parentElement!.parentElement as HTMLElement
+    expect(facts).toHaveTextContent(/^AAPL\s*·\s*,\s*10-K\s*·\s*,\s*filed Oct 31, 2025$/)
+    // The line wraps between its facts (E81): each middot ends the item that holds the fact before it, so no line
+    // starts or stands with one; the form is one run; the date moves under "filed" whole and then breaks only
+    // after its day. tests/e2e/reflow-200.spec.ts reads the built hero at 200% text.
+    expect(within(facts).getAllByText('·').map((dot) => dot.parentElement!.textContent)).toEqual(['AAPL·,', '10-K·,'])
+    expect(screen.getByText('10-K')).toHaveClass('whitespace-nowrap')
+    expect(screen.getByText('Oct 31,')).toHaveClass('whitespace-nowrap')
+    expect(screen.getByText('Oct 31,').parentElement).toHaveClass('inline-block')
+    expect(screen.getByText('Oct 31,').parentElement).toHaveTextContent(/^Oct 31, 2025$/)
+    // One hairline strip: its rules above and below, and between two figures the later one's own left rule. Each
+    // figure takes its own width in a row that wraps, never an equal third, which its value ran out of.
     const strip = screen.getByText('$416.2B').closest('dl') as HTMLElement
-    expect(strip.className).toMatch(/border-y/)
-    expect(strip.className).toMatch(/divide-x/)
+    expect(strip.parentElement).toHaveClass('border-y', 'overflow-hidden')
+    expect(strip).toHaveClass('flex', 'flex-wrap')
+    expect(strip.className).not.toMatch(/\bgrid-cols-/)
+    for (const figure of Array.from(strip.children)) expect(figure).toHaveClass('flex-auto', 'border-l', 'border-t')
     expect(within(strip).getAllByRole('term')).toHaveLength(3)
     expect(within(strip).getAllByText('▲')).toHaveLength(2)
     for (const glyph of within(strip).getAllByText(/^[▲▼]$/)) expect(glyph).toHaveAttribute('aria-hidden', 'true')

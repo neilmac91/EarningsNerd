@@ -65,6 +65,8 @@ const formatDelta = (delta?: number | null): string | null => {
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
 const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
 const HAIRLINE = 'border-border-light dark:border-white/10'
+/** A fact of the identity line and the middot after it, one item of the wrapping line, spaced as the line is. */
+const FACT = 'flex items-center gap-x-2'
 const GLYPH = { up: '▲', down: '▼', flat: '' } as const
 /** The evidence row's excerpt, cut on a word with an ellipsis: the chip links to the whole passage. */
 const MAX_EXCERPT = 180
@@ -75,13 +77,21 @@ function clip(text: string): string {
   return `${cut.slice(0, cut.lastIndexOf(' ')).replace(/[\s.,;:]+$/, '')} …`
 }
 
-/** One figure in the hairline strip: label, value, and its change, direction in a glyph, never colour alone. */
+/**
+ * One figure in the hairline strip: label, value, and its change, direction in a glyph, never colour alone. A figure
+ * takes its own content as its width (flex-auto) in a row that wraps, so where the three do not fit side by side
+ * (a phone under 200% text) a figure moves under the one before it rather than running into it, as the catch card's
+ * pair does (lessons/frontend-check-brand-layouts-at-200-percent-text.md); in equal thirds, at 390px under 200% text
+ * each value ran across its 81px cell into the next. A value wider than the whole strip breaks inside rather than
+ * being cut. Its left and top edges are the strip's hairlines, which the strip clips where a figure starts a row or
+ * sits on the first one, so a hairline only ever stands between two figures.
+ */
 function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
   const delta = formatDelta(metric.deltaPercent)
   const direction = directionOf(metric.deltaPercent)
   const concept = isFallback ? FALLBACK_CONCEPTS[metric.label] : undefined
   return (
-    <div className="min-w-0 py-3 pl-3 first:pl-0" title={concept}>
+    <div className={cx('min-w-0 flex-auto border-l border-t py-3 pl-3', HAIRLINE)} title={concept}>
       {/* relative: the receipt's sr-only span is absolutely positioned, and an overflow clip holds such a box
           only when the box's containing block is inside it. Without it the span sits at its static place past
           the truncated label, outside the clip, and at 390px and 200% text the third term's receipt widened
@@ -90,9 +100,9 @@ function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boo
         {metric.label}
         {concept && <span className="sr-only">, XBRL concept {concept}</span>}
       </dt>
-      <dd className={cx('mt-1 whitespace-nowrap font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
+      <dd className={cx('mt-1 break-words font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
       {delta && (
-        <dd className={cx('mt-0.5 whitespace-nowrap font-data text-xs font-medium tabular-nums', directionText[direction])}>
+        <dd className={cx('mt-0.5 break-words font-data text-xs font-medium tabular-nums', directionText[direction])}>
           {GLYPH[direction] && (
             <span aria-hidden="true" className="mr-1">
               {GLYPH[direction]}
@@ -125,9 +135,9 @@ function HeroExample({
   // a malformed upstream date: format() throws on invalid dates, which would
   // crash the homepage render; omit the label instead.
   const parsedDate = parseISO(data.filingDate.slice(0, 10))
-  const filedLabel = Number.isNaN(parsedDate.getTime())
+  const filed = Number.isNaN(parsedDate.getTime())
     ? null
-    : format(parsedDate, 'MMM d, yyyy')
+    : { day: format(parsedDate, 'MMM d,'), year: format(parsedDate, 'yyyy') }
   const evidence = data.evidence ?? null
 
   return (
@@ -146,33 +156,48 @@ function HeroExample({
           {data.qualityTier === 'partial' && <Badge variant="warning">Partial</Badge>}
         </div>
 
-        {/* The filing's identity, as the filing page states it: company, then one data-face line. */}
+        {/* The filing's identity, as the filing page states it: company, then one data-face line. The line wraps
+            between its facts, each middot held to the fact before it (FACT) so no line starts or stands with one;
+            the form is one run; and the date moves under "filed" whole before it breaks, and then only after its
+            day ("Oct 31," over "2025"). As one nowrap run, "filed Oct 31, 2025" took the page to 329px at 320px
+            under 200% text (tests/e2e/reflow-200.spec.ts). */}
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
           <CompanyLogo decorative ticker={data.ticker} name={data.companyName} size={24} priority />
           <span className={cx('min-w-0 break-words text-sm font-semibold', INK)}>{data.companyName}</span>
           <span className={cx('flex flex-wrap items-center gap-x-2 font-data text-xs tabular-nums', MUTED)}>
-            <span>{data.ticker}</span>
-            <Sep />
-            {/* The form is text in the data face, never a Badge (2026-10 critique P-04). */}
-            <span className={cx('font-semibold', INK)}>{data.filingType}</span>
-            {filedLabel && (
-              <>
-                <Sep />
-                <span className="whitespace-nowrap">filed {filedLabel}</span>
-              </>
+            <span className={FACT}>
+              {data.ticker}
+              <Sep />
+            </span>
+            <span className={FACT}>
+              {/* The form is text in the data face, never a Badge (2026-10 critique P-04). */}
+              <span className={cx('whitespace-nowrap font-semibold', INK)}>{data.filingType}</span>
+              {filed && <Sep />}
+            </span>
+            {filed && (
+              <span>
+                filed{' '}
+                <span className="inline-block">
+                  <span className="whitespace-nowrap">{filed.day}</span> {filed.year}
+                </span>
+              </span>
             )}
           </span>
         </div>
 
         <p className={cx('text-sm leading-relaxed', MUTED)}>{data.excerpt}</p>
 
-        {/* The filing's figures: one hairline strip, no boxes. */}
+        {/* The filing's figures: one hairline strip, no boxes. The figures wrap inside it (Figure), and the strip clips
+            what a figure draws where it starts a row (its left hairline and the 0.75rem after it, which the list's
+            negative margin puts outside) and on the first row (its top hairline, under the strip's own). */}
         {data.metrics.length > 0 && (
-          <dl className={cx('grid grid-cols-3 divide-x border-y', HAIRLINE, 'divide-border-light dark:divide-white/10')}>
-            {data.metrics.map((metric) => (
-              <Figure key={metric.label} metric={metric} isFallback={isFallback} />
-            ))}
-          </dl>
+          <div className={cx('overflow-hidden border-y', HAIRLINE)}>
+            <dl className="-ml-[calc(0.75rem_+_1px)] -mt-px flex flex-wrap">
+              {data.metrics.map((metric) => (
+                <Figure key={metric.label} metric={metric} isFallback={isFallback} />
+              ))}
+            </dl>
+          </div>
         )}
 
         {/* One evidence row, the filing page's own (P-03): the filing's words, located in its text, as

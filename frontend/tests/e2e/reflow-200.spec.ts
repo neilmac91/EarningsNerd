@@ -47,10 +47,13 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * stays inside its segment with no line starting at its middot (at 360 and 390px; at both, the Annual label
  * ran onto three lines below its segment). Every form code in the landing's rows and its close paints on one line
  * at 320 and 390px under 200% text and at 320px at the default size, where the plan table broke "10-Q" at its
- * hyphen before each code became one nowrap run. Below a 12rem viewport the auth shell's wordmark yields to the
- * mark. At 320x640 with the text doubled /pricing passes the same checks: its billing switch's row wraps, the
- * yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge and
- * the page to 333px. The other routes join it at 320px with E81 (/ reaches 337px there, and /search 344px).
+ * hyphen before each code became one nowrap run; the hero's do at 390 and 1440px under 200% text, where its
+ * figures keep apart and whole too (E81). Below a 12rem viewport the auth shell's wordmark yields to the
+ * mark. At 320x640 with the text doubled every route passes the same checks (E81): /pricing's billing switch's row
+ * wraps, the yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge
+ * and the page to 333px; / reached 329px (the hero example's identity line and figures) and /search 344px (its date
+ * fields). There the legal pages pass but for the words E131 names, each wider than its column, which nothing
+ * else may join and each of which must still be found, so the exemption ends with E131.
  * The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
@@ -162,7 +165,7 @@ const ROUTES: Route[] = [
   },
 ]
 
-type Overflow = { scrollWidth: number; clientWidth: number; widest: string[] }
+type Overflow = { scrollWidth: number; clientWidth: number; widest: string[]; past?: string[] }
 
 /** The document's widths and, for a failure message, what reaches past the viewport's right edge. */
 const measure = (page: Page): Promise<Overflow> =>
@@ -200,7 +203,12 @@ const measure = (page: Page): Promise<Overflow> =>
       if (right > vw + 0.5) past.push({ right, what: `text in ${label(el, node.textContent)}` })
     }
     past.sort((a, b) => b.right - a.right)
-    return { scrollWidth: root.scrollWidth, clientWidth: vw, widest: past.slice(0, 6).map((p) => `${Math.round(p.right)}px ${p.what}`) }
+    return {
+      scrollWidth: root.scrollWidth,
+      clientWidth: vw,
+      widest: past.slice(0, 6).map((p) => `${Math.round(p.right)}px ${p.what}`),
+      past: past.map((p) => p.what),
+    }
   })
 
 /** Controls in the bar that overlap one another, or whose text paints past their own box's sides. */
@@ -920,15 +928,28 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
   expect(focused.hitsLink, `focused, a hit at the first section link's centre reaches it, not ${focused.hit}`).toBe(true)
 })
 
-/** At 360x780 with the browser's text doubled, every route in the loop passes the width, bar and clear-space checks
-    too. The header's wrap at 360px is its named fallback, so the one-row check stays at 390px. At 320x640 /pricing
-    does too, its billing switch's row wrapped; the rest of the loop joins it there with E81. */
-for (const { width, height, routes } of [
-  { width: 360, height: 780, routes: ROUTES },
-  { width: 320, height: 640, routes: ROUTES.filter(({ path }) => path === '/pricing') },
+/** At 360x780 and at 320x640 with the browser's text doubled, every route in the loop passes the width, bar and
+    clear-space checks too. The header's wrap at 360px is its named fallback, so the one-row check stays at 390px. At
+    320px /pricing's billing switch's row wraps (#1395). There / reached 329px: the hero example's identity line held
+    "filed Oct 31, 2025" in one run, and its three figures ran past their equal thirds (HeroExample.tsx). /search reached
+    344px: Chrome keeps blank room in a date field for a six-digit year, so each of its two fields was 312px in a 256px
+    row (FullTextSearch.tsx). Both fit since E81.
+
+    The legal pages are E131's at 320px: their layout is outside E81, and each still scrolls sideways there on words
+    wider than their column (/security to 348px on its "Authentication and access control" and "Infrastructure
+    security" headings, /privacy to 338px on "communications," in its Consent item). So at 320px those runs, by name,
+    are the only things on either page that may pass the edge, and each must still be found there: when E131 fits one,
+    its entry fails here until it is taken out, and the page passes the width check with the rest of the loop. */
+const E131_AT_320: Record<string, string[]> = {
+  '/security': ['text in h2 "Authentication and access control"', 'text in h2 "Infrastructure security"'],
+  '/privacy': ['text in li "You have given explicit consent for anal"'],
+}
+for (const { width, height } of [
+  { width: 360, height: 780 },
+  { width: 320, height: 640 },
 ]) test.describe(`a ${width}px phone at 200% text`, () => {
   test.use({ viewport: { width, height }, isMobile: true, hasTouch: true })
-  for (const route of routes) {
+  for (const route of ROUTES) {
     test(`${route.name} (${route.path}) does not scroll sideways at ${width}px and 200% text`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
@@ -946,7 +967,16 @@ for (const { width, height, routes } of [
       await doubleText(page)
 
       const enlarged = await measure(page)
-      expect(enlarged.scrollWidth, `${route.path} at ${width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
+      const e131 = width === 320 ? E131_AT_320[route.path] : undefined
+      if (e131) {
+        const beyond = (enlarged.past ?? []).filter((what) => !e131.includes(what))
+        expect(beyond, `${route.path} at ${width}px and 200% text, past the edge besides E131's words: ${why(enlarged)}`).toEqual([])
+        for (const what of e131) {
+          expect(enlarged.past, `${route.path} at ${width}px and 200% text: E131's ${what} no longer passes the edge, so take it out of E131_AT_320 (${why(enlarged)})`).toContain(what)
+        }
+      } else {
+        expect(enlarged.scrollWidth, `${route.path} at ${width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
+      }
       expect(await collisions(route.bar(page)), `${route.path} at ${width}px and 200% text: the bar's controls`).toEqual([])
       expect(await logoClearSpace(route.bar(page)), `${route.path} at ${width}px and 200% text: the logo's clear space`).toEqual([])
     })
@@ -1091,6 +1121,114 @@ for (const state of [
       }
       const broken = codes.filter((code) => code.lines !== 1).map((code) => `${code.where}: "${code.code}" on ${code.lines} lines in "${code.text}"`)
       expect(broken, `${at}: each form code paints on one line`).toEqual([])
+    })
+  })
+}
+
+/** The hero under 200% text, read from its rendered boxes at 390 and 1440px (E81). The example's three figures sat in
+    equal thirds (HeroExample.tsx), so at 390px each value ran across its 81px cell into the next ("$416.2B", 119px of
+    28px data face, met "$112.0B") with every label cut short, and the subhead (LandingHero.tsx) broke "10-Ks" at its
+    hyphen there and "10-Qs" at 1440px. Each figure now takes its own width in a row that wraps, and each form code is
+    one unbroken run (FormCodeText; the identity line's form a run of its own). So, from the boxes: three figures, each
+    label whole, each value and change on one painted line inside its own figure's content box (its box less its
+    hairline and padding) and inside the example, and no two figures' text meeting; and every form code the hero
+    paints, in its lead and in the example's identity line, on one line. */
+const heroFit = (page: Page) =>
+  page.evaluate((source) => {
+    const pattern = new RegExp(source, 'g')
+    const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
+    const hero = document.querySelector('main section[aria-labelledby="hero-h"]')
+    const example = hero?.querySelector('section[aria-label="Example summary"]')
+    if (!hero || !example) return { figures: [] as string[], problems: ['the page has no hero with its example'], codes: [] as { where: string; code: string; lines: number }[] }
+    const card = example.getBoundingClientRect()
+    const runOf = (el: Element) => {
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      const tops: number[] = []
+      for (const r of range.getClientRects()) if (r.width > 0 && !tops.some((t) => Math.abs(t - r.top) < 2)) tops.push(r.top)
+      return { text: (el.textContent ?? '').trim(), rect: range.getBoundingClientRect(), lines: tops.length }
+    }
+    const figures = [...example.querySelectorAll('dl > div')].map((cell) => {
+      const box = cell.getBoundingClientRect()
+      const style = getComputedStyle(cell)
+      const left = box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft)
+      const right = box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight)
+      const dt = cell.querySelector('dt')
+      return {
+        label: dt?.firstChild?.textContent?.trim() ?? '',
+        cut: !dt || dt.scrollWidth > dt.clientWidth + 0.5,
+        term: dt?.getBoundingClientRect() ?? box,
+        left,
+        right,
+        runs: [...cell.querySelectorAll('dd')].map(runOf),
+      }
+    })
+    const problems: string[] = []
+    const meets = (a: DOMRect, b: DOMRect) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5
+    for (const f of figures) {
+      if (f.cut) problems.push(`"${f.label}" is cut short in its ${Math.round(f.term.width)}px term`)
+      for (const run of f.runs) {
+        const at = `"${f.label}": "${run.text}" at ${px(run.rect.left, run.rect.right)}`
+        if (run.lines !== 1) problems.push(`${at} paints on ${run.lines} lines`)
+        if (run.rect.left < f.left - 0.5 || run.rect.right > f.right + 0.5) problems.push(`${at} passes its figure's content box ${px(f.left, f.right)}`)
+        if (run.rect.left < card.left - 0.5 || run.rect.right > card.right + 0.5) problems.push(`${at} passes the example ${px(card.left, card.right)}`)
+      }
+    }
+    for (let i = 0; i < figures.length; i++) {
+      for (let j = i + 1; j < figures.length; j++) {
+        const a = [figures[i].term, ...figures[i].runs.map((r) => r.rect)]
+        const b = [figures[j].term, ...figures[j].runs.map((r) => r.rect)]
+        if (a.some((x) => b.some((y) => meets(x, y)))) problems.push(`"${figures[i].label}" and "${figures[j].label}" meet`)
+      }
+    }
+    const codes: { where: string; code: string; lines: number }[] = []
+    const walker = document.createTreeWalker(hero, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+      const el = node.parentElement
+      if (!el || el.closest('.sr-only')) continue
+      for (const match of node.data.matchAll(pattern)) {
+        const range = document.createRange()
+        range.setStart(node, match.index ?? 0)
+        range.setEnd(node, (match.index ?? 0) + match[0].length)
+        const tops: number[] = []
+        for (const rect of range.getClientRects()) {
+          if (rect.width > 0 && !tops.some((top) => Math.abs(top - rect.top) < 2)) tops.push(rect.top)
+        }
+        if (tops.length === 0) continue
+        codes.push({ where: example.contains(node) ? 'example' : 'lead', code: match[0], lines: tops.length })
+      }
+    }
+    return { figures: figures.map((f) => `${f.label}: ${f.runs.map((r) => r.text).join(', ')}`), problems, codes }
+  }, FORM_CODE.source)
+
+for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+  const at = `${viewport.width}px and 200% text`
+  test.describe(`a ${viewport.width}px ${viewport.width < 1024 ? 'phone' : 'desktop'} at 200% text, the hero`, () => {
+    test.use({ viewport, isMobile: viewport.width < 1024, hasTouch: viewport.width < 1024 })
+    test(`home (/) keeps the hero's figures whole and apart and its form codes on one line at ${at}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerGuest(page, baseURL!)
+      await page.goto('/')
+      await h1(page)
+      await expect(page.getByRole('region', { name: 'Example summary' }).getByRole('term')).toHaveCount(3)
+      await page.evaluate(() => document.fonts.ready)
+      // The tablet pass's confirmation holds at both widths: the root at 32px, the 48rem query (1536px) not matching.
+      await doubleTextOnATablet(page)
+
+      const fit = await heroFit(page)
+      // Anti-vacuity: three figures, each with its value and its change; codes read in the lead and in the example.
+      expect(fit.figures, `the hero's figures at ${at}`).toHaveLength(3)
+      for (const figure of fit.figures) expect(figure, `a figure with its value and change at ${at}`).toMatch(/^[^:]+: \S+, \S+$/)
+      expect(fit.problems, `the hero's figures at ${at} (${fit.figures.join('; ')})`).toEqual([])
+      expect(fit.codes.filter((code) => code.where === 'lead').length, `form codes read in the hero's lead at ${at}`).toBeGreaterThanOrEqual(2)
+      expect(fit.codes.filter((code) => code.where === 'example').length, `form codes read in the example at ${at}`).toBeGreaterThanOrEqual(1)
+      const broken = fit.codes.filter((code) => code.lines !== 1).map((code) => `${code.where}: "${code.code}" on ${code.lines} lines`)
+      expect(broken, `${at}: each form code in the hero paints on one line`).toEqual([])
     })
   })
 }
