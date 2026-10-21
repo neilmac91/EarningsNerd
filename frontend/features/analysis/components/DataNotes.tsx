@@ -75,7 +75,8 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
         <summary className="cursor-pointer rounded py-2 text-sm text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark">
           <span className="font-medium">Data notes</span>
           <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            {sample && <span> · illustrative sample</span>}
+            {/* The same words NarrativePane's sample labels use for the one payload (D-046). */}
+            {sample && <span> · sample data (one saved run)</span>}
             {!sample && allPopulatedPassed && <span> · No figures need review · {totals.passed} checked</span>}
             {totals.reviewValues > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewValues} {totals.reviewValues === 1 ? 'figure needs' : 'figures need'} review ({letters('review', 'values').join(', ')})</span>}
             {totals.reviewComparisons > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewComparisons} {totals.reviewComparisons === 1 ? 'comparison carries' : 'comparisons carry'} {reviewComparisonLetters.length === 1 ? 'note' : 'notes'} {reviewComparisonLetters.join(', ')}</span>}
@@ -96,7 +97,8 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
               <p>{FCF_DEFINITION}</p>
               <p>Missing values are unavailable in this dataset, not zero. Growth is unavailable when its comparison period or compatible inputs are missing. Missing validation is not a claim that a figure passed checks.</p>
               <p>{dataset.data_as_of ? `Source data as of ${dataset.data_as_of}.` : 'Source refresh time is unavailable.'} Source matching and automated checks do not constitute an audit of the company’s accounts.</p>
-              {dataset.snapshot_id && <details><summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Report reference</summary><p className="font-data break-all text-xs">{dataset.dataset_version} · {dataset.snapshot_id}</p></details>}
+              {/* A sample's snapshot is a saved run's, which no reader can resolve against production: no reference. */}
+              {!sample && dataset.snapshot_id && <details><summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Report reference</summary><p className="font-data break-all text-xs">{dataset.dataset_version} · {dataset.snapshot_id}</p></details>}
             </div>
           </details>
         </div>

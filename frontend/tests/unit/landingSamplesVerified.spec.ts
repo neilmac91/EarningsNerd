@@ -40,12 +40,14 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    run its comment names, ending at FY2025: its FY2025 and FY2024 revenue, net income, diluted EPS and
  *    operating cash flow are the verified values, tagged and filed as the verified 10-K; its citations are
  *    its own dataset's figures; its data notes and narrative evidence pass the admission the live API path
- *    applies; and the landing's three-series view counts data notes from those three series alone.
+ *    applies; no key or string in it names a model; and the landing's three-series view counts data notes from
+ *    those three series alone.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const AUDIT = readFileSync(path.join(FRONTEND, '../docs/brand/00-audit.md'), 'utf8')
 const HERO = readFileSync(path.join(FRONTEND, 'features/marketing/components/HeroExample.tsx'), 'utf8')
+const CONFIG = readFileSync(path.join(FRONTEND, '../backend/app/config.py'), 'utf8')
 
 /** FY2025 and FY2024, as docs/brand/00-audit.md §4 records them (USD unless per share). */
 const VERIFIED: Record<string, readonly [number, number]> = {
@@ -331,6 +333,20 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
     // streamAnalysis and getAnalysisDataset (features/analysis/api/analysis-api.ts) admit a live payload through these.
     expect(decodeDataNotes(dataset.data_notes, dataset)).toEqual(dataset.data_notes)
     expect(() => decodeNarrativePresentation(completion.narrative_presentation, completion, dataset)).not.toThrow()
+  })
+
+  it('names no model anywhere, its comment and its usage record included (the run stays unnamed in the repository)', () => {
+    // Production's default model, read from backend/app/config.py so the check follows a model change, beside the
+    // families a payload could otherwise name.
+    const configured = CONFIG.match(/^\s+AI_DEFAULT_MODEL\s*:\s*str\s*=\s*"([^"]+)"/m)?.[1] ?? ''
+    expect(configured, 'backend/app/config.py declares AI_DEFAULT_MODEL').not.toBe('')
+    const MODEL = new RegExp(`deepseek|gpt-|claude|gemini|llama|mistral|${configured.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
+    expect(Object.keys(demo.completion.usage).filter((key) => /model/i.test(key)), 'model keys in completion.usage').toEqual([])
+    const named = leaves(demo, 'demo').flatMap(({ at, value }) => {
+      const found = typeof value === 'string' ? value.match(MODEL)?.[0] : undefined
+      return found ? [`${at}: ${found}`] : []
+    })
+    expect(named, 'payload strings that name a model').toEqual([])
   })
 
   it("lets the landing's three series count their own data notes, never the whole run's", () => {

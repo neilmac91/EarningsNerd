@@ -566,9 +566,12 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  annual window column. Headline and locator membership share one selection helper.
                  A narrowed table window adds the number currently shown without changing distinct
                  report totals or counting repeated appearances. Annual window comparisons retain
-                 their recorded range. Dataset-free citation supplements and illustrative sample notes
-                 make no report-surface claims.
+                 their recorded range. Dataset-free citation supplements and sample notes make no
+                 report-surface claims.
                  Existing Sources & methods prose, source date and snapshot reference stay inside.
+                 A sample (the teaser's and the landing's saved run) reads “sample data (one saved run)”,
+                 as NarrativePane's sample labels do, and shows no snapshot reference: a saved run's
+                 snapshot resolves nowhere a reader can check. Its source date stays.
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);

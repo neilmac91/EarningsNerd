@@ -95,6 +95,19 @@ describe('Financial origin and source checks', () => {
     expect(container).not.toHaveTextContent(/headline|growth chart|table shows|Exports carry/)
   })
 
+  it("gives a live report its reference and a sample none: a saved run's snapshot resolves nowhere a reader can check (#1457)", () => {
+    const report = { ...locatorDataset(), dataset_version: 'quarterly-v2', data_as_of: '2026-10-20T18:38:47.008084Z' }
+    const { rerender, container } = render(<DataNotes dataset={report} />)
+    const references = () => [...container.querySelectorAll('summary')].filter((summary) => summary.textContent === 'Report reference').length
+    expect(references(), 'Report references in a live report').toBe(1)
+    expect(container).toHaveTextContent('quarterly-v2 · locator-one')
+    rerender(<DataNotes dataset={report} sample />)
+    expect(references(), 'Report references in a sample').toBe(0)
+    expect(container.textContent?.includes('locator-one'), 'the sample shows its snapshot id').toBe(false)
+    // The as-of line stays: the run's source data really is as of that time, written as a live report writes it.
+    expect(container).toHaveTextContent('Source data as of 2026-10-20T18:38:47.008084Z.')
+  })
+
   it('lists visible table note letters in admitted report order, including unavailable cells', async () => {
     const report = locatorDataset()
     const grouped = groupDataNotes(report)

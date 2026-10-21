@@ -8,6 +8,7 @@ import NarrativePane, { type NarrativeState } from '@/features/analysis/componen
 import type { AnalysisCitation, AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotes from '@/features/analysis/components/DataNotes'
+import demo from '@/features/analysis/demo/demo-analysis.json'
 import type { NarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
 import { groupQualityNotes } from '@/features/analysis/lib/dataNotes'
 
@@ -405,9 +406,18 @@ describe('NarrativePane citation chips', () => {
     expect(container).toHaveTextContent(note)
   })
 
-  it('never calls the sample approximate, and never says "pipeline", a word readers do not know (D-046)', () => {
-    const { container } = render(<NarrativePane state={doneState()} sample />)
+  it('never calls the sample approximate or illustrative, and never says "pipeline", a word readers do not know (D-046)', () => {
+    // The teaser's sample as the teaser renders it: the checked-in run's data notes and narrative, both in sample mode.
+    const dataset = demo.dataset as unknown as AnalysisDataset
+    const completion = demo.completion as unknown as AnalysisCompletion
+    const { container } = render(
+      <DataNotesProvider dataset={dataset}>
+        <DataNotes dataset={dataset} sample />
+        <NarrativePane state={{ status: 'done', text: completion.narrative, completion }} sample />
+      </DataNotesProvider>,
+    )
+    expect(container).toHaveTextContent('Data notes · sample data (one saved run)')
     // The markup, so the badge's title and the other attributes are read with the text.
-    expect(container.innerHTML.match(/approximat\w*|pipeline\w*/gi) ?? [], 'words the sample must not use').toEqual([])
+    expect(container.innerHTML.match(/approximat\w*|illustrative\w*|pipeline\w*/gi) ?? [], 'words the sample must not use').toEqual([])
   })
 })
