@@ -45,10 +45,14 @@ stopped before git sends any ref; a clean push, scanned and sent; a delete and a
 a push from a linked worktree; a tag of a tree or a blob; a missing binary; and a line git hands the hook that it
 cannot read. `--no-verify`, which skips git's hooks, and a hook git cannot execute are planted as pushes that go
 through, so the hook's tracked mode is held. The session's start sets the absolute path in a cloud session only
-(CLAUDE_CODE_REMOTE=true), writes its own path spelled otherwise absolute, keeps a hooks path set at any level (the
-session's environment, the clone's, the user's and the machine's) and a clone's own hooks (a linked worktree's
-among them), sets the path where git keeps no hooks directory, and says why the hook is off where git cannot set the
-path or the start fails, and when the pinned binary is missing.
+(CLAUDE_CODE_REMOTE=true), and --turn-on in any clone, saying so: each names the main checkout's directory from a
+linked worktree, and from a project below the clone's top, writes its own path spelled otherwise (a relative one, or
+a worktree's own copy) as the main checkout's, keeps a hooks path set at any level (the session's environment, the
+worktree's, the clone's, the user's and the machine's) and a clone's own hooks (a linked worktree's among them),
+sets the path where git keeps no hooks directory, sets none where the main checkout holds no hook or there is no
+main checkout to find (a --separate-git-dir or bare clone's linked worktree), and says why the hook is off where git
+cannot read the clone or set the path, the start fails or git hangs, and when the pinned binary is missing; the
+commands its notes name quote the path, and it reads git in English whatever the session's language.
 
 Planted below: the forms a push takes; the pushes the hook must read precisely, which name the clean branch from the
 planted one, so a push read whole would be refused; the commands that may and may not come before a push or run
@@ -74,6 +78,7 @@ import json
 import os
 import random
 import re
+import shlex
 import shutil
 import string
 import subprocess
@@ -3345,7 +3350,7 @@ def test_the_real_binary_stops_a_pre_push_of_the_planted_commit(tmp_path: Path) 
     _stopped(project.push("git push origin work"), project)
 
 
-# --- a session's start ---------------------------------------------------------------------------------------
+# --- a session's start, and --turn-on ------------------------------------------------------------------------
 
 def _session_registered() -> list[dict]:
     """The SessionStart entries of .claude/settings.json that run this file."""
@@ -3354,26 +3359,45 @@ def _session_registered() -> list[dict]:
             if any("secret_scan_guard.py" in hook.get("command", "") for hook in entry["hooks"])]
 
 
-def _session_start(project: Project, env: dict[str, str | None] | None = None,
-                   root: Path | None = None) -> subprocess.CompletedProcess[str]:
-    """Run the command .claude/settings.json registers for a session's start, as Claude Code does, in the project (or
-    the worktree `root`): git finds no repository above the case's directory, and reads a global file of the case's
-    own, which the start must leave as it was. A variable `env` gives None is unset."""
-    [hook] = [hook for entry in _session_registered() for hook in entry["hooks"]]
-    root = root or project.root
+def _start_env(project: Project, env: dict[str, str | None] | None, root: Path) -> dict[str, str]:
+    """The environment a session's start, or a person's --turn-on, runs in: git finds no repository above the case's
+    directory, and reads a global file of the case's own. A variable `env` gives None is unset."""
     own = project.root.parent / "global.gitconfig"
     own.touch()
     # A cloud session running this suite has CLAUDE_CODE_REMOTE set; a case gives it only where it means one.
     plain = {key: value for key, value in _plain_env().items() if key != "CLAUDE_CODE_REMOTE"}
     full = {**plain, "CLAUDE_PROJECT_DIR": str(root), "GIT_CONFIG_GLOBAL": str(own),
             "XDG_CACHE_HOME": str(project.cache), "GIT_CEILING_DIRECTORIES": str(project.root.parent), **(env or {})}
-    full = {key: value for key, value in full.items() if value is not None}
+    return {key: value for key, value in full.items() if value is not None}
+
+
+def _session_start(project: Project, env: dict[str, str | None] | None = None, root: Path | None = None,
+                   cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Run the command .claude/settings.json registers for a session's start, as Claude Code does, in the project (or
+    the worktree `root`, from `cwd` in it), within the time it registers, leaving the case's global file as it was."""
+    [hook] = [hook for entry in _session_registered() for hook in entry["hooks"]]
+    root = root or project.root
+    full = _start_env(project, env, root)
     read = Path(full["GIT_CONFIG_GLOBAL"])
     before = read.read_bytes()
     event = json.dumps({"session_id": "s", "hook_event_name": "SessionStart", "source": "startup", "cwd": str(root)})
     proc = subprocess.run(["sh", "-c", hook["command"]], input=event, capture_output=True, text=True, env=full,
-                          cwd=root, timeout=hook["timeout"])
+                          cwd=cwd or root, timeout=hook["timeout"])
     assert read.read_bytes() == before, "the session's start wrote git's global configuration"
+    return proc
+
+
+def _turned_on(project: Project, env: dict[str, str | None] | None = None,
+               root: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Run --turn-on as a person does, in the project (or the worktree `root`) with its own copy of this file and in no
+    cloud session, leaving the case's global file as it was."""
+    root = root or project.root
+    full = _start_env(project, env, root)
+    read = Path(full["GIT_CONFIG_GLOBAL"])
+    before = read.read_bytes()
+    proc = subprocess.run(["python3", "-I", "-S", ".claude/hooks/secret_scan_guard.py", "--turn-on"], cwd=root,
+                          capture_output=True, text=True, env=full, timeout=30)
+    assert read.read_bytes() == before, "--turn-on wrote git's global configuration"
     return proc
 
 
@@ -3389,7 +3413,26 @@ def _ours(project: Project) -> str:
     return str(project.root.resolve() / SCAN.HOOKS_PATH)
 
 
+def _git_wrapper(folder: Path, body: str) -> dict[str, str]:
+    """A PATH whose git is a shell script running `body`, with $REAL the real git."""
+    folder.mkdir()
+    wrapper = folder / "git"
+    wrapper.write_text(f"#!/bin/sh\nREAL={shlex.quote(shutil.which('git') or 'git')}\n{body}\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+    return {"PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
+
+
+def _plain(tmp_path: Path) -> Project:
+    """A folder holding this file in no repository."""
+    folder = tmp_path / "plain"
+    (folder / ".claude" / "hooks").mkdir(parents=True)
+    shutil.copy(HOOK, folder / ".claude" / "hooks")
+    return Project(folder, tmp_path / "cache", tmp_path / "stub.log")
+
+
 CLOUD = {"CLAUDE_CODE_REMOTE": "true"}
+OFF = "the secret-scan pre-push hook is off in this clone: "
+AGAIN = "`python3 .claude/hooks/secret_scan_guard.py --turn-on` turns it on once that is fixed"
 
 
 def test_a_cloud_session_s_start_turns_the_pre_push_hook_on(project: Project) -> None:
@@ -3401,6 +3444,9 @@ def test_a_cloud_session_s_start_turns_the_pre_push_hook_on(project: Project) ->
     _stopped(project.push("cd .git && git push origin work"), project)  # where git would miss a relative path
     again = _session_start(project, CLOUD)
     assert (again.returncode, again.stdout) == (0, "") and _hooks_path(project) == _ours(project)
+    project.git("config", "--unset", "core.hooksPath")
+    below = _session_start(project, CLOUD, cwd=project.root / ".github")  # git names its directories from there
+    assert (below.returncode, below.stdout) == (0, "") and _hooks_path(project) == _ours(project)
 
 
 def test_a_session_start_writes_its_own_hooks_path_absolute(project: Project) -> None:
@@ -3441,24 +3487,43 @@ def test_a_session_start_keeps_a_hooks_path_set_at_any_level(project: Project, t
     project.git("config", "core.hooksPath", ".husky")
     proc = _session_start(project, CLOUD)
     assert proc.returncode == 0 and _hooks_path(project) == ".husky"
-    assert ("pre-push hook is off in this clone: core.hooksPath is .husky, which this leaves as it is. "
-            f"`git config core.hooksPath {_ours(project)}` turns it on, in place of .husky") in proc.stdout, proc.stdout
+    assert proc.stdout == (f"{OFF}core.hooksPath is .husky at the local level, which this leaves as it is. "
+                           f"`git config core.hooksPath {_ours(project)}` turns it on, in place of .husky\n"), proc.stdout
     project.git("config", "--unset", "core.hooksPath")
     machine = tmp_path / "machine.gitconfig"  # a hooks path every clone reads
     machine.write_text("[core]\n\thooksPath = /etc/githooks\n", encoding="utf-8")
     levels = {
-        "the user's": {"GIT_CONFIG_GLOBAL": str(machine)},
-        "the machine's": {"GIT_CONFIG_SYSTEM": str(machine), "GIT_CONFIG_NOSYSTEM": None},
-        "the session's environment": {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.hooksPath",
-                                      "GIT_CONFIG_VALUE_0": "/etc/githooks"},
+        "global": {"GIT_CONFIG_GLOBAL": str(machine)},
+        "system": {"GIT_CONFIG_SYSTEM": str(machine), "GIT_CONFIG_NOSYSTEM": None},
+        "command": {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.hooksPath",
+                    "GIT_CONFIG_VALUE_0": "/etc/githooks"},
     }
     for level, env in levels.items():
         proc = _session_start(project, {**CLOUD, **env})
         assert proc.returncode == 0 and _hooks_path(project) is None, level
-        assert "core.hooksPath is /etc/githooks, which this leaves as it is" in proc.stdout, (level, proc.stdout)
+        assert f"{OFF}core.hooksPath is /etc/githooks at the {level} level, which this leaves as it is. " in \
+            proc.stdout, (level, proc.stdout)
+        # the clone's own setting outranks the user's and the machine's, not the session's environment
+        fix = (f"`git config core.hooksPath {_ours(project)}` turns it on, in place of /etc/githooks" if level != "command"
+               else "The session's environment sets it (GIT_CONFIG_COUNT or GIT_CONFIG_PARAMETERS), which outranks "
+                    f"the clone's configuration; without it, `git config core.hooksPath {_ours(project)}` turns it on")
+        assert proc.stdout.endswith(f"{fix}\n"), (level, proc.stdout)
+    # A worktree's own setting outranks the clone's too: the note's two commands turn the hook on
+    project.git("config", "extensions.worktreeConfig", "true")
+    project.git("config", "--worktree", "core.hooksPath", "/etc/githooks")
+    proc = _session_start(project, CLOUD)
+    assert proc.stdout == (f"{OFF}core.hooksPath is /etc/githooks at the worktree level, which this leaves as it is. "
+                           "`git config --worktree --unset core.hooksPath` and "
+                           f"`git config core.hooksPath {_ours(project)}` turn it on, in place of /etc/githooks\n"), \
+        proc.stdout
+    project.git("config", "--worktree", "--unset", "core.hooksPath")
+    project.git("config", "core.hooksPath", _ours(project))
+    project.remote()
+    _stopped(project.push("git push origin work"), project)
+    project.git("config", "--unset", "core.hooksPath")
     # where the hook stays off, the session still learns the PreToolUse hook's binary is missing
     project.binary().unlink()
-    proc = _session_start(project, {**CLOUD, **levels["the user's"]})
+    proc = _session_start(project, {**CLOUD, **levels["global"]})
     assert "core.hooksPath is /etc/githooks" in proc.stdout and "is not installed" in proc.stdout, proc.stdout
 
 
@@ -3471,8 +3536,10 @@ def test_a_session_start_keeps_a_clone_s_own_hooks(project: Project) -> None:
     for root in (project.root, linked):  # a linked worktree's hooks are its main worktree's (`--git-path hooks`)
         proc = _session_start(project, CLOUD, root)
         assert proc.returncode == 0 and _hooks_path(project) is None, proc.stdout
-        assert "it has hooks of its own in " in proc.stdout, proc.stdout
-        assert "(pre-commit), which this leaves as they are" in proc.stdout, proc.stdout
+        assert proc.stdout == (f"{OFF}it has hooks of its own in {project.root.resolve() / '.git' / 'hooks'} "
+                               "(pre-commit), which this leaves as they are. "
+                               f"`git config core.hooksPath {_ours(project)}` turns it on, and git then runs none of "
+                               "them\n"), proc.stdout
     # a clone whose git directory is elsewhere (`--separate-git-dir`): its hooks are there
     apart = project.root.parent / "apart"
     project.git("clone", "-q", "--separate-git-dir", str(project.root.parent / "apart.git"), str(project.root),
@@ -3496,25 +3563,100 @@ def test_a_session_start_in_a_linked_worktree_names_the_main_checkout_s_hooks(pr
     assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "") and _hooks_path(project) == _ours(project)
     again = _session_start(project, CLOUD, linked)  # the main checkout's path, set already: nothing to say
     assert (again.returncode, again.stdout) == (0, "") and _hooks_path(project) == _ours(project)
+    # Spelled otherwise, each written as the main checkout's: relative, read from the main checkout's top as git reads
+    # it for a push there; and the linked worktree's own copy, an earlier start's, from either worktree.
+    own_copy = str(linked.resolve() / SCAN.HOOKS_PATH)
+    for spelling, root in ((SCAN.HOOKS_PATH, linked), (own_copy, project.root), (own_copy, linked)):
+        project.git("config", "core.hooksPath", spelling)
+        proc = _session_start(project, CLOUD, root)
+        assert (proc.returncode, proc.stdout) == (0, "") and _hooks_path(project) == _ours(project), (spelling, root)
+    project.git("config", "--unset", "core.hooksPath")  # a GIT_WORK_TREE the session sets names no other top
+    proc = _session_start(project, {**CLOUD, "GIT_WORK_TREE": str(project.elsewhere)}, linked)
+    assert (proc.returncode, proc.stdout) == (0, "") and _hooks_path(project) == _ours(project)
+    # The pin that counts is the one the main checkout's copy reads, as git runs that copy for every worktree
+    ci = project.root / ".github" / "workflows" / "ci.yml"
+    pinned = ci.read_bytes()
+    ci.write_bytes(pinned + b"\n# \xff\n")
+    proc = _session_start(project, CLOUD, linked)
+    assert proc.stdout.startswith("each push that adds commits is refused until this is fixed: the hooks cannot "
+                                  "check their gitleaks (UnicodeDecodeError: "), proc.stdout
+    ci.write_bytes(pinned)
     project.git("worktree", "remove", "--force", str(linked))
     _stopped(project.push("git push origin work"), project)
 
 
-def test_a_session_start_in_a_linked_worktree_sets_no_path_it_cannot_keep(project: Project, tmp_path: Path) -> None:
+def test_a_session_start_in_a_linked_worktree_sets_no_path_it_cannot_keep(project: Project) -> None:
     linked = project.root.parent / "linked"
     project.git("worktree", "add", "-q", "-b", "linked", str(linked), "clean")
-    (project.root / SCAN.HOOKS_PATH / "pre-push").unlink()  # the main checkout at a commit from before E134
+    project.binary().unlink()  # where nothing is set, the session still learns the binary is missing
+    shim = project.root / SCAN.HOOKS_PATH / "pre-push"
+    note = (f"{OFF}the main checkout holds no executable {_ours(project)}/pre-push, the hook every worktree's pushes "
+            "would run")
+    shim.chmod(0o644)  # a file git would not run, as in a checkout that keeps no file modes
     proc = _session_start(project, CLOUD, linked)
     assert proc.returncode == 0 and _hooks_path(project) is None
-    assert f"pre-push hook is off in this clone: the main checkout holds no {_ours(project)}/pre-push" in proc.stdout, \
-        proc.stdout
-    # A clone whose git directory is no .git in its main checkout (`--separate-git-dir`): none this can name.
+    assert proc.stdout.splitlines()[0] == note and "is not installed" in proc.stdout, proc.stdout
+    shim.unlink()  # the main checkout at a commit from before E134
+    proc = _session_start(project, CLOUD, linked)
+    assert proc.returncode == 0 and _hooks_path(project) is None
+    assert proc.stdout.splitlines()[0] == note and "is not installed" in proc.stdout, proc.stdout
+
+
+def test_a_session_start_in_a_clone_without_a_main_checkout_sets_none(project: Project, tmp_path: Path) -> None:
+    # A git directory with no checkout of its own above it, named .git: none this can name for every worktree.
     apart, apart_git = tmp_path / "apart", tmp_path / "apart.git"
     project.git("clone", "-q", "--separate-git-dir", str(apart_git), str(project.root), str(apart))
     project.git("worktree", "add", "-q", "-b", "apart-linked", str(tmp_path / "apart-linked"), cwd=apart)
-    proc = _session_start(Project(apart, project.cache, project.log), CLOUD, tmp_path / "apart-linked")
-    assert proc.returncode == 0 and _hooks_path(Project(apart, project.cache, project.log)) is None
-    assert "this session runs in a linked worktree whose main checkout the hook cannot find" in proc.stdout, proc.stdout
+    bare = tmp_path / "bare.git"
+    project.git("clone", "-q", "--bare", str(project.root), str(bare))
+    project.git("worktree", "add", "-q", "-b", "bare-linked", str(tmp_path / "bare-linked"), cwd=bare)
+    named = tmp_path / "named"  # a bare repository where a checkout's .git would be
+    project.git("clone", "-q", "--bare", str(project.root), str(named / ".git"))
+    project.git("worktree", "add", "-q", "-b", "named-linked", str(named / "linked"), cwd=named / ".git")
+    host = tmp_path / "host"  # another repository's checkout, holding this clone's git directory
+    project.git("init", "-q", str(host))
+    hosted, hosted_git = tmp_path / "hosted", host / "hosted.git"
+    project.git("clone", "-q", "--separate-git-dir", str(hosted_git), str(project.root), str(hosted))
+    project.git("worktree", "add", "-q", "-b", "hosted-linked", str(tmp_path / "hosted-linked"), cwd=hosted)
+    for git_dir, linked in ((apart_git, tmp_path / "apart-linked"), (bare, tmp_path / "bare-linked"),
+                            (named / ".git", named / "linked"), (hosted_git, tmp_path / "hosted-linked")):
+        clone = Project(linked, project.cache, project.log)
+        proc = _session_start(clone, CLOUD)
+        assert proc.returncode == 0 and _hooks_path(clone) is None, git_dir
+        assert proc.stdout == (
+            "the secret-scan pre-push hook may be off in this clone: this is a linked worktree of a clone with no main "
+            f"checkout the hook can find above its git directory ({git_dir.resolve()}), so it sets no core.hooksPath. "
+            "`git config core.hooksPath <checkout>/.claude/hooks/git`, naming by its absolute path a checkout of the "
+            "clone that stays, turns it on for every worktree\n"), proc.stdout
+    # A checkout's own copy, set by hand as the note says, runs for every push: nothing more to say. A hook of
+    # another kind set so is no scan, and the note stays.
+    husky = tmp_path / ".husky"
+    husky.mkdir()
+    (husky / "pre-push").write_text("#!/bin/sh\n", encoding="utf-8")
+    (husky / "pre-push").chmod(0o755)
+    project.git("config", "core.hooksPath", str(husky), cwd=apart)
+    proc = _session_start(Project(tmp_path / "apart-linked", project.cache, project.log), CLOUD)
+    assert proc.stdout.startswith("the secret-scan pre-push hook may be off in this clone: "), proc.stdout
+    project.git("config", "core.hooksPath", str(apart.resolve() / SCAN.HOOKS_PATH), cwd=apart)
+    proc = _session_start(Project(tmp_path / "apart-linked", project.cache, project.log), CLOUD)
+    assert (proc.returncode, proc.stdout) == (0, ""), proc.stdout
+
+
+def test_a_session_start_names_a_project_below_the_clone_s_top(project: Project, tmp_path: Path) -> None:
+    # The project's .claude in a subdirectory of the clone: the main checkout's subdirectory, from a linked worktree too
+    outer = tmp_path / "outer"
+    shutil.copytree(project.root, outer / "app", symlinks=True, ignore=shutil.ignore_patterns(".git"))
+    project.git("init", "-q", "-b", "main", cwd=outer)
+    project.git("add", "-A", cwd=outer)
+    project.git("commit", "-qm", "nested", cwd=outer)
+    project.git("worktree", "add", "-q", "-b", "nested", str(tmp_path / "outer-linked"), cwd=outer)
+    app = Project(outer / "app", project.cache, project.log)
+    above = {**CLOUD, "GIT_CEILING_DIRECTORIES": str(tmp_path)}  # git looks above the project for the clone
+    proc = _session_start(app, above, tmp_path / "outer-linked" / "app")
+    assert (proc.returncode, proc.stdout) == (0, "") and _hooks_path(app) == _ours(app)
+    project.git("config", "--unset", "core.hooksPath", cwd=outer)
+    proc = _session_start(app, above)
+    assert (proc.returncode, proc.stdout) == (0, "") and _hooks_path(app) == _ours(app)
 
 
 def test_a_session_start_reads_a_hooks_path_that_is_no_utf_8(project: Project) -> None:
@@ -3522,23 +3664,33 @@ def test_a_session_start_reads_a_hooks_path_that_is_no_utf_8(project: Project) -
         config.write(b"[core]\n\thooksPath = /opt/hooks-\xff\n")
     proc = _session_start(project, CLOUD)
     assert proc.returncode == 0 and proc.stderr == "", proc.stderr
-    assert "core.hooksPath is /opt/hooks-\ufffd, which this leaves as it is" in proc.stdout, proc.stdout
+    assert f"{OFF}core.hooksPath is /opt/hooks-� at the local level, which this leaves as it is" in proc.stdout, \
+        proc.stdout
 
 
 def test_a_session_start_says_when_git_cannot_read_the_clone(project: Project) -> None:
     project.git("config", "core.repositoryformatversion", "99")  # a format this git does not know
     proc = _session_start(project, CLOUD)
     assert proc.returncode == 0
-    assert "pre-push hook is off in this clone: git cannot read the clone (fatal: " in proc.stdout, proc.stdout
+    assert proc.stdout.startswith(f"{OFF}git cannot read the clone (fatal: "), proc.stdout
+    assert proc.stdout.endswith(f". {AGAIN}\n") and proc.stdout.count("\n") == 1, proc.stdout
 
 
 def test_a_session_start_says_when_a_setting_above_the_clone_s_keeps_another_path(project: Project) -> None:
-    # the session's environment keeps its own relative path in effect over the absolute one the start writes
+    # The session's environment, or the worktree's own configuration, keeps its relative path in effect over the
+    # absolute one the start writes
     proc = _session_start(project, {**CLOUD, "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.hooksPath",
                                     "GIT_CONFIG_VALUE_0": SCAN.HOOKS_PATH})
     assert proc.returncode == 0 and _hooks_path(project) == _ours(project)
-    assert (f"pre-push hook is off in this clone: core.hooksPath is {SCAN.HOOKS_PATH} at the command level, which "
-            f"outranks the {_ours(project)} this set") in proc.stdout, proc.stdout
+    assert proc.stdout == (f"{OFF}core.hooksPath is {SCAN.HOOKS_PATH} at the command level, which outranks the "
+                           f"{_ours(project)} this set in the clone's own configuration\n"), proc.stdout
+    project.git("config", "--unset", "core.hooksPath")
+    project.git("config", "extensions.worktreeConfig", "true")
+    project.git("config", "--worktree", "core.hooksPath", SCAN.HOOKS_PATH)
+    proc = _session_start(project, CLOUD)
+    assert proc.returncode == 0 and _hooks_path(project) == _ours(project)
+    assert proc.stdout == (f"{OFF}core.hooksPath is {SCAN.HOOKS_PATH} at the worktree level, which outranks the "
+                           f"{_ours(project)} this set in the clone's own configuration\n"), proc.stdout
 
 
 def test_a_session_start_turns_the_hook_on_when_it_cannot_read_the_pin(project: Project) -> None:
@@ -3562,8 +3714,9 @@ def test_a_session_start_says_when_git_cannot_set_the_hooks_path(project: Projec
     (project.root / ".git" / "config.lock").write_text("", encoding="utf-8")  # another git writing the configuration
     proc = _session_start(project, CLOUD)
     assert proc.returncode == 0 and _hooks_path(project) is None
-    assert ("pre-push hook is off in this clone: git could not set core.hooksPath (error: could not lock config "
-            "file") in proc.stdout, proc.stdout
+    assert proc.stdout.startswith(f"{OFF}git could not set core.hooksPath (error: could not lock config file "), \
+        proc.stdout
+    assert proc.stdout.endswith(f". {AGAIN}\n") and proc.stdout.count("\n") == 1, proc.stdout
 
 
 def test_a_session_start_that_fails_says_why_and_the_session_starts(project: Project, tmp_path: Path) -> None:
@@ -3571,10 +3724,27 @@ def test_a_session_start_that_fails_says_why_and_the_session_starts(project: Pro
     path.mkdir()
     for name, target in (("sh", shutil.which("sh")), ("python3", os.path.realpath(sys.executable))):
         (path / name).symlink_to(target)
-    proc = _session_start(project, {**CLOUD, "PATH": str(path)})
+    linked = project.root.parent / "linked"
+    project.git("worktree", "add", "-q", "-b", "linked", str(linked), "clean")
+    for root in (project.root, linked):  # its command names no worktree's own path, which a linked one's would be
+        proc = _session_start(project, {**CLOUD, "PATH": str(path)}, root)
+        assert proc.returncode == 0 and _hooks_path(project) is None
+        assert proc.stdout.startswith(f"{OFF}setting it failed (FileNotFoundError: "), proc.stdout
+        assert proc.stdout.endswith(f". {AGAIN}\n") and proc.stdout.count("\n") == 1, proc.stdout
+
+
+def test_a_session_start_ends_in_its_time_when_git_hangs(project: Project, tmp_path: Path) -> None:
+    hangs = _git_wrapper(tmp_path / "bin", 'case "$*" in *--git-common-dir*) exec sleep 60;; esac\nexec "$REAL" "$@"')
+    proc = _session_start(project, {**CLOUD, **hangs})  # within the time the registration allows, or this raises
     assert proc.returncode == 0 and _hooks_path(project) is None
-    assert ("pre-push hook is off in this clone: the session's start could not set it (FileNotFoundError: "
-            in proc.stdout), proc.stdout
+    assert proc.stdout.startswith(f"{OFF}setting it failed (TimeoutExpired: "), proc.stdout
+
+
+def test_a_session_start_says_when_git_names_no_git_directory(project: Project, tmp_path: Path) -> None:
+    mute = _git_wrapper(tmp_path / "bin", 'case "$*" in *--git-common-dir*) exit 0;; esac\nexec "$REAL" "$@"')
+    proc = _session_start(project, {**CLOUD, **mute})
+    assert proc.returncode == 0 and _hooks_path(project) is None
+    assert proc.stdout.startswith(f"{OFF}git cannot read the clone's git directory. {AGAIN}\n"), proc.stdout
 
 
 def test_a_session_start_says_when_the_pinned_binary_is_missing(project: Project) -> None:
@@ -3585,13 +3755,71 @@ def test_a_session_start_says_when_the_pinned_binary_is_missing(project: Project
     assert "is not installed" in proc.stdout and "--install" in proc.stdout, proc.stdout
 
 
+def test_a_session_start_quotes_the_path_its_commands_name(project: Project, tmp_path: Path) -> None:
+    spaced = Project(tmp_path / "my project", project.cache, project.log)
+    project.git("clone", "-q", str(project.root), str(spaced.root))
+    spaced.git("config", "core.hooksPath", ".husky")
+    proc = _session_start(spaced, CLOUD)
+    quoted = shlex.quote(_ours(spaced))
+    assert quoted.startswith("'") and f"`git config core.hooksPath {quoted}` turns it on, in place" in proc.stdout, \
+        proc.stdout
+    spaced.git("config", "--unset", "core.hooksPath")
+    own = spaced.root / ".git" / "hooks" / "pre-commit"
+    own.write_text("#!/bin/sh\n", encoding="utf-8")
+    own.chmod(0o755)
+    proc = _session_start(spaced, CLOUD)
+    assert f"`git config core.hooksPath {quoted}` turns it on, and git then runs none" in proc.stdout, proc.stdout
+
+
 def test_a_session_start_outside_a_repository_does_nothing(tmp_path: Path) -> None:
-    folder = tmp_path / "plain"
-    (folder / ".claude" / "hooks").mkdir(parents=True)
-    shutil.copy(HOOK, folder / ".claude" / "hooks")
-    project = Project(folder, tmp_path / "cache", tmp_path / "stub.log")
-    proc = _session_start(project, CLOUD)
+    proc = _session_start(_plain(tmp_path), CLOUD)
     assert (proc.returncode, proc.stdout) == (0, "")
+
+
+def test_a_session_start_reads_git_in_english_whatever_the_session_s_language(tmp_path: Path) -> None:
+    # git in the session's language: the start reads "not a git repository" in git's own words
+    translated = _git_wrapper(tmp_path / "bin", '[ "${LC_ALL-}" = C ] && exec "$REAL" "$@"\n'
+                              'err=$(mktemp) || exit 1\n"$REAL" "$@" 2>"$err"; code=$?\n'
+                              'sed "s/not a git repository/kein Git-Repository/" "$err" >&2; rm -f "$err"; exit $code')
+    german = {**translated, "LC_ALL": "de_DE.UTF-8", "LANGUAGE": "de"}
+    plain = _plain(tmp_path)
+    shown = subprocess.run(["git", "-C", str(plain.root), "rev-parse"], capture_output=True, text=True,
+                           env=_start_env(plain, german, plain.root))
+    assert "kein Git-Repository" in shown.stderr, shown.stderr  # the stand-in git does speak German
+    proc = _session_start(plain, {**CLOUD, **german})
+    assert (proc.returncode, proc.stdout) == (0, "")
+
+
+def test_turn_on_turns_the_hook_on_in_any_clone_and_says_so(project: Project) -> None:
+    project.remote()
+    on = f"the secret-scan pre-push hook is on in this clone: core.hooksPath is {_ours(project)}\n"
+    proc = _turned_on(project)  # a person's clone: no cloud session
+    assert (proc.returncode, proc.stdout, proc.stderr) == (0, on, "") and _hooks_path(project) == _ours(project)
+    _stopped(project.push("git push origin work"), project)
+    again = _turned_on(project)
+    assert (again.returncode, again.stdout) == (0, on)
+    linked = project.root.parent / "linked"
+    project.git("worktree", "add", "-q", "-b", "linked", str(linked), "clean")
+    project.git("config", "--unset", "core.hooksPath")
+    proc = _turned_on(project, root=linked)  # from a linked worktree, the main checkout's path
+    assert (proc.returncode, proc.stdout) == (0, on) and _hooks_path(project) == _ours(project)
+
+
+def test_turn_on_says_why_the_hook_is_not_on_and_exits_1(project: Project, tmp_path: Path) -> None:
+    own = project.root / ".git" / "hooks" / "pre-commit"
+    own.write_text("#!/bin/sh\n", encoding="utf-8")
+    own.chmod(0o755)
+    proc = _turned_on(project)
+    assert proc.returncode == 1 and _hooks_path(project) is None
+    assert proc.stdout.startswith(f"{OFF}it has hooks of its own in "), proc.stdout
+    own.unlink()
+    project.binary().unlink()
+    proc = _turned_on(project)  # set, though each push that adds commits is refused until --install
+    assert proc.returncode == 1 and _hooks_path(project) == _ours(project)
+    assert proc.stdout.startswith("each push that adds commits is refused until this is fixed: gitleaks "), proc.stdout
+    proc = _turned_on(_plain(tmp_path))
+    assert (proc.returncode, proc.stdout) == (1, "the secret-scan pre-push hook is off: this file is in no git "
+                                                 "repository\n")
 
 
 def test_session_start_is_registered() -> None:

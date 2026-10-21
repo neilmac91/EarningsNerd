@@ -1,9 +1,8 @@
 #!/bin/sh
-# git's pre-push hook (E134), in a clone whose core.hooksPath names this directory by its absolute path:
-# `git config core.hooksPath "$(git rev-parse --show-toplevel)/.claude/hooks/git"` once per clone, in its main
-# checkout, which a Claude Code cloud session's start runs. git runs it before a `git push` sends anything, whoever
-# runs the push, and it scans the
-# commits the push would add with CI's pinned gitleaks, the scan the PreToolUse hook runs
+# git's pre-push hook (E134), in a clone whose core.hooksPath names this directory, in its main checkout, by its
+# absolute path, as `python3 .claude/hooks/secret_scan_guard.py --turn-on` sets it once per clone, and a Claude Code
+# cloud session's start for the session's own. git runs it before a `git push` sends anything, whoever runs the push,
+# and it scans the commits the push would add with CI's pinned gitleaks, the scan the PreToolUse hook runs
 # (.claude/hooks/secret_scan_guard.py), stopping the push on a finding. git skips a hook it cannot execute, so this
 # file stays executable (backend/tests/unit/test_secret_scan_guard.py holds its mode).
 exec python3 -I -S "$(dirname "$0")/../secret_scan_guard.py" --pre-push "$@"
