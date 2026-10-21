@@ -134,6 +134,9 @@ export function ensureRefreshed(): Promise<void> {
   if (refreshPromise && refreshGeneration !== generation) {
     return refreshPromise.catch(() => undefined).then(() => {
       assertSessionGeneration(generation)
+      // A logout, or a lost session, cleared the flag meanwhile: a refresh started now would set the cookies the
+      // logout's answer clears (E133). Callers treat this like the generation abort above.
+      if (!hasActiveSession()) throw new DOMException('The session ended while the refresh was pending', 'AbortError')
       return ensureRefreshed()
     })
   }

@@ -114,10 +114,14 @@ export const unlinkProvider = async (provider: string) => {
 export const LOGOUT_REFRESH_WAIT_MS = 10_000
 
 /**
- * Before a logout posts: start no new silent refresh (both refresh paths need the session flag), and let the one
+ * Before a logout posts: start no new silent refresh (every refresh path needs the session flag), and let the one
  * in flight answer first. A refresh's answer sets the session cookies, and one that lands after the logout's answer
  * sets them again, the access token among them, which nothing revokes: this tab would stay signed in until it
  * expires (E133).
+ *
+ * What this leaves open: a refresh that answers after the limit, or one another tab started, can still set the
+ * cookies again; and when a refresh succeeds during the wait, the `/me` read it replays marks the session active
+ * again, so a 401 that lands later, before the logout answers, can start one more refresh.
  */
 const settleRefreshBeforeLogout = async () => {
   clearSessionActive()
@@ -127,6 +131,8 @@ const settleRefreshBeforeLogout = async () => {
 export const logoutAllSessions = async () => {
   try {
     await settleRefreshBeforeLogout()
+    // No check for a login accepted while this waited, unlike logout(): ending every session is the reader's
+    // explicit request, and skipping it would leave their other devices signed in.
     const response = await api.post('/api/auth/logout-all')
     return response.data
   } finally {
@@ -138,7 +144,8 @@ export const logout = async () => {
   const generation = getExplicitSessionGeneration()
   try {
     await settleRefreshBeforeLogout()
-    // A login accepted while this waited owns the cookies now, and the logout's request would sign it out.
+    // A login accepted while this waited is the account this tab now shows, and the logout's request could sign it
+    // out. A passive loss of the session meanwhile is no such transition: the logout still posts.
     if (!isExplicitSessionGenerationCurrent(generation)) return undefined
     const response = await api.post('/api/auth/logout')
     return response.data
