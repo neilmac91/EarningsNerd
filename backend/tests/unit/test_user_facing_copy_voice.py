@@ -203,14 +203,21 @@ EXEMPT: dict[str, tuple[int, str]] = {
         "founder: the unlink detail's 'only sign-in method', which test_auth_flow.py pins (a locked contract "
         "test, CLAUDE.md rule 6), so it takes the account verb only under a contract change its PR documents",
     ),
+    "app/services/trend_analysis/detectors.py": (
+        1,
+        "founder: the cash-conversion red flag's sentence is in the observation selector's prompt bytes and the "
+        "dataset fingerprint (test_trend_refactor_anchors.py T0.2, T0.3), so its em-dash goes with a PROMPT_VERSION "
+        "bump and the spot-check backend/evals/RUNBOOK.md asks of one (Multi-Period Analysis observation-selector gate)",
+    ),
 }
 # The entry count, held as an equality (D-040): 18 when the gate landed, 20 when the walk learned shapes 7
 # and 8 and listed the two files they found in the same commit, 16 when the backend-exports PR (#1345) landed
-# and its four entries went, 12 when the five routers' voice pass (E45) took its five entries off and the
-# account verb, learned in the same commit, listed the one break a locked test pins. Lower it with every
-# deletion, in the same diff; when two shrinking PRs meet, the later merge sets it to the merged list's count,
-# which the equality holds it to. Raising it for new copy is the one change this gate exists to refuse.
-EXEMPT_CAP = 12
+# and its four entries went, 13 when the five routers' voice pass (E45) took four of its five entries off (the
+# red flag's waits for a PROMPT_VERSION event, see its entry) and the account verb, learned in the same commit,
+# listed the one break a locked test pins. Lower it with every deletion, in the same diff; when two shrinking PRs
+# meet, the later merge sets it to the merged list's count, which the equality holds it to. Raising it for new
+# copy is the one change this gate exists to refuse.
+EXEMPT_CAP = 13
 
 
 @dataclass(frozen=True)

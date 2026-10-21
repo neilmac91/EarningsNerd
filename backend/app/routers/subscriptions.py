@@ -31,7 +31,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # Logical plan tokens the frontend may send, mapped to the configured Stripe price IDs. Lets the
 # UI reference stable names instead of hard-coding live price ids (which it previously did,
-# guaranteeing an "Invalid price_id" 400 in production).
+# guaranteeing the unknown-plan 400 in production).
 def _resolve_price_id(price_id: str) -> Optional[str]:
     aliases = {
         "monthly": settings.STRIPE_PRICE_MONTHLY_ID,

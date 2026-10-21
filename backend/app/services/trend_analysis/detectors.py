@@ -119,7 +119,7 @@ def detect_fcf_ni_divergence(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "periods": [last_fcf["period"]],
                 "detail": (
                     f"Free-cash-flow conversion fell to {last_ratio:.2f}× net income in "
-                    f"{last_fcf['period']} vs a {prior_avg:.2f}× historical average. Earnings and "
+                    f"{last_fcf['period']} vs a {prior_avg:.2f}× historical average — earnings and "
                     f"cash are diverging."
                 ),
                 "markers": list(dict.fromkeys(operand_markers)),
