@@ -6,7 +6,7 @@ vi.mock('@/lib/api/refresh', () => ({ refreshAccessToken: vi.fn() }))
 
 import api, { ensureRefreshed } from '@/lib/api/client'
 import { refreshAccessToken } from '@/lib/api/refresh'
-import { LOGOUT_REFRESH_WAIT_MS, logout, logoutAllSessions } from '@/features/auth/api/auth-api'
+import { LOGOUT_REFRESH_WAIT_MS, LogoutAllSuperseded, logout, logoutAllSessions } from '@/features/auth/api/auth-api'
 import { advanceSessionGeneration, clearSessionActive, hasActiveSession, markSessionActive } from '@/lib/api/session'
 
 /**
@@ -169,6 +169,36 @@ describe('a logout of every session waits for the refresh in flight', () => {
     await loggingOut
     expect(events).toEqual(['refresh answered', 'post /api/auth/logout-all'])
     expect(hasActiveSession()).toBe(false)
+  })
+
+  it('refuses to post for a login accepted while it waited, and leaves that login signed in', async () => {
+    const { answer, refreshing } = refreshInFlight()
+    const loggingOut = logoutAllSessions()
+    const outcome = loggingOut.catch((error: unknown) => error)
+    await settle()
+
+    // Another account logs in and is accepted meanwhile; its cookies are the ones a post would now carry, and the
+    // server ends every session of the account a request carries.
+    markSessionActive()
+    advanceSessionGeneration('explicit')
+    answer.resolve()
+    await refreshing
+    expect(await outcome).toBeInstanceOf(LogoutAllSuperseded)
+    expect(events).toEqual(['refresh answered'])
+    expect(hasActiveSession()).toBe(true)
+  })
+
+  it('still posts after a passive loss of the session during its wait', async () => {
+    const { answer, refreshing } = refreshInFlight()
+    const loggingOut = logoutAllSessions()
+    await settle()
+
+    // Another request's 401 confirms the session lost meanwhile: a new generation, but no explicit transition.
+    advanceSessionGeneration('session-loss')
+    answer.resolve()
+    await refreshing
+    await loggingOut
+    expect(events).toEqual(['refresh answered', 'post /api/auth/logout-all'])
   })
 })
 

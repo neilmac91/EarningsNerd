@@ -128,15 +128,27 @@ const settleRefreshBeforeLogout = async () => {
   await refreshSettled(LOGOUT_REFRESH_WAIT_MS)
 }
 
+/** A logout of every session refused because another login was accepted while it waited (see logoutAllSessions). */
+export class LogoutAllSuperseded extends Error {
+  constructor() {
+    super('Another login was accepted while the logout of every session waited, so it logged nothing out.')
+    this.name = 'LogoutAllSuperseded'
+  }
+}
+
 export const logoutAllSessions = async () => {
+  const generation = getExplicitSessionGeneration()
   try {
     await settleRefreshBeforeLogout()
-    // No check for a login accepted while this waited, unlike logout(): ending every session is the reader's
-    // explicit request, and skipping it would leave their other devices signed in.
+    // A login accepted while this waited holds the tab's cookies now, and the server ends every session of the account
+    // its request carries: posting would log that account out everywhere and leave the reader's other devices signed
+    // in. So it refuses, distinctly from success, and its caller neither clears nor navigates. A passive loss of the
+    // session meanwhile is no such transition: it still posts.
+    if (!isExplicitSessionGenerationCurrent(generation)) throw new LogoutAllSuperseded()
     const response = await api.post('/api/auth/logout-all')
     return response.data
   } finally {
-    clearSessionActive()
+    if (isExplicitSessionGenerationCurrent(generation)) clearSessionActive()
   }
 }
 
