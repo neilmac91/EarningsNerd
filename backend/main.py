@@ -623,7 +623,8 @@ def _security_headers(request: Request) -> dict[str, str]:
     }
     if settings.ENVIRONMENT == "production":
         headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    if request.url.path.startswith("/api/"):
+    path = request.url.path
+    if path == "/api" or path.startswith("/api/"):
         headers["Content-Security-Policy"] = "default-src 'none'"
     return headers
 

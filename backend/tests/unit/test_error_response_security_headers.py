@@ -4,8 +4,9 @@
 back through it. Starlette answers the global ``Exception`` handler from ServerErrorMiddleware, outside
 every user middleware, so the 500 does not either. /security says the API's responses under /api carry
 a Content-Security-Policy of default-src 'none', so both set the headers themselves
-(``main._security_headers``). The responses that do pass back through the middleware (a 404, the
-CircuitOpenError and TaskUnavailable 503s) are test_security_headers.py's.
+(``main._security_headers``). Every other reply passes back through the middleware, and the last test
+here fails if a middleware or a 500 handler joins these two outside it. test_security_headers.py checks
+the middleware's own stamp on /health and an /api 404.
 """
 import asyncio
 
@@ -16,6 +17,7 @@ import main
 
 TIMEOUT_PROBE = "/api/__e137_timeout_probe"
 ERROR_PROBE = "/api/__e137_error_probe"
+ALLOWED_ORIGIN = "http://localhost:3000"
 
 SECURITY_HEADERS = (
     "x-content-type-options",
@@ -26,10 +28,23 @@ SECURITY_HEADERS = (
     "strict-transport-security",
 )
 
+# The set an /api reply carries outside production, where there is no HSTS.
+API_HEADERS = {
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "permissions-policy": "geolocation=(), microphone=(), camera=()",
+    "content-security-policy": "default-src 'none'",
+}
+
 
 @pytest.fixture
 def probes(monkeypatch):
-    """Two /api routes: one outlives the patched timeout, one raises an error nothing handles."""
+    """Two /api routes: one outlives its patched timeout, one raises an error nothing handles.
+
+    Only the timeout probe's path gets the short timeout; every other request keeps the default, so a
+    process's slow first request cannot turn the error probe's 500 or the 404 into a 504.
+    """
     async def slow():  # pragma: no cover - never completes under the patched timeout
         await asyncio.sleep(0.5)
         return {"ok": True}
@@ -40,7 +55,7 @@ def probes(monkeypatch):
     before = list(main.app.router.routes)
     main.app.add_api_route(TIMEOUT_PROBE, slow, methods=["GET"])
     main.app.add_api_route(ERROR_PROBE, broken, methods=["GET"])
-    monkeypatch.setitem(main.REQUEST_TIMEOUT_SECONDS, "default", 0.01)
+    monkeypatch.setitem(main.REQUEST_TIMEOUT_SECONDS, TIMEOUT_PROBE, 0.01)
     try:
         yield TestClient(main.app, raise_server_exceptions=False)
     finally:
@@ -55,13 +70,7 @@ def test_the_timeouts_504_carries_the_security_headers(probes):
     resp = probes.get(TIMEOUT_PROBE)
 
     assert resp.status_code == 504
-    assert _security(resp) == {
-        "x-content-type-options": "nosniff",
-        "x-frame-options": "DENY",
-        "referrer-policy": "strict-origin-when-cross-origin",
-        "permissions-policy": "geolocation=(), microphone=(), camera=()",
-        "content-security-policy": "default-src 'none'",
-    }
+    assert _security(resp) == API_HEADERS
 
 
 def test_the_unhandled_errors_500_carries_the_security_headers(probes):
@@ -69,21 +78,23 @@ def test_the_unhandled_errors_500_carries_the_security_headers(probes):
 
     assert resp.status_code == 500
     assert resp.json()["type"] == "internal_server_error"
-    assert _security(resp) == {
-        "x-content-type-options": "nosniff",
-        "x-frame-options": "DENY",
-        "referrer-policy": "strict-origin-when-cross-origin",
-        "permissions-policy": "geolocation=(), microphone=(), camera=()",
-        "content-security-policy": "default-src 'none'",
-    }
+    assert _security(resp) == API_HEADERS
 
 
 def test_the_hand_built_responses_carry_what_the_middleware_stamps(probes):
     """The same set as an /api response that passes back through add_security_headers (a 404)."""
-    stamped = _security(probes.get("/api/__e137_no_such_route__"))
+    stamped, timed_out, failed = (probes.get(path) for path in ("/api/__e137_no_such_route__", TIMEOUT_PROBE, ERROR_PROBE))
 
-    assert _security(probes.get(TIMEOUT_PROBE)) == stamped
-    assert _security(probes.get(ERROR_PROBE)) == stamped
+    assert (stamped.status_code, timed_out.status_code, failed.status_code) == (404, 504, 500)
+    assert _security(timed_out) == _security(stamped)
+    assert _security(failed) == _security(stamped)
+
+
+def test_a_reply_to_the_bare_api_path_carries_the_csp_too(probes):
+    resp = probes.get("/api")
+
+    assert resp.status_code == 404
+    assert _security(resp) == API_HEADERS
 
 
 def test_in_production_the_504_and_the_500_carry_hsts(probes, monkeypatch):
@@ -96,10 +107,27 @@ def test_in_production_the_504_and_the_500_carry_hsts(probes, monkeypatch):
         assert resp.headers["content-security-policy"] == "default-src 'none'"
 
 
-def test_the_500_keeps_its_cors_headers_beside_them(probes):
-    """The security headers join the CORS headers the handler already re-applies; neither replaces the other."""
-    resp = probes.get(ERROR_PROBE, headers={"origin": "http://localhost:3000"})
+@pytest.mark.parametrize("path, status", ((TIMEOUT_PROBE, 504), (ERROR_PROBE, 500)))
+def test_from_an_allowed_origin_both_keep_their_cors_headers_beside_them(probes, path, status):
+    """A browser's request carries an allowed Origin. The security headers join the CORS headers each reply
+    re-applies; neither replaces the other."""
+    resp = probes.get(path, headers={"origin": ALLOWED_ORIGIN})
 
-    assert resp.status_code == 500
-    assert resp.headers["access-control-allow-origin"] == "http://localhost:3000"
-    assert resp.headers["content-security-policy"] == "default-src 'none'"
+    assert resp.status_code == status
+    assert resp.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
+    assert _security(resp) == API_HEADERS
+
+
+def test_only_these_two_replies_are_built_outside_add_security_headers():
+    """A middleware outside add_security_headers, or a 500 handler, builds replies that it never stamps."""
+    order = [entry.kwargs.get("dispatch", entry.cls).__name__ for entry in main.app.user_middleware]  # outermost first
+    assert order[: order.index("add_security_headers")] == ["request_timeout_middleware"], (
+        "a middleware outside add_security_headers builds replies it never stamps: set main._security_headers and "
+        "main._error_response_cors_headers on them, as request_timeout_middleware does, then list it here"
+    )
+    # Starlette gives a handler keyed 500 or Exception to ServerErrorMiddleware, outside every user middleware.
+    outside = {key: handler.__name__ for key, handler in main.app.exception_handlers.items() if key in (500, Exception)}
+    assert outside == {Exception: "global_exception_handler"}, (
+        "a 500 handler answers outside every user middleware: set main._security_headers and "
+        "main._error_response_cors_headers on its reply, as global_exception_handler does, then list it here"
+    )
