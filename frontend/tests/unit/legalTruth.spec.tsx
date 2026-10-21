@@ -29,8 +29,9 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    endpoint"), not after a negation, unless a relative clause or a participle narrows them, as "any endpoint
  *    returning account data" does; and "no endpoint" answering without authentication in its clause, the claim the
  *    other way round; login words in another role or clause pass ("Each API endpoint documents the token format.", "Any
- *    endpoint may accept an optional token."), and so does "No API endpoints require authentication.", which says the
- *    opposite; search, company pages and summaries are public); a Content Security Policy against XSS or cross-site
+ *    endpoint may accept an optional token."), an account counts as a login only as the account itself ("requires an
+ *    account", "a signed-in account"), so "Each endpoint requires an account ID." passes, and so does "No API endpoints
+ *    require authentication.", which says the opposite; search, company pages and summaries are public); a Content Security Policy against XSS or cross-site
  *    scripting (the site sends frame-ancestors only); role-based access, permissions or authorisation, or RBAC (one
  *    administrator flag); an adjective in place of a fact (enterprise, military or bank grade or level, industry
  *    standard or standards, hyphenated or not); no financial data stored, a negation, contracted or not, on either side
@@ -300,8 +301,12 @@ const NARROWED = String.raw`(?!\s+(?:that|which|returning|serving|handling|expos
 /** The endpoints the removed claim speaks of: all, every, each or any with up to three words before "endpoints"
     ("all of the API's endpoints", "every single endpoint", "each API endpoint"), unless what follows narrows them. */
 const SOME_ENDPOINTS = String.raw`\b(?:all|every|each|any)\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}`
-/** A login, as the claim says the endpoints need one: authentication, a login or sign-in, a token, an account. */
-const A_LOGIN = String.raw`(?:(?:a|an|the|your|valid|prior|its own)\s+)*(?:authentication|auth|log[- ]?in|logging in|sign[- ]?in|signing in|(?:bearer\s+|session\s+|access\s+)?tokens?|account|credentials?)\b`
+/** An account as a login: the account itself ("an account", "a signed-in account", "your account first"), not a word
+    before what it names ("an account ID", "an account number", "the account holder's name", "account-level"). */
+const AS_LOGIN = String.raw`(?!['’]s\b|-\w|\s+(?!(?:and|or|but|nor|to|for|on|in|at|with|before|first|that|which|who|when|whenever|if|is|are|so|then|only|from|via)\b)[\w'’-])`
+/** A login, as the claim says the endpoints need one: authentication, a login or sign-in, a token, an account
+    (AS_LOGIN). */
+const A_LOGIN = String.raw`(?:(?:a|an|the|your|valid|prior|its own|signed[- ]in|logged[- ]in|authenticated|registered|verified|user|account)\s+)*(?:authentication|auth|log[- ]?in|logging in|sign[- ]?in|signing in|(?:bearer\s+|session\s+|access\s+)?tokens?|account${AS_LOGIN}|credentials?)\b`
 /** The words between the endpoints and their predicate, in their own clause: none opens another clause (which, that,
     when, because, but, or, ", and the login page ..."), up to six of them. */
 const IN_THEIR_CLAUSE = String.raw`(?:(?:\s*,)?\s+(?!(?:which|that|who|whom|whose|where|when|while|whereas|because|if|unless|so|but|or)\b|and\s+(?:the|a|an|its|their|your|our|we|you|it|they|this|these|those)\b)[\w'’-]+){0,6}?(?:\s*,)?\s+`
@@ -314,7 +319,7 @@ const NEEDS_A_LOGIN = String.raw`${NOT}\b(?:` +
   String.raw`|(?:requires?|needs?)\s+(?:you|the reader|readers|callers?|users?)\s+to\s+(?:(?:be\s+)?(?:logged|signed)\s+in|(?:log|sign)\s+in|authenticate)\b` +
   String.raw`|(?:is|are|stays?|remains?)\s+(?:all\s+|always\s+|only\s+)?(?:protected|authenticated|locked|gated|private)\b` +
   String.raw`|(?:is|are|sits?|stands?|lives?|stays?)\s+(?:all\s+|always\s+|only\s+)?behind\s+${A_LOGIN}` +
-  String.raw`|(?:can|may|will)\s+only\s+be\s+(?:called|reached|used|accessed|queried|opened)\s+(?:with|by|after|once|when)\s+(?:a\s+|an\s+)?(?:valid\s+)?(?:token|login|logging in|signing in|authentication|account|signed[- ]in|logged[- ]in|authenticated)\b` +
+  String.raw`|(?:can|may|will)\s+only\s+be\s+(?:called|reached|used|accessed|queried|opened)\s+(?:with|by|after|once|when)\s+(?:a\s+|an\s+)?(?:valid\s+)?(?:token|login|logging in|signing in|authentication|account${AS_LOGIN}|signed[- ]in|logged[- ]in|authenticated)\b` +
   String.raw`|(?:answers?|responds?|works?|opens?)\s+(?:only\s+)?(?:to|for|with|after|once)\s+(?:a\s+|an\s+)?(?:logged[- ]in|signed[- ]in|authenticated|valid\s+token)` +
   ')'
 /** The login said before the endpoints as their requirement: "a login is required for each endpoint", "you need a
@@ -333,7 +338,7 @@ const ENDPOINT_CLAIM = new RegExp(
   String.raw`\b(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b` +
     String.raw`|${SOME_ENDPOINTS}${IN_THEIR_CLAUSE}${NEEDS_A_LOGIN}` +
     String.raw`|${LOGIN_FOR}${SOME_ENDPOINTS}` +
-    String.raw`|\bno\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}${IN_THEIR_CLAUSE}(?:without\s+(?:an?\s+)?(?:authentication|log[- ]?in|logging in|sign[- ]?in|signing in|token|account)\b|unauthenticated\b|(?:\w+\s+)?anonymous(?:ly\b|\s+(?:users?|requests?|callers?|readers?|access|visitors?)\b))`,
+    String.raw`|\bno\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}${IN_THEIR_CLAUSE}(?:without\s+(?:an?\s+)?(?:authentication|log[- ]?in|logging in|sign[- ]?in|signing in|token|account${AS_LOGIN})\b|unauthenticated\b|(?:\w+\s+)?anonymous(?:ly\b|\s+(?:users?|requests?|callers?|readers?|access|visitors?)\b))`,
   'i',
 )
 
@@ -1136,6 +1141,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>You need a token for any endpoint.</p>', true],
       ['<p>Authentication is mandatory on each endpoint.</p>', true],
       ['<p>No endpoint accepts anonymous requests.</p>', true],
+      // An account as the login itself (#1456's sixth round, Codex's thread 4339665124).
+      ['<p>Each endpoint requires an account.</p>', true],
+      ['<p>Each endpoint requires a signed-in account.</p>', true],
+      ['<p>Any endpoint needs an account login.</p>', true],
+      ['<p>An account is required for each endpoint.</p>', true],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
@@ -1194,6 +1204,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>A login is not required for each endpoint.</p>', false],
       ['<p>No endpoint changed this month, and the login page still works without a token.</p>', false],
       ['<p>No endpoint logs anonymous data.</p>', false],
+      // An account's identifier is an input the endpoint takes, not a login, wherever the family reads an account
+      // (#1456's sixth round, Codex's thread 4339665124).
+      ['<p>Each endpoint requires an account ID.</p>', false],
+      ['<p>Any endpoint expects an account number.</p>', false],
+      ['<p>Each endpoint can only be called with an account ID.</p>', false],
+      ['<p>No endpoint answers without an account ID.</p>', false],
       // Out of reach.
       ['<p>Our pages use a Content Security Policy. It blocks XSS.</p>', 'gap'],
       ['<p>Nobody outside our network can reach the servers.</p>', 'gap'],
