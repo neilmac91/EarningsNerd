@@ -188,7 +188,7 @@ export default function SecurityPage() {
             <li>The Privacy Policy says what we collect and why</li>
             <li>You can download your data and delete your account from your account settings</li>
             <li>
-              Registrations, logins, failed logins, data exports and account deletions are written to an audit log,
+              Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log,
               and so are administrators&apos; invites, feedback status changes and new free accounts
             </li>
           </ul>

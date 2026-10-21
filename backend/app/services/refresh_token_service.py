@@ -171,24 +171,24 @@ def rotate_refresh_token(
     return user, new_raw_token
 
 
-def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> bool:
-    """Revoke a single refresh token (e.g. on logout). Returns True if one was revoked.
+def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> Optional[int]:
+    """Revoke a single refresh token (e.g. on logout). Returns its user's id if one was revoked.
 
-    Idempotent and best-effort: unknown or already-revoked tokens return False. A token that refreshes
+    Idempotent and best-effort: unknown or already-revoked tokens return None. A token that refreshes
     rotated away revokes its chain's live tip instead, the session it belonged to: a refresh may have
     taken the lock first with the same cookie, or another tab may have rotated the chain on, and their
     new cookie may reach the browser after the logout clears it. The caller is responsible for
     committing the session.
     """
     if not raw_token:
-        return False
+        return None
     token = (
         db.query(RefreshToken)
         .filter(RefreshToken.token_hash == _hash_token(raw_token))
         .first()
     )
     if token is None:
-        return False
+        return None
     lock_user_tokens(db, token.user_id)
     token = _read_again(db, token)  # as a rotation does
     # Each link points at a newer token (only a rotation writes it, to the successor it mints), so the
@@ -196,9 +196,9 @@ def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> bool:
     while token is not None and token.revoked_at is not None and token.replaced_by_id is not None:
         token = db.get(RefreshToken, token.replaced_by_id)
     if token is None or token.revoked_at is not None:
-        return False
+        return None
     token.revoked_at = datetime.utcnow()
-    return True
+    return token.user_id
 
 
 def revoke_all_for_user(db: Session, user_id: int) -> int:
@@ -262,12 +262,19 @@ def rotate_and_commit(
     return user, new_raw_token
 
 
-def revoke_and_commit(db: Session, raw_token: Optional[str]) -> bool:
-    """Revoke one refresh token (logout) and commit when one was revoked. Returns whether it was."""
-    if revoke_refresh_token(db, raw_token):
-        db.commit()
-        return True
-    return False
+def revoke_and_commit(db: Session, raw_token: Optional[str]) -> Optional[Tuple[int, str]]:
+    """Revoke one refresh token (logout) and commit when one was revoked.
+
+    Returns the ``(id, email)`` of the user whose session it ended, read under the users row lock before
+    the commit expires the row, or ``None`` when it revoked none. A logout whose session token has
+    expired knows its user only from this (E137).
+    """
+    user_id = revoke_refresh_token(db, raw_token)
+    if user_id is None:
+        return None
+    email = db.query(User.email).filter(User.id == user_id).scalar()
+    db.commit()
+    return user_id, email
 
 
 def revoke_all_and_commit(db: Session, user_id: int) -> int:

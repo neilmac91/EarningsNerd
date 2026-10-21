@@ -574,7 +574,8 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
             assert [token.revoked_at for token in originals] == [None] * 8 and logouts == 0
         else:
             assert all(token.revoked_at is not None for token in originals)
-            assert logouts == (8 if case in ("logout_signed_in", "logout_all") else 0)
+            # Every logout that ends a session writes its row, a cookie-only one under its token's user (E137).
+            assert logouts == (0 if case == "refresh" else 8)
         if case == "refresh":
             # Each live token was rotated once, into a token of its own, and each response carries the
             # cookie for the token that replaced the one its request sent.

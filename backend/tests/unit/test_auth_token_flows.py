@@ -19,7 +19,9 @@ pin deliberate changes made since (E121), and fail on the code before them:
     the conflict redirect, no session cookie, nothing persisted; likewise when a first sign-in's
     new-account insert loses a concurrent create for the same email, with the router's warning
   - logout and logout-all commit their own revocations (with no audit row committing after them),
-    and unlinking a provider commits the delete itself before its oauth_unlinked audit row
+    and unlinking a provider commits the delete itself before its oauth_unlinked audit row; a logout
+    that sends only the refresh cookie logs its row under that token's user, a deliberate change
+    (E137)
   - a password login: a success resets the failed-login count, and that reset, last_login_at and the
     session's refresh token commit together, under the account's lock (E121), so a failed mint
     changes nothing; a password change whose mint fails changes nothing (one commit); a login or a
@@ -725,9 +727,9 @@ def no_audit_rows(monkeypatch):
 
 
 @pytest.mark.requires_db
-def test_logout_with_only_the_refresh_cookie_revokes_it(client, mail):
-    """No live access token: there is no current user and so no audit row whose commit could carry
-    the revocation. Logout's own commit must persist it."""
+def test_logout_with_only_the_refresh_cookie_revokes_it(client, mail, no_audit_rows):
+    """No live access token, and no audit row whose commit could carry the revocation: logout's own
+    commit must persist it."""
     email, _ = _register(client, mail)
     user_id = _user(email).id
     assert _login(client, email).status_code == 200
@@ -738,11 +740,35 @@ def test_logout_with_only_the_refresh_cookie_revokes_it(client, mail):
     resp = client.post("/api/auth/logout")
     assert resp.status_code == 200 and resp.json() == {"status": "success"}
     assert _cookies(resp) == ACCESS_CLEARED + REFRESH_CLEARED
-    assert _audit_actions(user_id, "logout") == []
     assert _live_refresh_tokens(user_id) == 0
 
     client.cookies.clear()
     assert client.post("/api/auth/refresh", json={"refresh_token": refresh}).status_code == 401
+
+
+@pytest.mark.requires_db
+def test_logout_with_only_the_refresh_cookie_logs_it_under_that_tokens_user(client, mail):
+    """The session token lasts 30 minutes, so a logout after them names no current user; its row names
+    the user whose refresh token it revoked (E137). Once that token is revoked, the same cookie ends no
+    session and writes no second row."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    assert _login(client, email).status_code == 200
+    refresh = client.cookies.get("earningsnerd_refresh_token")
+    client.cookies.clear()
+
+    for _ in range(2):
+        client.cookies.set("earningsnerd_refresh_token", refresh)
+        resp = client.post("/api/auth/logout")
+        assert resp.status_code == 200 and resp.json() == {"status": "success"}
+
+    with SessionLocal() as db:
+        rows = [
+            (row.entity_type, row.user_email, row.ip_address is not None)
+            for row in db.query(AuditLog).filter(AuditLog.user_id == str(user_id), AuditLog.action == "logout")
+        ]
+    assert rows == [("user", email, True)]
+    assert _live_refresh_tokens(user_id) == 0
 
 
 @pytest.mark.requires_db
