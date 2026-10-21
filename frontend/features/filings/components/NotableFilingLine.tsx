@@ -52,8 +52,9 @@ export default function NotableFilingLine({ filing }: { filing: NotableFiling })
             {filing.ticker}
           </span>
           {/* A form code is text in the data face, never an eyebrow chip (DESIGN.md › Chips), and one unbroken run, so
-              it never breaks at its hyphen on the landing (tests/e2e/reflow-200.spec.ts reads every row's codes). The
-              middot is the search rows' separator (FullTextSearch's Sep; DESIGN_SYSTEM.md, Filing identity): a no-break
+              it never breaks at its hyphen on the landing (tests/unit/NotableFilings.spec.tsx holds it: reflow-200 reads
+              only the rows that paint, and CI's run, with no backend, paints none of these lines). The middot is the
+              search rows' separator (FullTextSearch's Sep; DESIGN_SYSTEM.md, Filing identity): a no-break
               space keeps it to the code, so the dot stays on the code's line and no line starts with it, and assistive
               tech hears a comma in its place. The date is one inline block after "filed", as the hero's identity line
               holds its date (HeroExample.tsx): it moves under the code whole before it breaks, and then only after its
