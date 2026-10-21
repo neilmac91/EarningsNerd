@@ -124,36 +124,38 @@ that SHA-256 and another platform's against the release's checksums file once th
   failed scan's refusal names the errors gitleaks logged. An error the hook does not expect in reading a
   Bash call that names git or gh refuses it too; any other crash lets the call through.
 - **git's pre-push hook.** `python3 .claude/hooks/secret_scan_guard.py --turn-on`, run from any worktree
-  of a clone, turns it on there, once, and again from the main checkout if the clone moves (a move breaks
-  a linked worktree's link): it sets `core.hooksPath` to the main
-  checkout's `.claude/hooks/git` by its absolute path, and says the hook is on or why not. The path is
-  absolute because git reads a relative one from the directory it runs hooks in, which inside `.git`, or
-  with a `GIT_DIR` or `--git-dir` from a subdirectory or from outside the worktree, is not the
-  worktree's top, so the hook would not run there; and it names the main checkout because every worktree
-  reads the clone's one path, which a linked worktree's own directory would take with it when it is
-  removed. So every worktree's pushes run the main checkout's copy of the hook, with the pin its
-  `ci.yml` holds there. A Claude Code cloud session's start does the same for the session's clone, in a
-  session that loads the repository's hooks (`.claude/settings.json`'s SessionStart command, a file in
-  the repository, so no environment needs changing; a cloud session with several repositories loads
-  none), and says nothing once the hook is on. Each writes the main checkout's path where another
-  spelling names the directory or the path names a `.claude/hooks/git` that has gone (a moved clone's),
-  leaves a hooks path naming another directory, at any level, and hooks of the clone's own as they are
-  and says so, and says when the main checkout holds no hook (a checkout's copy set by hand, by its
+  of a clone, turns it on there: it sets `core.hooksPath` to the main checkout's `.claude/hooks/git` by
+  its absolute path, and says the hook is on or why not. The path is absolute because git reads a
+  relative one from the directory it runs hooks in, which inside `.git`, or with a `GIT_DIR` or
+  `--git-dir` from a subdirectory or from outside the worktree, is not the worktree's top, so the hook
+  would not run there; and it names the main checkout because every worktree reads the clone's one path,
+  which a linked worktree's own directory would take with it when it is removed. So every worktree's
+  pushes run the main checkout's copy of the hook, with the pin its `ci.yml` holds there. A Claude Code
+  cloud session's start does the same for the session's clone, in a session that loads the repository's
+  hooks (`.claude/settings.json`'s SessionStart command, a file in the repository, so no environment
+  needs changing; a cloud session with several repositories loads none), and says nothing once the hook
+  is on. Each writes the main checkout's path where a relative or `~` spelling names the directory (an
+  absolute one counts as on as it is written, a symlink through which another view of the clone reads
+  its own path among them), leaves a hooks path naming another directory, at any level, and hooks of the
+  clone's own as they are and says so, a `.claude/hooks/git` that is not there from here among them (a
+  moved clone's old path, a removed worktree's, or one another machine or a container reading the clone
+  at another path runs, which replacing would leave with no hook), whose note gives the `git config`
+  line that names this checkout's (after a move, from the main checkout: a move breaks a linked
+  worktree's link), and says when the main checkout holds no hook (a checkout's copy set by hand, by its
   absolute path, at a level every worktree reads, counts), when it cannot set the path, when a setting
   above the clone's own keeps another, and when the pinned binary is missing; on a git older than 2.43,
   whose every push that adds commits the hook would refuse, each sets nothing and says so. A session of
   another agent (Codex, Astra) loads no repository hooks: `AGENTS.md` §5 leaves `core.hooksPath` to the
-  founder (F54) and has it scan by hand before every push. git runs the hook
-  before a `git push` sends anything, whoever runs the push, and hands it the refs the push sends: it
-  scans the commits each one reaches and no ref under `refs/remotes/origin` holds, with the scan above,
-  and stops the push on a finding, wherever the scan fails closed (that refusal names
-  `git push --no-verify`, which skips git's hooks; a finding's does not), on a ref that sends a tree or
-  a blob rather than a commit, and on any error. A delete, and a commit GitHub holds as last fetched,
-  send it nothing to scan. Both hooks take the remote named `origin` for GitHub: in a clone whose GitHub
-  remote has another name, every push that adds commits has its whole history scanned without main's
-  pins, and is refused. git skips a hook it cannot execute, so the suite holds the hook's tracked mode.
-  In a Claude Code session whose clone turns it on, a push passes both: the PreToolUse hook before the
-  call, git's as git sends it.
+  founder (F54) and has it scan by hand before every push. git runs the hook before a `git push` sends
+  anything, whoever runs the push, and hands it the refs the push sends: it scans the commits each one
+  reaches and no ref under `refs/remotes/origin` holds, with the scan above, and stops the push on a
+  finding, wherever the scan fails closed (that refusal names `git push --no-verify`, which skips git's
+  hooks; a finding's does not), on a ref that sends a tree or a blob rather than a commit, and on any
+  error. A delete, and a commit GitHub holds as last fetched, send it nothing to scan. Both hooks take
+  the remote named `origin` for GitHub: in a clone whose GitHub remote has another name, every push that
+  adds commits has its whole history scanned without main's pins, and is refused. git skips a hook it
+  cannot execute, so the suite holds the hook's tracked mode. In a Claude Code session whose clone turns
+  it on, a push passes both: the PreToolUse hook before the call, git's as git sends it.
 - **What it cannot see.** Before a call, the PreToolUse hook cannot see these; git's pre-push hook
   stops each push among them that is a `git push` without `--no-verify`, as git sends it, in a clone
   that turns it on:

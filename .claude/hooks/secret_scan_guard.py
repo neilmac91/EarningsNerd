@@ -155,20 +155,21 @@ ref under refs/remotes/origin holds, in the repository the push runs from, with 
 than a commit, on a line from git it cannot read and on an error it does not expect. A delete sends nothing. git
 skips a hook it cannot execute, so the file is tracked executable.
 
---turn-on, run from any worktree of a clone (`python3 .claude/hooks/secret_scan_guard.py --turn-on`, once per clone,
-and again from the main checkout if it moves, which breaks a linked worktree's link), sets that core.hooksPath and
-says the hook is on, or says why not and exits 1;
---session-start, which .claude/settings.json runs as a Claude Code session starts, does the same in a cloud session's
-clone (CLAUDE_CODE_REMOTE=true), saying nothing once the hook is on, and changes nothing in any other session and
-never fails a session's start. Each writes the main checkout's path where another spelling names the directory (a
-relative one, a worktree's own copy, or one that has gone, as a moved clone's has), and leaves a hooks path naming
-another directory, at any level, or hooks of the clone's own as they are, saying so and what turning it on would
-replace. Each also says when no main checkout it can find holds the hook (a checkout's copy set by hand, by its
-absolute path, at a level every worktree reads, counts), when git cannot read the clone or write the path, when a
-setting above the clone's own keeps another path in effect, when it runs out of time, and when the pinned binary is
-missing, and sets nothing on a git older than the scan needs, saying so. A session of another agent (Codex, Astra)
-loads no repository hooks: AGENTS.md §5 has it leave core.hooksPath to the founder (F54) and scan its commits by
-hand before every push.
+--turn-on, run from any worktree of a clone (`python3 .claude/hooks/secret_scan_guard.py --turn-on`, once per clone),
+sets that core.hooksPath and says the hook is on, or says why not and exits 1; --session-start, which
+.claude/settings.json runs as a Claude Code session starts, does the same in a cloud session's clone
+(CLAUDE_CODE_REMOTE=true), saying nothing once the hook is on, and changes nothing in any other session and never fails
+a session's start. Each writes the main checkout's path where a relative spelling, or one from ~, names the directory,
+or a worktree's own copy that is there, takes an absolute one that names it otherwise as on as it is written (a symlink
+through which another view of the clone reads its own path among them), and leaves a hooks path naming another
+directory, at any level, or hooks of the clone's own as they are, saying so and what turning it on would replace: a
+.claude/hooks/git that is not there from here among them (a moved clone's old path, a removed worktree's, or one another
+machine or a container reading the clone at another path runs), whose note gives the command that names this one. Each
+also says when no main checkout it can find holds the hook (a checkout's copy set by hand, by its absolute path, at a
+level every worktree reads, counts), when git cannot read the clone or write the path, when a setting above the clone's
+own keeps another path in effect, when it runs out of time, and when the pinned binary is missing, and sets nothing on a
+git older than the scan needs, saying so. A session of another agent (Codex, Astra) loads no repository hooks: AGENTS.md
+§5 has it leave core.hooksPath to the founder (F54) and scan its commits by hand before every push.
 
 Not checked before a call, though git's pre-push hook stops each push among them that is a `git push` without
 --no-verify, as git sends it, in a clone that turns that hook on: a push a script, a program (env -S's string among
@@ -2842,7 +2843,7 @@ def turn_on() -> int:
     hooks = _turn_on(time.monotonic() + TURN_ON_BY_HAND, person=True)
     if hooks is None:
         return 1
-    print(f"the secret-scan pre-push hook is on in this clone: core.hooksPath is {hooks}")
+    print(f"the secret-scan pre-push hook is on in this clone: core.hooksPath names {hooks}")
     return 0
 
 
@@ -2854,21 +2855,22 @@ def _a_hook_at(directory: str) -> bool:
 
 
 def _turn_on(deadline: float, person: bool) -> str | None:
-    """Set core.hooksPath, in the clone this file is in, to its main checkout's HOOKS_PATH by its absolute path, so
-    git runs the pre-push hook, the main checkout's copy of this file with that checkout's pin, on every `git push`
-    from any worktree of the clone, wherever in it the push runs. git reads a relative path from the directory it runs
-    hooks in, which inside .git, or with a GIT_DIR from a subdirectory, is not the worktree's top; and every worktree
-    reads the clone's one path, which a linked worktree's own directory would take with it when it is removed. A path
-    that names the directory otherwise, a relative one, a worktree's own copy or one that has gone (a moved clone's)
-    among them, is written as the main checkout's, and the clone's own configuration holds it. A hooks path naming
-    another directory, at any level, or a hook of the clone's own in the directory git runs hooks from stays as it is,
-    and a note says the pre-push scan is off, as it is where no main checkout this can find holds the hook (unless a
-    checkout's copy is set by hand, by its absolute path, at a level every worktree reads), where git cannot read the
-    clone or write the path, and where a setting above the clone's own keeps another path in effect. On a git older
-    than the scan needs it sets nothing, since git's hook would refuse every push that adds commits, and says so. A
-    note also says when the pinned binary that copy reads is missing, since each push that adds commits is refused
-    until it is installed. Returns the path in effect once the hook is on and can scan, and None once a note has said
-    why not, or outside any repository (where only --turn-on says so)."""
+    """Set core.hooksPath, in the clone this file is in, to its main checkout's HOOKS_PATH by its absolute path, so git
+    runs the pre-push hook, the main checkout's copy of this file with that checkout's pin, on every `git push` from any
+    worktree of the clone, wherever in it the push runs. git reads a relative path from the directory it runs hooks in,
+    which inside .git, or with a GIT_DIR from a subdirectory, is not the worktree's top; and every worktree reads the
+    clone's one path, which a linked worktree's own directory would take with it when it is removed. A relative path, or
+    one from ~, that names the directory, and a worktree's own copy that is there, are written as the main checkout's,
+    and the clone's own configuration holds it; an absolute path that names the directory otherwise counts as on as it
+    is written there. A hooks path naming another directory, at any level, one that is not there from here (a moved
+    clone's old path, a removed worktree's, or another view of the clone's) among them, or a hook of the clone's own in
+    the directory git runs hooks from stays as it is, and a note says the pre-push scan is off, as it is where no main
+    checkout this can find holds the hook (unless a checkout's copy is set by hand, by its absolute path, at a level
+    every worktree reads), where git cannot read the clone or write the path, and where a setting above the clone's own
+    keeps another path in effect. On a git older than the scan needs it sets nothing, since git's hook would refuse
+    every push that adds commits, and says so. A note also says when the pinned binary that copy reads is missing, since
+    each push that adds commits is refused until it is installed. Returns the path in effect once the hook is on and can
+    scan, and None once a note has said why not, or outside any repository (where only --turn-on says so)."""
     import shlex
 
     noted = False
@@ -2974,16 +2976,26 @@ def _turn_on(deadline: float, person: bool) -> str | None:
             listed = git("worktree", "list", "--porcelain").stdout.splitlines()
             copies = {os.path.realpath(os.path.join(line[len("worktree "):], rel, HOOKS_PATH)) for line in listed
                       if line.startswith("worktree ")}
-            # Ours spelled otherwise; a worktree's own copy, which goes when that worktree does; or a copy that has
-            # gone already (the clone moved), from which git runs nothing. Ours as written counts as on only where the
-            # clone's own configuration holds it: a worktree's, or the session's environment's, reaches no other.
-            gone = named.replace(os.sep, "/").endswith("/" + HOOKS_PATH) and not os.path.isdir(named)
-            if named == os.path.realpath(hooks) or named in copies or gone:
-                return hooks if (configured == hooks and level() == "local") or turn_on(hooks) else None
+            # Ours spelled otherwise, or a worktree's own copy that is there, which goes when that worktree does (git
+            # still lists one removed without its knowing, and another view's, which the note below leaves). Ours by an
+            # absolute path, which git reads alike wherever it runs hooks, counts as on as it is written where the
+            # clone's own configuration holds it: a symlink through which another view of the clone reads its own path
+            # among them. A worktree's, or the session's environment's, reaches no other; a relative path misses a push
+            # from .git, and one from ~ names the directory only while HOME does.
+            if named == os.path.realpath(hooks) or (named in copies and os.path.isdir(named)):
+                kept = named == os.path.realpath(hooks) and os.path.isabs(configured) and level() == "local"
+                return hooks if kept or turn_on(hooks) else None
             quoted, scope = shlex.quote(hooks), level()
             fix = above(scope, configured, quoted) or (f"`git config core.hooksPath {quoted}` turns it on, in place of "
                                                        f"{configured}")
-            off(f"core.hooksPath is {configured} at the {scope} level, which this leaves as it is", fix)
+            # A copy that is not there from here may be one another view of this clone runs: a container's or another
+            # machine's that reads it at another path. Replacing it would turn that one's hook off without a word.
+            gone = ("\ufffd" not in configured and named.replace(os.sep, "/").endswith("/" + HOOKS_PATH)
+                    and not os.path.isdir(named))
+            why = (" which is not there from here: a moved clone's old path, a removed worktree's, or one that another "
+                   "machine, or a container reading this clone at another path, runs, whose pushes would run no hook "
+                   "were it replaced. This leaves it as it is" if gone else " which this leaves as it is")
+            off(f"core.hooksPath is {configured} at the {scope} level,{why}", fix)
             return None
         shown = git("rev-parse", "--git-path", "hooks").stdout.strip()
         folder = Path(ROOT, shown) if shown else None
