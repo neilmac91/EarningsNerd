@@ -49,11 +49,12 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * at 320 and 390px under 200% text and at 320px at the default size, where the plan table broke "10-Q" at its
  * hyphen before each code became one nowrap run; the hero's do at 320, 390 and 1440px under 200% text, where its
  * figures keep apart and whole too and no line of its example starts with a middot (E81). Below a 12rem viewport
- * the auth shell's wordmark yields to the mark. At 320x640 with the text doubled every route passes the same checks (E81): /pricing's billing switch's row
- * wraps, the yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge
- * and the page to 333px; / reached 329px (the hero example's identity line and figures) and /search 344px (its date
- * fields). There the legal pages pass but for the words E131 names, each wider than its column, which nothing
- * else may join and each of which must still be found, so the exemption ends with E131.
+ * the auth shell's wordmark yields to the mark. At 320x640 with the text doubled every route passes the same
+ * checks (E81): /pricing's billing switch's row wraps, the yearly label on a line of its own, where on one line it
+ * took "Monthly" 13px past the screen's left edge and the page to 333px; / reached 329px (the hero example's
+ * identity line and figures) and /search 344px (its date fields). There the legal pages pass but for the words
+ * E131 names, each wider than its column, which nothing else may join and each of which must still be found, so
+ * the exemption ends with E131.
  * The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
