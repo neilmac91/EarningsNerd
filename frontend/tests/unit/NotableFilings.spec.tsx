@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 
+import ReportingThisWeek from '@/features/calendar/components/ReportingThisWeek'
 import NotableFilings from '@/features/filings/components/NotableFilings'
-import type { NotableFilingsResponse } from '@/lib/serverApi'
+import type { NotableFilingsResponse, ReportingThisWeekResponse } from '@/lib/serverApi'
 
 vi.mock('next/link', () => ({
   default: ({ children, href, onClick, ...props }: { children: React.ReactNode; href: string; onClick?: () => void; [key: string]: unknown }) => (
@@ -13,7 +14,9 @@ vi.mock('next/link', () => ({
 }))
 
 vi.mock('@/components/CompanyLogo', () => ({
-  default: ({ ticker }: { ticker: string }) => <div data-testid={`logo-${ticker}`} />,
+  default: ({ ticker, name, size }: { ticker: string; name?: string; size?: number }) => (
+    <div data-testid={`logo-${ticker}`} data-name={name} data-size={size} />
+  ),
 }))
 
 const mockAnalytics = vi.hoisted(() => ({
@@ -92,7 +95,7 @@ describe('NotableFilings', () => {
     )
   })
 
-  it('renders the served cards and only those, in the served order, each opening its company page', () => {
+  it('renders the served lines and only those, in the served order, each opening its company page', () => {
     render(<NotableFilings data={RESPONSE} />)
     const row = screen.getByRole('region', { name: 'Notable filings' })
     const links = within(row).getAllByRole('link')
@@ -104,28 +107,54 @@ describe('NotableFilings', () => {
     ])
   })
 
-  it('lays the cards out two across from 40rem at the reader’s text size, over a one-column base', () => {
+  it('lays the lines out two across from 40rem at the reader’s text size, over a one-column base', () => {
     render(<NotableFilings data={RESPONSE} />)
     const list = within(screen.getByRole('region', { name: 'Notable filings' })).getByRole('list')
     expect(list).toHaveClass('grid', 'grid-cols-1', '[@media(min-width:40rem)]:grid-cols-2')
     expect(within(list).getAllByRole('listitem')).toHaveLength(RESPONSE.filings.length)
   })
 
-  it('shows the reason chip and the filed date', () => {
+  it('states the filed date after the form code, the middot held to the code', () => {
     render(<NotableFilings data={RESPONSE} />)
-
-    expect(within(screen.getByTestId('notable-filing-SMPA')).getByText('Quarterly report')).toBeInTheDocument()
-    expect(within(screen.getByTestId('notable-filing-SMPB')).getByText('Annual report')).toBeInTheDocument()
-    // The chip's label may wrap (a phone at 200% text), so it takes the 16px step over Badge's full radius: a pill on
-    // one line, a rounded box once it wraps (DESIGN.md, Shapes).
-    expect(within(screen.getByTestId('notable-filing-SMPA')).getByText('Quarterly report')).toHaveClass('!whitespace-normal', '!rounded-xl')
     // "10-Q · filed Jul 5, 2026", in the Filing identity line's words (the date cases below). The middot is the search
     // rows' separator: a no-break space keeps it to the form code, so where the line wraps (a phone at 200% text) the dot
     // stays on the code's line and no line starts with it, and assistive tech hears a comma in its place.
-    const card = screen.getByTestId('notable-filing-SMPA')
-    expect(card.textContent).toMatch(/10-Q\u00a0·, filed Jul 5, 2026/)
-    expect(within(card).getByText('·')).toHaveAttribute('aria-hidden', 'true')
-    expect(within(card).getByText(',')).toHaveClass('sr-only')
+    const line = screen.getByTestId('notable-filing-SMPA')
+    expect(line.textContent).toMatch(/10-Q\u00a0·, filed Jul 5, 2026/)
+    expect(within(line).getByText('·')).toHaveAttribute('aria-hidden', 'true')
+    expect(within(line).getByText(',')).toHaveClass('sr-only')
+  })
+
+  it('prints no reason chip: the form code stands alone, as on the Filing identity line and the search option', () => {
+    // Under D-046 the chip could only say "Annual report" beside a 10-K or "Quarterly report" beside a 10-Q, the codes
+    // the row's line already names (chief design's review of #1461). The payload and the analytics event keep the reason.
+    render(<NotableFilings data={RESPONSE} />)
+    for (const filing of RESPONSE.filings) {
+      expect(screen.getByTestId(`notable-filing-${filing.ticker}`)).not.toHaveTextContent(filing.reason_label)
+    }
+  })
+
+  it('prints a served name in capitals as the other rows do, through formatCompanyName, on the line and for the mark', () => {
+    // EDGAR's display name often arrives in capitals; Reporting this week, the Filing identity line and the company page
+    // print names through formatCompanyName, so this line does too (a sample company, never a real one).
+    render(<NotableFilings data={{ ...RESPONSE, filings: [{ ...RESPONSE.filings[0], company_name: 'SAMPLE INDUSTRIES A INC' }] }} />)
+    const line = screen.getByTestId('notable-filing-SMPA')
+    expect(line).toHaveTextContent('Sample Industries A Inc')
+    expect(line.textContent).not.toContain('SAMPLE INDUSTRIES')
+    expect(within(line).getByTestId('logo-SMPA')).toHaveAttribute('data-name', 'Sample Industries A Inc')
+  })
+
+  it('holds "Jul 5," as one run and moves the date under the code whole before it breaks', () => {
+    // As the hero's identity line holds its date (HeroExample.tsx): "filed" stays on the code's line, the date is one
+    // inline block that moves beneath it whole, and inside it only the year may drop, so no line reads "filed Jul" over
+    // "5, 2026".
+    render(<NotableFilings data={RESPONSE} />)
+    const run = within(screen.getByTestId('notable-filing-SMPA')).getByText('Jul 5,')
+    expect(run).toHaveClass('whitespace-nowrap')
+    const date = run.parentElement!
+    expect(date).toHaveClass('inline-block')
+    expect(date).toHaveTextContent(/^Jul 5, 2026$/)
+    expect(date.parentElement!.textContent).toMatch(/filed Jul 5, 2026$/)
   })
 
   it('sets the ticker in the data face, and the form code as data-face text in one unbroken run, never an eyebrow chip', () => {
@@ -149,8 +178,8 @@ describe('NotableFilings', () => {
     expect(mockAnalytics.notableFilingClicked).toHaveBeenCalledTimes(1)
   })
 
-  /** The card's text for one filing dated `filed_date`. */
-  const cardText = (filed_date: string): string => {
+  /** The line's text for one filing dated `filed_date`. */
+  const lineText = (filed_date: string): string => {
     const { unmount } = render(
       <NotableFilings data={{ ...RESPONSE, filings: [{ ...RESPONSE.filings[0], filed_date }] }} />,
     )
@@ -160,7 +189,7 @@ describe('NotableFilings', () => {
   }
 
   it('states each filed date as the Filing identity line does, "filed Jul 5, 2026", with no time of day and no relative word', () => {
-    // filed_date is an EDGAR day with no time, so the card states the day, in the words and the helper of the Filing
+    // filed_date is an EDGAR day with no time, so the line states the day, in the words and the helper of the Filing
     // identity line (formatLocalDate, 'MMM d, yyyy'), and never an hour or a count from now.
     const row = render(<NotableFilings data={RESPONSE} />)
     const served: Array<[string, string]> = [
@@ -177,8 +206,8 @@ describe('NotableFilings', () => {
     }
     row.unmount()
     // A two-digit day, and a year's first day.
-    expect(cardText('2026-06-29')).toContain('filed Jun 29, 2026')
-    expect(cardText('2027-01-01')).toContain('filed Jan 1, 2027')
+    expect(lineText('2026-06-29')).toContain('filed Jun 29, 2026')
+    expect(lineText('2027-01-01')).toContain('filed Jan 1, 2027')
   })
 
   it('keeps the filed day for a reader west or east of UTC: a date-only value is a calendar day, not an instant', () => {
@@ -189,19 +218,19 @@ describe('NotableFilings', () => {
       vi.stubEnv('TZ', 'America/Los_Angeles')
       expect(new Date(2026, 6, 5).getTimezoneOffset()).toBe(420)
       expect(new Date('2026-07-05').getDate()).toBe(4) // the day read as a UTC instant, a day early in Los Angeles
-      expect(cardText('2026-07-05')).toContain('filed Jul 5, 2026')
+      expect(lineText('2026-07-05')).toContain('filed Jul 5, 2026')
 
       vi.stubEnv('TZ', 'Asia/Tokyo')
       expect(new Date(2026, 6, 5).getTimezoneOffset()).toBe(-540)
       expect(new Date(2026, 6, 5).toISOString().slice(0, 10)).toBe('2026-07-04') // Tokyo's midnight, read back in UTC
-      expect(cardText('2026-07-05')).toContain('filed Jul 5, 2026')
+      expect(lineText('2026-07-05')).toContain('filed Jul 5, 2026')
     } finally {
       vi.unstubAllEnvs()
     }
   })
 
   it('states the same date whatever the viewer clock, so the server render and hydration agree', () => {
-    // NotableFilingCard is a client component server-rendered into an ISR page. A label read from the live clock
+    // NotableFilingLine is a client component server-rendered into an ISR page. A label read from the live clock
     // rendered one string on the server and another in the browser either side of a date boundary: a hydration
     // mismatch and a visible text swap. The filed date reads no clock. Same payload, two clocks either side of the
     // boundary, one label.
@@ -219,5 +248,54 @@ describe('NotableFilings', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('the Notable filings line keeps Reporting this week’s line anatomy', () => {
+  // The two rows sit one above the other, both list companies and both open the company page, so they share one line
+  // (chief design's review of #1461). Their classes are written in each file; this fails when the two drift.
+  const REPORTING: ReportingThisWeekResponse = {
+    companies: [{ ticker: 'SMPR', name: 'SAMPLE RETAIL R INC', earnings_date: '2026-07-07', time: 'amc' }],
+    week_start: '2026-07-06',
+    week_end: '2026-07-10',
+    status: 'ok',
+    timestamp: '2026-07-06T00:00:00+00:00',
+  }
+
+  /** One line of a row, read from the rendered DOM: its list and item (the hairlines), the link (its padding, hover and
+   *  ring), the mark's size, the text column, the top line, the ticker, the slot beside it and the name. */
+  const anatomy = (link: HTMLElement) => {
+    const item = link.closest('li')!
+    const column = link.children[1] as HTMLElement
+    const top = column.children[0] as HTMLElement
+    return {
+      list: item.parentElement!.className,
+      item: item.className,
+      link: link.className,
+      markSize: link.children[0].getAttribute('data-size'),
+      column: column.className,
+      top: top.className,
+      ticker: top.children[0].className,
+      slot: top.children[1].className,
+      name: column.children[1].className,
+    }
+  }
+
+  it('matches it line for line: the hairlines, the link’s padding, hover and ring, the mark at 32, the ticker’s face and size, the slot and the name’s truncation', () => {
+    render(
+      <>
+        <ReportingThisWeek data={REPORTING} />
+        <NotableFilings data={RESPONSE} />
+      </>,
+    )
+    const reporting = anatomy(screen.getByTestId('reporting-this-week-SMPR'))
+    const notable = anatomy(screen.getByTestId('notable-filing-SMPA'))
+    expect(notable).toEqual(reporting)
+    // And the shared anatomy is the hairline line's, so a lifted card cannot pass by turning up in both rows.
+    expect(notable.markSize).toBe('32')
+    expect(notable.item).toContain('border-b')
+    expect(notable.list).toContain('border-t')
+    expect(notable.link).not.toMatch(/shadow-e[0-9]|bg-panel|border-border|translate-y/)
+    expect(notable.name).toContain('truncate')
   })
 })
