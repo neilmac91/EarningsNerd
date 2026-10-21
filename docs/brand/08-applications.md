@@ -678,8 +678,9 @@ records the omission as deliberate.
   teaser's sample and the landing's samples) is regenerated through the pipeline to end at FY2025,
   not edited (D-046, E93): one run for Apple, annual, FY2020 to FY2025, on a local backend on
   2026-10-20, USD 0.00046 against the USD 0.10 ceiling. Its comment names the run, the teaser's
-  sample line reads the run's window, and NarrativePane's sample labels call the figures the
-  pipeline's, not approximate. `landingSamplesVerified.spec.ts` holds its FY2025 and FY2024 figures
+  sample line reads the run's window, and NarrativePane's sample labels call it "one saved run" and
+  "one saved analysis run", never approximate and never "pipeline", a word readers do not know
+  (`narrative-pane.spec.tsx`). `landingSamplesVerified.spec.ts` holds its FY2025 and FY2024 figures
   to the verified set and its notes and evidence to the live path's decoders.
 - §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
   first, at most six (D-046, E90).

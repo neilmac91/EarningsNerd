@@ -398,11 +398,16 @@ describe('NarrativePane citation chips', () => {
     expect(screen.queryByText(/^\d+ sources?$/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cached')).not.toBeInTheDocument()
     expect(screen.queryByText(/Served from an earlier run/)).not.toBeInTheDocument()
-    // The sample is the pipeline's own run (D-046), so its labels say so and never call its figures approximate.
-    expect(screen.getByText('Sources · sample data (the pipeline’s figures)')).toBeInTheDocument()
-    const note = 'Sample data: the pipeline’s figures and narrative from one saved run. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
+    // The sample is one saved run of the pipeline (D-046), and its labels say what it is in a reader's words.
+    expect(screen.getByText('Sources · sample data (one saved run)')).toBeInTheDocument()
+    const note = 'Sample data: figures and narrative from one saved analysis run. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
     expect(screen.getByText('Sample data')).toHaveAttribute('title', note)
     expect(container).toHaveTextContent(note)
-    expect(container.innerHTML).not.toMatch(/approximat/i)
+  })
+
+  it('never calls the sample approximate, and never says "pipeline", a word readers do not know (D-046)', () => {
+    const { container } = render(<NarrativePane state={doneState()} sample />)
+    // The markup, so the badge's title and the other attributes are read with the text.
+    expect(container.innerHTML.match(/approximat\w*|pipeline\w*/gi) ?? [], 'words the sample must not use').toEqual([])
   })
 })
