@@ -90,8 +90,10 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    the backend writes, read from each create_audit_log call and each audit_service helper another module calls.
  *    Administrator actions are named one by one, since six of them write a log line and no row
  *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
- *    Logouts stay out (PARTLY_AUDITED): `/logout` writes its row only while the session token still authenticates, so
- *    the item may name them again in the pull request that fixes that (E137).
+ *    This reader sees only that some module writes a named action, not that every path of the event does; that is
+ *    the backend's to pin. For logouts (E137), test_auth_token_flows.py's logout cases and the logout_signed_in and
+ *    logout_cookie_only cases in test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its
+ *    row, under the user whose session it ended.
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests
  *    overlap (E127_PROMISES): a refresh token that works once, a reused one revoking the account, or a session that
  *    ends after logging out or a password change, within a time or with none named (every session, everywhere, a
@@ -143,6 +145,7 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
     { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },
     { date: 'October 21, 2026', sha256: '7e03a05b33c1cf00' },
     { date: 'October 21, 2026', sha256: '272031790b35816d', sameDay: '#1397 changed the page that day too' },
+    { date: 'October 21, 2026', sha256: 'f01e686b3c5afee8', sameDay: '#1449 changed the page that day too' },
   ],
 }
 
@@ -504,17 +507,12 @@ const AUDITED: Record<string, string[]> = {
   registrations: ['register'],
   logins: ['login_success', 'oauth_login'],
   'failed logins': ['login_failed'],
+  logouts: ['logout'],
   'data exports': ['data_exported'],
   'account deletions': ['user_deleted'],
   "administrators' invites": ['invite_minted', 'invite_revoked', 'invite_resent'],
   "administrators' feedback status changes": ['feedback_status_changed'],
   "administrators' new free accounts": ['free_account_created'],
-}
-
-/** What an audit row records on some paths but not all, so the item may not name it until every path writes its row:
-    `/logout` writes its row only while the session token still authenticates (E137). */
-const PARTLY_AUDITED: Record<string, string> = {
-  logouts: 'a logout after the session token has expired revokes the refresh token and writes no row (E137)',
 }
 
 /** The audit_logs actions the backend writes: each create_audit_log call's action, and the action of each audit_service
@@ -554,9 +552,7 @@ function auditNames(item: string): string[] {
 /** A thing the item names that no audit_logs row records, or an action of it that nothing writes. */
 const auditFaults = (item: string, written: Set<string>) =>
   auditNames(item).flatMap((name) =>
-    name in PARTLY_AUDITED
-      ? [`"${name}": ${PARTLY_AUDITED[name]}`]
-      : !Object.keys(AUDITED).includes(name)
+    !Object.keys(AUDITED).includes(name)
       ? [`"${name}": no audit_logs row is known to record it`]
       : AUDITED[name].filter((action) => !written.has(action)).map((action) => `"${name}": nothing writes the ${action} row`),
   )
@@ -834,13 +830,20 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(auditFaults(item ?? '', written)).toEqual([])
     const planted: Array<[string, string[]]> = [
       // Round 2's item, and a rewording that names an administrator action no row records.
-      ['Registrations, logins, failed logins, logouts, data exports, account deletions and administrator actions are written to an audit log', [`"logouts": ${PARTLY_AUDITED.logouts}`, '"administrator actions": no audit_logs row is known to record it']],
-      // Round 3's item, which named logouts (Codex's r4331250317 on a0f511aa).
-      ["Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log, and so are administrators' invites, feedback status changes and new free accounts", [`"logouts": ${PARTLY_AUDITED.logouts}`]],
+      ['Registrations, logins, failed logins, logouts, data exports, account deletions and administrator actions are written to an audit log', ['"administrator actions": no audit_logs row is known to record it']],
+      // Round 3's item named logouts while a logout after the session token's expiry wrote no row (Codex's r4331250317
+      // on a0f511aa); since E137 every logout that ends a session writes one.
+      ["Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log, and so are administrators' invites, feedback status changes and new free accounts", []],
       ["Logins are written to an audit log, and so are administrators' summary deletions", [`"administrators' summary deletions": no audit_logs row is known to record it`]],
       ['Registrations and logins are written to an audit log', []],
     ]
     for (const [text, faults] of planted) expect(auditFaults(text, written), text).toEqual(faults)
+    // Were no logout row written, the item could not name logouts: round 2's item then has both faults.
+    const noLogoutRow = new Set([...written].filter((action) => action !== 'logout'))
+    expect(auditFaults(planted[0][0], noLogoutRow)).toEqual([
+      '"logouts": nothing writes the logout row',
+      '"administrator actions": no audit_logs row is known to record it',
+    ])
     const fromPlanted = auditActionsWritten({
       'app/services/audit_service.py': [
         'def create_audit_log(db, action):',
