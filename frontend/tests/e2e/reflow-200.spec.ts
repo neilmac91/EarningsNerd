@@ -52,9 +52,9 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * the auth shell's wordmark yields to the mark. At 320x640 with the text doubled every route passes the same
  * checks (E81): /pricing's billing switch's row wraps, the yearly label on a line of its own, where on one line it
  * took "Monthly" 13px past the screen's left edge and the page to 333px; / reached 329px (the hero example's
- * identity line and figures) and /search 344px (its date fields). There the legal pages pass but for the words
- * E131 names, each wider than its column, which nothing else may join and of which each page must still show one,
- * so the exemption ends with E131.
+ * identity line and figures) and /search 344px (its date fields). There /security passes but for the words E131
+ * names in its headings, each wider than its column, which nothing else may join, past which the page may not reach
+ * and of which it must still show one, so the exemption ends with E131.
  * The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
@@ -166,7 +166,7 @@ const ROUTES: Route[] = [
   },
 ]
 
-type Overflow = { scrollWidth: number; clientWidth: number; widest: string[]; past?: string[] }
+type Overflow = { scrollWidth: number; clientWidth: number; widest: string[]; past?: { what: string; right: number }[] }
 
 /** The document's widths and, for a failure message, what reaches past the viewport's right edge. */
 const measure = (page: Page): Promise<Overflow> =>
@@ -208,7 +208,7 @@ const measure = (page: Page): Promise<Overflow> =>
       scrollWidth: root.scrollWidth,
       clientWidth: vw,
       widest: past.slice(0, 6).map((p) => `${Math.round(p.right)}px ${p.what}`),
-      past: past.map((p) => p.what),
+      past: past.map(({ what, right }) => ({ what, right })),
     }
   })
 
@@ -936,16 +936,19 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
     344px: Chrome keeps blank room in a date field for a six-digit year, so each of its two fields was 312px in a 256px
     row (FullTextSearch.tsx). Both fit since E81.
 
-    The legal pages are E131's at 320px: their layout is outside E81, and each still scrolls sideways there on words
-    wider than their column (/security to 348px on its "Authentication and access control" and "Infrastructure
-    security" headings, /privacy to 338px on "communications," in its Consent item). So at 320px those runs, by name,
-    are the only things on either page that may pass the edge, and at least one of a page's runs must still pass it:
-    when E131 fits the page, its entry fails here until it is taken out, and the page passes the width check with the
-    rest of the loop. A single run is not required, since "Infrastructure security" passes by 5px here and a few
-    pixels are one machine's measure (lessons/test-layout-numbers-are-one-environments-run.md). */
+    /security is E131's at 320px: its layout is outside E81, and it still scrolls sideways there on its headings'
+    words, each wider than its column ("Authentication and access control" to 348px, "Infrastructure security" to
+    325px). So at 320px those runs, by name, are the only things on the page that may pass the edge, the page may be
+    no wider than the widest of them (what measure() cannot see, a positioned pseudo-element, would widen it unseen),
+    and at least one of them must still pass it: when E131 fits the page, its entry fails here until it is taken out,
+    and the page passes the width check with the rest of the loop. A single run is not required, since
+    "Infrastructure security" passes by 5px here and a few pixels are one machine's measure
+    (lessons/test-layout-numbers-are-one-environments-run.md). /privacy fits at 320px in the site's own Inter, as CI's
+    runner and a reader paint it. It was pinned from the agents' sandbox, whose fontconfig (56-prefer-inter.conf)
+    paints the body text in an installed static Inter, 338px there, and CI's run 39590916309 failed the pin, as the
+    expiry means it to. */
 const E131_AT_320: Record<string, string[]> = {
   '/security': ['text in h2 "Authentication and access control"', 'text in h2 "Infrastructure security"'],
-  '/privacy': ['text in li "You have given explicit consent for anal"'],
 }
 for (const { width, height } of [
   { width: 360, height: 780 },
@@ -972,12 +975,19 @@ for (const { width, height } of [
 
       const enlarged = await measure(page)
       if (e131) {
-        const beyond = (enlarged.past ?? []).filter((what) => !e131.includes(what))
+        const past = enlarged.past ?? []
+        const beyond = past.filter(({ what }) => !e131.includes(what)).map(({ what }) => what)
         expect(beyond, `${route.path} at ${width}px and 200% text, past the edge besides E131's words: ${why(enlarged)}`).toEqual([])
+        const pinned = past.filter(({ what }) => e131.includes(what))
         expect(
-          e131.some((what) => enlarged.past?.includes(what)),
+          pinned.length > 0,
           `${route.path} at ${width}px and 200% text: none of E131's words passes the edge now, so take the page out of E131_AT_320 (${why(enlarged)})`,
         ).toBe(true)
+        const edge = Math.max(...pinned.map(({ right }) => right))
+        expect(
+          enlarged.scrollWidth,
+          `${route.path} at ${width}px and 200% text: no wider than the widest of E131's words, ${edge.toFixed(1)}px (${why(enlarged)})`,
+        ).toBeLessThanOrEqual(edge + 0.5)
       } else {
         expect(enlarged.scrollWidth, `${route.path} at ${width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
       }
