@@ -6734,6 +6734,15 @@ Full local and hosted verification plus independent exact-head review precede re
   wording corrections to record 36. A read-only survey of the window before the draft. Six main merges; two other
   writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE RED spend;
   no ledger event. No chief defect and no classifier denial; the scratch disk filled, without effect. Closure 188.
+- 2026-10-21 (record 38, `runtime/control/DECISIONS-38.md`): PR #1450 (record 37) merged `47eb769a` by the chief
+  under record 35's founder action 9, answered (thirty-third deploy-skip proof), with no classifier refusal, onto
+  #1451's merge of fifteen seconds before; the result verified, and #1451's deploy finished before its own job.
+  Closure 189 registers record 37's survey, fact-check and reviewer and pre-registers this record's survey and
+  fact-check and record 39's reviewer; a refuter label, which the records tier forbids, withdrawn before any
+  launch on Codex's finding. A read-only survey of the window before the draft. Four main merges; two other
+  writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE RED spend;
+  no ledger event; another writer's request to settle its paid runs in the ledger put to the founder. No chief
+  defect and no classifier denial. Closure 189.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
