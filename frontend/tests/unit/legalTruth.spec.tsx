@@ -34,21 +34,22 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    usage, telemetry, data) or as events, and makes them wait for a yes: "only" up to 60 characters before "after
  *    (once, when, if or until) you allow" (accept, agree, consent, opt in, give consent, say yes, turn or switch on,
  *    enable), before "with (after, upon, on or by) your consent" with up to three words before the consent (permission,
- *    agreement, approval, opt-in), or before "once allowed", a sentence that names the browser ("in your browser")
- *    reading as scoped; or, in the forms the "only" ones miss, "until you allow", a negation before "without your
- *    consent", "requires (needs, waits for, is subject to) your consent", "consent-gated" or "opt-in", where a sentence
- *    that names the browser or its analytics cookies, the browser's part (the consent dialog's own "Analytics cookies
- *    and session recording stay off until you allow them"), reads as scoped. The scan reads /security's rendered tree,
- *    as one text (a heading runs into the body under it) and block by block (blockTexts: a list item or a paragraph on
- *    its own, so a provider's item is not read through the PostHog line's "in your browser"), /privacy's and /terms'
- *    rendered trees the same way (/privacy carries the account-events sentence too), the page module's literals (its
- *    metadata, which no render shows) and the waitlist page's copy (strings, JSX text and each element's run across its
- *    inline elements, outside className), sentence by sentence, a sentence ending only at ".", "!" or "?", so a
- *    `<strong>Label:</strong> body` item is read whole. The planted forms run through the same render, text, blocks and
- *    splitter and score the reach: main's sentences and their close rewordings fail, the page's new sentences and class
- *    names pass. Out of reach, planted as gaps: a claim split across two sentences, one said in other words ("PostHog
- *    runs after you allow it", "the whole API sits behind authentication"), and an unscoped consent promise in a
- *    sentence that also names the browser or its analytics cookies.
+ *    agreement, approval, opt-in, each read by its start, so "only after consenting" fails too), or before "once
+ *    allowed", a sentence that names the browser ("in your browser") reading as scoped; or, in the forms the "only"
+ *    ones miss, "until you allow", a negation before "without your consent", "requires (needs, waits for, is subject
+ *    to) your consent", "consent-gated" or "opt-in", where a sentence that names the browser or its analytics cookies,
+ *    the browser's part (the consent dialog's own "Analytics cookies and session recording stay off until you allow
+ *    them"), reads as scoped. The scan reads /security's rendered tree, as one text (a heading runs into the body under
+ *    it) and block by block (blockTexts: a list item or a paragraph on its own, so a provider's item is not read
+ *    through the PostHog line's "in your browser"), /privacy's and /terms' rendered trees the same way (/privacy
+ *    carries the account-events sentence too), the page module's literals (its metadata, which no render shows) and the
+ *    waitlist page's copy (strings, JSX text and each element's run across its inline elements, outside className),
+ *    sentence by sentence, a sentence ending only at ".", "!" or "?", so a `<strong>Label:</strong> body` item is read
+ *    whole. The planted forms run through the same render, text, blocks and splitter and score the reach: main's
+ *    sentences and their close rewordings fail, the page's new sentences and class names pass. Out of reach, planted as
+ *    gaps: a claim split across two sentences, one said in other words ("PostHog runs after you allow it", "the whole
+ *    API sits behind authentication"), and an unscoped consent promise in a sentence that also names the browser or its
+ *    analytics cookies.
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -220,10 +221,11 @@ const YES = String.raw`(?:allow|accept|agree|consent|opt(?:ed)?[- ]in|giv(?:e|en
 const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|say-so)s?`
 
 /** An analytics-consent promise not scoped to the browser, in one sentence (header item 1 lists its forms). The
-    "only" forms read a sentence that names the browser as scoped; the forms that wait for a yes another way read the
-    browser's analytics cookies as scoped too, so the consent dialog's own sentence about them passes. */
+    "only" forms read a sentence that names the browser as scoped, and read the consent word by its start, so "only
+    after consenting" fails as "only after consent" does; the forms that wait for a yes another way read the browser's
+    analytics cookies as scoped too, so the consent dialog's own sentence about them passes. */
 const CONSENT_PROMISE = new RegExp(
-  String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*\bonly\b.{0,60}?(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}\b|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)` +
+  String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*\bonly\b.{0,60}?(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)` +
     String.raw`|^(?!.*(?:\bin your browser\b|\b(?:analytics|tracking) cookies\b))(?=.*${ANALYTICS_NAMES})(?:` +
     String.raw`.*\buntil you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*\b(?:never|not|no|nothing|none)\b.{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
@@ -801,6 +803,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>We collect usage statistics only after you give consent.</p>', true],
       ['<p>Usage data is collected only with the reader’s prior consent.</p>', true],
       ['<p>Analytics run only once allowed.</p>', true],
+      ['<p>Analytics run only after consenting.</p>', true],
       ['<p>Analytics stay off until you allow them.</p>', true],
       ['<p>PostHog never runs without your consent.</p>', true],
       ['<p>No usage data is sent without your permission.</p>', true],
