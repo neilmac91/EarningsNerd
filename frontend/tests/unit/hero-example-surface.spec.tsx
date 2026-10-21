@@ -46,10 +46,19 @@ describe('HeroExample', () => {
 
   it('states the filing in the data face and its figures in one hairline strip, direction in a glyph', () => {
     render(<HeroExample example={LIVE} />)
-    expect(screen.getByText('10-K').parentElement).toHaveTextContent(/^AAPL\s*·\s*,\s*10-K\s*·\s*,\s*filed Oct 31, 2025$/)
+    // Each middot shares an item with the fact before it (E81), so the line is the form's item's parent.
+    const facts = screen.getByText('10-K').parentElement!.parentElement as HTMLElement
+    expect(facts).toHaveTextContent(/^AAPL\s*·\s*,\s*10-K\s*·\s*,\s*filed Oct 31, 2025$/)
+    // tests/e2e/reflow-200.spec.ts reads the built hero: under 200% text the figures wrapping apart, the form codes
+    // whole and no line starting with a middot, and at both text sizes where the strip's rules paint, only between two
+    // figures, with the first figure's label flush with the card. These pins hold what its boxes cannot say, the date
+    // moving under "filed" whole and breaking only after its day, and name the strip's rules: its own above and below,
+    // round the list it clips, and each figure's left and top.
+    expect(screen.getByText('Oct 31,')).toHaveClass('whitespace-nowrap')
+    expect(screen.getByText('Oct 31,').parentElement).toHaveClass('inline-block')
     const strip = screen.getByText('$416.2B').closest('dl') as HTMLElement
-    expect(strip.className).toMatch(/border-y/)
-    expect(strip.className).toMatch(/divide-x/)
+    expect(strip.parentElement).toHaveClass('border-y', 'overflow-hidden')
+    for (const figure of Array.from(strip.children)) expect(figure).toHaveClass('border-l', 'border-t')
     expect(within(strip).getAllByRole('term')).toHaveLength(3)
     expect(within(strip).getAllByText('▲')).toHaveLength(2)
     for (const glyph of within(strip).getAllByText(/^[▲▼]$/)) expect(glyph).toHaveAttribute('aria-hidden', 'true')
@@ -79,14 +88,14 @@ describe('HeroExample', () => {
 
   it('claims an XBRL source only for the checked fallback; live figures send the reader to the filing', () => {
     const { container, unmount } = render(<HeroExample example={LIVE} />)
-    const live = screen.getByRole('link', { name: 'Source filing · check the figures on SEC EDGAR' })
+    const live = screen.getByRole('link', { name: 'Source filing\u00a0· check the figures on SEC EDGAR' })
     expect(live).toHaveAttribute('href', LIVE.secUrl)
     expect(container.querySelectorAll('dl [title]')).toHaveLength(0)
     expect(container.innerHTML).not.toMatch(/XBRL/)
     unmount()
 
     const fallback = render(<HeroExample example={null} />)
-    expect(screen.getByRole('link', { name: "Figures from the company's XBRL · check them on SEC EDGAR" })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Figures from the company's XBRL\u00a0· check them on SEC EDGAR" })).toBeInTheDocument()
     // The receipt is text in each term, so a keyboard or screen-reader user reaches it; a title hover
     // alone is a receipt only a mouse can read.
     const terms = [...fallback.container.querySelectorAll('dl dt')].map((el) => el.textContent)

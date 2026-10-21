@@ -86,9 +86,16 @@ def postgres_engine():
             engine.dispose()
 
 
+def _session(bind) -> Session:
+    """A session with production's settings (``SessionLocal``'s, which do not autoflush) on this case's engine
+    or connection: an autoflushing one flushes a pending write at its next query, where production waits for
+    the commit, and can serialize two requests that production does not (E132)."""
+    return sessionmaker(**{**SessionLocal.kw, "bind": bind})()
+
+
 def _signed_in(engine, password_hash: Optional[str] = OLD_PASSWORD_HASH) -> tuple[int, str]:
     """A user with one live refresh token; returns ``(user_id, raw_token)``."""
-    with Session(engine) as db:
+    with _session(engine) as db:
         user = User(email=f"reader-{uuid.uuid4().hex}@example.com", is_active=True, hashed_password=password_hash)
         db.add(user)
         db.flush()
@@ -100,12 +107,12 @@ def _signed_in(engine, password_hash: Optional[str] = OLD_PASSWORD_HASH) -> tupl
 
 def _stored_hashes(engine) -> list[str]:
     """Every account's password hash; a case's schema holds one account."""
-    with Session(engine) as db:
+    with _session(engine) as db:
         return [user.hashed_password for user in db.query(User)]
 
 
 def _live_tokens(engine, user_id: int) -> int:
-    with Session(engine) as db:
+    with _session(engine) as db:
         return db.query(RefreshToken).filter(
             RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None),
         ).count()
