@@ -385,9 +385,26 @@ describe('the tentative chip (E83)', () => {
   })
 })
 
+/** Every value a piece joined into a class token can take, when each is a string literal (one, a condition between
+    them, or two joined with +); null for anything else. */
+function literalValues(node: ts.Expression): string[] | null {
+  if (ts.isStringLiteralLike(node)) return [node.text]
+  if (ts.isParenthesizedExpression(node)) return literalValues(node.expression)
+  const [a, b] = ts.isConditionalExpression(node)
+    ? [literalValues(node.whenTrue), literalValues(node.whenFalse)]
+    : ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken
+      ? [literalValues(node.left), literalValues(node.right)]
+      : [null, null]
+  if (!a || !b) return null
+  return ts.isConditionalExpression(node) ? [...a, ...b] : a.flatMap((x) => b.map((y) => x + y))
+}
+
 /** The classes a className passes, read statically: a string, or the strings in a cx() or clsx() call, a condition,
-    a logical pair, a template's chunks, an array or an object's keys; null where a class could come from elsewhere
-    (a variable, another call). */
+    a logical pair, a template, an array or an object's keys; null where a class could come from elsewhere (a variable,
+    another call). A template's interpolation with whitespace or the template's edge on both sides stands as classes
+    of its own and is read as a className; one glued to a chunk or to another interpolation sits inside a class token
+    (`text-${tone}-text`), so every value it can take must be a string literal, joined to its neighbours before the
+    template is split into classes, or the template is unreadable. Two pieces joined with + are joined the same way. */
 function staticClasses(node: ts.Node | undefined): string[] | null {
   if (node === undefined) return []
   const all = (nodes: readonly ts.Node[]): string[] | null => {
@@ -399,13 +416,38 @@ function staticClasses(node: ts.Node | undefined): string[] | null {
     }
     return out
   }
-  if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) return node.text.split(/\s+/).filter(Boolean)
+  const split = (texts: string[]) => texts.flatMap((text) => text.split(/\s+/).filter(Boolean))
+  if (ts.isStringLiteralLike(node)) return split([node.text])
   if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node)) return staticClasses(node.expression)
   if (ts.isConditionalExpression(node)) return all([node.whenTrue, node.whenFalse])
   if (ts.isBinaryExpression(node)) {
-    return node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken ? staticClasses(node.right) : all([node.left, node.right])
+    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return staticClasses(node.right)
+    if (node.operatorToken.kind !== ts.SyntaxKind.PlusToken) return all([node.left, node.right])
+    const joined = literalValues(node)
+    return joined === null ? null : split(joined)
   }
-  if (ts.isTemplateExpression(node)) return all([node.head, ...node.templateSpans.flatMap((span) => [span.expression, span.literal])])
+  if (ts.isTemplateExpression(node)) {
+    const spans = node.templateSpans
+    const chunks = [node.head.text, ...spans.map((span) => span.literal.text)]
+    const out: string[] = []
+    let texts = [chunks[0]]
+    for (const [i, span] of spans.entries()) {
+      const [before, after] = [chunks[i], chunks[i + 1]]
+      const alone = (before === '' ? i === 0 : /\s$/.test(before)) && (after === '' ? i === spans.length - 1 : /^\s/.test(after))
+      if (alone) {
+        const classes = staticClasses(span.expression)
+        if (classes === null) return null
+        out.push(...split(texts), ...classes)
+        texts = ['']
+      } else {
+        const values = literalValues(span.expression)
+        if (values === null || texts.length * values.length > 64) return null
+        texts = texts.flatMap((text) => values.map((value) => text + value))
+      }
+      texts = texts.map((text) => text + after)
+    }
+    return [...new Set([...out, ...split(texts)])]
+  }
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && ['cx', 'clsx'].includes(node.expression.text)) return all(node.arguments)
   if (ts.isArrayLiteralExpression(node)) return all(node.elements)
   if (ts.isObjectLiteralExpression(node)) {
@@ -463,14 +505,21 @@ describe("a Badge's ground, ink and hairline are its variant's (E83)", () => {
     expect(found, "give the chip a variant of its own (components/ui/Badge.tsx): a class on top of a variant's wins or loses by stylesheet order").toEqual([])
   })
 
-  it('reads a className through cx() and conditions, and tells a ground, an ink or a hairline from a layout class', () => {
+  it('reads a className through cx(), conditions and templates, and tells a ground, an ink or a hairline from a layout class', () => {
     const probe = [
       '<Badge variant="pro" className="shrink-0 text-center !whitespace-normal text-xs" />',
       '<Badge className={cx("ml-1", on && "bg-white", on ? "text-sm" : "dark:text-brand-strong-dark")}>x</Badge>',
+      // An interpolation with whitespace or the template's edge on both sides is classes of its own.
       '<Badge className={`border-dashed ${on ? "hover:!text-[#fff]" : ""}`} />',
       '<Badge className={chip} />',
       '<Badge {...props} />',
       '<Badge className={clsx({ "text-text-tertiary-light": on, "mt-1": true })} />',
+      // One glued inside a class token is joined to its neighbours, or the template is unreadable.
+      '<Badge className={`text-${up ? "gain" : "loss"}-text`} />',
+      '<Badge className={cx(`text-${"white"}`)} />',
+      '<Badge className={`text-${tone}`} />',
+      '<Badge className={"text-" + "brand-strong"} />',
+      '<Badge className={`shrink-0 ${wide ? "w-full" : ""} mt-${"1"}`} />',
     ].join('\n')
     expect(badgeClassFaults('probe.tsx', probe)).toEqual([
       'probe.tsx:2: bg-white dark:text-brand-strong-dark',
@@ -478,6 +527,14 @@ describe("a Badge's ground, ink and hairline are its variant's (E83)", () => {
       'probe.tsx:4: a className this scan cannot read',
       'probe.tsx:5: a spread, which may pass a className this scan cannot read',
       'probe.tsx:6: text-text-tertiary-light',
+      'probe.tsx:7: text-gain-text text-loss-text',
+      'probe.tsx:8: text-white',
+      'probe.tsx:9: a className this scan cannot read',
+      'probe.tsx:10: text-brand-strong',
     ])
+    // The last line (11) is read whole and paints nothing: shrink-0, w-full and mt-1.
+    const last = ts.createSourceFile('probe.tsx', '<Badge className={`shrink-0 ${wide ? "w-full" : ""} mt-${"1"}`} />', ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const attr = (last.statements[0] as ts.ExpressionStatement).expression as ts.JsxSelfClosingElement
+    expect(staticClasses((attr.attributes.properties[0] as ts.JsxAttribute).initializer)).toEqual(['shrink-0', 'w-full', 'mt-1'])
   })
 })

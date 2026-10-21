@@ -603,8 +603,9 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  the day dialog render it, is that chip class for class, measured on its row at rest and
                  hovered in both themes, the grounds read up from the rendered chip; and no <Badge> in app/,
                  components/ or features/ sets a ground, an ink or a hairline in its className, any bg- or
-                 border utility or a text- colour, read through cx() and conditions, a className it cannot
-                 read or a spread failing too).
+                 border utility or a text- colour, read through cx() and conditions and templates, where an
+                 interpolation glued inside a class token (`text-${tone}-text`) is joined from its string
+                 values or the className is unreadable; a className it cannot read or a spread fails too).
                  beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
