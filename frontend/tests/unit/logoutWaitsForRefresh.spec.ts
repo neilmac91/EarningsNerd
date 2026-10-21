@@ -6,7 +6,7 @@ vi.mock('@/lib/api/refresh', () => ({ refreshAccessToken: vi.fn() }))
 
 import api, { ensureRefreshed } from '@/lib/api/client'
 import { refreshAccessToken } from '@/lib/api/refresh'
-import { LOGOUT_REFRESH_WAIT_MS, LogoutAllSuperseded, logout, logoutAllSessions } from '@/features/auth/api/auth-api'
+import { LOGOUT_REFRESH_WAIT_MS, LogoutAllSuperseded, getCurrentUser, logout, logoutAllSessions } from '@/features/auth/api/auth-api'
 import { advanceSessionGeneration, clearSessionActive, hasActiveSession, markSessionActive } from '@/lib/api/session'
 
 /**
@@ -92,16 +92,114 @@ describe('a logout waits for the refresh in flight', () => {
     expect(events).toEqual(['post /api/auth/logout'])
   })
 
-  it('waits no longer than the limit for a refresh that never answers', async () => {
+  it('waits no longer than the limit for a refresh that never answers, and cancels it before it posts', async () => {
     vi.useFakeTimers()
     refreshInFlight()
+    const signal = refreshMock.mock.calls[0][1] as AbortSignal
     const loggingOut = logout()
     await vi.advanceTimersByTimeAsync(LOGOUT_REFRESH_WAIT_MS - 1)
     expect(events).toEqual([])
+    expect(signal.aborted).toBe(false)
 
+    // Cancelled, the refresh's answer is dropped, its cookies with it, so it cannot land after the logout's.
     await vi.advanceTimersByTimeAsync(1)
+    expect(signal.aborted).toBe(true)
     await loggingOut
     expect(events).toEqual(['post /api/auth/logout'])
+  })
+
+  it('cancels nothing that answered within the limit', async () => {
+    const { answer, refreshing } = refreshInFlight()
+    const signal = refreshMock.mock.calls[0][1] as AbortSignal
+    const loggingOut = logout()
+    await settle()
+    answer.resolve()
+    await refreshing
+    await loggingOut
+    expect(signal.aborted).toBe(false)
+  })
+
+  it('marks nothing active from a /me read while it is under way, so a later 401 starts no refresh', async () => {
+    // A request sent while the session was active, answered 401 only after the logout has started; and the logout's
+    // own answer, held so the /me read and that 401 both land while it is under way.
+    const earlier = deferred<void>()
+    const logoutAnswer = deferred<void>()
+    api.defaults.adapter = async (config) => {
+      events.push(`${config.method} ${config.url}`)
+      if (config.url === '/api/filings/1') {
+        await earlier.promise
+        throw unauthorized(config)
+      }
+      if (config.url === '/api/auth/logout') await logoutAnswer.promise
+      return ok(config)
+    }
+    const sentBefore = api.get('/api/filings/1').catch((error: unknown) => error)
+    const { answer, refreshing } = refreshInFlight()
+    const loggingOut = logout()
+    await settle()
+    answer.resolve()
+    await refreshing
+    await settle()
+    expect(events).toEqual(['get /api/filings/1', 'refresh answered', 'post /api/auth/logout'])
+
+    // The refresh succeeded, so a /me it replays is answered: it must not mark the session active again, here or in
+    // the storage other tabs read, where a marker would let another tab start a refresh whose cookies outlast the
+    // logout's for the whole browser.
+    await getCurrentUser()
+    expect(hasActiveSession()).toBe(false)
+    expect(window.localStorage.getItem('en_session_active')).toBeNull()
+    earlier.resolve()
+    await expect(sentBefore).resolves.toMatchObject({ status: 401 })
+    expect(refreshMock).toHaveBeenCalledTimes(1)
+
+    logoutAnswer.resolve()
+    await loggingOut
+    expect(hasActiveSession()).toBe(false)
+  })
+
+  it('lets no other tab\'s marker arm a refresh while it is under way', async () => {
+    const logoutAnswer = deferred<void>()
+    api.defaults.adapter = async (config) => {
+      events.push(`${config.method} ${config.url}`)
+      if (config.url === '/api/auth/logout') {
+        await logoutAnswer.promise
+        return ok(config)
+      }
+      throw unauthorized(config) // the access token has expired
+    }
+    const loggingOut = logout()
+    await settle()
+
+    // Another tab of this browser marks the session active in the storage both tabs read.
+    window.localStorage.setItem('en_session_active', '1')
+    expect(hasActiveSession()).toBe(false)
+    await expect(api.get('/api/filings/1')).rejects.toMatchObject({ status: 401 })
+    expect(refreshMock).not.toHaveBeenCalled()
+
+    logoutAnswer.resolve()
+    await loggingOut
+  })
+
+  it('keeps the session inactive until the last of two logouts under way has settled', async () => {
+    const answers = { '/api/auth/logout': deferred<void>(), '/api/auth/logout-all': deferred<void>() }
+    api.defaults.adapter = async (config) => {
+      events.push(`${config.method} ${config.url}`)
+      await answers[config.url as keyof typeof answers]?.promise
+      return ok(config)
+    }
+    const one = logout()
+    const all = logoutAllSessions()
+    await settle()
+    answers['/api/auth/logout'].resolve()
+    await one
+
+    // The other logout is still under way: a /me answered now marks nothing.
+    await getCurrentUser()
+    expect(hasActiveSession()).toBe(false)
+    answers['/api/auth/logout-all'].resolve()
+    await all
+    await getCurrentUser()
+    expect(hasActiveSession()).toBe(true)
   })
 
   it('posts at once when no refresh is in flight', async () => {
@@ -116,9 +214,11 @@ describe('a logout waits for the refresh in flight', () => {
     const loggingOut = logout()
     await settle()
 
-    // A login completes and is accepted meanwhile: it marks the session and starts a new explicit generation.
+    // A login completes and is accepted meanwhile: it marks the session and starts a new explicit generation. That
+    // account's session is live at once, though the earlier logout still waits.
     markSessionActive()
     advanceSessionGeneration('explicit')
+    expect(hasActiveSession()).toBe(true)
     answer.resolve()
     await refreshing
     await loggingOut

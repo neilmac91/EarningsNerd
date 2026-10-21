@@ -1,6 +1,6 @@
 import api, { ApiError, refreshSettled } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
-import { markSessionActive, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent } from '@/lib/api/session'
+import { markSessionActive, markSessionConfirmed, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent, beginLogout, endLogout } from '@/lib/api/session'
 
 // Cloudflare Turnstile token is sent as a header the backend reads; omitted when unset so
 // nothing changes until Turnstile is configured on both ends.
@@ -66,8 +66,9 @@ export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promis
   options?.signal?.throwIfAborted()
   // A confirmed identity means there's a session — mark it so the client will silently
   // refresh an expired access token. This also covers OAuth redirect logins, where the
-  // JS login()/register() path (which normally sets the marker) never runs.
-  markSessionActive()
+  // JS login()/register() path (which normally sets the marker) never runs. A /me that a refresh replays during a
+  // logout in this tab marks nothing: the logout is ending that session (session.ts's beginLogout).
+  markSessionConfirmed()
   return response.data
 }
 
@@ -114,19 +115,16 @@ export const unlinkProvider = async (provider: string) => {
 export const LOGOUT_REFRESH_WAIT_MS = 10_000
 
 /**
- * Before a logout posts: start no new silent refresh (every refresh path needs the session flag), and let the one
- * in flight answer first. A refresh's answer sets the session cookies, and one that lands after the logout's answer
- * sets them again, the access token among them, which nothing revokes: this tab would stay signed in until it
- * expires (E133).
+ * Before a logout posts: start no new silent refresh, and let the one in flight answer first. A refresh's answer sets
+ * the session cookies, and one that lands after the logout's answer sets them again, the access token among them,
+ * which nothing revokes: this tab would stay signed in until it expires (E133).
  *
- * What this leaves open: a refresh that answers after the limit, or one another tab started, can still set the
- * cookies again; and when a refresh succeeds during the wait, the `/me` read it replays marks the session active
- * again, so a 401 that lands later, before the logout answers, can start one more refresh.
+ * Each logout calls `beginLogout` first: until its `endLogout`, the session reads as inactive in this tab, so no 401
+ * starts a refresh (every refresh path needs the flag) and a /me a refresh replays cannot mark it active again.
+ * `refreshSettled` then waits for the refresh in flight, and cancels it at the limit. What this leaves open: a
+ * refresh another tab started can still set the cookies again, since nothing here reaches another tab's requests.
  */
-const settleRefreshBeforeLogout = async () => {
-  clearSessionActive()
-  await refreshSettled(LOGOUT_REFRESH_WAIT_MS)
-}
+const settleRefreshBeforeLogout = () => refreshSettled(LOGOUT_REFRESH_WAIT_MS)
 
 /** A logout of every session refused because another login was accepted while it waited (see logoutAllSessions). */
 export class LogoutAllSuperseded extends Error {
@@ -137,7 +135,7 @@ export class LogoutAllSuperseded extends Error {
 }
 
 export const logoutAllSessions = async () => {
-  const generation = getExplicitSessionGeneration()
+  const generation = beginLogout()
   try {
     await settleRefreshBeforeLogout()
     // A login accepted while this waited holds the tab's cookies now, and the server ends every session of the account
@@ -149,11 +147,12 @@ export const logoutAllSessions = async () => {
     return response.data
   } finally {
     if (isExplicitSessionGenerationCurrent(generation)) clearSessionActive()
+    endLogout(generation)
   }
 }
 
 export const logout = async () => {
-  const generation = getExplicitSessionGeneration()
+  const generation = beginLogout()
   try {
     await settleRefreshBeforeLogout()
     // A login accepted while this waited is the account this tab now shows, and the logout's request could sign it
@@ -165,6 +164,7 @@ export const logout = async () => {
     // Always drop the session flag, even if the server call fails, so a logged-out client
     // stops attempting silent refreshes.
     if (isExplicitSessionGenerationCurrent(generation)) clearSessionActive()
+    endLogout(generation)
   }
 }
 

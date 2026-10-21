@@ -126,6 +126,7 @@ export function isRefreshableRequest(url?: string): boolean {
 // refresh token, and the loser would 401 and log the user out.
 let refreshPromise: Promise<void> | null = null
 let refreshGeneration: number | null = null
+let refreshAbort: AbortController | null = null
 
 export function ensureRefreshed(): Promise<void> {
   const generation = getSessionGeneration()
@@ -141,27 +142,36 @@ export function ensureRefreshed(): Promise<void> {
     })
   }
   if (!refreshPromise) {
+    const abort = new AbortController()
     refreshGeneration = generation
-    refreshPromise = refreshAccessToken(getApiUrl()).finally(() => {
+    refreshAbort = abort
+    refreshPromise = refreshAccessToken(getApiUrl(), abort.signal).finally(() => {
       refreshPromise = null
       refreshGeneration = null
+      if (refreshAbort === abort) refreshAbort = null
     })
   }
   return refreshPromise
 }
 
 /**
- * Settles once the refresh in flight, if any, has answered, whatever its outcome, or once `limitMs` has passed.
- * A logout waits on it before it posts: the refresh's answer sets the session cookies, and one that lands after
- * the logout's answer sets them again, the access token among them, which keeps the tab signed in until that
- * token expires (E133). The limit keeps a refresh that never answers from holding the logout.
+ * Settles once the refresh in flight, if any, can no longer set the session cookies: once it has answered, whatever
+ * its outcome, or, when `limitMs` passes first, once it is cancelled. A logout waits on it before it posts: the
+ * refresh's answer sets the session cookies, and one that lands after the logout's answer sets them again, the access
+ * token among them, which keeps the tab signed in until that token expires (E133). A refresh still in flight at the
+ * limit is aborted, and the browser drops a cancelled request's answer, so it cannot outlast the logout either.
  */
 export function refreshSettled(limitMs: number): Promise<void> {
   const inFlight = refreshPromise
+  const abort = refreshAbort
   if (!inFlight) return Promise.resolve()
   let timer: ReturnType<typeof setTimeout> | undefined
-  const limit = new Promise<void>((resolve) => { timer = setTimeout(resolve, limitMs) })
-  return Promise.race([inFlight.then(() => undefined, () => undefined), limit]).finally(() => clearTimeout(timer))
+  const limit = new Promise<'limit'>((resolve) => { timer = setTimeout(() => resolve('limit'), limitMs) })
+  return Promise.race([inFlight.then(() => 'answered' as const, () => 'answered' as const), limit])
+    .then((outcome) => {
+      if (outcome === 'limit') abort?.abort()
+    })
+    .finally(() => clearTimeout(timer))
 }
 
 // Response error interceptor: silent token refresh on 401, then backend error extraction.
