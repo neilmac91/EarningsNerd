@@ -1,4 +1,5 @@
-"""A PostgreSQL gate's run fails when its database variable is set and any of its cases skip.
+"""A PostgreSQL gate's run fails when its database variable is set and any of its cases skip, and a PostgreSQL case
+fails when it opens a session unlike production's.
 
 Each required PostgreSQL step in CI's migrations-postgres job sets one variable and runs one test
 home; the home's cases skip when the variable is unset, which is how the fast lane runs them. A home
@@ -14,6 +15,12 @@ The steps run serially. Under pytest-xdist, as a developer's default ``pytest`` 
 sees every worker's test reports and its skipped collection reports and ignores a worker's exit
 status, so only the controller (or a serial run) keeps count and fails the run. The count belongs to
 the run's config, so a pytester child in the same process keeps its own.
+
+The same steps check every session a PostgreSQL case opens (a case that takes ``postgres_engine``),
+as each one begins a transaction: it must not autoflush, and it must run on PostgreSQL. That holds
+however the case built the session, through an alias, a helper's argument or a module the home
+imports, which ``test_migration_lock_safety.py``'s reading of the source cannot follow;
+``test_postgres_gates_open_production_sessions.py`` runs this check in child pytest sessions.
 """
 from __future__ import annotations
 
@@ -21,6 +28,8 @@ import os
 from pathlib import Path
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.orm import Session
 
 # Each PostgreSQL gate's test home, and the variable its CI step sets.
 POSTGRES_GATES = {
@@ -30,6 +39,9 @@ POSTGRES_GATES = {
     "test_notification_delivery_transactions.py": "DELIVERY_CONCURRENCY_TEST_DATABASE_URL",
     "test_refresh_rotation_transactions.py": "REFRESH_CONCURRENCY_TEST_DATABASE_URL",
 }
+# Each gate home's PostgreSQL engine fixture: a case that takes it, directly or through another fixture, is one of
+# the home's PostgreSQL cases.
+POSTGRES_ENGINE_FIXTURE = "postgres_engine"
 
 
 def _armed_home(nodeid: str) -> str | None:
@@ -37,6 +49,37 @@ def _armed_home(nodeid: str) -> str | None:
     home = Path(nodeid.split("::", 1)[0]).name
     variable = POSTGRES_GATES.get(home)
     return home if variable and os.environ.get(variable) else None
+
+
+@pytest.fixture(autouse=True)
+def _postgres_cases_open_production_sessions(request: pytest.FixtureRequest):
+    """When a gate's variable is set, each of its PostgreSQL cases opens every ORM session as production does:
+    autoflush off, on PostgreSQL. A session that autoflushes, or that runs on another database (the suite's SQLite
+    file, where the test conftest binds production's ``SessionLocal`` and the app's engine), fails the case at its
+    teardown. The listener only records, in whatever thread the session begins: an exception raised inside the event
+    would leave a transaction, and its locks, on a pooled connection."""
+    home = _armed_home(request.node.nodeid)
+    if home is None or POSTGRES_ENGINE_FIXTURE not in request.fixturenames:
+        yield
+        return
+    unlike: list[str] = []
+
+    def record(session: Session, transaction, connection) -> None:
+        if session.autoflush or connection.dialect.name != "postgresql":
+            unlike.append(f"{type(session).__name__} with autoflush={session.autoflush}, on {connection.dialect.name}")
+
+    event.listen(Session, "after_begin", record)
+    try:
+        yield
+    finally:
+        event.remove(Session, "after_begin", record)
+    if unlike:
+        pytest.fail(
+            f"postgres gate: {POSTGRES_GATES[home]} is set, yet this PostgreSQL case opened {len(unlike)} session(s) "
+            f"unlike production's ({'; '.join(sorted(set(unlike)))}). Open each through a sessionmaker that spreads "
+            "SessionLocal.kw and binds the case's own engine (tests/support/postgres_gates.py).",
+            pytrace=False,
+        )
 
 
 class _UnrunCases:

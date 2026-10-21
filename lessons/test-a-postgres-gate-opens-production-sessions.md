@@ -34,6 +34,14 @@ subclass.
   - `test_concurrency_has_a_required_postgres_ci_execution_path` fails a session a gate home opens
     other than with production's settings on the engine its case was handed (`_unapproved_sessions`);
   - `test_session_settings_detector_semantics` holds the detector to planted forms.
-- Aliases are followed: an import alias, a plain or annotated assignment, and a class derived from
-  `Session` (Codex on #1454). A session built in a module the home imports, one reached through a
-  call or `getattr`, and a setting changed after a session is made are review-checked.
+  - Aliases are followed: an import alias, any assignment form, and a class derived from `Session`
+    (Codex on #1454).
+- `backend/tests/support/postgres_gates.py`, in the steps, checks every ORM session a PostgreSQL
+  case (one that takes `postgres_engine`) opens, as it begins a transaction in any thread: one that
+  autoflushes or runs on another database fails the case. That covers what reading the source
+  cannot: a helper handed the app's engine, a name reached through a call or `getattr`, a module
+  the home imports, a setting changed before the session's transaction begins.
+  `backend/tests/unit/test_postgres_gates_open_production_sessions.py` runs it in child sessions,
+  and the step test pins each home's `postgres_engine` fixture, which the check keys on.
+- Review-checked: a SQLite case's session built where the source rule cannot follow it, and a
+  Core connection (no ORM session) on another database in a PostgreSQL case.

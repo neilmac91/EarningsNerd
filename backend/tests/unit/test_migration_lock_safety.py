@@ -537,20 +537,28 @@ def _spreads_production_settings(
 
 def _session_names(tree: ast.Module) -> dict[str, str]:
     """``Session``, ``sessionmaker`` and ``SessionLocal``, each mapped to itself, and every other name a gate home
-    binds to one of them: an import alias (``Session as OrmSession``), a plain assignment (``factory = SessionLocal``),
-    or a class derived from ``Session``. A name reached through a call, an attribute other than the name itself, or
-    ``getattr`` is not followed."""
+    binds to one of them: an import alias (``Session as OrmSession``), an assignment (``factory = SessionLocal``,
+    chained, unpacked, annotated or a walrus), or a class derived from ``Session``. A name reached through a call,
+    an attribute other than the name itself, or ``getattr`` is not followed; in the steps, the runtime check in
+    ``tests/support/postgres_gates.py`` sees every PostgreSQL case's sessions however they were built."""
     names = {name: name for name in ("Session", "sessionmaker", "SessionLocal")}
     names |= {
         alias.asname: alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
         for alias in node.names if alias.asname and alias.name in names
     }
-    assignments = [
-        (node.targets[0].id, node.value) for node in ast.walk(tree)
-        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+    assignments = [  # every target of `S = T = Session`, and each pair of `S, T = Session, sessionmaker`
+        (target.id, node.value) for node in ast.walk(tree) if isinstance(node, ast.Assign)
+        for target in node.targets if isinstance(target, ast.Name)
     ] + [
+        (target.id, value) for node in ast.walk(tree) if isinstance(node, ast.Assign)
+        and isinstance(node.value, (ast.Tuple, ast.List))
+        for targets in node.targets if isinstance(targets, (ast.Tuple, ast.List))
+        and len(targets.elts) == len(node.value.elts)
+        for target, value in zip(targets.elts, node.value.elts) if isinstance(target, ast.Name)
+    ] + [  # `S: type = Session`, and `(S := Session)`
         (node.target.id, node.value) for node in ast.walk(tree)
-        if isinstance(node, ast.AnnAssign) and node.value is not None and isinstance(node.target, ast.Name)
+        if isinstance(node, (ast.AnnAssign, ast.NamedExpr)) and node.value is not None
+        and isinstance(node.target, ast.Name)
     ]
     bases = [(node.name, base) for node in ast.walk(tree) if isinstance(node, ast.ClassDef) for base in node.bases]
     while found := {
@@ -623,11 +631,14 @@ def test_session_settings_detector_semantics():
     # Production's own factory has its settings but the app's database, not the case's engine.
     assert found("SessionLocal()") == ["line 1: SessionLocal()"]
     assert found("database.SessionLocal()") == ["line 1: database.SessionLocal()"]
-    # Each is followed through an import alias, a plain assignment, an annotated one and a class derived from an alias.
+    # Each is followed through an import alias, any assignment form and a class derived from an alias.
     for source in (
         "from sqlalchemy.orm import Session as OrmSession\nOrmSession(engine)",
         "from sqlalchemy.orm import Session as OrmSession\nclass Observed(OrmSession): pass\nObserved(engine)",
         "S = Session\nT = S\nT(engine)",
+        "S = T = Session\nS(engine)",
+        "S, T = Session, sessionmaker\nS(engine)",
+        "(S := Session)\nS(engine)",
         "from app.database import SessionLocal as Local\nLocal()",
         "factory = database.SessionLocal\nfactory()",
         "from sqlalchemy.orm import sessionmaker as make\nmake(bind=engine)()",
@@ -696,6 +707,16 @@ def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home,
         and node.args and isinstance(node.args[0], ast.Constant)
     }
     assert url_name in read, f"{test_home} must read {url_name}, the variable its step sets, or its cases skip"
+    # Its PostgreSQL cases take the fixture the session check keys on, or the check sees none of their sessions.
+    from tests.support import postgres_gates
+
+    fixtures = {
+        node.name for node in home.body if isinstance(node, ast.FunctionDef)
+        and any(ast.unparse(decorator).startswith("pytest.fixture") for decorator in node.decorator_list)
+    }
+    assert postgres_gates.POSTGRES_ENGINE_FIXTURE in fixtures, (
+        f"{test_home} must define its PostgreSQL engine fixture as {postgres_gates.POSTGRES_ENGINE_FIXTURE}"
+    )
     # Every session it opens has production's settings, which do not autoflush, on its case's engine: an
     # autoflushing session flushes a pending write at the request's next query, and can serialize two requests
     # that production does not (E127's gate hid a lock moved out of a password reset's revocation that way).
