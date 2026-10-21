@@ -33,10 +33,11 @@ nothing, which E137 kept, and the audit rows of the other sign-ins are pinned be
   - an OAuth callback commits its own sign-in (a new account, the link, last_login_at, the refresh
     token) with no audit row committing after it; the connections list; Apple's name fill-in on an
     existing link and its first sign-in without an email
-  - the audit rows an OAuth callback writes: a sign-in that creates the account writes register
-    and then oauth_login, once each, under the hashed address; a returning one oauth_login alone; a
-    link to an existing verified account oauth_login and oauth_linked; and a refused sign-in, a
-    conflict, a lost create race and a new account whose commit loses its link write none
+  - the audit rows an OAuth callback writes: a sign-in that creates the account, in public mode or
+    by invite under invite_only (the deployed mode), writes register and then oauth_login, once each,
+    under the hashed address; a returning one oauth_login alone; a link to an existing verified
+    account oauth_login and oauth_linked; and a refused sign-in, a conflict, a lost create race and
+    a new account whose commit loses its link write none
   - the failure paths that roll back (a failed reverse trial, the OAuth races) do so before they log
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. Mail is captured
@@ -68,7 +69,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import AuditLog, LoginAttempt, OAuthAccount, RefreshToken, Subscription, User
 from app.routers import auth as auth_module
-from app.services import login_lockout, refresh_token_service
+from app.services import invite_service, login_lockout, refresh_token_service
 from app.services.posthog_client import EVENT_TRIAL_STARTED
 from tests.support.summary_stream_harness import reset_rate_limiters
 
@@ -915,14 +916,22 @@ def _oauth_callback(
     email: Optional[str],
     *,
     apple_user: Optional[str] = None,
+    invite: Optional[str] = None,
 ):
     """Run a provider flow end to end; ``apple_user`` is the JSON ``user`` field Apple posts on a
-    first authorization."""
+    first authorization, and ``invite`` a closed-beta token the flow starts with, sent in the body of
+    the POST start as the sign-up page sends it."""
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client")
     monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "io.earningsnerd.test")
-    start = client.get(f"/api/auth/{provider}", follow_redirects=False)
-    assert start.status_code == 302, start.text
-    state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+    if invite is None:
+        start = client.get(f"/api/auth/{provider}", follow_redirects=False)
+        assert start.status_code == 302, start.text
+        consent_url = start.headers["location"]
+    else:
+        start = client.post(f"/api/auth/{provider}/start", json={"invite": invite})
+        assert start.status_code == 200, start.text
+        consent_url = start.json()["url"]
+    state = parse_qs(urlparse(consent_url).query)["state"][0]
     if provider == "google":
         monkeypatch.setattr(auth_module, "httpx", SimpleNamespace(AsyncClient=_FakeAsyncClient))
         monkeypatch.setattr(
@@ -1155,7 +1164,7 @@ def _test_client_address() -> Optional[str]:
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("path", ["first-sign-in", "returning", "linked"])
+@pytest.mark.parametrize("path", ["first-sign-in", "invited-first-sign-in", "returning", "linked"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_an_oauth_sign_in_writes_the_register_row_only_when_it_creates_the_account(
     client, monkeypatch, provider, path
@@ -1163,16 +1172,23 @@ def test_an_oauth_sign_in_writes_the_register_row_only_when_it_creates_the_accou
     """/security says registrations are written to the audit log. A Google or Apple sign-in that
     creates the account writes the register row a password sign-up writes, once, then its
     oauth_login row, both under the hashed address, so the log tells the sign-up from a later
-    login. A returning sign-in writes oauth_login alone, and a link to an existing verified account
-    oauth_login and oauth_linked. The response is the same on every path."""
+    login: in public mode, and under invite_only with the invite the sign-up started with, the
+    only kind the deployed service accepts (docs/CONFIGURATION.md). A returning sign-in writes
+    oauth_login alone, and a link to an existing verified account oauth_login and oauth_linked.
+    The response is the same on every path."""
     email = _email()
     sub = f"{provider}_{uuid.uuid4().hex}"
-    if path != "first-sign-in":
+    invite = None
+    if path == "invited-first-sign-in":
+        monkeypatch.setattr(settings, "REGISTRATION_MODE", "invite_only")
+        with SessionLocal() as db:
+            _row, invite, _link = invite_service.mint_invite(db, created_by=None)
+    elif path != "first-sign-in":
         user_id = _seed_verified(email)
         if path == "returning":
             _seed_link(user_id, provider, sub, email)
 
-    resp = _oauth_callback(client, monkeypatch, provider, sub, email)
+    resp = _oauth_callback(client, monkeypatch, provider, sub, email, invite=invite)
     assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
     assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
     account, address = str(_user(email).id), _test_client_address()
@@ -1180,6 +1196,7 @@ def test_an_oauth_sign_in_writes_the_register_row_only_when_it_creates_the_accou
     login = ("oauth_login", account, {"provider": provider}, address)
     assert _audit_trail(email) == {
         "first-sign-in": [("register", account, None, address), login],
+        "invited-first-sign-in": [("register", account, None, address), login],
         "returning": [login],
         "linked": [login, ("oauth_linked", account, {"provider": provider}, address)],
     }[path]
