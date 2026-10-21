@@ -676,6 +676,14 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  (black/[0.04]: 9.04:1, 8.50:1 hovered), and the status set's dark one: no fill, its
                  white/10 hairline kept, text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row
                  (its old white/5 fill measured 4.27:1 there).
+                 What each member means, read from its uses so far (chief design on #1459), so a new status
+                 chip lands on the member its state means: `info-status`: active or upcoming (an invite
+                 pending, new feedback, a confirmed date); `success`: done (an invite used, feedback resolved,
+                 a summary ready); `warning-status`: needs the reader (an invite expired, feedback triaged);
+                 `error`: failed (a summary whose run failed); `neutral-status`: not started, over or not
+                 known (an invite revoked, a reported date); `tentative`: not yet settled (an estimated date).
+                 tests/unit/badgeVariants.spec.tsx holds this line to the set read from Badge's source, each
+                 member named once; which member a new chip takes is review-checked.
                  Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, six, read from
                  Badge's source and rendered through Badge, on both tables' rows, at rest and hovered, both
                  themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the pages' <tbody>;

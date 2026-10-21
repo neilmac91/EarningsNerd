@@ -24,7 +24,8 @@ import type { EarningsAlertsApi } from '@/features/calendar/hooks/useCalendar'
  *    product's row tint (`hover:bg-brand-weak dark:hover:bg-white/5`): the ground is read from the variant's
  *    classes, so a move to a tint that drops the success ink under the floor fails here, and so does a dark
  *    fill of the chip's own over the row's (error-dark falls to 3.9:1 there);
- *  - Badge.tsx no longer documents beat/miss/new as tonal recipes;
+ *  - Badge.tsx no longer documents beat/miss/new as tonal recipes, and frontend/DESIGN_SYSTEM.md §4's Status chip
+ *    recipe says what each member of the status set means, every member once (chief design's reading on #1459);
  *  - no `<Badge icon={null}>` in app/, components/ or features/ takes `beat` or `miss` (a literal, or a
  *    variable in a file that names either): a direction without its glyph is a status in data colours.
  *    No file is exempt: the watchlist and dashboard rows say "Ready" and "Error" on success and error;
@@ -126,6 +127,23 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
   it('the Badge header no longer offers beat/miss/new as tonal recipes', () => {
     const source = readFileSync(path.join(ROOT, 'components/ui/Badge.tsx'), 'utf8')
     expect(source).not.toMatch(/tonal\s+recipe/i)
+  })
+
+  it("the Status chip recipe says what each member of the status set means, so a new chip's member is read there", () => {
+    // Badge's status set: the members of its BadgeStatusVariant type, read from its source.
+    const file = 'components/ui/Badge.tsx'
+    const sf = ts.createSourceFile(file, readFileSync(path.join(ROOT, file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === 'BadgeStatusVariant')
+    const set = (alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : []).map((t) =>
+      ts.isLiteralTypeNode(t) && ts.isStringLiteral(t.literal) ? t.literal.text : t.getText(sf),
+    )
+    expect(set.length, `BadgeStatusVariant, a union of string literals, in ${file}`).toBeGreaterThan(1)
+    // The recipe's meaning line (frontend/DESIGN_SYSTEM.md §4, Status chip), from its lead to the recipe's Gate line:
+    // each member written `name`: meaning, once.
+    const recipe = readFileSync(path.join(ROOT, 'DESIGN_SYSTEM.md'), 'utf8').split(/^Status chip {2,}/m)[1]?.split(/\n(?=\S)/)[0] ?? ''
+    const line = recipe.split('What each member means')[1]?.split(/^\s+Gate:/m)[0] ?? ''
+    const named = [...line.matchAll(/`([a-z-]+)`:/g)].map((m) => m[1])
+    expect(named.sort(), "the Status chip recipe's line on what each member means, one meaning per member").toEqual([...set].sort())
   })
 
   it('no <Badge icon={null}> tells a status with beat or miss', () => {
