@@ -20,6 +20,9 @@ can serialize two requests that production does not.
 `sessionmaker(**{**SessionLocal.kw, "bind": engine})`, with `class_=` for a test's Session
 subclass.
 - Never `Session(engine)`, and never a factory with settings of its own.
+- Never production's `SessionLocal()` itself: it has production's settings but the app's database,
+  which under the test conftest is the suite's SQLite file, so a case that opens it runs nothing on
+  PostgreSQL (Codex on #1454).
 - Seeds and assertions follow the rule too. The production code they run, such as `create_batch`,
   `create_refresh_token` and `payment_report`, then runs as production runs it.
 
@@ -27,7 +30,7 @@ subclass.
 - `_session` in each of the five homes under `backend/tests/integration/` (`*_transactions.py`).
 - `backend/tests/unit/test_migration_lock_safety.py`:
   - `test_concurrency_has_a_required_postgres_ci_execution_path` fails a session a gate home opens
-    without production's settings (`_sessions_without_production_settings`);
+    other than with production's settings on its case's engine (`_unapproved_sessions`);
   - `test_session_settings_detector_semantics` holds the detector to planted forms.
 - A session built in a module the home imports, or a setting changed after a session is made, is
   review-checked.
