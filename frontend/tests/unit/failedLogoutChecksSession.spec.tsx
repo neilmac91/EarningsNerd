@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
@@ -111,43 +111,14 @@ const newClient = () => {
   return client
 }
 
-/** Every write to window.location (itself or a part of it) and every load it is asked for, recorded and not run. The
-    page reads the real location through it; `location` and `window.location` are the same global here. It stands on an
-    empty object: jsdom's location holds assign, replace and reload as fixed properties, which a proxy of it cannot
-    report as anything else. */
-const locationChanges: string[] = []
-const realLocation = window.location
-const realLocationProperty = Object.getOwnPropertyDescriptor(window, 'location') as PropertyDescriptor
-const recordingLocation = new Proxy({} as Location, {
-  get(_stand, key) {
-    if (key === 'assign' || key === 'replace' || key === 'reload') {
-      return (...args: unknown[]) => { locationChanges.push(`location.${key}(${args.map(String).join(', ')})`) }
-    }
-    const value: unknown = Reflect.get(realLocation, key, realLocation)
-    return typeof value === 'function' ? value.bind(realLocation) : value
-  },
-  set(_target, key, value) {
-    locationChanges.push(`location.${String(key)} = ${String(value)}`)
-    return true
-  },
-})
-/** The history moves, held for each case so none runs. */
-const historyMoves: MockInstance[] = []
-/** No navigation of any kind: none of the router's moves, no history move, nothing set on or loaded by window.location. */
+/** None of the router's moves, the way these controls navigate. Every other way to navigate (a history move, a write to
+    or a load by window.location, a link or a form around the control) is held for every control, these three
+    included, by logoutCallSitesGate.spec.ts, so it is not asserted again here (AGENTS.md §4). */
 const expectNoNavigation = () => {
   for (const move of ['push', 'replace', 'back', 'forward', 'refresh'] as const) expect(nav[move], `router.${move}`).not.toHaveBeenCalled()
-  for (const move of ['back', 'forward', 'go'] as const) expect(window.history[move], `history.${move}`).not.toHaveBeenCalled()
-  expect(locationChanges, 'window.location').toEqual([])
 }
 
 beforeEach(() => {
-  locationChanges.length = 0
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    get: () => recordingLocation,
-    set: (value: unknown) => { locationChanges.push(`location = ${String(value)}`) },
-  })
-  for (const move of ['back', 'forward', 'go'] as const) historyMoves.push(vi.spyOn(window.history, move).mockImplementation(() => {}))
   advanceSessionGeneration()
   clearSessionActive()
   Object.assign(server, { me: ok(reader), logout: ok({ status: 'success' }), refresh: refused, renewed: false, requests: [] })
@@ -165,8 +136,6 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear())
   api.defaults.adapter = originalAdapter
   onlineManager.setOnline(true)
-  Object.defineProperty(window, 'location', realLocationProperty)
-  historyMoves.splice(0).forEach((spy) => spy.mockRestore())
   vi.clearAllMocks()
 })
 
