@@ -15,7 +15,7 @@ import DashboardPage from '@/app/dashboard/page'
  *   (a title, then "Your plan updates in a moment." as its description; a Notice title is one phrase, never
  *   two clauses joined by a semicolon, which noticeTitlesAreOnePhrase.spec.ts holds app-wide) only while it
  *   still says Free. The flag is then dropped from the address, so a second visit to the same page says nothing,
- *   while a remount in the same commit (the PostHog provider's swap once consent arrives) keeps the notice.
+ *   while a remount in the same commit (a parent that swaps its element type) keeps the notice.
  * - The trial banner keys on the resolved plan (`subscription.is_pro`), never the /me `is_pro` mirror,
  *   which stays true on an expired trial remnant (lessons/frontend-trial-labels-use-entitlements.md). Its
  *   fixtures sit at midday UTC, the same calendar day only from UTC-12 to UTC+11, so every case reads in UTC
@@ -143,9 +143,9 @@ describe('Dashboard after checkout', () => {
     expect(screen.queryByText(PRO_ACTIVE)).not.toBeInTheDocument()
   })
 
-  // PostHogProvider renders <>{children}</> until cookie consent arrives and <PHProvider> after, so the page
-  // remounts in that commit; the flag already left the address, and the notice stays.
-  it('keeps the notice when a parent swaps its element type, as the PostHog provider does once consent arrives', async () => {
+  // Any parent that swaps its element type (here a Fragment for a component) remounts the page in that commit; the
+  // flag already left the address, and the notice stays.
+  it('keeps the notice when a parent swaps its element type and the page remounts in that commit', async () => {
     window.history.replaceState(null, '', '/dashboard?success=true')
     api.getCurrentUserSafe.mockResolvedValue(user)
     api.getUsage.mockResolvedValue(usage)

@@ -113,7 +113,7 @@ def _live_tokens(engine, user_id: int) -> int:
 
 _OPERATIONS = {
     "refresh": lambda db, user_id, raw: tokens.rotate_and_commit(db, raw),
-    "logout": lambda db, user_id, raw: tokens.revoke_and_commit(db, raw),
+    "logout": lambda db, user_id, raw: tokens.revoke_and_commit(db, raw) is not None,
     "logout_all": lambda db, user_id, raw: tokens.revoke_all_and_commit(db, user_id),
     "reset": lambda db, user_id, raw: auth_account_service.complete_password_reset(
         db, db.get(User, user_id), "a new password's hash",

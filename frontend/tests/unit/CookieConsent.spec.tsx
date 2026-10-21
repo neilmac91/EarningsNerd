@@ -2,8 +2,9 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
-import CookieConsent, { type CookiePreferences } from '@/components/CookieConsent'
+import CookieConsent, { CONSENT_VERSION, getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
 import { buttonVariants } from '@/components/ui'
+import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 
 // The "Cookie preferences saved" confirmation is a sonner toast (top-centre Toaster in app/providers.tsx)
 // since EN-02: it must not share the bottom-right corner with the "Ask this Filing" launcher.
@@ -58,7 +59,8 @@ describe('CookieConsent settings dialog', () => {
     // Checkbox lists its props by name, so each category's description reaches the input only through its
     // aria-describedby forward; a dropped forward would strip these from screen readers.
     expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toHaveAccessibleDescription(/^Required for the website to function properly\./)
-    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(/^Help us understand how visitors interact/)
+    // D-046 (F33): the clause names PostHog, its purpose and the account link, in the words /privacy also reads.
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(ANALYTICS_CONSENT_CLAUSE)
     expect(screen.getByRole('checkbox', { name: 'Session recording' })).toHaveAccessibleDescription(/^Records your interactions with the site/)
   })
 
@@ -134,5 +136,60 @@ describe('CookieConsent settings dialog', () => {
     expect(cls('Essential only')).toBe(buttonVariants({ variant: 'secondary' }))
     expect(cls('Allow analytics')).toBe(buttonVariants({ variant: 'secondary' }))
     expect(cls('Customize')).toBe(buttonVariants({ variant: 'ghost' }))
+  })
+})
+
+describe('a choice stored before the account-id clause (CONSENT_VERSION)', () => {
+  // Until D-046 the dialog called the statistics anonymous; a reader who allowed them then never read the clause they
+  // are identified under now. Such an allow reads as no choice, once; a refusal stands, since nothing is collected on it.
+  const EARLIER: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }
+  const bar = () => screen.queryByRole('region', { name: 'Cookie consent' })
+
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('an allow made before it reads as no choice: the bar asks again, the dialog starts unchecked, and the new choice holds', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(EARLIER))
+    expect(getCookiePreferences()).toBeNull()
+    const onPreferencesChanged = vi.fn()
+    const user = userEvent.setup()
+    const { unmount } = render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
+    await user.click(await screen.findByRole('button', { name: 'Customize' }))
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onPreferencesChanged).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Allow analytics' }))
+    expect(stored()).toMatchObject({ analytics: true, version: CONSENT_VERSION })
+    unmount()
+
+    const again = vi.fn()
+    render(<CookieConsent onPreferencesChanged={again} />)
+    expect(bar()).not.toBeInTheDocument()
+    expect(again).toHaveBeenCalledWith(expect.objectContaining({ analytics: true, version: CONSENT_VERSION }))
+  })
+
+  it('an allow stored under an earlier version than the current one reads as no choice, so a later bump asks again', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...EARLIER, version: CONSENT_VERSION - 1 }))
+    expect(getCookiePreferences()).toBeNull()
+  })
+
+  it('a refusal made before it stands: no bar, and the stored choice is read as it is', () => {
+    const refused: CookiePreferences = { ...EARLIER, analytics: false }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(refused))
+    const onPreferencesChanged = vi.fn()
+    render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
+    expect(bar()).not.toBeInTheDocument()
+    expect(onPreferencesChanged).toHaveBeenCalledWith(refused)
+  })
+
+  it('an allow made under the current clause holds: no bar, and the stored choice is read as it is', () => {
+    const current: CookiePreferences = { ...EARLIER, version: CONSENT_VERSION }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(current))
+    expect(getCookiePreferences()).toEqual(current)
+    const onPreferencesChanged = vi.fn()
+    render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
+    expect(bar()).not.toBeInTheDocument()
+    expect(onPreferencesChanged).toHaveBeenCalledWith(current)
   })
 })

@@ -117,12 +117,15 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   count and the step numbers are set in the ink, not sage. The trust panel reads "Before you join"
   over its three tiles with no lead (the clarity promise is gone, and a lead only repeated the first
   tile's source line), and its middle tile
-  is "Security", whose body is to change with /security's unsupported claims (D-046, E109). The problem cards and the
+  is "Security", whose body says what the hosting does, held to /security's standard since D-046: "Your
+  data travels over HTTPS and is kept in Google Cloud SQL, which encrypts it at rest. Card details stay
+  with Stripe." The problem cards and the
   joined heading are h2, so the outline does not skip a level after the h1 when the example beside
   the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
   /waitlist, /login, /register, /forgot-password, /check-email, /verify-email, /reset-password,
-  /contact, /privacy, /terms, /security, /delete-account and the flag-off /search join the routes
+  /contact, /privacy, /terms, /security, /delete-account, /calendar (its pinned fixture week painted) and
+  /search (its results painted), since CI's e2e build turns the calendar and search on, join the routes
   `tests/e2e/text-floors.spec.ts` visits; three census cases hold the list to the sitemap's static
   core (`STATIC_ENTRIES`), the auth shell's routes (`AUTH_ROUTES`) and every `page.tsx` under `app/`,
   static or dynamic (visited, a dynamic route by a representative path, or named in `NOT_VISITED`
@@ -155,9 +158,22 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "Essential only" and "Allow analytics" (session recording stays off until it is chosen under
   Customize, D-032), with equal weight: both are secondary buttons, and Customize is the ghost
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
+  After a first choice the bar is gone, and the site footer's "Cookie settings" (`frontend/components/Footer.tsx`,
+  a button in the Legal column with the links' recipe and the brand ring) reopens the dialog on the stored
+  choices: Save writes them and fires `cookieConsentChanged` as the bar does, so /privacy's withdrawal
+  sentence holds ("You can withdraw consent for analytics and session recording at any time through our
+  cookie consent banner or settings."; `lib/cookieSettings.ts`, `tests/unit/cookieSettingsReopen.spec.tsx`).
+  The auth routes have no site footer (`lib/authShellRoutes.ts`), so the control is not there.
+  The banner is the only control, for every visitor (D-049): no browser privacy signal is read, so a first
+  visit whose browser sends Do Not Track shows the bar like any other, and the dialog opens on the stored
+  choice with its Analytics cookies and Session recording boxes enabled.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
-  dialog is to take D-046's words, which name PostHog and say that statistics are tied to an
-  internal account id when you are logged in (chrome/F1, F33, E109).
+  dialog reads D-046's words, "Usage statistics through PostHog, so we can see which pages work. When
+  you are logged in they are tied to an internal account id." (chrome/F1, F33), one constant with
+  /privacy's analytics cookies line (`ANALYTICS_CONSENT_CLAUSE`, `frontend/lib/consentCopy.ts`). A
+  stored choice records the clause it was made under (`CONSENT_VERSION`): an analytics allow made
+  while the dialog called the statistics anonymous reads as no choice, so the bar asks that reader
+  again, once, and a refusal made then stands (`tests/unit/CookieConsent.spec.tsx`).
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
@@ -179,9 +195,43 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the route's own 500 detail is developer wording; any other failure shows the backend's own detail,
   or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
   a minute." The success heading is an h2.
-  The prose links on /contact are underlined and carry the brand focus ring. The /security links
-  are unchanged: the ring triple on its five links is to ride the /security PR, which D-046
-  authorises (E109).
+  The prose links on /contact are underlined and carry the brand focus ring, and the five links on
+  /security carry it too (D-046).
+- **Security** (`frontend/app/security/page.tsx`): since D-046 every sentence says what the code or
+  its hosting does, a fact the repository cannot show (encryption at rest) named as the provider's,
+  the headings in sentence case, under a new date (`LEGAL_DATES.security`). Gone: a Redis cache
+  (production runs none, ADR-0004), CSP headers against XSS (the site sends frame-ancestors only),
+  every API endpoint behind authentication (search, company pages and summaries are public),
+  enterprise-grade hosting with 99.9% uptime, and firewalls and intrusion detection. The PostHog
+  line says PostHog in the browser waits for the reader's choice, and a sentence of its own, which
+  /privacy says too, discloses the account events the API records against the account id whatever
+  the reader chose, in words that name no provider (D-051). The runbook bullet and the notification
+  bullet name their source beside them (`tasks/security_privacy_runbook.md` §3), and the audit-log
+  item names the administrator actions an audit row records. Token renewal and Logging out say what
+  holds when requests overlap (E127): each renewal replaces the refresh token, logging out revokes the
+  one the browser sends, logging out of all devices revokes every refresh token the account holds at
+  that moment, as a password change or reset does, and none of these revokes a session token already
+  issued. `tests/unit/legalTruth.spec.tsx` fails on each removed claim's family, on /security (its
+  text, each list item and paragraph on its own, and its metadata), on /privacy and /terms, and in the
+  waitlist page's copy (its planted forms name the gaps: a claim split across sentences or said in
+  other words), and on an
+  analytics-consent promise not scoped to the browser; holds the consent dialog's analytics clause and
+  /privacy's analytics cookies line to one constant (`ANALYTICS_CONSENT_CLAUSE` in
+  `frontend/lib/consentCopy.ts`), with no copy calling the analytics anonymous or anonymised; holds
+  the account-events sentence (`ACCOUNT_EVENTS_DISCLOSURE`, the same module) to the backend's callers
+  that key an event on the account id and read no consent, the sourced bullets to their section's
+  steps, the audit-log item to the backend's audit writers, and the page's numbers and schedules to
+  the repository's facts (the backend's defaults, the breach check's prefix, the export's day of the
+  month and Dependabot's week); fails on a refresh token that works once, a reused one revoking the account, or a session
+  that ends after logging out, within a time or with none named, on every run, until the founder's
+  go-ahead on the stronger wording (`tasks/todo.md` F53); and pins each legal page's rendered
+  text, by hash, to a ledger row under its date, main's published text first, so a text or date
+  change fails until the last row records it (a row on the day of the row before it names the pull
+  request that shares the day; a row edited in place passes, and is review-checked, as is whether a
+  row's date is the day main's history gives its merge). Its five links carry the brand focus ring, the site chrome's triple;
+  `siteChromeFocusRing.spec.ts` holds them, and its residue no longer lists the page. Its two
+  addresses break anywhere, as /privacy's four do, so neither page scrolls sideways at 390px under
+  200% text (`reflow-200.spec.ts`).
 
 - **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
   `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
@@ -374,8 +424,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
   "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
   ("Source: SEC EDGAR · {url}") and the CSV, which now carries that source row under its generated
-  date; the PDF's closing note is two sentences, and a quote's attribution sits on its own line in
-  the PDF and follows a middot in the CSV, never a dash. Tables read as the page's reader tables do
+  date; the PDF's closing note splits its one dashed sentence in two, and a quote's attribution
+  sits on its own line in the PDF and follows a middot in the CSV, never a dash. The CSV now ends
+  with the PDF's closing sentences, verbatim (D-046): after a blank row, the closing note's two
+  paragraphs (the masthead line, then the disclaimer), a row each, read from the constant both
+  exporters share (`SUMMARY_CLOSING_NOTE`). Tables read as the page's reader tables do
   (D-041, applying D-030): headers in the tertiary ink on no fill, hairline rows and no grid, and a
   column of figures right-aligned in the data face, each figure on one line, where the page sets
   one: the Financial Highlights table's Current Period, Prior Period and Change by name, as
@@ -475,8 +528,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   literal, and "copilot" in JSX text, a string of more than one word or a template part open at a
   substitution edge, joined to punctuation or not, so "free copilot questions" and "Ask the copilot: what
   changed" fail while a one-word identifier such as `copilot_question_asked` or `copilot:paneWidth` and a
-  class list do not; a one-word copy literal such as `title="copilot"` is its known limit; the /security
-  line is its one named residue, counted by mention),
+  class list do not; a one-word copy literal such as `title="copilot"` is its known limit; its residue
+  is empty since D-046's /security change named the feature "Ask this Filing"),
   `brandCopyRules.spec.ts` rule 1 (on every surface under app, components, features, hooks and lib, in
   one sentence of one literal with its whitespace collapsed, or of one element's inline children read
   together (`<p>Every answer is <strong>cited</strong> to the filing.</p>`), whatever scope phrase follows:
@@ -512,10 +565,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   invites yet. Send your first one above.", "No feedback yet. Reports appear here as people send
   them."), a failed load is a Notice with "Try again", and the section headings carry no icon. The status
   chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
-  them takes the same quiet ground in dark (no fill, its hairline kept), "New" feedback takes an unread
-  envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
-  and the remaining admin controls carry the brand ring (`statusChipContrast.spec.ts`,
-  `inviteOutcomeEmailed.spec.tsx`, `siteChromeFocusRing.spec.ts`).
+  them takes the same quiet ground in dark (no fill, its hairline kept) and Badge's metrics, so the
+  row's two chips share one weight, "New" feedback takes an unread envelope in place of the sparkle,
+  an already-invited chip reads "· already invited" in its own ink, and the remaining admin controls
+  carry the brand ring (`statusChipContrast.spec.ts`, `inviteOutcomeEmailed.spec.tsx`,
+  `siteChromeFocusRing.spec.ts`).
 - **Earnings calendar** (`frontend/app/calendar/page.tsx`, `features/calendar/components/*`): the
   page, its metadata and its footer say where each date comes from: a reported date from the
   company's 8-K results filing on SEC EDGAR, an estimated date and EPS estimate from a market-data

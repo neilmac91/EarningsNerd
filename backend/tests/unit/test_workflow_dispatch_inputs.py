@@ -9,9 +9,13 @@ when it carries a line break, so an unused field must be bounded before anything
 workflow runs against production with the deployer identity, so it also runs only from ``main`` and
 never persists the checkout token. Its fiscal-year relabel step passes ``--apply`` only for the apply
 operation, runs every other operation read-only, reads the session's settings back and stops unless they
-are its own before the script runs, and fails with the script.
+are its own before the script runs, and fails with the script. Its approval check lets an apply through
+only when the run's own review history records an approval of ``ops-apply``, and reads any other answer,
+an unreadable one included, as none.
 """
+import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -41,11 +45,31 @@ def test_no_dispatch_input_is_interpolated_into_a_run_script(name):
     )
 
 
+def _conjuncts(condition: str) -> tuple[list[str], bool]:
+    """An if:'s top-level `&&` terms, and whether a top-level `||` could bypass them."""
+    condition = condition.strip()
+    if condition.startswith("${{") and condition.endswith("}}"):
+        condition = condition[3:-2].strip()
+    terms, depth, start, bypass = [], 0, 0, False
+    for at, char in enumerate(condition):
+        depth += {"(": 1, ")": -1}.get(char, 0)
+        if depth == 0 and condition.startswith("&&", at):
+            terms.append(condition[start:at].strip())
+            start = at + 2
+        bypass = bypass or (depth == 0 and condition.startswith("||", at))
+    return [*terms, condition[start:].strip()], bypass
+
+
 def test_ops_workflow_runs_only_from_main_without_persisted_credentials():
-    job = _workflow("ops.yml")["jobs"]["ops"]
-    assert job.get("if") == "github.ref == 'refs/heads/main'", (
-        "ops.yml must refuse dispatches from any ref but main so only the reviewed definition can act on production"
-    )
+    jobs = _workflow("ops.yml")["jobs"]
+    job = jobs["ops"]
+    # Every job's if: holds the main-ref check as a top-level term that no top-level || can bypass. What
+    # else each holds is the approval wiring's gate (test_ops_workflow_wiring.py).
+    for name, each in jobs.items():
+        terms, bypass = _conjuncts(each.get("if") or "")
+        assert "github.ref == 'refs/heads/main'" in terms and not bypass, (
+            f"ops.yml job {name!r} must refuse dispatches from any ref but main so only the reviewed "
+            f"definition can act on production: {each.get('if')!r}")
     checkouts = [step for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")]
     assert checkouts, "ops.yml must check out the repository"
     for step in checkouts:
@@ -192,3 +216,78 @@ def test_no_relabel_runs_when_the_session_reports_other_settings_than_the_steps(
     assert result.returncode == 1
     assert "the session's settings are not this step's" in result.stdout
     assert not [call for call in calls if call.startswith("python ")]
+
+
+REPO, RUN_ID = "neilmac91/EarningsNerd", "39360634523"
+
+
+OWNER = "neilmac91"  # github.repository_owner, the founder's account
+
+
+def _review(state: str, *environments: str, login: str = OWNER) -> dict:
+    """One entry of a run's review history, as GitHub's approvals endpoint returns it."""
+    return {"state": state, "comment": "", "environments": [{"id": 1, "name": name} for name in environments],
+            "user": {"login": login}}
+
+
+def _run_approval_check(tmp_path, body: str, *, gh_exit=0, owner=OWNER):
+    """The approval check's own script, run as GitHub runs it (`bash -e`) with a stand-in `gh` that records
+    its arguments, one per line, and answers with ``body``: through the real `jq` with the `--jq` filter it
+    was given (gh's own --jq is gojq; the filter uses nothing where the two differ), or, when it exits
+    non-zero, unfiltered, as gh prints the body of an HTTP error."""
+    if shutil.which("jq") is None:
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            pytest.fail("jq is missing, though CI's ubuntu-latest image carries it")
+        pytest.skip("jq is not installed; CI runs this")
+    step = next(s for s in _workflow("ops.yml")["jobs"]["ops"]["steps"]
+                if s.get("name") == "Refuse an apply that no one approved in this run")
+    assert step["env"]["OWNER"] == "${{ github.repository_owner }}"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "gh").write_text(
+        '#!/bin/sh\nprintf "%s\\n" "$@" >> "$CALLS"\n'
+        'if [ "$GH_EXIT" != 0 ]; then printf "%s" "$GH_BODY"; echo "gh: Not Found (HTTP 404)" >&2; exit "$GH_EXIT"; fi\n'
+        'while [ $# -gt 1 ] && [ "$1" != --jq ] && [ "$1" != -q ]; do shift; done\n'
+        '[ $# -gt 1 ] || { echo "stand-in gh: no --jq filter" >&2; exit 64; }\n'
+        'printf "%s" "$GH_BODY" | jq -r "$2"\n')
+    (bin_dir / "gh").chmod(0o755)
+    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "CALLS": str(tmp_path / "calls"),
+           "GH_BODY": body, "GH_EXIT": str(gh_exit), "GITHUB_REPOSITORY": REPO, "GITHUB_RUN_ID": RUN_ID,
+           "OWNER": owner}
+    result = subprocess.run(  # fixed argv; the script under test is repository content
+        ["bash", "-e", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True, check=False
+    )
+    calls = (tmp_path / "calls").read_text().splitlines() if (tmp_path / "calls").exists() else []
+    return result, calls
+
+
+@pytest.mark.parametrize("body, gh_exit, code", [
+    pytest.param(json.dumps([_review("approved", "ops-apply")]), 0, 0, id="approved"),
+    pytest.param(json.dumps([_review("approved", "ops-apply")] * 2), 0, 0, id="approved-twice"),
+    pytest.param("[]", 0, 1, id="no-review"),
+    pytest.param(json.dumps([_review("rejected", "ops-apply")]), 0, 1, id="rejected"),
+    pytest.param(json.dumps([_review("approved", "github-pages")]), 0, 1, id="another-environment"),
+    pytest.param(json.dumps([_review("pending", "ops-apply")]), 0, 1, id="pending"),
+    # Only the repository owner's approval counts: a reviewer added to ops-apply later cannot approve.
+    pytest.param(json.dumps([_review("approved", "ops-apply", login="another-reviewer")]), 0, 1, id="not-the-owner"),
+    pytest.param("<html>Unicorn!</html>", 0, 1, id="not-json"),
+    pytest.param(json.dumps({"message": "Not Found", "status": "404"}), 1, 1, id="http-404"),
+])
+def test_an_apply_runs_only_when_this_run_records_an_approval_of_ops_apply(tmp_path, body, gh_exit, code):
+    """approve-apply passes at once while the environment requires no reviewer, so the check reads this
+    run's review history: an apply runs only when it records an approval of ops-apply, and any other
+    answer, one gh could not read included, counts as none."""
+    result, calls = _run_approval_check(tmp_path, body, gh_exit=gh_exit)
+    assert result.returncode == code, result.stdout + result.stderr
+    assert calls[:3] == ["api", f"repos/{REPO}/actions/runs/{RUN_ID}/approvals", "--jq"] and len(calls) == 4, calls
+    refused = "::error::no approval of ops-apply is recorded for this run" in result.stdout
+    assert refused == (code == 1), result.stdout
+
+
+# The second would widen the filter to every approval if it were spliced in unchecked.
+@pytest.mark.parametrize("owner", ["", 'x" or "a" == "a', "neil mac"])
+def test_an_owner_that_is_not_a_github_login_matches_no_approval(tmp_path, owner):
+    """The owner's login is spliced into the filter, so anything that is not a login matches nothing."""
+    approvals = [_review("approved", "ops-apply"), _review("approved", "ops-apply", login="another-reviewer")]
+    result, _ = _run_approval_check(tmp_path, json.dumps(approvals), owner=owner)
+    assert result.returncode == 1 and "::error::no approval of ops-apply" in result.stdout, result.stdout
