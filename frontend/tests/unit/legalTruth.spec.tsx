@@ -22,8 +22,11 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    Redis cache (production runs none, ADR-0004); an uptime figure or guarantee (a percentage, written with % or as
  *    percent or per cent, beside uptime, availability or an SLA, or a guarantee beside uptime or availability, in
  *    either order; none is offered); firewalls or intrusion detection or prevention (nothing configures them); every
- *    endpoint behind authentication, "all", "every", "each", "any" or "no" with up to three words before "endpoints"
- *    ("all of the API's endpoints", "every single endpoint"; search, company pages and summaries are public); a Content
+ *    endpoint behind authentication (ENDPOINT_CLAIM: "all" or "every" endpoints as main's reading has them; "all",
+ *    "every", "each" or "any" with up to three words before "endpoints", as in "all of the API's endpoints", in a
+ *    sentence that says a login is needed, unless what follows narrows them, as "any endpoint returning account data"
+ *    does; and "no endpoint" answering without authentication, the claim the other way round, while "No API endpoints
+ *    require authentication." says the opposite and passes; search, company pages and summaries are public); a Content
  *    Security Policy against XSS or cross-site scripting (the site sends frame-ancestors only); role-based access,
  *    permissions or authorisation, or RBAC (one administrator flag); an adjective in place of a fact (enterprise,
  *    military or bank grade or level, industry standard or standards, hyphenated or not); no financial data stored, a
@@ -31,25 +34,27 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    vetting the providers (no process in the repository does either); and an analytics-consent promise not scoped to
  *    the browser in its own sentence (CONSENT_PROMISE; the API sends account events whatever the reader chose: D-051).
  *    That promise names the analytics by a name the F33 check reads them by (analytics, tracking, statistics, PostHog,
- *    usage, telemetry, data) or as events, and makes them wait for a yes: "only" up to 60 characters before "after
- *    (once, when, if or until) you allow" (accept, agree, consent, opt in, give consent, say yes, turn or switch on,
- *    enable), before "with (after, upon, on or by) your consent" with up to three words before the consent (permission,
- *    agreement, approval, opt-in, each read by its start, so "only after consenting" fails too), or before "once
- *    allowed", a sentence that names the browser ("in your browser") reading as scoped; or, in the forms the "only"
- *    ones miss, "until you allow", a negation before "without your consent", "requires (needs, waits for, is subject
- *    to) your consent", "consent-gated" or "opt-in", where a sentence that names the browser or its analytics cookies,
- *    the browser's part (the consent dialog's own "Analytics cookies and session recording stay off until you allow
- *    them"), reads as scoped. The scan reads /security's rendered tree, as one text (a heading runs into the body under
- *    it) and block by block (blockTexts: a list item or a paragraph on its own, so a provider's item is not read
- *    through the PostHog line's "in your browser"), /privacy's and /terms' rendered trees the same way (/privacy
- *    carries the account-events sentence too), the page module's literals (its metadata, which no render shows) and the
- *    waitlist page's copy (strings, JSX text and each element's run across its inline elements, outside className),
- *    sentence by sentence, a sentence ending only at ".", "!" or "?", so a `<strong>Label:</strong> body` item is read
- *    whole. The planted forms run through the same render, text, blocks and splitter and score the reach: main's
- *    sentences and their close rewordings fail, the page's new sentences and class names pass. Out of reach, planted as
- *    gaps: a claim split across two sentences, one said in other words ("PostHog runs after you allow it", "the whole
- *    API sits behind authentication"), and an unscoped consent promise in a sentence that also names the browser or its
- *    analytics cookies.
+ *    usage, telemetry), or as the account's, the server's or the API's events ("your data" and "event invitations" are
+ *    not the analytics), and makes them wait for a yes: "only" up to 60 characters before "after (once, when, if or
+ *    until) you allow" (accept, agree, consent, opt in, give consent, say yes, turn or switch on, enable), before "with
+ *    (after, upon, on or by) your consent" with up to three words before the consent (permission, agreement, approval,
+ *    opt-in, each read by its start, so "only after consenting" fails too), or before "once allowed", a sentence that
+ *    names the browser ("in your browser") reading as scoped; or, in the forms the "only" ones miss, "until you allow",
+ *    a negation, contracted or not, before "without your consent", "requires (needs, waits for, is subject to) your
+ *    consent", "consent-gated" or "opt-in", where a sentence that names the browser or its part, its analytics cookies
+ *    or session recording (the consent dialog's own "Analytics cookies and session recording stay off until you allow
+ *    them", and "Session recording with PostHog is opt-in"), reads as scoped. The scan reads /security's rendered tree,
+ *    as one text (a heading runs into the body under it) and block by block (blockTexts: a list item or a paragraph on
+ *    its own, so a provider's item is not read through the PostHog line's "in your browser"), /privacy's and /terms'
+ *    rendered trees the same way (/privacy carries the account-events sentence too), the page module's literals (its
+ *    metadata, which no render shows) and the waitlist page's copy (strings, JSX text and each element's run across its
+ *    inline elements, outside className), sentence by sentence, a sentence ending only at ".", "!" or "?", so a
+ *    `<strong>Label:</strong> body` item is read whole. The planted forms run through the same render, text, blocks and
+ *    splitter and score the reach: main's sentences and their close rewordings fail, the page's new sentences and class
+ *    names pass, and so do true or unrelated sentences a wider reading once refused (#1456's review and Codex: "We
+ *    delete your data only with your consent.", "Any endpoint may return 503."). Out of reach, planted as gaps: a claim
+ *    split across two sentences, one said in other words ("PostHog runs after you allow it", "the whole API sits behind
+ *    authentication"), and an unscoped consent promise in a sentence that also names the browser or its part.
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -114,10 +119,14 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    session it ended.
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests overlap
  *    (E127_PROMISES): a refresh token that works once (one-time, cannot be used twice), a reused one revoking the
- *    account or ending its sessions, or a session that ends after logging out or a password change, within a time or
- *    with none named (every session, everywhere, a session token revoked), a logout in each spelling (logout, logged
- *    out, a sign-out), and what ends named before its verb ("a session open elsewhere then ends", "every device is
- *    signed out") or signed out with no pronoun ("signs out every device"). The page is read on every run, whatever
+ *    account or sweeping its sessions (every session ended, signed out on every device; a session that ends on its own
+ *    beside "again" is no sweep), or a session that ends after logging out or a password change, within a time or with
+ *    none named (every session, everywhere, a session token revoked), a logout in each spelling (logout, logged out, a
+ *    sign-out; a revocation alone, as a renewal's of the token it replaces, is none), and what ends named before its
+ *    verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun ("signs
+ *    out every device"). A denial passes, a negation before the verb with an aside or not ("does not, by itself, end")
+ *    or on the subject ("No sessions are ended", "None of your sessions", "Not every device"), and so does an end at
+ *    its token's expiry ("that session ends when its token expires"). The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422) and so is a login that straddled a password reset (#1431), but
  *    a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout
  *    that does not wait for an in-flight renewal) are open; the stronger wording returns only in a pull request that
@@ -213,8 +222,13 @@ const PERCENT = String.raw`\b\d{2,3}(?:\.\d+)?\s?(?:%|percent\b|per cent\b)`
 const CSP = String.raw`(?:\bCSP\b|\bContent[- ]Security[- ]Polic(?:y|ies)\b)`
 const XSS = String.raw`(?:\bXSS\b|\bcross[- ]site[- ]scripting\b)`
 
-/** The analytics by any name ANONYMOUS_ANALYTICS reads them by, and their events. */
-const ANALYTICS_NAMES = String.raw`\b(?:analytics|tracking|statistics|PostHog|usage|telemetry|events?|data)\b`
+/** The analytics by any name ANONYMOUS_ANALYTICS reads them by, and events only as the account, the server or the API
+    names them ("account events", "the events the API records"; "usage data" and "usage events" are usage), so "your
+    data" and "event invitations" are not the analytics. */
+const ANALYTICS_NAMES = String.raw`(?:\b(?:analytics|tracking|statistics|PostHog|usage|telemetry)\b|\b(?:account|server|API)\s+events?\b|\bevents?\s+(?:that\s+)?the\s+(?:API|service|server|backend)\s+(?:records?|sends?|captures?|logs?)\b)`
+/** The browser's part of the analytics, which does wait for the reader's yes: its analytics cookies and session
+    recording (the consent dialog: "Analytics cookies and session recording stay off until you allow them"). */
+const BROWSER_PART = String.raw`\b(?:analytics|tracking) cookies\b|\bsession (?:recording|replay)s?\b`
 /** The reader's yes, as a clause after "you" says it. */
 const YES = String.raw`(?:allow|accept|agree|consent|opt(?:ed)?[- ]in|giv(?:e|en) (?:your |us )?(?:\w+ )?(?:consent|permission)|say yes|turn (?:it |them )?on|switch (?:it |them )?on|enable)`
 /** The reader's yes, as a noun. */
@@ -223,16 +237,34 @@ const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|sa
 /** An analytics-consent promise not scoped to the browser, in one sentence (header item 1 lists its forms). The
     "only" forms read a sentence that names the browser as scoped, and read the consent word by its start, so "only
     after consenting" fails as "only after consent" does; the forms that wait for a yes another way read the browser's
-    analytics cookies as scoped too, so the consent dialog's own sentence about them passes. */
+    part (BROWSER_PART) as scoped too, so the consent dialog's own sentence and "Session recording with PostHog is
+    opt-in." pass. A negation before "without your consent" may be contracted ("doesn't", "won't"). */
 const CONSENT_PROMISE = new RegExp(
   String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*\bonly\b.{0,60}?(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)` +
-    String.raw`|^(?!.*(?:\bin your browser\b|\b(?:analytics|tracking) cookies\b))(?=.*${ANALYTICS_NAMES})(?:` +
+    String.raw`|^(?!.*(?:\bin your browser\b|${BROWSER_PART}))(?=.*${ANALYTICS_NAMES})(?:` +
     String.raw`.*\buntil you(?: have|['’]ve)? ${YES}` +
-    String.raw`|.*\b(?:never|not|no|nothing|none)\b.{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
+    String.raw`|.*(?:\b(?:never|not|no|nothing|none)\b|n['’]t\b).{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
     String.raw`|.*(?<!\b(?:not|never)\s|n['’]t\s)\b(?:requires?|needs?|waits? for|is subject to) (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
     String.raw`|.*\bconsent[- ]gated\b|.*\bgated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b` +
     String.raw`|.*\b(?:is|are) (?:strictly |only )?opt[- ]in\b` +
     ')',
+  'i',
+)
+
+/** What the removed endpoint claim says of the endpoints: a reader needs a login for them (authentication, a login, a
+    sign-in, a token, protected, behind a login). */
+const AUTH_NEEDED = String.raw`(?:\bauthenticat\w*|\blog(?:ged)?[- ]?in\b|\bsign(?:ed)?[- ]?in\b|\btokens?\b|\bprotected\b|\bbehind\s+(?:a\s+|an\s+|the\s+)?(?:log[- ]?in|sign[- ]?in|authentication|auth|token|password|account)\b)`
+/** Endpoints that what follows them narrows ("any endpoint returning account data"): a scoped claim, not every one. */
+const NARROWED = String.raw`(?!\s+(?:that|which|return(?:s|ing)?|serv(?:es|ing)|handling|exposing|reading|writing|for|with)\b)`
+/** Every endpoint behind authentication: main's reading (all or every, with "of", "our" or "the" and "API" between),
+    each, any, all or every with up to three words before "endpoints" in a sentence that says they need a login
+    (AUTH_NEEDED), unless what follows narrows them (NARROWED), and the claim said the other way round, "no endpoint"
+    answering without authentication or unauthenticated. "No API endpoints require authentication." says the opposite
+    and passes, and so does a quantifier with no login said ("Any endpoint may return 503."). */
+const ENDPOINT_CLAIM = new RegExp(
+  String.raw`\b(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b` +
+    String.raw`|^(?=.*${AUTH_NEEDED}).*\b(?:all|every|each|any)\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}` +
+    String.raw`|\bno\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}.*(?:\bwithout\s+(?:an?\s+)?(?:authentication|log[- ]?in|logging in|sign[- ]?in|signing in|token|account)\b|\bunauthenticated\b|\banonymous(?:ly)?\b)`,
   'i',
 )
 
@@ -243,7 +275,7 @@ const REMOVED_CLAIMS: Array<[string, RegExp]> = [
     new RegExp(String.raw`\b(?:uptime|availability|SLA)\b[^.]*${PERCENT}|${PERCENT}[^.]*\b(?:uptime|availability|available|SLA)\b|\b(?:uptime|availability)\b[^.]*\bguarantee(?:s|d)?\b|\bguarantee(?:s|d)?\b[^.]*\b(?:uptime|availability|available)\b`, 'i'),
   ],
   ['firewalls or intrusion detection', /\bfirewalls?\b|\bintrusion[- ](?:detection|prevention)\b/i],
-  ['every endpoint behind authentication', /\b(?:all|every|each|any|no)\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b/i],
+  ['every endpoint behind authentication', ENDPOINT_CLAIM],
   ['a Content Security Policy against XSS', new RegExp(`${CSP}[^.]*${XSS}|${XSS}[^.]*${CSP}`, 'i')],
   ['role-based access control', /\brole[- ]based (?:access|permissions?|authori[sz]ation)\b|\bRBAC\b/i],
   ['an adjective in place of a fact', /\b(?:enterprise|military|bank)[- ](?:grade|level)\b|\bindustry[- ]standards?\b/i],
@@ -292,8 +324,12 @@ const SESSION_END_UNTIMED = new RegExp(
   'i',
 )
 
-/** Not after a negation: "does not end your other sessions" and "never signs you out" deny an end. */
-const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+(?:\w+\s+)?|n['’]t\s+(?:\w+\s+)?)`
+/** A clause whose subject is denied, from its start up to the verb: "No sessions are ended", "None of your devices is
+    signed out", "Not every session ends", "nothing ends them" ("no matter" and "no sooner" deny nothing). */
+const DENIED_SUBJECT = String.raw`(?:^|[;:]\s*|,\s+|\b(?:and|but|so|while|whereas)\s+)(?:no(?!\s+(?:matter|sooner)\b)|none|nothing|neither|nobody|not\s+(?:every|all|one|any|each|a\s+single|even\s+one))\b(?:(?!,\s*(?:and|but|so|or|while|whereas|then)\b)[^.;:!?])*`
+/** Not after a negation: "does not end your other sessions", "never signs you out" and "does not, by itself, end a
+    session" deny an end, and so does a clause whose subject is denied (DENIED_SUBJECT). */
+const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+(?:\w+\s+)?|n['’]t\s+(?:\w+\s+)?|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
 /** What a promise of logging out says ends: a session (a session token is a token, not a session), a device, a tab or
     a browser, with a word that says which ("every session", "your other sessions", "all of your devices"), or
     everywhere, elsewhere or the others. */
@@ -303,14 +339,18 @@ const ENDS = String.raw`${NOT}\b(?:end(?:s|ed|ing)?(?!\s+of\b)|clos(?:e|es|ed|in
 /** A time an end comes within: a span, or at once. */
 const WITHIN = String.raw`(?:\b(?:within|after|in|under|inside)\s+(?:(?:\d+|a|an|one|two|three|five|ten|fifteen|twenty|thirty|forty|sixty|a few|a couple of|half an?)\s+)?(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|days?)\b|\b(?:immediately|at once|instantly|right away|straight away|straightaway|without delay|on the spot)\b)`
 /** A logging-out action, as a block names it: a logout and a sign-out in their spellings (log out, logged out,
-    logout, log-out, signing out, sign-out), all devices or every device, everywhere, a password, a revocation. */
-const LOGGING_OUT = /\b(?:log(?:s|ged|ging)?[- ]?outs?|sign(?:s|ed|ing)?[- ]?outs?|all (?:of )?(?:your |the )?devices|every device|everywhere|passwords?|revok\w*)\b/i
+    logout, log-out, signing out, sign-out), all devices or every device, everywhere, a password. A revocation alone is
+    none: a renewal revokes the token it replaces, and the Token renewal item says so. */
+const LOGGING_OUT = /\b(?:log(?:s|ged|ging)?[- ]?outs?|sign(?:s|ed|ing)?[- ]?outs?|all (?:of )?(?:your |the )?devices|every device|everywhere|passwords?)\b/i
+/** An end at its token's expiry ("that session ends when its token expires"): the expiry, not a logout's end. */
+const AT_EXPIRY = String.raw`(?!\s+(?:only\s+)?(?:when|once|as soon as|after)\s+(?:its|the|that|their|your)\s+(?:own\s+)?(?:session\s+)?tokens?\s+(?:expires?|has expired|have expired|runs? out)\b)`
 /** The forms of an end the two above miss: the verb before what it ends with no "every" ("ends your sessions", "ends
     the others"), a sign-out with no pronoun or not after "of" ("signs out every device", "signs you out on every
     device", "you are logged out"), what ends named before its verb ("a session open elsewhere then ends", "every
     device is signed out"), and an end within a time in more verbs and spans ("within half an hour", "straight away"). A
     session "keeps working until its session token expires" promises no end: what ends before its verb takes no
-    "expires", which reads its token's expiry. */
+    "expires", which reads its token's expiry, and an end when its token expires ("that session ends when its token
+    expires") is the expiry, not a logout's. */
 const SESSION_END_MORE = new RegExp(
   [
     String.raw`${ENDS}(?:[^\w.;!?]+[\w'’-]+){0,3}?[^\w.;!?]+${ENDED}`,
@@ -318,13 +358,24 @@ const SESSION_END_MORE = new RegExp(
     String.raw`${NOT}\b(?:signs?|logs?|signed|logged)\s+(?:you|everyone|everybody)\s+out\b`,
     String.raw`${NOT}\b(?:signs|logs|signed|logged)\s+out\s+(?:of\s+|from\s+|on\s+|across\s+)?${ENDED}`,
     String.raw`\b(?:you|everyone|everybody)(?:['’]re|\s+are|\s+will be|\s+get|\s+are then)\s+(?:signed|logged)\s+out\b`,
-    String.raw`\b(?:sessions?(?![- ]tokens?)|devices?|tabs?|browsers?|the others)\b[^.;!?]*?${NOT}\b(?:end(?:s|ed)?(?!\s+of\b)|clos(?:e|es|ed)|stop(?:s|ped)?|terminat(?:e|es|ed)|times? out|timed out|(?:is|are|get|gets|will be|would be|be)\s+(?:ended|closed|terminated|revoked|invalidated|killed|cut off|signed out|logged out))\b`,
+    String.raw`\b(?:sessions?(?![- ]tokens?)|devices?|tabs?|browsers?|the others)\b[^.;!?]*?${NOT}\b(?:end(?:s|ed)?(?!\s+of\b)|clos(?:e|es|ed)|stop(?:s|ped)?|terminat(?:e|es|ed)|times? out|timed out|(?:is|are|get|gets|will be|would be|be)\s+(?:ended|closed|terminated|revoked|invalidated|killed|cut off|signed out|logged out))\b${AT_EXPIRY}`,
     String.raw`(?:\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b|\b(?:ending|expired|stopped|closed|terminat(?:e|es|ed|ing)|kill(?:s|ed)?|invalidat(?:e|es|ed)|times? out|timed out|cuts? off|(?:signs?|logs?|signed|logged)\s+(?:you\s+)?out)\b).*${WITHIN}`,
   ].join('|'),
   'i',
 )
 /** A reuse, as a sentence names it. */
 const REUSED = String.raw`\b(?:a second time|again|twice|more than once|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?|already (?:been )?used|used before|(?:old|used|rotated(?:[- ]away)?|stale|spent) (?:refresh )?tokens?)\b`
+/** Every session or device the account has ("every session on the account", "all of your devices"), or everywhere. */
+const EVERY_SESSION = String.raw`(?:\b(?:every|all|each)\b(?:\s+(?:of|your|the|its|other|open|active|remaining))*\s+(?:sessions?(?![- ]tokens?)|devices?)\b|\beverywhere\b)`
+/** A sweep of the account's sessions, as a reuse's consequence: what ends every session, signs you out on every device
+    or everywhere, or logs everyone out, and every session named before the verb that ends it. A session that ends on
+    its own beside a reuse word ("your session ends and you log in again") is no sweep. */
+const SWEEP = [
+  String.raw`${ENDS}(?:[^\w.;!?]+[\w'’-]+){0,3}?[^\w.;!?]+${EVERY_SESSION}`,
+  String.raw`${NOT}\b(?:signs?|logs?|signed|logged)\s+(?:(?:you|everyone|everybody)\s+)?out\b(?:[^\w.;!?]+[\w'’-]+){0,3}?[^\w.;!?]+${EVERY_SESSION}`,
+  String.raw`${NOT}\b(?:signs?|logs?|signed|logged)\s+(?:everyone|everybody)\s+out\b`,
+  String.raw`${EVERY_SESSION}[^.;!?]*?${NOT}\b(?:end(?:s|ed)?|clos(?:e|es|ed)|terminat(?:e|es|ed)|(?:is|are|get|gets|will be)\s+(?:ended|closed|terminated|revoked|invalidated|signed out|logged out))\b`,
+].join('|')
 
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
@@ -333,7 +384,7 @@ const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   ],
   [
     'a reused refresh token revoking the account',
-    inASentence(new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok|${SESSION_END_UNTIMED.source}|${SESSION_END_MORE.source}|\block(?:s|ed)?\s+(?:the account|you out)\b))`, 'i')),
+    inASentence(new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok|${SWEEP}|\block(?:s|ed)?\s+(?:the account|you out)\b))`, 'i')),
   ],
   [
     'a session that ends after logging out, within a time or with none named',
@@ -810,11 +861,19 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Usage tracking requires your consent.</p>', true],
       ['<p>Our analytics are consent-gated.</p>', true],
       ['<p>Analytics are opt-in.</p>', true],
-      // Every endpoint with other words before "endpoints" (#1397's last review).
+      // A contracted negation before "without your consent" (#1456's review).
+      ["<p>The API doesn't record account events without your consent.</p>", true],
+      ['<p>PostHog won’t run without your consent.</p>', true],
+      ["<p>We don't send usage events without your consent.</p>", true],
+      // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
+      // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
+      ['<p>All of the API’s endpoints require authentication.</p>', true],
       ['<p>Every single endpoint requires authentication.</p>', true],
       ['<p>All REST API endpoints require authentication.</p>', true],
       ['<p>No API endpoint answers without authentication.</p>', true],
+      ['<p>Each endpoint requires a login.</p>', true],
+      ['<p>No endpoint can be reached unauthenticated.</p>', true],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
@@ -834,6 +893,21 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Account events do not need your consent.</p>', false],
       ['<p>The API serves your profile, watchlist, alerts, saved summaries and billing only to your logged-in session.</p>', false],
       ["<p>The API's endpoints for search, company pages and summaries are open to everyone.</p>", false],
+      // True or unrelated sentences the wider readings refused (#1456's review, Codex's threads 4333431432 and
+      // 4333431438, and the design recheck's negative controls): data and events the analytics do not name, a
+      // browser-only opt-in, and endpoints with no login said, the opposite said, or narrowed.
+      ['<p>We delete your data only with your consent.</p>', false],
+      ['<p>Your data export requires your consent.</p>', false],
+      ['<p>We share your data with third parties only with your consent.</p>', false],
+      ['<p>We use your data for marketing emails only with your consent.</p>', false],
+      ['<p>Processing your data for marketing requires your consent.</p>', false],
+      ['<p>Event invitations are opt-in.</p>', false],
+      ['<p>Session recording with PostHog is opt-in.</p>', false],
+      ['<p>Each API endpoint is documented publicly.</p>', false],
+      ['<p>Any endpoint may return 503.</p>', false],
+      ['<p>No API endpoints require authentication.</p>', false],
+      ['<p>Any endpoint returning account data requires authentication.</p>', false],
+      ['<p>No more endpoints are planned.</p>', false],
       // Out of reach.
       ['<p>Our pages use a Content Security Policy. It blocks XSS.</p>', 'gap'],
       ['<p>Nobody outside our network can reach the servers.</p>', 'gap'],
@@ -919,6 +993,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Resetting your password signs you out on every device.</li>', true],
       ['<li>Logging out signs out every device.</li>', true],
       ['<li>After a password reset, every device is signed out.</li>', true],
+      // "No matter" denies nothing (#1456's review).
+      ['<li>Once you log out, no matter where, every device is signed out.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -929,6 +1005,16 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of one device does not end your other sessions.</li>', false],
       ['<li>Use Sign out of all devices in your account settings.</li>', false],
       ['<li>Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log</li>', false],
+      // True sentences the wider readings refused (#1456's review, Codex's thread 4333431444 and the design recheck's
+      // controls): a renewal's revocation, an end at its token's expiry, a session that ends on its own beside "again",
+      // and a denial on the subject.
+      ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one and revokes the one it replaced, and refresh tokens are stored only as hashes.</li>', false],
+      ['<li>Logging out of all devices does not, by itself, end a session already open; that session ends when its token expires.</li>', false],
+      ['<li>After 30 days without a visit, your session ends and you log in again.</li>', false],
+      ['<li>No sessions are ended by logging out.</li>', false],
+      ['<li>No device is signed out when you change your password.</li>', false],
+      ['<li>None of your sessions end when you log out.</li>', false],
+      ['<li>Not every device is signed out when you change your password.</li>', false],
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
