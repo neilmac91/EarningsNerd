@@ -1305,9 +1305,10 @@ async def logout(
         # hold a connection for the dependency's finalizer.
         try:
             ended = refresh_token_service.revoke_and_commit(db, raw_token)
-            # With no live session token (it lasts 30 minutes), the row names the user whose refresh token
-            # the logout revoked. A logout that names no user and ends no session writes none (E137).
-            logged = actor or ended
+            # The row names the user whose session the logout ended: the one whose refresh token it revoked,
+            # which a logout after the session token's 30 minutes knows only from that token, and otherwise
+            # the signed-in user. A logout that ends no session and names no user writes none (E137).
+            logged = ended or actor
             if logged:
                 audit_service.log_logout(db, logged[0], logged[1], ip_address=hashed_ip)
         finally:

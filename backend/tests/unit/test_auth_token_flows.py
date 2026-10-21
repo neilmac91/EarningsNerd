@@ -5,7 +5,8 @@ Written against the router before its ORM work moved into app/services/ (the rou
 tests/unit/test_router_orm_ceilings_allowlist.py), and every test here passed on that pre-move
 router as well as after the move, so it proved the refactor preserved behaviour. The password
 login's one commit and the refusals of a login or change whose account changed while it hashed
-pin deliberate changes made since (E121), and fail on the code before them:
+(E121), and the logout's audit row under the user whose session it ended (E137), pin deliberate
+changes made since, and fail on the code before them:
 
   - email verification: verify, single use, unknown and expired links, resend (opaque; a resend
     supersedes the earlier link; a verified account gets no mail)
@@ -713,6 +714,15 @@ def _audit_actions(user_id: int, action: str) -> list[tuple[str, dict]]:
         ]
 
 
+def _logout_rows(user_id: int) -> list[tuple[str, str, bool]]:
+    """Each logout row under ``user_id``: its entity, its email, and whether it records an address."""
+    with SessionLocal() as db:
+        return [
+            (row.entity_type, row.user_email, row.ip_address is not None)
+            for row in db.query(AuditLog).filter(AuditLog.user_id == str(user_id), AuditLog.action == "logout")
+        ]
+
+
 def _live_refresh_tokens(user_id: int) -> int:
     with SessionLocal() as db:
         return db.query(RefreshToken).filter(
@@ -762,13 +772,46 @@ def test_logout_with_only_the_refresh_cookie_logs_it_under_that_tokens_user(clie
         resp = client.post("/api/auth/logout")
         assert resp.status_code == 200 and resp.json() == {"status": "success"}
 
-    with SessionLocal() as db:
-        rows = [
-            (row.entity_type, row.user_email, row.ip_address is not None)
-            for row in db.query(AuditLog).filter(AuditLog.user_id == str(user_id), AuditLog.action == "logout")
-        ]
-    assert rows == [("user", email, True)]
+    assert _logout_rows(user_id) == [("user", email, True)]
     assert _live_refresh_tokens(user_id) == 0
+
+
+@pytest.mark.requires_db
+def test_a_signed_in_logout_without_a_refresh_cookie_logs_it_under_the_signed_in_user(client, mail):
+    """A signed-in logout whose refresh token is already gone (logout-all on another device, say) ends
+    the session token's use here, so its row names the signed-in user. Its refresh token, never sent,
+    stays live."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    assert _login(client, email).status_code == 200
+    client.cookies.delete("earningsnerd_refresh_token")
+
+    resp = client.post("/api/auth/logout")
+    assert resp.status_code == 200 and resp.json() == {"status": "success"}
+    assert _logout_rows(user_id) == [("user", email, True)]
+    assert _live_refresh_tokens(user_id) == 1
+
+
+@pytest.mark.requires_db
+def test_a_logout_whose_refresh_cookie_is_another_accounts_logs_it_under_that_account(client, mail):
+    """One account's bearer token beside another's refresh cookie (two tabs, an API client): the session
+    the logout ends is the refresh token's, so its row names that token's user and none names the bearer's
+    (Codex r4332649556 on #1451)."""
+    bearer_email, _ = _register(client, mail)
+    cookie_email, _ = _register(client, mail)
+    client.cookies.clear()
+    bearer = _login(client, bearer_email).json()["access_token"]
+    client.cookies.clear()
+    assert _login(client, cookie_email).status_code == 200
+    refresh = client.cookies.get("earningsnerd_refresh_token")
+    client.cookies.clear()
+    client.cookies.set("earningsnerd_refresh_token", refresh)
+
+    resp = client.post("/api/auth/logout", headers={"Authorization": f"Bearer {bearer}"})
+    assert resp.status_code == 200 and resp.json() == {"status": "success"}
+    assert _logout_rows(_user(cookie_email).id) == [("user", cookie_email, True)]
+    assert _logout_rows(_user(bearer_email).id) == []
+    assert _live_refresh_tokens(_user(cookie_email).id) == 0
 
 
 @pytest.mark.requires_db

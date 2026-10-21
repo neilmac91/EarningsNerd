@@ -90,8 +90,10 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    the backend writes, read from each create_audit_log call and each audit_service helper another module calls.
  *    Administrator actions are named one by one, since six of them write a log line and no row
  *    (admin_filing_service.py's filing maintenance and stale-XBRL bulk reset, the XBRL cache clear, the test mail).
- *    Logouts count since E137: a logout that ends a session writes its row, under the signed-in user or, once the
- *    session token has expired, under the user whose refresh token it revoked.
+ *    This reader sees only that some module writes a named action, not that every path of the event does; that is
+ *    the backend's to pin. For logouts (E137), test_auth_token_flows.py's logout cases and the logout_cookie_only
+ *    case in test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its row, under the
+ *    user whose session it ended.
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests
  *    overlap (E127_PROMISES): a refresh token that works once, a reused one revoking the account, or a session that
  *    ends after logging out or a password change, within a time or with none named (every session, everywhere, a
@@ -836,6 +838,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['Registrations and logins are written to an audit log', []],
     ]
     for (const [text, faults] of planted) expect(auditFaults(text, written), text).toEqual(faults)
+    // Were no logout row written, the item could not name logouts: round 2's item then has both faults.
+    const noLogoutRow = new Set([...written].filter((action) => action !== 'logout'))
+    expect(auditFaults(planted[0][0], noLogoutRow)).toEqual([
+      '"logouts": nothing writes the logout row',
+      '"administrator actions": no audit_logs row is known to record it',
+    ])
     const fromPlanted = auditActionsWritten({
       'app/services/audit_service.py': [
         'def create_audit_log(db, action):',

@@ -505,6 +505,7 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
         user = User(email="session-reader@example.com", is_active=True)
         db.add(user)
         db.flush()
+        owner_id = user.id
         raw_tokens = [refresh_token_service.create_refresh_token(db, user)[1] for _ in range(8)]
         db.commit()
 
@@ -570,12 +571,15 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
             tokens = db.query(RefreshToken).order_by(RefreshToken.id).all()
             originals, minted = tokens[:8], tokens[8:]
             logouts = db.query(AuditLog).filter(AuditLog.action == "logout").count()
+            logged = {(row.user_id, row.user_email) for row in db.query(AuditLog).filter(AuditLog.action == "logout")}
         if case == "logout_dead_cookie":
             assert [token.revoked_at for token in originals] == [None] * 8 and logouts == 0
         else:
             assert all(token.revoked_at is not None for token in originals)
-            # Every logout that ends a session writes its row, a cookie-only one under its token's user (E137).
+            # Every logout that ends a session writes its row, a cookie-only one under its token's user (E137),
+            # the account the tokens belong to and never a token's own id.
             assert logouts == (0 if case == "refresh" else 8)
+            assert logged == (set() if case == "refresh" else {(str(owner_id), "session-reader@example.com")})
         if case == "refresh":
             # Each live token was rotated once, into a token of its own, and each response carries the
             # cookie for the token that replaced the one its request sent.

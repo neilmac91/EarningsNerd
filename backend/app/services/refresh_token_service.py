@@ -262,7 +262,7 @@ def rotate_and_commit(
     return user, new_raw_token
 
 
-def revoke_and_commit(db: Session, raw_token: Optional[str]) -> Optional[Tuple[int, str]]:
+def revoke_and_commit(db: Session, raw_token: Optional[str]) -> Optional[Tuple[int, Optional[str]]]:
     """Revoke one refresh token (logout) and commit when one was revoked.
 
     Returns the ``(id, email)`` of the user whose session it ended, read under the users row lock before
