@@ -17,9 +17,10 @@ status, so only the controller (or a serial run) keeps count and fails the run. 
 the run's config, so a pytester child in the same process keeps its own.
 
 The same steps check every session a PostgreSQL case opens (a case that takes ``postgres_engine``),
-as each one begins a transaction: it must not autoflush, and it must run on PostgreSQL. That holds
-however the case built the session, through an alias, a helper's argument or a module the home
-imports, which ``test_migration_lock_safety.py``'s reading of the source cannot follow;
+as each one begins a transaction: it must not autoflush, and it must run on the case's own engine,
+the one ``postgres_engine`` handed it, in the case's disposable schema. That holds however the case
+built the session, through an alias, a helper's argument or a module the home imports, which
+``test_migration_lock_safety.py``'s reading of the source cannot follow;
 ``test_postgres_gates_open_production_sessions.py`` runs this check in child pytest sessions.
 """
 from __future__ import annotations
@@ -51,28 +52,50 @@ def _armed_home(nodeid: str) -> str | None:
     return home if variable and os.environ.get(variable) else None
 
 
+def _root_engine(engine):
+    """The engine another was derived from: ``Engine.execution_options()`` returns a proxy of its engine."""
+    while (proxied := getattr(engine, "_proxied", None)) is not None:
+        engine = proxied
+    return engine
+
+
 @pytest.fixture(autouse=True)
 def _postgres_cases_open_production_sessions(request: pytest.FixtureRequest):
-    """When a gate's variable is set, each of its PostgreSQL cases opens every ORM session as production does:
-    autoflush off, on PostgreSQL. A session that autoflushes, or that runs on another database (the suite's SQLite
-    file, where the test conftest binds production's ``SessionLocal`` and the app's engine), fails the case at its
-    teardown. The listener only records, in whatever thread the session begins: an exception raised inside the event
-    would leave a transaction, and its locks, on a pooled connection."""
+    """When a gate's variable is set, each of its PostgreSQL cases opens every ORM session as production does,
+    autoflush off, on the case's own engine: the one ``postgres_engine`` handed it, which runs in the case's disposable
+    schema. A session that autoflushes, or that runs on another engine, fails the case at its teardown. Another engine
+    is the suite's SQLite file, where the test conftest binds production's ``SessionLocal`` and the app's engine, or a
+    second PostgreSQL engine, such as one built from the gate's URL, which runs outside the case's schema. The listener
+    only records, in whatever thread the session begins: an exception raised inside the event would leave a
+    transaction, and its locks, on a pooled connection."""
     home = _armed_home(request.node.nodeid)
-    if home is None or POSTGRES_ENGINE_FIXTURE not in request.fixturenames:
+    if home is None:
         yield
         return
-    unlike: list[str] = []
+    begun: list[tuple[str, bool, object]] = []
 
     def record(session: Session, transaction, connection) -> None:
-        if session.autoflush or connection.dialect.name != "postgresql":
-            unlike.append(f"{type(session).__name__} with autoflush={session.autoflush}, on {connection.dialect.name}")
+        begun.append((type(session).__name__, session.autoflush, connection.engine))
 
     event.listen(Session, "after_begin", record)
     try:
         yield
     finally:
         event.remove(Session, "after_begin", record)
+    # The case's fixture values stay on the item until its teardown ends. Engines are compared by identity, through
+    # any proxy: a pool taken as a session begins is no witness, since the engine's dispose() gives it a new one
+    # before this runs.
+    case_engine = (request.node.funcargs or {}).get(POSTGRES_ENGINE_FIXTURE)
+    if case_engine is None:
+        # A SQLite case, which takes no postgres_engine, or a PostgreSQL case whose fixtures did not set up: it has
+        # already errored, or skipped, and a skip fails the run.
+        return
+    unlike = [
+        f"{name} with autoflush={autoflush}, on "
+        + ("the case's engine" if _root_engine(engine) is case_engine else f"another {engine.dialect.name} engine")
+        for name, autoflush, engine in begun
+        if autoflush or _root_engine(engine) is not case_engine
+    ]
     if unlike:
         pytest.fail(
             f"postgres gate: {POSTGRES_GATES[home]} is set, yet this PostgreSQL case opened {len(unlike)} session(s) "
