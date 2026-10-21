@@ -6774,6 +6774,15 @@ Full local and hosted verification plus independent exact-head review precede re
   production not read live. No CODE RED spend; no ledger event; no other writer's paid run on GitHub. Chief defect
   19 (a repeated foreground sleep) and no classifier denial; one hook refusal of the chief's commands in the
   window, nothing running. Closure 193.
+- 2026-10-21 (record 43, `runtime/control/DECISIONS-43.md`): PR #1467 (record 42) merged `87e5331d` by the chief
+  under record 35's founder action 9, answered, on the founder's word (thirty-eighth deploy-skip proof), with no
+  classifier refusal, after its fact-check, three reviewer passes and Codex's clean reviews; its ready marking's
+  review gate passed on one re-run after an HTTP 503 from GitHub's API. Closure 194 registers record 42's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 44's reviewer. A
+  read-only survey of the window before the record was written. Three main merges, two of them other writers', no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run on
+  GitHub (#1455's). Chief defect 20 (a printed path name, the class of chief defect 14) and no classifier denial;
+  two hook refusals of the chief's commands in the window, nothing running. Closure 194.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
