@@ -1,18 +1,28 @@
-import NotableFilingCard from '@/features/filings/components/NotableFilingCard'
-import SectionImpression from '@/features/marketing/components/SectionImpression'
+import NotableFilingLine from '@/features/filings/components/NotableFilingLine'
+import FormCodeText from '@/features/marketing/components/FormCodeText'
+import LandingRow from '@/features/marketing/components/LandingRow'
 import type { NotableFilingsResponse } from '@/lib/serverApi'
 
 /**
- * DORMANT since 2026-10-11 (brand studio, docs/brand/01-interview.md A8): unmounted from app/page.tsx
- * because the week's list read as microcap 8-Ks under a "high-signal" heading. It returns under the
- * curation rule D-046 settled (10-K and 10-Q filings only, from companies that hold a full summary,
- * newest first, at most six) with tasks/todo.md E90; the fetcher, the card and the spec stay for that day.
+ * The label column's one line: what the feed is under D-046 (F3), in the terms of the backend's query
+ * (backend/app/services/notable_filings_service.py, `_fetch`): the past week's window, the two forms it serves,
+ * companies that hold a summary the filing page shows, and its order. It says nothing the query does not do, so no
+ * "high-signal" and no "across the whole market" (docs/brand/00-audit.md, T7).
+ */
+const LINE = 'The past week’s 10-K and 10-Q filings from companies with a summary to read, newest first.'
+
+/**
+ * Notable filings, a ruled row of the landing page (D-045) after Reporting this week. The backend serves D-046's
+ * curation rule from its own query (E90): 10-K and 10-Q filings only, from companies that hold a summary the filing
+ * page shows, newest first, one per company, at most six. This renders the filings it is served, in the order it
+ * serves them, as Reporting this week renders its companies: one hairline line each (NotableFilingLine), each opening
+ * its company page, in a list with a hairline above it, two across from 40rem at the reader's text size over a
+ * one-column base, never four (earningsnerd/no-four-up-grid). Each form code in the label column's line is one
+ * unbroken run (FormCodeText).
  *
- * Market-wide notable SEC filings from the past week (EDGAR-native; replaces the retired
- * "Trending Filings" section — tasks/homepage-sections-review-findings.md). Renders nothing at
- * all when there's nothing honest to show: the backend already enforces the contract (flag off,
- * fewer than 3 distinct companies in the 7-day window, or upstream failure → empty list), and a
- * sparse section on a sales surface is worse than absence (ReportingThisWeek precedent).
+ * Renders nothing at all when there is nothing to show: the backend answers an empty list while its flag is off, in
+ * a week with fewer than three such companies, and on its own failure, and a failed read is null. The row then takes
+ * no number among the rows, and the close follows the row before it.
  */
 export default function NotableFilings({
   data,
@@ -23,33 +33,14 @@ export default function NotableFilings({
   if (filings.length === 0) return null
 
   return (
-    <section
-      id="notable-filings"
-      aria-labelledby="notable-h"
-      className="border-t border-border-light py-20 dark:border-white/10 sm:py-24"
-    >
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-        <SectionImpression section="notable_filings">
-          <div className="mb-8">
-            <h2 id="notable-h" className="text-2xl">
-              Notable filings
-            </h2>
-            <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              High-signal SEC filings from the past week, across the whole market. Sourced from
-              EDGAR.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {filings.map((filing) => (
-              <NotableFilingCard
-                key={`${filing.ticker}-${filing.filed_date}`}
-                filing={filing}
-                asOf={data?.timestamp ?? ''}
-              />
-            ))}
-          </div>
-        </SectionImpression>
-      </div>
-    </section>
+    <LandingRow id="notable-filings" title="Notable filings" line={<FormCodeText text={LINE} />} impression="notable_filings">
+      <ul className="grid grid-cols-1 gap-x-10 border-t border-border-light dark:border-white/10 [@media(min-width:40rem)]:grid-cols-2">
+        {filings.map((filing) => (
+          <li key={`${filing.ticker}-${filing.filed_date}`} className="border-b border-border-light dark:border-white/10">
+            <NotableFilingLine filing={filing} />
+          </li>
+        ))}
+      </ul>
+    </LandingRow>
   )
 }
