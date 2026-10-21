@@ -116,11 +116,13 @@ describe('NotableFilings', () => {
 
     expect(within(screen.getByTestId('notable-filing-SMPA')).getByText('Quarterly report')).toBeInTheDocument()
     expect(within(screen.getByTestId('notable-filing-SMPB')).getByText('Annual report')).toBeInTheDocument()
-    // "10-Q · Filed X ago": the relative label is time-dependent, so assert its shape, not its value.
-    expect(screen.getByTestId('notable-filing-SMPA').textContent).toMatch(/10-Q\s*· Filed .* ago/)
-    // The middot keeps to the form code through a no-break space, so where the line wraps (a phone at 200% text) the
-    // next line starts with "Filed", never with the dot.
-    expect(screen.getByTestId('notable-filing-SMPA').textContent).toContain('10-Q · Filed ')
+    // "10-Q · Filed X ago": the relative label is time-dependent, so assert its shape, not its value. The middot is the
+    // search rows' separator: a no-break space keeps it to the form code, so where the line wraps (a phone at 200% text)
+    // the next line starts with "Filed", never with the dot, and assistive tech hears a comma in its place.
+    const card = screen.getByTestId('notable-filing-SMPA')
+    expect(card.textContent).toMatch(/10-Q\u00a0·, Filed .* ago/)
+    expect(within(card).getByText('·')).toHaveAttribute('aria-hidden', 'true')
+    expect(within(card).getByText(',')).toHaveClass('sr-only')
   })
 
   it('sets the form code as data-face text in one unbroken run, never an eyebrow chip', () => {

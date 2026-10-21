@@ -67,10 +67,17 @@ export default function NotableFilingCard({
         <div className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
           {/* A form code is text in the data face, never an eyebrow chip (DESIGN.md › Chips), and one unbroken run, so
               it never breaks at its hyphen on the landing (tests/e2e/reflow-200.spec.ts reads every row's codes). The
-              middot keeps to it through a no-break space, so where the line wraps (a phone at 200% text) the next line
-              starts with "Filed", never with the dot. */}
+              middot is the search rows' separator (FullTextSearch's Sep; DESIGN_SYSTEM.md, Filing identity): a no-break
+              space keeps it to the code, so where the line wraps (a phone at 200% text) the next line starts with
+              "Filed", never with the dot, and assistive tech hears a comma in its place. */}
           <span className="whitespace-nowrap font-data text-text-primary-light dark:text-text-primary-dark">{filing.form}</span>
-          {ago && ` · Filed ${ago}`}
+          {ago && (
+            <>
+              {'\u00a0'}
+              <span aria-hidden="true">·</span>
+              <span className="sr-only">,</span> Filed {ago}
+            </>
+          )}
         </div>
         <div className="mt-2">
           <Badge
