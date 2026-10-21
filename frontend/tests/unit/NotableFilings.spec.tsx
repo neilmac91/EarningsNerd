@@ -22,25 +22,40 @@ const mockAnalytics = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/analytics', () => ({ default: mockAnalytics, analytics: mockAnalytics }))
 
+/**
+ * The landing's Notable filings row (D-045) as the backend serves it under D-046's rule (F3, E90): 10-K and 10-Q
+ * filings only, newest first, one per company. The companies are samples, not real filings. The backend's query holds
+ * the rule (backend/tests/unit/test_notable_filings_service.py); this holds the row to rendering what it is served
+ * and nothing else, and the mount gate (landing-sections-mounted.spec.ts) holds its place on the page.
+ */
 const RESPONSE: NotableFilingsResponse = {
   filings: [
     {
-      ticker: 'AAPL',
-      company_name: 'Apple Inc.',
-      form: '8-K',
-      reason: 'earnings_results',
-      reason_label: 'Earnings results',
+      ticker: 'SMPA',
+      company_name: 'Sample Industries A Inc.',
+      form: '10-Q',
+      reason: 'quarterly_report',
+      reason_label: 'Quarterly report',
       filed_date: '2026-07-05',
-      sec_url: 'https://www.sec.gov/Archives/edgar/data/320193/x/',
+      sec_url: 'https://www.sec.gov/Archives/edgar/data/1/a/',
     },
     {
-      ticker: 'CRSP',
-      company_name: 'CRISPR Therapeutics AG',
-      form: 'SC 13D',
-      reason: 'activist_stake',
-      reason_label: 'Activist stake',
+      ticker: 'SMPB',
+      company_name: 'Sample Holdings B Corp.',
+      form: '10-K',
+      reason: 'annual_report',
+      reason_label: 'Annual report',
       filed_date: '2026-07-03',
-      sec_url: 'https://www.sec.gov/Archives/edgar/data/1/y/',
+      sec_url: 'https://www.sec.gov/Archives/edgar/data/2/b/',
+    },
+    {
+      ticker: 'SMPC',
+      company_name: 'Sample Partners C Ltd.',
+      form: '10-Q',
+      reason: 'quarterly_report',
+      reason_label: 'Quarterly report',
+      filed_date: '2026-07-01',
+      sec_url: 'https://www.sec.gov/Archives/edgar/data/3/c/',
     },
   ],
   status: 'ok',
@@ -52,39 +67,63 @@ describe('NotableFilings', () => {
     mockAnalytics.notableFilingClicked.mockClear()
   })
 
-  it('self-omits entirely on null data', () => {
+  it('self-omits entirely on null data (a failed read)', () => {
     const { container } = render(<NotableFilings data={null} />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('self-omits entirely on an empty list', () => {
+  it('self-omits entirely on an empty list (the backend omits a week with fewer than three companies)', () => {
     const { container } = render(
-      <NotableFilings data={{ filings: [], status: 'empty', timestamp: 't' }} />
+      <NotableFilings data={{ filings: [], status: 'empty', timestamp: '2026-07-06T00:00:00+00:00' }} />
     )
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders one card per filing, linking to the COMPANY page', () => {
+  it('is a ruled row named Notable filings, its line saying what the feed is', () => {
     render(<NotableFilings data={RESPONSE} />)
-
-    expect(screen.getByText('Notable filings')).toBeInTheDocument()
-    expect(screen.getByTestId('notable-filing-AAPL')).toHaveAttribute('href', '/company/AAPL')
-    expect(screen.getByTestId('notable-filing-CRSP')).toHaveAttribute('href', '/company/CRSP')
+    const row = screen.getByRole('region', { name: 'Notable filings' })
+    expect(row).toHaveAttribute('data-landing-row')
+    expect(row.id).toBe('notable-filings')
+    const heading = within(row).getByRole('heading', { level: 2, name: 'Notable filings' })
+    // The label column: the number, the title, then the one line.
+    expect([...heading.parentElement!.children].map((child) => child.tagName)).toEqual(['SPAN', 'H2', 'P'])
+    expect(heading.parentElement!.lastElementChild).toHaveTextContent(
+      /^The past week’s 10-K and 10-Q filings from companies with a summary to read, newest first\.$/,
+    )
   })
 
-  it('shows the honest reason chip and a relative filed date', () => {
+  it('renders the served cards and only those, in the served order, each opening its company page', () => {
     render(<NotableFilings data={RESPONSE} />)
-
-    expect(screen.getByText('Earnings results')).toBeInTheDocument()
-    expect(screen.getByText('Activist stake')).toBeInTheDocument()
-    // "8-K · Filed X ago": the relative label is time-dependent, so assert its shape, not its value.
-    expect(screen.getByTestId('notable-filing-AAPL').textContent).toMatch(/8-K\s*· Filed .* ago/)
+    const row = screen.getByRole('region', { name: 'Notable filings' })
+    const links = within(row).getAllByRole('link')
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/company/SMPA', '/company/SMPB', '/company/SMPC'])
+    expect(links.map((link) => link.getAttribute('data-testid'))).toEqual([
+      'notable-filing-SMPA',
+      'notable-filing-SMPB',
+      'notable-filing-SMPC',
+    ])
   })
 
-  it('sets the form code as data-face text, never an eyebrow chip', () => {
+  it('lays the cards out two across from 40rem at the reader’s text size, over a one-column base', () => {
     render(<NotableFilings data={RESPONSE} />)
-    const form = within(screen.getByTestId('notable-filing-AAPL')).getByText('8-K')
-    expect(form).toHaveClass('font-data', 'text-text-primary-light', 'dark:text-text-primary-dark')
+    const list = within(screen.getByRole('region', { name: 'Notable filings' })).getByRole('list')
+    expect(list).toHaveClass('grid', 'grid-cols-1', '[@media(min-width:40rem)]:grid-cols-2')
+    expect(within(list).getAllByRole('listitem')).toHaveLength(RESPONSE.filings.length)
+  })
+
+  it('shows the reason chip and a relative filed date', () => {
+    render(<NotableFilings data={RESPONSE} />)
+
+    expect(within(screen.getByTestId('notable-filing-SMPA')).getByText('Quarterly report')).toBeInTheDocument()
+    expect(within(screen.getByTestId('notable-filing-SMPB')).getByText('Annual report')).toBeInTheDocument()
+    // "10-Q · Filed X ago": the relative label is time-dependent, so assert its shape, not its value.
+    expect(screen.getByTestId('notable-filing-SMPA').textContent).toMatch(/10-Q\s*· Filed .* ago/)
+  })
+
+  it('sets the form code as data-face text in one unbroken run, never an eyebrow chip', () => {
+    render(<NotableFilings data={RESPONSE} />)
+    const form = within(screen.getByTestId('notable-filing-SMPB')).getByText('10-K')
+    expect(form).toHaveClass('font-data', 'whitespace-nowrap', 'text-text-primary-light', 'dark:text-text-primary-dark')
     expect(form.className).not.toMatch(/\b(uppercase|tracking-eyebrow)\b/)
     expect(form.parentElement?.className).not.toMatch(/\b(uppercase|tracking-eyebrow)\b/)
   })
@@ -92,11 +131,11 @@ describe('NotableFilings', () => {
   it('fires notable_filing_clicked with ticker/form/reason on click', () => {
     render(<NotableFilings data={RESPONSE} />)
 
-    fireEvent.click(screen.getByTestId('notable-filing-AAPL'))
+    fireEvent.click(screen.getByTestId('notable-filing-SMPB'))
     expect(mockAnalytics.notableFilingClicked).toHaveBeenCalledWith({
-      ticker: 'AAPL',
-      form: '8-K',
-      reason: 'earnings_results',
+      ticker: 'SMPB',
+      form: '10-K',
+      reason: 'annual_report',
     })
     expect(mockAnalytics.notableFilingClicked).toHaveBeenCalledTimes(1)
   })
@@ -104,19 +143,19 @@ describe('NotableFilings', () => {
   it('anchors the filed-ago label to the response timestamp, not the viewer clock', () => {
     // NotableFilingCard is a client component server-rendered into an ISR page. Before this was
     // anchored, the label came from the live clock, so HTML generated just before a UTC date
-    // boundary and hydrated just after it rendered two different strings — a hydration mismatch
+    // boundary and hydrated just after it rendered two different strings: a hydration mismatch
     // and a visible text swap. Same payload, two clocks either side of the boundary, one label.
     vi.useFakeTimers()
     try {
       vi.setSystemTime(new Date('2026-07-06T23:50:00Z'))
       const first = render(<NotableFilings data={RESPONSE} />)
-      const generated = screen.getByTestId('notable-filing-AAPL').textContent
+      const generated = screen.getByTestId('notable-filing-SMPA').textContent
       expect(generated).toContain('12 hours ago')
       first.unmount()
 
       vi.setSystemTime(new Date('2026-07-09T00:10:00Z'))
       render(<NotableFilings data={RESPONSE} />)
-      expect(screen.getByTestId('notable-filing-AAPL').textContent).toBe(generated)
+      expect(screen.getByTestId('notable-filing-SMPA').textContent).toBe(generated)
     } finally {
       vi.useRealTimers()
     }

@@ -27,8 +27,9 @@ const HOME_COMPONENT = 'Home'
 const LIVE_DATA_SECTIONS: ReadonlyArray<readonly [string, string]> = [
   ['LandingHero', 'fetchExampleData'],
   ['ReportingThisWeek', 'fetchReportingThisWeek'],
-  // NotableFilings left this list on 2026-10-11 (brand studio, docs/brand/01-interview.md A8). It waits on
-  // E90, which remounts it under D-046's curation rule; the component and fetcher remain for that day.
+  // NotableFilings left this list on 2026-10-11 (brand studio, docs/brand/01-interview.md A8) and came back with
+  // E90, once the backend's query served D-046's curation rule.
+  ['NotableFilings', 'fetchNotableFilings'],
   ['PricingSection', 'fetchSignupConfig'],
 ]
 
@@ -134,6 +135,7 @@ const ROWS = [
   'PricingSection',
   'ReaderQuoteSlot',
   'ReportingThisWeek',
+  'NotableFilings',
 ] as const
 const HERO = 'LandingHero'
 const CLOSE = 'ClosingLine'

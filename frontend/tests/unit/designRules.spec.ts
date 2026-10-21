@@ -937,8 +937,19 @@ describe('the repository config', SLOW, () => {
     const probe = "export const TILES = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'\n"
     const rules = async (file: string) =>
       (await eslint.lintText(probe, { filePath: path.join(frontendRoot, file) }))[0].messages.map((m) => m.ruleId)
-    expect(LANDING_GRID_FILES).toEqual(['app/page.tsx', 'features/marketing/**/*.{ts,tsx}', 'features/calendar/components/ReportingThisWeek.tsx'])
-    for (const file of ['app/page.tsx', 'features/marketing/components/Probe.tsx', 'features/marketing/lib/probe.ts', 'features/calendar/components/ReportingThisWeek.tsx']) {
+    expect(LANDING_GRID_FILES).toEqual([
+      'app/page.tsx',
+      'features/marketing/**/*.{ts,tsx}',
+      'features/calendar/components/ReportingThisWeek.tsx',
+      'features/filings/components/NotableFilings.tsx',
+    ])
+    for (const file of [
+      'app/page.tsx',
+      'features/marketing/components/Probe.tsx',
+      'features/marketing/lib/probe.ts',
+      'features/calendar/components/ReportingThisWeek.tsx',
+      'features/filings/components/NotableFilings.tsx',
+    ]) {
       expect(await rules(file), file).toEqual(['earningsnerd/no-four-up-grid'])
     }
     // The analysis page's KPI strip is four-up on its own page; the landing demos it inside a three-column override.

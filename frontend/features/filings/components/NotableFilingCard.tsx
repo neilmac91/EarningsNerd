@@ -65,8 +65,9 @@ export default function NotableFilingCard({
           </span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-          {/* A form code is text in the data face, never an eyebrow chip (DESIGN.md › Chips). */}
-          <span className="font-data text-text-primary-light dark:text-text-primary-dark">{filing.form}</span>
+          {/* A form code is text in the data face, never an eyebrow chip (DESIGN.md › Chips), and one unbroken run, so
+              it never breaks at its hyphen on the landing (tests/e2e/reflow-200.spec.ts reads every row's codes). */}
+          <span className="whitespace-nowrap font-data text-text-primary-light dark:text-text-primary-dark">{filing.form}</span>
           {ago && <span>· Filed {ago}</span>}
         </div>
         <div className="mt-2">

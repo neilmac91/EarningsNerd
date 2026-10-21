@@ -295,7 +295,10 @@ export const noSideStripe = {
 /** The landing's own composition, which no-four-up-grid reads (eslint.config.mjs): the route, every marketing module,
  *  and the sections the route mounts from other features. A section mounted from elsewhere joins
  *  LANDING_SECTIONS_ELSEWHERE in the same change (tests/unit/landing-sections-mounted.spec.ts fails until it does). */
-export const LANDING_SECTIONS_ELSEWHERE = ['features/calendar/components/ReportingThisWeek.tsx']
+export const LANDING_SECTIONS_ELSEWHERE = [
+  'features/calendar/components/ReportingThisWeek.tsx',
+  'features/filings/components/NotableFilings.tsx',
+]
 export const LANDING_GRID_FILES = ['app/page.tsx', 'features/marketing/**/*.{ts,tsx}', ...LANDING_SECTIONS_ELSEWHERE]
 
 /** Top-level parts of a CSS value, split on `separator` outside parentheses and brackets. */
