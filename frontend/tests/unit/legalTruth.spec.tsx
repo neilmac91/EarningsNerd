@@ -1289,6 +1289,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // merely", a second predicate after "and", another clause; and a plain phrase past the reach's four words, which
       // the comma aside below lets through.
       ['<li>Logging out does not just log you out here; it ends every session.</li>', true],
+      // The affirmative beside the denials the reach admits (the design recheck on 2b30fe47).
+      ['<li>Logging out ends your other sessions.</li>', true],
       ['<li>Logging out not only clears this browser but ends every other session.</li>', true],
       ['<li>Logging out does not only end this session but every session on the account.</li>', true],
       ['<li>Logging out does not merely end this session but signs you out of every device.</li>', true],
@@ -1531,6 +1533,19 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       'app/routers/e.py:2 audit_service (the audit service) is used other than as audit_service.<name>, so the walk cannot follow what it calls',
       'app/routers/e.py:2 create_audit_log is named but not called, so the walk cannot read its action',
     ])
+    // The design recheck's pair on 2b30fe47: the same call imported directly and under an alias writes the same
+    // action, and an alias imported but never used is neither written nor reported.
+    const service = ['def create_audit_log(db, action):', '    return None'].join('\n')
+    const recheck: Array<[string, string[]]> = [
+      [['from app.services.audit_service import create_audit_log', 'create_audit_log(db, action="new_action")'].join('\n'), ['new_action']],
+      [['from app.services.audit_service import create_audit_log as write_audit', 'write_audit(db, action="new_action")'].join('\n'), ['new_action']],
+      ['from app.services.audit_service import create_audit_log as write_audit', []],
+    ]
+    for (const [router, actions] of recheck) {
+      const walked = auditActions({ 'app/services/audit_service.py': service, 'app/routers/f.py': router })
+      expect([...walked.written], router).toEqual(actions)
+      expect(walked.unread, router).toEqual([])
+    }
   })
 })
 
