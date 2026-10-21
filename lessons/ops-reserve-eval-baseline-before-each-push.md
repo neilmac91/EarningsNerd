@@ -1,56 +1,60 @@
-# Reserve for `eval-baseline` before opening, and before each push to, a pull request whose diff touches `backend/app/`, `backend/evals/` or `backend/prompts/`: it draws on every push, drafts included
+# Reserve for `eval-baseline` before opening a pull request and before each push to it: it draws on every push, drafts included
 
 Date: 2026-10-21   Area: ops / evals / spend
 
-**Context**: #1451 (E137's second half: the logout route and `refresh_token_service.py`) was pushed
-three times as a draft, at 03:07Z, 03:48Z and 04:16Z on 2026-10-21. Its session counted one paid run,
-the ready mark's `copilot-eval`, and planned its balance read and reservation for the ready mark.
+**Context**: CI's `eval-baseline` job runs the full verified set against DeepSeek. It runs on every
+`pull_request` event whose diff against its base touches `backend/app/*`, `backend/evals/*` or
+`backend/prompts/*`, draft or not, and on any dispatch of CI. Record 18 measured four runs at USD
+0.35–0.36 each, all at peak pricing, and reserves USD 0.73 a push: the dearest run × 2, rounded up.
+`AGENTS.md` §3 prices a run at "about USD 0.30". No file a session reads at start says when it runs.
 
-CI's `eval-baseline` job also draws. It runs the full verified set against DeepSeek on every
-`pull_request` event, draft or not, whose diff against its base touches `backend/app/*`,
-`backend/evals/*` or `backend/prompts/*`. It was measured at USD 0.35–0.36 a run. Each of the three
-pushes ran it to the end, and no reservation was written for any of them. The balance went from USD
-12.54 (00:31Z) to 12.21 (03:51Z) to 11.88 (04:19Z), about USD 0.33 a run.
+On 2026-10-20 the principal session read the balance before #1325's push and before #1437's second
+push, and reserved for both runs at §3's figure. #1437's first push, at 20:56Z, had no reservation of
+its own; #1325's after-draw reading named its run. Those evening runs read about USD 0.16 each.
 
-The same session's two pushes to #1437 the evening before (20:56Z and 21:58Z, a notable-filings
-service change) had run it too, and #1437's spend comments counted only `copilot-eval`. That makes
-five runs, about USD 1.7, with no reservation.
-
-`AGENTS.md` §3 authorizes bounded measurement spend after a balance read, and it prices an
-`eval-baseline` run. But `AGENTS.md` §6 and the ready-mark section of
-`ops-keep-moving-under-standing-authorization.md` name only `copilot-eval` and the ready mark, and
-that is where the session looked.
+Hours later the same session drove #1451, the logout route and `refresh_token_service.py`. It counted
+only the ready mark's `copilot-eval`, and pushed the draft three times (2026-10-21 03:07Z, 03:48Z and
+04:16Z). Each push ran `eval-baseline` to the end, and no reservation was written for any of them. The
+balance read USD 12.54, 12.21 and 11.88 around them, about USD 0.33 a run. The readings cannot
+separate production traffic.
 
 **Rule**:
-- **Opening the pull request.** Read the balance first (`deepseek-balance.yml`, which makes no inference
-  call). Then state the reservation in the body as you open it: USD 0.73 for each push you expect (the
-  dearest measured run × 2), plus USD 0.06 for the ready mark's `copilot-eval` when the diff matches its
-  `paths:`. The scope is the pull request's whole diff against its base, so it covers:
-  - a later push that changes only tests or records;
+- **Opening the pull request.** If its diff touches those paths, read the balance first
+  (`deepseek-balance.yml`, which makes no inference call). Then state the reservation in the body as
+  you open it: USD 0.73 for each push you expect, and USD 0.06 for each `copilot-eval` draw (the ready
+  mark, and each push while ready) when the diff matches that workflow's `paths:`. A branch with no
+  pull request runs no `pull_request` CI, so the opening is the first paid event. A dispatch of CI on
+  the branch comes before it, though, and runs `eval-baseline` whatever the diff.
+- **Each push.** Every push re-runs it on the whole diff, draft or ready, including:
+  - a commit that changes only tests or records;
   - a merge of `main`.
 
-  A branch with no pull request runs no `pull_request` CI, so opening the pull request is the first
-  paid event.
-- **Each push.** Every push to such a pull request runs `eval-baseline` again, draft or ready. Before a
-  push beyond the count you reserved, reserve again. Put a review round's fixes in one push, since each
-  push costs a run.
-- **A superseding push.** It cancels a run still in progress (`concurrency: eval-baseline-<number>`), but
-  the cancelled run has already drawn for the minutes it ran. Count it.
-- **The after-draw reading.** It counts the `eval-baseline` runs beside the `copilot-eval` draw, with the
-  run links, so the reading is not read as one draw's cost.
+  So does a close and reopen, or a re-run of CI: `eval-baseline` has no once-per-head gate, as
+  `copilot-eval` has. Reserve again before any run beyond the count you reserved. Put a review
+  round's fixes in one push.
+- **A superseding push.** It cancels a run still in progress (`cancel-in-progress`), but the cancelled
+  run has drawn for the minutes it ran. Count it.
+- **The after-draw reading.** Name the `eval-baseline` runs beside the `copilot-eval` draw, with their
+  links, so the reading is not taken for one draw's cost.
 
 **Evidence**:
-- `.github/workflows/ci.yml:444-453`: the job, its `pull_request` trigger with no draft condition, and
-  its concurrency group.
-- `.github/workflows/ci.yml:493`: the paths that arm it.
-- `tasks/refactor-plan-2026-10.md:327,329`: the measured cost and the USD 0.73 reservation rule.
-- `AGENTS.md:67`: the §3 authorization.
-- #1451's spend comment [6308009782](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308009782):
-  the three runs and the readings.
-- #1437's CI runs [39496203700](https://github.com/neilmac91/EarningsNerd/actions/runs/39496203700)
-  and [39504563191](https://github.com/neilmac91/EarningsNerd/actions/runs/39504563191): their
-  `eval-baseline` jobs each ran the eval for nine to ten minutes.
+- `.github/workflows/ci.yml:3-7`: CI's triggers, `pull_request` with the default types and the
+  dispatch.
+- `.github/workflows/ci.yml:444-454`: the job, its trigger with no draft condition, and its
+  concurrency group.
+- `.github/workflows/ci.yml:493`: the paths that start it on a pull request.
+- `.github/workflows/copilot-eval.yml:5,54`: `copilot-eval`'s events, and its skip of drafts.
+- `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:119-127`: the measured cost and the USD
+  0.73 rule.
+- `AGENTS.md:67`: §3's authorization and its figure.
+- #1325's comments 6301441477 and 6302848458, and #1437's 6302657918 and 6303149706: the evening's
+  reservations and readings.
+- #1451's comment
+  [6308009782](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308009782): the
+  three runs and the readings.
 
-**Gate**: none; review-checked. A push hook cannot see a reservation. Running `eval-baseline` only on
-the ready mark, as `copilot-eval` does, would save about USD 0.35 a draft push and give up the
-draft-time signal. That is a CI workflow change and the founder's call.
+**Gate**: none; review-checked.
+- A hook on the GitHub write that opens a pull request could look for a reservation in its body. It
+  would miss each later push, a dispatch of CI, and a session that loads no repository hooks.
+- Running `eval-baseline` only while a pull request is ready, as `copilot-eval` runs, would save its
+  draft runs and lose their signal. That is a CI change and the founder's call.

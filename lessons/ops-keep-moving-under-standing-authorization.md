@@ -68,8 +68,9 @@ rule `AGENTS.md` §6 names (`DECISIONS-09`). The CODE RED ledger is the chief's 
 session states the reservation on the pull request, reads the balance again after the draw and posts
 that reading there too; the chief settles the reservation in the ledger from the two readings. §3
 already authorizes that bounded spend after the balance read. A pull request whose diff touches
-`backend/app/`, `backend/evals/` or `backend/prompts/` draws before the mark too, on every push, draft or not
-(`eval-baseline`; `ops-reserve-eval-baseline-before-each-push.md`). The session merges the pull request
+`backend/app/`, `backend/evals/` or `backend/prompts/` also draws before the mark, on every push,
+draft or not, so the session reserves for that from its opening (`eval-baseline`;
+`ops-reserve-eval-baseline-before-each-push.md`). The session merges the pull request
 once Codex and CI are green and the draw is green or triaged as not the pull request's by
 `backend/evals/RUNBOOK.md`'s rule for a red `copilot-eval` run, never drawn again to get a green
 one; one that deploys the backend merges alone, after the previous deploy is verified, and its own
