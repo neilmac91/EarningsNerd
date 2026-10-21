@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
@@ -16,6 +16,7 @@ import Header from '@/components/Header'
 import DashboardPage from '@/app/dashboard/page'
 import WatchlistDashboardPage from '@/app/dashboard/watchlist/page'
 import AdminLayout from '@/app/admin/layout'
+import { LOGOUT_CALL_SITES } from './logoutCallSites'
 
 /**
  * A logout whose request fails (a network error, a 5xx, the API's 504) asks /me before it acts, from every control
@@ -34,7 +35,7 @@ import AdminLayout from '@/app/admin/layout'
  * lost session.
  */
 
-const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }))
+const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }))
 const toasts = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
 const tracked = vi.hoisted(() => ({ identify: vi.fn(), logout: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => nav, usePathname: () => '/dashboard' }))
@@ -110,7 +111,43 @@ const newClient = () => {
   return client
 }
 
+/** Every write to window.location (itself or a part of it) and every load it is asked for, recorded and not run. The
+    page reads the real location through it; `location` and `window.location` are the same global here. It stands on an
+    empty object: jsdom's location holds assign, replace and reload as fixed properties, which a proxy of it cannot
+    report as anything else. */
+const locationChanges: string[] = []
+const realLocation = window.location
+const realLocationProperty = Object.getOwnPropertyDescriptor(window, 'location') as PropertyDescriptor
+const recordingLocation = new Proxy({} as Location, {
+  get(_stand, key) {
+    if (key === 'assign' || key === 'replace' || key === 'reload') {
+      return (...args: unknown[]) => { locationChanges.push(`location.${key}(${args.map(String).join(', ')})`) }
+    }
+    const value: unknown = Reflect.get(realLocation, key, realLocation)
+    return typeof value === 'function' ? value.bind(realLocation) : value
+  },
+  set(_target, key, value) {
+    locationChanges.push(`location.${String(key)} = ${String(value)}`)
+    return true
+  },
+})
+/** The history moves, held for each case so none runs. */
+const historyMoves: MockInstance[] = []
+/** No navigation of any kind: none of the router's moves, no history move, nothing set on or loaded by window.location. */
+const expectNoNavigation = () => {
+  for (const move of ['push', 'replace', 'back', 'forward', 'refresh'] as const) expect(nav[move], `router.${move}`).not.toHaveBeenCalled()
+  for (const move of ['back', 'forward', 'go'] as const) expect(window.history[move], `history.${move}`).not.toHaveBeenCalled()
+  expect(locationChanges, 'window.location').toEqual([])
+}
+
 beforeEach(() => {
+  locationChanges.length = 0
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    get: () => recordingLocation,
+    set: (value: unknown) => { locationChanges.push(`location = ${String(value)}`) },
+  })
+  for (const move of ['back', 'forward', 'go'] as const) historyMoves.push(vi.spyOn(window.history, move).mockImplementation(() => {}))
   advanceSessionGeneration()
   clearSessionActive()
   Object.assign(server, { me: ok(reader), logout: ok({ status: 'success' }), refresh: refused, renewed: false, requests: [] })
@@ -128,13 +165,17 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear())
   api.defaults.adapter = originalAdapter
   onlineManager.setOnline(true)
+  Object.defineProperty(window, 'location', realLocationProperty)
+  historyMoves.splice(0).forEach((spy) => spy.mockRestore())
   vi.clearAllMocks()
 })
 
-/** Each control that logs out: what shows its page loaded and signed in, its Log out, where a successful logout goes,
- *  what shows the reader still signed in with a Log out to press again, and the control that opened its menu. */
+/** Each control that logs out: the file its call of logoutAndResetAccount sits in (LOGOUT_CALL_SITES), what shows its
+ *  page loaded and signed in, its Log out, where a successful logout goes, what shows the reader still signed in with a
+ *  Log out to press again, and the control that opened its menu. */
 const CONTROLS = {
   'account menu': {
+    site: 'features/auth/components/UserMenu.tsx',
     render: () => render(<QueryClientProvider client={newClient()}><Header /></QueryClientProvider>),
     loaded: () => screen.findByRole('button', { name: 'Account menu' }),
     logOut: () => {
@@ -149,6 +190,7 @@ const CONTROLS = {
     opener: () => screen.getByRole('button', { name: 'Account menu' }),
   },
   'mobile menu': {
+    site: 'components/Header.tsx',
     render: () => render(<QueryClientProvider client={newClient()}><Header /></QueryClientProvider>),
     loaded: () => screen.findByRole('button', { name: 'Account menu' }),
     logOut: () => {
@@ -163,6 +205,7 @@ const CONTROLS = {
     opener: () => screen.getByRole('button', { name: 'Open menu' }),
   },
   dashboard: {
+    site: 'app/dashboard/page.tsx',
     render: () => render(<QueryClientProvider client={newClient()}><DashboardPage /></QueryClientProvider>),
     loaded: () => screen.findByText('Welcome back, Reader'),
     logOut: () => screen.getByRole('button', { name: 'Log out' }),
@@ -175,6 +218,12 @@ const CONTROLS = {
   },
 } as const
 const controls = Object.keys(CONTROLS) as (keyof typeof CONTROLS)[]
+
+describe('the controls whose failure cases run below', () => {
+  it('include one for each call of logoutAndResetAccount the gate inventories, so a new one gets its cases', () => {
+    expect(controls.map((name) => CONTROLS[name].site).sort()).toEqual(Object.keys(LOGOUT_CALL_SITES).sort())
+  })
+})
 
 describe.each(controls)('a logout from the %s', (name) => {
   const control = CONTROLS[name]
@@ -192,8 +241,7 @@ describe.each(controls)('a logout from the %s', (name) => {
     expect(meReads()).toBe(2)
     await control.signedIn()
     await settle()
-    expect(nav.push).not.toHaveBeenCalled()
-    expect(nav.refresh).not.toHaveBeenCalled()
+    expectNoNavigation()
     expect(tracked.logout).not.toHaveBeenCalled()
     expect(refreshAccessToken).not.toHaveBeenCalled()
     expect(hasActiveSession()).toBe(true)
@@ -207,7 +255,7 @@ describe.each(controls)('a logout from the %s', (name) => {
     expect(meReads()).toBe(3)
     await control.signedIn()
     await settle()
-    expect(nav.push).not.toHaveBeenCalled()
+    expectNoNavigation()
     expect(tracked.logout).not.toHaveBeenCalled()
     expect(hasActiveSession()).toBe(true)
   })
@@ -244,8 +292,7 @@ describe.each(controls)('a logout from the %s', (name) => {
     expect(meReads()).toBe(2)
     await control.signedIn()
     await settle()
-    expect(nav.push).not.toHaveBeenCalled()
-    expect(nav.refresh).not.toHaveBeenCalled()
+    expectNoNavigation()
     expect(hasActiveSession()).toBe(true)
   })
 })
@@ -262,6 +309,8 @@ describe.each(['account menu', 'mobile menu'] as const)('a logout from the %s th
     fireEvent.click(logOut)
     await waitFor(() => expect(toasts.error).toHaveBeenCalledWith(LOGOUT_FAILED_MESSAGE))
     await waitFor(() => expect(document.activeElement).toBe(control.opener()))
+    await settle()
+    expectNoNavigation()
   })
 })
 
@@ -286,11 +335,11 @@ describe('the dashboard while a failed logout reads /me', () => {
     await settle()
     screen.getByText('Welcome back, Reader')
     screen.getByRole('button', { name: 'Account menu' })
-    expect(nav.push).not.toHaveBeenCalled()
+    expectNoNavigation()
     check.resolve(reader)
     await waitFor(() => expect(toasts.error).toHaveBeenCalledWith(LOGOUT_FAILED_MESSAGE))
     await settle()
-    expect(nav.push).not.toHaveBeenCalled()
+    expectNoNavigation()
   })
 })
 
@@ -341,8 +390,7 @@ describe.each(Object.keys(GUARDED) as (keyof typeof GUARDED)[])('%s, when the fi
     expect(within(card).getByRole('link', { name: 'Go to login' })).toHaveAttribute('href', '/login')
     await settle()
     expect(meReads()).toBe(1)
-    expect(nav.push).not.toHaveBeenCalled()
-    expect(nav.replace).not.toHaveBeenCalled()
+    expectNoNavigation()
     // Pressed from the keyboard: /me is read again, the route replaces the card, and focus goes to it.
     server.me = ok(route.user)
     retry.focus()
@@ -350,8 +398,7 @@ describe.each(Object.keys(GUARDED) as (keyof typeof GUARDED)[])('%s, when the fi
     const target = await route.loaded()
     await waitFor(() => expect(document.activeElement).toBe(target))
     expect(meReads()).toBe(2)
-    expect(nav.push).not.toHaveBeenCalled()
-    expect(nav.replace).not.toHaveBeenCalled()
+    expectNoNavigation()
   })
 })
 
