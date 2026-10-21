@@ -32,8 +32,9 @@ separate production traffic.
   So does a close and reopen, or a re-run of CI: `eval-baseline` has no once-per-head gate, as
   `copilot-eval` has. Reserve again before any run beyond the count you reserved. Put a review
   round's fixes in one push.
-- **A superseding push.** It cancels a run still in progress (`cancel-in-progress`), but the cancelled
-  run has drawn for the minutes it ran. Count it.
+- **A superseding push.** It cancels a run still in progress (`cancel-in-progress`). A run cancelled
+  after its `Run baseline eval` step started has drawn for the minutes that step ran: count it. One
+  cancelled before that step drew nothing. When its log does not show which, count it in full.
 - **The after-draw reading.** Name the `eval-baseline` runs beside the `copilot-eval` draw, with their
   links, so the reading is not taken for one draw's cost.
 
@@ -53,8 +54,11 @@ separate production traffic.
   [6308009782](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308009782): the
   three runs and the readings.
 
-**Gate**: none; review-checked.
+**Gate**: none yet; review-checked until founder row F54 picks the gate's form.
 - A hook on the GitHub write that opens a pull request could look for a reservation in its body. It
   would miss each later push, a dispatch of CI, and a session that loads no repository hooks.
-- Running `eval-baseline` only while a pull request is ready, as `copilot-eval` runs, would save its
-  draft runs and lose their signal. That is a CI change and the founder's call.
+- Gating it at the workflow changes every writer's spend process, so F54 holds two forms:
+  - the job skips its paid step unless the pull request's body states a reservation, while the
+    CODE RED chief reserves in its ledger today;
+  - it runs only while a pull request is ready, as `copilot-eval` does, which gives up the drafts'
+    signal.
