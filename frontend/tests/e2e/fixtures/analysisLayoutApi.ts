@@ -195,26 +195,16 @@ export const EXPECTED_TABLE_COMPARISON_REVIEWS = {
   discrepancy: { all: 3, earliest: 0, newest: 3 },
 } as const
 
-export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState | AnalysisGeometryState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false) {
+/**
+ * The analysis page's API for a signed-in Pro reader, answered in the browser: META's company, coverage, dataset
+ * and narrative stream from `fixture` (the legacy state by default). Only the target frontend's own GET and HEAD
+ * reads reach the network; anything else is aborted, and an API path the page should not call is answered 404 and
+ * recorded in the returned traffic. Shared by openAnalysis and text-floors.spec.ts's /analysis entry.
+ */
+export async function answerAnalysisApi(page: Page, baseURL: string, fixture: Fixture = fixtureFor('legacy')) {
   const origin = new URL(baseURL).origin
-  const fixture = state === 'captured' || state === 'edge' || state === 'annual' ? geometryFixture(state) : fixtureFor(state)
-  if (legacyEvidenceNote) {
-    expect(state).toBe('legacy')
-    // The archived long FCF/net-income group has only passed citations. Give one
-    // operand the existing legacy concern for the folded-letter browser case;
-    // retain its financial value, calculation and source fields unchanged.
-    const operand = fixture.completion.citations.find(citation => citation.n === 23)!
-    operand.reconciled = false
-    operand.provenance = { ...operand.provenance!, validation: 'needs_review', reasons: ['legacy_calculation'] }
-  }
   const traffic = { dataset: 0, stream: 0, unexpectedApi: [] as string[], submittedRanges: [] as unknown[] }
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
-  await page.addInitScript(({ theme, textScale }) => {
-    localStorage.setItem('theme', theme)
-    localStorage.setItem('cookie_consent', JSON.stringify({ necessary: true, analytics: false, marketing: false, timestamp: '2026-10-10T00:00:00Z' }))
-    // Root text-size emulation, not a claim about native browser zoom. Apply before render.
-    if (textScale !== 1) document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${100 * textScale}%` }, { once: true })
-  }, { theme, textScale })
   await page.route('**/*', route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -249,12 +239,39 @@ export async function openAnalysis(page: Page, baseURL: string, state: AnalysisS
     if (url.origin === origin && ['GET', 'HEAD'].includes(request.method())) return route.continue()
     return route.abort()
   })
-  await page.goto('/analysis?ticker=META')
-  await page.getByRole('button', { name: fixture.dataset.mode === 'annual' ? 'Annual' : 'Quarterly', exact: true }).click()
+  return traffic
+}
+
+/** Runs the analysis in `mode` on /analysis?ticker=META, then waits for what only a finished run shows: the four KPI
+    cards, the metrics table's heading and the refresh control. */
+export async function runAnalysis(page: Page, mode: AnalysisDataset['mode']) {
+  await page.getByRole('button', { name: mode === 'annual' ? 'Annual' : 'Quarterly', exact: true }).click()
   await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
   await expect(page.locator('[data-analysis-kpi]')).toHaveCount(4)
   await expect(page.getByRole('heading', { name: 'Metrics by period', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Refresh analysis', exact: true })).toBeVisible()
+}
+
+export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState | AnalysisGeometryState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false) {
+  const fixture = state === 'captured' || state === 'edge' || state === 'annual' ? geometryFixture(state) : fixtureFor(state)
+  if (legacyEvidenceNote) {
+    expect(state).toBe('legacy')
+    // The archived long FCF/net-income group has only passed citations. Give one
+    // operand the existing legacy concern for the folded-letter browser case;
+    // retain its financial value, calculation and source fields unchanged.
+    const operand = fixture.completion.citations.find(citation => citation.n === 23)!
+    operand.reconciled = false
+    operand.provenance = { ...operand.provenance!, validation: 'needs_review', reasons: ['legacy_calculation'] }
+  }
+  await page.addInitScript(({ theme, textScale }) => {
+    localStorage.setItem('theme', theme)
+    localStorage.setItem('cookie_consent', JSON.stringify({ necessary: true, analytics: false, marketing: false, timestamp: '2026-10-10T00:00:00Z' }))
+    // Root text-size emulation, not a claim about native browser zoom. Apply before render.
+    if (textScale !== 1) document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${100 * textScale}%` }, { once: true })
+  }, { theme, textScale })
+  const traffic = await answerAnalysisApi(page, baseURL, fixture)
+  await page.goto('/analysis?ticker=META')
+  await runAnalysis(page, fixture.dataset.mode)
   await page.evaluate(() => document.fonts.ready)
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
   expect(traffic.dataset).toBe(1)

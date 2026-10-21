@@ -6,8 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import ContactSubmission
 from app.schemas.contact import ContactSubmissionCreate, ContactSubmissionResponse
+from app.services.contact_submission_service import (
+    ContactPersistenceError,
+    persist_contact_submission,
+)
 from app.services.resend_service import ResendError, send_email
 from app.services.turnstile import enforce_turnstile
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit, get_client_ip as _trusted_client_ip
@@ -73,23 +76,18 @@ async def submit_contact_form(
     # Hash the client IP for the persisted row (privacy) — never store the raw address.
     hashed_ip = hash_ip_address(get_client_ip(request))
 
-    # Create database entry (store hashed IP for privacy)
-    db_submission = ContactSubmission(
-        name=submission.name,
-        email=submission.email,
-        subject=submission.subject,
-        message=submission.message,
-        status="new",
-        ip_address=hashed_ip,  # Store hashed IP instead of plaintext
-    )
-
     try:
-        db.add(db_submission)
-        db.commit()
-        db.refresh(db_submission)
-        logger.info(f"Contact submission created: ID={db_submission.id}")
-    except Exception as e:
-        db.rollback()
+        db_submission = persist_contact_submission(
+            db,
+            name=submission.name,
+            email=submission.email,
+            subject=submission.subject,
+            message=submission.message,
+            ip_address=hashed_ip,
+            logger=logger,
+        )
+    except ContactPersistenceError as failure:
+        e = failure.__cause__
         logger.error(f"Database error creating contact submission: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

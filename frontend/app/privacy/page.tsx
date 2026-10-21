@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { ACCOUNT_EVENTS_DISCLOSURE, ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 import { LEGAL_DATES } from '@/lib/legalDates'
 
 export const metadata: Metadata = {
@@ -98,6 +99,7 @@ export default function PrivacyPage() {
               technical issues quickly.
             </li>
           </ul>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">{ACCOUNT_EVENTS_DISCLOSURE}</p>
         </section>
 
         <section className="mt-8">
@@ -116,14 +118,14 @@ export default function PrivacyPage() {
               <strong>Essential Cookies:</strong> Required for the website to function (authentication, security, session management). These cannot be disabled.
             </li>
             <li>
-              <strong>Analytics Cookies:</strong> Help us understand how visitors use our site (PostHog). You can opt-in or opt-out via our cookie consent banner.
+              <strong>Analytics Cookies:</strong> {ANALYTICS_CONSENT_CLAUSE} You can opt-in or opt-out via our cookie consent banner.
             </li>
             <li>
               <strong>Session Recording:</strong> Records your interactions to help identify bugs (PostHog). This is opt-in only and masks sensitive information like passwords.
             </li>
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. We respect the &quot;Do Not Track&quot; browser setting and will not track users who have enabled it.
+            You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. Analytics and session recording in your browser stay off until you allow them, and you can change your choice at any time in Cookie settings. We don&apos;t change this based on your browser&apos;s Do Not Track setting.
           </p>
         </section>
 
@@ -267,7 +269,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Right to Restrict Processing:</strong> You can request that we limit how we use your data by contacting us at{' '}
-              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 privacy@earningsnerd.io
               </a>
               .
@@ -307,7 +309,7 @@ export default function PrivacyPage() {
             Our services are not directed to individuals under the age of 13 (or 16 in the EEA). We do not knowingly collect personal
             information from children under these ages. If you become aware that a child has provided us with personal
             information without parental consent, please contact us at{' '}
-            <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+            <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
               privacy@earningsnerd.io
             </a>
             , and we will take immediate steps to delete such information.
@@ -347,13 +349,13 @@ export default function PrivacyPage() {
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark mt-4">
             <li>
               <strong>Privacy Inquiries:</strong>{' '}
-              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 privacy@earningsnerd.io
               </a>
             </li>
             <li>
               <strong>General Support:</strong>{' '}
-              <a href="mailto:hello@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:hello@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 hello@earningsnerd.io
               </a>
             </li>

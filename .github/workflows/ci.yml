@@ -647,6 +647,12 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
           WAITLIST_MODE: 'false'
           NEXT_PUBLIC_ENABLE_ANALYSIS: 'true'
+          # The browser gates paint /calendar and /search too (tests/e2e/text-floors.spec.ts, reflow-200.spec.ts).
+          # This job runs no backend, so the calendar reads its own fixtures (features/calendar/api/calendar-api.ts)
+          # and the specs answer the search in the browser.
+          NEXT_PUBLIC_ENABLE_CALENDAR: 'true'
+          NEXT_PUBLIC_CALENDAR_FIXTURES: 'true'
+          NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH: 'true'
       - name: Start frontend server
         if: needs.ci-scope.outputs.records_only == 'false'
         run: npm run start &
@@ -655,6 +661,9 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
           WAITLIST_MODE: 'false'
           NEXT_PUBLIC_ENABLE_ANALYSIS: 'true'
+          NEXT_PUBLIC_ENABLE_CALENDAR: 'true'
+          NEXT_PUBLIC_CALENDAR_FIXTURES: 'true'
+          NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH: 'true'
       - name: Wait for frontend server
         if: needs.ci-scope.outputs.records_only == 'false'
         run: npx wait-on http://localhost:3000 --timeout 60000

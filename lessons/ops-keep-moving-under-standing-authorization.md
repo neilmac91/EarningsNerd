@@ -1,4 +1,4 @@
-# Keep moving under a standing founder authorization; stop only at the boundaries still held
+# Keep moving under a standing founder authorization: mark finished work ready and merge it, and stop only at the boundaries still held
 
 Date: 2026-09-07 · Area: ops / working style
 
@@ -54,3 +54,30 @@ checks nor branch protection, budgets, purchases, owner merges or founder holds;
 standing exception for later work. The existing review-gate parser enforces the documented
 mechanism. First execution: [#1261](https://github.com/neilmac91/EarningsNerd/pull/1261), all seven
 checks successful before normal squash `55b2d557`, with the future #1253 fixture obligation retained.
+
+**The ready mark — 2026-10-20.** Finished pull requests waited as drafts "so the founder marks it
+ready", because the ready transition starts the paid `copilot-eval` draw (#1436 and #1437 said so in
+their bodies). The founder corrected it: "Please don't wait for me to mark stuff ready. If it's
+ready, then please proceed with the necessary steps to get it sorted and ready for merging (and then
+merge it)" (quoted on #1436, comment 6300785612). The session driving a pull request marks it ready
+itself once its local gates, its tier review, the draft's CI and Codex's review of the draft head
+are done; `review-gate`, `copilot-eval` and the merge follow the mark. When the ready transition
+starts a paid draw, the session reads the balance first (`deepseek-balance.yml`) and writes the
+reservation on the pull request: the reason, the expected cost and the amount reserved under the
+rule `AGENTS.md` §6 names (`DECISIONS-09`). The CODE RED ledger is the chief's to write, so another
+session states the reservation on the pull request, reads the balance again after the draw and posts
+that reading there too; the chief settles the reservation in the ledger from the two readings. §3
+already authorizes that bounded spend after the balance read. The session merges the pull request
+once Codex and CI are green and the draw is green or triaged as not the pull request's by
+`backend/evals/RUNBOOK.md`'s rule for a red `copilot-eval` run, never drawn again to get a green
+one; one that deploys the backend merges alone, after the previous deploy is verified, and its own
+deploy is verified after it (§6). When the session that opened a pull request has gone quiet (no
+push, comment or CI run of its own for an hour after its body named the next step), the principal
+session, which the founder runs as principal engineer, drives it the same way: it says so on the
+pull request first, and stops if the opening session answers there. A ready or merge call that the
+session's permission check refuses is a stop: report it, and do not retry it through another tool.
+Whether the CODE RED chief may merge its own records pull requests without a word for each stays the
+founder's row F52. Every boundary above and in `AGENTS.md` §3 stays held. This section is recorded
+here, as the 2026-09-08 and 2026-10-12 ones are, because `tasks/todo.md`'s handover block holds five
+lines and is the CODE RED chief's. First use: #1436, marked ready after a USD 13.06 balance read and
+merged as `707d80e5`.

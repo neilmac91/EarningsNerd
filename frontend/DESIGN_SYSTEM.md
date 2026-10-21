@@ -210,11 +210,12 @@ card keeps its Retry and its title inside its own border too: its row wraps, and
 glyph where it cannot keep 9rem beside it (Inline notice, below). Before, under 200% text, the comparison card's
 Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at 360px
 the billing and ticker filings cards' Retry ran 15px past it. Gates: e2e `reflow-200.spec.ts`, "a failure's
-controls stay inside their card" (the homepage search alert at 320, 360 and 390px and with a long token, the
+controls stay inside their card" (the homepage search alert and the full-text search alert on /search, each at 320,
+360 and 390px and with a long token, the
 dashboard's account card at 320, 360 and 390px, the route and dashboard error boundaries at 320px, and the
 comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at 360px and the
 comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
-the full-text search alert, whose browser case waits on E39 (CI's e2e build leaves /search off);
+the full-text search alert's layout;
 `twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
 reserve's rows. Its limit: at 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the
 admin feedback and invites lists) leaves a Notice a 92px content box, narrower than the Retry's narrowest state
@@ -581,12 +582,16 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  tracking-eyebrow around the code, its class written inline or held in a same-file
                  constant; gate: earningsnerd/no-form-code-badge, eslint.designRules.mjs);
                  <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls; "Superseded"). <Badge variant="success|error"> = a STATUS
-                 chip (a summary is ready, a run failed): the status ink on the quiet ground, since the
-                 success ink inside any tint of itself falls under 4.5:1 at 12px. In dark the chip
-                 carries no fill, its hairline only, so a hovered row's white/5 is the one layer under
-                 it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
-                 tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
+                 (replaces raw-amber hand-rolls; "Superseded"). Badge's status set, BadgeStatusVariant
+                 (<Badge variant="success|error|info-status|warning-status|neutral-status">) = a STATUS chip
+                 (a summary is ready, a run failed, an invite pending): the status ink on the quiet ground,
+                 since the success ink inside any tint of itself falls under 4.5:1 at 12px. info, warning
+                 and neutral are the tints and the quiet chip, so their status forms take names of their
+                 own. In dark the chip carries no fill, its hairline only, so a hovered row's white/5 is the
+                 one layer under it: error-dark holds 4.6:1 there, where a fill of its own would take it to
+                 3.9:1 (gates: tests/unit/badgeVariants.spec.tsx, success and error on the card and on a
+                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows, Status
+                 chip below). beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
@@ -622,27 +627,39 @@ Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx)
                  the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
                  card's e4 and dark none; the close button's hover, forced, on opaque fills).
 
-Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on
-                 STATUS_CHIP + STATUS_CHIP_INK[tone] from features/admin/lib/statusChip.ts, the one home
-                 of the recipe (tones info / success / warning / neutral). The status INK sits on the
-                 quiet ground, never the status tint. Light labels measure 5.0 to 7.1:1 on the white
-                 chip. Dark carries no fill, so the row's white/5 hover tint is the only layer: 5.77 to
-                 6.83:1 at rest, 4.97 to 5.89:1 on a hovered row (Badge's quiet white/5 on the chip as
-                 well would drop info-dark to 4.26:1 there). The old recipe, info-light in its own 10%
-                 tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
-                 FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
-                 same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
-                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). Badge's
-                 success and error status variants carry this dark recipe, no fill; E47 moves the admin
-                 chips onto Badge after the series, with info, warning and neutral status variants of
-                 their own (Badge's info, warning and neutral are the tints and the quiet chip).
-                 Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
-                 hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
-                 pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
-                 there carrying a bg- class fails; a chip colour under any variant but its theme's own
-                 (hover:, focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the
-                 <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
-                 it renders on FeedbackRow's grounds).
+Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label, a
+                 <Badge> of its status set (components/ui/Badge.tsx, BadgeStatusVariant; the Badge entry
+                 under Solid chip): pending and new on info-status, used and resolved on success, expired
+                 and triaged on warning-status, revoked on neutral-status, the icon in Badge's `icon` slot.
+                 The status INK sits on the quiet ground, never the status tint. Light labels measure 5.0
+                 to 7.1:1 on the white chip. Dark carries no fill, so the row's white/5 hover tint is the
+                 only layer: the four the admin chips use hold 5.77 to 6.83:1 at rest and 4.97 to 5.89:1 on
+                 a hovered row, and error, the set's fifth, 5.31:1 and 4.57:1 (a quiet white/5 fill on the
+                 chip as well would drop error-dark to 3.92:1 there, info-dark to 4.26:1 and the neutral
+                 ink to 4.27:1). The old recipe, info-light in its own 10% tint, is 4.32:1. The chips take
+                 Badge's metrics, 600 with a 6px gap where the hand-rolled recipe was 500 with 4px, and
+                 Badge's whitespace-nowrap, which the status cells already set: each chip is 2.2 to 2.7px
+                 wider (4.4 to 5.4px under 200% text), one line, inside its cell at 1440 and 390px and at
+                 390px under 200% text, and no page scrolls sideways (the tables scroll in their box,
+                 Admin pages below). FeedbackTypeBadge, the neutral type chip beside the status chip in
+                 FeedbackRow, takes Badge's metrics too (600, a 6px gap, whitespace-nowrap), so the row's
+                 two chips share one weight, and keeps a ground and an ink of its own: its light ground
+                 (black/[0.04]: 9.04:1, 8.50:1 hovered), and the status set's dark one: no fill, its
+                 white/10 hairline kept, text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row
+                 (its old white/5 fill measured 4.27:1 there).
+                 Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, read from
+                 Badge's source and rendered through Badge, on both tables' rows, at rest and hovered, both
+                 themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the pages' <tbody>;
+                 every layer between a chip and its <tr> read too, and a cell or wrapper there carrying a
+                 bg- class fails; a chip colour under any variant but its theme's own (hover:,
+                 focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the <tr> or the
+                 <tbody> fail too; both badges held to the set, every status a chip Badge rendered for one
+                 member with no class added and nothing on it or inside it that paints (a class inside but
+                 the icon's size, an inline style, an SVG fill or stroke that is not currentColor), so a
+                 hand-rolled chip, a copy of Badge's classes included, a tint, an added class or a label in
+                 a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds, and
+                 held to Badge's metrics: every class of Badge's BASE, with only a ground and an ink of its
+                 own beside them, so a weight, a gap or a size of its own fails).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
@@ -945,7 +962,9 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  must not paint over a choice. The site header (z-50, top-anchored) stays above it: on a
                  short phone (320x568) its open mobile menu reaches the bar's region and covers a choice
                  until the user closes the menu (user-opened, user-closed; before, the bar covered the menu's
-                 lower items instead).
+                 lower items instead). On a 390x844 phone a signed-in reader's open menu, with the Search and
+                 Calendar links, ends just above the bar and can cover the Ask and feedback launchers until it
+                 closes, since the header outranks them too (tests/e2e/consent-bar-yields.spec.ts).
                  New fixed bottom chrome joins this band, never above it: a floating control takes
                  `BOTTOM_CHROME_OFFSET` (a sheet takes `bottom-[var(--consent-inset,0px)]` and subtracts the
                  inset from its vh cap) and is pinned in the gate with its reason — the pin list is
@@ -1373,13 +1392,15 @@ accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a s
 the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
 /login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
 which has no site footer; the two token pages are opened without their emailed token), /contact,
-/privacy, /terms, /security, /delete-account, /search while its flag is off (the 404), and four
+/privacy, /terms, /security, /delete-account, /calendar and /search (CI's e2e build turns both on:
+the calendar reads its own fixtures with the clock pinned to one week, the search is answered and
+run), a finished Multi-Period Analysis run on /analysis, and four
 page-level card states (a filing without a summary for a guest and for a signed-in reader whose run
 fails, a writer error, an empty watchlist). Three census cases hold that list to its sources:
 `STATIC_ENTRIES` in `app/sitemap.ts`, `AUTH_ROUTES` in `lib/authShellRoutes.ts`, and every
 `page.tsx` under `app/`, static or dynamic (a dynamic route by a representative path, /company/AAPL
 for `/company/[ticker]`), which the spec must visit or name in `NOT_VISITED` with its reason (the
-admin pages, the API-rendered /analysis, /calendar and /dashboard/settings, the labs prototypes).
+admin pages, /dashboard/settings and the labs prototypes).
 Each fails, naming the path, when a route has no entry, and a reason for a page the spec visits, or
 that no longer exists, fails too.
 
