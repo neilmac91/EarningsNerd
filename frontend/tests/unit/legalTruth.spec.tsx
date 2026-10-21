@@ -137,17 +137,19 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    a time or with none named (every session, everywhere, a session token revoked), a logout in each spelling (logout,
  *    logged out, a sign-out; a revocation alone, as a renewal's of the token it replaces, is none), and what ends named
  *    before its verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun
- *    ("signs out every device"). A denial passes, a negation before the verb with an aside or not ("does not, by
- *    itself, end") or on the subject ("No sessions are ended", "None of your sessions", "Not every device"), and so
- *    does an end at its token's expiry ("that session ends when its token expires"). Main's timed and untimed readings
- *    keep main's verdicts where main's logging-out words call them; where only the wider ones do ("a logout", "a
- *    sign-out", "every device"), a denial passes there too ("No session ends within 30 minutes of a logout"). The page
- *    is read on every run, whatever tasks/todo.md records: E127's race is fixed (#1422) and so is a login that
- *    straddled a password reset (#1431), but a session token already issued runs to its expiry, and E96 (how a reused
- *    token's sweep reads) and E133 (a logout that does not wait for an in-flight renewal) are open; the stronger
- *    wording returns only in a pull request that carries the founder's go-ahead (tasks/todo.md F53) and changes this
- *    check. Each family is read in one list item or paragraph (blockTexts). Planted forms score the reach; out of
- *    reach, planted as gaps: a promise split across two items, and one said in other words ("nobody stays signed in").
+ *    ("signs out every device"). A denial passes, a negation before the verb with up to four words between them, with
+ *    or without commas ("does not by itself end", "does not in normal use end"; not "not only ... but", not past "and"
+ *    or a relative word), with a longer aside in commas ("does not, as a rule of thumb, end"), or on the subject ("No
+ *    sessions are ended", "None of your sessions", "Not every device"), and so does an end at its token's expiry ("that
+ *    session ends when its token expires"). Main's timed and untimed readings keep main's verdicts where main's
+ *    logging-out words call them; where only the wider ones do ("a logout", "a sign-out", "every device"), a denial
+ *    passes there too ("No session ends within 30 minutes of a logout"). The page is read on every run, whatever
+ *    tasks/todo.md records: E127's race is fixed (#1422) and so is a login that straddled a password reset (#1431), but
+ *    a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout
+ *    that does not wait for an in-flight renewal) are open; the stronger wording returns only in a pull request that
+ *    carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list item or
+ *    paragraph (blockTexts). Planted forms score the reach; out of reach, planted as gaps: a promise split across two
+ *    items, and one said in other words ("nobody stays signed in").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -241,10 +243,19 @@ const XSS = String.raw`(?:\bXSS\b|\bcross[- ]site[- ]scripting\b)`
     signed out", "Not every session ends", "No server events require your consent", "Nothing the API records waits
     for your consent" ("no matter" and "no sooner" deny nothing). */
 const DENIED_SUBJECT = String.raw`(?:^|[;:]\s*|,\s+|\b(?:and|but|so|while|whereas)\s+)(?:no(?!\s+(?:matter|sooner)\b)|none|nothing|neither|nobody|not\s+(?:every|all|one|any|each|a\s+single|even\s+one))\b(?:(?!,\s*(?:and|but|so|or|while|whereas|then)\b)[^.;:!?])*`
-/** Not after a negation: "does not end your other sessions", "never signs you out", "does not, by itself, end a
-    session" and "do not need your consent" deny what the verb says, and so does a clause whose subject is denied
-    (DENIED_SUBJECT). The end forms and the consent forms whose verb says the promise read it. */
-const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+(?:\w+\s+)?|n['’]t\s+(?:\w+\s+)?|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
+/** How far a negation reaches to its verb: up to four words between them, an adverbial phrase ("does not by itself
+    end", "does not in normal use end", "does not on its own end", "does not of its own accord end"), with or without
+    commas. Four covers the phrases a page uses for "in itself"; a fifth word is where a negated verb's own object or a
+    second predicate begins. None of the words may be a conjunction or a relative or subordinating word, which would
+    start another predicate or clause ("does not clear cookies and ends every session"), and the first may not be
+    "only", "just", "merely" or "simply", which deny a restriction, not the act ("does not only end this session but
+    every session on the account"). */
+const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?!(?:and|but|or|nor|so|then|yet|which|that|who|whom|whose|where|when|while|whereas|because|though|although|if|unless)\b)[\w'’-]+\s+){0,4}`
+/** Not after a negation: "does not end your other sessions", "never signs you out", "does not by itself end a
+    session" (NEGATION_REACH), "does not, by itself, end a session" and "do not need your consent" deny what the verb
+    says, and so does a clause whose subject is denied (DENIED_SUBJECT). The end forms and the consent forms whose verb
+    says the promise read it. */
+const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
 /** The analytics by any name ANONYMOUS_ANALYTICS reads them by, and events only as the account, the server or the API
     names them ("account events", "the events the API records"; "usage data" and "usage events" are usage), so "your
     data" and "event invitations" are not the analytics. */
@@ -1059,6 +1070,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events are subject to your consent.</p>', true],
       ['<p>Server events wait until you allow them.</p>', true],
       ['<p>No analytics run until you allow them.</p>', true],
+      ['<p>Server events do not just require your consent; they require your explicit opt-in.</p>', true],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
@@ -1124,6 +1136,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>No server event waits until you allow it.</p>', false],
       ['<p>None of the server events need your permission.</p>', false],
       ['<p>Not every account event is subject to your consent.</p>', false],
+      // The same negation reach in the consent forms (#1456's fifth round).
+      ['<p>Server events do not in any case require your consent.</p>', false],
+      ['<p>Account events do not under any circumstances need your permission.</p>', false],
       // Login words in another role or another clause than the endpoints' predicate (#1456's fourth round, Codex's
       // thread 4335911303), a denial in either order, and "no endpoint" with "without a token" in another clause.
       ['<p>Each API endpoint documents the token format.</p>', false],
@@ -1225,6 +1240,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A one-use form about the refresh token, in its sentence or in a sentence of its item (#1456's third round).
       ['<li>Each refresh token is good for one use.</li>', true],
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each one cannot be reused.</li>', true],
+      // A negation that does not reach the end it seems to deny (#1456's fifth round): "not only ... but", "not
+      // merely", a second predicate after "and", another clause; and a plain phrase past the reach's four words, which
+      // the comma aside below lets through.
+      ['<li>Logging out does not just log you out here; it ends every session.</li>', true],
+      ['<li>Logging out not only clears this browser but ends every other session.</li>', true],
+      ['<li>Logging out does not only end this session but every session on the account.</li>', true],
+      ['<li>Logging out does not merely end this session but signs you out of every device.</li>', true],
+      ['<li>Logging out does not clear cookies and ends every session.</li>', true],
+      ['<li>A logout does not as a rule of thumb end your other sessions.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -1256,6 +1280,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A verification code is good for one use.</li>', false],
       ['<li>Each magic link expires after one use.</li>', false],
       ['<li>Refresh tokens are stored only as hashes. A recovery code cannot be reused.</li>', false],
+      // A negation with an adverbial phrase between it and the verb, with no commas (#1456's fifth round, Codex's
+      // thread 4336218364), up to four words, and past them with commas.
+      ['<li>Logging out does not by itself end your other sessions.</li>', false],
+      ['<li>Logging out does not in normal use end your other sessions.</li>', false],
+      ['<li>Changing your password does not on its own end every session.</li>', false],
+      ['<li>A logout does not at any point sign you out of every device.</li>', false],
+      ['<li>A logout does not of its own accord end your other sessions.</li>', false],
+      ['<li>Logging out never by itself ends your other sessions.</li>', false],
+      ['<li>A logout does not, as a rule of thumb, end your other sessions.</li>', false],
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
