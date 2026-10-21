@@ -126,13 +126,15 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun ("signs
  *    out every device"). A denial passes, a negation before the verb with an aside or not ("does not, by itself, end")
  *    or on the subject ("No sessions are ended", "None of your sessions", "Not every device"), and so does an end at
- *    its token's expiry ("that session ends when its token expires"). The page is read on every run, whatever
- *    tasks/todo.md records: E127's race is fixed (#1422) and so is a login that straddled a password reset (#1431), but
- *    a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout
- *    that does not wait for an in-flight renewal) are open; the stronger wording returns only in a pull request that
- *    carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list item or
- *    paragraph (blockTexts). Planted forms score the reach; out of reach, planted as gaps: a promise split across two
- *    items, and one said in other words ("nobody stays signed in").
+ *    its token's expiry ("that session ends when its token expires"). Main's timed and untimed readings keep main's
+ *    verdicts where main's logging-out words call them; where only the wider ones do ("a logout", "a sign-out", "every
+ *    device"), a denial passes there too ("No session ends within 30 minutes of a logout"). The page is read on every
+ *    run, whatever tasks/todo.md records: E127's race is fixed (#1422) and so is a login that straddled a password
+ *    reset (#1431), but a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads)
+ *    and E133 (a logout that does not wait for an in-flight renewal) are open; the stronger wording returns only in a
+ *    pull request that carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read
+ *    in one list item or paragraph (blockTexts). Planted forms score the reach; out of reach, planted as gaps: a
+ *    promise split across two items, and one said in other words ("nobody stays signed in").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -359,7 +361,7 @@ const SESSION_END_MORE = new RegExp(
     String.raw`${NOT}\b(?:signs|logs|signed|logged)\s+out\s+(?:of\s+|from\s+|on\s+|across\s+)?${ENDED}`,
     String.raw`\b(?:you|everyone|everybody)(?:['’]re|\s+are|\s+will be|\s+get|\s+are then)\s+(?:signed|logged)\s+out\b`,
     String.raw`\b(?:sessions?(?![- ]tokens?)|devices?|tabs?|browsers?|the others)\b[^.;!?]*?${NOT}\b(?:end(?:s|ed)?(?!\s+of\b)|clos(?:e|es|ed)|stop(?:s|ped)?|terminat(?:e|es|ed)|times? out|timed out|(?:is|are|get|gets|will be|would be|be)\s+(?:ended|closed|terminated|revoked|invalidated|killed|cut off|signed out|logged out))\b${AT_EXPIRY}`,
-    String.raw`(?:\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b|\b(?:ending|expired|stopped|closed|terminat(?:e|es|ed|ing)|kill(?:s|ed)?|invalidat(?:e|es|ed)|times? out|timed out|cuts? off|(?:signs?|logs?|signed|logged)\s+(?:you\s+)?out)\b).*${WITHIN}`,
+    String.raw`${NOT}(?:\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b|\b(?:ending|expired|stopped|closed|terminat(?:e|es|ed|ing)|kill(?:s|ed)?|invalidat(?:e|es|ed)|times? out|timed out|cuts? off|(?:signs?|logs?|signed|logged)\s+(?:you\s+)?out)\b).*${WITHIN}`,
   ].join('|'),
   'i',
 )
@@ -376,6 +378,13 @@ const SWEEP = [
   String.raw`${NOT}\b(?:signs?|logs?|signed|logged)\s+(?:everyone|everybody)\s+out\b`,
   String.raw`${EVERY_SESSION}[^.;!?]*?${NOT}\b(?:end(?:s|ed)?|clos(?:e|es|ed)|terminat(?:e|es|ed)|(?:is|are|get|gets|will be)\s+(?:ended|closed|terminated|revoked|invalidated|signed out|logged out))\b`,
 ].join('|')
+/** Main's logging-out words, which call its timed and untimed readings with main's verdicts as they stand. */
+const MAIN_LOGGING_OUT = /\b(?:log(?:ging|s)? out|sign(?:ing|s)? out|all (?:of your )?devices|everywhere|password)\b/i
+/** Main's timed and untimed readings where only the wider words call them (LOGGING_OUT: "a logout", "a sign-out",
+    "every device"), with a denial read as SESSION_END_MORE reads one: "No session ends within 30 minutes of a logout."
+    denies the end. */
+const SESSION_END_TIMED_DENIABLE = new RegExp(NOT + SESSION_END_TIMED.source, 'i')
+const SESSION_END_UNTIMED_DENIABLE = new RegExp(NOT + SESSION_END_UNTIMED.source, 'i')
 
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
@@ -389,8 +398,9 @@ const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
     'a session that ends after logging out, within a time or with none named',
     (block) =>
-      LOGGING_OUT.test(block) &&
-      (inASentence(SESSION_END_TIMED)(block) || inASentence(SESSION_END_UNTIMED)(block) || inASentence(SESSION_END_MORE)(block)),
+      (MAIN_LOGGING_OUT.test(block) && (inASentence(SESSION_END_TIMED)(block) || inASentence(SESSION_END_UNTIMED)(block))) ||
+      (LOGGING_OUT.test(block) &&
+        (inASentence(SESSION_END_TIMED_DENIABLE)(block) || inASentence(SESSION_END_UNTIMED_DENIABLE)(block) || inASentence(SESSION_END_MORE)(block))),
   ],
 ]
 
@@ -1015,6 +1025,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>No device is signed out when you change your password.</li>', false],
       ['<li>None of your sessions end when you log out.</li>', false],
       ['<li>Not every device is signed out when you change your password.</li>', false],
+      // A denial that only the wider logging-out words call main's timed reading on.
+      ['<li>No session ends within 30 minutes of a logout.</li>', false],
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
