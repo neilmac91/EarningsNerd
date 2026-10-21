@@ -116,6 +116,9 @@ describe('NotableFilings', () => {
 
     expect(within(screen.getByTestId('notable-filing-SMPA')).getByText('Quarterly report')).toBeInTheDocument()
     expect(within(screen.getByTestId('notable-filing-SMPB')).getByText('Annual report')).toBeInTheDocument()
+    // The chip's label may wrap (a phone at 200% text), so it takes the 16px step over Badge's full radius: a pill on
+    // one line, a rounded box once it wraps (DESIGN.md, Shapes).
+    expect(within(screen.getByTestId('notable-filing-SMPA')).getByText('Quarterly report')).toHaveClass('!whitespace-normal', '!rounded-xl')
     // "10-Q · Filed X ago": the relative label is time-dependent, so assert its shape, not its value. The middot is the
     // search rows' separator: a no-break space keeps it to the form code, so where the line wraps (a phone at 200% text)
     // the next line starts with "Filed", never with the dot, and assistive tech hears a comma in its place.

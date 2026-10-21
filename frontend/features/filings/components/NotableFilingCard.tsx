@@ -80,9 +80,11 @@ export default function NotableFilingCard({
           )}
         </div>
         <div className="mt-2">
+          {/* The label wraps where the card is narrow (a phone at 200% text), so the chip takes the 16px step, not
+              Badge's full radius: a pill on one line, a rounded box once it wraps (DESIGN.md, Shapes). */}
           <Badge
             variant="neutral"
-            className="max-w-full justify-center !whitespace-normal text-center leading-tight"
+            className="max-w-full justify-center !whitespace-normal !rounded-xl text-center leading-tight"
           >
             {filing.reason_label}
           </Badge>

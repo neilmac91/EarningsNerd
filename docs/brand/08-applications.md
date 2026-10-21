@@ -675,7 +675,8 @@ query serves, "The past week's 10-K and 10-Q filings from companies with a summa
 first.", where the section once said "High-signal SEC filings from the past week, across the whole
 market."; its cards, two across from 40rem at the reader's text size, each open their company page
 as before, and the form code on each is one unbroken run that the middot after it keeps to, so
-under 200% text no line breaks the code or starts with the dot. With an empty list or a failed read it
+under 200% text no line breaks the code or starts with the dot; the reason chip, whose label wraps
+there, takes the 16px step (DESIGN.md, Shapes). With an empty list or a failed read it
 renders nothing, so it takes no number among the rows. The mount gate
 (`tests/unit/landing-sections-mounted.spec.ts`) holds its place, and
 `tests/unit/NotableFilings.spec.tsx` holds it to the cards it is served.
