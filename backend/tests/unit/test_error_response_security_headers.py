@@ -118,16 +118,25 @@ def test_from_an_allowed_origin_both_keep_their_cors_headers_beside_them(probes,
     assert _security(resp) == API_HEADERS
 
 
+def _name(obj) -> str:
+    return getattr(obj, "__name__", repr(obj))
+
+
 def test_only_these_two_replies_are_built_outside_add_security_headers():
     """A middleware outside add_security_headers, or a 500 handler, builds replies that it never stamps."""
-    order = [entry.kwargs.get("dispatch", entry.cls).__name__ for entry in main.app.user_middleware]  # outermost first
+    assert not main.app.debug, (
+        "in debug mode ServerErrorMiddleware answers an unhandled error with its traceback page, which carries none "
+        "of the headers, and never calls global_exception_handler"
+    )
+    order = [_name(entry.kwargs.get("dispatch", entry.cls)) for entry in main.app.user_middleware]  # outermost first
     assert order[: order.index("add_security_headers")] == ["request_timeout_middleware"], (
         "a middleware outside add_security_headers builds replies it never stamps: set main._security_headers and "
         "main._error_response_cors_headers on them, as request_timeout_middleware does, then list it here"
     )
-    # Starlette gives a handler keyed 500 or Exception to ServerErrorMiddleware, outside every user middleware.
-    outside = {key: handler.__name__ for key, handler in main.app.exception_handlers.items() if key in (500, Exception)}
+    # ServerErrorMiddleware, outside every user middleware, answers with one handler: the last keyed 500 or Exception.
+    outside = {key: _name(handler) for key, handler in main.app.exception_handlers.items() if key in (500, Exception)}
     assert outside == {Exception: "global_exception_handler"}, (
-        "a 500 handler answers outside every user middleware: set main._security_headers and "
-        "main._error_response_cors_headers on its reply, as global_exception_handler does, then list it here"
+        "Starlette answers an unhandled error with a single handler keyed 500 or Exception, outside every user "
+        "middleware: keep global_exception_handler as that one, or give its replacement main._security_headers and "
+        "main._error_response_cors_headers and name it here instead"
     )
