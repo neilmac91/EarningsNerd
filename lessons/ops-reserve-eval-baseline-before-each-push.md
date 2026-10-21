@@ -8,9 +8,11 @@ Date: 2026-10-21   Area: ops / evals / spend
 0.35–0.36 each, all at peak pricing, and reserves USD 0.73 a push: the dearest run × 2, rounded up.
 `AGENTS.md` §3 prices a run at "about USD 0.30". No file a session reads at start says when it runs.
 
-On 2026-10-20 the principal session read the balance before #1325's push and before #1437's second
-push, and reserved for both runs at §3's figure. #1437's first push, at 20:56Z, had no reservation of
-its own; #1325's after-draw reading named its run. Those evening runs read about USD 0.16 each.
+On 2026-10-20 the principal session read the balance before #1325's push and before its own second
+push to #1437, and reserved for both runs at §3's figure. Its first push to #1437, at 20:56Z (the pull
+request's third; another session made the first two), had no reservation of its own, and #1325's
+after-draw reading named that run but counted it inside #1325's own reservation. Those evening runs
+read about USD 0.16 each.
 
 Hours later the same session drove #1451, the logout route and `refresh_token_service.py`. It counted
 only the ready mark's `copilot-eval`, and pushed the draft three times (2026-10-21 03:07Z, 03:48Z and
@@ -36,7 +38,8 @@ draw, about USD 0.27 a run. The readings cannot separate production traffic.
   after its `Run baseline eval` step started has drawn for the minutes that step ran: count it. One
   cancelled before that step drew nothing. When its log does not show which, count it in full.
 - **The after-draw reading.** Name the `eval-baseline` runs beside the `copilot-eval` draw, with their
-  links, so the reading is not taken for one draw's cost.
+  links, so the reading is not taken for one draw's cost. Count against a reservation only the runs it
+  was written for, and name any other run the interval holds as outside it.
 
 **Evidence**:
 - `.github/workflows/ci.yml:3-7`: CI's triggers, `pull_request` with the default types and the

@@ -66,7 +66,9 @@ starts a paid draw, the session reads the balance first (`deepseek-balance.yml`)
 reservation on the pull request: the reason, the expected cost and the amount reserved under the
 rule `AGENTS.md` §6 names (`DECISIONS-09`). The CODE RED ledger is the chief's to write, so another
 session states the reservation on the pull request, reads the balance again after the draw and posts
-that reading there too; the chief settles the reservation in the ledger from the two readings. §3
+that reading there too. The chief's records list that draw in their window's survey and, since record
+29, keep other writers' paid runs outside the ledger; whether the ledger should settle them is the
+founder's call (`tasks/code-red-20261004/runtime/control/DECISIONS-38.md`, founder action 10). §3
 already authorizes that bounded spend after the balance read. A pull request whose diff touches
 `backend/app/`, `backend/evals/` or `backend/prompts/` also draws before the mark, on every push,
 draft or not, so the session reserves for that from its opening (`eval-baseline`;
