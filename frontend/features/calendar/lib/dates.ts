@@ -61,12 +61,13 @@ export function addMonths(iso: string, n: number): string {
   return toIso(y2, m2, 1)
 }
 
-/** Today as a New York calendar day — the only timezone-aware call. */
-export function todayEasternIso(): string {
+/** Today as a New York calendar day — the only timezone-aware call. Given an instant, the New York calendar day of
+ *  that instant: the Notable filings card dates a filing against its response's timestamp, never the live clock. */
+export function todayEasternIso(at: Date = new Date()): string {
   try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(at)
   } catch {
-    return fromUtc(new Date())
+    return fromUtc(at)
   }
 }
 

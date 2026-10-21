@@ -1,30 +1,33 @@
 'use client'
 
 import Link from 'next/link'
-import { formatDistanceStrict } from 'date-fns'
 
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui'
+import { diffDays, todayEasternIso } from '@/features/calendar/lib/dates'
 import type { NotableFiling } from '@/lib/serverApi'
 
-function filedAgo(isoDate: string, asOf: string): string | null {
-  // filed_date is a plain YYYY-MM-DD EDGAR calendar day — anchor at UTC noon so the relative
-  // label can't slip a day in extreme viewer timezones.
-  //
-  // Measure against the response's own timestamp, NEVER the live clock. This is a client
-  // component server-rendered into an ISR page: `/` is cached for up to an hour, so HTML
-  // generated at 23:50Z and hydrated at 00:10Z would render "3 days ago" on the server and
-  // recompute "4 days ago" in the browser — a hydration mismatch and a visible text swap for
-  // every request that straddles the rounding boundary. Anchoring both passes to `asOf` makes
-  // the label a property of the data, which is what an ISR snapshot actually shows.
-  try {
-    const asOfDate = new Date(asOf)
-    if (Number.isNaN(asOfDate.getTime())) return null
-    return formatDistanceStrict(new Date(`${isoDate}T12:00:00Z`), asOfDate, { addSuffix: true })
-  } catch {
-    return null
-  }
+/**
+ * When the filing was filed, in whole New York calendar days: "today", "yesterday" or "N days ago". `filed_date` is a
+ * plain YYYY-MM-DD EDGAR day with no time, so the label claims no more than a day. It counts from the New York day of
+ * the response's timestamp, the day the backend's window counts its week from (`today_eastern()`), so a card never
+ * disagrees with the week the row promises: the window's oldest filing reads "7 days ago". A filing dated after that
+ * day (bad data) or a timestamp that does not parse gets no label, never a future or a sub-day value.
+ *
+ * Measured against the response's own timestamp, NEVER the live clock. This is a client component server-rendered
+ * into an ISR page: `/` is cached for up to an hour, so HTML generated before midnight and hydrated after it would
+ * render one day on the server and the next in the browser, a hydration mismatch and a visible text swap. Anchoring
+ * both passes to `asOf` makes the label a property of the data, which is what an ISR snapshot actually shows.
+ */
+function filedDay(isoDate: string, asOf: string): string | null {
+  const asOfDate = new Date(asOf)
+  if (Number.isNaN(asOfDate.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null
+  const days = diffDays(isoDate, todayEasternIso(asOfDate))
+  if (!Number.isFinite(days) || days < 0) return null
+  if (days === 0) return 'today'
+  if (days === 1) return 'yesterday'
+  return `${days} days ago`
 }
 
 /**
@@ -39,7 +42,7 @@ export default function NotableFilingCard({
   filing: NotableFiling
   asOf: string
 }) {
-  const ago = filedAgo(filing.filed_date, asOf)
+  const filed = filedDay(filing.filed_date, asOf)
 
   return (
     <Link
@@ -72,11 +75,11 @@ export default function NotableFilingCard({
               space keeps it to the code, so where the line wraps (a phone at 200% text) the dot stays on the code's
               line and no line starts with it, and assistive tech hears a comma in its place. */}
           <span className="whitespace-nowrap font-data text-text-primary-light dark:text-text-primary-dark">{filing.form}</span>
-          {ago && (
+          {filed && (
             <>
               {'\u00a0'}
               <span aria-hidden="true">·</span>
-              <span className="sr-only">,</span> Filed {ago}
+              <span className="sr-only">,</span> Filed {filed}
             </>
           )}
         </div>

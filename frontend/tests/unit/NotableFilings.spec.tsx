@@ -119,11 +119,12 @@ describe('NotableFilings', () => {
     // The chip's label may wrap (a phone at 200% text), so it takes the 16px step over Badge's full radius: a pill on
     // one line, a rounded box once it wraps (DESIGN.md, Shapes).
     expect(within(screen.getByTestId('notable-filing-SMPA')).getByText('Quarterly report')).toHaveClass('!whitespace-normal', '!rounded-xl')
-    // "10-Q · Filed X ago": the relative label is time-dependent, so assert its shape, not its value. The middot is the
-    // search rows' separator: a no-break space keeps it to the form code, so where the line wraps (a phone at 200% text)
-    // the dot stays on the code's line and no line starts with it, and assistive tech hears a comma in its place.
+    // "10-Q · Filed today": the response's timestamp, 00:00 UTC on 6 July, is 20:00 on 5 July in New York, the day SMPA
+    // was filed (the day cases below). The middot is the search rows' separator: a no-break space keeps it to the form
+    // code, so where the line wraps (a phone at 200% text) the dot stays on the code's line and no line starts with it,
+    // and assistive tech hears a comma in its place.
     const card = screen.getByTestId('notable-filing-SMPA')
-    expect(card.textContent).toMatch(/10-Q\u00a0·, Filed .* ago/)
+    expect(card.textContent).toMatch(/10-Q\u00a0·, Filed today/)
     expect(within(card).getByText('·')).toHaveAttribute('aria-hidden', 'true')
     expect(within(card).getByText(',')).toHaveClass('sr-only')
   })
@@ -149,6 +150,48 @@ describe('NotableFilings', () => {
     expect(mockAnalytics.notableFilingClicked).toHaveBeenCalledTimes(1)
   })
 
+  /** The card's text for one filing dated `filed_date`, served with `timestamp`. */
+  const cardText = (filed_date: string, timestamp: string): string => {
+    const { unmount } = render(
+      <NotableFilings data={{ filings: [{ ...RESPONSE.filings[0], filed_date }], status: 'ok', timestamp }} />,
+    )
+    const text = screen.getByTestId('notable-filing-SMPA').textContent ?? ''
+    unmount()
+    return text
+  }
+
+  it('dates a filing in whole New York days from the response timestamp: today, yesterday, N days ago, to the window’s edge', () => {
+    // filed_date is a day with no time, so the label claims a day, never hours. The viewer's clock is pinned far from
+    // the data: the label reads the response's timestamp, never the live clock.
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-08-15T09:00:00Z'))
+      const asOf = '2026-07-06T16:00:00+00:00' // noon on 6 July in New York
+      expect(cardText('2026-07-06', asOf)).toContain('Filed today')
+      expect(cardText('2026-07-05', asOf)).toContain('Filed yesterday')
+      expect(cardText('2026-07-02', asOf)).toContain('Filed 4 days ago')
+      // The window's edge: the backend serves filings dated from today_eastern() back seven days.
+      expect(cardText('2026-06-29', asOf)).toContain('Filed 7 days ago')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('counts the day in New York, where the backend’s window counts its week, not in UTC', () => {
+    // 02:00 UTC on 6 July is 22:00 on 5 July in New York, so a filing dated 5 July was filed today there.
+    expect(cardText('2026-07-05', '2026-07-06T02:00:00+00:00')).toContain('Filed today')
+    expect(cardText('2026-07-04', '2026-07-06T02:00:00+00:00')).toContain('Filed yesterday')
+  })
+
+  it('never shows a future or a sub-day value', () => {
+    const asOf = '2026-07-06T16:00:00+00:00'
+    // A filing dated after the response's New York day (bad data) gets no label at all.
+    expect(cardText('2026-07-07', asOf)).not.toMatch(/Filed/)
+    for (const day of ['2026-07-06', '2026-07-05', '2026-07-02', '2026-06-29']) {
+      expect(cardText(day, asOf)).not.toMatch(/second|minute|hour|\bin \d/)
+    }
+  })
+
   it('anchors the filed-ago label to the response timestamp, not the viewer clock', () => {
     // NotableFilingCard is a client component server-rendered into an ISR page. Before this was
     // anchored, the label came from the live clock, so HTML generated just before a UTC date
@@ -159,7 +202,7 @@ describe('NotableFilings', () => {
       vi.setSystemTime(new Date('2026-07-06T23:50:00Z'))
       const first = render(<NotableFilings data={RESPONSE} />)
       const generated = screen.getByTestId('notable-filing-SMPA').textContent
-      expect(generated).toContain('12 hours ago')
+      expect(generated).toContain('Filed today')
       first.unmount()
 
       vi.setSystemTime(new Date('2026-07-09T00:10:00Z'))
