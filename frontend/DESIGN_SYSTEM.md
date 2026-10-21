@@ -1434,9 +1434,9 @@ secondary), one short sentence: a second sentence opens the content column, in b
 `max-w-2xl` measure, as the evidence and contents rows' do. The columns open at
 `[@media(min-width:64rem)]:` at the reader's text size (1024px, or 2048px under a 200% text setting)
 and the label stacks above the content below it. No row alternates
-and no landing file lays items out four across: the claims, the extras and Notable filings' cards are
-two across, the Pro screens one under another with each pitch above its screen, the contents and
-Reporting this week hairline lists. Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
+and no landing file lays items out four across: the claims and the extras are two across, the Pro screens one
+under another with each pitch above its screen, the contents a hairline list, and Reporting this week and Notable
+filings hairline lines two across, one anatomy for both (`tests/unit/NotableFilings.spec.tsx` fails when they drift). Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
 the plans as `th scope="col"`, what each includes as `th scope="row"`, every cell a plan line read
 through `shipped()` from `lib/planLimits.ts`, a dash with a visually hidden "Not included" where a plan
 has none; it fits a 390px phone at the default size and, wider than its box (a phone at 200% text),
@@ -1456,8 +1456,10 @@ claim no summary history while nothing enforces one (D-046), and the Change Repo
 its line naming the metric deltas alone, while production serves no wording diff and omits the report's
 risk lines (`tests/unit/changeReportPlanClaims.spec.tsx` fails a Pro chip on the row, or a risk or
 language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). Notable filings is the
-row after Reporting this week (E90): the cards the backend serves under D-046's rule, each opening its
-company page, under a line that says what the feed is and nothing the backend's query does not do.
+row after Reporting this week (E90): one hairline line per filing the backend serves under D-046's rule, in
+Reporting this week's anatomy (the mark at 32, the ticker in the data face with the form and its filed date where
+Reporting this week has its day, the name beneath through `formatCompanyName`), each opening its company page, under
+a line that says what the feed is and nothing the backend's query does not do; no reason chip.
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either

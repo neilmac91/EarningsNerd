@@ -734,7 +734,7 @@ function leadChild(node, keys, init) {
 /** A hand-rolled chip around a form: an HTML element set in eyebrow type (uppercase, tracking-eyebrow, in
  *  its class text or a same-file binding it reads) whose lead (leadChild: the first text or expression of its
  *  content, read through its HTML wrappers, siblings included) shows a form by formNode's reading (its strings
- *  tested with FORM_CODE_LEAD, so `{'10-Q · Filed'}` counts), as the notable card's `{form} · filed {date}` meta line
+ *  tested with FORM_CODE_LEAD, so `{'10-Q · Filed'}` counts), as the Notable filings line's `{form} · filed {date}`
  *  does. A Badge by another hand. A sentence that names a form later (`Latest {filing.filing_type}`) or opens
  *  with one as prose (`10-K filings`) is copy; a component, a Badge or a face-resetting element before the lead
  *  ends the reading, and nothing after it does. The children are read first, so a class binding is resolved

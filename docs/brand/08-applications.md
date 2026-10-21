@@ -27,7 +27,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Reader quote | `ReaderQuoteSlot.tsx`, `lib/readerQuote.ts` (new) | Mounted under the pricing section; renders nothing while `READER_QUOTE` is `null`, so no placeholder testimonial ships, the reader-quote slot stays unrendered and it takes no number among the rows; once filled it is a ruled row (§6; 01-interview.md §2; `tests/unit/readerQuoteSlot.spec.tsx`). It fills only with a real reader's words and the naming they approved in writing; the voice rules of #1288 (`brandVoiceRules.spec.ts`) gate the shipped value once that PR merges. The placeholder strings are gone. |
 | Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). The Ask demo answers "How much did net sales grow, and what drove Services?" as a live run would: total net sales of $416.2B [1] and its 6.4% growth [2], two XBRL chips written as `copilot_tools.fact_to_citation` writes them (a fact the tool can fetch, and the growth `compute_metric` derives from it), then the Item 7 sentence on Services [3]. The markers are numbered as the server numbers them, never [F1]. `tests/unit/landingSamplesVerified.spec.ts` holds every figure, chip label and marker on the page's samples and the hero fallback to the verified set, ties each XBRL chip's label and figure to the concept its section ref names, and ties the answer's figure before each marker to that chip. The Copilot teaser's blurred sample (`CopilotTeaser.tsx`, #1295) answers a Services question instead: its Services figures are a dimensioned fact the tool cannot fetch, so its citations are passages from the filing, not XBRL facts; the two answers differ for that reason, and the spec's teaser clause holds that citation kind: the sample states only the verified Services pair, names the drivers the Item 7 sentence names, and runs markers [1] and [2] with one matched source each and no XBRL marker, locator, tag or braces glyph. |
 | Reporting this week | `features/calendar/components/ReportingThisWeek.tsx` | A ruled row of hairline lines (mark, ticker, the day it reports, name), two across, in place of the four-up tiles (D-045); it renders only with live data, so it takes no number without it. |
-| Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | A ruled row after Reporting this week since E90 (see §7): the cards the backend serves under D-046's rule, two across, each opening its company page, under the line "The past week's 10-K and 10-Q filings from companies with a summary to read, newest first."; it renders only with a served list, so it takes no number without one. |
+| Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | A ruled row after Reporting this week since E90 (see §7): one hairline line per filing the backend serves under D-046's rule, in Reporting this week's anatomy, two across, each opening its company page, under the line "The past week's 10-K and 10-Q filings from companies with a summary to read, newest first."; it renders only with a served list, so it takes no number without one. |
 | Close | `ClosingLine.tsx` (was `CtaBanner.tsx`) | One line under the last row's rule, not a banner (D-045): "Start with a real filing: read the Apple 10-K summary first, then read your own." with the live example as a text link (the funnel's `cta_banner` placement) and the access mode's call to action as a button at its end. |
 | Footer | `components/Footer.tsx` | The tagline, "The summary that shows its work." |
 | Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts`, `lib/socialCard.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). Titles put the page first and the brand last ("Read the filing faster. Keep the source in view \| EarningsNerd"); the root default is "AI summaries of SEC filings \| EarningsNerd", and the root's social preview carries no title or description of its own, so Next fills both from each page (D-038). |
@@ -593,7 +593,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
   the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
-  such as the notable-filing card's "{form} · filed {date}" (the card moved to the data face
+  such as Notable filings' "{form} · filed {date}" (its form code moved to the data face
   with it). The form toggles, "Clear dates" and "Try again" (a `RetryButton`) carry the brand ring, the
   result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
   on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
@@ -673,17 +673,21 @@ flag is off, in a week with fewer than three such companies, or on a failed read
 mounts the section after Reporting this week as a ruled row (D-045, §1). Its line says what the
 query serves, "The past week's 10-K and 10-Q filings from companies with a summary to read, newest
 first.", where the section once said "High-signal SEC filings from the past week, across the whole
-market."; its cards, two across from 40rem at the reader's text size, each open their company page
-as before. On each the ticker is in the data face, as the landing's other tickers are, and the form
-code is one unbroken run that the middot after it keeps to, so under 200% text no line breaks the
-code or starts with the dot; the reason chip, whose label wraps
-there, takes the 16px step (DESIGN.md, Shapes). Each card states its filing's date as the Filing
-identity line does, "filed Oct 20, 2026", through the same helper (`formatLocalDate`): the filed date
-is a day with no time, so the card states that day, the same in every time zone and never stale on
-the cached page. With an empty list or a failed read it
-renders nothing, so it takes no number among the rows. The mount gate
-(`tests/unit/landing-sections-mounted.spec.ts`) holds its place, and
-`tests/unit/NotableFilings.spec.tsx` holds it to the cards it is served.
+market."; its filings are hairline lines in Reporting this week's anatomy, two across from 40rem
+at the reader's text size, each opening its company page as before: the mark at 32, the ticker in
+the data face with "10-Q · filed Oct 20, 2026" where Reporting this week has its day (sharing the
+line while both fit, dropping beneath the ticker when they do not), and the company's name beneath,
+truncating, through `formatCompanyName` as Reporting this week and the Filing identity line print it. The form code is one unbroken run
+that the middot after it keeps to, and the date states the filing's day as the Filing identity line
+does, through the same helper (`formatLocalDate`): a day with no time, the same in every time zone
+and never stale on the cached page. The date moves under the code whole before it breaks, holding
+the month and day as one run as the hero's identity line does, so under 200% text no line breaks
+the code, starts with the dot or reads "filed Oct" over "20, 2026". There is no reason chip: under
+D-046 it could only gloss the code the row's line already names (chief design's review of #1461).
+With an empty list or a failed read it renders nothing, so it takes no number among the rows. The
+mount gate (`tests/unit/landing-sections-mounted.spec.ts`) holds its place and the slot it is fed,
+and `tests/unit/NotableFilings.spec.tsx` holds it to the lines it is served and to Reporting this
+week's anatomy.
 
 ## 8. Decided by the founder
 
