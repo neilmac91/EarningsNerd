@@ -599,13 +599,15 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  and on a hovered dark row its white/5 took the label to 4.27:1 (E83). On the calendar's rows
                  the tentative label holds 5.21:1 at rest and 5.44:1 hovered in light, 5.78:1 and 4.98:1 in
                  dark. Gates: tests/unit/badgeVariants.spec.tsx (tentative is neutral-status's ink on a dashed
-                 hairline with no fill under any variant; the "Est." chip, as the week sheet, the day list and
-                 the day dialog render it, is that chip class for class, measured on its row at rest and
-                 hovered in both themes, the grounds read up from the rendered chip; and no <Badge> in app/,
-                 components/ or features/ sets a ground, an ink or a hairline in its className, any bg- or
-                 border utility or a text- colour, read through cx() and conditions and templates, where an
-                 interpolation glued inside a class token (`text-${tone}-text`) is joined from its string
-                 values or the className is unreadable; a className it cannot read or a spread fails too).
+                 hairline with no fill under any variant; the calendar's status ladder, "Est.", "Confirmed"
+                 and "Reported" as the week sheet, the day list and the day dialog render them, is tentative,
+                 info-status and neutral-status class for class (Status chip below), each label measured on
+                 its row at rest and hovered in both themes, the grounds read up from the rendered chip; and
+                 no <Badge> in app/, components/ or features/ sets a ground, an ink or a hairline in its
+                 className, any bg- or border utility or a text- colour, read through cx() and conditions and
+                 templates, where an interpolation glued inside a class token (`text-${tone}-text`) is joined
+                 from its string values or the className is unreadable; a className it cannot read or a
+                 spread fails too).
                  beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
@@ -646,9 +648,18 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  <Badge> of its status set (components/ui/Badge.tsx, BadgeStatusVariant; the Badge entry
                  under Solid chip): pending and new on info-status, used and resolved on success, expired
                  and triaged on warning-status, revoked on neutral-status, the icon in Badge's `icon` slot.
-                 The calendar's estimated date is `tentative` ("Est.", StatusChip in EventRow), the set's
-                 sixth: no fill in either theme, so the row is its ground (on the admin rows 5.21:1, and
-                 4.90:1 under their cream hover, in light; 5.78:1 and 4.98:1 in dark).
+                 The calendar's status ladder (StatusChip in EventRow, a label alone) is a status, so every
+                 rung takes the set (E141): "Est." on `tentative`, the set's sixth, a date not yet settled,
+                 with no fill in either theme, so the row is its ground (on the admin rows 5.21:1, and 4.90:1
+                 under their cream hover, in light; 5.78:1 and 4.98:1 in dark); "Confirmed" on info-status, a
+                 firm, upcoming date and the rung a reader scans for (not success, whose light ink is
+                 gain.text's #15803D, the ink a reported row's beat prints in, and not the brand tint, which
+                 is brand and activity); "Reported" on neutral-status, the event over, its EPS figure carrying
+                 the news. It reads dashed, blue, quiet. On the calendar's rows, at rest and hovered, light
+                 measures 5.21 and 5.44:1 (Est.), 6.70:1 (Confirmed) and 5.44:1 (Reported), dark 5.78 and
+                 4.98:1 (Est. and Reported) and 5.77 and 4.97:1 (Confirmed). Before, Reported was the quiet
+                 chip (10.31:1 in light; in dark its white/5 fill stacked on the hovered row's, 4.27:1) and
+                 Confirmed the brand tint (5.77:1 in light, 5.93 and 5.14:1 in dark).
                  The status INK sits on the quiet ground, never the status tint. Light labels measure 5.0
                  to 7.1:1 on the white chip. Dark carries no fill, so the row's white/5 hover tint is the
                  only layer: the four the admin chips use hold 5.77 to 6.83:1 at rest and 4.97 to 5.89:1 on

@@ -62,14 +62,19 @@ Weighed three layouts:
   Today's marker is sized in rem, so it holds its digits at any text size.
   Names wrap, never truncate, and the range label wraps between whole dates.
   `tests/unit/calendarReflow.spec.tsx` and `calendarEventRow.spec.tsx`.
-- **Status ladder:** `Est.` (Badge's `tentative`: a dashed hairline with no
-  fill in either theme, tentative by design) → `Confirmed` (brand tint) →
-  `Reported` (quiet chip; EPS actual + calm ▲/▼ in the gain/loss *text*
-  tokens). A chip's ground is its variant's, never a class on top
-  (`badgeVariants.spec.tsx`). Estimated rows with a habitual slot say
-  "usually before open / after close" (§3.3: right about 3 times in 4), on a line
-  of their own after the lane's glyph, in every row kind (the week sheet, the
-  day list, the day dialog), since the page's footer explains "usually".
+- **Status ladder:** a status, so every rung is a member of Badge's status
+  set (E141): `Est.` (`tentative`: a dashed hairline with no fill in either
+  theme, tentative by design) → `Confirmed` (`info-status`: a firm, upcoming
+  date, the rung a reader scans for; not `success`, whose light ink is the
+  beat's `gain.text` hex) → `Reported` (`neutral-status`: the event is over,
+  and its EPS actual, with a calm ▲/▼ in the gain/loss *text* tokens, carries
+  the news). It reads dashed, blue, quiet. A chip's ground is its variant's,
+  never a class on top, and each rung's label clears 4.5:1 on the rows at rest
+  and hovered in both themes (`badgeVariants.spec.tsx`). Estimated rows with a
+  habitual slot say "usually before open / after close" (§3.3: right about 3
+  times in 4), on a line of their own after the lane's glyph, in every row kind
+  (the week sheet, the day list, the day dialog), since the page's footer
+  explains "usually".
 - **Alerts:** bell on every row (the subscription is per *company*, so it
   shows on reported rows too — it arms the next quarter).
   - Signed-out → sign-in popover; its second action follows the registration

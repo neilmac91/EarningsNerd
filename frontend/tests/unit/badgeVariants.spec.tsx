@@ -6,7 +6,7 @@ import type { Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { Badge, Card, type BadgeVariant } from '@/components/ui'
+import { Badge, Card, type BadgeStatusVariant, type BadgeVariant } from '@/components/ui'
 import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
 import { DayDetailDialog } from '@/features/calendar/components/DayDetailDialog'
 import { WeekView } from '@/features/calendar/components/WeekView'
@@ -33,8 +33,9 @@ import type { EarningsAlertsApi } from '@/features/calendar/hooks/useCalendar'
  *    reduced motion, and a label that clears 4.5:1 in both themes on the interactive Card its one use sits on
  *    (the dashboard's What changed card), at rest and pressed, the grounds read from Card's own classes;
  *  - `tentative` (E83) is neutral-status's ink on a dashed hairline with no fill in either theme, and the calendar's
- *    "Est." chip is that chip as Badge renders it, whose label clears 4.5:1 on its rows at rest and hovered in both
- *    themes; and no <Badge> sets a ground, an ink or a hairline in its className (the cases at the end).
+ *    status ladder is the status set as Badge renders it ("Est." on tentative, "Confirmed" on info-status, "Reported"
+ *    on neutral-status, E141), each label clearing 4.5:1 on its rows at rest and hovered in both themes; and no <Badge>
+ *    sets a ground, an ink or a hairline in its className (the cases at the end).
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -225,6 +226,8 @@ describe('the new chip (D-032, E51)', () => {
  * dark:bg-transparent` as a className, but cx only joins classes and the stylesheet emits `bg-white` after
  * `bg-transparent` (and `dark:bg-white/5` after `dark:bg-transparent`), so it painted as a white pill, and on a hovered
  * dark row its white/5 stacked on the row's: 4.27:1. A chip's ground, ink and hairline are its variant's to state.
+ * "Reported", Badge's quiet chip, stacked its white/5 on the hovered row's the same way (4.27:1), and "Confirmed" took
+ * the brand tint; the ladder is a status, so both take the set (E141): info-status and neutral-status.
  * Colours here are read through the resolved palette (`text-tertiary-light`, `white/5`), as Tailwind names them.
  */
 const PALETTE = (
@@ -326,7 +329,34 @@ const ESTIMATED: CalendarEvent = {
   anticipation_score: 88,
 }
 
+/** The calendar's status ladder (E141, chief design's reading on #1460): each rung its member of Badge's status set,
+    read dashed, blue, quiet. Typed as the set, so a tint here does not compile. */
+const LADDER: Array<{ status: CalendarEvent['status']; label: string; variant: BadgeStatusVariant }> = [
+  { status: 'estimated', label: 'Est.', variant: 'tentative' },
+  { status: 'confirmed', label: 'Confirmed', variant: 'info-status' },
+  { status: 'reported', label: 'Reported', variant: 'neutral-status' },
+]
+/** One sample company per rung on the same day; the reported one carries its actual, as a reported row does. */
+const LADDER_EVENTS: CalendarEvent[] = [
+  ESTIMATED,
+  { ...ESTIMATED, ticker: 'MSFT', company_name: 'Microsoft', event_time: 'amc', status: 'confirmed', eps_estimate: 3.1, anticipation_score: 95 },
+  { ...ESTIMATED, ticker: 'KO', company_name: 'Coca-Cola', status: 'reported', eps_estimate: 0.8, eps_actual: 0.84, anticipation_score: 70 },
+]
+
 describe('the tentative chip (E83)', () => {
+  it("is neutral-status's ink on a dashed hairline, with no fill in either theme", () => {
+    const tentative = badgeClasses('tentative')
+    expect(tentative).toEqual(expect.arrayContaining(['border', 'border-dashed']))
+    expect([inkOf(tentative, 'light'), inkOf(tentative, 'dark')], "neutral-status's ink").toEqual([
+      inkOf(badgeClasses('neutral-status'), 'light'),
+      inkOf(badgeClasses('neutral-status'), 'dark'),
+    ])
+    // A fill under any variant, bare, dark: or a state's, would paint under the label.
+    expect(tentative.filter((c) => /(^|:)!?bg-/.test(c) && !/(^|:)bg-transparent$/.test(c)), 'a fill on the tentative chip').toEqual([])
+  })
+})
+
+describe("the calendar's status ladder (E83, E141)", () => {
   // jsdom has no showModal(); the day dialog opens itself with it.
   const dialogProto = HTMLElement.prototype as HTMLElement & { showModal?: () => void }
   beforeAll(() => {
@@ -338,50 +368,42 @@ describe('the tentative chip (E83)', () => {
     delete dialogProto.showModal
   })
 
-  it("is neutral-status's ink on a dashed hairline, with no fill in either theme", () => {
-    const tentative = badgeClasses('tentative')
-    expect(tentative).toEqual(expect.arrayContaining(['border', 'border-dashed']))
-    expect([inkOf(tentative, 'light'), inkOf(tentative, 'dark')], "neutral-status's ink").toEqual([
-      inkOf(badgeClasses('neutral-status'), 'light'),
-      inkOf(badgeClasses('neutral-status'), 'dark'),
-    ])
-    // A fill under any variant, bare, dark: or a state's, would paint under the label.
-    expect(tentative.filter((c) => /(^|:)!?bg-/.test(c) && !/(^|:)bg-transparent$/.test(c)), 'a fill on the tentative chip').toEqual([])
-  })
-
-  it('is the "Est." chip as the week sheet, the day list and the day dialog render it, its label at 4.5:1 or more on its row at rest and hovered, both themes', () => {
-    const day = { iso: ESTIMATED.event_date, isToday: false, holidayName: null, events: [ESTIMATED] }
+  it('each rung is its chip of the status set as the week sheet, the day list and the day dialog render it, its label at 4.5:1 or more on its row at rest and hovered, both themes', () => {
+    const day = { iso: ESTIMATED.event_date, isToday: false, holidayName: null, events: LADDER_EVENTS }
     // The sheet's compact row and the list's roomy row both render (CSS shows one by the view's width), then the dialog's.
     const views = [
       render(<WeekView days={[day]} alerts={ALERTS} signedIn={false} onShowMore={() => {}} />).container,
-      render(<DayDetailDialog iso={day.iso} events={[ESTIMATED]} alerts={ALERTS} signedIn={false} onClose={() => {}} />).container,
+      render(<DayDetailDialog iso={day.iso} events={LADDER_EVENTS} alerts={ALERTS} signedIn={false} onClose={() => {}} />).container,
     ]
-    const chips = views.flatMap((view) => [...view.querySelectorAll('span')].filter((el) => el.textContent === 'Est.'))
     const where = ['the week sheet', 'the day list', 'the day dialog']
-    expect(chips).toHaveLength(where.length)
-    const tentative = classSet(badgeClasses('tentative').join(' '))
     const failures: string[] = []
     let measured = 0
-    chips.forEach((chip, i) => {
-      if (classSet(chip.className) !== tentative) failures.push(`${where[i]}: "${classSet(chip.className)}" is not Badge's tentative chip, "${tentative}"`)
-      for (const theme of ['light', 'dark'] as const) {
-        for (const hovered of [false, true]) {
-          const ground = groundOf(chip, theme, hovered, failures)
-          const ink = inkOf(chip.className.split(/\s+/), theme, failures)
-          const colour = ink === undefined ? undefined : paletteColour(ink)
-          if (!ground || !colour) {
-            if (!colour) failures.push(`${where[i]} (${theme}): no ink this case can read`)
-            continue
+    for (const { label, variant } of LADDER) {
+      const chips = views.flatMap((view) => [...view.querySelectorAll('span')].filter((el) => el.textContent === label))
+      if (chips.length !== where.length) failures.push(`"${label}": ${chips.length} chips, where the sheet, the list and the dialog render ${where.length}`)
+      const own = classSet(badgeClasses(variant).join(' '))
+      chips.forEach((chip, i) => {
+        const at = `${where[i]}, "${label}"`
+        if (classSet(chip.className) !== own) failures.push(`${at}: "${classSet(chip.className)}" is not Badge's ${variant} chip, "${own}"`)
+        for (const theme of ['light', 'dark'] as const) {
+          for (const hovered of [false, true]) {
+            const ground = groundOf(chip, theme, hovered, failures)
+            const ink = inkOf(chip.className.split(/\s+/), theme, failures)
+            const colour = ink === undefined ? undefined : paletteColour(ink)
+            if (!ground || !colour) {
+              if (!colour) failures.push(`${at} (${theme}): no ink this case can read`)
+              continue
+            }
+            const ratio = Math.round(contrast(over(colour.rgb, colour.alpha, ground), ground) * 100) / 100
+            measured += 1
+            if (ratio < 4.5) failures.push(`${at} (${theme}${hovered ? ', a hovered row' : ''}): ${ratio.toFixed(2)}:1`)
           }
-          const ratio = Math.round(contrast(over(colour.rgb, colour.alpha, ground), ground) * 100) / 100
-          measured += 1
-          if (ratio < 4.5) failures.push(`${where[i]} (${theme}${hovered ? ', a hovered row' : ''}): ${ratio.toFixed(2)}:1`)
         }
-      }
-    })
+      })
+    }
     expect([...new Set(failures)]).toEqual([])
-    // Three rows, two themes, at rest and hovered: a chip or a ground read short must not pass.
-    expect(measured).toBe(12)
+    // Three rungs on three rows each, two themes, at rest and hovered: a chip or a ground read short must not pass.
+    expect(measured).toBe(36)
   })
 })
 

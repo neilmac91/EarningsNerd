@@ -44,6 +44,11 @@
                      tentative holds 5.21:1 at rest and 5.44:1 hovered in
                      light, 5.78:1 and 4.98:1 in dark
                      (tests/unit/badgeVariants.spec.tsx).
+                     The calendar's status ladder renders the set
+                     (StatusChip, E141): "Est." on tentative, "Confirmed" on
+                     info-status, "Reported" on neutral-status, each label
+                     4.97:1 or more on the calendar's rows, at rest and
+                     hovered, in both themes (badgeVariants.spec.tsx).
                      Status is never told with beat/miss: those are data
                      colours.
      - beat / miss:  earnings surprise — gain/loss DATA colors (kept distinct
