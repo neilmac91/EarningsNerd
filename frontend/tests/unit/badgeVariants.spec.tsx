@@ -133,11 +133,7 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
   it("the Status chip recipe says what each member of the status set means, so a new chip's member is read there", () => {
     // Badge's status set: the members of its BadgeStatusVariant type, read from its source.
     const file = 'components/ui/Badge.tsx'
-    const sf = ts.createSourceFile(file, readFileSync(path.join(ROOT, file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-    const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === 'BadgeStatusVariant')
-    const set = (alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : []).map((t) =>
-      ts.isLiteralTypeNode(t) && ts.isStringLiteral(t.literal) ? t.literal.text : t.getText(sf),
-    )
+    const set = stringUnion(file, 'BadgeStatusVariant')
     expect(set.length, `BadgeStatusVariant, a union of string literals, in ${file}`).toBeGreaterThan(1)
     // The recipe's meaning line (frontend/DESIGN_SYSTEM.md §4, Status chip), from its lead to the recipe's Gate line:
     // each member written `name`: meaning, once.
@@ -349,9 +345,9 @@ const ESTIMATED: CalendarEvent = {
 }
 
 /** The calendar's status ladder (E141, chief design's reading on #1460): each rung its member of Badge's status set,
-    read dashed, blue, quiet. Keyed by every status and typed as the set, so a tint here does not compile, and a status
-    the calendar gains does not compile until it has a rung here, then fails the reader below until LADDER_EVENTS
-    renders it. */
+    read dashed, blue, quiet. Keyed by every status and typed as the set: under the app's tsconfig a tint here does not
+    compile, and since CI's typecheck leaves the specs out, the reader below also reads EventStatus from its source, so a
+    status the calendar gains fails it until it has a rung here and an event in LADDER_EVENTS. */
 const LADDER: Record<CalendarEvent['status'], { label: string; variant: BadgeStatusVariant }> = {
   estimated: { label: 'Est.', variant: 'tentative' },
   confirmed: { label: 'Confirmed', variant: 'info-status' },
@@ -398,6 +394,10 @@ describe("the calendar's status ladder (E83, E141)", () => {
       render(<DayDetailDialog iso={day.iso} events={LADDER_EVENTS} alerts={ALERTS} signedIn={false} onClose={() => {}} />).container,
     ]
     const where = ['the week sheet', 'the day list', 'the day dialog']
+    const statuses = stringUnion('features/calendar/api/calendar-api.ts', 'EventStatus')
+    expect(statuses.length, 'EventStatus, a union of string literals').toBeGreaterThan(1)
+    expect(Object.keys(LADDER).sort(), 'a rung for every status EventStatus names').toEqual([...statuses].sort())
+    expect(LADDER_EVENTS.map((e) => e.status).sort(), 'an event for every rung').toEqual([...statuses].sort())
     const failures: string[] = []
     let measured = 0
     for (const { label, variant } of RUNGS) {
@@ -436,6 +436,15 @@ describe("the calendar's status ladder (E83, E141)", () => {
     }
   })
 })
+
+/** The members of a string-literal union type alias, read from its source file (relative to the frontend root). */
+function stringUnion(file: string, name: string): string[] {
+  const sf = ts.createSourceFile(file, readFileSync(path.join(ROOT, file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === name)
+  return (alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : []).map((t) =>
+    ts.isLiteralTypeNode(t) && ts.isStringLiteral(t.literal) ? t.literal.text : t.getText(sf),
+  )
+}
 
 /** Every value a piece joined into a class token can take, when each is a string literal (one, a condition between
     them, or two joined with +); null for anything else. */
