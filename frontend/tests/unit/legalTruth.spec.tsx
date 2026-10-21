@@ -23,41 +23,45 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    percent or per cent, beside uptime, availability or an SLA, or a guarantee beside uptime or availability, in
  *    either order; none is offered); firewalls or intrusion detection or prevention (nothing configures them); every
  *    endpoint behind authentication (ENDPOINT_CLAIM: "all" or "every" endpoints as main's reading has them; "all",
- *    "every", "each" or "any" with up to three words before "endpoints", as in "all of the API's endpoints", in a
- *    sentence that says a login is needed, unless what follows narrows them, as "any endpoint returning account data"
- *    does; and "no endpoint" answering without authentication, the claim the other way round, while "No API endpoints
- *    require authentication." says the opposite and passes; search, company pages and summaries are public); a Content
- *    Security Policy against XSS or cross-site scripting (the site sends frame-ancestors only); role-based access,
- *    permissions or authorisation, or RBAC (one administrator flag); an adjective in place of a fact (enterprise,
- *    military or bank grade or level, industry standard or standards, hyphenated or not); no financial data stored, a
- *    negation, contracted or not, on either side (payment records are kept); post-incident reviews or post-mortems and
- *    vetting the providers (no process in the repository does either); and an analytics-consent promise not scoped to
- *    the browser in its own sentence (CONSENT_PROMISE; the API sends account events whatever the reader chose: D-051).
- *    That promise names the analytics by a name the F33 check reads them by (analytics, tracking, statistics, PostHog,
- *    usage, telemetry), or as the account's, the server's or the API's events ("your data" and "event invitations" are
- *    not the analytics), and makes them wait for a yes: "only" up to 60 characters before "after (once, when, if or
- *    until) you allow" (accept, agree, consent, opt in, give consent, say yes, turn or switch on, enable), before "with
- *    (after, upon, on or by) your consent" with up to three words before the consent (permission, agreement, approval,
- *    opt-in, each read by its start, so "only after consenting" fails too), or before "once allowed", a sentence that
- *    names the browser ("in your browser") reading as scoped; or, in the forms the "only" ones miss, "until you allow",
- *    a negation, contracted or not, before "without your consent", "requires (needs, waits for, is or are subject to)
- *    your consent", "consent-gated" or "opt-in", where a sentence that names the browser or its part, its analytics
- *    cookies or session recording (the consent dialog's own "Analytics cookies and session recording stay off until you
- *    allow them", and "Session recording with PostHog is opt-in"), reads as scoped, and where the verb says the
- *    promise, a denial before it or on the subject passes ("No server events require your consent", "Server events do
- *    not need your consent"), while "No analytics run until you allow them" and "No usage data is sent without your
- *    permission" still promise. The scan reads /security's rendered tree, as one text (a heading runs into the body
- *    under it) and block by block (blockTexts: a list item or a paragraph on its own, so a provider's item is not read
- *    through the PostHog line's "in your browser"), /privacy's and /terms' rendered trees the same way (/privacy
- *    carries the account-events sentence too), the page module's literals (its metadata, which no render shows) and the
- *    waitlist page's copy (strings, JSX text and each element's run across its inline elements, outside className),
- *    sentence by sentence, a sentence ending only at ".", "!" or "?", so a `<strong>Label:</strong> body` item is read
- *    whole. The planted forms run through the same render, text, blocks and splitter and score the reach: main's
- *    sentences and their close rewordings fail, the page's new sentences and class names pass, and so do true or
- *    unrelated sentences a wider reading once refused (#1456's review and Codex: "We delete your data only with your
- *    consent.", "Any endpoint may return 503."). Out of reach, planted as gaps: a claim split across two sentences, one
- *    said in other words ("PostHog runs after you allow it", "the whole API sits behind authentication"), and an
- *    unscoped consent promise in a sentence that also names the browser or its part.
+ *    "every", "each" or "any" with up to three words before "endpoints", as in "all of the API's endpoints", whose own
+ *    predicate says they need a login, after them in their clause ("each endpoint requires a login", "sits behind a
+ *    login", "can only be called with a token") or before them as their requirement ("a login is required for each
+ *    endpoint"), not after a negation, unless a relative clause or a participle narrows them, as "any endpoint
+ *    returning account data" does; and "no endpoint" answering without authentication in its clause, the claim the
+ *    other way round; login words in another role or clause pass ("Each API endpoint documents the token format.", "Any
+ *    endpoint may accept an optional token."), and so does "No API endpoints require authentication.", which says the
+ *    opposite; search, company pages and summaries are public); a Content Security Policy against XSS or cross-site
+ *    scripting (the site sends frame-ancestors only); role-based access, permissions or authorisation, or RBAC (one
+ *    administrator flag); an adjective in place of a fact (enterprise, military or bank grade or level, industry
+ *    standard or standards, hyphenated or not); no financial data stored, a negation, contracted or not, on either side
+ *    (payment records are kept); post-incident reviews or post-mortems and vetting the providers (no process in the
+ *    repository does either); and an analytics-consent promise not scoped to the browser in its own sentence
+ *    (CONSENT_PROMISE; the API sends account events whatever the reader chose: D-051). That promise names the analytics
+ *    by a name the F33 check reads them by (analytics, tracking, statistics, PostHog, usage, telemetry), or as the
+ *    account's, the server's or the API's events ("your data" and "event invitations" are not the analytics), and makes
+ *    them wait for a yes: "only" up to 60 characters before "after (once, when, if or until) you allow" (accept, agree,
+ *    consent, opt in, give consent, say yes, turn or switch on, enable), before "with (after, upon, on or by) your
+ *    consent" with up to three words before the consent (permission, agreement, approval, opt-in, each read by its
+ *    start, so "only after consenting" fails too), or before "once allowed", a sentence that names the browser ("in
+ *    your browser") reading as scoped; or, in the forms the "only" ones miss, "until you allow", a negation, contracted
+ *    or not, before "without your consent", "requires (needs, waits for, is or are subject to) your consent",
+ *    "consent-gated" or "opt-in", where a sentence that names the browser or its part, its analytics cookies or session
+ *    recording (the consent dialog's own "Analytics cookies and session recording stay off until you allow them", and
+ *    "Session recording with PostHog is opt-in"), reads as scoped, and where the verb says the promise, a denial before
+ *    it or on the subject passes ("No server events require your consent", "Server events do not need your consent"),
+ *    while "No analytics run until you allow them" and "No usage data is sent without your permission" still promise.
+ *    The scan reads /security's rendered tree, as one text (a heading runs into the body under it) and block by block
+ *    (blockTexts: a list item or a paragraph on its own, so a provider's item is not read through the PostHog line's
+ *    "in your browser"), /privacy's and /terms' rendered trees the same way (/privacy carries the account-events
+ *    sentence too), the page module's literals (its metadata, which no render shows) and the waitlist page's copy
+ *    (strings, JSX text and each element's run across its inline elements, outside className), sentence by sentence, a
+ *    sentence ending only at ".", "!" or "?", so a `<strong>Label:</strong> body` item is read whole. The planted forms
+ *    run through the same render, text, blocks and splitter and score the reach: main's sentences and their close
+ *    rewordings fail, the page's new sentences and class names pass, and so do true or unrelated sentences a wider
+ *    reading once refused (#1456's review and Codex: "We delete your data only with your consent.", "Any endpoint may
+ *    return 503."). Out of reach, planted as gaps: a claim split across two sentences, one said in other words
+ *    ("PostHog runs after you allow it", "the whole API sits behind authentication", "each endpoint checks that the
+ *    caller holds a token"), and an unscoped consent promise in a sentence that also names the browser or its part.
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -270,20 +274,47 @@ const CONSENT_PROMISE = new RegExp(
   'i',
 )
 
-/** What the removed endpoint claim says of the endpoints: a reader needs a login for them (authentication, a login, a
-    sign-in, a token, protected, behind a login). */
-const AUTH_NEEDED = String.raw`(?:\bauthenticat\w*|\blog(?:ged)?[- ]?in\b|\bsign(?:ed)?[- ]?in\b|\btokens?\b|\bprotected\b|\bbehind\s+(?:a\s+|an\s+|the\s+)?(?:log[- ]?in|sign[- ]?in|authentication|auth|token|password|account)\b)`
-/** Endpoints that what follows them narrows ("any endpoint returning account data"): a scoped claim, not every one. */
-const NARROWED = String.raw`(?!\s+(?:that|which|return(?:s|ing)?|serv(?:es|ing)|handling|exposing|reading|writing|for|with)\b)`
-/** Every endpoint behind authentication: main's reading (all or every, with "of", "our" or "the" and "API" between),
-    each, any, all or every with up to three words before "endpoints" in a sentence that says they need a login
-    (AUTH_NEEDED), unless what follows narrows them (NARROWED), and the claim said the other way round, "no endpoint"
-    answering without authentication or unauthenticated. "No API endpoints require authentication." says the opposite
-    and passes, and so does a quantifier with no login said ("Any endpoint may return 503."). */
+/** Endpoints that what follows them narrows, a relative clause or a participle ("any endpoint that returns account
+    data", "any endpoint returning account data"): a scoped claim, not every one. A verb of their own ("each endpoint
+    returns JSON and requires a login") narrows nothing. */
+const NARROWED = String.raw`(?!\s+(?:that|which|returning|serving|handling|exposing|reading|writing|for|with)\b)`
+/** The endpoints the removed claim speaks of: all, every, each or any with up to three words before "endpoints"
+    ("all of the API's endpoints", "every single endpoint", "each API endpoint"), unless what follows narrows them. */
+const SOME_ENDPOINTS = String.raw`\b(?:all|every|each|any)\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}`
+/** A login, as the claim says the endpoints need one: authentication, a login or sign-in, a token, an account. */
+const A_LOGIN = String.raw`(?:(?:a|an|the|your|valid|prior|its own)\s+)*(?:authentication|auth|log[- ]?in|logging in|sign[- ]?in|signing in|(?:bearer\s+|session\s+|access\s+)?tokens?|account|credentials?)\b`
+/** The words between the endpoints and their predicate, in their own clause: none opens another clause (which, that,
+    when, because, but, or, ", and the login page ..."), up to six of them. */
+const IN_THEIR_CLAUSE = String.raw`(?:(?:\s*,)?\s+(?!(?:which|that|who|whom|whose|where|when|while|whereas|because|if|unless|so|but|or)\b|and\s+(?:the|a|an|its|their|your|our|we|you|it|they|this|these|those)\b)[\w'’-]+){0,6}?(?:\s*,)?\s+`
+/** The endpoints' own predicate when it says they need a login, not after a negation (NOT): a requirement with the
+    login ("requires a login", "needs a token", "requires you to be logged in"), a state ("is protected", "is
+    authenticated", "sits behind a login"), or a use only with one ("can only be called with a token", "answers only to
+    a signed-in reader"). */
+const NEEDS_A_LOGIN = String.raw`${NOT}\b(?:` +
+  String.raw`(?:requires?|required|needs?|demands?|expects?|takes?)\s+${A_LOGIN}` +
+  String.raw`|(?:requires?|needs?)\s+(?:you|the reader|readers|callers?|users?)\s+to\s+(?:(?:be\s+)?(?:logged|signed)\s+in|(?:log|sign)\s+in|authenticate)\b` +
+  String.raw`|(?:is|are|stays?|remains?)\s+(?:all\s+|always\s+|only\s+)?(?:protected|authenticated|locked|gated|private)\b` +
+  String.raw`|(?:is|are|sits?|stands?|lives?|stays?)\s+(?:all\s+|always\s+|only\s+)?behind\s+${A_LOGIN}` +
+  String.raw`|(?:can|may|will)\s+only\s+be\s+(?:called|reached|used|accessed|queried|opened)\s+(?:with|by|after|once|when)\s+(?:a\s+|an\s+)?(?:valid\s+)?(?:token|login|logging in|signing in|authentication|account|signed[- ]in|logged[- ]in|authenticated)\b` +
+  String.raw`|(?:answers?|responds?|works?|opens?)\s+(?:only\s+)?(?:to|for|with|after|once)\s+(?:a\s+|an\s+)?(?:logged[- ]in|signed[- ]in|authenticated|valid\s+token)` +
+  ')'
+/** The login said before the endpoints as their requirement: "a login is required for each endpoint", "you need a
+    token for any endpoint", "authentication is mandatory on each endpoint", "you must log in to call any endpoint". */
+const LOGIN_FOR = String.raw`(?:` +
+  String.raw`\b${A_LOGIN}\s+(?:is|are)\s+(?:always\s+|strictly\s+)?(?:required|needed|mandatory|necessary|enforced|checked|expected)\s+(?:for|on|by|at|in|to\s+(?:call|reach|use|query|open))\s+(?:the\s+)?` +
+  String.raw`|${NOT}\b(?:you|readers?|callers?|clients?|users?)\s+(?:need|needs|require|requires|must\s+(?:have|present|send|hold|show))\s+${A_LOGIN}\s+(?:for|on|to\s+(?:call|reach|use|query|open))\s+(?:the\s+)?` +
+  String.raw`|${NOT}\b(?:you|readers?|callers?|clients?|users?)\s+(?:must|have to|need to)\s+(?:log|sign)\s+in\s+(?:to|before|first to)\s+(?:call|calling|reach|reaching|use|using|query|querying|open|opening)\s+(?:the\s+)?` +
+  ')'
+/** Every endpoint behind authentication: main's reading (all or every, with "of", "our" or "the" and "API" between);
+    SOME_ENDPOINTS with their own predicate saying they need a login, after them in their clause (NEEDS_A_LOGIN) or
+    before them as their requirement (LOGIN_FOR); and the claim the other way round, "no endpoint" answering without
+    authentication, unauthenticated or to anonymous requests, in its clause. "Each API endpoint documents the token
+    format.", "Any endpoint may accept an optional token." and "No API endpoints require authentication." pass. */
 const ENDPOINT_CLAIM = new RegExp(
   String.raw`\b(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b` +
-    String.raw`|^(?=.*${AUTH_NEEDED}).*\b(?:all|every|each|any)\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}` +
-    String.raw`|\bno\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}.*(?:\bwithout\s+(?:an?\s+)?(?:authentication|log[- ]?in|logging in|sign[- ]?in|signing in|token|account)\b|\bunauthenticated\b|\banonymous(?:ly)?\b)`,
+    String.raw`|${SOME_ENDPOINTS}${IN_THEIR_CLAUSE}${NEEDS_A_LOGIN}` +
+    String.raw`|${LOGIN_FOR}${SOME_ENDPOINTS}` +
+    String.raw`|\bno\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}${IN_THEIR_CLAUSE}(?:without\s+(?:an?\s+)?(?:authentication|log[- ]?in|logging in|sign[- ]?in|signing in|token|account)\b|unauthenticated\b|(?:\w+\s+)?anonymous(?:ly\b|\s+(?:users?|requests?|callers?|readers?|access|visitors?)\b))`,
   'i',
 )
 
@@ -915,6 +946,17 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>No API endpoint answers without authentication.</p>', true],
       ['<p>Each endpoint requires a login.</p>', true],
       ['<p>No endpoint can be reached unauthenticated.</p>', true],
+      // The login need as the endpoints' own predicate, after them in their clause or before them as their requirement
+      // (#1456's fourth round, Codex's thread 4335911303).
+      ['<p>Any endpoint needs a token.</p>', true],
+      ['<p>Each endpoint sits behind a login.</p>', true],
+      ['<p>Each endpoint is authenticated.</p>', true],
+      ['<p>Each endpoint can only be called with a token.</p>', true],
+      ['<p>Each endpoint returns JSON and requires a login.</p>', true],
+      ['<p>A login is required for each endpoint.</p>', true],
+      ['<p>You need a token for any endpoint.</p>', true],
+      ['<p>Authentication is mandatory on each endpoint.</p>', true],
+      ['<p>No endpoint accepts anonymous requests.</p>', true],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
@@ -960,6 +1002,16 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>No server event waits until you allow it.</p>', false],
       ['<p>None of the server events need your permission.</p>', false],
       ['<p>Not every account event is subject to your consent.</p>', false],
+      // Login words in another role or another clause than the endpoints' predicate (#1456's fourth round, Codex's
+      // thread 4335911303), a denial in either order, and "no endpoint" with "without a token" in another clause.
+      ['<p>Each API endpoint documents the token format.</p>', false],
+      ['<p>Any endpoint may accept an optional token.</p>', false],
+      ['<p>Each endpoint logs its latency, and the login page is public.</p>', false],
+      ["<p>Each endpoint's documentation explains token renewal.</p>", false],
+      ['<p>Each endpoint documents which calls require a token.</p>', false],
+      ['<p>A login is not required for each endpoint.</p>', false],
+      ['<p>No endpoint changed this month, and the login page still works without a token.</p>', false],
+      ['<p>No endpoint logs anonymous data.</p>', false],
       // Out of reach.
       ['<p>Our pages use a Content Security Policy. It blocks XSS.</p>', 'gap'],
       ['<p>Nobody outside our network can reach the servers.</p>', 'gap'],
@@ -967,6 +1019,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Analytics cookies stay off until you allow them, and so do server events.</p>', 'gap'],
       ['<p>PostHog runs after you allow it.</p>', 'gap'],
       ['<p>The whole API sits behind authentication.</p>', 'gap'],
+      ['<p>Each endpoint checks that the caller holds a token.</p>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
