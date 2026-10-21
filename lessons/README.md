@@ -69,6 +69,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - ops-place-a-provider-stall-before-paying-again.md — Place a provider stall at one layer with free probes before paying for another corpus
 - ops-price-the-actual-provider-model.md — Price each actual returned model at its own published tariff
 - ops-repin-binds-advisory-dims-sync-doc.md — A re-pin that first records an advisory eval dimension makes its "advisory" doc stale — sync it in the same PR
+- ops-reserve-eval-baseline-before-each-push.md — Read the balance and reserve USD 0.73 a push before opening, and before each further push to, a pull request whose diff touches `backend/app/`, `backend/evals/` or `backend/prompts/`: `eval-baseline` draws on every push, drafts included, and the after-draw reading counts its runs (review-checked)
 - ops-the-subscription-judge-has-a-usage-limit.md — probe `is_error` before a long judge run; an exhausted subscription looks like exit 1 with empty stderr
 
 ## Architecture
