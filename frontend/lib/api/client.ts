@@ -147,6 +147,20 @@ export function ensureRefreshed(): Promise<void> {
   return refreshPromise
 }
 
+/**
+ * Settles once the refresh in flight, if any, has answered, whatever its outcome, or once `limitMs` has passed.
+ * A logout waits on it before it posts: the refresh's answer sets the session cookies, and one that lands after
+ * the logout's answer sets them again, the access token among them, which keeps the tab signed in until that
+ * token expires (E133). The limit keeps a refresh that never answers from holding the logout.
+ */
+export function refreshSettled(limitMs: number): Promise<void> {
+  const inFlight = refreshPromise
+  if (!inFlight) return Promise.resolve()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const limit = new Promise<void>((resolve) => { timer = setTimeout(resolve, limitMs) })
+  return Promise.race([inFlight.then(() => undefined, () => undefined), limit]).finally(() => clearTimeout(timer))
+}
+
 // Response error interceptor: silent token refresh on 401, then backend error extraction.
 api.interceptors.response.use(
   (response) => response,

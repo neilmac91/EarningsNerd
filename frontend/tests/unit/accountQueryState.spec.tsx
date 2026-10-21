@@ -110,7 +110,8 @@ describe('account snapshots follow the resolved identity', () => {
     markSessionActive()
     const credential = deferred<unknown>()
     const logoutDone = deferred<unknown>()
-    vi.mocked(refreshAccessToken).mockRejectedValue({ response: { status: 401 } })
+    const refreshAnswer = deferred<void>()
+    vi.mocked(refreshAccessToken).mockImplementation(() => refreshAnswer.promise)
     api.defaults.adapter = async (config) => {
       if (config.url === '/api/auth/login') return response(config, await credential.promise)
       if (config.url === '/api/auth/logout') return response(config, await logoutDone.promise)
@@ -118,9 +119,12 @@ describe('account snapshots follow the resolved identity', () => {
     }
     const explicitGeneration = getExplicitSessionGeneration()
     const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
-    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
     const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }).catch((error) => error)
     await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(1))
+    // The logout starts while that refresh is in flight and waits for its answer: a logout under way starts no
+    // refresh of its own (E133), so a passive loss lands during one only through a refresh already in flight.
+    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
+    refreshAnswer.reject({ response: { status: 401 } })
     await oldIdentity
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
     expect(getExplicitSessionGeneration()).toBe(explicitGeneration)

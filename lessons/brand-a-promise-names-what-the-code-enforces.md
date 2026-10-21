@@ -73,5 +73,6 @@ and that logging out of all devices ends every session within 30 minutes, while
 rotation written after the successor) let two overlapping renewals both succeed and a renewal racing
 a logout keep a live token (E127, fixed by #1422; `tasks/todo.md` E96); `legalTruth.spec.tsx`
 (`E127_PROMISES`) holds the two items to what still holds on every run, timed or not: #1431 then
-fixed a login that straddled a password reset, but a session token already issued runs to its
-expiry and E96 and E133 are open, so the stronger wording returns only with the founder's go-ahead.
+fixed a login that straddled a password reset, and E133 a logout that did not wait for an
+in-flight renewal, but a session token already issued runs to its expiry and E96 is open, so the
+stronger wording returns only with the founder's go-ahead.

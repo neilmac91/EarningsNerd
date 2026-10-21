@@ -1,4 +1,4 @@
-import api, { ApiError } from '@/lib/api/client'
+import api, { ApiError, refreshSettled } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import { markSessionActive, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent } from '@/lib/api/session'
 
@@ -110,8 +110,23 @@ export const unlinkProvider = async (provider: string) => {
   return response.data
 }
 
+// How long a logout waits, at most, for a silent refresh in flight to answer before it posts.
+export const LOGOUT_REFRESH_WAIT_MS = 10_000
+
+/**
+ * Before a logout posts: start no new silent refresh (both refresh paths need the session flag), and let the one
+ * in flight answer first. A refresh's answer sets the session cookies, and one that lands after the logout's answer
+ * sets them again, the access token among them, which nothing revokes: this tab would stay signed in until it
+ * expires (E133).
+ */
+const settleRefreshBeforeLogout = async () => {
+  clearSessionActive()
+  await refreshSettled(LOGOUT_REFRESH_WAIT_MS)
+}
+
 export const logoutAllSessions = async () => {
   try {
+    await settleRefreshBeforeLogout()
     const response = await api.post('/api/auth/logout-all')
     return response.data
   } finally {
@@ -122,6 +137,9 @@ export const logoutAllSessions = async () => {
 export const logout = async () => {
   const generation = getExplicitSessionGeneration()
   try {
+    await settleRefreshBeforeLogout()
+    // A login accepted while this waited owns the cookies now, and the logout's request would sign it out.
+    if (!isExplicitSessionGenerationCurrent(generation)) return undefined
     const response = await api.post('/api/auth/logout')
     return response.data
   } finally {
