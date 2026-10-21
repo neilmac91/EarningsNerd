@@ -6751,6 +6751,14 @@ Full local and hosted verification plus independent exact-head review precede re
   fact-check and record 40's reviewer. A read-only survey of the window before the record was written. Two main
   merges, no backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid
   run outside it. No chief defect and no classifier denial of the chief's commands. Closure 190.
+- 2026-10-21 (record 40, `runtime/control/DECISIONS-40.md`): PR #1458 (record 39) merged `d26454f9` by the chief
+  under record 35's founder action 9, answered (thirty-fifth deploy-skip proof), with no classifier refusal, after
+  its fact-check, two reviewer passes and one re-run of a CI job that failed on the image registry's quota. Closure
+  191 registers record 39's survey, fact-check and reviewer and pre-registers this record's survey and fact-check
+  and record 41's reviewer. A read-only survey of the window before the record was written. One main merge, no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run
+  outside it. No chief defect, no classifier denial and no hook refusal of the chief's commands in the window.
+  Closure 191.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
