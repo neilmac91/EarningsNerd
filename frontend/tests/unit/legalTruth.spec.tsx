@@ -142,6 +142,7 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
   security: [
     { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },
     { date: 'October 21, 2026', sha256: '7e03a05b33c1cf00' },
+    { date: 'October 21, 2026', sha256: '272031790b35816d', sameDay: '#1397 changed the page that day too' },
   ],
 }
 
@@ -593,7 +594,7 @@ const NUMBERS: Array<{ says: RegExp; file: string; value: RegExp; per: number }>
   { says: /\b(\w+) failed logins for one email address\b/, file: 'backend/app/services/login_lockout.py', value: /^LOCKOUT_THRESHOLD = (\d+)\b/m, per: 1 },
   { says: /\beach within (\w+) minutes of the last\b/, file: 'backend/app/services/login_lockout.py', value: /^LOCKOUT_SECONDS = (\d+)\b/m, per: 60 },
   { says: /\bblock password logins for that address for (\w+) minutes\b/, file: 'backend/app/services/login_lockout.py', value: /^LOCKOUT_SECONDS = (\d+)\b/m, per: 60 },
-  { says: /\bonly over HTTPS for (\w+) years? \(HSTS\)/, file: 'backend/main.py', value: /"Strict-Transport-Security", "max-age=(\d+)\b/, per: 365 * 24 * 3600 },
+  { says: /\bonly over HTTPS for (\w+) years? \(HSTS\)/, file: 'backend/main.py', value: /^\s*headers\["Strict-Transport-Security"\] = "max-age=(\d+)\b/m, per: 365 * 24 * 3600 },
   { says: /\bsending only the first (\w+) characters of its SHA-1 hash\b/, file: 'backend/app/services/pwned_passwords.py', value: /^\s*prefix, suffix = sha1\[:(\d+)\], sha1\[\1:\]/m, per: 1 },
   { says: /\bbucket on the (\w+) of each month\b/, file: '.github/workflows/monthly-sql-export.yml', value: /^\s*- cron: '\d+ \d+ (\d+) \* \*'/m, per: 1 },
 ]
