@@ -122,7 +122,9 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    and the service imported as a module (`import app.services.audit_service as audit`) are read. Whatever the walk
  *    cannot read or follow (a variable, an f-string or a positional action, a name mentioned but not called or
  *    reassigned, a star import of the service, the service module used other than as `<module>.<name>`, a service
- *    function that writes through another helper) is listed by module and line, and that list is held empty, so a new
+ *    function that writes through another helper, a create_audit_log in the service outside the one call of a top-level
+ *    function, in a class's method or at the module's top level, a second call or the writer passed on, and a helper
+ *    used outside a top-level function) is listed by module and line, and that list is held empty, so a new
  *    write fails until its action is a literal or taught to the walk. The item names part of what the rows record, and
  *    AUDITED_UNNAMED holds the rest, each with what it records: a Google or Apple sign-in linked to an existing account
  *    or unlinked from it (oauth_linked, oauth_unlinked), and two administrator actions on summaries, a bulk reset and a
@@ -843,18 +845,24 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
   const helpers = new Map<string, AuditHelper>()
   const unread: string[] = []
   const others: Array<{ where: string; name: string; body: string }> = []
+  const serviceUses: Array<{ rel: string; code: string; spans: Array<{ name: string; start: number; end: number }>; readAt: number[] }> = []
   for (const [rel, src] of Object.entries(modules)) {
     if (!isService(rel)) continue
     const code = pythonCode(src)
+    // The service's top-level functions, and the one create_audit_log call each helper is read by.
+    const spans: Array<{ name: string; start: number; end: number }> = []
+    const readAt: number[] = []
     for (const def of code.matchAll(/^(?:async\s+)?def\s+(\w+)\s*\(/gm)) {
       const name = def[1]
       const open = (def.index ?? 0) + def[0].length - 1
       const body = pythonFunctionAt(code, def.index ?? 0, open)
+      spans.push({ name, start: def.index ?? 0, end: (def.index ?? 0) + body.length })
       const call = name === 'create_audit_log' ? null : body.match(/\bcreate_audit_log\s*\(/)
       if (!call) {
         others.push({ where: `${rel}:${lineOf(code, def.index ?? 0)}`, name, body })
         continue
       }
+      readAt.push((def.index ?? 0) + (call.index ?? 0))
       const params = (pythonCall(code, open)?.args ?? []).map((param) => param.split(/[:=]/)[0].trim())
       const action = pythonArgument(pythonCall(body, (call.index ?? 0) + call[0].length - 1)?.args ?? [], 'action', 1)
       const word = action && !action.positional ? pythonWord(action.value) : undefined
@@ -862,6 +870,18 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
       if (word) helpers.set(name, { params, action: word })
       else if (template && params.includes(template[3])) helpers.set(name, { params, prefix: template[2], param: template[3], suffix: template[4] })
       else unread.push(`${rel}:${lineOf(code, def.index ?? 0)} ${name} passes create_audit_log an action the walk cannot read (${action?.value ?? 'none'})`)
+    }
+    // Any other create_audit_log in the service is a write the walk does not read: one in a class's method or in code
+    // at the module's top level, and inside a top-level function a second call or the writer passed on.
+    serviceUses.push({ rel, code, spans, readAt })
+  }
+  for (const { rel, code, spans, readAt } of serviceUses) {
+    for (const use of code.matchAll(new RegExp(String.raw`(?<!\bdef\s+)\b(?:${['create_audit_log', ...helpers.keys()].join('|')})\b`, 'g'))) {
+      const at = use.index ?? 0
+      if (readAt.includes(at)) continue
+      const fn = spans.find(({ start, end }) => at >= start && at < end)
+      if (!fn) unread.push(`${rel}:${lineOf(code, at)} ${use[0]} is used outside a top-level function of the service, which the walk does not read`)
+      else if (use[0] === 'create_audit_log') unread.push(`${rel}:${lineOf(code, at)} ${fn.name} uses create_audit_log other than in the one call the walk reads`)
     }
   }
   // A service function that writes through another helper is one the walk does not follow inside the service.
@@ -1568,6 +1588,39 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       expect([...walked.written], router).toEqual(actions)
       expect(walked.unread, router).toEqual([])
     }
+    // The service's own scopes (Codex's r4339665139 on e7ee4d95): a top-level function's call is read, a nested
+    // function's with it; a call in a class's method or at the module's top level, a second call in one function, the
+    // writer passed on and a helper used in a class are reported.
+    const scoped = auditActions({
+      'app/services/audit_service.py': [
+        'def create_audit_log(db, action):',
+        '    return None',
+        'class AuditWriter:',
+        '    def log_new(self, db):',
+        '        return create_audit_log(db, action="new_action")',
+        '    def log_again(self, db):',
+        '        return log_register(db)',
+        'def log_register(db):',
+        '    def inner():',
+        '        return create_audit_log(db, action="register")',
+        '    return inner()',
+        'def log_pair(db):',
+        '    create_audit_log(db, action="first_action")',
+        '    return create_audit_log(db, action="second_action")',
+        'def log_later(db):',
+        '    return run_in_threadpool(create_audit_log, db, action="later_action")',
+        'create_audit_log(None, action="boot_action")',
+      ].join('\n'),
+      'app/routers/g.py': ['from app.services import audit_service', 'audit_service.log_register(db)', 'audit_service.log_pair(db)'].join('\n'),
+    })
+    expect([...scoped.written].sort()).toEqual(['first_action', 'register'])
+    expect(scoped.unread).toEqual([
+      'app/services/audit_service.py:5 create_audit_log is used outside a top-level function of the service, which the walk does not read',
+      'app/services/audit_service.py:7 log_register is used outside a top-level function of the service, which the walk does not read',
+      'app/services/audit_service.py:14 log_pair uses create_audit_log other than in the one call the walk reads',
+      'app/services/audit_service.py:16 log_later uses create_audit_log other than in the one call the walk reads',
+      'app/services/audit_service.py:17 create_audit_log is used outside a top-level function of the service, which the walk does not read',
+    ])
   })
 })
 
