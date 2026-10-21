@@ -46,23 +46,18 @@ describe('HeroExample', () => {
 
   it('states the filing in the data face and its figures in one hairline strip, direction in a glyph', () => {
     render(<HeroExample example={LIVE} />)
+    // Each middot shares an item with the fact before it (E81), so the line is the form's item's parent.
     const facts = screen.getByText('10-K').parentElement!.parentElement as HTMLElement
     expect(facts).toHaveTextContent(/^AAPL\s*·\s*,\s*10-K\s*·\s*,\s*filed Oct 31, 2025$/)
-    // The line wraps between its facts (E81): each middot ends the item that holds the fact before it, so no line
-    // starts or stands with one; the form is one run; the date moves under "filed" whole and then breaks only
-    // after its day. tests/e2e/reflow-200.spec.ts reads the built hero at 200% text.
-    expect(within(facts).getAllByText('·').map((dot) => dot.parentElement!.textContent)).toEqual(['AAPL·,', '10-K·,'])
-    expect(screen.getByText('10-K')).toHaveClass('whitespace-nowrap')
+    // tests/e2e/reflow-200.spec.ts reads the built hero at 200% text: the figures wrapping apart, the form codes
+    // whole and no line starting with a middot. These pins hold what its boxes cannot say: the date moves under
+    // "filed" whole and breaks only after its day, and the strip's rules are its own above and below and, between two
+    // figures, the later one's left and top rules, which the strip's clip hides where a figure starts a row.
     expect(screen.getByText('Oct 31,')).toHaveClass('whitespace-nowrap')
     expect(screen.getByText('Oct 31,').parentElement).toHaveClass('inline-block')
-    expect(screen.getByText('Oct 31,').parentElement).toHaveTextContent(/^Oct 31, 2025$/)
-    // One hairline strip: its rules above and below, and between two figures the later one's own left rule. Each
-    // figure takes its own width in a row that wraps, never an equal third, which its value ran out of.
     const strip = screen.getByText('$416.2B').closest('dl') as HTMLElement
     expect(strip.parentElement).toHaveClass('border-y', 'overflow-hidden')
-    expect(strip).toHaveClass('flex', 'flex-wrap')
-    expect(strip.className).not.toMatch(/\bgrid-cols-/)
-    for (const figure of Array.from(strip.children)) expect(figure).toHaveClass('flex-auto', 'border-l', 'border-t')
+    for (const figure of Array.from(strip.children)) expect(figure).toHaveClass('border-l', 'border-t')
     expect(within(strip).getAllByRole('term')).toHaveLength(3)
     expect(within(strip).getAllByText('▲')).toHaveLength(2)
     for (const glyph of within(strip).getAllByText(/^[▲▼]$/)) expect(glyph).toHaveAttribute('aria-hidden', 'true')
