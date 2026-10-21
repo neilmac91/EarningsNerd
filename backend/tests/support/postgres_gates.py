@@ -1,5 +1,5 @@
 """A PostgreSQL gate's run fails when its database variable is set and any of its cases skip, and a PostgreSQL case
-fails when it opens a session unlike production's.
+fails when it uses a session unlike production's.
 
 Each required PostgreSQL step in CI's migrations-postgres job sets one variable and runs one test
 home; the home's cases skip when the variable is unset, which is how the fast lane runs them. A home
@@ -16,11 +16,12 @@ sees every worker's test reports and its skipped collection reports and ignores 
 status, so only the controller (or a serial run) keeps count and fails the run. The count belongs to
 the run's config, so a pytester child in the same process keeps its own.
 
-The same steps check every session a PostgreSQL case opens (a case that takes ``postgres_engine``),
-as each one begins a transaction: it must not autoflush, and it must run on the case's own engine,
-the one ``postgres_engine`` handed it, in the case's disposable schema. That holds however the case
-built the session, through an alias, a helper's argument or a module the home imports, which
-``test_migration_lock_safety.py``'s reading of the source cannot follow;
+The same steps check every ORM session a PostgreSQL case (one that takes ``postgres_engine``)
+begins or uses, from the start of its setup, fixtures of a wider scope included, to the end of its
+teardown: it must not autoflush, and it must run on the case's own engine, the one
+``postgres_engine`` handed it, in the case's disposable schema. That holds however the case built
+the session, through an alias, a helper's argument, a fixture of any scope or a module the home
+imports, which ``test_migration_lock_safety.py``'s reading of the source cannot follow;
 ``test_postgres_gates_open_production_sessions.py`` runs this check in child pytest sessions.
 """
 from __future__ import annotations
@@ -59,48 +60,85 @@ def _root_engine(engine):
     return engine
 
 
-@pytest.fixture(autouse=True)
-def _postgres_cases_open_production_sessions(request: pytest.FixtureRequest):
-    """When a gate's variable is set, each of its PostgreSQL cases opens every ORM session as production does,
-    autoflush off, on the case's own engine: the one ``postgres_engine`` handed it, which runs in the case's disposable
-    schema. A session that autoflushes, or that runs on another engine, fails the case at its teardown. Another engine
-    is the suite's SQLite file, where the test conftest binds production's ``SessionLocal`` and the app's engine, or a
-    second PostgreSQL engine, such as one built from the gate's URL, which runs outside the case's schema. The listener
-    only records, in whatever thread the session begins: an exception raised inside the event would leave a
-    transaction, and its locks, on a pooled connection."""
-    home = _armed_home(request.node.nodeid)
-    if home is None:
-        yield
-        return
-    begun: list[tuple[str, bool, object]] = []
+class _SessionCheck:
+    """One process's check of the ORM sessions an armed gate home's cases begin and use. When a gate's variable is
+    set, each of its PostgreSQL cases works every session as production does, autoflush off, on the case's own engine:
+    the one ``postgres_engine`` handed it, which runs in the case's disposable schema. A session that autoflushes, or
+    that runs on another engine, fails the case at its teardown. Another engine is the suite's SQLite file, where the
+    test conftest binds production's ``SessionLocal`` and the app's engine, or a second PostgreSQL engine, such as one
+    built from the gate's URL, which runs outside the case's schema.
 
-    def record(session: Session, transaction, connection) -> None:
-        begun.append((type(session).__name__, session.autoflush, connection.engine))
+    The listeners are on from the start of a case's setup, before any of its fixtures, those of a wider scope among
+    them, to the end of its teardown, and see a session as it begins a transaction, runs a statement or flushes, in any
+    thread. So a session begun before the case, by a fixture an earlier case set up, is seen when the case uses it.
+    They only record: an exception raised inside an event would leave a transaction, and its locks, on a pooled
+    connection."""
 
-    event.listen(Session, "after_begin", record)
-    try:
-        yield
-    finally:
-        event.remove(Session, "after_begin", record)
+    def __init__(self) -> None:
+        self.home: str | None = None  # the armed gate home of the case running now
+        self.seen: list[tuple[str, bool, object]] = []
+        self.listeners = (
+            ("after_begin", self._after_begin),
+            ("do_orm_execute", self._do_orm_execute),
+            ("before_flush", self._before_flush),
+        )
+
+    def _record(self, session: Session, engine) -> None:
+        if engine is not None:
+            self.seen.append((type(session).__name__, session.autoflush, engine))
+
+    def _after_begin(self, session: Session, transaction, connection) -> None:
+        self._record(session, connection.engine)
+
+    def _do_orm_execute(self, state) -> None:
+        self._record(state.session, getattr(state.session.bind, "engine", None))
+
+    def _before_flush(self, session: Session, flush_context, instances) -> None:
+        self._record(session, getattr(session.bind, "engine", None))
+
+    @pytest.hookimpl(wrapper=True, tryfirst=True)
+    def pytest_runtest_setup(self, item: pytest.Item):
+        self.home, self.seen = _armed_home(item.nodeid), []
+        if self.home is not None:
+            for name, listener in self.listeners:
+                event.listen(Session, name, listener)
+        return (yield)
+
+    @pytest.hookimpl(wrapper=True, tryfirst=True)
+    def pytest_runtest_teardown(self, item: pytest.Item, nextitem):
+        try:
+            result = yield
+        finally:
+            home, seen, self.home, self.seen = self.home, self.seen, None, []
+            if home is not None:
+                for name, listener in self.listeners:
+                    event.remove(Session, name, listener)
+        if home is not None and seen:
+            _fail_unlike_sessions(item, home, seen)
+        return result
+
+
+def _fail_unlike_sessions(item: pytest.Item, home: str, seen: list[tuple[str, bool, object]]) -> None:
+    """Fails the case for each kind of session it worked unlike production's (``_SessionCheck``)."""
     # The case's fixture values stay on the item until its teardown ends. Engines are compared by identity, through
     # any proxy: a pool taken as a session begins is no witness, since the engine's dispose() gives it a new one
     # before this runs.
-    case_engine = (request.node.funcargs or {}).get(POSTGRES_ENGINE_FIXTURE)
+    case_engine = (getattr(item, "funcargs", None) or {}).get(POSTGRES_ENGINE_FIXTURE)
     if case_engine is None:
         # A SQLite case, which takes no postgres_engine, or a PostgreSQL case whose fixtures did not set up: it has
         # already errored, or skipped, and a skip fails the run.
         return
-    unlike = [
+    unlike = sorted({
         f"{name} with autoflush={autoflush}, on "
         + ("the case's engine" if _root_engine(engine) is case_engine else f"another {engine.dialect.name} engine")
-        for name, autoflush, engine in begun
+        for name, autoflush, engine in seen
         if autoflush or _root_engine(engine) is not case_engine
-    ]
+    })
     if unlike:
         pytest.fail(
-            f"postgres gate: {POSTGRES_GATES[home]} is set, yet this PostgreSQL case opened {len(unlike)} session(s) "
-            f"unlike production's ({'; '.join(sorted(set(unlike)))}). Open each through a sessionmaker that spreads "
-            "SessionLocal.kw and binds the case's own engine (tests/support/postgres_gates.py).",
+            f"postgres gate: {POSTGRES_GATES[home]} is set, yet this PostgreSQL case used a session unlike "
+            f"production's ({'; '.join(unlike)}). Open each through a sessionmaker that spreads SessionLocal.kw and "
+            "binds the case's own engine (tests/support/postgres_gates.py).",
             pytrace=False,
         )
 
@@ -146,5 +184,6 @@ class _UnrunCases:
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    config.pluginmanager.register(_SessionCheck(), "postgres_gates_session_check")  # each process runs its own cases
     if not hasattr(config, "workerinput"):  # an xdist worker: its controller counts
         config.pluginmanager.register(_UnrunCases(), "postgres_gates_unrun_cases")

@@ -37,13 +37,15 @@ subclass.
   - Aliases are followed: an import alias, any assignment form, and a class derived from `Session`
     (Codex on #1454).
 - `backend/tests/support/postgres_gates.py`, in the steps, checks every ORM session a PostgreSQL
-  case (one that takes `postgres_engine`) opens, as it begins a transaction in any thread: one that
-  autoflushes, or that runs on an engine other than the case's own `postgres_engine`, fails the
-  case. Another engine is the app's (the suite's SQLite file) or a second PostgreSQL engine, such
-  as one built from the gate's URL, which runs outside the case's disposable schema (Codex on
-  #1454). That covers what reading the source cannot: a helper handed another engine, a name
-  reached through a call or `getattr`, a module the home imports, a setting changed before the
-  session's transaction begins.
+  case (one that takes `postgres_engine`) begins or uses, from the start of its setup, fixtures of
+  a wider scope included, to the end of its teardown: as the session begins a transaction, runs a
+  statement or flushes, in any thread. One that autoflushes, or that runs on an engine other than
+  the case's own `postgres_engine`, fails the case. Another engine is the app's (the suite's
+  SQLite file) or a second PostgreSQL engine, such as one built from the gate's URL, which runs
+  outside the case's disposable schema (Codex on #1454). That covers what reading the source
+  cannot: a helper handed another engine, a name reached through a call or `getattr`, a module the
+  home imports, a fixture of a wider scope, a session begun before the case, a setting changed
+  after the session was built.
   `backend/tests/unit/test_postgres_gates_open_production_sessions.py` runs it in child sessions,
   and the step test pins each home's `postgres_engine` fixture, which the check keys on.
 - Review-checked: a SQLite case's session built where the source rule cannot follow it, and a
