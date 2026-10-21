@@ -593,7 +593,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
   the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
-  such as "{form} · Filed {ago}" (the notable-filing card moved to the data face
+  such as the notable-filing card's "{form} · filed {date}" (the card moved to the data face
   with it). The form toggles, "Clear dates" and "Try again" (a `RetryButton`) carry the brand ring, the
   result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
   on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend

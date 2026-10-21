@@ -868,8 +868,11 @@ inspector continues to report the actual code default separately from the live p
 
 Merge the activation only after #1002's source-faithful reason labels and responsive card layout
 are released and independently verified. After the activation deployment, verify the migration
-summary, detailed health, live flag, `GET /api/notable_filings?limit=8`, issuer diversity, canonical
-SEC URLs, filing freshness and the homepage after revalidation. The homepage ISR interval is
+summary, detailed health, live flag, `GET /api/notable_filings?limit=6` (the homepage's own request:
+under D-046's rule at most six 10-K and 10-Q filings, one per company), canonical SEC URLs in its
+payload, filing freshness (each `filed_date` today or in the seven days before, in New York) and the
+homepage after revalidation, where the row follows Reporting this week and each card opens its
+company page and states its filing's date ("filed Oct 20, 2026"). The homepage ISR interval is
 **3,600 seconds**, distinct from the backend's fifteen-minute serve-cache TTL. An API flag change
 does not immediately purge existing homepage HTML. An empty feed is legitimate when fewer than
 three companies qualify; do not infer success or failure from HTTP status alone.
