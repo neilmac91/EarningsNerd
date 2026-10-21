@@ -95,15 +95,21 @@ after their checks, so without the lock the race happens however loaded the host
 checkout made inside the watch-row lock. It covers those five units only.
 
 A company's filing writers were next (E123's review). Each read which of the company's filing rows
-existed before the company row lock that serialized their inserts, so two writers could both find a
-filing missing, and the second insert failed the unique accession and rolled back its batch. Once E123
-moved the list's background refresh and the history backfill into the thread pool, two of them, or one
-beside the live listing's unit, could meet in one process, where the loop had run them one at a time.
-Every writer (the scan's `upsert_filings`, which the refresh, the backfill and the durable worker write
-through; the live listing's `persist_live_filings`; `precompute_one`) now takes that row lock first
-(`filing_amendment_service.lock_company_filings`), which reaches every process and instance
-(2026-10-21). SQLite omits the lock, so `backend/tests/unit/test_filing_writers_lock_before_they_check.py`
-reads each writer's statement order, compiled for PostgreSQL; no PostgreSQL gate races two writers.
+existed before the company row lock that serialized their inserts, so two writers of one company could
+both find a filing missing, and the second insert failed the unique accession and rolled back its batch.
+Once E123 moved the list's background refresh and the history backfill into the thread pool, two of
+them could meet in one process, where the loop had run them one at a time. The live listing's unit, in
+the thread pool since E94, already could, and worse: it flushed its inserts and URL rewrites before it
+took the lock, the reverse of the other writers' order, so on PostgreSQL it could deadlock with one of
+them, across processes too (an API request and the durable worker), and the loser lost its rows. Every
+writer (the scan's `upsert_filings`, which the refresh, the backfill and the durable worker write
+through; the live listing's `persist_live_filings`; `precompute_one`) now takes that row lock before it
+reads or writes a filing row (`filing_amendment_service.lock_company_filings`), which reaches every
+process and instance (2026-10-21). It serializes one company's writers only: a filing listed under two
+companies, a co-registrant filing, is checked under two locks. SQLite omits the lock, so
+`backend/tests/unit/test_filing_writers_lock_before_they_check.py` reads each writer's statements,
+compiled for PostgreSQL: a lock that waits, then the check, with no end of a transaction between them.
+No PostgreSQL gate races two writers.
 
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
 marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or

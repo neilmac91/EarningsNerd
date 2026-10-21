@@ -42,16 +42,22 @@ def sessions(tmp_path, monkeypatch):
 
 
 def _recorded(session, statements: list[str]):
-    """``session``, recording each ORM statement it runs, compiled for PostgreSQL."""
+    """``session``, recording each ORM statement it runs, compiled for PostgreSQL, and each end of a transaction."""
     event.listen(session, "do_orm_execute",
                  lambda state: statements.append(str(state.statement.compile(dialect=postgresql.dialect()))))
+    event.listen(session, "after_commit", lambda _session: statements.append("-- commit"))
+    event.listen(session, "after_rollback", lambda _session: statements.append("-- rollback"))
     return session
 
 
 def _assert_locks_before_it_checks(statements: list[str]) -> None:
-    locks = [i for i, sql in enumerate(statements) if "FROM companies" in sql and "FOR NO KEY UPDATE" in sql]
+    """The first read of filings follows a lock on the company that waits (no SKIP LOCKED, no NOWAIT), and no end
+    of a transaction between them releases it."""
+    locks = [i for i, sql in enumerate(statements)
+             if "FROM companies" in sql and sql.rstrip().endswith("FOR NO KEY UPDATE")]
     checks = [i for i, sql in enumerate(statements) if "FROM filings" in sql]
     assert locks and checks and locks[0] < checks[0], "\n".join(statements)
+    assert not any(sql.startswith("-- ") for sql in statements[locks[0]:checks[0]]), "\n".join(statements)
 
 
 def test_the_scan_upsert_locks_before_it_checks(sessions):
