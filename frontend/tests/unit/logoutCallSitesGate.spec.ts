@@ -453,14 +453,18 @@ const NAVIGATIONS = [
   "router.push('/')", "router.replace('/')", 'router.back()', 'router.forward()', 'router.refresh()', "redirect('/')",
   "permanentRedirect('/')", 'history.go(-1)', "window.location.href = '/'", "location.href = '/'", "window.location = '/'",
   "location.assign('/')", "window.location.replace('/')", 'location.reload()', "window.location.pathname = '/'",
-  "location.search = '?out=1'", "window.open('/', '_self')", 'formRef.current?.requestSubmit()',
+  "location.search = '?out=1'", "location.host = 'example.com'", "window.location.hostname = 'example.com'",
+  "location.port = '8080'", "location.protocol = 'http:'", "location = '/'", "window.open('/', '_self')",
+  'formRef.current?.submit()', 'formRef.current?.requestSubmit()',
 ]
 /** The places outside the continuation, each with a statement planted in it, and what the gate must say of a navigation
     there: the mutation's other options, the function its trigger sits in, the handler's catch, and its callers. */
 const OUTSIDE: { place: string; plant: (statement: string) => string; problems: Problem[] }[] = [
   { place: "the mutation's onMutate", plant: (s) => mutation({ options: `onMutate: () => { ${s} },` }), problems: ['navigates on failure'] },
   { place: "the mutation's onError", plant: (s) => mutation({ options: `onError: () => { ${s} },` }), problems: ['navigates on failure'] },
+  { place: "the mutation's onSettled", plant: (s) => mutation({ options: `onSettled: () => { ${s} },` }), problems: ['navigates on failure'] },
   { place: "the mutation's retry", plant: (s) => mutation({ options: `retry: () => { ${s}; return false },` }), problems: ['navigates on failure'] },
+  { place: "the mutation's retryDelay", plant: (s) => mutation({ options: `retryDelay: () => { ${s}; return 0 },` }), problems: ['navigates on failure'] },
   { place: "the mutation's onSuccess", plant: (s) => mutation({ options: `onSuccess: () => { ${s} },` }), problems: ['navigates on failure'] },
   { place: 'the function its trigger sits in, after it', plant: (s) => mutation({ use: `<button onClick={() => { logoutMutation.mutate(); ${s} }}>Log out</button>` }), problems: ['navigates on failure'] },
   { place: 'the function its trigger sits in, before it', plant: (s) => mutation({ use: `<button onClick={() => { ${s}; logoutMutation.mutate() }}>Log out</button>` }), problems: ['navigates on failure'] },
