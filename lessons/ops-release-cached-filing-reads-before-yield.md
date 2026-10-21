@@ -79,7 +79,7 @@ routes). Neither half sees a session handed to a service that runs on the loop w
 not list the route (the rest of the
 auth router and the checkout route, E121), or a background task's own session worked on the loop
 (E123 moved the company list's units into the thread pool, `test_filings_endpoint_db_first.py`'s
-off-the-loop cases; the flag-off job runners are E145), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
+off-the-loop cases; the flag-off job runners are E150), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
 
 E118's reviews found that five of its units had relied on the loop's order. Without a lock:
