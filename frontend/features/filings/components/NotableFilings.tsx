@@ -36,7 +36,7 @@ export default function NotableFilings({
       <ul className="grid grid-cols-1 gap-4 [@media(min-width:40rem)]:grid-cols-2">
         {filings.map((filing) => (
           <li key={`${filing.ticker}-${filing.filed_date}`}>
-            <NotableFilingCard filing={filing} asOf={data?.timestamp ?? ''} />
+            <NotableFilingCard filing={filing} />
           </li>
         ))}
       </ul>

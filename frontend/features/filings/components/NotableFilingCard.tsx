@@ -5,44 +5,20 @@ import Link from 'next/link'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui'
-import { diffDays, todayEasternIso } from '@/features/calendar/lib/dates'
+import { formatLocalDate } from '@/lib/format'
 import type { NotableFiling } from '@/lib/serverApi'
-
-/**
- * When the filing was filed, in whole New York calendar days: "today", "yesterday" or "N days ago". `filed_date` is a
- * plain YYYY-MM-DD EDGAR day with no time, so the label claims no more than a day. It counts from the New York day of
- * the response's timestamp, the day the backend's window counts its week from (`today_eastern()`), so a card never
- * disagrees with the week the row promises: the window's oldest filing reads "7 days ago". A filing dated after that
- * day (bad data) or a timestamp that does not parse gets no label, never a future or a sub-day value.
- *
- * Measured against the response's own timestamp, NEVER the live clock. This is a client component server-rendered
- * into an ISR page: `/` is cached for up to an hour, so HTML generated before midnight and hydrated after it would
- * render one day on the server and the next in the browser, a hydration mismatch and a visible text swap. Anchoring
- * both passes to `asOf` makes the label a property of the data, which is what an ISR snapshot actually shows.
- */
-function filedDay(isoDate: string, asOf: string): string | null {
-  const asOfDate = new Date(asOf)
-  if (Number.isNaN(asOfDate.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null
-  const days = diffDays(isoDate, todayEasternIso(asOfDate))
-  if (!Number.isFinite(days) || days < 0) return null
-  if (days === 0) return 'today'
-  if (days === 1) return 'yesterday'
-  return `${days} days ago`
-}
 
 /**
  * One notable filing, linking to the COMPANY page (not /filing/{id}): market-wide candidates
  * aren't ingested yet, so a filing deep-link would hit cold ingestion — the company page lists
  * the filing and offers the summary CTA on warmed ground.
  */
-export default function NotableFilingCard({
-  filing,
-  asOf,
-}: {
-  filing: NotableFiling
-  asOf: string
-}) {
-  const filed = filedDay(filing.filed_date, asOf)
+export default function NotableFilingCard({ filing }: { filing: NotableFiling }) {
+  // The filed date as the Filing identity line states it ("filed Oct 20, 2026"), through the same helper. filed_date is
+  // an EDGAR day with no time, so the card states that day and claims nothing finer. formatLocalDate reads it as a
+  // calendar day in every time zone (parsed as a UTC instant it would show the day before to a reader west of UTC),
+  // and it reads no clock, so the server render and hydration agree and the cached page never states a stale day.
+  const filed = formatLocalDate(filing.filed_date, 'MMM d, yyyy')
 
   return (
     <Link
@@ -79,7 +55,7 @@ export default function NotableFilingCard({
             <>
               {'\u00a0'}
               <span aria-hidden="true">·</span>
-              <span className="sr-only">,</span> Filed {filed}
+              <span className="sr-only">,</span> filed {filed}
             </>
           )}
         </div>

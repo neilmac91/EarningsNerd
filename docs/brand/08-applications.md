@@ -677,9 +677,10 @@ market."; its cards, two across from 40rem at the reader's text size, each open 
 as before. On each the ticker is in the data face, as the landing's other tickers are, and the form
 code is one unbroken run that the middot after it keeps to, so under 200% text no line breaks the
 code or starts with the dot; the reason chip, whose label wraps
-there, takes the 16px step (DESIGN.md, Shapes). Each card dates its filing in whole New York days,
-"Filed today", "Filed yesterday" or "Filed N days ago", counted from the response's timestamp as the
-backend's window counts its week, since the filed date has no time. With an empty list or a failed read it
+there, takes the 16px step (DESIGN.md, Shapes). Each card states its filing's date as the Filing
+identity line does, "filed Oct 20, 2026", through the same helper (`formatLocalDate`): the filed date
+is a day with no time, so the card states that day, the same in every time zone and never stale on
+the cached page. With an empty list or a failed read it
 renders nothing, so it takes no number among the rows. The mount gate
 (`tests/unit/landing-sections-mounted.spec.ts`) holds its place, and
 `tests/unit/NotableFilings.spec.tsx` holds it to the cards it is served.
