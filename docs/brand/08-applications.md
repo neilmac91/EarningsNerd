@@ -480,8 +480,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1): Light Sage under a
   navy check, as the Primary button pairs them.
 - **Status chips** (`frontend/components/ui/Badge.tsx`): `success` and `error` variants for status
-  (D-032). The watchlist and dashboard rows say "Ready" on success and "Error" on error, and
-  "Unavailable" and "Needs regenerating" on warning; no status borrows the gain and loss colours.
+  (D-032), with `info-status`, `warning-status` and `neutral-status` beside them as Badge's status set.
+  The watchlist and dashboard rows say "Ready" on success, "Generating" on info-status, "No summary
+  yet" and "Pending" on neutral-status, "Unavailable" and "Needs regenerating" on warning-status and
+  "Error" on error, each the status ink on the quiet ground, never a tint; no status borrows the gain
+  and loss colours (`statusChipContrast.spec.ts` measures each on both rows).
 - **Error copy** (`frontend/lib/api/client.ts`): a lost connection reads "Could not reach the server.
   Try again in a moment." instead of naming the backend and its URL, and a validation error shows
   its first message instead of "[object Object]".
