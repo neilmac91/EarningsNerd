@@ -78,8 +78,8 @@ loop in its own body above that function's ceiling (on main before the fix it na
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
 not list the route (the rest of the
 auth router and the checkout route, E121), or a background task's own session worked on the loop
-(E123 moved the company list's units into the thread pool; the flag-off job runners are E145),
-which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
+(E123 moved the company list's units into the thread pool, `test_filings_endpoint_db_first.py`'s
+off-the-loop cases; the flag-off job runners are E145), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
 
 E118's reviews found that five of its units had relied on the loop's order. Without a lock:
@@ -93,6 +93,17 @@ Each now holds a lock from its check to its commit (2026-10-19). The gate is
 `backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two threads inside each unit
 after their checks, so without the lock the race happens however loaded the host, and it fails any
 checkout made inside the watch-row lock. It covers those five units only.
+
+A company's filing writers were next (E123's review). Each read which of the company's filing rows
+existed before the company row lock that serialized their inserts, so two writers could both find a
+filing missing, and the second insert failed the unique accession and rolled back its batch. Once E123
+moved the list's background refresh and the history backfill into the thread pool, two of them, or one
+beside the live listing's unit, could meet in one process, where the loop had run them one at a time.
+Every writer (the scan's `upsert_filings`, which the refresh, the backfill and the durable worker write
+through; the live listing's `persist_live_filings`; `precompute_one`) now takes that row lock first
+(`filing_amendment_service.lock_company_filings`), which reaches every process and instance
+(2026-10-21). SQLite omits the lock, so `backend/tests/unit/test_filing_writers_lock_before_they_check.py`
+reads each writer's statement order, compiled for PostgreSQL; no PostgreSQL gate races two writers.
 
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
 marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or

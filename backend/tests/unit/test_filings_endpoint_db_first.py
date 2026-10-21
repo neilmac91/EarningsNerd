@@ -6,6 +6,7 @@ from SEC in the BACKGROUND — the request never blocks on a SEC round-trip. Onl
 DB (so the actual queries execute) with SEC faked at the compat boundary.
 """
 import asyncio
+import contextlib
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
@@ -25,6 +26,7 @@ from app.services import filing_history_service, filing_list_service
 from app.services.edgar import client as edgar_client_mod
 from app.services.edgar.exceptions import EdgarError
 from app.services.latest_filing_service import company_list_forms
+from app.services.request_work import request_work_scope
 
 
 @pytest.fixture
@@ -276,17 +278,20 @@ async def test_background_refresh_of_a_company_gone_marks_nothing_fresh(client, 
 
 
 @pytest.mark.asyncio
-async def test_history_backfill_works_its_sessions_off_the_event_loop(client):
+@pytest.mark.parametrize("owned", [False, True], ids=["unowned", "in-a-request-work-scope"])
+async def test_history_backfill_works_its_sessions_off_the_event_loop(client, owned):
     """The on-visit backfill's two short units, its read before the EFTS walk and its persistence
-    after it, each run in the thread pool (E123)."""
+    after it, each run in the thread pool (E123): AnyIO's, or inside a request-work scope, as the
+    durable worker's task process runs it, the owned executor."""
     _tc, TestingSession = client
     with TestingSession() as s:
         company_id = _seed_company(s).id
     begins = []
 
-    await filing_history_service.backfill_company_by_id(
-        company_id, session_factory=_begins_recorded(TestingSession, begins)
-    )
+    async with request_work_scope() if owned else contextlib.nullcontext():
+        await filing_history_service.backfill_company_by_id(
+            company_id, session_factory=_begins_recorded(TestingSession, begins)
+        )
 
     # Both units began a transaction (each reads the company), and neither on the loop.
     assert len(begins) >= 2 and not any(begins), f"a backfill session began on the event loop: {begins}"

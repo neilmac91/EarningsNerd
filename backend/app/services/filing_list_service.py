@@ -337,9 +337,12 @@ def persist_live_filings(
     last, after the commit, while the session is still open: the router's unit releases it once
     this returns or raises. Any exception propagates to the router's fallbacks.
     """
+    from app.services.filing_amendment_service import lock_company_filings, mark_superseded_filings
+
     filings = []
     new_filings = []  # Track newly added filings for batch refresh
 
+    lock_company_filings(db, company_id)  # before the check below reads which rows exist
     # Prefetch existing filings in a single query to avoid an N+1
     # (previously this loop issued one SELECT per SEC filing).
     accession_numbers = [
@@ -408,7 +411,6 @@ def persist_live_filings(
 
     # Batch commit: single transaction for all database changes
     if new_filings or db.dirty:
-        from app.services.filing_amendment_service import mark_superseded_filings
         db.flush()
         mark_superseded_filings(db, company_id)
         db.commit()

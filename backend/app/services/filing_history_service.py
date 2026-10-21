@@ -220,7 +220,13 @@ def _company_to_backfill(
 
 
 def _persist_backfill(
-    session_factory: Callable[[], Session], company_id: int, **persisted: Any
+    session_factory: Callable[[], Session],
+    company_id: int,
+    *,
+    rows: list[dict],
+    windows: int,
+    windows_ok: int,
+    require_complete: bool,
 ) -> dict | None:
     """The backfill's second unit: persist the fetched rows on a session of its own, or None when
     the company is gone."""
@@ -228,7 +234,10 @@ def _persist_backfill(
         company = db.get(Company, company_id)
         if company is None:
             return None
-        return _persist_history_rows(db, company, **persisted)
+        return _persist_history_rows(
+            db, company, rows=rows, windows=windows, windows_ok=windows_ok,
+            require_complete=require_complete,
+        )
 
 
 def _resolve_cohort(

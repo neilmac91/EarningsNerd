@@ -15,16 +15,28 @@ def expand_amendment_forms(forms: list[str]) -> list[str]:
     return result
 
 
+def lock_company_filings(db: Session, company_id: int) -> None:
+    """Take the company row's lock that serializes its filing writers, held until the transaction ends.
+
+    Each writer of a company's filing rows takes it before it reads which of them exist, so a
+    competing writer's rows are committed, and seen, before it inserts. Read first, two writers both
+    find a filing missing and the second insert fails the unique accession, rolling back its batch
+    (E123's review). The row lock reaches every process and instance, as a process lock would not.
+    PostgreSQL emits FOR NO KEY UPDATE, which does not conflict with the key-share locks child-row
+    inserts take; SQLite omits the clause. Taking it again in the same transaction is a no-op.
+    """
+    with db.no_autoflush:
+        db.query(Company.id).filter(Company.id == company_id).with_for_update(key_share=True).scalar()
+
+
 def mark_superseded_filings(db: Session, company_id: int) -> int:
     """Mark older same-period rows in the caller's transaction, in either ingestion order.
 
     No period means no defensible relationship. Select metadata only in one company query;
     update the changed rows in one executemany batch, without loading XBRL or summaries.
     """
-    # Serialize competing refreshes without conflicting with child-row FK key-share locks.
-    # SQLite omits this clause; PostgreSQL emits FOR NO KEY UPDATE. Lock before reading links.
-    with db.no_autoflush:
-        db.query(Company.id).filter(Company.id == company_id).with_for_update(key_share=True).scalar()
+    # Serialize competing refreshes. Lock before reading links, and before flushing new rows.
+    lock_company_filings(db, company_id)
     db.flush()
     rows = db.query(
         Filing.id, Filing.filing_type, Filing.period_end_date, Filing.filing_date,
