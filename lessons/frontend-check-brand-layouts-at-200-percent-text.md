@@ -116,3 +116,16 @@ one, never each run, since one passes the edge by 5px here and a few pixels are 
 (`lessons/test-layout-numbers-are-one-environments-run.md`). /privacy was pinned too, from the agents' sandbox, which
 paints the body text in an installed static Inter; in the site's own Inter, as CI's runner paints it, the page fits at
 320px, and CI failed the pin, as the expiry is meant to (#1462).
+
+**Recurrence (2026-10-21, the legal pages, E131)**: a legal page's column at 320px under 200% text is 256px, its
+1rem gutters doubled, and its 48px headings hold words wider than that, one wider than the screen: "Indemnification"
+is 330px, so /terms reached 362px, and /security 348px on "Authentication" and "Infrastructure". Under D-055 each
+legal page's `<main>` carries `[overflow-wrap:anywhere]`, the last resort the first rule names, which every heading,
+paragraph and address inherits: a word wider than the column breaks inside it, and at the default size, where every
+word fits, each text run's line boxes at 390 and 1440px are what they were, in both themes. It breaks every word
+wider than the column, not only those that passed the screen: at 320px the page title "Security" ("Securit" over
+"y") and words that sat a pixel or so into the gutter ("Responsible", /privacy's "Introduction") break too, and at
+390px "Indemnification", 4px wider than its 326px column, leaves its "n" on a line of its own. Read a character at a
+time, as the gutter rule asks, the words show those breaks; the page-width check sees none of them. `E131_AT_320`'s
+pins left with the fix, and `tests/e2e/reflow-200.spec.ts` holds /security, /terms and /privacy at every width its
+route loop visits.
