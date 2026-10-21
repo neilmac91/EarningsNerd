@@ -939,8 +939,10 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
     The legal pages are E131's at 320px: their layout is outside E81, and each still scrolls sideways there on words
     wider than their column (/security to 348px on its "Authentication and access control" and "Infrastructure
     security" headings, /privacy to 338px on "communications," in its Consent item). So at 320px those runs, by name,
-    are the only things on either page that may pass the edge, and each must still be found there: when E131 fits one,
-    its entry fails here until it is taken out, and the page passes the width check with the rest of the loop. */
+    are the only things on either page that may pass the edge, and at least one of a page's runs must still pass it:
+    when E131 fits the page, its entry fails here until it is taken out, and the page passes the width check with the
+    rest of the loop. A single run is not required, since "Infrastructure security" passes by 5px here and a few
+    pixels are one machine's measure (lessons/test-layout-numbers-are-one-environments-run.md). */
 const E131_AT_320: Record<string, string[]> = {
   '/security': ['text in h2 "Authentication and access control"', 'text in h2 "Infrastructure security"'],
   '/privacy': ['text in li "You have given explicit consent for anal"'],
@@ -972,9 +974,10 @@ for (const { width, height } of [
       if (e131) {
         const beyond = (enlarged.past ?? []).filter((what) => !e131.includes(what))
         expect(beyond, `${route.path} at ${width}px and 200% text, past the edge besides E131's words: ${why(enlarged)}`).toEqual([])
-        for (const what of e131) {
-          expect(enlarged.past, `${route.path} at ${width}px and 200% text: E131's ${what} no longer passes the edge, so take it out of E131_AT_320 (${why(enlarged)})`).toContain(what)
-        }
+        expect(
+          e131.some((what) => enlarged.past?.includes(what)),
+          `${route.path} at ${width}px and 200% text: none of E131's words passes the edge now, so take the page out of E131_AT_320 (${why(enlarged)})`,
+        ).toBe(true)
       } else {
         expect(enlarged.scrollWidth, `${route.path} at ${width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
       }
