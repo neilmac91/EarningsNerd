@@ -246,8 +246,8 @@ function paletteColour(value: string): { rgb: Rgb; alpha: number } | undefined {
 /** The colour fill an element's classes give it in one theme, at rest or hovered (every layer under the pointer is
     hovered), as the cascade ranks them: in dark a dark: fill outranks a hover: one, which Tailwind emits earlier at
     one specificity, and a theme left unset falls back to the bare fill. A dialog's `backdrop:` fill paints behind it,
-    outside its box, so it is not read. A fill under any other variant this reader does not model, or one it cannot
-    read, fails. */
+    outside its box, so it is not read. A fill under any other variant this reader does not model, one it cannot
+    read, and a second fill under one variant, which the stylesheet ranks and class order does not, each fail. */
 function fillOf(el: Element, theme: 'light' | 'dark', hovered: boolean, failures: string[]): string | undefined {
   const found = new Map<string, string>()
   for (const cls of (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)) {
@@ -260,6 +260,8 @@ function fillOf(el: Element, theme: 'light' | 'dark', hovered: boolean, failures
       failures.push(`<${el.tagName.toLowerCase()}> ${cls}: a fill under a variant this reader does not model`)
     } else if (value !== 'transparent' && !paletteColour(value)) {
       failures.push(`<${el.tagName.toLowerCase()}> ${cls}: a fill this reader cannot read`)
+    } else if (found.has(variant) && found.get(variant) !== value) {
+      failures.push(`<${el.tagName.toLowerCase()}> ${cls}: a second fill beside bg-${found.get(variant)}, which the stylesheet ranks`)
     } else found.set(variant, value)
   }
   const order = theme === 'dark' ? (hovered ? ['dark:hover', 'dark', 'hover', ''] : ['dark', '']) : hovered ? ['hover', ''] : ['']
@@ -282,14 +284,21 @@ function groundOf(chip: Element, theme: 'light' | 'dark', hovered: boolean, fail
   return null
 }
 
-/** A class list's ink in one theme: its text- colour, under dark: in dark (the bare one where dark sets none). */
-function inkOf(classes: string[], theme: 'light' | 'dark'): string | undefined {
-  const pick = (variant: string) =>
-    classes
-      .map((c) => c.split(/:(?![^[]*\])/))
-      .find((parts) => parts.slice(0, -1).join(':') === variant && /^text-/.test(parts[parts.length - 1]) && paletteColour(parts[parts.length - 1].slice(5)))
-      ?.pop()
-      ?.slice(5)
+/** A class list's ink in one theme: its text- colour, under dark: in dark (the bare one where dark sets none). Two inks
+    under one variant are ranked by the stylesheet, not by class order, so they fail. */
+function inkOf(classes: string[], theme: 'light' | 'dark', failures: string[] = []): string | undefined {
+  const pick = (variant: string) => {
+    const inks = [
+      ...new Set(
+        classes
+          .map((c) => c.split(/:(?![^[]*\])/))
+          .filter((parts) => parts.slice(0, -1).join(':') === variant && /^text-/.test(parts[parts.length - 1]) && paletteColour(parts[parts.length - 1].slice(5)))
+          .map((parts) => parts[parts.length - 1].slice(5)),
+      ),
+    ]
+    if (inks.length > 1) failures.push(`${inks.map((ink) => `${variant ? `${variant}:` : ''}text-${ink}`).join(' and ')}: two inks, which the stylesheet ranks`)
+    return inks[0]
+  }
   return (theme === 'dark' ? pick('dark') : undefined) ?? pick('')
 }
 
@@ -358,7 +367,7 @@ describe('the tentative chip (E83)', () => {
       for (const theme of ['light', 'dark'] as const) {
         for (const hovered of [false, true]) {
           const ground = groundOf(chip, theme, hovered, failures)
-          const ink = inkOf(chip.className.split(/\s+/), theme)
+          const ink = inkOf(chip.className.split(/\s+/), theme, failures)
           const colour = ink === undefined ? undefined : paletteColour(ink)
           if (!ground || !colour) {
             if (!colour) failures.push(`${where[i]} (${theme}): no ink this case can read`)
@@ -370,7 +379,7 @@ describe('the tentative chip (E83)', () => {
         }
       }
     })
-    expect(failures).toEqual([])
+    expect([...new Set(failures)]).toEqual([])
     // Three rows, two themes, at rest and hovered: a chip or a ground read short must not pass.
     expect(measured).toBe(12)
   })
