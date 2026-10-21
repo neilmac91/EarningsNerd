@@ -78,7 +78,8 @@ loop in its own body above that function's ceiling (on main before the fix it na
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
 not list the route (the rest of the
 auth router and the checkout route, E121), or a background task's own session worked on the loop
-(E123), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
+(E123 moved the company list's units into the thread pool; the flag-off job runners are E145),
+which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
 
 E118's reviews found that five of its units had relied on the loop's order. Without a lock:

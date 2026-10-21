@@ -228,6 +228,70 @@ async def test_history_backfill_collapses_a_concurrent_burst(monkeypatch):
     assert filing_list_service._history_backfilling_ids == set()
 
 
+def _begins_recorded(session_factory, begins):
+    """A session factory whose sessions record, as each begins a transaction, whether it began on the
+    event loop."""
+    def factory():
+        session = session_factory()
+        event.listen(session, "after_begin", lambda *_: begins.append(_on_event_loop()))
+        return session
+    return factory
+
+
+@pytest.mark.asyncio
+async def test_background_refresh_works_its_session_off_the_event_loop(client, monkeypatch):
+    """With DURABLE_TASKS_ENABLED off the refresh runs in the API process after the response. Its
+    upsert is one unit in the thread pool, so its checkout never freezes the loop while the pool is
+    full (E123)."""
+    _tc, TestingSession = client
+    with TestingSession() as s:
+        company_id = _seed_company(s).id
+    url = "https://www.sec.gov/Archives/edgar/data/895421/000089542126000011/"
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[{
+        "accession_number": "0000895421-26-000011", "filing_type": "10-K",
+        "filing_date": "2026-02-19", "report_date": "2025-12-31",
+        "document_url": url + "primary.htm", "sec_url": url,
+    }]))
+    begins = []
+    monkeypatch.setattr(filing_list_service, "SessionLocal", _begins_recorded(TestingSession, begins))
+
+    await filing_list_service.refresh_company_filings("0000895421", "TESTCO", ["10-K"], company_id)
+
+    assert begins and not any(begins), f"a refresh session began on the event loop: {begins}"
+    with TestingSession() as s:
+        assert s.query(Filing).filter(Filing.accession_number == "0000895421-26-000011").count() == 1
+    assert ("TESTCO", ("10-K",)) in filing_list_service._filings_synced_at
+
+
+@pytest.mark.asyncio
+async def test_background_refresh_of_a_company_gone_marks_nothing_fresh(client, monkeypatch):
+    """A company deleted before the refresh's unit runs leaves its list unmarked, so the next visit
+    refreshes again rather than serving the fast path."""
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
+
+    await filing_list_service.refresh_company_filings("0000895421", "TESTCO", ["10-K"], 999_999)
+
+    assert ("TESTCO", ("10-K",)) not in filing_list_service._filings_synced_at
+    assert filing_list_service._refreshing_keys == set()
+
+
+@pytest.mark.asyncio
+async def test_history_backfill_works_its_sessions_off_the_event_loop(client):
+    """The on-visit backfill's two short units, its read before the EFTS walk and its persistence
+    after it, each run in the thread pool (E123)."""
+    _tc, TestingSession = client
+    with TestingSession() as s:
+        company_id = _seed_company(s).id
+    begins = []
+
+    await filing_history_service.backfill_company_by_id(
+        company_id, session_factory=_begins_recorded(TestingSession, begins)
+    )
+
+    # Both units began a transaction (each reads the company), and neither on the loop.
+    assert len(begins) >= 2 and not any(begins), f"a backfill session began on the event loop: {begins}"
+
+
 def test_cold_empty_db_does_synchronous_bounded_fetch_and_persists(client, monkeypatch):
     tc, TestingSession = client
     with TestingSession() as s:
