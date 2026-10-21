@@ -510,8 +510,8 @@ describe('account query ownership structural gate', () => {
   it('ordinary transitions use the shared owner, and completion invalidates both scoped families', () => {
     for (const file of ['components/Header.tsx', 'features/auth/components/UserMenu.tsx', 'app/dashboard/page.tsx']) {
       const source = readFileSync(path.join(frontend, file), 'utf8')
-      expect(source, file).toContain('logoutAndResetAccount(queryClient, logout,')
-      // Each call's continuation, and what runs when the logout rejects: tests/unit/logoutCallSitesGate.spec.ts.
+      // Which files call logoutAndResetAccount, each call's continuation, and what runs whatever the logout's outcome:
+      // tests/unit/logoutCallSitesGate.spec.ts.
       expect(source, file).not.toMatch(/invalidateQueries\(\{ queryKey: queryKeys\.currentUser\(\)/)
     }
     const login = readFileSync(path.join(frontend, 'app/login/page.tsx'), 'utf8')

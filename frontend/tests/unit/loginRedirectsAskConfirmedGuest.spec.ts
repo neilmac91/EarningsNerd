@@ -26,7 +26,9 @@ import { bindingReferences, bindingResolver } from './astBindings'
  *
  * Out of reach, planted below as gaps: a target passed in as a parameter or returned by a function other than
  * loginHrefWithRedirect (a navigation wrapper with another name is the same gap), a target assembled by
- * concatenation, and isConfirmedGuest asked of a read other than the current user's (review-checked).
+ * concatenation, a target held in a const another module exports (`router.push(LOGIN_PATH)`) or in an object's
+ * property (`router.push(ROUTES.login)`, the object imported or the file's own; no module holds /login either way
+ * today), and isConfirmedGuest asked of a read other than the current user's (review-checked).
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -231,6 +233,9 @@ export function f(router, s) {
   // Out of reach (the header names each): the gate passes them.
   { form: 'a target passed in as a parameter', source: "function go(router, to) { router.push(to) }\nexport const out = (router) => go(router, '/login')\n", redirects: [], gap: true },
   { form: 'a target assembled by concatenation', source: "export function go(router) { router.push('/log' + 'in') }\n", redirects: [], gap: true },
+  { form: 'a target held in a const another module exports', source: "import { LOGIN_PATH } from '@/lib/routes'\nexport function go(router) { router.push(LOGIN_PATH) }\n", redirects: [], gap: true },
+  { form: "a target held in an imported object's property", source: "import { ROUTES } from '@/lib/routes'\nexport function go(router) { router.push(ROUTES.login) }\n", redirects: [], gap: true },
+  { form: "a target held in the file's own object's property", source: "const ROUTES = { login: '/login' }\nexport function go(router) { router.replace(ROUTES.login) }\n", redirects: [], gap: true },
   { form: 'the predicate asked of another read', source: effect("if (isConfirmedGuest(otherQuery)) router.push('/login')"), redirects: [{ at: 'useEffect#1', asks: true }], gap: true },
 ]
 

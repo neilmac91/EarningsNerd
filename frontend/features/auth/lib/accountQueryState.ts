@@ -4,10 +4,9 @@ import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-a
 import { queryKeys } from '@/lib/queryKeys'
 import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurrent, subscribeSessionLoss, getExplicitSessionGeneration, isExplicitSessionGenerationCurrent, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, clearSessionActive } from '@/lib/api/session'
 
-/** What a logout that did not take tells the reader when /me answered with their account: the connection works. */
+/** What a logout that did not take tells the reader, whatever /me answered: their account, or nothing it could read (a
+ * connection that dropped, or a /me or a refresh that answered 5xx while the connection worked). */
 export const LOGOUT_FAILED_MESSAGE = "We couldn't log you out. Try again in a moment."
-/** What it tells the reader when /me could not be read either. */
-export const LOGOUT_UNCHECKED_MESSAGE = "We couldn't log you out. Check your connection and try again."
 
 /** Every query family that holds one account's data, by key prefix. Most are unkeyed by the reader,
  * so after a logout or login in this tab the next account would read the previous one's snapshot
@@ -141,7 +140,7 @@ export async function logoutAndResetAccount(
       clearSessionActive()
     } else {
       if (read === 'unknown' && isSessionGenerationCurrent(reset)) restoreIdentity(queryClient, shown)
-      toast.error(read === 'user' ? LOGOUT_FAILED_MESSAGE : LOGOUT_UNCHECKED_MESSAGE)
+      toast.error(LOGOUT_FAILED_MESSAGE)
       onCurrentSettled?.(false)
       throw failure.error
     }

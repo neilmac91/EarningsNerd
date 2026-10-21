@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import api from '@/lib/api/client'
 import { logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import {
-  LOGOUT_FAILED_MESSAGE, LOGOUT_UNCHECKED_MESSAGE, acceptLoginAndResetAccount, logoutAndResetAccount, subscribeAccountQueryReset,
+  LOGOUT_FAILED_MESSAGE, acceptLoginAndResetAccount, logoutAndResetAccount, subscribeAccountQueryReset,
 } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getExplicitSessionGeneration, getSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -288,7 +288,7 @@ describe.each(controls)('a logout from the %s', (name) => {
     if (how === 'offline') onlineManager.setOnline(false)
     Object.assign(server, { logout: unreachable, me: how === 'offline' ? unreachable : status(500, 'Internal Server Error') })
     fireEvent.click(control.logOut())
-    await waitFor(() => expect(toasts.error).toHaveBeenCalledWith(LOGOUT_UNCHECKED_MESSAGE))
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledWith(LOGOUT_FAILED_MESSAGE))
     expect(meReads()).toBe(2)
     await control.signedIn()
     await settle()
@@ -449,7 +449,7 @@ describe('logoutAndResetAccount after a failed request', () => {
     onlineManager.setOnline(false)
     await expect(logoutAndResetAccount(client, logout, continued)).rejects.toMatchObject({ status: 0 })
     expect(meReads()).toBe(1)
-    expect(toasts.error).toHaveBeenCalledWith(LOGOUT_UNCHECKED_MESSAGE)
+    expect(toasts.error).toHaveBeenCalledWith(LOGOUT_FAILED_MESSAGE)
     expect(continued).toHaveBeenCalledWith(false)
   })
 })
