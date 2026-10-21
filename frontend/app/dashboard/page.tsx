@@ -248,8 +248,10 @@ export default function DashboardPage() {
     )
   }
 
-  if (userFailure.failed) {
-    return <AccountLoadFailure failure={userFailure} focusTarget={titleRef} />
+  // The account could not be read and there is no user to show. A refetch that fails with the user in hand keeps the
+  // page, as the watchlist and the admin section do.
+  if (userFailure.failed && !user) {
+    return <AccountLoadFailure failure={userFailure} focusTarget={titleRef} title="Unable to load your dashboard" />
   }
 
   if (!user) {
