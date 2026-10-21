@@ -36,6 +36,7 @@ from app.services import email_service
 from app.services import notification_delivery_service as delivery
 from app.services.entitlements import Entitlements, get_entitlements
 from app.services.notification_service import evaluate_delivery, get_or_create_preferences
+from app.utils.datetimes import utc_from_iso
 
 logger = logging.getLogger(__name__)
 
@@ -167,8 +168,8 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
                     company_id=company.id,
                     accession_number=accession,
                     filing_type=sf["filing_type"],
-                    filing_date=datetime.fromisoformat(sf["filing_date"]),
-                    period_end_date=datetime.fromisoformat(sf["report_date"]) if sf.get("report_date") else None,
+                    filing_date=utc_from_iso(sf["filing_date"]),
+                    period_end_date=utc_from_iso(sf["report_date"]) if sf.get("report_date") else None,
                     document_url=document_url,
                     sec_url=sec_url,
                 )

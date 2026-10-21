@@ -42,3 +42,15 @@ def ensure_utc(dt: datetime) -> datetime:
     convention the code base writes).
     """
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def utc_from_iso(value: str) -> datetime:
+    """Parse an ISO 8601 date or date-time string as an aware UTC datetime.
+
+    SEC listings give bare dates (``2026-01-15``), which ``datetime.fromisoformat`` returns naive.
+    PostgreSQL reads a naive value bound to a ``DateTime(timezone=True)`` column in the session's
+    ``TimeZone``, so it is stored as UTC midnight only while that setting is UTC. A naive value is
+    taken to be UTC, as in ``ensure_utc``; an aware one is converted. Raises what
+    ``datetime.fromisoformat`` raises.
+    """
+    return ensure_utc(datetime.fromisoformat(value)).astimezone(timezone.utc)
