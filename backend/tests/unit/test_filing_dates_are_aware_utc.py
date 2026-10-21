@@ -79,6 +79,20 @@ def test_the_scan_upsert_writes_aware_utc_dates(sessions, inserted):
     _assert_aware_utc(inserted)
 
 
+def test_the_scan_upsert_skips_a_row_it_cannot_date(sessions, inserted):
+    """A listing row with no filing date (EdgarTools gives ``None`` for one it cannot parse) is skipped, as a
+    malformed one is, and the rest of its batch is written. It used to raise ``TypeError`` past the skip and end
+    the scan's run, before any later company."""
+    from app.services.filing_scan_service import upsert_filings
+
+    company_id, _ = _company(sessions)
+    undated = {**_listing("e100-undated"), "filing_date": None}
+    with sessions() as db:
+        written = upsert_filings(db, db.get(Company, company_id), [undated, _listing("e100-dated")])
+        assert [filing.accession_number for filing in written] == ["e100-dated"]
+    _assert_aware_utc(inserted)
+
+
 def test_the_live_listing_writes_aware_utc_dates(sessions, inserted, monkeypatch):
     from app.services import filing_list_service
 

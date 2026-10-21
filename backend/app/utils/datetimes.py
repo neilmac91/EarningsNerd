@@ -50,7 +50,11 @@ def utc_from_iso(value: str) -> datetime:
     SEC listings give bare dates (``2026-01-15``), which ``datetime.fromisoformat`` returns naive.
     PostgreSQL reads a naive value bound to a ``DateTime(timezone=True)`` column in the session's
     ``TimeZone``, so it is stored as UTC midnight only while that setting is UTC. A naive value is
-    taken to be UTC, as in ``ensure_utc``; an aware one is converted. Raises what
-    ``datetime.fromisoformat`` raises.
+    taken to be UTC, as in ``ensure_utc``; an aware one is converted. Raises ``ValueError`` for
+    anything it cannot read as one, ``None`` and an offset with no UTC equivalent included, so a
+    caller that skips a malformed row on ``ValueError`` skips those too.
     """
-    return ensure_utc(datetime.fromisoformat(value)).astimezone(timezone.utc)
+    try:
+        return ensure_utc(datetime.fromisoformat(value)).astimezone(timezone.utc)
+    except (TypeError, OverflowError) as exc:
+        raise ValueError(f"not an ISO 8601 date: {value!r}") from exc

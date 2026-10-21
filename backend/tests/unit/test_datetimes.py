@@ -58,10 +58,12 @@ def test_utc_from_iso_is_aware_utc(text, expected):
     assert parsed.utcoffset() == timedelta(0)
 
 
-def test_utc_from_iso_raises_what_fromisoformat_raises():
-    """The filing scan skips a malformed listing row on ``ValueError``."""
+@pytest.mark.parametrize("value", ["2026-13-01", "", None, "0001-01-01T00:00:00+01:00"])
+def test_utc_from_iso_raises_value_error_for_what_it_cannot_read(value):
+    """The filing scan skips a malformed listing row on ``ValueError``: a missing date and an offset with no UTC
+    equivalent too, which ``fromisoformat`` and ``astimezone`` reject with ``TypeError`` and ``OverflowError``."""
     with pytest.raises(ValueError):
-        utc_from_iso("2026-13-01")
+        utc_from_iso(value)
 
 
 def _is_isoformat_call(node: ast.AST) -> bool:
