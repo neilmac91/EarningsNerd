@@ -15,8 +15,8 @@ its own; #1325's after-draw reading named its run. Those evening runs read about
 Hours later the same session drove #1451, the logout route and `refresh_token_service.py`. It counted
 only the ready mark's `copilot-eval`, and pushed the draft three times (2026-10-21 03:07Z, 03:48Z and
 04:16Z). Each push ran `eval-baseline` to the end, and no reservation was written for any of them. The
-balance read USD 12.54, 12.21 and 11.88 around them, about USD 0.33 a run. The readings cannot
-separate production traffic.
+balance went from USD 12.54 before them to 11.71 after the third and the ready mark's `copilot-eval`
+draw, about USD 0.27 a run. The readings cannot separate production traffic.
 
 **Rule**:
 - **Opening the pull request.** If its diff touches those paths, read the balance first
@@ -50,8 +50,9 @@ separate production traffic.
 - `AGENTS.md:67`: §3's authorization and its figure.
 - #1325's comments 6301441477 and 6302848458, and #1437's 6302657918 and 6303149706: the evening's
   reservations and readings.
-- #1451's comment
-  [6308009782](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308009782): the
+- #1451's comments
+  [6308009782](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308009782) and
+  [6308352547](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308352547): the
   three runs and the readings.
 
 **Gate**: none yet; review-checked until founder row F54 picks the gate's form.
