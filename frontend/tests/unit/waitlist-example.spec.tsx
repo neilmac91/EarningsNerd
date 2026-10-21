@@ -53,9 +53,10 @@ describe('waitlist grounded example', () => {
     expect(!!screen.queryByText('Full summary')).toBe(tier === 'full')
     expect(!!screen.queryByText('Partial')).toBe(tier === 'partial')
     expect(screen.getByRole('link', { name: /SEC EDGAR/ })).toHaveAttribute('href', filing.sec_url)
-    // Ticker, form and filed date are one data-face line; assistive tech hears commas, not "ASML20-F".
+    // Ticker, form and filed date are one data-face line; assistive tech hears commas, not "ASML20-F". Each middot
+    // shares an item with the fact before it (E81), so the line is the form's item's parent.
     const form = screen.getByText('20-F')
-    expect(form.parentElement).toHaveTextContent(/^ASML\s*·\s*,\s*20-F\s*·\s*,\s*filed Feb 11, 2026$/)
+    expect(form.parentElement!.parentElement).toHaveTextContent(/^ASML\s*·\s*,\s*20-F\s*·\s*,\s*filed Feb 11, 2026$/)
     expect(form.className).toContain('font-semibold')
     const cta = screen.getByRole('link', { name: 'Read this filing summary' })
     expect(cta).toHaveAttribute('href', '/filing/42')

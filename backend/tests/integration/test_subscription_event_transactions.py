@@ -19,7 +19,7 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 from starlette.requests import Request
 
 from app import database
-from app.database import Base
+from app.database import Base, SessionLocal
 from app.models import BillingPayment, InviteCode, StripeEvent, Subscription, User
 from app.routers import subscriptions
 from app.services import subscription_sync, subscription_webhook_service as service
@@ -55,6 +55,13 @@ def postgres_engine():
         engine.dispose()
 
 
+def _session(bind) -> Session:
+    """A session with production's settings (``SessionLocal``'s, which do not autoflush) on this case's engine
+    or connection: an autoflushing one flushes a pending write at its next query, where production waits for
+    the commit, and can serialize two requests that production does not (E132)."""
+    return sessionmaker(**{**SessionLocal.kw, "bind": bind})()
+
+
 @pytest.fixture(autouse=True)
 def stripe_boundary(monkeypatch):
     monkeypatch.setattr(subscriptions.stripe.Webhook, "construct_event", lambda *args: object())
@@ -62,13 +69,13 @@ def stripe_boundary(monkeypatch):
 
 
 def _install_factory(monkeypatch, engine, cls=Session):
-    factory = sessionmaker(bind=engine, class_=cls, autoflush=False)
+    factory = sessionmaker(**{**SessionLocal.kw, "bind": engine}, class_=cls)
     monkeypatch.setattr(database, "SessionLocal", factory)
     return factory
 
 
 def _seed(engine):
-    with Session(engine) as db:
+    with _session(engine) as db:
         user = User(email=f"{uuid.uuid4().hex}@example.com", email_verified=True, stripe_customer_id="cus_test")
         db.add(user)
         db.commit()
@@ -90,7 +97,7 @@ async def _deliver(payload):
 
 
 def _billing(engine, user_id):
-    with Session(engine) as db:
+    with _session(engine) as db:
         user = db.get(User, user_id)
         sub = db.query(Subscription).filter_by(user_id=user_id).first()
         return (user.is_pro, sub.status if sub else None,
@@ -249,7 +256,7 @@ async def test_postgres_account_contention_is_retryable_without_mutation(postgre
     payload = _event(user_id, kind)
     if kind == "customer.subscription.updated":
         monkeypatch.setattr(service, "retrieve_subscription_snapshot", lambda *_: payload["data"]["object"])
-    with Session(postgres_engine) as holder:
+    with _session(postgres_engine) as holder:
         holder.query(User).filter_by(id=user_id).with_for_update().one()
         with pytest.raises(HTTPException) as error:
             await _deliver(payload)
@@ -299,7 +306,7 @@ async def test_postgres_concurrent_first_subscription_retries_without_duplicate_
 async def test_postgres_owner_is_rechecked_after_account_lock(postgres_engine, monkeypatch):
     user_id = _seed(postgres_engine)
     _install_factory(monkeypatch, postgres_engine)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         other = User(email="other@example.com", email_verified=True)
         db.add(other)
         db.commit()
@@ -312,7 +319,7 @@ async def test_postgres_owner_is_rechecked_after_account_lock(postgres_engine, m
         result = original(db, kind, obj)
         if not changed:
             changed = True
-            with Session(postgres_engine) as writer:
+            with _session(postgres_engine) as writer:
                 writer.get(User, user_id).stripe_customer_id = None
                 writer.get(User, other_id).stripe_customer_id = "cus_test"
                 writer.commit()
@@ -390,7 +397,7 @@ def _payment_invoice():
 
 
 def _payments(engine):
-    with Session(engine) as db:
+    with _session(engine) as db:
         return (db.query(BillingPayment).count(), db.query(StripeEvent).count(),
                 sum(row.amount_minor for row in db.query(BillingPayment)))
 
@@ -497,7 +504,7 @@ def test_postgres_report_first_payment_insert_between_reads_uses_one_snapshot(po
         if inserted or "min(" not in statement.lower() or "earningsnerd_billing_payments" not in statement:
             return
         inserted = True
-        with Session(postgres_engine) as writer:
+        with _session(postgres_engine) as writer:
             writer.add(BillingPayment(
                 stripe_payment_id="inpay_concurrent_report", livemode=True,
                 stripe_invoice_id="in_concurrent_report", source_event_id="evt_concurrent_report",
@@ -508,7 +515,7 @@ def test_postgres_report_first_payment_insert_between_reads_uses_one_snapshot(po
 
     sqlalchemy_event.listen(postgres_engine, "after_cursor_execute", insert_after_snapshot)
     try:
-        with Session(postgres_engine) as reader:
+        with _session(postgres_engine) as reader:
             report = payment_report(reader, since, until)
     finally:
         sqlalchemy_event.remove(postgres_engine, "after_cursor_execute", insert_after_snapshot)
@@ -517,7 +524,7 @@ def test_postgres_report_first_payment_insert_between_reads_uses_one_snapshot(po
     assert report["first_observed_payment_cohorts"] == []
     # This separate coverage-metadata statement can see a newer committed observation.
     assert report["earliest_retained_observation"] is not None
-    with Session(postgres_engine) as reader:
+    with _session(postgres_engine) as reader:
         next_report = payment_report(reader, since, until)
     assert next_report["currencies"][0]["observed_paying_users"] == 1
     assert next_report["first_observed_payment_cohorts"][0]["users"] == 1

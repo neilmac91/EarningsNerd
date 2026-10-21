@@ -765,9 +765,9 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     let measured = 0
     for (const variant of STATUS_VARIANTS) measured += measure(`Badge ${variant}`, badgeClasses(variant), EVERY_GROUND, failures)
     expect(failures).toEqual([])
-    // Five status variants, two themes, two tables, each row at rest and hovered: a reader that found no ground, or a
-    // set read short, must not pass.
-    expect(measured).toBe(40)
+    // Six status variants (tentative, the calendar's estimated date, among them), two themes, two tables, each row at
+    // rest and hovered: a reader that found no ground, or a set read short, must not pass.
+    expect(measured).toBe(48)
   })
 
   it("both badges render every status as Badge's chip for one member of its status set, so the measurement above is what ships", () => {

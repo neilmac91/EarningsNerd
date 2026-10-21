@@ -6743,6 +6743,37 @@ Full local and hosted verification plus independent exact-head review precede re
   two other writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE
   RED spend; no ledger event; another writer's request to settle its paid runs in the ledger put to the founder.
   No chief defect and no classifier denial. Closure 189.
+- 2026-10-21 (record 39, `runtime/control/DECISIONS-39.md`): PR #1453 (record 38) merged `04b2b334` by the chief
+  under record 35's founder action 9, answered (thirty-fourth deploy-skip proof), with no classifier refusal, after
+  two Codex findings that followed its ready marking: an archive line named no deploy job, and closure 189 had been
+  rewritten after its launches. Closure 189 keeps its pre-launch bytes; closure 190 registers record 38's survey,
+  fact-check and reviewer, carries the corrected convention date and pre-registers this record's survey and
+  fact-check and record 40's reviewer. A read-only survey of the window before the record was written. Two main
+  merges, no backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid
+  run outside it. No chief defect and no classifier denial of the chief's commands. Closure 190.
+- 2026-10-21 (record 40, `runtime/control/DECISIONS-40.md`): PR #1458 (record 39) merged `d26454f9` by the chief
+  under record 35's founder action 9, answered (thirty-fifth deploy-skip proof), with no classifier refusal, after
+  its fact-check, two reviewer passes and one re-run of a CI job that failed on the image registry's quota. Closure
+  191 registers record 39's survey, fact-check and reviewer and pre-registers this record's survey and fact-check
+  and record 41's reviewer. A read-only survey of the window before the record was written. One main merge, no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run
+  outside it. No chief defect, no classifier denial and no hook refusal of the chief's commands in the window.
+  Closure 191.
+- 2026-10-21 (record 41, `runtime/control/DECISIONS-41.md`): PR #1463 (record 40) merged `5b5c402f` by the chief
+  under record 35's founder action 9, answered (thirty-sixth deploy-skip proof), with no classifier refusal, after
+  Codex's one P2, its fact-check and two reviewer passes. Closure 192 registers record 40's survey, fact-check and
+  reviewer and pre-registers this record's survey and fact-check and record 42's reviewer. A read-only survey of
+  the window before the record was written. One main merge, no backend deploy; production not read live. No CODE
+  RED spend; no ledger event; no other writer's paid run on GitHub. No chief defect and no classifier denial;
+  two hook refusals of the chief's commands in the window, nothing running. Closure 192.
+- 2026-10-21 (record 42, `runtime/control/DECISIONS-42.md`): PR #1464 (record 41) merged `4974af78` by the chief
+  under record 35's founder action 9, answered (thirty-seventh deploy-skip proof), with no classifier refusal, after
+  Codex's three P2s, its fact-check and five reviewer passes. Closure 193 registers record 41's survey, fact-check
+  and reviewer and pre-registers this record's survey and fact-check and record 43's reviewer. A read-only survey
+  of the window before the record was written. Four main merges, three of them other writers', no backend deploy;
+  production not read live. No CODE RED spend; no ledger event; no other writer's paid run on GitHub. Chief defect
+  19 (a repeated foreground sleep) and no classifier denial; one hook refusal of the chief's commands in the
+  window, nothing running. Closure 193.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
