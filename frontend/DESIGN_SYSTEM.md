@@ -676,8 +676,11 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  grounds read from each row's source up to its <Card>, rendered as Card renders the props
                  written on it: the row is the element carrying the list's key (the watchlist's Card
                  itself, the dashboard's row <div> inside its Card), its tint at rest and hovered read over
-                 the card's fill, and every other layer paints nothing; SummaryStatusBadge held to the set as
-                 the admin badges are, rendering the variant summaryStatusBadge() returns).
+                 the card's fill, and every other layer paints nothing; two fills under one variant fail,
+                 since the stylesheet's order decides which paints (a fill written on the <Card> sits beside
+                 Card's own: Card joins classes without merging them); every tracked source outside tests/
+                 that can render the chip is one of the two rows; SummaryStatusBadge held to the set as the
+                 admin badges are, rendering the variant summaryStatusBadge() returns).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the

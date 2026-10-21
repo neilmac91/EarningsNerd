@@ -1,4 +1,5 @@
 import { createElement, type FunctionComponent, type ReactElement } from 'react'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -77,7 +78,12 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
  * own, so a translucent one fails, since the page would show through), and the dashboard's row <div> inside its one
  * <Card>, whose tint at rest and hovered is read over the card's ground as a <tr>'s is over its <tbody>. Every other
  * element on the walk is a layer that must paint nothing, as above; no <Card>, no keyed row, or a chip count other
- * than one fails. The status kinds the chip knows are read from SummaryStatusKind in its source, a member that is
+ * than one fails. Two fills under one variant fail too: Card joins the className written on it to its own classes
+ * without merging them, so a fill written on a <Card> sits beside Card's own, and the stylesheet's order, which this
+ * spec does not read, decides which one paints; two in a row's own class list fail the same way. The rows are held
+ * to the tree: every tracked source outside tests/ that imports the chip's component or summaryStatusBadge(), or
+ * takes the whole module, must be one of them, so a third row cannot render the chip unmeasured. The status kinds the
+ * chip knows are read from SummaryStatusKind in its source, a member that is
  * not a string literal failing: every chip summaryStatusBadge() returns for each kind and for a prefix it does not
  * know, with and without needs_regeneration, is rendered through Badge and measured on both rows, at rest and
  * hovered, in both themes; and SummaryStatusBadge, for each of those, must render Badge's chip for the variant
@@ -651,9 +657,34 @@ function cardGrounds(name: string, card: string, where: string, failures: string
   return grounds
 }
 
-/** A summary row's grounds: a card that is its own row, or a row's tint over its card's ground, as a <tr>'s over its <tbody>. */
+/**
+ * One fill per variant in a class list, or a failure naming the two: both apply, and the browser paints whichever
+ * Tailwind emits later, so the stylesheet's order decides, not the order of the list, which backgrounds() reads (it keeps
+ * the last). A plain fill and an important one are ranked apart, as winner() ranks them; a bg- utility that sets no
+ * colour (bg-clip-text) is no fill. `note` says how the two came to share the list.
+ */
+function oneFillPerVariant(className: string, where: string, failures: string[], note = ''): void {
+  const seen = new Map<string, string>()
+  for (const cls of className.split(/\s+/).filter(Boolean)) {
+    const parts = classParts(cls)
+    const m = parts.pop()!.match(/^(!?)bg-(.+)$/)
+    if (!m || (!colour(m[2]) && !looksLikeColour(m[2]))) continue
+    const variant = `${m[1]}${parts.sort().join(':')}`
+    const first = seen.get(variant)
+    if (first === undefined) seen.set(variant, cls)
+    else failures.push(`${where}: ${first} and ${cls} are two fills under one variant${note}, and the stylesheet's order, not the class list's, decides which one paints, which this spec does not read`)
+  }
+}
+
+/**
+ * A summary row's grounds: a card that is its own row, or a row's tint over its card's ground, as a <tr>'s over its
+ * <tbody>. Card joins the className written on it to its own classes without merging them (cx), so a fill written on the
+ * <Card> sits beside Card's own and fails, as two fills in the row's own class list do.
+ */
 function summaryGrounds(name: string, stack: SummaryStack, failures: string[]): Grounds {
   const card = cardClasses(stack.card)
+  oneFillPerVariant(card, stack.where.card, failures, ' (Card joins the className written on it to its own classes without merging them)')
+  if (stack.row !== null) oneFillPerVariant(stack.row, stack.where.row, failures)
   return stack.row === null
     ? cardGrounds(name, card, stack.where.card, failures)
     : tableGrounds(name, stack.row, card, { row: stack.where.row, body: stack.where.card }, failures)
@@ -685,6 +716,48 @@ const UNKNOWN_PREFIX = 'queued'
 if (SUMMARY_KINDS.includes(UNKNOWN_PREFIX)) KIND_FAILURES.push(`${SUMMARY_BADGE}: ${UNKNOWN_PREFIX} is a kind the chip knows, so this spec reads no prefix it does not`)
 /** Every status the chip can be given, as [summary_status, needs_regeneration]: each kind and the unknown prefix, with and without the flag. */
 const SUMMARY_INPUTS = [...SUMMARY_KINDS, UNKNOWN_PREFIX].flatMap((status): Array<[string, boolean]> => [[status, true], [status, false]])
+
+/** The chip's module, from the frontend root, as an import names it without its extension. */
+const SUMMARY_MODULE = path.join(ROOT, SUMMARY_BADGE.replace(/\.tsx$/, ''))
+
+/**
+ * Whether a source can render the summary status chip: it imports or re-exports the chip's module's default export (the
+ * component, under any name) or summaryStatusBadge() (the chip's label and variant), or takes the whole module (a
+ * namespace or side-effect import, `export *`, a dynamic import()). A type-only import, or one that takes only
+ * summaryNextStep or summaryStatusKind, renders no chip. The module is named by the `@/` alias or a path relative to
+ * `file` (a path from the frontend root), with or without its extension.
+ */
+function rendersSummaryChip(source: string, file: string): boolean {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, /x$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  const isModule = (spec: ts.Expression | undefined) => {
+    if (!spec || !ts.isStringLiteralLike(spec)) return false
+    const named = spec.text.startsWith('@/') ? path.join(ROOT, spec.text.slice(2)) : spec.text.startsWith('.') ? path.resolve(path.dirname(path.join(ROOT, file)), spec.text) : null
+    return named !== null && named.replace(/\.(tsx?|jsx?|mjs|cjs)$/, '') === SUMMARY_MODULE
+  }
+  const takesChip = (specifiers: readonly (ts.ImportSpecifier | ts.ExportSpecifier)[]) =>
+    specifiers.some((s) => !s.isTypeOnly && ['default', 'summaryStatusBadge'].includes((s.propertyName ?? s.name).text))
+  let found = false
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) && isModule(node.moduleSpecifier)) {
+      const clause = node.importClause
+      const bindings = clause?.namedBindings
+      if (!clause || (!clause.isTypeOnly && (clause.name || (bindings && (ts.isNamespaceImport(bindings) || takesChip(bindings.elements)))))) found = true
+    } else if (ts.isExportDeclaration(node) && isModule(node.moduleSpecifier)) {
+      if (!node.isTypeOnly && (!node.exportClause || ts.isNamespaceExport(node.exportClause) || takesChip(node.exportClause.elements))) found = true
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && isModule(node.arguments[0])) {
+      found = true
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return found
+}
+
+/** Every tracked source outside tests/, from git, the walk badgeNeverAControl.spec.ts reads. */
+const appSources = (): string[] =>
+  execFileSync('git', ['ls-files', '*.ts', '*.tsx', '*.js', '*.jsx', '*.mjs', '*.cjs'], { cwd: ROOT, encoding: 'utf8' })
+    .split('\n')
+    .filter((rel) => rel && !rel.startsWith('tests/'))
 
 describe('admin status chips: the label clears 4.5:1 on its actual ground, both themes (ADM-16a, ADM-16b)', () => {
   it("every member of Badge's status set, on the rows of both tables at rest and hovered", () => {
@@ -965,6 +1038,19 @@ describe('the summary status chip: the label clears 4.5:1 on the watchlist cards
     measure('Badge info-status', badgeClasses('info-status'), summaryGrounds('probe', inCard!, hovered), hovered)
     expect(hovered).toEqual(['Badge info-status (dark, probe hovered row): 4.23:1'])
     expect(ok).toEqual([])
+    // The routine review's two fills: a fill written on a <Card> sits beside Card's own, since Card joins classes without
+    // merging them, so the stylesheet's order decides which one paints, and so do two in a row's own list. A lone fill
+    // under a variant Card sets none for (hover: on a card that is not interactive) is read, and a bg- utility that
+    // sets no colour is no fill.
+    const fills: string[] = []
+    summaryGrounds('probe', summaryStack('<Card key={id} className="p-6 bg-background-light"><Chip /></Card>', 'probe.tsx', 'Chip', fills)!, fills)
+    summaryGrounds('probe', summaryStack('<Card><div key={id} className="bg-white px-4 dark:bg-white/5 bg-panel-light"><Chip /></div></Card>', 'probe.tsx', 'Chip', fills)!, fills)
+    const hoverOnly = summaryStack('<Card key={id} className="p-6 hover:bg-white bg-clip-padding"><Chip /></Card>', 'probe.tsx', 'Chip', fills)
+    expect(summaryGrounds('probe', hoverOnly!, fills).light).toEqual([['probe card', colour('panel-light')], ['probe hovered card', colour('white')]])
+    expect(fills).toEqual([
+      "probe.tsx:1 <Card>: bg-panel-light and bg-background-light are two fills under one variant (Card joins the className written on it to its own classes without merging them), and the stylesheet's order, not the class list's, decides which one paints, which this spec does not read",
+      "probe.tsx:1 <div>: bg-white and bg-panel-light are two fills under one variant, and the stylesheet's order, not the class list's, decides which one paints, which this spec does not read",
+    ])
     // What it cannot read fails: a fill on a layer, a component on the way, a layer's className it cannot read, no
     // <Card>, no keyed row, a card prop it cannot read (an expression, a style, a spread), two chips, a translucent
     // card, and a kinds type it cannot read.
@@ -995,5 +1081,39 @@ describe('the summary status chip: the label clears 4.5:1 on the watchlist cards
       'probe.tsx: Other in SummaryStatusKind is not a string literal this spec can read',
       'probe.tsx: no SummaryStatusKind type, so this spec cannot read the status kinds the chip knows',
     ])
+  })
+
+  it('every source that can render the chip is one of the rows measured above', () => {
+    const sources = appSources()
+    expect(sources.length, 'the source walk found the app').toBeGreaterThan(200)
+    const importers = sources.filter((rel) => {
+      const text = readFileSync(path.join(ROOT, rel), 'utf8')
+      return text.includes('SummaryStatusBadge') && rendersSummaryChip(text, rel)
+    })
+    const measured: string[] = Object.values(SUMMARY_ROWS)
+    expect([
+      ...importers.filter((rel) => !measured.includes(rel)).map((rel) => `${rel} can render the summary status chip, and this spec does not measure its row: add it to SUMMARY_ROWS`),
+      ...measured.filter((rel) => !importers.includes(rel)).map((rel) => `${rel} is in SUMMARY_ROWS but renders no summary status chip`),
+    ]).toEqual([])
+  })
+
+  it('tells a source that can render the chip, however it imports it, from one that takes only its sentence or a type', () => {
+    const forms: Array<[string, string, string, boolean]> = [
+      ['the component, renamed', 'features/probe/Probe.tsx', "import Chip from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['its label and variant, with the extension', 'features/probe/Probe.tsx', "import { summaryStatusBadge as chipOf } from '@/features/watchlist/components/SummaryStatusBadge.tsx'", true],
+      ['the default as a named import', 'features/probe/Probe.tsx', "import { default as Chip, summaryNextStep } from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['the whole module', 'features/probe/Probe.tsx', "import * as Summary from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['a side-effect import', 'features/probe/Probe.tsx', "import '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['a re-export', 'features/probe/index.ts', "export { default as StatusChip } from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['export *', 'features/probe/index.ts', "export * from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['a lazy import', 'features/probe/Probe.tsx', "const Chip = lazy(() => import('@/features/watchlist/components/SummaryStatusBadge'))", true],
+      ['a path from its own folder', 'features/watchlist/components/Probe.tsx', "import Chip from './SummaryStatusBadge'", true],
+      ['a path from a page', 'app/probe/page.tsx', "import Chip from '../../features/watchlist/components/SummaryStatusBadge'", true],
+      ['the sentence alone', 'features/probe/Probe.tsx', "import { summaryNextStep } from '@/features/watchlist/components/SummaryStatusBadge'", false],
+      ['a type alone', 'features/probe/Probe.tsx', "import type { SummaryStatusKind } from '@/features/watchlist/components/SummaryStatusBadge'", false],
+      ['a type specifier alone', 'features/probe/Probe.tsx', "import { type SummaryStatusKind } from '@/features/watchlist/components/SummaryStatusBadge'", false],
+      ['another module of a longer name', 'features/probe/Probe.tsx', "import Chip from '@/features/watchlist/components/SummaryStatusBadgeLegacy'", false],
+    ]
+    expect(forms.map(([name, file, source]) => [name, rendersSummaryChip(source, file)])).toEqual(forms.map(([name, , , renders]) => [name, renders]))
   })
 })
