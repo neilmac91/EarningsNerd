@@ -1252,12 +1252,13 @@ for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }
       expect(fit.figures, `the hero's figures at ${at}`).toHaveLength(3)
       expect(fit.middots, `middots read in the example at ${at}`).toBeGreaterThanOrEqual(3)
       for (const figure of fit.figures) expect(figure, `a figure with its value and change at ${at}`).toMatch(/^[^:]+: \S+, \S+$/)
-      expect(fit.problems, `the hero's figures at ${at} (${fit.figures.join('; ')})`).toEqual([])
       expect(fit.codes.filter((code) => code.where === 'lead').length, `form codes read in the hero's lead at ${at}`).toBeGreaterThanOrEqual(2)
       expect(fit.codes.filter((code) => code.where === 'example').length, `form codes read in the example at ${at}`).toBeGreaterThanOrEqual(1)
+      // Soft, so one run reports the figures, the codes and the middots together; any of them fails the test.
+      expect.soft(fit.problems, `the hero's figures at ${at} (${fit.figures.join('; ')})`).toEqual([])
       const broken = fit.codes.filter((code) => code.lines !== 1).map((code) => `${code.where}: "${code.code}" on ${code.lines} lines`)
-      expect(broken, `${at}: each form code in the hero paints on one line`).toEqual([])
-      expect(fit.starts, `${at}: no painted line in the example starts with a middot`).toEqual([])
+      expect.soft(broken, `${at}: each form code in the hero paints on one line`).toEqual([])
+      expect.soft(fit.starts, `${at}: no painted line in the example starts with a middot`).toEqual([])
     })
   })
 }
