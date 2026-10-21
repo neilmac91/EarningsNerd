@@ -19,18 +19,26 @@ import { LANDING_SECTIONS_ELSEWHERE } from '../../eslint.designRules.mjs'
  * route source. This pins it there: each live-data section must be rendered by Home AND fed by
  * its fetcher. A future redesign that removes one has to delete it from this list deliberately,
  * which is the decision the revamp made silently.
+ *
+ * Fed means the slot its fetcher fills, bound in the AST: the section's prop holds the identifier Home's one
+ * `Promise.all` destructures at the index of its fetcher's call, or a const Home derives from that identifier by a
+ * call. A section mounted with null, with another section's data or with a slot destructured out of order renders
+ * as surely as one fed its own, and a section that omits itself on empty data then never shows, so each of those
+ * fails (scored on planted forms first).
  */
 const PAGE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../app/page.tsx')
 const HOME_COMPONENT = 'Home'
 
-/** Section component → the serverApi fetcher whose data it is mounted with. */
-const LIVE_DATA_SECTIONS: ReadonlyArray<readonly [string, string]> = [
-  ['LandingHero', 'fetchExampleData'],
-  ['ReportingThisWeek', 'fetchReportingThisWeek'],
+/** Section component → the serverApi fetcher whose data it is mounted with → the prop that carries the fetcher's slot,
+ *  directly (`data={notableFilings}`, `example={example}`) or through a const Home derives from it by a call
+ *  (PricingSection's `accessMode={accessMode}`, `resolveAccessMode(signup)`). */
+const LIVE_DATA_SECTIONS: ReadonlyArray<readonly [string, string, string]> = [
+  ['LandingHero', 'fetchExampleData', 'example'],
+  ['ReportingThisWeek', 'fetchReportingThisWeek', 'data'],
   // NotableFilings left this list on 2026-10-11 (brand studio, docs/brand/01-interview.md A8) and came back with
   // E90, once the backend's query served D-046's curation rule.
-  ['NotableFilings', 'fetchNotableFilings'],
-  ['PricingSection', 'fetchSignupConfig'],
+  ['NotableFilings', 'fetchNotableFilings', 'data'],
+  ['PricingSection', 'fetchSignupConfig', 'accessMode'],
 ]
 
 const sourceFile = ts.createSourceFile(
@@ -73,6 +81,144 @@ function collectCalledIdentifiers(node: ts.Node): Set<string> {
   return calls
 }
 
+function parseTsx(text: string): ts.SourceFile {
+  return ts.createSourceFile('planted.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+}
+
+/** An expression without the parentheses and the `await` around it. */
+function unwrap(expression: ts.Expression): ts.Expression {
+  if (ts.isParenthesizedExpression(expression) || ts.isAwaitExpression(expression)) return unwrap(expression.expression)
+  return expression
+}
+
+/** Each fetcher's slot in a function's `const [a, b, …] = await Promise.all([fetchA(), fetchB(), …])`: the identifier
+ *  destructured at the index of the call that names the fetcher. */
+function promiseAllSlots(fn: ts.Node): Map<string, string> {
+  const slots = new Map<string, string>()
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isArrayBindingPattern(node.name) && node.initializer) {
+      const init = unwrap(node.initializer)
+      const isPromiseAll =
+        ts.isCallExpression(init) &&
+        ts.isPropertyAccessExpression(init.expression) &&
+        ts.isIdentifier(init.expression.expression) &&
+        init.expression.expression.text === 'Promise' &&
+        init.expression.name.text === 'all'
+      const list = isPromiseAll ? (init as ts.CallExpression).arguments[0] : undefined
+      if (list && ts.isArrayLiteralExpression(list)) {
+        node.name.elements.forEach((element, i) => {
+          const call = list.elements[i]
+          if (ts.isBindingElement(element) && ts.isIdentifier(element.name) && call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
+            slots.set(call.expression.text, element.name.text)
+          }
+        })
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(fn)
+  return slots
+}
+
+/** What each `const name = someCall(…)` of a function derives from: the identifiers its call takes as arguments. */
+function derivedFrom(fn: ts.Node): Map<string, Set<string>> {
+  const derived = new Map<string, Set<string>>()
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const init = unwrap(node.initializer)
+      if (ts.isCallExpression(init)) derived.set(node.name.text, new Set(init.arguments.filter(ts.isIdentifier).map((a) => a.text)))
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(fn)
+  return derived
+}
+
+/** How a page's Home feeds its live-data sections: for each [component, fetcher, prop], a sentence for a fetcher that
+ *  fills no slot of the Promise.all, a component that is not rendered, or an element whose prop is neither the
+ *  fetcher's slot nor a const derived from it by a call. */
+function unboundSections(source: ts.SourceFile, sections: ReadonlyArray<readonly [string, string, string]>): string[] {
+  const home = source.statements.find(
+    (s): s is ts.FunctionDeclaration => ts.isFunctionDeclaration(s) && s.name?.text === HOME_COMPONENT,
+  )
+  if (!home) return [`${HOME_COMPONENT} is not a top-level function`]
+  const slots = promiseAllSlots(home)
+  const derived = derivedFrom(home)
+  const problems: string[] = []
+  for (const [component, fetcher, prop] of sections) {
+    const slot = slots.get(fetcher)
+    if (!slot) {
+      problems.push(`${fetcher}() fills no slot of ${HOME_COMPONENT}'s Promise.all`)
+      continue
+    }
+    const elements: Array<ts.JsxOpeningElement | ts.JsxSelfClosingElement> = []
+    const visit = (node: ts.Node): void => {
+      if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && ts.isIdentifier(node.tagName) && node.tagName.text === component) {
+        elements.push(node)
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(home)
+    if (elements.length === 0) problems.push(`<${component} /> is not rendered`)
+    for (const element of elements) {
+      const attribute = element.attributes.properties.find(
+        (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(source) === prop,
+      )
+      if (!attribute) {
+        problems.push(`<${component} /> takes no ${prop}`)
+        continue
+      }
+      const value = attribute.initializer && ts.isJsxExpression(attribute.initializer) && attribute.initializer.expression
+      const name = value && ts.isIdentifier(unwrap(value)) ? (unwrap(value) as ts.Identifier).text : undefined
+      if (name === slot || (name !== undefined && derived.get(name)?.has(slot))) continue
+      problems.push(`<${component} ${attribute.getText(source)} /> is not fed ${fetcher}()'s slot, ${slot}`)
+    }
+  }
+  return problems
+}
+
+describe('the mount guard binds each section to its own Promise.all slot, scored on planted forms', () => {
+  const page = (body: string) => parseTsx(`export default async function Home() {\n  ${body}\n}`)
+  const PAIRS = [
+    ['A', 'fetchA', 'data'],
+    ['B', 'fetchB', 'data'],
+    ['C', 'fetchC', 'mode'],
+  ] as const
+  const SLOTS = 'const [a, b, c] = await Promise.all([fetchA(), fetchB(), fetchC()])\n  const mode = resolveMode(c)'
+
+  it('passes each section fed its own slot, directly or through a const derived from it by a call', () => {
+    expect(unboundSections(page(`${SLOTS}\n  return <main><A data={a} /><B data={b}>x</B><C mode={mode} /></main>`), PAIRS)).toEqual([])
+  })
+
+  it('fails a section mounted with null, a swapped pair, a slot out of order, a prop left off, another slot derived, and a fetcher outside the Promise.all', () => {
+    expect(unboundSections(page(`${SLOTS}\n  return <main><A data={null} /><B data={b} /><C mode={mode} /></main>`), PAIRS)).toEqual([
+      "<A data={null} /> is not fed fetchA()'s slot, a",
+    ])
+    expect(unboundSections(page(`${SLOTS}\n  return <main><A data={b} /><B data={a} /><C mode={mode} /></main>`), PAIRS)).toEqual([
+      "<A data={b} /> is not fed fetchA()'s slot, a",
+      "<B data={a} /> is not fed fetchB()'s slot, b",
+    ])
+    expect(
+      unboundSections(
+        page('const [b, a, c] = await Promise.all([fetchA(), fetchB(), fetchC()])\n  const mode = resolveMode(c)\n  return <main><A data={a} /><B data={b} /><C mode={mode} /></main>'),
+        PAIRS,
+      ),
+    ).toEqual(["<A data={a} /> is not fed fetchA()'s slot, b", "<B data={b} /> is not fed fetchB()'s slot, a"])
+    expect(
+      unboundSections(
+        page('const [a, b, c] = await Promise.all([fetchA(), fetchB(), fetchC()])\n  const mode = resolveMode(a)\n  return <main><A /><B data={b} /><C mode={mode} /></main>'),
+        PAIRS,
+      ),
+    ).toEqual(['<A /> takes no data', "<C mode={mode} /> is not fed fetchC()'s slot, c"])
+    expect(
+      unboundSections(
+        page('const [a, b] = await Promise.all([fetchA(), fetchB()])\n  const c = await fetchC()\n  const mode = resolveMode(c)\n  return <main><A data={a} /><B data={b} /><C mode={mode} /></main>'),
+        PAIRS,
+      ),
+    ).toEqual(["fetchC() fills no slot of Home's Promise.all"])
+  })
+})
+
 describe('landing route keeps its live-data sections mounted', () => {
   const home = findHome()
   const tags = collectJsxTagNames(home)
@@ -84,6 +230,10 @@ describe('landing route keeps its live-data sections mounted', () => {
 
   it.each(LIVE_DATA_SECTIONS)('feeds %s from %s', (_component, fetcher) => {
     expect(calls.has(fetcher)).toBe(true)
+  })
+
+  it.each(LIVE_DATA_SECTIONS)("mounts <%s /> with %s()'s Promise.all slot as its %s", (component, fetcher, prop) => {
+    expect(unboundSections(sourceFile, [[component, fetcher, prop]])).toEqual([])
   })
 
   it('imports every mounted live-data section', () => {
