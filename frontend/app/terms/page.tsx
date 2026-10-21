@@ -13,7 +13,9 @@ export default function TermsPage() {
   const lastUpdated = LEGAL_DATES.terms
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    // Every heading and paragraph inherits this wrap: a word wider than the column breaks inside it rather than push
+    // the page sideways, as "Indemnification" in a heading would at 320px under 200% text (E131).
+    <main className="mx-auto max-w-4xl px-4 py-12 [overflow-wrap:anywhere] sm:px-6 lg:px-8">
       <div className="max-w-none">
         <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           Terms of Service

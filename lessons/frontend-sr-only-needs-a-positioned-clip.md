@@ -31,7 +31,8 @@ and the `/` case of `frontend/tests/e2e/reflow-200.spec.ts` at 390px and 200% te
 `frontend/features/admin/components/TableScroll.tsx`, `relative overflow-x-auto`, and its
 `frontend/tests/unit/admin-feedback-page.spec.tsx` pins that pair on the box beside a row's sr-only
 label. Gate: the reflow-200 spec's page-width check on the routes it visits (/, /pricing, /waitlist,
-/login, /register, the 404, /filing/3, /calendar and /search, at 390px at both text sizes). On /search
+/login, /register, the 404, /security, /privacy, /terms, /filing/3, /calendar and /search, at 390px at both
+text sizes). On /search
 the results list clips its rows, so that check cannot see a row's sr-only commas escape it;
 `frontend/tests/unit/full-text-search.spec.tsx` pins the list's `relative overflow-hidden` classes,
 which proves the classes, not the clip. Its report now walks past the

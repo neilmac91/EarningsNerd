@@ -1558,13 +1558,16 @@ open their label column at 64rem by the same rule. A form code in the landing's 
 works and the Pro extras; a span of its own in the close, the extras' file kinds and the hero example's
 identity line): before, the plan table painted "10-K and 10-" over "Q filings" at 320px, the claims and
 How it works broke "10-Q" the same way at 320px under 200% text, and the subhead broke "10-Ks" at 390px
-and "10-Qs" at 1440px under 200% text (E81). The auth shell's lockup yields to
+and "10-Qs" at 1440px under 200% text (E81). On the legal pages (/security, /terms and /privacy) a word
+wider than the column breaks inside it: `[overflow-wrap:anywhere]` on each page's `<main>`, which every
+heading, paragraph and address inherits, so the default size is unchanged. At 320px under 200% text
+/security reached 348px on its headings' "Authentication" and "Infrastructure" and /terms 362px on
+"Indemnification" (E131). The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
 at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
 its close on one painted line at 320 and 390px under 200% text and at 320px at the default size, and the
 hero's at 320, 390 and 1440px under 200% text; a 768px and an 834px tablet over its route loop; a 320px phone
-under 200% text over it too, where /security's headings, whose words E131 owns, are the one exemption, the page
-no wider than the widest of them).
+under 200% text over it too, the three legal pages among its routes).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:

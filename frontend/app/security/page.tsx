@@ -16,7 +16,9 @@ export const metadata: Metadata = {
 // removed out, the numbers to the backend's, and this page's text to LEGAL_DATES.security.
 export default function SecurityPage() {
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    // Every heading, paragraph and address inherits this wrap: a word wider than the column breaks inside it rather
+    // than push the page sideways, as "Authentication" in a heading would at 320px under 200% text (E131).
+    <main className="mx-auto max-w-4xl px-4 py-12 [overflow-wrap:anywhere] sm:px-6 lg:px-8">
       <div className="max-w-none">
         <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           Security
@@ -247,7 +249,7 @@ export default function SecurityPage() {
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
               Email us at{' '}
-              <a href="mailto:security@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+              <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                 security@earningsnerd.io
               </a>
             </li>
@@ -304,7 +306,7 @@ export default function SecurityPage() {
             </li>
             <li>
               Security issues:{' '}
-              <a href="mailto:security@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+              <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                 security@earningsnerd.io
               </a>
             </li>

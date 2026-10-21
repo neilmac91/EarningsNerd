@@ -10,7 +10,9 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    // Every heading, paragraph and address inherits this wrap: a word wider than the column breaks inside it rather
+    // than push the page sideways, as the legal pages' long headings would at 320px under 200% text (E131).
+    <main className="mx-auto max-w-4xl px-4 py-12 [overflow-wrap:anywhere] sm:px-6 lg:px-8">
       <div className="max-w-none">
         <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           Privacy Policy
@@ -269,7 +271,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Right to Restrict Processing:</strong> You can request that we limit how we use your data by contacting us at{' '}
-              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 privacy@earningsnerd.io
               </a>
               .
@@ -309,7 +311,7 @@ export default function PrivacyPage() {
             Our services are not directed to individuals under the age of 13 (or 16 in the EEA). We do not knowingly collect personal
             information from children under these ages. If you become aware that a child has provided us with personal
             information without parental consent, please contact us at{' '}
-            <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+            <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
               privacy@earningsnerd.io
             </a>
             , and we will take immediate steps to delete such information.
@@ -349,13 +351,13 @@ export default function PrivacyPage() {
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark mt-4">
             <li>
               <strong>Privacy Inquiries:</strong>{' '}
-              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 privacy@earningsnerd.io
               </a>
             </li>
             <li>
               <strong>General Support:</strong>{' '}
-              <a href="mailto:hello@earningsnerd.io" className="text-brand-strong [overflow-wrap:anywhere] hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:hello@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 hello@earningsnerd.io
               </a>
             </li>
