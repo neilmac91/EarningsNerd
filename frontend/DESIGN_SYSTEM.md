@@ -1496,7 +1496,7 @@ and "10-Qs" at 1440px under 200% text (E81). The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
 at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
 its close on one painted line at 320 and 390px under 200% text and at 320px at the default size, and the
-hero's at 390 and 1440px under 200% text; a 768px and an 834px tablet over its route loop; a 320px phone
+hero's at 320, 390 and 1440px under 200% text; a 768px and an 834px tablet over its route loop; a 320px phone
 under 200% text over it too, where the legal pages' words that E131 owns are the one exemption).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
