@@ -55,10 +55,10 @@ draw, about USD 0.27 a run. The readings cannot separate production traffic.
   [6308352547](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308352547): the
   three runs and the readings.
 
-**Gate**: none yet; review-checked until founder row F54 picks the gate's form.
+**Gate**: none yet; review-checked until founder row F55 picks the gate's form.
 - A hook on the GitHub write that opens a pull request could look for a reservation in its body. It
   would miss each later push, a dispatch of CI, and a session that loads no repository hooks.
-- Gating it at the workflow changes every writer's spend process, so F54 holds two forms:
+- Gating it at the workflow changes every writer's spend process, so F55 holds two forms:
   - the job skips its paid step unless the pull request's body states a reservation, while the
     CODE RED chief reserves in its ledger today;
   - it runs only while a pull request is ready, as `copilot-eval` does, which gives up the drafts'
