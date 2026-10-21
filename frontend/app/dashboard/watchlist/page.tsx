@@ -10,6 +10,7 @@ import { formatLocalDate } from '@/lib/format'
 import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, ChartBarIcon, ClockIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { isConfirmedGuest } from '@/features/auth/lib/confirmedGuest'
+import AccountLoadFailure from '@/features/auth/components/AccountLoadFailure'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
@@ -21,24 +22,6 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useContentIn } from '@/hooks/useContentIn'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
-function useAuthGate() {
-  const router = useRouter()
-  const userQuery = useQuery({
-    queryKey: queryKeys.currentUser(),
-    queryFn: getCurrentUserSafe,
-    retry: false,
-  })
-  const { data: user, isLoading } = userQuery
-
-  // Only a confirmed guest leaves for /login: never a null still being read, or a read that failed.
-  const guest = isConfirmedGuest(userQuery)
-  useEffect(() => {
-    if (guest) router.push('/login')
-  }, [router, guest])
-
-  return { isReady: !isLoading, hasUser: Boolean(user) }
-}
-
 function formatRelative(dateLike?: string | null) {
   if (!dateLike) return 'Unknown'
   const date = new Date(dateLike)
@@ -47,13 +30,31 @@ function formatRelative(dateLike?: string | null) {
 }
 
 export default function WatchlistDashboardPage() {
-  const { isReady, hasUser } = useAuthGate()
+  const router = useRouter()
+
+  // The account read as the dashboard reads it. isPending, not isLoading: a first load paused offline is still loading
+  // the page, not a blank one.
+  const userQuery = useQuery({
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
+    retry: false,
+  })
+  const { data: user, isPending: userPending } = userQuery
+  // A failed read keeps the account card, and a focused Try again in it, mounted through the refetch until data
+  // replaces it.
+  const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())
+
+  // Only a confirmed guest leaves for /login: never a null still being read, or a read that failed.
+  const guest = isConfirmedGuest(userQuery)
+  useEffect(() => {
+    if (guest) router.push('/login')
+  }, [router, guest])
 
   const insightsQuery = useQuery({
     queryKey: queryKeys.watchlistInsights(),
     queryFn: getWatchlistInsights,
     retry: false,
-    enabled: hasUser,
+    enabled: Boolean(user),
   })
   const { data, isLoading } = insightsQuery
   // A failure keeps the error card, and a focused Retry in it, mounted through the refetch until data
@@ -63,7 +64,7 @@ export default function WatchlistDashboardPage() {
 
   const insights = useMemo(() => data ?? [], [data])
   // The list crossfades in when it replaces the bones below; a cached list paints at once.
-  const enterClass = useContentIn(!isReady || (isLoading && !failure.failed))
+  const enterClass = useContentIn((userPending && !userFailure.failed) || (isLoading && !failure.failed))
 
   // One header for the skeleton and the loaded page, and the add field in both (it needs no data, so
   // it is live while the list loads): the flip moves nothing above the list.
@@ -85,7 +86,7 @@ export default function WatchlistDashboardPage() {
     />
   )
 
-  if (!isReady || (isLoading && !failure.failed)) {
+  if ((userPending && !userFailure.failed) || (isLoading && !failure.failed)) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark">
         {header}
@@ -124,7 +125,13 @@ export default function WatchlistDashboardPage() {
     )
   }
 
-  if (!hasUser) {
+  // The account could not be read (offline, a 5xx) and there is no user to show: neither the page nor a guest to send
+  // to /login. A refetch that fails with the user in hand keeps the page.
+  if (userFailure.failed && !user) {
+    return <AccountLoadFailure failure={userFailure} focusTarget={titleRef} />
+  }
+
+  if (!user) {
     return null
   }
 

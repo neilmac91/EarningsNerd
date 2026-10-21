@@ -178,6 +178,10 @@ export function RetryButton({
   focusTarget,
   textField = false,
   variant = 'secondary',
+  // The caller's classes, handed to Button by name: the site chrome renders a Retry (the admin section's account card),
+  // and its focus-ring scan reads the spread below only as the rest of a component's props beside the className it
+  // passes on (tests/unit/siteChromeFocusRing.spec.ts, ownRestProps).
+  className,
   // A label of a caller's own is dropped here, so it never reaches the button and replaces the one verb.
   children: _child,
   'aria-label': _label,
@@ -194,6 +198,7 @@ export function RetryButton({
     <Button
       {...rest}
       ref={attach}
+      className={className}
       variant={variant}
       loading={busy}
       loadingText={pressed ? BUSY_LABEL : undefined}

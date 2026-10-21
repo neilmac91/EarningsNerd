@@ -39,8 +39,7 @@ import { bindingResolver, type Binding } from './astBindings'
  * shared families it reads (`expr [families]`), with a reason: a pinned condition that starts reading another
  * shared family fails too. A fetch flag is never pinnable: a gate that reads one fails whatever ALLOW pins, so a
  * pinned name that starts reading `isFetching` of a family it already reads (`const isLoading = firstLoad ||
- * isFetching`, the watchlist hook's `isReady: !isLoading && !isFetching`), its text and families unchanged,
- * still fails.
+ * isFetching`, a hook's `isReady: !isLoading && !isFetching`), its text and families unchanged, still fails.
  *
  * Limits, so a reviewer still reads new gates: a key family built outside a `queryKey:` property (an options
  * helper), a key handed in as a parameter or a prop (read by its name), a loading state passed in through props, a hold read through an alias
@@ -377,18 +376,6 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
  */
 type Allow = Record<string, { sites: string[]; reason: string }>
 const ALLOW: Allow = {
-  'app/admin/layout.tsx': {
-    sites: ['isLoading [queryKeys.currentUser]'],
-    reason:
-      'A failed /me renders null (`!user`) and redirects: the admin pages, and any observer in them, mount only ' +
-      'with a user, so no child refetches the failure and the skeleton cannot loop.',
-  },
-  'app/dashboard/watchlist/page.tsx': {
-    sites: ['!isReady || (isLoading && !failure.failed) [queryKeys.currentUser]'],
-    reason:
-      'A failed /me renders null (`!hasUser`), so nothing below mounts over it. Its watchlist-insights read is ' +
-      'held (the error card and its Retry stay up through the refetch).',
-  },
   'app/delete-account/page.tsx': {
     sites: ['isLoading [queryKeys.currentUser]'],
     reason:
@@ -406,8 +393,8 @@ const ALLOW: Allow = {
       "(AskCopilotRail), which observes /me, is FilingWorkspace's copilotBody, outside the swap.",
   },
 }
-const MAX_ALLOWLIST_SIZE = 4
-const MAX_PINNED_SITES = 5
+const MAX_ALLOWLIST_SIZE = 2
+const MAX_PINNED_SITES = 3
 
 /**
  * The gates `allow` does not pin, each pin covering one gate. A gate that reads a fetch flag of a shared query
@@ -640,10 +627,10 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
     expect(offendersIn(loading, allow)).toEqual([])
   })
 
-  it("the admin layout's and the watchlist page's pins do not cover a fetch flag folded into their pinned names", () => {
+  it("the admin layout's and the watchlist page's held gates fail once a fetch flag is folded into a name they read", () => {
     const fold = (file: string, edits: Array<[string, string]>) => {
       let source = readFileSync(path.join(frontendRoot, file), 'utf8')
-      expect(offendersIn(new Map([[file, unheldGates(source, file, shared)]]), ALLOW)).toEqual([])
+      expect(unheldGates(source, file, shared)).toEqual([])
       for (const [from, to] of edits) {
         expect(source).toContain(from)
         source = source.replace(from, to)
@@ -651,15 +638,21 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
       return offendersIn(new Map([[file, unheldGates(source, file, shared)]]), ALLOW)
     }
     expect(fold('app/admin/layout.tsx', [
-      ['const { data: user, isLoading } = userQuery', 'const { data: user, isLoading: firstLoad, isFetching } = userQuery'],
-      ['  const isAdmin = ', '  const isLoading = firstLoad || isFetching\n  const isAdmin = '],
-    ])).toEqual([expect.stringMatching(/^app\/admin\/layout\.tsx:\d+: isLoading \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/)])
-    expect(fold('app/dashboard/watchlist/page.tsx', [
-      ['const { data: user, isLoading } = userQuery', 'const { data: user, isLoading, isFetching } = userQuery'],
-      ['isReady: !isLoading,', 'isReady: !isLoading && !isFetching,'],
+      ['const { data: user, isPending } = userQuery', 'const { data: user, isPending: firstLoad, isFetching } = userQuery'],
+      ['  const isAdmin = ', '  const isPending = firstLoad || isFetching\n  const isAdmin = '],
     ])).toEqual([
       expect.stringMatching(
-        /^app\/dashboard\/watchlist\/page\.tsx:\d+: !isReady \|\| \(isLoading && !failure\.failed\) \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/,
+        /^app\/admin\/layout\.tsx:\d+: isPending && !userFailure\.failed \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/,
+      ),
+    ])
+    expect(fold('app/dashboard/watchlist/page.tsx', [
+      [
+        'const { data: user, isPending: userPending } = userQuery',
+        'const { data: user, isPending: firstLoad, isFetching } = userQuery\n  const userPending = firstLoad || isFetching',
+      ],
+    ])).toEqual([
+      expect.stringMatching(
+        /^app\/dashboard\/watchlist\/page\.tsx:\d+: \(userPending && !userFailure\.failed\) \|\| \(isLoading && !failure\.failed\) \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/,
       ),
     ])
   })

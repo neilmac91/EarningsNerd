@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ReactNode } from 'react'
@@ -14,6 +14,8 @@ import { queryKeys } from '@/lib/queryKeys'
 import { QUERY_CLIENT_DEFAULTS } from '@/app/providers'
 import Header from '@/components/Header'
 import DashboardPage from '@/app/dashboard/page'
+import WatchlistDashboardPage from '@/app/dashboard/watchlist/page'
+import AdminLayout from '@/app/admin/layout'
 
 /**
  * A logout whose request fails (a network error, a 5xx, the API's 504) asks /me before it acts, from every control
@@ -23,7 +25,8 @@ import DashboardPage from '@/app/dashboard/page'
  * proceeds as a logout that succeeded. A read that fails too reports the logout as not taken and keeps the account,
  * and its Log out, for another try. The read can renew a lapsed access cookie from the refresh cookie, as any request
  * of a signed-in tab does, so a lapsed access cookie is not mistaken for a logout. The dashboard leaves for /login only
- * for a confirmed guest. A login accepted meanwhile owns the tab.
+ * for a confirmed guest, and the watchlist and the admin section, whose guards wait for one too, show the dashboard's
+ * account card when the first /me read fails. A login accepted meanwhile owns the tab.
  *
  * The requests run through the real API client and auth API, with the adapter answering, so the interceptor's
  * statuses, the session flag and the generation fences are the ones the app runs; the refresh is the one stub, and the
@@ -59,11 +62,13 @@ vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
 }))
 vi.mock('@/features/summaries/api/summaries-api', () => ({ getSavedSummaries: vi.fn(async () => []), deleteSavedSummary: vi.fn() }))
 vi.mock('@/features/watchlist/api/watchlist-api', () => ({ getWatchlistInsights: vi.fn(async () => []) }))
+vi.mock('@/features/watchlist/components/WatchlistAddSearch', () => ({ default: () => null }))
 
 const reader: CurrentUser = {
   id: 7, email: 'reader@example.com', full_name: 'Reader', is_pro: false, is_beta: false, is_admin: false, email_verified: true,
 }
 const other: CurrentUser = { ...reader, id: 8, email: 'other@example.com', full_name: 'Other' }
+const admin: CurrentUser = { ...reader, id: 9, email: 'admin@example.com', full_name: 'Admin', is_admin: true }
 
 type Answer = (config: InternalAxiosRequestConfig) => Promise<AxiosResponse>
 const ok = (data: unknown): Answer => async (config) => ({ data, status: 200, statusText: 'OK', headers: {}, config })
@@ -307,6 +312,46 @@ describe('the dashboard sends a confirmed guest to /login', () => {
     act(() => notifySessionLost(getSessionGeneration()))
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/login'))
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+  })
+})
+
+/** The routes whose guards wait for a confirmed guest beside the dashboard's: what renders each, the user it serves, and
+ *  where focus lands when Try again loads it. */
+const GUARDED = {
+  '/dashboard/watchlist': {
+    render: () => <WatchlistDashboardPage />,
+    user: reader,
+    loaded: () => screen.findByRole('heading', { level: 1, name: 'Watchlist insights' }),
+  },
+  '/admin': {
+    render: () => <AdminLayout><p>Admin page</p></AdminLayout>,
+    user: admin,
+    loaded: () => screen.findByRole('navigation', { name: 'Admin sections' }),
+  },
+} as const
+
+describe.each(Object.keys(GUARDED) as (keyof typeof GUARDED)[])('%s, when the first /me read answers 500', (path) => {
+  it("shows the dashboard's account card with Try again and Go to login, leaves for nothing, and Try again loads it", async () => {
+    const route = GUARDED[path]
+    server.me = status(500, 'Internal Server Error')
+    render(<QueryClientProvider client={newClient()}>{route.render()}</QueryClientProvider>)
+    const card = await screen.findByRole('alert')
+    within(card).getByText('Unable to load your dashboard')
+    const retry = within(card).getByRole('button', { name: 'Try again' })
+    expect(within(card).getByRole('link', { name: 'Go to login' })).toHaveAttribute('href', '/login')
+    await settle()
+    expect(meReads()).toBe(1)
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(nav.replace).not.toHaveBeenCalled()
+    // Pressed from the keyboard: /me is read again, the route replaces the card, and focus goes to it.
+    server.me = ok(route.user)
+    retry.focus()
+    fireEvent.click(retry)
+    const target = await route.loaded()
+    await waitFor(() => expect(document.activeElement).toBe(target))
+    expect(meReads()).toBe(2)
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(nav.replace).not.toHaveBeenCalled()
   })
 })
 
