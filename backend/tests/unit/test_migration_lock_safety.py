@@ -514,9 +514,11 @@ def _last_name(node: ast.expr) -> str | None:
     return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
 
 
-def _spreads_production_settings(call: ast.Call) -> bool:
-    """``sessionmaker(**{**SessionLocal.kw, "bind": ...})``, with at most ``class_=`` beside it: production's
-    settings, with only the engine (and a test's Session subclass) replaced."""
+def _spreads_production_settings(call: ast.Call, handed: set[str]) -> bool:
+    """``sessionmaker(**{**SessionLocal.kw, "bind": <engine>})``, with at most ``class_=`` beside it: production's
+    settings with only the engine (and a test's Session subclass) replaced, and that engine one the case was handed,
+    a parameter of a function around the call. Any other bind, ``database.engine`` or ``SessionLocal.kw["bind"]``
+    say, is the suite's SQLite file under the test conftest, and a case on it runs nothing on PostgreSQL."""
     spreads = [keyword.value for keyword in call.keywords if keyword.arg is None]
     named = {keyword.arg for keyword in call.keywords if keyword.arg is not None}
     if call.args or len(spreads) != 1 or not named <= {"class_"} or not isinstance(spreads[0], ast.Dict):
@@ -525,14 +527,16 @@ def _spreads_production_settings(call: ast.Call) -> bool:
     return (
         len(keys) == 2 and keys[0] is None and ast.unparse(values[0]) == "SessionLocal.kw"
         and isinstance(keys[1], ast.Constant) and keys[1].value == "bind"
+        and isinstance(values[1], ast.Name) and values[1].id in handed
     )
 
 
 def _unapproved_sessions(tree: ast.Module) -> list[str]:
-    """Each session a gate home opens other than with production's settings on the case's own engine: ``Session``,
-    or a class derived from it, called directly (it autoflushes); production's ``SessionLocal`` called directly (it
-    is bound to the app's database, which under the test conftest is the suite's SQLite file, so a case that opens
-    it runs nothing on PostgreSQL); or a ``sessionmaker`` that sets anything beyond the engine."""
+    """Each session a gate home opens other than with production's settings on the engine its case was handed:
+    ``Session``, or a class derived from it, called directly (it autoflushes); production's ``SessionLocal`` called
+    directly (it is bound to the app's database, which under the test conftest is the suite's SQLite file, so a case
+    that opens it runs nothing on PostgreSQL); or a ``sessionmaker`` that sets anything beyond the engine, or binds
+    one its function was not handed."""
     session_classes = {"Session"}
     classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
     while derived := {
@@ -540,11 +544,22 @@ def _unapproved_sessions(tree: ast.Module) -> list[str]:
         if node.name not in session_classes and any(_last_name(base) in session_classes for base in node.bases)
     }:
         session_classes |= derived
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+    def handed(node: ast.AST) -> set[str]:
+        """The parameters of every function around ``node``."""
+        names: set[str] = set()
+        while node in parents:
+            node = parents[node]
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                names |= {arg.arg for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]}
+        return names
+
     return [
         f"line {node.lineno}: {ast.unparse(node)}" for node in ast.walk(tree)
         if isinstance(node, ast.Call) and (
             _last_name(node.func) in session_classes | {"SessionLocal"}
-            or (_last_name(node.func) == "sessionmaker" and not _spreads_production_settings(node))
+            or (_last_name(node.func) == "sessionmaker" and not _spreads_production_settings(node, handed(node)))
         )
     ]
 
@@ -553,8 +568,19 @@ def test_session_settings_detector_semantics():
     def found(source: str) -> list[str]:
         return _unapproved_sessions(ast.parse(source))
 
-    assert found('sessionmaker(**{**SessionLocal.kw, "bind": engine})()') == []
-    assert found('sessionmaker(**{**SessionLocal.kw, "bind": engine}, class_=Observed)') == []
+    assert found('def case(engine):\n    sessionmaker(**{**SessionLocal.kw, "bind": engine})()') == []
+    subclass = 'def case(engine, Observed):\n    sessionmaker(**{**SessionLocal.kw, "bind": engine}, class_=Observed)'
+    assert found(subclass) == []
+    closure = 'def outer(conn):\n    def inner():\n        return sessionmaker(**{**SessionLocal.kw, "bind": conn})()'
+    assert found(closure) == []
+    # The engine must be one the case was handed: anything else is the suite's SQLite file under the conftest.
+    for source in (
+        'def case(engine):\n    sessionmaker(**{**SessionLocal.kw, "bind": database.engine})()',
+        'def case(engine):\n    sessionmaker(**{**SessionLocal.kw, "bind": SessionLocal.kw["bind"]})()',
+        'def case():\n    engine = make_engine()\n    sessionmaker(**{**SessionLocal.kw, "bind": engine})()',
+        'sessionmaker(**{**SessionLocal.kw, "bind": engine})()',
+    ):
+        assert len(found(source)) == 1, source
     # A Session called directly autoflushes, by any spelling and through any class derived from it.
     assert found("Session(engine)") == ["line 1: Session(engine)"]
     assert found("orm.Session(bind=conn)") == ["line 1: orm.Session(bind=conn)"]
@@ -624,9 +650,10 @@ def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home,
     # that production does not (E127's gate hid a lock moved out of a password reset's revocation that way).
     unapproved = _unapproved_sessions(home)
     assert unapproved == [], (
-        f"{test_home} must open every session with production's settings on its case's engine, through a "
-        f'sessionmaker that spreads SessionLocal.kw and replaces only its bind (sessionmaker(**{{**SessionLocal.kw, '
-        f'"bind": engine}})), never Session(...) or SessionLocal() itself: {unapproved}'
+        f"{test_home} must open every session with production's settings on the engine its case was handed, through "
+        f'a sessionmaker that spreads SessionLocal.kw and replaces only its bind with a parameter of its function '
+        f'(sessionmaker(**{{**SessionLocal.kw, "bind": engine}})), never Session(...) or SessionLocal() itself: '
+        f"{unapproved}"
     )
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]
