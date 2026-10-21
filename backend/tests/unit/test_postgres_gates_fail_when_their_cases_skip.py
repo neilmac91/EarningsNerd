@@ -129,11 +129,16 @@ def test_a_home_that_is_no_gate_may_skip_while_a_gate_variable_is_set(pytester, 
 
 def test_each_run_in_one_process_keeps_its_own_count(pytester, monkeypatch):
     """Two in-process runs one after the other, as a pytester child runs inside a serial parent: the first's case
-    that did not run must not fail the second, nor the parent."""
+    that did not run must not fail the second, nor the parent. The probe sits in a package of its own: this process
+    may already hold the real gate home under its bare module name (tests/integration is no package), and a probe
+    of that name would fail to collect."""
     monkeypatch.setenv(VARIABLE, "postgresql://set-by-the-step")
-    pytester.makepyfile(**{HOME: FIXTURE_READS_ANOTHER_VARIABLE})
+    probe = pytester.mkpydir("postgres_gates_probe") / f"{HOME}.py"
+    probe.write_text(FIXTURE_READS_ANOTHER_VARIABLE, encoding="utf-8")
     first = pytester.runpytest("-p", "tests.support.postgres_gates", *CHILD_ARGS)
     assert first.ret == pytest.ExitCode.TESTS_FAILED, first.stdout.str()[-2000:]
-    pytester.makepyfile(**{HOME: CASES_RUN})
+    first.stdout.fnmatch_lines([f"skipped: postgres_gates_probe/{HOME}.py::test_a_race*"])
+    probe.write_text(CASES_RUN, encoding="utf-8")
     second = pytester.runpytest("-p", "tests.support.postgres_gates", *CHILD_ARGS)
     assert second.ret == pytest.ExitCode.OK, second.stdout.str()[-2000:]
+    second.assert_outcomes(passed=1)
