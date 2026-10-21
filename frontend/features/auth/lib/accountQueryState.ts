@@ -1,6 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { queryKeys } from '@/lib/queryKeys'
 import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurrent, subscribeSessionLoss, getExplicitSessionGeneration, isExplicitSessionGenerationCurrent, assertExplicitSessionGeneration } from '@/lib/api/session'
+
+/** What a logout that did not take tells the reader. */
+export const LOGOUT_FAILED_MESSAGE = "We couldn't log you out. Check your connection and try again."
 
 /** Every query family that holds one account's data, by key prefix. Most are unkeyed by the reader,
  * so after a logout or login in this tab the next account would read the previous one's snapshot
@@ -53,9 +58,36 @@ export function subscribeAccountQueryReset(queryClient: QueryClient): () => void
   })
 }
 
+/** After a logout request that failed: whether this browser is logged out anyway. The API answers a revoke that
+ * failed with a 503 that clears the session cookies; a request that never arrived, or the API's 504, clears none,
+ * and the session goes on. /me decides: no user means the cookies are gone. The read goes into the current-user
+ * query, so a session that survived shows again, and it starts in the turn of the reset before it, so no render
+ * sees that reset's null as settled (the dashboard redirects only on a settled null). It runs offline too
+ * (networkMode 'always'): paused, it would hold the logout until the connection came back. A read that fails
+ * cannot tell, so the logout counts as not taken.
+ */
+async function loggedOutAnyway(queryClient: QueryClient): Promise<boolean> {
+  try {
+    const user = await queryClient.fetchQuery({
+      queryKey: queryKeys.currentUser(),
+      queryFn: getCurrentUserSafe,
+      staleTime: 0,
+      networkMode: 'always',
+    })
+    return user === null
+  } catch {
+    return false
+  }
+}
+
 /** A late logout completion must not reset or navigate away from a newer accepted login.
- * The callback is synchronous: ownership check, reset and UI continuation share one turn.
- * Request errors still propagate; current Header/UserMenu failure navigation runs in finally.
+ * The callback is synchronous and shares a turn with the ownership check before it: the reset's turn when the
+ * request succeeded, the turn /me answered in when it failed.
+ * The account snapshots reset once the request settles, failed or not. A failed request (a network error, a 5xx,
+ * the API's 504) may still have logged this browser out, so the callback waits for /me (loggedOutAnyway) and hears
+ * success when it answers no user. Otherwise the logout did not take: the reader is told so, the callback hears
+ * failure, the tab stays where it is, and the request's error propagates. A login accepted meanwhile owns the tab,
+ * and nothing follows for this logout but its error.
  */
 export async function logoutAndResetAccount(
   queryClient: QueryClient,
@@ -63,16 +95,28 @@ export async function logoutAndResetAccount(
   onCurrentSettled?: (succeeded: boolean) => void,
 ): Promise<void> {
   const generation = getExplicitSessionGeneration()
-  let succeeded = false
+  let failure: { error: unknown } | null = null
   try {
     await logout()
-    succeeded = true
-  } finally {
-    if (isExplicitSessionGenerationCurrent(generation)) {
-      resetAccountQueries(queryClient)
-      onCurrentSettled?.(succeeded)
+  } catch (error) {
+    failure = { error }
+  }
+  if (!isExplicitSessionGenerationCurrent(generation)) {
+    if (failure) throw failure.error
+    return
+  }
+  resetAccountQueries(queryClient)
+  if (failure) {
+    const reset = getExplicitSessionGeneration()
+    const loggedOut = await loggedOutAnyway(queryClient)
+    if (!isExplicitSessionGenerationCurrent(reset)) throw failure.error
+    if (!loggedOut) {
+      toast.error(LOGOUT_FAILED_MESSAGE)
+      onCurrentSettled?.(false)
+      throw failure.error
     }
   }
+  onCurrentSettled?.(true)
 }
 
 /** No await between final credential ownership check and replacement cache publication. */

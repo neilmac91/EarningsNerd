@@ -197,6 +197,8 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
 
     const requestError = new Error('current logout failed')
+    // A failed logout reads /me before it settles (logoutAndResetAccount); offline, that read cannot tell either.
+    api.defaults.adapter = async () => { throw new Error('offline') }
     const current = new MutationObserver(client, {
       mutationFn: () => logoutAndResetAccount(client, async () => {
         if (!succeeded) throw requestError

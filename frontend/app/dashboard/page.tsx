@@ -142,11 +142,14 @@ export default function DashboardPage() {
     }),
   })
 
+  // A null user is a confirmed guest (a 401 resolves to null, and logout resets the user to null) only once its read
+  // has settled. An unresolved user (a fetch paused offline, a failure) is not logged out, and neither is a null still
+  // being read: a logout whose request failed, from any control (the site header's included), resets the user to null
+  // and reads /me in the same turn before it decides (logoutAndResetAccount).
+  const userSettled = userQuery.fetchStatus === 'idle' && !userQuery.isError
   useEffect(() => {
-    // Only a confirmed guest (a 401 resolves to null, and logout resets the user to null). An unresolved
-    // user (a fetch paused offline, a failure) is not logged out.
-    if (user === null) router.push('/login')
-  }, [user, router])
+    if (user === null && userSettled) router.push('/login')
+  }, [user, userSettled, router])
 
   // A successful delete drops its row once saved summaries refetch. Land on the section heading, or
   // on the next section's when the last summary went and the section with it.

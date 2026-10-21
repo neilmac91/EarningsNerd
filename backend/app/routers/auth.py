@@ -1293,7 +1293,7 @@ async def logout(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """Revoke the refresh token (if present) and clear both auth cookies."""
+    """Revoke the refresh token (if present) and clear the session cookies, on a 503 when the revoke fails."""
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
     actor = (current_user.id, current_user.email) if current_user else None
@@ -1314,7 +1314,22 @@ async def logout(
         finally:
             filing_list_service.release_request_session(db)
 
-    await run_in_threadpool(revoke)
+    try:
+        await run_in_threadpool(revoke)
+    except Exception:
+        # The revoke failed (the token store down, the pool exhausted) and its unit rolled back: the session may
+        # live on in the database, but this browser's cookies go regardless, or a shared computer stays signed in.
+        # The deletions ride a response of our own: FastAPI drops the injected Response's headers from the fresh
+        # response it builds for an exception, the global handler's 500 included. No audit row: no session is
+        # known to have ended.
+        logger.exception("Logout could not revoke the refresh token; clearing this browser's session cookies")
+        incomplete = JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "This browser is logged out, but we could not end the session on the server."},
+        )
+        _clear_auth_cookie(incomplete)
+        _clear_refresh_cookie(incomplete)
+        return incomplete
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
     return {"status": "success"}
