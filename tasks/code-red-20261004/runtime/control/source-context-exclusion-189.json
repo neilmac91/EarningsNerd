@@ -6,7 +6,7 @@
   },
   "previous_count": 1042,
   "all_previous_entries_preserved": true,
-  "exclusion_count": 1058,
+  "exclusion_count": 1057,
   "excluded_context_ids": [
     "/root",
     "/root/beta_measurement",
@@ -1064,7 +1064,6 @@
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-2026-10-21T0302Z:record-37-reviewer-01",
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-survey-01",
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-factcheck-01",
-    "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-review-verify-01",
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-39-reviewer-01"
   ],
   "new_actual_contexts": [
@@ -1084,7 +1083,6 @@
   "new_provisional_contexts": [
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-survey-01",
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-factcheck-01",
-    "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-review-verify-01",
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-39-reviewer-01"
   ],
   "new_context_roles": {
@@ -1102,7 +1100,6 @@
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-2026-10-21T0302Z:record-37-reviewer-01": "The single isolated read-only reviewer of the record-37 PR (#1450; agent ab7a17dcc7cc9a4ba), launched about 2026-10-21T03:02Z with a brief bound to `bcae6a0` and kept as one context for its same-context delta check of `a4809f0`, the PR's final head: it bound no blocker to `bcae6a0` (two should-fix items and nine nits) and no blocker and no should-fix to `a4809f0` (four optional nits). The chief applied its first pass's should-fix items and the nits it verified in `a4809f0` and the PR's body, and its delta check's one nit on the PR's body before the ready marking; it kept the other optional nits as they read. Its reports list no classifier denial and no hook refusal; record 38 discloses its side effects as it reported them, among them commands beyond the letter of its brief (single-path diffs and shows without the exclusion pathspecs, non-excluded paths only, their outputs filtered and excluded-naming lines counted only) and one test-collection run without a fresh `.env` check. Management context: never a source, reconciliation or judging role.",
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-survey-01": "Provisional label: every context of a read-only survey workflow over record 38's window (independent readers of GitHub's records of the window's merges, deploys, workflow runs and pull requests, and any verifier or completeness critic), launched by the successor chief after this closure is pushed and before the record is drafted; resolved to launch-time identities in a later closure (or recorded as unused). Management context: never a source, reconciliation or judging role.",
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-factcheck-01": "Provisional label: every context of a fact-check workflow over the record-38 PR's draft (independent read-only checkers that verify the record's factual claims against primary sources, any extractor of the agents' reports and any completeness critic), launched by the successor chief after this closure is pushed and before the record's reviewer; resolved to launch-time identities in a later closure (or recorded as unused). Management context: never a source, reconciliation or judging role.",
-    "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-38-review-verify-01": "Provisional label: every context of a read-only verification workflow over record-38-reviewer-01's findings (independent verifiers that each try to refute one finding against primary sources, and any completeness critic), launched by the successor chief after the reviewer's report and before the fixes it verifies are pushed; resolved to launch-time identities in a later closure (or recorded as unused). Management context: never a source, reconciliation or judging role.",
     "claude-code-subagent:session_011jZyZqfNWZRqiFNWfTc3u8:launched-after-this-record:record-39-reviewer-01": "Provisional label: the single isolated read-only reviewer of the record-39 PR (one context for the review and its deltas), launched by the successor chief after this closure is recorded; resolved to its launch-time identity in a later closure (or recorded as unexercised). Management context: never a source, reconciliation or judging role."
   },
   "provisional_labels_resolved": {
@@ -1122,6 +1119,6 @@
   "h20_complete": 19,
   "h20_partial": 5,
   "dossiers": "3/30",
-  "scope": "Append-only: registration of the successor chief's launches since closure 188: record 37's survey workflow wf_3dc80647-8d7 with its four agent contexts (record-37-survey-01), the record-37 fact-check workflow wf_356ef825-66e with its five agent contexts (record-37-factcheck-01) and record-37-reviewer-01's launch-time identity. It resolves closure 188's record-37-survey-01 and record-37-factcheck-01 and closure 187's record-37-reviewer-01 to those identities, adds the survey form and the fact-check checkers' journal label to the conventions, and pre-registers record-38-survey-01, record-38-factcheck-01, record-38-review-verify-01 and record-39-reviewer-01 (closure 188 pre-registered record-38-reviewer-01). No context gains source, reconciliation or judging eligibility; every earlier identity and adverse history is retained.",
+  "scope": "Append-only: registration of the successor chief's launches since closure 188: record 37's survey workflow wf_3dc80647-8d7 with its four agent contexts (record-37-survey-01), the record-37 fact-check workflow wf_356ef825-66e with its five agent contexts (record-37-factcheck-01) and record-37-reviewer-01's launch-time identity. It resolves closure 188's record-37-survey-01 and record-37-factcheck-01 and closure 187's record-37-reviewer-01 to those identities, adds the survey form and the fact-check checkers' journal label to the conventions, and pre-registers record-38-survey-01, record-38-factcheck-01 and record-39-reviewer-01 (closure 188 pre-registered record-38-reviewer-01). No context gains source, reconciliation or judging eligibility; every earlier identity and adverse history is retained.",
   "recorded_at": "2026-10-21T05:00:45.390346+00:00"
 }
