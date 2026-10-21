@@ -36,12 +36,7 @@ const IN_ANY_LITERAL = [/\bCopilots?\b/g, /\bco-pilots?\b/gi]
 /** The word in any case, either spelling, where a literal reads as copy: only a letter, a digit or `_` joins it to more. */
 const IN_COPY = /\bco-?pilots?\b/gi
 
-const NAME_RESIDUE: Record<string, { count: number; why: string }> = {
-  'app/security/page.tsx': {
-    count: 1,
-    why: 'the DeepSeek line ("powering summaries and Copilot") is on a legal page, off limits until the founder decides the /security claims',
-  },
-}
+const NAME_RESIDUE: Record<string, { count: number; why: string }> = {}
 
 /** How many times a literal's text names the feature the old way (each mention once, whichever pattern finds it). */
 function mentions(text: string, copy: boolean): number {

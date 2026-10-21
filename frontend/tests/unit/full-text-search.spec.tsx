@@ -253,8 +253,8 @@ describe('FullTextSearch controls and errors', () => {
   })
 
   // At 200% text on a phone the Retry beside the message ran past the alert and the screen (Codex on #1380: 472px at
-  // 390px, 848px with a long token). The fix is the Notice's layout; its browser case waits on E39, since CI's e2e
-  // build leaves /search off, so this pins the layout (tests/e2e/reflow-200.spec.ts holds the homepage alert's twin).
+  // 390px, 848px with a long token). The fix is the Notice's layout, which this pins; tests/e2e/reflow-200.spec.ts
+  // measures it in the browser at 200% text, beside the homepage alert's twin.
   it("stacks the Retry under the message, in the message's column, and breaks a long token in the message", async () => {
     vi.mocked(searchFullText).mockRejectedValueOnce(fromBackend(502, 'SEC full-text search failed: EFTS_UPSTREAM_TIMEOUT_EXCEEDED'))
     renderSearch()

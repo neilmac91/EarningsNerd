@@ -172,9 +172,8 @@ export default function DashboardPage() {
   // the page out of the server HTML. The notice only reads the subscription query the page already
   // holds; the webhook can land after the redirect, so a plan still Free is not called Pro. The flag is
   // read once, then dropped from the address (other params kept), so a reload, a history entry or a
-  // bookmark of the return URL does not announce a checkout again. A remount in the same commit (the
-  // PostHog provider swaps its element when cookie consent arrives) keeps the notice
-  // (features/subscriptions/lib/returnNotice.ts).
+  // bookmark of the return URL does not announce a checkout again. A remount in the same commit (any
+  // parent that swaps its element type) keeps the notice (features/subscriptions/lib/returnNotice.ts).
   const [checkoutReturned, setCheckoutReturned] = useState(false)
   useCarryReturnNotice('dashboard-checkout-success', checkoutReturned)
   useEffect(() => {

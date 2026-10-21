@@ -1,5 +1,8 @@
+'use client'
+
 import Link from 'next/link'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
+import { openCookieSettings } from '@/lib/cookieSettings'
 import { ENABLE_ANALYSIS, ENABLE_CALENDAR } from '@/lib/featureFlags'
 
 type FooterLink = { label: string; href: string }
@@ -25,9 +28,18 @@ const FOOTER_LINKS: Record<string, FooterLink[]> = {
   ],
 }
 
-const CURRENT_YEAR = new Date().getFullYear()
+// One recipe for the column links and for "Cookie settings", a button that reads as one of them (it opens a dialog
+// and goes nowhere), each with the brand focus ring. `text-left` is for the button, which centres its text by
+// default, so a label that ever wraps lines up with the links; on an inline link it changes nothing.
+const FOOTER_LINK =
+  'text-left text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
 
 export default function Footer() {
+  // Read where the footer renders, on the server and again in the browser. The two can disagree for a few hours
+  // around New Year, or on a page built last year, so the year's paragraph lets its own text differ at hydration
+  // (suppressHydrationWarning covers that text only): React sets the browser's year rather than discarding the
+  // server's markup.
+  const year = new Date().getFullYear()
   return (
     <footer className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -55,14 +67,30 @@ export default function Footer() {
               <ul className="mt-4 space-y-3">
                 {links.map((link) => (
                   <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-                    >
+                    <Link href={link.href} className={FOOTER_LINK}>
                       {link.label}
                     </Link>
                   </li>
                 ))}
+                {/* The way back to the cookie settings after a first choice, which /privacy's withdrawal sentence
+                    promises ("through our cookie consent banner or settings"): it opens CookieConsent's dialog on
+                    the stored choices (lib/cookieSettings.ts). It takes focus first, so ui/Modal returns focus
+                    here on close whatever pressed it (Safari does not focus a clicked button). The auth routes
+                    have no site footer (lib/authShellRoutes.ts). */}
+                {category === 'Legal' && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.currentTarget.focus()
+                        openCookieSettings()
+                      }}
+                      className={FOOTER_LINK}
+                    >
+                      Cookie settings
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
           ))}
@@ -70,8 +98,8 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-light pt-8 dark:border-white/[0.06] sm:flex-row">
-          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-            &copy; {CURRENT_YEAR} EarningsNerd. All rights reserved.
+          <p suppressHydrationWarning className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+            &copy; {year} EarningsNerd. All rights reserved.
           </p>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Data sourced from SEC EDGAR. AI-generated content, for informational purposes only.

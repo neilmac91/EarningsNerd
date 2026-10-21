@@ -1,5 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
+import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
+import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
 
 /**
  * No sideways scroll at 200% text on a phone. At 390x844, at the default text size and with the
@@ -16,7 +18,9 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  *
  * Before the fix each route with the site header measured 552px at 200% (its theme toggle and account
  * link) and each auth page 576px (the auth shell's top bar); with those wrapping, Button labels ("See a
- * live example", "Ask this filing") and one long heading word on /waitlist were next. Each case checks
+ * live example", "Ask this filing") and one long heading word on /waitlist were next. /security and
+ * /privacy measured 469px: each mailto address (security@, privacy@ and hello@earningsnerd.io) was one
+ * word that could not break, and now breaks anywhere ([overflow-wrap:anywhere]). Each case checks
  * that chrome is on the page, so a route that fails to render cannot pass empty. On a failure the
  * message lists the widest elements and text runs past the viewport edge, outside any clipping box.
  *
@@ -46,8 +50,8 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * hyphen before each code became one nowrap run. Below a 12rem viewport the auth shell's wordmark yields to the
  * mark. At 320x640 with the text doubled /pricing passes the same checks: its billing switch's row wraps, the
  * yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge and
- * the page to 333px. The other routes join it at 320px with E81 (/ reaches 337px there). The open menu scrolls
- * inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
+ * the page to 333px. The other routes join it at 320px with E81 (/ reaches 337px there, and /search 344px).
+ * The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
  * On a 768px and an 834px tablet at 200% every route passes the same checks too: the footer's columns and
@@ -71,7 +75,9 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * lessons/frontend-check-brand-layouts-at-200-percent-text.md asks: a dark: utility on ModalHeader would move it
  * in one theme alone. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
  * answered in the browser, as a guest, and the filing page from fixtures/filing3Api.ts (for a guest, and
- * for its Pro reader in the signed-in menu case).
+ * for its Pro reader in the signed-in menu case). CI's e2e build turns /calendar and /search on, so both
+ * join the route loop with their rows painted: the calendar on its own fixtures with the clock pinned to one
+ * week (fixtures/calendarWeek.ts), the search answered and run (fixtures/searchApi.ts).
  */
 
 type Route = {
@@ -120,12 +126,38 @@ const ROUTES: Route[] = [
   { name: 'login', path: '/login', open: answerGuest, ready: (p) => h1(p, 'Welcome back'), ...authShellBar },
   { name: 'register', path: '/register', open: answerGuest, ready: (p) => h1(p, 'Create your account'), ...authShellBar },
   { name: 'not found', path: '/no-such-page', status: 404, open: answerGuest, ready: (p) => h1(p, 'Page not found'), ...siteHeader },
+  { name: 'security', path: '/security', open: answerGuest, ready: (p) => h1(p, 'Security'), ...siteHeader },
+  { name: 'privacy', path: '/privacy', open: answerGuest, ready: (p) => h1(p, 'Privacy Policy'), ...siteHeader },
   {
     name: 'filing',
     path: '/filing/3',
     open: (p, b) => answerApi(p, b, 'anon'),
     // Only a rendered summary has sections to jump to.
     ready: (p) => expect(p.getByRole('navigation', { name: 'Jump to section' })).toBeVisible(),
+    ...siteHeader,
+  },
+  {
+    // The fixtures' week with the clock pinned (fixtures/calendarWeek.ts); at every width here the week is its day list.
+    name: 'calendar',
+    path: '/calendar',
+    open: async (p, b) => {
+      await pinCalendarWeek(p)
+      await answerGuest(p, b)
+    },
+    ready: calendarWeekReady,
+    ...siteHeader,
+  },
+  {
+    // A search answered and run (fixtures/searchApi.ts), so the page is measured with its result rows painted, a long
+    // filer name included. The list clips its rows (`relative overflow-hidden`), so this check cannot see a row or its
+    // sr-only commas overrun the list; full-text-search.spec.tsx pins the list's classes.
+    name: 'search',
+    path: '/search',
+    open: async (p, b) => {
+      await answerGuest(p, b)
+      await answerSearch(p, b)
+    },
+    ready: runSearch,
     ...siteHeader,
   },
 ]
@@ -465,9 +497,10 @@ test.describe('a 390x664 phone at 200% text', () => {
     card reaches past the screen, the card adds nothing to the page's own width (measured before the failure), every
     control lies inside the card, no control's text paints past its box or onto another's, and the press neither resizes the
     card nor moves a control in it (read from the card's own corner: focusing the Retry scrolls it into view, and on
-    the dashboard the header changes while the account read is in flight). The full-text search alert, fixed the same way, is
-    behind a flag CI's build leaves off, so its browser case waits on E39 and full-text-search.spec.tsx pins its
-    layout. CI has no backend: the API is answered in the browser.
+    the dashboard the header changes while the account read is in flight). The full-text search alert on /search, fixed
+    the same way (Codex on #1380 measured its Retry taking the page to 472px at 390px, and to 848px with a long token),
+    has the homepage alert's cases, now that CI's e2e build turns /search on; full-text-search.spec.tsx pins its layout.
+    CI has no backend: the API is answered in the browser.
 
     A Notice inside a card is held to its own border as well: its Retry and every text run lie inside the Notice, at
     rest and busy. Its text column used to be what the row left after the glyph, so under 200% text the comparison
@@ -614,6 +647,19 @@ const guestSearch = (detail: string) => async (page: Page, baseURL: string, hold
 }
 const searchFor = (page: Page) => page.getByRole('combobox', { name: 'Or start with a company' }).fill('apple')
 const searchAlert = (page: Page) => page.getByRole('alert').filter({ hasText: 'Error searching companies' })
+/** The full-text search's failure: the router's 502 sentence (routers/search.py), or a detail holding a long token. */
+const FULL_TEXT_DOWN = 'SEC full-text search is temporarily unavailable.'
+const FULL_TEXT_DOWN_TOKEN = 'SEC full-text search failed: EFTS_UPSTREAM_TIMEOUT_EXCEEDED'
+const guestFullText = (detail: string) => async (page: Page, baseURL: string, hold: () => boolean) => {
+  await answerGuest(page, baseURL)
+  const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
+  await page.route(
+    (url) => url.origin === API_ORIGIN && url.pathname === '/api/search/full-text',
+    (route) => (hold() ? undefined : route.fulfill({ status: 502, headers: cors, json: { detail } })),
+  )
+}
+const fullTextFor = (page: Page) => page.getByRole('textbox', { name: 'Search the full text of SEC filings' }).fill(SEARCH_QUERY)
+const fullTextAlert = (page: Page) => page.getByRole('alert').filter({ hasText: 'SEC full-text search' })
 /** The three Notices inside a card, each an error Notice with a RetryButton. */
 const comparisonNotice = (page: Page) => page.getByRole('alert').filter({ hasText: 'Couldn’t load the comparison' })
 const billingNotice = (page: Page) => page.getByRole('alert').filter({ hasText: 'Failed to load billing information' })
@@ -621,6 +667,8 @@ const tickerFilingsNotice = (page: Page) => page.getByRole('alert').filter({ has
 const FAILURES: Failure[] = [
   { name: 'the homepage search alert', path: '/', open: guestSearch(SEARCH_DOWN), act: searchFor, card: searchAlert, retry: 'RetryButton', widths: [320, 360, 390] },
   { name: 'the homepage search alert, a long token in its message', path: '/', open: guestSearch(SEARCH_DOWN_TOKEN), act: searchFor, card: searchAlert, retry: 'RetryButton', widths: [320] },
+  { name: 'the full-text search alert', path: '/search', open: guestFullText(FULL_TEXT_DOWN), act: fullTextFor, card: fullTextAlert, retry: 'RetryButton', widths: [320, 360, 390] },
+  { name: 'the full-text search alert, a long token in its message', path: '/search', open: guestFullText(FULL_TEXT_DOWN_TOKEN), act: fullTextFor, card: fullTextAlert, retry: 'RetryButton', widths: [320] },
   {
     name: "the dashboard's account card (Try again beside Go to login)",
     path: '/dashboard',
@@ -735,6 +783,78 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
         })
       })
     }
+  }
+})
+
+/** The cookie settings dialog's category rows at 200% text (components/CookieConsent.tsx), opened from the footer's
+    "Cookie settings" on a page whose visitor has already chosen. Each row takes the Notice's recipe: it wraps, its text
+    column keeps 9rem beside the box or takes the card's width with the box under it, and a word too long for the column
+    breaks inside it. Before, a row could not wrap and its text column never went narrower than its longest word, so the
+    boxes ended 32 to 73px past their cards at 390px, 62 to 103px at 360px and 89 to 130px at 320px, and the text ran
+    past the cards too. At 320, 360 and 390px each box and every run of text in its card lie inside the card. The text
+    column is 105, 132 and 162px there (ModalBody's px-6 and the card's p-4 under doubled text), so the longest words
+    still break at all three widths until a card's padding stops growing under enlarged text (tasks/todo.md E120, whose
+    measure with this recipe is 201px and no broken word at 320px). The panel's own sideways scroll is held by the
+    consent dialog's header case below (`holdsPanel`), since its title wraps under its icon (#1432) and these rows
+    stay inside their cards. */
+const categoryRows = (dialog: Locator) =>
+  dialog.evaluate((root) => {
+    const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
+    return [...root.querySelectorAll('input[type="checkbox"]')].map((box) => {
+      // The box's card: the nearest box around it that draws a border.
+      let card = box.parentElement as HTMLElement
+      while (card !== root && getComputedStyle(card).borderTopWidth === '0px') card = card.parentElement as HTMLElement
+      const c = card.getBoundingClientRect()
+      const b = box.getBoundingClientRect()
+      // Each run of text in the card, as painted, that reaches past the card's sides.
+      const pastCard: string[] = []
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        const r = range.getBoundingClientRect()
+        if (r.left < c.left - 0.5 || r.right > c.right + 0.5) pastCard.push(`"${node.textContent.replace(/\s+/g, ' ').trim().slice(0, 30)}" ${px(r.left, r.right)}`)
+      }
+      return {
+        title: document.getElementById(box.getAttribute('aria-labelledby') ?? '')?.textContent?.trim() ?? '',
+        boxInCard: b.left >= c.left - 0.5 && b.right <= c.right + 0.5 && b.top >= c.top - 0.5 && b.bottom <= c.bottom + 0.5,
+        pastCard,
+        where: `box ${px(b.left, b.right)} by ${px(b.top, b.bottom)}, card ${px(c.left, c.right)} by ${px(c.top, c.bottom)}`,
+      }
+    })
+  })
+
+test.describe("the cookie settings dialog's boxes and text stay inside their cards at 200% text", () => {
+  for (const width of [320, 360, 390]) {
+    test.describe(`a ${width}px phone`, () => {
+      test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
+      test(`opened from the footer at ${width}px, each box and its text inside its card`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await answerGuest(page, baseURL!)
+        await page.goto('/pricing')
+        await h1(page, 'Pricing')
+        await page.evaluate(() => document.fonts.ready)
+        await doubleText(page)
+        await page.getByRole('contentinfo').getByRole('button', { name: 'Cookie settings' }).click()
+        const dialog = page.getByRole('dialog', { name: 'Cookie preferences' })
+        await expect(dialog).toBeVisible()
+        await settle(page)
+
+        const rows = await categoryRows(dialog)
+        expect(rows.map((row) => row.title)).toEqual(['Essential cookies', 'Analytics cookies', 'Session recording'])
+        for (const row of rows) {
+          const at = `"${row.title}" at ${width}px and 200% text (${row.where})`
+          expect(row.boxInCard, `${at}: the box lies inside its card`).toBe(true)
+          expect(row.pastCard, `${at}: every run of text in the card lies inside it`).toEqual([])
+        }
+      })
+    })
   }
 })
 
@@ -1280,9 +1400,8 @@ const DIALOG_HEADERS = [
     name: 'the consent dialog',
     firstVisit: true,
     title: 'Cookie preferences',
-    /** Its body still widens the panel under 200% text on main (the category rows, which #1399 fixes): its header is held
-        here, its panel's own scroll once that lands. */
-    holdsPanel: false,
+    /** Its category rows wrap under 200% text (#1399), so nothing in its body widens the panel: its panel is held too. */
+    holdsPanel: true,
     open: async (p: Page, dialog: Locator) => {
       await p.getByRole('button', { name: 'Customize' }).click()
       await expect(dialog).toBeVisible()

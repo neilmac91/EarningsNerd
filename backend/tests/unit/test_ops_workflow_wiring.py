@@ -25,13 +25,25 @@ reach the database only through libpq's `PGOPTIONS`. An `options` setting in the
 connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in the relabel
 script would replace them, so none may exist.
 
+Every -apply operation waits for the founder's approval: an approval job in the `ops-apply`
+environment, whose required reviewer is the founder, runs for exactly those operations. The
+operations job runs an -apply only once that job has passed, and only in the run's first attempt,
+and runs every other operation when that job is skipped. Before the cloud sign-in, and after the
+resolve step names the operation, an apply stops unless the run records an approval of `ops-apply`
+(what that step does is run in `test_workflow_dispatch_inputs.py`). A re-run of an apply fails in its
+own job rather than reading green. The operations job keeps no environment, so its OIDC subject is
+unchanged, and the `ops` concurrency group is its own, so a wait for approval holds up no other
+dispatch.
+
 `inputs[...]` and `outputs[...]` index syntax, which these checks would not see, is refused.
 """
 import ast
+import os
 import re
+import subprocess
 
 from tests.support.ops_workflow import (
-    BY_NAME, DEPS, INPUTS, NO_DATABASE, OPS_TEXT, OPTIONS, PROXY, RELABEL, RESOLVE, ROOT, STEPS,
+    BY_NAME, DEPS, INPUTS, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, RELABEL, RESOLVE, ROOT, STEPS,
     cloud_sql_reach, selected, setting_ms, shown,
 )
 
@@ -142,6 +154,56 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     script = (ROOT / "backend/scripts/relabel_filing_fy_facts.py").read_text(encoding="utf-8")
     assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                          r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", script, re.I), "the relabel script sets its own guards"
+
+
+def test_every_apply_operation_waits_for_the_founders_approval():
+    """The approval job runs for exactly the -apply operations, in the founder's `ops-apply`
+    environment, with no token and nothing that could turn a rejection into a pass (no
+    `continue-on-error`, no concurrency group). The operations job needs it, runs an -apply only once
+    it has passed and only in the run's first attempt, runs every other operation when it is skipped,
+    carries no environment of its own and holds the `ops` concurrency group alone. Its approval check
+    runs for every apply after the resolve step and before the cloud sign-in, and the refuse-rerun job
+    fails a later attempt of an apply, with no token, no action and no environment."""
+    approve, ops, rerun = OPS["jobs"]["approve-apply"], OPS["jobs"]["ops"], OPS["jobs"]["refuse-rerun"]
+    applies = {op for op in OPTIONS if op.endswith("-apply")}
+    assert selected(approve) == applies != set()
+    assert set(approve) == {"if", "runs-on", "timeout-minutes", "environment", "permissions", "steps"}
+    assert (approve["environment"], approve["permissions"]) == ("ops-apply", {})
+    assert [step.get("uses") for step in approve["steps"]] == [None], "the approval job runs no action"
+    assert ops["needs"] == "approve-apply" and "environment" not in ops
+    listed = re.search(r"contains\('([^']*)', inputs\.operation\)", ops["if"]).group(1)
+    assert set(listed.split()) == applies
+    assert ops["if"] == (
+        "${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' "
+        f"&& !contains('{listed}', inputs.operation)) || (needs.approve-apply.result == 'success' "
+        "&& github.run_attempt == '1')) }}")
+    assert "concurrency" not in OPS and ops["concurrency"] == {"group": "ops", "cancel-in-progress": "false"}
+    # approve-apply passes at once while the environment requires no reviewer, so an apply also stops
+    # unless the run records an approval. The check reads the resolved operation, so it comes after the
+    # step that writes it (before, the operation reads '', which contains() finds in any list), and
+    # before the cloud sign-in.
+    names = [step.get("name") for step in STEPS]
+    at = names.index("Refuse an apply that no one approved in this run")
+    request_at = next(index for index, step in enumerate(STEPS) if step.get("id") == "request")
+    assert selected(STEPS[at]) == applies and request_at < at < names.index("Authenticate to Google Cloud")
+    # Its refusal stops the job: no continue-on-error, no extra condition (its script runs in
+    # test_workflow_dispatch_inputs.py).
+    assert set(STEPS[at]) == {"name", "if", "env", "run"}
+    # A re-run skips the operations job, which GitHub would mark green: refuse-rerun fails it instead,
+    # for the approval job's operations, on every attempt but the first.
+    assert set(rerun) == {"needs", "if", "runs-on", "timeout-minutes", "permissions", "steps"}  # no environment
+    assert (rerun["needs"], rerun["permissions"]) == ("ops", {})
+    assert [step.get("uses") for step in rerun["steps"]] == [None], "the refusal runs no action"
+    approval_listed = re.search(r"contains\('([^']*)', inputs\.operation\)", approve["if"]).group(1)
+    assert rerun["if"] == (
+        "${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' "
+        f"&& contains('{approval_listed}', inputs.operation) }}}}")
+    assert set(rerun["steps"][0]) == {"name", "env", "run"}, "the refusal runs unconditionally and fails the job"
+    refusal = subprocess.run(  # fixed argv; the script under test is repository content
+        ["bash", "-e", "-c", rerun["steps"][0]["run"]], env={**os.environ, "OP": "relabel-fy-apply"},
+        capture_output=True, text=True, check=False,
+    )
+    assert (refusal.returncode, "::error::" in refusal.stdout) == (1, True), "the refusal must fail the run"
 
 
 def test_every_script_step_pins_the_sec_budgets():
