@@ -213,7 +213,7 @@ export default function WaitlistPage() {
               },
               {
                 title: 'Security',
-                body: 'Encrypted data in transit and at rest. No personal financial data stored.',
+                body: 'Your data travels over HTTPS and is kept in Google Cloud SQL, which encrypts it at rest. Card details stay with Stripe.',
               },
               {
                 title: 'A numbered spot',

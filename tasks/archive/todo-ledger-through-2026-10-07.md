@@ -6716,6 +6716,24 @@ Full local and hosted verification plus independent exact-head review precede re
   deploy-skip proof). Closure 185 registers record 33's fact-check and its reviewer, and annotates two of closure
   183's role texts. One wording correction to record 33. No CI deploy since #1422's; production not read live. No
   CODE RED spend; no ledger event. No classifier denial of the chief's. Closure 185.
+- 2026-10-20 (record 35, `runtime/control/DECISIONS-35.md`): PR #1430 (record 34) merged `eb03636a` on the founder's
+  word (thirtieth deploy-skip proof), after classifier denials 16 and 17 of the chief's merge. Closure 186 registers
+  record 34's fact-check and its reviewer. One wording correction to record 34. Four main runs classified, none
+  deploying, a fifth still running; no CI deploy since #1422's; production not read live. No CODE RED spend; no
+  ledger event. Chief defects 17 and 18. Founder row F52. Closure 186.
+- 2026-10-20 (record 36, `runtime/control/DECISIONS-36.md`): PR #1434 (record 35) merged `00962b01` on the founder's
+  word (thirty-first deploy-skip proof), with no classifier refusal. Closure 187 registers record 35's fact-check and
+  its reviewer and pre-registers the founder's check of the other pull requests, this record's fact-check and record
+  37's reviewer. Four wording corrections to record 35. Eleven main merges; three other writers' backend deploys,
+  each verified healthy by its deploy job; production not read live. No CODE RED spend; no ledger event. No chief
+  defect and no classifier denial. Founder row F52 closed by the founder's answer. Closure 187.
+- 2026-10-21 (record 37, `runtime/control/DECISIONS-37.md`): PR #1439 (record 36) merged `881400a0` by the chief
+  under record 35's founder action 9, answered (thirty-second deploy-skip proof), with no classifier refusal.
+  Closure 188 registers the founder's check, record 36's fact-check and its reviewer and pre-registers this
+  record's survey and fact-check and record 38's reviewer; Codex's finding on its role texts is corrected. Five
+  wording corrections to record 36. A read-only survey of the window before the draft. Six main merges; two other
+  writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE RED spend;
+  no ledger event. No chief defect and no classifier denial; the scratch disk filled, without effect. Closure 188.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

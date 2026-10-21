@@ -144,7 +144,9 @@ and latency during the billing-mode change rather than claiming all thread opera
 Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
 independent release evidence through the repository's existing keyless WIF identity. Dispatch one
 Ops operation at a time and wait for it to finish: GitHub keeps one pending run per concurrency
-group, so a second pending dispatch in the `ops` group replaces the first. Dispatch after the
+group, so a second pending dispatch in the `ops` group replaces the first. An `-apply` waits for the
+founder's approval outside that group, but once approved it queues like any dispatch, so a later
+dispatch can still replace it and waste the approval. Dispatch after the
 merge's `deploy-backend` job has concluded: a describe during a deploy can fail transiently
 (`latest created revision … is not ready`) or show the worker and the API on different images. Both
 describe operations carry a ten-minute step timeout and run committed stdlib-only modules,
@@ -670,7 +672,17 @@ backend deploy owns the persistent `earningsnerd-backfill-facts` contract and re
 `python scripts/backfill_facts.py --only-new` while updating its image. The DB is reachable only
 from Cloud Run and through the Ops workflow's Cloud SQL proxy, so apart from the Ops workflow's
 committed script operations (`repair-ticker-*`, `relabel-fy-*`), execution-scoped arguments are the
-way to run a `backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
+way to run a `backend/scripts/*` maintenance script against prod. Every Ops `-apply` operation waits
+for the founder's approval on the `ops-apply` environment before any step runs, writes only in the
+run's first attempt (a retry is a fresh dispatch), and a Claude Code session is refused the approval
+call (`.claude/hooks/ops_approval_guard.py`). The gate binds main's `ops.yml`, not the credential, and
+every apply stops at the workflow's approval check, which finds no approval of `ops-apply` recorded
+for the run, until the founder configures the environment (`ops.yml`'s header lists its limits).
+The founder sets it up once: Settings > Environments > New environment `ops-apply`, with the founder
+as its required reviewer and "Prevent self-review" left off (sessions dispatch through the
+founder's account). Each apply then shows "Review deployments" on its run page, where the founder
+approves it; the check counts only the repository owner's approval, so a reviewer added to the
+environment later cannot approve a production write. `backfill_facts.py --dry-run` is accepted only
 with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
 so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
 false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement

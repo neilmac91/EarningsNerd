@@ -31,6 +31,16 @@
             "timeout": 60
           }
         ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/ops_approval_guard.py\" || exit 1",
+            "timeout": 10
+          }
+        ]
       }
     ]
   },

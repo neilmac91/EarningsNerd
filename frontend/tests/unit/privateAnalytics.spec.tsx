@@ -4,7 +4,7 @@ import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import type { ComponentProps } from 'react'
 import { beforeSendVercel, PrivateAnalytics } from '@/app/private-analytics'
-import { saveCookiePreferences } from '@/components/CookieConsent'
+import { CONSENT_VERSION, saveCookiePreferences } from '@/components/CookieConsent'
 
 /**
  * Vercel Web Analytics only after consent (D-046, D4). The consent bar says analytics stay off until the visitor
@@ -90,14 +90,14 @@ describe('Vercel Web Analytics waits for analytics consent', () => {
   })
 
   it('loads at once on a page opened with analytics allowed', () => {
-    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '' }))
+    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '', version: CONSENT_VERSION }))
     render(<PrivateAnalytics />)
     expect(mounts.live).toBe(1)
     expect(vercelScripts()).toHaveLength(1)
   })
 
   it('unmounts on a withdrawal and drops every event the loaded script would send, which stays until the next load', () => {
-    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '' }))
+    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '', version: CONSENT_VERSION }))
     render(<PrivateAnalytics />)
     choose(false)
     expect(mounts.live).toBe(0)

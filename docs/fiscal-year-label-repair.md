@@ -118,7 +118,12 @@ connection's error names the database user and the database.
 
 The apply rewrites stored financial data. Run it only after the founder has read the dry-run
 counts and signed off, with the same arguments plus `--apply` (or the Ops workflow's
-`relabel-fy-apply`):
+`relabel-fy-apply`). In the Ops workflow the run then waits for the founder's approval before any
+step runs: GitHub shows it waiting on the `ops-apply` environment, and the founder approves it on
+the run's page, promptly, since the run executes the commit main had at dispatch. The pre-flight
+check for an in-flight main CI run happens after the approval, and a re-run of an approved apply
+writes nothing and fails visibly, so each retry is a fresh dispatch and a fresh approval. A Claude
+Code session is refused the approval call (`.claude/hooks/ops_approval_guard.py`).
 
 ```bash
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \

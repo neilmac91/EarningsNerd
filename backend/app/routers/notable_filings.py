@@ -1,11 +1,13 @@
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.services.notable_filings_service import notable_filings_service
+from app.services import filing_list_service
+from app.services.notable_filings_service import MAX_FILINGS, notable_filings_service
 
 router = APIRouter()
 
@@ -28,13 +30,25 @@ class NotableFilingsResponse(BaseModel):
 
 @router.get("/notable_filings", response_model=NotableFilingsResponse)
 async def get_notable_filings(
-    limit: int = Query(8, ge=1, le=12),
+    limit: int = Query(MAX_FILINGS, ge=1, le=12),
     db: Session = Depends(get_db),
 ):
-    """Market-wide notable SEC filings from the past week, ranked and deduped one per company.
+    """Notable SEC filings from the past week under D-046's rule: 10-K and 10-Q filings only, from
+    companies that hold a summary the filing page shows, newest first, one per company, at most six.
+    A `limit` above six is served six rather than refused, so an existing caller keeps its answer.
 
     Served ONLY from the `notable_filings` table (populated by the scheduled EDGAR scan job);
     returns an empty `filings` list (never an error) while `NOTABLE_FILINGS_ENABLED` is off,
     when fewer than 3 distinct companies qualify, or on any upstream failure — the homepage
-    section omits itself when `filings` is empty."""
-    return await notable_filings_service.get_notable_filings(db, limit=limit)
+    section omits itself when `filings` is empty.
+
+    The read and the session release are one unit off the event loop, so the pooled connection is
+    back before the route yields to the dependency's finalizer
+    (``lessons/ops-release-cached-filing-reads-before-yield.md``)."""
+    def notable_for_reader() -> Dict[str, Any]:
+        try:
+            return notable_filings_service.get_notable_filings(db, limit=limit)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(notable_for_reader)

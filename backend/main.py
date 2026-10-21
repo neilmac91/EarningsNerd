@@ -606,18 +606,35 @@ def _error_response_cors_headers(request: Request) -> dict[str, str]:
         "Vary": "Origin",
     }
 
+def _security_headers(request: Request) -> dict[str, str]:
+    """The security headers every response carries.
+
+    ``add_security_headers`` stamps them on whatever passes back through it. Two responses never
+    do, so they set these themselves: the timeout's 504, built in ``request_timeout_middleware``,
+    which sits outside it, and the global ``Exception`` handler's 500, which Starlette answers from
+    ServerErrorMiddleware, outside every user middleware. /security says the API's responses under
+    /api carry a Content-Security-Policy of default-src 'none' (E137).
+    """
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    }
+    if settings.ENVIRONMENT == "production":
+        headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    path = request.url.path
+    if path == "/api" or path.startswith("/api/"):
+        headers["Content-Security-Policy"] = "default-src 'none'"
+    return headers
+
+
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-    if settings.ENVIRONMENT == "production":
-        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-    if request.url.path.startswith("/api/"):
-        response.headers.setdefault("Content-Security-Policy", "default-src 'none'")
+    for name, value in _security_headers(request).items():
+        response.headers.setdefault(name, value)
     return response
 
 
@@ -673,7 +690,8 @@ async def request_timeout_middleware(request: Request, call_next):
         # 504 it synthesizes never passes back through CORSMiddleware. Without them the browser
         # blocks the cross-origin 504 and the client sees an opaque "Unable to connect to the
         # server" instead of the real timeout — the same masking the 503/500 handlers already guard
-        # against (see _error_response_cors_headers).
+        # against (see _error_response_cors_headers). It sits outside add_security_headers too, so
+        # the 504 sets those headers itself (_security_headers).
         return JSONResponse(
             status_code=504,
             content={
@@ -681,7 +699,7 @@ async def request_timeout_middleware(request: Request, call_next):
                 "path": path,
                 "timeout_seconds": timeout
             },
-            headers=_error_response_cors_headers(request),
+            headers={**_error_response_cors_headers(request), **_security_headers(request)},
         )
 
 # Include routers
@@ -775,13 +793,15 @@ async def global_exception_handler(request: Request, exc: Exception):
     # Return a generic error response (don't leak internal details in production)
     error_detail = str(exc) if settings.ENVIRONMENT != "production" else "An unexpected error occurred"
 
+    # Starlette answers this handler from ServerErrorMiddleware, outside add_security_headers, so the
+    # 500 sets those headers itself (_security_headers).
     return JSONResponse(
         status_code=500,
         content={
             "detail": error_detail,
             "type": "internal_server_error",
         },
-        headers=_error_response_cors_headers(request),
+        headers={**_error_response_cors_headers(request), **_security_headers(request)},
     )
 
 
