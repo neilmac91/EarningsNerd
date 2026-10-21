@@ -1428,15 +1428,15 @@ container (`max-w-7xl`, so each rule runs the width of the hero's trust strip), 
 and `py-12 sm:py-16`, then a 14rem label column beside the content. The label column holds the
 section's number (12px data face, tertiary ink, secondary on navy: the `landing-row` CSS counter that
 `app/page.tsx` resets on `<main>`, aria-hidden as the summary's section index is, so a section that
-omits itself, Reporting this week with no data or the empty reader quote, takes no number and leaves
-no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
+omits itself, Reporting this week or Notable filings with no data or the empty reader quote, takes no
+number and leaves no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
 secondary), one short sentence: a second sentence opens the content column, in body secondary under a
 `max-w-2xl` measure, as the evidence and contents rows' do. The columns open at
 `[@media(min-width:64rem)]:` at the reader's text size (1024px, or 2048px under a 200% text setting)
 and the label stacks above the content below it. No row alternates
-and no landing file lays items out four across: the claims and the extras are two across, the Pro
-screens one under another with each pitch above its screen, the contents and Reporting this week
-hairline lists. Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
+and no landing file lays items out four across: the claims, the extras and Notable filings' cards are
+two across, the Pro screens one under another with each pitch above its screen, the contents and
+Reporting this week hairline lists. Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
 the plans as `th scope="col"`, what each includes as `th scope="row"`, every cell a plan line read
 through `shipped()` from `lib/planLimits.ts`, a dash with a visually hidden "Not included" where a plan
 has none; it fits a 390px phone at the default size and, wider than its box (a phone at 200% text),
@@ -1455,8 +1455,9 @@ the painted numbers on the built page, 01 to the last row with no gap. The plan 
 claim no summary history while nothing enforces one (D-046), and the Change Report the same on both plans,
 its line naming the metric deltas alone, while production serves no wording diff and omits the report's
 risk lines (`tests/unit/changeReportPlanClaims.spec.tsx` fails a Pro chip on the row, or a risk or
-language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). E90 remounts
-Notable filings as a row after Reporting this week.
+language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). Notable filings is the
+row after Reporting this week (E90): the cards the backend serves under D-046's rule, each opening its
+company page, under a line that says what the feed is and nothing the backend's query does not do.
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
