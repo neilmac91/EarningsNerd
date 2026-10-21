@@ -92,14 +92,14 @@ describe('HeroExample', () => {
 
   it('claims an XBRL source only for the checked fallback; live figures send the reader to the filing', () => {
     const { container, unmount } = render(<HeroExample example={LIVE} />)
-    const live = screen.getByRole('link', { name: 'Source filing · check the figures on SEC EDGAR' })
+    const live = screen.getByRole('link', { name: 'Source filing\u00a0· check the figures on SEC EDGAR' })
     expect(live).toHaveAttribute('href', LIVE.secUrl)
     expect(container.querySelectorAll('dl [title]')).toHaveLength(0)
     expect(container.innerHTML).not.toMatch(/XBRL/)
     unmount()
 
     const fallback = render(<HeroExample example={null} />)
-    expect(screen.getByRole('link', { name: "Figures from the company's XBRL · check them on SEC EDGAR" })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Figures from the company's XBRL\u00a0· check them on SEC EDGAR" })).toBeInTheDocument()
     // The receipt is text in each term, so a keyboard or screen-reader user reaches it; a title hover
     // alone is a receipt only a mouse can read.
     const terms = [...fallback.container.querySelectorAll('dl dt')].map((el) => el.textContent)

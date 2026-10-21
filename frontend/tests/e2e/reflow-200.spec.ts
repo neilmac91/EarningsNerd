@@ -47,9 +47,9 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * stays inside its segment with no line starting at its middot (at 360 and 390px; at both, the Annual label
  * ran onto three lines below its segment). Every form code in the landing's rows and its close paints on one line
  * at 320 and 390px under 200% text and at 320px at the default size, where the plan table broke "10-Q" at its
- * hyphen before each code became one nowrap run; the hero's do at 390 and 1440px under 200% text, where its
- * figures keep apart and whole too (E81). Below a 12rem viewport the auth shell's wordmark yields to the
- * mark. At 320x640 with the text doubled every route passes the same checks (E81): /pricing's billing switch's row
+ * hyphen before each code became one nowrap run; the hero's do at 320, 390 and 1440px under 200% text, where its
+ * figures keep apart and whole too and no line of its example starts with a middot (E81). Below a 12rem viewport
+ * the auth shell's wordmark yields to the mark. At 320x640 with the text doubled every route passes the same checks (E81): /pricing's billing switch's row
  * wraps, the yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge
  * and the page to 333px; / reached 329px (the hero example's identity line and figures) and /search 344px (its date
  * fields). There the legal pages pass but for the words E131 names, each wider than its column, which nothing
@@ -950,7 +950,8 @@ for (const { width, height } of [
 ]) test.describe(`a ${width}px phone at 200% text`, () => {
   test.use({ viewport: { width, height }, isMobile: true, hasTouch: true })
   for (const route of ROUTES) {
-    test(`${route.name} (${route.path}) does not scroll sideways at ${width}px and 200% text`, async ({ page, baseURL }) => {
+    const e131 = width === 320 ? E131_AT_320[route.path] : undefined
+    test(`${route.name} (${route.path}) does not scroll sideways at ${width}px and 200% text${e131 ? ', but for the words E131 owns' : ''}`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
           localStorage.setItem('theme', 'light')
@@ -967,7 +968,6 @@ for (const { width, height } of [
       await doubleText(page)
 
       const enlarged = await measure(page)
-      const e131 = width === 320 ? E131_AT_320[route.path] : undefined
       if (e131) {
         const beyond = (enlarged.past ?? []).filter((what) => !e131.includes(what))
         expect(beyond, `${route.path} at ${width}px and 200% text, past the edge besides E131's words: ${why(enlarged)}`).toEqual([])
@@ -1125,21 +1125,24 @@ for (const state of [
   })
 }
 
-/** The hero under 200% text, read from its rendered boxes at 390 and 1440px (E81). The example's three figures sat in
-    equal thirds (HeroExample.tsx), so at 390px each value ran across its 81px cell into the next ("$416.2B", 119px of
+/** The hero under 200% text, read from its rendered boxes at 320, 390 and 1440px (E81). The example's three figures sat
+    in equal thirds (HeroExample.tsx), so at 390px each value ran across its 81px cell into the next ("$416.2B", 119px of
     28px data face, met "$112.0B") with every label cut short, and the subhead (LandingHero.tsx) broke "10-Ks" at its
     hyphen there and "10-Qs" at 1440px. Each figure now takes its own width in a row that wraps, and each form code is
-    one unbroken run (FormCodeText; the identity line's form a run of its own). So, from the boxes: three figures, each
-    label whole, each value and change on one painted line inside its own figure's content box (its box less its
-    hairline and padding) and inside the example, and no two figures' text meeting; and every form code the hero
-    paints, in its lead and in the example's identity line, on one line. */
+    one unbroken run (FormCodeText; the identity line's form a run of its own). The identity line's middots each sit in
+    one item with the fact before it, so at 320px, where "AAPL · 10-K ·" does not fit on one line, no middot stands
+    alone, and the EDGAR receipt holds its middot to the word before it, whose second line began "·" at 1440px. So,
+    from the boxes: three figures, each label whole, each value and change on one painted line inside its own
+    figure's content box (its box less its hairline and padding) and inside the example, and no two figures' text
+    meeting; every form code the hero paints, in its lead and in the example's identity line, on one line; and no
+    painted line in the example starting with a middot, read a character at a time. */
 const heroFit = (page: Page) =>
   page.evaluate((source) => {
     const pattern = new RegExp(source, 'g')
     const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
     const hero = document.querySelector('main section[aria-labelledby="hero-h"]')
     const example = hero?.querySelector('section[aria-label="Example summary"]')
-    if (!hero || !example) return { figures: [] as string[], problems: ['the page has no hero with its example'], codes: [] as { where: string; code: string; lines: number }[] }
+    if (!hero || !example) return { figures: [] as string[], problems: ['the page has no hero with its example'], codes: [] as { where: string; code: string; lines: number }[], middots: 0, starts: [] as string[] }
     const card = example.getBoundingClientRect()
     const runOf = (el: Element) => {
       const range = document.createRange()
@@ -1198,14 +1201,37 @@ const heroFit = (page: Page) =>
         codes.push({ where: example.contains(node) ? 'example' : 'lead', code: match[0], lines: tops.length })
       }
     }
-    return { figures: figures.map((f) => `${f.label}: ${f.runs.map((r) => r.text).join(', ')}`), problems, codes }
+    // Each painted character of the example, outside the sr-only receipts and commas; a middot is the first on its
+    // line when no other character sharing its line box lies to its left.
+    const chars: { ch: string; rect: DOMRect }[] = []
+    const glyphs = document.createTreeWalker(example, NodeFilter.SHOW_TEXT)
+    for (let node = glyphs.nextNode() as Text | null; node; node = glyphs.nextNode() as Text | null) {
+      if (!node.parentElement || node.parentElement.closest('.sr-only')) continue
+      for (let i = 0; i < node.length; i++) {
+        if (!node.data[i].trim()) continue
+        const range = document.createRange()
+        range.setStart(node, i)
+        range.setEnd(node, i + 1)
+        const rect = range.getBoundingClientRect()
+        if (rect.width > 0) chars.push({ ch: node.data[i], rect })
+      }
+    }
+    const sameLine = (a: DOMRect, b: DOMRect) => Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2) < Math.min(a.height, b.height) / 2
+    const middots = chars.filter((c) => c.ch === '·')
+    const starts: string[] = []
+    for (const dot of middots) {
+      const before = chars.filter((c) => c !== dot && sameLine(c.rect, dot.rect) && c.rect.right <= dot.rect.left + 0.5)
+      const line = chars.filter((c) => sameLine(c.rect, dot.rect)).sort((a, b) => a.rect.left - b.rect.left).map((c) => c.ch).join('')
+      if (before.length === 0) starts.push(`the line "${line}" starts with its middot at ${px(dot.rect.left, dot.rect.right)}`)
+    }
+    return { figures: figures.map((f) => `${f.label}: ${f.runs.map((r) => r.text).join(', ')}`), problems, codes, middots: middots.length, starts }
   }, FORM_CODE.source)
 
-for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }, { width: 1440, height: 900 }]) {
   const at = `${viewport.width}px and 200% text`
   test.describe(`a ${viewport.width}px ${viewport.width < 1024 ? 'phone' : 'desktop'} at 200% text, the hero`, () => {
     test.use({ viewport, isMobile: viewport.width < 1024, hasTouch: viewport.width < 1024 })
-    test(`home (/) keeps the hero's figures whole and apart and its form codes on one line at ${at}`, async ({ page, baseURL }) => {
+    test(`home (/) keeps the hero's figures whole and apart, its form codes on one line and no line starting with a middot at ${at}`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
           localStorage.setItem('theme', 'light')
@@ -1217,18 +1243,21 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
       await h1(page)
       await expect(page.getByRole('region', { name: 'Example summary' }).getByRole('term')).toHaveCount(3)
       await page.evaluate(() => document.fonts.ready)
-      // The tablet pass's confirmation holds at both widths: the root at 32px, the 48rem query (1536px) not matching.
+      // The tablet pass's confirmation holds at every width here: the root at 32px, the 48rem query (1536px) not matching.
       await doubleTextOnATablet(page)
 
       const fit = await heroFit(page)
-      // Anti-vacuity: three figures, each with its value and its change; codes read in the lead and in the example.
+      // Anti-vacuity: three figures, each with its value and its change; codes read in the lead and in the example; the
+      // identity line's two middots and the receipt's one read.
       expect(fit.figures, `the hero's figures at ${at}`).toHaveLength(3)
+      expect(fit.middots, `middots read in the example at ${at}`).toBeGreaterThanOrEqual(3)
       for (const figure of fit.figures) expect(figure, `a figure with its value and change at ${at}`).toMatch(/^[^:]+: \S+, \S+$/)
       expect(fit.problems, `the hero's figures at ${at} (${fit.figures.join('; ')})`).toEqual([])
       expect(fit.codes.filter((code) => code.where === 'lead').length, `form codes read in the hero's lead at ${at}`).toBeGreaterThanOrEqual(2)
       expect(fit.codes.filter((code) => code.where === 'example').length, `form codes read in the example at ${at}`).toBeGreaterThanOrEqual(1)
       const broken = fit.codes.filter((code) => code.lines !== 1).map((code) => `${code.where}: "${code.code}" on ${code.lines} lines`)
       expect(broken, `${at}: each form code in the hero paints on one line`).toEqual([])
+      expect(fit.starts, `${at}: no painted line in the example starts with a middot`).toEqual([])
     })
   })
 }

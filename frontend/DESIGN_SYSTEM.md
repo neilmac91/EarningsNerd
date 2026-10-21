@@ -1171,13 +1171,15 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  wider than the strip; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
                  has a located risk excerpt (pickEvidence: source_verified under the source owner; heading =
                  excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Located in the
-                 filing"), the EDGAR receipt, and a text-link CTA. No browser-frame mockup, no card in the
+                 filing"), the EDGAR receipt (a no-break space holds its middot to the word before it), and a
+                 text-link CTA. No browser-frame mockup, no card in the
                  card, no sparkle chip, no tinted CTA. The static fallback has no evidence row. Under 200% text
-                 the three figures sat in equal thirds and ran into each other at 390px, and the identity line's
-                 "filed Oct 31, 2025", one nowrap run, took the page to 329px at 320px (E81). Gate:
-                 tests/e2e/reflow-200.spec.ts (at 390 and 1440px under 200% text each label whole, each value
-                 and change on one line inside its own figure and the example, no two figures meeting; the page
-                 at 320px).
+                 the three figures sat in equal thirds and ran into each other at 390px, the identity line's
+                 "filed Oct 31, 2025", one nowrap run, took the page to 329px at 320px, and the receipt's second
+                 line began with its middot at 1440px (E81). Gate: tests/e2e/reflow-200.spec.ts (at 320, 390 and
+                 1440px under 200% text each label whole, each value and change on one line inside its own figure
+                 and the example, no two figures meeting, every form code on one line, no painted line starting
+                 with a middot; the page at 320px).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from

@@ -239,12 +239,14 @@ function HeroExample({
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           {/* Only the checked fallback says its figures came from the XBRL; live figures are the
-              summary's, so the link sends the reader to the filing to check them. */}
+              summary's, so the link sends the reader to the filing to check them. A no-break space holds the
+              middot to the word before it, so the line breaks only after it: at 1440px under 200% text the
+              receipt's second line began with "·" (tests/e2e/reflow-200.spec.ts). */}
           {data.metrics.length === 0
-            ? 'Source filing · read on SEC EDGAR'
+            ? 'Source filing\u00a0· read on SEC EDGAR'
             : isFallback
-              ? "Figures from the company's XBRL · check them on SEC EDGAR"
-              : 'Source filing · check the figures on SEC EDGAR'}
+              ? "Figures from the company's XBRL\u00a0· check them on SEC EDGAR"
+              : 'Source filing\u00a0· check the figures on SEC EDGAR'}
         </a>
 
         {/* Into the real example: a text link (the hero's primary action lives beside the headline). */}

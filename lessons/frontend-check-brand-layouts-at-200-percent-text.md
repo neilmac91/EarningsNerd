@@ -102,7 +102,9 @@ next. They now take their own widths in a wrapping row inside the one hairline s
 rules its dividers, which the strip clips at a row's start and on the first row. The subhead broke "10-Ks" at 390px
 and "10-Qs" at 1440px; its codes are `FormCodeText` runs now. A label and its value held in one nowrap run are as wide
 as the run: "filed Oct 31, 2025" took the page to 329px at 320px; the date is an inline-block after its label that
-moves down whole and breaks after its day only where it cannot fit whole. A native date field is wider than its
+moves down whole and breaks after its day only where it cannot fit whole, and each middot sits in one item with the
+fact before it, so where "AAPL · 10-K ·" does not fit on one line (320px) no middot stands alone; the EDGAR receipt's
+middot, which began its second line at 1440px, is held to the word before it by a no-break space. A native date field is wider than its
 text, since Chrome keeps blank room for a six-digit year: in the forms plugin's 1rem each /search field was 312px
 under 200% text, in a 256px row at 320px. It shrinks to its row (`min-w-0`) in the Input primitive's 14px, giving up
 the blank room and no digit. The site scrolls smoothly (`scroll-behavior: smooth`), so a capture scrolls with
