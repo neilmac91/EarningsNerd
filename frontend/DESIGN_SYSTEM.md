@@ -593,8 +593,9 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  own. In dark the chip carries no fill, its hairline only, so a hovered row's white/5 is the
                  one layer under it: error-dark holds 4.6:1 there, where a fill of its own would take it to
                  3.9:1 (gates: tests/unit/badgeVariants.spec.tsx, success and error on the card and on a
-                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows, Status
-                 chip below). `tentative`, the set's sixth, is a status not yet settled (the calendar's
+                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows and the
+                 summary status chip on the watchlist and dashboard rows, Status chip below). `tentative`, the
+                 set's sixth, is a status not yet settled (the calendar's
                  estimated date, "Est."): neutral-status's ink on the hairline, dashed, with no fill in either
                  theme. A chip's ground, ink and hairline are its variant's: a class on top of a variant's
                  (`bg-transparent` over its `bg-white`) wins or loses by stylesheet order, since cx does no
@@ -679,12 +680,24 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  (black/[0.04]: 9.04:1, 8.50:1 hovered), and the status set's dark one: no fill, its
                  white/10 hairline kept, text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row
                  (its old white/5 fill measured 4.27:1 there).
+                 The summary status chip (SummaryStatusBadge: the Watchlist insights cards and the
+                 dashboard's "Your companies" rows) is a label alone on the same set: Ready on success,
+                 Generating on info-status, No summary yet and Pending on neutral-status, Unavailable and
+                 Needs regenerating on warning-status, Error on error. Both rows sit on Card's panel fill
+                 with no hover fill of their own, so a label reads the same at rest and hovered: light 5.02
+                 (Ready) to 7.09:1 (warning-status), dark 5.31 (Error) to 6.83:1. Before, Unavailable and
+                 Needs regenerating took the warning tint (5.83 and 5.22:1, no hairline, so 2px shorter than
+                 the chips beside them), No summary yet and Pending the quiet chip (10.31 and 4.98:1: the
+                 neutral-status ink is the tertiary one, 5.44:1 in light, and dark drops the white/5 fill,
+                 5.78:1), and Generating the brand tint (5.77 and 5.93:1, now 6.70 and 5.77:1).
                  What each member means, read from its uses so far (chief design on #1459), so a new status
                  chip lands on the member its state means: `info-status`: active or upcoming (an invite
-                 pending, new feedback, a confirmed date); `success`: done (an invite used, feedback resolved,
-                 a summary ready); `warning-status`: needs the reader (an invite expired, feedback triaged);
-                 `error`: failed (a summary whose run failed); `neutral-status`: not started, over or not
-                 known (an invite revoked, a reported date); `tentative`: not yet settled (an estimated date).
+                 pending, new feedback, a confirmed date, a summary being written); `success`: done (an invite
+                 used, feedback resolved, a summary ready); `warning-status`: needs the reader (an invite
+                 expired, feedback triaged, a summary unavailable or needing regenerating); `error`: failed (a
+                 summary whose run failed); `neutral-status`: not started, over or not known (an invite
+                 revoked, a reported date, no summary yet, a summary status the chip does not know);
+                 `tentative`: not yet settled (an estimated date).
                  tests/unit/badgeVariants.spec.tsx holds this line to the set read from Badge's source, each
                  member named once; which member a new chip takes is review-checked.
                  Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, six, read from
@@ -699,7 +712,18 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  hand-rolled chip, a copy of Badge's classes included, a tint, an added class or a label in
                  a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds, and
                  held to Badge's metrics: every class of Badge's BASE, with only a ground and an ink of its
-                 own beside them, so a weight, a gap or a size of its own fails).
+                 own beside them, so a weight, a gap or a size of its own fails; and the summary status
+                 chip: every chip summaryStatusBadge() returns, for each member of SummaryStatusKind read
+                 from its source and for a prefix it does not know, with and without needs_regeneration,
+                 rendered through Badge and measured on both rows at rest and hovered, both themes, the
+                 grounds read from each row's source up to its <Card>, rendered as Card renders the props
+                 written on it: the row is the element carrying the list's key (the watchlist's Card
+                 itself, the dashboard's row <div> inside its Card), its tint at rest and hovered read over
+                 the card's fill, and every other layer paints nothing; two fills under one variant fail,
+                 since the stylesheet's order decides which paints (a fill written on the <Card> sits beside
+                 Card's own: Card joins classes without merging them); every tracked source outside tests/
+                 that can render the chip is one of the two rows; SummaryStatusBadge held to the set as the
+                 admin badges are, rendering the variant summaryStatusBadge() returns).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the

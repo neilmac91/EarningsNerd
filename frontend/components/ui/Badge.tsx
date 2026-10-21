@@ -28,9 +28,11 @@
                      would take error to 3.9:1, info to 4.26:1 and neutral to
                      4.27:1; with none, error, the lowest, holds 4.6:1 there
                      (5.3:1 on the card at rest). The admin lists' status chips
-                     render the set (InviteStatusBadge, FeedbackStatusBadge),
-                     and tests/unit/statusChipContrast.spec.ts measures every
-                     member on their rows.
+                     (InviteStatusBadge, FeedbackStatusBadge) and the summary
+                     status chip on the watchlist and dashboard rows
+                     (SummaryStatusBadge) render the set, and
+                     tests/unit/statusChipContrast.spec.ts measures them on
+                     their rows, at rest and hovered.
                      tentative, the set's sixth, is a status not yet settled
                      (the calendar's estimated date, "Est."): neutral-status's
                      ink on the hairline, dashed, with no fill in either
