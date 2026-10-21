@@ -99,7 +99,7 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    ends after logging out or a password change, within a time or with none named (every session, everywhere, a
  *    session token revoked). The page is read on every run, whatever tasks/todo.md records: E127's race is fixed
  *    (#1422), and so are a login that straddled a password reset (#1431) and a logout that did not wait for an
- *    in-flight renewal (E133), but a session token already issued runs to its expiry, and E96 (how a reused token's
+ *    in-flight renewal (#1465), but a session token already issued runs to its expiry, and E96 (how a reused token's
  *    sweep reads) is open; the stronger wording returns only in a pull request that carries the founder's go-ahead
  *    (tasks/todo.md F53) and changes this check. Each family is read in one list item or paragraph (blockTexts).
  *    Planted forms score the reach; out of reach, planted as a gap: a promise split across two items.
@@ -230,7 +230,7 @@ const inASentence = (re: RegExp) => (block: string) => sentencesOf(block).some((
 /**
  * What /security does not promise of refresh tokens and logging out, on every run. E127's race (two renewals with one
  * refresh token both succeeding, a renewal racing a logout leaving a live token) is fixed by #1422, a login that
- * straddled a password reset by #1431, and a logout that did not wait for an in-flight renewal by E133, but nothing
+ * straddled a password reset by #1431, and a logout that did not wait for an in-flight renewal by #1465, but nothing
  * revokes a session token already issued (get_current_user keeps no list of revoked ones), so "logging out of all
  * devices ends every session" is untrue as said, and E96 (how a reused token's sweep reads) is open. The stronger
  * wording returns only in a pull request that carries the founder's go-ahead (tasks/todo.md F53) and changes this check.
