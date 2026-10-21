@@ -38,8 +38,7 @@ draw, about USD 0.27 a run. The readings cannot separate production traffic.
   after its `Run baseline eval` step started has drawn for the minutes that step ran: count it. One
   cancelled before that step drew nothing. When its log does not show which, count it in full.
 - **The after-draw reading.** Name the `eval-baseline` runs beside the `copilot-eval` draw, with their
-  links, so the reading is not taken for one draw's cost. Count against a reservation only the runs it
-  was written for, and name any other run the interval holds as outside it.
+  links, so the reading is not taken for one draw's cost.
 
 **Evidence**:
 - `.github/workflows/ci.yml:3-7`: CI's triggers, `pull_request` with the default types and the
