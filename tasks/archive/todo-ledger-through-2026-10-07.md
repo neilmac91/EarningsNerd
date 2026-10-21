@@ -6764,8 +6764,8 @@ Full local and hosted verification plus independent exact-head review precede re
   Codex's one P2, its fact-check and two reviewer passes. Closure 192 registers record 40's survey, fact-check and
   reviewer and pre-registers this record's survey and fact-check and record 42's reviewer. A read-only survey of
   the window before the record was written. One main merge, no backend deploy; production not read live. No CODE
-  RED spend; no ledger event; no other writer's paid run. No chief defect and no classifier denial; two hook
-  refusals of the chief's commands in the window, nothing running. Closure 192.
+  RED spend; no ledger event; no other writer's paid run on GitHub. No chief defect and no classifier denial;
+  two hook refusals of the chief's commands in the window, nothing running. Closure 192.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
