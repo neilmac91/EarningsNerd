@@ -6734,6 +6734,38 @@ Full local and hosted verification plus independent exact-head review precede re
   wording corrections to record 36. A read-only survey of the window before the draft. Six main merges; two other
   writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE RED spend;
   no ledger event. No chief defect and no classifier denial; the scratch disk filled, without effect. Closure 188.
+- 2026-10-21 (record 38, `runtime/control/DECISIONS-38.md`): PR #1450 (record 37) merged `47eb769a` by the chief
+  under record 35's founder action 9, answered (thirty-third deploy-skip proof), with no classifier refusal, onto
+  #1451's merge of fifteen seconds before; result verified; #1451's deploy ended before record 37's deploy job began.
+  Closure 189 registers record 37's survey, fact-check and reviewer and pre-registers this record's survey and
+  fact-check and record 39's reviewer; a refuter label, which the records tier forbids, withdrawn before any
+  launch on Codex's finding. A read-only survey of the window before the record was written. Four main merges;
+  two other writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE
+  RED spend; no ledger event; another writer's request to settle its paid runs in the ledger put to the founder.
+  No chief defect and no classifier denial. Closure 189.
+- 2026-10-21 (record 39, `runtime/control/DECISIONS-39.md`): PR #1453 (record 38) merged `04b2b334` by the chief
+  under record 35's founder action 9, answered (thirty-fourth deploy-skip proof), with no classifier refusal, after
+  two Codex findings that followed its ready marking: an archive line named no deploy job, and closure 189 had been
+  rewritten after its launches. Closure 189 keeps its pre-launch bytes; closure 190 registers record 38's survey,
+  fact-check and reviewer, carries the corrected convention date and pre-registers this record's survey and
+  fact-check and record 40's reviewer. A read-only survey of the window before the record was written. Two main
+  merges, no backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid
+  run outside it. No chief defect and no classifier denial of the chief's commands. Closure 190.
+- 2026-10-21 (record 40, `runtime/control/DECISIONS-40.md`): PR #1458 (record 39) merged `d26454f9` by the chief
+  under record 35's founder action 9, answered (thirty-fifth deploy-skip proof), with no classifier refusal, after
+  its fact-check, two reviewer passes and one re-run of a CI job that failed on the image registry's quota. Closure
+  191 registers record 39's survey, fact-check and reviewer and pre-registers this record's survey and fact-check
+  and record 41's reviewer. A read-only survey of the window before the record was written. One main merge, no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run
+  outside it. No chief defect, no classifier denial and no hook refusal of the chief's commands in the window.
+  Closure 191.
+- 2026-10-21 (record 41, `runtime/control/DECISIONS-41.md`): PR #1463 (record 40) merged `5b5c402f` by the chief
+  under record 35's founder action 9, answered (thirty-sixth deploy-skip proof), with no classifier refusal, after
+  Codex's one P2, its fact-check and two reviewer passes. Closure 192 registers record 40's survey, fact-check and
+  reviewer and pre-registers this record's survey and fact-check and record 42's reviewer. A read-only survey of
+  the window before the record was written. One main merge, no backend deploy; production not read live. No CODE
+  RED spend; no ledger event; no other writer's paid run on GitHub. No chief defect and no classifier denial;
+  two hook refusals of the chief's commands in the window, nothing running. Closure 192.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
